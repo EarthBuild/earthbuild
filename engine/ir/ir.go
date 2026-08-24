@@ -160,6 +160,12 @@ type Mount struct {
 	// Empty means the whole of it. In the key beside From, because two steps
 	// binding different subtrees of one object read different bytes.
 	Sub string
+	// View says the mount is a bound view rather than a cache or a credential.
+	//
+	// Distinguishable from the fields alone only by accident - a view of the
+	// whole context has an empty Sub, and From is filled in later - so it is
+	// said rather than inferred. §3.3d.
+	View bool
 	// Secret says the mount carries a credential rather than a cache.
 	//
 	// The *value* is deliberately absent from this struct and from every other
@@ -671,6 +677,10 @@ func (n *Node) ID() NodeID {
 		// graph, the step reads it, and it decides the result.
 		h.Fixed(m.From[:])
 		h.Str(m.Sub)
+		// Whether it is a view at all. A cache mount at the same target with
+		// the same (zero) From is a different thing entirely: one is emptiable
+		// and outside the key's reach, the other is content this build made.
+		h.Bool(m.View)
 	}
 	h.Fixed(n.Op.Content[:])
 

@@ -138,7 +138,15 @@ type Plan struct {
 	pending []*ir.Node
 	// here is the Earthfile being built.
 	here *unit
-	tree earthfile.Tree
+	// viewed memoises a bound view's object by directory and subtree.
+	//
+	// **A view of the whole context digests the whole context**, and a
+	// Dockerfile writes `--mount=target=.` on several stages - so the corpus
+	// sweep went from 39 seconds to 162 digesting one tree over and over. One
+	// build sees one filesystem snapshot, which is the assumption COPY has
+	// always made, so the second identical view is the first one's answer.
+	viewed map[string]*ir.Node
+	tree   earthfile.Tree
 	// building is the chain of targets currently being resolved, used to catch
 	// a cycle before it becomes a stack overflow.
 	building []string
@@ -857,6 +865,16 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				loc(c.SourceLocation))
 		}
 
+		// A bound view's ν is resolved here, where the context root and the
+		// graph are. `mounts` is copied first because the resolution writes
+		// From into it, and rf's slice is the caller's (§3.3d).
+		mounts := append(append([]ir.Mount{}, rs.mounts...), rf.mounts...)
+
+		views, err := p.resolveViews(mounts[len(rs.mounts):], rf.views, loc(c.SourceLocation))
+		if err != nil {
+			return nil, err
+		}
+
 		return &ir.Node{
 			Op: ir.Op{
 				Kind: ir.OpExec, Args: runArgv(c, rf.rest, rf.entrypoint), Entrypoint: rf.entrypoint,
@@ -883,7 +901,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				// produces rather than something beside it.
 				NoCache: rf.noCache || uncacheable(rs.mounts) || uncacheable(rf.mounts) ||
 					len(rf.secrets) > 0,
-				Mounts:    append(append([]ir.Mount{}, rs.mounts...), rf.mounts...),
+				Mounts:    mounts,
 				SecretEnv: rf.secrets,
 				// What this step resolves names by. Carried like the mounts and
 				// hashed like them, because it changes what the command does
@@ -893,7 +911,10 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			},
 			Platform: platformOf(rs.platform),
 			Inputs:   []*ir.Node{prev},
-			Meta:     ir.Meta{Source: loc(c.SourceLocation), Description: "RUN " + strings.Join(c.Args, " ")},
+			// What the step reads without standing on: exactly what a source is
+			// for, and what puts the object in the key and builds it first.
+			Sources: views,
+			Meta:    ir.Meta{Source: loc(c.SourceLocation), Description: "RUN " + strings.Join(c.Args, " ")},
 		}, nil
 
 	case earthfile.CmdCopy:
@@ -1779,7 +1800,7 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 		// resolving it against the calling Earthfile would silently copy
 		// something else, or report a file missing that is sitting exactly where
 		// its own Earthfile says it is.
-		n, err := resolveContext(p.here.dir, src, where)
+		n, err := resolveContext("COPY", p.here.dir, src, where)
 
 		return n, src, err
 	}
@@ -1809,7 +1830,7 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 		// only remaining evidence of which spelling it was. A COPY already
 		// depends on what the context holds, so this asks a question the command
 		// was going to ask anyway.
-		n, cerr := resolveContext(p.here.dir, src, where)
+		n, cerr := resolveContext("COPY", p.here.dir, src, where)
 		if cerr == nil {
 			return n, src, nil
 		}

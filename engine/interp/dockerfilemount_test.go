@@ -37,18 +37,18 @@ main:
 	}
 }
 
-// A mount this engine does not provide is refused, and named.
+// The default Dockerfile mount type is `bind`, and a bind of the context works.
 //
-// The default Dockerfile mount type is `bind`, which gives a step a window onto
-// something whose contents decide the result. That is a decision this engine
-// has taken and not a gap it has - so the refusal has to survive translation
-// rather than be stripped, and it has to say which kind it was.
-func TestADockerfileBindMountIsRefusedByKind(t *testing.T) {
+// Written both ways because a Dockerfile means `bind` when it says nothing -
+// so `--mount=target=/src` and `--mount=type=bind,target=/src` are one
+// instruction with two spellings, and an engine that built only the explicit
+// one would refuse the form people actually write.
+func TestADockerfileBindOfTheContextIsBuiltEitherWayItIsWritten(t *testing.T) {
 	t.Parallel()
 
 	for _, c := range []struct{ name, line string }{
-		{"explicit", "RUN --mount=type=bind,target=/src make it"},
-		{"by default", "RUN --mount=target=/src make it"},
+		{"explicit", "RUN --mount=type=bind,source=.,target=/src make it"},
+		{"by default", "RUN --mount=source=.,target=/src make it"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -59,13 +59,35 @@ func TestADockerfileBindMountIsRefusedByKind(t *testing.T) {
 main:
     FROM DOCKERFILE .
 `, testMain, interp.WithContext(dir))
-			if err == nil {
-				t.Fatal("a bind mount was accepted")
-			}
-
-			if !strings.Contains(err.Error(), "bind") {
-				t.Errorf("the refusal does not name the kind: %v", err)
+			if err != nil {
+				t.Fatalf("a view of the build context was refused: %v", err)
 			}
 		})
+	}
+}
+
+// A view of an earlier stage is still refused, and says it is unbuilt.
+//
+// A stage's filesystem is an assembled stack of layers rather than one layer,
+// so showing it needs machinery a view of the context does not (§3.3d, ν ∈ 𝕂).
+// Refused rather than stripped: a step that quietly loses a mount does not
+// fail, it produces the wrong thing.
+func TestADockerfileBindFromAStageSaysItIsUnbuilt(t *testing.T) {
+	t.Parallel()
+
+	dir := withDockerfile(t, "Dockerfile", "FROM alpine:3.22 AS other\n"+
+		"FROM alpine:3.22\n"+
+		"RUN --mount=from=other,source=/x,target=/x make it\n")
+
+	_, err := interp.Build(versioned+`
+main:
+    FROM DOCKERFILE .
+`, testMain, interp.WithContext(dir))
+	if err == nil {
+		t.Fatal("a view of another stage was accepted")
+	}
+
+	if !strings.Contains(err.Error(), "from") {
+		t.Errorf("the refusal does not name what was not honoured: %v", err)
 	}
 }

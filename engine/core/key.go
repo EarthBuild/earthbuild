@@ -156,6 +156,10 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 		// graph, the step reads it, and it decides the result.
 		h.Fixed(m.From[:])
 		h.Str(m.Sub)
+		// Whether it is a view at all. A cache mount at the same target with
+		// the same (zero) From is a different thing entirely: one is emptiable
+		// and outside the key's reach, the other is content this build made.
+		h.Bool(m.View)
 	}
 
 	// The operation's external content - the bytes a local context names. Fixed

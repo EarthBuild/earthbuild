@@ -85,7 +85,12 @@ func WithContext(dir string) Option {
 // That is the whole point: a cache key is derived from the graph, so anything
 // the result depends on has to be in the graph before the key is computed.
 // Resolving it later would mean keying on a path and hitting on stale content.
-func resolveContext(root, src, where string) (*ir.Node, error) {
+// resolveContext is given the construct's name because it serves more than one.
+//
+// It said "COPY" whatever asked, and a `RUN --mount=type=bind` naming a path
+// outside the context was told a COPY had failed - a message that sends the
+// reader to a line that has no COPY on it.
+func resolveContext(what, root, src, where string) (*ir.Node, error) {
 	if root == "" {
 		return nil, fmt.Errorf(
 			"COPY at %s needs a build context, and none was given"+
@@ -129,8 +134,8 @@ func resolveContext(root, src, where string) (*ir.Node, error) {
 	_, err = os.Stat(abs)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"COPY at %s: %s is not in the build context"+
-				"\n  looked in %s", where, src, root)
+			"%s at %s: %s is not in the build context"+
+				"\n  looked in %s", what, where, src, root)
 	}
 
 	// Digest the named path and nothing else. Digesting the whole context would

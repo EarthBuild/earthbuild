@@ -2421,7 +2421,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: a file whose name holds a plus copied as a file (E441)",
 		File:        "engine/interp/interp.go",
-		Anchor:      "\t\tn, cerr := resolveContext(p.here.dir, src, where)\n\t\tif cerr == nil {\n\t\t\treturn n, src, nil\n\t\t}",
+		Anchor:      "\t\tn, cerr := resolveContext(\"COPY\", p.here.dir, src, where)\n\t\tif cerr == nil {\n\t\t\treturn n, src, nil\n\t\t}",
 		Replacement: "",
 		Package:     "./engine/interp/",
 	},
@@ -2722,10 +2722,10 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
-		Name:        "interp: a Dockerfile bind filed as a gap, not a decision (E645)",
+		Name:        "interp: a bound view of the context resolved to a node (E645)",
 		File:        "engine/interp/cache.go",
-		Anchor:      "\tif kind == \"bind\" {",
-		Replacement: "\tif false {",
+		Anchor:      "\t\tmounts[v.at].From = n.ID()",
+		Replacement: "",
 		Package:     "./engine/interp/",
 	},
 	{

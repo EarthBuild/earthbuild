@@ -183,7 +183,18 @@ func cacheID(target string) string {
 // mount kind accepts is read against the specification, not against a name.
 const mountFieldTarget = "target"
 
-func parseMount(spec, where string) (ir.Mount, error) {
+// mountKindBind is a bound view's spelling. Named because four places test for
+// it and because the *other* bind - `bind-experimental`, an Earthfile's window
+// onto the host - differs from it by a suffix, which is the kind of difference
+// a reader skims past.
+const mountKindBind = "bind"
+
+// parseMount also reports a bound view's `from`, which it cannot resolve.
+//
+// ν is a node, and this function has no graph: the caller has the plan, the
+// context root and - inside a FROM DOCKERFILE - the stages. Returning the raw
+// reference keeps the parsing here and the resolution where the answers are.
+func parseMount(spec, where string) (ir.Mount, string, error) {
 	fields := map[string]string{}
 
 	for part := range strings.SplitSeq(spec, ",") {
@@ -213,7 +224,7 @@ func parseMount(spec, where string) (ir.Mount, error) {
 	// both sweeps read: filed as a gap it was work somebody should do, and the
 	// work would be reversing a position.
 	if kind == "bind-experimental" {
-		return ir.Mount{}, refusedOnPurpose("RUN --mount type="+kind, where,
+		return ir.Mount{}, "", refusedOnPurpose("RUN --mount type="+kind, where,
 			"a step's writes are held to its own layer, and a bind is a window"+
 				" out of it\n  COPY what the step needs in, and SAVE ARTIFACT"+
 				" what it produces out")
@@ -230,19 +241,13 @@ func parseMount(spec, where string) (ir.Mount, error) {
 	// So: unbuilt, not declined. The distinction is the sentinel both corpus
 	// sweeps count, and it decides whether 371 targets read as a settled
 	// question or as the largest piece of work left. They are the latter.
-	if kind == "bind" {
-		return ir.Mount{}, unsupported("RUN --mount type=bind", where,
-			"a Dockerfile binds its build context, or an earlier stage,"+
-				" read-only\n  COPY the same paths in for now")
-	}
-
-	if kind != "cache" && kind != "secret" {
-		return ir.Mount{}, unsupported("RUN --mount type="+kind, where, "")
+	if kind != "cache" && kind != "secret" && kind != "bind" {
+		return ir.Mount{}, "", unsupported("RUN --mount type="+kind, where, "")
 	}
 
 	err := onlyKnownFields(fields, kind, where)
 	if err != nil {
-		return ir.Mount{}, err
+		return ir.Mount{}, "", err
 	}
 
 	target := fields[mountFieldTarget]
@@ -251,7 +256,7 @@ func parseMount(spec, where string) (ir.Mount, error) {
 	}
 
 	if target == "" {
-		return ir.Mount{}, fmt.Errorf(
+		return ir.Mount{}, "", fmt.Errorf(
 			"RUN --mount at %s has no target"+
 				"\n  a mount needs somewhere to appear: --mount=type=cache,target=/path",
 			where)
@@ -266,33 +271,46 @@ func parseMount(spec, where string) (ir.Mount, error) {
 
 	mode, err := mountMode(fields, where)
 	if err != nil {
-		return ir.Mount{}, err
+		return ir.Mount{}, "", err
 	}
 
 	// A secret is read, never written: a step that could write through the
 	// mount would be writing into wherever the invocation keeps its
 	// credentials.
 	if kind == "secret" {
-		return ir.Mount{Target: target, ID: id, Secret: true, ReadOnly: true, Mode: mode}, nil
+		return ir.Mount{Target: target, ID: id, Secret: true, ReadOnly: true, Mode: mode}, "", nil
+	}
+
+	// **A bound view is read-only whatever was written.** `readonly=false` on
+	// one would be a step editing another step's input, which §3.3b forbids
+	// outright - so the field is read and the answer does not depend on it.
+	// From is filled in by the caller, which is what can resolve ν.
+	if kind == mountKindBind {
+		sub := fields["source"]
+		if sub == "" {
+			sub = fields["src"]
+		}
+
+		return ir.Mount{Target: target, Sub: sub, ReadOnly: true, View: true}, fields["from"], nil
 	}
 
 	// `shared` by default here and `locked` for CACHE - see sharingMode.
 	exclusive, private, known := sharingMode(fields["sharing"], "shared")
 	if !known {
-		return ir.Mount{}, unsupported(
+		return ir.Mount{}, "", unsupported(
 			"RUN --mount sharing="+fields["sharing"], where, "")
 	}
 
 	if private {
 		return ir.Mount{
 			Target: target, Ephemeral: true, ReadOnly: readOnly(fields), Mode: mode,
-		}, nil
+		}, "", nil
 	}
 
 	return ir.Mount{
 		Target: target, ID: id, Exclusive: exclusive,
 		ReadOnly: readOnly(fields), Mode: mode,
-	}, nil
+	}, "", nil
 }
 
 // mountMode reads `mode=` or `chmod=`, which are one field with two spellings.
@@ -337,6 +355,11 @@ func mountMode(fields map[string]string, where string) (uint32, error) {
 var mountFields = map[string][]string{
 	"cache":  {"type", "target", "dst", "id", "readonly", "ro", "sharing", "mode", "chmod"},
 	"secret": {"type", "target", "dst", "id", "readonly", "ro", "mode", "chmod"},
+	// A bound view (§3.3d). `from` names an earlier stage and is read here so
+	// that it can be refused by name at the point of use rather than dropped:
+	// a view of a stage needs that stage's assembled stack, which a view of the
+	// context does not, so one of the two is built and the other is not.
+	mountKindBind: {"type", "target", "dst", "source", "src", "from", "readonly", "ro"},
 }
 
 // onlyKnownFields refuses a field this engine would have dropped.
@@ -435,7 +458,7 @@ func (p *Plan) gitCloneNode(c earthfile.Command, prev *ir.Node, rs *state) (*ir.
 		return nil, fmt.Errorf("GIT CLONE %s (%s): %w", url, where, err)
 	}
 
-	src, err := resolveContext(dir, ".", where)
+	src, err := resolveContext("COPY", dir, ".", where)
 	if err != nil {
 		return nil, err
 	}
@@ -539,4 +562,61 @@ func appendOnce(nodes []*ir.Node, n *ir.Node) []*ir.Node {
 	}
 
 	return append(nodes, n)
+}
+
+// resolveViews fills in each bound view's ν and returns the objects it shows.
+//
+// Called where the context root and the graph are, which parseMount is not:
+// ν is a node, and a node is not something a string parser can produce.
+//
+// A view of the local context is one layer - the context node this engine
+// already builds for COPY - so it drops straight in. A view of an earlier stage
+// is not: a stage's filesystem is an assembled stack, and showing one needs
+// machinery that does not exist yet (§3.3d, ν ∈ 𝕂).
+func (p *Plan) resolveViews(mounts []ir.Mount, views []view, where string) ([]*ir.Node, error) {
+	if len(views) == 0 {
+		return nil, nil
+	}
+
+	out := make([]*ir.Node, 0, len(views))
+
+	for _, v := range views {
+		if v.from != "" {
+			return nil, unsupported("RUN --mount type=bind,from="+v.from, where,
+				"a view of another stage needs that stage's assembled"+
+					" filesystem, which is more than one layer"+
+					"\n  COPY what the step needs in, or bind the build context")
+		}
+
+		// The subtree names a path in the context, and the context node this
+		// engine builds for COPY holds exactly that path - digested, so what it
+		// shows reaches the key (I20). Empty means the whole of it.
+		at := mounts[v.at].Sub
+		if at == "" {
+			at = "."
+		}
+
+		key := p.here.dir + "\x00" + at
+
+		n, seen := p.viewed[key]
+		if !seen {
+			var err error
+
+			n, err = resolveContext("RUN --mount", p.here.dir, at, where)
+			if err != nil {
+				return nil, err
+			}
+
+			if p.viewed == nil {
+				p.viewed = map[string]*ir.Node{}
+			}
+
+			p.viewed[key] = n
+		}
+
+		mounts[v.at].From = n.ID()
+		out = append(out, n)
+	}
+
+	return out, nil
 }

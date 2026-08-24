@@ -85,7 +85,12 @@ func TestUnsupportedMountTypesAreRefused(t *testing.T) {
 	for _, spec := range []string{
 		"type=secret,id=token,target=/run/secret",
 		"type=tmpfs,target=/tmp/scratch",
-		"type=bind,source=/host,target=/in",
+		// **`type=bind` is not here any more**: a view of the build context is
+		// built (§3.3d), so refusing the type outright would be refusing
+		// something this engine does. A path outside the context is still
+		// refused - it has no ν and cannot be keyed - but the refusal is about
+		// the path rather than the type, and TestABoundViewOutsideTheContextIsRefused
+		// is where that belongs.
 	} {
 		t.Run(spec, func(t *testing.T) {
 			t.Parallel()
@@ -116,5 +121,36 @@ func TestAMountNeedsATarget(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "target") {
 		t.Errorf("the refusal does not say what is missing:\n%s", err)
+	}
+}
+
+// A view of something outside the build context is refused.
+//
+// §3.3d: ν is a key or the local context, and a path on the machine running the
+// build is neither. It cannot be digested into the graph, so it cannot be keyed
+// - and a step reading bytes no key describes is the false hit I3 forbids.
+//
+// The refusal names the path rather than the mount type, because the type is
+// fine and the path is not.
+func TestABoundViewOutsideTheContextIsRefused(t *testing.T) {
+	t.Parallel()
+
+	_, err := interp.Build(versioned+
+		"\nmain:\n    FROM alpine:3.22\n"+
+		"    RUN --mount=type=bind,source=/host,target=/in build\n", testMain)
+	if err == nil {
+		t.Fatal("a view of a path outside the context was accepted")
+	}
+
+	for _, want := range []string{"/host", "build context"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal never mentions %q:\n%s", want, err)
+		}
+	}
+
+	// The construct that failed, not another one. resolveContext said "COPY"
+	// whatever asked, which sent the reader to a line with no COPY on it.
+	if strings.Contains(err.Error(), "COPY") {
+		t.Errorf("a RUN --mount is reported as a COPY:\n%s", err)
 	}
 }

@@ -696,15 +696,15 @@ main:
 // Dockerfile describes, and nothing downstream can tell". Its mounts are the
 // same instruction one level down.
 //
-// **`type=cache` is no longer among them**, because this engine provides it and
-// always did on the Earthfile side - refusing it here was the translation being
-// broader than the gap. See TestADockerfileCacheMountIsACacheMount. What is
-// listed below is what remains genuinely absent, and each is refused by kind.
+// **Two of the original four have since been built**, and each stopped being a
+// gap for its own reason: `type=cache` means the same thing in both languages
+// and this engine always provided it, and a bind of the build context is a
+// read-only view of content the build already digests (§3.3d). What is listed
+// below is what remains genuinely absent.
 func TestADockerfileRunWithMountsIsRefused(t *testing.T) {
 	t.Parallel()
 
 	for _, mount := range []string{
-		"--mount=target=.",
 		"--mount=source=/tmp/.ldflags,target=/tmp/.ldflags,from=other",
 		"--mount=type=secret,id=token",
 	} {

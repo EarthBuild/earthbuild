@@ -40,7 +40,15 @@ import (
 // A struct rather than the six return values this had: adding `--network=none`
 // would have made seven, and a caller unpacking seven positional results is one
 // transposition away from marking the wrong step uncacheable.
+// view is a bound view awaiting its ν: which mount, and what it named.
+type view struct {
+	from string
+	at   int
+}
+
 type runOpts struct {
+	// views index the mounts that are bound views (§3.3d), in order.
+	views []view
 	// ssh is `RUN --ssh`: the step may talk to the invoking user's agent.
 	ssh bool
 	// pushOnly is `RUN --push`: the step belongs to a push, and this engine has
@@ -165,9 +173,17 @@ func runFlags(c earthfile.Command, env map[string]string, hasTerminal bool) (run
 	}
 
 	for _, spec := range opts.Mounts {
-		m, err := parseMount(expandWith(spec, env), loc(c.SourceLocation))
+		m, from, err := parseMount(expandWith(spec, env), loc(c.SourceLocation))
 		if err != nil {
 			return runOpts{}, err
+		}
+
+		// A bound view arrives with no ν - parseMount has no graph to resolve
+		// one against. Recorded by position so the caller, which does, can fill
+		// it in; and recorded even when `from` is empty, because empty means
+		// the local context and not "not a view".
+		if m.View {
+			out.views = append(out.views, view{at: len(out.mounts), from: from})
 		}
 
 		out.mounts = append(out.mounts, m)

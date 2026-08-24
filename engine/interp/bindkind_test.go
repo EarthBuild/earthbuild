@@ -39,11 +39,11 @@ main:
 	dockerfileKind := refusalOf(t, `
 main:
     FROM alpine:3.22
-    RUN --mount=type=bind,target=/b true
+    RUN --mount=type=bind,source=.,target=/b true
 `)
 
-	if host == nil || dockerfileKind == nil {
-		t.Fatal("a bind was accepted; neither kind is built")
+	if host == nil {
+		t.Fatal("a host bind was accepted; it is refused by decision")
 	}
 
 	// "by design" is the wording refusedOnPurpose uses; a gap does not carry it.
@@ -51,28 +51,11 @@ main:
 		t.Errorf("a host bind is not refused as a decision: %v", host)
 	}
 
-	if strings.Contains(dockerfileKind.Error(), "design") {
-		t.Errorf("a Dockerfile bind is refused as a decision, but nothing has"+
-			" been decided about it - it is unbuilt: %v", dockerfileKind)
-	}
-
-	if !strings.Contains(dockerfileKind.Error(), "bind") {
-		t.Errorf("the refusal does not name the kind: %v", dockerfileKind)
-	}
-
-	// **And it says what a Dockerfile bind is**, which is the whole of what
-	// this branch adds: without it a plain bind still falls through to the
-	// generic "not supported" and is still filed as a gap, so a test that
-	// checked only the sentinel passed with the explanation deleted (E645).
-	//
-	// A reader here has written `--mount=target=.` in a Dockerfile and needs to
-	// know it is their context that is not arriving, and what to do instead.
-	for _, want := range []string{"context", "read-only", "COPY"} {
-		if !strings.Contains(dockerfileKind.Error(), want) {
-			t.Errorf("the refusal never mentions %q, so it says the door is"+
-				" shut and nothing about what was behind it:\n%v",
-				want, dockerfileKind)
-		}
+	// **And the other one is built now**, which is the other half of the same
+	// point: the decision was about a writable window onto the machine, and it
+	// never reached a read-only view of content this build already has.
+	if dockerfileKind != nil {
+		t.Errorf("a view of the build context was refused: %v", dockerfileKind)
 	}
 }
 

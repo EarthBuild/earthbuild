@@ -73,7 +73,10 @@ func readPathFrom(r io.ReaderAt, addr uint64) (string, error) {
 	for len(out) < pathMax {
 		buf := make([]byte, min(chunk, pathMax-len(out)))
 
-		n, err := r.ReadAt(buf, int64(addr)+int64(len(out)))
+		// An address in the target's memory, as an offset into `/proc/<pid>/mem`,
+		// which is what that file's offsets *are*. A user-space address on the
+		// platforms this builds for is far below the sign bit (gosec G115).
+		n, err := r.ReadAt(buf, int64(addr)+int64(len(out))) //nolint:gosec // an address, as the file's offset
 
 		// A short read is still data. `ReadAt` reports `io.EOF` at the end of a
 		// mapping and `EIO` past one, and in both cases the bytes it did return

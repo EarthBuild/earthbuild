@@ -88,6 +88,7 @@ func baseDirVia(
 		// Signed: the descriptor arrives as a 64-bit word and AT_FDCWD is -100,
 		// so reading it unsigned gives 0xffffffffffffff9c and a lookup of a
 		// descriptor no process has.
+		//nolint:gosec // the narrowing is the point, see above
 		if fd := int32(uint32(n.Data.Args[0])); fd != unix.AT_FDCWD {
 			link = proc + "/fd/" + strconv.FormatInt(int64(fd), 10)
 		}

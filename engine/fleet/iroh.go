@@ -98,7 +98,10 @@ func readFramed(r io.Reader, limit int) ([]byte, error) {
 	}
 
 	size := binary.BigEndian.Uint64(n[:])
-	if size > uint64(limit) {
+	// `limit` is this engine's own ceiling and is never negative, so widening it
+	// is exact - and the comparison is what stops a peer naming a size it would
+	// like allocated (gosec G115).
+	if size > uint64(limit) { //nolint:gosec // a positive ceiling this engine set
 		return nil, fmt.Errorf("%w: a peer asked this engine to allocate %d"+
 			" bytes, and %d is the most it will", ErrMalformed, size, limit)
 	}

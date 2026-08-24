@@ -73,9 +73,11 @@ func program(arch uint32, traced []uint32) []bpf.Instruction {
 		bpf.LoadAbsolute{Off: offsetArch, Size: 4},
 		// Skip to notify when this is *not* the architecture we can read.
 		bpf.JumpIf{
-			Cond:      bpf.JumpNotEqual,
-			Val:       arch,
-			SkipTrue:  uint8(notifyAt - 1 - 1),
+			Cond: bpf.JumpNotEqual,
+			Val:  arch,
+			// In range because `filter` refuses a program whose furthest jump
+			// exceeds what this byte holds, before calling here (E629).
+			SkipTrue:  uint8(notifyAt - 1 - 1), //nolint:gosec // bounded by filter
 			SkipFalse: 0,
 		},
 		bpf.LoadAbsolute{Off: offsetNR, Size: 4},
@@ -87,7 +89,7 @@ func program(arch uint32, traced []uint32) []bpf.Instruction {
 		out = append(out, bpf.JumpIf{
 			Cond:      bpf.JumpEqual,
 			Val:       nr,
-			SkipTrue:  uint8(notifyAt - at - 1),
+			SkipTrue:  uint8(notifyAt - at - 1), //nolint:gosec // bounded by filter, see above
 			SkipFalse: 0,
 		})
 	}

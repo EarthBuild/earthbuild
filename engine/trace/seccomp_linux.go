@@ -47,7 +47,9 @@ func install(arch uint32, traced []uint32) (int, error) {
 		return -1, err
 	}
 
-	prog := unix.SockFprog{Len: uint16(len(f)), Filter: &f[0]}
+	// Bounded at 4096 instructions by `filter`, which is the kernel's own limit
+	// and two orders of magnitude below what this field holds (gosec G115).
+	prog := unix.SockFprog{Len: uint16(len(f)), Filter: &f[0]} //nolint:gosec // bounded above by filter
 
 	// SAFETY: `&prog` is taken in the argument list of the call that consumes
 	// it, which is the documented form for passing a pointer to a syscall - the

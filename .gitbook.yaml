@@ -28,8 +28,8 @@ redirects:
     docs/guides/udc: guides/functions.md
     earthly-config: earth-config/earth-config.md # legacy pre-rename URL (redirect source)
     ci-integration: ci-integration/overview.md
-    earth-command: earth-command/earth-command.md
-    earth-config: earth-config/earth-config.md
+    earthly-command: earth-command/earth-command.md
+    earthly-config: earth-config/earth-config.md
     installation: ./README.md
     guides/pushing-and-pulling-images-with-cloud-providers: guides/auth.md
     guides/pushing-and-pulling-images-with-cloud-providers/pushing-images-to-ecr: guides/registries/aws-ecr.md

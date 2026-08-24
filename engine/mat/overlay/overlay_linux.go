@@ -230,9 +230,9 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 		// owns, because a `.wh.` marker is what the shared store can hold and a
 		// character device is what overlayfs reads (E94). Layers without one -
 		// nearly all of them - are stacked from the store directly.
-		dir, err := m.translator().use(store, id.String())
-		if err != nil {
-			return nil, err
+		dir, translatorErr := m.translator().use(store, id.String())
+		if translatorErr != nil {
+			return nil, translatorErr
 		}
 
 		// Pristine means the mount reads the store's own directory, so a file

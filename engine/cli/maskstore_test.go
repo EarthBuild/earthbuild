@@ -39,16 +39,16 @@ func TestAMaskForgetsAStaleImageAcrossBuilds(t *testing.T) {
 	// Each iteration is a whole build: load what is on disk, record what this
 	// build wanted, write it back.
 	for range core.MaskIdleLimit {
-		p, err := loadPredictions(dir)
-		if err != nil {
-			t.Fatal(err)
+		p, loadErr := loadPredictions(dir)
+		if loadErr != nil {
+			t.Fatal(loadErr)
 		}
 
 		p.Needed(site, true, []string{"node:22", testBaseImage})
 
-		err = savePredictions(dir, p)
-		if err != nil {
-			t.Fatal(err)
+		loadErr = savePredictions(dir, p)
+		if loadErr != nil {
+			t.Fatal(loadErr)
 		}
 	}
 

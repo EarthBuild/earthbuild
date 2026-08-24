@@ -316,11 +316,11 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 				}
 			}
 
-			err := ensureFile(target, perm)
-			if err != nil {
+			ensureErr := ensureFile(target, perm)
+			if ensureErr != nil {
 				unmount()
 
-				return nil, fmt.Errorf("prepare the mount point %s: %w", m.Target, err)
+				return nil, fmt.Errorf("prepare the mount point %s: %w", m.Target, ensureErr)
 			}
 
 			if missing {
@@ -355,11 +355,11 @@ func bindMounts(root, store string, mounts []Mount) (undo func(), err error) {
 			// are part of a layer's identity (I8) - a second implementation here
 			// would have reset them and produced a layer whose digest did not
 			// match the one just computed.
-			err := copyTree(source, target, copyOpts{})
-			if err != nil {
+			copyErr := copyTree(source, target, copyOpts{})
+			if copyErr != nil {
 				unmount()
 
-				return nil, fmt.Errorf("restore the cache at %s: %w", m.Target, err)
+				return nil, fmt.Errorf("restore the cache at %s: %w", m.Target, copyErr)
 			}
 
 			persisted = append(persisted, [2]string{target, source})

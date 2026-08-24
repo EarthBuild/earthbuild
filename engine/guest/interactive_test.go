@@ -63,11 +63,11 @@ func TestAnInteractiveStepRunsOnTheCallersTerminal(t *testing.T) {
 	done := make(chan error, 1)
 
 	go func() {
-		_, err := c.RunStep(context.Background(), h, guest.Step{
+		_, runErr := c.RunStep(context.Background(), h, guest.Step{
 			Argv:     []string{testShell, "-c", `test -t 0 && echo IS-TTY`},
 			Terminal: tty,
 		}, nil)
-		done <- err
+		done <- runErr
 	}()
 
 	select {
@@ -136,7 +136,7 @@ func TestASecondInteractiveStepIsRefused(t *testing.T) {
 	go func() {
 		defer close(held)
 
-		_, err := c.RunStep(context.Background(), h, guest.Step{
+		_, runErr := c.RunStep(context.Background(), h, guest.Step{
 			// Reads from the terminal rather than sleeping: `read` blocks on the
 			// descriptor under test, so the hold cannot end early. `sleep 3`
 			// stood here and the step returned in ten milliseconds - a non-zero
@@ -146,7 +146,7 @@ func TestASecondInteractiveStepIsRefused(t *testing.T) {
 			Argv:     []string{testShell, "-c", "echo FIRST; read x"},
 			Terminal: tty,
 		}, nil)
-		firstErr <- err
+		firstErr <- runErr
 	}()
 
 	// Wait for the first to be on the terminal before asking for a second, and

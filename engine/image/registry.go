@@ -219,20 +219,20 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 			want = runtime.GOOS + "/" + runtime.GOARCH
 		}
 
-		digest, err := selectPlatform(m, want)
-		if err != nil {
-			return ocispec.ImageConfig{}, fmt.Errorf("%s: %w", ref, err)
+		digest, selectErr := selectPlatform(m, want)
+		if selectErr != nil {
+			return ocispec.ImageConfig{}, fmt.Errorf("%s: %w", ref, selectErr)
 		}
 
-		body, err = get(ctx, client, tok, base+"/manifests/"+digest, maxManifest)
-		if err != nil {
-			return ocispec.ImageConfig{}, fmt.Errorf("fetch the %s manifest for %s: %w", want, ref, err)
+		body, selectErr = get(ctx, client, tok, base+"/manifests/"+digest, maxManifest)
+		if selectErr != nil {
+			return ocispec.ImageConfig{}, fmt.Errorf("fetch the %s manifest for %s: %w", want, ref, selectErr)
 		}
 
 		m = manifest{}
-		err = json.Unmarshal(body, &m)
-		if err != nil {
-			return ocispec.ImageConfig{}, fmt.Errorf("parse the %s manifest for %s: %w", want, ref, err)
+		selectErr = json.Unmarshal(body, &m)
+		if selectErr != nil {
+			return ocispec.ImageConfig{}, fmt.Errorf("parse the %s manifest for %s: %w", want, ref, selectErr)
 		}
 	}
 
@@ -250,9 +250,9 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 	// Ordered, oldest first: a later layer's whiteout must be applied after the
 	// file it deletes has been unpacked, or the deletion is a no-op.
 	for i, d := range m.Layers {
-		err := pullLayer(ctx, client, tok, base, d, dir)
-		if err != nil {
-			return ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, err)
+		pullErr := pullLayer(ctx, client, tok, base, d, dir)
+		if pullErr != nil {
+			return ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, pullErr)
 		}
 	}
 

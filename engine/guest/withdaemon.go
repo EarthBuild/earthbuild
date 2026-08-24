@@ -100,8 +100,8 @@ func withDaemon(
 	// what has already been started, and a stop written on the success path only
 	// is a leak on every other one.
 	defer func() {
-		err := proc.Stop()
-		if err == nil {
+		stopErr := proc.Stop()
+		if stopErr == nil {
 			return
 		}
 
@@ -111,7 +111,7 @@ func withDaemon(
 		// that went wrong - a process still running against a handle about to be
 		// released - and discarding it there tells nobody.
 		if out == nil {
-			out = fmt.Errorf("the step finished but its daemon would not stop: %w", err)
+			out = fmt.Errorf("the step finished but its daemon would not stop: %w", stopErr)
 		}
 	}()
 

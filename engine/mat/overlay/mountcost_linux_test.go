@@ -38,11 +38,11 @@ func BenchmarkMountCostByStackDepth(b *testing.B) {
 			for i := range stack {
 				stack[i] = ir.NodeID{byte(i + 1)}
 
-				err := m.WriteLayer(stack[i], map[string]string{
+				writeErr := m.WriteLayer(stack[i], map[string]string{
 					fmt.Sprintf("file-%d", i): "contents",
 				})
-				if err != nil {
-					b.Fatal(err)
+				if writeErr != nil {
+					b.Fatal(writeErr)
 				}
 			}
 
@@ -99,11 +99,11 @@ func BenchmarkMountAndUnmountSeparately(b *testing.B) {
 	for i := range stack {
 		stack[i] = ir.NodeID{byte(i + 1)}
 
-		err := m.WriteLayer(stack[i], map[string]string{
+		writeErr := m.WriteLayer(stack[i], map[string]string{
 			fmt.Sprintf("file-%d", i): "contents",
 		})
-		if err != nil {
-			b.Fatal(err)
+		if writeErr != nil {
+			b.Fatal(writeErr)
 		}
 	}
 

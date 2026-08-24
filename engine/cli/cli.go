@@ -155,8 +155,8 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		// Both, because they are the same directory by default and
 		// EARTH_IMAGE_CACHE_DIR separates them - and an image is unpacked into
 		// whichever one it lands in.
-		images, err := imageCacheDir()
-		if err != nil {
+		images, imageErr := imageCacheDir()
+		if imageErr != nil {
 			images = ""
 		}
 
@@ -167,8 +167,8 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 			cacheDir{path: dir, env: envCacheDir},
 			cacheDir{path: images, env: envImageCacheDir})
 
-		learned, err := loadPredictions(dir)
-		if err == nil {
+		learned, imageErr := loadPredictions(dir)
+		if imageErr == nil {
 			g.learned = learned
 
 			// What confidently-predicted branches needed last time, fetched

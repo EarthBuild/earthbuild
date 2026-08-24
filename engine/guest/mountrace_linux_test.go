@@ -58,10 +58,10 @@ func TestTwoStepsOnOneRootDoNotFightOverTheirMounts(t *testing.T) {
 
 		for range perRound {
 			wg.Go(func() {
-				_, _, err := c.Exec(context.Background(), h, []string{testTrue}, nil)
-				if err != nil {
+				_, _, execErr := c.Exec(context.Background(), h, []string{testTrue}, nil)
+				if execErr != nil {
 					mu.Lock()
-					failures = append(failures, err.Error())
+					failures = append(failures, execErr.Error())
 					mu.Unlock()
 				}
 			})

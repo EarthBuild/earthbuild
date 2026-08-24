@@ -1880,7 +1880,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: a failed wait still stopping the daemon it started (E369)",
 		File:        "engine/guest/withdaemon.go",
-		Anchor:      "\tdefer func() {\n\t\terr := proc.Stop()",
+		Anchor:      "\tdefer func() {\n\t\tstopErr := proc.Stop()",
 		Replacement: "\tdefer func() {\n\t\tvar err error\n\t\tif out == nil {\n\t\t\terr = proc.Stop()\n\t\t}",
 		Package:     "./engine/guest/",
 	},
@@ -2889,8 +2889,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: a worker answering what it is (E504)",
 		File:        "engine/fleet/rendezvous.go",
-		Anchor:      "\t\terr := replyWith(s, self)\n\t\tif err != nil {",
-		Replacement: "\t\terr := replyWith(s, Reply{Version: Version})\n\t\tif err != nil {",
+		Anchor:      "\t\treplyErr := replyWith(s, self)\n\t\tif replyErr != nil {",
+		Replacement: "\t\treplyErr := replyWith(s, Reply{Version: Version})\n\t\tif replyErr != nil {",
 		Package:     "./engine/fleet/",
 	},
 	{

@@ -85,9 +85,9 @@ func Unpack(r io.Reader, dir string) error {
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
-			err := applyDirModes(dirs)
-			if err != nil {
-				return err
+			applyErr := applyDirModes(dirs)
+			if applyErr != nil {
+				return applyErr
 			}
 
 			return restoreModes(relaxed, dirs)

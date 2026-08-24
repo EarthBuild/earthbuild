@@ -47,11 +47,11 @@ func Pin(o Options) error {
 	}
 
 	pinned, changes, err := pin.Rewrite(src, func(ref string) (string, error) {
-		to, err := image.Resolve(ctx, ref, image.Options{
+		to, resolveErr := image.Resolve(ctx, ref, image.Options{
 			Platform: resolveFor(o.Platform), Challenges: challenges,
 		})
-		if err != nil {
-			return "", err
+		if resolveErr != nil {
+			return "", resolveErr
 		}
 
 		return pin.WithDigest(ref, to)

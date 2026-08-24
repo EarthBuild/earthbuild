@@ -604,9 +604,9 @@ func answer(
 
 	// What this worker is, asked before it has run anything.
 	if kind[0] == kindHello {
-		err := replyWith(s, self)
-		if err != nil {
-			onError(fmt.Errorf("say what this worker is: %w", err))
+		replyErr := replyWith(s, self)
+		if replyErr != nil {
+			onError(fmt.Errorf("say what this worker is: %w", replyErr))
 		}
 
 		return

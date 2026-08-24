@@ -458,15 +458,15 @@ func (g *engine) executorFor(plan *interp.Plan) (*exec.Executor, error) {
 		// The cost of switching is a plain VM that was booted and is no longer
 		// wanted. That is a boot, not a result.
 		if needsDocker(plan) {
-			err := g.switchTo(sandboxImage(true))
-			if err != nil {
-				return nil, err
+			switchErr := g.switchTo(sandboxImage(true))
+			if switchErr != nil {
+				return nil, switchErr
 			}
 		}
 
-		e, _, err := g.sandboxed()
+		e, _, sandboxedErr := g.sandboxed()
 
-		return e, err
+		return e, sandboxedErr
 	}
 
 	e, err := exec.NewHostOnly()

@@ -81,9 +81,9 @@ func TestAChownNameTheImageLacksIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(root, "etc", "passwd"),
-		[]byte("root:x:0:0:root:/root:/bin/sh\n"), 0o600); err != nil {
-		t.Fatal(err)
+	if writeErr := os.WriteFile(filepath.Join(root, "etc", "passwd"),
+		[]byte("root:x:0:0:root:/root:/bin/sh\n"), 0o600); writeErr != nil {
+		t.Fatal(writeErr)
 	}
 
 	_, _, err = chownIDs(root, "nobody-here:nobody-here")

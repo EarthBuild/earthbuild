@@ -1153,10 +1153,10 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		pass := map[string]string{}
 
 		if buildPass {
-			err := p.here.features.needs(
+			needsErr := p.here.features.needs(
 				p.here.features.passArgs, "BUILD --pass-args", "--pass-args", loc(c.SourceLocation))
-			if err != nil {
-				return nil, err
+			if needsErr != nil {
+				return nil, needsErr
 			}
 
 			maps.Copy(pass, rs.args)
@@ -1167,9 +1167,9 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		p.passTo = pass
 
 		if len(opts.Platforms) > 0 {
-			err := checkPlatform(opts.Platforms[0], loc(c.SourceLocation))
-			if err != nil {
-				return nil, err
+			checkErr := checkPlatform(opts.Platforms[0], loc(c.SourceLocation))
+			if checkErr != nil {
+				return nil, checkErr
 			}
 
 			p.passPlatform = opts.Platforms[0]

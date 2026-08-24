@@ -294,10 +294,10 @@ func copyTree(src, dst string, opts copyOpts) error {
 			//
 			// Sound because the walk is top-down: every directory on a path is
 			// visited before anything inside it.
-			if link, err := os.Lstat(target); err == nil && link.Mode()&os.ModeSymlink != 0 {
-				err = os.Remove(target)
-				if err != nil {
-					return fmt.Errorf("clear a symlink at %s: %w", target, err)
+			if link, lstatErr := os.Lstat(target); lstatErr == nil && link.Mode()&os.ModeSymlink != 0 {
+				lstatErr = os.Remove(target)
+				if lstatErr != nil {
+					return fmt.Errorf("clear a symlink at %s: %w", target, lstatErr)
 				}
 			}
 
@@ -379,9 +379,9 @@ func copyTree(src, dst string, opts copyOpts) error {
 				seen[k] = target
 			}
 
-			err := copyFile(p, target, fi.Mode())
-			if err != nil {
-				return err
+			copyErr := copyFile(p, target, fi.Mode())
+			if copyErr != nil {
+				return copyErr
 			}
 
 		default:
@@ -399,9 +399,9 @@ func copyTree(src, dst string, opts copyOpts) error {
 			// `rel` and not `p`: the path inside the image, which is what the
 			// author deleted. The internal one is a scratch mount with a
 			// generated handle in it and means nothing to a reader.
-			placed, err := copySpecial(p, target, "/"+filepath.ToSlash(rel), fi)
-			if err != nil {
-				return err
+			placed, copyErr := copySpecial(p, target, "/"+filepath.ToSlash(rel), fi)
+			if copyErr != nil {
+				return copyErr
 			}
 
 			// A deletion recorded as a `.wh.` marker puts nothing at target, so

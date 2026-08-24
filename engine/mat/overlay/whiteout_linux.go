@@ -110,7 +110,7 @@ func (t *translator) use(src, id string) (string, error) {
 		// one walk in some later process, which is what happened before it
 		// existed. Failing the materialise over it would turn a slow build into
 		// a broken one.
-		if err := os.MkdirAll(t.dir, 0o750); err == nil {
+		if mkdirErr := os.MkdirAll(t.dir, 0o750); mkdirErr == nil {
 			_ = os.WriteFile(unmarkedFile(t.dir, id), nil, 0o600)
 		}
 
@@ -126,7 +126,7 @@ func (t *translator) use(src, id string) (string, error) {
 
 	// Another build translated it first. Checked before staging, because the
 	// cheapest way to win a race is not to enter it.
-	if _, err := os.Stat(out); err == nil {
+	if _, statErr := os.Stat(out); statErr == nil {
 		t.done[id] = out
 
 		return out, nil

@@ -324,9 +324,9 @@ func (p *Plan) withStatement(st *earthfile.WithStatement, prev *ir.Node, rs *sta
 	// construct that spelled them differently would be one people have to learn
 	// twice.
 	if opts.Platform != "" {
-		err := checkPlatform(opts.Platform, where)
-		if err != nil {
-			return nil, err
+		checkErr := checkPlatform(opts.Platform, where)
+		if checkErr != nil {
+			return nil, checkErr
 		}
 
 		p.passPlatform = opts.Platform
@@ -360,9 +360,9 @@ func (p *Plan) withStatement(st *earthfile.WithStatement, prev *ir.Node, rs *sta
 	}
 
 	for _, spec := range opts.Loads {
-		next, err := p.dockerLoad(spec, prev, rs, where)
-		if err != nil {
-			return nil, err
+		next, dockerErr := p.dockerLoad(spec, prev, rs, where)
+		if dockerErr != nil {
+			return nil, dockerErr
 		}
 
 		prev = next

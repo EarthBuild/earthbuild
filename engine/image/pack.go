@@ -57,9 +57,9 @@ func Pack(dir string, w io.Writer) (digest string, size int64, err error) {
 	links := map[linkID]string{}
 
 	for _, rel := range names {
-		err := packOne(tw, root, rel, links)
-		if err != nil {
-			return "", 0, err
+		packErr := packOne(tw, root, rel, links)
+		if packErr != nil {
+			return "", 0, packErr
 		}
 	}
 

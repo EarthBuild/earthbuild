@@ -417,9 +417,9 @@ func (e *Executor) Run(
 		// Which daemon a step reaches is a property of the backend *and* of the
 		// block: a VM's is disposable and this machine's is not (E117), and the
 		// block says whether it wants one of its own (E381).
-		plan, err := dockerFor(n.Op.IsolateDocker, n.Op.DockerCache)
-		if err != nil {
-			return core.Result{}, err
+		plan, dockerErr := dockerFor(n.Op.IsolateDocker, n.Op.DockerCache)
+		if dockerErr != nil {
+			return core.Result{}, dockerErr
 		}
 
 		// Why no client was provided, if none was: the socket alone works only
@@ -467,9 +467,9 @@ func (e *Executor) Run(
 	// property of this invocation and would poison every key it reached: the
 	// operation says an agent is wanted and this finds it (E466).
 	if n.Op.SSH {
-		agentMounts, agentEnv, err := sshAgent(e.SSHAuthSock)
-		if err != nil {
-			return core.Result{}, fmt.Errorf("%s: %w", n.Meta.Source, err)
+		agentMounts, agentEnv, sshErr := sshAgent(e.SSHAuthSock)
+		if sshErr != nil {
+			return core.Result{}, fmt.Errorf("%s: %w", n.Meta.Source, sshErr)
 		}
 
 		mounts = append(mounts, agentMounts...)

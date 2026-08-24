@@ -1749,8 +1749,8 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// lives here rather than beside the map: reaching for cmd.Process from
 	// another goroutine races with Start.
 	cmd.Cancel = func() error {
-		err := killGroup(-cmd.Process.Pid, syscall.SIGKILL)
-		if err != nil {
+		killErr := killGroup(-cmd.Process.Pid, syscall.SIGKILL)
+		if killErr != nil {
 			return cmd.Process.Kill() //nolint:wrapcheck // os/exec reports this verbatim
 		}
 
@@ -1765,9 +1765,9 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// name the guest can use before the chroot. What the command runs in is set
 	// after isolation, below, and must be the path *inside* the new root.
 	if req.Dir != "" && req.Dir != "/" {
-		dir, err := within(h.Root(), req.Dir)
-		if err != nil {
-			return Response{Err: err.Error()}
+		dir, withinErr := within(h.Root(), req.Dir)
+		if withinErr != nil {
+			return Response{Err: withinErr.Error()}
 		}
 
 		// The step's WORKDIR, inside the step's own filesystem, so this is a
@@ -1781,9 +1781,9 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// build re-keyed from this one line: 47 of 91 steps showed a moved base
 		// between two builds of one commit, while their op, env, platform and
 		// node were identical (E577).
-		err = mkdirAllStamped(dir, 0o755, clampAt(req.Clamp))
-		if err != nil {
-			return Response{Err: fmt.Sprintf("create the working directory %s: %v", req.Dir, err)}
+		withinErr = mkdirAllStamped(dir, 0o755, clampAt(req.Clamp))
+		if withinErr != nil {
+			return Response{Err: fmt.Sprintf("create the working directory %s: %v", req.Dir, withinErr)}
 		}
 
 		cmd.Dir = dir
@@ -1829,11 +1829,11 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// concurrency the design wants; holding it across these two short
 		// sections costs nothing and closes the window.
 		unlock := s.lockHandle(req.Handle)
-		undo, err := bindMounts(h.Root(), s.mountStore(), mounts)
+		undo, bindErr := bindMounts(h.Root(), s.mountStore(), mounts)
 		unlock()
 
-		if err != nil {
-			return Response{Err: err.Error()}
+		if bindErr != nil {
+			return Response{Err: bindErr.Error()}
 		}
 
 		defer func() {
@@ -1863,16 +1863,16 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 		defer s.termMu.Unlock()
 
-		tty, err := fdpass.RecvFile(s.Terminals)
-		if err != nil {
-			return Response{Err: fmt.Sprintf("take the terminal: %v", err)}
+		tty, recvErr := fdpass.RecvFile(s.Terminals)
+		if recvErr != nil {
+			return Response{Err: fmt.Sprintf("take the terminal: %v", recvErr)}
 		}
 
-		err = AttachTerminal(cmd, tty)
-		if err != nil {
+		recvErr = AttachTerminal(cmd, tty)
+		if recvErr != nil {
 			_ = tty.Close()
 
-			return Response{Err: err.Error()}
+			return Response{Err: recvErr.Error()}
 		}
 
 		// The step owns it after Start. A copy left open here means the caller's
@@ -1887,9 +1887,9 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// Either says yes. A server told to run every step hermetically does
 		// not stop being hermetic because this step did not ask, and a step
 		// that asked is not overridden by a server that did not.
-		err := isolate(cmd, h.Root(), s.DropNet || req.NoNet)
-		if err != nil {
-			return Response{Err: err.Error()}
+		isolateErr := isolate(cmd, h.Root(), s.DropNet || req.NoNet)
+		if isolateErr != nil {
+			return Response{Err: isolateErr.Error()}
 		}
 
 		// isolate chroots, so the working directory has to be named from inside

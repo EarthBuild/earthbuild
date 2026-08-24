@@ -143,9 +143,9 @@ func TestADifferentSessionIsADifferentDriver(t *testing.T) {
 		{Session: "s", RunID: "1", Attempt: 2, Repo: "r"},
 		{Session: "s", RunID: "1", Attempt: 1, Repo: "q"},
 	} {
-		got, err := fleet.DriverID(other, secret)
-		if err != nil {
-			t.Fatal(err)
+		got, driverErr := fleet.DriverID(other, secret)
+		if driverErr != nil {
+			t.Fatal(driverErr)
 		}
 
 		if got == first {

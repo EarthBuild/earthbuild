@@ -687,8 +687,8 @@ func (c *runnerCfg) faultIn(
 		a.Hints.ReadsPredicted = append(a.Hints.ReadsPredicted, miss.Path)
 		n.Meta.ReadsPredicted = a.Hints.ReadsPredicted
 
-		got, err := c.provision(ctx, *a)
-		if err == nil {
+		got, provisionErr := c.provision(ctx, *a)
+		if provisionErr == nil {
 			return got, true, nil
 		}
 		// Could not get the file on its own. The whole layer is the answer to

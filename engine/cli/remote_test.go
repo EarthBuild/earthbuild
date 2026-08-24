@@ -45,9 +45,9 @@ func gitRepo(t *testing.T, files map[string]string) (dir, head string) {
 		{"add", "-A"},
 		{"commit", "-q", "--no-verify", "-m", "one"},
 	} {
-		out, err := git(t, dir, args...)
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
+		out, gitErr := git(t, dir, args...)
+		if gitErr != nil {
+			t.Fatalf("git %v: %v\n%s", args, gitErr, out)
 		}
 	}
 
@@ -246,8 +246,8 @@ func TestAFetchCannotEscapeTheCache(t *testing.T) {
 		t.Run(tc.repo+":"+tc.rev, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := fetch(tc.repo, tc.rev)
-			if err == nil {
+			_, fetchErr := fetch(tc.repo, tc.rev)
+			if fetchErr == nil {
 				t.Error("a path outside the cache was accepted")
 			}
 		})

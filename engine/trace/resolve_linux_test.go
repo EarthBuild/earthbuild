@@ -95,8 +95,8 @@ func TestAtFdcwdResolvesAgainstTheWorkingDirectory(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chdir(was) })
 
 	seen := watch(t, func() {
-		fd, err := unix.Openat(unix.AT_FDCWD, name, unix.O_RDONLY, 0)
-		if err == nil {
+		fd, openatErr := unix.Openat(unix.AT_FDCWD, name, unix.O_RDONLY, 0)
+		if openatErr == nil {
 			_ = unix.Close(fd)
 		}
 	})

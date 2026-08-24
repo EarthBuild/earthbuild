@@ -54,11 +54,11 @@ func TestADeepStackMountsFromADeepStore(t *testing.T) {
 	for i := range depth {
 		id := ir.NodeID{byte(i + 1), byte(i / 256)}
 
-		err := m.WriteLayer(id, map[string]string{
+		writeErr := m.WriteLayer(id, map[string]string{
 			"f" + string(rune('a'+i%26)): "x",
 		})
-		if err != nil {
-			t.Fatal(err)
+		if writeErr != nil {
+			t.Fatal(writeErr)
 		}
 
 		stack = append(stack, id)

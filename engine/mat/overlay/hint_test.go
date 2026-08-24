@@ -51,9 +51,9 @@ func TestOverlayOnOverlayExplainsItself(t *testing.T) {
 
 	for i := range 2 {
 		id := ir.NodeID{byte(i + 1)}
-		err := m.WriteLayer(id, map[string]string{"f": "x"})
-		if err != nil {
-			t.Fatal(err)
+		writeErr := m.WriteLayer(id, map[string]string{"f": "x"})
+		if writeErr != nil {
+			t.Fatal(writeErr)
 		}
 
 		stack = append(stack, id)

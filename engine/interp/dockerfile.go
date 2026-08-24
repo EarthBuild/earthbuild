@@ -55,9 +55,9 @@ func (p *Plan) fromDockerfile(c earthfile.Command, prev *ir.Node, rs *state) (*i
 			ref = ref[:i]
 		}
 
-		n, _, err := p.targetRef(ref, where)
-		if err != nil {
-			return nil, fmt.Errorf("FROM DOCKERFILE %s (%s): %w", opt.context, where, err)
+		n, _, targetErr := p.targetRef(ref, where)
+		if targetErr != nil {
+			return nil, fmt.Errorf("FROM DOCKERFILE %s (%s): %w", opt.context, where, targetErr)
 		}
 
 		fromTarget = n
@@ -108,11 +108,11 @@ func (p *Plan) fromDockerfile(c earthfile.Command, prev *ir.Node, rs *state) (*i
 				where, opt.path, from, opt.context, ErrNotProvided)
 		}
 
-		made, err := p.opt.artifacts(from, where)
-		if err != nil {
+		made, artifactsErr := p.opt.artifacts(from, where)
+		if artifactsErr != nil {
 			return nil, fmt.Errorf(
 				"FROM DOCKERFILE at %s: %s produces the Dockerfile, and: %w",
-				where, from, err)
+				where, from, artifactsErr)
 		}
 
 		// The name inside what the target produced. `-f +gen/other.Dockerfile`

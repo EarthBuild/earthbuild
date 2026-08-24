@@ -101,9 +101,9 @@ func TestLookupVerifiesAgainstRealStore(t *testing.T) {
 	// has them. Every claim must degrade to a miss, and the build must proceed
 	// by executing rather than by failing.
 	for _, e := range cache.all() {
-		err := st.Delete(e.Layer)
-		if err != nil {
-			t.Fatal(err)
+		deleteErr := st.Delete(e.Layer)
+		if deleteErr != nil {
+			t.Fatal(deleteErr)
 		}
 	}
 

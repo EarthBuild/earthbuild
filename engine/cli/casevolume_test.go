@@ -49,9 +49,9 @@ func TestTheCaseSensitiveVolumeRecipeWorks(t *testing.T) {
 			continue
 		}
 
-		out, err := runLine(t, line)
-		if err != nil {
-			t.Fatalf("%s\n%v\n%s", line, err, out)
+		out, runErr := runLine(t, line)
+		if runErr != nil {
+			t.Fatalf("%s\n%v\n%s", line, runErr, out)
 		}
 	}
 

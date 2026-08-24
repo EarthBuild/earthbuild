@@ -30,9 +30,9 @@ func socketTargetIn(root, at string) (string, error) {
 
 	_, err := os.Lstat(dir)
 	if err != nil {
-		err := os.MkdirAll(dir, 0o755) //nolint:gosec // a mode a build sees
-		if err != nil {
-			return "", fmt.Errorf("make the directory the step's client looks in: %w", err)
+		mkdirErr := os.MkdirAll(dir, 0o755) //nolint:gosec // a mode a build sees
+		if mkdirErr != nil {
+			return "", fmt.Errorf("make the directory the step's client looks in: %w", mkdirErr)
 		}
 
 		return at, nil

@@ -233,14 +233,14 @@ func drive(
 				return src, nil
 			}
 
-			p, err := fleet.ParsePeerAddr(at)
-			if err != nil {
-				return nil, err
+			p, parseErr := fleet.ParsePeerAddr(at)
+			if parseErr != nil {
+				return nil, parseErr
 			}
 
-			to, err := p.Endpoint()
-			if err != nil {
-				return nil, err
+			to, parseErr := p.Endpoint()
+			if parseErr != nil {
+				return nil, parseErr
 			}
 
 			return &fleet.PeerSource{Endpoint: e, Peer: to, Label: at}, nil
@@ -317,10 +317,10 @@ func drive(
 					// `wg.Go` is `Add(1)` and `defer Done()` in one place, so the
 					// pair cannot drift apart (modernize waitgroupgo).
 					wg.Go(func() {
-						res, err := d.Run(ctx, node(), core.Worker{ID: "w"},
+						res, runErr := d.Run(ctx, node(), core.Worker{ID: "w"},
 							[]ir.NodeID{on}, nil)
-						if err != nil {
-							fmt.Fprintln(os.Stderr, "step:", err)
+						if runErr != nil {
+							fmt.Fprintln(os.Stderr, "step:", runErr)
 
 							return
 						}
@@ -343,10 +343,10 @@ func drive(
 			on := first.Layer
 
 			for range steps {
-				res, err := d.Run(ctx, node(), core.Worker{ID: "w"},
+				res, runErr := d.Run(ctx, node(), core.Worker{ID: "w"},
 					[]ir.NodeID{on}, nil)
-				if err != nil {
-					fmt.Fprintln(os.Stderr, "step:", err)
+				if runErr != nil {
+					fmt.Fprintln(os.Stderr, "step:", runErr)
 
 					break
 				}

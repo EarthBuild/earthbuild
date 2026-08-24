@@ -243,9 +243,9 @@ func (n *Native) Start(ctx context.Context) (Conn, error) {
 			// holds one id - six of eleven corpus examples (E104).
 			cmd.SysProcAttr = rangedNamespace()
 
-			r, w, err := os.Pipe()
-			if err != nil {
-				return nil, fmt.Errorf("open the id-mapping gate: %w", err)
+			r, w, pipeErr := os.Pipe()
+			if pipeErr != nil {
+				return nil, fmt.Errorf("open the id-mapping gate: %w", pipeErr)
 			}
 
 			defer func() { _ = r.Close() }()

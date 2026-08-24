@@ -131,7 +131,7 @@ func newCgroup(name string, l Limits) (*cgroup, error) {
 	// evidence - reading it back is.
 	if l.MemoryMax > 0 {
 		//nolint:gosec // a cgroup path this process made
-		if got, err := os.ReadFile(filepath.Join(path, "memory.max")); err != nil ||
+		if got, readErr := os.ReadFile(filepath.Join(path, "memory.max")); readErr != nil ||
 			strings.TrimSpace(string(got)) != strconv.FormatInt(l.MemoryMax, 10) {
 			_ = os.Remove(path)
 

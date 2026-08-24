@@ -128,12 +128,12 @@ func watch(t *testing.T, body func()) *observed {
 			if _, ok := pathArg(n.Data.NR); ok {
 				// The resolved path, which is the one worth keying on: a bare
 				// relative name means a different file in a different step.
-				path, err := observedPath(n)
+				path, observedErr := observedPath(n)
 
 				// After the read, not before: this is what says the pid was not
 				// recycled while the path was being fetched.
 				if stillRunning(fd, n.ID) {
-					seen.record(n.Data.NR, path, err)
+					seen.record(n.Data.NR, path, observedErr)
 				}
 			}
 

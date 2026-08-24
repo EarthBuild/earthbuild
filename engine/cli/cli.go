@@ -144,7 +144,6 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 	// its conditions - which is nearly all of them - still boots nothing.
 	g := &engine{o: o}
 
-	//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 	defer g.close()
 
 	// What earlier builds observed about each condition. A hint, so a machine
@@ -247,7 +246,6 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 	// (E561, E565).
 	endPlan := timing.Phase("plan", o.Target)
 
-	//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 	plan, err := interp.Build(string(src), o.Target,
 		interp.WithTerminal(tty != nil),
 		interp.WithContext(o.Dir), interp.WithArgs(args),
@@ -367,7 +365,6 @@ func runPlan(
 	// not require one: a LOCALLY target is precisely what someone without a
 	// container runtime can run, so demanding one to run it is backwards. It
 	// also booted a VM, used it for nothing, and tore it down.
-	//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 	e, err := g.executorFor(plan)
 	if err != nil {
 		return nil, nil, err

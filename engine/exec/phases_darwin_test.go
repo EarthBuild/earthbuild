@@ -64,9 +64,10 @@ func TestSandboxPhaseTimings(t *testing.T) { //nolint:paralleltest // boots a VM
 
 		start := time.Now()
 
-		if _, err := e.Run(context.Background(), n, core.Worker{ID: "vm"},
-			[]ir.NodeID{base.ID()}, nil); err != nil {
-			t.Fatalf("%s: %v", name, err)
+		_, runErr := e.Run(context.Background(), n, core.Worker{ID: "vm"},
+			[]ir.NodeID{base.ID()}, nil)
+		if runErr != nil {
+			t.Fatalf("%s: %v", name, runErr)
 		}
 
 		phases = append(phases, struct {

@@ -55,6 +55,35 @@ linters:
   exclusions:
     generated: lax
     rules:
+      # `contextcheck` traces call graphs, and a call graph differs between
+      # platforms - so a `//nolint` at the call site is used on one matrix and
+      # reported as unused on the other, which is a rule that cannot be obeyed
+      # twice. Stated once here instead.
+      #
+      # Both roots are a `sync.Once` over a resource everything afterwards shares:
+      # `Executor.client`, the connection to the guest, and `engine.sandboxed`, the
+      # sandbox itself. A context threaded into either would be whichever caller
+      # happened to be first, and cancelling that one caller would take the
+      # connection - or the whole sandbox - away from every caller after it. Each
+      # function says so where it is defined.
+      #
+      # Cancellation still reaches the work: every step carries the caller's
+      # context, and it is the step that is cancelled rather than the machine.
+      - path: engine/(cli|exec)/
+        linters:
+          - contextcheck
+      # `unparam` on a test helper reports the fixture vocabulary, not dead
+      # flexibility. `fill(t, dir, 4096)` and `aLayerWithFile(t, "etc/hosts")`
+      # name a size and a path that the reader of the test wants to see; moving
+      # them inside the helper hides the number the assertion is about, and a
+      # second caller wanting a different one then has to put the parameter back.
+      #
+      # Production is not excluded. There a parameter that never varies is a
+      # claim about an interface that nothing keeps true, and the findings there
+      # are answered one at a time.
+      - path: _test\.go
+        linters:
+          - unparam
       # `SA4023` reads one build tag at a time and calls the result a tautology.
       # `newMaterialiser` has two implementations: the Linux one can fail, and the
       # `!linux` one *always* fails, because assembling layers without overlayfs

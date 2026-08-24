@@ -48,7 +48,6 @@ func (g *engine) artifacts(ctx context.Context, o Options, src string) interp.Ar
 
 		target, name := targetAndArtifact(ref)
 
-		//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 		sub, err := interp.Build(src, target,
 			interp.WithContext(o.Dir),
 			interp.WithArgs(o.Args),

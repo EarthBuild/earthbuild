@@ -137,7 +137,6 @@ func (d *deadFirst) Start(context.Context) (exec.Conn, error) {
 		return exec.ClosedConn(), nil
 	}
 
-	//nolint:contextcheck // see LoopbackConn: the connection's lifetime, not a request's
 	return exec.LoopbackConn(), nil
 }
 

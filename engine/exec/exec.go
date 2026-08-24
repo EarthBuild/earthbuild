@@ -288,7 +288,6 @@ func (e *Executor) connect() (*guest.Client, error) {
 // calls it; it exists so the lazy start is observable to a test without
 // materialising a layer stack.
 func (e *Executor) Ping(ctx context.Context) error {
-	//nolint:contextcheck // see client: a shared connection cannot take one caller's context
 	c, err := e.client()
 	if err != nil {
 		return err
@@ -392,7 +391,6 @@ func (e *Executor) Run(
 		return core.Result{}, fmt.Errorf("exec backend cannot evaluate %s (%s)", n.Op.Kind, n.Meta.Source)
 	}
 
-	//nolint:contextcheck // see client: a shared connection cannot take one caller's context
 	c, err := e.client()
 	if err != nil {
 		return core.Result{}, err
@@ -892,7 +890,6 @@ func (e *Executor) copyStep(
 
 	from := sources[0]
 
-	//nolint:contextcheck // see client: a shared connection cannot take one caller's context
 	c, err := e.client()
 	if err != nil {
 		return core.Result{}, err

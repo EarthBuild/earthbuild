@@ -85,9 +85,9 @@ build:
 			t.Fatalf("no layer stack for the step at %s", a.Source)
 		}
 
-		err := e.Export(t.Context(), stack, a.Path, dest, a.IfExists)
-		if err != nil {
-			t.Fatalf("%s: %v", a.Source, err)
+		exportErr := e.Export(t.Context(), stack, a.Path, dest, a.IfExists)
+		if exportErr != nil {
+			t.Fatalf("%s: %v", a.Source, exportErr)
 		}
 	}
 

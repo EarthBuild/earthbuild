@@ -77,7 +77,7 @@ func TestEveryDeclarationFieldReachesTheID(t *testing.T) {
 
 		// Two kinds because a declaration has two, and a third would rather fail
 		// here than be varied by a default that changes nothing.
-		switch v.Kind() { //nolint:exhaustive // the default is the point
+		switch v.Kind() {
 		case reflect.String:
 			v.SetString("different")
 		case reflect.Slice:

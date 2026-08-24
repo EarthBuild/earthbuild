@@ -51,7 +51,7 @@ func TestEveryMountFieldReachesTheKey(t *testing.T) {
 					m.FieldByName("Target").SetString([]string{"/a", "/b"}[which])
 				}
 
-				mount, ok := m.Interface().(ir.Mount)
+				mount, ok := reflect.TypeAssert[ir.Mount](m)
 				if !ok {
 					t.Fatalf("this guard built a %T rather than a mount", m.Interface())
 				}

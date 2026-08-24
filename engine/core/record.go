@@ -19,7 +19,6 @@ const (
 )
 
 func (o Outcome) String() string {
-	//nolint:exhaustive // the default is the remaining case
 	switch o {
 	case OutcomeL1Hit:
 		return "L1 hit"

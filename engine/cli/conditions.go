@@ -361,7 +361,6 @@ func (g *engine) runGraph(ctx context.Context, graph *ir.Graph) (string, error) 
 	g.started, g.used = true, true
 	g.mu.Unlock()
 
-	//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 	e, s, err := g.sandboxed()
 	if err != nil {
 		return "", err
@@ -420,7 +419,6 @@ func (g *engine) close() {
 // nothing else: the host executor and the rest of the engine outlive the
 // machine a probe happened to start.
 func (g *engine) closeSandbox() {
-	//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 	e, _, err := g.sandboxed()
 	if err == nil && e != nil {
 		_ = e.Close()
@@ -698,7 +696,6 @@ func (g *engine) warm(ctx context.Context) {
 	g.mu.Unlock()
 
 	go func() {
-		//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 		e, _, err := g.sandboxed()
 		if err != nil || e == nil {
 			return
@@ -742,7 +739,6 @@ func (g *engine) switchTo(image string) error {
 	// reason close() does it: a warm-up fills it on another goroutine, and
 	// replacing it while that boot is in flight would leave a VM nobody owns.
 	if started {
-		//nolint:contextcheck // see sandboxed: a shared sandbox cannot take one caller's context
 		_, _, _ = g.sandboxed()
 		g.closeSandbox()
 	}

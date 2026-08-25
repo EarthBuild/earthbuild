@@ -245,6 +245,20 @@ type Request struct {
 	// growing file unreadable in the first place (E683).
 	Growing int64 `json:"growing,omitempty"`
 
+	// As is the name to file the unpacked layer under, when the caller has
+	// already decided it.
+	//
+	// **Empty means the digest of what it holds**, which is how an image layer
+	// is named and why two images sharing one share the file. A build context
+	// is different: its identity was fixed when the interpreter digested the
+	// host directory, and it is already in the cache key of every step that
+	// copies from it - so it has to arrive with the name, not be given one.
+	//
+	// The host cannot place it itself once the store is on the guest's device:
+	// publishing renames into position and a rename does not cross a
+	// filesystem (E690).
+	As string `json:"as,omitempty"`
+
 	// FromEntry is the entry an observe reply should start at.
 	//
 	// Observe-only. A large observation does not fit in one frame - this

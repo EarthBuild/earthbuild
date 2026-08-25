@@ -134,6 +134,28 @@ func (c *Client) UnpackLayerDeclaring(
 	return c.UnpackLayerGrowing(ctx, blob, media, config, 0)
 }
 
+// UnpackLayerAs unpacks a blob and files it under a name the caller chose.
+//
+// For a build context, whose identity the plan fixed when it digested the host
+// directory - see Request.As.
+func (c *Client) UnpackLayerAs(
+	ctx context.Context, blob, media string, as ir.NodeID,
+) (ir.NodeID, error) {
+	resp, err := c.do(ctx, Request{
+		Kind: KindUnpackLayer, Blob: blob, Media: media, As: as.String(),
+	})
+	if err != nil {
+		return ir.NodeID{}, err
+	}
+
+	id, err := ir.ParseNodeID(resp.Layer)
+	if err != nil {
+		return ir.NodeID{}, fmt.Errorf("the guest named the layer %q: %w", resp.Layer, err)
+	}
+
+	return id, nil
+}
+
 // UnpackLayerGrowing unpacks a blob the host has not finished writing.
 //
 // `growing` is its final length; zero is the ordinary case of a blob that has

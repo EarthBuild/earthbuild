@@ -377,12 +377,11 @@ func (e *Executor) Run(
 		// that target has it` - a missing artifact naming a target nobody
 		// wrote.
 		//
-		// Refused rather than attempted, which is what I10 asks for while the
-		// staging-into-the-guest half does not exist: name the construct, name
-		// the cause, and never approximate.
-		err := localContextRefusal()
-		if err != nil {
-			return core.Result{}, fmt.Errorf("%w (%s)", err, n.Meta.Source)
+		// So it is handed across instead, which is what stageContextInGuest
+		// does; the refusal below is what remains for a sandbox that cannot
+		// carry it.
+		if guest.StoreInVM() {
+			return e.stageContextInGuest(ctx, n)
 		}
 
 		return e.stageContext(n)
@@ -876,40 +875,9 @@ func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 		}
 	}()
 
-	// The directory this entry was read from, which for a target in another
-	// Earthfile is that Earthfile's own - not the invocation's.
-	root := n.Meta.ContextRoot
-	if root == "" {
-		root = e.Context
-	}
-
-	src := filepath.Join(root, filepath.Clean("/"+n.Op.Args[0]))
-
-	fi, err := os.Stat(src)
+	err = e.copyContextInto(n, dir)
 	if err != nil {
-		return core.Result{}, fmt.Errorf("build context %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
-	}
-
-	// Staged under the path it has in the context, so the guest can name it the
-	// way the Earthfile does.
-	dst := filepath.Join(dir, filepath.Clean("/"+n.Op.Args[0]))
-	err = os.MkdirAll(filepath.Dir(dst), 0o755) //nolint:gosec // a directory a build writes into, as a shell would make it
-	if err != nil {
-		return core.Result{}, fmt.Errorf("prepare the context layer: %w", err)
-	}
-
-	if fi.IsDir() {
-		// **The same exclusions the digest was taken with.** The interpreter
-		// applies the ignore file when it computes this context's identity, and
-		// this used to copy everything - so `.earthlyignore` decided the cache
-		// key and not what the container got (E623).
-		err = copyDirExcluding(src, dst, ignore.For(root, src))
-	} else {
-		err = copyOut(src, dst)
-	}
-
-	if err != nil {
-		return core.Result{}, fmt.Errorf("stage the build context: %w", err)
+		return core.Result{}, err
 	}
 
 	err = st.PutNamed(n.ID(), dir)
@@ -1701,19 +1669,173 @@ func (e *Executor) ViewDigests(
 
 // localContextRefusal says why a local build context cannot be staged, or nil.
 //
-// The store and the context have to be on the same side. With the store on the
-// host they are, and this permits everything it always did; with the store on
-// the guest's own device the context would have to be handed across, which is
-// the part that does not exist yet.
+// **What is left after the handing-across exists.** The store and the context
+// have to end on the same side: with the store on the host they already are,
+// and with it on the guest's device the context is packed and handed over. A
+// sandbox that cannot say where the guest sees a host path can do neither, and
+// this is what it says instead of failing later as a missing artifact (E690).
 func localContextRefusal() error {
 	if !guest.StoreInVM() {
 		return nil
 	}
 
 	return fmt.Errorf("COPY from the build context needs the layer store on the"+
-		" host, and %s put it on the guest's device"+
-		"\n  the context is read here and staged into the store, and the guest"+
-		" cannot read a store it does not hold"+
+		" host, or a sandbox that can hand the context to the guest, and %s put"+
+		" the store on the guest's device"+
+		"\n  the context is read here, and the guest cannot read a store it does"+
+		" not hold"+
 		"\n  unset %s for this build, or copy from a target instead of from the"+
 		" context", guest.EnvStoreInVM, guest.EnvStoreInVM)
+}
+
+// copyContextInto stages what a build-context node names, into dir.
+//
+// Shared by the two placements: on the host the staged tree is renamed into the
+// store, and with the store on the guest's device it is packed and handed
+// across, because a rename does not cross a filesystem (E690). What is copied,
+// and what is left out, must not depend on which.
+func (e *Executor) copyContextInto(n *ir.Node, dir string) error {
+	// The directory this entry was read from, which for a target in another
+	// Earthfile is that Earthfile's own - not the invocation's.
+	root := n.Meta.ContextRoot
+	if root == "" {
+		root = e.Context
+	}
+
+	src := filepath.Join(root, filepath.Clean("/"+n.Op.Args[0]))
+
+	fi, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("build context %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
+	}
+
+	// Staged under the path it has in the context, so the guest can name it the
+	// way the Earthfile does.
+	dst := filepath.Join(dir, filepath.Clean("/"+n.Op.Args[0]))
+
+	err = os.MkdirAll(filepath.Dir(dst), 0o755) //nolint:gosec // a directory a build writes into, as a shell would make it
+	if err != nil {
+		return fmt.Errorf("prepare the context layer: %w", err)
+	}
+
+	if fi.IsDir() {
+		// **The same exclusions the digest was taken with.** The interpreter
+		// applies the ignore file when it computes this context's identity, and
+		// this used to copy everything - so `.earthlyignore` decided the cache
+		// key and not what the container got (E623).
+		err = copyDirExcluding(src, dst, ignore.For(root, src))
+	} else {
+		err = copyOut(src, dst)
+	}
+
+	if err != nil {
+		return fmt.Errorf("stage the build context: %w", err)
+	}
+
+	return nil
+}
+
+// contextMedia is what a packed build context is: a tar and nothing else.
+//
+// Uncompressed deliberately. The bytes go from this machine to a guest sharing
+// its page cache, over a mount, and compressing them would spend CPU on both
+// sides to save a copy that is not the cost.
+const contextMedia = "application/vnd.oci.image.layer.v1.tar"
+
+// stageContextInGuest files a build context in a store this machine cannot
+// write to.
+//
+// **The host stages and the guest places.** Publishing a layer renames a staged
+// tree into position, and a rename does not cross a filesystem - so with the
+// store on the guest's device a tree staged here can never become a layer there
+// (E690). What crosses instead is a tar, which the guest unpacks into its own
+// staging and publishes under the name the plan already chose.
+//
+// Named rather than digested, which is the whole reason this cannot reuse the
+// image path: a context's identity was fixed when the interpreter digested the
+// host directory and is already in the cache key of every step that copies from
+// it. See Request.As.
+func (e *Executor) stageContextInGuest(ctx context.Context, n *ir.Node) (core.Result, error) {
+	if e.Context == "" {
+		return core.Result{}, fmt.Errorf("no build context configured, but %s needs one", n.Meta.Source)
+	}
+
+	c, err := e.client()
+	if err != nil {
+		return core.Result{}, err
+	}
+
+	// **Asked, not stated.** The store is on a device this machine cannot read,
+	// so whether the context is already filed is the guest's answer to give.
+	held, herr := c.StoreHas(ctx, []ir.NodeID{n.ID()})
+	if herr == nil && len(held) == 1 {
+		return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
+	}
+
+	seer, ok := e.sb.(interface{ GuestPath(string) (string, bool) })
+	if !ok {
+		return core.Result{}, fmt.Errorf("%w (%s)", localContextRefusal(), n.Meta.Source)
+	}
+
+	// Beside the image blobs, which is the directory already established as one
+	// the host writes and the guest reads.
+	blobs := filepath.Join(e.sb.StoreDir(), "blobs")
+
+	err = os.MkdirAll(blobs, 0o750)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("prepare somewhere to hand the context over: %w", err)
+	}
+
+	staged, err := os.MkdirTemp(blobs, ".context-")
+	if err != nil {
+		return core.Result{}, fmt.Errorf("stage the build context: %w", err)
+	}
+
+	defer func() { _ = os.RemoveAll(staged) }()
+
+	err = e.copyContextInto(n, staged)
+	if err != nil {
+		return core.Result{}, err
+	}
+
+	tarball := filepath.Join(blobs, "context-"+n.ID().String()+".tar")
+
+	err = packInto(staged, tarball)
+	if err != nil {
+		return core.Result{}, err
+	}
+
+	// Kept only until the guest has read it: this is a copy of the context and
+	// the layer it becomes is the thing worth keeping.
+	defer func() { _ = os.Remove(tarball) }()
+
+	at, visible := seer.GuestPath(tarball)
+	if !visible {
+		return core.Result{}, fmt.Errorf("the guest cannot see %s, so the build"+
+			" context cannot be handed to it (%s)", tarball, n.Meta.Source)
+	}
+
+	id, err := c.UnpackLayerAs(ctx, at, contextMedia, n.ID())
+	if err != nil {
+		return core.Result{}, fmt.Errorf("file the build context (%s): %w", n.Meta.Source, err)
+	}
+
+	return core.Result{Layer: id, Captured: e.sb.Confines()}, nil
+}
+
+// packInto writes a directory to a tar file.
+func packInto(dir, at string) error {
+	f, err := os.Create(at) //nolint:gosec // a path this engine derived
+	if err != nil {
+		return fmt.Errorf("make room for the packed context: %w", err)
+	}
+
+	defer f.Close()
+
+	_, _, err = image.Pack(dir, f)
+	if err != nil {
+		return fmt.Errorf("pack the build context: %w", err)
+	}
+
+	return f.Close()
 }

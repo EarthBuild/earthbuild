@@ -9,6 +9,11 @@ import (
 
 // TestALocalContextSaysWhyItCannotBeStagedIntoTheGuestsStore.
 //
+// **What is left of the refusal now the context can be handed across.** A
+// sandbox that can say where the guest sees a host path packs the context and
+// gives it to the guest to place; one that cannot has no route at all, and this
+// is what it says rather than failing later as a missing artifact.
+//
 // **A comment held an assumption that a later switch falsified.** `OpLocal`
 // reads "the context lives on the host, and so does the store, so this is a
 // host-side copy: nothing needs to enter the sandbox to do it" - true when it
@@ -29,9 +34,9 @@ func TestALocalContextSaysWhyItCannotBeStagedIntoTheGuestsStore(t *testing.T) {
 
 	err := localContextRefusal()
 	if err == nil {
-		t.Fatal("a local context with the store on the guest's device was" +
-			"\n  accepted, and it cannot work: the layer lands where the guest" +
-			"\n  cannot read it, and the failure surfaces as a missing artifact")
+		t.Fatal("a sandbox with no route for the context accepted one anyway," +
+			"\n  and it cannot work: the layer lands where the guest cannot read" +
+			"\n  it, and the failure surfaces as a missing artifact")
 	}
 
 	// The message has to name the cause and the way out, or it sends a reader

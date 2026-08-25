@@ -31688,8 +31688,35 @@ saying plainly: every measurement taken on it - the layers apart, the pinning,
 the streaming - was taken on Earthfiles that copy nothing from the host, because
 those are the only ones it can build.
 
-Refused now, with the cause and the way out, which is what I10 asks for while
-the other half does not exist. The engine has a whole mechanism for this -
-`Capabilities`, `arrival`, `UnsupportedError`, all written to say "this arrives
-at M7" - and **nothing anywhere sets `Schedule.Capabilities`**, so none of it
-has ever run. That is its own gap and a larger one than this.
+### And then handed across, which is the fix
+
+The host stages the context as it always did and packs it into a tar; the guest
+unpacks that into its *own* staging and publishes it. The tar is uncompressed
+deliberately - the bytes cross a shared mount, and compressing them would spend
+CPU on both sides to save a copy that is not the cost.
+
+**Filed under the name the plan chose, not the digest of what it holds.** That
+is the one thing this could not borrow from the image path. An image layer is
+named by its content, which is why two images sharing a layer share the file; a
+context's identity was fixed when the interpreter digested the host directory,
+and it is already in the cache key of every step that copies from it. So the
+name travels with the request (`Request.As`) and the guest publishes under it.
+
+The key is therefore identical whichever side stages the tree, and a build moved
+between the two settings still hits:
+
+```text
+41 Go files, COPY src /src, go build ./...
+  cold   builds        (refused before)
+  warm   0.27s         3 hit, 1 miss
+```
+
+What is left of the refusal is a sandbox that cannot say where the guest sees a
+host path: it has no route at all, and says so rather than failing later as a
+missing artifact.
+
+**The larger gap stands.** The engine has a whole mechanism for refusing what it
+cannot evaluate - `Capabilities`, `arrival`, `UnsupportedError`, all written to
+say "this arrives at M7" - and **nothing anywhere sets `Schedule.Capabilities`**,
+so none of it has ever run. Every unimplemented construct still surfaces as
+whatever downstream error it happens to cause.

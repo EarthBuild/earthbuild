@@ -2808,9 +2808,7 @@ func (s *Server) unpackLayer(req Request) Response {
 	// **Told rather than rediscovered.** The unpacker read every header to
 	// write the layer at all, so the digests are free - and the ownership is not
 	// recoverable from the tree at all if any chown was refused.
-	id, err := st.PlaceAs(staging, store.Placement{
-		Digests: knownDigests(got.Digests), Owners: declaredOwners(got.Owners),
-	})
+	id, err := placeUnpacked(st, staging, req.As, got)
 	if err != nil {
 		return Response{Err: "unpack-layer: " + err.Error()}
 	}
@@ -3041,4 +3039,35 @@ func (s *Server) blobProgress(blob string) func(int64) (int64, error) {
 	name := filepath.Base(blob)
 
 	return func(have int64) (int64, error) { return f.Progress(name, have) }
+}
+
+// placeUnpacked files a freshly unpacked tree, under the caller's name when it
+// gave one.
+//
+// **Two kinds of layer, named two ways.** An image layer is filed under the
+// digest of its own tree, so two images sharing one share the file. A build
+// context is filed under the identity the plan gave it, which is already in the
+// cache key of every step that copies from it - so it arrives with its name.
+//
+// Staged inside the store either way: publishing renames into position, and a
+// rename does not cross a filesystem, so a tree the host staged could never
+// become a layer here (E690).
+func placeUnpacked(st store.DirStore, staging, as string, got image.Unpacked) (ir.NodeID, error) {
+	if as == "" {
+		return st.PlaceAs(staging, store.Placement{
+			Digests: knownDigests(got.Digests), Owners: declaredOwners(got.Owners),
+		})
+	}
+
+	id, err := ir.ParseNodeID(as)
+	if err != nil {
+		return ir.NodeID{}, fmt.Errorf("the name to file this layer under (%q): %w", as, err)
+	}
+
+	err = st.PutNamed(id, staging)
+	if err != nil {
+		return ir.NodeID{}, err
+	}
+
+	return id, nil
 }

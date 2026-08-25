@@ -31276,14 +31276,45 @@ second. Reopening on EOF does not shift it, so it is not a per-descriptor
 attribute that an open revalidates; it is the shared filesystem's own timeout,
 and Apple's `container` exposes no way to ask for a shorter one.
 
-One second of granularity cannot overlap a 1.19s fetch. **So streaming a layer
-needs bulk bytes on the wire**, and the wire has none in that direction: step
-output streams guest-to-host, and the fault-in channel answers "I have placed
-it" rather than carrying the file. A host-to-guest bulk channel is a real piece
-of protocol - framing, backpressure, cancellation - in a component that has
-already produced one deadlock (E673), and it is not a tweak.
+One second of granularity cannot overlap a 1.19s fetch.
 
-Recorded so the next person does not repeat the tail.
+### E683 was wrong, and here is what was actually in the way
+
+The conclusion drawn from the above - that streaming a layer needs bulk bytes on
+the wire - does not survive asking *why* the reader saw one-second steps. It is
+not one thing, it is two, and neither is a coherence limit:
+
+1. **A cached size, giving a premature EOF.** The reader stops because the file
+   appears to end, not because the bytes are unavailable. A file that is already
+   its final length never reports one - and the manifest states that length
+   before the first byte is fetched.
+2. **Readahead, poisoning the cache with zeros.** Pre-allocate the file and the
+   first read pulls in pages the host has not written yet. They are zeros, they
+   are cached, and a zero cached is a zero kept - which is worse than an EOF,
+   because it is silently wrong.
+
+Both are defeatable from the reader's side. Pre-allocated to full length, with
+the reader taking a chunk only once the writer says it is down:
+
+```text
+plain      1/10 chunks fresh
+FADV_RANDOM       10/10     readahead off
+FADV_DONTNEED     10/10     cached pages dropped before each read
+O_DIRECT          10/10     page cache bypassed
+```
+
+So the guest can read a blob the host is still writing, provided it never reads
+ahead of what it has been told is there. What it has been told can be a file of
+its own: a small file rewritten by the host was read fresh at the writer's
+200ms cadence in every run, and **staleness there costs latency rather than
+correctness** - a progress marker that lags means the guest waits, never that it
+reads a byte that is not yet written.
+
+The 1.1s is therefore reachable without a bulk channel, framing or backpressure.
+What it needs is a length known up front, a progress marker, and a reader that
+does not read ahead - which is a much smaller thing than the paragraph above
+claimed, and the claim is left standing with its correction rather than quietly
+edited away.
 
 ## E684 - the tracer's handler is at its floor
 

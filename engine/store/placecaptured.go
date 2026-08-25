@@ -29,8 +29,8 @@ import (
 // Already present is success, not a collision: the same contents have the same
 // name, and whichever copy is there has been named by exactly this function. The
 // staging tree is removed rather than filed twice.
-func placeCaptured(store, staging string) (ir.NodeID, error) {
-	c, err := layer.TakeOwnedIn(staging, layer.IDMap{}, layer.IDMap{}, nil)
+func placeCaptured(store, staging string, p Placement) (ir.NodeID, error) {
+	c, err := layer.TakeOwnedKnowing(staging, layer.IDMap{}, layer.IDMap{}, p.Owners, p.Digests)
 	if err != nil {
 		return ir.NodeID{}, fmt.Errorf("capture what was materialised: %w", err)
 	}

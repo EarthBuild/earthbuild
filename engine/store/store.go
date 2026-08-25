@@ -19,6 +19,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
 // DirStore is a core.Store backed by a host directory, which is what every
@@ -48,7 +49,29 @@ func (d DirStore) Declaration(layer ir.NodeID) ir.NodeID {
 
 // Place files a captured tree under the digest of what it holds.
 func (d DirStore) Place(staging string) (ir.NodeID, error) {
-	return placeCaptured(string(d), staging)
+	return placeCaptured(string(d), staging, Placement{})
+}
+
+// Placement is what an unpacker learned on the way past, so the store need not
+// rediscover it - or, in the case of ownership, cannot.
+type Placement struct {
+	// Digests is each regular file's content digest, keyed by slash-separated
+	// path. A path this does not name is read as before, so it is a read
+	// skipped and never a different answer accepted (E653).
+	Digests map[string]ir.NodeID
+	// Owners is the archive's account of who owns each path.
+	//
+	// **Not an optimisation but a correction.** An unprivileged unpack cannot
+	// grant the archive's ownership, so the disk says the builder owns what the
+	// image says root owns - and on BSD a new file takes the enclosing
+	// directory's group, so the layer's name depended on where the store lived.
+	// The declaration settles it before the digest is taken (E313, E656).
+	Owners map[string]layer.Owner
+}
+
+// PlaceAs is Place told what the unpacker already knows.
+func (d DirStore) PlaceAs(staging string, p Placement) (ir.NodeID, error) {
+	return placeCaptured(string(d), staging, p)
 }
 
 // Squash merges a range of layers by hard-linking them into one directory.

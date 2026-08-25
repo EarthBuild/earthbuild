@@ -121,7 +121,7 @@ func TestCapturingALargeTreeDoesNotHoardDescriptors(t *testing.T) {
 
 	before := openFDs(t)
 
-	id, err := placeCaptured(t.TempDir(), tree)
+	id, err := placeCaptured(t.TempDir(), tree, Placement{})
 	if err != nil {
 		t.Fatalf("capture: %v", err)
 	}

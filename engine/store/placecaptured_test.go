@@ -60,7 +60,7 @@ func TestALayerIsFiledUnderWhatIsInIt(t *testing.T) {
 
 	store := t.TempDir()
 
-	id, err := placeCaptured(store, aTree(t, "hello"))
+	id, err := placeCaptured(store, aTree(t, "hello"), Placement{})
 	if err != nil {
 		t.Fatalf("place: %v", err)
 	}
@@ -97,12 +97,12 @@ func TestTheSameLayerIsFiledOnce(t *testing.T) {
 
 	store := t.TempDir()
 
-	first, err := placeCaptured(store, aTree(t, "same"))
+	first, err := placeCaptured(store, aTree(t, "same"), Placement{})
 	if err != nil {
 		t.Fatalf("first: %v", err)
 	}
 
-	second, err := placeCaptured(store, aTree(t, "same"))
+	second, err := placeCaptured(store, aTree(t, "same"), Placement{})
 	if err != nil {
 		t.Fatalf("second: %v", err)
 	}
@@ -127,12 +127,12 @@ func TestDifferentTreesAreDifferentLayers(t *testing.T) {
 
 	store := t.TempDir()
 
-	a, err := placeCaptured(store, aTree(t, "one"))
+	a, err := placeCaptured(store, aTree(t, "one"), Placement{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	b, err := placeCaptured(store, aTree(t, "two"))
+	b, err := placeCaptured(store, aTree(t, "two"), Placement{})
 	if err != nil {
 		t.Fatal(err)
 	}

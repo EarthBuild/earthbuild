@@ -32353,3 +32353,78 @@ Planning is not on the critical path of a build that has real work to do; it
 overlaps with the prefetching it kicks off. So this is a no-op-build
 optimisation and should be described as one. A developer's edit-rebuild loop is
 88% compiler and the engine is close to the floor of what is left.
+
+## E704 - COPY hid what the destination already had, and nothing was deleted
+
+Running this repository's own CI line through the native engine:
+
+```text
+earth --ci +lint
+  Error: can't load config: can't read viper config:
+    open /earthly/.golangci.yaml: no such file or directory
+```
+
+The Earthfile copies that config in and the `COPY --dir +code/earthly /` after it
+destroys it. The reference engine gets past this point and fails on lint findings
+instead, so the two engines disagree about what `COPY` means.
+
+Minimal, and it needs both halves:
+
+```text
+goenv:  FROM alpine:3.21
+        WORKDIR /earthly
+code:   FROM +goenv
+        COPY --dir sub ./          # populated by a *context copy*, not a RUN
+        SAVE ARTIFACT /earthly
+taker:  FROM +goenv
+        RUN echo config > /earthly/made-by-run
+        COPY --dir +code/earthly /
+        RUN ls -a /earthly         # earthly: both. native: only `sub`.
+```
+
+### Nothing was deleted
+
+The layers say so. No `.wh.` entry exists anywhere in the store, and both
+directories are intact in the layers that hold them:
+
+```text
+8c6b5eb7  /earthly -> made-by-run     the RUN's delta
+20b27b3d  /earthly -> sub             the COPY's delta
+```
+
+`20b27b3d` holds nothing but `/earthly`, so it is the copy's own delta and not
+the producer's layer, which carries a marker file besides. The final step stands
+on both. It sees one.
+
+The answer is an extended attribute, which is why grepping for whiteout *files*
+found nothing:
+
+```text
+20b27b3d /earthly  trusted.overlay.opaque: y
+```
+
+**An opaque directory hides everything below it.** The copy's layer is uppermost,
+so its `/earthly` masks the one underneath entirely, and `made-by-run` is not
+gone - it is unreachable.
+
+### Where the marker comes from
+
+The kernel's, not this engine's: `mkdir` of a directory in an overlay upper must
+produce an *empty* directory, so overlayfs marks it opaque in case a lower has
+the same name. That is correct for the step that created it and wrong for every
+later use of the layer, because a captured layer is content-addressed and gets
+stacked over lowers it was never created against. The marker is a statement about
+the stack it was made in, and it survives into one where it is false.
+
+This is why the shape matters. Where each target creates the directory itself the
+merge is correct, and the two conditions that break it - the directory inherited
+from a `WORKDIR` in a shared base, and the producer filling it with a context copy
+rather than a `RUN` - are exactly the ones the repository's own `+lint` has.
+
+### Not yet fixed
+
+The remaining question is why `/earthly` was absent from the copy step's lowers
+at the moment the copy created it, since the `RUN` before it had already put a
+`/earthly` in the stack. Until that is answered a fix would be a guess. The
+repro test is written and held rather than committed, so that it lands in the
+same commit as the fix and bisect never meets a red one.

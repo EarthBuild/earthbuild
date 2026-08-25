@@ -28671,3 +28671,30 @@ patches:
 hypothesis about where the 33ms went - the cgroup, the proc mount, resolving
 views, isolation - measured 0.0ms, and each was wrong within a minute of being
 timed. The one that was right was not on the list.
+
+### Which bind, and why (E636)
+
+The mount list is the obvious suspect and is only half the answer. Removing the
+six device nodes, leaving `/etc/resolv.conf` alone, changes the twenty-step
+curve from `9..78ms` to `4..33ms`: seven times fewer mounts for 2.4 times less
+time. Removing that one as well - so the step binds nothing - makes
+`guest:prepare` **flat at 0.000s** for all twenty.
+
+So all of the depth cost is in binding, none of it is elsewhere, and it is
+**sublinear in the number of mounts**: the first bind costs about 1.65ms per
+layer and each further one about 0.35ms.
+
+That shape is what a copy-up looks like. A bind needs a file to land on, so
+`bindMounts` creates one inside the merged overlay; creating an entry in
+`/dev` makes overlayfs materialise `/dev` in the upper layer first, which means
+reading it through every lower layer. The first bind into a directory pays for
+that directory, and the five that follow it into the same directory do not.
+
+This narrows the fix and rules out the obvious one. Mounting a tmpfs at `/dev`
+would put six of the seven binds in a filesystem with no lower layers - but the
+tmpfs is itself a mount into the overlay and pays the same first-bind cost, so
+it buys the 0.35ms tail and not the 1.65ms head. The head is bought by not
+creating mount points through the merged overlay at all: the guest assembled
+the overlay and knows its upper directory, and a placeholder created *there*
+exists in upper before the lookup starts. Unverified - it is written here so
+the next person starts from the measurement rather than from the mount list.

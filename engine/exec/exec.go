@@ -396,6 +396,8 @@ func (e *Executor) Run(
 		return core.Result{}, err
 	}
 
+	endPrep := phase("exec:prep", n.Meta.Source)
+
 	h, done, err := e.base(ctx, c, n, base)
 	if err != nil {
 		return core.Result{}, err
@@ -557,6 +559,8 @@ func (e *Executor) Run(
 	}
 
 	write, flush := e.sinkFor(n)
+
+	endPrep()
 
 	endRun := phase("run", n.Meta.Source)
 

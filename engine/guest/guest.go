@@ -517,7 +517,10 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		// Committed into the layer store under its own digest, because the
 		// handle's directories are removed on release: a layer that is digested
 		// and not persisted is a cache entry pointing at nothing.
+		endCommit := timing.Phase("guest:commit", c.ID.String())
 		err = s.commit(h.Delta(), c.ID)
+
+		endCommit()
 		if err != nil {
 			return Response{Err: err.Error()}
 		}

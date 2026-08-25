@@ -966,7 +966,12 @@ func (s *Scheduler) runStepOnce(
 	}
 
 	defer func() {
+		endRelease := timing.Phase("release", n.Meta.Source)
+
 		rerr := h.Release()
+
+		endRelease()
+
 		if rerr != nil && err == nil {
 			err = rerr
 		}
@@ -1292,7 +1297,12 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 		// L2. Consulted only when L1 missed, which is exactly when the
 		// alternative is a full rebuild (green paper 4.3).
-		if e, hit := s.tryL2(ctx, n, base, refs); hit && usableDeclaration(n.Op.Kind, e) {
+		endL2 := timing.Phase("l2", n.Meta.Source)
+		e, hit = s.tryL2(ctx, n, base, refs)
+
+		endL2()
+
+		if hit && usableDeclaration(n.Op.Kind, e) {
 			rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = e.Layer, e.Exit, e.Bytes, OutcomeL2Hit
 			s.finish(n, base, Result{
 				Layer: e.Layer, Exit: e.Exit, Bytes: e.Bytes, Declares: e.Declares,
@@ -1327,7 +1337,10 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 	// Placement was decided before the build started, so nothing here depends on
 	// what other steps happen to be doing.
+	endStep := timing.Phase("step", n.Meta.Source)
 	res, err := s.runStep(ctx, n, s.placed[n.ID()], base, srcStacks)
+
+	endStep()
 	if err != nil {
 		return fmt.Errorf("run %s: %w", n.ID(), err)
 	}

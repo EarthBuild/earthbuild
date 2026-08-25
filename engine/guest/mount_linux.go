@@ -91,7 +91,7 @@ func waitFor(path string) error {
 // Bound before the chroot, because the source is a path the guest can name and
 // the target is a path inside a root that does not exist yet as far as the
 // process is concerned. Afterwards there would be no way to reach the source.
-func bindMounts(root, store, layers string, mounts []Mount) (undo func(), err error) {
+func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(), err error) {
 	var (
 		done   []string
 		staged []string
@@ -350,7 +350,7 @@ func bindMounts(root, store, layers string, mounts []Mount) (undo func(), err er
 			missing := bad != nil
 
 			if missing {
-				found, ok := findDirectory(filepath.Dir(target))
+				found, ok := findDirectory(filepath.Dir(target), deltaOf(root, delta, filepath.Dir(target)))
 				if ok {
 					touched = append(touched, found)
 				}

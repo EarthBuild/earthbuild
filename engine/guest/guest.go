@@ -1875,7 +1875,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// sections costs nothing and closes the window.
 		unlock := s.lockHandle(req.Handle)
 		endBind := timing.Phase("guest:bind", fmt.Sprintf("%d mounts", len(mounts)))
-		undo, bindErr := bindMounts(h.Root(), s.mountStore(), s.LayerDir, mounts)
+		undo, bindErr := bindMounts(h.Root(), s.mountStore(), s.LayerDir, h.Delta(), mounts)
 
 		endBind()
 		unlock()

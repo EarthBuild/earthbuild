@@ -46,7 +46,7 @@ func TestABoundViewShowsALayerAndCannotBeWrittenThrough(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	undo, err := bindMounts(root, cache, layers, []Mount{
+	undo, err := bindMounts(root, cache, layers, "", []Mount{
 		{Target: "/view", Layer: id, ReadOnly: true},
 	})
 	if err != nil {
@@ -98,7 +98,7 @@ func TestABoundViewCanShowASubtree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	undo, err := bindMounts(root, cache, layers, []Mount{
+	undo, err := bindMounts(root, cache, layers, "", []Mount{
 		{Target: "/view", Layer: id, Sub: "inner", ReadOnly: true},
 	})
 	if err != nil {

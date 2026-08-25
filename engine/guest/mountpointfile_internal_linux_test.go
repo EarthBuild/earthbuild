@@ -46,7 +46,7 @@ func TestAFileMountPointThisEngineMadeIsRemoved(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	undo, err := bindMounts(root, store, layerStoreForTest(t), []Mount{
+	undo, err := bindMounts(root, store, layerStoreForTest(t), "", []Mount{
 		{Sandbox: source, Target: resolverPath, ReadOnly: true, Mode: 0o644},
 	})
 	if err != nil {
@@ -104,7 +104,7 @@ func TestAFileMountPointTheImageHadSurvives(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	undo, err := bindMounts(root, store, layerStoreForTest(t), []Mount{
+	undo, err := bindMounts(root, store, layerStoreForTest(t), "", []Mount{
 		{Sandbox: source, Target: resolverPath, ReadOnly: true, Mode: 0o644},
 	})
 	if err != nil {
@@ -166,7 +166,7 @@ func TestTheDirectoryAMountPointWasMadeInKeepsItsTime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	undo, err := bindMounts(root, store, layerStoreForTest(t), []Mount{
+	undo, err := bindMounts(root, store, layerStoreForTest(t), "", []Mount{
 		{Sandbox: source, Target: resolverPath, ReadOnly: true, Mode: 0o644},
 	})
 	if err != nil {
@@ -224,7 +224,7 @@ func TestADirectoryTheStepWroteInKeepsTheStepsTime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	undo, err := bindMounts(root, store, layerStoreForTest(t), []Mount{
+	undo, err := bindMounts(root, store, layerStoreForTest(t), "", []Mount{
 		{Sandbox: source, Target: resolverPath, ReadOnly: true, Mode: 0o644},
 	})
 	if err != nil {

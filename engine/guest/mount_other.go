@@ -8,7 +8,7 @@ package guest
 // keep the package building on the machine developing it, and refuses rather
 // than pretending: a step that ran without its cache mount would report success
 // having built without the cache it asked for.
-func bindMounts(_, _, _ string, _ []Mount) (func(), error) {
+func bindMounts(_, _, _, _ string, _ []Mount) (func(), error) {
 	return func() {}, ErrCannotIsolate
 }
 

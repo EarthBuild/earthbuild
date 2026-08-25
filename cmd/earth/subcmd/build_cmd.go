@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"path"
@@ -381,6 +382,13 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		return fmt.Errorf("build new buildkitd client: %w", err)
 	}
 	defer bkClient.Close()
+
+	if b.cli.Flags().Engine.Metadata().Scheme == engine.SchemeApple {
+		c, inspectErr := b.cli.Flags().Engine.InspectContainer(ctx, b.cli.Flags().ContainerName)
+		if inspectErr == nil && c.IPs["bridge"] != "" {
+			b.cli.Flags().LocalRegistryHost = "http://" + net.JoinHostPort(c.IPs["bridge"], "8371")
+		}
+	}
 
 	platr, err := b.platformResolver(ctx, bkClient, target)
 	if err != nil {

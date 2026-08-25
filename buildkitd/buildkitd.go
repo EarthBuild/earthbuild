@@ -7,6 +7,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -149,6 +150,15 @@ func NewClient(
 	info, workerInfo, err := maybeStart(ctx, log, image, containerName, eng, settings, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("maybe start buildkitd: %w", err)
+	}
+
+	if eng.Metadata().Scheme == engine.SchemeApple {
+		resolveAppleContainerAddress(ctx, containerName, eng, &settings)
+
+		opts, err = addRequiredOpts(settings)
+		if err != nil {
+			return nil, fmt.Errorf("add required client opts: %w", err)
+		}
 	}
 
 	printBuildkitInfo(log, info, workerInfo, earthVersion, isLocal, settings.HasConfiguredCacheSize())
@@ -410,6 +420,15 @@ func maybeRestart(
 		}
 
 		if useExistingContainer {
+			if eng.Metadata().Scheme == engine.SchemeApple {
+				resolveAppleContainerAddress(ctx, containerName, eng, &settings)
+
+				opts, err = addRequiredOpts(settings)
+				if err != nil {
+					return nil, nil, fmt.Errorf("add required client opts: %w", err)
+				}
+			}
+
 			var (
 				info       *client.Info
 				workerInfo *client.WorkerInfo
@@ -417,7 +436,7 @@ func maybeRestart(
 
 			info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
 			if err != nil {
-				return nil, nil, fmt.Errorf("could not connect to buildkitd to shut down container: %w", err)
+				return nil, nil, fmt.Errorf("could not connect to buildkitd: %w", err)
 			}
 
 			return info, workerInfo, nil
@@ -426,6 +445,15 @@ func maybeRestart(
 		bkLog.Printf("Settings do not match. Restarting buildkit daemon with updated settings...\n")
 	case settings.NoUpdate:
 		bkLog.Printf("Updated image available; however update was inhibited.\n")
+
+		if eng.Metadata().Scheme == engine.SchemeApple {
+			resolveAppleContainerAddress(ctx, containerName, eng, &settings)
+
+			opts, err = addRequiredOpts(settings)
+			if err != nil {
+				return nil, nil, fmt.Errorf("add required client opts: %w", err)
+			}
+		}
 
 		var (
 			info       *client.Info
@@ -777,6 +805,17 @@ ContainerRunningLoop:
 
 		case <-ctxTimeout.Done():
 			return nil, nil, fmt.Errorf("timeout %s: buildkitd container did not start", opTimeout)
+		}
+	}
+
+	if eng.Metadata().Scheme == engine.SchemeApple {
+		resolveAppleContainerAddress(ctxTimeout, containerName, eng, &settings)
+
+		var err error
+
+		opts, err = addRequiredOpts(settings)
+		if err != nil {
+			return nil, nil, fmt.Errorf("add required client opts: %w", err)
 		}
 	}
 
@@ -1288,13 +1327,32 @@ func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.Clie
 		return append(opts, client.WithServerConfigSystem("")), nil
 	}
 
+	serverName := server.Hostname()
+	if engine.IsLocal(settings.BuildkitAddress) {
+		serverName = "localhost"
+	}
+
 	opts = append(
 		opts,
 		client.WithCredentials(settings.ClientTLSCert, settings.ClientTLSKey),
-		client.WithServerConfig(server.Hostname(), settings.TLSCA),
+		client.WithServerConfig(serverName, settings.TLSCA),
 	)
 
 	return opts, nil
+}
+
+func resolveAppleContainerAddress(ctx context.Context, containerName string, eng *engine.Client, settings *Settings) {
+	if eng == nil || eng.Metadata().Scheme != engine.SchemeApple {
+		return
+	}
+
+	info, err := eng.InspectContainer(ctx, containerName)
+	if err == nil && info.IPs["bridge"] != "" {
+		settings.BuildkitAddress = "tcp://" + net.JoinHostPort(info.IPs["bridge"], "8372")
+		if settings.LocalRegistryAddress != "" {
+			settings.LocalRegistryAddress = "http://" + net.JoinHostPort(info.IPs["bridge"], "8371")
+		}
+	}
 }
 
 func containsAny(hs string, needles ...string) bool {

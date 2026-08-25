@@ -46,7 +46,7 @@ func TestEngineNew(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 			NotNil(t, eng)
 		})
@@ -71,7 +71,7 @@ func TestEngineScheme(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			scheme := eng.Metadata().Scheme
@@ -97,7 +97,7 @@ func TestEngineIsAvailable(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			available := eng.IsAvailable(ctx)
@@ -123,7 +123,7 @@ func TestEngineVersion(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := eng.Version(ctx)
@@ -157,7 +157,7 @@ func TestEngineContainerInfo(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			getInfos := append(testContainers, "missing") //nolint:gocritic
@@ -201,7 +201,7 @@ func TestEngineContainerRemove(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
@@ -241,7 +241,7 @@ func TestEngineContainerStop(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
@@ -280,7 +280,7 @@ func TestEngineLogs(t *testing.T) {
 			t.Cleanup(cleanup)
 			NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			logs, err := eng.ContainersLogs(ctx, testContainers...)
@@ -313,7 +313,7 @@ func TestEngineContainerRun(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			testContainers := []string{"create-1", "create-2"}
@@ -397,7 +397,7 @@ func TestEngineImagePull(t *testing.T) {
 			// podman pull needs some potentially valid address to check against, otherwise panic
 			eng, err := tC.newFunc(ctx, &engine.Config{
 				LocalRegistryHostFileValue: "tcp://some-host:5309",
-				Console:                    testLogger(),
+				Log:                        testLogger(),
 			})
 			NoError(t, err)
 
@@ -436,7 +436,7 @@ func TestEngineImageInfo(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := eng.InspectImages(ctx, tC.refList...)
@@ -472,7 +472,7 @@ func TestEngineImageRemove(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := eng.InspectImages(ctx, refList...)
@@ -512,7 +512,7 @@ func TestEngineImageTag(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := eng.InspectImage(ctx, ref)
@@ -569,7 +569,7 @@ func TestEngineImageLoad(t *testing.T) {
 
 			cleanup()
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			err = eng.LoadImage(ctx, bufio.NewReader(imgBuffer))
@@ -605,7 +605,7 @@ func TestEngineImageLoadHybrid(t *testing.T) {
 			ctx := context.Background()
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			data, err := os.ReadFile("./testdata/hybrid.tar")
@@ -650,7 +650,7 @@ func TestEngineVolumeInfo(t *testing.T) {
 			NoError(t, err)
 			t.Cleanup(cleanup)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Console: testLogger()})
+			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
 			NoError(t, err)
 
 			info, err := eng.InspectVolumes(ctx, volList...)

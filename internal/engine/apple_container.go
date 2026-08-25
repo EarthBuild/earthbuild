@@ -1,11 +1,13 @@
 package engine
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -22,7 +24,8 @@ type appleContainerInspect struct {
 	Status struct {
 		State    string `json:"state"`
 		Networks []struct {
-			Address string `json:"address"`
+			IPv4Address string `json:"ipv4Address"`
+			Address     string `json:"address"`
 		} `json:"networks"`
 	} `json:"status"`
 }
@@ -167,7 +170,8 @@ func (e *appleEngine) ListContainers(ctx context.Context) ([]Container, error) {
 		ipAddresses := map[string]string{}
 
 		if len(v.Status.Networks) > 0 {
-			ip, _, _ := strings.Cut(v.Status.Networks[0].Address, "/")
+			addr := cmp.Or(v.Status.Networks[0].IPv4Address, v.Status.Networks[0].Address)
+			ip, _, _ := strings.Cut(addr, "/")
 			ipAddresses["bridge"] = ip
 		}
 
@@ -208,7 +212,8 @@ func (e *appleEngine) InspectContainers(
 		ipAddresses := map[string]string{}
 
 		if len(v.Status.Networks) > 0 {
-			ip, _, _ := strings.Cut(v.Status.Networks[0].Address, "/")
+			addr := cmp.Or(v.Status.Networks[0].IPv4Address, v.Status.Networks[0].Address)
+			ip, _, _ := strings.Cut(addr, "/")
 			ipAddresses["bridge"] = ip
 		}
 
@@ -357,8 +362,22 @@ func (e *appleEngine) PullImage(ctx context.Context, refs ...string) error {
 
 	for _, ref := range refs {
 		args := []string{"image", "pull"}
-		if strings.HasPrefix(ref, e.Endpoints.LocalRegistryHost.Host+"/") {
+
+		isLocalReg := e.Endpoints.LocalRegistryHost != nil &&
+			e.Endpoints.LocalRegistryHost.Host != "" &&
+			strings.HasPrefix(ref, e.Endpoints.LocalRegistryHost.Host+"/")
+
+		if strings.HasPrefix(ref, "127.0.0.1:") || strings.HasPrefix(ref, "localhost:") || isLocalReg {
 			args = append(args, "--scheme", "http")
+		} else if hostPart, _, ok := strings.Cut(ref, "/"); ok {
+			host, _, _ := net.SplitHostPort(hostPart)
+			if host == "" {
+				host = hostPart
+			}
+
+			if ip := net.ParseIP(host); ip != nil && (ip.IsLoopback() || ip.IsPrivate()) {
+				args = append(args, "--scheme", "http")
+			}
 		}
 
 		args = append(args, ref)
@@ -382,6 +401,19 @@ func (e *appleEngine) TagImage(ctx context.Context, tags ...Tag) error {
 			err = errors.Join(err, cmdErr)
 		}
 	}
+
+	return err
+}
+
+// RemoveImage removes images via the CLI.
+func (e *appleEngine) RemoveImage(ctx context.Context, force bool, refs ...string) error {
+	args := []string{"image", "rm"}
+	if force {
+		args = append(args, "--force")
+	}
+
+	args = append(args, refs...)
+	_, err := e.CommandOutput(ctx, args...)
 
 	return err
 }

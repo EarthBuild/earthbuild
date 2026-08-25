@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"slices"
 	"strings"
@@ -186,12 +187,45 @@ func (c *Client) InspectImages(ctx context.Context, refs ...string) ([]Image, er
 	return alignImages(refs, found)
 }
 
+func matchesImageRef(tag, ref string) bool {
+	if tag == ref {
+		return true
+	}
+
+	normTag := strings.TrimPrefix(strings.TrimPrefix(tag, "docker.io/library/"), "docker.io/")
+	normRef := strings.TrimPrefix(strings.TrimPrefix(ref, "docker.io/library/"), "docker.io/")
+
+	if normTag == normRef {
+		return true
+	}
+
+	if !strings.Contains(normTag, ":") && strings.TrimSuffix(normRef, ":latest") == normTag {
+		return true
+	}
+
+	if !strings.Contains(normRef, ":") && strings.TrimSuffix(normTag, ":latest") == normRef {
+		return true
+	}
+
+	return false
+}
+
 func alignImages(refs []string, found []Image) ([]Image, error) {
 	infos := make([]Image, len(refs))
 
 	for _, img := range found {
 		idx := slices.IndexFunc(refs, func(ref string) bool {
-			return slices.Contains(img.Tags, ref) || ref == img.ID || strings.HasPrefix(img.ID, ref)
+			if ref == img.ID || strings.HasPrefix(img.ID, ref) {
+				return true
+			}
+
+			for _, tag := range img.Tags {
+				if matchesImageRef(tag, ref) {
+					return true
+				}
+			}
+
+			return false
 		})
 		if idx < 0 {
 			return nil, fmt.Errorf("unmatched image in inspect output (id: %q, tags: %v) against requested %v",
@@ -686,9 +720,15 @@ func IsLocal(addr string) bool {
 
 	hostname := parsed.Hostname()
 	// These need to match what we put in our certificates.
-	return hostname == "127.0.0.1" || // The only IPv4 Loopback we honor. Because we need to include it in the TLS cert.
+	if hostname == "127.0.0.1" || // The only IPv4 Loopback we honor. Because we need to include it in the TLS cert.
 		hostname == "localhost" || // Convention. Users hostname omitted; this is only really here for convenience.
-		hostname == "::1" // IPv6 loopback without calling net.IPv6loopback.String()
+		hostname == "::1" { // IPv6 loopback without calling net.IPv6loopback.String()
+		return true
+	}
+
+	ip := net.ParseIP(hostname)
+
+	return ip != nil && (ip.IsLoopback() || ip.IsPrivate())
 }
 
 // New returns a container client given a driver. This includes automatic detection.

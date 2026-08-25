@@ -115,6 +115,16 @@ func main() {
 	compileOnly := flag.Bool("compile", false, "only check each mutant still compiles")
 	flag.Parse()
 
+	// Before the first mutant, because the damage a second sweep does is to the
+	// files this one is about to read.
+	unlock, err := lockSweep(*root)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "mutate:", err)
+		os.Exit(1)
+	}
+
+	defer unlock()
+
 	survived, problems := 0, 0
 
 	for _, m := range Mutants {

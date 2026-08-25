@@ -351,7 +351,12 @@ compiler's include search - is the shape this helps most.
 | tracer only | 1.218s           | 0.674s             |
 
 2.9x against a step that wants four vCPUs, for 9.6x on one that floods the tracer; a
-single-threaded step is untouched either way. The steps that flood the tracer are the
+single-threaded step is untouched either way.
+
+**On a real build it is four times worse**, and that settles it: `+earthly` takes 42.8s unpinned and
+169.9s pinned. The steps that flood the tracer there are compiles, which flood it *because* they are
+running on sixteen cores - so pinning trades eleven seconds of round trips for most of the machine
+(E693). The steps that flood the tracer are the
 single-threaded ones and the steps that want four vCPUs make few path calls - but that is an
 observation and not a policy, which is why this is a switch and not the default.
 

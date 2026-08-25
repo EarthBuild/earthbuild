@@ -31833,5 +31833,29 @@ step, so the question can be settled on a quiet machine with
 `scripts/benchmark-earthly.sh` and `EARTH_TRACE_PIN`, against a build that
 matters rather than a loop that does not.
 
-**[GAP]** The wall-clock comparison of `+earthly` with and without pinning, on a
-quiet machine.
+### Answered: pinning is four times worse on a real build
+
+The comparison, on the quietest window the machine offered (load ~13), resets
+between runs, both orders:
+
+```text
+pin off    42.8s   42.8s
+pin on    169.9s  169.9s
+```
+
+**Four times slower**, and not close. The arithmetic that made it look promising
+was right about the tracer and wrong about what it was trading against: 184,589
+calls at 61µs is ~11s of round trips, and confining a sixteen-core `go build` to
+one core costs far more than eleven seconds. E685 measured that cost at 2.9x on
+a synthetic four-way loop; on the real thing, where the compile is the build, it
+is the whole build.
+
+So the switch stays off, and the question is closed rather than open: pinning is
+for a step that is syscall-bound *and* single-threaded, and the steps that flood
+the tracer here are neither - they flood it *because* they are compiling on
+sixteen cores.
+
+The first attempt at this measurement reported no difference at all, because the
+loop was written for bash: zsh does not word-split an unquoted variable, so
+`for mode in $order` ran once with "off on" and `EARTH_TRACE_PIN` was never set.
+Both arms were the same arm - the same failure as E691's three, in a new shell.

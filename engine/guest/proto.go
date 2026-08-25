@@ -133,6 +133,16 @@ const (
 	// fifteen thousand small ones - the shared mount is a poor place for the
 	// second and a perfectly good place for the first.
 	KindUnpackLayer Kind = "unpack-layer"
+
+	// KindFileConfig files an image's configuration beside a layer already in
+	// the store, and reports what it declares.
+	//
+	// **Separate from the unpack because the configuration arrives later.** A
+	// manifest lists the layers and names the configuration as another blob, so
+	// a fetch that starts unpacking each layer as it lands does not yet know
+	// what the image declares - and holding every unpack back for it would give
+	// up the whole overlap between fetching and unpacking.
+	KindFileConfig Kind = "file-config"
 	// KindCancel abandons a request that is still running, by id.
 	//
 	// The only request that refers to another one. It exists because a step is
@@ -178,6 +188,9 @@ type Request struct {
 	// things about where a step's filesystem comes from, and a caller that sent
 	// both does not know which it wants (E300).
 	Prepared string `json:"prepared,omitempty"`
+
+	// Layer is the layer a file-config request files beside. File-config only.
+	Layer string `json:"layer,omitempty"`
 
 	// Blob is where an unpack-layer request's compressed bytes are, as a path
 	// this guest can read. Unpack-layer only.

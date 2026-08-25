@@ -115,6 +115,19 @@ type Options struct {
 	//
 	// The token itself is never written here. See challenge.go.
 	Challenges string
+	// Fetched, when set, is called as each layer's blob lands, in the order the
+	// manifest lists them.
+	//
+	// **So a caller can start on a layer while the rest are still arriving.**
+	// `FetchApart` returns when every blob is down, and a caller that then
+	// unpacks them has made the two serial - which is the overlap `Stream`
+	// exists to get for an unpack done here, and this is the same overlap for
+	// one done somewhere else.
+	//
+	// Called from the fetching goroutine, so a slow one holds up the layers
+	// behind it; hand the work to something else if that matters.
+	Fetched func(i int, l FetchedLayer)
+
 	// Stream unpacks each layer as it arrives rather than after it has landed.
 	// Only meaningful with the layers kept apart - see streamLayerApart - and
 	// ignored by Pull, whose merged unpack E647 measured at no gain.
@@ -1111,6 +1124,10 @@ func FetchApart(
 		}
 
 		out[i] = FetchedLayer{Digest: d.Digest, MediaType: d.MediaType, At: at}
+
+		if opt.Fetched != nil {
+			opt.Fetched(i, out[i])
+		}
 	}
 
 	cfg, err := pullConfig(ctx, p.client, p.tok, p.base, p.m.Config, opt.Platform)

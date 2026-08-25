@@ -30906,3 +30906,53 @@ what it looks like at particular sizes.
 Still measured, still not built - and the obstacle in E677 has not moved. What
 has changed is that the size of the prize is now expressible per step rather than
 per sweep.
+
+## E679 - the store moved, and it is worth three times on the image that has files
+
+E677 and E678 priced the shared mount: 0.31ms per file opened, 4.67s against
+2.18s to unpack one layer, and a store that a step reads through a round trip
+per open. This is the move, measured on whole builds.
+
+Two switches, because the pieces had to be exercised apart. `EARTH_UNPACK_IN_GUEST`
+moves the unpack; `EARTH_STORE_IN_VM` moves the store and implies the first,
+because the host cannot write a block device it does not have.
+
+```text
+python:3.13-slim, four steps        golang:1.26-alpine, read-heavy step
+merged            ~4.2s             stream            23.01  26.01
+apart + stream     2.70s            store in the VM    8.33   8.29
+store in the VM    3.9s
+```
+
+**Three times, and only where there are files to read.** On `python` the store
+move loses to streaming: the image is small, the steps read almost none of it,
+and streaming's overlap of a layer's own fetch against its own unpack is the
+better trade. On `golang` - 15034 files in one layer, and a step that walks the
+toolchain - it wins by a factor of three.
+
+That is the shape E678 predicted and the reason it insisted on a per-file
+constant rather than a ratio: the ratio is whatever the workload's file count
+makes it, and 0.31ms per open is what does not move.
+
+### What it cost to get there
+
+Two round trips the host used to make on its own filesystem now cross the wire,
+because a store on the guest's device is not on the host's:
+
+* `KindUnpackLayer` - unpack this blob, and say what the layer is called
+* `KindFileConfig` - file this configuration beside it, and say what it declares
+
+The second exists because a manifest names the configuration as another blob, so
+a fetch that unpacks each layer as it lands does not yet know what the image
+declares - and holding every unpack back for it gives up the overlap that fetch
+was restructured to get.
+
+An export also stops coming straight out of the store: the fast path answers
+with a path the host reads off its own disk, which is exactly what this move
+makes untrue, so `MayShare` is off when the store is in the VM.
+
+### The cost that is not measured here
+
+The volume belongs to the sandbox and goes when it does, so the layer cache now
+lives as long as the machine rather than as long as a directory. Whether that is
+the right trade is not a measurement, and it is why both switches are off.

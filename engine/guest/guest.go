@@ -625,6 +625,9 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 	case KindUnpackLayer:
 		return s.unpackLayer(req)
 
+	case KindFileConfig:
+		return s.fileConfig(req)
+
 	case KindRelease:
 		s.mu.Lock()
 		h, ok := s.handles[req.Handle]
@@ -2142,7 +2145,12 @@ func (c *Client) Export(
 
 	resp, err := c.do(ctx, Request{
 		Kind: KindExport, Handle: rh.id, Path: path, Dest: dest, Clamp: hostClamp(),
-		MayShare: ShareExports(),
+		// **Not when the store is the guest's own.** The fast path answers with
+		// a path in the store so the host can take the bytes off its own disk,
+		// which is precisely what a store on a block device inside the VM is
+		// not. Asking anyway would send the host to read a file that is not
+		// there.
+		MayShare: ShareExports() && !StoreInVM(),
 	})
 	if err != nil {
 		return "", err
@@ -2647,6 +2655,27 @@ func declaredBy(h core.Handle, req Request) []string {
 // rather than merely plausible.
 const EnvShareExports = "EARTH_SHARE_EXPORTS"
 
+// EnvStoreInVM puts the layer store on the block device the guest owns.
+//
+// **A shared directory is reached over virtiofs, and every metadata operation
+// on it is a round trip across the VM boundary.** Measured from inside the
+// guest on one layer of `golang:1.26-alpine`: unpacking into the shared store
+// 4.67s against 2.18s into the volume, and reading it all back 6.04s against
+// 1.47s - about 0.31ms per file a step opens, which is half a second on a cold
+// `go build` and invisible in every phase, because it is spread through the
+// step's own execution.
+//
+// E511 established the principle and moved CACHE mounts for it: "outliving the
+// build does not mean the *host* must see it". The layer store is the rest.
+//
+// What it costs is the cache's lifetime. The volume belongs to the sandbox and
+// goes when the sandbox does, so layers live as long as the machine rather than
+// as long as a directory the user owns.
+const EnvStoreInVM = "EARTH_STORE_IN_VM"
+
+// StoreInVM reports whether the layer store is on the guest's own device.
+func StoreInVM() bool { return os.Getenv(EnvStoreInVM) != "" }
+
 // ShareExports reports whether an export may come from the store directly.
 //
 // On unless switched off: the slow path is always correct, so the failure this
@@ -2812,4 +2841,47 @@ func declaredOwners(from map[string]image.Owner) map[string]layer.Owner {
 	}
 
 	return out
+}
+
+// fileConfig puts an image's configuration beside a layer already in the store
+// and reports the declaration it produced.
+//
+// See KindFileConfig for why this is not part of the unpack. Writing rather than
+// naming, for `unpackLayer`'s reason: a declaration is a stack element, and only
+// the side holding the store can put one there.
+func (s *Server) fileConfig(req Request) Response {
+	if s.LayerDir == "" {
+		return Response{Err: "file-config: this guest was started without a" +
+			" layer directory (set EARTH_GUEST_ROOT, or Server.LayerDir)"}
+	}
+
+	id, err := ir.ParseNodeID(req.Layer)
+	if err != nil {
+		return Response{Err: "file-config: " + err.Error()}
+	}
+
+	st := store.DirStore(s.LayerDir)
+
+	if !st.Has(id) {
+		return Response{Err: fmt.Sprintf("file-config: this store does not hold %v,"+
+			" so there is nothing to file a configuration beside", id)}
+	}
+
+	// Nothing to say is the ordinary case, and must not leave an empty sidecar:
+	// "declares nothing" is the absence of a declaration rather than a
+	// declaration of emptiness.
+	if len(req.Config) == 0 {
+		return Response{}
+	}
+
+	err = os.WriteFile(st.LayerPath(id)+store.ConfigSuffix, req.Config, 0o600)
+	if err != nil {
+		return Response{Err: "file-config: " + err.Error()}
+	}
+
+	if d := st.Declaration(id); d != (ir.NodeID{}) {
+		return Response{Declaration: d.String()}
+	}
+
+	return Response{}
 }

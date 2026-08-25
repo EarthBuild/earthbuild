@@ -156,3 +156,30 @@ func (c *Client) UnpackLayerDeclaring(
 
 	return id, d, nil
 }
+
+// FileConfig files an image's configuration beside a layer already in the store
+// and reports the declaration it produced, zero where the image declares
+// nothing.
+//
+// Separate from the unpack because the configuration arrives after the layers;
+// see KindFileConfig.
+func (c *Client) FileConfig(ctx context.Context, layer ir.NodeID, config []byte) (ir.NodeID, error) {
+	resp, err := c.do(ctx, Request{
+		Kind: KindFileConfig, Layer: layer.String(), Config: config,
+	})
+	if err != nil {
+		return ir.NodeID{}, err
+	}
+
+	if resp.Declaration == "" {
+		return ir.NodeID{}, nil
+	}
+
+	d, err := ir.ParseNodeID(resp.Declaration)
+	if err != nil {
+		return ir.NodeID{}, fmt.Errorf("the guest named the declaration %q: %w",
+			resp.Declaration, err)
+	}
+
+	return d, nil
+}

@@ -247,3 +247,33 @@ slower than leaving it off. The two are separated deliberately: the wiring can b
 the move it exists for.
 
 Default: off.
+
+### `EARTH_STORE_IN_VM`
+
+Puts the layer store on the block device the guest owns rather than in a directory shared from the
+host. Set to any non-empty value. Implies `EARTH_UNPACK_IN_GUEST`, because the host cannot write a
+device it does not have.
+
+**A shared directory is reached over virtiofs, and every metadata operation on it is a round trip
+across the VM boundary.** Measured from inside the guest on one layer of `golang:1.26-alpine`:
+
+```text
+                        shared store    the guest's volume
+unpack the layer            4.67s             2.18s
+read all of it, cold        6.04s             1.47s
+read all of it, warm        4.72s             0.12s
+```
+
+About 0.31ms per file a step opens - half a second on a cold `go build`, and invisible in every
+phase this engine records, because it is spread through the step's own execution.
+
+This is E511's principle applied to the rest of the store. That experiment moved CACHE mounts onto
+the volume for the same reason and said why: outliving the build does not mean the host must see it.
+
+**What it costs is the cache's lifetime.** The volume belongs to the sandbox and goes when the
+sandbox does, so layers live as long as the machine rather than as long as a directory you own -
+`scripts/reset-native-sandbox.sh` and a changed sandbox setting both take them. An export also stops
+being able to come straight out of the store, since the host can no longer read it, and falls back
+to the ordinary path.
+
+Default: off.

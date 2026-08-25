@@ -28,6 +28,8 @@ var wireVocabulary = map[Kind]string{
 	KindPackImage:   "write a loadable image archive into the store from layers it already holds; never runs",
 	KindUnpackLayer: "unpack a compressed blob this peer named into the store;" +
 		" writes a layer, never runs anything from it",
+	KindFileConfig: "file an image's configuration beside a layer the store holds;" +
+		" writes a sidecar and a declaration, never runs anything",
 	KindCancel: "abandon a request this connection made",
 }
 

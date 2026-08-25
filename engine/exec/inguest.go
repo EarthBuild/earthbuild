@@ -74,81 +74,99 @@ func (e *Executor) materialiseImageInGuest(
 
 	endFetch := phase("image:fetch", n.Op.Args[0])
 
+	// **Unpacked as each blob lands, not after all of them have.** Fetching and
+	// unpacking are independent per layer and the two sides are different
+	// machines, so leaving them serial gives up the whole overlap - which is
+	// what `Stream` buys the host path and what this buys for a guest one.
+	//
+	// The configuration is not known until the manifest's own blob is read,
+	// which happens after the layers, so the topmost layer's config is filed by
+	// a second, cheap request rather than by holding every unpack back for it.
+	var (
+		unpacking sync.WaitGroup
+		started   int
+		ids       []ir.NodeID
+		failed    []error
+		idsMu     sync.Mutex
+	)
+
+	endUnpack := phase("image:unpack:guest", n.Op.Args[0])
+
 	fetched, cfg, err := image.FetchApart(ctx, n.Op.Args[0], blobs, image.Options{
 		Platform: platform, Challenges: imageRoot,
+		Fetched: func(i int, l image.FetchedLayer) {
+			at, visible := seer.GuestPath(filepath.Join(blobs, l.At))
+
+			idsMu.Lock()
+			for len(ids) <= i {
+				ids = append(ids, ir.NodeID{})
+				failed = append(failed, nil)
+			}
+			idsMu.Unlock()
+
+			started++
+
+			unpacking.Add(1)
+
+			go func(i int, at, media string, visible bool) {
+				defer unpacking.Done()
+
+				if !visible {
+					idsMu.Lock()
+					failed[i] = fmt.Errorf("the guest cannot see %s, so it"+
+						" cannot unpack it", l.At)
+					idsMu.Unlock()
+
+					return
+				}
+
+				id, _, uerr := c.UnpackLayerDeclaring(ctx, at, media, nil)
+
+				idsMu.Lock()
+				if uerr != nil {
+					failed[i] = fmt.Errorf("unpack layer %s of %s: %w",
+						l.Digest, n.Op.Args[0], uerr)
+				} else {
+					ids[i] = id
+				}
+				idsMu.Unlock()
+			}(i, at, l.MediaType, visible)
+		},
 	})
 
 	endFetch()
+
+	unpacking.Wait()
+	endUnpack()
 
 	if err != nil {
 		return core.Result{}, fmt.Errorf("FROM %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
 	}
 
-	if len(fetched) == 0 {
+	if len(fetched) == 0 || started == 0 {
 		return core.Result{}, fmt.Errorf("%s has no layers", n.Op.Args[0])
+	}
+
+	for _, ferr := range failed {
+		if ferr != nil {
+			return core.Result{}, fmt.Errorf("FROM %s (%s): %w",
+				n.Op.Args[0], n.Meta.Source, ferr)
+		}
 	}
 
 	// The configuration belongs to the image and a declaration applies to what
 	// comes after it, so it travels with the topmost layer - the one a later
-	// step stands on.
+	// step stands on. Filed by a second request, because it is not known until
+	// the manifest's own blob has been read and holding every unpack back for
+	// it would give up the overlap above.
 	raw, err := json.Marshal(cfg)
 	if err != nil {
 		raw = nil
 	}
 
-	ids := make([]ir.NodeID, len(fetched))
-	failed := make([]error, len(fetched))
-
-	endUnpack := phase("image:unpack:guest", n.Op.Args[0])
-
-	var (
-		unpacking  sync.WaitGroup
-		declaredMu sync.Mutex
-		declared   ir.NodeID
-	)
-
-	for i, l := range fetched {
-		at, visible := seer.GuestPath(filepath.Join(blobs, l.At))
-		if !visible {
-			return core.Result{}, fmt.Errorf("FROM %s (%s): the guest cannot see"+
-				" %s, so it cannot unpack it", n.Op.Args[0], n.Meta.Source, l.At)
-		}
-
-		config := raw
-		if i != len(fetched)-1 {
-			config = nil
-		}
-
-		unpacking.Add(1)
-
-		go func(i int, at, media string, config []byte) {
-			defer unpacking.Done()
-
-			id, d, uerr := c.UnpackLayerDeclaring(ctx, at, media, config)
-			if uerr != nil {
-				failed[i] = fmt.Errorf("unpack layer %s of %s: %w",
-					fetched[i].Digest, n.Op.Args[0], uerr)
-
-				return
-			}
-
-			ids[i] = id
-
-			if d != (ir.NodeID{}) {
-				declaredMu.Lock()
-				declared = d
-				declaredMu.Unlock()
-			}
-		}(i, at, l.MediaType, config)
-	}
-
-	unpacking.Wait()
-	endUnpack()
-
-	for _, ferr := range failed {
-		if ferr != nil {
-			return core.Result{}, ferr
-		}
+	declared, err := c.FileConfig(ctx, ids[len(ids)-1], raw)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("FROM %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
 	}
 
 	// **The guest's answer, because only the guest could write it.** A

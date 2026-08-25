@@ -186,7 +186,10 @@ func SandboxNameWith(image, guestDir, store, memory string, command []string) st
 	// for the default have to be asking about two machines, or the second gets
 	// whatever the first said (E549's failure class, E555's occasion).
 	for _, part := range append(
-		[]string{image, guestDir, store, memory, guestFast, idleSetting(), scratchTmpfsSetting()},
+		[]string{
+			image, guestDir, store, memory, guestFast,
+			idleSetting(), scratchTmpfsSetting(), storeSetting(),
+		},
 		command...) {
 		fmt.Fprintf(h, "%d:%s", len(part), part)
 	}
@@ -479,7 +482,7 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	// as a step that cannot find a file that was definitely written.
 	args := []string{
 		"exec", "-i",
-		"-e", "EARTH_GUEST_ROOT=" + guestStore,
+		"-e", "EARTH_GUEST_ROOT=" + a.guestRoot(),
 		// Scratch stays on the VM's own filesystem: the shared mount cannot serve
 		// as an overlay upper layer, and keeping it out also means a step cannot
 		// write into the host's cache.
@@ -1051,3 +1054,25 @@ func (a *Apple) GuestPath(host string) (string, bool) {
 
 	return "", false
 }
+
+// guestRoot is where this sandbox's guest keeps its layers.
+//
+// **On the block device it owns, when asked.** The shared mount is reached over
+// virtiofs and every metadata operation on it crosses the VM boundary; the
+// volume is a filesystem in the guest kernel. See `guest.EnvStoreInVM` for what
+// that is worth and what it costs.
+func (a *Apple) guestRoot() string {
+	if guest.StoreInVM() {
+		return path.Join(guestFast, "store")
+	}
+
+	return guestStore
+}
+
+// storeSetting is where this invocation asked the layer store to live.
+//
+// In the sandbox's name for the reason memory and the idle timeout are: a VM is
+// found and reused by name, so a machine started against one store would be
+// reused for a build asking for the other - and the build would quietly read a
+// store that is not the one it meant.
+func storeSetting() string { return os.Getenv(guest.EnvStoreInVM) }

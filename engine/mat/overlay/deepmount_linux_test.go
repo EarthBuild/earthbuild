@@ -28,6 +28,8 @@ import (
 //
 // The store here is deliberately deep, so the test measures the property rather
 // than the tester's luck with `t.TempDir`.
+//
+//nolint:paralleltest // mounts a deep stack from a fixed store, not a t.TempDir
 func TestADeepStackMountsFromADeepStore(t *testing.T) {
 	if !nstest.In(t) {
 		return

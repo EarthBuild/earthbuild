@@ -31588,3 +31588,41 @@ the socket and costs a rename per megabyte against a fetch of over a second.
 The patience was five minutes and is now forty-five seconds. A living fetch
 reports every megabyte, about 18ms apart; silence for forty-five seconds is a
 fault, and a wait that ends is worth more than a wait that is generous.
+
+## E689 - a cached memory descriptor goes stale at exec, not at exit
+
+E682 kept `/proc/<pid>/mem` open between notifications, worth 4.25µs of a 6.9µs
+handler. The note beside it said the descriptor could not follow pid reuse - a
+descriptor is bound to the map it was opened against, so a read after the task
+goes returns an error rather than another process's memory - and concluded that
+the worst case was an observation declared incomplete.
+
+Both halves were right and the conclusion was wrong. **`exec` replaces the map
+too**, and a traced shell execs constantly: a descriptor kept across one reads
+`EIO` for a process that is alive, well, and stopped in the very syscall this
+engine is answering.
+
+`TestTheTracerIsHandedTheFiller` is what noticed, and only in CI:
+
+```text
+sightings: paths=[/bin/cat /bin/sh ...] incomplete=true
+  why=[a path argument that could not be read: input/output error ...]
+the step opened .../not-here-yet and the filler was never asked for it
+  asked for: [/usr/local/go/bin/cat /go/bin/cat ... /sbin/cat]
+```
+
+The shell's PATH search execs its way down a list; every exec invalidated the
+descriptor, the read failed, the observation was declared incomplete, and the
+step that should have had its file faulted in took the absent branch. On a
+machine where `cat` is found sooner it passes, which is why it passed here
+twenty times running and failed in a container.
+
+**Failing safe is not the same as working.** An uncached reader opened the
+process afresh every time and never saw this; the fix is to stop believing the
+descriptor - drop it and reopen once - which keeps the saving, since the retry
+only fires on an error. The cost is unchanged at 9.5µs a call.
+
+The lesson is narrower than "do not cache": it is that "this fails safely" was
+an answer to a question nobody asked. What mattered was not whether a stale
+descriptor could return the *wrong* bytes but whether it could stop returning
+the *right* ones, and that was never checked.

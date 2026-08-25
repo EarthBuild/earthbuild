@@ -68,14 +68,32 @@ func pathVia(m *memFiles, pid uint32, addr uint64) (string, error) {
 	}
 
 	out, err := readPathFrom(f, addr)
-	if err != nil {
-		// **Dropped on any failure**, because the likeliest reason a read fails
-		// is that the process ended - and a descriptor kept against a task that
-		// is gone is both a leak and the wrong thing to answer the next call
-		// for that pid from.
+	if err == nil {
+		return out, nil
+	}
+
+	// **Dropped and tried once more.** The likeliest reason a read fails is not
+	// that the process ended but that it *execed*: a descriptor on
+	// /proc/<pid>/mem is bound to the map it was opened against, and exec
+	// replaces that map, so a cached one reads EIO for a process that is alive
+	// and stopped in the syscall being answered. A traced shell execs
+	// constantly.
+	//
+	// Believing it cost a fault-in: the observation went incomplete and the step
+	// took the absent branch (E689). An uncached reader opened afresh every
+	// time and never saw this, which is what the retry restores.
+	m.forget()
+
+	f, again := m.fileFor(pid)
+	if again != nil {
+		return "", fmt.Errorf("%w: %w", errUnreadable, err)
+	}
+
+	out, again = readPathFrom(f, addr)
+	if again != nil {
 		m.forget()
 
-		return "", err
+		return "", again
 	}
 
 	return out, nil

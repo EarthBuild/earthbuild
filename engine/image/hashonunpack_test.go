@@ -57,6 +57,8 @@ func TestWhoHashesALayerIsTheCallersChoice(t *testing.T) {
 	blob := oneFileTar(t)
 
 	t.Run("the caller that wants them", func(t *testing.T) {
+		t.Parallel()
+
 		got, err := image.UnpackApart(bytes.NewReader(blob), t.TempDir())
 		if err != nil {
 			t.Fatal(err)
@@ -68,6 +70,8 @@ func TestWhoHashesALayerIsTheCallersChoice(t *testing.T) {
 	})
 
 	t.Run("the caller that does not", func(t *testing.T) {
+		t.Parallel()
+
 		got, err := image.UnpackApartUnhashed(bytes.NewReader(blob), t.TempDir())
 		if err != nil {
 			t.Fatal(err)

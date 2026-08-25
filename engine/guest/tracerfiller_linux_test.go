@@ -24,6 +24,8 @@ import (
 // easy to lose and hard to miss.
 //
 // Removing the line left the package green.
+//
+//nolint:paralleltest // installs a seccomp filter on a thread of its own
 func TestTheTracerIsHandedTheFiller(t *testing.T) {
 	// Not parallel: it installs a filter on a thread of its own.
 	root := t.TempDir()

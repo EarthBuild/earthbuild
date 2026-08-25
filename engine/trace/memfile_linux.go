@@ -25,14 +25,22 @@ import (
 // lock here and there must not come to be a second caller without one.
 //
 // Safe against pid reuse by construction rather than by checking: a descriptor
-// on this file is bound to the task that was open, not to the number. If that
-// task exits and its pid is issued again, reads through the old descriptor fail
-// - they do not quietly return another process's memory - so the worst case is
-// an observation declared incomplete, which is what I3 asks for and not what it
-// forbids.
+// on this file is bound to the map it was opened against, not to the number, so
+// it can never quietly return another process's memory.
+//
+// **But it can go stale on a live process, and failing safe is not the same as
+// working.** `exec` replaces the map, and a traced shell execs constantly - so
+// a descriptor kept across one reads EIO for a process that is alive and
+// stopped in the very syscall this engine is answering. The observation was
+// then declared incomplete and a step that should have had a file faulted in
+// took the absent branch. `pathVia` reopens once rather than believing it.
 type memFiles struct {
 	pid  uint32
 	file *os.File
+	// open is os.Open of /proc/<pid>/mem, named so a test can hand back a
+	// descriptor that has gone stale - which is the case this has to survive
+	// and which cannot be arranged with a real process.
+	open func(pid uint32) (*os.File, error)
 }
 
 // fileFor is the open file for a process, opening it if this is a new one.
@@ -44,7 +52,7 @@ func (m *memFiles) fileFor(pid uint32) (*os.File, error) {
 	// Whatever was held is for somebody else now.
 	m.forget()
 
-	f, err := os.Open(procRoot + "/" + strconv.FormatUint(uint64(pid), 10) + "/mem")
+	f, err := m.opener()(pid)
 	if err != nil {
 		return nil, fmt.Errorf("open the target's memory: %w", err)
 	}
@@ -70,3 +78,14 @@ func (m *memFiles) forget() {
 
 // Close releases the descriptor. A tracer that has stopped holds nothing.
 func (m *memFiles) Close() error { m.forget(); return nil }
+
+// opener is how a target's memory is reached, defaulting to procfs.
+func (m *memFiles) opener() func(uint32) (*os.File, error) {
+	if m.open != nil {
+		return m.open
+	}
+
+	return func(pid uint32) (*os.File, error) {
+		return os.Open(procRoot + "/" + strconv.FormatUint(uint64(pid), 10) + "/mem") //nolint:gosec // a procfs path
+	}
+}

@@ -446,8 +446,8 @@ func runPlan(
 	// closes gaps in a directory the host owns, which is not where the layers
 	// are, and only the *lookup* needs to move.
 	var (
-		present core.BlobStore  = blobs
-		views   core.ViewSource = viewsFor(sb)
+		present core.BlobStore = blobs
+		views                  = viewsFor(sb)
 	)
 
 	if guest.StoreInVM() {

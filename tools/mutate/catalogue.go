@@ -1315,7 +1315,7 @@ var Mutants = []Mutant{
 		Name:        "exec: answering a fault-in only for a base it primed (E304)",
 		File:        "engine/exec/primed.go",
 		Anchor:      "\tif !ok {\n\t\treturn fmt.Errorf(\"a fault-in named base %q, which this engine did not\"+",
-		Replacement: "\tif false {\n\t\treturn fmt.Errorf(\"a fault-in named base %q, which this engine did not\"+",
+		Replacement: "\tif !ok \u0026\u0026 false {\n\t\treturn fmt.Errorf(\"a fault-in named base %q, which this engine did not\"+",
 		Package:     "./engine/exec/",
 	},
 	{
@@ -1329,7 +1329,7 @@ var Mutants = []Mutant{
 		Name:        "exec: a fault-in landing inside the base that named it (E295, E304)",
 		File:        "engine/exec/primed.go",
 		Anchor:      "\t\tfilepath.Join(b.into, strings.TrimPrefix(path, \"/\")))",
-		Replacement: "\t\tpath)",
+		Replacement: "\t\tfilepath.Join(\"/\", strings.TrimPrefix(path, \"/\")))",
 		Package:     "./engine/exec/",
 	},
 	{
@@ -1358,7 +1358,7 @@ var Mutants = []Mutant{
 		Name:        "guest: recording a placed directory with no content digest (E306)",
 		File:        "engine/guest/fills.go",
 		Anchor:      "\tif !fi.IsDir() {",
-		Replacement: "\tif true {",
+		Replacement: "\tif !fi.IsDir() || true {",
 		Package:     "./engine/guest/",
 	},
 	{
@@ -1811,7 +1811,7 @@ var Mutants = []Mutant{
 		Name:        "layer: a declaration outranking the disk about ownership (E313)",
 		File:        "engine/layer/layer.go",
 		Anchor:      "\t\t\tentries[i].uid, entries[i].gid = o.UID, o.GID",
-		Replacement: "",
+		Replacement: "\t\t\t_, _ = o.UID, o.GID",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -1902,7 +1902,7 @@ var Mutants = []Mutant{
 		Name:        "guest: a failed wait still stopping the daemon it started (E369)",
 		File:        "engine/guest/withdaemon.go",
 		Anchor:      "\tdefer func() {\n\t\tstopErr := proc.Stop()",
-		Replacement: "\tdefer func() {\n\t\tvar err error\n\t\tif out == nil {\n\t\t\terr = proc.Stop()\n\t\t}",
+		Replacement: "\tdefer func() {\n\t\tvar stopErr error\n\t\tif out == nil {\n\t\t\tstopErr = proc.Stop()\n\t\t}",
 		Package:     "./engine/guest/",
 	},
 	{
@@ -2831,8 +2831,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "exec: a guest that is not an ELF refused here (E490)",
 		File:        "engine/exec/elf_darwin.go",
-		Anchor:      "\t\treturn fmt.Errorf(\n\t\t\t\"%s is not a Linux executable",
-		Replacement: "\t\treturn nil\n\t\t_ = fmt.Errorf(\n\t\t\t\"%s is not a Linux executable",
+		Anchor:      "\t\treturn fmt.Errorf(\n\t\t\t\"%s is not a Linux executable, and the sandbox runs Linux\"+\n\t\t\t\t\"\\n  %v\"+\n\t\t\t\t\"\\n  rebuild it: CGO_ENABLED=0 GOOS=linux GOARCH=%s go build\"+\n\t\t\t\t\" -o %s ./cmd/earth-guestd\",\n\t\t\tpath, err, wantArch, path)",
+		Replacement: "\t\t_ = fmt.Sprintf(\n\t\t\t\"%s is not a Linux executable, and the sandbox runs Linux\"+\n\t\t\t\t\"\\n  %v\"+\n\t\t\t\t\"\\n  rebuild it: CGO_ENABLED=0 GOOS=linux GOARCH=%s go build\"+\n\t\t\t\t\" -o %s ./cmd/earth-guestd\",\n\t\t\tpath, err, wantArch, path)\n\n\t\treturn nil",
 		Package:     "./engine/exec/",
 		OS:          "darwin",
 	},

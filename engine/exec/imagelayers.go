@@ -219,6 +219,17 @@ func rememberImageStack(shared string, ids []ir.NodeID) {
 		b.WriteString("\n")
 	}
 
+	// **The directory is not somebody else's job.** This note sits beside the
+	// shared image-cache entry, and the host's own pull happens to create that
+	// directory on its way past - so the write worked and nobody noticed it
+	// depended on that. A path that fetches blobs instead never touches the
+	// image cache, and every note it wrote went nowhere: best effort, discarded
+	// as designed, and the cheap path could never fire.
+	err := os.MkdirAll(filepath.Dir(shared), 0o750)
+	if err != nil {
+		return
+	}
+
 	_ = os.WriteFile(shared+stackSuffix, []byte(b.String()), 0o600)
 }
 

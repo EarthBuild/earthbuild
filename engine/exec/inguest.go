@@ -187,6 +187,12 @@ func (e *Executor) materialiseImageInGuest(
 const declarationSuffix = ".declares"
 
 func rememberDeclaration(shared string, id ir.NodeID) {
+	// Same reason as `rememberImageStack`: the directory may not be there.
+	err := os.MkdirAll(filepath.Dir(shared), 0o750)
+	if err != nil {
+		return
+	}
+
 	if id == (ir.NodeID{}) {
 		_ = os.Remove(shared + declarationSuffix)
 

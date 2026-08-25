@@ -315,6 +315,11 @@ The untraced call is 2.6x *faster* in the VM, so this is not a slow guest - it i
 guest keeps all four vCPUs either way; only the two ends of the round trip share one, which the step
 inherits across fork the same way it inherits the filter.
 
+That table is the round trip alone. The test filters its own thread and then works on it, so every
+notification is recognised as the engine's own and answered without reading a path - which is the
+right isolation for measuring the crossing and the reason the figures below, which carry the
+handler too, are 8.5µs per call rather than 2.2µs.
+
 End to end, in the engine:
 
 ```text

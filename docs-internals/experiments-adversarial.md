@@ -31040,6 +31040,19 @@ The spinners halve it, so an idle vCPU halting (WFI, a vmexit to the VMM) is
 about half the penalty and the cross-vCPU IPI is the rest. Both are hypervisor
 costs that bare metal does not pay.
 
+**What that table measures, exactly.** `StartOnSelf` filters the calling thread
+and records its tid as `t.mine`; the test then does its work on that same
+thread, so every notification hits the `n.Pid == t.mine` return at the top of
+`handle` and **no path is ever read**. The column is the notification round
+trip - RECV, SEND and the wakeup between them - and not the handler. `strace -c` over
+4000 traced calls settles it: 4001 `ppoll`, 8002 `ioctl`, and nine `openat` in
+the whole run, where reading a path per call would need four thousand.
+
+That makes it the right instrument for this question and the wrong one for the
+next. The crossing is what it isolates, and pinning moves the crossing; the
+production figures below carry the handler too, which is why they are 8.5µs and
+not 2.2µs.
+
 **What this means.** The tracer is not expensive; waking it on another vCPU is.
 A step making 45k path calls pays 2s unpinned and 0.1s pinned, and the guest
 keeps every vCPU either way - only the two ends of the round trip need to share
@@ -31076,3 +31089,26 @@ a configure script, a package manager, a compiler's include search.
 
 Which leaves the 8.5µs handler as the next thing worth measuring, and it is now
 the larger half.
+
+### E681, what the handler costs
+
+The round-trip test measures the crossing and skips the handler, so the obvious
+next question needed a second instrument: the same stat loop in a forked child,
+which is what production traces - a step inherits the filter across exec and has
+a pid of its own, so nothing about it is mistaken for the engine.
+
+```text
+same machine (bare metal x86), 4000 path calls
+round trip only (handler skipped)      7.7µs
+round trip + handler                  14.6µs
+```
+
+So about half of a traced call is the handler, and in the guest - where the
+crossing falls to 2.2µs pinned - it is most of it. That agrees with the engine's
+own figure of 8.5µs per pinned call from the other direction.
+
+Which makes the handler's own syscalls the next thing to look at. `pathAt` opens
+`/proc/<pid>/mem`, reads and closes it **per notification**: three syscalls each
+time, and opening that file is not one of the cheap ones. An fd on it stays bound
+to the task that was opened, so it cannot follow pid reuse - which is what makes
+caching one per pid safe rather than merely tempting.

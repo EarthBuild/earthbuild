@@ -12,13 +12,26 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// What a traced path operation costs.
+// What a traced path operation's *round trip* costs.
 //
-// The number that decides whether tracing can be on by default. Every open or
-// stat a traced step makes becomes a round trip: the kernel stops the caller,
-// this engine reads a notification, reads a path out of the stopped process's
-// memory, resolves it through `/proc`, and answers. None of that is free, and a
-// configure script makes thousands of them.
+// **This measures the crossing and not the handler**, and the distinction is
+// easy to lose: `StartOnSelf` records the filtering thread's tid, the work below
+// runs on that same thread, and `handle` returns at the top for every
+// notification it recognises as the engine's own. So no path is read, nothing is
+// resolved and nothing is recorded. `strace -c` over four thousand traced calls
+// shows nine `openat` in the whole run, where reading a path per call would need
+// four thousand.
+//
+// That is the right isolation for one question - what does stopping a thread and
+// answering it cost - and the wrong one for the obvious next question. On the
+// same machine this reports 7.7µs and
+// TestWhatATracedOperationCostsWithItsPathRead reports 14.6µs, so about half of
+// a real traced call is work this never does (E681).
+//
+// The crossing is worth isolating because it is the part that moves: it is 2.2µs
+// when the stopped thread and the answering thread share a CPU and 45µs when
+// they do not, which under a hypervisor is the difference between a context
+// switch and two vmexits.
 //
 // Reported rather than asserted against a threshold, because the ratio depends
 // on the machine and a number baked in here would fail for being measured

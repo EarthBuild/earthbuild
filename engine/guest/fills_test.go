@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
@@ -389,6 +390,54 @@ func TestTheDirectoriesAboveAFaultedInFileAreBase(t *testing.T) {
 	if _, ok := got[root]; ok {
 		t.Error("the root itself was recorded; a step's own root is not" +
 			" something the engine placed inside it")
+	}
+}
+
+// A directory that was placed is recorded, and with no content digest.
+//
+// **Recorded**, because the capture uses the record to tell "the engine put this
+// here" from "the step made it": a placed directory missing from it lands in the
+// step's layer, and every later build inherits a directory the base already had.
+//
+// **With no digest**, because a directory has no contents to hash - reading one
+// is an error, not an empty file - and the zero digest is what says so. The
+// distinction has a mutant of its own: hashing the path instead would give a
+// stable-looking answer that means nothing (E306).
+func TestAPlacedDirectoryIsRecordedWithNoContentDigest(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+
+	dir := filepath.Join(root, "var", "cache")
+
+	here, there := net.Pipe()
+
+	go func() {
+		_ = guest.ServeFills(there, func(_, p string) error {
+			return os.MkdirAll(p, 0o750)
+		})
+	}()
+
+	f := guest.NewFills(here)
+
+	err := f.For("h1", root)(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := f.FilledFor("h1")
+
+	id, ok := got[dir]
+	if !ok {
+		t.Fatalf("%s was placed by the engine and not recorded"+
+			"\n  the capture will read it as something the step made, and it will"+
+			" land in the step's layer", dir)
+	}
+
+	if id != (ir.NodeID{}) {
+		t.Errorf("a placed directory was recorded under digest %x"+
+			"\n  a directory has no contents to hash, and the zero digest is what"+
+			" says so", id)
 	}
 }
 

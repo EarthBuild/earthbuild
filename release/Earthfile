@@ -84,7 +84,7 @@ signed-release:
 
     ARG --required RELEASE_TAG
     ARG --required GITHUB_USER
-    ARG --required EARTHLY_REPO
+    ARG --required EARTH_REPO
     ARG --required DOCKERHUB_HOST
     ARG --required DOCKERHUB_USER
     ARG --required DOCKERHUB_BUILDKIT_IMG

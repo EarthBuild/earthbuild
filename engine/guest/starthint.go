@@ -45,8 +45,9 @@ func startHint(err error, f startFacts) string {
 		return fmt.Sprintf(
 			"\n  %s: %s"+
 				"\n  the image does not have this program - a shell is not guaranteed to exist"+
-				"\n  in a base image, and `RUN` without one needs the exec form",
-			f.Binary, f.BinaryMode)
+				"\n  in a base image, and `RUN` without one needs the exec form"+
+				"\n  %s",
+			f.Binary, f.BinaryMode, neighbours(f.Root, f.Binary))
 
 	case errors.Is(err, syscall.EACCES):
 		return fmt.Sprintf(
@@ -154,4 +155,71 @@ func effectiveCaps() string {
 	}
 
 	return ""
+}
+
+// neighbours describes what the step's filesystem holds near a binary that is
+// not in it.
+//
+// **The message without this is true of two very different builds and tells
+// them apart for neither**: an image that genuinely ships no shell, and a root
+// that was assembled wrongly and holds nothing at all. Fourteen CI jobs failed
+// on "the image does not have this program", which named the one thing already
+// known - that the binary was missing (E642).
+//
+// The deepest ancestor that does exist, and how much is in it, separates them
+// in one line: `/bin holds 84 entries` is an image without a shell, and
+// `/ is empty` is a base that never arrived.
+func neighbours(root, binary string) string {
+	at := filepath.Dir(filepath.Clean("/" + binary))
+
+	for {
+		full := filepath.Join(root, at)
+
+		entries, err := os.ReadDir(full)
+		if err == nil {
+			if len(entries) == 0 {
+				return fmt.Sprintf("%s is empty, so this is a base that did not arrive"+
+					" rather than an image without a shell", at)
+			}
+
+			return fmt.Sprintf("%s holds %s, so the base is there and has no %s",
+				at, plural(len(entries)), filepath.Base(binary))
+		}
+
+		if at == "/" {
+			return "/ cannot be read, so nothing can be said about what the step was given"
+		}
+
+		// Not there either: say so and ask the same question one level up.
+		parent := filepath.Dir(at)
+
+		_, perr := os.ReadDir(filepath.Join(root, parent))
+		if perr == nil {
+			return fmt.Sprintf("%s is not there, and %s %s", at, parent, held(root, parent))
+		}
+
+		at = parent
+	}
+}
+
+// held is the tail of a sentence about how much is in a directory.
+func held(root, at string) string {
+	entries, err := os.ReadDir(filepath.Join(root, at))
+	switch {
+	case err != nil:
+		return "cannot be read"
+	case len(entries) == 0:
+		return "is empty"
+	default:
+		return "holds " + plural(len(entries))
+	}
+}
+
+// plural counts entries without saying "1 entries".
+func plural(n int) string {
+	if n == 1 {
+		return "1 entry"
+	}
+
+	return fmt.Sprintf("%d entries", n)
 }

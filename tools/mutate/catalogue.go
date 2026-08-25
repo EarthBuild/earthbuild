@@ -1030,14 +1030,14 @@ var Mutants = []Mutant{
 		Name:        "fleet: sending a fragment when paths were asked for (E286)",
 		File:        "engine/fleet/blobwire.go",
 		Anchor:      "\tif f, ok := held.(fragmenting); ok \u0026\u0026 len(want) > 0 \u0026\u0026 held != nil {",
-		Replacement: "\tif f, ok := held.(fragmenting); false {\n\t\t_ = f",
+		Replacement: "\tif f, ok := held.(fragmenting); ok \u0026\u0026 false {\n\t\t_ = f",
 		Package:     "./engine/fleet/",
 	},
 	{
 		Name:        "fleet: refusing an answer that is not the fragment asked for (I10, E286)",
 		File:        "engine/fleet/blobwire.go",
 		Anchor:      "\tif len(flag) != 1 || flag[0] != 2 {",
-		Replacement: "\tif false {",
+		Replacement: "\tif len(flag) != 1 \u0026\u0026 false {",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -1058,7 +1058,7 @@ var Mutants = []Mutant{
 		Name:        "fleet: a read-set hint that does not vary run to run (E287)",
 		File:        "engine/fleet/driver.go",
 		Anchor:      "\t\tsort.Strings(out)",
-		Replacement: "",
+		Replacement: "\t\tsort.SliceStable(out, func(int, int) bool { return false })",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -1152,7 +1152,7 @@ var Mutants = []Mutant{
 		Name:        "guest: an unobtainable file surviving the wire as an error (E289, E291)",
 		File:        "engine/guest/fills.go",
 		Anchor:      "\t\tif got.Error != \"\" {\n\t\t\treturn errors.New(got.Error)\n\t\t}",
-		Replacement: "",
+		Replacement: "\t\tif got.Error != \"\" \u0026\u0026 false {\n\t\t\treturn errors.New(got.Error)\n\t\t}",
 		Package:     "./engine/guest/",
 	},
 	{

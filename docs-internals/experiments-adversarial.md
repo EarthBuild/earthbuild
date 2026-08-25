@@ -28809,3 +28809,58 @@ thing it is testing cannot fail when that thing breaks; it can only fail when
 the machine is wrong. Every environmental guard should be a claim about the
 environment, checked independently, and not "whatever went wrong was probably
 not our fault".
+
+## E639 - taking the mounts down costs as much as putting them up
+
+E637 halved the binding cost and left a step at about 39ms. Splitting the rest
+needed one more phase, because the teardown runs in `defer`s: the host's `run`
+covered it and nothing else did.
+
+```text
+guest:request  39.5ms      guest:unbind          16.6ms
+  guest:prepare  18.0ms      guest:unbind:touched  14.2ms
+  guest:exec      3.9ms      guest:unbind:created   2.1ms
+  guest:unbind   16.6ms      guest:unbind:umount    0.0ms
+                             guest:unbind:staged    0.0ms
+```
+
+Two answers at once. The transport is not the problem - `guest:request` is
+39.5ms against the host's 40.0ms, so the whole round trip costs 0.6ms. And
+taking the mounts down costs as much as putting them up, which is not what the
+shape of the code suggests: the `umount` calls themselves are **0.0ms**.
+
+**14.2ms of a 39.5ms step is restoring directory times.** A directory the
+engine made a mount point in has had its mtime changed by the engine rather
+than by the step, so `directoryAsFound` reads its entry names before and after
+and puts the time back if they match. Reading a directory in an overlay means
+merging it across every lower layer, and it is read twice - once at bind, once
+at restore. With `/dev` now a mount of its own (E637), the directory left is
+`/etc`, and `/etc` in alpine is not small.
+
+The fix that would work is the one E636 already pointed at and this makes
+sharper: the question "did the step change this directory?" has a cheap exact
+answer that nobody is asking. The step's own writes land in the overlay's
+**upper** layer, which is a plain directory on an ordinary filesystem with no
+lower layers to merge - so an upper that contains only the engine's own mount
+point is proof the step changed nothing, in O(1) rather than O(depth). The
+obstacle is structural rather than hard: `bindMounts` is handed a root and does
+not know the overlay behind it.
+
+### The nineteen, resolved
+
+The linux-only sweep (E638) finished: **16 killed, 1 real gap, 2 unresolved.**
+The real one was `trace: setting no-new-privs before the filter`, whose test
+skipped on the mutation it existed to catch and now fails on it instead. The
+two left - `exec: giving the guest a fault-in channel only when asked (E297)`
+and `guest: ownership kept when a layer is committed (E446)` - survive with 20
+and 60 skips reported beside them: their packages want a sandbox a container
+does not have. Unresolved is a better answer than `unrun`, and the verdict now
+says which it is.
+
+*A container is not a machine, and the difference is invisible without care.*
+Running the guest suite in `alpine` without `--security-opt seccomp=unconfined`
+reported PASS for the whole package - because unprivileged user namespaces were
+blocked, `nstest.In` skipped, and a skipped test is not a failure. With
+namespaces available, three tests fail on `/proc` mounts the container will not
+allow. Neither number is the truth about the engine; the first is worse,
+because it looks like one.

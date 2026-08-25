@@ -1651,3 +1651,21 @@ func fillView(gm *guest.Mount, m ir.Mount, n *ir.Node, sources [][]ir.NodeID) er
 	return fmt.Errorf("%s binds %s at %s, which is not one of its sources",
 		n.Meta.Source, m.From, m.Target)
 }
+
+// StoreHas reports which of these layers the store holds.
+//
+// **Asked of the guest, because the store may not be the host's.** With
+// `EARTH_STORE_IN_VM` the layers live on a block device inside the VM, and a
+// host that stats its own root reads an empty answer - which `Lookup` turns
+// into a miss and a rebuild of everything already there.
+//
+// Exported so the tier that needs the answer can get it without reaching for a
+// client of its own: the connection is this executor's, made once and shared.
+func (e *Executor) StoreHas(ctx context.Context, ids []ir.NodeID) ([]ir.NodeID, error) {
+	c, err := e.client()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.StoreHas(ctx, ids)
+}

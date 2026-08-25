@@ -18,6 +18,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/fleet"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/pin"
@@ -436,6 +437,31 @@ func runPlan(
 			" so this build verifies its cache against the store directly: %v\n", err)
 	}
 
+	// **A store on the guest's device is answered for by the guest.** Stat'ing
+	// the host's own root reads an empty answer, `Lookup` turns that into a
+	// miss, and the build rebuilds everything it already had - which is what
+	// `KindStoreHas` was written for.
+	//
+	// A separate variable because the index below is still the host's - it
+	// closes gaps in a directory the host owns, which is not where the layers
+	// are, and only the *lookup* needs to move.
+	var present core.BlobStore = blobs
+
+	if guest.StoreInVM() {
+		asker, ok := over.(interface {
+			StoreHas(context.Context, []ir.NodeID) ([]ir.NodeID, error)
+		})
+		if ok {
+			present = &guestBlobs{ask: func(ids []ir.NodeID) ([]ir.NodeID, error) {
+				return asker.StoreHas(ctx, ids)
+			}}
+		} else {
+			fmt.Fprintln(o.Out, "earth: the layer store is inside the sandbox and"+
+				" this executor cannot be asked what it holds, so this build"+
+				" caches nothing")
+		}
+	}
+
 	blobs.Gap = func(id ir.NodeID) {
 		fmt.Fprintf(o.Out, "earth: layer %s is in the store and was not in its"+
 			" index, which means something filed it without recording it;"+
@@ -449,7 +475,7 @@ func runPlan(
 		// The invocation saying "redo it all": reads nothing already there and
 		// writes everything it produces, so the *next* build is warm (E462).
 		NoCache: o.NoCache,
-		Blobs:   blobs,
+		Blobs:   present,
 		Writer:  writerName,
 		Record:  rec,
 		// What the mount can take, not what overlayfs allows: the option page

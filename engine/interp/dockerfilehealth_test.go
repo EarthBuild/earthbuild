@@ -71,3 +71,33 @@ main:
 		t.Fatalf("HEALTHCHECK NONE was refused: %v", err)
 	}
 }
+
+// MAINTAINER is a label, which is what Docker made it years ago.
+//
+// Deprecated since Docker 1.13 and defined as `LABEL maintainer=...` - so an
+// engine with LABEL has MAINTAINER, and refusing it turns away an old
+// Dockerfile over a construct that is a spelling rather than a feature.
+func TestADockerfileMaintainerIsALabel(t *testing.T) {
+	t.Parallel()
+
+	dir := withDockerfile(t, "Dockerfile", `FROM alpine:3.22
+MAINTAINER someone@example.test
+`)
+
+	p, err := interp.Build(versioned+`
+main:
+    FROM DOCKERFILE .
+    SAVE IMAGE app:latest
+`, testMain, interp.WithContext(dir))
+	if err != nil {
+		t.Fatalf("MAINTAINER was refused: %v", err)
+	}
+
+	if len(p.Images) != 1 {
+		t.Fatalf("the image was not declared: %+v", p.Images)
+	}
+
+	if got := p.Images[0].Config.Labels["maintainer"]; got != "someone@example.test" {
+		t.Errorf("the maintainer label is %q", got)
+	}
+}

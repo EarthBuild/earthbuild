@@ -130,13 +130,17 @@ func TestAnUnsupportedInstructionIsRefusedByName(t *testing.T) {
 	// spelling, so refusing the Dockerfile spelling turned a file away over a
 	// construct the engine has. See TestADockerfileHealthcheckIsAHealthcheck.
 	//
-	// What remains is genuinely absent. `ONBUILD` is a *deferred* instruction -
-	// it runs when something else builds FROM this image, which is a lifecycle
-	// this engine does not have - and an `ADD` from a URL fetches at build time
-	// from somewhere no key can describe.
+	// What remains is genuinely absent, and each for its own reason. `ONBUILD`
+	// is a *deferred* instruction - it runs when something else builds FROM this
+	// image, which is a lifecycle this engine does not have. An `ADD` from a URL
+	// fetches at build time from somewhere no key can describe. And
+	// `STOPSIGNAL` is the one that is merely unbuilt: nothing in this engine
+	// models a stop signal, so unlike SHELL, HEALTHCHECK and MAINTAINER there
+	// is no mechanism sitting behind it waiting to be connected.
 	for _, instr := range []string{
 		"ONBUILD RUN true",
 		"ADD https://example.test/x /x",
+		"STOPSIGNAL SIGTERM",
 	} {
 		t.Run(strings.Fields(instr)[0], func(t *testing.T) {
 			t.Parallel()

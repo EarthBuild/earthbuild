@@ -770,6 +770,16 @@ func translate(
 	case *instructions.HealthCheckCommand:
 		return healthcheckCommand(v, loc), nil
 
+	case *instructions.MaintainerCommand:
+		// Deprecated since Docker 1.13 and *defined* as this label, so an
+		// engine with LABEL has MAINTAINER. Refusing it turned away an old
+		// Dockerfile over a spelling rather than a feature.
+		return earthfile.Command{
+			Name:           earthfile.CmdLabel,
+			Args:           []string{"maintainer=" + v.Maintainer},
+			SourceLocation: loc,
+		}, nil
+
 	default:
 		return earthfile.Command{}, unsupported(instructionName(instr), where, "")
 	}

@@ -32,7 +32,13 @@ usage: benchmark-earthly.sh [options]
 
   -t TARGET     Earthfile target to build (default +earthly)
   -n PAIRS      alternating pairs per state (default 2)
-  -s STATES     "cold", "warm", or "cold warm" (default both)
+  -s STATES     any of "cold", "warm", "incr" (default "cold warm")
+
+                incr is the one a developer lives in: both engines are settled
+                on the current source, one comment line is appended to
+                cmd/earth/main.go, and the rebuild is what is timed. The file is
+                restored byte for byte afterwards, from a copy rather than from
+                git, so uncommitted work in it survives.
   -b BINARY     the native engine to test (default build/earth-native)
   -q SECONDS    how long to wait for the machine to settle (default 300)
   -h            this
@@ -71,7 +77,35 @@ runlog=$(mktemp -t earthbench.XXXXXX)
 # was the cost of this script's own bookkeeping rather than of the engine (E699).
 pending=$(mktemp -t earthbench-rows.XXXXXX)
 
-trap 'flush; rm -f "$runlog" "$pending"' EXIT
+# **The incremental state edits a real source file**, so it is saved and put
+# back byte for byte. A copy rather than `git checkout --`, which would throw
+# away uncommitted work in that file - this script is not entitled to do that.
+incr_file="$here/cmd/earth/main.go"
+incr_saved=""
+
+incr_begin() {
+    [ -n "$incr_saved" ] && return 0
+
+    incr_saved=$(mktemp -t earthbench-src.XXXXXX)
+    cp "$incr_file" "$incr_saved"
+}
+
+incr_restore() {
+    [ -n "$incr_saved" ] || return 0
+
+    cp "$incr_saved" "$incr_file"
+}
+
+# incr_edit appends one comment, unique per pair so the second pair is not the
+# first pair's cache hit. Appended rather than rewritten: nothing about what the
+# program means changes, which is the point - this is the cost of a one-line
+# edit, not of a different program.
+incr_edit() {
+    incr_begin
+    printf '\n// benchmark %s-%s\n' "$$" "$1" >>"$incr_file"
+}
+
+trap 'incr_restore; flush; rm -f "$runlog" "$pending" "$incr_saved"' EXIT
 
 # flush moves the held rows into the ledger. Idempotent: it is called once the
 # runs are done so the medians below can read them, and again from the trap so a
@@ -231,6 +265,17 @@ for state in $states; do
             order="native earthly"
         fi
 
+        # **Both engines build the same edit**, and both start from the same
+        # place: an unmeasured settling build apiece puts their caches on the
+        # current source whatever state ran before this one, and the edit is
+        # made once, for the pair.
+        if [ "$state" = incr ]; then
+            incr_restore
+            run_earthly >/dev/null 2>&1 || true
+            run_native >/dev/null 2>&1 || true
+            incr_edit "$pair"
+        fi
+
         for engine in $order; do
             if [ "$state" = cold ]; then
                 case "$engine" in
@@ -270,7 +315,7 @@ with open(path) as f:
         if c == commit and t == target and rc == "0":
             rows.setdefault((state, engine), []).append(float(secs))
 
-for state in ("cold", "warm"):
+for state in ("cold", "warm", "incr"):
     got = {e: v for (s, e), v in rows.items() if s == state}
     if len(got) < 2:
         continue

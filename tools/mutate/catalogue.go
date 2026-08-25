@@ -110,7 +110,7 @@ var Mutants = []Mutant{
 		// contributes no directory is classified out before the mount is built,
 		// so what gets reversed is the elements that have one (§3.2a).
 		Anchor:      "\tfor i := range slices.Backward(trees) {\n\t\tid := trees[i]",
-		Replacement: "\tfor i := range trees {\n\t\tid := trees[i]",
+		Replacement: "\tfor i := range slices.All(trees) {\n\t\tid := trees[i]",
 		Package:     "./engine/mat/overlay/",
 		OS:          "linux",
 	},
@@ -1123,7 +1123,7 @@ var Mutants = []Mutant{
 		Name:        "trace: not fetching a path that is already here (E289)",
 		File:        "engine/trace/tracer_linux.go",
 		Anchor:      "\t_, err := os.Lstat(path)\n\tif err == nil {\n\t\treturn\n\t}",
-		Replacement: "",
+		Replacement: "\t_, err := os.Lstat(path)\n\tif err == nil \u0026\u0026 false {\n\t\treturn\n\t}",
 		Package:     "./engine/trace/",
 		OS:          "linux",
 	},

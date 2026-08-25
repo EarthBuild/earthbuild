@@ -13,6 +13,18 @@ const (
 	whOpaque = ".wh..wh..opq"
 )
 
+// isMarker reports whether a tar entry is a deletion marker rather than a file.
+//
+// Split out from applying one because the two answers are wanted separately:
+// a layer kept in a directory of its own has nothing below it to delete, so the
+// marker has to survive the unpack and be turned into an overlayfs whiteout when
+// the layer is stacked. See UnpackApart.
+func isMarker(name string) bool {
+	base := filepath.Base(name)
+
+	return base == whOpaque || strings.HasPrefix(base, whPrefix)
+}
+
 // whiteout applies a deletion marker, reporting whether the entry was one.
 //
 // An image's layers are unpacked into one directory here, so a deletion is a

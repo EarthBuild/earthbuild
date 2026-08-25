@@ -31,6 +31,12 @@ import (
 type fakeRegistry struct {
 	layers  [][]byte // compressed tars, per mediaType below
 	corrupt bool
+	// serveInstead answers every layer request with these bytes: well-formed,
+	// and not what was asked for. `corrupt` flips a byte and so is caught by
+	// the decompressor, which says nothing about whether the digest was
+	// checked - the question a streaming unpack has to answer, since it writes
+	// entries before it can check.
+	serveInstead []byte
 	// mediaType is what the manifest declares each layer to be. Empty means
 	// gzip, which every existing case here serves.
 	mediaType string
@@ -216,6 +222,16 @@ func (f *fakeRegistry) start(t *testing.T) string {
 
 			for _, l := range f.layers {
 				if strings.HasSuffix(r.URL.Path, digestOf(l)) {
+					// Well-formed bytes that are not the ones asked for.
+					// `corrupt` flips a byte and so fails at the decompressor,
+					// which proves nothing about whether the digest is checked -
+					// and a streaming unpack writes entries before it can be.
+					if f.serveInstead != nil {
+						_, _ = w.Write(f.serveInstead)
+
+						return
+					}
+
 					if f.corrupt {
 						// One byte different: the digest no longer matches, and
 						// nothing else about the response looks wrong.

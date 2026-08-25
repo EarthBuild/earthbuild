@@ -1,6 +1,7 @@
 package image
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -23,9 +24,21 @@ var zstdMagic = []byte{0x28, 0xB5, 0x2F, 0xFD}
 // disagrees with its declared type is a blob to refuse, not one to interpret
 // helpfully.
 func decompress(blob []byte, mediaType string) (io.ReadCloser, error) {
+	return DecompressFrom(bytes.NewReader(blob), mediaType)
+}
+
+// DecompressFrom is decompress over a stream, for a layer read as it arrives
+// rather than after it has landed - a streaming unpack (see streamLayerApart),
+// or a fragment served straight out of a stored blob without the layer ever
+// being written (E657).
+//
+// The zstd arm peeks rather than indexes: the magic check has to happen before
+// any byte is handed on, and a stream cannot be indexed. `bufio.Reader.Peek`
+// gives back what it looked at, so the decoder still sees the frame header.
+func DecompressFrom(r io.Reader, mediaType string) (io.ReadCloser, error) {
 	switch {
 	case strings.HasSuffix(mediaType, ".tar+gzip"), strings.HasSuffix(mediaType, ".tar.gzip"):
-		zr, err := gzip.NewReader(bytes.NewReader(blob))
+		zr, err := gzip.NewReader(r)
 		if err != nil {
 			return nil, fmt.Errorf("decompress layer: %w", err)
 		}
@@ -43,7 +56,12 @@ func decompress(blob []byte, mediaType string) (io.ReadCloser, error) {
 		// So the frame magic is checked here, which is what gzip does for its
 		// own. Parity is then exact in both directions: header at construction,
 		// body at read.
-		if !bytes.HasPrefix(blob, zstdMagic) {
+		peeker := bufio.NewReader(r)
+
+		head, _ := peeker.Peek(len(zstdMagic))
+		r = peeker
+
+		if !bytes.Equal(head, zstdMagic) {
 			return nil, fmt.Errorf(
 				"decompress zstd layer: declared %s but the bytes do not begin"+
 					" with a zstd frame", mediaType)
@@ -52,7 +70,7 @@ func decompress(blob []byte, mediaType string) (io.ReadCloser, error) {
 		// IOReadCloser, not the decoder: zstd.Decoder's Close returns nothing
 		// and so does not satisfy io.ReadCloser, and a decoder that is never
 		// closed leaks the goroutines it decodes on.
-		zr, err := zstd.NewReader(bytes.NewReader(blob))
+		zr, err := zstd.NewReader(r)
 		if err != nil {
 			return nil, fmt.Errorf("decompress zstd layer: %w", err)
 		}
@@ -60,7 +78,7 @@ func decompress(blob []byte, mediaType string) (io.ReadCloser, error) {
 		return zr.IOReadCloser(), nil
 
 	case strings.HasSuffix(mediaType, ".tar"), mediaType == "":
-		return io.NopCloser(bytes.NewReader(blob)), nil
+		return io.NopCloser(r), nil
 
 	default:
 		// Named rather than treated as an uncompressed tar, which would fail

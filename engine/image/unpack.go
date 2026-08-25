@@ -15,12 +15,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/fstime"
+	"lukechampine.com/blake3"
 )
 
 // Unpack writes a layer tar into dir.
@@ -29,6 +33,92 @@ import (
 // Silently rewriting a hostile path to a safe one would unpack an image that
 // does not match its digest, which is a different lie from the one being told.
 func Unpack(r io.Reader, dir string) error {
+	_, err := unpack(r, dir, false)
+
+	return err
+}
+
+// UnpackApart writes a layer tar into a directory of its own, keeping deletion
+// markers instead of applying them, and reports whether it saw any.
+//
+// **A whiteout deletes something in a *lower* layer.** Unpacking an image into
+// one tree may apply it the moment it is read, because the lower layer is
+// already in that tree. Kept apart there is nothing below: applying the marker
+// removes nothing, the marker is dropped, and the file it named survives into
+// the stack. So it is written literally and translated into the overlayfs form
+// when the layer is stacked, which is what `engine/mat/overlay` exists to do.
+//
+// The reported answer is the same question `hasMarkers` walks a whole layer to
+// ask - 1.44s of a cold `golang:1.26-alpine` pull - asked here for nothing, because the
+// unpacker has read every entry already.
+func UnpackApart(r io.Reader, dir string) (Unpacked, error) {
+	return unpackApart(r, dir)
+}
+
+// Unpacked is what an apart unpack learned on the way past.
+//
+// Both fields are answers the unpacker had for nothing and used to discard, and
+// both were being recomputed by a full walk of the finished tree: the markers by
+// `engine/mat/overlay`, at 1.44s per cold `golang:1.26-alpine` pull, and the
+// digests by `layer.TakeOwnedIn`, at 0.958s.
+type Unpacked struct {
+	// Marked reports whether the layer carries deletion markers.
+	Marked bool
+	// Digests is each regular file's content digest, keyed by slash-separated
+	// path relative to the unpack root. Directories, symlinks and device nodes
+	// have no content and do not appear.
+	Digests map[string]Digest
+	// Owners is the archive's own account of who owns each path.
+	//
+	// **The only account that is the same on every machine.** An unprivileged
+	// unpack cannot grant the archive's ownership - `applyOwner` attempts the
+	// chown and tolerates EPERM (A2, E92) - so the disk says the builder owns
+	// what the image says root owns, and the layer gets a different name on
+	// every machine. Worse on BSD, where a new file takes the *enclosing
+	// directory's* group rather than the process's, so the name depended on
+	// where the store happened to live.
+	//
+	// A directory the archive never named has no account to give and is
+	// recorded as root's, for the reason `unpackEpoch` exists: something
+	// undescribed still needs a stated answer rather than an inherited one.
+	Owners map[string]Owner
+}
+
+// Owner is a uid and gid an archive declared.
+//
+// It converts to `layer.Owner` field by field rather than directly: `ir` imports
+// this package, so this package cannot name `layer`.
+type Owner struct {
+	UID, GID uint32
+}
+
+func unpackApart(r io.Reader, dir string) (Unpacked, error) {
+	out := Unpacked{Digests: map[string]Digest{}, Owners: map[string]Owner{}}
+
+	// EXPERIMENT (E653): hashing on the way in saves the store a full read-back
+	// but pays for it inline, in the one goroutine handling this layer, while
+	// the read-back it replaces runs across every core. Which way that lands is
+	// what is being measured; remove this switch once it is known.
+	if os.Getenv("EARTH_NO_KNOWN_DIGESTS") != "" {
+		out.Digests = nil
+	}
+	err := unpackInto(r, dir, true, &out)
+
+	return out, err
+}
+
+func unpack(r io.Reader, dir string, keepMarkers bool) (bool, error) {
+	var out Unpacked
+
+	err := unpackInto(r, dir, keepMarkers, &out)
+
+	return out.Marked, err
+}
+
+// unpackInto is the walk itself. Split from unpack only so that every failure
+// in it stays a plain `return err`: threading a second return value through
+// forty of them would say nothing and hide the one that matters.
+func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error {
 	root, err := filepath.Abs(dir)
 	if err != nil {
 		return fmt.Errorf("resolve the unpack root: %w", err)
@@ -85,7 +175,7 @@ func Unpack(r io.Reader, dir string) error {
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
-			applyErr := applyDirModes(dirs)
+			applyErr := applyDirModes(root, dirs, out)
 			if applyErr != nil {
 				return applyErr
 			}
@@ -125,14 +215,31 @@ func Unpack(r io.Reader, dir string) error {
 			return err
 		}
 
+		// **Recorded for every kind, before anything is written.** The chown
+		// below may be refused, so the disk is not a record of what the archive
+		// said - and what the archive said is the only answer that is the same
+		// on two machines. See Unpacked.Owners.
+		if out.Owners != nil {
+			//nolint:gosec // an archive's uid and gid
+			out.Owners[path.Clean(h.Name)] = Owner{UID: uint32(h.Uid), GID: uint32(h.Gid)}
+		}
+
 		// Whiteouts are markers, not files: they name a deletion, and writing
 		// them literally would put `.wh.foo` into the merged filesystem instead
 		// of removing `foo` from it.
-		handled, err := whiteout(h, target)
-		if err != nil {
-			return err
-		} else if handled {
-			continue
+		if isMarker(h.Name) {
+			out.Marked = true
+
+			// Kept: written literally, by the ordinary path below, so the
+			// stack can act on it. `hasMarkers` recognises exactly this form.
+			if !keepMarkers {
+				_, err = whiteout(h, target)
+				if err != nil {
+					return err
+				}
+
+				continue
+			}
 		}
 
 		if h.Typeflag == tar.TypeDir {
@@ -149,7 +256,7 @@ func Unpack(r io.Reader, dir string) error {
 			return err
 		}
 
-		err = writeEntry(tr, h, root, target, written, folded)
+		err = writeEntry(tr, h, root, target, written, folded, out)
 		if err != nil {
 			return err
 		}
@@ -253,7 +360,7 @@ func safePath(root, name string) (string, error) {
 
 func writeEntry(
 	tr *tar.Reader, h *tar.Header, root, target string,
-	written map[string]bool, folded map[string]foldedEntry,
+	written map[string]bool, folded map[string]foldedEntry, out *Unpacked,
 ) error {
 	// Immediately before the syscalls, so the assertion dominates the sink
 	// rather than sitting a call away from it. See insideRoot.
@@ -299,9 +406,16 @@ func writeEntry(
 		return nil
 
 	case tar.TypeReg:
-		err := writeFile(tr, h, target)
+		// Hashed as it is written, with `layer`'s hasher over the same bytes -
+		// so what is reported is what a read of the finished file would give,
+		// which is the only reason the store may be told rather than shown.
+		digest, err := writeFile(tr, h, target, out.Digests != nil)
 		if err != nil {
 			return err
+		}
+
+		if out.Digests != nil {
+			out.Digests[path.Clean(h.Name)] = digest
 		}
 
 	case tar.TypeSymlink:
@@ -413,23 +527,45 @@ func replacing(h *tar.Header, target string, written map[string]bool, folded map
 	return nil
 }
 
-func writeFile(tr *tar.Reader, h *tar.Header, target string) error {
+func writeFile(tr *tar.Reader, h *tar.Header, target string, digesting bool) (Digest, error) {
 	//nolint:gosec // the archive's mode
 	f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(h.Mode))
 	if err != nil {
-		return fmt.Errorf("create %q: %w", h.Name, err)
+		return Digest{}, fmt.Errorf("create %q: %w", h.Name, err)
 	}
 
 	defer f.Close()
 
-	// Copy bounded by the declared size, so a header claiming one byte cannot
-	// stream a gigabyte into the layer store.
-	_, err = io.CopyN(f, tr, h.Size)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return fmt.Errorf("write %q: %w", h.Name, err)
+	// One pass for both. Placing a pulled image used to read every byte back to
+	// digest it, having just written it; hashing here is the same work moved to
+	// where the bytes already are.
+	//
+	// **Only when somebody wants the answer.** A merged unpack files one layer
+	// under an identity taken from the finished tree and has no use for these,
+	// so hashing there would be the cost of the optimisation without the saving
+	// - measured at 0.57s on `golang:1.26-alpine` before this was conditional.
+	var (
+		sum  *blake3.Hasher
+		sink io.Writer = f
+	)
+
+	if digesting {
+		sum = NewContentHasher()
+		sink = io.MultiWriter(f, sum)
 	}
 
-	return nil
+	// Copy bounded by the declared size, so a header claiming one byte cannot
+	// stream a gigabyte into the layer store.
+	_, err = io.CopyN(sink, tr, h.Size)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return Digest{}, fmt.Errorf("write %q: %w", h.Name, err)
+	}
+
+	if sum == nil {
+		return Digest{}, nil
+	}
+
+	return Digest(sum.Sum(nil)), nil
 }
 
 // setMeta restores mode and mtime.
@@ -504,7 +640,14 @@ func setMeta(h *tar.Header, target string) error {
 //
 // Deepest first, so a directory that denies writing is never made read-only
 // before the directory beneath it has been given its own mode.
-func applyDirModes(dirs []*tar.Header) error {
+func applyDirModes(root string, dirs []*tar.Header, out *Unpacked) error {
+	// **Before the modes, while every directory can still be entered.** A
+	// declared mode may deny reading, and the walk below has to get in.
+	err := stampUndeclaredDirs(root, dirs, out)
+	if err != nil {
+		return err
+	}
+
 	sort.Slice(dirs, func(i, j int) bool {
 		return strings.Count(dirs[i].Name, string(os.PathSeparator)) >
 			strings.Count(dirs[j].Name, string(os.PathSeparator))
@@ -526,6 +669,102 @@ func applyDirModes(dirs []*tar.Header) error {
 		err = os.Chtimes(h.Name, h.ModTime, h.ModTime)
 		if err != nil {
 			return fmt.Errorf("set times on %q: %w", h.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// undeclaredDirMode is the mode a directory gets when the archive never
+// described it.
+//
+// **Stated rather than inherited.** `os.MkdirAll` applies the process umask, so
+// the mode of an undescribed directory was whatever the caller happened to be
+// set to - and a mode is part of the layer (§3.3), so one machine at umask 022
+// and one at 077 named the same image differently.
+//
+// 0755 because that is what the unpacker asks MkdirAll for, so this changes
+// nothing on the ordinary machine and removes the dependence on the unordinary
+// one.
+const undeclaredDirMode = 0o755
+
+// unpackEpoch is the time a directory gets when the archive never described it.
+//
+// **An undescribed directory still has to have a described time.** An archive
+// naming `etc/conf` and not `etc/` leaves the unpacker to create the parent,
+// and `os.MkdirAll` stamps it with the moment it ran - which §3.3 counts as part
+// of the layer, so the same archive produced a different layer on every unpack.
+// Two machines pulling one image then disagree about what they hold, a peer
+// cannot serve a layer anybody asked for by name, and a re-pull after a cache
+// wipe hits nothing.
+//
+// The epoch rather than anything cleverer: a directory the archive did not
+// describe has no time of its own to recover, so the only honest choice is a
+// constant, and the conventional constant is zero.
+var unpackEpoch = time.Unix(0, 0)
+
+// stampUndeclaredDirs gives every directory the archive did not name the epoch.
+//
+// Deepest first for the same reason applyDirModes is: a directory's own mtime
+// survives a change beneath it here, but the ordering costs nothing and the two
+// passes should not disagree about the rule.
+func stampUndeclaredDirs(root string, dirs []*tar.Header, out *Unpacked) error {
+	declared := make(map[string]bool, len(dirs))
+	for _, h := range dirs {
+		declared[h.Name] = true
+	}
+
+	var undeclared []string
+
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		// The root is the layer, not a member of it: nothing digests its own
+		// mtime, and stamping it would be a claim about the store's directory.
+		if !d.IsDir() || p == root || declared[p] {
+			return nil
+		}
+
+		undeclared = append(undeclared, p)
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("find the directories %s did not describe: %w", root, err)
+	}
+
+	sort.Slice(undeclared, func(i, j int) bool {
+		return strings.Count(undeclared[i], string(os.PathSeparator)) >
+			strings.Count(undeclared[j], string(os.PathSeparator))
+	})
+
+	for _, p := range undeclared {
+		// **Root's, because nothing described it.** `os.MkdirAll` leaves it
+		// owned by whoever ran the unpack - and on BSD with the *enclosing
+		// directory's* group, so the layer's name depended on where the store
+		// lived. An image's directories are root's by convention and by every
+		// archive that bothers to say.
+		if out.Owners != nil {
+			rel, relErr := filepath.Rel(root, p)
+			if relErr == nil {
+				out.Owners[filepath.ToSlash(rel)] = Owner{}
+			}
+		}
+
+		// Mode first: an mtime survives a chmod, and a chmod that denied
+		// writing after the stamp would still leave the stamp in place - but
+		// the two passes should not depend on that, and this order needs no
+		// argument at all.
+		err := os.Chmod(p, undeclaredDirMode)
+		if err != nil {
+			return fmt.Errorf("set the mode of the undescribed directory %q: %w", p, err)
+		}
+
+		err = os.Chtimes(p, unpackEpoch, unpackEpoch)
+		if err != nil {
+			return fmt.Errorf("stamp the undescribed directory %q: %w", p, err)
 		}
 	}
 

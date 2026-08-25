@@ -9,8 +9,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
@@ -113,6 +115,25 @@ type Options struct {
 	//
 	// The token itself is never written here. See challenge.go.
 	Challenges string
+	// Stream unpacks each layer as it arrives rather than after it has landed.
+	// Only meaningful with the layers kept apart - see streamLayerApart - and
+	// ignored by Pull, whose merged unpack E647 measured at no gain.
+	Stream bool
+	// Retain, when set, is asked where to put each layer's compressed bytes as
+	// they arrive, and the writer is closed when the layer is complete.
+	//
+	// **A blob is 61MB where its tree is 228MB and 15034 files**, and a layer
+	// kept as a blob can still be named (E656) and served in part (E657) - at
+	// 76% of an unpack-and-name (E658). None of that is reachable if the pull
+	// throws the bytes away.
+	//
+	// A writer per layer rather than a buffer, because the streaming path never
+	// holds a whole one; and the caller's rather than this package's, because
+	// `ir` imports this package and so this package cannot name `engine/blob`.
+	//
+	// Best effort: a retention that fails leaves a pull that worked, since the
+	// layer is unpacked either way.
+	Retain func(layerDigest string) (io.WriteCloser, error)
 }
 
 // maxManifest bounds a manifest document. A registry that returns an unbounded
@@ -170,10 +191,22 @@ func selectPlatform(m manifest, want string) (string, error) {
 // Every blob is verified against its descriptor digest **before** its contents
 // are used. Verifying afterwards would mean unpacking hostile bytes first, and
 // unpacking is exactly where an archive gets to create files.
-func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfig, error) {
+// prepared is everything a pull needs once the manifest is in hand.
+type prepared struct {
+	client *http.Client
+	m      manifest
+	tok    string
+	base   string
+}
+
+// prepare resolves a reference and fetches its manifest.
+//
+// Shared by Pull and PullApart, which differ only in where the layers land:
+// one directory between them, or one each.
+func prepare(ctx context.Context, ref string, opt Options) (prepared, error) {
 	r, err := ParseRef(ref)
 	if err != nil {
-		return ocispec.ImageConfig{}, err
+		return prepared{}, err
 	}
 
 	client := opt.Client
@@ -198,7 +231,7 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 	// authentication feature - it is how a pull works at all.
 	tok, err := token(ctx, client, base+"/manifests/"+target, opt.Challenges, challengeKey(r))
 	if err != nil {
-		return ocispec.ImageConfig{}, fmt.Errorf("authenticate to %s: %w", r.Registry, err)
+		return prepared{}, fmt.Errorf("authenticate to %s: %w", r.Registry, err)
 	}
 
 	endManifest := timing.Phase("registry:manifest", target)
@@ -206,13 +239,13 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 
 	endManifest()
 	if err != nil {
-		return ocispec.ImageConfig{}, fmt.Errorf("fetch the manifest for %s: %w", ref, err)
+		return prepared{}, fmt.Errorf("fetch the manifest for %s: %w", ref, err)
 	}
 
 	var m manifest
 	err = json.Unmarshal(body, &m)
 	if err != nil {
-		return ocispec.ImageConfig{}, fmt.Errorf("parse the manifest for %s: %w", ref, err)
+		return prepared{}, fmt.Errorf("parse the manifest for %s: %w", ref, err)
 	}
 
 	// A manifest list resolves to one manifest before anything is fetched.
@@ -224,27 +257,39 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 
 		digest, selectErr := selectPlatform(m, want)
 		if selectErr != nil {
-			return ocispec.ImageConfig{}, fmt.Errorf("%s: %w", ref, selectErr)
+			return prepared{}, fmt.Errorf("%s: %w", ref, selectErr)
 		}
 
 		body, selectErr = get(ctx, client, tok, base+"/manifests/"+digest, maxManifest)
 		if selectErr != nil {
-			return ocispec.ImageConfig{}, fmt.Errorf("fetch the %s manifest for %s: %w", want, ref, selectErr)
+			return prepared{}, fmt.Errorf("fetch the %s manifest for %s: %w", want, ref, selectErr)
 		}
 
 		m = manifest{}
 		selectErr = json.Unmarshal(body, &m)
 		if selectErr != nil {
-			return ocispec.ImageConfig{}, fmt.Errorf("parse the %s manifest for %s: %w", want, ref, selectErr)
+			return prepared{}, fmt.Errorf("parse the %s manifest for %s: %w", want, ref, selectErr)
 		}
 	}
 
 	if len(m.Layers) == 0 {
-		return ocispec.ImageConfig{}, fmt.Errorf("%s has no layers", ref)
+		return prepared{}, fmt.Errorf("%s has no layers", ref)
 	}
 
 	// 0750 for the directory this engine owns; the image's own entries get the
 	// modes the archive declares, applied once they are all in place.
+	return prepared{client: client, tok: tok, base: base, m: m}, nil
+}
+
+// Pull fetches an image and unpacks every layer into one directory.
+func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfig, error) {
+	p, err := prepare(ctx, ref, opt)
+	if err != nil {
+		return ocispec.ImageConfig{}, err
+	}
+
+	client, tok, base, m := p.client, p.tok, p.base, p.m
+
 	err = os.MkdirAll(dir, 0o750)
 	if err != nil {
 		return ocispec.ImageConfig{}, fmt.Errorf("create the unpack directory: %w", err)
@@ -445,16 +490,32 @@ func fetchLayer(ctx context.Context, client *http.Client, tok, base string, d de
 
 // unpackLayer applies one fetched layer to the directory being built.
 func unpackLayer(blob []byte, d descriptor, dir string) error {
+	_, err := unpackOneLayer(blob, d, dir, false)
+
+	return err
+}
+
+// unpackLayerApart writes one layer into a directory of its own, reporting
+// whether it carries deletion markers. See UnpackApart for why the two differ.
+func unpackLayerApart(blob []byte, d descriptor, dir string) (Unpacked, error) {
+	return unpackOneLayer(blob, d, dir, true)
+}
+
+func unpackOneLayer(blob []byte, d descriptor, dir string, apart bool) (Unpacked, error) {
 	r, err := decompress(blob, d.MediaType)
 	if err != nil {
-		return err
+		return Unpacked{}, err
 	}
 
 	defer r.Close()
 
 	defer timing.Phase("layer:unpack", d.Digest)()
 
-	return Unpack(r, dir)
+	if apart {
+		return UnpackApart(r, dir)
+	}
+
+	return Unpacked{}, Unpack(r, dir)
 }
 
 // verify checks a blob against its descriptor digest.
@@ -731,4 +792,257 @@ func checkArchitecture(os, arch, want string) error {
 			"\n  it is a single-manifest image, so there is no other platform to fetch"+
 			"\n  use an image that provides %s, or run this build on a %s machine",
 		has, want, want, has)
+}
+
+// PulledLayer is one layer of an image, unpacked into a directory of its own.
+type PulledLayer struct {
+	// Digest is the layer's digest as the manifest gave it.
+	Digest string
+	// Dir is the directory it was unpacked into, relative to the root handed
+	// to PullApart.
+	Dir string
+	// Marked reports whether the layer carries deletion markers, which the
+	// unpacker knows for nothing because it read every entry. Without it the
+	// materialiser walks the whole layer to ask the same question - 1.44s of a
+	// cold `golang:1.26-alpine` pull, once per layer.
+	Marked bool
+	// Digests is each regular file's content digest, hashed as it was written.
+	// Without it the store reads the whole layer back to compute the same
+	// numbers - 0.958s of that same pull. See Unpacked.
+	Digests map[string]Digest
+	// Owners is the archive's account of who owns each path, which the disk
+	// cannot give back: an unprivileged unpack could not grant it (E656).
+	Owners map[string]Owner
+	// MediaType is how the layer's blob is compressed. Carried because a
+	// retained blob is unreadable without it, and guessing gzip fails inside
+	// the unpacker with a complaint about a corrupt archive - the wrong
+	// component entirely.
+	MediaType string
+}
+
+// PullApart fetches an image and unpacks each layer into a directory of its
+// own, returning them in the order they must be stacked.
+//
+// **The merge is what makes unpacking serial.** `Pull` puts every layer into
+// one directory oldest first, so a later layer may overwrite an earlier one and
+// the order cannot be given up. Nothing about fetching or unpacking a layer
+// depends on another layer - only the merge does - so keeping them apart lets
+// all of it happen at once, and the assembling becomes an overlay mount, which
+// is what overlayfs is for (E646).
+//
+// The layers are unpacked concurrently when no single one dominates, and
+// serially when one does: a layer that is most of the image has nothing to
+// overlap with, and four goroutines competing for one disk cost 23% on
+// `golang:1.26-alpine` where the ceiling was 4% (E646). The manifest carries
+// the sizes, so the choice is made before a byte is fetched.
+func PullApart(ctx context.Context, ref, root string, opt Options) ([]PulledLayer, ocispec.ImageConfig, error) {
+	return pullApart(ctx, ref, root, opt)
+}
+
+// unpackAtOnceBelow is how much of an image one layer may be before unpacking
+// them together stops being worth it.
+//
+// **Measured, and the floor is worse than the ceiling.** Where no layer
+// dominates, unpacking at once delivers what the arithmetic promises - 37%
+// predicted and 38% measured on `python:3.13-slim`. Where one does, there is
+// nothing to overlap with and the goroutines merely contend: `golang:1.26-alpine`
+// keeps 96% of its unpack in one layer and went 23% *slower* (E646).
+//
+// The manifest carries every layer's size, so the choice costs nothing and is
+// made before a byte is fetched.
+const unpackAtOnceBelow = 0.80
+
+// worthUnpackingAtOnce reports whether an image's layers are even enough that
+// unpacking them together will pay.
+func worthUnpackingAtOnce(layers []descriptor) bool {
+	if len(layers) < 2 {
+		return false
+	}
+
+	var total, largest int64
+
+	for _, d := range layers {
+		total += d.Size
+		if d.Size > largest {
+			largest = d.Size
+		}
+	}
+
+	if total <= 0 {
+		return false
+	}
+
+	return float64(largest)/float64(total) < unpackAtOnceBelow
+}
+
+// layerDir is where one layer of an image lands, under the root PullApart was
+// given.
+//
+// Numbered as well as digested, so a listing is in stacking order and a person
+// reading it can see which layer is which without consulting the manifest.
+func layerDir(i int, digest string) string {
+	_, hexsum, _ := strings.Cut(digest, ":")
+	if len(hexsum) > 12 {
+		hexsum = hexsum[:12]
+	}
+
+	return fmt.Sprintf("%02d-%s", i, hexsum)
+}
+
+// pullApart is PullApart's body.
+func pullApart(ctx context.Context, ref, root string, opt Options) ([]PulledLayer, ocispec.ImageConfig, error) {
+	p, err := prepare(ctx, ref, opt)
+	if err != nil {
+		return nil, ocispec.ImageConfig{}, err
+	}
+
+	err = os.MkdirAll(root, 0o750)
+	if err != nil {
+		return nil, ocispec.ImageConfig{}, fmt.Errorf("create the unpack directory: %w", err)
+	}
+
+	layers := p.m.Layers
+	out := make([]PulledLayer, len(layers))
+	failed := make([]error, len(layers))
+	atOnce := worthUnpackingAtOnce(layers)
+
+	endUnpack := timing.Phase("layers:unpack", fmt.Sprintf("%d apart, at once=%v", len(layers), atOnce))
+
+	// **Streamed, every layer at once, with no byte budget.** The budget exists
+	// to bound how much of an image is held in memory while it waits for the
+	// unpacker; a streamed layer holds a buffer instead of a blob, so there is
+	// nothing to bound and nothing to wait for. Each layer's fetch overlaps its
+	// own unpack and every other layer's - which is the whole point.
+	if opt.Stream {
+		var streaming sync.WaitGroup
+
+		for i, d := range layers {
+			sub := layerDir(i, d.Digest)
+
+			mkErr := os.MkdirAll(filepath.Join(root, sub), 0o750)
+			if mkErr != nil {
+				streaming.Wait()
+
+				return nil, ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, mkErr)
+			}
+
+			out[i] = PulledLayer{Digest: d.Digest, Dir: sub, MediaType: d.MediaType}
+
+			streaming.Add(1)
+
+			go func(i int, d descriptor, into string) {
+				defer streaming.Done()
+
+				var got Unpacked
+
+				got, failed[i] = streamLayerApart(ctx, p.client, p.tok, p.base, d, into, opt.Retain)
+				out[i].Marked, out[i].Digests, out[i].Owners = got.Marked, got.Digests, got.Owners
+			}(i, d, filepath.Join(root, sub))
+		}
+
+		streaming.Wait()
+		endUnpack()
+
+		return finishApart(ctx, p, opt, ref, out, failed)
+	}
+
+	fetching := newLayerFetch(ctx, p.client, p.tok, p.base, layers)
+
+	var wg sync.WaitGroup
+
+	for i, d := range layers {
+		got := fetching.await(i)
+		if got.err != nil {
+			wg.Wait()
+
+			return nil, ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, got.err)
+		}
+
+		sub := layerDir(i, d.Digest)
+		into := filepath.Join(root, sub)
+
+		err = os.MkdirAll(into, 0o750)
+		if err != nil {
+			wg.Wait()
+
+			return nil, ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, err)
+		}
+
+		out[i] = PulledLayer{Digest: d.Digest, Dir: sub, MediaType: d.MediaType}
+
+		keepBlob(opt.Retain, d.Digest, got.blob)
+
+		if !atOnce {
+			var un Unpacked
+
+			un, failed[i] = unpackLayerApart(got.blob, d, into)
+			out[i].Marked, out[i].Digests, out[i].Owners = un.Marked, un.Digests, un.Owners
+
+			continue
+		}
+
+		wg.Add(1)
+
+		// Each goroutine writes only its own slot, so no lock: the slices are
+		// sized before the fan-out and indices are never reused.
+		go func(i int, d descriptor, into string, blob []byte) {
+			defer wg.Done()
+
+			var un Unpacked
+
+			un, failed[i] = unpackLayerApart(blob, d, into)
+			out[i].Marked, out[i].Digests, out[i].Owners = un.Marked, un.Digests, un.Owners
+		}(i, d, into, got.blob)
+	}
+
+	wg.Wait()
+	endUnpack()
+
+	return finishApart(ctx, p, opt, ref, out, failed)
+}
+
+// finishApart reports the first layer that failed, or fetches the configuration.
+//
+// Shared by the buffered and streamed paths so that a layer failure reads the
+// same either way: which layer, of which image, and why.
+func finishApart(ctx context.Context, p prepared, opt Options, ref string,
+	out []PulledLayer, failed []error,
+) ([]PulledLayer, ocispec.ImageConfig, error) {
+	for i, e := range failed {
+		if e != nil {
+			return nil, ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, e)
+		}
+	}
+
+	cfg, err := pullConfig(ctx, p.client, p.tok, p.base, p.m.Config, opt.Platform)
+	if err != nil {
+		return nil, ocispec.ImageConfig{}, err
+	}
+
+	return out, cfg, nil
+}
+
+// keepBlob files a layer's compressed bytes where the caller asked.
+//
+// Best effort throughout: a retention that fails leaves a pull that worked,
+// because the layer is unpacked either way and the blob is an optimisation for
+// the *next* build. Failing here would trade a working pull for a tidier cache.
+func keepBlob(retain func(string) (io.WriteCloser, error), digest string, blob []byte) {
+	if retain == nil {
+		return
+	}
+
+	w, err := retain(digest)
+	if err != nil {
+		return
+	}
+
+	_, err = w.Write(blob)
+	if err != nil {
+		_ = w.Close()
+
+		return
+	}
+
+	_ = w.Close()
 }

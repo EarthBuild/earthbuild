@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"strconv"
 )
 
 // pathMax bounds a path read out of another process.
@@ -49,16 +47,38 @@ var errUnreadable = errors.New("the path argument could not be read")
 // would prove the target was alive a moment ago, which is the wrong side of the
 // race.
 func pathAt(pid uint32, addr uint64) (string, error) {
-	f, err := os.Open(procRoot + "/" + strconv.FormatUint(uint64(pid), 10) + "/mem")
+	// A cache of one, used once and dropped: the callers who come this way read
+	// a single path and have no loop to amortise anything over.
+	var m memFiles
+
+	defer m.forget()
+
+	return pathVia(&m, pid, addr)
+}
+
+// pathVia is pathAt with the open file supplied, which is how the notification
+// loop avoids opening `/proc/<pid>/mem` for a process it is already holding
+// open - 4.25µs of a 6.9µs handler (E681).
+func pathVia(m *memFiles, pid uint32, addr uint64) (string, error) {
+	f, err := m.fileFor(pid)
 	if err != nil {
 		// The process is gone, or this engine may not read it. Neither says
 		// anything about what the path was.
-		return "", fmt.Errorf("%w: open the target's memory: %w", errUnreadable, err)
+		return "", fmt.Errorf("%w: %w", errUnreadable, err)
 	}
 
-	defer func() { _ = f.Close() }()
+	out, err := readPathFrom(f, addr)
+	if err != nil {
+		// **Dropped on any failure**, because the likeliest reason a read fails
+		// is that the process ended - and a descriptor kept against a task that
+		// is gone is both a leak and the wrong thing to answer the next call
+		// for that pid from.
+		m.forget()
 
-	return readPathFrom(f, addr)
+		return "", err
+	}
+
+	return out, nil
 }
 
 // readPathFrom is the reading, separated from where it reads.
@@ -128,12 +148,12 @@ func pathArg(nr int32) (int, bool) {
 // index one out reads a `flags` word as an address and yields a path made of
 // whatever happened to be there. Every entry is asserted against the real
 // syscall in readpath_linux_test.go rather than against the manual page.
-func pathOf(n seccompNotif) (string, error) {
+func pathOf(m *memFiles, n seccompNotif) (string, error) {
 	i, ok := pathArg(n.Data.NR)
 	if !ok {
 		return "", fmt.Errorf("%w: syscall %d takes no path this engine knows of",
 			errUnreadable, n.Data.NR)
 	}
 
-	return pathAt(n.Pid, n.Data.Args[i])
+	return pathVia(m, n.Pid, n.Data.Args[i])
 }

@@ -31112,3 +31112,39 @@ Which makes the handler's own syscalls the next thing to look at. `pathAt` opens
 time, and opening that file is not one of the cheap ones. An fd on it stays bound
 to the task that was opened, so it cannot follow pid reuse - which is what makes
 caching one per pid safe rather than merely tempting.
+
+### E681, the handler's own syscalls
+
+`pathAt` opened `/proc/<pid>/mem`, read from it and closed it on every
+notification. Opening that file is 4.25µs measured on its own, against a handler
+of 6.9µs - so two thirds of what a traced call cost after the crossing was
+re-opening a file the previous call had open.
+
+Kept open for one process at a time. Not a map of them: a step forks thousands,
+an entry each holds a descriptor each, and this engine has already overflowed a
+machine's file table once. A step's path traffic is bursty per process, so one
+entry takes nearly all of the saving for one descriptor, and a step alternating
+between two processes is served exactly as before.
+
+Safe against pid reuse by construction rather than by checking - a descriptor on
+that file is bound to the task, not to the number, so a read after the task exits
+fails instead of quietly returning another process's memory. The worst case is an
+observation declared incomplete, which is what I3 asks for.
+
+```text
+4000 path calls in a traced child, bare metal x86
+per call, opened each time   14.285  14.326  16.165 µs
+per call, kept open           9.026   9.153   9.737 µs
+```
+
+End to end in the guest, 20k traced stats:
+
+```text
+                              per step   per call
+plain                           1.219s     61µs
+pinned (E681 above)             0.169s    8.5µs
+pinned and kept open            0.123s    6.2µs
+```
+
+The walk over 15k distinct paths does not move (1.126s against 1.159s), which is
+the same answer as before: after pinning it is the overlay and not the tracer.

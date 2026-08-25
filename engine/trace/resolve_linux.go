@@ -113,8 +113,8 @@ func baseDirVia(
 
 // observedPath is the whole of turning a notification into a path worth keying
 // on: read it out of the target, then make it absolute.
-func observedPath(n seccompNotif) (string, error) {
-	raw, err := pathOf(n)
+func observedPath(m *memFiles, n seccompNotif) (string, error) {
+	raw, err := pathOf(m, n)
 	if err != nil {
 		return "", err
 	}

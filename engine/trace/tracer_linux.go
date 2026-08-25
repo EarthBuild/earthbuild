@@ -126,6 +126,11 @@ type Tracer struct {
 	// to catch (E211).
 	mine uint32
 
+	// mem is `/proc/<pid>/mem` kept open for whichever process was asked about
+	// last, saving the open and close that were two thirds of the handler
+	// (E681). Touched only from the notification loop, which is one goroutine.
+	mem memFiles
+
 	// Fill fetches a path the step is about to open and this machine does not
 	// have, before the syscall is allowed to proceed.
 	//
@@ -371,7 +376,7 @@ func (t *Tracer) handle(n seccompNotif) {
 		return
 	}
 
-	path, err := observedPath(n)
+	path, err := observedPath(&t.mem, n)
 	if err != nil {
 		// Unreadable is not absent. The step named *something*; recording one
 		// fewer path would be a claim this engine cannot make, so the whole
@@ -578,6 +583,12 @@ func (t *Tracer) Close() error {
 	// Before the close, so Run can never see the wake-up without the reason for
 	// it and call an orderly stop a fault.
 	t.closing.Store(true)
+
+	// The one descriptor the handler holds. Closed here rather than in the loop
+	// because the loop has more than one way out, and a tracer that has let go
+	// of its listener has no use for the memory of a process it will not be
+	// asked about again.
+	t.mem.forget()
 
 	if t.stopW >= 0 {
 		_ = unix.Close(t.stopW)

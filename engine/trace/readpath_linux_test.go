@@ -129,7 +129,7 @@ func watch(t *testing.T, body func()) *observed {
 			if _, ok := pathArg(n.Data.NR); ok {
 				// The resolved path, which is the one worth keying on: a bare
 				// relative name means a different file in a different step.
-				path, observedErr := observedPath(n)
+				path, observedErr := observedPath(&memFiles{}, n)
 
 				// After the read, not before: this is what says the pid was not
 				// recycled while the path was being fetched.

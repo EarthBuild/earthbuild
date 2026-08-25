@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // Worker is a place a step can run. Identity is a stable string so that
@@ -1205,7 +1206,10 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		}
 	}
 
+	endKey := timing.Phase("key", n.Meta.Source)
 	key := DeriveChainKey(n, base, refs)
+
+	endKey()
 	bd, od, ed, pd := componentDigests(n, base)
 
 	rec := StepRecord{
@@ -1271,7 +1275,12 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		// An entry that cannot say what its image declared is not a hit: the
 		// stack it would produce is missing an element, and nothing downstream
 		// could tell (§3.2a).
-		if e, hit := Lookup(s.cacheToRead(), s.Blobs, s.Trusted, key); hit && usableDeclaration(n.Op.Kind, e) {
+		endLookup := timing.Phase("lookup", n.Meta.Source)
+		e, hit := Lookup(s.cacheToRead(), s.Blobs, s.Trusted, key)
+
+		endLookup()
+
+		if hit && usableDeclaration(n.Op.Kind, e) {
 			rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = e.Layer, e.Exit, e.Bytes, OutcomeL1Hit
 			s.finish(n, base, Result{
 				Layer: e.Layer, Exit: e.Exit, Bytes: e.Bytes, Declares: e.Declares,
@@ -1329,9 +1338,13 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 	// observed is in it. A source that reports its own loss is honest and costs
 	// an L2 hit; one that hides it costs correctness.
 	if usableObservation(n, base, res) {
+		endObs := timing.Phase("observe", n.Meta.Source)
+
 		rec.ObservedKey = DeriveObservedKey(n, refs, res.Observation)
 		rec.Observation, rec.Observed = res.Observation, true
 		rec.ObsDigest = observationDigest(res.Observation)
+
+		endObs()
 	}
 
 	// A step that ran and failed is a result, not an executor error - but it is

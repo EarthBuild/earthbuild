@@ -1708,6 +1708,13 @@ func stepMounts(req Request) []Mount {
 // unbounded step runs, but Degraded says why it was unbounded rather than
 // leaving the caller to assume a ceiling that was never enforced.
 func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response {
+	// Everything between here and the command starting: resolving views,
+	// holding cache mounts, binding them, building the argv. The host's `run`
+	// phase covers the whole round trip and could not tell that apart from the
+	// command's own time, which is the difference between an engine that is
+	// slow and a step that is.
+	endPrepare := timing.Phase("guest:prepare", req.Handle)
+
 	h, ok := s.get(req.Handle)
 	if !ok {
 		return Response{Err: "unknown handle " + req.Handle}
@@ -1748,7 +1755,11 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	ctx, kill := context.WithCancel(ctx)
 	defer kill()
 
+	endArgv := timing.Phase("guest:argv", req.Handle)
+
 	cmd := osexec.CommandContext(ctx, argv0, req.Argv[1:]...) //nolint:gosec // the argv is the step
+
+	endArgv()
 	cmd.Dir = h.Root()
 
 	// The process group, not the process. A confined step is pid 1 of its own
@@ -1808,7 +1819,10 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// populate it, and nothing did.
 	// A proc filesystem, because the loader resolves $ORIGIN through
 	// /proc/self/exe and a step without one cannot run a JDK.
+	endProc := timing.Phase("guest:proc", req.Handle)
 	undoProc, err := mountProc(h.Root())
+
+	endProc()
 	if err != nil {
 		return Response{Err: err.Error()}
 	}
@@ -1820,7 +1834,10 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// A view of an earlier result is a stack and has to be assembled before
 	// anything can be bound to it (§3.3d, ν ∈ 𝕂). Released after the step, not
 	// after the binding: the mount reads through the handle.
+	endViews := timing.Phase("guest:views", req.Handle)
 	mounts, releaseViews, err := s.resolveStacks(ctx, mounts)
+
+	endViews()
 	if err != nil {
 		return Response{Err: err.Error()}
 	}
@@ -1831,7 +1848,10 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// steps naming one cache used it at once (E427). Held for the whole step,
 	// because that is what the mode means - a cache is in use until the command
 	// holding it finishes, not until its files are opened.
+	endHold := timing.Phase("guest:hold", req.Handle)
 	releaseMounts := s.mounts.hold(mounts)
+
+	endHold()
 	defer releaseMounts()
 	if len(mounts) > 0 {
 		// Setting mounts up and taking them down are each serialised per
@@ -1850,7 +1870,10 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// concurrency the design wants; holding it across these two short
 		// sections costs nothing and closes the window.
 		unlock := s.lockHandle(req.Handle)
+		endBind := timing.Phase("guest:bind", fmt.Sprintf("%d mounts", len(mounts)))
 		undo, bindErr := bindMounts(h.Root(), s.mountStore(), s.LayerDir, mounts)
+
+		endBind()
 		unlock()
 
 		if bindErr != nil {
@@ -1908,7 +1931,11 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// Either says yes. A server told to run every step hermetically does
 		// not stop being hermetic because this step did not ask, and a step
 		// that asked is not overridden by a server that did not.
+		endIsolate := timing.Phase("guest:isolate", req.Handle)
 		isolateErr := isolate(cmd, h.Root(), s.DropNet || req.NoNet)
+
+		endIsolate()
+
 		if isolateErr != nil {
 			return Response{Err: isolateErr.Error()}
 		}
@@ -1924,7 +1951,10 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		}
 	}
 
+	endCgroup := timing.Phase("guest:cgroup", req.Handle)
 	cg, err := newCgroup(req.Handle, s.Limits)
+
+	endCgroup()
 
 	var (
 		deg         *DegradedError
@@ -2004,8 +2034,12 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// cache that misses forever and reports nothing.
 	var out []byte
 
+	endPrepare()
+
 	body := func() error {
 		var rerr error
+
+		defer timing.Phase("guest:exec", req.Handle)()
 
 		out, rerr = runStep(cmd, streamer(c, req), req, s, h, mountPoints(mounts))
 

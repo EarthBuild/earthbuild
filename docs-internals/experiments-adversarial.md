@@ -31316,6 +31316,17 @@ does not read ahead - which is a much smaller thing than the paragraph above
 claimed, and the claim is left standing with its correction rather than quietly
 edited away.
 
+`image.Growing` is that reader, and it was checked where it will run rather than
+only where it is convenient: 4MB written by the host in sixteen chunks at a
+120ms cadence, read across virtiofs by a guest that started before the first
+chunk landed.
+
+```text
+host   sha256 4cc9a84d19d995e9ac74507c26db39e665fb43421fb4df4764b75290f323a034
+guest  read 4194304 bytes in 3.015s
+guest  sha256 4cc9a84d19d995e9ac74507c26db39e665fb43421fb4df4764b75290f323a034
+```
+
 ## E684 - the tracer's handler is at its floor
 
 After the memory file is kept open (E682), `strace -c` over 4000 traced calls in

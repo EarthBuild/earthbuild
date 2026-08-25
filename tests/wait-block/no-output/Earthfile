@@ -17,3 +17,16 @@ build:
     WAIT
         BUILD +myimg
     END
+
+# Saves both an image and a local artifact, so the two output kinds can be
+# distinguished: --no-image-output suppresses only the image. See #855.
+img-and-artifact:
+    FROM alpine:3.24.1
+    RUN echo foo > bar
+    SAVE ARTIFACT bar AS LOCAL output/bar
+    SAVE IMAGE myimg:623cb5fb1b8c4cff8693281095724bb0
+
+build-img-and-artifact:
+    WAIT
+        BUILD +img-and-artifact
+    END

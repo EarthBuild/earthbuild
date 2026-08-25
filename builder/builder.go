@@ -115,6 +115,7 @@ type BuildOpt struct {
 	Runner                     string
 	OnlyFinalTargetImages      bool
 	NoOutput                   bool
+	NoImageOutput              bool
 	EnableGatewayClientLogging bool
 	CI                         bool
 	GlobalWaitBlockFtr         bool
@@ -321,6 +322,7 @@ func (b *Builder) convertAndBuild(
 				UseLocalRegistry:                     (b.opt.LocalRegistryAddr != ""),
 				LocalRegistryAddr:                    b.opt.LocalRegistryAddr,
 				DoSaves:                              !opt.NoOutput,
+				NoLocalImageExport:                   opt.NoImageOutput,
 				OnlyFinalTargetImages:                opt.OnlyFinalTargetImages,
 				DoPushes:                             opt.Push,
 				IsCI:                                 opt.CI,
@@ -436,6 +438,7 @@ func (b *Builder) convertAndBuild(
 			for _, saveImage := range b.targetPhaseImages(sts) {
 				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
 				shouldExport := !opt.NoOutput &&
+					!opt.NoImageOutput &&
 					opt.OnlyArtifact == nil &&
 					(!opt.OnlyFinalTargetImages || sts == mts.Final) &&
 					saveImage.DockerTag != "" &&
@@ -798,7 +801,7 @@ func (b *Builder) convertAndBuild(
 
 		for _, saveImage := range mts.Final.SaveImages {
 			doSave := (mts.Final.GetDoSaves() || saveImage.ForceSave)
-			shouldExport := !opt.NoOutput && saveImage.DockerTag != "" && doSave
+			shouldExport := !opt.NoOutput && !opt.NoImageOutput && saveImage.DockerTag != "" && doSave
 
 			shouldPush := opt.Push && saveImage.Push && saveImage.DockerTag != "" && mts.Final.GetDoPushes()
 			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
@@ -828,7 +831,7 @@ func (b *Builder) convertAndBuild(
 				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
 				shouldPush := opt.Push && saveImage.Push && !sts.Target.IsRemote() && saveImage.DockerTag != "" && sts.GetDoPushes()
 
-				shouldExport := !opt.NoOutput && saveImage.DockerTag != "" && doSave
+				shouldExport := !opt.NoOutput && !opt.NoImageOutput && saveImage.DockerTag != "" && doSave
 				if saveImage.SkipBuilder || !shouldPush && !shouldExport {
 					continue
 				}

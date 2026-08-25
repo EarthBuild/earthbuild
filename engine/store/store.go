@@ -101,6 +101,9 @@ func (d DirStore) Staging(prefix string) (string, error) {
 }
 
 // Populated reports whether the layer is there and holds something.
+//
+// **Not a presence test** - see the warning on core.Store.Populated. Has is
+// the presence test.
 func (d DirStore) Populated(id ir.NodeID) bool { return Populated(d.LayerPath(id)) }
 
 // NoteUnmarked records that a layer carries no whiteout markers.

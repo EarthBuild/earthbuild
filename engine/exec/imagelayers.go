@@ -51,7 +51,7 @@ func (e *Executor) materialiseImageApart(
 ) (core.Result, error) {
 	st := store.DirStore(root)
 
-	if ids, ok := imageStackNamed(shared); ok && allPopulated(st, ids) {
+	if ids, ok := imageStackNamed(shared); ok && allPresent(st, ids) {
 		return core.Result{
 			Layers: ids, Captured: e.sb.Confines(),
 			Declares: st.Declaration(ids[len(ids)-1]),
@@ -174,14 +174,16 @@ func (e *Executor) materialiseImageApart(
 	}, nil
 }
 
-// allPopulated reports whether every layer of a remembered stack is still there.
-func allPopulated(st store.DirStore, ids []ir.NodeID) bool {
+// allPresent reports whether every layer of a remembered stack is still there.
+//
+// Presence, not contents: an empty layer is a layer (store.DirStore.Has).
+func allPresent(st store.DirStore, ids []ir.NodeID) bool {
 	if len(ids) == 0 {
 		return false
 	}
 
 	for _, id := range ids {
-		if !st.Populated(id) {
+		if !st.Has(id) {
 			return false
 		}
 	}

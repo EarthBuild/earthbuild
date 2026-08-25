@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // TestAStackIsRememberedEvenWhereNothingHasMadeTheDirectory.
@@ -44,5 +45,45 @@ func TestAStackIsRememberedEvenWhereNothingHasMadeTheDirectory(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("id %d came back as %v, want %v", i, got[i], want[i])
 		}
+	}
+}
+
+// TestAnEmptyLayerCountsAsUnpacked.
+//
+// **An empty directory is a layer.** Images ship them - `golang:1.26-alpine`
+// stacks five and the topmost holds nothing - and so do steps that write
+// nothing at all.
+//
+// Asking whether a layer is *populated* answers a different question, and
+// answers it wrongly: it reads "there, and empty" as "not there". One such
+// layer in a stack made the whole remembered stack look absent, so a warm
+// build of `golang:1.26-alpine` re-fetched and re-unpacked all five layers
+// every time - 8.1s against the 0.2s of a stack it had already got.
+//
+// `Has` is the question that was meant, and it says so itself: partial
+// commits are prevented by renaming into place, not by guessing from
+// contents. So emptiness carries no information about presence.
+func TestAnEmptyLayerCountsAsUnpacked(t *testing.T) {
+	t.Parallel()
+
+	st := store.DirStore(t.TempDir())
+
+	staged, err := st.Staging(".empty-")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := st.Place(staged)
+	if err != nil {
+		t.Fatalf("place an empty layer: %v", err)
+	}
+
+	if !st.Has(id) {
+		t.Fatalf("the store does not hold the empty layer it just placed")
+	}
+
+	if !allPresent(st, []ir.NodeID{id}) {
+		t.Error("a stack holding an empty layer is reported as not unpacked," +
+			"\n  so every build re-fetches an image it already has")
 	}
 }

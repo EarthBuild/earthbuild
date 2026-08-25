@@ -67,6 +67,12 @@ type Store interface {
 	// This asks a different question: an image that unpacked to nothing did not
 	// unpack, so the entry naming it is a claim to re-check rather than a base
 	// to build on.
+	//
+	// **Only ever of a whole merged image.** Applied to one layer of a stack it
+	// is simply wrong: images ship empty layers - `golang:1.26-alpine` stacks
+	// five and the topmost holds nothing - so one of them made an entire
+	// remembered stack read as absent, and every warm build re-fetched all five
+	// (8.1s against 0.2s). Reach for Has.
 	Populated(id ir.NodeID) bool
 
 	// NoteUnmarked records that a layer carries no whiteout markers, so nothing

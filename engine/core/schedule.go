@@ -953,6 +953,9 @@ func (s *Scheduler) runStepOnce(
 	ctx context.Context, n *ir.Node, w Worker, base []ir.NodeID, sources [][]ir.NodeID,
 ) (Result, error) {
 	if s.Materialiser == nil {
+		endExec := timing.Phase("exec", n.Meta.Source)
+		defer endExec()
+
 		return s.Executor.Run(ctx, n, w, base, sources)
 	}
 
@@ -976,6 +979,9 @@ func (s *Scheduler) runStepOnce(
 			err = rerr
 		}
 	}()
+
+	endExec := timing.Phase("exec", n.Meta.Source)
+	defer endExec()
 
 	return s.Executor.Run(ctx, n, w, base, sources)
 }

@@ -242,12 +242,18 @@ func (e *Executor) connect() (*guest.Client, error) {
 	// The consequence is that a boot cannot be cancelled, which is a real cost
 	// and the smaller one: a wedged boot wastes a minute, and a sandbox
 	// cancelled out from under a running build wastes the build.
+	endStart := phase("sandbox:start", "")
 	conn, err := e.sb.Start(context.Background())
+
+	endStart()
 	if err != nil {
 		return nil, fmt.Errorf("start sandbox: %w", err)
 	}
 
+	endDial := phase("sandbox:dial", "")
 	c, err := guest.Dial(conn)
+
+	endDial()
 	if err == nil {
 		withTerminals(e.sb, c)
 

@@ -279,7 +279,37 @@ func (a *Apple) SharesStoreAsRoot() bool { return true }
 // Available reports whether this machine can run the backend, and says what is
 // missing when it cannot. A backend that is merely absent should skip a test;
 // one that is broken should say how.
+// probeService asks the container service whether it is running.
+//
+// A variable so a test can count the asking, which is the whole point of the
+// memoisation above it.
+var probeService = askTheService
+
+// availableOnce holds the answer for the life of the process.
+var availableOnce = onceFor()
+
+// onceFor is a fresh memo, so a test can start from nothing.
+func onceFor() *serviceAnswer { return &serviceAnswer{} }
+
+type serviceAnswer struct {
+	once sync.Once
+	err  error
+}
+
+// Available reports whether the container service can run a sandbox.
+//
+// **Asked once.** The probe is a `container system status`, which costs 36ms,
+// and a single build asked it four times - a third of the time every invocation
+// spent obtaining a guest client before it could run anything (E645). A service
+// that stops mid-build is reported by the operation that then fails, not by a
+// probe that happened to run again; the same reasoning memoises `needsUserXattr`.
 func (a *Apple) Available() error {
+	availableOnce.once.Do(func() { availableOnce.err = probeService() })
+
+	return availableOnce.err
+}
+
+func askTheService() error {
 	bin, err := osexec.LookPath("container")
 	if err != nil {
 		return errors.New("the `container` CLI is not installed (macOS 26 or later)")

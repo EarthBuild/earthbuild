@@ -29066,3 +29066,54 @@ What the exercise did establish, all of it measured:
   follow the unbind or mount points land in the delta; the next step's base is
   the previous step's captured layer.
 * A steady-state step is about 12ms, of which the command itself is 3ms.
+
+## E645 - what assembling layers simultaneously is actually worth
+
+The idea is sound and the arithmetic is against it. Unpacking is serial because
+this engine flattens every layer into one directory (E641), and the fix for
+that - a directory per layer, assembled by mount - would make unpacking
+embarrassingly parallel. So: how much is there to win?
+
+**Bounded by the largest layer**, which is Amdahl and not a detail. Measured on
+six images, per-layer unpack times from `EARTH_TIMINGS`:
+
+```text
+image                       layers   total    largest   ceiling
+golang:1.26-alpine             5     3.838s    3.672s      4%
+node:22-alpine                 4     1.212s    1.087s     10%
+jupyter/base-notebook         10     3.609s    2.487s     31%
+rust:1-slim                    2     1.286s    0.888s     31%
+python:3.13-slim               4     1.396s    0.876s     37%
+wordpress:6-apache             3     1.522s    0.880s     42%
+```
+
+Alpine-based language images are one layer wearing a hat: `golang:1.26-alpine`
+spends 3.672s of its 3.838s in a single layer, so perfect parallelism saves 4%.
+Debian-family images are more even and offer a third. **Ten layers does not mean
+ten-way parallelism** - `jupyter/base-notebook` has ten and still spends 69% of
+its unpack in one of them.
+
+So the ceiling is about 30% of unpack, or roughly 0.4-1.2s of a cold pull, and
+the fetch overlap already taken in E641 got 8% of the whole pull for one
+constant.
+
+### The other two legs, also measured
+
+**Dedup is 1%.** A store holding four builds across two image families -
+`alpine:3.22` twice and `golang:1.26-alpine` twice - has 15,344 files, 14,932 of
+them distinct by content: 245.2 MB on disk, 241.7 MB unique. Content-addressed
+data layers would save 3.4 MB. The engine already gets the dedup that matters
+for free, because a layer is keyed by digest and two images sharing a base share
+the directory.
+
+**Mounting is 0.1ms.** `mat:stack` measures the assembly itself, and it is not a
+cost at any stack depth reached so far.
+
+### What the same walk did find
+
+`imagecache` holds 245.2 MB and `layers` holds 245.2 MB, and **not one inode is
+shared between them**: 30,704 distinct inodes for what is 15,344 files of
+content. Every pulled image is stored twice. `placeTree` asks for a hard link
+and falls back to a copy, and something in that path is taking the fallback on a
+single filesystem - which is worth more than any of the above and is written up
+in the nits file rather than guessed at here.

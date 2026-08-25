@@ -1931,7 +1931,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: a daemon request reaching the wire (E367)",
 		File:        "engine/guest/guest.go",
-		Anchor:      "\t\tDaemon:  step.Daemon,",
+		Anchor:      "\t\tDaemon:    step.Daemon,",
 		Replacement: "",
 		Package:     "./engine/guest/",
 	},

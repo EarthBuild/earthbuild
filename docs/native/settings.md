@@ -420,3 +420,31 @@ asking for another (E549). Changing it therefore starts a fresh VM, and the firs
 change re-does what the previous VM had already done.
 
 Default: this machine's core count.
+
+## `EARTH_STRICT_SECRETS`
+
+Refuses a step whose output holds a secret the step was given.
+
+A secret is mounted outside the step's filesystem precisely so it cannot be captured - and then the
+step copies it. `RUN --secret TOKEN sh -c 'echo "api=$TOKEN" > /app.env'` puts the credential in the
+delta, the delta becomes a layer, and the layer is cached, may be exported and may be pushed.
+Nothing looked: `SecretEnv` makes a step uncacheable and `Mount.Secret` keeps the value out of the
+graph, and neither asks what came back.
+
+With this set, the guest scans the step's delta for every credential it was handed - mounted secrets
+by where they appear, and secret environment variables by the names the host says are secret - and
+fails the build naming the file and the secret's id.
+
+**The report never quotes the value.** A refusal is written to the build's output, and one that
+printed the credential would publish it to every log that build feeds, which is the accident being
+caught.
+
+**What it does not catch.** It finds a secret's bytes as the step was given them. A value the step
+encoded, compressed, or compiled into a binary is in the layer just the same and is not found here.
+This is a net for the common accident - a redirect, a stray `env`, a config file written from a
+variable - and not a guarantee that a layer is clean. Treating it as one would be worse than not
+checking, because somebody would rely on it.
+
+Off by default: the scan reads every captured byte.
+
+Default: off.

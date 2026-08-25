@@ -359,6 +359,16 @@ type Request struct {
 	// Dir is the working directory inside the step's filesystem: WORKDIR.
 	Dir string   `json:"dir,omitempty"`
 	Env []string `json:"env,omitempty"` // exec only, "K=V"; ε, and only ε
+	// SecretEnv names the entries of Env that are credentials.
+	//
+	// **Names, never values** - the values are already in Env and travel there
+	// once. Without this the guest cannot tell a secret from any other variable,
+	// and a strict build that checked only mounts would report a clean layer to
+	// somebody who echoed `$TOKEN` into a file.
+	SecretEnv []string `json:"secretEnv,omitempty"`
+	// Strict makes the guest refuse a step whose delta contains a secret it was
+	// given. Off unless the build asked: the scan reads every captured byte.
+	Strict bool `json:"strict,omitempty"`
 	// BaseEnv is what the base image declared, under ε.
 	//
 	// Not ambient state: it comes from the image this step stands on, which is

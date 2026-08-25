@@ -524,6 +524,11 @@ func (e *Executor) Run(
 	// Secret values are added to the environment here and nowhere earlier: the
 	// node records which secrets the step asked for, and this is the only place
 	// a value exists.
+	// The names, so the guest can tell a credential from any other variable when
+	// it checks what the step produced. Names only: the values travel in `env`
+	// once and have no reason to travel twice.
+	var secretNames []string
+
 	for _, spec := range n.Op.SecretEnv {
 		name, source, ok := strings.Cut(spec, "=")
 		if !ok {
@@ -538,6 +543,7 @@ func (e *Executor) Run(
 		}
 
 		env = append(env, name+"="+v)
+		secretNames = append(secretNames, name)
 	}
 
 	// What the base image declared, under ε. It comes from an input and is
@@ -587,6 +593,7 @@ func (e *Executor) Run(
 
 	step, err := c.RunStep(ctx, h, guest.Step{
 		Dir: n.Op.Dir, Argv: argv, Env: env, Mounts: mounts,
+		SecretEnv: secretNames, Strict: StrictSecrets(),
 		NoNet: n.Op.NoNetwork, Daemon: daemon, Hosts: n.Op.Hosts,
 		// Observed, so the step can be reused against a base it did not run on.
 		//
@@ -1839,3 +1846,18 @@ func packInto(dir, at string) error {
 
 	return f.Close()
 }
+
+// EnvStrictSecrets refuses a step whose output holds a secret it was given.
+//
+// **A secret is mounted outside the step's filesystem so it cannot be captured,
+// and then the step copies it.** `echo $TOKEN > /app/.env` puts the credential
+// in the delta, and the delta is cached, may be exported and may be pushed.
+//
+// Off by default because the scan reads every captured byte, and because it
+// finds a secret only as the step was given it: a value encoded, compressed or
+// compiled into a binary is in the layer just the same and is not found. It
+// catches the common accident and is not a guarantee that a layer is clean.
+const EnvStrictSecrets = "EARTH_STRICT_SECRETS"
+
+// StrictSecrets reports whether this build refuses a leaked secret.
+func StrictSecrets() bool { return os.Getenv(EnvStrictSecrets) != "" }

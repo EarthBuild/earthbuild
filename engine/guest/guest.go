@@ -2101,12 +2101,73 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		return Response{Err: fmt.Sprintf("exec %v: %v%s", req.Argv, err, hint)}
 	}
 
+	// **Before the delta can become a layer.** A secret is mounted outside the
+	// step's filesystem so it cannot be captured, and then the step copies it -
+	// `echo $TOKEN > /app/.env` - and the copy is in the delta, which is cached,
+	// exported and possibly pushed. Checked here rather than at capture because
+	// here is where the values are.
+	err = strictSecretCheck(req, h)
+	if err != nil {
+		return Response{Err: err.Error()}
+	}
+
 	cpu, rss := usageOf(cmd.ProcessState)
 
 	return Response{
 		Exit: 0, Output: outputFor(req, out), Degraded: degradedNow,
 		CPUNanos: cpu.Nanoseconds(), MaxRSS: rss,
 	}
+}
+
+// strictSecretCheck refuses a step that wrote a credential into its delta.
+//
+// **Only what it can prove.** This finds a secret's bytes as the step was given
+// them. A value the step encoded, compressed or compiled into a binary is in the
+// layer just the same and is not found here, so this is a net that catches the
+// common accident - a redirect, a stray `env`, a config file written from a
+// variable - and not a guarantee that a layer is clean. Saying otherwise would
+// be worse than not checking, because somebody would rely on it.
+func strictSecretCheck(req Request, h core.Handle) error {
+	if !req.Strict {
+		return nil
+	}
+
+	secrets := secretsFrom(req)
+	if len(secrets) == 0 {
+		return nil
+	}
+
+	defer timing.Phase("guest:secret-scan", req.Handle)()
+
+	// A handle with no delta of its own - a remote one - has nothing here to
+	// scan, and saying so is better than scanning the empty string.
+	delta := h.Delta()
+	if delta == "" {
+		return nil
+	}
+
+	found, err := layer.FindSecrets(delta, secrets)
+	if err != nil {
+		return fmt.Errorf("checking the step's output for secrets: %w", err)
+	}
+
+	if len(found) == 0 {
+		return nil
+	}
+
+	var b strings.Builder
+
+	b.WriteString("a secret this step was given is in what it produced, and the")
+	b.WriteString(" build is refused rather than caching it")
+
+	for _, l := range found {
+		fmt.Fprintf(&b, "\n  %s", l)
+	}
+
+	b.WriteString("\n  a layer holding a credential is cached, may be exported, and may be pushed")
+	b.WriteString("\n  write the secret somewhere outside the layer, or stop the step copying it")
+
+	return errors.New(b.String())
 }
 
 // Capture digests what a handle's filesystem holds.
@@ -2226,6 +2287,11 @@ type Step struct {
 	Daemon *Daemon
 	// Hosts are name-to-address entries the step resolves by. See Request.Hosts.
 	Hosts []string
+	// SecretEnv names the entries of Env that are credentials, and Strict asks
+	// the guest to refuse a step that wrote one into what it produced. See the
+	// fields of the same name on Request.
+	SecretEnv []string
+	Strict    bool
 	// Terminal is the caller's terminal, for an interactive step. It is sent as
 	// a descriptor rather than relayed, so the step owns it.
 	Terminal *os.File
@@ -2284,17 +2350,19 @@ func (c *Client) RunStep(
 	}
 
 	req := Request{
-		Kind:    KindExec,
-		Handle:  rh.id,
-		Argv:    step.Argv,
-		Env:     step.Env,
-		BaseEnv: step.BaseEnv,
-		Dir:     step.Dir,
-		Mounts:  step.Mounts,
-		NoNet:   step.NoNet,
-		Trace:   step.Trace,
-		Daemon:  step.Daemon,
-		Hosts:   step.Hosts,
+		Kind:      KindExec,
+		Handle:    rh.id,
+		Argv:      step.Argv,
+		Env:       step.Env,
+		BaseEnv:   step.BaseEnv,
+		SecretEnv: step.SecretEnv,
+		Strict:    step.Strict,
+		Dir:       step.Dir,
+		Mounts:    step.Mounts,
+		NoNet:     step.NoNet,
+		Trace:     step.Trace,
+		Daemon:    step.Daemon,
+		Hosts:     step.Hosts,
 	}
 
 	if step.Terminal != nil {

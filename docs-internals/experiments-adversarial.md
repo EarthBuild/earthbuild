@@ -31166,8 +31166,42 @@ digests off                  1.631s                 772ms
 
 So decompression is 858ms of it - 266 MB/s through klauspost's inflate, already
 the faster one - and **hashing on the way in is 785ms**, half of everything after
-decompression and a third of the whole unpack. That is 290 MB/s for SHA-256,
-which is slow enough on this machine to be worth a second look on its own.
+decompression and a third of the whole unpack.
+
+**Not because hashing is slow.** The hash is blake3, not SHA-256, and neither is
+short of throughput in that guest: 1927 MB/s for SHA-256 and 1590 MB/s for
+blake3, both hardware-accelerated, with `sha2` in the guest's own feature list.
+228MB at 1590 MB/s is 143ms, so 640ms was something else.
+
+Two things, and only one of them was what it looked like:
+
+```text
+io.CopyN through an io.MultiWriter allocates a 32KiB buffer per entry.
+15034 entries is half a gigabyte of garbage - and the plain arm allocates
+none of it, because with no MultiWriter the copy goes to the file's own
+ReaderFrom. Reusing one buffer and one hasher: 1.557s -> 1.418s.
+```
+
+That is 140ms of the 640ms, which is far less than half a gigabyte of garbage
+suggests - the allocator is better than the arithmetic. The rest is the shape of
+the input:
+
+```text
+228MB through one blake3 hasher, in writes of
+  1 MB                          1590 MB/s
+  15902 B (the layer's average)  330 MB/s
+```
+
+Resetting and summing per file costs nothing measurable on top (-24ms, noise).
+**It is the write size.** A 15KB entry is fifteen blake3 chunks, and the wide
+path wants many more than that to fill; a 32KiB copy buffer cannot feed it more
+than the file holds. 692ms at 330 MB/s is almost exactly the hashing overhead
+that remains, so there is nothing else hiding in it.
+
+Which is the mechanism behind the arms below. Inline hashing is stuck at 330
+MB/s *serially*, on the one goroutine handling the layer; the read-back it
+replaces hashes the same bytes across every core. That is not a fact about
+hashing, it is a fact about a layer being many small files.
 
 What it does *not* settle is E653, because the read-back it replaces is 0.958s
 spread across every core while this 785ms is serial inside the one goroutine

@@ -146,6 +146,18 @@ func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error 
 
 	tr := tar.NewReader(r)
 
+	// **Made once, not once per entry.** A layer is fifteen thousand files and
+	// `io.CopyN` allocates a 32KiB buffer whenever it cannot hand the copy to a
+	// `ReaderFrom` - which hashing on the way in prevents, by putting a
+	// MultiWriter between the copy and the file. That was half a gigabyte of
+	// garbage per layer and most of what hashing cost: blake3 over 228MB is
+	// about 143ms at the 1590 MB/s this manages, against the 785ms hashing
+	// added (E682).
+	scratch := copyScratch{}
+	if out.Digests != nil {
+		scratch.sum = NewContentHasher()
+	}
+
 	// What *this* layer has written. A later layer replacing an earlier one's
 	// file is the whole of what layering means; one layer naming a path twice
 	// is an archive that cannot be trusted to mean anything, and choosing the
@@ -265,7 +277,7 @@ func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error 
 			return err
 		}
 
-		err = writeEntry(tr, h, root, target, written, folded, out)
+		err = writeEntry(tr, h, root, target, written, folded, out, &scratch)
 		if err != nil {
 			return err
 		}
@@ -370,6 +382,7 @@ func safePath(root, name string) (string, error) {
 func writeEntry(
 	tr *tar.Reader, h *tar.Header, root, target string,
 	written map[string]bool, folded map[string]foldedEntry, out *Unpacked,
+	sc *copyScratch,
 ) error {
 	// Immediately before the syscalls, so the assertion dominates the sink
 	// rather than sitting a call away from it. See insideRoot.
@@ -418,7 +431,7 @@ func writeEntry(
 		// Hashed as it is written, with `layer`'s hasher over the same bytes -
 		// so what is reported is what a read of the finished file would give,
 		// which is the only reason the store may be told rather than shown.
-		digest, err := writeFile(tr, h, target, out.Digests != nil)
+		digest, err := writeFile(tr, h, target, sc)
 		if err != nil {
 			return err
 		}
@@ -536,7 +549,36 @@ func replacing(h *tar.Header, target string, written map[string]bool, folded map
 	return nil
 }
 
-func writeFile(tr *tar.Reader, h *tar.Header, target string, digesting bool) (Digest, error) {
+// copyScratch is the per-unpack working set: one copy buffer and one hasher,
+// reused across every entry.
+//
+// The hasher is reset rather than remade - blake3's state is not small, and
+// fifteen thousand of them is the same argument as the buffer. Nil when nobody
+// wants digests, which is what makes the plain arm hand the file straight to
+// the kernel and allocate nothing at all.
+type copyScratch struct {
+	buf []byte
+	sum *blake3.Hasher
+}
+
+// reader is the bytes of one entry, bounded by its declared size so a header
+// claiming one byte cannot stream a gigabyte into the layer store.
+func (c *copyScratch) copy(dst io.Writer, tr *tar.Reader, size int64) error {
+	if c.buf == nil {
+		c.buf = make([]byte, 32*1024)
+	}
+
+	// CopyBuffer, so the buffer is this one rather than a fresh one. It still
+	// prefers a ReaderFrom where there is one, which is the plain arm.
+	_, err := io.CopyBuffer(dst, io.LimitReader(tr, size), c.buf)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+func writeFile(tr *tar.Reader, h *tar.Header, target string, sc *copyScratch) (Digest, error) {
 	//nolint:gosec // the archive's mode
 	f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(h.Mode))
 	if err != nil {
@@ -553,28 +595,26 @@ func writeFile(tr *tar.Reader, h *tar.Header, target string, digesting bool) (Di
 	// under an identity taken from the finished tree and has no use for these,
 	// so hashing there would be the cost of the optimisation without the saving
 	// - measured at 0.57s on `golang:1.26-alpine` before this was conditional.
-	var (
-		sum  *blake3.Hasher
-		sink io.Writer = f
-	)
+	var sink io.Writer = f
 
-	if digesting {
-		sum = NewContentHasher()
-		sink = io.MultiWriter(f, sum)
+	if sc.sum != nil {
+		// Reset rather than remade: the state is the same size either way, and
+		// one per entry is the allocation this exists to avoid.
+		sc.sum.Reset()
+
+		sink = io.MultiWriter(f, sc.sum)
 	}
 
-	// Copy bounded by the declared size, so a header claiming one byte cannot
-	// stream a gigabyte into the layer store.
-	_, err = io.CopyN(sink, tr, h.Size)
-	if err != nil && !errors.Is(err, io.EOF) {
+	err = sc.copy(sink, tr, h.Size)
+	if err != nil {
 		return Digest{}, fmt.Errorf("write %q: %w", h.Name, err)
 	}
 
-	if sum == nil {
+	if sc.sum == nil {
 		return Digest{}, nil
 	}
 
-	return Digest(sum.Sum(nil)), nil
+	return Digest(sc.sum.Sum(nil)), nil
 }
 
 // setMeta restores mode and mtime.

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
@@ -766,6 +767,9 @@ func translate(
 	case *instructions.LabelCommand:
 		return labelCommand(v, loc)
 
+	case *instructions.HealthCheckCommand:
+		return healthcheckCommand(v, loc), nil
+
 	default:
 		return earthfile.Command{}, unsupported(instructionName(instr), where, "")
 	}
@@ -980,4 +984,60 @@ func mountFlags(mounts []*instructions.Mount) []string {
 	}
 
 	return out
+}
+
+// healthcheckCommand writes a Dockerfile's HEALTHCHECK in the Earthfile
+// spelling, which this engine already reads.
+//
+// The two say the same thing in different words: docker parses the options into
+// a struct, and `readHealthcheck` parses them out of the words, so the shortest
+// honest route is to put the words back. A second parser would be a second set
+// of defaults to disagree about.
+//
+// Docker's zero is "unset" for every duration here, which is what the Earthfile
+// form means by leaving the flag out - so an unset option contributes nothing
+// rather than an explicit zero.
+// healthcheckNone is HEALTHCHECK's off switch, in both languages.
+const healthcheckNone = "NONE"
+
+func healthcheckCommand(v *instructions.HealthCheckCommand, loc *earthfile.SourceLocation) earthfile.Command {
+	if v.Health == nil || len(v.Health.Test) == 0 {
+		return earthfile.Command{
+			Name: earthfile.CmdHealthCheck, Args: []string{healthcheckNone}, SourceLocation: loc,
+		}
+	}
+
+	args := make([]string, 0, 10)
+
+	for _, o := range []struct {
+		flag string
+		d    time.Duration
+	}{
+		{"--interval", v.Health.Interval},
+		{"--timeout", v.Health.Timeout},
+		{"--start-period", v.Health.StartPeriod},
+		{"--start-interval", v.Health.StartInterval},
+	} {
+		if o.d > 0 {
+			args = append(args, o.flag+"="+o.d.String())
+		}
+	}
+
+	if v.Health.Retries > 0 {
+		args = append(args, "--retries="+strconv.Itoa(v.Health.Retries))
+	}
+
+	// `Test` is docker's form: NONE, or CMD/CMD-SHELL followed by the command.
+	// The Earthfile reader wants `CMD` and then words, and turns them into
+	// CMD-SHELL itself - so either docker form arrives as the same words.
+	if strings.EqualFold(v.Health.Test[0], healthcheckNone) {
+		return earthfile.Command{
+			Name: earthfile.CmdHealthCheck, Args: []string{healthcheckNone}, SourceLocation: loc,
+		}
+	}
+
+	args = append(args, "CMD")
+	args = append(args, v.Health.Test[1:]...)
+
+	return earthfile.Command{Name: earthfile.CmdHealthCheck, Args: args, SourceLocation: loc}
 }

@@ -125,8 +125,16 @@ main:
 func TestAnUnsupportedInstructionIsRefusedByName(t *testing.T) {
 	t.Parallel()
 
+	// **HEALTHCHECK has left this list**, because it is built: this engine
+	// models a healthcheck in an image's identity and reads the Earthfile
+	// spelling, so refusing the Dockerfile spelling turned a file away over a
+	// construct the engine has. See TestADockerfileHealthcheckIsAHealthcheck.
+	//
+	// What remains is genuinely absent. `ONBUILD` is a *deferred* instruction -
+	// it runs when something else builds FROM this image, which is a lifecycle
+	// this engine does not have - and an `ADD` from a URL fetches at build time
+	// from somewhere no key can describe.
 	for _, instr := range []string{
-		"HEALTHCHECK CMD true",
 		"ONBUILD RUN true",
 		"ADD https://example.test/x /x",
 	} {

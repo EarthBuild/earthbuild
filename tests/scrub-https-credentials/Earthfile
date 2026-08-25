@@ -16,8 +16,8 @@ set -ex
 ping -c 1 selfsigned.example.com
 ping -c 1 buildkitsandbox
 
-earthly --config \$earthly_config config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret, pattern: 'selfsigned.example.com/([^/]+)'}}\"
-earthly --config \$earthly_config --verbose --debug +gitclone >output.txt 2>&1
+earth --config \$earthly_config config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret, pattern: 'selfsigned.example.com/([^/]+)'}}\"
+earth --config \$earthly_config --verbose --debug +gitclone >output.txt 2>&1
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
 
     DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=scrub-credentials.earth --exec_cmd=/tmp/test-earthly-script
@@ -40,9 +40,9 @@ set -ex
 ping -c 1 selfsigned.example.com
 ping -c 1 buildkitsandbox
 
-earthly --config \$earthly_config config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret, pattern: 'selfsigned.example.com/([^/]+)'}}\"
+earth --config \$earthly_config config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret, pattern: 'selfsigned.example.com/([^/]+)'}}\"
 cat \$earthly_config
-earthly --config \$earthly_config --verbose --debug selfsigned.example.com/repo:main+hello >output.txt 2>&1
+earth --config \$earthly_config --verbose --debug selfsigned.example.com/repo:main+hello >output.txt 2>&1
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
 
     DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --exec_cmd=/tmp/test-earthly-script
@@ -67,13 +67,13 @@ scrub-remote-credentials-on-failure:
     # (and if someone decides to register that username on github, that's fine too, we'll never know the password)
     RUN echo "#!/bin/sh
 set -ex
-earthly --config \$earthly_config config git \"{github.com: {auth: https, user: kallaxtheshelf, password: badpassword}}\"
+earth --config \$earthly_config config git \"{github.com: {auth: https, user: kallaxtheshelf, password: badpassword}}\"
 
 set +e
-earthly --config \$earthly_config --verbose --debug github.com/kallaxtheshelf/test-private:main+build >output.txt 2>&1
+earth --config \$earthly_config --verbose --debug github.com/kallaxtheshelf/test-private:main+build >output.txt 2>&1
 exit_code=\$?
 if [ \$exit_code -eq 0 ]; then
-    echo ERROR: earthly should have failed but didn\'t.
+    echo ERROR: earth should have failed but didn\'t.
     exit 1
 fi
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script

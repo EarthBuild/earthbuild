@@ -45,6 +45,7 @@ type engineDriver interface {
 	ImageLoadCommand(filename string) string
 
 	InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error)
+	ContainerEndpoint(ctx context.Context, containerName string, port int) (string, error)
 }
 
 // Client is the concrete struct used for interacting with the container engine.
@@ -161,6 +162,16 @@ func (c *Client) RunContainer(ctx context.Context, specs ...ContainerSpec) error
 	}
 
 	return c.driver.RunContainer(ctx, specs...)
+}
+
+// ContainerEndpoint returns the host-accessible connection endpoint (e.g. "tcp://127.0.0.1:8372" or "tcp://192.168.64.2:8372")
+// for a given container name and port.
+func (c *Client) ContainerEndpoint(ctx context.Context, containerName string, port int) (string, error) {
+	if c == nil || c.driver == nil {
+		return "", ErrNotInitialized
+	}
+
+	return c.driver.ContainerEndpoint(ctx, containerName, port)
 }
 
 // InspectImage retrieves image metadata for a single reference.

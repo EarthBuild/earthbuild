@@ -7,7 +7,6 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -108,7 +107,9 @@ func NewClient(
 		}
 	}()
 
-	opts, err := addRequiredOpts(settings, opts...)
+	baseOpts := opts
+
+	opts, err := addRequiredOpts(settings, baseOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("add required client opts: %w", err)
 	}
@@ -152,13 +153,9 @@ func NewClient(
 		return nil, fmt.Errorf("maybe start buildkitd: %w", err)
 	}
 
-	if eng.Metadata().Scheme == engine.SchemeApple {
-		resolveAppleContainerAddress(ctx, containerName, eng, &settings)
-
-		opts, err = addRequiredOpts(settings)
-		if err != nil {
-			return nil, fmt.Errorf("add required client opts: %w", err)
-		}
+	opts, err = updateClientSettings(ctx, containerName, eng, &settings, baseOpts...)
+	if err != nil {
+		return nil, err
 	}
 
 	printBuildkitInfo(log, info, workerInfo, earthVersion, isLocal, settings.HasConfiguredCacheSize())
@@ -420,13 +417,9 @@ func maybeRestart(
 		}
 
 		if useExistingContainer {
-			if eng.Metadata().Scheme == engine.SchemeApple {
-				resolveAppleContainerAddress(ctx, containerName, eng, &settings)
-
-				opts, err = addRequiredOpts(settings)
-				if err != nil {
-					return nil, nil, fmt.Errorf("add required client opts: %w", err)
-				}
+			opts, err = updateClientSettings(ctx, containerName, eng, &settings, opts...)
+			if err != nil {
+				return nil, nil, err
 			}
 
 			var (
@@ -446,13 +439,9 @@ func maybeRestart(
 	case settings.NoUpdate:
 		bkLog.Printf("Updated image available; however update was inhibited.\n")
 
-		if eng.Metadata().Scheme == engine.SchemeApple {
-			resolveAppleContainerAddress(ctx, containerName, eng, &settings)
-
-			opts, err = addRequiredOpts(settings)
-			if err != nil {
-				return nil, nil, fmt.Errorf("add required client opts: %w", err)
-			}
+		opts, err = updateClientSettings(ctx, containerName, eng, &settings, opts...)
+		if err != nil {
+			return nil, nil, err
 		}
 
 		var (
@@ -808,15 +797,9 @@ ContainerRunningLoop:
 		}
 	}
 
-	if eng.Metadata().Scheme == engine.SchemeApple {
-		resolveAppleContainerAddress(ctxTimeout, containerName, eng, &settings)
-
-		var err error
-
-		opts, err = addRequiredOpts(settings)
-		if err != nil {
-			return nil, nil, fmt.Errorf("add required client opts: %w", err)
-		}
+	opts, err := updateClientSettings(ctxTimeout, containerName, eng, &settings, opts...)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Wait for the connection to be available.
@@ -1341,18 +1324,44 @@ func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.Clie
 	return opts, nil
 }
 
-func resolveAppleContainerAddress(ctx context.Context, containerName string, eng *engine.Client, settings *Settings) {
-	if eng == nil || eng.Metadata().Scheme != engine.SchemeApple {
+func updateContainerEndpoints(ctx context.Context, containerName string, eng *engine.Client, settings *Settings) {
+	if eng == nil {
 		return
 	}
 
-	info, err := eng.InspectContainer(ctx, containerName)
-	if err == nil && info.IPs["bridge"] != "" {
-		settings.BuildkitAddress = "tcp://" + net.JoinHostPort(info.IPs["bridge"], "8372")
-		if settings.LocalRegistryAddress != "" {
-			settings.LocalRegistryAddress = "http://" + net.JoinHostPort(info.IPs["bridge"], "8371")
+	addr, err := eng.ContainerEndpoint(ctx, containerName, 8372)
+	if err == nil && addr != "" {
+		settings.BuildkitAddress = addr
+	}
+
+	if settings.LocalRegistryAddress != "" {
+		regAddr, err := eng.ContainerEndpoint(ctx, containerName, 8371)
+		if err == nil && regAddr != "" {
+			regURL, parseErr := url.Parse(regAddr)
+			if parseErr == nil && regURL.Scheme == "tcp" {
+				regAddr = "http://" + regURL.Host
+			}
+
+			settings.LocalRegistryAddress = regAddr
 		}
 	}
+}
+
+func updateClientSettings(
+	ctx context.Context,
+	containerName string,
+	eng *engine.Client,
+	settings *Settings,
+	opts ...client.ClientOpt,
+) ([]client.ClientOpt, error) {
+	updateContainerEndpoints(ctx, containerName, eng, settings)
+
+	requiredOpts, err := addRequiredOpts(*settings, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("add required client opts: %w", err)
+	}
+
+	return requiredOpts, nil
 }
 
 func containsAny(hs string, needles ...string) bool {

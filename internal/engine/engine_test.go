@@ -300,6 +300,29 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 	}
 }
 
+func TestContainerEndpoint(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+
+	t.Run("test client default endpoint", func(t *testing.T) {
+		t.Parallel()
+
+		client := NewTestClient(Metadata{Name: "Mock"})
+		endpoint, err := client.ContainerEndpoint(ctx, "test-container", 8372)
+		require.NoError(t, err)
+		assert.Equal(t, "tcp://127.0.0.1:8372", endpoint)
+	})
+
+	t.Run("nil client returns ErrNotInitialized", func(t *testing.T) {
+		t.Parallel()
+
+		var client *Client
+		_, err := client.ContainerEndpoint(ctx, "test-container", 8372)
+		assert.ErrorIs(t, err, ErrNotInitialized)
+	})
+}
+
 func BenchmarkIsLocal(b *testing.B) {
 	addrs := []string{
 		"docker-container://earthly-buildkitd",

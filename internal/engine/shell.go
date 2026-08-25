@@ -417,8 +417,12 @@ func (e *shellEngine) CommandOutput(ctx context.Context, args ...string) (*comma
 
 	err := cmd.Run()
 	if err != nil {
-		return output, fmt.Errorf("command failed: %s: %w: %s: %w",
-			strings.Join(cmd.Args, " "), err, output.String(), err)
+		out := output.String()
+		if out != "" {
+			return output, fmt.Errorf("command failed: %s (%s): %w", strings.Join(cmd.Args, " "), out, err)
+		}
+
+		return output, fmt.Errorf("command failed: %s: %w", strings.Join(cmd.Args, " "), err)
 	}
 
 	return output, nil
@@ -441,4 +445,13 @@ func (e *shellEngine) CommandArgs(args ...string) []string {
 // ResolveEndpoints configures Endpoints for the engine.
 func (e *shellEngine) ResolveEndpoints(driver Driver, cfg *Config) (Endpoints, error) {
 	return ResolveEndpoints(driver, cfg)
+}
+
+// ContainerEndpoint returns the host-accessible connection endpoint for a container port.
+func (e *shellEngine) ContainerEndpoint(ctx context.Context, containerName string, port int) (string, error) {
+	if e.Endpoints.BuildkitHost != nil && strings.HasPrefix(e.Endpoints.BuildkitHost.String(), DockerSchemePrefix) {
+		return DockerSchemePrefix + containerName, nil
+	}
+
+	return fmt.Sprintf("tcp://127.0.0.1:%d", port), nil
 }

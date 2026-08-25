@@ -80,8 +80,9 @@ func (e *Executor) materialiseImageApart(
 
 	pulled, cfg, err := image.PullApart(ctx, n.Op.Args[0], apart, image.Options{
 		Platform: platform, Challenges: imageRoot,
-		Stream: os.Getenv(EnvImageStream) != "",
-		Retain: keep.retain,
+		Mirrors: image.MirrorsFromEnv(),
+		Stream:  os.Getenv(EnvImageStream) != "",
+		Retain:  keep.retain,
 	})
 
 	endFetch()

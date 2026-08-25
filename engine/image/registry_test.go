@@ -72,6 +72,10 @@ type fakeRegistry struct {
 	// pings counts requests to `/v2/` itself - the registry's own endpoint,
 	// which this engine asks for nothing except a warm connection.
 	pings int
+	// refuse answers everything with 429, which is what a registry that has had
+	// enough of you looks like. Docker Hub allows 100 manifest requests an hour
+	// to an anonymous puller, and a benchmark loop exhausts that.
+	refuse bool
 }
 
 func gzipTar(t *testing.T, name, body string) []byte {
@@ -144,6 +148,12 @@ func (f *fakeRegistry) start(t *testing.T) string {
 	})
 
 	mux.HandleFunc("/v2/", func(w http.ResponseWriter, r *http.Request) {
+		if f.refuse {
+			w.WriteHeader(http.StatusTooManyRequests)
+
+			return
+		}
+
 		// The ping. Counted apart from the probe: one is a connection being
 		// warmed, the other is a round trip fetching a challenge.
 		if r.URL.Path == "/v2/" {

@@ -122,6 +122,7 @@ func intoImageCache(root, platform string) pullFunc {
 					// Beside the images: where a registry issues tokens is the
 					// same answer for every project on this machine (E535).
 					Platform: platform, Challenges: root,
+					Mirrors: image.MirrorsFromEnv(),
 				})
 			})
 	}

@@ -736,6 +736,7 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 			// Beside the images, because where a registry issues tokens is the
 			// same answer for every project on this machine (E535).
 			Challenges: imageRoot,
+			Mirrors:    image.MirrorsFromEnv(),
 		})
 	}
 

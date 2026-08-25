@@ -102,4 +102,8 @@ func rememberChallenge(dir, key, at string) {
 
 // challengeKey names a repository on a registry, which is what a challenge is
 // issued for.
-func challengeKey(r Ref) string { return registryHost(r.Registry) + "/" + r.Repository }
+func challengeKey(r Ref) string { return hostKey(registryHost(r.Registry), r) }
+
+// hostKey files a challenge under the host that answered it rather than under
+// the reference, which are different names once a mirror is in play.
+func hostKey(host string, r Ref) string { return host + "/" + r.Repository }

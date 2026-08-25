@@ -143,7 +143,9 @@ func (e *Executor) materialiseImageInGuest(
 		}(i, at, l.MediaType, visible, growing)
 	}
 
-	opts := image.Options{Platform: platform, Challenges: imageRoot}
+	opts := image.Options{
+		Platform: platform, Challenges: imageRoot, Mirrors: image.MirrorsFromEnv(),
+	}
 	if streamToGuest() {
 		opts.Fetching = start
 

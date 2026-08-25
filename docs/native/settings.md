@@ -23,6 +23,28 @@ Where images pulled from a registry are kept, if it should be somewhere other th
 
 Default: inside `EARTH_CACHE_DIR`.
 
+### `EARTH_REGISTRY_MIRRORS`
+
+Hosts to ask before Docker Hub, most preferred first, comma-separated.
+
+Default: empty - the registry itself, and nothing else.
+
+```sh
+export EARTH_REGISTRY_MIRRORS=mirror.gcr.io,public.ecr.aws
+```
+
+Docker Hub allows an anonymous puller 100 manifest requests an hour. A machine that exhausts
+that (a benchmark loop, a busy CI runner, or an office behind one address) gets `429 Too Many
+Requests`, and every `FROM` then fails outright - which is the slowest a build can be.
+
+A mirror is tried first and is never a new way to fail: one that is down, rate-limited or does not
+carry the image falls through to the registry itself, whose error is the one reported.
+
+Off by default because a mirror answers "what does this tag mean" from its own cache. The bytes
+are safe wherever they come from - every digest is checked against the manifest - but a tag that
+moves may resolve to an older image than the registry would give. Pinning (`--pin`) always asks
+the registry itself for that reason.
+
 ### `EARTH_TRACE`
 
 Whether a step's reads are watched.

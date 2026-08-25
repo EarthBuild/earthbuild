@@ -115,6 +115,11 @@ type Options struct {
 	//
 	// The token itself is never written here. See challenge.go.
 	Challenges string
+	// Mirrors names, per registry domain, hosts to ask before that registry
+	// itself. Docker Hub allows an anonymous puller 100 manifest requests an
+	// hour, and a build behind one address exhausts that - after which every
+	// `FROM` fails outright, which is the slowest a build can be.
+	Mirrors map[string][]string
 	// Fetched, when set, is called as each layer's blob lands, in the order the
 	// manifest lists them.
 	//
@@ -237,6 +242,26 @@ type prepared struct {
 	base   string
 }
 
+// fetchHosts is where to look for a reference, in the order to look.
+//
+// Mirrors first and the origin always last: the origin remains a candidate
+// whatever is configured, so a mirror can only add a way to succeed. A mirror
+// serves the same blobs under the same digests, so the manifest and the layers
+// come from whichever host answered - and both are verified either way.
+func fetchHosts(r Ref, opt Options) []string {
+	origin := registryHost(r.Registry)
+
+	hosts := make([]string, 0, len(opt.Mirrors[r.Registry])+1)
+
+	for _, m := range opt.Mirrors[r.Registry] {
+		if m != "" && m != origin {
+			hosts = append(hosts, m)
+		}
+	}
+
+	return append(hosts, origin)
+}
+
 // prepare resolves a reference and fetches its manifest.
 //
 // Shared by Pull and PullApart, which differ only in where the layers land:
@@ -257,27 +282,55 @@ func prepare(ctx context.Context, ref string, opt Options) (prepared, error) {
 		scheme = schemePlain
 	}
 
-	base := fmt.Sprintf("%s://%s/v2/%s", scheme, registryHost(r.Registry), r.Repository)
-
 	target := r.Tag
 	if r.Digest != "" {
 		target = r.Digest
 	}
 
-	// Registries answer an anonymous request with 401 and a challenge naming
-	// where to get a token. Public images need this too, so it is not an
-	// authentication feature - it is how a pull works at all.
-	tok, err := token(ctx, client, base+"/manifests/"+target, opt.Challenges, challengeKey(r))
-	if err != nil {
-		return prepared{}, fmt.Errorf("authenticate to %s: %w", r.Registry, err)
-	}
+	// **A mirror is asked first and is never a new way to fail.** One that is
+	// down, rate-limited, or does not carry the image falls through to the
+	// origin, whose error is the one reported - so a build behind a broken
+	// mirror fails exactly as it would with no mirror configured.
+	hosts := fetchHosts(r, opt)
 
-	endManifest := timing.Phase("registry:manifest", target)
-	body, err := get(ctx, client, tok, base+"/manifests/"+target, maxManifest)
+	var (
+		base, tok string
+		body      []byte
+	)
 
-	endManifest()
-	if err != nil {
-		return prepared{}, fmt.Errorf("fetch the manifest for %s: %w", ref, err)
+	for i, host := range hosts {
+		base = fmt.Sprintf("%s://%s/v2/%s", scheme, host, r.Repository)
+		last := i == len(hosts)-1
+
+		// Registries answer an anonymous request with 401 and a challenge naming
+		// where to get a token. Public images need this too, so it is not an
+		// authentication feature - it is how a pull works at all.
+		//
+		// Keyed by the host actually asked rather than by the reference: where a
+		// mirror issues tokens is its own business, and filing its answer under
+		// the origin's name would hand the origin a token it never issued.
+		tok, err = token(ctx, client, base+"/manifests/"+target, opt.Challenges,
+			hostKey(host, r))
+		if err != nil {
+			if last {
+				return prepared{}, fmt.Errorf("authenticate to %s: %w", r.Registry, err)
+			}
+
+			continue
+		}
+
+		endManifest := timing.Phase("registry:manifest", target)
+		body, err = get(ctx, client, tok, base+"/manifests/"+target, maxManifest)
+
+		endManifest()
+
+		if err == nil {
+			break
+		}
+
+		if last {
+			return prepared{}, fmt.Errorf("fetch the manifest for %s: %w", ref, err)
+		}
 	}
 
 	var m manifest

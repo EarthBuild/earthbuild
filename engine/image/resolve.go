@@ -51,6 +51,11 @@ func Resolve(ctx context.Context, ref string, opt Options) (string, error) {
 	base := fmt.Sprintf("%s://%s/v2/%s", scheme, registryHost(r.Registry), r.Repository)
 
 	endToken := timing.Phase("pin:token", r.Registry)
+	// **The origin, and deliberately not a mirror.** A pull may take its bytes
+	// from anywhere because every digest is verified against the manifest; a
+	// resolution *is* the answer to "what does this tag mean today", and a
+	// mirror's answer is its own cache. Pinning to a stale digest would be
+	// worse than not pinning at all, so this asks the registry itself.
 	tok, err := token(ctx, client, base+"/manifests/"+r.Tag, opt.Challenges, challengeKey(r))
 	endToken()
 

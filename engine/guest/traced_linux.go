@@ -3,9 +3,12 @@
 package guest
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
+	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/timing"
 	"github.com/EarthBuild/earthbuild/engine/trace"
 )
 
@@ -79,7 +82,7 @@ func runObserved(
 			// the step blocked in `seccomp_do_user_notification` and the guest
 			// in `__futex_wait`, with the machine otherwise idle. The diagnosis
 			// was already written and could not be reached (E582).
-			if tr.Stopped() == nil || release == nil {
+			if tr.Stopped() == nil {
 				return
 			}
 
@@ -87,9 +90,71 @@ func runObserved(
 			case <-finished:
 				// Over already: whatever the tracer thinks, nothing is waiting.
 			default:
-				release()
+				// **Close the listener first, and this is the release that
+				// works.** `release` cancels the step's *process*, and
+				// `os/exec` fills `cmd.Process` in only once the child has
+				// execed - which is exactly what a child stopped at its first
+				// intercepted `execve` has not done. So at the one moment this
+				// matters there is a process and nothing to cancel, and the
+				// guard on `cmd.Process` returns having done nothing (E673).
+				//
+				// Closing the notification descriptor does not need to know the
+				// pid: the kernel fails every syscall blocked on it with ENOSYS
+				// (`seccomp_unotify(2)`). The step then fails, saying so,
+				// instead of waiting for a supervisor that has gone.
+				_ = tr.Close()
+
+				if release != nil {
+					release()
+				}
 			}
 		}()
+
+		// **A filtered step must not start before somebody is answering.**
+		// `StartOnSelf` installs the filter and returns; the loop above starts
+		// on a goroutine and is not listening until it reaches its poll. A step
+		// launched inside that window whose first `execve` traps waits for a
+		// supervisor that has not begun - and if beginning needs a thread, and
+		// creating a thread needs the `clone` the trapped step is holding up,
+		// neither side moves again. That is E673's capture: a child stopped at
+		// `syscall_trace_enter` and a guest thread in `D` inside `kernel_clone`.
+		//
+		// Waited for rather than assumed. The bound is generous because the
+		// only thing on the other side of it is a goroutine reaching a poll;
+		// if that has not happened in a second, something is wrong that waiting
+		// longer will not mend.
+		// Timed, because "the window is closed" and "the window was never open"
+		// look identical from a build that worked. A wait that is always
+		// instant says the race was theoretical here; one that is sometimes
+		// milliseconds says it was not.
+		endWait := timing.Phase("guest:tracer-wait", "")
+
+		// A timer that is stopped rather than `time.After`, which holds its
+		// channel until it fires: every traced step would otherwise leave one
+		// alive for a second, and a build is a great many steps.
+		late := time.NewTimer(serviceWait)
+
+		select {
+		case <-tr.Servicing():
+			late.Stop()
+			endWait()
+		case <-late.C:
+			endWait()
+
+			// The filter is already on this thread and cannot be taken off, so
+			// the step cannot be run unobserved instead. Closing the listener
+			// makes every syscall it would have trapped fail with ENOSYS, which
+			// turns a build that hangs into one that says what happened.
+			_ = tr.Close()
+
+			done <- result{err: fmt.Errorf(
+				"this step's syscall tracer did not start listening within %s"+
+					"\n  the filter is installed and nothing would answer it, so the"+
+					"\n  step was refused rather than left stopped in the kernel",
+				serviceWait), seen: trace.Unobserved(errNotServicing)}
+
+			return
+		}
 
 		out, runErr := fn()
 
@@ -135,3 +200,16 @@ func runObserved(
 
 	return r.out, r.seen, r.err
 }
+
+// serviceWait is how long a step waits for its tracer to start listening.
+//
+// Generous, because the only thing on the other side is a goroutine reaching a
+// poll. It is a deadlock detector rather than a timeout: a second is far longer
+// than starting takes and far shorter than the minutes a wedged step used to
+// cost (E673).
+const serviceWait = time.Second
+
+// errNotServicing marks an observation as incomplete when the tracer never
+// began. The step did not run, so nothing was observed, and saying so keeps it
+// out of L2 rather than letting an empty observation look like a complete one.
+var errNotServicing = errors.New("the syscall tracer did not start listening")

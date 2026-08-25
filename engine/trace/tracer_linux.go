@@ -98,6 +98,19 @@ type Tracer struct {
 	// stop pipe that fires on its own is indistinguishable from an orderly
 	// Close - and the step it strands hangs with nothing said (E522).
 	closing atomic.Bool
+	// closed guards the descriptor against a second Close; see Close.
+	closed atomic.Bool
+	// servicing is closed once the loop is actually waiting for notifications.
+	//
+	// **The window between installing a filter and servicing it is a deadlock
+	// waiting to happen.** `StartOnSelf` installs the filter and returns; the
+	// loop starts afterwards, on a goroutine, and until it reaches its poll
+	// nothing will answer. A step launched in that window whose first `execve`
+	// traps waits for a supervisor that has not started - and if starting it
+	// needs a thread, and creating a thread needs the `clone` that the trapped
+	// step is holding up, neither side moves again (E673).
+	servicing   chan struct{}
+	serviceOnce sync.Once
 	// mine is the engine's own thread, or zero when the engine has none.
 	//
 	// The filter lives on the thread that installed it, so that thread's
@@ -139,7 +152,11 @@ type Tracer struct {
 
 // NewTracer takes ownership of a listener returned by install.
 func NewTracer(fd int) *Tracer {
-	t := &Tracer{fd: fd, stopR: -1, stopW: -1, paths: map[string]bool{}, why: map[string]bool{}}
+	t := &Tracer{
+		fd: fd, stopR: -1, stopW: -1,
+		paths: map[string]bool{}, why: map[string]bool{},
+		servicing: make(chan struct{}),
+	}
 
 	var p [2]int
 
@@ -215,6 +232,12 @@ func (t *Tracer) stopped(err error) {
 	_, _ = fmt.Fprintf(w, "earth: syscall tracer stopped: %v\n", err)
 }
 
+// Servicing is closed once the notification loop is waiting for work.
+//
+// A step must not run under a filter nobody is answering, and this is how a
+// caller waits to be sure. See the field for what happens when it does not.
+func (t *Tracer) Servicing() <-chan struct{} { return t.servicing }
+
 // Stopped is why the notification loop ended, or nil if it ended because it was
 // asked to.
 func (t *Tracer) Stopped() error {
@@ -239,6 +262,11 @@ func (t *Tracer) waitForWork() bool {
 	if t.stopR >= 0 {
 		fds = append(fds, unix.PollFd{Fd: int32(t.stopR), Events: unix.POLLIN}) //nolint:gosec // ditto
 	}
+
+	// Announced before the first poll, not after: a caller waiting for this is
+	// waiting to know that somebody is listening, and after the poll returns is
+	// too late to be that promise.
+	t.serviceOnce.Do(func() { close(t.servicing) })
 
 	for {
 		_, err := unix.Poll(fds, -1)
@@ -538,6 +566,15 @@ func fromFile(f *os.File) *Tracer {
 // that no longer exists - which is not woken by the close and is then woken by
 // nothing at all.
 func (t *Tracer) Close() error {
+	// **Idempotent, because the deadlock fix below calls it early.** A stopped
+	// tracer is closed the moment it stops, to let go of a step it can no longer
+	// answer for, and the ordinary path closes it again when the step is over.
+	// A second `unix.Close` of a raw descriptor is not harmless - the number is
+	// reusable, and closing it twice can take away somebody else's file.
+	if t.closed.Swap(true) {
+		return nil
+	}
+
 	// Before the close, so Run can never see the wake-up without the reason for
 	// it and call an orderly stop a fault.
 	t.closing.Store(true)

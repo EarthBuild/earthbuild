@@ -31883,3 +31883,34 @@ This was found by writing the end-to-end test rather than by reasoning - the
 same test that showed the exit points do not exist yet, since `SAVE IMAGE` is
 recorded and not performed and the only path that packs an image is `WITH DOCKER
 --load`. Two gaps for the price of one test.
+
+## E695 - the multi-pattern search that is slower until twenty patterns
+
+The secret scan is a pass of `bytes.Contains` per secret, so ten credentials
+cost ten passes over every byte of a layer - the cost growing with the number of
+things worth protecting, which is the wrong way round. Aho-Corasick reads each
+byte once whatever the count, and carries its state between reads so nothing
+needs an overlapping tail.
+
+It is also twenty times slower where it matters:
+
+| n   | automaton | n x `bytes.Contains` |
+| --- | --------- | -------------------- |
+| 1   | 96 MB/s   | 1918 MB/s            |
+| 2   | 95 MB/s   | 954 MB/s             |
+| 5   | 94 MB/s   | 381 MB/s             |
+| 20  | 89 MB/s   | 95 MB/s              |
+| 50  | 91 MB/s   | 38 MB/s              |
+
+`bytes.Contains` is a SIMD memchr; the automaton is a byte at a time through a
+map. The crossover is about twenty patterns, and **a build has one or two** - so
+the asymptotically better algorithm is the wrong choice for every build anybody
+runs.
+
+Both are kept, chosen by count at sixteen - under the measured crossover, since
+it was measured on one machine. The automaton earns its place at fifty
+credentials, where it is six times faster, and costs nothing until then.
+
+Worth recording as a shape rather than a number: an algorithm chosen for its
+complexity, shipped without measuring its constant, would have made the common
+case twenty times worse while the commit message said "one pass instead of n".

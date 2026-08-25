@@ -102,6 +102,12 @@ func main() {
 	root := flag.String("C", ".", "repository root")
 	only := flag.String("run", "", "only mutants whose name contains this")
 	timeout := flag.Duration("timeout", 5*time.Minute, "per-mutant test timeout")
+	// **Compile each mutant instead of testing it.** A mutant that is not valid
+	// Go tests the compiler rather than the suite, and until now the only way
+	// to find one was a full sweep: hours, to learn that an entry had been
+	// wrong since somebody edited the code near it. Building is seconds a
+	// mutant, so the catalogue's validity is checkable on its own.
+	compileOnly := flag.Bool("compile", false, "only check each mutant still compiles")
 	flag.Parse()
 
 	survived, problems := 0, 0
@@ -117,7 +123,7 @@ func main() {
 			continue
 		}
 
-		verdict, detail := run(*root, m, *timeout)
+		verdict, detail := run(*root, m, *timeout, *compileOnly)
 
 		fmt.Printf("%-10s %s\n", verdict, m.Name)
 
@@ -163,7 +169,7 @@ func note(survived, problems int) string {
 }
 
 // run applies one mutant, tests, and puts the file back.
-func run(root string, m Mutant, timeout time.Duration) (verdict, detail string) {
+func run(root string, m Mutant, timeout time.Duration, compileOnly bool) (verdict, detail string) {
 	path := filepath.Join(root, m.File)
 
 	src, err := os.ReadFile(path) //nolint:gosec // a path from the catalogue
@@ -211,12 +217,33 @@ func run(root string, m Mutant, timeout time.Duration) (verdict, detail string) 
 	// G204: the package comes from this tool's own catalogue, which is a Go
 	// file in this repository and not anybody's input.
 	//nolint:gosec // see above
-	cmd := exec.CommandContext(ctx, "go", "test", m.Package, "-count=1",
-		"-timeout", timeout.String())
+	args := []string{"test", m.Package, "-count=1", "-timeout", timeout.String()}
+	if compileOnly {
+		// `vet` rather than `build`, because a mutant lands in a test file as
+		// often as in a source one and `go build` does not compile tests.
+		args = []string{"vet", m.Package}
+	}
+
+	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = root
 
 	out, err := cmd.CombinedOutput()
 	text := string(out)
+
+	// In compile-only mode the question is just whether it is valid Go: a
+	// mutant that builds has nothing more to say here, and one that does not is
+	// a catalogue entry to fix.
+	if compileOnly {
+		if err != nil {
+			// Any error line, not only the two shapes the test path looks for.
+			// A mutant can fail to compile in ways nobody predicted, and
+			// reporting nothing for those made half of them look detail-free
+			// when the compiler had said exactly what was wrong.
+			return verdictNoCompile, firstLine(text, ".go:")
+		}
+
+		return verdictKilled, ""
+	}
 
 	switch {
 	case ctx.Err() != nil:

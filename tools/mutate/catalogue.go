@@ -524,7 +524,7 @@ var Mutants = []Mutant{
 		Name:        "fleet: telling a step where its inputs are held (E260)",
 		File:        "engine/fleet/delegating.go",
 		Anchor:      "\ta.Hints.Holders = d.held.of(a)",
-		Replacement: "\t_ = d.held",
+		Replacement: "\td.held.of(a)",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -577,10 +577,14 @@ var Mutants = []Mutant{
 		Package:     "./engine/layer/",
 	},
 	{
+		// The *condition* rather than the branch: deleting the branch takes the
+		// only use of `fstime` with it, and an unused import is a mutant that
+		// tests the compiler. Disabled instead, so a symlink falls through to
+		// `os.Chtimes` - which stamps what it points at, which is the defect.
 		Name:        "layer: stamping a link rather than what it points at (E262)",
 		File:        "engine/layer/unpack.go",
 		Anchor:      "\tif e.kind == kindSymlink {\n\t\treturn fstime.Lchtimes(p, when, when)\n\t}",
-		Replacement: "",
+		Replacement: "\tif false {\n\t\treturn fstime.Lchtimes(p, when, when)\n\t}",
 		Package:     "./engine/layer/",
 	},
 	{
@@ -759,11 +763,13 @@ var Mutants = []Mutant{
 		Package:     "./engine/fleet/",
 	},
 	{
-		Name:        "fleet: forecasting with the same placement the engine uses (E268)",
-		File:        "engine/fleet/forecast.go",
-		Anchor:      "\t\torder := preferFetching(fleet, holdersOf(s, at), busy,",
-		Replacement: "\t\torder := fleet\n\t\t_, _ = holdersOf(s, at), busy",
-		Package:     "./engine/fleet/",
+		Name: "fleet: forecasting with the same placement the engine uses (E268)",
+		File: "engine/fleet/forecast.go",
+		Anchor: "\t\torder := preferFetching(fleet, holdersOf(s, at), busy,\n" +
+			"\t\t\trate.Slots(inputBytes(steps, sizes, s)))",
+		Replacement: "\t\torder := fleet\n" +
+			"\t\t_, _, _ = holdersOf(s, at), busy, rate.Slots(inputBytes(steps, sizes, s))",
+		Package: "./engine/fleet/",
 	},
 	{
 		Name:        "fleet: counting a layer that has to cross machines (E268)",
@@ -884,7 +890,7 @@ var Mutants = []Mutant{
 		Name:        "core: rebuilding an input that could not be obtained (I11, E278)",
 		File:        "engine/core/schedule.go",
 		Anchor:      "\tif !errors.As(err, \u0026missing) || !s.rebuild(ctx, missing.Layer) {",
-		Replacement: "\tif true {",
+		Replacement: "\tif true || errors.As(err, \u0026missing) {",
 		Package:     "./engine/core/",
 	},
 	{
@@ -898,7 +904,7 @@ var Mutants = []Mutant{
 		Name:        "core: checking a rebuild produced the layer that was wanted (I1, E278)",
 		File:        "engine/core/schedule.go",
 		Anchor:      "\treturn err == nil \u0026\u0026 res.Layer == id",
-		Replacement: "\treturn err == nil",
+		Replacement: "\treturn err == nil \u0026\u0026 res.Layer == res.Layer",
 		Package:     "./engine/core/",
 	},
 	{
@@ -968,7 +974,7 @@ var Mutants = []Mutant{
 		Name:        "fleet: a fragment naming one path set however it is ordered (E282)",
 		File:        "engine/fleet/fragments.go",
 		Anchor:      "\tslices.Sort(clean)\n\tclean = slices.Compact(clean)",
-		Replacement: "",
+		Replacement: "\tclean = slices.Clone(clean)",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -1017,7 +1023,7 @@ var Mutants = []Mutant{
 		Name:        "fleet: a fragment travelling with its manifest (E286)",
 		File:        "engine/fleet/blobwire.go",
 		Anchor:      "\t\t\treturn writeFragment(w, manifest, packed)",
-		Replacement: "\t\t\treturn WriteBlobMessage(w, packed)",
+		Replacement: "\t\t\t_ = manifest\n\t\t\treturn WriteBlobMessage(w, packed)",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -2318,7 +2324,7 @@ var Mutants = []Mutant{
 		Name:        "interp: a mount field refused rather than dropped (E435)",
 		File:        "engine/interp/cache.go",
 		Anchor:      "\tif len(unknown) == 0 {\n\t\treturn nil\n\t}",
-		Replacement: "\treturn nil",
+		Replacement: "\tif true {\n\t\treturn nil\n\t}",
 		Package:     "./engine/interp/",
 	},
 	{

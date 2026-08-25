@@ -98,7 +98,37 @@ type StepRecord struct {
 // Record is a build record: the step graph with its outcomes, green paper B.2.
 type Record struct {
 	Steps []StepRecord
+	// Identity is the version of the engine's rule for naming a layer.
+	//
+	// **So that a change to the rule is not reported as the step's fault.**
+	// `Diverge` finds non-determinism when every component of a key is
+	// identical and the output is not, which is exactly what a build sees the
+	// first time it runs after the rule changes - E656 changed it twice in one
+	// afternoon. A record carrying no account of which rule produced it cannot
+	// tell the two apart, and the false report is worse than none: it is the
+	// real finding that a reader then learns to ignore.
+	//
+	// Zero means a record that makes no claim - an in-memory one, or a stored
+	// one from before the field existed. It cannot contradict another, which is
+	// why `Diverge` compares identities only when both records carry one.
+	Identity int
 }
+
+// LayerRule is the current version of the rule for naming a layer.
+//
+// **Bumped whenever a layer's digest changes for the same bytes**, which is a
+// cache invalidation and an event a build should be able to name. The history
+// so far:
+//
+//	1  everything before E656
+//	2  a symlink's permission bits stopped reaching the digest, and ownership
+//	   became the archive's declaration rather than whatever an unprivileged
+//	   unpack could grant
+//
+// Not derived from a build stamp: a version string would differ between two
+// engines built from one commit, and every developer build would report a rule
+// change it did not make.
+const LayerRule = 2
 
 // find returns the record for a step position, if present.
 func (r *Record) find(ident string) (StepRecord, bool) {
@@ -127,6 +157,12 @@ const (
 	CauseEnv
 	// CausePlatform: the target platform changed.
 	CausePlatform
+	// CauseLayerRule: the engine changed how it names a layer, so two records
+	// disagree about the output of a step that did not change.
+	//
+	// Ranked below the causes a reader can act on and above non-determinism,
+	// which it exists to stop being reported falsely.
+	CauseLayerRule
 	// CauseNonDeterminism: nothing in the key changed and the output did
 	// anyway.
 	//
@@ -148,6 +184,8 @@ func (c Cause) String() string {
 		return "an environment value changed"
 	case CausePlatform:
 		return "the platform changed"
+	case CauseLayerRule:
+		return "the engine's rule for naming layers changed between these builds"
 	case CauseNonDeterminism:
 		return "NON-DETERMINISM: nothing in the key changed and the output did"
 	default:
@@ -213,6 +251,20 @@ func Diverge(a, b *Record) Divergence {
 			d.Cause = CauseEnv
 		case sa.Plat != sb.Plat:
 			d.Cause = CausePlatform
+		case a.Identity != 0 && b.Identity != 0 && a.Identity != b.Identity:
+			// **Checked last of the attributions and before non-determinism.**
+			// A build whose base moved *and* whose engine changed is told about
+			// the base, which is the thing it can act on; one whose key is
+			// identical throughout is told the truth, which is that nothing
+			// about the step is implicated.
+			//
+			// **Only when both records say.** An unstated identity is a record
+			// that made no claim - every in-memory one, and every stored one
+			// from before the field existed - and a record that made no claim
+			// cannot contradict another. Stating otherwise made a comparison
+			// between a saved record and a fresh one report a rule change on
+			// every build, which the round-trip test caught immediately.
+			d.Cause = CauseLayerRule
 		default:
 			// Every component of the key is identical and the results are not.
 			// The step is non-deterministic, and that is the finding.

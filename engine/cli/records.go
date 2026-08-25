@@ -48,10 +48,28 @@ type storedRecord struct {
 	// worse than reporting none.
 	Version int          `json:"version"`
 	Steps   []storedStep `json:"steps"`
+	// Identity is the engine's rule for naming a layer when this was written.
+	//
+	// **A separate number from Version, and it must stay separate.** The format
+	// version says whether these fields can be read; this says whether the
+	// digests in them are comparable with today's. An unreadable record is no
+	// comparison, and one written under a different layer rule is a comparison
+	// whose answer is "the engine changed" - a finding rather than a miss, and
+	// the difference between telling somebody their step is not reproducible
+	// and telling them it is (E662).
+	//
+	// Absent in records written before this existed, which decodes to zero, and
+	// zero is not the current rule - the right answer for a record whose engine
+	// named layers some other way.
+	Identity int `json:"identity,omitempty"`
 }
 
 // recordVersion is the on-disk format. Bump it when a field changes meaning.
-const recordVersion = 1
+//
+// 2 added `identity`. A version-1 record is not read, which is what makes the
+// zero value safe above: every record this engine *can* read states its rule,
+// so an unstated one is always an in-memory record rather than an old file.
+const recordVersion = 2
 
 // recordPath is where a target's last record lives.
 //
@@ -74,7 +92,10 @@ func recordPath(store, target string) string {
 
 // saveRecord writes what this build did, for the next one to compare against.
 func saveRecord(store, target string, r *core.Record) error {
-	rec := storedRecord{Version: recordVersion, Steps: make([]storedStep, 0, len(r.Steps))}
+	rec := storedRecord{
+		Version: recordVersion, Identity: core.LayerRule,
+		Steps: make([]storedStep, 0, len(r.Steps)),
+	}
 
 	for _, s := range r.Steps {
 		rec.Steps = append(rec.Steps, storedStep{
@@ -129,7 +150,7 @@ func loadRecord(store, target string) (*core.Record, bool) {
 		return nil, false
 	}
 
-	out := &core.Record{Steps: make([]core.StepRecord, 0, len(rec.Steps))}
+	out := &core.Record{Identity: rec.Identity, Steps: make([]core.StepRecord, 0, len(rec.Steps))}
 
 	for _, s := range rec.Steps {
 		step := core.StepRecord{

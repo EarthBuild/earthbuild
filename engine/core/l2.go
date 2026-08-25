@@ -47,6 +47,20 @@ func (s *Scheduler) tryL2(ctx context.Context, n *ir.Node, base, refs []ir.NodeI
 	}
 
 	pred, ok := s.Profiles.Get(StepClass(n))
+	if ok {
+		// **Told to the executor whether or not this lookup succeeds.** The
+		// prediction is fetched here for a cache question, and it answers a
+		// second one for nothing: what to assemble a base *out of*, should the
+		// step have to run. Left unsaid, `wouldPrime` is false and the step
+		// gets its base whole however little of it it opens - which is why
+		// lazy materialisation was reachable only on a fleet worker, where the
+		// assignment's hints fill the same field.
+		//
+		// Advice, not identity: `Meta` is not hashed and there is a test that
+		// says so (E301).
+		n.Meta.ReadsPredicted = PredictedReads(pred)
+	}
+
 	if !ok {
 		// Nothing recorded for this class of step. Ordinary on a first build and
 		// a defect on a later one, so it is counted - but only for a step with a
@@ -107,4 +121,18 @@ func (s *Scheduler) tryL2(ctx context.Context, n *ir.Node, base, refs []ir.NodeI
 	}
 
 	return e, true
+}
+
+// PredictedReads is what a profile says a class of step reads, in the order a
+// fragment request wants them.
+//
+// Sorted, because these reach a request for part of a layer and a request that
+// varied with map iteration order would ask for the same paths under different
+// names - which is a cache miss dressed as a fetch.
+func PredictedReads(pred Observation) []string {
+	if len(pred.Reads) == 0 {
+		return nil
+	}
+
+	return sortedKeys(pred.Reads)
 }

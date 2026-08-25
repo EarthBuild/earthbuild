@@ -31233,3 +31233,57 @@ where the store now lives and costs nothing where it used to, so flipping looks
 free - but the switch is spelt as a negative (`EARTH_NO_KNOWN_DIGESTS`), and a
 default that no longer matches its own name is how the next reader is misled.
 Flipping it wants the rename, and the rename wants asking.
+
+## E683 - a shared file cannot be tailed fast enough to stream a layer
+
+The guest cannot start unpacking a layer until its whole blob has landed, so the
+critical layer of `golang:1.26-alpine` is 1.19s of fetch and then 2.3s of unpack
+where the two could overlap - about 1.1s of an 8.6s cold build spent waiting on
+nothing.
+
+The cheap way to overlap them would be for the guest to read the blob while the
+host is still writing it: the file is on the shared mount, the manifest gives its
+exact length, and a reader that treats EOF as "not yet" needs no protocol at all.
+
+It does not work. The host appended 64KiB every 200ms; the guest read to EOF in a
+loop and saw:
+
+```text
+  +   0ms   65536
+  +1004ms  131072 .. 327680     five chunks at once
+  +2011ms  393216 .. 589824
+  +3015ms  655360
+```
+
+The bytes arrive, but in one-second steps rather than at the writer's cadence -
+the size that produces the EOF is a cached attribute, and the cache is about a
+second. Reopening on EOF does not shift it, so it is not a per-descriptor
+attribute that an open revalidates; it is the shared filesystem's own timeout,
+and Apple's `container` exposes no way to ask for a shorter one.
+
+One second of granularity cannot overlap a 1.19s fetch. **So streaming a layer
+needs bulk bytes on the wire**, and the wire has none in that direction: step
+output streams guest-to-host, and the fault-in channel answers "I have placed
+it" rather than carrying the file. A host-to-guest bulk channel is a real piece
+of protocol - framing, backpressure, cancellation - in a component that has
+already produced one deadlock (E673), and it is not a tweak.
+
+Recorded so the next person does not repeat the tail.
+
+## E684 - the tracer's handler is at its floor
+
+After the memory file is kept open (E682), `strace -c` over 4000 traced calls in
+a child says exactly what a notification now costs:
+
+```text
+pread64   4014     one per event, the path out of the stopped process
+ioctl     8020     two per event, RECV and SEND
+ppoll     4010     one per event, waiting for work
+openat      29     twenty-nine in the whole run, not four thousand
+readlink     0
+```
+
+Nothing per-event is left to remove. The round trip alone is 7.7µs on that
+machine and a full call is 9.1µs, so the handler is about 1.4µs of it and the
+crossing is nearly all the rest - which is the thing pinning already addresses.
+Further work on the handler would be optimising the small half.

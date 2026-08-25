@@ -32272,3 +32272,65 @@ timed the wall clock and nothing else would have recorded a 2.7s improvement, an
 the tests would have stayed green - a step that observes nothing still builds,
 it just never hits the cache again. **On this engine, a speed result is only
 believable next to its hit count.**
+
+## E703 - a build with nothing to do is 96% asking the registry what its tags mean
+
+The incremental case is the one a developer lives in, and until now the harness
+measured only cold and warm - warm being a no-op, which flatters both engines.
+`-s incr` settles both, appends one comment line to `cmd/earth/main.go`, and
+times the rebuild:
+
+```text
+cold   earthly 40.49s   native 41.26s   parity
+warm   earthly 19.30s   native  0.64s   30x
+incr   earthly 21.89s   native  7.06s   3.1x
+```
+
+The incremental build's three misses are all honest - the `cmd` context, the
+`COPY` that reads it, and the `go build` - and 38 of the remaining steps are held
+by observed inputs rather than by prediction. Of its 6.4s, 5.6s is the compiler.
+Nothing to win there.
+
+The no-op build is another matter:
+
+```text
+no-op build           0.69s
+  plan                0.664s    96%
+    pin:token          0.28s    five references, concurrent
+    pin:manifest       0.15s    five references, concurrent
+```
+
+The build is 30ms. Everything else is one token exchange and one manifest fetch
+per reference, over the network, before a single step runs. E550 said so and it
+stayed true, because nothing remembered the answers: the token cache is per
+process and dies with the process.
+
+### Remembering the answer instead of the credential
+
+A token is a credential and stays in memory. A resolved digest is a number the
+registry published, so it can be written down - beside the challenges, which
+answer a neighbouring question about the same registry and are kept per machine
+for the same reason (E535).
+
+```text
+EARTH_PIN_TTL unset    plan 0.585s   build 0.61s
+EARTH_PIN_TTL=10m      plan 0.187s   build 0.21s    2.9x
+```
+
+No `pin:` or `registry:` phase remains: all five references are answered from
+disk, the build still reports `92 hit, 0 miss`, and the digest it prints is the
+one the cold build resolved.
+
+### Why it is off
+
+The window is the whole of the trade: a tag that moves is not noticed until the
+pin expires, so a build can use an image its tag no longer names for up to that
+long. That changes which image a build gets, and nobody should get it without
+having said so - the same reason `EARTH_REGISTRY_MIRRORS` is off (E697).
+
+Two things bound it. The digest is still recorded and printed, so a build always
+says which image it used. And CI, where freshness matters most, starts every run
+with an empty cache and therefore always resolves.
+
+Whether the default should move is a decision, not a measurement, and it is
+recorded here as one.

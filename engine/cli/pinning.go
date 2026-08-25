@@ -36,10 +36,25 @@ func (g *engine) imageResolver(ctx context.Context) interp.ResolveImage {
 		challenges = ""
 	}
 
+	// Remembered between builds when a window is configured. Beside the
+	// challenges, which answer a neighbouring question about the same registry
+	// and are kept for the same reason.
+	pins := image.NewPins(challenges, image.PinTTLFromEnv())
+
 	return func(ref, platform string) (string, error) {
+		want := resolveFor(platform)
+
+		if to, ok := pins.Get(ref, want); ok {
+			return to, nil
+		}
+
 		to, err := image.Resolve(ctx, ref, image.Options{
-			Platform: resolveFor(platform), Challenges: challenges,
+			Platform: want, Challenges: challenges,
 		})
+		if err == nil {
+			pins.Put(ref, want, to)
+		}
+
 		if err != nil {
 			// Said once, where it can be acted on. An unpinned build is not a
 			// failed build, but it is a build whose keys are coarser than they

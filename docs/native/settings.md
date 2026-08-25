@@ -45,6 +45,31 @@ are safe wherever they come from - every digest is checked against the manifest 
 moves may resolve to an older image than the registry would give. Pinning (`--pin`) always asks
 the registry itself for that reason.
 
+### `EARTH_PIN_TTL`
+
+How long a resolved image reference may be reused before the registry is asked
+again. A Go duration.
+
+Default: empty - off. Anything that is not a positive duration is also off.
+
+```sh
+export EARTH_PIN_TTL=10m
+```
+
+Every build resolves each `FROM` tag to a digest before anything runs: one token
+exchange and one manifest fetch per reference, over the network. On a build with
+nothing to do that is nearly the whole of it - `plan` is 0.585s of a 0.61s no-op
+`+earthly`. With a ten-minute window the same build is 0.21s.
+
+The window is the trade: a tag that moves is not noticed until it expires, so a
+build can use an image the tag no longer names for up to that long. That is why
+it is off unless asked for. Two things bound the damage: the digest is still
+recorded and reported, so the build says which image it used; and CI, where
+freshness matters most, starts with an empty cache on every run and so always
+resolves.
+
+Pins are kept beside the images, per machine, not per project.
+
 ### `EARTH_TRACE`
 
 Whether a step's reads are watched.

@@ -36,6 +36,34 @@ func TestADeclarationJoinsTheStackAboveItsLayer(t *testing.T) {
 	}
 }
 
+// A step that produced no layer puts nothing there either.
+//
+// The empty base is the case: `FROM scratch` is captured and complete, and the
+// layer it produces is none - which is a zero identity, exactly as an absent
+// declaration is. Pushing it makes every stack above it name an element the
+// store cannot hold, and the first step that has to materialise that stack goes
+// looking for a layer whose digest is sixty-four zeroes.
+//
+// The symptom is `COPY` onto `scratch`, which is a build the executor's own
+// comments say is supported and which failed with "the element has to be
+// fetched before the step can run" - naming a fetch for something that was
+// never going to exist (I18).
+func TestAStepThatProducedNoLayerAddsNothing(t *testing.T) {
+	t.Parallel()
+
+	s := &Scheduler{stacks: map[ir.NodeID][]ir.NodeID{}, done: map[ir.NodeID]Result{}, Record: &Record{}}
+
+	n := &ir.Node{Op: ir.Op{Kind: ir.OpScratch}}
+
+	s.finish(n, nil, Result{Captured: true}, StepRecord{})
+
+	if got := s.StackFor(n); len(got) != 0 {
+		t.Errorf("the empty base put %v on the stack, and it produces no layer"+
+			"\n  every step above it then materialises a stack naming an element"+
+			" the store can never hold", got)
+	}
+}
+
 // A step that declares nothing puts nothing there.
 //
 // Most steps: a RUN produces a filesystem delta and says nothing about how the

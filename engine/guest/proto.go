@@ -497,6 +497,16 @@ type Mount struct {
 	// nothing else - so there is no key it could change and no record of it in
 	// a plan.
 	Secret string `json:"secret,omitempty"`
+	// Credential says the contents above are a secret the build was given,
+	// rather than a file the guest is synthesising.
+	//
+	// **Inferring it from a non-empty Secret would be wrong the moment somebody
+	// moves a mount.** `/etc/hosts` and the resolver carry their contents the
+	// same way and say so - "the same shape a secret uses" - and they are built
+	// inside the guest, so they are not in a request today. A refactor that put
+	// them there would silently make the hosts file a credential and fail builds
+	// for a reason nobody could act on. Said rather than deduced.
+	Credential bool `json:"credential,omitempty"`
 
 	// Sandbox names a path in the sandbox's own filesystem to bind, rather than
 	// something in the layer store.

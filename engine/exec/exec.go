@@ -495,6 +495,8 @@ func (e *Executor) Run(
 		// The value is looked up here and nowhere earlier: it is not in the
 		// node, not in the key, and not in any plan anyone can print.
 		if m.Secret {
+			gm.Credential = true
+
 			v, ok := e.Secrets[m.ID]
 			if !ok {
 				return core.Result{}, fmt.Errorf(

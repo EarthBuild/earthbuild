@@ -32,8 +32,15 @@ func TestTheSecretsAStepWasGivenAreGatheredByName(t *testing.T) {
 		},
 		SecretEnv: []string{"TOKEN", "DEPLOY_KEY", "NEVER_SET"},
 		Mounts: []Mount{
+			// Carries its contents and is not a credential: the hosts file and
+			// the resolver are built this way, and a scan that took every
+			// contents-carrying mount for a secret would fail builds over
+			// `127.0.0.1 localhost`.
 			{Target: "/etc/hosts", Secret: "127.0.0.1 localhost"},
-			{Target: "/run/secrets/npmrc", Secret: "//registry:_authToken=abc"}, //nolint:gosec // a fixture, not a credential
+			{ //nolint:gosec // fixtures, not credentials
+				Target: "/run/secrets/npmrc", Credential: true,
+				Secret: "//registry:_authToken=abc",
+			},
 			{Target: "/cache", ID: "go-mod"},
 		},
 	}
@@ -49,7 +56,6 @@ func TestTheSecretsAStepWasGivenAreGatheredByName(t *testing.T) {
 		"TOKEN":              "hunter2-swordfish",
 		"DEPLOY_KEY":         "another-credential",
 		"/run/secrets/npmrc": "//registry:_authToken=abc",
-		"/etc/hosts":         "127.0.0.1 localhost",
 	} {
 		if byName[name] != want {
 			t.Errorf("secret %s came out as %q", name, byName[name])
@@ -65,7 +71,7 @@ func TestTheSecretsAStepWasGivenAreGatheredByName(t *testing.T) {
 
 	// An ordinary mount is not a secret and an ordinary variable is not one
 	// either, however much it looks like one.
-	for _, name := range []string{"/cache", "PATH", "HOME"} {
+	for _, name := range []string{"/cache", "PATH", "HOME", "/etc/hosts"} {
 		if _, ok := byName[name]; ok {
 			t.Errorf("%s was treated as a secret", name)
 		}
@@ -162,7 +168,10 @@ func TestASecretIsRedactedFromWhatAStepPrinted(t *testing.T) {
 		Strict:    true,
 		Env:       []string{"TOKEN=hunter2-swordfish"},
 		SecretEnv: []string{"TOKEN"},
-		Mounts:    []Mount{{Target: "/run/secrets/np", Secret: "authToken=abc123xyz"}},
+		Mounts: []Mount{{
+			Target: "/run/secrets/np", Credential: true,
+			Secret: "authToken=abc123xyz",
+		}},
 	}
 
 	out := []byte("+ curl -H 'Authorization: hunter2-swordfish' https://api\n" +

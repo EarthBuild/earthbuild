@@ -21,7 +21,10 @@ func secretsFrom(req Request) []layer.Secret {
 	var out []layer.Secret
 
 	for _, m := range req.Mounts {
-		if m.Secret != "" {
+		// **Said, not deduced.** A mount carrying its contents is not
+		// necessarily a credential - the hosts file and the resolver do the
+		// same thing - so this asks whether the host called it one.
+		if m.Credential && m.Secret != "" {
 			out = append(out, layer.Secret{Name: m.Target, Value: m.Secret})
 		}
 	}

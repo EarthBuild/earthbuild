@@ -48,6 +48,12 @@ func Pin(o Options) error {
 		challenges = ""
 	}
 
+	// **The origin, and never the pin cache.** A build may reuse a remembered
+	// digest for as long as EARTH_PIN_TTL allows, because the worst of being
+	// stale is a key that is coarser than it could be. This writes the digest
+	// into the user's Earthfile, where it stays until somebody changes it - so a
+	// stale answer here is not a slow build, it is a wrong file committed to a
+	// repository. TestPinningAnEarthfileAsksTheOrigin holds this.
 	pinned, changes, err := pin.Rewrite(src, func(ref string) (string, error) {
 		to, resolveErr := image.Resolve(ctx, ref, image.Options{
 			Platform: resolveFor(o.Platform), Challenges: challenges,

@@ -31420,3 +31420,72 @@ the stats are a smaller share of it - about 165ms of a 7.7s cold build. Cold
 builds measured 7.43s, 7.54s and 7.96s against 7.66s and 7.74s before, which is
 not a result. The reduction in work is real and it compounds with the size of
 the image; the build-time claim would not survive being asked for.
+
+## E687 - the overlap is blocked by verification, not by the filesystem
+
+E683's correction established that a guest can read a blob the host is still
+writing, and `image.Growing` does it byte-for-byte across virtiofs. That removes
+the mechanical obstacle to overlapping a layer's fetch with its unpack, worth
+about 1.1s of a cold build.
+
+It does not remove the reason the code does not do it. `Pull` states the rule:
+
+> Every blob is verified against its descriptor digest **before** its contents
+> are used. Verifying afterwards would mean unpacking hostile bytes first, and
+> unpacking is exactly where an archive gets to create files.
+
+Unpacking as the bytes arrive means unpacking before the digest is known, and
+SHA-256 cannot verify a prefix - there is no incremental form of the check. So
+the overlap and the invariant are not both available.
+
+What the invariant is worth, stated plainly so the trade can be judged:
+
+* Against a **pinned** reference - `--pin` writes the manifest digest into the
+  Earthfile - the layer digest is trusted, and verification is what stops a
+  tampered blob being unpacked at all.
+* Against an unpinned one it is weaker: the layer digest comes from a manifest
+  fetched from the same registry over TLS, so it catches corruption rather than
+  a malicious registry.
+* Either way the surface it protects is the unpacker, which is where an archive
+  gets to create files, and which has its own history of escapes (E628).
+
+Quarantine does not answer it. Unpacking into a staging directory that is
+discarded on a bad digest still runs the unpacker over hostile bytes, and the
+escape checks are the second line rather than the first.
+
+**[GAP]** Whether 1.1s of a cold build is worth unpacking unverified bytes is a
+decision about what this engine promises, not a measurement, and it is left
+open rather than taken. `image.Growing` is committed, tested and unused pending
+it - and should be removed rather than left lying about if the answer is no.
+
+### The fetch is bandwidth-bound, so parallelism does not help either
+
+The invariant-preserving direction looked like the fetch itself: 64MB in 1.19s
+is 54 MB/s, which could have been one connection's limit rather than the
+network's. The registry supports ranges - `accept-ranges: bytes`, and a range
+request answers 206 - so it can be asked directly. Reassembly checked against
+the expected digest each time, so the comparison is of the same bytes:
+
+```text
+1 connection   1.14s  1.19s
+2 ranges       1.15s
+4 ranges       1.65s
+8 ranges       1.46s
+```
+
+**Splitting it makes it worse.** One connection already saturates what is
+available, and more of them add handshakes and contention. `layer:get` measured
+1.188s inside the engine against 1.14s for `curl`, so the engine adds nothing
+worth removing here.
+
+### What would give both
+
+A format carrying per-chunk digests - eStargz, or zstd:chunked - verifies as it
+arrives, which is the only thing that makes unpacking-while-fetching and
+"verified before its contents are used" both true at once. It also makes lazy
+loading possible, which is a larger prize than the 1.1s: a step usually reads a
+small fraction of a base image.
+
+That is a direction rather than a change, and it is the honest answer to the gap
+above: the trade E687 leaves open is a trade only because the format cannot
+verify a part.

@@ -63,7 +63,30 @@ fail() { printf 'benchmark-earthly: %s\n' "$*" >&2; exit 1; }
 # this machine has both mktemps depending on PATH. The template form is the one
 # that works on either.
 runlog=$(mktemp -t earthbench.XXXXXX)
-trap 'rm -f "$runlog"' EXIT
+
+# **Rows are held until every run is over, because writing one changes the tree
+# the build reads.** `+earthly` does `COPY docs-internals /earthly/` and this
+# ledger lives in docs-internals, so appending the cold row invalidated the warm
+# run that came next: the go build re-ran, and every warm figure recorded here
+# was the cost of this script's own bookkeeping rather than of the engine (E699).
+pending=$(mktemp -t earthbench-rows.XXXXXX)
+
+trap 'flush; rm -f "$runlog" "$pending"' EXIT
+
+# flush moves the held rows into the ledger. Idempotent: it is called once the
+# runs are done so the medians below can read them, and again from the trap so a
+# run that dies part way still records what it managed.
+flush() {
+    [ -s "$pending" ] || return 0
+
+    if [ ! -s "$ledger" ]; then
+        printf 'commit\twhen\ttarget\tengine\tstate\tseconds\trc\tcores\tload\tdirty\n' \
+            >>"$ledger"
+    fi
+
+    cat "$pending" >>"$ledger"
+    : >"$pending"
+}
 
 for tool in earthly container docker git python3; do
     command -v "$tool" >/dev/null 2>&1 || fail "$tool is not installed"
@@ -73,7 +96,10 @@ done
 
 cores=$(sysctl -n hw.ncpu 2>/dev/null || nproc)
 commit=$(git -C "$here" rev-parse --short HEAD)
-dirty=$(git -C "$here" status --porcelain | head -1)
+# The ledger's own uncommitted rows are not a change to the thing being
+# measured, and counting them marked every run after the first as dirty.
+dirty=$(git -C "$here" status --porcelain -- \
+    . ':(exclude)docs-internals/bench-ledger.tsv' | head -1)
 
 # **Both engines get the whole machine, or the comparison is about core counts.**
 # Docker's VM is configured in Docker Desktop and cannot be set from here, so it
@@ -126,16 +152,18 @@ settle
 
 record() {
     local engine=$1 state=$2 secs=$3 rc=$4
-    local load
+    local load mark
     load=$(uptime | sed 's/.*load average: *//' | cut -d, -f1 | tr -d ' ')
 
-    if [ ! -s "$ledger" ]; then
-        printf 'commit\twhen\ttarget\tengine\tstate\tseconds\trc\tcores\tload\tdirty\n' >>"$ledger"
-    fi
+    # `-` rather than empty: a TSV row whose last column is blank ends in a tab,
+    # which the trailing-whitespace hook strips - so every run left the ledger
+    # modified by something nobody wrote.
+    mark=${dirty:+dirty}
+    mark=${mark:--}
 
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "$commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$target" "$engine" "$state" \
-        "$secs" "$rc" "$cores" "$load" "${dirty:+dirty}" >>"$ledger"
+        "$secs" "$rc" "$cores" "$load" "$mark" >>"$pending"
 }
 
 # A cold run pays for the machine as well as the build: earthly's `prune --reset`
@@ -225,6 +253,8 @@ for state in $states; do
         done
     done
 done
+
+flush
 
 printf '\n  medians, this commit\n'
 python3 - "$ledger" "$commit" "$target" <<'PY'

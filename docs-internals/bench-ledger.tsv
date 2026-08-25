@@ -7,3 +7,11 @@ commit	when	target	engine	state	seconds	rc	cores	load	dirty
 59b7c7ccd	2026-08-25T16:35:04Z	+earthly	native	warm	7.11	0	16	14.64	dirty
 59b7c7ccd	2026-08-25T16:35:12Z	+earthly	native	warm	8.06	0	16	13.93	dirty
 59b7c7ccd	2026-08-25T16:35:36Z	+earthly	earthly	warm	24.45	0	16	14.22	dirty
+715e8aebe	2026-08-25T18:59:47Z	+earthly	earthly	cold	41.41	0	16	15.37	-
+715e8aebe	2026-08-25T19:00:34Z	+earthly	native	cold	42.30	0	16	13.26	-
+715e8aebe	2026-08-25T19:00:56Z	+earthly	earthly	warm	21.74	0	16	12.39	-
+715e8aebe	2026-08-25T19:01:04Z	+earthly	native	warm	7.73	0	16	11.80	-
+f81784006	2026-08-25T19:06:12Z	+earthly	earthly	cold	40.61	0	16	9.01	dirty
+f81784006	2026-08-25T19:06:59Z	+earthly	native	cold	40.36	0	16	9.68	dirty
+f81784006	2026-08-25T19:07:21Z	+earthly	earthly	warm	21.57	0	16	10.22	dirty
+f81784006	2026-08-25T19:07:28Z	+earthly	native	warm	7.49	0	16	10.13	dirty

@@ -21,7 +21,6 @@ fi
 mkdir -p "$(dirname "$configpath")"
 cat>"$configpath"<<EOF
 global:
-  disable_analytics: true
 EOF
 
 # In July 2025, the following Docker Hub mirrors offer anonymous free pulling.

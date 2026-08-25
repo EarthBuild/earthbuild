@@ -56,6 +56,15 @@ done
 
 fail() { printf 'benchmark-earthly: %s\n' "$*" >&2; exit 1; }
 
+# Each run's output, kept only until the next one. `timed` discarded it, which
+# is why a build failing in two seconds looked exactly like a build succeeding
+# in two seconds.
+# `-t PREFIX` alone is BSD-only; GNU coreutils demands a template with X's, and
+# this machine has both mktemps depending on PATH. The template form is the one
+# that works on either.
+runlog=$(mktemp -t earthbench.XXXXXX)
+trap 'rm -f "$runlog"' EXIT
+
 for tool in earthly container docker git python3; do
     command -v "$tool" >/dev/null 2>&1 || fail "$tool is not installed"
 done
@@ -154,12 +163,29 @@ timed() {
     start=$(python3 -c 'import time; print(time.time())')
 
     set +e
-    "$@" >/dev/null 2>&1
+    "$@" >"$runlog" 2>&1
     return_code=$?
     set -e
 
     end=$(python3 -c 'import time; print(time.time())')
     secs=$(python3 -c "print(f'{$end - $start:.2f}')")
+
+    # **A rate limit is not a measurement.** Docker Hub allows an anonymous
+    # puller 100 manifest requests an hour, and a benchmark loop of cold builds
+    # exhausts that in an afternoon. Every FROM then fails in a second or two,
+    # which lands in the ledger looking like the fastest build ever recorded -
+    # the same class of lie as the reset that did not reset (E691).
+    #
+    # Both wordings: the native engine reports the HTTP status, and buildkitd
+    # reports the registry's own error text. Matching only one of them means the
+    # guard covers whichever engine happens to fail first and not the other.
+    if grep -qiE '429 Too Many Requests|toomanyrequests|pull rate limit' "$runlog"; then
+        fail "Docker Hub is rate-limiting this machine (429), so this run measured
+  nothing. Wait for the hour to roll over, or use a mirror - EARTH_REGISTRY_MIRRORS
+  for the native engine, buildkitd's own \`mirrors\` for earthly. Set BOTH or
+  neither: one engine on a mirror and the other on Docker Hub is a comparison
+  between two networks, not between two engines."
+    fi
 }
 
 run_earthly() { earthly --no-output "$target"; }

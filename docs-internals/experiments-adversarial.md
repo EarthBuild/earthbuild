@@ -32158,3 +32158,63 @@ once: the queue stops being one deep, and a notification raised on a CPU that ha
 runnable servicer on it is likelier to be answered there. It needs the
 one-entry `/proc/<pid>/mem` cache and the sighting record made safe for more than
 one caller first, so it is behind a setting until it has earned its place.
+
+## E701 - several servicing threads: attempted, hung, reverted
+
+E700 put the tracer at 5.95s of a 42s cold build, 178,975 notifications at 33µs
+each, answered by a single `receive`/`handle`/`respond` loop. The obvious move is
+several servicers on the one notification fd, which
+`SECCOMP_IOCTL_NOTIF_RECV` supports by design. It does not work yet, and the way
+it failed is worth more than the attempt.
+
+### The measurement that measured nothing
+
+The first A/B said 41.2s against 41.1s and looked like a clean negative. It was
+not a negative; it was nothing. A setting read inside the guest has to be
+forwarded to it with `-e` **and** put in the sandbox's name, or an already-running
+machine keeps the value the previous build gave it. `EARTH_TRACE_HANDLERS` was
+neither, so both arms ran one servicer.
+
+This is the third time: E549 for the pinning switch, E682 for the unpacker's
+digests, and the comment on `digestSetting` says in as many words that an A/B
+sharing a machine "reports that the switch does nothing, which reads exactly like
+a switch that does nothing". Reading it afterwards is not the same as reading it
+first. **Any new guest-side setting needs both halves before it is measured
+once.**
+
+### Why it hung
+
+`poll` reporting a notification is a promise to one reader, not to all of them.
+Several servicers wake, one takes the notification, and the losers sit inside the
+`ioctl` where `Close` cannot reach them: it wakes a `poll`, not an ioctl. `Run`
+then never returns and the step hangs with its output complete, which is exactly
+what E522 describes.
+
+Making the listener non-blocking and treating `EAGAIN` as "nothing pending, poll
+again" is necessary and was not sufficient. The step still hung at the end of
+`RUN apk add --no-cache git`, after its output was finished, with no servicer
+reporting a stop. Not isolated; the most likely remaining candidate is
+`SECCOMP_IOCTL_NOTIF_SEND` on a non-blocking descriptor, which can also return
+`EAGAIN` and would leave the answered-nothing notification holding the step for
+ever.
+
+### What it cost, and the rule that saved the rest
+
+A hung traced step wedges the VM, and a wedged VM does not answer `container rm`.
+The next run attached to it and hung at once, on the single-servicer path, which
+briefly looked like the default having been broken. Restoring a known-good state
+first (`container system stop`, full reset, then the unchanged arm) showed the
+default at 40.32s and cleared it. Baseline before bisect, every time.
+
+### Where this leaves it
+
+Reverted. A knob that hangs a build is worse than no knob, and the whole of the
+upside is still unmeasured - the prize is up to 5.95s a cold build and nothing
+has yet shown that several servicers collect any of it. The queue may not even be
+deep: each traced thread blocks until answered, so unless a step's path calls
+genuinely overlap, one servicer is enough and the 33µs is pure round-trip latency
+that more threads cannot touch. Measuring in-flight depth is the thing to do
+before trying this again, because it decides whether there is anything here at
+all.
+
+Still settled, from E700: pinning is not the answer either.

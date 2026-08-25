@@ -100,3 +100,22 @@ func (c *Client) PackImage(
 
 	return err
 }
+
+// UnpackLayer asks the guest to unpack a compressed blob into its store.
+//
+// The blob is named rather than sent: the compressed bytes are one large
+// sequential read, which a shared mount is perfectly good at, where the tree is
+// fifteen thousand small writes, which it is not. See KindUnpackLayer.
+func (c *Client) UnpackLayer(ctx context.Context, blob, media string) (ir.NodeID, error) {
+	resp, err := c.do(ctx, Request{Kind: KindUnpackLayer, Blob: blob, Media: media})
+	if err != nil {
+		return ir.NodeID{}, err
+	}
+
+	id, err := ir.ParseNodeID(resp.Layer)
+	if err != nil {
+		return ir.NodeID{}, fmt.Errorf("the guest named the layer %q: %w", resp.Layer, err)
+	}
+
+	return id, nil
+}

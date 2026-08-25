@@ -19,6 +19,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
 	"github.com/EarthBuild/earthbuild/engine/fstime"
+	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/store"
@@ -620,6 +621,9 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		}
 
 		return Response{Held: held}
+
+	case KindUnpackLayer:
+		return s.unpackLayer(req)
 
 	case KindRelease:
 		s.mu.Lock()
@@ -2689,4 +2693,103 @@ func declaresIn(resp Response) decl.Declaration {
 	}
 
 	return *resp.Declares
+}
+
+// unpackLayer unpacks a compressed blob into this guest's store.
+//
+// **The guest does it because the guest owns the store.** See KindUnpackLayer
+// for why the store is moving onto the block device, and `mountStore` for the
+// same argument made about CACHE mounts before it.
+//
+// Root here, which the host is not: an unprivileged unpack cannot grant the
+// ownership an archive declares, cannot create a device node, and cannot set an
+// attribute in the `security.` namespace - so a layer unpacked on the host is a
+// different object from the one the image describes, and three separate
+// mechanisms exist to paper over the difference.
+func (s *Server) unpackLayer(req Request) Response {
+	// An unset store is not an empty store: `DirStore("")` joins to a relative
+	// path, so a layer would be placed wherever this process happens to be. The
+	// same refusal store-has makes, for the same reason.
+	if s.LayerDir == "" {
+		return Response{Err: "unpack-layer: this guest was started without a" +
+			" layer directory, so it has nowhere to put one" +
+			" (set EARTH_GUEST_ROOT, or Server.LayerDir)"}
+	}
+
+	if req.Blob == "" || req.Media == "" {
+		return Response{Err: "unpack-layer: a blob path and a media type are" +
+			" both required; a blob whose compression nobody stated cannot be read"}
+	}
+
+	blob, err := os.Open(req.Blob)
+	if err != nil {
+		return Response{Err: "unpack-layer: " + err.Error()}
+	}
+
+	defer blob.Close()
+
+	zr, err := image.DecompressFrom(blob, req.Media)
+	if err != nil {
+		return Response{Err: "unpack-layer: " + err.Error()}
+	}
+
+	defer zr.Close()
+
+	st := store.DirStore(s.LayerDir)
+
+	staging, err := st.Staging(".unpack-")
+	if err != nil {
+		return Response{Err: "unpack-layer: " + err.Error()}
+	}
+
+	defer func() { _ = os.RemoveAll(staging) }()
+
+	got, err := image.UnpackApart(zr, staging)
+	if err != nil {
+		return Response{Err: "unpack-layer: " + err.Error()}
+	}
+
+	// **Told rather than rediscovered.** The unpacker read every header to
+	// write the layer at all, so the digests are free - and the ownership is not
+	// recoverable from the tree at all if any chown was refused.
+	id, err := st.PlaceAs(staging, store.Placement{
+		Digests: knownDigests(got.Digests), Owners: declaredOwners(got.Owners),
+	})
+	if err != nil {
+		return Response{Err: "unpack-layer: " + err.Error()}
+	}
+
+	if !got.Marked {
+		st.NoteUnmarked(id)
+	}
+
+	return Response{Layer: id.String()}
+}
+
+// knownDigests and declaredOwners are conversions and nothing else: `ir` imports
+// `engine/image`, so `engine/image` cannot name `ir` or `layer`.
+func knownDigests(from map[string]image.Digest) map[string]ir.NodeID {
+	if len(from) == 0 {
+		return nil
+	}
+
+	out := make(map[string]ir.NodeID, len(from))
+	for at, d := range from {
+		out[at] = ir.NodeID(d)
+	}
+
+	return out
+}
+
+func declaredOwners(from map[string]image.Owner) map[string]layer.Owner {
+	if len(from) == 0 {
+		return nil
+	}
+
+	out := make(map[string]layer.Owner, len(from))
+	for at, o := range from {
+		out[at] = layer.Owner{UID: o.UID, GID: o.GID}
+	}
+
+	return out
 }

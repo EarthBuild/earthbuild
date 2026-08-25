@@ -117,6 +117,22 @@ const (
 	// A set rather than one id, because the scheduler asks about a whole stack
 	// at once and a round trip per layer is the cost this move exists to avoid.
 	KindStoreHas Kind = "store-has"
+
+	// KindUnpackLayer asks the guest to unpack a compressed layer blob into its
+	// own store and say what the layer is called.
+	//
+	// **Because the host may not be able to write it.** The store is moving onto
+	// the block device the guest owns, for the reason `mountStore` gives about
+	// CACHE mounts: every metadata operation over a share is a round trip across
+	// the VM boundary. Measured on one layer, from inside the guest - unpacking
+	// into the shared store 4.67s against 2.18s into the volume, and reading it
+	// back 6.04s against 1.47s, which is 0.31ms per file a step opens.
+	//
+	// The blob is named by a path the guest can read rather than sent, because
+	// the compressed bytes are one large sequential read where the tree is
+	// fifteen thousand small ones - the shared mount is a poor place for the
+	// second and a perfectly good place for the first.
+	KindUnpackLayer Kind = "unpack-layer"
 	// KindCancel abandons a request that is still running, by id.
 	//
 	// The only request that refers to another one. It exists because a step is
@@ -162,6 +178,17 @@ type Request struct {
 	// things about where a step's filesystem comes from, and a caller that sent
 	// both does not know which it wants (E300).
 	Prepared string `json:"prepared,omitempty"`
+
+	// Blob is where an unpack-layer request's compressed bytes are, as a path
+	// this guest can read. Unpack-layer only.
+	Blob string `json:"blob,omitempty"`
+
+	// Media is how those bytes are compressed. Unpack-layer only.
+	//
+	// Required rather than sniffed: a blob whose content disagrees with its
+	// declared type is one to refuse rather than interpret helpfully, which is
+	// the rule `decompress` already follows.
+	Media string `json:"media,omitempty"`
 
 	// FromEntry is the entry an observe reply should start at.
 	//

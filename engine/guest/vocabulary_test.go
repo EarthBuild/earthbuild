@@ -26,7 +26,9 @@ var wireVocabulary = map[Kind]string{
 	KindStoreHas:    "report which of these layer ids the store holds; reads, never runs",
 	KindSquash:      "merge a range of the stack into one layer in the store; reads and writes layers, never runs",
 	KindPackImage:   "write a loadable image archive into the store from layers it already holds; never runs",
-	KindCancel:      "abandon a request this connection made",
+	KindUnpackLayer: "unpack a compressed blob this peer named into the store;" +
+		" writes a layer, never runs anything from it",
+	KindCancel: "abandon a request this connection made",
 }
 
 // The wire vocabulary cannot express running on the host.

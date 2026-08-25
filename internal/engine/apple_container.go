@@ -109,7 +109,7 @@ func newAppleEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 
 	e.Endpoints, err = e.ResolveEndpoints(AppleContainer, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
+		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
 	}
 
 	return e, nil
@@ -313,7 +313,7 @@ func (e *appleEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 
 		_, cmdErr := e.CommandOutput(ctx, args...)
 		if cmdErr != nil {
-			err = errors.Join(err, cmdErr)
+			err = errors.Join(err, fmt.Errorf("run container %s: %w", spec.NameOrID, cmdErr))
 		}
 	}
 
@@ -384,7 +384,7 @@ func (e *appleEngine) PullImage(ctx context.Context, refs ...string) error {
 
 		_, cmdErr := e.CommandOutput(ctx, args...)
 		if cmdErr != nil {
-			err = errors.Join(err, cmdErr)
+			err = errors.Join(err, fmt.Errorf("pull image %s: %w", ref, cmdErr))
 		}
 	}
 
@@ -398,7 +398,7 @@ func (e *appleEngine) TagImage(ctx context.Context, tags ...Tag) error {
 	for _, tag := range tags {
 		_, cmdErr := e.CommandOutput(ctx, "image", "tag", tag.SourceRef, tag.TargetRef)
 		if cmdErr != nil {
-			err = errors.Join(err, cmdErr)
+			err = errors.Join(err, fmt.Errorf("tag image %s -> %s: %w", tag.SourceRef, tag.TargetRef, cmdErr))
 		}
 	}
 
@@ -454,7 +454,7 @@ func (e *appleEngine) LoadImage(ctx context.Context, images ...io.Reader) error 
 			return nil
 		}()
 		if loadErr != nil {
-			err = errors.Join(err, loadErr)
+			err = errors.Join(err, fmt.Errorf("load image: %w", loadErr))
 		}
 	}
 

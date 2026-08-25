@@ -82,7 +82,7 @@ func parseContainerList(output string) ([]Container, error) {
 
 		createdAt, err := time.Parse(containerDateFormat, parts[4])
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse container date: %w", err)
+			return nil, fmt.Errorf("parse container date: %w", err)
 		}
 
 		ret = append(ret, Container{
@@ -114,7 +114,7 @@ func (e *shellEngine) InspectContainers(ctx context.Context, namesOrIDs ...strin
 
 	err := json.Unmarshal([]byte(stdout), &in)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal container inspect output %s: %w", stdout, err)
+		return nil, fmt.Errorf("unmarshal container inspect output %s: %w", stdout, err)
 	}
 
 	containers := make([]Container, 0, len(in))
@@ -185,7 +185,7 @@ func (e *shellEngine) ContainerLogs(ctx context.Context, namesOrIDs ...string) (
 
 		cmdErr := cmd.Run()
 		if cmdErr != nil {
-			err = errors.Join(err, cmdErr)
+			err = errors.Join(err, fmt.Errorf("get logs for container %s: %w", nameOrID, cmdErr))
 			continue
 		}
 
@@ -246,7 +246,7 @@ func (e *shellEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 
 		_, runErr := e.CommandOutput(ctx, args...)
 		if runErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to run container %s: %w", spec.NameOrID, runErr))
+			err = errors.Join(err, fmt.Errorf("run container %s: %w", spec.NameOrID, runErr))
 		}
 	}
 
@@ -277,7 +277,7 @@ func (e *shellEngine) InspectImages(ctx context.Context, refs ...string) ([]Imag
 
 	err := json.Unmarshal([]byte(stdout), &in)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse image info: %w", err)
+		return nil, fmt.Errorf("parse image info: %w", err)
 	}
 
 	images := make([]Image, 0, len(in))
@@ -300,7 +300,7 @@ func (e *shellEngine) PullImage(ctx context.Context, refs ...string) error {
 	for _, ref := range refs {
 		_, pullErr := e.CommandOutput(ctx, "pull", ref)
 		if pullErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to pull image %s: %w", ref, pullErr))
+			err = errors.Join(err, fmt.Errorf("pull image %s: %w", ref, pullErr))
 		}
 	}
 
@@ -327,7 +327,7 @@ func (e *shellEngine) TagImage(ctx context.Context, tags ...Tag) error {
 	for _, tag := range tags {
 		_, tagErr := e.CommandOutput(ctx, "tag", tag.SourceRef, tag.TargetRef)
 		if tagErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to tag image %s -> %s: %w", tag.SourceRef, tag.TargetRef, tagErr))
+			err = errors.Join(err, fmt.Errorf("tag image %s -> %s: %w", tag.SourceRef, tag.TargetRef, tagErr))
 		}
 	}
 
@@ -344,7 +344,7 @@ func (e *shellEngine) LoadImage(ctx context.Context, images ...io.Reader) error 
 
 		loadErr := cmd.Run()
 		if loadErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to load image: %w", loadErr))
+			err = errors.Join(err, fmt.Errorf("load image: %w", loadErr))
 		}
 	}
 
@@ -370,7 +370,7 @@ func (e *shellEngine) InspectVolumes(ctx context.Context, volumeNames ...string)
 
 	output, err := e.CommandOutput(ctx, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to inspect volumes: %w", err)
+		return nil, fmt.Errorf("inspect volumes: %w", err)
 	}
 
 	stdout := strings.TrimSpace(output.Stdout.String())
@@ -382,7 +382,7 @@ func (e *shellEngine) InspectVolumes(ctx context.Context, volumeNames ...string)
 
 	err = json.Unmarshal([]byte(stdout), &in)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal volume inspect output: %w", err)
+		return nil, fmt.Errorf("unmarshal volume inspect output: %w", err)
 	}
 
 	volumes := make([]Volume, 0, len(in))

@@ -309,7 +309,7 @@ func maybeStart(
 
 	log.
 		WithPrefix("buildkitd").
-		Printf("Starting buildkit daemon as %s (%s)...\n", engineContainerWithArticle(eng), containerName)
+		Printf("Starting buildkit daemon as %s (%s)...\n", engineContainer(eng), containerName)
 
 	err = Start(ctx, log, image, containerName, eng, settings, false)
 	if err != nil {
@@ -1388,14 +1388,4 @@ func engineContainer(eng *engine.Client) string {
 	}
 
 	return name + " container"
-}
-
-func engineContainerWithArticle(eng *engine.Client) string {
-	desc := engineContainer(eng)
-	if len(desc) > 0 && (desc[0] == 'a' || desc[0] == 'e' || desc[0] == 'i' || desc[0] == 'o' || desc[0] == 'u' ||
-		desc[0] == 'A' || desc[0] == 'E' || desc[0] == 'I' || desc[0] == 'O' || desc[0] == 'U') {
-		return "an " + desc
-	}
-
-	return "a " + desc
 }

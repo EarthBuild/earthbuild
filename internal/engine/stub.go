@@ -23,7 +23,7 @@ func newStubEngine(cfg *Config) (engineDriver, error) {
 
 	e.Endpoints, err = e.ResolveEndpoints(Stub, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
+		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
 	}
 
 	return e, nil

@@ -18,42 +18,36 @@ func TestEngineContainer(t *testing.T) {
 		engineBinary string
 		wantName     string
 		wantDesc     string
-		wantArticle  string
 	}{
 		{
-			name:        "docker",
-			engineName:  "Docker",
-			wantName:    "Docker",
-			wantDesc:    "Docker container",
-			wantArticle: "a Docker container",
+			name:       "docker",
+			engineName: "Docker",
+			wantName:   "Docker",
+			wantDesc:   "Docker container",
 		},
 		{
-			name:        "podman",
-			engineName:  "Podman",
-			wantName:    "Podman",
-			wantDesc:    "Podman container",
-			wantArticle: "a Podman container",
+			name:       "podman",
+			engineName: "Podman",
+			wantName:   "Podman",
+			wantDesc:   "Podman container",
 		},
 		{
-			name:        "apple container",
-			engineName:  appleContainerName,
-			wantName:    appleContainerName,
-			wantDesc:    appleContainerName,
-			wantArticle: "an Apple Container",
+			name:       "apple container",
+			engineName: appleContainerName,
+			wantName:   appleContainerName,
+			wantDesc:   appleContainerName,
 		},
 		{
 			name:         "fallback to binary",
 			engineBinary: "nerdctl",
 			wantName:     "nerdctl",
 			wantDesc:     "nerdctl container",
-			wantArticle:  "a nerdctl container",
 		},
 		{
 			name:         "fallback binary starting with vowel",
 			engineBinary: "oci-runtime",
 			wantName:     "oci-runtime",
 			wantDesc:     "oci-runtime container",
-			wantArticle:  "an oci-runtime container",
 		},
 	}
 
@@ -68,7 +62,6 @@ func TestEngineContainer(t *testing.T) {
 
 			assert.Equal(t, tt.wantName, engineName(eng))
 			assert.Equal(t, tt.wantDesc, engineContainer(eng))
-			assert.Equal(t, tt.wantArticle, engineContainerWithArticle(eng))
 		})
 	}
 }

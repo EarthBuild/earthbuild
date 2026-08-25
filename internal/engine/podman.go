@@ -58,7 +58,7 @@ func newPodmanEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 
 	e.Endpoints, err = e.ResolveEndpoints(PodmanShell, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
+		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
 	}
 
 	return e, nil
@@ -128,7 +128,7 @@ func (e *podmanEngine) Version(ctx context.Context) (Version, error) {
 
 	err = json.Unmarshal([]byte(output.Stdout.String()), &v)
 	if err != nil {
-		return Version{}, fmt.Errorf("failed to parse podman version output %s: %w", output.Stdout.String(), err)
+		return Version{}, fmt.Errorf("parse podman version output %s: %w", output.Stdout.String(), err)
 	}
 
 	remoteAddr := ""
@@ -167,7 +167,7 @@ func (e *podmanEngine) PullImage(ctx context.Context, refs ...string) error {
 
 		_, cmdErr := e.CommandOutput(ctx, args...)
 		if cmdErr != nil {
-			err = errors.Join(err, cmdErr)
+			err = errors.Join(err, fmt.Errorf("pull image %s: %w", ref, cmdErr))
 		}
 	}
 
@@ -192,19 +192,19 @@ func (e *podmanEngine) LoadImage(ctx context.Context, images ...io.Reader) error
 			// here: https://github.com/earthly/earthly/issues/1285
 			file, tmpErr := os.CreateTemp("", "earth-podman-load-*")
 			if tmpErr != nil {
-				return fmt.Errorf("failed to create temp tarball: %w", tmpErr)
+				return fmt.Errorf("create temp tarball: %w", tmpErr)
 			}
 			defer os.Remove(file.Name())
 
 			_, copyErr := io.Copy(file, image)
 			if copyErr != nil {
 				_ = file.Close()
-				return fmt.Errorf("failed to write to %s: %w", file.Name(), copyErr)
+				return fmt.Errorf("write to %s: %w", file.Name(), copyErr)
 			}
 
 			closeErr := file.Close()
 			if closeErr != nil {
-				return fmt.Errorf("failed to close %s: %w", file.Name(), closeErr)
+				return fmt.Errorf("close %s: %w", file.Name(), closeErr)
 			}
 
 			output, cmdErr := e.CommandOutput(ctx, "pull", "docker-archive:"+file.Name())
@@ -215,7 +215,7 @@ func (e *podmanEngine) LoadImage(ctx context.Context, images ...io.Reader) error
 			return nil
 		}()
 		if loadErr != nil {
-			err = errors.Join(err, loadErr)
+			err = errors.Join(err, fmt.Errorf("load image: %w", loadErr))
 		}
 	}
 
@@ -246,7 +246,7 @@ func (e *podmanEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 
 			bytes, parseErr := humanize.ParseBytes(lineParts[2])
 			if parseErr != nil {
-				err = errors.Join(err, parseErr)
+				err = errors.Join(err, fmt.Errorf("parse volume size %q for %s: %w", lineParts[2], volumeName, parseErr))
 				continue
 			}
 
@@ -254,7 +254,7 @@ func (e *podmanEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 			mountpoint, mountpointErr := e.
 				CommandOutput(ctx, "volume", "inspect", volumeName, "--format={{.Mountpoint}}")
 			if mountpointErr != nil {
-				err = errors.Join(err, mountpointErr)
+				err = errors.Join(err, fmt.Errorf("inspect mountpoint for volume %s: %w", volumeName, mountpointErr))
 				continue
 			}
 

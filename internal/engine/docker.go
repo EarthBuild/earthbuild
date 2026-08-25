@@ -55,7 +55,7 @@ func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 
 	e.Endpoints, err = e.ResolveEndpoints(DockerShell, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
+		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
 	}
 
 	output, err = e.CommandOutput(ctx, "info", "--format={{.DockerRootDir}}")
@@ -65,7 +65,7 @@ func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 
 		output, err2 = e.CommandOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
 		if err2 != nil {
-			return nil, fmt.Errorf("failed to get docker root dir: %w", err)
+			return nil, fmt.Errorf("get docker root dir: %w", err)
 		}
 	}
 
@@ -113,7 +113,7 @@ func (e *dockerEngine) Version(ctx context.Context) (Version, error) {
 
 	err = json.Unmarshal([]byte(output.String()), &allInfo)
 	if err != nil {
-		return Version{}, fmt.Errorf("failed to parse docker version output: %w", err)
+		return Version{}, fmt.Errorf("parse docker version output: %w", err)
 	}
 
 	host, exists := os.LookupEnv("DOCKER_HOST")
@@ -172,14 +172,14 @@ func (e *dockerEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 
 	err := json.Unmarshal([]byte(output.Stdout.String()), &volumeInfos)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode docker volume info for %v: %w", volumeNames, err)
+		return nil, fmt.Errorf("decode docker volume info for %v: %w", volumeNames, err)
 	}
 
 	volumes := make([]Volume, 0, len(volumeInfos.Volumes))
 	for _, volumeInfo := range volumeInfos.Volumes {
 		bytes, parseErr := humanize.ParseBytes(volumeInfo.Size)
 		if parseErr != nil {
-			err = errors.Join(err, parseErr)
+			err = errors.Join(err, fmt.Errorf("parse volume size %q for %s: %w", volumeInfo.Size, volumeInfo.Name, parseErr))
 			continue
 		}
 

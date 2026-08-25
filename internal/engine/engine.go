@@ -627,7 +627,7 @@ func ResolveEndpoints(driver Driver, cfg *Config) (Endpoints, error) {
 
 			calculatedBuildkitHost, err = DefaultAddress(driver, cfg.LocalContainerName, cfg.DefaultPort)
 			if err != nil {
-				return Endpoints{}, fmt.Errorf("could not validate default address: %w", err)
+				return Endpoints{}, fmt.Errorf("validate default address: %w", err)
 			}
 		}
 	}
@@ -770,7 +770,7 @@ func autodetectEngine(ctx context.Context, cfg *Config) (*Client, error) {
 	} {
 		client, err := New(ctx, driver, cfg)
 		if err != nil {
-			errs = errors.Join(errs, err)
+			errs = errors.Join(errs, fmt.Errorf("%s: %w", driver, err))
 			continue
 		}
 
@@ -786,5 +786,5 @@ func autodetectEngine(ctx context.Context, cfg *Config) (*Client, error) {
 		return client, nil
 	}
 
-	return nil, fmt.Errorf("failed to autodetect a supported container engine: %w", errs)
+	return nil, fmt.Errorf("autodetect container engine: %w", errs)
 }

@@ -29113,7 +29113,16 @@ cost at any stack depth reached so far.
 
 `imagecache` holds 245.2 MB and `layers` holds 245.2 MB, and **not one inode is
 shared between them**: 30,704 distinct inodes for what is 15,344 files of
-content. Every pulled image is stored twice. `placeTree` asks for a hard link
-and falls back to a copy, and something in that path is taking the fallback on a
-single filesystem - which is worth more than any of the above and is written up
-in the nits file rather than guessed at here.
+content. That looks like every image being stored twice, and it is not.
+
+`placeTree` places a tree with `clonefile(2)` where the filesystem has one, and
+a clone has its own inode with *shared blocks* - it diverges on the first write.
+Distinct inodes are what a correct clone looks like, and `du` counts shared
+blocks twice. Neither number could have shown the sharing, so neither was
+evidence of anything.
+
+**An inode count is not a disk-usage measurement on a copy-on-write
+filesystem**, which is the same shape of error as E643: a number that described
+something other than what it was read as. The claim was filed as a defect and
+then withdrawn, which is cheaper than the alternative and is why it is recorded
+here rather than quietly deleted.

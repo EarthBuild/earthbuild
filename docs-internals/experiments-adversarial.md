@@ -32464,3 +32464,54 @@ is the rule to implement:
 `commit(delta string, id ir.NodeID)` is handed the delta and the identity and
 knows nothing of the lowers, so they have to reach it before this can be applied.
 That is the shape of the fix, and it is not a one-line one.
+
+## E705 - a step's /proc belongs to the guest, not to the step
+
+Found by running `+engine-race` through the native engine. Four of the engine's
+own tests fail inside it, and the reasons are two different things wearing one
+face.
+
+With the tracer on, `install the seccomp filter with a listener: device or
+resource busy`. That is EBUSY from `SECCOMP_FILTER_FLAG_NEW_LISTENER`, which the
+kernel returns when a thread already has a notification listener - the step is
+being traced, so the tracer's own tests cannot install theirs. Inherent, and
+`EARTH_TRACE=0` clears it.
+
+What is left is not inherent:
+
+```text
+/proc/<pid>/mem: no such file or directory     for pids that exist
+```
+
+### What a step sees
+
+```text
+native                          earthly
+  $$                    1         $$                   12
+  /proc/self  Pid:     12         /proc/self  Pid:     12
+  /proc listing  1 12 14 15 2 3   /proc listing  1 12 14 15 16
+```
+
+**The step's own shell is pid 1 and `/proc/self` says 12.** A step runs in a new
+PID namespace - `isolate_linux.go` clones with `CLONE_NEWPID` - and `/proc` is
+mounted by the guest before that clone, so it is the guest's namespace's `/proc`.
+The reference engine is self-consistent; this one is not, and anything reading
+`/proc/$$` in a step lands on a different process.
+
+`/proc` has to be mounted from inside the namespace that will use it. The
+machinery for that is already here: the guest binary can serve as its own helper
+(`SelfServesAsGuest`), so the mount can be made by the child after the clone and
+before the exec, which is what every container runtime does.
+
+### The isolation comment is imprecise
+
+`isolate_linux.go` says `CLONE_NEWPID` means "the step cannot see or signal the
+guest's processes". Signal, no - a foreign namespace. See, partly yes: the guest's
+pids are listed, and `/proc/1/cmdline` reads out as the sandbox's idle-shutdown
+script.
+
+Measured rather than assumed, because the interesting question is whether
+anything escapes: the other pids' entries are not readable, and `/proc/1/environ`
+yields nothing. So no secret of this build or any other is reachable this way,
+and what leaks is one fixed shell command with nothing in it. Worth correcting
+the comment; not worth alarm.

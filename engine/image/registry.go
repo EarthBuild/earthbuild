@@ -201,7 +201,10 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 		return ocispec.ImageConfig{}, fmt.Errorf("authenticate to %s: %w", r.Registry, err)
 	}
 
+	endManifest := timing.Phase("registry:manifest", target)
 	body, err := get(ctx, client, tok, base+"/manifests/"+target, maxManifest)
+
+	endManifest()
 	if err != nil {
 		return ocispec.ImageConfig{}, fmt.Errorf("fetch the manifest for %s: %w", ref, err)
 	}
@@ -375,6 +378,8 @@ func verify(blob []byte, want string) error {
 // Returns the empty string when the registry does not challenge, which is the
 // case for a local one, and is not an error.
 func token(ctx context.Context, client *http.Client, url, dir, key string) (string, error) {
+	defer timing.Phase("registry:token", key)()
+
 	// Where this repository's token came from last time. A stale answer costs a
 	// probe rather than a build: the exchange below runs and replaces it.
 	if at := rememberedChallenge(dir, key); at != "" {

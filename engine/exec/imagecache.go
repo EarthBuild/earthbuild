@@ -107,7 +107,10 @@ func fetchImageFrom(ctx context.Context, imageRoot, ref, platform, dest string, 
 			}
 		}
 
+		endPull := phase("image:pull", ref)
 		cfg, err := pull(ctx, ref, staging)
+
+		endPull()
 		if err != nil {
 			_ = image.RemoveAll(staging)
 
@@ -182,7 +185,10 @@ func fetchImageFrom(ctx context.Context, imageRoot, ref, platform, dest string, 
 		return fmt.Errorf("stage %s: %w", ref, err)
 	}
 
+	endPlaceTree := phase("image:copy", ref)
 	err = placeTree(shared, staged)
+
+	endPlaceTree()
 	if err != nil {
 		_ = image.RemoveAll(staged)
 

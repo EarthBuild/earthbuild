@@ -99,7 +99,26 @@ func TakeIn(root string, uids, gids IDMap) (Capture, error) {
 func TakeOwnedIn(
 	root string, uids, gids IDMap, own map[string]Owner,
 ) (Capture, error) {
-	entries, size, err := walk(root)
+	return TakeOwnedKnowing(root, uids, gids, own, nil)
+}
+
+// TakeOwnedKnowing is TakeOwnedIn with some files' content digests already in
+// hand, keyed by slash-separated path relative to root.
+//
+// **A shortcut, never a definition.** A path the map does not name is read, and
+// the identity is the same either way - which is the whole of what makes this
+// safe, and what `TestASuppliedDigestGivesTheSameIdentityAsReadingTheFile`
+// pins. The green paper's I3 says a cache hit is never false; two ways of
+// deciding what a layer contains is exactly how that stops being true, so the
+// fold below is untouched and only the source of one field moves.
+//
+// It exists because the unpacker has the bytes. Placing a pulled image re-read
+// the whole tree to digest it - 0.958s of a cold `golang:1.26-alpine` pull,
+// every byte of it already hashed on the way in.
+func TakeOwnedKnowing(
+	root string, uids, gids IDMap, own map[string]Owner, known map[string]ir.NodeID,
+) (Capture, error) {
+	entries, size, err := walkKnowing(root, known)
 	if err != nil {
 		return Capture{}, err
 	}
@@ -238,7 +257,7 @@ func (e entry) hash(h *ir.Encoder, t times) {
 
 	var fixed [4 + 4 + 4 + 8 + 4 + 8 + 8]byte
 
-	binary.BigEndian.PutUint32(fixed[0:], e.mode)
+	binary.BigEndian.PutUint32(fixed[0:], hashedMode(e.mode))
 	binary.BigEndian.PutUint32(fixed[4:], e.uid)
 	binary.BigEndian.PutUint32(fixed[8:], e.gid)
 	if t == withTimes {
@@ -263,6 +282,29 @@ func (e entry) hash(h *ir.Encoder, t times) {
 	}
 }
 
+// hashedMode is the mode a layer records, applied where an entry is built so
+// that the digest, the manifest and the pack cannot come to disagree - the pack
+// is a wire format and writes the mode too, so normalising only at the digest
+// left a fragment whose bytes differed across platforms while its name did not.
+//
+// **A symlink's permission bits are an invention, and the platforms invent
+// different ones.** Linux reports every symlink as 0777 and consults the bits
+// for nothing; macOS reports 0755 and has an `lchmod` to change them. So the
+// same layer had two names depending on which machine unpacked it, and every
+// base image contains symlinks - a developer on a Mac and CI on Linux could
+// share no cache entry for any of them.
+//
+// Fixed at 0777, which is Linux's answer and the one a tar carries. Nothing else
+// is touched: a file's executable bit and a directory's mode are real properties
+// of real objects and §3.3 counts them.
+func hashedMode(mode uint32) uint32 {
+	if fs.FileMode(mode)&fs.ModeSymlink == 0 {
+		return mode
+	}
+
+	return uint32(fs.FileMode(mode)&^fs.ModePerm | 0o777)
+}
+
 // kindOf reduces the mode to its type, so the type is hashed even where a
 // platform reports mode bits differently.
 func kindOf(mode uint32) byte {
@@ -283,6 +325,30 @@ func kindOf(mode uint32) byte {
 }
 
 func walk(root string) ([]entry, int64, error) { return walkNeeding(root, true, nil) }
+
+// walkKnowing is walk with some content digests supplied rather than read.
+func walkKnowing(root string, known map[string]ir.NodeID) ([]entry, int64, error) {
+	if len(known) == 0 {
+		return walk(root)
+	}
+
+	fi, err := os.Lstat(root)
+	if err == nil && !fi.IsDir() {
+		return walkOne(root)
+	}
+
+	entries, size, err := walkMetadata(root, nil)
+	if err != nil {
+		return entries, size, err
+	}
+
+	err = fillContentsKnowing(root, entries, known)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return entries, size, nil
+}
 
 // Excluder decides which paths a walk leaves out, relative to its root and
 // slash-separated.
@@ -398,7 +464,7 @@ func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
 
 		e := entry{
 			path:     filepath.ToSlash(rel),
-			mode:     uint32(info.Mode()),
+			mode:     hashedMode(uint32(info.Mode())),
 			mtimeSec: info.ModTime().Unix(),
 			mtimeNs:  uint32(info.ModTime().Nanosecond()), //nolint:gosec // < 1e9
 		}
@@ -452,7 +518,7 @@ func walkOne(p string) ([]entry, int64, error) {
 
 	e := entry{
 		path:     filepath.Base(p),
-		mode:     uint32(fi.Mode()),
+		mode:     hashedMode(uint32(fi.Mode())),
 		mtimeSec: fi.ModTime().Unix(),
 		mtimeNs:  uint32(fi.ModTime().Nanosecond()), //nolint:gosec // < 1e9
 	}
@@ -554,6 +620,13 @@ func ObservedOwnerForTest(t *testing.T, fn func(uid, gid uint32) (uint32, uint32
 // a directory carried along to scaffold a fragment has none, and asking for one
 // would read a directory as a file.
 func fillContents(root string, entries []entry) error {
+	return fillContentsKnowing(root, entries, nil)
+}
+
+// fillContentsKnowing is fillContents with some digests already in hand. A path
+// the map does not name is read exactly as before; see TakeOwnedKnowing for why
+// that fallback is the point rather than a convenience.
+func fillContentsKnowing(root string, entries []entry, known map[string]ir.NodeID) error {
 	// Hashing is CPU-bound and every file is independent of every other: each
 	// worker writes to its own index of a slice that is already the right
 	// length, so nothing is shared and nothing needs ordering. A capture of a
@@ -564,7 +637,7 @@ func fillContents(root string, entries []entry) error {
 	// goroutines than cores buys nothing and costs scheduling.
 	workers := min(runtime.NumCPU(), len(entries))
 	if workers < 2 {
-		return fillRange(root, entries, 0, len(entries))
+		return fillRange(root, entries, 0, len(entries), known)
 	}
 
 	var (
@@ -586,7 +659,7 @@ func fillContents(root string, entries []entry) error {
 					return
 				}
 
-				err := fillRange(root, entries, i, i+1)
+				err := fillRange(root, entries, i, i+1, known)
 				if err != nil {
 					mu.Lock()
 
@@ -608,9 +681,19 @@ func fillContents(root string, entries []entry) error {
 }
 
 // fillRange reads the contents of entries[from:to].
-func fillRange(root string, entries []entry, from, to int) error {
+func fillRange(root string, entries []entry, from, to int, known map[string]ir.NodeID) error {
 	for i := from; i < to; i++ {
 		if !fs.FileMode(entries[i].mode).IsRegular() {
+			continue
+		}
+
+		// Already hashed by whoever wrote the bytes. The digest is the same
+		// function over the same bytes, so this is the read being skipped and
+		// not a different answer being accepted.
+		d, ok := known[entries[i].path]
+		if ok {
+			entries[i].content = d
+
 			continue
 		}
 

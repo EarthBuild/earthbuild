@@ -84,11 +84,11 @@ func TestHashingOnTheWayInCostsNoBufferPerFile(t *testing.T) {
 
 	// The plain arm first, so the digesting arm is not measured against a cold
 	// allocator.
-	t.Setenv(image.EnvNoKnownDigests, "1")
+	t.Setenv(image.EnvHashOnUnpack, "0")
 
 	plain := perFile(t)
 
-	t.Setenv(image.EnvNoKnownDigests, "")
+	t.Setenv(image.EnvHashOnUnpack, "1")
 
 	hashing := perFile(t)
 

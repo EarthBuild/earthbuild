@@ -545,8 +545,8 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	}
 
 	// Read by the unpacker, which now runs on the far side of this wall.
-	if on := os.Getenv(image.EnvNoKnownDigests); on != "" {
-		args = append(args, "-e", image.EnvNoKnownDigests+"="+on)
+	if on := os.Getenv(image.EnvHashOnUnpack); on != "" {
+		args = append(args, "-e", image.EnvHashOnUnpack+"="+on)
 	}
 
 	args = append(args, a.name, "/earth/"+filepath.Base(guestBin))
@@ -1107,4 +1107,4 @@ func pinSetting() string { return os.Getenv(guest.EnvTracePin) }
 // and a machine already running was started under whatever the previous build
 // said. An A/B where both arms reuse one machine reports that the switch does
 // nothing, which reads exactly like a switch that does nothing (E682).
-func digestSetting() string { return os.Getenv(image.EnvNoKnownDigests) }
+func digestSetting() string { return os.Getenv(image.EnvHashOnUnpack) }

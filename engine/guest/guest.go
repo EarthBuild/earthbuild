@@ -2791,7 +2791,11 @@ func (s *Server) unpackLayer(req Request) Response {
 
 	defer func() { _ = os.RemoveAll(staging) }()
 
-	got, err := image.UnpackApart(zr, staging)
+	// **Not hashed here.** Hashing on the way in is serial inside this
+	// goroutine at 330 MB/s on entries the size a layer holds, where the
+	// read-back it saves runs across every core - and the largest layer is the
+	// critical path of a cold FROM. Measured at 8% of one (E682).
+	got, err := image.UnpackApartUnhashed(zr, staging)
 	if err != nil {
 		return Response{Err: "unpack-layer: " + err.Error()}
 	}

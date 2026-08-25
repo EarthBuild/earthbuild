@@ -52,7 +52,27 @@ func Unpack(r io.Reader, dir string) error {
 // ask - 1.44s of a cold `golang:1.26-alpine` pull - asked here for nothing, because the
 // unpacker has read every entry already.
 func UnpackApart(r io.Reader, dir string) (Unpacked, error) {
-	return unpackApart(r, dir)
+	return unpackApart(r, dir, true)
+}
+
+// UnpackApartUnhashed unpacks a layer and leaves the naming to whoever places
+// it.
+//
+// **The two callers want opposite things and both are measured.** Hashing here
+// is serial inside the one goroutine handling this layer, and it runs at 330
+// MB/s on entries the size a layer actually holds - a 15KB file is fifteen
+// blake3 chunks and the wide path wants many more. The read-back it saves
+// hashes the same bytes across every core.
+//
+// So in the guest, where the unpack now happens and the largest layer is the
+// critical path, letting the store read back is 8% faster on a cold FROM; on
+// the host it is a wash, which is what E653 found and what E682 explains.
+//
+// Identity does not depend on the choice: a supplied digest and a read file
+// give the same name, asserted in engine/layer rather than assumed here. This
+// is a question of who does the work, never of what the answer is.
+func UnpackApartUnhashed(r io.Reader, dir string) (Unpacked, error) {
+	return unpackApart(r, dir, false)
 }
 
 // Unpacked is what an apart unpack learned on the way past.
@@ -92,25 +112,44 @@ type Owner struct {
 	UID, GID uint32
 }
 
-// EnvNoKnownDigests makes the unpacker hand on no digests, so the store reads
-// the tree back to name it.
+// EnvHashOnUnpack overrides the caller's choice about hashing on the way in.
 //
-// E653's switch, named rather than spelt out at its one use because it now has
-// two ends: with the store on the guest's device the unpack happens there, so
-// comparing the two arms means getting this across the sandbox wall - and a
-// switch the guest never sees makes both arms the same arm (E682).
-const EnvNoKnownDigests = "EARTH_NO_KNOWN_DIGESTS"
+// **An override, not a policy.** It was `EARTH_NO_KNOWN_DIGESTS`, which could
+// only turn hashing off - so once the two callers wanted opposite defaults, the
+// arm it disabled could be measured and the arm it enabled could not. Spelt
+// positively and able to force either way, which is what comparing them needs.
+//
+// Unset leaves the choice where it belongs, with the caller. "0" and "off" mean
+// never hash on the way in; anything else non-empty means always.
+//
+// It has two ends now: with the store on the guest's device the unpack happens
+// there, so it travels across the sandbox wall - and a switch the guest never
+// sees makes both arms the same arm (E682).
+const EnvHashOnUnpack = "EARTH_HASH_ON_UNPACK"
 
-func unpackApart(r io.Reader, dir string) (Unpacked, error) {
-	out := Unpacked{Digests: map[string]Digest{}, Owners: map[string]Owner{}}
-
-	// EXPERIMENT (E653): hashing on the way in saves the store a full read-back
-	// but pays for it inline, in the one goroutine handling this layer, while
-	// the read-back it replaces runs across every core. Which way that lands is
-	// what is being measured; remove this switch once it is known.
-	if os.Getenv(EnvNoKnownDigests) != "" {
-		out.Digests = nil
+// hashOnUnpack is what the override says, and whether it said anything.
+func hashOnUnpack() (bool, bool) {
+	switch os.Getenv(EnvHashOnUnpack) {
+	case "":
+		return false, false
+	case "0", "off", "false":
+		return false, true
+	default:
+		return true, true
 	}
+}
+
+func unpackApart(r io.Reader, dir string, hashing bool) (Unpacked, error) {
+	forced, said := hashOnUnpack()
+	if said {
+		hashing = forced
+	}
+
+	out := Unpacked{Owners: map[string]Owner{}}
+	if hashing {
+		out.Digests = map[string]Digest{}
+	}
+
 	err := unpackInto(r, dir, true, &out)
 
 	return out, err

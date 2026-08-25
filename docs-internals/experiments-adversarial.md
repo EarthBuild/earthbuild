@@ -31228,11 +31228,26 @@ In the guest the read-back is 0.4s faster on the FROM, about 8%.
 The arithmetic agrees with the decomposition above: 785ms of serial hashing
 removed, roughly 385ms of parallel read-back added.
 
-**The default is therefore a decision and not a measurement.** Read-back wins
-where the store now lives and costs nothing where it used to, so flipping looks
-free - but the switch is spelt as a negative (`EARTH_NO_KNOWN_DIGESTS`), and a
-default that no longer matches its own name is how the next reader is misled.
-Flipping it wants the rename, and the rename wants asking.
+**So there is no single default to choose**, and looking for one was the error.
+The two callers want opposite things and each has its own measurement: the guest
+is 8% faster leaving the naming to the store, the host is a wash. The choice
+belongs at the call site, and the environment variable becomes what it should
+have been - an override for measuring, spelt positively
+(`EARTH_HASH_ON_UNPACK`) and able to force *either* way. The old name could only
+turn hashing off, so once the two callers disagreed, one arm was measurable and
+the other was not.
+
+Confirmed with the choice in place, cold builds, two of each:
+
+```text
+                unpack:guest      FROM step
+guest default   3.857s  3.993s   5.317s  5.642s
+forced on       4.390s  4.353s   5.909s  5.963s
+```
+
+Identity does not depend on any of it - a supplied digest and a read file give
+the same name, which engine/layer asserts directly - so this is a question of
+who does the work and never of what the answer is.
 
 ## E683 - a shared file cannot be tailed fast enough to stream a layer
 

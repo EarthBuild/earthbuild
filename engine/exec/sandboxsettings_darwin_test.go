@@ -27,7 +27,7 @@ func TestASettingTheGuestReadsAtStartNamesTheSandbox(t *testing.T) {
 		name, env string
 	}{
 		{"pinning a traced step", guest.EnvTracePin},
-		{"hashing on the way in", image.EnvNoKnownDigests},
+		{"hashing on the way in", image.EnvHashOnUnpack},
 	} {
 		t.Run(s.name, func(t *testing.T) {
 			t.Setenv(s.env, "1")

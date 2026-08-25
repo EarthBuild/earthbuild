@@ -40,7 +40,7 @@ var internalSettings = map[string]string{
 	"EARTH_FLEET_WAIT":          setByDriver,
 	"EARTH_FLEET_WORKERS":       setByDriver,
 	"EARTH_FULL_TARGET":         "passed to a target's own sub-build",
-	"EARTH_NO_KNOWN_DIGESTS":    "an E653 experiment switch; neither setting is wrong to run",
+	"EARTH_HASH_ON_UNPACK":      "an E653 experiment switch; neither setting is wrong to run",
 	"EARTH_KEEP_BLOBS":          "an E659 experiment switch; nothing reads the blobs yet",
 	"EARTH_GUEST_ARCH":          hostToGuest,
 	"EARTH_GUEST_CGROUP_PARENT": hostToGuest,

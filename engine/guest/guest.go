@@ -2773,7 +2773,7 @@ func (s *Server) unpackLayer(req Request) Response {
 	// member and the aggregate hides which one that is.
 	defer timing.Phase("layer:unpack:guest", req.Blob)()
 
-	blob, err := openBlob(req)
+	blob, err := s.openBlob(req)
 	if err != nil {
 		return Response{Err: "unpack-layer: " + err.Error()}
 	}
@@ -2957,12 +2957,15 @@ func (s *Server) viewDigests(ctx context.Context, req Request) Response {
 
 // blobPatience is how long the guest waits for a growing blob to move.
 //
-// Generous, because the thing on the other end is a network: a slow registry is
-// not a failure and a build that gives up on one is worse than a build that
-// waits. Bounded, because the alternative is a hang with nothing to say - the
-// host writes a failure marker when a fetch dies, and this is only for the case
-// where it dies without managing even that.
-const blobPatience = 5 * time.Minute
+// **Short, because a living fetch is never quiet.** Progress is reported every
+// megabyte, which at the 56 MB/s one connection manages is about 18ms; silence
+// for forty-five seconds is not a slow registry, it is something broken.
+//
+// It was five minutes, and that number cost a build that sat doing nothing and
+// then said `context canceled` - the failure this file's comments keep warning
+// about, shipped in the file that warns about it. A wait that ends is worth
+// more than a wait that is generous.
+const blobPatience = 45 * time.Second
 
 // openBlob is a layer's compressed bytes, whether or not the host has finished
 // writing them.
@@ -2976,7 +2979,7 @@ const blobPatience = 5 * time.Minute
 // marker one byte short of the end until the bytes verify, so an unpack of a bad
 // layer cannot finish - and a layer that never finishes is never placed, which
 // is the whole of the guarantee.
-func openBlob(req Request) (io.ReadCloser, error) {
+func (s *Server) openBlob(req Request) (io.ReadCloser, error) {
 	if req.Growing <= 0 {
 		f, err := os.Open(req.Blob)
 		if err != nil {
@@ -2986,9 +2989,7 @@ func openBlob(req Request) (io.ReadCloser, error) {
 		return f, nil
 	}
 
-	g, err := image.OpenGrowing(req.Blob, req.Growing, func(have int64) (int64, error) {
-		return image.AwaitProgress(req.Blob, have, blobPatience)
-	})
+	g, err := image.OpenGrowing(req.Blob, req.Growing, s.blobProgress(req.Blob))
 	if err != nil {
 		return nil, err
 	}
@@ -3012,3 +3013,32 @@ type buffered struct {
 }
 
 func (b buffered) Close() error { return b.close() }
+
+// blobProgress is how this guest asks where a fetch has got to.
+//
+// **Over the socket when there is one.** A file on the shared mount answers
+// about 460ms late, which is long enough that a guest reading a blob as it
+// arrives spends the fetch waiting rather than unpacking - the head start and
+// the waiting cancel, and streaming buys nothing (E688). The fault-in channel
+// is already guest-to-host and has no filesystem in it.
+//
+// The blob is named by its file name rather than its path, because the host and
+// the guest see the same file at different ones.
+//
+// Falls back to the file for a guest with no channel - slower, and the only
+// alternative is refusing to stream at all.
+func (s *Server) blobProgress(blob string) func(int64) (int64, error) {
+	s.fillsMu.Lock()
+	f := s.Fills
+	s.fillsMu.Unlock()
+
+	if f == nil {
+		return func(have int64) (int64, error) {
+			return image.AwaitProgress(blob, have, blobPatience)
+		}
+	}
+
+	name := filepath.Base(blob)
+
+	return func(have int64) (int64, error) { return f.Progress(name, have) }
+}

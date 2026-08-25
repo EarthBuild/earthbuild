@@ -50,6 +50,9 @@ type Apple struct {
 	// starts and read when the relay is launched. See SetFill.
 	fillMu sync.Mutex
 	fill   func(handle, path string) error
+	// progress answers how far a blob this host is fetching has been written.
+	// See SetProgress: set per build, read per question.
+	progress func(blob string, have int64) (int64, error)
 	// GuestBinary is a linux binary of earth-guestd for the VM's architecture.
 	// Built on demand when empty.
 	GuestBinary string

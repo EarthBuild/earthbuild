@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/image"
@@ -145,6 +146,23 @@ func (e *Executor) materialiseImageInGuest(
 	opts := image.Options{Platform: platform, Challenges: imageRoot}
 	if streamToGuest() {
 		opts.Fetching = start
+
+		// **Per build, and taken back when it ends.** The answers come from the
+		// fetch running now; a sandbox is reused by name and outlives any one
+		// of them, so a stale answerer would field the next build's questions
+		// with this build's fetch.
+		ledger := image.NewLedger()
+		opts.Ledger = ledger
+
+		if teller, ok := e.sb.(interface {
+			SetProgress(func(string, int64) (int64, error))
+		}); ok {
+			teller.SetProgress(func(blob string, have int64) (int64, error) {
+				return ledger.Await(blob, have, blobPatience)
+			})
+
+			defer teller.SetProgress(nil)
+		}
 	} else {
 		opts.Fetched = start
 	}
@@ -250,6 +268,15 @@ func declarationRemembered(shared string) ir.NodeID {
 
 	return id
 }
+
+// blobPatience bounds how long the host will hold a guest's question about a
+// blob before answering that nothing is happening.
+//
+// **Short, because a living fetch is never quiet.** Progress is reported every
+// megabyte, about 18ms apart at the speed one connection manages, so
+// forty-five seconds of silence is a fault rather than a slow registry - and
+// the answer names the blob and how far it had got, which a timeout must.
+const blobPatience = 45 * time.Second
 
 // EnvStreamToGuest lets the guest unpack a layer while the host is still
 // fetching it.

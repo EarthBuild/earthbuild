@@ -57,7 +57,7 @@ func createSized(at string, size int64) error {
 // verification has written - so a reader can no more finish a bad layer than it
 // can read a byte that was never fetched, and nothing is placed unverified.
 func streamBlobTo(ctx context.Context, client *http.Client, tok, base string,
-	d descriptor, at string, watched bool,
+	d descriptor, at string, watched bool, ledger *Ledger,
 ) error {
 	limit := d.Size
 	if limit <= 0 {
@@ -69,7 +69,7 @@ func streamBlobTo(ctx context.Context, client *http.Client, tok, base string,
 
 	body, err := getStream(ctx, client, tok, base+"/blobs/"+d.Digest, limit)
 	if err != nil {
-		failNoted(at, watched, err)
+		failNoted(at, watched, ledger, err)
 
 		return err
 	}
@@ -78,16 +78,16 @@ func streamBlobTo(ctx context.Context, client *http.Client, tok, base string,
 
 	f, err := os.OpenFile(at, os.O_WRONLY, 0o600) //nolint:gosec // a path this engine derived
 	if err != nil {
-		failNoted(at, watched, err)
+		failNoted(at, watched, ledger, err)
 
 		return fmt.Errorf("open the blob %s to fill it: %w", at, err)
 	}
 
 	defer f.Close()
 
-	wrote, err := fillAndHash(body, f, at, d.Size, watched)
+	wrote, err := fillAndHash(body, f, at, d.Size, watched, ledger)
 	if err != nil {
-		failNoted(at, watched, err)
+		failNoted(at, watched, ledger, err)
 
 		return err
 	}
@@ -95,7 +95,7 @@ func streamBlobTo(ctx context.Context, client *http.Client, tok, base string,
 	if wrote.n != d.Size {
 		err = fmt.Errorf("layer %s ended after %d bytes, and its manifest says %d",
 			d.Digest, wrote.n, d.Size)
-		failNoted(at, watched, err)
+		failNoted(at, watched, ledger, err)
 
 		return err
 	}
@@ -106,7 +106,7 @@ func streamBlobTo(ctx context.Context, client *http.Client, tok, base string,
 		// substituted layer from a network failure is the whole point of it.
 		err = fmt.Errorf("blob does not match its digest\n  expected %s\n  received %s",
 			d.Digest, got)
-		failNoted(at, watched, err)
+		failNoted(at, watched, ledger, err)
 
 		return err
 	}
@@ -116,7 +116,7 @@ func streamBlobTo(ctx context.Context, client *http.Client, tok, base string,
 		return nil
 	}
 
-	return WriteProgress(at, d.Size)
+	return note(at, ledger, d.Size)
 }
 
 // filled is what a stream wrote and what it hashed.
@@ -125,7 +125,9 @@ type filled struct {
 	sum []byte
 }
 
-func fillAndHash(body io.Reader, f *os.File, at string, size int64, watched bool) (filled, error) {
+func fillAndHash(body io.Reader, f *os.File, at string, size int64, watched bool,
+	ledger *Ledger,
+) (filled, error) {
 	h := sha256.New()
 	buf := make([]byte, announceChunk)
 
@@ -152,7 +154,7 @@ func fillAndHash(body io.Reader, f *os.File, at string, size int64, watched bool
 			// last byte is what says the layer is complete, which only the
 			// digest may do.
 			if say := min(n&^(readPage-1), size-1); watched && say > announced {
-				err := WriteProgress(at, say)
+				err := note(at, ledger, say)
 				if err != nil {
 					return filled{}, err
 				}
@@ -185,6 +187,7 @@ func fillAndHash(body io.Reader, f *os.File, at string, size int64, watched bool
 // announcements, since everything after it is about to be discarded anyway.
 func streamLayers(ctx context.Context, p prepared, layers []descriptor,
 	out []FetchedLayer, root, ref string, fetched func(int, FetchedLayer), watched bool,
+	ledger *Ledger,
 ) error {
 	var wg sync.WaitGroup
 
@@ -200,7 +203,7 @@ func streamLayers(ctx context.Context, p prepared, layers []descriptor,
 			defer close(done[i])
 
 			failed[i] = streamBlobTo(ctx, p.client, p.tok, p.base, d,
-				filepath.Join(root, out[i].At), watched)
+				filepath.Join(root, out[i].At), watched, ledger)
 		})
 	}
 
@@ -233,10 +236,33 @@ func streamLayers(ctx context.Context, p prepared, layers []descriptor,
 //
 // Only when somebody is reading: with nothing streaming there is no reader, and
 // a marker beside every blob would be litter written once per fetch for nobody.
-func failNoted(at string, watched bool, cause error) {
+func failNoted(at string, watched bool, ledger *Ledger, cause error) {
 	if !watched {
 		return
 	}
 
+	if ledger != nil {
+		ledger.Fail(filepath.Base(at), cause)
+	}
+
 	_ = WriteProgressFailure(at, cause)
+}
+
+// note records progress everywhere a reader might look.
+//
+// **Both, and that is not belt and braces.** The ledger is the fast answer - a
+// file on a shared mount answers about 460ms late, which is the whole of why
+// streaming did not pay (E688) - but a guest whose fault-in relay did not come
+// up has no socket to ask on and falls back to the file. Writing only the
+// ledger left those two halves disagreeing, and the symptom was a build that
+// sat for five minutes and then said `context canceled`.
+//
+// The file costs a rename per megabyte against a fetch of over a second. That
+// is not a price worth a silent hang.
+func note(at string, ledger *Ledger, n int64) error {
+	if ledger != nil {
+		ledger.Set(filepath.Base(at), n)
+	}
+
+	return WriteProgress(at, n)
 }

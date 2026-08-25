@@ -143,6 +143,16 @@ type Options struct {
 	// known to be the right layer.
 	Fetching func(i int, l FetchedLayer)
 
+	// Ledger, when set, is told how far each blob has been written, keyed by
+	// the blob's file name.
+	//
+	// **Where the answer has to be for streaming to pay.** A guest reading a
+	// blob as it arrives asked a file on the shared mount, whose answer is about
+	// 460ms old - so it waited out the fetch instead of unpacking it, and the
+	// two cancelled (E688). In memory, answered over the socket the guest
+	// already has, a question costs a wakeup.
+	Ledger *Ledger
+
 	// Stream unpacks each layer as it arrives rather than after it has landed.
 	// Only meaningful with the layers kept apart - see streamLayerApart - and
 	// ignored by Pull, whose merged unpack E647 measured at no gain.
@@ -1147,7 +1157,7 @@ func FetchApart(
 		}
 	}
 
-	err = streamLayers(ctx, p, layers, out, root, ref, opt.Fetched, opt.Fetching != nil)
+	err = streamLayers(ctx, p, layers, out, root, ref, opt.Fetched, opt.Fetching != nil, opt.Ledger)
 	if err != nil {
 		return nil, ocispec.ImageConfig{}, err
 	}

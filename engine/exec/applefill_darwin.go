@@ -43,6 +43,24 @@ func (a *Apple) SetFill(f func(handle, path string) error) {
 	a.fill = f
 }
 
+// SetProgress makes this sandbox able to say how far a blob it is fetching has
+// been written.
+//
+// **The same channel, a second question.** A guest unpacking a blob as it
+// arrives needs to know where the writer has got to, and the only thing it had
+// to ask was a file on the shared mount whose answer is about 460ms old - which
+// is why streaming bought nothing (E688). A fault-in already travels
+// guest-to-host over a socket; this goes the same way.
+//
+// Set per build rather than per sandbox: the answers come from the fetch that
+// is running now, and a machine outlives any one of them.
+func (a *Apple) SetProgress(f func(blob string, have int64) (int64, error)) {
+	a.fillMu.Lock()
+	defer a.fillMu.Unlock()
+
+	a.progress = f
+}
+
 // stream is the relay's two halves seen as one connection.
 type stream struct {
 	io.Reader
@@ -58,9 +76,17 @@ type stream struct {
 func (a *Apple) serveFills() {
 	a.fillMu.Lock()
 	fill := a.fill
+	progress := a.progressAnswer
 	a.fillMu.Unlock()
 
-	if fill == nil {
+	// **A relay is wanted for either question.** Faulting a path in is the
+	// worker's; asking how far a blob has been written is a streaming build's,
+	// and only that channel makes it worth doing - a file on the shared mount
+	// answers about 460ms late (E688).
+	//
+	// The switch rather than `a.progress`, because that is set per build and
+	// this runs when the sandbox starts, long before any fetch exists.
+	if fill == nil && !streamToGuest() {
 		return
 	}
 
@@ -116,7 +142,7 @@ func (a *Apple) serveFills() {
 			_ = relay.Wait()
 		}()
 
-		_ = guest.ServeFills(stream{Reader: out, WriteCloser: in}, fill)
+		_ = guest.ServeFillsAnd(stream{Reader: out, WriteCloser: in}, fill, progress)
 	}()
 }
 
@@ -124,4 +150,22 @@ func (a *Apple) serveFills() {
 func (a *Apple) noFills(err error) {
 	fmt.Fprintf(os.Stderr, "earth: this sandbox cannot fault paths in: %v"+
 		"\n  steps will take whole layers, which is slower and correct\n", err)
+}
+
+// progressAnswer reads the answerer at the moment a question arrives.
+//
+// **Not the one that was there when the relay started.** A sandbox is found and
+// reused by name and outlives any one build, so the relay is running long before
+// the fetch that a question is about - capturing the answerer at start would
+// answer this build's questions with the last build's fetch, or with nothing.
+func (a *Apple) progressAnswer(blob string, have int64) (int64, error) {
+	a.fillMu.Lock()
+	f := a.progress
+	a.fillMu.Unlock()
+
+	if f == nil {
+		return 0, fmt.Errorf("no fetch on this host is writing %s", blob)
+	}
+
+	return f(blob, have)
 }

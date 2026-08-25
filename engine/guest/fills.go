@@ -15,6 +15,13 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
+// kindProgress asks how far a blob is written rather than for a path.
+//
+// Named once: the guest writes it and the host matches on it, and a typo in one
+// of them would read as an ordinary fault-in for a file called `sha256-...`,
+// which the host would look for and not find.
+const kindProgress = "progress"
+
 // faultIn is a request in the direction nothing else in this protocol travels.
 //
 // The tracer runs **inside** the guest and the peers live outside it: the guest
@@ -31,6 +38,17 @@ type faultIn struct {
 	// a wrong build that reports success (E303).
 	Handle string `json:"handle"`
 	Path   string `json:"path"`
+	// Kind is empty for a fault-in, which is what every one of these was.
+	//
+	// "progress" asks how far a blob the host is fetching has been written,
+	// given that the guest has already read `Have` of it - a second question in
+	// the one direction this protocol travels, and asked here because the
+	// alternative was a file on a shared mount whose answer is 460ms old
+	// (E688).
+	Kind string `json:"kind,omitempty"`
+	// Have is how much the asker has already read. The host answers when there
+	// is more than this, so the guest waits on a wakeup rather than a poll.
+	Have int64 `json:"have,omitempty"`
 }
 
 // filled is the answer, and the empty Error is load-bearing.
@@ -43,6 +61,8 @@ type faultIn struct {
 type filled struct {
 	ID    uint64 `json:"id"`
 	Error string `json:"error,omitempty"`
+	// Bytes answers a progress question: how much of the blob is written.
+	Bytes int64 `json:"bytes,omitempty"`
 }
 
 // Fills asks the host to fault a path in.
@@ -131,6 +151,44 @@ func (f *Fills) fill(handle, root, path string) error {
 
 	case <-f.closed:
 		return fmt.Errorf("asking the host for %s: %w", path, f.why())
+	}
+}
+
+// Progress asks the host how far a blob it is fetching has been written.
+//
+// Blocks until there is more than `have`, until the fetch fails, or until the
+// host says it cannot answer. **Never until nothing**: a reader with no answer
+// coming is a build that hangs with nothing to say, so a host with no answerer
+// refuses rather than ignores.
+func (f *Fills) Progress(blob string, have int64) (int64, error) {
+	f.mu.Lock()
+	f.next++
+	id := f.next
+	f.mu.Unlock()
+
+	answer := make(chan filled, 1)
+	f.waiting.Store(id, answer)
+
+	defer f.waiting.Delete(id)
+
+	f.mu.Lock()
+	err := f.enc.Encode(faultIn{ID: id, Kind: kindProgress, Path: blob, Have: have})
+	f.mu.Unlock()
+
+	if err != nil {
+		return 0, fmt.Errorf("ask the host about %s: %w", blob, err)
+	}
+
+	select {
+	case got := <-answer:
+		if got.Error != "" {
+			return 0, errors.New(got.Error)
+		}
+
+		return got.Bytes, nil
+
+	case <-f.closed:
+		return 0, fmt.Errorf("asking the host about %s: %w", blob, f.why())
 	}
 }
 
@@ -290,6 +348,18 @@ func (f *Fills) why() error {
 // genuinely not in the base; returning an error means it could not be found out,
 // and the guest fails the step.
 func ServeFills(rw io.ReadWriter, fill func(handle, path string) error) error {
+	return ServeFillsAnd(rw, fill, nil)
+}
+
+// ServeFillsAnd is ServeFills, able also to say how far a blob has been
+// written.
+//
+// A nil `progress` is a host that does not stream blobs, and it *refuses* such
+// a question rather than dropping it: a guest waiting for an answer nobody will
+// give is the one outcome worth more than any saving.
+func ServeFillsAnd(rw io.ReadWriter, fill func(handle, path string) error,
+	progress func(blob string, have int64) (int64, error),
+) error {
 	dec := json.NewDecoder(bufio.NewReader(rw))
 	enc := json.NewEncoder(rw)
 
@@ -300,6 +370,8 @@ func ServeFills(rw io.ReadWriter, fill func(handle, path string) error) error {
 			ID     uint64 `json:"id"`
 			Handle string `json:"handle"`
 			Path   string `json:"path"`
+			Kind   string `json:"kind"`
+			Have   int64  `json:"have"`
 		}
 
 		err := dec.Decode(&req)
@@ -314,9 +386,24 @@ func ServeFills(rw io.ReadWriter, fill func(handle, path string) error) error {
 		go func() {
 			out := filled{ID: req.ID}
 
-			err := fill(req.Handle, req.Path)
-			if err != nil {
-				out.Error = err.Error()
+			switch {
+			case req.Kind == kindProgress && progress == nil:
+				out.Error = "this host does not stream blobs, so it cannot say" +
+					" how far " + req.Path + " has been written"
+
+			case req.Kind == kindProgress:
+				n, err := progress(req.Path, req.Have)
+				if err != nil {
+					out.Error = err.Error()
+				} else {
+					out.Bytes = n
+				}
+
+			default:
+				err := fill(req.Handle, req.Path)
+				if err != nil {
+					out.Error = err.Error()
+				}
 			}
 
 			// One writer at a time: answers are produced concurrently and a

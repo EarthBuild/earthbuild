@@ -31553,3 +31553,38 @@ with no filesystem in it, and the fault-in socket is the obvious candidate:
 guest-to-host already, JSON over a socket, microseconds rather than 460ms. The
 streaming fetch itself is kept and is not conditional - it holds no blob in
 memory, where the buffered one held up to 256MB of them.
+
+### E688, continued - the socket, and the hang it cost
+
+The prediction held. Progress moved into a ledger on the host, answered over the
+fault-in channel the guest already has, and the wait became a condition variable
+rather than a poll of a shared mount:
+
+| stream | cold            | unpack:guest       |
+| ------ | --------------- | ------------------ |
+| off    | 6.52 5.20 4.94s | 4.764 3.382 3.300s |
+| on     | 4.81 4.14 4.13s | 3.074 2.487 2.489s |
+
+About 21% off a cold build and 30% off the unpack phase, three pairs, alternating.
+
+The largest layer's *own* unpack gets longer - 2.36s against 1.99s - because it
+now starts before its bytes exist and is paced by the fetch. The phase around it
+is what shortens. That is the shape of a working overlap and it is worth
+recognising: the number that improves is not the one being optimised.
+
+**Two things had to be true that were not.**
+
+The relay only ran when something wanted to fault paths in, which on a local
+build is nothing - so the guest had no socket, fell back to the file, and the
+whole exercise measured as it had before. It now runs when a build may stream.
+
+And the ledger was written *instead of* the file rather than as well as it. A
+guest whose relay had not come up read a marker nobody was writing and waited
+five minutes for it, then reported `context canceled` - a build that sat doing
+nothing and said nothing, which is the failure these files keep warning about,
+shipped in the change that quotes the warning. The file is now the floor beneath
+the socket and costs a rename per megabyte against a fetch of over a second.
+
+The patience was five minutes and is now forty-five seconds. A living fetch
+reports every megabyte, about 18ms apart; silence for forty-five seconds is a
+fault, and a wait that ends is worth more than a wait that is generous.

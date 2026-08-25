@@ -370,17 +370,24 @@ A substituted blob therefore cannot be built on however early it was read. That 
 guarantee the host's own streaming unpack gets by discarding its directory, arranged to work where
 the reader is on the other side of a VM and cannot be reached after the fact.
 
-**Off because it measures as a wash**, not because it is unsound:
+**It pays, and only because the answer does not come from a file.** A guest reading a blob as it
+arrives has to know how far the host has written it. Asked of the shared mount, that answer is about
+460ms old, and the guest spent the fetch waiting rather than unpacking - the head start and the
+waiting cancelled exactly. Asked over the fault-in socket, which is guest-to-host already and has no
+filesystem in it, the answer costs a wakeup:
 
-| mode              | cold        | unpack:guest  |
-| ----------------- | ----------- | ------------- |
-| before the change | 5.08  4.94s | 3.458  3.344s |
-| after, off        | 5.74  5.05s | 3.597  3.382s |
-| after, on         | 5.03  5.12s | 3.396  3.499s |
+| stream | cold            | unpack:guest       |
+| ------ | --------------- | ------------------ |
+| off    | 6.52 5.20 4.94s | 4.764 3.382 3.300s |
+| on     | 4.81 4.14 4.13s | 3.074 2.487 2.489s |
 
-The guest learns how far the fetch has got from a file on the shared mount, and that file is about
-460ms stale - so it spends the fetch waiting on a marker rather than unpacking, and the head start
-and the waiting cancel. It pays the moment progress travels somewhere with no filesystem in it; the
-fault-in socket is the obvious candidate, being guest-to-host already (E688).
+The largest layer's own unpack gets *longer* - 2.36s against 1.99s - because it starts before its
+bytes have arrived and is paced by the fetch. The phase around it is what shortens, which is the
+point: the waiting moved inside the work.
+
+Turning this on starts the fault-in relay for the sandbox, which a local build does not otherwise
+need. Off by default because it is new and because a build that waits on a blob is a build that can
+wait for ever if the two sides disagree - which they did once, for five minutes, before the progress
+marker was made the floor beneath the socket rather than the alternative to it (E688).
 
 Default: off.

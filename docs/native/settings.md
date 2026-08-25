@@ -470,6 +470,15 @@ It does not have to stop a push, because this engine does not push: `RUN --push`
 independent branch that pushed before the leak was found could not be recalled - and the safe
 semantic then is to hold every push until the build is over.
 
-Off by default: the scan reads every captured byte.
+**What it costs, measured rather than assumed.** Only a step that was *given* a secret is scanned at
+all, so a build that uses none pays nothing - `+earthly`, 91 steps, never runs the scan. A step that
+does pay is bounded by its delta: 0.058s for a 200MB one, about 3.4 GB/s, because the search is one
+pass of `bytes.Contains` per secret over pages that were just written. Ten secrets would be ten
+passes; a multi-pattern search is the answer if that ever matters, and it does not yet.
+
+Off by default because it can fail a build that used to pass - which is the point when a credential
+is leaking, and unwelcome for a step that writes one deliberately, an `.npmrc` or a `.netrc` baked
+into an image. That is a policy question rather than a cost one: the cost is small enough to default
+on.
 
 Default: off.

@@ -37,7 +37,7 @@ func lockSweep(root string) (func(), error) {
 
 	err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 
 		return nil, fmt.Errorf("a sweep is already running in %s"+
 			"\n  two sweeps in one worktree apply mutants to each other's files, and"+
@@ -48,6 +48,6 @@ func lockSweep(root string) (func(), error) {
 
 	return func() {
 		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-		f.Close()
+		_ = f.Close()
 	}, nil
 }

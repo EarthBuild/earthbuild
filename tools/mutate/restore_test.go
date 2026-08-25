@@ -27,7 +27,8 @@ func TestAMutantIsRegisteredBeforeItIsWritten(t *testing.T) {
 	dir := t.TempDir()
 
 	path := filepath.Join(dir, "source.go")
-	if err := os.WriteFile(path, []byte("package p\n\nconst guard = true\n"), 0o600); err != nil {
+	err := os.WriteFile(path, []byte("package p\n\nconst guard = true\n"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

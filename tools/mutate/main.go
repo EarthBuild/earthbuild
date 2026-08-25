@@ -159,6 +159,13 @@ func main() {
 
 	if m := note(survived, problems); m != "" {
 		fmt.Fprintln(os.Stderr, m)
+
+		// Explicitly, because `os.Exit` does not run deferred functions. The
+		// kernel would drop the lock anyway when this process ends - that is
+		// why it is an flock - but a reader should not have to know that to
+		// see that the lock is released.
+		unlock()
+		//nolint:gocritic // exitAfterDefer: unlock() is called explicitly above
 		os.Exit(1)
 	}
 }
@@ -236,7 +243,6 @@ func run(root string, m Mutant, timeout time.Duration, compileOnly bool) (verdic
 
 	// G204: the package comes from this tool's own catalogue, which is a Go
 	// file in this repository and not anybody's input.
-	//nolint:gosec // see above
 	args := []string{"test", m.Package, "-count=1", "-timeout", timeout.String()}
 	if compileOnly {
 		// `vet` rather than `build`, because a mutant lands in a test file as
@@ -244,6 +250,7 @@ func run(root string, m Mutant, timeout time.Duration, compileOnly bool) (verdic
 		args = []string{"vet", m.Package}
 	}
 
+	//nolint:gosec // G204: the package comes from the catalogue above
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = root
 

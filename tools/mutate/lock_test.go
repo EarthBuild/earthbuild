@@ -22,7 +22,8 @@ func TestASecondSweepInOneWorktreeIsRefused(t *testing.T) {
 		t.Fatalf("the first sweep must be able to start: %v", err)
 	}
 
-	if _, err = lockSweep(dir); err == nil {
+	_, err = lockSweep(dir)
+	if err == nil {
 		t.Error("a second sweep started against a worktree a sweep already holds" +
 			"\n  the two will mutate each other's files and blame the catalogue for it")
 	}

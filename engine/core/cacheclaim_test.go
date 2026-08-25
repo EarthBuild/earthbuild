@@ -32,7 +32,7 @@ func TestALockedCacheDoesNotSpendTheBuildsParallelism(t *testing.T) {
 	t.Parallel()
 
 	const (
-		step    = 40 * time.Millisecond
+		step    = 120 * time.Millisecond
 		users   = 8
 		slots   = 2
 		repeats = 6

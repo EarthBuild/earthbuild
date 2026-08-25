@@ -21,3 +21,9 @@ f81784006	2026-08-25T19:07:28Z	+earthly	native	warm	7.49	0	16	10.13	dirty
 5823c90f7	2026-08-25T19:11:51Z	+earthly	native	warm	0.64	0	16	12.52	-
 86f7e75bc	2026-08-25T19:59:36Z	+earthly	earthly	incr	21.89	0	16	10.16	dirty
 86f7e75bc	2026-08-25T19:59:43Z	+earthly	native	incr	7.06	0	16	9.52	dirty
+6183f094c	2026-08-25T20:11:42Z	+earthly	earthly	cold	42.48	0	16	39.01	-
+6183f094c	2026-08-25T20:12:32Z	+earthly	native	cold	41.54	0	16	48.26	-
+6183f094c	2026-08-25T20:12:52Z	+earthly	earthly	warm	19.55	0	16	38.26	-
+6183f094c	2026-08-25T20:12:53Z	+earthly	native	warm	0.65	0	16	38.26	-
+6183f094c	2026-08-25T20:13:35Z	+earthly	earthly	incr	21.54	0	16	24.46	-
+6183f094c	2026-08-25T20:13:42Z	+earthly	native	incr	7.11	0	16	22.48	-

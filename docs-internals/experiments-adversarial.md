@@ -32423,8 +32423,44 @@ rather than a `RUN` - are exactly the ones the repository's own `+lint` has.
 
 ### Not yet fixed
 
-The remaining question is why `/earthly` was absent from the copy step's lowers
-at the moment the copy created it, since the `RUN` before it had already put a
-`/earthly` in the stack. Until that is answered a fix would be a guess. The
-repro test is written and held rather than committed, so that it lands in the
+The repro test is written and held rather than committed, so that it lands in the
 same commit as the fix and bisect never meets a red one.
+
+### Where the mark is really applied, and one attempt that could not work
+
+`copyTree` creates the destination directory with `os.MkdirAll` and then copies
+the source's extended attributes onto it. The comment there already says the
+propagation is deliberate: a directory that replaces one below it is opaque, and
+dropping the mark would restore, under a step that deleted them, the contents of
+the directory underneath.
+
+That reading suggested a narrow fix - clear the mark that `MkdirAll` itself
+causes, *before* `copyXattrs` puts the source's real attributes on, so a
+genuinely opaque source still arrives opaque. The layering is right and it does
+nothing at all:
+
+```text
+9a0d673b  /earthly: sub          trusted.overlay.opaque: y   (still)
+```
+
+**overlayfs hides its own `trusted.overlay.*` attributes from the merged view.**
+A copy writes through the mount, so `Lremovexattr` there finds nothing to remove
+and returns an error that a best-effort helper swallows. The mark can only be
+touched on the delta directly - the upper, as an ordinary directory on the
+filesystem underneath - which means at capture rather than during the copy.
+
+### What the fix has to know
+
+At capture the two cases are not distinguishable by inspection: `mkdir d` where
+no lower has `d`, and `rm -rf d && mkdir d` where one does, both leave an opaque
+directory in the upper. They are distinguishable by *the stack*, though, and that
+is the rule to implement:
+
+> A directory marked opaque in a delta, whose path exists in no lower of the
+> step's own stack, is marked for a directory that was never there. The mark
+> decides nothing for this stack and is false for any other, so it is dropped.
+> Where a lower does have the path, a deletion happened and the mark stays.
+
+`commit(delta string, id ir.NodeID)` is handed the delta and the identity and
+knows nothing of the lowers, so they have to reach it before this can be applied.
+That is the shape of the fix, and it is not a one-line one.

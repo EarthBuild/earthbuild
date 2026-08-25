@@ -29166,3 +29166,43 @@ it is the difference between a 38% win and a 23% loss.
 Not implemented. The prototype was to find out whether the idea deserves the
 storage-model change behind it, and the answer is "sometimes, and it can tell
 which".
+
+## E647 - streaming a layer straight into the unpacker, which is not faster
+
+E646 left one overlap the byte budget cannot buy: a layer's own fetch against
+its own unpack. The budget starts the *next* layer early, but the dominant
+layer - which is most of the work - still waits for its own bytes before a
+single entry is written.
+
+Streaming is the obvious answer. The response body goes through a hasher, into
+the decompressor, into the tar unpacker, and the digest is checked at the end;
+unpacking bytes before they are known to be the right bytes is sound here only
+because the caller already unpacks into a staging directory it renames on
+success and removes on failure.
+
+It was prototyped and measured against the current path in the same binary,
+alternating, on cold caches:
+
+```text
+python:3.13-slim   buffered  3.284  2.697  2.949  2.846  3.005   mean 2.956s
+                   stream    2.633  2.600  2.870  2.913  3.255   mean 2.854s
+
+golang:1.26-alpine buffered  5.957  5.397                        mean 5.677s
+                   stream    5.514  6.126                        mean 5.820s
+```
+
+**About 3%, which is noise.** The first two samples on `python` read 12% and
+would have been reported as a win by anyone who stopped there; five pairs say
+otherwise, and `golang` is slightly worse.
+
+Why it does not pay is worth keeping. The byte budget already overlaps fetching
+with unpacking *across* layers, so the machine is not idle during a fetch - it
+is unpacking something else. Streaming moves that overlap inside a layer
+without adding any, and gives up the cross-layer overlap E641 measured at 8%.
+
+Streaming would still be worth having for a reason that is not speed: it bounds
+memory to a buffer rather than a blob, which is what `layerBudget` exists to
+manage. That is a simplification to make deliberately, not a performance change
+to claim.
+
+Reverted, not committed.

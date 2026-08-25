@@ -98,3 +98,86 @@ build:
 			" %v\n%s", err, out.String())
 	}
 }
+
+// A view bound at `.` does not cover the root filesystem.
+//
+// `--mount=target=.` means the working directory. Anchored at `/` instead, the
+// view is mounted over everything and the step loses its own image: the first
+// symptom is `fork/exec /bin/sh: no such file or directory`, which reads as a
+// broken base rather than a misplaced mount.
+//
+// Run as a build rather than a plan, because that is the only place it shows.
+// The corpus sweep plans five hundred targets and would never have caught this:
+// the target resolves fine, and only running the step reveals what it covered.
+//
+// Not parallel: t.Setenv.
+func TestAViewBoundAtDotDoesNotCoverTheRoot(t *testing.T) {
+	t.Setenv("EARTH_GUESTD", buildGuestd(t))
+
+	dir := project(t, `VERSION 0.8
+
+build:
+    FROM alpine:3.22
+    WORKDIR /src
+    RUN --mount=type=bind,source=data,target=. sh -c 'ls f && ls /bin/sh'
+    SAVE ARTIFACT /etc/hostname AS LOCAL proof.txt
+`, map[string]string{"data/f": "x\n"})
+
+	var out strings.Builder
+
+	err := cli.Run(context.Background(), cli.Options{
+		Dir: dir, Target: testTarget, Out: &out, Platform: testPlatform(),
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "toomanyrequests") {
+			t.Skipf("docker hub rate limit: %v", err)
+		}
+
+		t.Fatalf("a view bound at the working directory broke the step:"+
+			" %v\n%s", err, out.String())
+	}
+}
+
+// A Dockerfile's global ARG reaches the stage that re-declares it, in a build.
+//
+// The planning test for this is in engine/interp; this one runs the step, which
+// is where the symptom was: an empty interpolation becomes an empty argument,
+// and the command fails somewhere that names neither the ARG nor the stage.
+//
+// Not parallel: t.Setenv.
+func TestAGlobalDockerfileArgSurvivesIntoTheStep(t *testing.T) {
+	t.Setenv("EARTH_GUESTD", buildGuestd(t))
+
+	dir := project(t, `VERSION 0.8
+
+build:
+    FROM DOCKERFILE .
+    SAVE ARTIFACT /pinned AS LOCAL proof.txt
+`, map[string]string{"Dockerfile": `ARG PINNED=v1.2.3
+FROM alpine:3.22
+ARG PINNED
+RUN test -n "$PINNED" && printf %s "$PINNED" > /pinned
+`})
+
+	var out strings.Builder
+
+	err := cli.Run(context.Background(), cli.Options{
+		Dir: dir, Target: testTarget, Out: &out, Platform: testPlatform(),
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "toomanyrequests") {
+			t.Skipf("docker hub rate limit: %v", err)
+		}
+
+		t.Fatalf("the stage ran without the global ARG: %v\n%s", err, out.String())
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, "proof.txt"))
+	if err != nil {
+		t.Fatalf("no artifact: %v\n%s", err, out.String())
+	}
+
+	if string(got) != "v1.2.3" {
+		t.Errorf("the step saw %q, not the global default", got)
+	}
+}

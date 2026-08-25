@@ -32218,3 +32218,57 @@ before trying this again, because it decides whether there is anything here at
 all.
 
 Still settled, from E700: pinning is not the answer either.
+
+## E702 - where the tracer's 33µs actually goes, and one false win
+
+E701 left a question it said had to be answered before anything else was tried:
+is the servicer saturated? Scratch instrumentation, since removed, timed the loop
+between a notification arriving and its answer.
+
+On the `go build` step, 112,346 calls:
+
+```text
+step wall             21.933s
+servicer busy          2.278s     10.4%
+  respond              1.189s     54%   10.6µs a call
+  read                 0.886s     40%    7.9µs a call
+  record               0.066s      3%
+  fill                 0.004s      0.2%
+```
+
+**The servicer is idle nine tenths of the step.** The queue was never deep, so
+several servicers could not have collected anything - which is exactly the
+alternative E701 flagged and could not rule out. That line is closed: the 33µs is
+round-trip latency, not queueing, and no number of threads touches latency.
+
+Two smaller results. `fill`'s `Lstat` on every traced call - the obvious suspect,
+one real syscall per notification - is 0.2% and not worth a thought. And only
+3,748 of 112,346 paths are relative, so `resolve`'s `readlink` of
+`/proc/<pid>/cwd` costs 0.057s: also nothing.
+
+What is left is two syscalls: the `pread` that lifts the path out of the stopped
+process (`chunk` is 256 bytes, so one read for almost every path) and the ioctl
+that releases it. Both far above what a syscall costs, which is what a stopped
+thread being woken across a vCPU looks like.
+
+### The false win
+
+`process_vm_readv(2)` is the call meant for reading another process's memory: no
+descriptor, no binding to a memory map, and so no EIO when the target execs
+(E689). Swapped in, the cold build went from 41.5s to 38.77s and `read` fell from
+0.99s to 0.28s. Both numbers are worthless.
+
+```text
+cache  0 hit, 92 miss, 7 not observed
+  (Earthfile:11: a path argument that could not be read: function not implemented)
+```
+
+ENOSYS. The guest kernel does not have it, every read failed, and the build was
+quicker because it observed nothing at all. The 0.28s is the cost of failing, so
+nothing here says whether the call is faster when it works.
+
+The engine said so plainly, in the line it prints every build. A harness that
+timed the wall clock and nothing else would have recorded a 2.7s improvement, and
+the tests would have stayed green - a step that observes nothing still builds,
+it just never hits the cache again. **On this engine, a speed result is only
+believable next to its hit count.**

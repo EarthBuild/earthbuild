@@ -146,6 +146,10 @@ type ConvertOpt struct {
 	// executed When a SAVE IMAGE --push is encountered, the image may still be pushed to the remote registry
 	// (as long as DoPushes=true), but is not exported to the local docker instance.
 	DoSaves bool
+	// NoLocalImageExport suppresses exporting SAVE IMAGE images to the local docker instance, while leaving
+	// SAVE ARTIFACT AS LOCAL alone. Where DoSaves gates both, this gates only the image half, so a build can
+	// push images and still write artifacts locally. Pushes are unaffected; see DoPushes.
+	NoLocalImageExport bool
 	// AllowPrivileged is used to allow (or prevent) any "RUN --privileged" or RUNs under a LOCALLY target
 	// to be executed, when set to false, it prevents other referenced remote targets from requesting
 	// elevated privileges

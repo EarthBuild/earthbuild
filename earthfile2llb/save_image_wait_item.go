@@ -30,6 +30,13 @@ func (siwi *saveImageWaitItem) SetDoSave() {
 	siwi.mu.Lock()
 	defer siwi.mu.Unlock()
 
+	// SetDoSave is what propagates local export down BUILD edges, so
+	// --no-image-output has to be honoured here as well as at conversion time,
+	// or a child target's image would be exported anyway.
+	if siwi.c.opt.NoLocalImageExport {
+		return
+	}
+
 	if siwi.si.DockerTag != "" {
 		siwi.localExport = true
 	}

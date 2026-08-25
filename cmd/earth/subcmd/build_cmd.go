@@ -154,6 +154,12 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
+	// The image form exists to output an image locally, so suppressing that
+	// leaves it with nothing to do.
+	if b.cli.Flags().ImageMode && b.cli.Flags().NoImageOutput {
+		return params.Errorf("cannot use --no-image-output with image mode")
+	}
+
 	if b.cli.Flags().InteractiveDebugging && !termutil.IsTTY() {
 		return params.Errorf("A tty-terminal must be present in order to use the --interactive flag")
 	}
@@ -610,6 +616,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		Push:                       b.cli.Flags().Push,
 		CI:                         b.cli.Flags().CI,
 		NoOutput:                   b.cli.Flags().NoOutput,
+		NoImageOutput:              b.cli.Flags().NoImageOutput,
 		OnlyFinalTargetImages:      b.cli.Flags().ImageMode,
 		PlatformResolver:           platr,
 		EnableGatewayClientLogging: b.cli.Flags().Debug,

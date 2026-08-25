@@ -90,6 +90,7 @@ const (
 	verdictStuck     = "STUCK"
 	verdictSurvived  = "SURVIVED"
 	verdictKilled    = "killed"
+	verdictDirty     = "DIRTY"
 )
 
 func main() {
@@ -149,7 +150,7 @@ func main() {
 		switch verdict {
 		case verdictSurvived:
 			survived++
-		case verdictAnchor, verdictNoCompile, verdictStuck:
+		case verdictAnchor, verdictNoCompile, verdictStuck, verdictDirty:
 			// STUCK counts as a problem rather than as a survivor: nothing was
 			// measured, and a mutant nobody measured must not read as one
 			// nobody caught.
@@ -207,6 +208,10 @@ func run(root string, m Mutant, timeout time.Duration, compileOnly bool) (verdic
 
 	// The path comes from the catalogue, which is a literal in this repository
 	// and not anybody's input (gosec G703).
+	// Asked before the mutant goes in, because the question is whether the
+	// package passes *without* it. Memoised, so it costs one run per package.
+	wasGreen := packageIsGreen(root, m.Package, timeout)
+
 	// **Registered before the write, not after.** `os.WriteFile` truncates
 	// before it writes, so a write that fails part of the way through leaves
 	// the file damaged - and registering afterwards means that failure returns
@@ -299,8 +304,52 @@ func run(root string, m Mutant, timeout time.Duration, compileOnly bool) (verdic
 		return verdictSurvived, survivorNote(ctx, root, m, timeout)
 
 	default:
-		return verdictKilled, firstLine(text, "--- FAIL")
+		// **A kill only counts if the package passed before the mutant went in.**
+		// `go test` failing is the whole evidence for "a test noticed", so a
+		// package that was already failing makes every mutant in it read as
+		// killed. `engine/mat/overlay`'s deep-stack test cannot mount inside a
+		// container whose root is overlay, and a sweep run there reported the
+		// lowerdir-ordering mutant as killed by a test that fails either way
+		// (E642).
+		return judgeKill(wasGreen), firstLine(text, "--- FAIL")
 	}
+}
+
+// judgeKill turns a failing test run into a verdict, given whether the package
+// passed without the mutant.
+func judgeKill(green bool) string {
+	if !green {
+		return verdictDirty
+	}
+
+	return verdictKilled
+}
+
+// green remembers which packages pass unmutated, so the check costs one run per
+// package rather than one per mutant.
+var green = map[string]bool{}
+
+// packageIsGreen reports whether a package's tests pass with no mutant applied.
+//
+// Asked only when a mutant appears to have been killed, which is the verdict the
+// answer changes, and memoised because a sweep asks it once per mutant and the
+// answer is a property of the package.
+func packageIsGreen(root, pkg string, timeout time.Duration) bool {
+	if was, asked := green[pkg]; asked {
+		return was
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+time.Minute)
+	defer cancel()
+
+	//nolint:gosec // G204: the package comes from the catalogue
+	cmd := exec.CommandContext(ctx, "go", "test", pkg, "-count=1", "-timeout", timeout.String())
+	cmd.Dir = root
+
+	err := cmd.Run()
+	green[pkg] = err == nil
+
+	return green[pkg]
 }
 
 // firstLine is the first line mentioning any of these, for a one-line report.

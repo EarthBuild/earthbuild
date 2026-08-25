@@ -28972,3 +28972,55 @@ About 8%, and the overlap is visible directly: get 2.8s plus unpack 3.6s is
 *Modest, and worth saying so.* The link is the floor - bytes still have to
 arrive - and the honest claim is that a pull no longer stops downloading while
 it unpacks, not that pulling got fast.
+
+## E642 - a kill that counted nothing, and a flake that could not be loosened
+
+Running the guest and overlay suites on linux in a container turned up four
+failures, all of them the container rather than the engine - three interactive
+tests that cannot mount `/proc`, and `TestADeepStackMountsFromADeepStore`, whose
+own message says it: "this is what happens when the engine runs inside a
+container whose root is overlay".
+
+Which is a problem for the sweep that ran there. **`go test` failing is the
+whole evidence for "a test noticed"**, so a package that was already failing
+makes every mutant in it read as killed. The linux sweep (E638) duly reported
+`overlay: reversing the stack for lowerdir` as killed - by a test that fails
+with the mutant and without it.
+
+The mirror of the skip problem from E638, and the worse half. A skip reports a
+guarded mechanism as unguarded, which is noisy and self-correcting: somebody
+goes and looks. This reports an unguarded mechanism as guarded, which is quiet
+and permanent. The tool now asks whether the package passes *before* the mutant
+goes in - once per package, memoised - and a failure against a package that was
+already red is `DIRTY` rather than `killed`.
+
+```text
+DIRTY      overlay: reversing the stack for lowerdir (§3.2)
+             --- FAIL: TestADeepStackMountsFromADeepStore
+```
+
+*The first attempt was wrong in an instructive way.* Asking inside the verdict
+switch measured the package with the mutant still applied - the restore is
+deferred and had not run - so every killed mutant became `DIRTY`. The question
+"did this pass without the mutant?" has to be asked while that is still true.
+
+### The flake that could not simply be loosened
+
+The same CI run failed its gate on
+`TestALockedCacheDoesNotSpendTheBuildsParallelism` alone, and ninety-nine jobs
+waited behind it. The test times a contended build against a freshly measured
+uncontended baseline and fails if **any** of six rounds exceeds `base +
+step*3/2`.
+
+Counting exceedances and tolerating one looked obviously right. It is
+obviously wrong, and the sweep said so in seconds: with one round tolerated,
+`core: the claim taken before the slot (E434)` **survives**. The losing
+arrangement exceeds the bar in at most one round of six, so "any round" is not
+an over-strict threshold - it is the entire sensitivity of the guard. Reverted.
+
+What this leaves is a genuine tension rather than a fix: a wall-clock threshold
+measures the machine, which the test's own comments say twice, and no threshold
+can separate a 40ms scheduling hiccup from a lost race in one round. The answer
+is a different instrument - a fake clock and an instrumented semaphore - not a
+different number. Recorded in the nits file with the measurement, so the next
+person does not repeat the loosening.

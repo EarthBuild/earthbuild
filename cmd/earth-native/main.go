@@ -18,6 +18,52 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
+// secretList collects repeated -secret flags.
+//
+// **Same spelling as the other front end takes**, because the two put the same
+// argument in front of the same engine: `--secret NAME=VALUE`, or a bare
+// `--secret NAME` meaning "take it from the environment", which is how a
+// credential reaches a build without appearing in anybody's shell history.
+type secretList map[string]string
+
+func (l *secretList) String() string { return "" }
+
+func (l *secretList) Set(v string) error {
+	name, value, ok := strings.Cut(v, "=")
+	if name == "" {
+		return fmt.Errorf("expected NAME=VALUE or NAME, found %q", v)
+	}
+
+	if !ok {
+		got, present := os.LookupEnv(name)
+		if !present {
+			return fmt.Errorf("--secret %s takes its value from the environment,"+
+				" and %s is not set", name, name)
+		}
+
+		value = got
+	}
+
+	(*l)[name] = value
+
+	return nil
+}
+
+// secretFiles collects repeated -secret-file flags, as `NAME=path`.
+type secretFiles []string
+
+func (f *secretFiles) String() string { return "" }
+
+func (f *secretFiles) Set(v string) error {
+	if !strings.Contains(v, "=") {
+		return fmt.Errorf("expected NAME=PATH, found %q", v)
+	}
+
+	*f = append(*f, v)
+
+	return nil
+}
+
 // buildArgs collects repeated -build-arg flags.
 type buildArgs map[string]string
 
@@ -86,9 +132,17 @@ func main() {
 		long     = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
 		prune    = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
 		args     buildArgs
+		// Maps are made here rather than on first use: `flag.Var` hands the
+		// value a pointer and calls Set on it, and Set on a nil map panics.
+		secrets         = secretList{}
+		secretFilePaths secretFiles
 	)
 
 	flag.Var(&args, "build-arg", "set a build argument as NAME=VALUE; repeatable")
+	flag.Var(&secrets, "secret",
+		"a secret as NAME=VALUE, or NAME to take it from the environment; repeatable")
+	flag.Var(&secretFilePaths, "secret-file",
+		"a secret whose value is a file's contents, as NAME=PATH; repeatable")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: earth-native [flags] <target|ls|doc>\n\n")
@@ -161,12 +215,14 @@ func main() {
 	defer stop()
 
 	err := cli.Run(ctx, cli.Options{
-		Dir:      *dir,
-		Target:   flag.Arg(0),
-		Platform: *platform,
-		Args:     args,
-		DryRun:   *dryRun,
-		Out:      os.Stdout,
+		Dir:         *dir,
+		Target:      flag.Arg(0),
+		Platform:    *platform,
+		Args:        args,
+		Secrets:     secrets,
+		SecretFiles: secretFilePaths,
+		DryRun:      *dryRun,
+		Out:         os.Stdout,
 	})
 	if err != nil {
 		// Bare, with no "error:" prefix: these diagnostics are written to be read

@@ -188,7 +188,7 @@ func SandboxNameWith(image, guestDir, store, memory string, command []string) st
 	for _, part := range append(
 		[]string{
 			image, guestDir, store, memory, guestFast,
-			idleSetting(), scratchTmpfsSetting(), storeSetting(),
+			idleSetting(), scratchTmpfsSetting(), storeSetting(), pinSetting(),
 		},
 		command...) {
 		fmt.Fprintf(h, "%d:%s", len(part), part)
@@ -534,6 +534,13 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	// what the round trip was doing.
 	if on := os.Getenv(timing.Env); on != "" {
 		args = append(args, "-e", timing.Env+"="+on)
+	}
+
+	// Read inside the guest, where the threads are, so it has to travel. Safe
+	// to send at start rather than per request only because it is in the
+	// sandbox's name: see pinSetting.
+	if on := os.Getenv(guest.EnvTracePin); on != "" {
+		args = append(args, "-e", guest.EnvTracePin+"="+on)
 	}
 
 	args = append(args, a.name, "/earth/"+filepath.Base(guestBin))
@@ -1076,3 +1083,13 @@ func (a *Apple) guestRoot() string {
 // reused for a build asking for the other - and the build would quietly read a
 // store that is not the one it meant.
 func storeSetting() string { return os.Getenv(guest.EnvStoreInVM) }
+
+// pinSetting is whether this invocation asked a traced step to share a CPU with
+// the thread answering its syscalls.
+//
+// In the name for the same reason, and it is not a fussy one: the guest reads
+// this at start, so a sandbox already running was started with whatever the
+// *first* build said - and flipping the switch would report the old arrangement
+// under the new name, which is how a measurement comes out saying nothing
+// changed (E549).
+func pinSetting() string { return os.Getenv(guest.EnvTracePin) }

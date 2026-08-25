@@ -5,7 +5,9 @@ package guest
 import (
 	"errors"
 	"fmt"
+	"os"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/timing"
@@ -46,6 +48,19 @@ func runObserved(
 	go func() {
 		runtime.LockOSThread()
 
+		// **Both ends of the round trip, or neither.** The step inherits this
+		// thread's affinity across fork exactly as it inherits its filter, so
+		// pinning here pins the step; the loop that answers it is pinned to the
+		// same CPU below. Pinning one without the other buys nothing - the
+		// wakeup still crosses vCPUs, which is the whole cost (E681).
+		cpu, pinning := pinChoice()
+		if pinning {
+			// Best effort: a step whose thread could not be pinned runs at the
+			// speed it ran at before this existed, which is not a failure worth
+			// refusing a build over.
+			_ = trace.Pin(cpu)
+		}
+
 		tr, err := trace.StartOnSelf()
 		if err != nil {
 			// No tracer, so the step runs unobserved and the observation says
@@ -68,6 +83,21 @@ func runObserved(
 		finished := make(chan struct{})
 
 		go func() {
+			if pinning {
+				// Locked and never unlocked, because an affinity left on a
+				// thread handed back to the scheduler is inherited by whatever
+				// runs there next. This goroutine ends when the tracer does,
+				// and a locked goroutine ending destroys its thread.
+				//
+				// Before `tr.Run()` rather than inside it: the step does not
+				// start until this loop is servicing, so the thread this needs
+				// is created while nothing is filtered - which is the window
+				// E673 says must stay clear.
+				runtime.LockOSThread()
+
+				_ = trace.Pin(cpu)
+			}
+
 			tr.Run()
 			close(reading)
 
@@ -213,3 +243,30 @@ const serviceWait = time.Second
 // began. The step did not run, so nothing was observed, and saying so keeps it
 // out of L2 rather than letting an empty observation look like a complete one.
 var errNotServicing = errors.New("the syscall tracer did not start listening")
+
+// pinChoice is the CPU this step and its tracer should share, if they should.
+//
+// **Rotated rather than fixed.** A guest serves more than one step at a time,
+// and sending every one of them to CPU 0 would trade a 19x saving on the round
+// trip for a queue on one vCPU. Rotating costs nothing and means two concurrent
+// steps collide only when there are more steps than CPUs.
+func pinChoice() (int, bool) {
+	if os.Getenv(EnvTracePin) == "" {
+		return 0, false
+	}
+
+	n := runtime.NumCPU()
+
+	// One CPU is already the pinned arrangement, and Pin would refuse a machine
+	// it cannot confine a thread on anyway.
+	if n < 2 {
+		return 0, false
+	}
+
+	return int(pinTurn.Add(1)-1) % n, true
+}
+
+// pinTurn is where the rotation has got to. Unsynchronised arithmetic would let
+// two steps read the same turn and pick the same CPU, which is the one thing
+// rotating exists to avoid.
+var pinTurn atomic.Uint64

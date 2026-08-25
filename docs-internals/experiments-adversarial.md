@@ -30998,3 +30998,81 @@ about to turn it on will read it.
 **Found by asking whether the cheap path worked**, two builds after shipping it,
 rather than by anything failing. A build that quietly rebuilds everything looks
 exactly like a build.
+
+## E681 - a traced syscall costs 45µs in the VM and 2µs on one vCPU
+
+`RUN find /usr/local/go -type f | wc -l` took 1.95s in the guest and did so
+three times running, so it was not a cold page cache. Two probes separated the
+tracer from the filesystem:
+
+```text
+step                                   guest:exec
+sh arithmetic, no syscalls                 0.036s
+dd bs=1 count=100000 - 200k untraced       0.034s
+20k traced stats on ONE file               0.872s   ← 43µs each
+```
+
+Untraced syscalls are free and the file being one file changed nothing, so the
+cost is per *traced* syscall, not per file. `newfstatat` is traced because I3
+needs 𝑁, what a step looked for and did not find (§5.2), and `find` stats every
+entry.
+
+`TestWhatATracedOperationCosts` run unchanged in three places:
+
+| where                      | untraced | traced  | ratio |
+| -------------------------- | -------- | ------- | ----- |
+| bare metal x86, 32 core    | 1.018µs  | 8.857µs | 9x    |
+| Apple VM arm64, 4 vCPU     | 0.389µs  | 50.56µs | 130x  |
+| Apple VM arm64, **1** vCPU | 0.61µs   | 2.19µs  | 4x    |
+
+The untraced call is 2.6x *faster* in the VM, so this is not a slow guest. It is
+the round trip, and only when the two ends can land on different vCPUs. Pinning
+on bare metal barely moves (8.3 → 7.2µs); pinning inside the same 4-vCPU guest
+moves it 19x:
+
+```text
+4 vCPU, unpinned          45.3  46.0  48.8 µs
+4 vCPU, pinned to cpu0     2.25  2.37  2.53 µs
+4 vCPU, 4 spinners        25.7 µs
+```
+
+The spinners halve it, so an idle vCPU halting (WFI, a vmexit to the VMM) is
+about half the penalty and the cross-vCPU IPI is the rest. Both are hypervisor
+costs that bare metal does not pay.
+
+**What this means.** The tracer is not expensive; waking it on another vCPU is.
+A step making 45k path calls pays 2s unpinned and 0.1s pinned, and the guest
+keeps every vCPU either way - only the two ends of the round trip need to share
+one.
+
+The trade is not free: a step pinned to one vCPU cannot compile on four. The
+steps that make hundreds of thousands of path calls (`./configure`, `find`, a
+package manager) are the single-threaded ones, and the steps that want four
+vCPUs are compute-bound and make few - but "usually" is not a policy, and
+choosing one is the open question this measurement hands on.
+
+### E681, in the engine
+
+`EARTH_TRACE_PIN` pins the step's thread - which the step inherits across fork,
+the same way it inherits the filter - and the thread answering it, to one
+rotating vCPU:
+
+```text
+step                                    pin off   pin on
+20k traced stats of one file              1.219s   0.169s   7.2x
+find /usr/local/go -type f (15k files)    2.114s   1.126s   2.0x
+```
+
+61µs per call becomes 8.5µs, not the microbenchmark's 2.2µs, because the
+production handler does more per event than the test's: it reads the path out of
+the stopped process, resolves it as the step names it, and records it.
+
+The walk gains only 2x, and the reason is the useful part: fifteen thousand
+*distinct* paths through a five-layer overlay is real filesystem work, and what
+is left after pinning is mostly that rather than the wakeup. The probe hits one
+path twenty thousand times, so it measures the round trip and nothing else. The
+steps this helps most are the ones that ask about the same paths over and over -
+a configure script, a package manager, a compiler's include search.
+
+Which leaves the 8.5µs handler as the next thing worth measuring, and it is now
+the larger half.

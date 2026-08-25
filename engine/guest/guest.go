@@ -2676,6 +2676,21 @@ const EnvShareExports = "EARTH_SHARE_EXPORTS"
 // as long as a directory the user owns.
 const EnvStoreInVM = "EARTH_STORE_IN_VM"
 
+// EnvTracePin puts a traced step and the thread answering its syscalls on one
+// CPU.
+//
+// **A traced path call costs 2.2µs when they share a CPU and 45µs when they do
+// not** - the same 4-vCPU guest, the same tracer, measured both ways (E681).
+// Each half of the wakeup is a vmexit under a hypervisor, which is why bare
+// metal pays 8.3µs against 7.2µs for the same choice and barely notices.
+//
+// Behind a switch because the trade is real and this cannot yet tell which side
+// of it a step is on: `find /usr/local/go` makes 45k path calls on one thread
+// and wants this, and `go build -p 4` makes few and wants four CPUs. The steps
+// that flood the tracer are the single-threaded ones, but "usually" is not a
+// policy and choosing one needs a corpus rather than an argument.
+const EnvTracePin = "EARTH_TRACE_PIN"
+
 // StoreInVM reports whether the layer store is on the guest's own device.
 func StoreInVM() bool { return os.Getenv(EnvStoreInVM) != "" }
 

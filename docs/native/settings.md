@@ -293,3 +293,47 @@ more than the tier saves, and the paths are known before the view is needed - th
 first.
 
 Default: off.
+
+## `EARTH_TRACE_PIN`
+
+Puts a traced step and the thread answering its syscalls on the same vCPU.
+
+A step is observed by a seccomp filter: every `openat`, `statx` or `execve` stops the caller until
+this engine has read the path and let it through. That round trip is the price of L2, and under a
+hypervisor almost all of it is the *wakeup* rather than the work - each half is a vmexit, because an
+idle vCPU has halted and has to be resumed by the VMM.
+
+The same test, unchanged, in three places:
+
+| where                      | untraced | traced  | ratio |
+| -------------------------- | -------- | ------- | ----- |
+| bare metal x86, 32 core    | 1.018µs  | 8.857µs | 9x    |
+| Apple VM arm64, 4 vCPU     | 0.389µs  | 50.56µs | 130x  |
+| Apple VM arm64, **1** vCPU | 0.61µs   | 2.19µs  | 4x    |
+
+The untraced call is 2.6x *faster* in the VM, so this is not a slow guest - it is the crossing. The
+guest keeps all four vCPUs either way; only the two ends of the round trip share one, which the step
+inherits across fork the same way it inherits the filter.
+
+End to end, in the engine:
+
+```text
+step                                    pin off   pin on
+20k traced stats of one file              1.219s   0.169s   7.2x
+find /usr/local/go -type f (15k files)    2.114s   1.126s   2.0x
+```
+
+The second is smaller because it is no longer the wakeup that costs: fifteen thousand *distinct*
+paths through a five-layer overlay is real filesystem work, and what remains after pinning is mostly
+that. A step that asks about the same paths repeatedly - a configure script, a package manager, a
+compiler's include search - is the shape this helps most.
+
+**What it costs is a step's parallelism.** A pinned step gets one vCPU, so `go build -p 4` would run
+on a quarter of the machine. The steps that flood the tracer are the single-threaded ones and the
+steps that want four vCPUs make few path calls, but that is an observation and not a policy - which
+is why this is a switch and not the default. Choosing needs a corpus.
+
+Flipping it makes a different sandbox, deliberately: the guest reads this at start, so a machine
+already running was started with whatever the previous build said (E549).
+
+Default: off.

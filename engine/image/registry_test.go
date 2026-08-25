@@ -13,7 +13,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/klauspost/compress/zstd"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -33,6 +35,14 @@ type fakeRegistry struct {
 	// gzip, which every existing case here serves.
 	mediaType string
 	served    int
+
+	// inFlight counts blob requests being served at this moment, and mostBlobs
+	// the highest that ever was. Layers are independent objects and fetching
+	// them one after another spends the whole of a pull waiting (E641).
+	blobMu    sync.Mutex
+	inFlight  int
+	mostBlobs int
+	blobDelay time.Duration
 	// config is the image configuration blob, as JSON. Empty serves `{}`, which
 	// is what an image with nothing declared looks like.
 	config []byte
@@ -199,6 +209,9 @@ func (f *fakeRegistry) start(t *testing.T) string {
 
 		case strings.Contains(r.URL.Path, "/blobs/"):
 			f.served++
+
+			f.enterBlob()
+			defer f.leaveBlob()
 
 			for _, l := range f.layers {
 				if strings.HasSuffix(r.URL.Path, digestOf(l)) {
@@ -476,4 +489,35 @@ func TestAZstdLayerPullsEndToEnd(t *testing.T) {
 	if string(b) != "by zstd" {
 		t.Errorf("the layer unpacked to %q", b)
 	}
+}
+
+// enterBlob records a blob request arriving, and holds it long enough that a
+// concurrent one has somewhere to overlap.
+func (f *fakeRegistry) enterBlob() {
+	f.blobMu.Lock()
+	f.inFlight++
+
+	if f.inFlight > f.mostBlobs {
+		f.mostBlobs = f.inFlight
+	}
+
+	f.blobMu.Unlock()
+
+	if f.blobDelay > 0 {
+		time.Sleep(f.blobDelay)
+	}
+}
+
+func (f *fakeRegistry) leaveBlob() {
+	f.blobMu.Lock()
+	f.inFlight--
+	f.blobMu.Unlock()
+}
+
+// peakBlobs is the most blob requests that were ever in flight at once.
+func (f *fakeRegistry) peakBlobs() int {
+	f.blobMu.Lock()
+	defer f.blobMu.Unlock()
+
+	return f.mostBlobs
 }

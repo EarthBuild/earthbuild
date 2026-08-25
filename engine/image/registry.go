@@ -250,12 +250,27 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 		return ocispec.ImageConfig{}, fmt.Errorf("create the unpack directory: %w", err)
 	}
 
+	// **Fetched while the one before is unpacked; unpacked in order.**
+	//
 	// Ordered, oldest first: a later layer's whiteout must be applied after the
-	// file it deletes has been unpacked, or the deletion is a no-op.
+	// file it deletes has been unpacked, or the deletion is a no-op. That is
+	// true of *unpacking* and of nothing else - a layer is an independent
+	// object, and nothing about fetching one depends on another having arrived.
+	//
+	// Serially, the sum was the whole: `golang:1.26-alpine` spent 1.697s
+	// fetching and 3.838s unpacking for a pull of 5.934s, so every byte of
+	// waiting was time in which nothing was unpacked (E641).
+	fetching := newLayerFetch(ctx, client, tok, base, m.Layers)
+
 	for i, d := range m.Layers {
-		pullErr := pullLayer(ctx, client, tok, base, d, dir)
-		if pullErr != nil {
-			return ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, pullErr)
+		got := fetching.await(i)
+		if got.err != nil {
+			return ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, got.err)
+		}
+
+		unpackErr := unpackLayer(got.blob, d, dir)
+		if unpackErr != nil {
+			return ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, unpackErr)
 		}
 	}
 
@@ -311,28 +326,125 @@ func pullConfig(
 	return img.Config, checkArchitecture(img.OS, img.Architecture, want)
 }
 
-func pullLayer(ctx context.Context, client *http.Client, tok, base string, d descriptor, dir string) error {
+// layerBlob is a fetched layer, or the reason it could not be.
+type layerBlob struct {
+	err  error
+	blob []byte
+}
+
+// layerBudget is how many bytes of un-unpacked layer a pull may hold.
+//
+// **Bytes rather than a count**, because a count is the wrong unit for the
+// thing being bounded. A blob stays in memory until it is unpacked, so the risk
+// is a pull holding some fraction of a large image; and a count that is safe
+// for `golang:1.26-alpine` (five layers, ~100 MB) is not safe for an image with
+// a two-gigabyte layer in it.
+//
+// It is also the wrong unit for the *gain*. Two layers ahead was enough to keep
+// one fetch running during each unpack, and bought nothing measurable: the
+// layer that dominates a language image is usually its last, so starting it one
+// layer early leaves it nothing to overlap with. Reaching further ahead is what
+// helps, and how much further should depend on how big the layers are.
+//
+// Measured on `golang:1.26-alpine`: serial 5.93s, two layers ahead 5.5-6.6s
+// (noise), a budget that reaches all five 5.08s - and repeatable to 0.01s
+// (E641).
+// The layer the consumer is waiting for always starts, however big it is, so a
+// single layer larger than the whole allowance cannot stall a pull - that is
+// what the `j > i` in the loop below is for.
+const layerBudget = 256 << 20
+
+// fetchLayers starts fetching the next few layers and hands back the one asked
+// for, in the order the caller must unpack them.
+//
+// **Started by the consumer, never ahead of it.** An earlier attempt gave each
+// layer a goroutine that took a slot from a semaphore, and deadlocked: the
+// goroutines race for slots in whatever order the scheduler likes, so layers 1
+// and 2 could hold both while blocking to hand their blobs over - and layer 0,
+// which the unpacking loop is waiting for, could never start. Fetching only
+// what the consumer has reached, plus a fixed window ahead of it, cannot
+// invert that way.
+//
+// Each channel holds one value, so a fetch never blocks on delivery, and the
+// bytes in flight are bounded by layerBudget: a fetch starts only while the
+// outstanding layers fit in it, and a blob is dropped as soon as it is
+// unpacked.
+type layerFetch struct {
+	inflight map[int]chan layerBlob
+	ctx      context.Context //nolint:containedctx // one pull's lifetime, see await
+	client   *http.Client
+	tok      string
+	base     string
+	layers   []descriptor
+}
+
+func newLayerFetch(ctx context.Context, client *http.Client, tok, base string,
+	layers []descriptor,
+) *layerFetch {
+	return &layerFetch{
+		inflight: map[int]chan layerBlob{}, ctx: ctx,
+		client: client, tok: tok, base: base, layers: layers,
+	}
+}
+
+// await is layer i's blob, having started it and the window after it.
+func (f *layerFetch) await(i int) layerBlob {
+	outstanding := int64(0)
+
+	for j := i; j < len(f.layers); j++ {
+		if _, going := f.inflight[j]; going {
+			outstanding += f.layers[j].Size
+
+			continue
+		}
+
+		if j > i && outstanding+f.layers[j].Size > layerBudget {
+			break
+		}
+
+		outstanding += f.layers[j].Size
+
+		ch := make(chan layerBlob, 1)
+		f.inflight[j] = ch
+
+		go func(d descriptor) {
+			blob, err := fetchLayer(f.ctx, f.client, f.tok, f.base, d)
+			ch <- layerBlob{blob: blob, err: err}
+		}(f.layers[j])
+	}
+
+	got := <-f.inflight[i]
+	delete(f.inflight, i)
+
+	return got
+}
+
+// fetchLayer gets one layer's blob and checks it is the one that was asked for.
+func fetchLayer(ctx context.Context, client *http.Client, tok, base string, d descriptor) ([]byte, error) {
 	limit := d.Size
 	if limit <= 0 {
 		limit = 1 << 30
 	}
 
-	// Read the whole blob and verify before unpacking. Streaming into the
-	// unpacker while hashing would be faster and would also mean the archive has
-	// already written files by the time the digest is found to be wrong.
 	endGet := timing.Phase("layer:get", d.Digest)
 	blob, err := get(ctx, client, tok, base+"/blobs/"+d.Digest, limit)
+
 	endGet()
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = verify(blob, d.Digest)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	return blob, nil
+}
+
+// unpackLayer applies one fetched layer to the directory being built.
+func unpackLayer(blob []byte, d descriptor, dir string) error {
 	r, err := decompress(blob, d.MediaType)
 	if err != nil {
 		return err
@@ -340,8 +452,7 @@ func pullLayer(ctx context.Context, client *http.Client, tok, base string, d des
 
 	defer r.Close()
 
-	endUnpack := timing.Phase("layer:unpack", d.Digest)
-	defer endUnpack()
+	defer timing.Phase("layer:unpack", d.Digest)()
 
 	return Unpack(r, dir)
 }

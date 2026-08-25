@@ -28920,3 +28920,55 @@ anything.* E535 objects specifically to putting a token in a **cache
 directory**, which an in-process holder is not - so the test may be pinning
 today's behaviour rather than a policy. Either way it is not a question the
 change itself gets to answer, and it is recorded for a person instead.
+
+## E641 - layers fetched while the one before them unpacks
+
+E640 left the engine a rounding error on its own cold build and the registry
+holding everything else. `golang:1.26-alpine`, five layers: 1.697s fetching,
+3.838s unpacking, and a pull of 5.934s. **The sum was the whole**, which is what
+strictly serial looks like - every byte of waiting was time in which nothing was
+unpacked.
+
+Unpacking must stay ordered. That had been asserted from the shape of the code -
+one directory, `Unpack(r, dir)` - and is now checked:
+`TestALaterLayerWinsThePathItShares` gives two layers the same path and fails if
+they are applied newest-first. Fetching is not ordered, and nothing about
+fetching one layer depends on another having arrived.
+
+### Two things that did not work, and why
+
+**A goroutine per layer taking a slot from a semaphore deadlocked.** The
+goroutines race for slots in whatever order the scheduler likes, so layers 1 and
+2 could hold both while blocking to hand their blobs over - and layer 0, which
+the unpacking loop is waiting for, could never start. Ten minutes of a hung test
+said so. Starting fetches only for layers the consumer has reached, plus a
+window ahead of it, cannot invert that way.
+
+**A window of two layers bought nothing measurable.** It is enough to keep one
+fetch running during each unpack, and the unit test proves the overlap happens -
+but the pull did not get faster, because the layer that dominates a language
+image is usually its *last*, and starting it one layer early leaves it nothing
+to overlap with.
+
+### What worked
+
+A budget in **bytes**, not layers. A count is the wrong unit for what is being
+bounded - a blob is held until it is unpacked, and a count safe for a 100 MB
+image is not safe for one with a two-gigabyte layer - and it is the wrong unit
+for the gain, which depends on reaching far enough ahead to start the big layer
+early. 256 MB, with the layer the consumer is waiting for always starting
+however big it is.
+
+Interleaved A/B on one network, same binary either side of the constant:
+
+```text
+serial      5.790s  5.578s
+budgeted    5.079s  5.371s
+```
+
+About 8%, and the overlap is visible directly: get 2.8s plus unpack 3.6s is
+6.4s of work inside a 5.32s pull.
+
+*Modest, and worth saying so.* The link is the floor - bytes still have to
+arrive - and the honest claim is that a pull no longer stops downloading while
+it unpacks, not that pulling got fast.

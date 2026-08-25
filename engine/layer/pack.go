@@ -109,28 +109,52 @@ func PackOwned(root string, w io.Writer, want []string, own map[string]Owner) er
 		}
 	}
 
+	return encodePack(w, entries, func(en entry) ([]byte, error) {
+		at := filepath.Join(root, en.path)
+
+		body, err := os.ReadFile(at) //nolint:gosec // a path from walking the tree
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", at, err)
+		}
+
+		return body, nil
+	}, root)
+}
+
+// encodePack writes entries and then their contents, which is the half a pack
+// read from a tree and a pack read from an archive share.
+//
+// One function, for the reason `capture` is one: the encoding *is* the wire
+// format, and two of them would agree until they did not - at which point a
+// fragment would capture to an identity nobody asked for. `body` is how the
+// caller gets at a file's contents, which is the only part that differs, and it
+// is handed the whole entry because the two readings identify a file
+// differently: a tree by its path, an archive by its digest.
+func encodePack(w io.Writer, entries []entry, body func(en entry) ([]byte, error), at string) error {
 	e := ir.NewEncoder(w)
 
 	e.Fixed([]byte(magic))
 	e.Count(len(entries))
 
-	bodies := map[ir.NodeID]string{}
+	// Contents are written **once per distinct digest**, so a layer with a
+	// hundred copies of one file costs one copy on the wire.
+	carrier := map[ir.NodeID]entry{}
 
 	for _, en := range entries {
 		k, err := kindByte(en)
 		if err != nil {
-			return fmt.Errorf("%s: %w", filepath.Join(root, en.path), err)
+			return fmt.Errorf("%s: %w", filepath.Join(at, en.path), err)
 		}
 
 		writeEntry(e, en, k)
 
 		if k == kindFile {
-			bodies[en.content] = filepath.Join(root, en.path)
+			carrier[en.content] = en
 		}
 	}
 
-	ids := make([]ir.NodeID, 0, len(bodies))
-	for id := range bodies {
+	ids := make([]ir.NodeID, 0, len(carrier))
+	for id := range carrier {
 		ids = append(ids, id)
 	}
 
@@ -142,14 +166,14 @@ func PackOwned(root string, w io.Writer, want []string, own map[string]Owner) er
 	e.Count(len(ids))
 
 	for _, id := range ids {
-		body, err := os.ReadFile(bodies[id])
+		b, err := body(carrier[id])
 		if err != nil {
-			return fmt.Errorf("read %s: %w", bodies[id], err)
+			return err
 		}
 
 		e.Fixed(id[:])
-		e.Fixed(be64(int64(len(body))))
-		e.Fixed(body)
+		e.Fixed(be64(int64(len(b))))
+		e.Fixed(b)
 	}
 
 	return nil
@@ -255,14 +279,45 @@ func keeping(entries []entry, want []string) []entry {
 		return entries
 	}
 
+	k := newKeeper(want)
+
+	out := entries[:0]
+
+	for _, en := range entries {
+		if k.keeps(en.path) {
+			out = append(out, en)
+		}
+	}
+
+	return out
+}
+
+// keeper decides whether one path belongs in a fragment.
+//
+// **A predicate over a path, not a filter over a list**, because a pack read
+// from an archive has to decide as each entry goes past - it cannot hold the
+// layer to filter it afterwards, which is the point of reading from an archive.
+// One rule, so the two packs cannot come to disagree about what a fragment
+// contains.
+type keeper struct {
 	// Two sets, and the difference is the whole of getting this right. A
 	// directory **asked for** brings what is inside it: a step that read a
 	// directory read what was in it, and sending the directory alone would be
 	// the shape of an answer without the answer. A directory kept only to hold
 	// something below it brings nothing of its own - it is scaffolding, and
 	// treating the two alike sends a wanted file's every sibling.
-	asked := make(map[string]bool, len(want))
-	scaffold := make(map[string]bool, len(want)*4)
+	asked, scaffold map[string]bool
+	// all is a nil `want`: everything, which is byte-for-byte what `Pack`
+	// produces.
+	all bool
+}
+
+func newKeeper(want []string) *keeper {
+	k := &keeper{
+		asked:    make(map[string]bool, len(want)),
+		scaffold: make(map[string]bool, len(want)*4),
+		all:      len(want) == 0,
+	}
 
 	for _, p := range want {
 		p = strings.TrimPrefix(filepath.Clean(p), "/")
@@ -270,22 +325,18 @@ func keeping(entries []entry, want []string) []entry {
 			continue
 		}
 
-		asked[p] = true
+		k.asked[p] = true
 
 		for d := filepath.Dir(p); d != "." && d != "" && d != "/"; d = filepath.Dir(d) {
-			scaffold[d] = true
+			k.scaffold[d] = true
 		}
 	}
 
-	out := entries[:0]
+	return k
+}
 
-	for _, en := range entries {
-		if asked[en.path] || scaffold[en.path] || under(en.path, asked) {
-			out = append(out, en)
-		}
-	}
-
-	return out
+func (k *keeper) keeps(path string) bool {
+	return k.all || k.asked[path] || k.scaffold[path] || under(path, k.asked)
 }
 
 // under reports whether a path lies inside a directory that was asked for.

@@ -1615,13 +1615,12 @@ func outputFor(req Request, out []byte) string {
 	// than refused: a secret in a layer outlives the build and has to stop it,
 	// while one already printed is loose, and the useful thing is not to repeat
 	// it - and refusing would destroy the diagnostic the author needs.
-	if req.Strict {
-		scrubbed, _ := redactSecrets(out, secretsFrom(req))
+	//
+	// Unconditional, because a step with no secrets has nothing to scrub and
+	// `redactSecrets` says so in a nil check.
+	scrubbed, _ := redactSecrets(out, secretsFrom(req))
 
-		return string(scrubbed)
-	}
-
-	return string(out)
+	return string(scrubbed)
 }
 
 // streamer returns a sink that forwards a step's output to the host as it
@@ -2086,7 +2085,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 		defer timing.Phase("guest:exec", req.Handle)()
 
-		sink, flush := redactingSink(streamer(c, req), strictSecrets(req))
+		sink, flush := redactingSink(streamer(c, req), secretsFrom(req))
 		defer flush()
 
 		out, rerr = runStep(cmd, sink, req, s, h, mountPoints(mounts))
@@ -2335,11 +2334,9 @@ type Step struct {
 	Daemon *Daemon
 	// Hosts are name-to-address entries the step resolves by. See Request.Hosts.
 	Hosts []string
-	// SecretEnv names the entries of Env that are credentials, and Strict asks
-	// the guest to refuse a step that wrote one into what it produced. See the
-	// fields of the same name on Request.
+	// SecretEnv names the entries of Env that are credentials. See the field of
+	// the same name on Request.
 	SecretEnv []string
-	Strict    bool
 	// Terminal is the caller's terminal, for an interactive step. It is sent as
 	// a descriptor rather than relayed, so the step owns it.
 	Terminal *os.File
@@ -2404,7 +2401,6 @@ func (c *Client) RunStep(
 		Env:       step.Env,
 		BaseEnv:   step.BaseEnv,
 		SecretEnv: step.SecretEnv,
-		Strict:    step.Strict,
 		Dir:       step.Dir,
 		Mounts:    step.Mounts,
 		NoNet:     step.NoNet,
@@ -3186,14 +3182,4 @@ func placeUnpacked(st store.DirStore, staging, as string, got image.Unpacked) (i
 	}
 
 	return id, nil
-}
-
-// strictSecrets is what a step was given, when the build asked for its output
-// to be scrubbed. Empty otherwise, which turns the redaction off at no cost.
-func strictSecrets(req Request) []layer.Secret {
-	if !req.Strict {
-		return nil
-	}
-
-	return secretsFrom(req)
 }

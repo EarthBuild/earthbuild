@@ -600,8 +600,8 @@ func (e *Executor) Run(
 
 	step, err := c.RunStep(ctx, h, guest.Step{
 		Dir: n.Op.Dir, Argv: argv, Env: env, Mounts: mounts,
-		SecretEnv: secretNames, Strict: true,
-		NoNet: n.Op.NoNetwork, Daemon: daemon, Hosts: n.Op.Hosts,
+		SecretEnv: secretNames,
+		NoNet:     n.Op.NoNetwork, Daemon: daemon, Hosts: n.Op.Hosts,
 		// Observed, so the step can be reused against a base it did not run on.
 		//
 		// The only source a RUN has, and it costs: measured at **8x on a path

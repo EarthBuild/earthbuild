@@ -366,9 +366,6 @@ type Request struct {
 	// and a strict build that checked only mounts would report a clean layer to
 	// somebody who echoed `$TOKEN` into a file.
 	SecretEnv []string `json:"secretEnv,omitempty"`
-	// Strict makes the guest refuse a step whose delta contains a secret it was
-	// given. Off unless the build asked: the scan reads every captured byte.
-	Strict bool `json:"strict,omitempty"`
 	// BaseEnv is what the base image declared, under ε.
 	//
 	// Not ambient state: it comes from the image this step stands on, which is

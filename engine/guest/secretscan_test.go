@@ -165,7 +165,6 @@ func TestASecretIsRedactedFromWhatAStepPrinted(t *testing.T) {
 	t.Parallel()
 
 	req := Request{
-		Strict:    true,
 		Env:       []string{"TOKEN=hunter2-swordfish"},
 		SecretEnv: []string{"TOKEN"},
 		Mounts: []Mount{{

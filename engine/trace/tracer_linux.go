@@ -185,6 +185,16 @@ func NewTracer(fd int) *Tracer {
 // are not silent either: each one marks the observation incomplete, because a
 // call this engine could not interpret is a read it cannot rule out.
 func (t *Tracer) Run() {
+	// **The loop owns the memory descriptor, and only the loop.** `Close` is
+	// called by whoever is waiting on the step, which is a different goroutine,
+	// and closing it there was a data race against the handler reading it -
+	// caught by `-race` in engine/fleet, not here, because it needs a step that
+	// actually faults something in.
+	//
+	// Released here instead: the loop has several ways out and all of them come
+	// through this return, which is what a defer is for.
+	defer t.mem.forget()
+
 	for {
 		if !t.waitForWork() {
 			return
@@ -583,12 +593,6 @@ func (t *Tracer) Close() error {
 	// Before the close, so Run can never see the wake-up without the reason for
 	// it and call an orderly stop a fault.
 	t.closing.Store(true)
-
-	// The one descriptor the handler holds. Closed here rather than in the loop
-	// because the loop has more than one way out, and a tracer that has let go
-	// of its listener has no use for the memory of a process it will not be
-	// asked about again.
-	t.mem.forget()
 
 	if t.stopW >= 0 {
 		_ = unix.Close(t.stopW)

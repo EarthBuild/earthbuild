@@ -31377,6 +31377,23 @@ children on the old mask, so it is not the one-line change it looks like.
 The mode was removed rather than left in. Configuration that measurably does
 nothing is a trap for whoever finds it next.
 
+**Re-measured, because the machine was not what it seemed.** Every figure above
+was taken while two orphaned shell loops of this session's own making were
+burning two cores - a load simulation whose `kill %1 %2 ...` never fired, left
+spinning for ten hours. Repeated once they were gone:
+
+```text
+            syscall-heavy         4-way parallel
+pin off   1.162 1.168 1.197s    0.630 0.644 0.628s
+pin on    0.118 0.120 0.132s    2.353 2.352s
+```
+
+Unchanged, and the reason is worth keeping: both arms run inside the guest,
+which is given its four vCPUs regardless, and both paid the same host load. A
+contaminated machine spoils *absolute* numbers and leaves an alternating A/B
+alone - which is the argument for alternating rather than for trusting the
+machine.
+
 ## E686 - the escape check was fifteen stats an entry
 
 With hashing moved off the unpack (E682), what was left was 772ms after
@@ -31626,3 +31643,16 @@ The lesson is narrower than "do not cache": it is that "this fails safely" was
 an answer to a question nobody asked. What mattered was not whether a stale
 descriptor could return the *wrong* bytes but whether it could stop returning
 the *right* ones, and that was never checked.
+
+**And the same field was a data race.** Its comment said "touched only from the
+notification loop, which is one goroutine, so there is no lock here and there
+must not come to be a second caller without one" - and the change that wrote
+that sentence added the second caller four lines later, in `Close`, which is
+called by whoever is waiting on the step. `-race` in engine/fleet found it,
+because it needs a step that actually faults something in; engine/trace's own
+tests never called `Close` while the loop was reading.
+
+Released by the loop instead, which is what the comment claimed all along.
+Proved both ways on a Linux box: the fix passes `-race -shuffle=on` across
+trace, fleet and guest, and putting the cross-goroutine close back produces
+`WARNING: DATA RACE` on the first run.

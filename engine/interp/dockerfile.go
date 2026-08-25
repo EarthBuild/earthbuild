@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -170,6 +171,11 @@ type dockerfileBuild struct {
 	// stage, which Docker makes visible to FROM lines.
 	globals map[string]string
 
+	// shell is what a shell-form RUN in the current stage is run by, or nil
+	// for the default. Set by SHELL, reset when a stage begins - a Dockerfile's
+	// SHELL belongs to the stage that sets it.
+	shell []string
+
 	plan   *Plan
 	stages []instructions.Stage
 	built  map[string]*ir.Node
@@ -272,6 +278,10 @@ func (b *dockerfileBuild) stage(
 	// stage's instructions. On demand and through the same builder as a FROM,
 	// so a stage bound before it is built is built, and a stage that binds
 	// itself is diagnosed rather than recursed into (§3.3d, ν ∈ 𝕂).
+	// A stage begins with the default shell: SHELL belongs to the stage that
+	// sets it, exactly as ARG and ENV do here.
+	b.shell = nil
+
 	sub.stage = func(name string) (*ir.Node, error) {
 		other, err := selectStage(b.stages, name, b.where)
 		if err != nil {
@@ -313,6 +323,16 @@ func (b *dockerfileBuild) stage(
 func (b *dockerfileBuild) instruction(
 	instr instructions.Command, prev *ir.Node, rs *state, pending []string,
 ) (*ir.Node, error) {
+	// `SHELL` produces no step: it says what the shell-form RUNs *after* it are
+	// run by, which translate then puts in front of them. Recorded here rather
+	// than translated because there is no Earthfile command for it and none is
+	// needed - an argv is what an exec-form RUN already is.
+	if sh, ok := instr.(*instructions.ShellCommand); ok {
+		b.shell = slices.Clone(sh.Shell)
+
+		return prev, nil
+	}
+
 	// `COPY --from=<stage>` is the only instruction that cannot be said as an
 	// Earthfile command: it reads another stage's filesystem, and the reference
 	// is a node rather than a name anything can resolve. Built directly, as a
@@ -400,7 +420,7 @@ func (b *dockerfileBuild) instruction(
 		}, nil
 	}
 
-	cmd, err := translate(instr, b.where, b.globals)
+	cmd, err := translate(instr, b.where, b.globals, b.shell)
 	if err != nil {
 		return nil, err
 	}
@@ -614,7 +634,9 @@ func selectStage(stages []instructions.Stage, target, where string) (instruction
 // Anything not here is refused by name rather than skipped: an instruction
 // silently dropped produces an image that is not what the Dockerfile describes,
 // and nothing downstream can tell.
-func translate(instr instructions.Command, where string, globals map[string]string) (earthfile.Command, error) {
+func translate(
+	instr instructions.Command, where string, globals map[string]string, sh []string,
+) (earthfile.Command, error) {
 	loc := c(where)
 
 	switch v := instr.(type) {
@@ -645,6 +667,22 @@ func translate(instr instructions.Command, where string, globals map[string]stri
 		mounts, err := mountsOf(v, where)
 		if err != nil {
 			return earthfile.Command{}, err
+		}
+
+		// **A shell-form RUN under a custom SHELL is an exec-form RUN with the
+		// shell in front of it.** No new construct is needed: this engine
+		// already runs an argv without re-splitting it, already keys it, and a
+		// Dockerfile that sets SHELL is saying precisely "run these with that".
+		//
+		// An exec-form RUN is left alone, because its author already said what
+		// runs it - which is what the exec form is for.
+		if len(sh) > 0 && v.PrependShell {
+			return earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: append(mounts,
+					append(slices.Clone(sh), strings.Join(v.CmdLine, " "))...),
+				ExecMode: true, SourceLocation: loc,
+			}, nil
 		}
 
 		return earthfile.Command{

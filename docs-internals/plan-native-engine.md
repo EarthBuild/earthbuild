@@ -9053,6 +9053,37 @@ engine already probes which world it is in - `needsUserXattr` tries to set
 * so the answer is "only where the probe says trusted xattrs work", which in
 the VM sandbox it may well.
 
+### Which world the sandbox is in, and why it matters
+
+Measured rather than assumed. Setting `trusted.overlay.opaque` fails with
+`operation not permitted` for *root in a default container* - the capability,
+not the uid, is what `trusted.*` needs - and succeeds with `--cap-add
+SYS_ADMIN` or `--privileged`. The guest holds `CAP_SYS_ADMIN`, because it mounts
+overlayfs and `/proc`, so **in the sandbox `needsUserXattr` says false and the
+metacopy/redirect/data-only path is open**. It is closed in rootless and
+in-container use, which is where `userxattr` earns its place.
+
+### Why the option set is bare, and must stay bare on the write side
+
+**The upper directory is the artefact.** `commit` takes `h.Delta()` - the
+overlay's upperdir - and stores it under the step's digest. Every option that
+makes an upper entry a *reference* into the layers below it therefore breaks
+the layer, silently and under a digest that claims otherwise:
+
+* `metacopy=on` copies metadata only, leaving "data from a file in another lower
+  layer (further below)" reachable through a `redirect` xattr. Committed as a
+  standalone layer, that file has no contents.
+* `redirect_dir=on` does the same for a renamed directory.
+
+So these are not options this engine forgot; they are options its capture model
+forbids. **They belong to the read side** - how a *base* is represented and
+mounted - and not to the write side, which is exactly where data-only layers
+would sit: an image assembled from content-addressed data, mounted rather than
+unpacked, with steps still writing plain uppers on top. Reasoned from the
+documented semantics and the commit path, not measured; anyone enabling
+metacopy should first make `commit` resolve a metacopy entry through the merged
+view rather than reading the upper.
+
 ### Measured and not taken
 
 `volatile` omits "all forms of sync calls to the upper filesystem", and a build

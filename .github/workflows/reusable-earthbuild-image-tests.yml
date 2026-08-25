@@ -62,11 +62,11 @@ jobs:
           BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build the earthbuild docker image
         run: |
           # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
@@ -77,7 +77,7 @@ jobs:
           INPUTS_BINARY: ${{inputs.BINARY}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: "Run the earthbuild image tests"
-        run: FRONTEND="${INPUTS_BINARY}" EARTHLY_IMAGE=ghcr.io/earthbuild/earthbuild:image-test ./scripts/tests/earthly-image.sh
+        run: FRONTEND="${INPUTS_BINARY}" EARTH_IMAGE=ghcr.io/earthbuild/earthbuild:image-test ./scripts/tests/earth-image.sh
         env:
           INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Failure diagnostics

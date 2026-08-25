@@ -31914,3 +31914,47 @@ credentials, where it is six times faster, and costs nothing until then.
 Worth recording as a shape rather than a number: an algorithm chosen for its
 complexity, shipped without measuring its constant, would have made the common
 case twenty times worse while the commit message said "one pass instead of n".
+
+## E696 - a step that reads what it just wrote loses an L2 hit for ever
+
+Counted rather than timed, on `+earthly`, 91 steps:
+
+```text
+nothing changed        90 hit, 1 miss
+one line changed       57 hit, 6 miss, 28 by observed inputs,
+                       3 of 6 predictions stale
+                       (/earthly/build/tags is gone from the base)
+```
+
+The incremental case is healthy - a touch costs nothing, because identity is
+content and not mtime, and a real edit re-runs six steps of ninety-one with
+twenty-eight served by observation. What is not healthy is the parenthesis.
+
+```text
+RUN printf "$BUILD_TAGS" > ./build/tags && echo "$(cat ./build/tags)"
+```
+
+The step writes `build/tags` and then reads it. The tracer sees a genuine
+`openat` for reading, records it as an input, and the base *cannot* contain it -
+so the prediction naming it is stale on every subsequent build, for ever. Three
+of six predictions in this repository's own build are lost this way, and the
+idiom - write a file, read it back in the same command - is everywhere.
+
+E217 named this failure class and the engine guards half of it: a write-*only*
+open is not recorded as a read, which catches `cat x > out`. Write-then-read in
+one step is the other half and is not caught.
+
+**The obvious fix is unsafe and that is the interesting part.** Dropping any read
+whose path is in the step's delta would also drop a genuine one: `sed -i` on a
+base file reads the base and writes the same path, and the read is a real input.
+Losing it is a false hit, which I3 forbids - and a false hit is worse than the
+miss being fixed.
+
+What distinguishes them is not the delta but the *base*: a path the step read
+that does not exist below it was created by the step, and a path that does exist
+below it was read from there whatever happened afterwards. So the rule wants the
+lower view, which the handle does not currently expose - `Root` is the merged
+view and `Delta` the upper.
+
+**[GAP]** Filtering an observation by what the base holds, rather than by what
+the delta holds.

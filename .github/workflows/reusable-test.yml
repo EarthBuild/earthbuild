@@ -93,7 +93,7 @@ jobs:
         if: ${{ !inputs.SKIP_JOB }}
         run: |-
           ${INPUTS_SUDO} "${INPUTS_BINARY}" ps -a
-          ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd |& grep 'starting earthly-buildkit'
+          ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earth-buildkitd |& grep 'starting earthly-buildkit'
         shell: bash
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}

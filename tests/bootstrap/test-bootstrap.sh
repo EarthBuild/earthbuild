@@ -189,7 +189,7 @@ cd "$prevdir"
 echo "=== Test 7: Homebrew Source ==="
 
 if which "$frontend" > /dev/null; then
-  "$frontend" rm -f earthly-buildkitd
+  "$frontend" rm -f "${default_install_name}-buildkitd"
 fi
 
 bash=$("$earthly" bootstrap --source bash)
@@ -206,7 +206,7 @@ if [[ "$zsh" != *"complete -o nospace"* ]]; then
   exit 1
 fi
 
-if "$frontend" container ls | grep earthly-buildkitd; then
+if "$frontend" container ls | grep "${default_install_name}-buildkitd"; then
   echo "--source created a $frontend container"
   exit 1
 fi
@@ -225,7 +225,7 @@ rm -rf "$HOME/.${default_install_name}"
 echo "=== Test 8: No Buildkit ==="
 
 "$earthly" bootstrap --no-buildkit
-if "$frontend" container ls | grep earthly-buildkitd; then
+if "$frontend" container ls | grep "${default_install_name}-buildkitd"; then
   echo "--no-buildkit created a $frontend container"
   exit 1
 fi

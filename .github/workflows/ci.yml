@@ -124,13 +124,14 @@ jobs:
           set -euo pipefail
           export TAG_SUFFIX="latest"
 
-          # Build earth CLI binary with correct installation name (earthly, not earthly-dev)
-          # This ensures the buildkitd container is named "earthly-buildkitd" as tests expect
+          # The test suites address the buildkitd daemon by container name, so
+          # DEFAULT_INSTALLATION_NAME must be pinned rather than left at its dev
+          # default. "earth" gives them "earth-buildkitd".
           ./build/linux/amd64/earthly --ci --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
             --VERSION="0.8.18" \
-            --DEFAULT_INSTALLATION_NAME=earthly \
+            --DEFAULT_INSTALLATION_NAME=earth \
             ./artifacts-standard/earthly
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
@@ -176,13 +177,14 @@ jobs:
           set -euo pipefail
           export TAG_SUFFIX="latest-ticktock"
 
-          # Build earth CLI binary with correct installation name (earthly, not earthly-dev)
-          # This ensures the buildkitd container is named "earthly-buildkitd" as tests expect
+          # The test suites address the buildkitd daemon by container name, so
+          # DEFAULT_INSTALLATION_NAME must be pinned rather than left at its dev
+          # default. "earth" gives them "earth-buildkitd".
           ./build/linux/amd64/earthly --ci --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
             --VERSION="0.8.18" \
-            --DEFAULT_INSTALLATION_NAME=earthly \
+            --DEFAULT_INSTALLATION_NAME=earth \
             ./artifacts-next/earthly
       - name: Upload artifacts (next)
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7

@@ -66,7 +66,7 @@ jobs:
           EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Run bootstrap-integration
-        run: frontend="${INPUTS_BINARY}" default_install_name=earthly ./tests/bootstrap/test-bootstrap.sh
+        run: frontend="${INPUTS_BINARY}" default_install_name=earth ./tests/bootstrap/test-bootstrap.sh
         env:
           INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Failure diagnostics

@@ -652,7 +652,11 @@ ci-release:
     BUILD \
         --platform=linux/amd64 \
         ./buildkitd+buildkitd --TAG=${EARTH_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
-    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTH_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTH_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) /earthly-linux-amd64
+    # +ci-release is the binary the integration suites actually run (stage2-setup
+    # extracts it via `earthly upgrade`), so its installation name determines the
+    # buildkitd container those suites address. It must match the pin in ci.yml
+    # and build-earthly.yml -- see the comment there.
+    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTH_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTH_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earth) /earthly-linux-amd64
 
     # TODO after bootstrap, we should use our own buildkitd image as the cache-from image
     SAVE IMAGE --cache-from=docker.io/earthbuild/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTH_GIT_HASH}-${TAG_SUFFIX}

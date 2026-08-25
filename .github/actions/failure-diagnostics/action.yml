@@ -18,7 +18,7 @@ inputs:
   CONTAINERS:
     description: "Space-separated buildkit container names to inspect."
     required: false
-    default: "earthly-buildkitd earthly-dev-buildkitd earthly-integration-buildkitd earthly-test-buildkitd"
+    default: "earth-buildkitd earth-dev-buildkitd earth-integration-buildkitd earth-test-buildkitd"
   LOG_TAIL:
     description: "Lines of daemon log to dump per container."
     required: false
@@ -125,7 +125,7 @@ runs:
         echo "::endgroup::"
 
         echo "::group::buildkit containers"
-        # earthly-buildkitd is the released daemon, earthly-dev-buildkitd the
+        # earth-buildkitd is the released daemon, earth-dev-buildkitd the
         # source-built one; which of them exists depends on the job. A custom
         # installation name means a custom container name - pass CONTAINERS.
         for name in $CONTAINERS; do

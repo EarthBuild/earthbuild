@@ -31489,3 +31489,67 @@ small fraction of a base image.
 That is a direction rather than a change, and it is the honest answer to the gap
 above: the trade E687 leaves open is a trade only because the format cannot
 verify a part.
+
+## E688 - streaming a layer into the guest, and why it does not pay yet
+
+E687 left the trade open; it was taken. The guest may unpack a layer while the
+host is still fetching it, on the grounds that the unpacker is already inside a
+VM inside a container and a bad digest destroys the tree and everything that
+read it. Placement is what makes "everything that read it" empty: nothing
+downstream can see a layer until it is placed, and a layer cannot be placed
+until it is finished.
+
+**The digest gates the last byte.** The host announces progress one byte short
+of the end however much has arrived, and only verification releases the rest. A
+guest that has taken everything it was offered still holds an unfinished layer,
+so a substituted blob cannot be placed however early it was read - the same
+guarantee `streamLayerApart` gets from discarding its directory, arranged to
+work across a boundary where the reader cannot be reached after the fact.
+
+It works, and it buys nothing:
+
+| mode              | cold        | unpack:guest  |
+| ----------------- | ----------- | ------------- |
+| before the change | 5.08  4.94s | 3.458  3.344s |
+| after, switch off | 5.74  5.05s | 3.597  3.382s |
+| after, switch on  | 5.03  5.12s | 3.396  3.499s |
+
+Per-layer timing says why. The largest layer streams in 1.43s and its unpack
+takes **3.29s**, against 1.63s when handed the finished blob:
+
+```text
+layer:stream:guest  1.434s   the fetch
+layer:unpack:guest  3.294s   the unpack, waiting on it
+image:unpack:guest  3.444s   which is the whole phase
+```
+
+The guest learns how far the fetch has got from a file on the shared mount, and
+that file is **about 460ms stale** - measured with the host bumping a counter
+every 20ms, rewritten in place and renamed into position, and the two are the
+same:
+
+```text
+renamed into place   saw 181 of 260 updates, average lag 457ms
+rewritten in place   saw  30 of 260 updates, average lag 464ms
+```
+
+So the guest spends the fetch waiting on a marker rather than unpacking, and the
+head start and the waiting cancel exactly.
+
+**Two bugs found on the way, both worth keeping.** The first cold build worked
+and the second failed with `archive/tar: invalid tar header`: a read touching a
+page pulls the *whole* page into cache, so a page the writer had half filled was
+cached with zeros in its tail and those zeros came back when the bytes really
+arrived. E683's failure at a finer grain, and worse - it corrupts the middle of
+a layer rather than stopping the read. A reader now takes only whole pages.
+
+The second was the reader's own defence: readahead is off, without which a page
+beyond the writer is cached as zeros, and that turned a 64MB sequential read
+into thousands of round trips across the mount. Reading through a megabyte of
+buffer restored it.
+
+**Left behind a switch, off.** It pays the moment progress travels somewhere
+with no filesystem in it, and the fault-in socket is the obvious candidate:
+guest-to-host already, JSON over a socket, microseconds rather than 460ms. The
+streaming fetch itself is kept and is not conditional - it holds no blob in
+memory, where the buffered one held up to 256MB of them.

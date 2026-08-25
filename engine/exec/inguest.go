@@ -92,47 +92,64 @@ func (e *Executor) materialiseImageInGuest(
 
 	endUnpack := phase("image:unpack:guest", n.Op.Args[0])
 
-	fetched, cfg, err := image.FetchApart(ctx, n.Op.Args[0], blobs, image.Options{
-		Platform: platform, Challenges: imageRoot,
-		Fetched: func(i int, l image.FetchedLayer) {
-			at, visible := seer.GuestPath(filepath.Join(blobs, l.At))
+	// **One of the two, never both.** `Fetching` announces a layer before its
+	// bytes are there and `Fetched` once they have landed; the guest starts an
+	// unpack either way, and starting one twice would place the same layer
+	// twice and count it once.
+	start := func(i int, l image.FetchedLayer) {
+		at, visible := seer.GuestPath(filepath.Join(blobs, l.At))
+
+		// Zero unless the blob is still being written, which is what tells the
+		// guest to read it as it grows rather than to the end (Request.Growing).
+		growing := int64(0)
+		if streamToGuest() {
+			growing = l.Size
+		}
+
+		idsMu.Lock()
+		for len(ids) <= i {
+			ids = append(ids, ir.NodeID{})
+			failed = append(failed, nil)
+		}
+		idsMu.Unlock()
+
+		started++
+
+		unpacking.Add(1)
+
+		go func(i int, at, media string, visible bool, growing int64) {
+			defer unpacking.Done()
+
+			if !visible {
+				idsMu.Lock()
+				failed[i] = fmt.Errorf("the guest cannot see %s, so it"+
+					" cannot unpack it", l.At)
+				idsMu.Unlock()
+
+				return
+			}
+
+			id, _, uerr := c.UnpackLayerGrowing(ctx, at, media, nil, growing)
 
 			idsMu.Lock()
-			for len(ids) <= i {
-				ids = append(ids, ir.NodeID{})
-				failed = append(failed, nil)
+			if uerr != nil {
+				failed[i] = fmt.Errorf("unpack layer %s of %s: %w",
+					l.Digest, n.Op.Args[0], uerr)
+			} else {
+				ids[i] = id
 			}
 			idsMu.Unlock()
+		}(i, at, l.MediaType, visible, growing)
+	}
 
-			started++
+	opts := image.Options{Platform: platform, Challenges: imageRoot}
+	if streamToGuest() {
+		opts.Fetching = start
+	} else {
+		opts.Fetched = start
+	}
 
-			unpacking.Add(1)
-
-			go func(i int, at, media string, visible bool) {
-				defer unpacking.Done()
-
-				if !visible {
-					idsMu.Lock()
-					failed[i] = fmt.Errorf("the guest cannot see %s, so it"+
-						" cannot unpack it", l.At)
-					idsMu.Unlock()
-
-					return
-				}
-
-				id, _, uerr := c.UnpackLayerDeclaring(ctx, at, media, nil)
-
-				idsMu.Lock()
-				if uerr != nil {
-					failed[i] = fmt.Errorf("unpack layer %s of %s: %w",
-						l.Digest, n.Op.Args[0], uerr)
-				} else {
-					ids[i] = id
-				}
-				idsMu.Unlock()
-			}(i, at, l.MediaType, visible)
-		},
-	})
+	fetched, cfg, err := image.FetchApart(ctx, n.Op.Args[0], blobs, opts)
 
 	endFetch()
 
@@ -233,3 +250,20 @@ func declarationRemembered(shared string) ir.NodeID {
 
 	return id
 }
+
+// EnvStreamToGuest lets the guest unpack a layer while the host is still
+// fetching it.
+//
+// **Off, because it measures as a wash.** The machinery works - the guest reads
+// a growing blob byte-for-byte and a bad digest can never release the last byte
+// - but the guest learns how far the fetch has got from a file on the shared
+// mount, and that file is about 460ms stale. The largest layer of
+// `golang:1.26-alpine` streams in 1.43s and its unpack takes 3.29s waiting on
+// markers, against 1.63s when handed the finished blob: the head start and the
+// waiting cancel, and three cold builds each way came out identical (E688).
+//
+// It pays only once progress travels somewhere with no filesystem in it - the
+// fault-in socket is the obvious candidate, being guest-to-host already.
+const EnvStreamToGuest = "EARTH_STREAM_TO_GUEST"
+
+func streamToGuest() bool { return os.Getenv(EnvStreamToGuest) != "" }

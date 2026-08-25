@@ -131,8 +131,20 @@ func (c *Client) UnpackLayerWithConfig(
 func (c *Client) UnpackLayerDeclaring(
 	ctx context.Context, blob, media string, config []byte,
 ) (layer, declares ir.NodeID, err error) {
+	return c.UnpackLayerGrowing(ctx, blob, media, config, 0)
+}
+
+// UnpackLayerGrowing unpacks a blob the host has not finished writing.
+//
+// `growing` is its final length; zero is the ordinary case of a blob that has
+// landed. See Request.Growing for why the length travels rather than being
+// asked of the filesystem.
+func (c *Client) UnpackLayerGrowing(
+	ctx context.Context, blob, media string, config []byte, growing int64,
+) (layer, declares ir.NodeID, err error) {
 	resp, err := c.do(ctx, Request{
 		Kind: KindUnpackLayer, Blob: blob, Media: media, Config: config,
+		Growing: growing,
 	})
 	if err != nil {
 		return ir.NodeID{}, ir.NodeID{}, err

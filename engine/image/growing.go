@@ -64,7 +64,7 @@ func (g *Growing) Read(p []byte) (int, error) {
 		return 0, io.EOF
 	}
 
-	for g.at >= g.valid {
+	for g.at >= usableEnd(g.valid, g.size) {
 		valid, err := g.more(g.valid)
 		if err != nil {
 			return 0, err
@@ -81,7 +81,7 @@ func (g *Growing) Read(p []byte) (int, error) {
 		}
 	}
 
-	if room := g.valid - g.at; int64(len(p)) > room {
+	if room := usableEnd(g.valid, g.size) - g.at; int64(len(p)) > room {
 		p = p[:room]
 	}
 
@@ -103,4 +103,33 @@ func (g *Growing) Read(p []byte) (int, error) {
 	return n, nil
 }
 
+// Close releases the file. The writer is somebody else's and is not touched.
 func (g *Growing) Close() error { return g.f.Close() }
+
+// readPage is the granularity a read actually happens at.
+//
+// 4096 on every platform this runs on. Asking the kernel would be more correct
+// and less useful: a page larger than this rounds down to a multiple of itself
+// anyway, and one smaller does not exist here.
+const readPage = 4096
+
+// usableEnd is how far a reader may go given how far the writer has got.
+//
+// **The page is the unit, not the byte.** A read touching a page pulls the whole
+// page into the cache; if the writer has filled only part of it the rest is
+// zeros, and those zeros are cached and handed back when the real bytes arrive.
+// That is E683's failure at a finer grain and a worse one - it corrupts the
+// middle of a layer rather than stopping the read, and it did:
+// `archive/tar: invalid tar header`, on the second cold build and not the
+// first, because it depends where the writer's announcements happen to fall.
+//
+// The end is the exception. A blob's last page is short by definition, and the
+// only announcement that reaches the final byte is the one the digest releases -
+// so "all of it is there" is the one claim that can be taken at face value.
+func usableEnd(valid, size int64) int64 {
+	if valid >= size {
+		return size
+	}
+
+	return valid &^ (readPage - 1)
+}

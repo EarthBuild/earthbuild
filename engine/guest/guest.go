@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -2768,7 +2769,11 @@ func (s *Server) unpackLayer(req Request) Response {
 			" both required; a blob whose compression nobody stated cannot be read"}
 	}
 
-	blob, err := os.Open(req.Blob)
+	// Per layer, because a stack's unpack is only ever as quick as its largest
+	// member and the aggregate hides which one that is.
+	defer timing.Phase("layer:unpack:guest", req.Blob)()
+
+	blob, err := openBlob(req)
 	if err != nil {
 		return Response{Err: "unpack-layer: " + err.Error()}
 	}
@@ -2949,3 +2954,61 @@ func (s *Server) viewDigests(ctx context.Context, req Request) Response {
 
 	return Response{Reads: digests, Listings: listings}
 }
+
+// blobPatience is how long the guest waits for a growing blob to move.
+//
+// Generous, because the thing on the other end is a network: a slow registry is
+// not a failure and a build that gives up on one is worse than a build that
+// waits. Bounded, because the alternative is a hang with nothing to say - the
+// host writes a failure marker when a fetch dies, and this is only for the case
+// where it dies without managing even that.
+const blobPatience = 5 * time.Minute
+
+// openBlob is a layer's compressed bytes, whether or not the host has finished
+// writing them.
+//
+// **A blob that has landed is opened and read**, which is how it always was. One
+// still arriving is read as it grows: the host says how long it will be, and the
+// guest never reads past what the blob's progress marker reports - pages beyond
+// the writer are zeros, and a cached zero is a zero kept (E683).
+//
+// The digest is not checked here and does not need to be. The host stops the
+// marker one byte short of the end until the bytes verify, so an unpack of a bad
+// layer cannot finish - and a layer that never finishes is never placed, which
+// is the whole of the guarantee.
+func openBlob(req Request) (io.ReadCloser, error) {
+	if req.Growing <= 0 {
+		f, err := os.Open(req.Blob)
+		if err != nil {
+			return nil, err
+		}
+
+		return f, nil
+	}
+
+	g, err := image.OpenGrowing(req.Blob, req.Growing, func(have int64) (int64, error) {
+		return image.AwaitProgress(req.Blob, have, blobPatience)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// **Buffered, because the reader gave up readahead to be correct.** A
+	// growing file is read with readahead off - it is the only way a page the
+	// writer has not reached is not cached as zeros - and the decompressor asks
+	// in small pieces, so without this a 64MB blob becomes thousands of round
+	// trips across the shared mount. One megabyte at a time makes it dozens.
+	return buffered{Reader: bufio.NewReaderSize(g, growingBuffer), close: g.Close}, nil
+}
+
+// growingBuffer is how much of a growing blob is read at once. See openBlob.
+const growingBuffer = 1 << 20
+
+// buffered is a bufio.Reader that closes what it was reading from.
+type buffered struct {
+	*bufio.Reader
+
+	close func() error
+}
+
+func (b buffered) Close() error { return b.close() }

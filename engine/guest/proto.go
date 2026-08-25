@@ -232,6 +232,19 @@ type Request struct {
 	// the rule `decompress` already follows.
 	Media string `json:"media,omitempty"`
 
+	// Growing is the blob's final length, when the host is still writing it.
+	//
+	// **Zero means it has landed**, which is how it always was: the guest opens
+	// the file and reads to the end. Non-zero means the file is already this
+	// long and being filled, so the guest reads only as far as the blob's
+	// progress marker says, and waits rather than treating the end of what has
+	// arrived as the end of the layer.
+	//
+	// The length has to travel because the guest cannot ask the filesystem for
+	// it - the answer across a shared mount is cached, which is what made a
+	// growing file unreadable in the first place (E683).
+	Growing int64 `json:"growing,omitempty"`
+
 	// FromEntry is the entry an observe reply should start at.
 	//
 	// Observe-only. A large observation does not fit in one frame - this

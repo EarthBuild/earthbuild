@@ -128,6 +128,21 @@ type Options struct {
 	// behind it; hand the work to something else if that matters.
 	Fetched func(i int, l FetchedLayer)
 
+	// Fetching, when set, is called as each layer's *file* appears, at its final
+	// length and before any of its bytes are there.
+	//
+	// **So a reader on the other side of a VM can start.** `Fetched` says a
+	// layer has landed, which is too late for a guest that will spend 1.6s
+	// unpacking what took 1.19s to arrive; this says where it will be and how
+	// long it will be, which is all a reader needs to begin (E683).
+	//
+	// The reader must never read past what the blob's progress marker reports -
+	// pages beyond the writer are zeros, and a cached zero is a zero kept. The
+	// marker stops one byte short of the end until the digest verifies, so a
+	// layer cannot be finished, and therefore cannot be placed, before it is
+	// known to be the right layer.
+	Fetching func(i int, l FetchedLayer)
+
 	// Stream unpacks each layer as it arrives rather than after it has landed.
 	// Only meaningful with the layers kept apart - see streamLayerApart - and
 	// ignored by Pull, whose merged unpack E647 measured at no gain.
@@ -1072,6 +1087,10 @@ type FetchedLayer struct {
 	MediaType string
 	// At is where they were written, relative to the root FetchApart was given.
 	At string
+	// Size is the length the manifest declares, which the file already has when
+	// Fetching announces it. A reader needs it to know where the layer ends: it
+	// cannot ask the filesystem, because the answer there is cached (E683).
+	Size int64
 }
 
 // FetchApart fetches an image's layers as blobs and unpacks none of them.
@@ -1105,29 +1124,32 @@ func FetchApart(
 	layers := p.m.Layers
 	out := make([]FetchedLayer, len(layers))
 
-	fetching := newLayerFetch(ctx, p.client, p.tok, p.base, layers)
-
+	// **Every file first, then the bytes.** A reader is told where a layer will
+	// be and how long it will be before any of it arrives, so it can unpack it
+	// as it lands rather than after (E683). Named for the layer rather than its
+	// position: two images sharing a layer share the file, and a second fetch of
+	// one finds it already there under a name that cannot be mistaken for
+	// another's.
 	for i, d := range layers {
-		got := fetching.await(i)
-		if got.err != nil {
-			return nil, ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, got.err)
-		}
-
-		// Named for the layer rather than its position: two images sharing a
-		// layer share the file, and a second fetch of one finds it already
-		// there under a name that cannot be mistaken for another's.
 		at := blobFile(d.Digest)
+		out[i] = FetchedLayer{Digest: d.Digest, MediaType: d.MediaType, At: at, Size: d.Size}
 
-		err = os.WriteFile(filepath.Join(root, at), got.blob, 0o600)
+		err = createSized(filepath.Join(root, at), d.Size)
 		if err != nil {
 			return nil, ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, err)
 		}
 
-		out[i] = FetchedLayer{Digest: d.Digest, MediaType: d.MediaType, At: at}
-
-		if opt.Fetched != nil {
-			opt.Fetched(i, out[i])
+		// A manifest without a length is one nothing can be read from as it
+		// grows, so such a layer is simply not announced early and its reader
+		// waits for `Fetched` as it always did.
+		if opt.Fetching != nil && d.Size > 1 {
+			opt.Fetching(i, out[i])
 		}
+	}
+
+	err = streamLayers(ctx, p, layers, out, root, ref, opt.Fetched, opt.Fetching != nil)
+	if err != nil {
+		return nil, ocispec.ImageConfig{}, err
 	}
 
 	cfg, err := pullConfig(ctx, p.client, p.tok, p.base, p.m.Config, opt.Platform)

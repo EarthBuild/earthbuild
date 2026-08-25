@@ -354,3 +354,33 @@ Flipping it makes a different sandbox, deliberately: the guest reads this at sta
 already running was started with whatever the previous build said (E549).
 
 Default: off.
+
+## `EARTH_STREAM_TO_GUEST`
+
+Lets the guest unpack a layer while the host is still fetching it.
+
+A layer cannot normally be unpacked until its blob has landed, so the largest layer of
+`golang:1.26-alpine` fetches for 1.4s and then unpacks, where nothing about the second depends on
+the first having finished.
+
+**The digest still gates the last byte.** The host announces progress one byte short of the end
+however much has arrived, and only verification releases the rest - so a guest that has taken
+everything it was offered still holds an unfinished layer, and an unfinished layer is never placed.
+A substituted blob therefore cannot be built on however early it was read. That is the same
+guarantee the host's own streaming unpack gets by discarding its directory, arranged to work where
+the reader is on the other side of a VM and cannot be reached after the fact.
+
+**Off because it measures as a wash**, not because it is unsound:
+
+| mode              | cold        | unpack:guest  |
+| ----------------- | ----------- | ------------- |
+| before the change | 5.08  4.94s | 3.458  3.344s |
+| after, off        | 5.74  5.05s | 3.597  3.382s |
+| after, on         | 5.03  5.12s | 3.396  3.499s |
+
+The guest learns how far the fetch has got from a file on the shared mount, and that file is about
+460ms stale - so it spends the fetch waiting on a marker rather than unpacking, and the head start
+and the waiting cancel. It pays the moment progress travels somewhere with no filesystem in it; the
+fault-in socket is the obvious candidate, being guest-to-host already (E688).
+
+Default: off.

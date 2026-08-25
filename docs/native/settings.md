@@ -276,4 +276,16 @@ sandbox does, so layers live as long as the machine rather than as long as a dir
 being able to come straight out of the store, since the host can no longer read it, and falls back
 to the ordinary path.
 
+**Incomplete: a repeat build currently caches nothing.** Both cache tiers ask the host's own
+filesystem whether a layer is there. `Lookup` refuses an entry whose layer `BlobStore.Has` cannot
+find, and the L2 view reads a base's contents to check a prediction against it - so with the layers
+inside the VM every L1 lookup misses and every prediction reads as stale (`/bin/sh is gone from the
+base`). Measured: four steps, `0 hit, 4 miss` on the second and third builds of an unchanged
+Earthfile.
+
+The measured gain above is therefore a **cold-build** number. Until presence and views are asked of
+the guest rather than stat'ed on the host - `KindStoreHas` is the first of those questions and
+already exists - this setting trades every warm build for a faster cold one, which is a bad trade
+for anything but an experiment.
+
 Default: off.

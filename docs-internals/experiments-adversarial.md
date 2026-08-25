@@ -30956,3 +30956,45 @@ makes untrue, so `MayShare` is off when the store is in the VM.
 The volume belongs to the sandbox and goes when it does, so the layer cache now
 lives as long as the machine rather than as long as a directory. Whether that is
 the right trade is not a measurement, and it is why both switches are off.
+
+## E680 - the store moved and the cache stayed behind
+
+E679 measured `EARTH_STORE_IN_VM` at three times on a cold build of
+`golang:1.26-alpine`. A repeat build of the same Earthfile:
+
+```text
+build 2   0 hit, 4 miss, 3 of 4 predictions stale (/bin/sh is gone from the base)
+build 3   0 hit, 4 miss, 3 of 4 predictions stale
+```
+
+**Nothing caches.** Both tiers ask the host's filesystem whether a layer is
+there, and the layers are no longer on it.
+
+* `Lookup` refuses an entry whose layer `BlobStore.Has` cannot find - "a claim
+  whose result is not present is not usable, however well signed". The blob
+  store is `store.DirStore` over the host's root, so every L1 lookup misses.
+* `viewsFor` builds `store.LayerStore(sb.StoreDir())`, a host-side view, so
+  every prediction is checked against an empty base and reads as stale. Hence
+  the message, which is literally true: `/bin/sh` is gone from the base *as the
+  host can see it*.
+
+The `KindStoreHas` comment named this exactly, one question too early:
+
+> a store on a device the guest owns is not on the host's filesystem at all, and
+> a host that stats it reads an empty answer and rebuilds everything it already
+> had.
+
+That is the sentence, and it describes what now happens. Presence has a wire
+question already; a view does not, and it is the larger of the two - checking a
+prediction means reading a base's contents, which is what a manifest is.
+
+### What this does to the headline
+
+E679's three times is a **cold-build** number and stays true. The setting as it
+stands trades every warm build for a faster cold one, which is a bad trade for
+anything but an experiment - and the documentation now says so where somebody
+about to turn it on will read it.
+
+**Found by asking whether the cheap path worked**, two builds after shipping it,
+rather than by anything failing. A build that quietly rebuilds everything looks
+exactly like a build.

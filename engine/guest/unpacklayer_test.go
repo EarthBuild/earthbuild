@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,6 +14,8 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/store"
+
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/klauspost/compress/gzip"
 )
@@ -146,4 +149,85 @@ func aGzippedLayerBlob(t *testing.T) []byte {
 	}
 
 	return gz.Bytes()
+}
+
+// TestAPlacedLayerCarriesTheImagesDeclaration.
+//
+// A layer the guest places has to carry everything a layer carries, and the
+// configuration is the part the host used to file itself with `AdoptConfig` -
+// which it cannot do on a device it does not have.
+//
+// The property that matters is not that a file arrived. It is that the
+// declaration the store derives from it is the one the host would have derived
+// from the same configuration in hand (`DeclarationOf`), because a stack element
+// named one way and looked up the other is two elements for one image (§3.2a).
+func TestAPlacedLayerCarriesTheImagesDeclaration(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	blob := filepath.Join(dir, "layer.tar.gz")
+
+	err := os.WriteFile(blob, aGzippedLayerBlob(t), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := ocispec.ImageConfig{
+		Env:        []string{"PATH=/usr/local/bin:/usr/bin", "LANG=C.UTF-8"},
+		WorkingDir: "/src",
+		Entrypoint: []string{"/entry"},
+	}
+
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	root := t.TempDir()
+	c := pairWith(t, &guest.Server{LayerDir: root})
+
+	id, err := c.UnpackLayerWithConfig(context.Background(), blob,
+		"application/vnd.oci.image.layer.v1.tar+gzip", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := store.DirStore(root).Declaration(id)
+
+	want := store.DeclarationOf(cfg)
+	if want == (ir.NodeID{}) {
+		t.Fatal("the fixture declares nothing, so this test would pass vacuously")
+	}
+
+	if got != want {
+		t.Fatalf("the placed layer declares %v and the configuration says %v", got, want)
+	}
+}
+
+// TestALayerWithNoConfigurationDeclaresNothing: an image that says nothing is
+// the ordinary case, and it must not leave an empty sidecar that later reads as
+// a declaration of emptiness.
+func TestALayerWithNoConfigurationDeclaresNothing(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	blob := filepath.Join(dir, "layer.tar.gz")
+
+	err := os.WriteFile(blob, aGzippedLayerBlob(t), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	root := t.TempDir()
+	c := pairWith(t, &guest.Server{LayerDir: root})
+
+	id, err := c.UnpackLayer(context.Background(), blob,
+		"application/vnd.oci.image.layer.v1.tar+gzip")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.DirStore(root).Declaration(id); got != (ir.NodeID{}) {
+		t.Errorf("a layer placed without a configuration declares %v", got)
+	}
 }

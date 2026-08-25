@@ -107,7 +107,20 @@ func (c *Client) PackImage(
 // sequential read, which a shared mount is perfectly good at, where the tree is
 // fifteen thousand small writes, which it is not. See KindUnpackLayer.
 func (c *Client) UnpackLayer(ctx context.Context, blob, media string) (ir.NodeID, error) {
-	resp, err := c.do(ctx, Request{Kind: KindUnpackLayer, Blob: blob, Media: media})
+	return c.UnpackLayerWithConfig(ctx, blob, media, nil)
+}
+
+// UnpackLayerWithConfig is UnpackLayer, filing an image's configuration beside
+// the layer it places.
+//
+// Nil declares nothing, which is the ordinary case: most layers of most images
+// carry no configuration, and only the one a `FROM` stands on does.
+func (c *Client) UnpackLayerWithConfig(
+	ctx context.Context, blob, media string, config []byte,
+) (ir.NodeID, error) {
+	resp, err := c.do(ctx, Request{
+		Kind: KindUnpackLayer, Blob: blob, Media: media, Config: config,
+	})
 	if err != nil {
 		return ir.NodeID{}, err
 	}

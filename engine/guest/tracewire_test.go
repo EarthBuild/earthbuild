@@ -89,9 +89,12 @@ func fill(v reflect.Value) bool {
 		v.SetBool(true)
 	case reflect.String:
 		v.SetString("x")
-	case reflect.Int, reflect.Int32, reflect.Int64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		v.SetInt(7)
-	case reflect.Uint, reflect.Uint32, reflect.Uint64:
+	// Uint8 among them so that a `[]byte` field is filled through the slice
+	// case above rather than reported as unknown - which is what a request
+	// carrying an image's configuration is.
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		v.SetUint(7)
 	case reflect.Slice:
 		e := reflect.New(v.Type().Elem()).Elem()

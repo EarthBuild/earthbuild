@@ -2763,6 +2763,14 @@ func (s *Server) unpackLayer(req Request) Response {
 		st.NoteUnmarked(id)
 	}
 
+	// Beside the layer, under the name the store looks for. Best effort, as
+	// `AdoptConfig` is: a configuration that cannot be filed costs the
+	// environment an image asked for, which is a build that behaves as it did
+	// before declarations existed, where failing the FROM would be no build.
+	if len(req.Config) > 0 {
+		_ = os.WriteFile(st.LayerPath(id)+store.ConfigSuffix, req.Config, 0o600)
+	}
+
 	return Response{Layer: id.String()}
 }
 

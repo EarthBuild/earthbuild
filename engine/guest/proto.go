@@ -183,6 +183,20 @@ type Request struct {
 	// this guest can read. Unpack-layer only.
 	Blob string `json:"blob,omitempty"`
 
+	// Config is the image configuration to file beside the layer, as the JSON
+	// an OCI image carries. Unpack-layer only, and optional.
+	//
+	// **A layer carries what a layer carries, and the host can no longer file
+	// it.** `AdoptConfig` moves a sidecar into place on the store's own
+	// filesystem, which is not available to a host whose store is on the
+	// guest's device. Sent rather than written, because it is a few hundred
+	// bytes where the tree it describes is megabytes.
+	//
+	// Absent means the image declares nothing, which is the ordinary case and
+	// must not leave an empty sidecar - "declares nothing" is the absence of a
+	// declaration rather than a declaration of emptiness (§3.2a).
+	Config []byte `json:"config,omitempty"`
+
 	// Media is how those bytes are compressed. Unpack-layer only.
 	//
 	// Required rather than sniffed: a blob whose content disagrees with its

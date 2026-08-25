@@ -131,7 +131,11 @@ func main() {
 		doPin    = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
 		long     = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
 		prune    = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
-		args     buildArgs
+		noOutput = flag.Bool("no-output", false,
+			"do not write SAVE ARTIFACT AS LOCAL artifacts to the working tree")
+		ci = flag.Bool("ci", false,
+			"execute in CI mode; implies -no-output (this engine is already strict)")
+		args buildArgs
 		// Maps are made here rather than on first use: `flag.Var` hands the
 		// value a pointer and calls Set on it, and Set on a nil map panics.
 		secrets         = secretList{}
@@ -222,7 +226,13 @@ func main() {
 		Secrets:     secrets,
 		SecretFiles: secretFilePaths,
 		DryRun:      *dryRun,
-		Out:         os.Stdout,
+		// **`--ci` means `--no-output --strict`.** Strict is what this engine
+		// already is: it refuses what it cannot reproduce rather than offering
+		// the choice (I10), so there is nothing for the flag to switch on. What
+		// remains is leaving the working tree alone, which is the half a build
+		// machine actually wants.
+		NoOutput: *noOutput || *ci,
+		Out:      os.Stdout,
 	})
 	if err != nil {
 		// Bare, with no "error:" prefix: these diagnostics are written to be read

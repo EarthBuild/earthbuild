@@ -42,6 +42,13 @@ const writerName = "earthbuild"
 // engine itself. A caller that had to answer those would be a caller that has
 // to be updated whenever the engine learns a new one.
 type Options struct {
+	// NoOutput leaves `SAVE ARTIFACT ... AS LOCAL` unwritten.
+	//
+	// What `--ci` is for: a build machine wants the steps run and the cache
+	// filled, not the working tree changed. `--ci` means `--no-output --strict`,
+	// and strict is what this engine already is - it refuses what it cannot
+	// reproduce (I10) - so this is the half that needed building.
+	NoOutput bool
 	// Dir holds the Earthfile and is the build context.
 	Dir string
 	// Target to build.
@@ -588,6 +595,13 @@ func runPlan(
 }
 
 func exportAll(ctx context.Context, o Options, e *exec.Executor, s *core.Scheduler, plan *interp.Plan) error {
+	// **Before anything is looked up, not per artifact.** The steps still ran
+	// and the cache is still filled; the only thing withheld is the write to
+	// somebody's working tree.
+	if o.NoOutput {
+		return nil
+	}
+
 	for _, a := range plan.Artifacts {
 		if a.LocalDest == "" {
 			continue

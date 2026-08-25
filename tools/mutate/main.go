@@ -286,7 +286,17 @@ func run(root string, m Mutant, timeout time.Duration, compileOnly bool) (verdic
 		return verdictNoCompile, firstLine(text, "declared and not used", "undefined:")
 
 	case err == nil:
-		return verdictSurvived, ""
+		// **A survivor is re-run to find out whether anything ran.** `go test`
+		// fails when a test notices a mutant, so silence reads as "nothing
+		// noticed" - and a skipped test is silent in exactly the same way. A
+		// container without user namespaces skips every `nstest.In` test and
+		// turns a well-guarded mechanism into a false report of an unguarded
+		// one; that happened to `guest: chrooting a confined step (A3, I10)`
+		// before this existed.
+		//
+		// Only survivors pay for the second run, which is the case where the
+		// answer matters and, in a healthy catalogue, the rare one.
+		return verdictSurvived, survivorNote(ctx, root, m, timeout)
 
 	default:
 		return verdictKilled, firstLine(text, "--- FAIL")
@@ -304,4 +314,56 @@ func firstLine(text string, marks ...string) string {
 	}
 
 	return ""
+}
+
+// skipped counts the tests a run skipped, and names the first.
+//
+// Line-oriented rather than `-json`, because the verbose output is what the
+// rest of this tool already reads and a second format is a second thing to get
+// wrong. A subtest's skip is indented and counts the same: the parent reports
+// PASS either way, and the mechanism was not exercised.
+func skipped(text string) (int, string) {
+	const mark = "--- SKIP: "
+
+	count, first := 0, ""
+
+	for line := range strings.SplitSeq(text, "\n") {
+		_, after, found := strings.Cut(line, mark)
+		if !found {
+			continue
+		}
+
+		name, _, _ := strings.Cut(after, " ")
+		if count == 0 {
+			first = name
+		}
+
+		count++
+	}
+
+	return count, first
+}
+
+// survivorNote re-runs a survivor verbosely and says what was skipped.
+//
+// Empty when nothing was, which is the ordinary case and means the verdict
+// stands: tests ran and none of them noticed.
+func survivorNote(ctx context.Context, root string, m Mutant, timeout time.Duration) string {
+	//nolint:gosec // G204: the package comes from the catalogue
+	cmd := exec.CommandContext(ctx, "go", "test", m.Package, "-count=1", "-v",
+		"-timeout", timeout.String())
+	cmd.Dir = root
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return ""
+	}
+
+	count, first := skipped(string(out))
+	if count == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("%d test(s) skipped here, starting with %s"+
+		" - this may be a mutant nothing ran rather than one nothing noticed", count, first)
 }

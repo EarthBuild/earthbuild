@@ -1713,6 +1713,10 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// phase covers the whole round trip and could not tell that apart from the
 	// command's own time, which is the difference between an engine that is
 	// slow and a step that is.
+	// The whole request, so that what is left when prepare and exec are taken
+	// off it is the teardown - which runs in defers and is otherwise invisible.
+	defer timing.Phase("guest:request", req.Handle)()
+
 	endPrepare := timing.Phase("guest:prepare", req.Handle)
 
 	h, ok := s.get(req.Handle)

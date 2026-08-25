@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // waitFor blocks until a path the sandbox provides exists.
@@ -115,25 +117,42 @@ func bindMounts(root, store, layers string, mounts []Mount) (undo func(), err er
 	var touched []directoryAsFound
 
 	unmount := func() {
+		// Teardown is the mirror of the bind and costs about as much, which was
+		// invisible until it was split: it runs in a defer, so the host's `run`
+		// phase covered it and nothing else did.
+		defer timing.Phase("guest:unbind", "")()
+
+		endDetach := timing.Phase("guest:unbind:umount", "")
+
 		// Reverse order: a mount inside another has to go first, and the list is
 		// applied outermost-first.
 		for i := range slices.Backward(done) {
 			unmountAll(done[i])
 		}
 
+		endDetach()
+
 		// Copied back before anything is removed, so what the step added to a
 		// persisted cache survives to the next build. Errors are dropped: the
 		// step has already run and succeeded, and failing it now for a cache
 		// that could not be written back would discard work that was done.
+		endPersist := timing.Phase("guest:unbind:persist", "")
+
 		for _, pair := range persisted {
 			_ = copyTree(pair[0], pair[1], copyOpts{})
 		}
 
+		endPersist()
+
 		// Removed after the unmount, so a credential does not outlive the step
 		// that was given it.
+		endStaged := timing.Phase("guest:unbind:staged", "")
+
 		for _, dir := range staged {
 			_ = os.RemoveAll(dir)
 		}
+
+		endStaged()
 
 		// A mount point this engine created is taken away again, so it does not
 		// end up in the step's layer.
@@ -147,15 +166,23 @@ func bindMounts(root, store, layers string, mounts []Mount) (undo func(), err er
 		// Deepest first, and only when empty - `os.Remove` on a non-empty
 		// directory fails, which is exactly the guard wanted: a mount point the
 		// image already had keeps whatever the image put in it.
+		endCreated := timing.Phase("guest:unbind:created", "")
+
 		for i := range slices.Backward(created) {
 			_ = os.Remove(created[i])
 		}
 
+		endCreated()
+
 		// After the removals, because what is being asked is whether the
 		// directory ends as it began.
+		endTouched := timing.Phase("guest:unbind:touched", "")
+
 		for _, d := range touched {
 			d.restore()
 		}
+
+		endTouched()
 	}
 
 	for _, m := range mounts {

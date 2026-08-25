@@ -8974,3 +8974,95 @@ Per-file reads 219µs to 64µs; host descriptors from one per entry walked to on
 device nodes and mtimes native rather than lost, which closes E84, E88, E94 and E89 as a side effect.
 Four defects with one cause, fixed by one change - which is the argument for spending a fortnight on
 it rather than an afternoon on each.
+
+## Parked: one directory per image layer, assembled by mount
+
+`engine/image` unpacks every layer of an image into **one** directory, oldest
+first, applying `.wh.` markers by deleting (`engine/image/whiteout.go`). That is
+why unpacking has to be ordered, and it is a choice of this puller rather than a
+property of images: overlayfs exists to stack layers that were never merged.
+
+If each OCI layer became its own store entry, then:
+
+* **unpacking is unordered and parallel** - nothing about one layer depends on
+  another, and assembly is a mount rather than a copy. Ordering moves into the
+  option string: "The specified lower directories will be stacked beginning from
+  the rightmost one and going left" (`Documentation/filesystems/overlayfs.rst`).
+* **layers dedupe across images.** Today `ImageCacheKey(ref, platform)` names one
+  flattened rootfs per image, so `alpine:3.22` and `golang:1.26-alpine` share
+  nothing on disk.
+
+### What the kernel actually allows, read rather than recalled
+
+* `#define OVL_MAX_STACK 500` - `fs/overlayfs/params.h:20`. Exceeding it is
+  `"too many lower directories, limit is %d"` and `-EINVAL`.
+* **500 is not the binding limit here.** `mount(2)` copies its options through
+  `copy_mount_options()`, which `kmalloc(PAGE_SIZE, ...)` and copies at most
+  that (`fs/namespace.c:4046`) - so every lowerdir path is charged against 4096
+  bytes. `farm.go` already says so: a layer named by digest costs 98 bytes, and
+  41 of them overflow. Hence the symlink farm and `/proc/self/fd/N` shortening.
+* **The escape exists and is not taken.** The new mount API accepts one lower
+  per call: `fsparam_file_or_string("lowerdir+", Opt_lowerdir_add)`
+  (`fs/overlayfs/params.c:163`) - by string *or by file descriptor*, so neither
+  a page nor a path length applies. This engine mounts with classic
+  `unix.Mount("overlay", ...)` (`overlay_linux.go:279`).
+
+### What it would cost
+
+* **Whiteouts must be converted, not applied.** A deleted path becomes "a
+  character device with 0/0 device number or ... a zero-size regular file with
+  the xattr `trusted.overlay.whiteout`" - the second form matters because
+  `mknod` needs privilege the guest does not have. `userxattr` moves the
+  namespace to `user.overlay.*`, which this engine already uses
+  (`lowerhint.go`), and `.wh..wh..opq` becomes the opaque xattr, already
+  handled.
+* **Every `FROM` gets deeper.** A five-layer image makes a step's base five
+  elements instead of one, and depth has a measured per-step cost (E635-E641).
+  Cheaper since the delta fix, not free.
+
+Unmeasured. Worth a prototype before it is worth an argument.
+
+### What overlayfs has gained, and what this engine may use
+
+Read from `fs/overlayfs` history rather than recalled:
+
+* **Data-only lower layers** (2023-04: `ovl: introduce data-only lower layers`,
+  `implement lookup in data-only layers`, `implement lazy lookup of lowerdata`)
+  with **fs-verity** alongside them (2023-04/06). Spelled `lowerdir=/l1:/l2::/do1`
+  * a double colon - and via `datadir+` under the new mount API since v6.8. The
+  data-only layers are invisible in the merged tree; a `metacopy` file above
+  them carries a `redirect` to the data. **This is the pre-assembly mechanism**:
+  a metadata layer plus content-addressed data, mounted rather than unpacked,
+  and it is what `composefs` is built on.
+* **The new mount API** (2023-06: `ovl: port to new mount api`), which is what
+  makes `lowerdir+`/`datadir+` possible at all.
+* **Idmapped overlay mounts** (2026-06: `ovl: allow idmapping overlay mounts`,
+  plus `ovl_permission`/`getattr`/`setattr`/`set_acl` handling). A layer can be
+  presented with shifted ownership without being rewritten - which is the
+  problem E446 is about.
+* **Case-folding layers** (2025-06/08), which is the Linux-side shape of the
+  case-insensitivity note this engine already prints on macOS.
+
+**The catch, and it is a hard one.** `fs/overlayfs/params.c:988` reads
+"Resolve userxattr -> !redirect && !metacopy dependency": `userxattr` turns
+both off. Data-only layers are built on metacopy and redirect, so **the
+pre-assembled path is unavailable to an unprivileged overlay mount**. This
+engine already probes which world it is in - `needsUserXattr` tries to set
+`trusted.overlay.*` on the scratch filesystem and falls back to `user.overlay.*`
+
+* so the answer is "only where the probe says trusted xattrs work", which in
+the VM sandbox it may well.
+
+### Measured and not taken
+
+`volatile` omits "all forms of sync calls to the upper filesystem", and a build
+step's upper is the definition of recreatable. On a write-heavy step (240 MB of
+`dd` plus three thousand small files) it was 5.15s and 5.21s against 5.31s and
+5.40s - about 3%, and inside the noise of a VM whose disk is a host file. Not
+worth the durability argument, and worth recording so nobody re-derives it.
+
+Also not taken, for the same reason: the mount itself is no longer a cost.
+`mat:stack` measures 0.1ms per step, so option tuning aimed at the *mount* is
+aimed at the wrong thing. What remains expensive is what happens *through* the
+mount - copy-up, and reading a directory across every lower layer - which is
+where E639-E641 went.

@@ -1426,9 +1426,16 @@ func (s *Scheduler) finish(n *ir.Node, base []ir.NodeID, res Result, rec StepRec
 
 	s.done[n.ID()] = res
 
+	// A zero identity is "no layer", exactly as it is "no declaration" below:
+	// the empty base produces one, and pushing it would make every stack above
+	// it name an element the store can never hold.
+	stack := base
+	if res.Layer != (ir.NodeID{}) {
+		stack = pushLayer(base, res.Layer)
+	}
+
 	// Above the layer it came with, because a declaration applies to what comes
 	// after it exactly as a layer does.
-	stack := pushLayer(base, res.Layer)
 	if res.Declares != (ir.NodeID{}) {
 		stack = pushLayer(stack, res.Declares)
 	}

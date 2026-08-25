@@ -29206,3 +29206,46 @@ manage. That is a simplification to make deliberately, not a performance change
 to claim.
 
 Reverted, not committed.
+
+## E648 - what a deeper stack costs, and when per-layer images would pay
+
+E646 priced the benefit of storing an image as one directory per layer: up to
+38% of its unpack, once, when no single layer dominates. This is the other side
+of the ledger, because that change makes every step above the image stand on a
+deeper stack.
+
+Ten identical steps run on a two-layer base and on a twenty-two-layer one, same
+cache, same machine:
+
+```text
+on-shallow   10 steps   step 30.8ms each   guest:bind 1.7ms
+on-deep      10 steps   step 44.3ms each   guest:bind 6.1ms
+```
+
+**0.67ms per layer per step**, of which 0.22ms is binding. Much cheaper than
+before E640 - the delta fix took the merged-directory reads out of it - and not
+free.
+
+Both figures carry the same one-off sandbox boot averaged across ten steps, so
+neither absolute number means much (E643); the *difference* is the depth cost
+and is what matters here.
+
+So the trade is arithmetic:
+
+```text
+image adds  unpack saving   break-even
+ 4 layers        0.5s        185 steps
+ 9 layers        0.5s         82 steps
+ 4 layers        1.2s        444 steps
+```
+
+**Per-layer image storage pays for any build shorter than about eighty steps**,
+and for most builds by a wide margin. It stops paying for very long builds on
+many-layered images, which is the case to keep in mind rather than the case to
+design for.
+
+Worth noting what this does to `MaxStackDepth`. Today a `FROM` contributes one
+element and 𝑛ₘₐₓ is 480; under per-layer storage a ten-layer image contributes
+ten, so the same Earthfile reaches the collapse threshold ten times sooner. The
+threshold was chosen from overlayfs's own limit (E639), and the option-page
+ceiling of about eighty layers by short name is nearer than either.

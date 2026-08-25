@@ -20,6 +20,7 @@ import (
 	"lukechampine.com/blake3"
 
 	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/mat/overlay"
 	"github.com/EarthBuild/earthbuild/engine/timing"
 )
@@ -188,7 +189,7 @@ func SandboxNameWith(image, guestDir, store, memory string, command []string) st
 	for _, part := range append(
 		[]string{
 			image, guestDir, store, memory, guestFast,
-			idleSetting(), scratchTmpfsSetting(), storeSetting(), pinSetting(),
+			idleSetting(), scratchTmpfsSetting(), storeSetting(), pinSetting(), digestSetting(),
 		},
 		command...) {
 		fmt.Fprintf(h, "%d:%s", len(part), part)
@@ -541,6 +542,11 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	// sandbox's name: see pinSetting.
 	if on := os.Getenv(guest.EnvTracePin); on != "" {
 		args = append(args, "-e", guest.EnvTracePin+"="+on)
+	}
+
+	// Read by the unpacker, which now runs on the far side of this wall.
+	if on := os.Getenv(image.EnvNoKnownDigests); on != "" {
+		args = append(args, "-e", image.EnvNoKnownDigests+"="+on)
 	}
 
 	args = append(args, a.name, "/earth/"+filepath.Base(guestBin))
@@ -1093,3 +1099,12 @@ func storeSetting() string { return os.Getenv(guest.EnvStoreInVM) }
 // under the new name, which is how a measurement comes out saying nothing
 // changed (E549).
 func pinSetting() string { return os.Getenv(guest.EnvTracePin) }
+
+// digestSetting is whether this invocation asked the unpacker to hand its
+// digests on or let the store read the tree back.
+//
+// In the name for the reason pinSetting is: the guest reads it when it unpacks,
+// and a machine already running was started under whatever the previous build
+// said. An A/B where both arms reuse one machine reports that the switch does
+// nothing, which reads exactly like a switch that does nothing (E682).
+func digestSetting() string { return os.Getenv(image.EnvNoKnownDigests) }

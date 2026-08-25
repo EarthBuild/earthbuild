@@ -31176,5 +31176,26 @@ there is not amortised by unpacking five at once. Whether 785ms serial beats
 958ms parallel on four vCPUs is the question, and answering it needs the switch
 forwarded into the guest, which it is not.
 
-**[GAP]** The switch reaches the host unpacker and not the guest one, so the
-comparison E653 asks for cannot be run on the path that now does the work.
+The switch now reaches the guest, and the comparison runs. Cold builds of
+`golang:1.26-alpine`, two of each arm, and the two paths do not agree:
+
+| path  | arm       | unpack phase   | FROM step      |
+| ----- | --------- | -------------- | -------------- |
+| guest | inline    | 4.162s  4.019s | 5.497s  5.400s |
+| guest | read-back | 3.630s  3.647s | 4.999s  5.013s |
+| host  | inline    | 0.394s  0.424s | 6.617s  6.698s |
+| host  | read-back | 0.816s  0.838s | 6.536s  6.732s |
+
+**E653's answer holds for the host and reverses in the guest.** On the host the
+read-back doubles the placing phase and the step total does not move - the
+inline cost was simply paid in a different phase, which is what "a wash" meant.
+In the guest the read-back is 0.4s faster on the FROM, about 8%.
+
+The arithmetic agrees with the decomposition above: 785ms of serial hashing
+removed, roughly 385ms of parallel read-back added.
+
+**The default is therefore a decision and not a measurement.** Read-back wins
+where the store now lives and costs nothing where it used to, so flipping looks
+free - but the switch is spelt as a negative (`EARTH_NO_KNOWN_DIGESTS`), and a
+default that no longer matches its own name is how the next reader is misled.
+Flipping it wants the rename, and the rename wants asking.

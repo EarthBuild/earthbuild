@@ -92,6 +92,15 @@ type Owner struct {
 	UID, GID uint32
 }
 
+// EnvNoKnownDigests makes the unpacker hand on no digests, so the store reads
+// the tree back to name it.
+//
+// E653's switch, named rather than spelt out at its one use because it now has
+// two ends: with the store on the guest's device the unpack happens there, so
+// comparing the two arms means getting this across the sandbox wall - and a
+// switch the guest never sees makes both arms the same arm (E682).
+const EnvNoKnownDigests = "EARTH_NO_KNOWN_DIGESTS"
+
 func unpackApart(r io.Reader, dir string) (Unpacked, error) {
 	out := Unpacked{Digests: map[string]Digest{}, Owners: map[string]Owner{}}
 
@@ -99,7 +108,7 @@ func unpackApart(r io.Reader, dir string) (Unpacked, error) {
 	// but pays for it inline, in the one goroutine handling this layer, while
 	// the read-back it replaces runs across every core. Which way that lands is
 	// what is being measured; remove this switch once it is known.
-	if os.Getenv("EARTH_NO_KNOWN_DIGESTS") != "" {
+	if os.Getenv(EnvNoKnownDigests) != "" {
 		out.Digests = nil
 	}
 	err := unpackInto(r, dir, true, &out)

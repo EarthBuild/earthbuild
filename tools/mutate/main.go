@@ -55,6 +55,11 @@ type pending struct {
 
 var held atomic.Pointer[pending]
 
+// writeSource is os.WriteFile, named so that a test can observe the moment a
+// mutant lands on disk. The order of that moment against `holding` is the
+// promise this tool makes about never leaving a mutant behind.
+var writeSource = os.WriteFile
+
 // holding records what to put back if this process does not finish.
 func holding(path string, src []byte) { held.Store(&pending{path: path, src: src}) }
 
@@ -185,11 +190,11 @@ func run(root string, m Mutant, timeout time.Duration, compileOnly bool) (verdic
 
 	// The path comes from the catalogue, which is a literal in this repository
 	// and not anybody's input (gosec G703).
-	err = os.WriteFile(path, []byte(mutant), 0o600) //nolint:gosec // a path from the catalogue
-	if err != nil {
-		return verdictAnchor, err.Error()
-	}
-
+	// **Registered before the write, not after.** `os.WriteFile` truncates
+	// before it writes, so a write that fails part of the way through leaves
+	// the file damaged - and registering afterwards means that failure returns
+	// with a mutant on disk and nothing that knows how to put it back. The
+	// signal handler is blind for the same window.
 	holding(path, src)
 
 	// **Restored whatever happens**, including a panic in this process: a sweep
@@ -200,6 +205,11 @@ func run(root string, m Mutant, timeout time.Duration, compileOnly bool) (verdic
 	// killed, which is exactly how an interrupted sweep ends. `holding` above
 	// and the signal handler in `main` cover that; this covers the rest.
 	defer putBack()
+
+	err = writeSource(path, []byte(mutant), 0o600)
+	if err != nil {
+		return verdictAnchor, err.Error()
+	}
 
 	// **Bounded twice, because the two bounds catch different failures.**
 	// `-timeout` is go test's own and stops a *test* that hangs, reporting

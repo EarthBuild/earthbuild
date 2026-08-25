@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/tmc/go-iroh/iroh"
 	"github.com/tmc/go-iroh/netaddr"
@@ -576,8 +577,16 @@ func readFragment(r io.Reader, id ir.NodeID) (manifest, packed []byte, err error
 // no context, so a peer whose machine vanished after the stream was opened would
 // block until QUIC gave up on the connection - tens of seconds, once per step
 // (E256). A deadline on the stream is what actually applies it.
-func bound(ctx context.Context, st *iroh.Stream) {
+// Takes what it needs rather than the concrete stream, so that the rule can be
+// asserted without a peer: a mutant that stopped calling SetDeadline survived a
+// full sweep, because nothing here could observe the call. An interface with one
+// method is the smallest thing that makes "it applied the deadline" a question a
+// test can ask.
+func bound(ctx context.Context, st deadliner) {
 	if dl, ok := ctx.Deadline(); ok {
 		_ = st.SetDeadline(dl)
 	}
 }
+
+// deadliner is what bound needs of a stream, which is one method.
+type deadliner interface{ SetDeadline(time.Time) error }

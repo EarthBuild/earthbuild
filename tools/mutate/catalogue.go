@@ -213,11 +213,18 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
+		// Linux only, because the guard is. The test counts the bytes this
+		// process read, out of `/proc/self/io` - a count is exact where a clock
+		// is a ratio of two clocks (E350) - and darwin has no equivalent:
+		// `getrusage` counts block operations, which a page-cached read does
+		// not perform. So the test skips there, and a mutant nothing runs
+		// against reads as one nothing caught.
 		Name:        "layer: a fragment reading only the files it was asked for (E337, E338)",
 		File:        "engine/layer/pack.go",
 		Anchor:      "\tentries, _, err := walkNeeding(root, len(want) == 0, nil)",
 		Replacement: "\tentries, _, err := walkNeeding(root, true, nil)",
 		Package:     "./engine/fleet/",
+		OS:          "linux",
 	},
 	{
 		Name:        "interp: checking a cache name before it becomes a directory (E358)",

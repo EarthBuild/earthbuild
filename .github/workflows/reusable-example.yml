@@ -21,7 +21,7 @@ on:
       EXAMPLE_NAME:
         required: true
         type: string
-      EARTHLY_ORG:
+      EARTH_ORG:
         required: false
         type: string
       SKIP_JOB:
@@ -59,7 +59,7 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_ORG: "${{inputs.EARTHLY_ORG}}"
+      EARTH_ORG: "${{inputs.EARTH_ORG}}"
       DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
       DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
       # Used in our github action as the token - TODO: look to change it into an input
@@ -85,17 +85,19 @@ jobs:
           # We don't use android, ghc or dotnet locally, only via containers.
           # Deleting android frees up 9.8G
           sudo rm -rf /usr/local/lib/android /opt/ghc /usr/share/dotnet
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Link Earthly dir to Earthly dev dir
         run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
       - name: Build ${{inputs.EXAMPLE_NAME}} (PR build)
         # -P is --allow-privileged, required by examples that use
         # WITH DOCKER RUN (e.g. +examples-4/grpc).
-        if: github.event_name != 'push'
+        # On push events to main, only Docker pushes images to Docker Hub;
+        # other frontends (e.g. Podman) run the non-push build.
+        if: github.event_name != 'push' || inputs.BINARY != 'docker'
         run: |
           # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
           scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" \
@@ -106,7 +108,7 @@ jobs:
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
           INPUTS_EXAMPLE_NAME: ${{inputs.EXAMPLE_NAME}}
       - name: Build ${{inputs.EXAMPLE_NAME}} (main build)
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && inputs.BINARY == 'docker'
         run: |
           # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
           scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" \

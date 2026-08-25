@@ -18,7 +18,8 @@ If you're interested in understanding why the community fork is happening, [this
 
 </div>
 
-[![GitHub Actions CI](https://github.com/earthbuild/earthbuild/workflows/staging%20release/badge.svg)](https://github.com/earthbuild/earthbuild/actions?query=workflow%3A%22staging%20release%22+branch%3Amain)
+[![CI](https://github.com/EarthBuild/earthbuild/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EarthBuild/earthbuild/actions/workflows/ci.yml?query=branch%3Amain)
+[![Staging Release](https://github.com/EarthBuild/earthbuild/actions/workflows/ci-staging-deploy.yml/badge.svg?branch=main)](https://github.com/EarthBuild/earthbuild/actions/workflows/ci-staging-deploy.yml?query=branch%3Amain)
 [![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://www.earthbuild.dev/slack)
 [![Docs](https://img.shields.io/badge/docs-earthbuild.dev-blue)](https://docs.earthbuild.dev)
 [![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://www.earthbuild.dev)

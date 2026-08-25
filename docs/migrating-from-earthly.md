@@ -91,6 +91,10 @@ Release assets are now named `earth-<os>-<arch>` rather than `earthly-<os>-<arch
 `earth-linux-amd64`). Scripts that download a pinned asset URL — including
 `releases/latest/download/earthly-...` links — need updating.
 
+### Earth Directory Name Change
+
+The Earthly directory (for config, etc.) has been renamed from `~/.earthly` to `~/.earth`.
+
 ## Removed Features and Alternatives
 
 The following commands and flags, mostly related to Earthly Cloud, have been removed.
@@ -122,6 +126,13 @@ The following commands and flags, mostly related to Earthly Cloud, have been rem
 - `--auth-token`: This flag has been removed since it was used for authenticating with Earthly Cloud. For registry authentication, use standard Docker authentication methods.
 - The binary name in help texts and other places is now `earth` instead of `earthly`.
 
+### Removed Config File Options
+
+- `disable_log_sharing`: Removed. There is no cloud provider to share logs with anymore.
+- `disable_analytics`: Removed. There are no analytics to collect/share anymore.
+
+These options are simply ignored if present.
+
 ### Environment Variable Changes
 
 All `EARTHLY_*` environment variables have been renamed to `EARTH_*` to reflect the project's new identity. The following environment variables are affected:
@@ -150,6 +161,14 @@ log a warning; we are collecting feedback on whether to remove them in the futur
 - `GIT_USERNAME` - Git authentication username
 - `GIT_PASSWORD` - Git authentication password
 - `GITHUB_ACTIONS` - GitHub Actions environment detection
+
+### Buildkitd Container Name Changes
+
+The buildkitd container name has changed from `earthly-buildkitd` to `earth-buildkitd`.
+
+### Buildkitd Cache Volume Changes
+
+The buildkitd cache volume name has changed from `earthly-cache` to `earth-cache`.
 
 ---
 

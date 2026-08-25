@@ -195,6 +195,18 @@ func runObserved(
 
 		close(finished)
 
+		// **What the round trips were paid for.** A traced path call costs
+		// 2.2µs when the stopped thread and the answering thread share a CPU
+		// and 45µs when they do not, and pinning both costs a four-way parallel
+		// step 2.9x (E681, E685). Which way that trade falls depends on how many
+		// calls a real build makes, and the argument has been conducted entirely
+		// on microbenchmarks because nothing counted them.
+		//
+		// Only when asked: it is one line per step and a build has many.
+		if os.Getenv(timing.Env) != "" {
+			fmt.Fprintf(os.Stderr, "earth: traced %d path calls\n", tr.Handled())
+		}
+
 		// **A file this engine could not obtain fails the step**, and it has to
 		// be checked here because the step itself cannot tell: it asked for a
 		// file, was handed "no such file", and took the other branch (E289).

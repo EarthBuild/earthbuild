@@ -31789,3 +31789,49 @@ two repositories can never be handed each other's credential.
 Counted rather than timed, because the machine could not be made quiet enough to
 time anything (E691): four resolutions of one repository fetched four tokens and
 now fetch one.
+
+## E693 - how many traced calls a real build makes
+
+E685 left the pinning default open and said choosing needed a corpus. The
+argument had been conducted entirely on microbenchmarks because nothing counted
+what a build actually does. `Tracer.Handled` counts it, and a cold `+earthly`
+says:
+
+```text
+step   traced calls
+           180
+        66,527
+            11
+            13
+            17
+       117,841
+  ── 184,589 across six steps
+```
+
+Two steps are the whole of it, and both are compilations.
+
+**The arithmetic is not small.** Measured through the engine rather than in a
+microbenchmark, a traced path call costs 61µs unpinned and 6.2µs pinned (E681):
+
+```text
+184,589 calls   unpinned   ~11.3s
+                pinned      ~1.1s
+```
+
+against a cold build of about 43s. So the tracer is roughly a quarter of it, and
+pinning would return most of that.
+
+**Which does not settle the default, and it is worth being precise about why.**
+The two steps making the calls are `go build`, which is also the parallel work
+pinning costs 2.9x (E685). Saving ten seconds of round trips while confining a
+sixteen-core compile to one core may well lose more than it gains, and nothing
+here says which - the counting is load-robust and the comparison is not, and the
+machine this was measured on ran at a load average of 45.
+
+The instrument is the contribution. `EARTH_TIMINGS` now reports the count per
+step, so the question can be settled on a quiet machine with
+`scripts/benchmark-earthly.sh` and `EARTH_TRACE_PIN`, against a build that
+matters rather than a loop that does not.
+
+**[GAP]** The wall-clock comparison of `+earthly` with and without pinning, on a
+quiet machine.

@@ -126,6 +126,17 @@ type Tracer struct {
 	// to catch (E211).
 	mine uint32
 
+	// handled counts the notifications this loop answered.
+	//
+	// **The number the pinning argument needs and never had.** A traced path
+	// call costs 2.2µs sharing a CPU and 45µs not, and pinning costs a
+	// four-way parallel step 2.9x (E681, E685) - which way that falls depends
+	// on how many calls a real build makes, and nothing counted them.
+	//
+	// Atomic because it is read from whoever is waiting on the step, and the
+	// loop that increments it is a different goroutine (E689).
+	handled atomic.Int64
+
 	// mem is `/proc/<pid>/mem` kept open for whichever process was asked about
 	// last, saving the open and close that were two thirds of the handler
 	// (E681). Touched only from the notification loop, which is one goroutine.
@@ -206,6 +217,8 @@ func (t *Tracer) Run() {
 
 			return
 		}
+
+		t.handled.Add(1)
 
 		t.handle(n)
 
@@ -633,3 +646,10 @@ func pollEvents(r int16) string {
 
 	return strings.Join(names, "|")
 }
+
+// Handled is how many notifications this tracer has answered.
+//
+// Every trapped call, including the ones recognised as this engine's own and
+// the ones whose path could not be read: the question it exists to answer is
+// what the round trip was paid for, and it was paid for all of them.
+func (t *Tracer) Handled() int { return int(t.handled.Load()) }

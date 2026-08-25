@@ -101,6 +101,35 @@ The number that survives as a target is the fixed per-invocation overhead: a war
 on Linux takes 2.4 s wall containing only 51 ms of solves. E10 measures the same thing directly
 at ~1.4 s. That is what watch mode addresses, and it is platform-independent.
 
+## 1z. Measured against the thing it replaces
+
+The case below was argued before either engine could build the same Earthfile. Both can now, so it
+is measured. `+earthly` is this repository's own target: 91 steps, ending in the `earthly` binary.
+
+| target                       | state | earthly (BuildKit) | native       |
+| ---------------------------- | ----- | ------------------ | ------------ |
+| `+earthly`, 91 steps         | cold  | 46.4s              | 63.8s        |
+| `+earthly`, 91 steps         | warm  | 20.3s  20.9s       | 0.65s  0.63s |
+| 41 Go files, COPY + go build | cold  | 7.52s  7.49s       | 9.48s  9.26s |
+| `FROM` + one `RUN`           | cold  | 4.68s  4.70s       | 4.10s  4.21s |
+| `FROM` + one `RUN`           | warm  | 1.29s  1.33s       | 0.26s  0.34s |
+
+Alternated, so the machine's own load fell on both arms; it was not quiet, and the absolute figures
+are worse than a quiet machine would give.
+
+**Warm is the case the argument was about, and it is thirty-two times.** 0.64s against 20.6s, with
+90 of 91 steps hitting. That is the daemon, the LLB solve and the round trips per operation - §1c's
+hop count - and not a faster unpacker.
+
+**Cold is slower, by about a third, and that is not noise.** The native engine pays for its own VM
+boot and re-fetches what a pruned BuildKit also re-fetches, so the gap is in what happens after the
+bytes land: the unpack, the placing and the step execution. E682 and E686 have chipped at it;
+E683's fetch is bandwidth-bound and cannot be. Whether cold matters is a question about where builds
+run - a CI runner is always cold and a developer's machine almost never is.
+
+**The trivial case flatters the native engine and should be ignored.** `FROM` plus one `RUN` says
+almost nothing except that starting a VM costs about what starting buildkitd costs.
+
 ## 1a. What one process unlocks
 
 Not "the same thing, faster" - things the process boundary made impossible or dishonest.

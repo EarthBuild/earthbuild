@@ -654,7 +654,16 @@ func applyDirModes(root string, dirs []*tar.Header, out *Unpacked) error {
 	})
 
 	for _, h := range dirs {
-		err := os.Chmod(h.Name, os.FileMode(h.Mode)) //nolint:gosec // the archive's mode
+		// Asserted here too. `h.Name` was replaced with the resolved target
+		// when the entry was written, so it is a path `safePath` settled - and
+		// the settling is in another function, which is exactly the shape E628
+		// added `insideRoot` for.
+		err := insideRoot(root, h.Name, h.Name)
+		if err != nil {
+			return err
+		}
+
+		err = os.Chmod(h.Name, os.FileMode(h.Mode)) //nolint:gosec // the archive's mode
 		if err != nil {
 			return fmt.Errorf("set mode on %q: %w", h.Name, err)
 		}
@@ -741,6 +750,16 @@ func stampUndeclaredDirs(root string, dirs []*tar.Header, out *Unpacked) error {
 	})
 
 	for _, p := range undeclared {
+		// The same assertion `writeEntry` makes, in the same place and for the
+		// same reason: this is a syscall on a path the archive influenced -
+		// which directories exist is what it named - and the guard that settled
+		// it is a walk away. CodeQL cannot see that far, and neither can a
+		// reader arriving here first (E628).
+		err := insideRoot(root, p, p)
+		if err != nil {
+			return err
+		}
+
 		// **Root's, because nothing described it.** `os.MkdirAll` leaves it
 		// owned by whoever ran the unpack - and on BSD with the *enclosing
 		// directory's* group, so the layer's name depended on where the store
@@ -757,7 +776,7 @@ func stampUndeclaredDirs(root string, dirs []*tar.Header, out *Unpacked) error {
 		// writing after the stamp would still leave the stamp in place - but
 		// the two passes should not depend on that, and this order needs no
 		// argument at all.
-		err := os.Chmod(p, undeclaredDirMode)
+		err = os.Chmod(p, undeclaredDirMode)
 		if err != nil {
 			return fmt.Errorf("set the mode of the undescribed directory %q: %w", p, err)
 		}

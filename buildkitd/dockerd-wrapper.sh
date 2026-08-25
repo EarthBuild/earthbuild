@@ -1,10 +1,23 @@
 #!/bin/sh
 set -eu
 
-EARTHLY_DOCKERD_CACHE_DATA=${EARTHLY_DOCKERD_CACHE_DATA:-"false"}
+# Normalize EARTH_ vs legacy EARTHLY_ environment variables
+EARTH_DOCKERD_DATA_ROOT="${EARTH_DOCKERD_DATA_ROOT:-${EARTHLY_DOCKERD_DATA_ROOT:-}}"
+EARTH_DOCKERD_CACHE_DATA="${EARTH_DOCKERD_CACHE_DATA:-${EARTHLY_DOCKERD_CACHE_DATA:-false}}"
+EARTH_DOCKER_LOAD_FILES="${EARTH_DOCKER_LOAD_FILES:-${EARTHLY_DOCKER_LOAD_FILES:-}}"
+EARTH_DOCKER_LOAD_REGISTRY="${EARTH_DOCKER_LOAD_REGISTRY:-${EARTHLY_DOCKER_LOAD_REGISTRY:-}}"
+EARTH_START_COMPOSE="${EARTH_START_COMPOSE:-${EARTHLY_START_COMPOSE:-false}}"
+EARTH_COMPOSE_FILES="${EARTH_COMPOSE_FILES:-${EARTHLY_COMPOSE_FILES:-}}"
+EARTH_COMPOSE_SERVICES="${EARTH_COMPOSE_SERVICES:-${EARTHLY_COMPOSE_SERVICES:-}}"
+EARTH_DOCKER_WRAPPER_DEBUG="${EARTH_DOCKER_WRAPPER_DEBUG:-${EARTHLY_DOCKER_WRAPPER_DEBUG:-}}"
+EARTH_DOCKER_WRAPPER_DEBUG_CMD="${EARTH_DOCKER_WRAPPER_DEBUG_CMD:-${EARTHLY_DOCKER_WRAPPER_DEBUG_CMD:-}}"
+EARTH_DOCKER_WRAPPER_PRE_SCRIPT="${EARTH_DOCKER_WRAPPER_PRE_SCRIPT:-${EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT:-/usr/share/earthly/dockerd-wrapper-pre-script}}"
+EARTH_FLOCK_AQUIRED="${EARTH_FLOCK_AQUIRED:-${EARTHLY_FLOCK_AQUIRED:-}}"
 
-EARTHLY_DOCKER_WRAPPER_DEBUG=${EARTHLY_DOCKER_WRAPPER_DEBUG:-''}
-if [ "$EARTHLY_DOCKER_WRAPPER_DEBUG" = "1" ]; then
+export EARTH_DOCKERD_DATA_ROOT
+export EARTH_DOCKERD_CACHE_DATA
+
+if [ "$EARTH_DOCKER_WRAPPER_DEBUG" = "1" ]; then
     echo "enabling docker wrapper debug mode"
     set -x
 fi
@@ -31,7 +44,7 @@ detect_docker_compose_cmd() {
 # Runs docker-compose with the right -f flags.
 docker_compose_cmd() {
     compose_file_flags=""
-    for f in $EARTHLY_COMPOSE_FILES; do
+    for f in $EARTH_COMPOSE_FILES; do
         compose_file_flags="$compose_file_flags -f $f"
     done
     export COMPOSE_HTTP_TIMEOUT=600
@@ -47,16 +60,14 @@ write_compose_config() {
 }
 
 execute() {
-    if [ -z "$EARTHLY_DOCKERD_DATA_ROOT" ]; then
-        echo "EARTHLY_DOCKERD_DATA_ROOT not set"
+    if [ -z "$EARTH_DOCKERD_DATA_ROOT" ]; then
+        echo "EARTH_DOCKERD_DATA_ROOT not set"
         exit 1
     fi
-    mkdir -p "$EARTHLY_DOCKERD_DATA_ROOT"
+    mkdir -p "$EARTH_DOCKERD_DATA_ROOT"
 
-    EARTHLY_FLOCK_AQUIRED=${EARTHLY_FLOCK_AQUIRED:-''}
-
-    if [ -f "/sys/fs/cgroup/cgroup.controllers" ] && [ -z "$EARTHLY_FLOCK_AQUIRED" ]; then
-        if [ "$EARTHLY_DOCKER_WRAPPER_DEBUG" = "1" ]; then
+    if [ -f "/sys/fs/cgroup/cgroup.controllers" ] && [ -z "$EARTH_FLOCK_AQUIRED" ]; then
+        if [ "$EARTH_DOCKER_WRAPPER_DEBUG" = "1" ]; then
             echo >&2 "detected cgroups v2"
         fi
 
@@ -79,10 +90,10 @@ execute() {
         fi
     fi
 
-    if [ "$EARTHLY_DOCKERD_CACHE_DATA" = "true" ] && [ -z "$EARTHLY_FLOCK_AQUIRED" ]; then
-        FLOCK_PATH="$EARTHLY_DOCKERD_DATA_ROOT/.earthly-docker-lock"
+    if [ "$EARTH_DOCKERD_CACHE_DATA" = "true" ] && [ -z "$EARTH_FLOCK_AQUIRED" ]; then
+        FLOCK_PATH="$EARTH_DOCKERD_DATA_ROOT/.earthly-docker-lock"
         echo "aquiring flock for $FLOCK_PATH"
-        export EARTHLY_FLOCK_AQUIRED="true"
+        export EARTH_FLOCK_AQUIRED="true"
         # dockerd-wrapper.sh will be recursively called once the lock is aquired
         flock "$FLOCK_PATH" "$0" "$@"
         exit 0
@@ -111,7 +122,7 @@ execute() {
         fi
     done
 
-    if [ "$EARTHLY_DOCKERD_CACHE_DATA" = "true" ]; then
+    if [ "$EARTH_DOCKERD_CACHE_DATA" = "true" ]; then
         clean_leftover_docker_objects
 
         # rename existing tags, so we can track which ones get re-tagged
@@ -125,24 +136,24 @@ execute() {
     load_registry_images
 
     # delete cached images (which weren't re-tagged via the pull)
-    if [ "$EARTHLY_DOCKERD_CACHE_DATA" = "true" ]; then
+    if [ "$EARTH_DOCKERD_CACHE_DATA" = "true" ]; then
         docker images -f reference=$earthly_cached_docker_image_prefix'*' --format '{{.Repository}}:{{.Tag}}' | xargs --no-run-if-empty docker rmi --force
         docker images -f "dangling=true" -q | xargs --no-run-if-empty docker rmi --force
     fi
 
-    if [ "$EARTHLY_START_COMPOSE" = "true" ]; then
+    if [ "$EARTH_START_COMPOSE" = "true" ]; then
         # shellcheck disable=SC2086
-        docker_compose_cmd up -d $EARTHLY_COMPOSE_SERVICES
+        docker_compose_cmd up -d $EARTH_COMPOSE_SERVICES
     fi
 
     shift
-    export EARTHLY_WITH_DOCKER=1
+    export EARTH_WITH_DOCKER=1
     set +e
     "$@"
     exit_code="$?"
     set -e
 
-    if [ "$EARTHLY_START_COMPOSE" = "true" ]; then
+    if [ "$EARTH_START_COMPOSE" = "true" ]; then
         docker_compose_cmd down --remove-orphans
     fi
     stop_dockerd
@@ -150,10 +161,10 @@ execute() {
 }
 
 start_dockerd() {
-    if [ "$EARTHLY_DOCKERD_CACHE_DATA" = "true" ]; then
-        data_root="$EARTHLY_DOCKERD_DATA_ROOT"
+    if [ "$EARTH_DOCKERD_CACHE_DATA" = "true" ]; then
+        data_root="$EARTH_DOCKERD_DATA_ROOT"
     else
-        data_root=$(TMPDIR="$EARTHLY_DOCKERD_DATA_ROOT/" mktemp -d)
+        data_root=$(TMPDIR="$EARTH_DOCKERD_DATA_ROOT/" mktemp -d)
     fi
     echo "Starting dockerd with data root $data_root"
 
@@ -278,7 +289,7 @@ stop_dockerd() {
 }
 
 wipe_data_root() {
-    if [ "$EARTHLY_DOCKERD_CACHE_DATA" = "true" ]; then
+    if [ "$EARTH_DOCKERD_CACHE_DATA" = "true" ]; then
         return 0
     fi
     if ! rm -rf "$1" 2>/dev/null >&2 && [ -n "$(ls -A "$1")" ]; then
@@ -304,9 +315,9 @@ wipe_data_root() {
 }
 
 load_file_images() {
-    if [ -n "$EARTHLY_DOCKER_LOAD_FILES" ]; then
+    if [ -n "$EARTH_DOCKER_LOAD_FILES" ]; then
         echo "Loading images from BuildKit via tar files..."
-        for img in $EARTHLY_DOCKER_LOAD_FILES; do
+        for img in $EARTH_DOCKER_LOAD_FILES; do
             docker load -i "$img" || (stop_dockerd; exit 1)
         done
         echo "...done"
@@ -340,14 +351,13 @@ clean_leftover_docker_objects() {
 }
 
 load_registry_images() {
-    EARTHLY_DOCKER_LOAD_REGISTRY=${EARTHLY_DOCKER_LOAD_REGISTRY:-''}
-    if [ -n "$EARTHLY_DOCKER_LOAD_REGISTRY" ]; then
+    if [ -n "$EARTH_DOCKER_LOAD_REGISTRY" ]; then
         echo "Loading images from BuildKit via embedded registry..."
 
         start_time="$(get_current_time_ns)"
         bg_processes=""  # Initialize the background processes variable
 
-        for img in $EARTHLY_DOCKER_LOAD_REGISTRY; do
+        for img in $EARTH_DOCKER_LOAD_REGISTRY; do
             case "$img" in
                 *'|'*)
                     with_reg="$buildkit_docker_registry/$(printf '%s' "$img" | cut -d'|' -f1)"
@@ -383,17 +393,15 @@ load_registry_images() {
     fi
 }
 
-EARTHLY_DOCKER_WRAPPER_DEBUG_CMD=${EARTHLY_DOCKER_WRAPPER_DEBUG_CMD:-''}
-if [ -n "$EARTHLY_DOCKER_WRAPPER_DEBUG_CMD" ]; then
-    echo "Running debug command: $EARTHLY_DOCKER_WRAPPER_DEBUG_CMD"
-    eval "$EARTHLY_DOCKER_WRAPPER_DEBUG_CMD"
+if [ -n "$EARTH_DOCKER_WRAPPER_DEBUG_CMD" ]; then
+    echo "Running debug command: $EARTH_DOCKER_WRAPPER_DEBUG_CMD"
+    eval "$EARTH_DOCKER_WRAPPER_DEBUG_CMD"
     echo "debug command exited with $?; forcing exit 1 to prevent saving RUN snapshot"
     exit 1
 fi
 
-EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT=${EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT:-"/usr/share/earthly/dockerd-wrapper-pre-script"}
-if [ -f "$EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT" ]; then
-    "$EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT"
+if [ -f "$EARTH_DOCKER_WRAPPER_PRE_SCRIPT" ]; then
+    "$EARTH_DOCKER_WRAPPER_PRE_SCRIPT"
 fi
 
 case "$1" in

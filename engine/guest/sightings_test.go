@@ -36,7 +36,7 @@ func TestSightingsBecomeReadsAndAbsences(t *testing.T) {
 
 	absent := "/w/never-existed-6b1d.txt"
 
-	s.recordSightings(h, h.Root(), trace.Sightings{Paths: []string{present, absent}}, nil)
+	s.recordSightings(h, h.Root(), trace.Sightings{Paths: []string{present, absent}}, nil, nil)
 
 	obs := s.observationOf(h)
 
@@ -82,7 +82,7 @@ func TestAnIncompleteTraceStaysIncomplete(t *testing.T) {
 		Paths:      []string{"/w/seen.txt"},
 		Incomplete: true,
 		Why:        []string{"a syscall in another architecture's numbering"},
-	}, nil)
+	}, nil, nil)
 
 	obs := s.observationOf(h)
 
@@ -108,7 +108,7 @@ func TestAnUntracedStepIsIncompleteRatherThanEmpty(t *testing.T) {
 
 	s, h := copyFixture(t)
 
-	s.recordSightings(h, h.Root(), trace.Unobserved(nil), nil)
+	s.recordSightings(h, h.Root(), trace.Unobserved(nil), nil, nil)
 
 	obs := s.observationOf(h)
 
@@ -150,7 +150,7 @@ func TestAPathTheEngineMountedIsNotAnInput(t *testing.T) {
 		"/etc/resolv.conf",
 		"/proc/self/status",
 		"/root/.cache/go-build/aa/bb",
-	}}, provided)
+	}}, provided, nil)
 
 	obs := s.observationOf(h)
 
@@ -195,7 +195,7 @@ func TestASiblingOfAMountPointIsStillAnInput(t *testing.T) {
 
 	s.recordSightings(h, h.Root(), trace.Sightings{
 		Paths: []string{"/w/resolv.conf.bak"},
-	}, []string{"/w/resolv.conf"})
+	}, []string{"/w/resolv.conf"}, nil)
 
 	if _, ok := s.observationOf(h).Reads["/w/resolv.conf.bak"]; !ok {
 		t.Error("a file whose name starts with a mount point's was excluded;" +

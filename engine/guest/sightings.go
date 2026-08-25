@@ -21,6 +21,7 @@ import (
 // (§3.4, I3).
 func (s *Server) recordSightings(
 	h core.Handle, root string, seen trace.Sightings, provided []string,
+	own func(string) bool,
 ) {
 	w := s.watcherFor(h)
 
@@ -76,6 +77,18 @@ func (s *Server) recordSightings(
 			}
 
 			p = inside
+		}
+
+		// **A file the step made is not a file it read.** `printf > f && cat f`
+		// is a real read of a path the base cannot hold, so recording it as an
+		// input makes the prediction stale on every later build (E696). A path
+		// the step *edited* is a different thing and is kept: the read was of
+		// the base, and dropping it would be a false hit (I3).
+		//
+		// After the renaming above, because the question is about the name the
+		// base would hold it under.
+		if own != nil && own(p) {
+			continue
 		}
 
 		abs := filepath.Join(root, filepath.Clean("/"+p))

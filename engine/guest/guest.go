@@ -84,6 +84,9 @@ type Server struct {
 
 	mu      sync.Mutex
 	handles map[string]core.Handle
+	// bases is the stack each handle was materialised from, so an observation
+	// can tell a read of the base from a read of what the step just wrote.
+	bases map[string][]ir.NodeID
 	// leaked is what a step wrote that it should not have, per handle, by the
 	// name the Earthfile gives the secret. Reported when the delta becomes a
 	// layer, because the host keys its refusal on the layer id.
@@ -358,11 +361,11 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 			err error
 		)
 
+		var stack []ir.NodeID
+
 		if req.Prepared != "" {
 			h, err = s.prepared(req.Prepared)
 		} else {
-			var stack []ir.NodeID
-
 			stack, err = decodeStack(req.Stack)
 			if err != nil {
 				return Response{Err: err.Error()}
@@ -384,6 +387,16 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		}
 
 		s.handles[id] = h
+
+		// **Kept so a read can be told from the step's own write.** A path the
+		// step read that is below this stack was read from there; one that is
+		// not was made by the step, and recording it as an input makes the
+		// prediction stale for ever (E696).
+		if s.bases == nil {
+			s.bases = map[string][]ir.NodeID{}
+		}
+
+		s.bases[id] = stack
 		s.mu.Unlock()
 
 		// The declaration travels with the handle it belongs to. A caller that
@@ -2720,7 +2733,7 @@ func runStep(
 	out, seen, err := runObserved(
 		func() ([]byte, error) { return run(cmd, sink) }, s.filler(req.Handle), release)
 
-	s.recordSightings(h, h.Root(), seen, provided)
+	s.recordSightings(h, h.Root(), seen, provided, s.ownWritesFor(req.Handle, h))
 
 	return out, err
 }
@@ -3182,4 +3195,19 @@ func placeUnpacked(st store.DirStore, staging, as string, got image.Unpacked) (i
 	}
 
 	return id, nil
+}
+
+// ownWritesFor asks, for one handle, whether a path was written by the step
+// rather than read from its base. Nil when the answer cannot be had, which
+// leaves every read recorded - the behaviour before this existed.
+func (s *Server) ownWritesFor(handle string, h core.Handle) func(string) bool {
+	if s.LayerDir == "" || h.Delta() == "" {
+		return nil
+	}
+
+	s.mu.Lock()
+	base := s.bases[handle]
+	s.mu.Unlock()
+
+	return ownWrites(s.LayerDir, base, h.Delta())
 }

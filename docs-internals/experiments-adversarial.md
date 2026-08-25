@@ -31956,5 +31956,22 @@ below it was read from there whatever happened afterwards. So the rule wants the
 lower view, which the handle does not currently expose - `Root` is the merged
 view and `Delta` the upper.
 
-**[GAP]** Filtering an observation by what the base holds, rather than by what
-the delta holds.
+### Fixed by asking the base rather than the delta
+
+The guest remembers the stack each handle was materialised from, so an
+observation can ask the question that actually distinguishes the two cases: is
+this path below the step, or did the step make it?
+
+```text
+                       before                    after
+one line changed       57 hit, 6 miss            57 hit, 4 miss
+                       28 by observed inputs     30 by observed inputs
+                       3 of 6 stale              1 of 4 stale
+                       (build/tags gone)         (key.go changed)
+```
+
+Two more steps hit on every incremental build, and the staleness that remains is
+*honest*: it names the file that was actually edited.
+
+Ordered so the common answer is cheapest - most read paths are not in the delta,
+and one failed `lstat` settles them without touching the base at all.

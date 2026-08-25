@@ -66,7 +66,10 @@ var knowsTheLayout = map[string]string{
 	"engine/guest/mount_linux.go": sideGuest,
 	// Builds a loadable image archive from layers it holds, which the host used
 	// to build and leave where the guest would find it (E558).
-	"engine/guest/packimage.go":           sideGuest,
+	"engine/guest/packimage.go": sideGuest,
+	// Asks whether a path the step read is below its base, which is how a read
+	// of the base is told from a read of what the step just wrote (E696).
+	"engine/guest/ownwrite.go":            sideGuest,
 	"engine/mat/overlay/overlay_linux.go": sideGuest,
 
 	// The work. Each of these opens the store from the host.

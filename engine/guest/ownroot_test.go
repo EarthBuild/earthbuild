@@ -43,7 +43,7 @@ func TestAStepsOwnRootIsNotRecorded(t *testing.T) {
 		root,
 		filepath.Join(root, "etc-hosts"),
 		"/etc/hosts",
-	}}, nil)
+	}}, nil, nil)
 
 	got := s.watcherFor(h).observation()
 

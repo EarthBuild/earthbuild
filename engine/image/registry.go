@@ -1046,3 +1046,91 @@ func keepBlob(retain func(string) (io.WriteCloser, error), digest string, blob [
 
 	_ = w.Close()
 }
+
+// FetchedLayer is one layer's compressed bytes, on disk and unread.
+type FetchedLayer struct {
+	// Digest is the layer's digest as the manifest gave it, which is also what
+	// the bytes were checked against.
+	Digest string
+	// MediaType is how they are compressed. Carried because a blob whose
+	// compression nobody recorded cannot be read, and guessing gzip fails inside
+	// the unpacker with a complaint about a corrupt archive - the wrong
+	// component entirely.
+	MediaType string
+	// At is where they were written, relative to the root FetchApart was given.
+	At string
+}
+
+// FetchApart fetches an image's layers as blobs and unpacks none of them.
+//
+// **The half of a pull that belongs on the host.** The network, the credentials
+// and the manifest are here; the filesystem that can hold what an archive
+// declares is not - an unprivileged unpack cannot grant ownership, create a
+// device node, or set an attribute in the `security.` namespace, and the layer
+// store is moving onto the block device the guest owns for reasons that have
+// nothing to do with privilege (E511, E676, E677).
+//
+// So this stops at the bytes. What comes back is enough to ask the guest to
+// unpack them: where each layer is, how it is compressed, and in what order
+// they stack.
+//
+// Blobs on a shared mount are a good trade even when trees are not: one large
+// sequential read against fifteen thousand small writes.
+func FetchApart(
+	ctx context.Context, ref, root string, opt Options,
+) ([]FetchedLayer, ocispec.ImageConfig, error) {
+	p, err := prepare(ctx, ref, opt)
+	if err != nil {
+		return nil, ocispec.ImageConfig{}, err
+	}
+
+	err = os.MkdirAll(root, 0o750)
+	if err != nil {
+		return nil, ocispec.ImageConfig{}, fmt.Errorf("create the blob directory: %w", err)
+	}
+
+	layers := p.m.Layers
+	out := make([]FetchedLayer, len(layers))
+
+	fetching := newLayerFetch(ctx, p.client, p.tok, p.base, layers)
+
+	for i, d := range layers {
+		got := fetching.await(i)
+		if got.err != nil {
+			return nil, ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, got.err)
+		}
+
+		// Named for the layer rather than its position: two images sharing a
+		// layer share the file, and a second fetch of one finds it already
+		// there under a name that cannot be mistaken for another's.
+		at := blobFile(d.Digest)
+
+		err = os.WriteFile(filepath.Join(root, at), got.blob, 0o600)
+		if err != nil {
+			return nil, ocispec.ImageConfig{}, fmt.Errorf("layer %d of %s: %w", i, ref, err)
+		}
+
+		out[i] = FetchedLayer{Digest: d.Digest, MediaType: d.MediaType, At: at}
+	}
+
+	cfg, err := pullConfig(ctx, p.client, p.tok, p.base, p.m.Config, opt.Platform)
+	if err != nil {
+		return nil, ocispec.ImageConfig{}, err
+	}
+
+	return out, cfg, nil
+}
+
+// blobFile names a layer's compressed bytes on disk.
+//
+// The digest with its algorithm prefix turned into a directory separator would
+// be two levels; flattened instead, because these sit beside each other and a
+// colon is a character some filesystems would rather not see.
+func blobFile(digest string) string {
+	algo, hexsum, ok := strings.Cut(digest, ":")
+	if !ok {
+		return "blob-" + digest
+	}
+
+	return algo + "-" + hexsum
+}

@@ -259,3 +259,69 @@ func sha256Of(b []byte) []byte {
 
 	return sum[:]
 }
+
+// TestAnImageCanBeFetchedWithoutBeingUnpacked.
+//
+// **The host stops unpacking when the store moves onto the guest's device.** It
+// still has the network, the credentials and the manifest, so fetching stays
+// here; unpacking goes to the side that owns the filesystem and can grant what
+// an archive declares.
+//
+// What comes back is enough to ask for that: where each layer's compressed bytes
+// are, how they are compressed, and in what order they stack.
+func TestAnImageCanBeFetchedWithoutBeingUnpacked(t *testing.T) {
+	t.Parallel()
+
+	reg := &fakeRegistry{layers: [][]byte{
+		gzipTar(t, "oldest", "one"),
+		gzipTar(t, "middle", "two"),
+		gzipTar(t, "newest", "three"),
+	}}
+
+	host := reg.start(t)
+	dir := t.TempDir()
+
+	got, _, err := image.FetchApart(context.Background(), host+"/library/test:1", dir,
+		image.Options{Plain: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(got) != 3 {
+		t.Fatalf("the fetch produced %d layers, want 3", len(got))
+	}
+
+	for i, l := range got {
+		if l.MediaType == "" {
+			t.Errorf("layer %d says nothing about how it is compressed, so"+
+				" nothing can read it", i)
+		}
+
+		at := filepath.Join(dir, l.At)
+
+		body, rerr := os.ReadFile(at)
+		if rerr != nil {
+			t.Fatalf("layer %d was not written: %v", i, rerr)
+		}
+
+		// The bytes are the ones the manifest named, which is the whole of what
+		// makes handing the path on safe.
+		if got := "sha256:" + hex.EncodeToString(sha256Of(body)); got != l.Digest {
+			t.Errorf("layer %d holds %s under the name %s", i, got, l.Digest)
+		}
+	}
+
+	// **Nothing was unpacked.** The directory holds the blobs and no trees; a
+	// fetch that quietly unpacked would put fifteen thousand files across a
+	// share for nobody.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			t.Errorf("the fetch left a directory %q, so something was unpacked", e.Name())
+		}
+	}
+}

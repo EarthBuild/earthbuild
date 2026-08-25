@@ -1031,6 +1031,16 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 
 		return prev, nil
 
+	case earthfile.CmdStopSignal:
+		sig, err := stopSignal(c.Args, loc(c.SourceLocation))
+		if err != nil {
+			return nil, err
+		}
+
+		rs.cfg.StopSignal = sig
+
+		return prev, nil
+
 	case earthfile.CmdHealthCheck:
 		hc, err := readHealthcheck(c.Args, loc(c.SourceLocation))
 		if err != nil {

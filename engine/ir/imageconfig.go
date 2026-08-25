@@ -34,6 +34,7 @@ func OCIConfig(c *ImageConfig) ocispec.ImageConfig {
 		Labels:       c.Labels,
 		ExposedPorts: asSet(c.Exposed),
 		Volumes:      asSet(c.Volumes),
+		StopSignal:   c.StopSignal,
 	}
 }
 

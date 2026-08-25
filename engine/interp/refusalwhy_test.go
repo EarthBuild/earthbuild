@@ -105,24 +105,24 @@ func TestARefusedFlagSaysWhatItAsksFor(t *testing.T) {
 func TestARefusalWithNoRecordedMeaningIsStillWellFormed(t *testing.T) {
 	t.Parallel()
 
-	// STOPSIGNAL is refused as a whole command, so nothing about a flag
-	// applies to it at all.
+	// SHELL is refused as a whole command, so nothing about a flag applies to
+	// it at all.
 	//
-	// It was HEALTHCHECK until that was implemented (E486), and the swap is the
-	// point of this comment: a test that borrows an unsupported construct as a
-	// *fixture* goes stale the day somebody supports it, and says so - three
-	// guards did here, which is why the swap took a minute rather than an
-	// afternoon.
+	// It was HEALTHCHECK, then STOPSIGNAL, and the swaps are the point of this
+	// comment: a test that borrows an unsupported construct as a *fixture* goes
+	// stale the day somebody supports it, and says so - four guards did the
+	// first time and four again the second, which is why each swap took a
+	// minute rather than an afternoon.
 	src := `VERSION 0.8
 
 probe:
     FROM alpine:3.22
-    STOPSIGNAL SIGTERM
+    SHELL ["/bin/sh", "-c"]
 `
 
 	_, err := interp.Build(src, "probe", interp.WithPlatform("linux/arm64"))
 	if err == nil {
-		t.Fatal("STOPSIGNAL was accepted, so this case refuses nothing")
+		t.Fatal("SHELL was accepted, so this case refuses nothing")
 	}
 
 	got := err.Error()

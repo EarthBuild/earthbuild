@@ -67,7 +67,8 @@ func TestTheCaseNoteIsPrintedWhenSomethingFailed(t *testing.T) {
 	// Refused while planning, which is a failure like any other as far as the
 	// reader is concerned: they asked for a build and did not get one.
 	err := os.WriteFile(filepath.Join(dir, "Earthfile"),
-		[]byte("VERSION 0.8\n\nmain:\n    FROM alpine:3.22\n    STOPSIGNAL SIGTERM\n"), 0o600)
+		[]byte("VERSION 0.8\n\nmain:\n    FROM alpine:3.22\n"+
+			"    SHELL [\"/bin/sh\", \"-c\"]\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

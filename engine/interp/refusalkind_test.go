@@ -26,8 +26,8 @@ func TestARefusalSaysWhichKindItIs(t *testing.T) {
 		src  string
 		want error
 	}{
-		// A construct this engine has not built. `STOPSIGNAL` is one: no
-		// position on it, no capability withheld, simply absent.
+		// A construct this engine has not built. `SHELL` is one: no position on
+		// it, no capability withheld, simply absent.
 		//
 		// This was the Dockerfile-produced-by-a-target case until E487 gave the
 		// caller a way to supply one - at which point it stopped being a gap and
@@ -35,7 +35,7 @@ func TestARefusalSaysWhichKindItIs(t *testing.T) {
 		// A test that borrows a gap as a fixture goes stale the day somebody
 		// closes it (E486 said the same about HEALTHCHECK).
 		"a construct this engine has not built": {
-			src:  "\nmain:\n    FROM alpine:3.22\n    STOPSIGNAL SIGTERM\n",
+			src:  "\nmain:\n    FROM alpine:3.22\n    SHELL [\"/bin/sh\", \"-c\"]\n",
 			want: interp.ErrUnimplemented,
 		},
 		"a construct refused by decision": {

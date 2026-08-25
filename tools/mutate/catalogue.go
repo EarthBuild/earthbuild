@@ -1027,6 +1027,27 @@ var Mutants = []Mutant{
 		Package:     "./engine/fleet/",
 	},
 	{
+		Name:        "interp: a stop signal that is not a signal refused (E634)",
+		File:        "engine/interp/stopsignal.go",
+		Anchor:      "\tif _, ok := signals[strings.TrimPrefix(strings.ToUpper(raw), \"SIG\")]; ok {",
+		Replacement: "\tif _, ok := signals[strings.TrimPrefix(strings.ToUpper(raw), \"SIG\")]; ok || true {",
+		Package:     "./engine/interp/",
+	},
+	{
+		Name:        "ir: a stop signal reaching the image's key (E634)",
+		File:        "engine/ir/ir.go",
+		Anchor:      "\th.Str(c.StopSignal)",
+		Replacement: "\t_ = c.StopSignal",
+		Package:     "./engine/interp/",
+	},
+	{
+		Name:        "ir: a stop signal reaching the image it declares (E634)",
+		File:        "engine/ir/imageconfig.go",
+		Anchor:      "\t\tStopSignal:   c.StopSignal,",
+		Replacement: "\t\tStopSignal:   \"\",",
+		Package:     "./engine/ir/",
+	},
+	{
 		Name:        "fleet: sending a fragment when paths were asked for (E286)",
 		File:        "engine/fleet/blobwire.go",
 		Anchor:      "\tif f, ok := held.(fragmenting); ok \u0026\u0026 len(want) > 0 \u0026\u0026 held != nil {",

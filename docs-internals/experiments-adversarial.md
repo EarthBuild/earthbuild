@@ -28571,3 +28571,44 @@ were already 0o750 and disagreed with their neighbours.
 them in a container is ten seconds; the same question went to CI three times in E631 and cost an hour
 to answer wrongly. **A sweep that can be tested should be tested, and the reason to reason about it is
 that you cannot.**
+
+## E634 - the last Dockerfile instruction with a mechanism behind it
+
+E486 connected `HEALTHCHECK`, and left `STOPSIGNAL` on the refused list with a
+reason that read: nothing in this engine models a stop signal, so unlike SHELL,
+HEALTHCHECK and MAINTAINER there is no mechanism sitting behind it waiting to be
+connected.
+
+That reason was right about the mechanism and wrong about the cost. The stop
+signal is one string on an image's configuration, and the configuration already
+travels, already reaches `ocispec.ImageConfig`, and is already in the key. What
+was missing was a field, a hash, and a parser - about forty lines, against a
+`FROM DOCKERFILE` that turned away any Dockerfile carrying the instruction.
+
+**The engine is stricter than docker, on purpose.** `signal.ParseSignal` accepts
+any integer other than zero, so docker takes `STOPSIGNAL -9` and `STOPSIGNAL
+9000` and writes them into an image config the daemon rejects at `docker run` -
+long after the build, with nothing pointing at the line. Here the range is 1 to
+64 and names are checked against a table rather than a pattern, because the
+whole point of checking is to catch `SIGTERMM`, and anything shaped like a
+signal name passes a pattern. The only builds refused are ones whose author made
+a mistake.
+
+**Stored exactly as written.** `9` and `SIGKILL` name the same signal and docker
+records whichever the author used, so an image built here carries the same
+string. `EXPOSE` is normalised four lines away for the opposite reason: there
+every other tool writes `8080/tcp`, and storing `8080` made this engine the odd
+one out (E44).
+
+*Five fixtures moved, and the comments predicted it.* `STOPSIGNAL` was serving
+as "a construct this engine has not built" in `refusalkind`, `refusalwhy`,
+`stablemsg`, `vocabulary` and `casenote` - having inherited the job from
+`HEALTHCHECK` when E486 implemented that. The comment left behind then said a
+test which borrows an unsupported construct as a fixture goes stale the day
+somebody supports it, and says so. It did, all five at once, in under a minute.
+`SHELL` holds the job now, and the comment has been updated to say it has been
+handed on twice rather than once.
+
+The divergence is recorded rather than hidden: the BuildKit engine still answers
+`command STOPSIGNAL not yet supported`, so the language reference marks the
+command **native engine only**, alongside `--isolate`.

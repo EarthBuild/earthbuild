@@ -506,6 +506,12 @@ type ImageConfig struct {
 	// the same layers without it - which is the whole reason for recording it
 	// rather than noting it beside the plan (E486).
 	Healthcheck *Healthcheck
+	// StopSignal is the signal that stops a container of this image, empty
+	// when the image says nothing about it.
+	//
+	// In the key for the same reason as Healthcheck: an image that declares one
+	// is a different image from the same layers without it.
+	StopSignal string
 }
 
 // Healthcheck is a HEALTHCHECK, in the form an image config carries it.
@@ -746,6 +752,7 @@ func HashImage(h *Hasher, c *ImageConfig) {
 
 	h.Str(c.WorkingDir)
 	h.Str(c.User)
+	h.Str(c.StopSignal)
 
 	// Sorted, because a map has no order and an image's identity must not
 	// depend on one: the same labels would otherwise digest differently on

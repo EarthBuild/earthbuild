@@ -2018,6 +2018,16 @@ The classical [`ADD` Dockerfile command](https://docs.docker.com/engine/referenc
 
 The classical [`ONBUILD` Dockerfile command](https://docs.docker.com/engine/reference/builder/#onbuild) is not supported.
 
-## STOPSIGNAL (not supported)
+## STOPSIGNAL (native engine only)
 
-The classical [`STOPSIGNAL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#stopsignal) is not yet supported.
+#### Synopsis
+
+- `STOPSIGNAL <signal>`
+
+#### Description
+
+The `STOPSIGNAL` command sets the system call signal that will be sent to the container to exit. The signal may be given by name (`SIGKILL`) or by number (`9`), and is recorded on the image exactly as written - the same value the classical [`STOPSIGNAL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#stopsignal) records.
+
+An image that declares a stop signal is a different image from the same layers without one, so changing it rebuilds whatever stands on it.
+
+This command is supported by the native engine (`--engine=native`) only, which also accepts it inside a `FROM DOCKERFILE`. The BuildKit engine refuses it.

@@ -758,6 +758,11 @@ func translate(
 	// Earthfile spellings of them are already implemented here. Refusing them
 	// turned an ordinary Dockerfile into `VOLUME is not supported by the native
 	// engine` - a construct this engine supports, named as one it does not.
+	case *instructions.StopSignalCommand:
+		return earthfile.Command{
+			Name: earthfile.CmdStopSignal, Args: []string{v.Signal}, SourceLocation: loc,
+		}, nil
+
 	case *instructions.VolumeCommand:
 		return earthfile.Command{Name: earthfile.CmdVolume, Args: v.Volumes, SourceLocation: loc}, nil
 

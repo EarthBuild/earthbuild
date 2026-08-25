@@ -51,7 +51,7 @@ probe:
 
 probe:
     FROM alpine:3.22
-    STOPSIGNAL SIGTERM
+    SHELL ["/bin/sh", "-c"]
 `,
 		},
 		{

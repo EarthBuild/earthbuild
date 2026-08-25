@@ -35,6 +35,13 @@ type Config struct {
 	// NONE *overrides* a healthcheck the base image declared, and an image that
 	// treated the two alike would keep the base's (E486).
 	Healthcheck *Healthcheck
+	// StopSignal is the signal that stops a container of this image, empty
+	// when the image says nothing about it.
+	//
+	// A plain string rather than a parsed signal: it is stored as the author
+	// wrote it, so that an image built here carries the same value docker
+	// would have written from the same instruction.
+	StopSignal string
 }
 
 // Healthcheck is a HEALTHCHECK, in the form an image config carries it.
@@ -159,6 +166,7 @@ func (c Config) ToIR() *ir.ImageConfig {
 		Labels:     c.Labels,
 		Exposed:    append([]string(nil), c.Exposed...),
 		Volumes:    append([]string(nil), c.Volumes...),
+		StopSignal: c.StopSignal,
 	}
 
 	if c.Healthcheck != nil {

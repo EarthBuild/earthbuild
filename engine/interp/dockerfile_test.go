@@ -133,14 +133,14 @@ func TestAnUnsupportedInstructionIsRefusedByName(t *testing.T) {
 	// What remains is genuinely absent, and each for its own reason. `ONBUILD`
 	// is a *deferred* instruction - it runs when something else builds FROM this
 	// image, which is a lifecycle this engine does not have. An `ADD` from a URL
-	// fetches at build time from somewhere no key can describe. And
-	// `STOPSIGNAL` is the one that is merely unbuilt: nothing in this engine
-	// models a stop signal, so unlike SHELL, HEALTHCHECK and MAINTAINER there
-	// is no mechanism sitting behind it waiting to be connected.
+	// fetches at build time from somewhere no key can describe.
+	//
+	// `STOPSIGNAL` was the third and is now the fourth to leave this list: the
+	// engine models a stop signal in an image's config, so both spellings reach
+	// it. See TestADockerfileStopSignalIsAStopSignal.
 	for _, instr := range []string{
 		"ONBUILD RUN true",
 		"ADD https://example.test/x /x",
-		"STOPSIGNAL SIGTERM",
 	} {
 		t.Run(strings.Fields(instr)[0], func(t *testing.T) {
 			t.Parallel()

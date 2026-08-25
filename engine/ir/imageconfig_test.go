@@ -42,6 +42,7 @@ func TestEveryImageConfigFieldIsCarried(t *testing.T) {
 			Interval: time.Second,
 			Retries:  1,
 		},
+		StopSignal: "SIGQUIT",
 	}
 
 	// Anything left zero here would be a field nobody thought about, and the
@@ -74,6 +75,7 @@ func TestEveryImageConfigFieldIsCarried(t *testing.T) {
 		// (E486). Checked here anyway, because "carried across" is the property
 		// and the guard should not care which of the two converters carries it.
 		{field: "Healthcheck", zero: ir.OCIHealthcheck(full) == nil},
+		{field: "StopSignal", zero: got.StopSignal == ""},
 	} {
 		if tc.zero {
 			t.Errorf("%s was set and did not reach the OCI configuration", tc.field)

@@ -57,7 +57,7 @@ func TestTheVocabularyIsWhatWeSayItIs(t *testing.T) {
 		{cmd: testCmdSaveArtifact, body: "    RUN make\n    SAVE ARTIFACT /out\n", supported: true},
 		{cmd: testCmdSaveImage, body: "    SAVE IMAGE thing:latest\n", supported: true},
 		{cmd: "SHELL", body: `    SHELL ["/bin/sh", "-c"]` + "\n", supported: false},
-		{cmd: "STOPSIGNAL", body: "    STOPSIGNAL SIGTERM\n", supported: false},
+		{cmd: "STOPSIGNAL", body: "    STOPSIGNAL SIGTERM\n", supported: true},
 		{cmd: "USER", body: "    USER nobody\n", supported: true},
 		{cmd: "VOLUME", body: "    VOLUME /data\n", supported: true},
 		{cmd: "WAIT", body: "    WAIT\n        RUN make\n    END\n", supported: true},

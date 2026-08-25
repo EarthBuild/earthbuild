@@ -40,13 +40,23 @@ func dropVacuousOpaque(delta string, hasBelow func(string) bool) {
 	}
 
 	_ = filepath.WalkDir(delta, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || !d.IsDir() {
-			//nolint:nilerr // a delta this cannot read is not a step to fail
+		// An entry this cannot read is not a step to fail: the walk carries on
+		// and any mark on it stays, which is the safe direction - a mark left
+		// alone costs the merge E704 describes, a failed step costs the build.
+		if err != nil {
+			return nil //nolint:nilerr // deliberate: see above
+		}
+
+		if !d.IsDir() {
 			return nil
 		}
 
 		rel, relErr := filepath.Rel(delta, p)
-		if relErr != nil || rel == "." {
+		if relErr != nil {
+			return nil //nolint:nilerr // a path outside the delta is not ours to touch
+		}
+
+		if rel == "." {
 			return nil
 		}
 

@@ -3,6 +3,7 @@ package exec
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -390,6 +391,23 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 	// adds to the pile.
 	reapOrphans(seen)
 
+	// And anything named for a directory that has since gone. A content-named
+	// VM has no owning process, so reapOrphans cannot see it; see
+	// stranded_darwin.go for why nothing else could reach it either.
+	reapStranded(seen)
+
+	// **And whether the VM that is there is looking at this store.** A store
+	// deleted and recreated leaves the path in place, so `reapStranded`'s rule
+	// does not fire, and the VM goes on reading an inode that is gone - which
+	// hangs rather than fails (E671).
+	if seen[a.name] != "" && !a.seesStore() {
+		rmCtx, rmCancel := briefly()
+		_ = osexec.CommandContext(rmCtx, "container", "rm", "-f", a.name).Run() //nolint:gosec // fixed argv
+
+		rmCancel()
+		delete(seen, a.name)
+	}
+
 	if seen[a.name] != "running" {
 		a.ensureVolume(ctx)
 
@@ -676,6 +694,10 @@ func (a *Apple) Remove() error {
 // A content-named VM is never an orphan. It has no owning process by design -
 // that is what makes it reusable - and reaping one would take the sandbox out
 // from under a concurrent build in another project.
+//
+// It can still be *stranded*, which is a different question with a different
+// answer: see reapStranded in stranded_darwin.go. Treating "not an orphan" as
+// "never removable" is how thirty-two of them accumulated.
 func IsOrphanedSandbox(name string) bool {
 	rest, ok := strings.CutPrefix(name, "earthbuild-")
 	if !ok {
@@ -825,6 +847,8 @@ func (a *Apple) runArgs() []string {
 		"-m", a.memory(),
 		"-v", a.dir+":/earth",
 		"-v", a.Store+":"+guestStore,
+		// Which directory this is, not merely where it was. See LabelStoreInode.
+		"-l", LabelStoreInode+"="+strconv.FormatUint(inodeOf(a.Store), 10),
 		"-v", a.volumeName()+":"+guestFast,
 		a.Image,
 	)
@@ -966,4 +990,32 @@ func keepAliveUntilIdle(idle string) []string {
 // cleanup was for.
 func briefly() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 30*time.Second)
+}
+
+// seesStore reports whether the sandbox already running is looking at the
+// directory this build is about to use.
+//
+// Best effort in the reuse direction: a backend that will not answer, or a VM
+// this engine cannot read a label from, is kept. See SandboxSeesStore.
+func (a *Apple) seesStore() bool {
+	ctx, cancel := briefly()
+	defer cancel()
+
+	out, err := osexec.CommandContext(ctx, "container", "inspect", a.name).Output() //nolint:gosec // fixed argv
+	if err != nil {
+		return true
+	}
+
+	var found []struct {
+		Configuration struct {
+			Labels map[string]string `json:"labels"`
+		} `json:"configuration"`
+	}
+
+	err = json.Unmarshal(out, &found)
+	if err != nil || len(found) == 0 {
+		return true
+	}
+
+	return SandboxSeesStore(found[0].Configuration.Labels, inodeOf(a.Store))
 }

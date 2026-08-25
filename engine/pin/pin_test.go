@@ -214,3 +214,47 @@ func TestAResolutionWithoutADigestIsRefused(t *testing.T) {
 		t.Error("a reference with no digest was accepted as a pin")
 	}
 }
+
+// TestReferencesNamesEveryImageWithoutResolvingAny.
+//
+// **A build wants the list before it wants the answers.** Resolving happens on
+// the interpreter's walk, one `FROM` at a time, so two distinct images cost the
+// sum of two round trips - measured at 0.336s against 0.197s for one. Knowing
+// the whole list first is what lets them overlap.
+//
+// The same scanner as `Rewrite`, so a reference this misses is one `--pin`
+// misses too, and the two cannot drift into disagreeing about what an image
+// reference looks like. `COPY --from` is deliberately not one: Earthfiles do not
+// support it, and the artifact form names a target rather than an image.
+func TestReferencesNamesEveryImageWithoutResolvingAny(t *testing.T) {
+	t.Parallel()
+
+	src := []byte(`VERSION 0.8
+a:
+    FROM python:3.13-slim
+    RUN echo a
+b:
+    FROM alpine:3.20
+    COPY +producer/artifact ./
+d:
+    FROM golang:1.26-alpine
+    RUN echo d
+c:
+    FROM python:3.13-slim
+    RUN echo c
+`)
+
+	got := pin.References(src)
+
+	want := []string{"alpine:3.20", "golang:1.26-alpine", "python:3.13-slim"}
+	if len(got) != len(want) {
+		t.Fatalf("found %v, want %v", got, want)
+	}
+
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("found %v, want %v - sorted, so a prefetch starts them in\n"+
+				"  the same order whatever the map did", got, want)
+		}
+	}
+}

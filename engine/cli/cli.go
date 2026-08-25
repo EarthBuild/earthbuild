@@ -20,6 +20,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/fleet"
 	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/pin"
 	"github.com/EarthBuild/earthbuild/engine/store"
 	"github.com/EarthBuild/earthbuild/engine/timing"
 )
@@ -246,6 +247,18 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 	// (E561, E565).
 	endPlan := timing.Phase("plan", o.Target)
 
+	// **Started before the walk, because the walk is what makes them serial.**
+	// The interpreter resolves each `FROM` as it reaches it, so two distinct
+	// images cost the sum of two round trips - 0.336s measured against 0.197s
+	// for one, on a build whose every step was already cached. Nothing about
+	// resolving one image depends on another.
+	//
+	// The scan is the same one `--pin` uses, so a reference it misses resolves
+	// inline exactly as it did before; this changes when the lookups happen and
+	// not how many (`Plan.pin`'s memo is still what makes it one per reference).
+	resolver := newPrefetchResolver(g.imageResolver(ctx))
+	resolver.start(pin.References(src), o.platformOrDefault())
+
 	plan, err := interp.Build(string(src), o.Target,
 		interp.WithContextCache(g.contexts),
 		interp.WithTerminal(tty != nil),
@@ -255,7 +268,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		interp.WithSecrets(secrets),
 		interp.WithPlatform(o.platformOrDefault()),
 		interp.WithGitClone(g.gitClone(ctx)),
-		interp.WithImageResolver(g.imageResolver(ctx)),
+		interp.WithImageResolver(resolver.Resolve),
 		interp.WithVersionFlags(o.VersionFlags),
 		// Withheld from a dry run, which promises to run nothing: a plan that
 		// needs a target built to exist is refused there, saying so (E488).
@@ -392,7 +405,7 @@ func runPlan(
 		return nil, nil, err
 	}
 
-	rec := &core.Record{}
+	rec := &core.Record{Identity: core.LayerRule}
 
 	// A profile store that cannot be opened is reported rather than skipped: a
 	// build quietly running without a cache tier is a build whose speed nobody

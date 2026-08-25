@@ -15,6 +15,7 @@ package pin
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -172,4 +173,37 @@ func WithDigest(ref, resolved string) (string, error) {
 	}
 
 	return ref + "@" + dg, nil
+}
+
+// References names every image an Earthfile mentions, sorted and without
+// duplicates, resolving nothing.
+//
+// **A build wants the list before it wants the answers.** Resolution happens on
+// the interpreter's walk, one `FROM` at a time, so two distinct images cost the
+// sum of two round trips - 0.336s measured against 0.197s for one. Knowing the
+// whole list first is what lets them overlap.
+//
+// The same scanner `Rewrite` uses, so a reference this misses is one `--pin`
+// misses too. Two scanners would drift into disagreeing about what an image
+// reference looks like, and the symptom would be a build that quietly resolves
+// serially again.
+func References(src []byte) []string {
+	seen := map[string]bool{}
+
+	for _, line := range strings.SplitAfter(string(src), "\n") {
+		ref, _, _ := reference(line)
+		if ref != "" {
+			seen[ref] = true
+		}
+	}
+
+	out := make([]string, 0, len(seen))
+	for ref := range seen {
+		out = append(out, ref)
+	}
+
+	// Sorted, so a prefetch starts them in the same order whatever the map did.
+	sort.Strings(out)
+
+	return out
 }

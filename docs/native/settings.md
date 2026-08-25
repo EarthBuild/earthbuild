@@ -400,3 +400,23 @@ wait for ever if the two sides disagree - which they did once, for five minutes,
 marker was made the floor beneath the socket rather than the alternative to it (E688).
 
 Default: off.
+
+## `EARTH_SANDBOX_CPUS`
+
+How many cores the sandbox VM asks for. Defaults to this machine's.
+
+**Four, until this existed.** `container run` defaults to four vCPUs and nothing passed `-c`, so
+every `RUN` on a sixteen-core machine had a quarter of it. Docker's VM on the same machine takes all
+sixteen - which is most of why a cold `+earthly` measured slower here than under BuildKit: the same
+`go build` was given four cores on one side and sixteen on the other, and the comparison was about
+core counts rather than engines.
+
+Set it lower on a machine that has other work to do. A value that is not a count falls back to the
+default rather than refusing: the setting exists to give cores away, and a typo in it should cost
+the default, not the build.
+
+It is part of the sandbox's name, so a machine started with one count is never reused for a build
+asking for another (E549). Changing it therefore starts a fresh VM, and the first build after the
+change re-does what the previous VM had already done.
+
+Default: this machine's core count.

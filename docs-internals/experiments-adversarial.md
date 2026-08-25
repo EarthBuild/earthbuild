@@ -31720,3 +31720,48 @@ cannot evaluate - `Capabilities`, `arrival`, `UnsupportedError`, all written to
 say "this arrives at M7" - and **nothing anywhere sets `Schedule.Capabilities`**,
 so none of it has ever run. Every unimplemented construct still surfaces as
 whatever downstream error it happens to cause.
+
+## E691 - three ways a benchmark lied, and the script that stops them
+
+Comparing the native engine with earthly produced three answers in one
+afternoon, each confidently wrong, each for a different reason.
+
+**The cores were not the same.** `container run` defaults to four vCPUs and
+nothing passed `-c`; Docker's VM on the same machine takes all sixteen. A cold
+`+earthly` is dominated by `go build`, so the comparison was about core counts:
+63.8s against 46.4s. Asking for the machine's cores took it to 42.9s and 40.7s,
+which reversed the conclusion.
+
+**The reset did not reset.** `EARTH_RESET_CACHE=1` removes the cache with `rm
+-rf`, and an unpacked image ships directories nothing may write to -
+`golang:1.26-alpine` has `usr/lib` at 0555. Every removal failed with
+"Permission denied", the script printed them and returned success, and the next
+build found its layers where it left them and was called cold. `chmod -R u+rwX`
+first, and check afterwards that the directory is gone.
+
+**Four failures were recorded as fast builds.** The benchmark timed a run inside
+a command substitution:
+
+```text
+secs=$(timed "run_$engine")     # $( ) is a subshell
+```
+
+`return_code` was assigned in the subshell and never reached the caller, so
+every row said `rc=0`. Four native "cold" runs of 7.7s were builds that had
+died immediately - `cannot find earth-guestd` - and the number was published.
+
+The three share a shape. Each produced a *plausible* number rather than an
+obviously broken one, and a plausible number is not questioned. The defence is
+not care, which was present throughout; it is a harness that makes the checks
+automatic:
+
+`scripts/benchmark-earthly.sh` waits for the load average to fall, forces both
+engines onto the same core count and says so if it cannot, alternates them in
+both orders, refuses to continue when a reset fails, marks a non-zero exit
+loudly, and appends every run to `docs-internals/bench-ledger.tsv` against the
+commit it was taken at - so two engines are never compared across a change to
+either, and a number can be traced back to what produced it.
+
+The spread is printed beside the median for the same reason: the first build
+after a sandbox is renamed re-does work the next one finds already done, and
+reads as a regression that is not one.

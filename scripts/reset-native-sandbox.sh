@@ -105,15 +105,48 @@ if [ "${EARTH_RESET_CACHE:-}" != "" ]; then
         exit 1
     fi
 
-    if [ ! -d "$cache/layers" ] && [ ! -d "$cache/imagecache" ]; then
-        echo "refusing to remove $cache: no layers/ or imagecache/, so this is" >&2
-        echo "  not an engine cache and this script will not guess" >&2
+    # **Nothing to remove is success, not a refusal.** A second reset finds the
+    # cache already gone, and treating that as a failure made the script
+    # non-idempotent - which stopped a benchmark between its two cold runs,
+    # having reset correctly the first time.
+    if [ ! -e "$cache" ]; then
+        echo "== host cache"
+        echo "  $cache is already gone"
+        cache=""
+    elif [ ! -d "$cache/layers" ] && [ ! -d "$cache/imagecache" ]; then
+        echo "refusing to remove $cache: it exists but has no layers/ or" >&2
+        echo "  imagecache/, so it is not an engine cache and this script will" >&2
+        echo "  not guess" >&2
         exit 1
     fi
+fi
+
+if [ "${EARTH_RESET_CACHE:-}" != "" ] && [ -n "$cache" ]; then
 
     echo "== host cache"
     echo "  $cache"
+
+    if [ -z "$dry" ]; then
+        # **An unpacked image ships directories nothing may write to.**
+        # `golang:1.26-alpine` has `usr/lib` at 0555 and `rm -rf` cannot empty
+        # what it cannot write, so this failed on every layer with a read-only
+        # directory - printing "Permission denied" and returning success.
+        #
+        # The effect was a reset that did not reset: the next build found its
+        # layers where it left them and was called cold. Every cold measurement
+        # taken through this script was worth less than it looked.
+        chmod -R u+rwX "$cache" 2>/dev/null || true
+    fi
+
     $dry rm -rf "$cache"
+
+    # **Checked, because the failure above was silent.** A cache that is still
+    # there after being removed is the one thing this script exists to prevent,
+    # and it must not be reported as done.
+    if [ -z "$dry" ] && [ -e "$cache" ]; then
+        echo "  COULD NOT remove $cache - it is still there" >&2
+        failed=1
+    fi
 fi
 
 # **A wedged VM does not answer `container rm`.** Its runtime process stops

@@ -10,6 +10,7 @@ import (
 	osexec "os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -123,6 +124,32 @@ const defaultSandboxImage = "alpine:3.20"
 // address space rather than memory. Override with EARTH_SANDBOX_MEMORY.
 const defaultSandboxMemory = "8G"
 
+// EnvSandboxCPUs is how many cores the VM asks for.
+//
+// **Four, because nobody asked.** `container run` defaults to four vCPUs and
+// this never passed `-c`, so every `RUN` on a sixteen-core machine had a quarter
+// of it. Docker's VM on the same machine takes all sixteen - which is most of
+// why a cold `+earthly` measured slower here than under BuildKit: the same `go
+// build` was given four cores on one side and sixteen on the other.
+//
+// Asked for explicitly now, so the number is a decision rather than somebody
+// else's default. Overridable, because a machine with other work to do is the
+// case that wants a smaller one.
+const EnvSandboxCPUs = "EARTH_SANDBOX_CPUS"
+
+// sandboxCPUs is how many cores to ask for: this machine's, unless told.
+//
+// A value that is not a count falls back rather than refusing. The setting
+// exists to let somebody take cores away, and a typo in it should cost the
+// default, not the build.
+func sandboxCPUs() string {
+	if n, err := strconv.Atoi(os.Getenv(EnvSandboxCPUs)); err == nil && n > 0 {
+		return strconv.Itoa(n)
+	}
+
+	return strconv.Itoa(runtime.NumCPU())
+}
+
 // sandboxMemory is the configured size, so a machine that cannot spare 8 GiB
 // has a way out that does not involve editing a constant.
 func sandboxMemory() string {
@@ -145,6 +172,9 @@ func (a *Apple) memory() string {
 
 	return sandboxMemory()
 }
+
+// cpus is how many cores this VM asks for. See EnvSandboxCPUs.
+func (a *Apple) cpus() string { return sandboxCPUs() }
 
 // SandboxName names the VM for a set of mounts.
 //
@@ -193,6 +223,7 @@ func SandboxNameWith(image, guestDir, store, memory string, command []string) st
 		[]string{
 			image, guestDir, store, memory, guestFast,
 			idleSetting(), scratchTmpfsSetting(), storeSetting(), pinSetting(), digestSetting(),
+			sandboxCPUs(),
 		},
 		command...) {
 		fmt.Fprintf(h, "%d:%s", len(part), part)
@@ -865,6 +896,7 @@ func (a *Apple) runArgs() []string {
 		"run", "-d",
 		"--name", a.name,
 		"-m", a.memory(),
+		"-c", a.cpus(),
 		"-v", a.dir+":/earth",
 		"-v", a.Store+":"+guestStore,
 		// Which directory this is, not merely where it was. See LabelStoreInode.

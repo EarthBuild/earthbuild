@@ -597,8 +597,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "layer: writing one copy of a repeated file's contents (E262)",
 		File:        "engine/layer/pack.go",
-		Anchor:      "\t\tbodies[en.content] = filepath.Join(root, en.path)",
-		Replacement: "\t\tbodies[ir.NodeID{byte(len(bodies))}] = filepath.Join(root, en.path)",
+		Anchor:      "\t\t\tcarrier[en.content] = en",
+		Replacement: "\t\t\tcarrier[ir.NodeID{byte(len(carrier))}] = en",
 		Package:     "./engine/layer/",
 	},
 	{
@@ -945,15 +945,15 @@ var Mutants = []Mutant{
 	{
 		Name:        "layer: scaffolding directories bringing nothing of their own (E281)",
 		File:        "engine/layer/pack.go",
-		Anchor:      "\t\tif asked[en.path] || scaffold[en.path] || under(en.path, asked) {",
-		Replacement: "\t\tif asked[en.path] || scaffold[en.path] || under(en.path, scaffold) {",
+		Anchor:      "\treturn k.all || k.asked[path] || k.scaffold[path] || under(path, k.asked)",
+		Replacement: "\treturn k.all || k.asked[path] || k.scaffold[path] || under(path, k.scaffold)",
 		Package:     "./engine/layer/",
 	},
 	{
 		Name:        "layer: a directory asked for bringing what is inside it (E281)",
 		File:        "engine/layer/pack.go",
-		Anchor:      "\t\tif asked[en.path] || scaffold[en.path] || under(en.path, asked) {",
-		Replacement: "\t\tif asked[en.path] || scaffold[en.path] {",
+		Anchor:      "\treturn k.all || k.asked[path] || k.scaffold[path] || under(path, k.asked)",
+		Replacement: "\treturn k.all || k.asked[path] || k.scaffold[path]",
 		Package:     "./engine/layer/",
 	},
 	{

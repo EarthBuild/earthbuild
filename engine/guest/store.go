@@ -183,3 +183,50 @@ func (c *Client) FileConfig(ctx context.Context, layer ir.NodeID, config []byte)
 
 	return d, nil
 }
+
+// ViewDigests reports what a base holds at each of the given paths.
+//
+// The observed-input tier reads a base to check a prediction against it, and a
+// base on the guest's own device is not on the host's filesystem. Batched
+// because a prediction names many paths and a round trip each would cost more
+// than the tier saves; see KindViewDigests.
+func (c *Client) ViewDigests(
+	ctx context.Context, stack []ir.NodeID, paths []string,
+) (files, listings map[string]ir.NodeID, err error) {
+	ids := make([]string, len(stack))
+	for i, id := range stack {
+		ids[i] = id.String()
+	}
+
+	resp, err := c.do(ctx, Request{Kind: KindViewDigests, Stack: ids, Paths: paths})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return parseDigestMap(resp.Reads), parseDigestMap(resp.Listings), nil
+}
+
+// parseDigestMap turns the wire's strings into identities, dropping anything
+// that will not parse.
+//
+// **Dropped rather than refused.** This feeds a tier whose every failure is a
+// rebuild rather than a wrong answer (I4), and a garbled entry that made the
+// whole view unusable would deny a hit for every other path in it.
+func parseDigestMap(from map[string]string) map[string]ir.NodeID {
+	if len(from) == 0 {
+		return nil
+	}
+
+	out := make(map[string]ir.NodeID, len(from))
+
+	for at, text := range from {
+		id, err := ir.ParseNodeID(text)
+		if err != nil {
+			continue
+		}
+
+		out[at] = id
+	}
+
+	return out
+}

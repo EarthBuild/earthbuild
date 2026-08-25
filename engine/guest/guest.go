@@ -628,6 +628,9 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 	case KindFileConfig:
 		return s.fileConfig(req)
 
+	case KindViewDigests:
+		return s.viewDigests(ctx, req)
+
 	case KindRelease:
 		s.mu.Lock()
 		h, ok := s.handles[req.Handle]
@@ -2884,4 +2887,46 @@ func (s *Server) fileConfig(req Request) Response {
 	}
 
 	return Response{}
+}
+
+// viewDigests answers what a base holds at each of a set of paths.
+//
+// See KindViewDigests: the observed-input tier reads a base to check a
+// prediction against it, and a base on this guest's own device is not somewhere
+// the host can read.
+//
+// Both questions are asked of every path because the caller does not know which
+// are directories - a prediction records what a step looked at, and a step looks
+// at both. An absent answer is left absent: "not there" and "there and empty"
+// are different, and a prediction turns on which it gets.
+func (s *Server) viewDigests(ctx context.Context, req Request) Response {
+	if s.LayerDir == "" {
+		return Response{Err: "view-digests: this guest was started without a" +
+			" layer directory (set EARTH_GUEST_ROOT, or Server.LayerDir)"}
+	}
+
+	ids, err := decodeStack(req.Stack)
+	if err != nil {
+		return Response{Err: "view-digests: " + err.Error()}
+	}
+
+	view, err := store.LayerStore(s.LayerDir).View(ctx, ids)
+	if err != nil {
+		return Response{Err: "view-digests: " + err.Error()}
+	}
+
+	digests := map[string]string{}
+	listings := map[string]string{}
+
+	for _, at := range req.Paths {
+		if d, ok := view.Digest(at); ok {
+			digests[at] = d.String()
+		}
+
+		if d, ok := view.ListingDigest(at); ok {
+			listings[at] = d.String()
+		}
+	}
+
+	return Response{Reads: digests, Listings: listings}
 }

@@ -143,6 +143,18 @@ const (
 	// what the image declares - and holding every unpack back for it would give
 	// up the whole overlap between fetching and unpacking.
 	KindFileConfig Kind = "file-config"
+
+	// KindViewDigests answers what a base holds at each of a set of paths.
+	//
+	// **The observed-input tier reads a base to check a prediction against it**,
+	// and a base on a device the guest owns is not on the host's filesystem - so
+	// a host that reads it finds nothing and every prediction is stale. This is
+	// that read, asked rather than performed.
+	//
+	// Batched, because a prediction names many paths and a round trip each would
+	// cost more than the tier saves. The paths come from the profile, which is
+	// read before the view is asked for.
+	KindViewDigests Kind = "view-digests"
 	// KindCancel abandons a request that is still running, by id.
 	//
 	// The only request that refers to another one. It exists because a step is
@@ -188,6 +200,9 @@ type Request struct {
 	// things about where a step's filesystem comes from, and a caller that sent
 	// both does not know which it wants (E300).
 	Prepared string `json:"prepared,omitempty"`
+
+	// Paths are what a view-digests request asks about. View-digests only.
+	Paths []string `json:"paths,omitempty"`
 
 	// Layer is the layer a file-config request files beside. File-config only.
 	Layer string `json:"layer,omitempty"`
@@ -484,10 +499,19 @@ type Response struct {
 	// everything it has and there is nothing further to ask for.
 	More bool `json:"more,omitempty"`
 
-	Err      string            `json:"err,omitempty"`
-	Version  int               `json:"version,omitempty"`
-	Handle   string            `json:"handle,omitempty"`
-	Root     string            `json:"root,omitempty"`
+	Err     string `json:"err,omitempty"`
+	Version int    `json:"version,omitempty"`
+	Handle  string `json:"handle,omitempty"`
+	Root    string `json:"root,omitempty"`
+	// Reads and Listings carry two questions of the same shape: what a step
+	// looked at, and - for a view-digests request - what a base holds at the
+	// paths it was asked about. One pair of fields rather than two, because two
+	// maps of path to digest that differ only in which question produced them
+	// is a second thing to keep in step.
+	//
+	// A path the base does not have is absent rather than present with a zero
+	// digest: "not there" and "there and empty" are different answers, and a
+	// prediction turns on which it gets.
 	Reads    map[string]string `json:"reads,omitempty"`
 	Negative []string          `json:"negative,omitempty"`
 	Listings map[string]string `json:"listings,omitempty"`

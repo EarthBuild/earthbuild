@@ -445,16 +445,21 @@ func runPlan(
 	// A separate variable because the index below is still the host's - it
 	// closes gaps in a directory the host owns, which is not where the layers
 	// are, and only the *lookup* needs to move.
-	var present core.BlobStore = blobs
+	var (
+		present core.BlobStore  = blobs
+		views   core.ViewSource = viewsFor(sb)
+	)
 
 	if guest.StoreInVM() {
 		asker, ok := over.(interface {
 			StoreHas(context.Context, []ir.NodeID) ([]ir.NodeID, error)
+			ViewDigests(context.Context, []ir.NodeID, []string) (map[string]ir.NodeID, map[string]ir.NodeID, error)
 		})
 		if ok {
 			present = &guestBlobs{ask: func(ids []ir.NodeID) ([]ir.NodeID, error) {
 				return asker.StoreHas(ctx, ids)
 			}}
+			views = &guestViews{ask: asker.ViewDigests}
 		} else {
 			fmt.Fprintln(o.Out, "earth: the layer store is inside the sandbox and"+
 				" this executor cannot be asked what it holds, so this build"+
@@ -493,7 +498,7 @@ func runPlan(
 		// and every lookup for them misses: the tier costs one absent file read
 		// per step and applies only where something actually watched.
 		Profiles: profiles,
-		Views:    viewsFor(sb),
+		Views:    views,
 	}
 
 	endSetup()

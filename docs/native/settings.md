@@ -276,21 +276,20 @@ sandbox does, so layers live as long as the machine rather than as long as a dir
 being able to come straight out of the store, since the host can no longer read it, and falls back
 to the ordinary path.
 
-**Incomplete: the second cache tier still reads the host's filesystem.** Both tiers used to, and a
-repeat build cached nothing at all - `0 hit, 4 miss`, every prediction stale with `/bin/sh is gone
-from the base`, which was literally true of the base as the host could see it.
+**Both cache tiers ask rather than stat.** They used to read the host's own filesystem, and with the
+layers inside the VM a repeat build cached nothing at all - `0 hit, 4 miss`, every prediction stale
+with `/bin/sh is gone from the base`, which was literally true of the base as the host could see it.
 
-Presence now crosses the wire, so the first tier works:
+Presence and views now cross the wire:
 
 ```text
-build 1 (cold)   8.62s   0 hit, 4 miss
-build 2          0.37s   3 hit, 1 miss
-build 3          0.26s   3 hit, 1 miss
+build 1 (cold)          8.96s   0 hit, 4 miss
+build 2                 0.25s   3 hit, 1 miss
+one step changed        0.30s   2 hit, 2 miss, 1 unpredicted
 ```
 
-What remains is the observed-input tier. Checking a prediction means reading a base's contents, and
-that read is still `store.LayerStore` over the host's own root - so a step that misses the first tier
-cannot be rescued by the second. Nothing is wrong when that happens; the step runs, which is what a
-miss means.
+The view is asked for a prediction's whole set of paths at once. A round trip per file would cost
+more than the tier saves, and the paths are known before the view is needed - the profile is read
+first.
 
 Default: off.

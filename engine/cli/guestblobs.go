@@ -11,6 +11,10 @@ import (
 // can produce one without inventing a transport failure.
 var errAskFailed = errors.New("the store could not be asked")
 
+// errNoPathsGiven reports a view asked for without the paths it would need to
+// answer in one question. See guestViews.View.
+var errNoPathsGiven = errors.New("a view of a store held elsewhere needs the paths it will be asked about")
+
 // guestBlobs answers "is this layer present" by asking whoever holds the store.
 //
 // **A store on the guest's device is not on the host's filesystem.** `Lookup`

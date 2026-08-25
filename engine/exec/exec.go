@@ -1669,3 +1669,19 @@ func (e *Executor) StoreHas(ctx context.Context, ids []ir.NodeID) ([]ir.NodeID, 
 
 	return c.StoreHas(ctx, ids)
 }
+
+// ViewDigests reports what a base holds at each of the given paths.
+//
+// Asked of the guest for `StoreHas`'s reason: with `EARTH_STORE_IN_VM` the base
+// is on a block device inside the VM, and a host that reads it finds nothing -
+// which the observed-input tier reports as every prediction being stale.
+func (e *Executor) ViewDigests(
+	ctx context.Context, stack []ir.NodeID, paths []string,
+) (files, listings map[string]ir.NodeID, err error) {
+	c, err := e.client()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return c.ViewDigests(ctx, stack, paths)
+}

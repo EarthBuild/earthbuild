@@ -32,6 +32,34 @@ type ViewSource interface {
 	View(ctx context.Context, stack []ir.NodeID) (BaseView, error)
 }
 
+// PathAwareViewSource is a ViewSource that would rather be told which paths it
+// is about to be asked about.
+//
+// **A view over a store this process cannot read has to fetch its answers**, and
+// fetching them one path at a time is a round trip per file in a prediction. The
+// paths are known before the view is made - the profile is read first and only
+// then is a view asked for - so a source that can batch may have them, and one
+// that cannot is asked exactly as before.
+//
+// Optional, which is how this engine offers a backend more than the base
+// contract requires: a store on the host's own filesystem ignores the hint and
+// answers by reading, as it always did.
+type PathAwareViewSource interface {
+	ViewFor(ctx context.Context, stack []ir.NodeID, want []string) (BaseView, error)
+}
+
+// viewOf asks for a view, telling the source what it will be asked about where
+// the source cares.
+func viewOf(
+	ctx context.Context, src ViewSource, stack []ir.NodeID, want []string,
+) (BaseView, error) {
+	if aware, ok := src.(PathAwareViewSource); ok {
+		return aware.ViewFor(ctx, stack, want)
+	}
+
+	return src.View(ctx, stack)
+}
+
 // tryL2 attempts the observed-input lookup, green paper (4.3).
 //
 // It returns a result only when a prediction exists, still describes the base,
@@ -91,7 +119,7 @@ func (s *Scheduler) tryL2(ctx context.Context, n *ir.Node, base, refs []ir.NodeI
 		return Entry{}, false
 	}
 
-	view, err := s.Views.View(ctx, base)
+	view, err := viewOf(ctx, s.Views, base, PredictedReads(pred))
 	if err != nil {
 		return Entry{}, false // cannot check, so cannot use
 	}

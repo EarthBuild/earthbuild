@@ -30,7 +30,8 @@ var wireVocabulary = map[Kind]string{
 		" writes a layer, never runs anything from it",
 	KindFileConfig: "file an image's configuration beside a layer the store holds;" +
 		" writes a sidecar and a declaration, never runs anything",
-	KindCancel: "abandon a request this connection made",
+	KindViewDigests: "report what a base holds at these paths; reads, never runs",
+	KindCancel:      "abandon a request this connection made",
 }
 
 // The wire vocabulary cannot express running on the host.

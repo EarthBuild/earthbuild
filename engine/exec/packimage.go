@@ -60,7 +60,15 @@ func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) 
 	//
 	// Checked on the host, where the values already are, so nothing new crosses
 	// the wire and nothing is checked that a build did not supply.
-	if StrictSecrets() {
+	// **The exit point.** A layer holding a credential has gone nowhere while it
+	// sits in this build's store; saving the image is what sends it somewhere
+	// else, so this is where a finding becomes a refusal.
+	err := e.refuseLeakedImage(n.Meta.Source, base)
+	if err != nil {
+		return core.Result{}, err
+	}
+
+	{
 		found := configSecrets(spec.Config, e.Secrets)
 		if len(found) > 0 {
 			return core.Result{}, fmt.Errorf(

@@ -426,64 +426,48 @@ change re-does what the previous VM had already done.
 
 Default: this machine's core count.
 
-## `EARTH_STRICT_SECRETS`
+## `EARTH_ALLOW_LEAKED_SECRETS`
 
-Refuses a step whose output holds a secret the step was given.
+Lets a build save an image holding a secret it was given. **The check is on by default and this is
+the way out.**
 
 A secret is mounted outside the step's filesystem precisely so it cannot be captured - and then the
 step copies it. `RUN --secret TOKEN sh -c 'echo "api=$TOKEN" > /app.env'` puts the credential in the
-delta, the delta becomes a layer, and the layer is cached, may be exported and may be pushed.
-Nothing looked: `SecretEnv` makes a step uncacheable and `Mount.Secret` keeps the value out of the
-graph, and neither asks what came back.
+delta, and the delta becomes a layer.
 
-With this set, the guest scans the step's delta for every credential it was handed - mounted secrets
-by where they appear, and secret environment variables by the names the host says are secret - and
-fails the build naming the file and the secret's id.
+**Found where the values are, refused where it matters.** The guest scans the delta of a step that
+was *given* a secret and records what it finds against the layer; the refusal happens when the image
+is saved, because that is the exit - a layer sitting in this build's store has gone nowhere. The
+check is paid once per image rather than once per step, and a build that exports nothing cannot leak
+anything and is never asked.
 
-**The report never quotes the value.** A refusal is written to the build's output, and one that
-printed the credential would publish it to every log that build feeds, which is the accident being
-caught.
+Only layers this build produced are ever examined. A base layer arrived before the build did and is
+read-only to it, so it cannot hold a credential this build was handed.
 
-**The image's configuration is checked too.** A layer is not the only place a credential lands:
-`ENV TOKEN=$SOME_SECRET` puts the value in the config blob, which `SAVE IMAGE` persists, a registry
-serves to anybody who can pull, and `docker inspect` prints without being asked. Environment,
-labels, entrypoint, command, working directory and user are all looked at, and an image whose
-configuration holds a secret is not written.
+**The image's configuration is checked too**: `ENV TOKEN=$SOME_SECRET` puts the value in the config
+blob, which a registry serves to anybody who can pull and `docker inspect` prints without being
+asked. Environment, labels, entrypoint, command, working directory and user are all looked at.
+
+**A step's output is scrubbed rather than refused.** A build log reaches a terminal, a CI job page
+and from there an issue somebody pastes it into; a credential already printed is loose, and the
+useful thing is not to repeat it. The value becomes `[redacted:NAME]`, in the buffered output and in
+the streamed one, where the tail of each chunk is held back so a credential split across two is
+still caught. Refusing there would destroy the diagnostic the author needs.
+
+**Reports never quote the value.** They name the secret and where it was found, because they go into
+the log the credential was being kept out of.
 
 **What it does not catch.** It finds a secret's bytes as the step was given them. A value the step
 encoded, compressed, or compiled into a binary is in the layer just the same and is not found here.
 This is a net for the common accident - a redirect, a stray `env`, a config file written from a
-variable - and not a guarantee that a layer is clean. Treating it as one would be worse than not
-checking, because somebody would rely on it.
+variable - and not a guarantee that a layer is clean.
 
-**A step's output is scrubbed rather than refused.** A build log is the most public thing a build
-produces - a `set -x` trace, a curl command line, a config dump on failure - and it reaches a
-terminal, a CI job page, and from there an issue somebody pastes it into. A credential already
-printed is loose, so the useful thing is not to repeat it; refusing would also destroy the
-diagnostic the author needs. The value is replaced by `[redacted:NAME]`, in the buffered output and
-in the streamed one, where the tail of each chunk is held back so a credential split across two is
-still caught.
+**What it costs.** Only a step *given* a secret is scanned, so a build that uses none pays nothing -
+`+earthly`, 91 steps, never runs it. A step that does is bounded by its delta: 0.058s for 200MB,
+about 3.4 GB/s, one pass of `bytes.Contains` per secret. Many secrets would be many passes; a
+multi-pattern search is the answer if that ever matters.
 
-**What happens when it finds one in an artifact.** The step fails, and a failing step cancels the build - dependent
-steps never start. The check runs at the end of the step and *before* the capture, so the delta
-never becomes a layer: nothing is placed in the store, nothing is cached, and there is nothing for a
-later build to find. Nor can the failure be tolerated: `--allow-failure` rescues a non-zero *exit*
-and this is an engine refusal, which produces no result to tolerate.
+Set this when a step writes a credential on purpose - an `.npmrc` or a `.netrc` baked into an image.
+Somebody doing that deliberately can say so; nobody doing it by accident has to know this exists.
 
-It does not have to stop a push, because this engine does not push: `RUN --push` is refused and
-`SAVE IMAGE --push` is recorded and not performed. When push arrives, the ordering will matter - an
-independent branch that pushed before the leak was found could not be recalled - and the safe
-semantic then is to hold every push until the build is over.
-
-**What it costs, measured rather than assumed.** Only a step that was *given* a secret is scanned at
-all, so a build that uses none pays nothing - `+earthly`, 91 steps, never runs the scan. A step that
-does pay is bounded by its delta: 0.058s for a 200MB one, about 3.4 GB/s, because the search is one
-pass of `bytes.Contains` per secret over pages that were just written. Ten secrets would be ten
-passes; a multi-pattern search is the answer if that ever matters, and it does not yet.
-
-Off by default because it can fail a build that used to pass - which is the point when a credential
-is leaking, and unwelcome for a step that writes one deliberately, an `.npmrc` or a `.netrc` baked
-into an image. That is a policy question rather than a cost one: the cost is small enough to default
-on.
-
-Default: off.
+Default: unset, so a leak is refused.

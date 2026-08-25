@@ -84,8 +84,12 @@ type Server struct {
 
 	mu      sync.Mutex
 	handles map[string]core.Handle
-	lockMu  sync.Mutex
-	locks   map[string]*sync.Mutex
+	// leaked is what a step wrote that it should not have, per handle, by the
+	// name the Earthfile gives the secret. Reported when the delta becomes a
+	// layer, because the host keys its refusal on the layer id.
+	leaked map[string][]string
+	lockMu sync.Mutex
+	locks  map[string]*sync.Mutex
 
 	// Terminals carries a caller's terminal to an interactive step.
 	//
@@ -542,7 +546,13 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 			store.DirStore(s.LayerDir).NoteUnmarked(c.ID)
 		}
 
-		return Response{Layer: c.ID.String(), Content: c.Content.String(), Bytes: c.Bytes}
+		// **The finding travels with the layer's name.** The scan happened when
+		// the step ran, where the values were; the host keys its refusal on the
+		// layer, and the layer only has a name here.
+		return Response{
+			Layer: c.ID.String(), Content: c.Content.String(), Bytes: c.Bytes,
+			Leaked: s.leakedBy(req.Handle),
+		}
 
 	case KindPackImage:
 		if s.LayerDir == "" {
@@ -2114,12 +2124,15 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		return Response{Err: fmt.Sprintf("exec %v: %v%s", req.Argv, err, hint)}
 	}
 
-	// **Before the delta can become a layer.** A secret is mounted outside the
-	// step's filesystem so it cannot be captured, and then the step copies it -
-	// `echo $TOKEN > /app/.env` - and the copy is in the delta, which is cached,
-	// exported and possibly pushed. Checked here rather than at capture because
-	// here is where the values are.
-	err = strictSecretCheck(req, h)
+	// **Looked at here, because here is where the values are.** A secret is
+	// mounted outside the step's filesystem so it cannot be captured, and then
+	// the step copies it - `echo $TOKEN > /app/.env` - and the copy is in the
+	// delta.
+	//
+	// Recorded rather than refused: a layer on the builder's own disk has not
+	// gone anywhere, and the exit points are saving and pushing an image. The
+	// host refuses there, where it knows there is one.
+	err = s.noteSecretLeak(req, h)
 	if err != nil {
 		return Response{Err: err.Error()}
 	}
@@ -2140,11 +2153,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 // common accident - a redirect, a stray `env`, a config file written from a
 // variable - and not a guarantee that a layer is clean. Saying otherwise would
 // be worse than not checking, because somebody would rely on it.
-func strictSecretCheck(req Request, h core.Handle) error {
-	if !req.Strict {
-		return nil
-	}
-
+func (s *Server) noteSecretLeak(req Request, h core.Handle) error {
 	secrets := secretsFrom(req)
 	if len(secrets) == 0 {
 		return nil
@@ -2168,19 +2177,31 @@ func strictSecretCheck(req Request, h core.Handle) error {
 		return nil
 	}
 
-	var b strings.Builder
-
-	b.WriteString("a secret this step was given is in what it produced, and the")
-	b.WriteString(" build is refused rather than caching it")
-
+	names := make([]string, 0, len(found))
 	for _, l := range found {
-		fmt.Fprintf(&b, "\n  %s", l)
+		names = append(names, l.Name+" in "+l.Path)
 	}
 
-	b.WriteString("\n  a layer holding a credential is cached, may be exported, and may be pushed")
-	b.WriteString("\n  write the secret somewhere outside the layer, or stop the step copying it")
+	sort.Strings(names)
 
-	return errors.New(b.String())
+	s.mu.Lock()
+
+	if s.leaked == nil {
+		s.leaked = map[string][]string{}
+	}
+
+	s.leaked[req.Handle] = names
+	s.mu.Unlock()
+
+	return nil
+}
+
+// leakedBy is what a handle's step wrote that it should not have.
+func (s *Server) leakedBy(handle string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.leaked[handle]
 }
 
 // Capture digests what a handle's filesystem holds.
@@ -2188,23 +2209,30 @@ func strictSecretCheck(req Request, h core.Handle) error {
 // Taken in the guest rather than the host because on a real backend the host
 // cannot see the VM's filesystem at all - which is the same constraint (E1b)
 // that put layer assembly in the guest to begin with.
-func (c *Client) Capture(ctx context.Context, h core.Handle) (ir.NodeID, ir.NodeID, int64, error) {
+// The fourth value names any secret the step wrote into what it produced. A
+// finding rather than a refusal: the host decides, at the exit point, whether
+// the layer is going anywhere. See Response.Leaked.
+func (c *Client) Capture(
+	ctx context.Context, h core.Handle,
+) (layer, content ir.NodeID, size int64, leaked []string, err error) {
 	rh, ok := h.(*remoteHandle)
 	if !ok {
-		return ir.NodeID{}, ir.NodeID{}, 0, errors.New("handle did not come from this guest")
+		return ir.NodeID{}, ir.NodeID{}, 0, nil,
+			errors.New("handle did not come from this guest")
 	}
 
 	resp, err := c.do(ctx, Request{Kind: KindCapture, Handle: rh.id, Clamp: hostClamp()})
 	if err != nil {
-		return ir.NodeID{}, ir.NodeID{}, 0, err
+		return ir.NodeID{}, ir.NodeID{}, 0, nil, err
 	}
 
 	ids, err := decodeStack([]string{resp.Layer, resp.Content})
 	if err != nil {
-		return ir.NodeID{}, ir.NodeID{}, 0, fmt.Errorf("decode capture digests: %w", err)
+		return ir.NodeID{}, ir.NodeID{}, 0, nil,
+			fmt.Errorf("decode capture digests: %w", err)
 	}
 
-	return ids[0], ids[1], resp.Bytes, nil
+	return ids[0], ids[1], resp.Bytes, resp.Leaked, nil
 }
 
 // Export copies an artifact out of a step's filesystem into the shared store.

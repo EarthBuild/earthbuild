@@ -519,6 +519,17 @@ type Response struct {
 	// ID is the request this answers.
 	ID uint64 `json:"id"`
 
+	// Leaked names the secrets found in what a step produced, by the id the
+	// Earthfile calls them.
+	//
+	// **A finding rather than a refusal.** A secret sitting in a layer on the
+	// builder's own disk has not gone anywhere; it becomes a leak when the image
+	// is saved or pushed. So the guest reports and the host refuses at the exit
+	// point, which is also the only place that knows whether there is one.
+	//
+	// Never the value: this travels to a build's output.
+	Leaked []string `json:"leaked,omitempty"`
+
 	// Chunk is a piece of a running step's output.
 	//
 	// A frame carrying one is *not* the reply: it is progress from a request

@@ -82,14 +82,17 @@ func (d deltaOnly) Observations() core.Observation   { return core.Observation{}
 func (d deltaOnly) Release() error                   { return nil }
 func (d deltaOnly) SharedFile(string) (string, bool) { return "", false }
 
-// TestAStepThatWroteItsSecretIsRefused.
+// TestAStepThatWroteItsSecretIsRecorded.
 //
-// The whole point, end to end at the level the guest decides it: a step given a
-// credential, a delta holding that credential, and a build that stops.
+// **A finding, not a refusal, and that is the design.** A layer holding a
+// credential has gone nowhere while it sits in this build's store; it becomes a
+// leak when the image is saved or pushed. So the guest records against the
+// handle and the host refuses at the exit point - which is also the only place
+// that knows whether there is one.
 //
-// **The refusal must not repeat the secret.** It is written to the build's
-// output, which is the log the credential was being kept out of.
-func TestAStepThatWroteItsSecretIsRefused(t *testing.T) {
+// The record must name the secret and where, and never the value: it travels to
+// the build's output, which is the log the credential was being kept out of.
+func TestAStepThatWroteItsSecretIsRecorded(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -100,46 +103,44 @@ func TestAStepThatWroteItsSecretIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	s := &Server{}
 	req := Request{
 		Handle:    "h1",
 		Env:       []string{"TOKEN=hunter2-swordfish-battery"},
 		SecretEnv: []string{"TOKEN"},
 	}
 
-	// Off, nothing is read and nothing is refused - which is what every build
-	// that did not ask for this gets.
-	err = strictSecretCheck(req, deltaOnly{dir})
+	err = s.noteSecretLeak(req, deltaOnly{dir})
 	if err != nil {
-		t.Fatalf("a build that did not ask to be strict was refused: %v", err)
+		t.Fatalf("recording a finding failed: %v", err)
 	}
 
-	req.Strict = true
-
-	err = strictSecretCheck(req, deltaOnly{dir})
-	if err == nil {
-		t.Fatal("a step wrote its secret into the layer and the build continued")
+	got := s.leakedBy("h1")
+	if len(got) != 1 {
+		t.Fatalf("recorded %v, want one finding", got)
 	}
 
-	if !strings.Contains(err.Error(), "TOKEN") ||
-		!strings.Contains(err.Error(), "app.env") {
-		t.Errorf("the refusal does not say which secret or where:\n  %v", err)
+	if !strings.Contains(got[0], "TOKEN") || !strings.Contains(got[0], "app.env") {
+		t.Errorf("the finding does not say which secret or where: %q", got[0])
 	}
 
-	if strings.Contains(err.Error(), "hunter2") {
-		t.Errorf("the refusal quotes the credential, publishing it to every log"+
-			"\n  this build writes to:\n  %v", err)
+	if strings.Contains(got[0], "hunter2") {
+		t.Errorf("the finding quotes the credential: %q", got[0])
 	}
 
-	// A step given the same secret that did not write it carries on.
-	clean := Request{
-		Handle: "h2", Strict: true,
-		Env:       []string{"TOKEN=something-else-entirely"},
+	// A step given the same secret that did not write it leaves no record, so a
+	// clean build never reaches the refusal at all.
+	clean := &Server{}
+	err = clean.noteSecretLeak(Request{
+		Handle: "h2", Env: []string{"TOKEN=something-else-entirely"},
 		SecretEnv: []string{"TOKEN"},
+	}, deltaOnly{dir})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	err = strictSecretCheck(clean, deltaOnly{dir})
-	if err != nil {
-		t.Errorf("a clean step was refused: %v", err)
+	if got := clean.leakedBy("h2"); len(got) != 0 {
+		t.Errorf("a clean step was recorded as leaking: %v", got)
 	}
 }
 

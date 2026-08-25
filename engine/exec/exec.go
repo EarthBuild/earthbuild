@@ -64,6 +64,11 @@ type Sandbox interface {
 
 // Executor runs steps inside one sandbox. Implements core.Executor.
 type Executor struct {
+	// leaked is which layers this build produced hold a secret it was given.
+	// Refused at the exit points rather than where it was found - see
+	// leakedLayers.
+	leaked leakedLayers
+
 	// Platform is the "os/arch" images are pulled for. Defaults to the guest's.
 	Platform string
 
@@ -593,7 +598,7 @@ func (e *Executor) Run(
 
 	step, err := c.RunStep(ctx, h, guest.Step{
 		Dir: n.Op.Dir, Argv: argv, Env: env, Mounts: mounts,
-		SecretEnv: secretNames, Strict: StrictSecrets(),
+		SecretEnv: secretNames, Strict: true,
 		NoNet: n.Op.NoNetwork, Daemon: daemon, Hosts: n.Op.Hosts,
 		// Observed, so the step can be reused against a base it did not run on.
 		//
@@ -631,7 +636,8 @@ func (e *Executor) Run(
 	endFlush()
 
 	endCapture := phase("capture", n.Meta.Source)
-	id, content, bytes, err := c.Capture(ctx, h)
+	id, content, bytes, leaked, err := c.Capture(ctx, h)
+	e.noteLeaked(id, leaked)
 	endCapture()
 
 	endAfter := phase("exec:after", n.Meta.Source)
@@ -937,7 +943,8 @@ func (e *Executor) copyStep(
 		return core.Result{}, fmt.Errorf("%s: %w", n.Meta.Source, err)
 	}
 
-	id, content, bytes, err := c.Capture(ctx, h)
+	id, content, bytes, leaked, err := c.Capture(ctx, h)
+	e.noteLeaked(id, leaked)
 	if err != nil {
 		return core.Result{}, fmt.Errorf("capture the result of %s: %w", n.Meta.Source, err)
 	}
@@ -1846,18 +1853,3 @@ func packInto(dir, at string) error {
 
 	return f.Close()
 }
-
-// EnvStrictSecrets refuses a step whose output holds a secret it was given.
-//
-// **A secret is mounted outside the step's filesystem so it cannot be captured,
-// and then the step copies it.** `echo $TOKEN > /app/.env` puts the credential
-// in the delta, and the delta is cached, may be exported and may be pushed.
-//
-// Off by default because the scan reads every captured byte, and because it
-// finds a secret only as the step was given it: a value encoded, compressed or
-// compiled into a binary is in the layer just the same and is not found. It
-// catches the common accident and is not a guarantee that a layer is clean.
-const EnvStrictSecrets = "EARTH_STRICT_SECRETS"
-
-// StrictSecrets reports whether this build refuses a leaked secret.
-func StrictSecrets() bool { return os.Getenv(EnvStrictSecrets) != "" }

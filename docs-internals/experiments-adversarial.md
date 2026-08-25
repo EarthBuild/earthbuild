@@ -32028,3 +32028,53 @@ cold run fails in about that, and the ledger would have filled with record times
 This is E691's lie a second time - a reset that did not reset, then a run that did
 not run - and the same remedy: the harness now reads what the run said and stops
 rather than writing a number it cannot stand behind.
+
+## E698 - the most expensive step re-ran every build, over a telemetry counter
+
+The `1 miss` a warm `+earthly` build had left. The engine named it without being
+asked:
+
+```text
+Earthfile:584  miss  RUN ... go build -tags ... -o build/earthly cmd/earth/*.go
+cache  69 hit, 3 miss, 1 of 3 predictions stale
+  (/root/.config/go/telemetry/local/go@go1.27.0-...-2026-08-25.v1.count
+   changed in the base (observed b9cacd19ddd8, base has 800c134a134f))
+```
+
+Go keeps a counter file under `/root/.config/go/telemetry` and increments it on
+every build. The step reads it, so it is an observed input (§4.3) - and it
+changes every single time, which makes the one step that costs seven seconds
+miss for a reason that cannot affect a byte of its output. The filename carries
+the date as well, so the key turned over at midnight regardless of what anybody
+built.
+
+`RUN go telemetry off` in the `go` target, measured cold-then-warm on the same
+machine either side:
+
+```text
+                cold      first warm
+before        42.30s          7.73s     1 miss, go build re-running
+after         41.54s          0.62s     92 hit, 0 miss
+```
+
+Twelve times faster on the first warm build, and cold is unchanged - it is one
+more `RUN` in a base that is built once.
+
+### Why the benchmark could not see it
+
+The harness measures warm immediately after cold, which is exactly the build the
+churn ruins: the cold run leaves a freshly-bumped counter and the first warm run
+pays for it. A second warm run was clean, so every hand-run measurement said
+0.65s while every harness row said 7.7s, and both were honest. The number to
+quote for a no-op build is the harness one - a developer's next build after a
+cold one is the first warm build, not the second.
+
+### The general shape
+
+An observed-input key is only as good as the tree it observes. A file that a
+toolchain touches for its own bookkeeping is indistinguishable, to this engine,
+from a file the build depends on - correctly so, because nothing in the tree says
+which is which. The remedy is upstream of the cache every time: stop the
+toolchain writing it. Worth looking for the same shape elsewhere, since anything
+that writes a timestamp, a counter or a lockfile into a shared base will do this
+and will look like a cache that does not work.

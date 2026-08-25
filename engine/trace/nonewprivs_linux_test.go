@@ -43,22 +43,41 @@ func TestInstallingAFilterSetsNoNewPrivs(t *testing.T) {
 		runtime.LockOSThread()
 
 		fd, err := install(auditArch, traced)
-		if err != nil {
-			failed <- err
-
-			return
-		}
-
-		defer func() { _ = unix.Close(fd) }()
 
 		// PR_GET_NO_NEW_PRIVS returns the flag as the syscall's result, which
 		// unix.Prctl does not hand back - so the raw call, and only here.
+		//
+		// **Read before the error is judged, not after it.** `install` sets the
+		// flag before it asks for anything that can fail, so a thread without
+		// it has a broken install rather than an unsupporting kernel. Reading
+		// it only on the success path made every failure look environmental -
+		// and a mutant that deleted the prctl made `install` fail, which made
+		// this test *skip* rather than fail. It could not catch the one thing
+		// it exists to catch (E638).
 		set, _, errno := unix.Syscall(unix.SYS_PRCTL, unix.PR_GET_NO_NEW_PRIVS, 0, 0)
 		if errno != 0 {
 			failed <- errno
 
 			return
 		}
+
+		if err != nil {
+			if set == 1 {
+				// The flag is set and the kernel still would not give a
+				// listener: this machine cannot do it, which is not a defect.
+				failed <- err
+
+				return
+			}
+
+			// The flag is not set. That is the defect, and it is reported as
+			// one rather than skipped over.
+			done <- int(set)
+
+			return
+		}
+
+		defer func() { _ = unix.Close(fd) }()
 
 		done <- int(set)
 

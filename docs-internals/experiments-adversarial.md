@@ -28750,3 +28750,62 @@ container, not only the part of it that runs on darwin.
 arriving anywhere but first would be mounted over the devices already bound
 beneath it and the step would see an empty one. The test asserts the position,
 not just the presence.
+
+## E638 - the nineteen that had never run, and a test that skipped the thing it guards
+
+Nineteen catalogue entries carried `OS: "linux"` and this machine is darwin, so
+their verdict had been `unrun` since the day each was written - about 4% of the
+catalogue, and not a random 4%: seccomp filter ordering, chroot confinement, a
+mount-point TOCTOU, ownership on commit. The parts most worth mutating.
+
+A container runs them. `golang:1.26` with the repository mounted, one
+`go run ./tools/mutate -run` per name, against the sweep worktree rather than
+the working tree.
+
+**The first sweep was wrong, and wrong in the direction that matters.** It
+reported `guest: chrooting a confined step (A3, I10)` as unguarded - a mechanism
+whose own comment says a step that escapes invalidates every cache claim in the
+specification. It is guarded, by a test that asserts on exactly that field.
+Docker blocks unprivileged user namespaces by default, `nstest.In` skipped, and
+`go test` reported success because a skipped test is not a failure.
+
+That is a hole in the tool, not in the suite: `go test` fails when a test
+notices a mutant, so silence reads as "nothing noticed" - and a package whose
+tests all skipped is silent in exactly the same way. Survivors are now re-run
+verbosely and the verdict carries the count. With `--security-opt
+seccomp=unconfined` the chroot mutant is killed, as it always should have been.
+
+### The one that was real
+
+`trace: setting no-new-privs before the filter` survived, with 19 skips
+reported. `TestInstallingAFilterSetsNoNewPrivs` exists for precisely this
+mutant, and its comment says so:
+
+> remove the prctl and nothing here noticed
+
+It could not notice, and the reason is the test's own shape:
+
+```go
+fd, err := install(auditArch, traced)
+if err != nil {
+    failed <- err        // -> t.Skipf("no seccomp user notification here")
+    return
+}
+```
+
+The kernel takes a filter from a caller with `CAP_SYS_ADMIN` **or** one that has
+set `PR_SET_NO_NEW_PRIVS`. Delete the prctl and `install` fails - so the test
+treats it as a machine that cannot do seccomp and skips. The mutation trips the
+guard that was supposed to catch it, and a skip is not a failure.
+
+The flag is now read *before* the error is judged. `install` sets it before it
+asks for anything that can fail, so a thread without it has a broken install
+rather than an unsupporting kernel: `err != nil` with the flag set is still a
+skip, `err != nil` with the flag clear is a failure. Verified both ways in a
+container - PASS unmutated, FAIL mutated.
+
+*The general shape is worth naming.* A test that skips on any error from the
+thing it is testing cannot fail when that thing breaks; it can only fail when
+the machine is wrong. Every environmental guard should be a claim about the
+environment, checked independently, and not "whatever went wrong was probably
+not our fault".

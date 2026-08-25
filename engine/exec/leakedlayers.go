@@ -19,22 +19,14 @@ import (
 // deliberately can say so; nobody doing it by accident has to know this exists.
 const EnvAllowLeakedSecrets = "EARTH_ALLOW_LEAKED_SECRETS"
 
-// **[GAP] The record does not survive the cache, and the exit points do not
-// exist yet.**
+// **The record now lives beside the layer, not here.** This kept a map in the
+// process, and a build that took a layer from the cache never ran the step,
+// never scanned, and knew nothing - so the second build would let out what the
+// first was refused. `DirStore.NoteLeaked` writes it where the layer is and the
+// guest reads it back when packing (E694).
 //
-// A layer that was scanned in *this* build is remembered here, in this process.
-// A build that gets the same layer from the cache never runs the step, never
-// scans, and knows nothing - so a cached leak would pass. The fix is a sidecar
-// beside the layer in the store, the way `.unmarked` records what a capture
-// learned; this is deliberately not that yet, because the thing it would guard
-// is also missing.
-//
-// Nothing in this engine saves an image anywhere a secret could go. `SAVE IMAGE`
-// is recorded and not performed, `RUN --push` is refused, and the only path that
-// packs one is `WITH DOCKER --load`, which loads it into the build's own daemon.
-// The refusal is wired there because it is the only exit that exists; when
-// saving and pushing arrive they have to call it too, and the record has to
-// outlive the process before either is trustworthy.
+// What remains here is the same refusal for a host-side pack, and the config
+// check, which needs the values and so can only run here.
 //
 // leakedLayers remembers which layers hold a secret the build was given.
 //

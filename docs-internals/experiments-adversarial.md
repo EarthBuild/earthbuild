@@ -31859,3 +31859,27 @@ The first attempt at this measurement reported no difference at all, because the
 loop was written for bash: zsh does not word-split an unquoted variable, so
 `for mode in $order` ran once with "off on" and `EARTH_TRACE_PIN` was never set.
 Both arms were the same arm - the same failure as E691's three, in a new shell.
+
+## E694 - a finding that a cache forgets is a finding that does not exist
+
+The secret check was recorded in the process that found it: the guest scanned a
+step's delta, the host remembered the layer, and an image built from that layer
+was refused.
+
+**One build.** The step that writes a credential runs once. Every build after it
+takes that layer from the cache, never runs the step, never scans, and knows
+nothing - so the second build lets out what the first was refused, and the
+second build is the ordinary case.
+
+The note now lives beside the layer, the way `.unmarked` records what a capture
+learned, and the guest reads it back when packing. Durable by construction: a
+layer and what is known about it travel together, and neither a new process nor
+a new machine can separate them.
+
+**Names and places, never values.** The note is as durable as the layer and
+would outlive every rotation of the credential it described.
+
+This was found by writing the end-to-end test rather than by reasoning - the
+same test that showed the exit points do not exist yet, since `SAVE IMAGE` is
+recorded and not performed and the only path that packs an image is `WITH DOCKER
+--load`. Two gaps for the price of one test.

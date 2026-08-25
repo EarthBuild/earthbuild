@@ -2,7 +2,10 @@ package guest
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -23,6 +26,15 @@ import (
 func packImageInto(root string, into ir.NodeID, layers []ir.NodeID, spec image.Spec) error {
 	held := store.LayerStore(root)
 
+	// **The exit.** A layer holding a credential has gone nowhere while it sits
+	// in the store; packing it into an image is what sends it somewhere else.
+	// Read from beside the layer rather than remembered, so a build that took it
+	// from the cache is told what the build that made it found (E694).
+	err := refusePackingLeaked(root, layers)
+	if err != nil {
+		return err
+	}
+
 	spec.Layers = make([]image.LayerSource, 0, len(layers))
 
 	for _, id := range layers {
@@ -38,4 +50,45 @@ func packImageInto(root string, into ir.NodeID, layers []ir.NodeID, spec image.S
 	}
 
 	return image.WriteArchive(filepath.Join(root, "images", into.String()), spec)
+}
+
+// EnvAllowLeakedSecrets lets an image be packed from a layer holding a secret.
+//
+// The check is on by default and this is the way out, for somebody who bakes a
+// credential in on purpose - an `.npmrc`, a `.netrc`. Read here as well as on
+// the host because the refusal happens on whichever side is doing the packing.
+const EnvAllowLeakedSecrets = "EARTH_ALLOW_LEAKED_SECRETS"
+
+// refusePackingLeaked stops an image being built out of a layer that holds a
+// credential.
+//
+// The message names the secret and where it was found and never the value: it
+// goes to the build's output, which is the log the credential was being kept out
+// of.
+func refusePackingLeaked(root string, layers []ir.NodeID) error {
+	if os.Getenv(EnvAllowLeakedSecrets) != "" {
+		return nil
+	}
+
+	st := store.DirStore(root)
+
+	var found []string
+
+	for _, id := range layers {
+		found = append(found, st.LeakedIn(id)...)
+	}
+
+	if len(found) == 0 {
+		return nil
+	}
+
+	sort.Strings(found)
+
+	return fmt.Errorf("a secret is in a layer of this image, and the image is"+
+		" not packed"+
+		"\n  %s"+
+		"\n  an image is packed to be used elsewhere, which is where the"+
+		" credential would go"+
+		"\n  keep the secret out of the layer, or set %s if it belongs there",
+		strings.Join(found, "\n  "), EnvAllowLeakedSecrets)
 }

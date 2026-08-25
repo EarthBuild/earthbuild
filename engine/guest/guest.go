@@ -546,12 +546,19 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 			store.DirStore(s.LayerDir).NoteUnmarked(c.ID)
 		}
 
-		// **The finding travels with the layer's name.** The scan happened when
-		// the step ran, where the values were; the host keys its refusal on the
-		// layer, and the layer only has a name here.
+		// **Written beside the layer, not carried in a process.** The scan
+		// happened when the step ran, where the values were; the layer only has
+		// a name here. A build that takes this layer from the cache never runs
+		// the step and never scans, so a note that lived in memory would let the
+		// second build out with what the first was refused.
+		found := s.leakedBy(req.Handle)
+		if len(found) > 0 && s.LayerDir != "" {
+			store.DirStore(s.LayerDir).NoteLeaked(c.ID, found)
+		}
+
 		return Response{
 			Layer: c.ID.String(), Content: c.Content.String(), Bytes: c.Bytes,
-			Leaked: s.leakedBy(req.Handle),
+			Leaked: found,
 		}
 
 	case KindPackImage:

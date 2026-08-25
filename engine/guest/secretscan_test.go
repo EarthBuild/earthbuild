@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
 // TestTheSecretsAStepWasGivenAreGatheredByName.
@@ -139,5 +140,104 @@ func TestAStepThatWroteItsSecretIsRefused(t *testing.T) {
 	err = strictSecretCheck(clean, deltaOnly{dir})
 	if err != nil {
 		t.Errorf("a clean step was refused: %v", err)
+	}
+}
+
+// TestASecretIsRedactedFromWhatAStepPrinted.
+//
+// **A build log is the most public thing a build produces.** A step that echoes
+// a credential - a `set -x` trace, a curl command line, a config dump on
+// failure - puts it in the output, which goes to a terminal, a CI job page and
+// from there into an issue somebody pastes it into.
+//
+// Scrubbed rather than refused, and the difference matters: a secret in a layer
+// is an artifact that outlives the build and must stop it, while a secret in the
+// output is already loose and the useful thing is not to repeat it. Failing here
+// would also destroy the diagnostic the author needs.
+func TestASecretIsRedactedFromWhatAStepPrinted(t *testing.T) {
+	t.Parallel()
+
+	req := Request{
+		Strict:    true,
+		Env:       []string{"TOKEN=hunter2-swordfish"},
+		SecretEnv: []string{"TOKEN"},
+		Mounts:    []Mount{{Target: "/run/secrets/np", Secret: "authToken=abc123xyz"}},
+	}
+
+	out := []byte("+ curl -H 'Authorization: hunter2-swordfish' https://api\n" +
+		"wrote authToken=abc123xyz to /root/.npmrc\nall done\n")
+
+	got, names := redactSecrets(out, secretsFrom(req))
+
+	for _, leaked := range []string{"hunter2-swordfish", "abc123xyz"} {
+		if strings.Contains(string(got), leaked) {
+			t.Errorf("the output still contains a credential")
+		}
+	}
+
+	// What survives is the diagnostic, which is the whole reason not to refuse.
+	for _, want := range []string{"curl", "https://api", "/root/.npmrc", "all done"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("redaction removed %q, which the author needs", want)
+		}
+	}
+
+	// And the reader is told, by name, that something was taken out - silently
+	// altered output is a debugging session that goes nowhere.
+	if len(names) != 2 {
+		t.Errorf("reported %v redacted, want both secrets named", names)
+	}
+
+	for _, want := range []string{"TOKEN", "/run/secrets/np"} {
+		if !strings.Contains(strings.Join(names, " "), want) {
+			t.Errorf("%s was redacted without being named: %v", want, names)
+		}
+	}
+
+	// Nothing to redact leaves the bytes exactly as they were, so an ordinary
+	// build is not paying for a copy.
+	clean := []byte("ordinary output\n")
+
+	same, none := redactSecrets(clean, secretsFrom(req))
+	if len(none) != 0 || string(same) != string(clean) {
+		t.Errorf("clean output was altered: %q %v", same, none)
+	}
+}
+
+// TestAStreamedSecretIsRedactedAcrossChunks.
+//
+// Output arrives in whatever pieces the step wrote it in, so a credential can
+// straddle two. A scrubber that looks at each chunk alone lets it through -
+// which is the file scanner's boundary problem at a different granularity, and
+// worse here because the result is printed rather than stored.
+func TestAStreamedSecretIsRedactedAcrossChunks(t *testing.T) {
+	t.Parallel()
+
+	secrets := []layer.Secret{{Name: "TOKEN", Value: "hunter2-swordfish"}}
+
+	var got []byte
+
+	sink, flush := redactingSink(func(b []byte) { got = append(got, b...) }, secrets)
+
+	// Split mid-credential, which is the case that matters.
+	for _, chunk := range []string{"start hunter2", "-swordfish end\n"} {
+		sink([]byte(chunk))
+	}
+
+	flush()
+
+	if strings.Contains(string(got), "hunter2-swordfish") {
+		t.Errorf("a credential split across two chunks was printed: %q", got)
+	}
+
+	for _, want := range []string{"start", "end"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("redaction lost %q from the output: %q", want, got)
+		}
+	}
+
+	// Nothing is left behind: what the flush holds must always come out.
+	if !strings.Contains(string(got), "[redacted:TOKEN]") {
+		t.Errorf("the redaction marker never reached the reader: %q", got)
 	}
 }

@@ -451,7 +451,15 @@ This is a net for the common accident - a redirect, a stray `env`, a config file
 variable - and not a guarantee that a layer is clean. Treating it as one would be worse than not
 checking, because somebody would rely on it.
 
-**What happens when it finds one.** The step fails, and a failing step cancels the build - dependent
+**A step's output is scrubbed rather than refused.** A build log is the most public thing a build
+produces - a `set -x` trace, a curl command line, a config dump on failure - and it reaches a
+terminal, a CI job page, and from there an issue somebody pastes it into. A credential already
+printed is loose, so the useful thing is not to repeat it; refusing would also destroy the
+diagnostic the author needs. The value is replaced by `[redacted:NAME]`, in the buffered output and
+in the streamed one, where the tail of each chunk is held back so a credential split across two is
+still caught.
+
+**What happens when it finds one in an artifact.** The step fails, and a failing step cancels the build - dependent
 steps never start. The check runs at the end of the step and *before* the capture, so the delta
 never becomes a layer: nothing is placed in the store, nothing is cached, and there is nothing for a
 later build to find. Nor can the failure be tolerated: `--allow-failure` rescues a non-zero *exit*

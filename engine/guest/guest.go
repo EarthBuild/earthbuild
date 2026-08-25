@@ -1594,6 +1594,16 @@ func outputFor(req Request, out []byte) string {
 		return ""
 	}
 
+	// **A build log is the most public thing a build produces.** Scrubbed rather
+	// than refused: a secret in a layer outlives the build and has to stop it,
+	// while one already printed is loose, and the useful thing is not to repeat
+	// it - and refusing would destroy the diagnostic the author needs.
+	if req.Strict {
+		scrubbed, _ := redactSecrets(out, secretsFrom(req))
+
+		return string(scrubbed)
+	}
+
 	return string(out)
 }
 
@@ -2059,7 +2069,10 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 		defer timing.Phase("guest:exec", req.Handle)()
 
-		out, rerr = runStep(cmd, streamer(c, req), req, s, h, mountPoints(mounts))
+		sink, flush := redactingSink(streamer(c, req), strictSecrets(req))
+		defer flush()
+
+		out, rerr = runStep(cmd, sink, req, s, h, mountPoints(mounts))
 
 		return rerr
 	}
@@ -3138,4 +3151,14 @@ func placeUnpacked(st store.DirStore, staging, as string, got image.Unpacked) (i
 	}
 
 	return id, nil
+}
+
+// strictSecrets is what a step was given, when the build asked for its output
+// to be scrubbed. Empty otherwise, which turns the redaction off at no cost.
+func strictSecrets(req Request) []layer.Secret {
+	if !req.Strict {
+		return nil
+	}
+
+	return secretsFrom(req)
 }

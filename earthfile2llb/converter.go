@@ -1463,7 +1463,7 @@ func (c *Converter) SaveImage(
 
 			if c.ftrs.WaitBlock {
 				shouldPush := hasPushFlag && si.DockerTag != ""
-				shouldExportLocally := si.DockerTag != "" && c.opt.DoSaves
+				shouldExportLocally := si.DockerTag != "" && c.opt.DoSaves && !c.opt.NoLocalImageExport
 				waitItem := newSaveImage(si, c, shouldPush, shouldExportLocally)
 				c.waitBlock().AddItem(waitItem)
 

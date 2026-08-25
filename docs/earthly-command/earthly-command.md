@@ -245,6 +245,20 @@ Also available as an env var setting: `EARTHLY_NO_OUTPUT=true`.
 
 Instructs Earthly not to output any images or artifacts. This option cannot be used with the *artifact form* or the *image form*.
 
+##### `--no-image-output`
+
+Also available as an env var setting: `EARTH_NO_IMAGE_OUTPUT=true`.
+
+Instructs EarthBuild not to load `SAVE IMAGE` images into the local Docker daemon, while still writing
+`SAVE ARTIFACT ... AS LOCAL` artifacts to the local filesystem. Where `--no-output` suppresses both kinds of
+output, this suppresses only the image half.
+
+Pushing is unaffected, so `--push --no-image-output` pushes images to their registries without also loading
+them locally. This is useful in CI against a remote BuildKit daemon, where loading a large image means
+streaming the whole thing back to the runner only to discard it.
+
+This option cannot be used with the *image form*, whose purpose is to output an image locally.
+
 ##### `--output`
 
 Also available as an env var setting: `EARTHLY_OUTPUT=true`.

@@ -1,0 +1,48 @@
+VERSION 0.8
+
+# The scenario from #855: one invocation that pushes an image to a registry,
+# writes a local artifact, and does not load the image into the local docker
+# instance.
+
+myimg:
+    FROM alpine:3.24.1
+    RUN echo NWMyMTQ2YjctZGFlNS00YzQ5LWE1MTktNDM2Zjc4YzNkNzAwCg== > /special-data
+    RUN echo artifact-contents > /artifact.txt
+    ARG --required REGISTRY
+    ARG --required tag
+    SAVE ARTIFACT /artifact.txt AS LOCAL output/artifact.txt
+    SAVE IMAGE --push $REGISTRY/myuser/myimg:$tag
+
+deps:
+    FROM alpine:3.24.1
+    RUN apk add --no-cache curl jq
+
+check-tag-exists-in-registry:
+    FROM +deps
+    ARG --required REGISTRY
+    ARG --required tag
+    RUN curl -k "https://$REGISTRY/v2/myuser/myimg/manifests/$tag" > output && \
+        test "$(cat output | jq -r .tag)" = "$tag" && echo "verified $tag was pushed 🎉"
+
+check-tag-does-not-exist-locally:
+    LOCALLY
+    ARG --required REGISTRY
+    ARG --required tag
+    RUN if docker images "$REGISTRY/myuser/myimg:$tag" | grep -q "$tag"; then \
+            echo "image was loaded into the local docker instance, but --no-image-output was given"; \
+            exit 1; \
+        fi && echo "verified $tag was not loaded locally 🎉"
+
+check-artifact-exists-locally:
+    LOCALLY
+    RUN test -f output/artifact.txt && echo "verified artifact was written locally 🎉"
+
+test:
+    ARG --required REGISTRY
+    ARG --required tag
+    WAIT
+        BUILD +myimg --REGISTRY=$REGISTRY --tag=$tag
+    END
+    BUILD +check-tag-exists-in-registry --REGISTRY=$REGISTRY --tag=$tag
+    BUILD +check-tag-does-not-exist-locally --REGISTRY=$REGISTRY --tag=$tag
+    BUILD +check-artifact-exists-locally

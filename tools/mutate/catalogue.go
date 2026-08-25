@@ -1056,6 +1056,14 @@ var Mutants = []Mutant{
 		OS:          "linux",
 	},
 	{
+		Name:        "guest: the delta consulted about a directory the step may have changed (E640)",
+		File:        "engine/guest/directoryasfound_linux.go",
+		Anchor:      "\tif delta == \"\" {\n\t\treturn \"\"\n\t}",
+		Replacement: "\tif delta == \"\" || true {\n\t\treturn \"\"\n\t}",
+		Package:     "./engine/guest/",
+		OS:          "linux",
+	},
+	{
 		Name:        "fleet: sending a fragment when paths were asked for (E286)",
 		File:        "engine/fleet/blobwire.go",
 		Anchor:      "\tif f, ok := held.(fragmenting); ok \u0026\u0026 len(want) > 0 \u0026\u0026 held != nil {",

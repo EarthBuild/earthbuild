@@ -28864,3 +28864,59 @@ blocked, `nstest.In` skipped, and a skipped test is not a failure. With
 namespaces available, three tests fail on `/proc` mounts the container will not
 allow. Neither number is the truth about the engine; the first is worse,
 because it looks like one.
+
+## E640 - the delta answers it, and where a build's time actually is now
+
+E639 said 14.2ms of a 39.5ms step was restoring directory times, and named the
+fix without taking it: the step's own writes land in the overlay's **upper**
+layer, which has no lower layers to merge, so an upper holding only the
+engine's mount point proves the step changed nothing.
+
+`core.Handle` already had `Delta()`, and it already meant this. Threading it to
+`bindMounts` is the whole change:
+
+```text
+run (per step)         39.2ms -> 9.3ms    -76%
+guest:unbind:touched   14.2ms ->  0.1ms
+schedule (20 steps)      1965ms -> 1364ms
+```
+
+Larger than the 14.2ms it was aimed at, because the same merged read happened at
+bind time too - `findDirectory` snapshots the names, `restore` compares them,
+and both were reading through the overlay.
+
+Where there is no delta - a prepared root, or a test with a plain directory -
+the directory itself is watched, which is what happened before. The two
+directory-time tests exercise that path unchanged.
+
+### What is left, and it is not the engine
+
+With per-step at 9.3ms, a cold twenty-step build is dominated entirely by the
+network:
+
+```text
+registry:token     0.429s   Θ, resolving the tag
+pin:manifest       0.145s
+registry:token     0.111s   the pull, same repository, same scope
+registry:manifest  0.154s
+layer:get          0.272s
+layer:unpack       0.130s
+image:copy         0.019s
+20 steps           0.186s   all of the actual building
+```
+
+**The engine is now a rounding error on its own cold build.** Twenty steps cost
+less than one manifest fetch.
+
+Two of those lines are the same repository authenticated twice: Θ resolves the
+tag and the pull fetches the blob, each calling `token()` for the same scope
+seconds apart. A holder that kept it in memory for the length of a build was
+written and measured at 0.111s - and then removed, because
+`TestTheProbeIsPaidOnce` asserts three token requests for three resolutions and
+its comment calls the token "a credential and a separate decision (E535)".
+
+*Rewriting that assertion to fit new code is how a suite stops meaning
+anything.* E535 objects specifically to putting a token in a **cache
+directory**, which an in-process holder is not - so the test may be pinning
+today's behaviour rather than a policy. Either way it is not a question the
+change itself gets to answer, and it is recorded for a person instead.

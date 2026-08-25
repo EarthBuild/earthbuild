@@ -31765,3 +31765,27 @@ either, and a number can be traced back to what produced it.
 The spread is printed beside the median for the same reason: the first build
 after a sandbox is renamed re-does work the next one finds already done, and
 reads as a regression that is not one.
+
+## E692 - a credential fetched eleven times for one build
+
+A cold `+earthly` spent 5.5s of 72s on registry auth: `registry:token` six
+times and `pin:token` five, each a TLS handshake and a round trip to a token
+service, each asking for a credential the build was already carrying.
+
+E535 remembered the *challenge* - where to ask - and said plainly why it stopped
+there: "not the token, which is a credential and a separate decision". That
+decision was about **disk**, and it stands; nothing writes a credential
+anywhere.
+
+Holding one **in the process** for the length of a build is the question that
+was never asked. Registries issue tokens good for about five minutes; this holds
+one for sixty seconds, which is far enough inside that a build cannot present a
+credential the registry has forgotten - a failure the old behaviour, fetching
+every time, could not have had.
+
+Keyed by the token endpoint, which already carries `scope=repository:...`, so
+two repositories can never be handed each other's credential.
+
+Counted rather than timed, because the machine could not be made quiet enough to
+time anything (E691): four resolutions of one repository fetched four tokens and
+now fetch one.

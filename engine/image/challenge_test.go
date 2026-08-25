@@ -67,9 +67,15 @@ func TestAnUnauthenticatedRegistryNeedsNoToken(t *testing.T) {
 // A registry's challenge is remembered, so the probe is paid once rather than
 // once per build.
 //
-// What is remembered is where to ask for a token, which is public metadata about
-// the registry - not the token, which is a credential and a separate decision
-// (E535).
+// What is remembered *on disk* is where to ask for a token, which is public
+// metadata about the registry - not the token, which is a credential and a
+// separate decision (E535). That decision stands: nothing here writes a
+// credential anywhere.
+//
+// The token is now held **in this process** for sixty seconds, which is a
+// different question and was never asked. A cold `+earthly` made eleven token
+// exchanges - 5.5s of a 72s build - for a credential it was already carrying,
+// and a registry issues them good for about five minutes (E692).
 func TestTheProbeIsPaidOnce(t *testing.T) {
 	t.Parallel()
 
@@ -88,10 +94,10 @@ func TestTheProbeIsPaidOnce(t *testing.T) {
 		t.Errorf("%d probes for 3 resolutions, want 1", f.probes)
 	}
 
-	// Still one token each: a token expires, and this remembers where to ask
-	// rather than what was answered.
-	if f.tokens != 3 {
-		t.Errorf("%d token requests for 3 resolutions, want 3", f.tokens)
+	// One between them: the token is held for the length of a build, which
+	// three resolutions of one repository are well inside.
+	if f.tokens != 1 {
+		t.Errorf("%d token requests for 3 resolutions, want 1", f.tokens)
 	}
 }
 

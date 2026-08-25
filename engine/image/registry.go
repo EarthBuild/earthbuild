@@ -710,6 +710,14 @@ func warm(ctx context.Context, client *http.Client, manifestURL string) func() {
 
 // fetchToken asks a realm for a token.
 func fetchToken(ctx context.Context, client *http.Client, at string) (string, error) {
+	// **Already held, and certainly still good.** A cold `+earthly` made eleven
+	// of these exchanges - 5.5s of a 72s build - each a TLS handshake and a
+	// round trip for a credential it was already carrying. See tokenHold for why
+	// the margin is generous.
+	if tok, ok := tokens.get(at); ok {
+		return tok, nil
+	}
+
 	body, err := get(ctx, client, "", at, maxManifest)
 	if err != nil {
 		return "", err
@@ -725,11 +733,14 @@ func fetchToken(ctx context.Context, client *http.Client, at string) (string, er
 		return "", fmt.Errorf("parse the token response: %w", err)
 	}
 
-	if t.Token != "" {
-		return t.Token, nil
+	got := t.Token
+	if got == "" {
+		got = t.AccessToken
 	}
 
-	return t.AccessToken, nil
+	tokens.put(at, got)
+
+	return got, nil
 }
 
 // accepts is every manifest format this engine can read.

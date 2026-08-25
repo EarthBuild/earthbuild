@@ -208,8 +208,9 @@ func (f *fakeRegistry) start(t *testing.T) string {
 			})
 
 		case strings.Contains(r.URL.Path, "/blobs/"):
-			f.served++
-
+			// Counted under the lock: blob requests overlap now that layers are
+			// fetched while the one before them unpacks (E641), and this
+			// counter was written serially before they did.
 			f.enterBlob()
 			defer f.leaveBlob()
 
@@ -495,6 +496,7 @@ func TestAZstdLayerPullsEndToEnd(t *testing.T) {
 // concurrent one has somewhere to overlap.
 func (f *fakeRegistry) enterBlob() {
 	f.blobMu.Lock()
+	f.served++
 	f.inFlight++
 
 	if f.inFlight > f.mostBlobs {

@@ -24,7 +24,7 @@ func TestASecretThatReachedALayerIsFound(t *testing.T) {
 
 	root := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(root, "app", "config"), 0o755)
+	err := os.MkdirAll(filepath.Join(root, "app", "config"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,8 @@ func TestASecretThatReachedALayerIsFound(t *testing.T) {
 	write := func(at, body string) {
 		t.Helper()
 
-		if werr := os.WriteFile(filepath.Join(root, at), []byte(body), 0o644); werr != nil {
+		werr := os.WriteFile(filepath.Join(root, at), []byte(body), 0o600)
+		if werr != nil {
 			t.Fatal(werr)
 		}
 	}
@@ -77,7 +78,8 @@ func TestASecretIsFoundAcrossAReadBoundary(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	secret := "border-straddling-credential"
+	// Not a credential: a string long enough to straddle a read.
+	secret := "border-straddling-credential" //nolint:gosec // a test fixture, not a secret
 
 	// Padding chosen so the secret starts a few bytes before the end of the
 	// first chunk, whatever the chunk is, by making the file span several.
@@ -85,8 +87,10 @@ func TestASecretIsFoundAcrossAReadBoundary(t *testing.T) {
 		body := strings.Repeat("x", pad) + secret + strings.Repeat("y", 100)
 
 		at := filepath.Join(root, "f")
-		if err := os.WriteFile(at, []byte(body), 0o644); err != nil {
-			t.Fatal(err)
+
+		werr := os.WriteFile(at, []byte(body), 0o600)
+		if werr != nil {
+			t.Fatal(werr)
 		}
 
 		found, err := layer.FindSecrets(root, []layer.Secret{{Name: "S", Value: secret}})
@@ -108,7 +112,7 @@ func TestACleanLayerHasNoFindings(t *testing.T) {
 
 	root := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(root, "ok.txt"), []byte("ordinary"), 0o644)
+	err := os.WriteFile(filepath.Join(root, "ok.txt"), []byte("ordinary"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -112,7 +112,7 @@ func scanFile(path string, secrets []Secret, keep int) ([]string, error) {
 	if err != nil {
 		// Readable a moment ago and not now: a step's own file, gone. Not a
 		// finding and not a failure.
-		return nil, nil //nolint:nilerr // see above
+		return nil, nil
 	}
 
 	defer f.Close()

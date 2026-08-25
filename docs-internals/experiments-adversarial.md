@@ -29249,3 +29249,1660 @@ element and 𝑛ₘₐₓ is 480; under per-layer storage a ten-layer image cont
 ten, so the same Earthfile reaches the collapse threshold ten times sooner. The
 threshold was chosen from overlayfs's own limit (E639), and the option-page
 ceiling of about eighty layers by short name is nearer than either.
+
+## E649 - thirty-two sandboxes nobody could name, and the system file table
+
+A morning of cold benchmarking left the machine unable to run any command at
+all. Every process failed to start:
+
+```text
+zsh: too many open files in system
+ENFILE: file table overflow
+```
+
+`kern.maxfiles` is 491520 on this machine and `kern.num_files` was against it.
+The holders were thirty-two `earthbuild-*` VMs, each with tens of thousands of
+descriptors open on a layer store, from benchmark runs whose engine had exited
+hours earlier.
+
+This is E510's failure exactly, and E510's fix did not prevent it. That fix
+reaps by asking whether an owning process has exited - `IsOrphanedSandbox`,
+which parses a pid out of the old `earthbuild-<pid>-<n>` names. Sandboxes are
+content-named now, and the doc comment says so plainly:
+
+> A content-named VM is never an orphan. It has no owning process by design -
+> that is what makes it reusable.
+
+True, and it was read as "so it never needs removing". Nothing reaped one,
+ever. The population is bounded only by the number of distinct names, and the
+name is a digest over the directories the VM mounts - so **every benchmark run
+against a fresh temporary store minted a name that would never recur**, booted a
+VM for it, and abandoned it.
+
+### The rule that was missing
+
+A VM whose mounted directories have gone can never be named again, by this
+build or any other. That is the same argument `Remove` already makes about
+taking a volume away with its VM, and it needs no new state to apply: the
+backend already reports the mount sources.
+
+```text
+container inspect earthbuild-484bc1f914706957
+  mounts[0].source  .../scratchpad/speed/          <- gone
+  mounts[1].source  .../scratchpad/speed/cc-hqr9/  <- gone
+  mounts[2]         volume earthbuild-...-fast     <- not evidence
+```
+
+Only virtiofs bind mounts count. The third mount is the VM's own volume, whose
+source is a disk image the backend owns; counting it would strand every VM on
+the machine.
+
+Measured end to end - a build in a directory, the directory removed, a build
+elsewhere:
+
+```text
+before   earthbuild-037946684c0ef672   running
+after    (gone, with its volume)
+         earthbuild-c9372750195e5563   running   <- this build's own, kept
+```
+
+One `container inspect` for the whole population, 10ms, the same as the listing
+already on that path - and deliberately not moved off it, because a process
+exiting between `container rm` and `container volume rm` leaks the disk while
+removing the only thing that could have reused it.
+
+### What it cost to find
+
+`container rm -f` does not shift a wedged VM: the runtime process stops
+servicing XPC and every removal times out after five seconds. Thirty-two of
+those is three minutes of nothing. `container system stop` reaps the runtime
+processes wholesale and is the only thing that works, which is now what
+`scripts/reset-native-sandbox.sh` does when the polite pass leaves something
+behind.
+
+**The lesson is about the shape of the claim, not the code.** "X is never an
+orphan" answers a question about ownership. It was allowed to settle a question
+about *lifetime*, which is a different question, and the comment asserting it
+made the gap invisible for as long as it took to fill a system-wide table.
+
+## E650 - the same failure, in a disk image, ratcheting
+
+While confirming the suite was green after E649, one test failed:
+
+```text
+--- FAIL: TestTheCaseSensitiveVolumeRecipeWorks
+    hdiutil create -size 50g -fs "Case-sensitive APFS" -volname EarthBuild ...
+    hdiutil: create failed - Resource busy
+```
+
+Not the recipe. Two 50GB sparse images from earlier runs of that same test were
+still attached, to backing files inside `t.TempDir()` directories that had long
+since been removed. The test's cleanup detaches its *mount point*, which is the
+right move only if the run got as far as mounting; the runs killed by E649's
+ENFILE did not.
+
+The bad part is the feedback: **a failed `hdiutil create` leaves its half-built
+image attached**, so each failure makes the next failure more likely. Five had
+accumulated by the time it was diagnosed - one per attempt to reproduce.
+
+```text
+attempt 1   2 attached   FAIL   -> 3 attached
+attempt 2   3 attached   FAIL   -> 4 attached
+attempt 3   4 attached   FAIL   -> 5 attached
+```
+
+Two fixes, because there are two states:
+
+* Cleanup detaches by **image path** as well as mount point, so a run killed at
+  any point after `create` still lets go. Devices deepest-first: a sparse APFS
+  image yields a container and a volume synthesised from it, and the container
+  will not detach while the volume is up.
+* Before creating anything, residue that **will not** detach is grounds to skip,
+  naming the images and saying they clear on reboot. A test that cannot pass on
+  this machine should say so once, not fail forever and add a zombie each time.
+
+Verified: the check finds all five, tries them, and skips.
+
+```text
+--- SKIP: TestTheCaseSensitiveVolumeRecipeWorks
+    5 disk image(s) from an earlier run are attached and will not detach ...
+    they are held by diskimagesiod and clear on reboot
+```
+
+Nothing short of a reboot shifts them - `hdiutil detach -force`,
+`diskutil eject` and `diskutil apfs deleteContainer` all leave the attachment
+in place, the last one succeeding at removing the container and still not
+freeing the image.
+
+**Both experiments are the same failure class**: a resource acquired by a
+process that then exits, with the reclaim written as an afterthought that only
+covers the path the author was thinking about. The engine now reaps sandboxes
+it can prove nothing will name again; the test now reaps images by the handle
+that survives its own death.
+
+## E651 - the whiteout the apart path was dropping, and what it was costing
+
+E648 priced per-layer storage as a trade: up to 38% of an image's unpack against
+0.67ms per layer per step. The first cold measurement of the built thing said
+otherwise on `golang:1.26-alpine` - apart was **1.25s slower**, on an image
+where it should have been roughly even.
+
+The phase diff named it in one line:
+
+```text
+phase                    merged    apart    delta
+mat:markers               0.000    1.444   +1.444
+```
+
+The materialiser walks a layer to find out whether it carries deletion markers,
+unless something has left it a `.unmarked` note. The merged path writes that
+note after `Place`, on the single layer it produced. The apart path placed four
+and noted none, so every one of them was walked.
+
+### And the note would have been a lie
+
+Writing it would have been the obvious fix and would have been wrong, which is
+how the real defect surfaced. `Unpack` **applies** whiteouts: it reads `.wh.foo`
+and removes `foo` from the tree it is building. That is correct for one merged
+directory, where the lower layer is already in that tree. Kept apart there is
+nothing below - the entry names a file this layer does not have - so the removal
+is a no-op, the marker is dropped, and the file it was meant to delete survives
+into the stack.
+
+```text
+--- FAIL: TestALayerKeptApartKeepsItsWhiteouts
+    the whiteout was dropped
+      the layer holds []
+```
+
+Two images were used for the first measurements and neither has a whiteout,
+which is why nothing failed. So the apart path was not slow-but-correct; it was
+**silently wrong for any image with a deletion**, and the 1.44s was the honest
+scan doing the only thing that could have caught it.
+
+`UnpackApart` keeps markers literally, which is exactly the form
+`engine/mat/overlay` already translates into overlayfs whiteouts - the mechanism
+was there, the unpacker was just applying them too early. And since the unpacker
+has read every entry to write the layer at all, it now reports whether it saw
+one, so `Marked` costs nothing and the scan disappears for layers that have
+none.
+
+```text
+                    before      after
+golang step         8.491s      6.380s      merged 6.954s
+                    +1.25s      -0.57s      vs merged
+```
+
+## E652 - streaming, which E647 measured as noise, is worth 24% apart
+
+E647 prototyped unpacking a layer as its bytes arrive and found ~3% on the
+merged path - noise - with the reason recorded: the byte budget already overlaps
+fetching with unpacking *across* layers, so the machine is never idle during a
+fetch, it is unpacking something else.
+
+That reasoning is sound and does not survive the layers being kept apart. The
+per-layer phase series says why:
+
+```text
+layer:get      0.098  0.282  0.693  0.883      (concurrent; arrival times)
+layer:unpack   0.002  0.116  0.486  0.924
+layers:unpack  1.821
+```
+
+The largest layer arrives at 0.883 and takes 0.924 to unpack: 1.807 against a
+measured 1.821, **a fit to 14ms**. Nothing else is on that path - the other
+three unpacks are finished by 1.18 - so for the last 0.63s the machine is doing
+one thing and waiting to do it. E647's "it is unpacking something else" is true
+of the middle of a pull and false of its tail, and the tail is where the
+dominant layer is.
+
+Streamed, the two become concurrent and the path is the longer of them.
+Predicted ~0.95s, measured 1.423s - the pipeline runs at the slower of arrival
+and unpack per chunk rather than at the max of their totals, so the prediction
+was the floor and not the estimate. Still most of the available win.
+
+Three images, three cold samples each, medians, one sandbox per sample:
+
+```text
+image                merged    apart              stream
+python:3.13-slim     3.402s    2.501s (-26.5%)    2.031s (-40.3%)
+golang:1.26-alpine    6.954s    6.380s ( -8.3%)    5.951s (-14.4%)
+node:22-alpine       3.144s    3.002s ( -4.5%)    2.380s (-24.3%)
+```
+
+Note `golang`, which `worthUnpackingAtOnce` excludes from concurrent unpacking
+because 96% of it is one layer (E646). Streaming helps it anyway, and for the
+same reason it helps the others: the dominant layer's *own* fetch is what its
+unpack now overlaps, and a layer that dominates has the most of both.
+
+The digest is checked after the unpack, which is the only place a stream allows.
+Sound because each layer goes into a directory of its own that is discarded on
+failure - and a substituted blob usually fails inside the unpacker first, since
+the body is cut off at the size the manifest declared, so the hash is taken even
+after a failure and the mismatch is named as the cause rather than reported as a
+corrupt archive.
+
+### On the harness, again
+
+Six golang samples in the middle of this reported a clean 0.74s for both
+variants. Docker Hub had begun answering 429, every build failed in 0.2s, and
+`|| true` in the runner recorded the failures as samples. The fix is `mirror.gcr.io`
+for the pulls and no `|| true` in a benchmark - but the general form is E643's:
+**a number that does not move is as suspicious as one that moves too much.**
+
+## E653 - telling the store what was hashed, which is a wash
+
+Placing a pulled image re-reads the whole tree to digest it -
+`layer.TakeOwnedIn` walks and hashes every file, 0.958s of a cold
+`golang:1.26-alpine` pull - over bytes the unpacker wrote seconds earlier. So
+the unpacker was made to hash as it writes and hand the answer on, with
+`layer.TakeOwnedKnowing` treating the map as a shortcut and reading any path it
+does not name.
+
+Five cold samples each, one sandbox per sample:
+
+```text
+                     inline hash        read back
+python  place         0.080              0.230
+        unpack        1.653              1.395
+        step          2.104              2.010     0.09s worse
+golang  place         0.357              0.909
+        unpack        4.913              4.465
+        step          5.644              5.746     0.10s better
+```
+
+The place saving is large and real - 65% and 61% - and the unpack pays it
+straight back. **One pass over warm bytes is cheaper in total CPU than two, and
+that is not what matters**: the read-back runs across every core in
+`fillContents`, while the inline hash sits in the single goroutine handling that
+layer, on the critical path. Cheaper work in a worse place.
+
+±0.1s either way is E647's verdict again: noise. Kept behind
+`EARTH_NO_KNOWN_DIGESTS` rather than removed, because E654 makes the capture
+worth having for a different reason.
+
+## E654 - where a layer's unpack time actually goes
+
+Prompted by an observation that reframes the whole target: *the large layers are
+also the layers where not all of the layer will actually get used.*
+
+The dominant layer of `golang:1.26-alpine` - 61MB compressed, 228MB unpacked,
+15034 files and 1669 directories - measured in three stages, each adding one
+thing to the last:
+
+```text
+decompress only        0.819s   (228 MB out)
++ tar parse            0.849s   (+0.030s)
++ write to disk        2.409s   (+1.560s)
+```
+
+**Parsing a tar is free and writing one is not.** Decompression is 34% of a bare
+unpack; the filesystem is 65%. The engine's own unpack of that layer measures
+~4.0s rather than 2.41s, the difference being per-file mode and mtime calls, so
+in the engine the split is closer to **0.85s decompress against ~3.1s of
+filesystem work on 15034 files** - most of which no build reads.
+
+That sets the ceiling for anything lazy. A gzip member cannot be entered in the
+middle, so the decompression is not avoidable for an ordinary image; everything
+after it is.
+
+### What it makes possible
+
+The lazy machinery already exists and is used for fleet transfer, not for pulls:
+`engine/trace` stops a step before an open, `Filler.Fill` turns that into a
+fetch, `Filler.Prime` materialises a predicted read set in one batch, and
+`engine/layer/manifest.go` is the per-layer proof it all keys on. What is
+missing is a `Fragmenter` whose source is a *blob* rather than a peer.
+
+The shape that fits the numbers:
+
+* One decompression pass builds the manifest - path, metadata, content digest -
+  and writes nothing. The layer's identity needs every file hashed whatever
+  happens, which is exactly the capture E653 measured as a wash on its own; here
+  it is not optional, and the second read it saves is a read that no longer
+  exists.
+* The compressed blob is kept, at 61MB against 228MB.
+* `Prime` materialises the predicted read set, and a fault materialises the
+  rest, by one more decompression pass. Faults are batched by the prediction, so
+  a step reading 5% of the layer pays roughly two decompressions and a hundred
+  writes.
+
+Predicted for that layer: 0.85 + 0.85 + small against ~4.0s. **Not measured** -
+this is arithmetic over E654's split, and the prediction is what the experiment
+would test.
+
+The honest risk is the same one E647 found: a saving that exists in the model
+and not on the machine, because the thing it removes was overlapping something
+else. Here the removed work is filesystem writes at the tail of a pull, which is
+where E652 showed there is nothing left to overlap with - but that is an
+argument, not a measurement.
+
+## E655 - the same image, two names: what the unpacker was inheriting
+
+E654's design needs a layer to be namable from its manifest without the tree
+being written. Pinning the archive path against the walk path meant asking what
+the walk path actually produces - and it produces a different answer every time.
+
+```text
+--- FAIL: TestTheSameArchiveUnpacksToTheSameLayer
+    the same archive unpacked to two layers:
+      f988c48d11f0a251e1df806ccac909b31be5ae724ba93b1cf31c42a728154957
+      c359b634c4e10e2b16b8f60aabeb0ecee4e87fc75b0881dd1e910f70f93ef577
+```
+
+An archive naming `etc/conf` and not `etc/` leaves the unpacker to create the
+parent. `os.MkdirAll` stamps it with the moment it ran, and §3.3 counts an mtime
+as part of the layer. So the layer's *name* carried the clock.
+
+Asking the same question of the other thing MkdirAll inherits found the second:
+
+```text
+umask 077 -> 6b8995c35a7386fffe58f62cb740ad5e9f9249f97c3b4db61e4aa96f26a2d9ce
+umask 022 -> 01eddccf03293f577343954c14bac24452662833332533faff1ad29bdf8bafb3
+```
+
+Both are one defect: **a directory the archive did not describe was taking its
+metadata from the environment.** Everything the archive *does* describe was
+already handled - `applyDirModes` exists, and its comment states the rule
+exactly ("a build that stamped them with the moment of unpacking would produce a
+different layer every time", I8). The pass simply only covered the directories
+the archive named.
+
+Fixed by extending that pass: an undescribed directory gets mode 0755 and the
+epoch, both stated rather than inherited. 0755 is what the unpacker already asks
+MkdirAll for, so nothing changes on an ordinary machine; the epoch, because a
+directory with no described time has none to recover and the only honest
+substitute is a constant.
+
+### Why it was invisible
+
+Real base images name their directories, so the case needs an archive that does
+not - and `alpine`, `python`, `golang` and `node` all do. "Usually" is not a
+property a content-addressed store may rest on: the consequences are entirely
+cache, and entirely silent. Two machines pulling one image disagree about what
+they hold; a fleet peer cannot serve a layer anybody asks for by name; a re-pull
+after a cache wipe hits nothing it should have hit. Nothing fails - it just
+never hits, and a cache that never hits looks like a cache that is cold.
+
+**The general shape is worth the entry.** This was not found by looking for it.
+It was found because a *different* piece of work - building a manifest from an
+archive - needed the existing path to be a fixed target, and asking "what
+exactly does the old way produce?" is a question nobody had had occasion to ask.
+A second implementation is a good way to audit the first, before it is a way to
+replace it.
+
+## E656 - a layer named without being written, and two more things it was inheriting
+
+E654's design needs `ManifestFromTar`: a layer's manifest read from the archive,
+never written to disk. `ManifestID` already equals `Take(root).ID` for the tree a
+manifest describes, so that is the whole of what a lazy pull needs to name and
+authenticate a layer.
+
+It is now written and pinned byte-for-byte against the walk, over an archive
+chosen to disagree - an implicit parent directory, a hardlink, a symlink, an
+empty file, a whiteout, and times with nanoseconds. Building it found two more
+places the environment was reaching the digest, which is the E655 pattern
+repeating: **a second implementation is an audit of the first.**
+
+### Symlink modes
+
+```text
+              umask 022     umask 077     umask 000
+darwin        755           700           777
+linux         777           777           777
+```
+
+A symlink is a signpost: a file whose whole content is a path. Its permission
+bits are never consulted - open a symlink and the kernel reads the path and
+checks the *target*. Linux concluded the field is meaningless and pins it to
+0777 for every symlink there has ever been. BSD kept the symlink as an ordinary
+inode with an ordinary mode, applies the umask at creation, and provides
+`lchmod` to change it.
+
+The digest hashed the raw mode word, so the same image had a different name on
+macOS and on Linux - and, on macOS, three different names depending on the
+shell's umask. Every base image contains symlinks, so a developer on a Mac and
+CI on Linux could share no cache entry for any of them, which is most of what
+this engine is for.
+
+`kindOf` already normalised the *type* byte "even where a platform reports mode
+bits differently". `hashedMode` is the rest of that sentence: a symlink's
+permission bits are fixed at 0777, and nothing else is touched - a file's
+executable bit and a directory's mode are real properties of real objects and
+§3.3 counts them.
+
+### Ownership
+
+An unprivileged unpack cannot grant the archive's ownership. `applyOwner`
+attempts the chown and tolerates EPERM, deliberately and with A2 cited (E92) -
+so the disk says the builder owns what the image says root owns, and the layer
+gets a different name on a developer's machine than in a guest running as root.
+
+Worse, and found only because the archive path disagreed with the tree by a gid
+of 20 against 0: **on BSD a new file takes the enclosing directory's group, not
+the process's.** The layer's name therefore depended on where the store happened
+to live.
+
+The remedy was already built and is exactly what it is for. `TakeOwnedIn` takes
+a declaration - "a layer's own account of who owns it" - applied before hashing
+so the digest is "the one the store would produce rather than the one this
+namespace happens to see" (E313). The unpacker now returns that account, since
+it read every header to write the layer at all, and the store takes it through
+`Placement`.
+
+### What is not fixed
+
+The merged path still has the ownership leak. It pulls into a shared image cache
+and places from there, so on a cache hit there is no archive left to consult -
+the declaration would have to be written beside the cache entry as the
+configuration already is. The clock, umask and symlink fixes are in `entry.hash`
+and the unpacker, so they apply to both paths; this one does not.
+
+Every layer id changes as a result of this entry, which is a cache
+invalidation - and the honest way to read that is that the ids it invalidates
+were never reproducible in the first place.
+
+## E657 - a fragment served from a blob nobody unpacked
+
+E656 gave a layer a name without a tree. This gives it a *body*: the part of it
+somebody asked for, packed straight out of the compressed blob.
+
+`PackPathsFromTar` is pinned byte-for-byte against `PackOwned` over the tree the
+same archive unpacks to, for a whole layer and for five subsets. It has to be
+byte-for-byte, for the reason `Pack`'s own comment gives: two encodings of one
+tree is the determinism problem E262 exists to avoid, and a fragment encoded
+differently captures to an identity nobody asked for.
+
+Only the wanted bodies are held. The archive can be read only forwards, so the
+keep decision is made as each entry passes and the memory is the fragment's
+rather than the layer's - which meant lifting the filter out of `keeping` into a
+predicate over one path, so the two packs cannot come to disagree about what a
+fragment contains.
+
+### Two things the pin caught
+
+**A hardlink's body arrives under the wrong name.** The archive says "b links to
+a"; the walk calls whichever path it *reaches* first the original, which is
+lexicographic order. So the entry that carries the body and the entry the pack
+asks about are routinely different names. Fixed by keying held bodies on the
+content digest, which is what the encoder dedupes on anyway.
+
+**The pack was writing the raw mode.** E656 normalised a symlink's permission
+bits in `entry.hash`, and a pack is a *wire format* that writes the mode too - so
+a fragment's bytes still differed across platforms while its name did not. Moved
+the normalisation to where an entry is built, so the digest, the manifest and the
+pack cannot come apart.
+
+### What is now in place
+
+```text
+Filler.Fill      stop a step before an open, fetch the path      exists
+Filler.Prime     materialise a predicted read set in one batch    exists
+Fragmenter       the interface a source satisfies                 exists
+Fragments        store and verify what arrives                    exists
+ManifestFromTar  name a layer without writing it                  E656
+PackPathsFromTar send part of one without writing it              E657
+fleet.Blobs      a Fragmenter whose source is a blob              E657
+```
+
+`Blobs` verifies before it serves: a manifest's hash is the layer's name, so a
+blob whose manifest hashes elsewhere is refused rather than served, however the
+mapping described it. Serving it would put one layer's files into another's base.
+
+Two decompressions when the proof is wanted and one when it is not - an archive
+cannot be rewound, and the protocol already lets a caller holding the manifest
+say so (E299), which is the case worth having.
+
+### What remains
+
+Wiring, not invention: a pull has to keep its compressed blobs and record which
+layer each unpacks to, and a `FROM` has to choose a lazy base over an unpacked
+one. **Nothing is measured yet** - E654's arithmetic predicts 0.85s + 0.85s + a
+hundred writes against ~4.0s for `golang:1.26-alpine`'s dominant layer, and that
+prediction is what the experiment would test. E647 is the standing warning: a
+saving that exists in the model and not on the machine, because the thing it
+removed was overlapping something else.
+
+## E658 - the lazy path, measured: 76%
+
+E654 predicted the arithmetic and E657 built the pieces. This is the measurement,
+over `golang:1.26-alpine`'s dominant layer - 61MB compressed, 228MB unpacked,
+15034 files - through the real code paths rather than a model.
+
+The read set is what a `RUN go version` touches: eight paths, the toolchain
+binary among them.
+
+```text
+EAGER
+  unpack whole layer       4.059s   (15034 files hashed)
+  name it (walk + hash)    0.898s
+  TOTAL                    4.958s   -> e2423c02...
+
+LAZY
+  proof + fragment, 1 pass 1.192s   -> e2423c02...
+  restore the fragment     0.004s
+  TOTAL                    1.195s
+
+saving 3.762s  (76%)
+```
+
+**The same layer id both ways**, which is the correctness argument arriving as a
+side effect of the measurement rather than as an assertion about it.
+
+### The first number was 44%
+
+Measured before the fragmenter read the archive once:
+
+```text
+  manifest from archive    1.321s
+  pack 8 paths             1.287s
+```
+
+Two decompressions, because the proof and the fragment were asked for
+separately - and a gzip member cannot be entered in the middle, so a second
+answer is a second pass over the whole thing. `FragmentFromTar` produces both
+from one pass, pinned byte-for-byte against the two separate calls: a caller
+checking a fragment from one path against a manifest from the other is the
+ordinary case, and `VerifyFragment` compares digests rather than intentions.
+
+44% to 76% for removing a pass nobody needed. **The lesson is E643's in a new
+place**: the first honest measurement of a thing is a measurement of the
+implementation, not of the idea, and the gap between them is where the work is.
+
+Checking the proof is now unconditional in `fleet.Blobs`, because it came out of
+the same pass and costs nothing - a blob whose manifest hashes to something other
+than the layer asked for is refused rather than served.
+
+### What this does not say
+
+The 76% is one layer in isolation. In a build it is bounded by everything it does
+not touch: the network, the sandbox boot, the steps above. E652 measured the
+whole cold `FROM` of that image at 5.951s with streaming, of which ~2.2s is
+network - so the reachable saving on that build is nearer 3.7s of 5.95s if the
+fetch overlaps, and less if it does not.
+
+And it is still not wired. A pull must keep its compressed blobs and record which
+layer each unpacks to; a `FROM` must choose a lazy base. Until then this is a
+measurement of two functions, not of a build.
+
+## E659 - the prediction the engine already had and was not saying
+
+E658 measured the lazy path at 76% in isolation. Wiring it needs three things:
+blobs kept, a `FROM` that chooses a lazy base, and a *prediction* - because
+`wouldPrime` requires one and refuses to prime without it, deliberately:
+
+> **Nothing predicted materialises nothing**, and that is not an empty base: a
+> worker with no prediction fetches the whole layer the ordinary way, and an
+> empty prime that looked like a base would leave a step faulting on every path
+> it opened.
+
+`ReadsPredicted` says where it comes from: *"a worker fills it from the
+assignment's hints; everywhere else it is empty"*. So lazy materialisation has
+only ever been reachable on a fleet worker, and a local build assembles every
+base whole however little of it a step opens.
+
+**The engine had the answer locally the whole time.** `tryL2` calls
+`s.Profiles.Get(StepClass(n))` one lookup earlier, to decide whether an
+observed-key entry can be trusted, and then discards the paths. Handing them to
+the node costs nothing - the lookup already happened, for a different question.
+
+Empty stays empty, which the second test pins: an empty prediction has to keep
+reading as "materialise nothing", or a base that looked primed and held nothing
+would leave a step faulting on every path.
+
+Sorted on the way out. These reach a request for part of a layer, and a request
+that varied with map iteration order would ask for the same paths under
+different names - a cache miss dressed as a fetch.
+
+### Not yet a saving
+
+`e.Prime` is still nil outside a worker, so nothing primes yet and nothing
+measured moves: `python:3.13-slim` still reads 3.620s merged against 2.261s
+streamed. This is the prerequisite, not the change.
+
+### And the design question the wiring turns on
+
+A lazy pull that skips the unpack has to answer what happens when a step
+*without* a prediction wants the same base. `base()` falls back to
+`c.Materialise(ctx, stack)`, which needs the layer trees - so a pull that kept
+only blobs would fail that step rather than degrade.
+
+The shape that fits: keep the blob, unpack from it *on demand*, and let the two
+consumers take what they need.
+
+* a step with a prediction primes from the blob - E658's 76%
+* a step without one materialises the whole layer from the blob - today's cost,
+  paid later instead of always
+* a build whose every step hits the cache pays neither, which it already does
+  not, because a `FROM` that hits L1 never runs
+
+That is a real decision rather than plumbing, because it moves *when* an image
+is unpacked and therefore what a cold build's first step waits for. Recorded
+here rather than made in passing.
+
+## E660 - the chain composed, and why the last wire is a pessimisation
+
+E659 left three things to wire. Two are now done and the third turns out to be
+the wrong move on its own, which is worth recording as clearly as the parts that
+worked.
+
+### Kept and joined
+
+A pull retains each layer's compressed bytes - a writer per layer, teed as they
+pass, because the streaming path never holds a whole one and `ir` imports
+`engine/image` so `engine/image` cannot name `engine/blob`. Best effort: a
+retention that fails leaves a pull that worked.
+
+The store then records which blob a layer came from, beside the layer as
+`.unmarked` and the configuration are. **A blob is named by the hash of its
+compressed bytes and a layer by the hash of the tree it unpacks to, and nothing
+relates the two except the pull that saw both** - so without the note, a store
+holding a perfectly good 61MB blob cannot tell which of its layers it is.
+
+Measured on a real pull of `python:3.13-slim` with `EARTH_KEEP_BLOBS=1`:
+
+```text
+blobs   42M
+layers/2f805fbc....blob  ba9dc0f9... application/vnd.oci.image.layer.v1.tar+gzip
+                         (four layers, four notes)
+```
+
+And the chain composes end to end: the id the store filed the layer under is the
+id the blob attests to, the fragment restores, and it checks against the proof
+the same blob wrote.
+
+### The last wire, and why not
+
+`e.Prime` is still nil outside a fleet worker. Wiring it would be safe - `base()`
+falls back to `Materialise` when priming fails, and the pull still unpacks - but
+it would be **slower**, and the reason is worth having written down.
+
+Lazy transfer exists to avoid moving bytes *between machines*. Locally the layers
+are already on the same disk, and `Materialise` mounts them: E648 measured a
+deeper stack at 0.67ms per layer per step. Priming instead **copies** the
+predicted read set into a directory. Copying beats mounting only when the thing
+being avoided is a network.
+
+So local priming pays exactly when the layers are *not* on disk - which is the
+decision E659 recorded and this does not make. The pieces are in place either
+way: the blob is kept, the join is recorded, and `fleet.Blobs` serves from it.
+What remains is a `FROM` that declines to unpack, and that is a choice about when
+a cold build pays for its image rather than a wire to solder.
+
+**A saving that needs a matching cost removed is not a saving yet**, which is
+E647's lesson arriving from the other direction: there it was work that
+overlapped something else, here it is work that replaces something already
+cheap.
+
+## E661 - a warm build is its image resolutions, and they were serial
+
+Every measurement so far has been of a cold pull. A fully warm build - five
+cached steps on one image - is 0.22s, and the schedule is 0.002s of it:
+
+```text
+pin:token     0.133s
+pin:manifest  0.074s
+plan          0.208s
+schedule      0.002s
+```
+
+**94% of a warm build is two network round trips to resolve a tag.** The
+remaining question was whether any of it is removable, and two thirds of it is
+not: the token is a credential and E535 already decided it does not go in a
+cache directory, and the tag resolution is what notices a moved tag - which is a
+correctness cost with a documented opt-out (`--pin`).
+
+The removable part is the shape. Two distinct images:
+
+```text
+python  token 0.132 + manifest 0.065 = 0.197
+alpine  token 0.071 + manifest 0.067 = 0.138
+plan                                   0.336   <- the sum, exactly
+```
+
+They are resolved one after the other, because the interpreter walks the file and
+resolves each `FROM` as it reaches it. Nothing about resolving one image depends
+on another.
+
+Starting them all before the walk, from the same scanner `--pin` uses:
+
+```text
+                two images        four images
+plan  before      0.336s            0.879s (summed round trips)
+plan  after       0.255s            0.299s
+wall  before      0.37-0.38s
+wall  after       0.20-0.25s        0.25-0.27s
+```
+
+Resolution is now O(1) in wall clock rather than O(N). The memo in `Plan.pin` is
+untouched and is still what makes it once per *reference* (I17); this changes
+when the lookups happen, not how many.
+
+### The first version made it slower
+
+```text
+wall  0.43  0.44  0.38     (against 0.37 before)
+pin:manifest  python       <- twice
+```
+
+The prefetch keyed on the platform as the build spelt it and the interpreter
+called back with the step's, which is *empty* when it means the default. One
+image, two keys, two round trips. `resolveFor` settles the two and is
+idempotent, so the key is taken after it.
+
+**Worth writing down because the failure mode is invisible without the phase
+list**: a prefetch that misses its own cache still works, still pins, still
+produces the right build - it just quietly does twice the network and reads as
+noise on the wall clock. The doubled `pin:manifest` line is the only thing that
+said so.
+
+### And one thing that was already right
+
+The scanner ignores `COPY --from`, which looked like a gap worth filing until the
+documentation said Earthfiles do not support that option at all - the artifact
+form names a target, not an image. Reading the manual beat filing the nit.
+
+## E662 - the best diagnostic in the engine, accusing the wrong party
+
+Profiling a change-one-file rebuild produced this, on a step that had not
+changed:
+
+```text
+context src.txt  NON-DETERMINISM: nothing in the key changed and the output did
+  every component of the key is identical; the step is not reproducible
+    at Earthfile:4
+```
+
+The step was perfectly reproducible. **E656 had changed how a layer is named** -
+twice, for a symlink's mode and for ownership an unprivileged unpack could not
+grant - so the previous record's digests were computed under a rule the current
+engine no longer uses. Same key, different output, and nothing in the record able
+to say why.
+
+`Diverge`'s comment calls this "the most valuable diagnostic a build tool can
+emit, and no chain-keyed system can emit it". That is true and it is why the
+false report matters: **a user upgrading sees it about their own build and
+cannot tell it from the real thing**, so the finding they learn to ignore is the
+one that was worth having.
+
+A record now carries the version of the rule that produced it, and a divergence
+between two rules is its own cause:
+
+```text
+before   NON-DETERMINISM: nothing in the key changed and the output did
+after    the engine's rule for naming layers changed between these builds
+```
+
+`LayerRule` is a hand-maintained constant with its history in the comment, not a
+build stamp: a version string differs between two engines built from one commit,
+and every developer build would report a rule change it did not make.
+
+### Zero has to mean "no claim"
+
+The first version compared identities outright, and the existing round-trip test
+failed within a minute: every in-memory `Record` carries zero, so comparing a
+saved record against a freshly built one reported a rule change on every build.
+
+So a record that states no rule cannot contradict one. Stored records from before
+the field are handled by the *format* version instead - bumped to 2, so they are
+not read at all and every readable record states its rule. Two mechanisms, and
+the division between them is the point: an unreadable record is **no
+comparison**, and a record under a different rule is a **finding**.
+
+**The test that caught it was not testing this.** `TestAttributionSurvivesTheRoundTrip`
+exists to check that saving and loading preserves attribution, and it noticed a
+new cause firing where it had no business. A test that pins the *whole* of a
+behaviour catches changes nobody thought to point it at.
+
+## E663 - the boot was overlapped and the handshake was not
+
+E537 moved the VM's 850ms boot off the critical path by starting it beside the
+plan. The phase list of a change-one-file rebuild says only half the job was
+done:
+
+```text
+plan           0.174s   (a registry round trip)
+sandbox:start  0.044s
+sandbox:dial   0.062s
+four steps     ~0.03s each
+```
+
+**0.106s of local work waiting behind 0.174s of network wait**, and neither
+needs anything from the other. `Prewarm` calls the sandbox's own boot;
+greeting the guest stayed lazy, so a build still paid the handshake in front of
+its first step.
+
+`client()` is a `sync.Once` over both halves, so warming it warms the pair and
+the first step joins what is already there rather than starting a second
+initialisation. One line, and the error is discarded for `Prewarm`'s own stated
+reason: an optimisation that cannot work must leave a build that is slower
+rather than one that stops - and `client()` remembers the failure for the step
+that actually needed it to report properly.
+
+```text
+change one file, four steps rerun
+  before   0.37  0.40  0.41
+  after    0.26  0.28  0.28  0.35        median ~0.28
+
+phases after
+  sandbox:start  0.043s  \  both now complete
+  sandbox:dial   0.073s  /  before plan does
+  plan           0.247s
+  schedule       0.078s     (was 0.266s)
+```
+
+0.11s against a predicted 0.106s. A no-op build is unchanged at 0.17-0.28s: the
+prewarm runs on a goroutine nothing waits for, and the dial it now adds is to a
+machine the same prewarm was already booting.
+
+### On finding it
+
+The mechanism, its measurement and its justification were all already written -
+E537's comment says "done one after the other a build pays for both; done
+together it pays for the longer of the two". What was missing was that "the
+boot" and "being ready to run a step" are two things, and the phase list is the
+only place that says so. **A measurement that names its phases separately is
+worth more than one that reports a total**, and this is the third time in this
+document that the phase list has found something the prose had already
+explained.
+
+## E664 - where the session landed, measured end to end
+
+Individual experiments measure one phase. This is the accumulated effect on
+whole builds, which is the number anybody actually experiences.
+
+A six-step build on `python:3.13-slim`, cold means a fresh cache directory *and*
+a fresh sandbox, three samples each:
+
+```text
+merged  (today's default)    3.80  3.90  3.94    median 3.90s
+stream  (both switches on)   2.67  2.56  2.56    median 2.56s   -34%
+```
+
+`stream` is `EARTH_IMAGE_LAYERS=1 EARTH_IMAGE_STREAM=1`: layers kept apart
+(E641/E646/E651) and unpacked as they arrive (E652). Both are off by default, so
+this is what the engine *can* do rather than what it does.
+
+The warm path moved without a switch:
+
+```text
+change one file, four steps rerun   0.40s -> 0.28s   (E663)
+warm build, two images              0.37s -> 0.22s   (E661)
+warm build, four images             0.88s of round trips -> 0.30s plan (E661)
+```
+
+### What is not in these numbers
+
+* The lazy pull, measured at 76% of an unpack-and-name in isolation (E658) and
+  not wired, because wiring it is a decision about when a cold build pays for
+  its image rather than a change to make in passing (E659, E660).
+* Three correctness fixes that cost nothing and are not optional: whiteouts
+  dropped by the apart path (E651), and layer ids that carried the clock, the
+  umask, the platform's symlink convention and the unpacking user (E655, E656).
+
+### The shape of the session
+
+Six of the eleven findings came from a measurement disagreeing with a model, and
+four of those from a *phase list* rather than a total - E643's rule earning its
+keep repeatedly. The two largest corrections both came from writing a thing
+twice: `ManifestFromTar` audited the walk it was pinned against and found the
+determinism bugs, and reading the phase list after E537's prewarm found the half
+of it that was never done.
+
+**The cheapest diagnostic in this document is printing the series instead of the
+mean, and the second cheapest is naming the phases.**
+
+## E665 - a bug I did not find, and one I had written
+
+Looking for a fifth instance of E655/E656's class - the digest recording what an
+unpack *managed* rather than what a layer *contains* - the obvious candidate was
+extended attributes: `applyXattrs` tolerates EPERM exactly as `applyOwner` does.
+
+A probe said the tree and the archive disagreed about a layer carrying
+`security.capability`, and a direct read of the file showed macOS had added one
+of its own:
+
+```text
+tree xattrs: [com.apple.provenance=010200efe919354121f18f,
+              security.capability=0100000200200000]
+```
+
+**That was not the bug.** `assembledBy` already excludes `com.apple.`, and its
+comment says why, naming `com.apple.provenance` and the machine-dependence it
+would cause. The probe's disagreement was *ownership* - it compared
+`Manifest(root)` with no declaration against an archive reader that uses the
+archive's - which is E656, already fixed, measured again by accident.
+
+Two things worth keeping from being wrong:
+
+* the value is a per-machine constant, verified across processes, binaries and
+  volumes, and absent on Linux. So it would not have made a build
+  non-deterministic; it would have made this Mac's layers different objects from
+  Linux's. Worth knowing before proposing a fix for the wrong failure mode.
+* the rule existed in one function and a comment. It now has a test at the level
+  a caller sees, which is the difference between a rule and a habit.
+
+### And the one that was real
+
+`entriesFromTar` took every `SCHILY.xattr.*` record as written. So the archive
+reader kept exactly the attributes the walk drops - `user.overlay.`,
+`trusted.overlay.`, `com.apple.` - and an image built from an overlay upper
+layer carries those. Its manifest read from the archive would not match its
+manifest read from the tree, and `fleet.Blobs` refuses a blob whose manifest
+hashes elsewhere: **a store holding that layer would decline to serve it, and be
+right to.**
+
+Written by me, in E656, and found by asking whether the second implementation
+agreed with the first about a rule I had just read.
+
+### E581, twice
+
+Applying the rule broke the windows build: `assembledBy` lived behind
+`//go:build unix` and `fromtar.go` has no tag.
+
+```text
+engine/layer/fromtar.go:225:6: undefined: assembledBy
+```
+
+The rule is about attribute *names* and has nothing platform-specific in it; the
+*reader* that applies it does. `meta_other.go`'s own comment records the last
+time this happened - "the engine had never actually been cross-compiled, so no
+file had ever been asked whether it belonged on the other side of a build tag
+(E581)". Moved to a file with no tag, and `GOOS=windows go build ./engine/...`
+is now part of what gets checked here.
+
+## E666 - the device number nobody could have measured
+
+Continuing E665's sweep - asking, rule by rule, whether the archive reader agrees
+with the walk it is pinned against - the next candidate was device nodes.
+
+`makeSpecial` calls `unix.Mkdev(major, minor)` and the walk reads back whatever
+the kernel then reports. `entriesFromTar` spelt it out as `major<<8 | minor`,
+which is how **neither** platform encodes one: Linux packs the high bits of both
+fields elsewhere in a 64-bit word, and macOS uses `major<<24 | minor`. A layer
+carrying `/dev/null` would read one way from its blob and another from its tree,
+and `fleet.Blobs` would refuse to serve a layer it holds.
+
+```text
+        major  minor    <<8      unix.Mkdev (darwin)
+/dev/null   1      3     259              16777219
+a pty     136      0   34816            2281701376
+```
+
+**No end-to-end test could have found it here.** A fifo has device numbers of
+zero and every encoding agrees about zero; a character device needs root to
+create, which the test process does not have. So the encoding is pinned against
+the platform's own function rather than against a tree - a unit test where an
+integration test cannot reach.
+
+### And the tag trap, immediately again
+
+`unix.Mkdev` is unix-only and `fromtar.go` has no build tag, which is E665's
+windows break in the same shape one function later. Split into `mkdev_unix.go`
+and `mkdev_other.go`, and this time the cross-compile was checked *first*:
+darwin, linux, freebsd and windows.
+
+That fourth one found something else - `engine/image` does not compile on
+freebsd at all, because `unix.Mknod` takes a different width there and a `dev`
+two lines up is declared `int`. Pre-existing, filed as a nit rather than fixed:
+`//go:build unix` is a claim about which platforms a file belongs to, and
+deciding whether freebsd is one of them is a project question rather than a
+compile error.
+
+### The limit that is not a bug
+
+An archive reader cannot know whether the local OS will accept a special file.
+`makeSpecial` attempts the `mknod` and tolerates EPERM, so a character device is
+in the layer on a privileged Linux unpack and absent on a developer's Mac - and
+a reader that describes the archive describes it either way.
+
+The manifest then does not match the tree, `fleet.Blobs` refuses to serve, and
+the layer is unpacked the ordinary way: **slower and correct**, which is the
+right failure. Written down in `ManifestFromTar`'s own comment, because the
+alternative - a reader that guessed by attempting the mknod itself - would write
+to a tree it was asked not to build.
+
+## E667 - a hardlink is one inode with several headers
+
+Third pass of E665's sweep. The rule this time: **what a hardlinked group's
+metadata actually is.**
+
+The unpacker writes the target, stamps it, links the second name to it, and
+stamps that too. A `chtimes` on any name of an inode moves the inode, so both
+names then report the *second* header's time. The archive reader copied the
+target's entry to every name in the group, which is the *first* header's.
+
+```text
+usr/bin/tool  TypeReg   mtime 1700000000
+usr/bin/same  TypeLink  mtime 1700009999   -> the inode ends up here
+
+archive 8923bb76...
+tree    f646059e...
+```
+
+Nothing stops an archive declaring a different time on a link header, and the
+unpacker applies it without comment. Now the group takes content and size from
+the target - the only entry that carried bytes - and times, mode, ownership and
+attributes from whichever header was applied last.
+
+### Three bugs, one method, all mine
+
+E665, E666 and this are the same activity: taking each rule the walk applies and
+asking whether the reader written to agree with it actually does.
+
+```text
+E665  xattr exclusions      the reader kept what the walk drops
+E666  device numbers        the reader invented an encoding
+E667  hardlink metadata     the reader took the first header, not the last
+```
+
+None was found by a build failing, and none would have been found by a test of
+the reader alone - each needed the *pair* compared against a tree. The pin is
+what makes the sweep possible: without a byte-for-byte comparison there is
+nothing to ask the question of.
+
+**The uncomfortable observation is the ratio.** Three of the rules the walk
+applies were reproduced wrongly on the first attempt, out of perhaps eight, and
+every one of them would have shown up as a layer the store holds and declines to
+serve - a slow build with no error, which is the failure mode nobody reports.
+A second implementation is worth having only alongside the pin that keeps it
+honest; on its own it is three silent bugs.
+
+## E668 - describing a tree that cannot exist
+
+Fourth pass of the sweep, and the one that started as a security question.
+`safePath` is the unpacker's Zip Slip guard, and the archive reader had no path
+check at all. Asked directly:
+
+```text
+"../escape"       unpack refused   manifest accepted
+"/etc/passwd"     unpack refused   manifest accepted
+"usr/../../out"   unpack refused   manifest accepted
+""                unpack refused   manifest accepted
+```
+
+**Not a hole.** `layer.Unpack` joins a fragment's paths with `safeJoin`, so a
+hostile stream cannot write outside its root however it was described - the
+boundary is at the write, where it belongs, and it holds.
+
+What it is, is a **false claim**. The reader's whole contract is "this is the
+tree that archive unpacks to", and for an archive containing such an entry there
+is no tree - the unpack fails entire. Offering a manifest for it is a source
+saying it holds a layer that could never exist.
+
+Now refused with the lexical half of `safePath`: empty, absolute, or climbing out
+with `..`. The other half of that rule - a parent resolving through a symlink out
+of the layer - needs a filesystem to resolve against, and a reader that builds no
+tree has none. That case arrives at the same place by a different route: no such
+layer was ever unpacked, so no id matches, so `fleet.Blobs` declines. Slower and
+correct.
+
+### Four passes, one method
+
+```text
+E665  xattr exclusions      kept what the walk drops
+E666  device numbers        invented an encoding
+E667  hardlink metadata     took the first header, not the last
+E668  path containment      described what cannot be unpacked
+```
+
+Four of the rules the walk and the unpacker apply were not reproduced. The
+method has not changed once: read a rule, ask whether the second implementation
+obeys it, write the archive that would tell them apart.
+
+**What the sweep has not found is a bug in the original.** Every divergence has
+been in the new reader, which is the expected direction and worth saying plainly:
+the old path has been carrying real images for a while, and the new one has been
+carrying test fixtures for a day.
+
+## E669 - the last two rules, and where a second implementation has to stop
+
+Fifth pass. Two rules left that the unpacker enforces and the reader did not.
+
+### A path named twice
+
+```text
+named twice: unpack refused ("usr/conf": the layer names it twice)
+named twice: manifest accepted
+```
+
+E668's shape exactly. The unpacker's comment gives the reason - "a layer naming
+a path twice is an archive that cannot be trusted to mean anything, and choosing
+the last of them would be a guess about which entry was intended" - so the
+unpack fails, there is no tree, and the reader described one. Now refused.
+
+Directories excepted, as the unpacker excepts them: two layers both containing
+`/usr/bin` are not in conflict, and one layer saying it twice is the same
+statement made twice. Pinned in both directions.
+
+### Case folding, which is not a bug
+
+`replacing` refuses two paths differing only in case - but **only after asking
+the filesystem whether it can hold both**. On a case-sensitive volume the image
+unpacks exactly as it was built, which is why this repository ships a recipe for
+making one.
+
+A reader with no filesystem cannot answer that question, and both ways of
+guessing are worse than not:
+
+* probing would write to a tree it was asked not to build
+* refusing lexically would reject layers that unpack perfectly well on the
+  machine asking
+
+So it describes them, and where the local machine would have refused, the
+manifest does not match and `fleet.Blobs` declines to serve. Slower and correct.
+
+### Where the sweep ends
+
+Five passes, five rules reproduced wrongly, and the sixth found nothing left to
+fix. What remains are two questions a pure reader is *not able* to answer -
+whether this filesystem will take a special file, and whether it can hold two
+names that differ only in case - and both arrive at the same safe place through
+the digest check that was already there.
+
+```text
+E665  xattr exclusions      fixed
+E666  device numbers        fixed
+E667  hardlink metadata     fixed
+E668  path containment      fixed
+E669  duplicate paths       fixed
+E669  case folding          not a bug: the filesystem decides, and it is asked
+```
+
+**The boundary is the useful output.** "This reader agrees with the unpacker
+except where the answer depends on the machine, and there the mismatch is caught
+rather than trusted" is a statement worth being able to make, and five passes of
+finding one's own mistakes is what it cost.
+
+## E670 - should the switches be on by default, and a mean that was not signal
+
+E664 reported a 34% cold saving from `EARTH_IMAGE_LAYERS` and
+`EARTH_IMAGE_STREAM`, both off by default. E648 priced the other side - a deeper
+stack costs every step above it - but never against the streaming gain. This
+settles it, and takes a wrong turn on the way that is worth keeping.
+
+### The wrong turn
+
+Two cold 45-step builds, one per variant, per-step means taken from each:
+
+```text
+merged   FROM 3.410s   per-step 0.0377s
+stream   FROM 2.225s   per-step 0.0496s
+                       -> penalty +11.9ms, break-even 99 steps
+```
+
+99 steps is inside what a real Earthfile reaches, so this would have been a
+finding. It is noise. A paired run tallying the phases showed `run` totalling
+1.478s merged against 1.409s stream over the same 45 steps - stream marginally
+*faster* - and the difference above came from comparing means across two
+separate cold builds with a network in them.
+
+**E643, exactly, and I walked into it.** The rule is not "print the series"
+alone; it is that a difference between two runs is not a measurement of the
+thing that differs between them.
+
+### The answer, paired, three samples each
+
+```text
+merged  run  1.475  1.232  1.483    median 1.475s / 45 = 32.8ms per step
+stream  run  1.649  1.483  1.117    median 1.483s / 45 = 33.0ms per step
+```
+
+Half a percent apart with heavily overlapping ranges: **no measurable depth
+penalty** at four layers against one. Consistent with E648's 0.67ms per layer per
+step, which for three extra layers predicts 2ms - well inside a ±0.3s spread and
+not separable from it here.
+
+So the 1.2s the pull saves is unopposed at any depth this can measure, and the
+case for the switches is a straight gain. Whether that is enough to change a
+default is a decision about how new the code is rather than about the
+arithmetic.
+
+### And the stall, which was mine
+
+Two of six samples in the unpaired attempt went wrong - one produced nothing, one
+had a single `RUN echo N > /fN` take **477 seconds**. An earlier 45-step run had
+reached step 34 in ten minutes, which I nearly wrote up as a scaling cliff.
+
+The harness deleted the cache directory between runs without removing the
+sandbox, which is the dangling virtiofs mount already filed as a nit - the store
+the guest has bind-mounted is gone and recreated underneath it. Six for six clean
+once the sandbox went first.
+
+The nit is now worth more than it was: it recorded a confusing error message, and
+the real symptom is sometimes an eight-minute hang with no output at all.
+
+## E671 - a sandbox that cannot see its own store, and a hang that is not it
+
+E670 found builds stalling for minutes and attributed it to the dangling store
+mount: delete a cache directory while a sandbox has it bind-mounted, and the VM
+goes on reading an inode that is gone. Six runs with the sandbox removed first
+were clean and two of six without it were not, which looked conclusive.
+
+**It was not.** With the fix in place a run still stalled, and with the sandbox
+reset - where no stale mount can exist - one stalled too. Then a binary with this
+session's prewarm change removed stalled 2 of 4. The hang is older than both
+suspects and is filed as a nit with its negative results, because "not this and
+not that" is most of what the next person needs.
+
+The pattern that survives: **always the first build after a fresh sandbox, never
+a later one in the same batch**, roughly a quarter to a half of the time, on a
+`RUN` two steps past a successful pull. Three attempts under a watcher caught
+nothing, so it may be sensitive to load or to being watched.
+
+### The mechanism is still worth having
+
+`reapStranded` removes a VM whose mounted directories have *gone*. A store
+deleted and recreated - which anything opening the layer store does, the engine
+included - leaves the path there, so that rule does not fire and the VM keeps
+reading the inode that went. **Existence is not identity.**
+
+The sandbox is now labelled with its store directory's inode at boot, and a VM
+whose label disagrees with the directory now there is removed and replaced:
+
+```text
+label: {'earthbuild.store-inode': '452465705'}
+store deleted, second build: 3.80s   (a cold rebuild, not a confusing failure)
+```
+
+A label rather than a file beside the store, because the store is the thing that
+gets deleted; the backend holds this for exactly as long as the VM it describes.
+Unlabelled and unparseable both mean reuse - refusing every unlabelled sandbox
+would discard every machine running at the moment of an upgrade, which is a
+certain cost against an occasional fault.
+
+### On the retraction
+
+E670 claimed six-for-six as evidence. Six is not many, the fault is intermittent
+at somewhere under a half, and the probability of six clean runs by luck alone is
+not small. **A negative result from a handful of samples of an intermittent
+fault is not a negative result**, and I wrote it up as one before the sample was
+large enough to say anything.
+
+## E672 - the hang, caught: a live guest that stops answering
+
+E671 left an intermittent multi-minute hang uncharacterised, with two suspects
+eliminated and no positive account. A loop that builds until one hangs and then
+captures the state before killing it produced one on the sixth try.
+
+**The VM is healthy.** `container exec` answers instantly, `ps` inside runs. The
+host is asleep:
+
+```text
+goroutine 1    core.(*Scheduler).Run              sync.WaitGroup.Wait, 1 minute
+goroutine 130  guest.(*conn).recv -> duplex.Read       [IO wait]
+goroutine 52   exec.(*Apple).Start.func1              [syscall]
+```
+
+Goroutine 52 is the watchdog written for the *other* hang - "`container exec`
+does not close this pipe when the process behind it exits, so a guest that is
+killed leaves the host blocked in a read that will never return". It is still
+inside `cmd.Wait`, which means **the guest has not exited**. This is a live guest
+that stopped answering, and that fix does not cover it.
+
+**The stall point is exact**, because the guest reports its own phases:
+
+```text
+h1  ... guest:prepare 0.002s   guest:exec 0.019s   ... ok
+h2  ... guest:prepare 0.001s   guest:exec 0.008s   ... ok
+h3  ... guest:prepare 0.001s   (nothing further)
+```
+
+Eight mounts bound, isolated, cgroup set, `prepare` finished - and then nothing,
+inside the exec of `echo 3 > /f3`. Four layers in the stack; the two steps that
+worked stood on two and three.
+
+### What the phase list bought
+
+This is the fourth time in this document that named phases found what a total
+could not, and the sharpest. A wall-clock of 200 seconds says "something hung". A
+phase list says "the guest finished `prepare` and never started `exec`", which is
+a different quality of statement: it names the process, the side of the
+connection, and the operation.
+
+The frequency is worth recording next to the older comment. "One in three cold
+builds of this repository was doing it" describes the pipe fault that was fixed;
+this is also about one in three. Either that fix left a case, or there are two
+faults with the same rate - and the second is the kind of question worth being
+suspicious of a coincidence about.
+
+**Not fixed.** What the guest is blocked on is still unknown: `ps` inside showed
+only the probe's own processes at low pids, which points at a fork/exec or
+namespace-entry stall rather than a command running silently. The next capture
+wants `/proc/<guestd>/stack` and a full `ps -ef` from inside the VM.
+
+## E673 - the hang is a vfork deadlocked against its own seccomp supervisor
+
+E672 located the stall inside the guest's exec. Kernel stacks from both sides
+name it exactly:
+
+```text
+earth-guestd tid 10   D  kernel_clone+0x1fc  __do_sys_clone
+step         pid 16   S  seccomp_do_user_notification <- __secure_computing
+                            <- syscall_trace_enter
+```
+
+`syscall_trace_enter` is the child's **first** syscall - before a single
+instruction of the program has run. That syscall is `execve`, and `execve` is in
+the traced set on purpose: without it a step that runs a binary records the
+libraries the loader opens and not the binary itself, which is the reuse I3
+forbids (E219, E220).
+
+The loop closes like this:
+
+1. the guest starts the step; Go's `os/exec` clones with `CLONE_VM|CLONE_VFORK`,
+   so the parent thread blocks until the child execs or exits;
+2. the child inherits the filter, which is the point - it has to survive exec;
+3. the child's `execve` traps to a user notification and waits;
+4. the supervisor is a goroutine **in the same process**, whose siblings are all
+   in `__futex_wait` and whose runtime cannot get past a thread stopped in vfork;
+5. nobody answers, the child never execs, the vfork never returns.
+
+Intermittent because it turns on whether the notification loop is on a thread
+that can still be scheduled when the vfork lands - which is why it is about one
+in three, and why three attempts under a watcher caught nothing.
+
+### Why the existing guard misses it
+
+`runObserved` already handles a tracer that **stops** while its step is filtered,
+with a `release()` that lets the step go - written for E520 and E582, where the
+symptom was the same `seccomp_do_user_notification`. This tracer never stops. It
+is alive, correct, and unschedulable, which is a state that guard has no way to
+name.
+
+Two faults, one symptom, and the frequency coincidence noted in E672 is now
+explained: the pipe watchdog's "one in three cold builds" and this one are
+different bugs that happen to sit at similar rates.
+
+### What a fix has to do
+
+The supervisor must be able to answer while a vfork is outstanding in the process
+it supervises. Three directions, recorded in the nits file: answer from a
+separate process; start the traced step without `CLONE_VFORK`; or decline to trap
+the step's own first `execve`, which the engine already knows the argv of.
+
+**Not attempted.** Each is an architectural change to the tracer, and the
+valuable artifact today is that the hang has a mechanism instead of a shrug -
+found by a loop that builds until one sticks and then reads both sides of the
+kernel.
+
+## E674 - a fix that is right, unproven, and did not fire
+
+E673 traced the hang to a child stopped at its first `execve` while the guest's
+own thread sat in `kernel_clone`. Reading `runObserved` afterwards found
+something wrong on its own terms:
+
+```go
+release := func() {
+    if cmd.Process == nil { return }   // "a tracer can stop before it does"
+    _ = cmd.Cancel()
+}
+```
+
+`os/exec` fills `cmd.Process` in only once `StartProcess` **returns**, and a
+child stopped at its first intercepted `execve` is precisely one that has not let
+it return. So at the single moment this release exists for, there is a process
+and the guard declines to cancel it.
+
+The remedy needs no pid. Closing the notification descriptor makes the kernel
+fail every syscall blocked on it with ENOSYS (`seccomp_unotify(2)`), so the
+tracer now closes its listener the moment it stops, before trying to cancel
+anything - and `Close` was made idempotent, because the ordinary path closes it
+again and a second `unix.Close` of a raw descriptor can take away a file the
+number has since been reused for.
+
+### And then the check that mattered
+
+Thirty-one iterations of the loop that used to hang, all clean. At the observed
+rate that is worth something - and it is not evidence, because:
+
+```text
+tracer-stopped reports across every one of those builds:  0
+```
+
+**The path this fix added never executed.** The tracer did not stop in any run,
+so the close was never reached, so thirty-one clean iterations say nothing about
+whether the fix works. They say the hang stopped reproducing, which is a
+different sentence.
+
+E670 made exactly this mistake with six samples and I nearly repeated it with
+thirty-one. The lesson is not about sample size: **before counting clean runs,
+check that the code under test ran at all.**
+
+### What this leaves
+
+The change stays: it is correct on its own terms, it removes a double-close
+hazard, and a release that cannot fire is worth fixing whether or not it explains
+the fault that found it.
+
+What it does not do is account for E673's capture. If the tracer never stops,
+then during the hang its loop was alive - yet no thread was polling the notify
+descriptor. The reading that fits is that the supervisor goroutine **had not yet
+been given a thread**, because creating one needs a `clone` and a `clone` was the
+thing stuck. That is speculation, and it is written here as speculation.
+
+## E675 - never run a filtered step without a live supervisor
+
+E673 caught the hang: a child stopped at `syscall_trace_enter` on its first
+`execve`, and a guest thread in `D` inside `kernel_clone`. E674 fixed a real
+defect nearby and proved nothing, because the path it added never executed.
+
+This is the invariant the code assumes and never checked.
+
+`StartOnSelf` installs the filter on the calling thread and returns. The
+notification loop starts *afterwards*, on a goroutine, and is not answering
+anything until it reaches its poll. A step launched inside that window whose
+first `execve` traps waits for a supervisor that has not begun - and if beginning
+needs a thread, and creating a thread needs the `clone` the trapped step is
+holding up, neither side moves again.
+
+So the tracer now says when it is listening, and the step waits for it:
+
+```go
+select {
+case <-tr.Servicing():
+case <-late.C:            // one second, a deadlock detector not a timeout
+    _ = tr.Close()        // ENOSYS rather than a wedge
+    return ... "the tracer did not start listening"
+}
+```
+
+Raised before the poll rather than after it returns: a caller waiting on this
+wants to know somebody is listening, and "the poll came back" is a different and
+later fact.
+
+### What it costs, and what it proves
+
+```text
+guest:tracer-wait   0.000s  x6      (cold build, six traced steps)
+```
+
+Free, and the path runs on every traced step rather than only on a failure - the
+distinction E674 turned on. Ten iterations of the reproduction loop were clean.
+
+**That is still not proof.** At the observed rate ten clean runs is weak
+evidence, and the measurement above says the window is normally closed already,
+so the ordering only matters in the scheduling case I cannot force. What can be
+said plainly: the invariant is now enforced, checked by a test, costs nothing,
+and the worst outcome if it is ever violated is a sentence instead of a wedge.
+
+### The shape of the three attempts
+
+```text
+E673  diagnosis      kernel stacks on both sides        solid
+E674  a real defect  release() cannot fire before exec  fixed, never fired
+E675  the invariant  no filtered step without a servicer enforced, costs nothing
+```
+
+Two fixes for one fault, neither demonstrated against it, and the diagnosis is
+the only part I would defend without qualification. Recorded that way on purpose:
+the temptation after E673 was to declare the third attempt the answer, and the
+honest position is that the hang has not been seen since and that is not the same
+sentence.
+
+## E676 - unpacking in the guest, and where the store has to live for it to pay
+
+E665's ownership fix, E666's device numbers and E651's whiteout translation are
+all the same problem: `image.Unpack` runs on the host, unprivileged, and cannot
+grant what an archive declares. Unpacking inside the guest as root would make all
+three questions stop existing.
+
+The premise worth testing first is the one that could kill it. The layer store is
+a host directory shared into the VM over virtiofs, so an unpack from inside might
+be far slower than one outside. Same unpacker, same 61MB layer, three samples
+each:
+
+```text
+host   -> virtiofs store       4.57  4.75  4.67     median  4.67s
+guest  -> virtiofs store      15.17 15.31 14.97     median 15.17s   3.3x worse
+guest  -> its ext4 volume      2.15  2.28  2.18     median  2.18s   2.1x better
+```
+
+**Both halves are findings.** Writing 15034 files across virtiofs from inside the
+VM costs three times what the host pays writing them natively - so the naive
+version of the idea, "move the unpack and leave the store where it is", is much
+worse than doing nothing.
+
+And the guest's own ext4 volume beats the host's APFS by more than two to one on
+the same work. That volume already exists - `guestFast`, mounted at
+`/var/lib/earthbuild/fast`, ext4 without a journal - and was added so a build's
+caches would stop landing on the shared store.
+
+So the shape is not "unpack in the guest". It is **"put the layer store in the
+guest's volume, and unpack there"**, which is worth 4.67s to 2.18s on this layer
+*and* makes the ownership, device-node, xattr and whiteout-translation problems
+disappear together:
+
+```text
+16703 of this layer's entries are declared root's, and an unprivileged host
+unpack can grant none of them.
+```
+
+### What it would cost
+
+Not a small change, and the questions are not about speed:
+
+* the host would no longer see layers directly, so it cannot walk one to name it.
+  `ManifestFromTar` (E656) already names a layer from its archive without a tree,
+  which is exactly the piece that makes this affordable - or the guest computes
+  and reports, which it is better placed to do anyway.
+* the volume is per-sandbox and goes away with it (`Remove` takes it), so the
+  cache's lifetime becomes the VM's rather than the directory's. That is a policy
+  decision, not a detail.
+* artifacts and exports already have a path back to the host (`guest:export`).
+
+### On measuring the premise first
+
+The instinct was to build it. Half a day of plumbing would have produced
+something 3.3x slower than what it replaced, and the phase list would have said
+so at the end rather than the beginning. **Twenty minutes of one binary run in
+two places said it first**, and said something better than yes or no - it said
+which version of the idea is the one worth having.
+
+## E677 - the store is on the wrong side of virtiofs, and reads are the bigger half
+
+E676 measured unpacking and concluded the store should live in the guest's
+volume. That measured writes. **Every file a step reads comes off the same
+mount**, so the read side is the one that touches every step of every build.
+
+Same 15034-file layer, unpacked into both places, read entirely from inside the
+guest. Caches dropped in the guest before each sample:
+
+```text
+virtiofs store   5.89  6.33  5.89     median 6.04s
+ext4 volume      1.53  1.47  1.24     median 1.47s     4.1x
+```
+
+And without dropping them - which is what the *second* step of a build sees,
+reading a base the first step already touched:
+
+```text
+virtiofs store   4.59  4.95  4.72     median 4.72s
+ext4 volume      0.12  0.12  0.11     median 0.12s     ~40x
+```
+
+Both trees are equally warm in the sense that matters: the virtiofs one is in the
+*host's* page cache. It does not help, because every open and every read is still
+a round trip to virtiofsd. A block device is cached by the guest kernel; a
+virtiofs mount is not cached anywhere the guest can reach.
+
+The first comparison here was the warm one, and it read as 78x until the caches
+were dropped. **Warm-versus-warm was the honest comparison all along** - a
+multi-step build re-reads its base constantly - but it is not the number to lead
+with, and it took a deliberate check to notice which one I had.
+
+### The case, assembled
+
+```text                        virtiofs      volume
+unpack a layer (E676)          4.67s        2.18s      2.1x
+read it cold                   6.04s        1.47s      4.1x
+read it warm                   4.72s        0.12s      ~40x
+```
+
+Moving the layer store into `guestFast` is worth more than the unpack it was
+proposed for, and the unpack was already worth 2x. It also collapses E651's
+whiteout translation, E656's ownership declaration and E666's device-number
+question, because the unpack would then run as root on a filesystem that can hold
+what an image declares.
+
+### The obstacle, which is not speed
+
+Not free, and not decided here. The volume is per-sandbox and `Remove` takes it
+with the VM, so the cache's lifetime changes from "a directory the user owns" to
+"as long as this machine lives" - which is a policy question and the real
+obstacle. The host also stops being able to walk a layer to name it, which
+`ManifestFromTar` already solves and which the guest is better placed to do
+anyway.
+
+**Measured, not built.** The premise is now priced from three directions instead
+of argued from one.
+
+## E678 - virtiofs costs 0.31ms per file opened, and a step opens thousands
+
+E677 measured whole-layer sweeps, which is the wrong shape for reasoning about a
+build: a step reads a fraction of its base, not all of it. Two thousand small
+files in each filesystem, read from inside the guest, byte counts checked equal:
+
+```text
+virtiofs   0.66  0.74  0.68     median 0.68s
+ext4       0.06  0.05  0.05     median 0.05s
+exec overhead ~0.06s
+```
+
+```text
+virtiofs   0.62s / 2000  =  0.31ms per file
+ext4       under the noise floor at this size
+```
+
+0.31ms is the same constant the 15034-file sweep implies - 4.66s over 15034 is
+0.310ms - which is worth noting because the two measurements share nothing but
+the filesystem. A per-file constant that survives a 7x change in scale is a
+property of the mount rather than of the experiment.
+
+### What it means for a step
+
+The codebase already counts what steps read: "two files of 5,410 for `go
+version`, 1,752 for a cold `go build`" (E514).
+
+```text
+go version       2 files        negligible
+cold go build    1752 files     +0.54s per step
+a 15k-file sweep 15034 files    +4.66s
+```
+
+**Half a second per step**, on every step that builds anything, purely for
+crossing virtiofs to read a base that is already in the host's page cache. It is
+not visible in any phase this engine records because it is spread across the
+step's own execution - `run` and `guest:exec` include it and cannot separate it.
+
+### How to read this against E677
+
+E677's three ratios were 2.1x, 4.1x and ~40x, which is a wide enough range to be
+suspicious of. This is why: the ratio depends entirely on how many files are
+touched and how warm each side is, and none of those ratios is a property of the
+system. **0.31ms per open is.** It is the number to carry, and the ratios are
+what it looks like at particular sizes.
+
+Still measured, still not built - and the obstacle in E677 has not moved. What
+has changed is that the size of the prize is now expressible per step rather than
+per sweep.

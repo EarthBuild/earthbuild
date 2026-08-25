@@ -185,3 +185,42 @@ The switch is forwarded into the sandbox, so phases timed inside the guest appea
 as those timed outside it.
 
 Default: off.
+
+### `EARTH_IMAGE_LAYERS`
+
+Stores a pulled image as one directory per layer rather than one merged tree. Set to any non-empty
+value.
+
+The merged form unpacks every layer into a single directory, which costs the whole image once and
+means each layer's blob is read, decompressed and written under a lock the next layer waits on. Kept
+apart, layers unpack independently and the result becomes a stack the step above stands on directly -
+worth up to 38% of an image's unpack when no single layer dominates it, and nothing at all when one
+does (Amdahl: the largest layer is the floor).
+
+The trade is depth. Every step above the image then binds a deeper stack, at roughly 0.67ms per layer
+per step. A 22-layer base pays that on every step of the build; whether it repays depends on how many
+steps there are, which is why this is a setting and not the default.
+
+Experimental. The layers this produces are byte-identical in effect to the merged tree - same files,
+same permissions, same adopted config - but the storage layout differs, so a cache filled one way is
+not reused by the other.
+
+Default: off.
+
+### `EARTH_IMAGE_STREAM`
+
+Unpacks each layer as its bytes arrive rather than after the whole blob has landed. Set to any
+non-empty value. Only meaningful with `EARTH_IMAGE_LAYERS`, which is what makes it pay.
+
+A layer's fetch and its own unpack are otherwise serial. Merged, that costs nothing measurable -
+the engine is unpacking some *other* layer while this one arrives - but with the layers apart the
+largest layer is the entire critical path, and at its tail there is nothing else left to overlap
+with. Streaming makes those two concurrent, which is worth 14-24% of a cold `FROM` on top of what
+keeping the layers apart already saves.
+
+The digest is checked after the unpack, because with a stream that is the only place it can be. The
+layer goes into a directory of its own that is discarded on any failure, so bytes that turn out not
+to match are never kept - but a build does write them to disk before it knows, which is the reason
+this is a setting rather than the default.
+
+Default: off.

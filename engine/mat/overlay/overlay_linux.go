@@ -516,3 +516,31 @@ func (m *Materialiser) classify(stack []ir.NodeID) ([]ir.NodeID, decl.Declaratio
 
 	return trees, decl.Compose(declarations...), nil
 }
+
+// HasBelow reports whether a path exists in any layer beneath this step's own
+// writes.
+//
+// **The question the opaque mark cannot answer for itself.** `mkdir d` in an
+// overlay upper leaves an opaque directory whether or not a lower has `d`,
+// because the kernel must guarantee the new directory reads as empty. Captured
+// into a content-addressed layer and stacked somewhere else, that mark hides a
+// directory it was never about (E704). Only the stack it was made in can say
+// which of the two happened, and this is that question.
+//
+// `used` rather than `rel`: it is the directory the mount actually reads, so a
+// translated layer answers about the tree the step really saw.
+func (h *handle) HasBelow(rel string) bool {
+	rel = strings.TrimPrefix(filepath.Clean("/"+rel), "/")
+	if rel == "" || rel == "." {
+		return true
+	}
+
+	for _, l := range h.lowers {
+		_, err := os.Lstat(filepath.Join(l.used, rel))
+		if err == nil {
+			return true
+		}
+	}
+
+	return false
+}

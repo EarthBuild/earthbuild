@@ -525,6 +525,16 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 			}
 		}
 
+		// **Before the identity is computed, because the mark is part of the
+		// tree that gets hashed.** A directory this step merely created carries
+		// an opaque mark it did not ask for, and carrying it into a
+		// content-addressed layer hides, in every later stack, a directory the
+		// mark was never about (E704). Only the stack this step ran in can say
+		// which marks mean anything, so it is asked here and nowhere later.
+		if below, ok := h.(interface{ HasBelow(string) bool }); ok {
+			dropVacuousOpaque(h.Delta(), below.HasBelow)
+		}
+
 		// Whatever this guest faulted in is base, not delta (E293). Nil when
 		// nothing lazily materialised, and then this is exactly `TakeIn` - which
 		// is every build today.

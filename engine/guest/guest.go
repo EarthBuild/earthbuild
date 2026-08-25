@@ -2767,11 +2767,23 @@ func (s *Server) unpackLayer(req Request) Response {
 	// `AdoptConfig` is: a configuration that cannot be filed costs the
 	// environment an image asked for, which is a build that behaves as it did
 	// before declarations existed, where failing the FROM would be no build.
+	declares := ""
+
 	if len(req.Config) > 0 {
-		_ = os.WriteFile(st.LayerPath(id)+store.ConfigSuffix, req.Config, 0o600)
+		err = os.WriteFile(st.LayerPath(id)+store.ConfigSuffix, req.Config, 0o600)
+		if err == nil {
+			// **Written, not merely named.** A declaration is a stack element,
+			// so a caller handed only its identity would build a stack on
+			// something the store does not hold - which fails at materialise
+			// with "holds neither a layer nor a declaration for it". Only this
+			// side can write it, because only this side has the store.
+			if d := st.Declaration(id); d != (ir.NodeID{}) {
+				declares = d.String()
+			}
+		}
 	}
 
-	return Response{Layer: id.String()}
+	return Response{Layer: id.String(), Declaration: declares}
 }
 
 // knownDigests and declaredOwners are conversions and nothing else: `ir` imports

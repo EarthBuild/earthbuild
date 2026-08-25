@@ -224,3 +224,26 @@ to match are never kept - but a build does write them to disk before it knows, w
 this is a setting rather than the default.
 
 Default: off.
+
+### `EARTH_UNPACK_IN_GUEST`
+
+Has the guest unpack an image's layers rather than the host. Set to any non-empty value; only
+meaningful with `EARTH_IMAGE_LAYERS`.
+
+**The host cannot grant what an archive declares.** An unprivileged unpack tolerates a refused
+`chown`, cannot create a device node, and cannot set an attribute in the `security.` namespace, so
+the layer that lands is not quite the layer the image describes - and three separate mechanisms
+exist to paper over the difference. Unpacking as root inside the guest removes all three questions
+at once.
+
+It is also where the layer store is going, for a reason that has nothing to do with privilege. A
+shared directory is reached over virtiofs, and every metadata operation on it is a round trip across
+the VM boundary. Measured from inside the guest on one layer of `golang:1.26-alpine`: unpacking into
+the shared store takes 4.67s against 2.18s into the block device the guest owns, and reading it all
+back 6.04s against 1.47s - about 0.31ms per file a step opens.
+
+**This moves the unpack and not yet the store**, so with the layers still on the shared mount it is
+slower than leaving it off. The two are separated deliberately: the wiring can be exercised before
+the move it exists for.
+
+Default: off.

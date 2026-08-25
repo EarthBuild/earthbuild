@@ -721,6 +721,13 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// cache key in existence was derived from, so turning this on changes them.
 	// See E646 and E648 for what it buys and what it costs.
 	if os.Getenv(EnvImageLayers) != "" {
+		// **The guest unpacks where it can grant what the archive says**, and
+		// the host does where it cannot ask. Both keep the layers apart; they
+		// differ only in which side writes them. See EnvUnpackInGuest.
+		if os.Getenv(EnvUnpackInGuest) != "" {
+			return e.materialiseImageInGuest(ctx, n, platform, imageRoot, root, shared)
+		}
+
 		return e.materialiseImageApart(ctx, n, platform, imageRoot, root, shared)
 	}
 

@@ -519,6 +519,22 @@ type Response struct {
 	// which case the bytes follow the ordinary way.
 	Shared string `json:"shared,omitempty"`
 
+	// Declaration is the identity of the element an unpacked image's
+	// configuration produced, or empty where it declares nothing.
+	//
+	// Distinct from `Declares` above, which is a materialised stack's
+	// declaration *content*: this is the name of a stack element that now
+	// exists in the store.
+	//
+	// **A declaration is an element, not a file beside the layer** (§3.2a), so
+	// it has to be *written* into the store and not merely named - and only the
+	// side that owns the store can write it. The host can derive the same
+	// identity from the configuration it fetched (`store.DeclarationOf`), which
+	// is what pins the two together, but a base materialised from an element
+	// nobody wrote fails with the store saying it holds neither a layer nor a
+	// declaration for it.
+	Declaration string `json:"declaration,omitempty"`
+
 	// Held is the subset of a store-has request's ids the store holds.
 	//
 	// The subset rather than a parallel array of booleans: absent means absent,

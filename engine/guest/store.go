@@ -118,17 +118,41 @@ func (c *Client) UnpackLayer(ctx context.Context, blob, media string) (ir.NodeID
 func (c *Client) UnpackLayerWithConfig(
 	ctx context.Context, blob, media string, config []byte,
 ) (ir.NodeID, error) {
+	id, _, err := c.UnpackLayerDeclaring(ctx, blob, media, config)
+
+	return id, err
+}
+
+// UnpackLayerDeclaring is UnpackLayerWithConfig, reporting the declaration the
+// configuration produced as well as the layer.
+//
+// Two identities because they are two stack elements. The declaration is zero
+// where the image declares nothing, which is the ordinary case.
+func (c *Client) UnpackLayerDeclaring(
+	ctx context.Context, blob, media string, config []byte,
+) (layer, declares ir.NodeID, err error) {
 	resp, err := c.do(ctx, Request{
 		Kind: KindUnpackLayer, Blob: blob, Media: media, Config: config,
 	})
 	if err != nil {
-		return ir.NodeID{}, err
+		return ir.NodeID{}, ir.NodeID{}, err
 	}
 
 	id, err := ir.ParseNodeID(resp.Layer)
 	if err != nil {
-		return ir.NodeID{}, fmt.Errorf("the guest named the layer %q: %w", resp.Layer, err)
+		return ir.NodeID{}, ir.NodeID{},
+			fmt.Errorf("the guest named the layer %q: %w", resp.Layer, err)
 	}
 
-	return id, nil
+	if resp.Declaration == "" {
+		return id, ir.NodeID{}, nil
+	}
+
+	d, err := ir.ParseNodeID(resp.Declaration)
+	if err != nil {
+		return ir.NodeID{}, ir.NodeID{},
+			fmt.Errorf("the guest named the declaration %q: %w", resp.Declaration, err)
+	}
+
+	return id, d, nil
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	osexec "os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -1018,4 +1019,35 @@ func (a *Apple) seesStore() bool {
 	}
 
 	return SandboxSeesStore(found[0].Configuration.Labels, inodeOf(a.Store))
+}
+
+// GuestPath is where this sandbox's guest sees a host path, if it sees it.
+//
+// **The two sides do not share a filesystem, only some of it.** A host path
+// under the store or the guest directory is visible inside the VM at a
+// different place, and anything else is not visible at all - so a caller
+// handing the guest a path has to translate it and has to be told when it
+// cannot.
+//
+// Reported rather than assumed. A path outside both mounts would name something
+// inside the VM that has nothing to do with what the host meant, which is a
+// worse answer than "no".
+func (a *Apple) GuestPath(host string) (string, bool) {
+	for _, m := range []struct{ from, to string }{
+		{a.Store, guestStore},
+		{a.dir, "/earth"},
+	} {
+		if m.from == "" {
+			continue
+		}
+
+		rel, err := filepath.Rel(m.from, host)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+
+		return path.Join(m.to, filepath.ToSlash(rel)), true
+	}
+
+	return "", false
 }

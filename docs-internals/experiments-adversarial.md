@@ -28612,3 +28612,62 @@ handed on twice rather than once.
 The divergence is recorded rather than hidden: the BuildKit engine still answers
 `command STOPSIGNAL not yet supported`, so the language reference marks the
 command **native engine only**, alongside `--isolate`.
+
+## E635 - a build is quadratic in its own length, and Φ does not intervene
+
+E634 left the engine fast on the constructs it supports, so the next question
+was where a *build* spends its time rather than where an invocation does. The
+answer needed instrumentation: `engine/core` had no phases at all, and the
+host's `run` phase covered a whole round trip, so an engine that is slow and a
+step that is slow measured the same.
+
+Twenty `RUN echo` steps on `alpine:3.22`, cold, on this machine:
+
+```text
+run            54.5ms   guest:prepare  33.1ms   capture      4.1ms
+guest:exec      4.3ms   guest:bind     31.7ms   materialise  2.4ms
+                        guest:proc      0.1ms   key/lookup   0.0ms
+```
+
+**The command is 4ms and its preparation is 33ms.** Every part of the scheduler
+measures zero - key derivation, the L1 lookup, the observation - and all of the
+preparation is `bindMounts`.
+
+Then the shape of it, one line per step in order:
+
+```text
+9 8 11 12 17 20 24 25 30 31 34 38 41 44 47 52 53 51 63 78   (ms)
+```
+
+Linear in the step's index, about 3.5ms per step. The obvious reading is that
+something accumulates per step, and the obvious reading is wrong: a *single*
+step on top of the finished twenty-layer base costs 80ms, the same as the
+twentieth step did. The cost is **stack depth**, not step index.
+
+Seven mounts are bound on every step - `/dev/null`, `/dev/zero`, `/dev/full`,
+`/dev/random`, `/dev/urandom`, `/dev/tty` and `/etc/resolv.conf` - and each is
+resolved through an overlay with one lower layer per step beneath it. Roughly
+0.5ms per (mount x layer).
+
+So a build of 𝑛 steps pays Σ𝑖 in binding, which is O(𝑛²). Φ collapses the stack
+at `MaxStackDepth`, and that is **480** - a number taken from overlayfs's own
+~500-layer limit (`lowerhint.go`), which is to say it was chosen so that mounts
+keep *working*, not so that they stay fast. Every build shorter than 480 layers
+pays the growth in full; a 480-step build would spend about seven minutes
+binding seven device nodes.
+
+Two directions, neither taken here because both are decisions rather than
+patches:
+
+* **Fewer mounts.** `runc` mounts a tmpfs at `/dev` and makes the nodes inside
+  it, which is one mount rather than six and puts the lookups in a filesystem
+  with no lower layers at all. It also hides whatever `/dev` the image shipped,
+  which is a visible change to what a step sees.
+* **A shallower Φ.** `MaxStackDepth` is 𝑛ₘₐₓ in green paper (4.8) and feeds
+  `Flatten`, whose output feeds `DeriveChainKey`. Lowering it is not a tuning
+  knob: it changes every cache key in existence.
+
+*What this cost to find was the instrumentation, not the reasoning.* Every
+hypothesis about where the 33ms went - the cgroup, the proc mount, resolving
+views, isolation - measured 0.0ms, and each was wrong within a minute of being
+timed. The one that was right was not on the list.

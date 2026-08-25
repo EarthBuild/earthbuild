@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/containerd/platforms"
 
@@ -51,6 +52,26 @@ func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) 
 	// `Volumes` (E44).
 	spec.Config = ir.OCIConfig(n.Op.Image)
 	spec.Healthcheck = ir.OCIHealthcheck(n.Op.Image)
+
+	// **The config is a blob a registry serves to anybody who can pull.** The
+	// delta scan catches a step that wrote a credential into a file; nothing
+	// looked here, and `ENV TOKEN=$SOME_SECRET` puts the value in this
+	// structure - where `docker inspect` prints it without being asked.
+	//
+	// Checked on the host, where the values already are, so nothing new crosses
+	// the wire and nothing is checked that a build did not supply.
+	if StrictSecrets() {
+		found := configSecrets(spec.Config, e.Secrets)
+		if len(found) > 0 {
+			return core.Result{}, fmt.Errorf(
+				"%s: a secret this build was given is in the image's configuration,"+
+					" and the image is not written"+
+					"\n  %s"+
+					"\n  a configuration blob is served to anybody who can pull the image"+
+					"\n  pass the value at run time instead of declaring it into the image",
+				n.Meta.Source, strings.Join(found, "\n  "))
+		}
+	}
 
 	// A platform is not optional here, whatever the node says. An image whose
 	// config declares no OS or architecture is one docker cannot match against

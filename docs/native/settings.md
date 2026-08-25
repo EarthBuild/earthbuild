@@ -439,6 +439,12 @@ fails the build naming the file and the secret's id.
 printed the credential would publish it to every log that build feeds, which is the accident being
 caught.
 
+**The image's configuration is checked too.** A layer is not the only place a credential lands:
+`ENV TOKEN=$SOME_SECRET` puts the value in the config blob, which `SAVE IMAGE` persists, a registry
+serves to anybody who can pull, and `docker inspect` prints without being asked. Environment,
+labels, entrypoint, command, working directory and user are all looked at, and an image whose
+configuration holds a secret is not written.
+
 **What it does not catch.** It finds a secret's bytes as the step was given them. A value the step
 encoded, compressed, or compiled into a binary is in the layer just the same and is not found here.
 This is a net for the common accident - a redirect, a stray `env`, a config file written from a

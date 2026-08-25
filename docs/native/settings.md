@@ -270,6 +270,14 @@ phase this engine records, because it is spread through the step's own execution
 This is E511's principle applied to the rest of the store. That experiment moved CACHE mounts onto
 the volume for the same reason and said why: outliving the build does not mean the host must see it.
 
+**It cannot build an Earthfile that copies from the build context.** `COPY src /app` reads the
+context here and stages it into the store, and with the store on the guest's device the guest cannot
+read what was staged. The build is refused, naming the cause - before this it failed much later as
+`COPY src: nothing in that target has it`, a missing artifact naming a target nobody wrote (E690).
+
+So this is usable for images and targets and not for a real project tree, until the context can be
+handed across.
+
 **What it costs is the cache's lifetime.** The volume belongs to the sandbox and goes when the
 sandbox does, so layers live as long as the machine rather than as long as a directory you own -
 `scripts/reset-native-sandbox.sh` and a changed sandbox setting both take them. An export also stops

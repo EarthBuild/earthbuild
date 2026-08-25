@@ -31656,3 +31656,40 @@ Released by the loop instead, which is what the comment claimed all along.
 Proved both ways on a Linux box: the fix passes `-race -shuffle=on` across
 trace, fleet and guest, and putting the cross-goroutine close back produces
 `WARNING: DATA RACE` on the first run.
+
+## E690 - a comment's assumption, falsified by a switch nobody told it about
+
+`OpLocal` reads:
+
+> The context lives on the host, and so does the store, so this is a host-side
+> copy: nothing needs to enter the sandbox to do it.
+
+True when written. `EARTH_STORE_IN_VM` made the second clause false, and nothing
+re-read the first.
+
+The context is staged into the store on the host; the guest then looks for it
+among the layers it holds, does not find it, and reports the only thing it can
+see:
+
+```text
+Earthfile:4: COPY src/main.go: nothing in that target has it
+```
+
+A missing artifact, naming a target nobody wrote. Confirmed by moving one
+setting and nothing else:
+
+```text
+COPY src/main.go /app/main.go   store on the host   builds
+COPY src/main.go /app/main.go   store in the VM     refused, wrongly
+```
+
+**Which makes the store-in-VM path unusable for a real project**, and is worth
+saying plainly: every measurement taken on it - the layers apart, the pinning,
+the streaming - was taken on Earthfiles that copy nothing from the host, because
+those are the only ones it can build.
+
+Refused now, with the cause and the way out, which is what I10 asks for while
+the other half does not exist. The engine has a whole mechanism for this -
+`Capabilities`, `arrival`, `UnsupportedError`, all written to say "this arrives
+at M7" - and **nothing anywhere sets `Schedule.Capabilities`**, so none of it
+has ever run. That is its own gap and a larger one than this.

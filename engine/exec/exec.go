@@ -370,8 +370,21 @@ func (e *Executor) Run(
 		return core.Result{Captured: true}, nil
 
 	case ir.OpLocal:
-		// The context lives on the host, and so does the store, so this is a
-		// host-side copy: nothing needs to enter the sandbox to do it.
+		// **The context lives on the host, and so did the store.** That second
+		// clause was true when this was written and `EARTH_STORE_IN_VM`
+		// falsified it: staged here, the layer lands where the guest cannot
+		// read it, and the failure surfaces much later as `COPY x: nothing in
+		// that target has it` - a missing artifact naming a target nobody
+		// wrote.
+		//
+		// Refused rather than attempted, which is what I10 asks for while the
+		// staging-into-the-guest half does not exist: name the construct, name
+		// the cause, and never approximate.
+		err := localContextRefusal()
+		if err != nil {
+			return core.Result{}, fmt.Errorf("%w (%s)", err, n.Meta.Source)
+		}
+
 		return e.stageContext(n)
 
 	case ir.OpFile:
@@ -1684,4 +1697,23 @@ func (e *Executor) ViewDigests(
 	}
 
 	return c.ViewDigests(ctx, stack, paths)
+}
+
+// localContextRefusal says why a local build context cannot be staged, or nil.
+//
+// The store and the context have to be on the same side. With the store on the
+// host they are, and this permits everything it always did; with the store on
+// the guest's own device the context would have to be handed across, which is
+// the part that does not exist yet.
+func localContextRefusal() error {
+	if !guest.StoreInVM() {
+		return nil
+	}
+
+	return fmt.Errorf("COPY from the build context needs the layer store on the"+
+		" host, and %s put it on the guest's device"+
+		"\n  the context is read here and staged into the store, and the guest"+
+		" cannot read a store it does not hold"+
+		"\n  unset %s for this build, or copy from a target instead of from the"+
+		" context", guest.EnvStoreInVM, guest.EnvStoreInVM)
 }

@@ -35,7 +35,17 @@ type Pins struct {
 
 // NewPins remembers pins under dir for ttl. A ttl of zero is off: it neither
 // reads nor writes, so turning the setting off turns the behaviour off.
+//
+// **An empty dir is nowhere, not here.** The caller passes wherever the image
+// cache is and falls back to "" when it cannot work that out;
+// `filepath.Join("", "pins")` is the relative path `pins`, so taking it would
+// create a directory wherever the build was started - which is somebody's
+// repository. Nowhere to live means off.
 func NewPins(dir string, ttl time.Duration) *Pins {
+	if dir == "" {
+		return &Pins{}
+	}
+
 	return &Pins{dir: filepath.Join(dir, "pins"), ttl: ttl}
 }
 

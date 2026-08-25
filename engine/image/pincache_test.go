@@ -1,6 +1,7 @@
 package image_test
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -101,5 +102,44 @@ func TestNoWindowMeansNoCache(t *testing.T) {
 
 	if _, ok := image.NewPins(dir, time.Hour).Get("alpine:3.20", "linux/arm64"); ok {
 		t.Error("a zero window wrote a pin anyway")
+	}
+}
+
+// TestPinsWithNowhereToLiveWriteNothing.
+//
+// **An empty directory is not the current one.** The caller hands over wherever
+// the image cache is, and falls back to "" when it cannot work that out.
+// `filepath.Join("", "pins")` is `pins` - a relative path - so a cache built on
+// that answer creates a `pins/` directory wherever the build was started, which
+// is somebody's repository.
+//
+// Not parallel: it changes the working directory to prove nothing lands in it,
+// and that is process-wide.
+//
+//nolint:paralleltest // t.Chdir, which the runtime refuses in a parallel test
+func TestPinsWithNowhereToLiveWriteNothing(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	pins := image.NewPins("", time.Hour)
+
+	pins.Put("alpine:3.21", "linux/arm64", "alpine@sha256:aaa")
+
+	if _, ok := pins.Get("alpine:3.21", "linux/arm64"); ok {
+		t.Error("a cache with nowhere to live answered")
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(entries) != 0 {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+
+		t.Errorf("it wrote %v into the working directory", names)
 	}
 }

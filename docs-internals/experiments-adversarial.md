@@ -31287,3 +31287,35 @@ Nothing per-event is left to remove. The round trip alone is 7.7µs on that
 machine and a full call is 9.1µs, so the handler is about 1.4µs of it and the
 crossing is nearly all the rest - which is the thing pinning already addresses.
 Further work on the handler would be optimising the small half.
+
+## E685 - what pinning costs, and why it cannot be half done
+
+E681 shipped `EARTH_TRACE_PIN` off by default on the strength of an argument: a
+pinned step gets one vCPU, so `go build -p 4` would run on a quarter of the
+machine. Arguments are not measurements. Two probes in the guest, one step each:
+
+| pin         | 20k traced stats | 4-way parallel CPU |
+| ----------- | ---------------- | ------------------ |
+| off         | 1.204s           | 0.645s             |
+| both ends   | 0.125s           | 2.308s             |
+| tracer only | 1.218s           | 0.674s             |
+
+**The argument was right and the cost is large**: 2.9x on a step that wants four
+vCPUs, against 9.6x for one that floods the tracer. A single-threaded step is
+untouched either way (0.629s against 0.633s, separately).
+
+The interesting row is the third. Pinning only the answering thread would have
+been adaptive by construction - a step on one thread tends to stay where it is,
+a step wanting four vCPUs spreads and simply would not get the saving - so it
+was worth building to find out. It buys nothing at all. The *step* is the thread
+that has to be woken, and nothing pulls it onto the tracer's CPU; a fixed
+tracer and a roaming step are on different vCPUs almost always.
+
+So the trade is binary, the default stays off, and choosing per step needs
+something that knows what the step is about to do. The rate of notifications is
+the obvious candidate - a step making thousands a second wants the pin and a
+compute-bound one does not - but unpinning a step already forked leaves its
+children on the old mask, so it is not the one-line change it looks like.
+
+The mode was removed rather than left in. Configuration that measurably does
+nothing is a trap for whoever finds it next.

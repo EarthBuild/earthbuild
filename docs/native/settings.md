@@ -333,10 +333,22 @@ paths through a five-layer overlay is real filesystem work, and what remains aft
 that. A step that asks about the same paths repeatedly - a configure script, a package manager, a
 compiler's include search - is the shape this helps most.
 
-**What it costs is a step's parallelism.** A pinned step gets one vCPU, so `go build -p 4` would run
-on a quarter of the machine. The steps that flood the tracer are the single-threaded ones and the
-steps that want four vCPUs make few path calls, but that is an observation and not a policy - which
-is why this is a switch and not the default. Choosing needs a corpus.
+**What it costs is a step's parallelism**, and that is measured rather than argued:
+
+| pin         | 20k traced stats | 4-way parallel CPU |
+| ----------- | ---------------- | ------------------ |
+| off         | 1.204s           | 0.645s             |
+| both ends   | 0.125s           | 2.308s             |
+| tracer only | 1.218s           | 0.674s             |
+
+2.9x against a step that wants four vCPUs, for 9.6x on one that floods the tracer; a
+single-threaded step is untouched either way. The steps that flood the tracer are the
+single-threaded ones and the steps that want four vCPUs make few path calls - but that is an
+observation and not a policy, which is why this is a switch and not the default.
+
+The third row is why it cannot be half done. Pinning only the answering thread would have been
+adaptive by construction, and it buys nothing: the step is the thread that has to be woken, and
+nothing pulls it onto the tracer's CPU (E685).
 
 Flipping it makes a different sandbox, deliberately: the guest reads this at start, so a machine
 already running was started with whatever the previous build said (E549).

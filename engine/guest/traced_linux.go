@@ -51,8 +51,13 @@ func runObserved(
 		// **Both ends of the round trip, or neither.** The step inherits this
 		// thread's affinity across fork exactly as it inherits its filter, so
 		// pinning here pins the step; the loop that answers it is pinned to the
-		// same CPU below. Pinning one without the other buys nothing - the
-		// wakeup still crosses vCPUs, which is the whole cost (E681).
+		// same CPU below.
+		//
+		// Pinning one without the other buys nothing, and that is measured
+		// rather than argued: pinning only the answering thread and leaving the
+		// step free ran 20k traced stats in 1.218s against 1.204s unpinned. The
+		// step is the thread that has to be woken, and nothing pulls it to the
+		// tracer's CPU (E685).
 		cpu, pinning := pinChoice()
 		if pinning {
 			// Best effort: a step whose thread could not be pinned runs at the

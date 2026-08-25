@@ -451,6 +451,17 @@ This is a net for the common accident - a redirect, a stray `env`, a config file
 variable - and not a guarantee that a layer is clean. Treating it as one would be worse than not
 checking, because somebody would rely on it.
 
+**What happens when it finds one.** The step fails, and a failing step cancels the build - dependent
+steps never start. The check runs at the end of the step and *before* the capture, so the delta
+never becomes a layer: nothing is placed in the store, nothing is cached, and there is nothing for a
+later build to find. Nor can the failure be tolerated: `--allow-failure` rescues a non-zero *exit*
+and this is an engine refusal, which produces no result to tolerate.
+
+It does not have to stop a push, because this engine does not push: `RUN --push` is refused and
+`SAVE IMAGE --push` is recorded and not performed. When push arrives, the ordering will matter - an
+independent branch that pushed before the leak was found could not be recalled - and the safe
+semantic then is to hold every push until the build is over.
+
 Off by default: the scan reads every captured byte.
 
 Default: off.

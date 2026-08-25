@@ -299,7 +299,19 @@ engine-race:
     # column they are counted in. Raising the ceiling to cover a genuine
     # reduction in coverage would be this guard's exact failure mode, which is
     # why the number is justified per cause above rather than fitted to the run.
-    ARG SKIP_CEILING=170
+    # **172 rather than 170, and the two are named.** `engine/trace` gained two
+    # measurements - what a traced call costs with its path read, and how many
+    # calls a build makes (E681, E693) - and both call `SkipIfAlreadyFiltered`,
+    # as every filtering test in that package does: a filter installed by an
+    # earlier test is process-wide, so whichever runs first is the only one that
+    # can. That is a pre-existing property of the package and not coverage these
+    # two gave up.
+    #
+    # A third was avoided rather than counted: the stat loop those two exec is
+    # not a test, and as a `TestXxx` that skipped unless its parent started it
+    # would have been a permanent skip. It runs from `TestMain` instead and is
+    # never collected.
+    ARG SKIP_CEILING=172
     # Nothing is excluded. Every test needing a privilege this container does
     # not grant - a user namespace, an overlay mount, a device node - now skips
     # with the reason, because each asks whether the *operation* works rather

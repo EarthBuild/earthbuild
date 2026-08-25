@@ -46,7 +46,7 @@ func TestATracerCountsWhatItAnswered(t *testing.T) {
 
 		// A child, because the filtering thread's own calls are recognised as
 		// the engine's and answered without being counted as a step's.
-		cmd := exec.Command(os.Args[0], "-test.run=^TestTheStatLoopHelper$")
+		cmd := exec.Command(os.Args[0])
 		cmd.Env = append(os.Environ(), envStatLoop+"="+strconv.Itoa(rounds))
 
 		_ = cmd.Run()

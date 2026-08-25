@@ -8,8 +8,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"syscall"
 	"testing"
+
+	"golang.org/x/sys/unix"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
@@ -31,6 +34,15 @@ const (
 // under EARTH_TEST_TRACE_HELPER it installs the filter, hands the listener back
 // and execs something real.
 func TestMain(m *testing.M) {
+	// **The stat loop is not a test and must not be counted as one.** It is the
+	// child half of the cost measurement, and as a `TestXxx` that skipped unless
+	// its parent started it, it was a permanent skip - which the skip ceiling
+	// reads as coverage lost. Run here, before anything is collected.
+	if spec := os.Getenv(statLoopEnv); spec != "" {
+		statLoop(spec)
+		os.Exit(0)
+	}
+
 	if os.Getenv(helperEnv) == "" {
 		os.Exit(m.Run())
 	}
@@ -186,5 +198,25 @@ func TestTheFilterSurvivesExecAndTracesTheStep(t *testing.T) {
 	if len(got.Paths) < 2 {
 		t.Errorf("only %v; a real program opens more than its argument",
 			got.Paths)
+	}
+}
+
+// statLoopEnv asks this binary to make a fixed number of traced path calls and
+// exit, which is the child half of TestWhatATracedOperationCostsWithItsPathRead
+// and of TestATracerCountsWhatItAnswered.
+const statLoopEnv = "EARTH_TRACE_STAT_LOOP"
+
+// statLoop makes n path calls and nothing else.
+func statLoop(spec string) {
+	n, err := strconv.Atoi(spec)
+	if err != nil {
+		os.Stderr.WriteString(statLoopEnv + " is not a count: " + spec + "\n")
+		os.Exit(2)
+	}
+
+	var st unix.Stat_t
+
+	for range n {
+		_ = unix.Fstatat(unix.AT_FDCWD, "/etc/hostname", &st, 0)
 	}
 }

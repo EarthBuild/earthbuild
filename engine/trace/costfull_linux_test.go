@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
-	"golang.org/x/sys/unix"
 )
 
 // envStatLoop turns this binary into the thing being measured rather than the
@@ -19,28 +17,6 @@ import (
 // nothing else - `sh` would add its own, and how many is a property of which
 // `sh` it is.
 const envStatLoop = "EARTH_TRACE_STAT_LOOP"
-
-// TestTheStatLoopHelper is not a test.
-//
-// It is the child half of TestWhatATracedOperationCostsWithItsPathRead, and it
-// does nothing at all unless that test started it.
-func TestTheStatLoopHelper(t *testing.T) {
-	spec := os.Getenv(envStatLoop)
-	if spec == "" {
-		t.Skip("the child half of the cost measurement, started by its parent")
-	}
-
-	n, err := strconv.Atoi(spec)
-	if err != nil {
-		t.Fatalf("%s=%q is not a count: %v", envStatLoop, spec, err)
-	}
-
-	var st unix.Stat_t
-
-	for range n {
-		_ = unix.Fstatat(unix.AT_FDCWD, "/etc/hostname", &st, 0)
-	}
-}
 
 // What a traced path call costs *including* reading the path.
 //
@@ -64,8 +40,7 @@ func TestWhatATracedOperationCostsWithItsPathRead(t *testing.T) {
 	const rounds = 4000
 
 	child := func() *exec.Cmd {
-		c := exec.CommandContext(t.Context(), os.Args[0],
-			"-test.run=^TestTheStatLoopHelper$")
+		c := exec.CommandContext(t.Context(), os.Args[0])
 		c.Env = append(os.Environ(), envStatLoop+"="+strconv.Itoa(rounds))
 
 		return c

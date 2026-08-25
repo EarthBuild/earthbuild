@@ -197,6 +197,11 @@ func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error 
 		scratch.sum = NewContentHasher()
 	}
 
+	// One resolver for the walk, not one per entry: the root cannot change
+	// while this runs, and fifteen thousand entries share a few thousand
+	// parents. That was 15.5 stats an entry (E686).
+	res := newRooted(root)
+
 	// What *this* layer has written. A later layer replacing an earlier one's
 	// file is the whole of what layering means; one layer naming a path twice
 	// is an archive that cannot be trusted to mean anything, and choosing the
@@ -247,7 +252,7 @@ func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error 
 			return fmt.Errorf("read the layer archive: %w", err)
 		}
 
-		target, err := safePath(root, h.Name)
+		target, err := res.path(h.Name)
 		if err != nil {
 			return err
 		}
@@ -316,7 +321,7 @@ func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error 
 			return err
 		}
 
-		err = writeEntry(tr, h, root, target, written, folded, out, &scratch)
+		err = writeEntry(tr, h, root, target, written, folded, out, &scratch, res)
 		if err != nil {
 			return err
 		}
@@ -352,7 +357,64 @@ func insideRoot(root, target, name string) error {
 	return fmt.Errorf("layer entry %q resolved to %s, which is outside the layer", name, target)
 }
 
-func safePath(root, name string) (string, error) {
+// rooted resolves entry names inside one root, remembering what it resolved.
+//
+// **The escape check was 15.5 stats per entry**, which is where an unpack's time
+// went once hashing moved off it: `filepath.EvalSymlinks` lstats every component
+// of what it is given, and this resolved two paths for every entry - the root,
+// which cannot change during an unpack, and the entry's parent, which fifteen
+// thousand entries share a few thousand of (E686).
+//
+// Only a symlink can change what a path resolves to. Creating a directory or a
+// file cannot, so a remembered resolution stays true until the archive plants
+// one - and the unpacker knows when it does, because it is the one creating it.
+// `forget` is that moment, and it drops everything rather than reasoning about
+// which entries a new link could reach: links are a small fraction of a layer,
+// and being right is worth more than being clever about them.
+type rooted struct {
+	// root as the caller spelt it. **Targets are built from this**, not from
+	// the resolved form: a caller compares what comes back against the root it
+	// passed - `insideRoot` does exactly that, immediately before the writes -
+	// and handing back `/private/var/...` for a root of `/var/...` fails that
+	// comparison for every entry.
+	root string
+	// real is root with its own symlinks followed, which is what a resolved
+	// parent has to be compared against. A root that cannot be resolved is used
+	// as given: it may not exist yet, which is not this type's business.
+	real string
+	// eval is filepath.EvalSymlinks, named so a test can count the walks this
+	// exists to avoid.
+	eval func(string) (string, error)
+	// dirs is parent -> where it resolves to, for parents that resolved inside
+	// the root. A parent that did not exist is not remembered: it is about to.
+	dirs map[string]string
+}
+
+func newRooted(root string) *rooted {
+	r := &rooted{root: root, real: root, eval: filepath.EvalSymlinks, dirs: map[string]string{}}
+
+	// **The root is resolved too, or the comparison below is not like with
+	// like.** `EvalSymlinks` on a parent resolves the *root's* own symlinks as
+	// well - on darwin `/tmp` is `/private/tmp` - so a resolved parent compared
+	// against an unresolved root differs for every top-level entry, and the
+	// guard refused `bin`, `etc` and everything else at depth one whenever the
+	// store sat under a symlinked path. Found by a test asking whether a name
+	// containing `..` is still unpacked: `foo..bar` was refused, and the reason
+	// had nothing to do with the dots (E628).
+	resolved, err := r.eval(root)
+	if err == nil {
+		r.real = resolved
+	}
+
+	return r
+}
+
+// forget drops what was resolved, because a symlink has just been created and
+// anything remembered may now point somewhere else.
+func (r *rooted) forget() { clear(r.dirs) }
+
+// path is safePath, with the resolutions remembered.
+func (r *rooted) path(name string) (string, error) {
 	if name == "" {
 		return "", errors.New("layer entry has an empty name")
 	}
@@ -366,31 +428,13 @@ func safePath(root, name string) (string, error) {
 		return "", fmt.Errorf("layer entry %q escapes the layer", name)
 	}
 
-	// **The root is resolved too, or the comparison below is not like with
-	// like.** `EvalSymlinks` on a parent resolves the *root's* own symlinks as
-	// well - on darwin `/tmp` is `/private/tmp` - so a resolved parent compared
-	// against an unresolved root differs for every top-level entry, and the
-	// guard refused `bin`, `etc` and everything else at depth one whenever the
-	// store sat under a symlinked path. Found by a test asking whether a name
-	// containing `..` is still unpacked: `foo..bar` was refused, and the reason
-	// had nothing to do with the dots (E628).
-	//
-	// A root that cannot be resolved is used as given: it may not exist yet,
-	// which is not this function's business.
-	realRoot := root
-
-	resolvedRoot, err := filepath.EvalSymlinks(root)
-	if err == nil {
-		realRoot = resolvedRoot
-	}
-
-	target := filepath.Join(root, clean)
+	target := filepath.Join(r.root, clean)
 
 	// An entry naming the layer's own root - `./`, which every tar built with
 	// `tar -C rootfs .` begins with, busybox's included. It is the one entry
 	// that cannot escape, and checking its *parent* looked outside the layer and
 	// refused it.
-	if target == root {
+	if target == r.root {
 		return target, nil
 	}
 
@@ -399,7 +443,13 @@ func safePath(root, name string) (string, error) {
 	// target itself does not exist yet.
 	parent := filepath.Dir(target)
 
-	resolved, err := filepath.EvalSymlinks(parent)
+	if _, ok := r.dirs[parent]; ok {
+		// Remembered, and remembered only when it resolved *inside* the root -
+		// so a hit is a pass, not a value to re-check.
+		return target, nil
+	}
+
+	resolved, err := r.eval(parent)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return "", fmt.Errorf("resolve the parent of layer entry %q: %w", name, err)
@@ -410,18 +460,24 @@ func safePath(root, name string) (string, error) {
 		return target, nil
 	}
 
-	if resolved != realRoot && !strings.HasPrefix(resolved, realRoot+string(filepath.Separator)) {
+	if resolved != r.real && !strings.HasPrefix(resolved, r.real+string(filepath.Separator)) {
 		return "", fmt.Errorf("layer entry %q writes through a symlink out of the layer, to %s",
 			name, resolved)
 	}
 
+	r.dirs[parent] = resolved
+
 	return target, nil
 }
+
+// safePath is one entry resolved against a root, for callers with no walk to
+// amortise a `rooted` over.
+func safePath(root, name string) (string, error) { return newRooted(root).path(name) }
 
 func writeEntry(
 	tr *tar.Reader, h *tar.Header, root, target string,
 	written map[string]bool, folded map[string]foldedEntry, out *Unpacked,
-	sc *copyScratch,
+	sc *copyScratch, res *rooted,
 ) error {
 	// Immediately before the syscalls, so the assertion dominates the sink
 	// rather than sitting a call away from it. See insideRoot.
@@ -489,8 +545,14 @@ func writeEntry(
 			return fmt.Errorf("create symlink %q: %w", h.Name, err)
 		}
 
+		// **Everything remembered is now suspect.** This is the one kind of
+		// entry that can change where an existing path leads, and an archive
+		// writing `link -> /tmp` and then `link/x` is exactly the escape the
+		// resolution exists to refuse (TestWritesThroughSymlinksAreRefused).
+		res.forget()
+
 	case tar.TypeLink:
-		source, err := safePath(root, h.Linkname)
+		source, err := res.path(h.Linkname)
 		if err != nil {
 			return fmt.Errorf("hardlink %q: %w", h.Name, err)
 		}

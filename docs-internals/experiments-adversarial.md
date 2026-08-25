@@ -31334,3 +31334,47 @@ children on the old mask, so it is not the one-line change it looks like.
 
 The mode was removed rather than left in. Configuration that measurably does
 nothing is a trap for whoever finds it next.
+
+## E686 - the escape check was fifteen stats an entry
+
+With hashing moved off the unpack (E682), what was left was 772ms after
+decompression for 15034 entries - 51µs each, where the writes are one `openat`,
+one `fchmodat`, one `utimensat` and one `close`. `strace -c` over
+`golang:1.26-alpine`'s largest layer said where the rest went:
+
+```text
+newfstatat   232302     15.5 per entry
+openat        16710      1
+fchmodat      16703      1
+utimensat     16703      1
+lchown        15034      1   attempted, EPERM, tolerated (A2)
+getuid        15034      1   Go does not cache it
+```
+
+All of the stats are in `safePath`. `filepath.EvalSymlinks` lstats every
+component of what it is given, and this resolved **two** paths per entry: the
+root, which cannot change during an unpack and which `unpackInto` had already
+resolved before the walk began, and the entry's parent, which fifteen thousand
+entries share a few thousand of.
+
+The check is not negotiable - an archive can write `link -> /tmp` and then
+`link/x`, which contains no `..` and lands outside the layer (E628) - but
+resolving the same parent for every file in it is.
+
+Only a symlink can change what a path resolves to. A directory or a file cannot,
+so a remembered resolution stays true until the archive plants one, and the
+unpacker knows when it does because it is the one creating it. Everything is
+dropped at that moment rather than reasoning about which entries a new link
+could reach.
+
+```text
+newfstatat   232302 -> 68090     15.5 -> 4.5 per entry
+unpack, after decompression, hashing on:  1.528s -> 1.258s / 1.333s
+```
+
+**End to end it is inside the noise**, and saying so matters: the guest no
+longer hashes, so what is left after decompression is 772ms rather than 1.5s and
+the stats are a smaller share of it - about 165ms of a 7.7s cold build. Cold
+builds measured 7.43s, 7.54s and 7.96s against 7.66s and 7.74s before, which is
+not a result. The reduction in work is real and it compounds with the size of
+the image; the build-time claim would not survive being asked for.

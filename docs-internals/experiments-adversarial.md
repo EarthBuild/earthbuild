@@ -32111,3 +32111,50 @@ With it fixed, and both engines on the same registry mirror:
 cold   earthly 40.49s   native 41.26s    parity, within noise
 warm   earthly 19.30s   native  0.64s    30x
 ```
+
+## E700 - what watching a build actually costs, counted at last
+
+`handled` was added to answer a question E681 and E685 left open: a traced path
+call costs 2.2µs sharing a CPU and 45µs not, pinning costs a four-way parallel
+step 2.9x, and which way that falls depends on how many calls a real build
+makes, which nothing counted. A cold `+earthly` makes:
+
+```text
+178,975 traced path calls across 7 steps
+  112,345 in one step, 66,428 in another, the rest under 200 each
+```
+
+Cold, same machine, same mirror, one variable:
+
+```text
+EARTH_TRACE=1 (default)   42.01s
+EARTH_TRACE=0             36.06s
+```
+
+**5.95s, 14% of a cold build**, at 33µs a call. That is nowhere near the 2.2µs a
+same-CPU notification costs and close to the 45µs a cross-CPU one does, which
+says nearly every notification is waking a thread on another vCPU.
+
+### Where it goes
+
+`Run` is one thread: receive, handle, respond, in a loop. So every traced call a
+sixteen-way `go build` makes queues through a single servicer, and 112,345 of
+them in one step at 33µs is 3.7s on its own. Both costs point the same way -
+serialisation and cross-CPU wakeup are the same single-threaded loop.
+
+This is what the tracer buys: 30x on a warm build (E699), for 14% of a cold one.
+It is a good trade at the price, and the price looks reducible.
+
+### What is worth trying, and what is settled
+
+Pinning the step and the servicer to one CPU is settled and rejected: it trades
+30µs a call for the parallelism of the whole step, and E685 measured that at 2.9x
+worse. The count above does not rescue it - 178,975 calls at 30µs saved is 5.4s
+against a `go build` that would lose fifteen cores.
+
+Untried: several servicing threads on the one notification fd, which
+`SECCOMP_IOCTL_NOTIF_RECV` supports by design. That addresses both halves at
+once: the queue stops being one deep, and a notification raised on a CPU that has a
+runnable servicer on it is likelier to be answered there. It needs the
+one-entry `/proc/<pid>/mem` cache and the sighting record made safe for more than
+one caller first, so it is behind a setting until it has earned its place.

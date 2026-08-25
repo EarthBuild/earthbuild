@@ -82,6 +82,10 @@ var knowsTheLayout = map[string]string{
 	"engine/fleet/layers.go":   sideHost,
 	"engine/exec/exec.go":      sideHost,
 	"engine/exec/packimage.go": sideHost,
+
+	// Places each layer of an image in the store on its own, rather than one
+	// layer for the whole image, so it names the store directly.
+	"engine/exec/imagelayers.go": sideHost,
 	// `exec/squash.go` asks a guest that is already running and flattens here
 	// only when there is none - which is every backend without a machine, and
 	// their store is local anyway (E557).

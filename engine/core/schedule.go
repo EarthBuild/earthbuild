@@ -65,6 +65,18 @@ type Executor interface {
 type Result struct {
 	// Layer identifies the produced filesystem delta.
 	Layer ir.NodeID
+
+	// Layers is the stack this step produced, when it produced more than one.
+	//
+	// **An image is many layers.** A registry hands over one directory per
+	// layer, and the puller merged them into one because a result could name
+	// only one - which is why unpacking has to be serial (E641) and why nothing
+	// can be assembled at once. A step that has several says so here, oldest
+	// first, and every one of them joins the stack.
+	//
+	// Empty for almost every step: a RUN produces one delta, and Layer above
+	// carries it.
+	Layers []ir.NodeID
 	// Declares is what this step says about how the steps after it should run -
 	// an image's environment, working directory, user, entrypoint and command.
 	// Zero when it says nothing, which is most steps.
@@ -1462,7 +1474,17 @@ func (s *Scheduler) finish(n *ir.Node, base []ir.NodeID, res Result, rec StepRec
 	// the empty base produces one, and pushing it would make every stack above
 	// it name an element the store can never hold.
 	stack := base
-	if res.Layer != (ir.NodeID{}) {
+
+	switch {
+	case len(res.Layers) > 0:
+		// A step that produced a stack: every layer joins, oldest first.
+		for _, l := range res.Layers {
+			if l != (ir.NodeID{}) {
+				stack = pushLayer(stack, l)
+			}
+		}
+
+	case res.Layer != (ir.NodeID{}):
 		stack = pushLayer(base, res.Layer)
 	}
 

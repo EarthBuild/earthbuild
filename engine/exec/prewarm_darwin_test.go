@@ -74,3 +74,52 @@ func TestAPrewarmThatCannotWorkIsQuiet(t *testing.T) { //nolint:paralleltest // 
 		t.Errorf("%d VMs booted for a sandbox that cannot start", got)
 	}
 }
+
+// TestAPrewarmGreetsTheGuestAsWellAsBootingTheMachine.
+//
+// **The boot was overlapped and the handshake was not.** E537 moved the VM's
+// 850ms off the critical path by starting it beside the plan; the guest
+// connection stayed lazy, so a build still paid for it in front of its first
+// step. Measured on a change-one-file rebuild:
+//
+//	plan           0.174s   (a registry round trip, unavoidable)
+//	sandbox:start  0.044s
+//	sandbox:dial   0.062s
+//	four steps     ~0.03s each
+//
+// 0.106s of local work waiting behind 0.174s of network wait, and neither needs
+// anything from the other. `client()` is a `sync.Once` over both halves, so
+// warming it warms the pair and the first step joins what is already there.
+func TestAPrewarmGreetsTheGuestAsWellAsBootingTheMachine(t *testing.T) { //nolint:paralleltest // boots a VM
+	sb := exec.NewApple()
+	sb.GuestBinary = buildGuestd(t)
+
+	err := sb.Available()
+	if err != nil {
+		t.Skipf("apple container backend unavailable: %v", err)
+	}
+
+	defer func() { _ = sb.Remove() }()
+
+	e, err := exec.New(sb)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer e.Close()
+
+	if e.Connected() {
+		t.Fatal("the guest was greeted before anything asked for it")
+	}
+
+	e.Prewarm(context.Background())
+
+	if !e.Connected() {
+		t.Fatal("a prewarm booted the machine and left the guest ungreeted," +
+			"\n  so the first step still pays for the handshake it was meant to overlap")
+	}
+
+	if got := sb.Boots(); got > 1 {
+		t.Errorf("the prewarm booted %d VMs, want at most one", got)
+	}
+}

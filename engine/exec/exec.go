@@ -715,6 +715,15 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	root := e.sb.StoreDir()
 	shared := filepath.Join(imageRoot, "imagecache", ImageCacheKey(n.Op.Args[0], platform))
 
+	// **One layer per layer**, rather than one layer for the whole image.
+	//
+	// Behind a flag while it earns its place: the merged form is what every
+	// cache key in existence was derived from, so turning this on changes them.
+	// See E646 and E648 for what it buys and what it costs.
+	if os.Getenv(EnvImageLayers) != "" {
+		return e.materialiseImageApart(ctx, n, platform, imageRoot, root, shared)
+	}
+
 	// Already materialised, and named by what is in it rather than by which
 	// node asked for it. The recorded name is what makes this cheap: without it
 	// every build would re-capture the tree to learn a digest it had already
@@ -1557,6 +1566,34 @@ func (e *Executor) Prewarm(ctx context.Context) {
 	if p, ok := e.sb.(interface{ Prewarm(context.Context) }); ok {
 		p.Prewarm(ctx)
 	}
+
+	// **And greet the guest, which is the other half of being ready.** Booting
+	// the machine off the critical path left the handshake on it: a
+	// change-one-file rebuild paid `sandbox:start` 0.044s and `sandbox:dial`
+	// 0.062s in front of its first step, behind 0.174s of registry round trip
+	// that needed neither.
+	//
+	// `client()` is a `sync.Once` over both halves, so this is the same
+	// initialisation the first step would have run and not a second one - and a
+	// failure is remembered there, to be reported by the step that needed it
+	// rather than swallowed here.
+	//
+	// The error is discarded on purpose, for Prewarm's reason: this is an
+	// optimisation, and one that cannot work must leave a build that is slower
+	// rather than one that stops.
+	_, _ = e.client()
+}
+
+// Connected reports whether the guest has been greeted.
+//
+// Exported so that "the handshake happened beside the plan rather than in front
+// of the first step" is observable rather than asserted in a comment - the same
+// argument `Boots` and `Resumes` make about the VM.
+func (e *Executor) Connected() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.running
 }
 
 // fillView tells the guest what a bound view shows, and at what size.

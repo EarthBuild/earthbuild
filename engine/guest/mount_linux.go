@@ -491,7 +491,20 @@ func resolverMount() []Mount {
 func deviceMounts() []Mount {
 	const mode = 0o666
 
-	var out []Mount
+	// **A directory of their own, first.** A bind needs a file to land on, and
+	// creating one inside the step's merged overlay makes overlayfs materialise
+	// the parent directory in upper, which means reading it through every lower
+	// layer. Six devices bound straight into the overlay therefore cost time
+	// proportional to how deep the build already is, on every step - which
+	// makes a build quadratic in its own length (E635, E636).
+	//
+	// This mount costs nothing: /dev is already there, so nothing is created.
+	// The six below land in it rather than in the overlay, and on twenty steps
+	// that took binding from 31.7ms a step to 17.4ms (E637).
+	//
+	// First, because `bindMounts` works the list in order: a /dev arriving
+	// later would be mounted over the devices already beneath it.
+	out := []Mount{{Ephemeral: true, Target: "/dev", Mode: 0o755}}
 
 	for _, dev := range []string{
 		"/dev/null", "/dev/zero", "/dev/full",

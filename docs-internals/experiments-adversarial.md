@@ -28698,3 +28698,55 @@ creating mount points through the merged overlay at all: the guest assembled
 the overlay and knows its upper directory, and a placeholder created *there*
 exists in upper before the lookup starts. Unverified - it is written here so
 the next person starts from the measurement rather than from the mount list.
+
+## E637 - a room of their own, and 45% off every bind
+
+E636 said the cost was the first bind into a directory, not the number of
+binds, and that the fix the mount list suggests - a tmpfs at `/dev` - buys the
+tail and not the head. That was half right, and the wrong half was the
+important one.
+
+The head is paid for *creating* something in a directory the overlay has not
+materialised yet. `/dev` already exists in every image, so a mount placed over
+it creates nothing and pays nothing. What it does is give the six device nodes
+somewhere to land that is not the overlay - and the engine already had the
+mount kind for it, `Ephemeral`, which binds an empty directory.
+
+One line, before the six:
+
+```go
+out := []Mount{{Ephemeral: true, Target: "/dev", Mode: 0o755}}
+```
+
+Twenty cold `RUN echo` steps, the same fixture as E635:
+
+```text
+                before    after
+guest:bind      31.7ms    17.4ms     -45%
+run             54.5ms    39.2ms     -28%
+schedule         2633ms     1965ms   -25%
+bind at depth 20  78ms      33ms     -58%
+```
+
+The curve after the change is the same one measured in E636 for a step that
+binds `/etc/resolv.conf` and nothing else, which is the check that it did what
+it claimed: the devices are now free and the remaining slope is the resolver's.
+
+**What a step sees is unchanged, and that was measured rather than assumed.**
+`ls /dev` reports `full null random tty urandom zero` before and after - the
+same six, because an image ships an empty `/dev` and the binds were always all
+that was in it. An image that shipped something there would now not see it,
+which is what `runc` has always done, and the reason to accept it is the same:
+`/dev` belongs to the runtime.
+
+Three further checks, because a mount that hides things is exactly the kind of
+change that passes its own test and breaks a build: the devices work as
+character devices (`test -c`, reads from `/dev/urandom`, `dd` from `/dev/zero`);
+the same build hits cache 7-of-7 on the second run, so nothing unstable leaked
+into a step's delta; and the whole `engine/guest` suite passes on linux in a
+container, not only the part of it that runs on darwin.
+
+*Ordering is the mechanism.* `bindMounts` works the list in order, so a `/dev`
+arriving anywhere but first would be mounted over the devices already bound
+beneath it and the step would see an empty one. The test asserts the position,
+not just the presence.

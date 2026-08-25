@@ -1048,6 +1048,14 @@ var Mutants = []Mutant{
 		Package:     "./engine/ir/",
 	},
 	{
+		Name:        "guest: the devices given a directory of their own (E637)",
+		File:        "engine/guest/mount_linux.go",
+		Anchor:      "\tout := []Mount{{Ephemeral: true, Target: \"/dev\", Mode: 0o755}}",
+		Replacement: "\tvar out []Mount",
+		Package:     "./engine/guest/",
+		OS:          "linux",
+	},
+	{
 		Name:        "fleet: sending a fragment when paths were asked for (E286)",
 		File:        "engine/fleet/blobwire.go",
 		Anchor:      "\tif f, ok := held.(fragmenting); ok \u0026\u0026 len(want) > 0 \u0026\u0026 held != nil {",

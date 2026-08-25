@@ -65,7 +65,7 @@ type runOpts struct {
 	secrets     []string
 }
 
-func runFlags(c earthfile.Command, env map[string]string, hasTerminal bool) (runOpts, error) {
+func runFlags(c earthfile.Command, env map[string]string, workdir string, hasTerminal bool) (runOpts, error) {
 	// The exec form takes no flags: `RUN ["a", "--b"]` is an argv, and reading
 	// `--b` as an option would eat an argument the author wrote deliberately.
 	if c.ExecMode {
@@ -173,7 +173,7 @@ func runFlags(c earthfile.Command, env map[string]string, hasTerminal bool) (run
 	}
 
 	for _, spec := range opts.Mounts {
-		m, from, err := parseMount(expandWith(spec, env), loc(c.SourceLocation))
+		m, from, err := parseMount(expandWith(spec, env), workdir, loc(c.SourceLocation))
 		if err != nil {
 			return runOpts{}, err
 		}

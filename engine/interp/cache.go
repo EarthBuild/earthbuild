@@ -75,12 +75,7 @@ func cacheMount(c earthfile.Command, workdir string) (ir.Mount, error) {
 	// `/app/node_modules` proved the path had not been mounted, because a path
 	// inside a mount is filtered out of an observation before it is recorded
 	// (E222, E498).
-	target := rest[0]
-	if !strings.HasPrefix(target, "/") {
-		target = filepath.Join("/", workdir, target)
-	}
-
-	target = filepath.Clean("/" + strings.TrimPrefix(target, "./"))
+	target := anchoredAt(workdir, rest[0])
 
 	mode, err := mountMode(map[string]string{mountFieldChmod: opts.Mode}, loc(c.SourceLocation))
 	if err != nil {
@@ -204,7 +199,7 @@ const (
 // ν is a node, and this function has no graph: the caller has the plan, the
 // context root and - inside a FROM DOCKERFILE - the stages. Returning the raw
 // reference keeps the parsing here and the resolution where the answers are.
-func parseMount(spec, where string) (ir.Mount, string, error) {
+func parseMount(spec, workdir, where string) (ir.Mount, string, error) {
 	fields := map[string]string{}
 
 	for part := range strings.SplitSeq(spec, ",") {
@@ -272,7 +267,14 @@ func parseMount(spec, where string) (ir.Mount, string, error) {
 			where)
 	}
 
-	target = filepath.Clean("/" + strings.TrimPrefix(target, "./"))
+	// **Relative to the step's working directory, as CACHE already is** (see
+	// cacheMount, which joins the workdir for exactly this reason). A
+	// Dockerfile writes `--mount=target=.` to bind its context where the step
+	// runs; anchored at the root instead, the view is mounted *over the whole
+	// filesystem*, and the step then cannot find `/bin/sh`. buildkit's own
+	// Dockerfile does this in the stage that computes its version, so it is the
+	// first thing a real Dockerfile with a bound view does.
+	target = anchoredAt(workdir, target)
 
 	id := fields["id"]
 	if id == "" {
@@ -681,4 +683,18 @@ func (p *Plan) contextNode(what, at, where string) (*ir.Node, error) {
 	p.opt.contextCache.put(key, n)
 
 	return n, nil
+}
+
+// anchoredAt is where a mount target lands, given the step's directory.
+//
+// Absolute stays where it was written; relative is under the working directory,
+// which is what a Dockerfile means by `target=.` and what CACHE has always
+// meant. Anchoring a relative target at the root mounts it over the whole
+// filesystem, and the step then cannot find `/bin/sh`.
+func anchoredAt(workdir, target string) string {
+	if strings.HasPrefix(target, "/") {
+		return filepath.Clean(target)
+	}
+
+	return filepath.Join("/", workdir, strings.TrimPrefix(target, "./"))
 }

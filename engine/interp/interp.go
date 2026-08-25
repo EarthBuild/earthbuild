@@ -780,7 +780,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		}, nil
 
 	case earthfile.CmdRun:
-		rf, err := runFlags(c, rs.env, p.opt.terminal)
+		rf, err := runFlags(c, rs.env, rs.dir, p.opt.terminal)
 		if err != nil {
 			return nil, err
 		}

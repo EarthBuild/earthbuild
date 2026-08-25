@@ -2882,8 +2882,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: CACHE resolved against the working directory (E498)",
 		File:        "engine/interp/cache.go",
-		Anchor:      "\t\ttarget = filepath.Join(\"/\", workdir, target)",
-		Replacement: "\t\ttarget = filepath.Join(\"/\", target)",
+		Anchor:      "\treturn filepath.Join(\"/\", workdir, strings.TrimPrefix(target, \"./\"))",
+		Replacement: "\treturn filepath.Join(\"/\", strings.TrimPrefix(target, \"./\"))",
 		Package:     "./engine/interp/",
 	},
 	{

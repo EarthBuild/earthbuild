@@ -9,10 +9,11 @@ ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 go:
     FROM golang:1.27.0-alpine3.24
     RUN apk add --no-cache git
-    # Go mutates a counter under /root/.config/go/telemetry on every build, and
-    # a step that reads it takes it as an input - so `go build` missed the cache
-    # on every incremental build over a file that cannot affect its output. The
-    # name carries the date too, so the key changed at midnight regardless.
+    # Go writes a counter under /root/.config/go/telemetry and mutates it on
+    # every build, under a name carrying the date. Nothing observed reads it
+    # today - measured, this changes no cache outcome - but it is a file in the
+    # tree that changes for reasons no build caused, which is the shape that
+    # costs a hit the day something does read it. Off, so it cannot. See E698.
     RUN go telemetry off
     WORKDIR /earthly
 

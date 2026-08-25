@@ -29126,3 +29126,43 @@ filesystem**, which is the same shape of error as E643: a number that described
 something other than what it was read as. The claim was filed as a defect and
 then withdrawn, which is cheaper than the alternative and is why it is recorded
 here rather than quietly deleted.
+
+## E646 - parallel unpack, prototyped: the ceiling is real and so is the floor
+
+E645 computed a ceiling for unpacking layers simultaneously - one minus the
+largest layer over the total - and put it at 4% to 42% across six images. A
+ceiling is not a measurement, so here is the measurement.
+
+The prototype holds every fetched blob, unpacks them serially into one
+directory exactly as the engine does, and then unpacks *the same bytes* again
+into a directory per layer, concurrently, timing both. Same data, same machine,
+same moment. Thrown away afterwards; only the numbers are kept.
+
+```text
+image                  ceiling   serial   parallel   measured
+python:3.13-slim          37%    1.448s     0.901s      +38%
+node:22-alpine            10%    1.238s     1.104s      +11%
+golang:1.26-alpine         4%    3.878s     4.777s      -23%
+```
+
+**Where there is headroom, the ceiling is achieved almost exactly** - 37%
+predicted and 38% delivered, 10% predicted and 11% delivered. The arithmetic
+was right.
+
+**Where there is not, parallelism costs 23%.** `golang:1.26-alpine` spends 96%
+of its unpack in one layer, so concurrency adds contention - four goroutines
+competing for the same disk and page cache - and buys nothing to pay for it.
+The ceiling said 4%; the floor is *minus* 23%.
+
+So a naive "unpack layers in parallel" would slow down the most common base
+images in this ecosystem, which are exactly the Alpine-based language images.
+
+*The rule falls out of the manifest.* Layer sizes are in the descriptors before
+a single byte is fetched, so the ceiling can be computed up front and the
+arrangement chosen: unpack concurrently when no layer dominates, serially when
+one does. That is a cheap decision made with data the engine already has, and
+it is the difference between a 38% win and a 23% loss.
+
+Not implemented. The prototype was to find out whether the idea deserves the
+storage-model change behind it, and the answer is "sometimes, and it can tell
+which".

@@ -39,10 +39,11 @@ func TestAnAttributeTheOperatingSystemAddsDoesNotReachTheLayerId(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Set it explicitly, so the test says the same thing on a machine that adds
-	// it and one that does not - the rule is what is being pinned, not the
-	// platform.
-	err = unix.Lsetxattr(at, "com.apple.provenance", []byte{1, 2, 0, 0xef}, 0)
+	// **`user.overlay.impure` rather than `com.apple.provenance`**, though the
+	// rule covers both. A name outside the `user.` namespace needs privilege on
+	// Linux, so the macOS one skips there - and a test that skips is a test that
+	// verified nothing on the machine where overlayfs actually writes these.
+	err = unix.Lsetxattr(at, "user.overlay.impure", []byte("y"), 0)
 	if err != nil {
 		t.Skipf("this filesystem will not take the attribute: %v", err)
 	}

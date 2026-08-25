@@ -32334,3 +32334,22 @@ with an empty cache and therefore always resolves.
 
 Whether the default should move is a decision, not a measurement, and it is
 recorded here as one.
+
+### And what it does not buy
+
+Not the incremental build, which is the case that matters most. With the window
+on, `plan` falls from 1.15s to 0.194s exactly as it does on a no-op - and
+`schedule` is 6.393s either way:
+
+```text
+incr, no window     7.06s     plan 1.15s
+incr, 10m window    6.96s     plan 0.194s
+  guest:exec        5.616s    88%, the compiler
+  capture           0.419s
+  guest:commit      0.344s
+```
+
+Planning is not on the critical path of a build that has real work to do; it
+overlaps with the prefetching it kicks off. So this is a no-op-build
+optimisation and should be described as one. A developer's edit-rebuild loop is
+88% compiler and the engine is close to the floor of what is left.

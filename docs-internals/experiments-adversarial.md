@@ -31148,3 +31148,33 @@ pinned and kept open            0.123s    6.2µs
 
 The walk over 15k distinct paths does not move (1.126s against 1.159s), which is
 the same answer as before: after pinning it is the overlay and not the tracer.
+
+## E682 - what inline hashing costs, measured inside the guest
+
+E653 left its own switch in place - `EARTH_NO_KNOWN_DIGESTS` - saying which way
+the trade lands "is what is being measured". With the store on the guest's own
+device the unpack happens there too, so it can now be measured where it runs.
+
+One layer, `golang:1.26-alpine`'s largest: 64MB compressed, 228MB out, 15034
+entries, in a 4-vCPU guest.
+
+```text
+                        full unpack   after decompression
+digests inline               2.410s               1.557s
+digests off                  1.631s                 772ms
+```
+
+So decompression is 858ms of it - 266 MB/s through klauspost's inflate, already
+the faster one - and **hashing on the way in is 785ms**, half of everything after
+decompression and a third of the whole unpack. That is 290 MB/s for SHA-256,
+which is slow enough on this machine to be worth a second look on its own.
+
+What it does *not* settle is E653, because the read-back it replaces is 0.958s
+spread across every core while this 785ms is serial inside the one goroutine
+handling the layer - and the largest layer is the critical path, so a serial cost
+there is not amortised by unpacking five at once. Whether 785ms serial beats
+958ms parallel on four vCPUs is the question, and answering it needs the switch
+forwarded into the guest, which it is not.
+
+**[GAP]** The switch reaches the host unpacker and not the guest one, so the
+comparison E653 asks for cannot be run on the path that now does the work.

@@ -391,7 +391,10 @@ func (e *Executor) Run(
 		return core.Result{}, fmt.Errorf("exec backend cannot evaluate %s (%s)", n.Op.Kind, n.Meta.Source)
 	}
 
+	endClient := phase("exec:client", n.Meta.Source)
 	c, err := e.client()
+
+	endClient()
 	if err != nil {
 		return core.Result{}, err
 	}
@@ -588,6 +591,8 @@ func (e *Executor) Run(
 
 	endRun()
 
+	endFlush := phase("exec:flush", n.Meta.Source)
+
 	// The step is over, so anything the buffer still holds is the last line of
 	// its output and belongs to it (E449). Before the error is handled, because
 	// the output of a step that failed is the part worth reading.
@@ -598,9 +603,14 @@ func (e *Executor) Run(
 			fmt.Errorf("run %s: %w", n.Meta.Source, err), DefaultPlatform(), n.Meta.Source)
 	}
 
+	endFlush()
+
 	endCapture := phase("capture", n.Meta.Source)
 	id, content, bytes, err := c.Capture(ctx, h)
 	endCapture()
+
+	endAfter := phase("exec:after", n.Meta.Source)
+	defer endAfter()
 
 	if err != nil {
 		return core.Result{}, fmt.Errorf("capture the result of %s: %w", n.Meta.Source, err)

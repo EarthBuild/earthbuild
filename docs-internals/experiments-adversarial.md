@@ -29024,3 +29024,45 @@ can separate a 40ms scheduling hiccup from a lost race in one round. The answer
 is a different instrument - a fake clock and an instrumented semaphore - not a
 different number. Recorded in the nits file with the measurement, so the next
 person does not repeat the loosening.
+
+## E643 - the gap that was not there: a mean over one outlier
+
+E642 left a question: an eight-step chain spent 34ms a step and the phases
+inside it came to 11ms, so 23ms a step was unaccounted. Several rounds of
+bisection found nothing - release, the L2 lookup, the executor's setup, the
+flush, the work after capture, all at or near zero.
+
+Because there was nothing to find. Timing `e.client()` gave 21.75ms a step,
+which looked at last like the answer, and is a `sync.Once`. Printing the values
+rather than their mean:
+
+```text
+exec:client  0.186s   step 0.201s
+exec:client  0.000s   step 0.012s
+exec:client  0.000s   step 0.012s
+exec:client  0.000s   step 0.011s     (and five more the same)
+```
+
+**One sandbox boot of 186ms, divided by eight steps, is 23ms of phantom
+per-step cost.** The steady state is 11-14ms a step, and `exec:prep` 1.8 plus
+`run` 6.4 plus `capture` 3.6 accounts for essentially all of it. The engine had
+nothing missing; the arithmetic did.
+
+*The same mistake twice in one sweep.* E635's bind curve was invisible in the
+mean too - `guest:bind` averaged 31.7ms and the truth was 9ms rising to 78ms
+across twenty steps, which only a per-call listing shows. A mean over a
+distribution with one boot in it, or with a trend in it, describes neither.
+
+The rule that falls out, and it is cheap: **print the series before trusting the
+average.** Every phase this tool reports is a list before it is a number, and
+the list is one `grep` away.
+
+What the exercise did establish, all of it measured:
+
+* Independent steps already overlap. Eight leaves off one base run 0.276s of
+  `run` inside a 0.245s schedule - the sum exceeds the elapsed, which is what
+  concurrency looks like from the outside.
+* A chain cannot overlap, and every edge is a real dependency: `capture` must
+  follow the unbind or mount points land in the delta; the next step's base is
+  the previous step's captured layer.
+* A steady-state step is about 12ms, of which the command itself is 3ms.

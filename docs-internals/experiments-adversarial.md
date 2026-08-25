@@ -31975,3 +31975,56 @@ Two more steps hit on every incremental build, and the staleness that remains is
 
 Ordered so the common answer is cheapest - most read paths are not in the delta,
 and one failed `lstat` settles them without touching the base at all.
+
+## E697 - a rate limit is the slowest a build can be, and there was nothing to configure
+
+A day of cold-build benchmarking exhausted Docker Hub's anonymous allowance, and
+every build on this machine then failed outright:
+
+```text
+ratelimit-limit: 100;w=3600
+ratelimit-remaining: 0;w=3600
+
+FROM alpine:3.21 (Earthfile:3): fetch the manifest for alpine:3.21:
+  https://registry-1.docker.io/v2/library/alpine/manifests/3.21
+  returned 429 Too Many Requests
+```
+
+Not a bug in the engine, and not an artefact of benchmarking either: 100 manifest
+requests an hour is a shared budget for everyone behind one address, which is a
+busy CI runner or an office. CI already fronts buildkitd with `mirror.gcr.io`;
+the native path had no equivalent, so there was nothing an operator could do.
+
+`EARTH_REGISTRY_MIRRORS` asks named hosts before the origin. Measured against the
+same limited Hub, on the same machine, minutes apart:
+
+```text
+no mirror                FROM fails, 429
+EARTH_REGISTRY_MIRRORS=  build succeeds, 2 steps run
+  mirror.gcr.io
+```
+
+Two things the design turns on:
+
+**A mirror is never a new way to fail.** One that is down, rate-limited or does
+not carry the image falls through to the origin, whose error is the one reported.
+So configuring a mirror cannot make a build fail that would otherwise have
+worked, which is what makes it safe to suggest.
+
+**A pull may take a mirror's bytes; a resolution may not.** Every layer digest is
+checked against the manifest, so where the bytes came from does not matter. A
+`--pin` resolution *is* the answer to "what does this tag mean today", and a
+mirror answers that from its own cache - so pinning always asks the origin, and
+in the run above it reported the 429 as an advisory note while the build went on
+through the mirror. Off by default for the same reason: a moving tag could
+otherwise resolve to an older image than the origin would give, without anybody
+having said so.
+
+### What the measurement was worth before this
+
+The benchmark discarded each run's output, so a build that failed in two seconds
+and one that succeeded in two seconds were the same row. Under a rate limit every
+cold run fails in about that, and the ledger would have filled with record times.
+This is E691's lie a second time - a reset that did not reset, then a run that did
+not run - and the same remedy: the harness now reads what the run said and stops
+rather than writing a number it cannot stand behind.

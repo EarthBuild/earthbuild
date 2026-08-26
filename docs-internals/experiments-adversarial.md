@@ -32503,6 +32503,51 @@ machinery for that is already here: the guest binary can serve as its own helper
 (`SelfServesAsGuest`), so the mount can be made by the child after the clone and
 before the exec, which is what every container runtime does.
 
+### What the shim costs, measured before it was built
+
+An extra exec of a Go binary per step, inside the sandbox, 2000 iterations each:
+
+```text
+direct exec                    5.52s / 2000 = 2.76ms
+shimmed, mount taken out       9.95s / 2000 = 4.98ms
+                                      extra = 2.2ms
+```
+
+A first attempt said 8.9ms and was wrong: the probe called `mount` on every
+invocation where the real shim mounts once per step, and `sys` fell from 16.45s
+to 2.00s when that came out. `+earthly` launches a process in 7 of its steps, so
+this is about 15ms of a 41s cold build - 0.04%, and 0.5% even if every one of the
+92 steps paid it. Time is not the objection.
+
+**The objection is what the shim is seen to read.** It runs inside the traced
+step, so its own startup is observed: `/bin/true` alone costs 3 traced path
+calls and `probe /bin/true` costs 7. If the shim's own binary is among those
+four, then it is an input to every step - and rebuilding the guest would
+invalidate the whole cache. That is a large enough regression to design out
+rather than measure around.
+
+### The shim does not have to be inside the step
+
+The obvious arrangement - bind the guest binary into the step's root, exec it
+there - puts a binary and a mountpoint in every step's filesystem, needs undoing
+before capture, and is what makes the binary observable.
+
+None of it is necessary. `SysProcAttr.Chroot` is what forces the exec'd file to
+be inside the root; a shim that does its own `chroot` does not need that, so it
+can be the guest binary at the guest's own path:
+
+```text
+guest: exec(guest-binary, --step …)      clone(CLONE_NEWPID|CLONE_NEWNS), no Chroot
+  shim: mount proc at <root>/proc         now in the step's PID namespace
+  shim: chroot(root)
+  shim: exec(the real command)            from inside the root
+```
+
+Nothing is written into the step's filesystem, nothing needs cleaning up before
+capture, and the step's layer is untouched. What remains is the observation
+question, and the tracer already traps `execve`: the rule is that a step's
+observations begin at its own `execve`, which is the one the shim performs last.
+
 ### The isolation comment is imprecise
 
 `isolate_linux.go` says `CLONE_NEWPID` means "the step cannot see or signal the

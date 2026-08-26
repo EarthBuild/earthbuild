@@ -660,7 +660,19 @@ func (p *Plan) resolveViews(mounts []ir.Mount, views []view, rs *state, where st
 // Dockerfile binding `.` on five stages must not digest it five times. The
 // caller's is only right if the caller says so, which is why it is theirs.
 func (p *Plan) contextNode(what, at, where string) (*ir.Node, error) {
-	key := p.here.dir + "\x00" + at
+	// **The caller's context, not the unit's.** A function is inlined into the
+	// caller and reads what the caller can see - the language reference says
+	// so, and adds that global imports and args come from the Earthfile where
+	// the function is *defined*. So `+other` resolves against `here` and this
+	// does not.
+	//
+	// Locally the two are the same directory and nothing can tell them apart. A
+	// *remote* function separates them: `DO <repo>+COPY_CAT` copying
+	// `message.txt` looked in the clone and reported the file missing from a
+	// cache directory the author never wrote (E716).
+	root := p.callerContext()
+
+	key := root + "\x00" + at
 
 	if n, ok := p.viewed[key]; ok {
 		return n, nil
@@ -670,7 +682,7 @@ func (p *Plan) contextNode(what, at, where string) (*ir.Node, error) {
 		return n, nil
 	}
 
-	n, err := resolveContext(what, p.here.dir, at, where)
+	n, err := resolveContext(what, root, at, where)
 	if err != nil {
 		return nil, err
 	}

@@ -186,6 +186,10 @@ type Plan struct {
 	// targetIn to reach the one line that reads it.
 	passPrivilege bool
 	granted       bool
+	// inFunction counts how many function bodies enclose the command being
+	// planned, because a function inherits the caller's build context and a
+	// target does not. A count rather than a flag: a function may call one.
+	inFunction int
 	// resolved memoises each target's final node. Targets form a DAG: a shared
 	// dependency named by three targets is one subgraph, not three.
 	resolved map[string]*ir.Node
@@ -1928,6 +1932,24 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 	return prev, nil
 }
 
+// callerContext is the directory a COPY of a context path reads from.
+//
+// The invocation's own context, which is what the top-level build has and what
+// every function called from it inherits. A unit fetched from a repository
+// brings its Earthfile and no context, so `here.dir` is the wrong answer inside
+// a remote function - see E716 and Plan.contextNode.
+func (p *Plan) callerContext() string {
+	// **Only inside a function.** A remote *target* brings its own context -
+	// `BUILD github.com/org/repo+build` copying `src/` means that repository's
+	// `src/`, which `wildcard-copy.earth+wildcard-remote` builds - so this is
+	// not a rule about fetched units, it is a rule about functions.
+	if p.inFunction > 0 && p.here.fetchedFrom != "" && p.opt.context != "" {
+		return p.opt.context
+	}
+
+	return p.here.dir
+}
+
 // copySource resolves what a COPY reads from.
 func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 	// `artifact-with-args = "(" WSP artifact-ref *( WSP build-arg-override )
@@ -2471,8 +2493,14 @@ func (p *Plan) do(c earthfile.Command, prev *ir.Node, caller *state) (*ir.Node, 
 	prevUnit := p.here
 	p.here = u
 
+	// The unit changes so `+other` resolves against the file the function was
+	// written in; the *context* stays the caller's, which is what
+	// callerContext reads this for.
+	p.inFunction++
+
 	out, err := p.block(fn.Recipe, prev, rs)
 
+	p.inFunction--
 	p.here = prevUnit
 	p.building = p.building[:len(p.building)-1]
 

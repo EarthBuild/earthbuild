@@ -152,3 +152,62 @@ func TestASilentFailureStillSaysSomething(t *testing.T) {
 			" which is a number and nowhere to go")
 	}
 }
+
+// TestAProbeRunsEveryTimeBecauseItsOutputIsItsValue.
+//
+// **A probe answered the right thing once and empty forever after.** From a
+// cold cache, `LET v=$(ls -d helloworld*)` gave the three files; the second run
+// and every run after gave "". Nothing failed - the empty string was carried
+// into the variable, `IF [ "$v" != "" ]` went false, and the target asserted
+// its way to "found 0 files" with the files plainly in the image.
+//
+// The mechanism is that a probe's *output* is its result, and output is the one
+// thing a cache hit does not reproduce. `runGraph` collects the probe's lines
+// through the executor's `Capture` hook, which fires when a step runs; a step
+// whose key is already known does not run, so nothing is captured and the
+// caller reads an empty string as an answer.
+//
+// So the probe declares what is true of it: it is not a function of its inputs
+// in the way a build step is - two identical `ls` invocations over the same
+// layers are the same *build*, and only one of them tells us what it printed.
+// `NoCache` is in the key, so this does not silently share an entry with a
+// step of the same shape.
+//
+// The failure class is a cache that reproduces a step's *effects* but not its
+// *observations*, and it is invisible by construction: the answer is a value,
+// not an error, so every check downstream believes it.
+func TestAProbeRunsEveryTimeBecauseItsOutputIsItsValue(t *testing.T) {
+	t.Parallel()
+
+	var got *ir.Graph
+
+	run := func(_ context.Context, g *ir.Graph) (string, error) {
+		got = g
+
+		return "the answer", nil
+	}
+
+	base := &ir.Node{Op: ir.Op{Kind: ir.OpImage, Args: []string{"alpine"}}}
+
+	_, err := decideByRunning(context.Background(), run, []string{"ls"}, base, "/", "Earthfile:1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got == nil || got.Root == nil {
+		t.Fatal("no graph was run")
+	}
+
+	if !got.Root.Op.NoCache {
+		t.Error("the probe may be answered from cache, and a cache hit does not" +
+			" run the step - so its output, which is the whole of its value," +
+			" comes back empty and is believed")
+	}
+
+	// The step it stands on is untouched: only the observation is uncacheable,
+	// and marking the base too would rebuild the build to read one line.
+	if base.Op.NoCache {
+		t.Error("the probe made its base uncacheable, which rebuilds the steps" +
+			" under it every time a variable is read")
+	}
+}

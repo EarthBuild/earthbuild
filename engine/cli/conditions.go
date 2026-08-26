@@ -72,6 +72,17 @@ func decideByRunning(
 			// the build now is.
 			Dir: dir,
 			Env: base.Op.Env,
+			// **A probe's output is its value, and a cache hit reproduces a
+			// step's effects but not its observations.** `runGraph` collects
+			// these lines through the executor's Capture hook, which fires when
+			// a step runs; a step already keyed does not run, nothing is
+			// captured, and the caller reads "" as the answer.
+			//
+			// Cold, `LET v=$(ls -d helloworld*)` gave three files; every run
+			// after gave nothing, silently, because an empty string is a value
+			// and not an error. Twelve corpus targets counted their way to
+			// "found 0 files" with the files plainly in the image.
+			NoCache: true,
 		},
 		Inputs:   []*ir.Node{base},
 		Platform: base.Platform,

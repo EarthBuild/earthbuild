@@ -234,6 +234,31 @@ func (s *Server) began(id uint64, kill context.CancelFunc) {
 	s.running[id] = kill
 }
 
+// abandonAll cancels every request still running, and forgets them.
+//
+// **The host going away is the end of the work it asked for.** `Serve` returned
+// on `io.EOF` without cancelling anything, so a host that died - or was killed,
+// which is what the corpus harness does at its timeout - left the guest's steps
+// running. Any already blocked in the kernel waiting for the syscall tracer
+// stayed blocked for ever, and the sandbox is reused: they went on to poison
+// every later build, which is why one timeout in a sweep tends to be followed
+// by others.
+//
+// Best effort, like cancel: a request that finished a moment ago is not an
+// error to abandon, and the map is cleared so nothing is cancelled twice.
+func (s *Server) abandonAll() {
+	s.mu.Lock()
+	running := s.running
+	s.running = nil
+	s.mu.Unlock()
+
+	for _, kill := range running {
+		if kill != nil {
+			kill()
+		}
+	}
+}
+
 // ended forgets a command that has finished.
 func (s *Server) ended(id uint64) {
 	s.mu.Lock()
@@ -263,6 +288,10 @@ func (s *Server) cancel(id uint64) {
 func (s *Server) Serve(ctx context.Context, rw io.ReadWriter) error {
 	c := newConn(rw)
 
+	defer s.abandonAll()
+
+	// Whatever ends this loop - the host closing, a broken connection, a
+	// protocol error - ends the work the host asked for. See abandonAll.
 	for {
 		var req Request
 
@@ -2678,6 +2707,16 @@ func lookIn(root, name string, env []string) string {
 		if k, v, _ := strings.Cut(kv, "="); k == "PATH" {
 			path = v
 		}
+	}
+
+	// **An image need not declare one.** Go's own lookup treats an empty PATH
+	// as "nowhere" rather than "the usual places", so a step in an image that
+	// declares no PATH would find nothing - and the resolution has to happen
+	// here rather than in the shim, because the shim runs with the seccomp
+	// filter already on its thread and InstallOnSelf's contract is to keep that
+	// window to the send and the exec.
+	if path == "" {
+		path = DefaultPath
 	}
 
 	for _, dir := range filepath.SplitList(path) {

@@ -42,6 +42,21 @@ func specFor(img interp.Image, platform string, layers []image.LayerSource) imag
 	return spec
 }
 
+// emptyStackIsExpected reports whether a node having no layers is the answer
+// rather than the absence of one.
+//
+// **A node that never ran and a node that ran and made nothing look identical
+// from here**: both have an empty stack. Only the operation tells them apart,
+// and exactly one of them means nothing - `FROM scratch` *is* the empty image,
+// which is how a from-nothing base is made, and `tests/scratch-test.earth` is
+// that file in full.
+//
+// Deliberately not a general "no layers is fine": a RUN that produced none did
+// not run, and saying so is the whole value of the check.
+func emptyStackIsExpected(n *ir.Node) bool {
+	return n != nil && n.Op.Kind == ir.OpScratch
+}
+
 // writeImages writes every image a build declared, as an OCI layout each.
 //
 // A layout on disk rather than a load into a running daemon, because that is
@@ -70,7 +85,7 @@ func writeImages(
 		}
 
 		stack := stacks(img.From)
-		if len(stack) == 0 {
+		if len(stack) == 0 && !emptyStackIsExpected(img.From) {
 			return fmt.Errorf("SAVE IMAGE %s (%s): the step producing it did not run", img.Ref, img.Source)
 		}
 

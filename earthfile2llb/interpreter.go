@@ -237,7 +237,6 @@ func (i *Interpreter) handleCommand(ctx context.Context, cmd earthfile.Command) 
 		return i.errorf(cmd.SourceLocation, "unexpected WITH command %s", cmd.Name)
 	}
 
-	//nolint:exhaustive // Maps commands to handlers. Commands handled in other contexts (e.g. WITH) are omitted.
 	switch cmd.Name {
 	case earthfile.CmdFrom:
 		return i.handleFrom(ctx, cmd)

@@ -420,7 +420,6 @@ func (l *loader) handleCommand(ctx context.Context, cmd earthfile.Command) error
 	l.hashCommand(cmd)
 
 	// Some commands require more processing.
-	//nolint:exhaustive // Only commands modifying build inputs or variables require special handling by the loader.
 	switch cmd.Name {
 	case earthfile.CmdFrom:
 		return l.handleFrom(ctx, cmd)

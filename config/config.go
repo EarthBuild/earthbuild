@@ -424,7 +424,6 @@ func pathToYaml(path []string, value *yaml.Node) []*yaml.Node {
 func setYamlValue(node *yaml.Node, path []string, value *yaml.Node) []string {
 	// missing cases in switch of type yaml.Kind: yaml.SequenceNode, yaml.ScalarNode, yaml.AliasNode
 	// TODO(jhorsts): future proof by adding all the cases
-	//nolint:exhaustive
 	switch node.Kind {
 	case yaml.DocumentNode:
 		for _, c := range node.Content {
@@ -466,7 +465,6 @@ func setYamlValue(node *yaml.Node, path []string, value *yaml.Node) []string {
 func deleteYamlValue(node *yaml.Node, path []string) []string {
 	// missing cases in switch of type yaml.Kind: yaml.SequenceNode, yaml.ScalarNode, yaml.AliasNode
 	// TODO(jhorsts): future proof by adding all the cases
-	//nolint:exhaustive
 	switch node.Kind {
 	case yaml.DocumentNode:
 		for _, c := range node.Content {

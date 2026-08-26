@@ -360,7 +360,6 @@ const (
 func (e *Executor) Run(
 	ctx context.Context, n *ir.Node, _ core.Worker, base []ir.NodeID, sources [][]ir.NodeID,
 ) (core.Result, error) {
-	//nolint:exhaustive // the default refuses everything this backend cannot run
 	switch n.Op.Kind {
 	case ir.OpImage:
 		// FROM is materialised, not run: the image is placed in the layer store

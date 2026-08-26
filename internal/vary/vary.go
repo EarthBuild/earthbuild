@@ -21,7 +21,7 @@ func Value(v reflect.Value, which int) bool {
 	// Partial on purpose: the kinds below are the ones a key can be made of, and
 	// falling out is the answer for anything else - this reports whether it
 	// *could* mutate the value, and "no" is a legitimate report.
-	switch v.Kind() { //nolint:exhaustive // partial on purpose, see above
+	switch v.Kind() {
 	case reflect.String:
 		v.SetString([]string{"alpha", "beta"}[which])
 

@@ -33477,3 +33477,31 @@ E713.
 COPY in every project gains the Earthfile as an input, so editing a comment in an
 Earthfile re-runs every COPY that reads `.`. The reference pays that. This engine
 would too, and the first person to notice will think the cache is broken.
+
+## E721 - an escaped quote survives a RUN and not an ARG
+
+`tests/quotes-extra.earth` writes the same nested substitution twice, once in
+each position:
+
+```text
+RUN echo $(echo "\"") >> data      -> works, prints "
+ARG c=$( echo $(echo "\""))        -> /bin/sh: syntax error: unterminated quoted string
+```
+
+**The discriminator is who runs the substitution.** Both arguments go through the
+same expansion - `expandByRegion`, quoting preserved inside a `$( )` and resolved
+outside it - and then part company: a RUN hands the whole command to the step's
+shell, and an ARG has the engine run the inner text itself, here, to get a value.
+
+So the text this engine passes to `sh -c` has unbalanced quotes where the text it
+passes to a *step* does not. The escape is lost somewhere between extracting the
+region and executing it, and the RUN path proves the extraction itself is
+sound - it is the execution path that is short a backslash.
+
+Without escapes the nesting is fine: `ARG nested=$( echo $(echo hi))` gives `hi`,
+so this is not a bracket-counting fault in `commandSpan`.
+
+One corpus invocation, and left for now: quoting bugs are subtle, this engine has
+had two quoting fixes today already (E713's sibling and the region rule), and a
+third made in a hurry is how the first two get undone. The reproduction above is
+two lines and settles it in one run.

@@ -32847,3 +32847,45 @@ Three of my own harness faults on the way, all one fault: `sudo -n true | head -
 && echo sudo-ok` prints `sudo-ok`, because a pipeline carries the last command's
 status. That is the third time in this document (E691, E706) and the second time
 in two turns.
+
+## E710 - the Linux-only tests, run on Linux
+
+Most of `engine/trace`, `engine/guest` and `engine/mat/overlay` is `_linux.go`,
+and a Mac skips all of it. Run on an x86 Linux box, as root in a privileged
+container, at this branch's head:
+
+```text
+engine/trace         ok  0.815s
+engine/guest         ok  7.336s
+engine/mat/overlay   ok  0.381s
+engine/layer         ok  1.221s
+engine/store         ok  1.701s
+```
+
+That is the seccomp tracer, the guest server, the overlay materialiser, the layer
+format and the store, all passing on the platform CI runs on - and none of it had
+run at all while the work in this document was being done.
+
+### What it takes to run them
+
+Three environment faults, each of which the engine or the Earthfile had already
+written down, and each of which cost a run to rediscover.
+
+**A real filesystem.** `TestADeepStackMountsFromADeepStore` failed inside a
+container whose root is overlay, with the engine naming the cause and the remedy
+in the failure itself. A bind-mounted host directory as `TMPDIR` fixes it, which
+is the same requirement §4.8 states for a nested engine's store.
+
+**Writable by a user namespace.** With `TMPDIR` bind-mounted but owned by the
+invoking user, `TestOverlayConforms` failed `mkdir: permission denied`: the
+isolation probe runs as root in a user namespace, which is nobody on a shared
+directory. `chmod 1777` fixes it. The Earthfile's own note on `+engine-daemon`
+describes this exact case, having been bitten by it first.
+
+**Root.** The box refuses unprivileged overlayfs in a user namespace, with and
+without `userxattr`, so `unshare -Ur` is not a way in and a privileged container
+is.
+
+None of these is a defect. They are the conditions the suite needs, and they are
+worth stating in one place because discovering them one failing run at a time is
+how a Linux-only suite comes to be run only by CI.

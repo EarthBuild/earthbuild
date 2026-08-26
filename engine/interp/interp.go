@@ -646,7 +646,13 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 	// resolved. Using one rule for both silently changed what RUN executed.
 	expand := rs.args.expandValue
 	if c.Name == earthfile.CmdRun || c.Name == earthfile.CmdEntrypoint || c.Name == earthfile.CmdCmd {
-		expand = rs.args.expandWord
+		// **A secret shadows a build argument of the same name**, for the
+		// length of the command that asked for it. `ARG foo = bacon` then
+		// `RUN --secret foo test "$foo" == "eggs"` must hand the shell `$foo`
+		// unexpanded, because the shell is the only thing holding the secret;
+		// expanded here it ran `test "bacon" == "eggs"` and the secret it was
+		// given was never read.
+		expand = rs.args.withoutSecrets(secretNamesIn(c.Args)).expandWord
 	}
 
 	// **By region, not by command.** An argument may be a value that *contains*

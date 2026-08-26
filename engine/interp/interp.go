@@ -2662,7 +2662,14 @@ func overrides(args []string, where string) (map[string]string, error) {
 
 		name, value, joined := strings.Cut(strings.TrimPrefix(a, "--"), "=")
 		if joined {
-			out[name] = value
+			// **A value this engine consumes has its quoting resolved**, the
+			// rule the rest of the interpreter follows. `escape.earth` passes
+			// `FILE="file-with-\+.txt"` - the backslash is what stops the `+`
+			// being read as a target reference, and it is punctuation, not part
+			// of the name. Passed through, the target looked for a file called
+			// `file-with-\+.txt` and reported it missing, naming a file nobody
+			// has.
+			out[name] = unquote(value)
 
 			continue
 		}
@@ -2674,7 +2681,7 @@ func overrides(args []string, where string) (map[string]string, error) {
 		}
 
 		i++
-		out[name] = args[i]
+		out[name] = unquote(args[i])
 	}
 
 	// A caller may not pass a value for a name the engine answers.
@@ -2882,10 +2889,15 @@ func buildTarget(c earthfile.Command) (string, map[string]string, bool, cmdopts.
 		return "", nil, false, opts, err
 	}
 
-	// --build-arg k=v is another way to write an override, and means the same.
+	// --build-arg k=v is another way to write an override, and means the same -
+	// including the quoting, which `overrides` resolves and this did not.
+	// `escape.earth` passes `FILE="file-with-\+.txt"`, where the backslash is
+	// what stops the `+` being read as a target reference; passed through, the
+	// target looked for a file called `file-with-\+.txt` and reported it
+	// missing, naming a file nobody has.
 	for _, a := range opts.BuildArgs {
 		if k, v, ok := strings.Cut(a, "="); ok {
-			args[k] = v
+			args[k] = unquote(v)
 		}
 	}
 

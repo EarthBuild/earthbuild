@@ -32650,3 +32650,41 @@ problem - its cache mount is a real filesystem and the inner store lives there.
 Neither is fatal and both are load-bearing for the migration. The listener limit
 costs nested builds their fine-grained cache; the scratch fallback costs them
 their memory. Anything that makes the suite nest performantly has to answer both.
+
+### Why a cache mount is not a way out, exactly
+
+Asked from inside a privileged buildkit step:
+
+```text
+/store   overlay  lowerdir=/tmp/earthbuild/buildkit/runc-overlayfs/snapshots/…/fs
+                  upperdir=…/333/fs  workdir=…/333/work
+mount -t overlay … /store/m   ->   Invalid argument
+```
+
+The cache mount *is* an overlayfs snapshot. With the `runc-overlayfs` snapshotter
+every path a step can see is overlay, including the mounts that exist precisely
+to be somewhere else, so there is no real filesystem inside that step at all and
+tmpfs is not a fallback but the only remaining option. This is a property of the
+snapshotter rather than of cache mounts, which is what makes it worth writing
+down: it is not fixed by mounting something different.
+
+What could answer it, none of it tried yet:
+
+* buildkit's `native` snapshotter, which uses plain directories rather than
+  overlay, so a cache mount would be a real filesystem again;
+* a filesystem image on the overlay, formatted and loop-mounted, which is a real
+  filesystem living in a file and needs a loop device and the privilege to attach
+  one;
+* a materialiser that copies rather than mounts, which needs no privilege
+  anywhere and pays for it in time - and which does not exist: `engine/mat` has
+  exactly one implementation and it is overlay.
+
+### And a question worth asking before answering any of it
+
+The listener limit costs a nested build its observed-input tier, and that tier
+earns its keep when a step's *declared* inputs change while what it actually read
+did not. A test suite mostly runs scenarios it has not run before, where L1 misses
+anyway and L2 has nothing to save. So the tier may be worth much less to
+earth-in-earth than it is to a developer's rebuild, and the cost of losing it
+should be measured on the suite rather than assumed from the 31x figure, which
+was measured on something else entirely.

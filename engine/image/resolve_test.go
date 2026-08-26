@@ -186,3 +186,39 @@ func TestPinningASinglePlatformImageStillPinsIt(t *testing.T) {
 			" have nothing to disagree about", got, plain)
 	}
 }
+
+// TestResolveAsksTheOriginAndNotAMirror.
+//
+// **A decision, guarded rather than described.** `Resolve` answers "what does
+// this tag mean today", and a mirror answers that from its own cache: pinning
+// to a stale digest is worse than not pinning at all. A *pull* may take its
+// bytes from anywhere, because every digest is verified against the manifest -
+// which is why `fetchHosts` exists and why this deliberately does not use it.
+//
+// The reasoning is written beside the call, and a paragraph cannot notice when
+// somebody stops obeying it. This can: the origin here is not started, so a
+// resolution that reached the mirror would *succeed*, and that success is the
+// failure.
+//
+// It has a cost, and the cost is real: Docker Hub counts manifest requests, so
+// a build behind a mirror still spends its allowance here and fails outright
+// once it is gone - the wall the mirror was configured to avoid. E715 records
+// that tension; the decision is not this test's to make.
+func TestResolveAsksTheOriginAndNotAMirror(t *testing.T) {
+	t.Parallel()
+
+	mirror := (&fakeRegistry{layers: [][]byte{gzipTar(t, "f", "hello")}}).start(t)
+
+	_, err := image.Resolve(context.Background(), "origin.invalid/library/alpine:3.22",
+		image.Options{Plain: true, Mirrors: map[string][]string{
+			"origin.invalid": {mirror},
+		}})
+	if err == nil {
+		t.Fatal("the tag resolved with the origin unreachable, so the answer" +
+			" came from a mirror's cache - which may be older than the tag")
+	}
+
+	if !strings.Contains(err.Error(), "origin.invalid") {
+		t.Errorf("failed with %q, which does not name the registry it asked", err)
+	}
+}

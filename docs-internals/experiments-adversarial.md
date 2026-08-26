@@ -33220,3 +33220,53 @@ Both were diagnosed as engine defects before the evidence said otherwise. A
 measurement against a shared, rate-limited, TTL-bearing third party is not a
 measurement of this engine unless the state of that third party is established
 first.
+
+## E715 - the mirror covers the pull and not the question the mirror is for
+
+**Assumption:** setting `EARTH_REGISTRY_MIRRORS` takes a build off Docker Hub.
+
+**Method:** build `alpine:3.24.1` with `EARTH_REGISTRY_MIRRORS=mirror.gcr.io`
+under `EARTH_TIMINGS=1`, from a machine whose anonymous allowance is spent.
+
+**Result: the pull goes to the mirror and the resolution does not.**
+
+```text
+registry:token   0.179s  mirror.gcr.io/library/alpine        <- the pull
+registry:token   0.286s  registry-1.docker.io/library/alpine <- the resolution
+note: alpine:3.24.1 was not pinned: fetch the manifest ...: 429
+```
+
+The build succeeded - the bytes came from the mirror - and it was not pinned,
+because Docker Hub counts *manifest* requests and turning a tag into a digest
+is one. A build behind a mirror still spends the allowance it configured the
+mirror to stop spending, and once it is gone the pin fails on every build.
+
+**This is a decision, not an oversight**, and it is written beside the call:
+*"a pull may take its bytes from anywhere because every digest is verified
+against the manifest; a resolution is the answer to 'what does this tag mean
+today', and a mirror's answer is its own cache. Pinning to a stale digest would
+be worse than not pinning at all."* That reasoning is sound and this experiment
+does not overturn it.
+
+What the experiment adds is the cost the reasoning did not weigh: it assumed the
+origin is *reachable*. Under a 429 the choice is not between a fresh pin and a
+stale one, it is between a stale pin and **no pin at all** - and an unpinned
+build has neither freshness nor reproducibility. Three ways to settle it, none
+of them this document's to pick:
+
+1. Leave it. A rate-limited build is unpinned and still correct.
+2. Fall back to a mirror only when the origin refuses, and say so in the note -
+   "pinned via mirror.gcr.io, which may lag the tag".
+3. Ask the mirror for tags a *digest* already names, where there is nothing to
+   be stale about.
+
+`TestResolveAsksTheOriginAndNotAMirror` now guards the current behaviour, so
+whichever is chosen is chosen deliberately. **Written as a test rather than left
+in the comment**, for the reason E34 gives: a paragraph cannot notice when
+somebody stops obeying it.
+
+**Third near-miss of the day.** The mtime clamp, `**`, and now this: each looked
+like a defect, each had a decision recorded within a few lines of the code, and
+in each case the surrounding comment was the only thing that stopped a quiet
+reversal. Reading the comment beside the line you are about to change is not
+courtesy, it is the check.

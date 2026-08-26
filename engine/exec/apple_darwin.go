@@ -223,7 +223,7 @@ func SandboxNameWith(image, guestDir, store, memory string, command []string) st
 		[]string{
 			image, guestDir, store, memory, guestFast,
 			idleSetting(), scratchTmpfsSetting(), storeSetting(), pinSetting(), digestSetting(),
-			sandboxCPUs(),
+			sandboxCPUs(), shimSetting(),
 		},
 		command...) {
 		fmt.Fprintf(h, "%d:%s", len(part), part)
@@ -576,6 +576,12 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	// sandbox's name: see pinSetting.
 	if on := os.Getenv(guest.EnvTracePin); on != "" {
 		args = append(args, "-e", guest.EnvTracePin+"="+on)
+	}
+
+	// Read by the guest when it launches a step. In the name too: see
+	// shimSetting.
+	if on := os.Getenv(guest.EnvStepShim); on != "" {
+		args = append(args, "-e", guest.EnvStepShim+"="+on)
 	}
 
 	// Read by the unpacker, which now runs on the far side of this wall.
@@ -1143,3 +1149,12 @@ func pinSetting() string { return os.Getenv(guest.EnvTracePin) }
 // said. An A/B where both arms reuse one machine reports that the switch does
 // nothing, which reads exactly like a switch that does nothing (E682).
 func digestSetting() string { return os.Getenv(image.EnvHashOnUnpack) }
+
+// shimSetting is whether this invocation launches steps through the shim.
+//
+// In the name for the reason the two above are: the guest reads it when it
+// launches a step, and a machine already running was started under whatever the
+// previous build said. An A/B whose arms share a sandbox reports that the switch
+// does nothing, which reads exactly like a switch that does nothing (E549, E682,
+// E701).
+func shimSetting() string { return os.Getenv(guest.EnvStepShim) }

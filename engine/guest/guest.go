@@ -1824,7 +1824,25 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 	endArgv := timing.Phase("guest:argv", req.Handle)
 
-	cmd := osexec.CommandContext(ctx, argv0, req.Argv[1:]...) //nolint:gosec // the argv is the step
+	// **Only a confined step can be shimmed**, because the shim's whole job is
+	// to enter namespaces an unconfined step never gets.
+	shimming := !s.Unconfined && stepShimWanted()
+
+	var cmd *osexec.Cmd
+
+	if shimming {
+		self, selfErr := os.Executable()
+		if selfErr != nil {
+			return Response{Err: fmt.Sprintf("find this binary to shim the step: %v", selfErr)}
+		}
+
+		// The step's own argv0 - the resolved path *inside* the root, which is
+		// what `lookIn` returns and what the shim execs once it has chrooted.
+		shimArgs := append([]string{stepShimFlag, h.Root(), req.Dir, argv0}, req.Argv[1:]...)
+		cmd = osexec.CommandContext(ctx, self, shimArgs...) //nolint:gosec // this binary, and the step's argv
+	} else {
+		cmd = osexec.CommandContext(ctx, argv0, req.Argv[1:]...) //nolint:gosec // the argv is the step
+	}
 
 	endArgv()
 	cmd.Dir = h.Root()
@@ -1999,7 +2017,14 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// not stop being hermetic because this step did not ask, and a step
 		// that asked is not overridden by a server that did not.
 		endIsolate := timing.Phase("guest:isolate", req.Handle)
-		isolateErr := isolate(cmd, h.Root(), s.DropNet || req.NoNet)
+
+		var isolateErr error
+
+		if shimming {
+			isolateErr = isolateShim(cmd, h.Root(), s.DropNet || req.NoNet)
+		} else {
+			isolateErr = isolate(cmd, h.Root(), s.DropNet || req.NoNet)
+		}
 
 		endIsolate()
 
@@ -2015,6 +2040,14 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		cmd.Dir = "/"
 		if req.Dir != "" {
 			cmd.Dir = filepath.Clean("/" + req.Dir)
+		}
+
+		// **The shim has not chrooted yet when the child starts**, so a working
+		// directory named from inside the step is not a path the child can
+		// reach. It was passed on the shim's argv, and the shim chdirs once it
+		// is inside.
+		if shimming {
+			cmd.Dir = "/"
 		}
 	}
 

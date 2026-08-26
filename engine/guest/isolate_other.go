@@ -20,4 +20,7 @@ var ErrCannotIsolate = errors.New("cannot isolate the step: requires linux")
 
 func isolate(*exec.Cmd, string, bool) error { return ErrCannotIsolate }
 
+// isolateShim is isolate, and refused for the same reason.
+func isolateShim(*exec.Cmd, string, bool) error { return ErrCannotIsolate }
+
 func isolationAvailable() bool { return false }

@@ -317,7 +317,13 @@ engine-race:
     # not a test, and as a `TestXxx` that skipped unless its parent started it
     # would have been a permanent skip. It runs from `TestMain` instead and is
     # never collected.
-    ARG SKIP_CEILING=172
+    #
+    # 173: `TestCopyingADirectoryMergesIntoTheOneThere` (E704) needs a registry
+    # and a sandbox, so like every other end-to-end test here it skips unless
+    # `EARTH_TEST_NETWORK` is set, and this container does not set it. The
+    # ceiling caught it at 173 > 172 on the commit that added it, which is what
+    # it is for - a test that only ever skips is a test nobody runs.
+    ARG SKIP_CEILING=173
     # Nothing is excluded. Every test needing a privilege this container does
     # not grant - a user namespace, an overlay mount, a device node - now skips
     # with the reason, because each asks whether the *operation* works rather

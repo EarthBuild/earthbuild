@@ -24,6 +24,8 @@ import (
 // and a unit test of either half would pass while the other did nothing.
 //
 // Not parallel: boots a VM, see e2e_sandbox_test.go.
+//
+//nolint:paralleltest // t.Setenv, which the runtime refuses in a parallel test
 func TestSourceDateEpochPinsWhatABuildWrites(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
@@ -85,17 +87,19 @@ build:
 		return fi.ModTime()
 	}
 
-	t.Run("pinned", func(t *testing.T) {
-		t.Parallel()
-
+	// **Neither subtest is parallel, and both would be wrong if they were.**
+	// `build` sets SOURCE_DATE_EPOCH, which is the thing these two disagree
+	// about - run at once they would race over one process's environment and
+	// each could read the other's value. Go refuses the combination outright,
+	// so the pair panicked rather than raced, and took the package with them
+	// whenever EARTH_TEST_NETWORK was set to make them run at all.
+	t.Run("pinned", func(t *testing.T) { //nolint:paralleltest // t.Setenv, as above
 		if got := build(t, true).Unix(); got != clamped {
 			t.Errorf("the artifact's mtime is %d, want %d - SOURCE_DATE_EPOCH was ignored", got, clamped)
 		}
 	})
 
-	t.Run("true", func(t *testing.T) {
-		t.Parallel()
-
+	t.Run("true", func(t *testing.T) { //nolint:paralleltest // t.Setenv, as above
 		got := build(t, false).UTC().Format("2006-01-02")
 		if got != "2020-01-02" {
 			t.Errorf("the artifact's mtime is %s, want the one the step wrote (2020-01-02)", got)

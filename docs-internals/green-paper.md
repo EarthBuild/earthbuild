@@ -885,12 +885,17 @@ silently place a store where it cannot be read back, and it does not silently pl
 
 **Observation, or its absence.** Observation is per-task and admits one observer, so a step already
 watched by an enclosing engine cannot be watched by the engine running inside it. The inner 𝑟 is
-then absent, which §3.6 already governs: no Κ₂ entry, Κ₁ (4.5) unaffected. At most one engine in a
-nest observes, and it is the outermost one that asked to.
+then absent, which §3.6 already governs: no Κ₂ entry is *derived*, Κ₁ (4.5) unaffected. At most one
+engine in a nest observes, and it is the outermost one that asked to.
 
-Nesting therefore costs the inner build its Κ₂ tier and nothing else. It costs no correctness: an
-absent 𝑟 is the case §3.6 is written for, and a nested engine that reported a partial 𝑟 as complete
-would violate I3 exactly as a top-level one would.
+**Deriving and looking up are separate.** An absent 𝑟 stops a step contributing a Κ₂ entry; it does
+not stop the step matching one. Λ (4.3) consults the entries the action cache holds, whoever
+recorded them, so a nested build hits every Κ₂ entry an observing run left behind and adds none of
+its own. What nesting costs is therefore the *recording*, not the tier - and a step whose Κ₂ entry
+no run ever recorded loses nothing, because there was nothing to match.
+
+Nesting costs no correctness either: an absent 𝑟 is the case §3.6 is written for, and a nested
+engine that reported a partial 𝑟 as complete would violate I3 exactly as a top-level one would.
 
 ## 5. Invariants
 
@@ -1011,7 +1016,8 @@ Normative. An implementation that violates any of these is defective, not merely
   forbids, and a writable one would breach A3.
 * **I21 (Nesting).** A step may run a build, to any depth (§4.8). Where an enclosing engine already
   observes the step, the nested engine's 𝑟 is absent rather than partial, and it derives no Κ₂ entry
-  from an observation it could not make.
+  from an observation it could not make. It may still match entries other runs derived: an absent 𝑟
+  withholds a contribution, never a lookup.
 
 * **I19 (A secret is never written down).** A declared secret enters ε by identity and never by
   value, and never becomes a declaration: declarations are stored, content-addressed and shared, so a

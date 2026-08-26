@@ -32733,3 +32733,48 @@ So a suite that nests buildkit pays for its daemon on every run whatever the
 layer cache does, which is a larger and more certain cost than the observed-input
 tier the listener limit takes away. Worth settling which of the two the suite
 actually spends its time on before optimising either.
+
+## E707 - what the observation tier is worth, and what nesting really loses
+
+E706 said nesting costs the inner build its observed-input tier. Measured, that
+is wrong in a way worth correcting: what it costs is the *recording*.
+
+An incremental `+earthly` - one comment line appended to `cmd/earth/main.go` -
+built with the tracer on and off, on one machine, alternating:
+
+```text
+trace=on     6.79s    51 hit, 6 miss, 35 by observed inputs
+trace=off    3.05s    51 hit, 6 miss, 35 by observed inputs
+trace=off    3.19s    51 hit, 6 miss, 35 by observed inputs
+```
+
+**The untraced build is twice as fast and hits the same thirty-five entries.**
+Tracing is what writes observations down; the lookup reads what earlier runs
+wrote. Deriving an entry and matching one are separate operations and only the
+first needs a tracer.
+
+So an untraced nested build keeps every Κ₂ entry an observing run left behind,
+adds none of its own, and does not pay the 14% the tracer costs (E700). Where an
+entry was never recorded - which is every step of a build that only ever runs
+nested, as a test suite's do - there was nothing to match and nothing is lost,
+while the saving is real.
+
+That inverts the conclusion. An opt-out letting the outer engine stop observing
+so the inner one could observe instead was proposed and is withdrawn: it would
+buy the suite a tier it has no entries in, and charge it the overhead twice over.
+
+### One thing left open
+
+During the alternation a traced incremental build hung and was killed at 400s,
+where the same build takes 6.8s:
+
+```text
+run 5d11faf7…: run Earthfile:588: context canceled
+```
+
+Not reproduced in twelve further attempts - four then eight, every one between
+6.4s and 7.9s. The first explanation offered, that alternating `EARTH_TRACE`
+against a live sandbox is the E549 trap, is wrong: `Trace` is a field on each
+request, so alternating it is safe by construction. One occurrence in thirteen,
+unexplained, and recorded here rather than left in a log because the tracer is
+where this engine's hangs have come from before (E214, E522).

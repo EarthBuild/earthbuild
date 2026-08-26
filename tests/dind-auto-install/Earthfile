@@ -18,8 +18,6 @@ all:
     LET earthbuild_dind_ubuntu_2604_version=ubuntu-26.04-docker-29.4.0-1
 
     BUILD +test \
-        --BASE_IMAGE=docker:20.10.14-dind \
-        --BASE_IMAGE=docker:20.10.15-dind \
         --BASE_IMAGE=docker:dind \
         --BASE_IMAGE=alpine:latest \
         # Debian changed some base packages in trixie/13, so test

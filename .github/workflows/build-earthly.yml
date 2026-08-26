@@ -136,7 +136,7 @@ jobs:
         run: |
           # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
           scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" --sleep 3 --bootstrap "$INPUTS_SUDO $(which earth) bootstrap" \
-            -- ${INPUTS_SUDO} "$(which earth)" --use-inline-cache +for-linux
+            -- ${INPUTS_SUDO} "$(which earth)" --use-inline-cache --artifact +earthly-linux-amd64/earthly ./build/linux/amd64/earthly
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}

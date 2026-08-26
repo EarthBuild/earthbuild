@@ -40,7 +40,7 @@ jobs:
     uses: ./.github/workflows/reusable-test-local.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       BINARY_COMPOSE: "docker compose"
       SUDO: ${{ inputs.SUDO }}
@@ -58,7 +58,7 @@ jobs:
     uses: ./.github/workflows/reusable-push-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets:
@@ -73,7 +73,7 @@ jobs:
     uses: ./.github/workflows/reusable-bootstrap-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets:
@@ -90,7 +90,7 @@ jobs:
     uses: ./.github/workflows/reusable-repo-auth-tests.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets:
@@ -105,7 +105,7 @@ jobs:
     uses: ./.github/workflows/reusable-export-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets:
@@ -120,7 +120,7 @@ jobs:
     uses: ./.github/workflows/reusable-docker-build-integrations.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets:
@@ -137,7 +137,7 @@ jobs:
     uses: ./.github/workflows/reusable-earthbuild-image-tests.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets:
@@ -152,7 +152,7 @@ jobs:
     uses: ./.github/workflows/reusable-misc-tests-1.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets:
@@ -167,7 +167,7 @@ jobs:
     uses: ./.github/workflows/reusable-misc-tests-2.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets:
@@ -182,7 +182,7 @@ jobs:
     uses: ./.github/workflows/reusable-wait-block-main.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets:
@@ -217,7 +217,7 @@ jobs:
     uses: ./.github/workflows/reusable-wait-block-target.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
       TARGET_NAME: ${{ matrix.target }}
@@ -235,7 +235,7 @@ jobs:
     uses: ./.github/workflows/reusable-git-metadata-test.yml
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}
     secrets:
@@ -269,7 +269,7 @@ jobs:
     with:
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
       TEST_TARGET: ${{ matrix.target }}
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       USE_QEMU: false
       BINARY: ${{ inputs.FRONTEND }}
       SUDO: ${{ inputs.SUDO }}

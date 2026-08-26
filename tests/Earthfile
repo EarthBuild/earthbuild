@@ -298,8 +298,8 @@ copy-test-verbose-output:
     # the shared cache key.
     RUN echo "#!/bin/sh
 set -ex
-earth --config \$earthly_config --verbose +copy 2>&1 | tee output.txt;
-earth --config \$earthly_config --verbose +copy 2>&1 | tee output2.txt;
+earth --config \$earth_config --verbose +copy 2>&1 | tee output.txt;
+earth --config \$earth_config --verbose +copy 2>&1 | tee output2.txt;
 " >/tmp/multiple-earthly-script && chmod +x /tmp/multiple-earthly-script
 
     DO +RUN_EARTH --earthfile=copy-verbose.earth --exec_cmd=/tmp/multiple-earthly-script
@@ -1059,7 +1059,7 @@ run-no-cache-save-artifact:
     RUN echo "#!/bin/sh
 set -ex
 for x in \$(seq 1 $numruns); do
-  earth --config \$earthly_config --artifact '+build/*' test/\$x/
+  earth --config \$earth_config --artifact '+build/*' test/\$x/
 done
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
     ENV EARTH_EXEC_CMD="/tmp/test-earthly-script"
@@ -1427,8 +1427,8 @@ ssh:
 set -e
 eval \"\$(ssh-agent)\"
 ssh-add /root/rsa-key
-earth --config \$earthly_config +test
-earth --config \$earthly_config -P +test-with-docker --FRONTEND=$FRONTEND
+earth --config \$earth_config +test
+earth --config \$earth_config -P +test-with-docker --FRONTEND=$FRONTEND
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
     ENV EARTH_EXEC_CMD="/tmp/test-earthly-script"
     RUN --privileged \
@@ -1658,8 +1658,8 @@ set -ex
 eval \$(ssh-agent)
 ssh-add /root/dont-steal-my-key
 
-earth --config \$earthly_config config git \"{github.com: {auth: ssh, user: git, strict_host_key_checking: false, ssh_command: ssh -c badcipher}}\"
-earth --config \$earthly_config github.com/earthly/earthly+base 2>&1 | tee output.txt;
+earth --config \$earth_config config git \"{github.com: {auth: ssh, user: git, strict_host_key_checking: false, ssh_command: ssh -c badcipher}}\"
+earth --config \$earth_config github.com/earthly/earthly+base 2>&1 | tee output.txt;
 " >/tmp/run-earthly-with-bad-ssh-cipher && chmod +x /tmp/run-earthly-with-bad-ssh-cipher
     DO +RUN_EARTH --exec_cmd=/tmp/run-earthly-with-bad-ssh-cipher
     RUN cat output.txt | acbgrep "Unknown cipher type 'badcipher'"
@@ -1680,8 +1680,8 @@ set -ex
 eval \$(ssh-agent)
 ssh-add /root/dont-steal-my-key
 
-earth --config \$earthly_config config git \"{github.com: {auth: ssh, user: git, strict_host_key_checking: false, ssh_command: ssh -c badcipher}}\"
-earth --config \$earthly_config +test 2>&1 | tee output.txt;
+earth --config \$earth_config config git \"{github.com: {auth: ssh, user: git, strict_host_key_checking: false, ssh_command: ssh -c badcipher}}\"
+earth --config \$earth_config +test 2>&1 | tee output.txt;
 " >/tmp/run-earthly-with-bad-ssh-cipher && chmod +x /tmp/run-earthly-with-bad-ssh-cipher
     DO +RUN_EARTH --exec_cmd=/tmp/run-earthly-with-bad-ssh-cipher
     RUN cat output.txt | acbgrep "Unknown cipher type 'badcipher'"

@@ -8,8 +8,8 @@ base-secret-provider:
     RUN echo "#!/bin/sh
 set -ex
 export PATH=/weird/path:\$PATH
-earth --config \$earthly_config config global.secret_provider test-secret-provider
-earth --config \$earthly_config --verbose -D +test
+earth --config \$earth_config config global.secret_provider test-secret-provider
+earth --config \$earth_config --verbose -D +test
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
 
 test:
@@ -25,8 +25,8 @@ base-secret-provider-with-flag:
     RUN echo "#!/bin/sh
 set -ex
 export PATH=/weird/path:\$PATH
-earth --config \$earthly_config config global.secret_provider \"test-secret-provider --uppercase\"
-earth --config \$earthly_config --verbose -D +test
+earth --config \$earth_config config global.secret_provider \"test-secret-provider --uppercase\"
+earth --config \$earth_config --verbose -D +test
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
 
 test-with-flag:
@@ -38,8 +38,8 @@ base-secret-provider-with-env:
     RUN echo "#!/bin/sh
 set -ex
 export PATH=/weird/path:\$PATH
-earth --config \$earthly_config config global.secret_provider \"rot13=true test-secret-provider\"
-earth --config \$earthly_config --verbose -D +test
+earth --config \$earth_config config global.secret_provider \"rot13=true test-secret-provider\"
+earth --config \$earth_config --verbose -D +test
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
 
 test-with-env:

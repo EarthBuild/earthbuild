@@ -100,7 +100,20 @@ func (p *Plan) loopItems(args []string, prev *ir.Node, rs *state, where string) 
 			return "", nil, err
 		}
 
-		items = append(items, splitAny(expanded, seps)...)
+		// **A list is a value, so its quoting is resolved.** The rule is the
+		// one at the top of `command`: a command line keeps its quotes because
+		// a shell re-parses it, and everything else this engine consumes has
+		// them taken off. A FOR list is consumed here.
+		//
+		// Kept, `FOR v IN ""` was one item two characters long - so the loop
+		// ran once over a value the author wrote to mean *nothing*, and
+		// `for.earth+test-for-empty` says what it thinks of that by making the
+		// body `false`.
+		for _, item := range splitAny(expanded, seps) {
+			if item = unquote(item); item != "" {
+				items = append(items, item)
+			}
+		}
 	}
 
 	return name, items, nil

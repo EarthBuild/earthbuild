@@ -32595,3 +32595,58 @@ one - worth knowing before reading the number as a regression.
 What remains inherent is the tracer's own tests, which cannot install a
 notification listener inside a step that already has the engine's: one per
 thread, and `EBUSY` for the second.
+
+## E706 - a build inside a build, which is most of this project's test suite
+
+Most of EarthBuild's own tests are earth-in-earth, so the native engine has to
+nest. Trying it found a regression first: the step shim re-executes the binary
+that launched the step, and on Linux that binary is `earth-native` itself, whose
+`main` did not dispatch the shim. The flags were read as the CLI's own.
+
+```text
+flag provided but not defined: -earthbuild-step-shim
+```
+
+The macOS arrangement hides it, because there the guest is a separate binary that
+does dispatch. So the engine was broken on Linux for several commits and the
+machine it was developed on could not say so. Nesting is the test that finds
+this, and the comment above the very line that was missing already called a
+nested build a designed use.
+
+### The matrix
+
+```text
+native in native      works    untraced: EBUSY, so no observed-input tier
+native in buildkit    works    needs RUN --privileged; traced; scratch in RAM
+buildkit in buildkit  works    the arrangement today
+buildkit in native    not yet tried
+```
+
+Two things decide it, and they pull in opposite directions.
+
+**A seccomp notification listener is one per task.** The outer native engine
+holds one on the step, so an inner native engine cannot install its own and runs
+without a tracer - it keeps L1, which is content-addressed and still caches, and
+loses the observed-input tier that makes a warm build thirty times faster.
+Buildkit installs no listener, so an inner native engine nested in *that* is
+traced normally. The engine that is worse at hosting a nested build is the one
+this branch is written in.
+
+**Overlayfs cannot stack on overlayfs**, and a buildkit cache mount is not a way
+out of it:
+
+```text
+/store/scratch cannot host an overlay mount, so this step's scratch is
+  /dev/shm/earth-overlay-2920627613
+that is memory rather than disk: a step writing more than this machine has free
+  will be killed rather than slowed
+```
+
+The engine says so and carries on in memory, which is the right thing to do once
+and the wrong thing to build a test suite on: a nested build large enough to
+matter is a nested build that gets killed. A native outer engine has no such
+problem - its cache mount is a real filesystem and the inner store lives there.
+
+Neither is fatal and both are load-bearing for the migration. The listener limit
+costs nested builds their fine-grained cache; the scratch fallback costs them
+their memory. Anything that makes the suite nest performantly has to answer both.

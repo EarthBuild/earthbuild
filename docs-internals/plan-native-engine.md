@@ -9097,3 +9097,57 @@ Also not taken, for the same reason: the mount itself is no longer a cost.
 aimed at the wrong thing. What remains expensive is what happens *through* the
 mount - copy-up, and reading a directory across every lower layer - which is
 where E639-E641 went.
+
+## CLI compatibility: what is missing, ordered by what the corpus asks for
+
+The engine implements the language; the command line around it is a separate
+surface and has been filled in as each piece was needed. That is how
+`./dir+target` came to be refused at the front door while the interpreter
+resolved it happily for every `BUILD` in a build - and it is why nothing under
+`tests/` could be driven by naming a target in it.
+
+Counting is cheap and settles the order. `cmd/earth/flag/global.go` declares 44
+global flags; `earth-native` has 12. Forty-two are missing, and most of them do
+not matter: the question is which the corpus actually passes.
+
+| Flag                       | Corpus uses | State   | Note                                                   |
+| -------------------------- | ----------- | ------- | ------------------------------------------------------ |
+| `--no-output`              | 29          | present | added with `--ci`                                      |
+| `--allow-privileged`       | 16          | missing | gates `RUN --privileged` and privileged remote targets |
+| `--build-arg`              | 15          | present |                                                        |
+| `--secret`                 | 13          | present |                                                        |
+| `--version-flag-overrides` | 7           | missing | turns named language features on for one build         |
+| `--push`                   | 5           | missing | `RUN --push` and image pushes; the engine refuses both |
+| `--with_docker_ignore`     | 4           | missing | underscored, and only the corpus uses it               |
+| `--arg-file-path`          | 4           | missing | build arguments read from a file                       |
+| `--secret-file`            | 2           | present |                                                        |
+| `--no-cache`               | 2           | missing | runs every step, ignoring both tiers                   |
+| `--verbose`                | 1           | missing | diagnostics                                            |
+
+The order to fill them is that column. `--allow-privileged` is worth four of the
+next three put together, and `--no-cache` is worth two - a ratio no amount of
+reasoning about which flags feel important would have produced.
+
+### What is missing and does not matter
+
+Thirty of the forty-two are buildkit's, and this engine has no buildkit:
+`--buildkit-host`, `--buildkit-image`, `--buildkit-container-name`,
+`--buildkit-volume-name`, `--no-buildkit-update`, `--ticktock`,
+`--remote-cache`, `--use-inline-cache`, `--save-inline-cache`,
+`--max-remote-cache`, `--disable-remote-registry-proxy`, `--logstream-*`,
+`--server-conn-timeout`. Accepting them silently would be worse than refusing
+them: a flag that does nothing is a build that did not do what was asked and
+said nothing about it (I10).
+
+The rest are cloud, auth or environment - `--auto-skip`, `--global-wait-end`,
+`--git-username`, `--installation-name` - and belong with whatever answers those,
+not with the engine.
+
+### The shape of the gap, not just its size
+
+Two of the flags above are not flags at all but refusals with a reason.
+`--push` and `--allow-privileged` both name things this engine declines to do:
+`RUN --push` is refused, and `RUN --privileged` is refused on the grounds that a
+step already has every capability inside its namespace. So accepting the flag
+means deciding what it now means, which is a language question rather than a
+parsing one, and those two want settling before they are typed in.

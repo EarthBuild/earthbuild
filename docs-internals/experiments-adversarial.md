@@ -33505,3 +33505,60 @@ One corpus invocation, and left for now: quoting bugs are subtle, this engine ha
 had two quoting fixes today already (E713's sibling and the region rule), and a
 third made in a hurry is how the first two get undone. The reproduction above is
 two lines and settles it in one run.
+
+## E723 - a concurrent build deadlocks in the kernel, and it is not slowness
+
+`tests/copy.earth+all` exceeded the corpus timeout in every sweep, which read as
+a slow aggregate. It is not slow. From a completely cold start each time -
+`EARTH_RESET_CACHE=1 scripts/reset-native-sandbox.sh`, a fresh sandbox and an
+empty host cache, nothing killed anywhere - one variable moved:
+
+| condition                    | result                                       |
+| ---------------------------- | -------------------------------------------- |
+| cold + `EARTH_PARALLELISM=1` | rc=0 in **3s**, 79 steps totalling 2.9s      |
+| cold + default parallelism   | hangs; four processes blocked in seccomp     |
+
+The whole target is three seconds of work. The 420s cap was never the question.
+
+**Where it stops.** Inside the sandbox, `/proc/<pid>/wchan` for the stuck
+processes:
+
+```text
+142  /earth/earth-guestd --earthbuild-step-shim .../merged /test /bin/sh -c find
+     seccomp_do_user_notification.constprop.0    S   Threads: 5
+143  seccomp_do_user_notification.constprop.0    S   Threads: 1
+ 97  __futex_wait                                S   Threads: 20
+```
+
+That is the kernel holding a syscall while it waits for the seccomp
+user-notification supervisor to answer, and the answer never comes. On the host,
+`kill -QUIT` shows goroutine 1 parked in `core.(*Scheduler).Run`
+(`schedule.go:567`) on a WaitGroup and **eight** goroutines parked in
+`guest.(*Client).doStream` (`guest.go:1447`), each from `Client.RunStep`. One
+chain: step never finishes, guest never replies, host waits for ever.
+
+Note 142 is blocked *before it has exec'd its step* - the argv is still the
+shim's - so the filter is already installed and already blocking.
+
+`Tracer.run` (`engine/trace/tracer_linux.go`) stops answering notifications
+altogether on three paths - a poll error in `waitForWork`, a `receive` error and
+a `respond` error. Each calls `t.stopped(err)`, which records and prints;
+nothing releases processes already blocked in the kernel. `Servicing()` covers
+startup only, through `serviceWait` in `engine/guest/traced_linux.go`; there is
+no steady-state equivalent. In the captured run no `earth: syscall tracer
+stopped:` line was printed, so the supervisor had taken none of those exits -
+the shim was waiting on a notifier that was not servicing *it*.
+
+**A second defect, fixed here.** `Server.Serve` returned on `io.EOF` without
+cancelling any context `began` had recorded, so a host that died - or was killed,
+which is what the corpus harness does at its timeout - left the guest's steps
+running, and any already blocked stayed blocked. The sandbox is reused, so they
+poisoned every later build: one timeout in a sweep tends to be followed by
+others. `abandonAll` now runs whenever `Serve` returns.
+
+Not the same fault as E617, which was an oversized reply: `conn.send` is mutexed
+and the too-large case already falls back to a small reply.
+
+`EARTH_PARALLELISM` was added to isolate this and is what the table above rests
+on. Running the corpus serially also stops it losing one to three invocations a
+sweep while the fault is open.

@@ -9124,6 +9124,14 @@ not matter: the question is which the corpus actually passes.
 | `--no-cache`               | 2           | missing | runs every step, ignoring both tiers                   |
 | `--verbose`                | 1           | missing | diagnostics                                            |
 
+One row was a mistake and is worth keeping visible. `--with_docker_ignore` is
+not a flag: it appears inside `--target="+create-files
+--with_docker_ignore=\"true\""`, which is a *build argument written after the
+target*. Counting every `--word` as a flag invented it. What the corpus was
+actually asking for was `+target --ARG=value`, the language's ordinary way to
+pass an argument - which the engine did not accept at all, and which is a larger
+gap than anything else on this list.
+
 The order to fill them is that column. `--allow-privileged` is worth four of the
 next three put together, and `--no-cache` is worth two - a ratio no amount of
 reasoning about which flags feel important would have produced.

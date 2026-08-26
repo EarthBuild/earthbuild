@@ -9,6 +9,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 
@@ -162,7 +163,10 @@ func main() {
 			"do not write SAVE ARTIFACT AS LOCAL artifacts to the working tree")
 		ci = flag.Bool("ci", false,
 			"execute in CI mode; implies -no-output (this engine is already strict)")
-		args buildArgs
+		// Made here rather than on first use, for the reason the two below are:
+		// a nil map takes no assignment, and the arguments written after the
+		// target are merged into this one whether or not -build-arg was used.
+		args = buildArgs{}
 		// Maps are made here rather than on first use: `flag.Var` hands the
 		// value a pointer and calls Set on it, and Set on a nil map panics.
 		secrets         = secretList{}
@@ -218,10 +222,23 @@ func main() {
 		return
 	}
 
-	if flag.NArg() != 1 {
+	if flag.NArg() < 1 {
 		flag.Usage()
 		os.Exit(2)
 	}
+
+	// **Everything after the target is a build argument.** `+target --ARG=value`
+	// is the form the language uses and a person types; `-build-arg NAME=value`
+	// before the target keeps working and the two are merged, with what follows
+	// the target winning - it is the more specific of the two and the one
+	// written closest to what it applies to.
+	after, argErr := argsAfterTarget(flag.Args()[1:])
+	if argErr != nil {
+		fmt.Fprintln(os.Stderr, argErr)
+		os.Exit(2)
+	}
+
+	maps.Copy(args, after)
 
 	// Two words that are not targets. Both read the Earthfile and neither plans
 	// or runs anything, so they are answered before a sandbox is thought about

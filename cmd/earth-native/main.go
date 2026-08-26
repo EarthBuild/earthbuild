@@ -14,6 +14,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/engine/cli"
 	"github.com/EarthBuild/earthbuild/engine/exec"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/guestd"
 	"github.com/EarthBuild/earthbuild/engine/store"
 )
@@ -118,6 +119,16 @@ func main() {
 
 		return
 	}
+
+	// **And it is also the step shim**, which matters here and not in the
+	// macOS arrangement: there the guest is a separate binary and the shim
+	// re-executes that, which dispatches it. On Linux this binary *is* the
+	// guest, so the shim re-executes this - and without this line the flags it
+	// was launched with are read as the CLI's own, which prints a usage message
+	// and fails the step. A nested build is exactly where that happens, and
+	// nested builds are most of this project's own test suite.
+	guest.RunStepShimIfAsked()
+	guest.RunDaemonShimIfAsked()
 
 	// Having got past that, this binary demonstrably dispatches the agent - so
 	// the engine may run it as one rather than hunting for a separate file.

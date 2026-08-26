@@ -960,9 +960,25 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			return nil, err
 		}
 
+		// **`--entrypoint` when this build declared one.** The executor reads the
+		// entrypoint from the materialised base's declaration, which is right
+		// for a fetched image and wrong for one this build wrote: `ENTRYPOINT`
+		// lands in the interpreter's config and never reaches that declaration,
+		// so `FROM DOCKERFILE` over a Dockerfile declaring an entrypoint failed
+		// with "alpine declares no entrypoint to run"
+		// (tests/gen-dockerfile.earth).
+		//
+		// Resolved here when it is known here, and the flag cleared so the
+		// executor does not prepend a second copy. The argv is then in the
+		// step's key, which is where an input belongs.
+		argv, fromImage := runArgv(c, rf.rest, rf.entrypoint), rf.entrypoint
+		if rf.entrypoint && len(rs.cfg.Entrypoint) > 0 {
+			argv, fromImage = append(append([]string{}, rs.cfg.Entrypoint...), argv...), false
+		}
+
 		return &ir.Node{
 			Op: ir.Op{
-				Kind: ir.OpExec, Args: runArgv(c, rf.rest, rf.entrypoint), Entrypoint: rf.entrypoint,
+				Kind: ir.OpExec, Args: argv, Entrypoint: fromImage,
 				NoNetwork:   rf.noNet,
 				Interactive: rf.interactive,
 				SSH:         rf.ssh,

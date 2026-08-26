@@ -616,7 +616,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// undeclared `$TARGETARCH` expands to nothing in the reference, and an
 		// engine that filled it in would change what an Earthfile means.
 		builtin := builtinArgs(p.targetPlatform(rs), p.opt.nativePlatform(),
-			rs.target, p.here.dir, rs.host)
+			rs.target, p.here.dir, rs.host, p.opt.push)
 
 		// One builtin is gated on the dialect rather than always present, and is
 		// added here rather than inside builtinArgs: the file this comes from

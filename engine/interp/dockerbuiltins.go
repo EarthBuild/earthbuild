@@ -16,7 +16,7 @@ package interp
 func dockerPredefined(target, native string) map[string]string {
 	// The target name and locality are irrelevant here: a Dockerfile has no
 	// EARTH_* builtins, and this function reads only the platform four.
-	from := builtinArgs(target, native, "", "", false)
+	from := builtinArgs(target, native, "", "", false, false)
 
 	out := map[string]string{}
 

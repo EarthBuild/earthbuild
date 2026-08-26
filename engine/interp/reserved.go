@@ -55,7 +55,7 @@ func refuseBuiltinArgument(name, where, how string) error {
 		return nil
 	}
 
-	if _, engines := builtinArgs("", "", "", "", false)[name]; !engines {
+	if _, engines := builtinArgs("", "", "", "", false, false)[name]; !engines {
 		return nil
 	}
 

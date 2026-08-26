@@ -2539,9 +2539,11 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
-		Name:        "interp: the push argument supplied as one of two words (E472)",
-		File:        "engine/interp/builtins.go",
-		Anchor:      "\t\t\"EARTH_PUSH\":      boolArg(false),",
+		Name: "interp: the push argument supplied as one of two words (E472)",
+		File: "engine/interp/builtins.go",
+		// No longer `false` outright: the builtin reports whether this build is
+		// a push, which is what `ARG EARTHLY_PUSH` exists to ask.
+		Anchor:      "\t\t\"EARTH_PUSH\":      boolArg(push),",
 		Replacement: "",
 		Package:     "./engine/interp/",
 	},

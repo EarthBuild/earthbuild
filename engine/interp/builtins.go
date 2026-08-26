@@ -33,7 +33,7 @@ func UserPlatform() string { return runtime.GOOS + "/" + runtime.GOARCH }
 // expands to nothing in the engine that ships - checked against it directly -
 // and filling it in would change what an Earthfile means. A compatible engine
 // does not get to be helpful about that.
-func builtinArgs(target, native, name, dir string, locally bool) map[string]string {
+func builtinArgs(target, native, name, dir string, locally, push bool) map[string]string {
 	// The name arrives with its `+` when the caller wrote one - `earth +build`
 	// and `interp.Build(src, "build")` both reach here - so it is stripped once
 	// and added back where the reference wants it. Without this,
@@ -76,7 +76,10 @@ func builtinArgs(target, native, name, dir string, locally bool) map[string]stri
 		// acted on. `false` is a fact about this invocation rather than a
 		// placeholder, and when there is a push mode this is where its answer
 		// comes from (E472).
-		"EARTH_PUSH":      boolArg(false),
+		// `ARG EARTHLY_PUSH` is how an Earthfile asks what kind of build it is
+		// in, and `tests/dotenv.earth` has a target per answer. It was `false`
+		// outright, because there was no push mode for it to report.
+		"EARTH_PUSH":      boolArg(push),
 		"EARTH_VERSION":   engineVersion(),
 		"EARTH_BUILD_SHA": engineBuildSHA(),
 	}

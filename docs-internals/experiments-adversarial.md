@@ -32809,3 +32809,41 @@ Which means the cost is platform-shaped rather than inherent, and the interestin
 question is one this machine cannot answer: whether `--isolate` on Linux makes a
 nested-buildkit step cacheable in practice, and what a daemon that dies with its
 step costs in image pulls. CI is Linux. This is unverified there.
+
+## E709 - `--isolate` on Linux makes a WITH DOCKER block cacheable
+
+E708 left the question this machine could not answer. Answered on an x86 Linux
+box, with the engine running as root inside a privileged container and its store
+on a bind-mounted ext4 directory:
+
+```text
+first run    1 hit, 4 miss, 4 unpredicted        (no "not cacheable")
+repeat       5 hit, 0 miss
+```
+
+Every step hits on the repeat, the `WITH DOCKER --isolate` block among them. Set
+against the same shape on the macOS sandbox-VM backend, where `--isolate` is
+refused and a plain block reports `3 not cacheable` on every run, the cost E708
+called dominant is a property of that backend and not of nesting.
+
+CI is Linux. A suite whose tests nest buildkit can therefore cache them, and the
+flag that does it is the one the engine already names in its own diagnostic.
+
+### Getting a Linux to answer
+
+Worth writing down, because none of it was the interesting part and all of it
+took a turn. The box refuses unprivileged overlayfs in a user namespace - with
+`userxattr` as well as without - so `unshare -Ur` is not a way in, and `sudo`
+wants a password. A privileged container is, and docker was already reachable.
+
+A stale `/tmp/earth-guestd`, forty-one hours old, was being picked up in
+preference to the engine serving itself; the engine says so, in the note about
+the agent being older than the engine, which is how it was found. And the
+engine's own diagnostic explained the next failure exactly: `WITH DOCKER` runs
+the daemon *beside* the step rather than inside it, so it is the outer
+container's `dockerd` that has to exist, not the step image's.
+
+Three of my own harness faults on the way, all one fault: `sudo -n true | head -1
+&& echo sudo-ok` prints `sudo-ok`, because a pipeline carries the last command's
+status. That is the third time in this document (E691, E706) and the second time
+in two turns.

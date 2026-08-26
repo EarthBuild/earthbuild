@@ -136,6 +136,12 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		o.Out = io.Discard
 	}
 
+	// **A target may name the directory it lives in.** `./dir+target` is how the
+	// language refers to a target elsewhere and the interpreter has always
+	// resolved it; only the command line refused it, which put this
+	// repository's own corpus out of reach of its own engine. See splitTargetRef.
+	o.Dir, o.Target = splitTargetRef(o.Dir, o.Target)
+
 	path := filepath.Join(o.Dir, "Earthfile")
 
 	src, err := os.ReadFile(path) //nolint:gosec // the user named this directory

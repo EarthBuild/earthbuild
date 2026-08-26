@@ -33040,3 +33040,58 @@ killed part way, and a fifth of the machine held by the leak above; "named in a
 stack and not in the store" is precisely what a half-killed run leaves behind. A
 clean re-run - fresh scratch, no orphans - is what would tell, and until then
 these are observations rather than findings.
+
+## E712 - a second overlay attribute that cannot be carried, found by the corpus
+
+Running the whole corpus locally, 280 invocations, and reading why the failures
+failed rather than counting them. Among the largest groups:
+
+```text
+capture the result of Earthfile:11: carry the extended attribute
+  trusted.overlay.metacopy onto …/layers/.dbc…partial/test/testperms: invalid
+```
+
+overlayfs sets `metacopy` when a copy-up moves metadata and not data - an owner
+or a mode changing while the contents stay where they are - which is exactly what
+`COPY --keep-own` provokes. It describes an arrangement inside one live overlay,
+a stored layer will not take it, and the set fails with `invalid`, taking the
+capture and the build with it.
+
+The same family as E706's escaped `trusted.overlay.overlay.*`, and the same
+answer: `ours` excludes it. `opaque` stays, because it carries a deletion.
+
+### What it was hiding
+
+With the attribute no longer carried, the same target fails differently:
+
+```text
+the flag works where the store is on a filesystem with real uids, which
+  means a Linux host; refusing here rather than putting differently-owned
+  files in the image and reporting success (green paper A2)
+```
+
+Which is correct, and was unreachable. The xattr failure came first and masked a
+refusal the engine makes on purpose - so on a Mac this fix changes a wrong error
+into a right one, and on Linux, where `--keep-own` works and `metacopy` is
+actually set, it should change a failure into a build. That second half is
+unverified here.
+
+### The shape of a corpus run
+
+Of 280 invocations, 92 passed and 188 did not, and the failures are not one
+thing:
+
+```text
+130  other            of which this attribute was the largest single cause
+ 16  passes-alone     passed when re-run singly: the harness's own parallelism
+ 15  step-failed
+  8  no-such-target
+  7  refused-by-design
+  5  rate-limit
+```
+
+Sixteen false failures in 280 is six per cent of the run, invented by running
+four at a time; a pass rate quoted without that correction is wrong in the
+direction that flatters nobody. And `refused-by-design` is not a failure at all -
+it is the engine declining a construct on purpose, which the corpus asserts and
+this harness scores as a loss.

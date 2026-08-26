@@ -100,6 +100,16 @@ func ours(name string) bool {
 		return false
 	}
 
+	// **`metacopy` says the data did not move, only the metadata.** overlayfs
+	// sets it when a copy-up changes an owner or a mode without touching
+	// contents, which is exactly what `COPY --keep-own` provokes - and it is a
+	// statement about one live overlay's arrangement, not about the file. A
+	// stored layer will not take it: the set fails with `invalid`, the capture
+	// fails with it, and the build goes too (E712).
+	if name == "trusted.overlay.metacopy" {
+		return false
+	}
+
 	return !strings.HasPrefix(name, "com.apple.")
 }
 

@@ -36,6 +36,13 @@ func TestANestedOverlaysBookkeepingIsNotOurs(t *testing.T) {
 		{"trusted.overlay.overlay.impure", false},
 		{"com.apple.provenance", false},
 
+		// **Set when only metadata was copied up**, which is what
+		// `COPY --keep-own` provokes: the owner changes and the data does not
+		// move. It describes that arrangement inside one live overlay and
+		// cannot be set on a stored layer at all - `invalid` - so carrying it
+		// failed the capture and took the build with it (E712).
+		{"trusted.overlay.metacopy", false},
+
 		{"trusted.overlay.opaque", true},
 		{"trusted.overlay.origin", true},
 		{"user.something", true},

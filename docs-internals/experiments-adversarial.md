@@ -33270,3 +33270,43 @@ like a defect, each had a decision recorded within a few lines of the code, and
 in each case the surrounding comment was the only thing that stopped a quiet
 reversal. Reading the comment beside the line you are about to change is not
 courtesy, it is the check.
+
+## E716 - a function's context is the caller's, and this engine gives it the clone
+
+**Assumption:** a `DO` runs the function's body against the Earthfile the
+function lives in.
+
+**Method:** `DO github.com/EarthBuild/earthly-command-example:main+COPY_CAT`,
+whose body is `COPY message.txt ./`. The caller makes `message.txt`; the remote
+repository holds only `Earthfile`, `LICENSE` and `README.md`.
+
+**Result:**
+
+```text
+COPY at ~/.cache/earthbuild/remotes/github.com/EarthBuild/earthly-command-example/main/Earthfile:5:
+  message.txt is not in the build context
+  looked in ~/.cache/earthbuild/remotes/github.com/EarthBuild/earthly-command-example/main
+```
+
+The assumption is wrong, and this repository's own language reference says so:
+*"Unlike performing a `BUILD +target`, functions inherit the build context and
+the build environment from the caller"* - and two lines later, that global
+imports and args come from the Earthfile where the function is **defined**. So
+a function resolves `+other` against its own file and `COPY x` against the
+*caller's* directory, and those are different answers.
+
+**Locally nothing can tell them apart**, which is why this survived: a function
+in the same Earthfile has one directory for both. A *remote* function separates
+them, and `command.earth+all-positive` and `function.earth+all-positive` are the
+two corpus invocations that do.
+
+**Attempted and reverted.** The obvious shape - carry a context directory beside
+`here`, set it from the target's unit, hold it across a function - did not fix
+it: the context still arrived as the clone, so something on the resolve path
+sets it after the caller's value is captured. Reverting was the right call over
+leaving a half-applied change to a semantic this delicate; a plausible edit that
+does not fix the case it was written for has not been understood yet.
+
+What the next attempt needs is where `p.ctx` becomes the remote. `p.resolve`
+fetches the repository and may plan its base target on the way, which would run
+`targetIn` on the remote unit - and that is the only writer of the field.

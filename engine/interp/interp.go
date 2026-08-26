@@ -492,11 +492,13 @@ func find(tree earthfile.Tree, name string) (earthfile.Target, error) {
 	}
 
 	if len(names) == 0 {
-		return earthfile.Target{}, fmt.Errorf("this Earthfile defines no targets, so %q cannot be built", name)
+		return earthfile.Target{}, fmt.Errorf(
+			"%w: this Earthfile defines no targets, so %q cannot be built", errNoSuchTarget, name)
 	}
 
 	return earthfile.Target{}, fmt.Errorf(
-		"no target named %q\n  this Earthfile defines: %s", name, strings.Join(names, ", "))
+		"%w: no target named %q\n  this Earthfile defines: %s",
+		errNoSuchTarget, name, strings.Join(names, ", "))
 }
 
 // block folds a recipe into a chain, each command taking the state before it.
@@ -1206,20 +1208,45 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			p.passPlatform = opts.Platforms[0]
 		}
 
-		dep, _, err := p.targetRef(ref, loc(c.SourceLocation))
+		// **One reference may name several targets.** `BUILD ./wildcard/*+test`
+		// builds the target of every directory it matches, which the corpus
+		// writes five ways and this engine read literally, looking for a
+		// directory called `*`. A reference with no metacharacter expands to
+		// itself without touching the filesystem, so an ordinary BUILD reaches
+		// the resolver exactly as it did.
+		refs, err := expandRef(p.here.dir, ref)
 		if err != nil {
 			return nil, wrapRef("BUILD", c, err)
 		}
 
-		// A second root, not an input. BUILD makes the other target run and
-		// leaves this one's filesystem alone; making it an input would stack the
-		// dependency's layers into this target's base, which is what FROM means.
-		//
-		// Through appendOnce like every other addition: it drops a nil - a
-		// target whose recipe produced no step - and collapses a repeat, so two
-		// BUILDs of one target are one root. Appending directly put a nil in
-		// the list, which nothing noticed until something else iterated it.
-		p.also = appendOnce(p.also, dep)
+		// A pattern matched more than the directory it was aimed at when it
+		// matched a directory whose Earthfile defines something else. Skipping
+		// those is what makes a pattern usable; a reference that names one
+		// directory still says what is wrong, because it did not expand.
+		globbed := len(refs) != 1 || refs[0] != ref
+
+		for _, one := range refs {
+			dep, _, depErr := p.targetRef(one, loc(c.SourceLocation))
+			if depErr != nil {
+				if globbed && errors.Is(depErr, errNoSuchTarget) {
+					continue
+				}
+
+				return nil, wrapRef("BUILD", c, depErr)
+			}
+
+			// A second root, not an input. BUILD makes the other target run and
+			// leaves this one's filesystem alone; making it an input would stack
+			// the dependency's layers into this target's base, which is what
+			// FROM means.
+			//
+			// Through appendOnce like every other addition: it drops a nil - a
+			// target whose recipe produced no step - and collapses a repeat, so
+			// two BUILDs of one target are one root. Appending directly put a
+			// nil in the list, which nothing noticed until something else
+			// iterated it.
+			p.also = appendOnce(p.also, dep)
+		}
 
 		return prev, nil
 

@@ -33310,3 +33310,39 @@ does not fix the case it was written for has not been understood yet.
 What the next attempt needs is where `p.ctx` becomes the remote. `p.resolve`
 fetches the repository and may plan its base target on the way, which would run
 `targetIn` on the remote unit - and that is the only writer of the field.
+
+## E717 - a fix to what a step produces cannot invalidate what it already made
+
+**Observed while verifying the umask fix.** `COPY --chmod=777` still produced a
+755 file after the fix landed, for one run: the entry had been written by the
+engine *before* it, and the key had not changed - because nothing about the
+request had.
+
+Clearing it took editing the source file, which is the ordinary way a key moves
+and exactly the wrong reason to need it.
+
+**This is a decision the specification already made.** §B.3 puts the engine
+version in provenance and says it is *"evidence, never an input to Λ beyond the
+writer check"*. So Κ₁ answers "what was asked for", and two engines asking the
+same thing share an entry whether or not they would produce the same bytes.
+
+That is right for the common case and has a consequence nobody has written down:
+**a change to what a step produces leaves every entry made before it wrong, and
+nothing notices.** The umask fix is exactly that shape - same inputs, different
+output, no key movement - and a build upgrading into it keeps the masked mode
+until something unrelated re-keys the step.
+
+Three ways to hold it, none of them this document's to pick:
+
+1. Leave it. Say in the release note that a cache made by an older engine may
+   hold results the new one would not produce, and let it age out.
+2. Salt Κ₁ with an *output-semantics version* - not the engine version, which
+   moves for reasons that do not change output, but a number bumped by hand
+   when a fix changes what a step makes. One byte, and it costs a full rebuild
+   each time it moves.
+3. Record the version in the entry and refuse a hit from an older one for step
+   classes a fix touched. Precise and much more machinery.
+
+The cost of (1) is invisible and the cost of (2) is loud, which is the usual
+trade and the usual trap: an invisible cost gets chosen by default rather than
+on purpose.

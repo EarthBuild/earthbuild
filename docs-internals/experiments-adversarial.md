@@ -32995,6 +32995,34 @@ Which makes the leak simpler and duller than the first account: nothing resists
 being stopped, and nothing ever asks. An orphaned guest sits there because no
 part of the system is looking for it.
 
+### Where it is, and why the obvious fix needs care
+
+`engine/exec/userns_linux.go` starts the guest into namespaces of its own:
+
+```go
+return &syscall.SysProcAttr{
+    Cloneflags: syscall.CLONE_NEWUSER | syscall.CLONE_NEWNS | syscall.CLONE_NEWPID,
+}
+```
+
+There is no `Pdeathsig`, and `Pdeathsig` appears nowhere in the tree. So nothing
+ties the guest's life to its parent's: a parent that exits tidily can tear it
+down, and a parent that is killed cannot, which is precisely the case that
+leaks.
+
+`Pdeathsig: SIGTERM` is the mechanism for it and is not a one-line change here.
+The kernel delivers that signal when the *thread* that started the child exits,
+not the process, and Go moves goroutines between threads freely - so a guest
+started from an unlocked goroutine can be signalled in the middle of a healthy
+build, the moment its spawning thread happens to be retired. `runtime.LockOSThread`
+for the guest's whole lifetime is the usual answer and is awkward for a process
+that outlives the call that made it.
+
+The failure it would trade for is worse than the one it fixes, so it wants
+building deliberately, with a Linux test that starts a guest, kills the parent
+with SIGKILL, and asserts the guest is gone - which is the assertion nothing
+currently makes.
+
 So a leaked guest holds the test binary's standard output open, and `go test`
 waits on that descriptor rather than on the process. The runner appears hung on
 whichever test was last named, and the real cause is a guest from an earlier test

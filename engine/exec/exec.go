@@ -948,6 +948,7 @@ func (e *Executor) copyStep(
 		guest.CopyOpts{
 			AsDir: n.Op.DirCopy, NoFollow: n.Op.NoFollow, KeepOwn: n.Op.KeepOwn,
 			Chown: n.Op.Chown, IfExists: n.Op.IfExists, Chmod: n.Op.Chmod,
+			LandsAs: n.Op.As,
 		})
 	if err != nil {
 		return core.Result{}, fmt.Errorf("%s: %w", n.Meta.Source, err)

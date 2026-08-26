@@ -548,7 +548,7 @@ func (p *Plan) localCopy(c earthfile.Command, prev *ir.Node, _ *state) (*ir.Node
 			p.passTo = buildArgs
 		}
 
-		from, path, err := p.copySource(src, where)
+		from, path, _, err := p.copySource(src, where)
 		if err != nil {
 			return nil, err
 		}

@@ -139,3 +139,80 @@ main:
 			"\n  the artifact is named ./named.txt and lives at /test/file.txt", sources)
 	}
 }
+
+// TestARenamedArtifactLandsUnderItsName.
+//
+// `SAVE ARTIFACT ./file.txt ./other.txt` keeps the bytes at /test/file.txt and
+// calls them /other.txt. The copy carried only the path, and a copy into a
+// directory lands under the *path's* base name - so `COPY +maker/other.txt ./`
+// put `file.txt` in the step and the `cat` on the next line of
+// tests/escape.earth read a file that was not there.
+func TestARenamedArtifactLandsUnderItsName(t *testing.T) {
+	t.Parallel()
+
+	p, err := interp.Build(`VERSION 0.8
+
+FROM alpine:3.22
+WORKDIR /test
+
+maker:
+    RUN printf test >file.txt
+    SAVE ARTIFACT ./file.txt ./other.txt
+
+main:
+    COPY +maker/other.txt ./
+    RUN echo done
+`, "main")
+	if err != nil {
+		t.Fatalf("planning: %v", err)
+	}
+
+	found := false
+
+	for _, n := range p.Graph.Nodes() {
+		if n.Op.Kind != ir.OpFile || n.Op.Args[0] != "/test/file.txt" {
+			continue
+		}
+
+		found = true
+
+		if n.Op.As != "other.txt" {
+			t.Errorf("the copy lands as %q, want other.txt"+
+				"\n  the reference asked for other.txt; the path is only where"+
+				" the bytes are kept", n.Op.As)
+		}
+	}
+
+	if !found {
+		t.Fatalf("no copy reads /test/file.txt")
+	}
+}
+
+// An ordinary copy carries no name, so its key is exactly what it was.
+func TestAnOrdinaryCopyCarriesNoName(t *testing.T) {
+	t.Parallel()
+
+	p, err := interp.Build(`VERSION 0.8
+
+FROM alpine:3.22
+WORKDIR /test
+
+maker:
+    RUN printf test >file.txt
+    SAVE ARTIFACT ./file.txt
+
+main:
+    COPY +maker/file.txt ./
+    RUN echo done
+`, "main")
+	if err != nil {
+		t.Fatalf("planning: %v", err)
+	}
+
+	for _, n := range p.Graph.Nodes() {
+		if n.Op.Kind == ir.OpFile && n.Op.As != "" {
+			t.Errorf("an unrenamed artifact carries the name %q, which changes"+
+				" its key for nothing", n.Op.As)
+		}
+	}
+}

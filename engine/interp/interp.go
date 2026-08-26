@@ -1879,9 +1879,22 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 			p.passPrivilege = true
 		}
 
-		source, inSource, err := p.copySource(src, loc(c.SourceLocation))
+		source, inSource, asked, err := p.copySource(src, loc(c.SourceLocation))
 		if err != nil {
 			return nil, err
+		}
+
+		// **The name the reference asked for, when the stored path does not
+		// carry it.** `SAVE ARTIFACT ./file.txt ./other.txt` keeps the bytes at
+		// /test/file.txt and calls them /other.txt, so `COPY +t/other.txt ./`
+		// landed `file.txt` in the step and the line after it read a file that
+		// was not there (tests/escape.earth+test-copy-artifact2).
+		//
+		// Only where they differ, so every ordinary copy carries nothing and
+		// keys exactly as it did.
+		landsAs := ""
+		if asked != "" && path.Base(asked) != path.Base(inSource) {
+			landsAs = path.Base(asked)
 		}
 
 		// `--dir` means the same for an artifact as for a path in the project,
@@ -1993,6 +2006,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 				NoFollow: spec.NoFollow, KeepOwn: spec.KeepOwn, Chown: spec.Chown,
 				Chmod:    spec.Chmod,
 				IfExists: ifExists,
+				As:       landsAs,
 			},
 			Inputs:  []*ir.Node{prev},
 			Sources: []*ir.Node{source},
@@ -2040,19 +2054,23 @@ func (p *Plan) grantedByImport(ref string) bool {
 }
 
 // copySource resolves what a COPY reads from.
-func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
+// asked is the artifact path as the reference wrote it, empty for a copy from
+// the build context. It is what the file must land under: the *stored* path may
+// carry a different name, because `SAVE ARTIFACT ./file.txt ./other.txt` keeps
+// the bytes at /test/file.txt and calls them /other.txt.
+func (p *Plan) copySource(src, where string) (n *ir.Node, inSource, asked string, err error) {
 	// `artifact-with-args = "(" WSP artifact-ref *( WSP build-arg-override )
 	// WSP ")"`. ProcessParamsAndQuotes has already merged this into one token,
 	// so it arrives whole rather than as flags on the COPY itself.
 	if strings.HasPrefix(src, "(") && strings.HasSuffix(src, ")") {
 		fields := strings.Fields(strings.TrimSuffix(strings.TrimPrefix(src, "("), ")"))
 		if len(fields) == 0 {
-			return nil, "", fmt.Errorf("empty reference in parentheses (%s)", where)
+			return nil, "", "", fmt.Errorf("empty reference in parentheses (%s)", where)
 		}
 
 		args, err := overrides(fields[1:], where)
 		if err != nil {
-			return nil, "", err
+			return nil, "", "", err
 		}
 
 		p.passTo = args
@@ -2068,7 +2086,7 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 		// its own Earthfile says it is.
 		n, err := p.contextNode("COPY", src, where)
 
-		return n, src, err
+		return n, src, "", err
 	}
 
 	// `+target/path` or `./lib+target/path`: the target, and the path within its
@@ -2098,7 +2116,7 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 		// was going to ask anyway.
 		n, cerr := p.contextNode("COPY", src, where)
 		if cerr == nil {
-			return n, src, nil
+			return n, src, "", nil
 		}
 
 		// Which of two findings it is depends on what sits before the plus.
@@ -2110,7 +2128,7 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 		// *filename* before the plus is not that - nobody writes `file-with-` as
 		// a target - so the missing file is the finding (E479).
 		if referenceShaped(src, p.here.imports) {
-			return nil, "", fmt.Errorf(
+			return nil, "", "", fmt.Errorf(
 				"%q names a target but no artifact (%s)\n  write it as +target/path"+
 					"\n  a file of that name would be copied instead, and the"+
 					" context has none",
@@ -2128,7 +2146,7 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 		// The other reading still gets a line, because a `+` in a source is
 		// worth a second thought even where the shape rules it out - but as the
 		// aside it is, under the claim rather than instead of it.
-		return nil, "", fmt.Errorf(
+		return nil, "", "", fmt.Errorf(
 			"%q is not in the build context (%s)"+
 				"\n  looked in %s"+
 				"\n  the `+` here starts no target reference: there is no"+
@@ -2137,9 +2155,9 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 			src, where, p.here.dir)
 	}
 
-	n, _, err := p.targetRef(src[:i]+ref, where)
+	n, _, err = p.targetRef(src[:i]+ref, where)
 	if err != nil {
-		return nil, "", fmt.Errorf("COPY %s (%s): %w", src, where, err)
+		return nil, "", "", fmt.Errorf("COPY %s (%s): %w", src, where, err)
 	}
 
 	// `+build/main.o` names the artifact that target saved, and where it saved
@@ -2147,7 +2165,7 @@ func (p *Plan) copySource(src, where string) (*ir.Node, string, error) {
 	// puts it at /code/main.o. Reading the name as a path took /main.o - a file
 	// the Earthfile never mentions - and reported it in the *consuming* target,
 	// two steps from the line that decided it.
-	return n, p.savedAt(n, path), nil
+	return n, p.savedAt(n, path), unescape(path), nil
 }
 
 // allSavedBy is every artifact a target produced, for `+target/*`.

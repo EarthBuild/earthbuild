@@ -242,6 +242,12 @@ type Op struct {
 	// source is not the same step as one that requires it, and sharing an entry
 	// would let a build that skipped the copy serve one that must not.
 	IfExists bool
+
+	// As is the name a copy lands under, when the reference asked for one that
+	// the stored path does not carry: `SAVE ARTIFACT ./file.txt ./other.txt`
+	// keeps the bytes at /test/file.txt and `COPY +t/other.txt ./` must produce
+	// `other.txt`. Empty for every ordinary copy, where the path is the name.
+	As string
 	// Chmod is `COPY --chmod=777`: the mode the copied files get, in octal as
 	// the author wrote it.
 	//
@@ -654,6 +660,7 @@ func (n *Node) ID() NodeID {
 	h.Str(n.Op.User)
 	h.Bool(n.Op.NoCache)
 	h.Bool(n.Op.IfExists)
+	h.Str(n.Op.As)
 	h.Str(n.Op.Chmod)
 	h.Bool(n.Op.NoNetwork)
 	h.Bool(n.Op.Interactive)

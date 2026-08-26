@@ -492,7 +492,8 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 			copyOpts{
 				AsDir: req.DirCopy, NoFollow: req.NoFollow, KeepOwn: req.KeepOwn,
 				Chown: req.Chown, Clamp: clampAt(req.Clamp), IfExists: req.IfExists,
-				Chmod: req.Chmod,
+				LandsAs: req.LandsAs,
+				Chmod:   req.Chmod,
 			})
 
 		unlock()
@@ -727,6 +728,10 @@ type copyOpts struct {
 	// not have made, so the plan is right to emit the copy and wrong to insist
 	// on it.
 	IfExists bool
+
+	// LandsAs is the name the copy lands under inside a destination directory.
+	// See placedAs.
+	LandsAs string
 	// Chmod is `COPY --chmod=777`: the mode the copied files get.
 	Chmod string
 	// AsDir is `--dir`: the directory itself rather than its contents.
@@ -883,7 +888,7 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 
 	intoDir := strings.HasSuffix(dest, "/") || isDir(dstPath)
 	if intoDir && (opts.AsDir || !fi.IsDir()) {
-		dstPath = filepath.Join(dstPath, filepath.Base(srcPath.path))
+		dstPath = filepath.Join(dstPath, placedAs(srcPath.path, opts.LandsAs))
 	}
 
 	// 0755 deliberately: this becomes part of the image, and a directory a
@@ -2417,6 +2422,7 @@ func (c *Client) Copy(
 		Path: src, Dest: dest,
 		DirCopy: opts.AsDir, NoFollow: opts.NoFollow, KeepOwn: opts.KeepOwn,
 		IfExists: opts.IfExists,
+		LandsAs:  opts.LandsAs,
 		Chmod:    opts.Chmod,
 		Chown:    opts.Chown,
 	})
@@ -3336,4 +3342,21 @@ func (s *Server) ownWritesFor(handle string, h core.Handle) func(string) bool {
 	s.mu.Unlock()
 
 	return ownWrites(s.LayerDir, base, h.Delta())
+}
+
+// placedAs is the name a copy lands under inside a destination directory.
+//
+// **The stored path is not always the name that was asked for.**
+// `SAVE ARTIFACT ./file.txt ./other.txt` keeps the bytes at /test/file.txt under
+// the name /other.txt, so `COPY +t/other.txt ./` must produce `other.txt` - the
+// base name of the path produced `file.txt`, and the line after it in
+// tests/escape.earth read a file that was not there.
+//
+// Empty is every ordinary copy, where the path is the only name there is.
+func placedAs(srcPath, as string) string {
+	if as != "" {
+		return as
+	}
+
+	return filepath.Base(srcPath)
 }

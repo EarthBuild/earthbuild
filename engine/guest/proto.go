@@ -342,6 +342,11 @@ type Request struct {
 	// an artifact - `SAVE ARTIFACT --if-exists` declares one the producer may
 	// not have made, and the plan cannot know which.
 	IfExists bool `json:"ifExists,omitempty"`
+
+	// LandsAs is the name the copy lands under inside a destination directory,
+	// when the reference asked for one the stored path does not carry. See
+	// placedAs. Distinct from As above, which names a published layer.
+	LandsAs string `json:"landsAs,omitempty"`
 	// Chmod is `COPY --chmod=777`: the mode the copied files get, octal as the
 	// author wrote it. Parsed here rather than by the caller, so a bad one is
 	// reported once and against the line that wrote it.

@@ -24,12 +24,12 @@ func TestCopyPutsHostFilesInTheImage(t *testing.T) {
 	}
 
 	ctx := t.TempDir()
-	err := os.MkdirAll(filepath.Join(ctx, testSourceDir), 0o755)
+	err := os.MkdirAll(filepath.Join(ctx, testSourceDir), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile(filepath.Join(ctx, testSourceDir, "hello.txt"), []byte("from the host"), 0o644)
+	err = os.WriteFile(filepath.Join(ctx, testSourceDir, "hello.txt"), []byte("from the host"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

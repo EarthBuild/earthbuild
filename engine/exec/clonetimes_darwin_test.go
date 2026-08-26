@@ -31,12 +31,15 @@ func TestACloneCarriesTheTimesOfItsSource(t *testing.T) {
 	base := t.TempDir()
 	src := filepath.Join(base, "src")
 
-	err := os.MkdirAll(filepath.Join(src, "bin"), 0o755)
+	err := os.MkdirAll(filepath.Join(src, "bin"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile(filepath.Join(src, "bin", "busybox"), []byte("elf"), 0o755)
+	// Executable on purpose: this stands in for a binary, and what the test is
+	// about is whether a clone carries the mode across. 0o600 would remove the
+	// bit being asserted (gosec G306).
+	err = os.WriteFile(filepath.Join(src, "bin", "busybox"), []byte("elf"), 0o755) //nolint:gosec
 	if err != nil {
 		t.Fatal(err)
 	}

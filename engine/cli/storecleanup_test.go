@@ -34,7 +34,7 @@ func TestAStoreIsRemovedEvenWhenALayerDeniesWriting(t *testing.T) {
 
 		locked := filepath.Join(dir, "layers", "sha256-x", "root", "usr", "bin")
 
-		err := os.MkdirAll(locked, 0o755)
+		err := os.MkdirAll(locked, 0o750)
 		if err != nil {
 			t.Fatal(err)
 		}

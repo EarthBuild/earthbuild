@@ -32,7 +32,7 @@ func TestResolvingEntriesDoesNotWalkTheTreeForEachOne(t *testing.T) {
 
 	root := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(root, "usr", "local", "go", "src"), 0o755)
+	err := os.MkdirAll(filepath.Join(root, "usr", "local", "go", "src"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -906,17 +905,9 @@ func checkArchitecture(os, arch, want string) error {
 	return fmt.Errorf(
 		"this image is %s and the build is for %s"+
 			"\n  it is a single-manifest image, so there is no other platform to fetch"+
-			"\n  use an image that provides %s, or run this build on a %s machine: %w",
-		has, want, want, has, ErrWrongPlatform)
+			"\n  use an image that provides %s, or run this build on a %s machine",
+		has, want, want, has)
 }
-
-// ErrWrongPlatform reports a single-manifest image built for another platform.
-//
-// Named so a caller can tell it from a failure worth retrying. A registry that
-// timed out is a registry to ask again; an amd64 image will not become an arm64
-// one, and a speculative prefetch that keeps trying pays the whole fetch every
-// build to be refused at the configuration again (E727).
-var ErrWrongPlatform = errors.New("the image is built for another platform")
 
 // PulledLayer is one layer of an image, unpacked into a directory of its own.
 type PulledLayer struct {

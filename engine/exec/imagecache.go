@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -223,23 +222,7 @@ func Prefetch(ctx context.Context, root, ref, platform string, pull pullInto) er
 		return nil
 	}
 
-	// **A refusal that will not change its mind.** A prediction remembers an
-	// image without its platform, so a machine that has built for two of them
-	// speculates on both - and the one for the other platform is fetched whole,
-	// manifest and layer and unpack, before the configuration refuses it. Left
-	// to itself that repeats on every build for ever: 0.77s of a 1.0s no-op
-	// build, buying nothing (E727).
-	//
-	// Only this refusal is remembered. A registry that timed out is a registry
-	// to ask again; an amd64 image will not become an arm64 one.
-	unusable := shared + unusableSuffix
-
-	_, err := os.Stat(unusable)
-	if err == nil {
-		return nil
-	}
-
-	err = os.MkdirAll(filepath.Join(root, "imagecache"), 0o750)
+	err := os.MkdirAll(filepath.Join(root, "imagecache"), 0o750)
 	if err != nil {
 		return fmt.Errorf("prepare the image cache: %w", err)
 	}
@@ -252,12 +235,6 @@ func Prefetch(ctx context.Context, root, ref, platform string, pull pullInto) er
 	cfg, err := pull(ctx, ref, staging)
 	if err != nil {
 		_ = image.RemoveAll(staging)
-
-		// Best effort: a note that cannot be written costs the next build one
-		// wasted speculation, which is what happened before it existed.
-		if errors.Is(err, image.ErrWrongPlatform) {
-			_ = os.WriteFile(unusable, []byte(err.Error()), 0o600)
-		}
 
 		return err
 	}
@@ -278,10 +255,3 @@ func Prefetch(ctx context.Context, root, ref, platform string, pull pullInto) er
 
 	return nil
 }
-
-// unusableSuffix names the note recording that a reference cannot be fetched
-// for this platform, beside the cache entry it would have filled.
-//
-// The key already carries the platform, so the note is about this platform and
-// says nothing about another. See Prefetch.
-const unusableSuffix = ".unusable"

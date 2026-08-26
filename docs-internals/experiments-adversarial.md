@@ -33126,3 +33126,58 @@ That is worth more than the figure. A corpus like this asserts what an engine
 question about it - "how many produce the outcome the corpus asserts" is. The
 `linux-earthtests-run` ratchet counts targets that build, which is a third thing
 again, and none of the three should be quoted as another.
+
+## E713 - the feature gate that left every computed variable empty
+
+Twelve `wildcard-copy.earth` targets reported "found 0 files instead of 3" with
+the files demonstrably in the image: `RUN ls -l` listed `helloworld1`,
+`helloworld2` and `helloworld3`, and the target counting them counted none.
+
+Three faults in a row, each hidden by the one after it.
+
+**The artifact pattern.** `COPY ./wildcard/*+test/helloworld*` globs twice - once
+over directories, once over the artifacts each target saved - and only the first
+was expanded. `+target/*` had always meant "everything saved", but a narrower
+pattern went to the guest as a literal filename. Fixed by matching the pattern
+against what the producer *declared*: the artifacts are known at plan time, so
+each match is its own copy and the key covers exactly what was taken.
+
+**The feature gate.** `SET` demanded `--arg-scope-and-set` on the VERSION line.
+`features.ArgScopeSet` carries `enabled_in_version:"0.8"` and the reference gates
+the construct on that field alone, so every 0.8 file using `SET` was refused
+here. The gate came from E458, which read `tests/arg-set.earth` - a
+`--should_fail` file that is *itself* `VERSION 0.8` - as evidence the flag was
+still needed. No corpus file uses `SET` at 0.7 or earlier.
+
+The lesson is about the evidence, not the flag. A `--should_fail` file proves
+only that the reference refused it; it says nothing about *which* of the file's
+properties earned the refusal, and attributing it to the nearest unusual one is a
+guess wearing a citation. Two ratchets moved on the fix - 491 -> 493 whole-corpus,
+258 -> 259 earthtests - which is the measure of how much the guess cost.
+
+**The probe that cannot see a globbed copy.** Still open, and the reason the
+twelve targets still fail. A `LET` computing its value from a command does not
+see files placed by a preceding *directory-globbed* artifact `COPY`:
+
+```text
+COPY ./wildcard/*+test/helloworld* .    LET files=$(ls -d helloworld*) -> ""
+COPY ./wildcard/foo+test/helloworld* .  LET files=$(ls -d helloworld*) -> "helloworld1"
+COPY +maker/thing.txt .                 LET seen=$(ls thing.txt)       -> "thing.txt"
+```
+
+Deterministic, and unaffected by a `RUN` step in between. One explicit source
+works, two explicit sources work, a source in another Earthfile works; a `*` in
+the *directory* position does not. The plan is right - `-dry-run` shows the three
+copies with their paths resolved - so the fault is in what the probe's base
+materialises, not in what was planned.
+
+**It fails silently, which is the part worth fixing first.** The value is empty
+rather than absent, so `IF [ "$files" != "" ]` is false, `SET count` never runs,
+and the count reads zero. Nothing anywhere reports an error: the build is green
+until an assertion twenty lines later disagrees with the filesystem. A probe that
+cannot see its base should say so.
+
+`TestAMultiLineValueIsStillAValueInACondition` was written for this and passed
+on the first run. That is the finding rather than a wasted test - ruling out the
+decision layer is what left the probe's input as the only suspect - and it stays
+as the guard for the half that works.

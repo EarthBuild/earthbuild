@@ -2,6 +2,7 @@ package interp
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
@@ -213,6 +214,8 @@ func decideTest(inner []string) (bool, error) {
 		return inner[0] == inner[2], nil
 	case len(inner) == 3 && inner[1] == "!=":
 		return inner[0] != inner[2], nil
+	case len(inner) == 3 && numericOp(inner[1]) != nil:
+		return decideNumeric(inner[0], inner[1], inner[2])
 	}
 
 	return false, errUnsupportedTest
@@ -284,4 +287,51 @@ func strip(toks []string) []string {
 // isComparison reports whether a token is a binary string comparison.
 func isComparison(tok string) bool {
 	return tok == "=" || tok == "==" || tok == "!="
+}
+
+// numericOp is the comparison a `test` operator makes over two integers, or nil
+// where it is not one of them.
+//
+// **A probe is a container round trip**, and `IF [ "$level" -gt "0" ]` is how
+// the corpus writes a bounded loop - `command.earth`'s `RECURSIVE` counts down
+// from 5, so five conditions cost five round trips before a step of real work
+// happens. The operands are known: a build argument and a literal. `=` and
+// `!=` are decided here for that reason and these are the same argument.
+func numericOp(op string) func(a, b int64) bool {
+	switch op {
+	case "-eq":
+		return func(a, b int64) bool { return a == b }
+	case "-ne":
+		return func(a, b int64) bool { return a != b }
+	case "-lt":
+		return func(a, b int64) bool { return a < b }
+	case "-le":
+		return func(a, b int64) bool { return a <= b }
+	case "-gt":
+		return func(a, b int64) bool { return a > b }
+	case "-ge":
+		return func(a, b int64) bool { return a >= b }
+	}
+
+	return nil
+}
+
+// decideNumeric answers a numeric comparison, or declines it.
+//
+// **Declines rather than guesses.** `[ x -gt 0 ]` is an error in a shell, not
+// false - and an engine that answered it would be inventing a language. So an
+// operand that is not an integer goes to the shell, which knows what its own
+// error is.
+func decideNumeric(left, op, right string) (bool, error) {
+	a, err := strconv.ParseInt(strings.TrimSpace(left), 10, 64)
+	if err != nil {
+		return false, errUnsupportedTest
+	}
+
+	b, err := strconv.ParseInt(strings.TrimSpace(right), 10, 64)
+	if err != nil {
+		return false, errUnsupportedTest
+	}
+
+	return numericOp(op)(a, b), nil
 }

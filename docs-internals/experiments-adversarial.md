@@ -33791,6 +33791,34 @@ the warm run - which is consistent with the FROM being a cache hit, so the node
 is never executed. Something *after* `sandbox:dial` pulls the image anyway, and
 `mat:stack` reports one layer immediately before it.
 
-So the question is which caller of `image.Pull`/`PullApart`/`FetchApart` runs
-when the step that would need one has already hit. Worth answering: this is most
-of a no-op build, on every build, for every project.
+**It is the prefetch, and it never keeps what it fetches.** The fourth caller -
+not one of the three in `engine/exec` - is `engine/cli/prefetch.go`, which pulls
+the references `loadPredictions` remembers before the graph is built. Printing
+its cache check on each warm run:
+
+```text
+ref=alpine@sha256:79ff19e9084a00...  populated=false     <- pulled, every time
+ref=alpine                           populated=true
+ref=alpine@sha256:e7a1a92a5bfeee...  populated=true
+ref=busybox@sha256:8f2ffdcb46f1b...  populated=true
+```
+
+`79ff19e9` is the digest the warm run's `registry:manifest` names, and it is a
+*prediction* - nothing in this Earthfile refers to it. `Prefetch` does check
+`store.Populated(shared)` first and the root is right (`storeDir()`, not the
+project). The entry is simply never there:
+
+| run | before   | registry phases | after    |
+| --- | -------- | --------------- | -------- |
+| 1   | false    | 4               | false    |
+| 2   | false    | 4               | false    |
+
+So the bytes are fetched on every build and nothing is kept - about 0.77s of a
+1.0s no-op build, repeated for ever. The digest is not stale: it answers HTTP
+200. What is not yet established is *why* the placement does not stick, and
+`Prefetch` swallows several errors on that path (`_ = os.Rename(...)`), so a
+failure there would be silent by construction.
+
+A measurement note, because it cost time: `EARTH_TIMINGS` has to be set to see
+any of this. Two runs looked clean at zero registry phases purely because the
+variable was not exported, which reads as a fix and is a blindfold.

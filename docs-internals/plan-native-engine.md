@@ -9122,8 +9122,16 @@ not matter: the question is which the corpus actually passes.
 | `--arg-file-path`          | 4           | present |                                                           |
 | `--secret-file`            | 2           | present |                                                           |
 | `--no-cache`               | 2           | present |                                                           |
+| `--env-file-path`          | 1           | present | with `.env`, which supplies settings and not build args   |
 | `--verbose`                | 1           | missing | per-file context transfer: `sent data for a.txt (1 B)`    |
 | `--exec-stats`             | 1           | missing | `total CPU: … total memory: …` across steps               |
+
+`--env-file-path` was missing from this table as well as from the engine. It is
+neither a feature nor a flag on its own: `.env` stopped supplying *build
+arguments* in v0.7.0 and never stopped supplying *settings*, and the engine read
+the file only to warn about it - so `EARTHLY_PUSH=1` in a `.env` did nothing.
+Reading it is now the general rule that `--arg-file-path` already followed by
+hand, a flag's name upper-cased with `-` written `_`.
 
 **The two that are left are features, not flags**, which is why they are last
 rather than next. `--verbose` reports what the *context transfer* moved, file by

@@ -151,6 +151,8 @@ func main() {
 			"read build arguments from this file (default \".arg\")")
 		secretFile = flag.String("secret-file-path", "",
 			"read secrets from this file (default \".secret\")")
+		envFile = flag.String("env-file-path", "",
+			"read CLI settings from this file (default \".env\")")
 		// Comma-separated, as earthly takes it. The seven corpus invocations
 		// that pass one name a feature this engine implements unconditionally,
 		// so what they need is for the flag to be understood rather than for
@@ -198,6 +200,35 @@ func main() {
 	parseErr := flag.CommandLine.Parse(hoistSubcommandFlags(os.Args[1:]))
 	if parseErr != nil {
 		fmt.Fprintln(os.Stderr, parseErr)
+		os.Exit(2)
+	}
+
+	// **A project's `.env` decides settings, and only settings.** It stopped
+	// supplying build arguments in v0.7.0; `EARTHLY_PUSH=1` in one still means
+	// this build pushes, which is what `tests/dotenv.earth` asserts from inside
+	// a step.
+	//
+	// Read against `*dir` as the command line left it. A `.env` that set
+	// `EARTH_DIR` would otherwise have to be found before it could say where to
+	// look for itself, and there is no answer to that worth having.
+	fromEnvFile, envFileErr := cli.EnvFileValues(*dir, *envFile, os.Getenv)
+	if envFileErr != nil {
+		fmt.Fprintln(os.Stderr, envFileErr)
+		os.Exit(1)
+	}
+
+	// The process's environment beats the file, which is what every other
+	// dotenv reader does: a variable exported for this one invocation is more
+	// specific than one committed to the project.
+	envFileErr = cli.ApplyEnvDefaults(flag.CommandLine, func(name string) string {
+		if v := os.Getenv(name); v != "" {
+			return v
+		}
+
+		return fromEnvFile[name]
+	})
+	if envFileErr != nil {
+		fmt.Fprintln(os.Stderr, envFileErr)
 		os.Exit(2)
 	}
 

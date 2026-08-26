@@ -314,7 +314,16 @@ func (o Options) reportDotEnv(argFile string) {
 	}
 
 	names := make([]string, 0, len(found))
+
 	for name := range found {
+		// **Not the settings.** `EARTHLY_PUSH` in `.env` reaches this engine
+		// exactly where it is (EnvFileValues), so telling its author to move it
+		// to `.arg` is false - and a warning that is wrong about half its
+		// subjects is not believed about the other half.
+		if aSettingName(name) {
+			continue
+		}
+
 		names = append(names, name)
 	}
 

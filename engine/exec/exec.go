@@ -497,11 +497,14 @@ func (e *Executor) Run(
 		if m.Secret {
 			gm.Credential = true
 
-			v, ok := e.Secrets[m.ID]
+			// The same secret under two spellings - see ir.SecretName.
+			id := ir.SecretName(m.ID)
+
+			v, ok := e.Secrets[id]
 			if !ok {
 				return core.Result{}, fmt.Errorf(
 					"%s needs the secret %q, which this invocation did not supply",
-					n.Meta.Source, m.ID)
+					n.Meta.Source, id)
 			}
 
 			gm.Secret = v
@@ -540,6 +543,13 @@ func (e *Executor) Run(
 		name, source, ok := strings.Cut(spec, "=")
 		if !ok {
 			source = name
+		}
+
+		// As above, and the empty source supplies nothing rather than failing:
+		// `--build-arg SECRET_ID=""` empties it on purpose.
+		source = ir.SecretName(source)
+		if source == "" {
+			continue
 		}
 
 		v, given := e.Secrets[source]

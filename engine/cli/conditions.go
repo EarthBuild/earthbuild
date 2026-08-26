@@ -165,6 +165,11 @@ func decideByRunning(
 type engine struct {
 	o Options
 
+	// secrets are the *merged* secrets - flags, `--secret-file` entries and
+	// the project's `.secret` file - which is what the plan was checked
+	// against and therefore what a step may ask for. See Options.runSecrets.
+	secrets map[string]string
+
 	// contexts digests each path of the build context once for this
 	// invocation, however many plans ask for it.
 	//
@@ -306,7 +311,7 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 
 		e.Platform = g.o.Platform
 		e.Context = g.o.Dir
-		e.Secrets = g.o.Secrets
+		e.Secrets = g.o.runSecrets(g.secrets)
 		// The invoking user's agent, read here where the invocation's ambient
 		// state is already being gathered - the executor takes it as a value
 		// rather than reaching for it, so nothing below this line depends on the

@@ -253,6 +253,13 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		return err
 	}
 
+	// **The step gets what the plan was checked against.** These are the
+	// merged secrets; handing the executor `o.Secrets` instead gave it the
+	// flags alone, so a build supplying `--secret-file MY=sec.txt` planned
+	// fine and then failed inside the step naming a secret the caller had
+	// plainly supplied.
+	g.secrets = secrets
+
 	// From here on a failure is the caller's news, and the store's case
 	// behaviour may be part of why (E491).
 	defer func() {

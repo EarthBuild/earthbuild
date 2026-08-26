@@ -188,6 +188,25 @@ func (o Options) withProjectFiles() (args, secrets map[string]string, err error)
 // A missing file is always an error here: unlike `.secret`, every one of these
 // was named by the caller. The alternative is a step receiving an empty
 // credential and failing somewhere else with a message about authentication.
+// runSecrets is what a *step* may ask for, which is what the plan was checked
+// against.
+//
+// **Two maps for one question was the bug.** The interpreter is given the
+// merged secrets - flags, `--secret-file` entries and the project's `.secret`
+// file - and the executor was given `Options.Secrets`, which is only the
+// flags. A build supplying `--secret-file MY=sec.txt` passed planning and then
+// failed inside the step, naming a secret the caller had plainly supplied.
+//
+// A function rather than a field, so the two cannot drift again: whatever the
+// plan was checked against is what the step is given.
+func (o Options) runSecrets(merged map[string]string) map[string]string {
+	if merged != nil {
+		return merged
+	}
+
+	return o.Secrets
+}
+
 func secretsFromFiles(entries []string, home string) (map[string]string, error) {
 	out := map[string]string{}
 

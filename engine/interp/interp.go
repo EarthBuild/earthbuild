@@ -873,7 +873,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			// passed - refusing that over the spelling is a refusal about
 			// nothing. `tests/secrets.earth` supplies SECRET1 and then asks
 			// for `+secrets/SECRET1`, which is the same secret twice.
-			source = strings.TrimPrefix(source, "+secrets/")
+			source = ir.SecretName(source)
 
 			// **An empty source supplies nothing, and that is allowed.**
 			// `ARG SECRET_ID=+secrets/SECRET1` overridden with
@@ -901,7 +901,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		for _, m := range rf.mounts {
 			// The same two names for one secret, reaching the other line that
 			// looks one up.
-			m.ID = strings.TrimPrefix(m.ID, "+secrets/")
+			m.ID = ir.SecretName(m.ID)
 
 			if m.Secret && m.ID != "" && !p.opt.secrets[m.ID] {
 				// Same family as the flag spelling above: one condition must

@@ -33520,6 +33520,15 @@ empty host cache, nothing killed anywhere - one variable moved:
 
 The whole target is three seconds of work. The 420s cap was never the question.
 
+**Correction: serial is not immune, and the row above is one sample.** A corpus
+sweep run entirely under `EARTH_PARALLELISM=1` hung at `dotenv.earth+test` with
+a process blocked in the same place. It was not poisoned by an earlier kill -
+that sweep had taken no timeouts at all up to that point, so nothing had been
+killed. Concurrency changes how *often* this happens and is not what causes it;
+the single serial pass above was luck being read as immunity. Anything resting
+on "run it serially and it goes away" is unsound, including using a serial sweep
+to get a clean corpus number.
+
 **Where it stops.** Inside the sandbox, `/proc/<pid>/wchan` for the stuck
 processes:
 

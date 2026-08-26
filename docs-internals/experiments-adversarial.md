@@ -32619,7 +32619,7 @@ nested build a designed use.
 native in native      works    untraced: EBUSY, so no observed-input tier
 native in buildkit    works    needs RUN --privileged; traced; scratch in RAM
 buildkit in buildkit  works    the arrangement today
-buildkit in native    not yet tried
+buildkit in native    reaches the daemon; no arm64 buildkitd image to start
 ```
 
 Two things decide it, and they pull in opposite directions.
@@ -32688,3 +32688,28 @@ anyway and L2 has nothing to save. So the tier may be worth much less to
 earth-in-earth than it is to a developer's rebuild, and the cost of losing it
 should be measured on the suite rather than assumed from the 31x figure, which
 was measured on something else entirely.
+
+### buildkit inside native, as far as it goes
+
+`WITH DOCKER` gives the step a daemon, `earthly --engine=buildkit` runs, and the
+chain gets to the last step before stopping on something that is not the engine's:
+
+```text
+buildkitd | Starting buildkit daemon as a docker container
+docker: no matching manifest for linux/arm64/v8 in the manifest list entries
+```
+
+Every published `buildkitd-staging-*` tag is built on `ubuntu-latest` and carries
+amd64 only, so there is nothing for an arm64 machine to start. On CI, which is
+x86, the same arrangement has an image to use. So this cell is unproven rather
+than broken, and what stands between it and proof is a published image rather
+than anything in this engine.
+
+Two harness faults of my own on the way, both worth the note. The first attempt
+ran `build/linux/arm64/earthly`, which is this repository's `earth` and now
+defaults to the native engine - so it measured native-in-native a second time,
+wearing the other name. And the step was written as `... | tail -30`: a pipeline
+returns the last command's status, so the build reported `rc=0` while the inner
+daemon had failed to start. The same shape as the benchmark that recorded `rc=0`
+from inside a `$( )` (E691). A pipe is a place exit codes go to die, and this is
+the second time in this document.

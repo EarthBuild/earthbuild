@@ -82,7 +82,7 @@ func Resolve(ctx context.Context, ref string, opt Options) (string, error) {
 	// the thing being closed.
 	pinned := DigestOf(body)
 
-	if len(m.Manifests) > 0 {
+	if len(m.Manifests) > 0 && !opt.Index {
 		want := opt.Platform
 		if want == "" {
 			want = runtime.GOOS + "/" + runtime.GOARCH

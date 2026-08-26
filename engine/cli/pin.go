@@ -55,8 +55,13 @@ func Pin(o Options) error {
 	// stale answer here is not a slow build, it is a wrong file committed to a
 	// repository. TestPinningAnEarthfileAsksTheOrigin holds this.
 	pinned, changes, err := pin.Rewrite(src, func(ref string) (string, error) {
+		// **The index, not this machine's manifest.** What is written here is
+		// committed and read on whatever architecture the next reader has;
+		// pinning the platform's own manifest produced an Earthfile that built
+		// on the arm64 machine that wrote it and failed x86 CI on the first
+		// RUN with `exec /bin/sh: exec format error`.
 		to, resolveErr := image.Resolve(ctx, ref, image.Options{
-			Platform: resolveFor(o.Platform), Challenges: challenges,
+			Platform: resolveFor(o.Platform), Challenges: challenges, Index: true,
 		})
 		if resolveErr != nil {
 			return "", resolveErr

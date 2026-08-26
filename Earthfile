@@ -7,7 +7,7 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.27.0-alpine3.24@sha256:b85a5429ef30595c9e12bb8c8c375c3fdb4448409d89379466ddde17087d8be3
+    FROM golang:1.27.0-alpine3.24@sha256:4c9fe60190a2a3350ddc51de80d0224b8a6698d12bdfc999fee45ea9d6c46dbc
     RUN apk add --no-cache git
     # Go writes a counter under /root/.config/go/telemetry and mutates it on
     # every build, under a name carrying the date. Nothing observed reads it
@@ -18,7 +18,7 @@ go:
     WORKDIR /earthly
 
 node:
-    FROM node:26.7.0-alpine3.24@sha256:d778881fd638833a2a0ed0fbb30577718729ab08112776dea4555eb5551826da
+    FROM node:26.7.0-alpine3.24@sha256:aadf416b2cdce311a8811ba3f0608a61b77dbf997500e2eafe781b51f6a0b019
     # renovate: datasource=npm packageName=npm
     LET npm_version=12.0.2
     RUN \
@@ -96,7 +96,7 @@ update-buildkit:
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
 lint-scripts-base:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     RUN apk add --no-cache shellcheck
     WORKDIR /shell_scripts
 
@@ -129,7 +129,7 @@ lint-scripts:
 
 # lint-workflows audits GitHub Actions workflows and composite actions with zizmor (https://docs.zizmor.sh).
 lint-workflows:
-    FROM ghcr.io/zizmorcore/zizmor:1.29.0@sha256:c8fa13add9a0d861ad3113e44d4e6d9effef26b88539e182cd3d66bfd6f6bbe1
+    FROM ghcr.io/zizmorcore/zizmor:1.29.0@sha256:863026d54f91271b10b60b67ad8054cb37120167e162482597db102b3026a284
     WORKDIR /audit
     COPY --dir .github .
     # --no-online-audits: no GITHUB_TOKEN here, and the online audits reach out
@@ -143,7 +143,7 @@ lint-workflows:
 earthbuild-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0@sha256:e373e2f1efa423c68b645f328a071aa04367922166a9f17eebfa979c8372fd36
+    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0@sha256:d9c249f5ef1bb91fd73203b06054c73ec79efaf36daa644306241665b4a8ed33
     RUN apk add --no-cache bash
     COPY earthly .earthly_version_flag_overrides .
 
@@ -533,7 +533,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.7-slim@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4
+    FROM python:3.14.7-slim@sha256:83ff1d245a3d57d04152252d3ef9cb361494d0b3395abd65a5ebe91c401c8e83
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -638,7 +638,7 @@ native-engine:
 
 # earthly-linux-amd64 builds the earthly artifact  for linux amd64
 earthly-linux-amd64:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # Release metadata baked into the binary via ldflags in +earthly. These are
@@ -668,7 +668,7 @@ earthly-linux-amd64:
 
 # earthly-linux-arm64 builds the earthly artifact  for linux arm64
 earthly-linux-arm64:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -688,7 +688,7 @@ earthly-linux-arm64:
 
 # earthly-darwin-amd64 builds the earthly artifact  for darwin amd64
 earthly-darwin-amd64:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -708,7 +708,7 @@ earthly-darwin-amd64:
 
 # earthly-darwin-arm64 builds the earthly artifact for darwin arm64
 earthly-darwin-arm64:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -728,7 +728,7 @@ earthly-darwin-arm64:
 
 # earthly-windows-arm64 builds the earthly artifact  for windows arm64
 earthly-windows-amd64:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -753,7 +753,7 @@ earthly-windows-amd64:
 # Darwin amd64 and arm64
 # Windows amd64
 all-binaries:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     # Release metadata, forwarded to every per-platform target so that callers
     # such as release+signed-release can set it once here and have it baked into
@@ -891,7 +891,7 @@ earthbuild-integration-test-base:
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
 prerelease:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
@@ -902,7 +902,7 @@ prerelease:
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     COPY ./earthly ./
     # This script is useful in other repos too.
     SAVE ARTIFACT ./earthly
@@ -910,7 +910,7 @@ prerelease-script:
 # ci-release builds earthly for linux/amd64 in a container and pushes wtth the tag
 # EARTHLY_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
 ci-release:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
     ARG BUILDKIT_PROJECT
@@ -927,7 +927,7 @@ ci-release:
 # for-own builds earthly-buildkitd and the earthly CLI for the current system
 # and saves the final CLI binary locally at ./build/own/earthly
 for-own:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. See
@@ -941,7 +941,7 @@ for-own:
 # build-ticktock is used for building the ticktock version of buildkit
 # it is only used when BUILDKIT_PROJECT is not overridden
 build-ticktock:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     ARG BUILDKIT_PROJECT
     IF [ -z "$BUILDKIT_PROJECT" ]
         COPY earthly-next .
@@ -954,7 +954,7 @@ build-ticktock:
 # for-linux builds earthly-buildkitd and the earthly CLI for the a linux amd64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -972,7 +972,7 @@ for-linux:
 # for-linux-arm64 builds earthly-buildkitd and the earthly CLI for the a linux arm64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux-arm64:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -988,7 +988,7 @@ for-linux-arm64:
 # and saves the final CLI binary locally in the ./build/darwin folder.
 # For arm64 use +for-darwin-m1
 for-darwin:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -1000,7 +1000,7 @@ for-darwin:
 # for-darwin-m1 builds earthly-buildkitd and the earthly CLI for the a darwin m1 system
 # and saves the final CLI binary locally.
 for-darwin-m1:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -1012,7 +1012,7 @@ for-darwin-m1:
 # for-windows builds earthly-buildkitd and the earthly CLI for the a windows system
 # and saves the final CLI binary locally in the ./build/windows folder.
 for-windows:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # BUILD --platform=linux/amd64 ./buildkitd+buildkitd
@@ -1209,7 +1209,7 @@ examples:
     BUILD +examples-5
 
 examples-1:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     ARG TARGETARCH
     BUILD ./examples/c+docker
     BUILD ./examples/cpp+docker
@@ -1262,7 +1262,7 @@ examples-5:
 
 # license copies the license file and saves it as an artifact
 license:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     COPY LICENSE ./
     SAVE ARTIFACT LICENSE
@@ -1291,7 +1291,7 @@ npm-update-all:
 
 # merge-main-to-docs merges the main branch into docs-0.8
 merge-main-to-docs:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     RUN apk add --no-cache github-cli ca-certificates
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \
@@ -1359,7 +1359,7 @@ check-broken-links:
 
 # open-pr-for-fork creates a new PR based on the given pr_number
 open-pr-for-fork:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     RUN apk add --no-cache github-cli ca-certificates curl
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \
@@ -1394,7 +1394,7 @@ open-pr-for-fork:
     END
 
 check-broken-links-pr:
-    FROM alpine:3.24.1@sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /tmp
     RUN apk add --no-cache ca-certificates git github-cli
     ARG BRANCH

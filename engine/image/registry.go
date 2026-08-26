@@ -108,6 +108,19 @@ type Options struct {
 	Client *http.Client
 	// Platform is "os/arch". Defaults to this machine's.
 	Platform string
+	// Index keeps a multi-platform tag's *index* digest rather than descending
+	// to the platform's own manifest.
+	//
+	// **A digest written into an Earthfile is not a digest used to pull.** A
+	// pull wants this machine's manifest; a file committed to a repository is
+	// read on whatever architecture the next reader has, and a platform
+	// manifest pinned there is an image that exists for one of them and no
+	// other - `exec /bin/sh: exec format error` on the first RUN.
+	//
+	// Nothing is left open by it: an index names one exact manifest per
+	// platform, so what each architecture builds on is as fixed either way.
+	// What changes is only that the others still have one.
+	Index bool
 	// Challenges is a directory in which to remember where each registry issues
 	// tokens, so the round trip that collects that answer is paid once rather
 	// than once per build. Empty means do not remember, which is what every

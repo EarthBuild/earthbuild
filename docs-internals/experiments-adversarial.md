@@ -33573,6 +33573,34 @@ and the too-large case already falls back to a small reply.
 on. Running the corpus serially also stops it losing one to three invocations a
 sweep while the fault is open.
 
+**This was already diagnosed, and better, before any of the above.** The nits
+file carries "Intermittent multi-minute hang on the first build after a fresh
+sandbox", written two days earlier, with kernel stacks from both sides:
+
+```text
+earth-guestd tid 10   D  kernel_clone+0x1fc  __do_sys_clone
+step         pid 16   S  seccomp_do_user_notification <- __secure_computing
+```
+
+It is `vfork`. The parent is blocked until the child execs or exits; the child's
+`execve` traps to a user notification; the supervisor that would answer it is a
+goroutine **in the same process**, and the runtime cannot make progress past a
+thread stopped in vfork. Nobody answers, so the child never execs, so the parent
+never returns. Intermittent because it depends on whether the notification loop
+is on a thread that can still run when the vfork lands - which is also why it is
+not concurrency-gated, and why a serial sweep still meets it.
+
+That entry rules out two plausible causes with evidence and gives three
+directions for a fix, none of them small: answer notifications from a separate
+process, start the traced step without `CLONE_VFORK`, or keep a thread that a
+vfork cannot block.
+
+Everything above this line was re-derived without it and reached a weaker
+answer: "the shim was waiting on a notifier that was not servicing it" is the
+same fact with the mechanism missing. **Read the nit first.** What this adds is
+the one thing it did not have - that the fault is not concurrency-gated, which
+the vfork account predicts and nothing had yet shown.
+
 ## E724 - a deletion is silently lost when the layer store is on the host share
 
 Five lines, and it is wrong on macOS today:

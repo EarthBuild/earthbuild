@@ -235,16 +235,16 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 		// Note that the "cache_" prefix here is used to prevent auto-cleanup
 		dindID = "cache_" + opt.CacheID
 	}
-	// We will pass along the variable EARTHLY_DOCKER_LOAD_REGISTRY via a secret
+	// We will pass along the variable EARTH_DOCKER_LOAD_REGISTRY via a secret
 	// to prevent busting the cache, as the intermediate image names are
 	// different every time.
 	dockerLoadRegistrySecretID := fmt.Sprintf(
-		"%s-%s-EARTHLY_DOCKER_LOAD_REGISTRY", internalWithDockerSecretPrefix, dindID,
+		"%s-%s-EARTH_DOCKER_LOAD_REGISTRY", internalWithDockerSecretPrefix, dindID,
 	)
 	crOpts.extraRunOpts = append(
 		crOpts.extraRunOpts,
 		llb.AddSecret(
-			"EARTHLY_DOCKER_LOAD_REGISTRY",
+			"EARTH_DOCKER_LOAD_REGISTRY",
 			llb.SecretID(dockerLoadRegistrySecretID),
 			llb.SecretAsEnv(true),
 		),

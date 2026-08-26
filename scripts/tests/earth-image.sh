@@ -52,6 +52,27 @@ fi
 acbgrep "Executes earth builds" output.txt # Display help
 acbgrep "no target reference provided" output.txt # Show error
 
+# A trivial build that only needs the parser, so the deprecation scan can be
+# observed without standing up buildkit.
+deprecation_probe='cd /tmp && printf "VERSION 0.8\nfoo:\n    FROM alpine\n" > Earthfile && earthly ls'
+
+echo "Test the image does not emit deprecation warnings for its own configuration."
+# The deprecation scan cannot tell a user-set EARTHLY_* variable from one
+# earthbuild set on itself, so the image must only ever set EARTH_* names.
+# See https://github.com/EarthBuild/earthbuild/issues/751.
+"$FRONTEND" run --rm --entrypoint sh "${EARTH_IMAGE}" -c "$deprecation_probe" 2>&1 | tee output.txt
+acbgrep "+foo" output.txt # the probe really ran
+# Match the env-var warning shape specifically, so the unrelated
+# earthly-is-now-earth binary rename notice does not trip this.
+if grep -E "WARNING: EARTHLY_[A-Z0-9_]+ is deprecated" output.txt; then
+    echo "the image emitted deprecation warnings the user cannot act on"
+    exit 1
+fi
+
+echo "Test a user-set EARTHLY_ variable still warns, and is still honoured."
+"$FRONTEND" run --rm --entrypoint sh -e EARTHLY_TMP_DIR=/tmp/earthbuild "${EARTH_IMAGE}" -c "$deprecation_probe" 2>&1 | tee output.txt
+acbgrep "WARNING: EARTHLY_TMP_DIR is deprecated. Use EARTH_TMP_DIR." output.txt
+
 echo "Test --version (smoke test)."
 "$FRONTEND" run --rm --privileged "${EARTH_IMAGE}" --version 2>&1
 "$FRONTEND" run --rm -e NO_BUILDKIT=1 "${EARTH_IMAGE}" --version 2>&1

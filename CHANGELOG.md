@@ -4,6 +4,31 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ## Unreleased
 
+### Changed
+
+- Completed the `EARTHLY_*` -> `EARTH_*` environment variable rename for the variables EarthBuild
+  sets on itself. The published `earthbuild/earthbuild` image no longer emits deprecation warnings
+  for its own configuration. [#751](https://github.com/EarthBuild/earthbuild/issues/751)
+- The image-facing variables `EARTH_ADDITIONAL_BUILDKIT_CONFIG`, `EARTH_EXEC_CMD`, `EARTH_TMP_DIR`,
+  `EARTH_RESET_TMP_DIR`, `EARTH_DEBUG`, `EARTH_BUILDKIT_HOST`, `EARTH_DOCKER_WRAPPER_DEBUG`,
+  `EARTH_DOCKER_WRAPPER_DEBUG_CMD` and `EARTH_DOCKER_WRAPPER_PRE_SCRIPT` are now the current names.
+  The `EARTHLY_` spellings still work and log a deprecation warning. The unprefixed `BUILDKIT_HOST`
+  read by the all-in-one image is unchanged, as it is upstream BuildKit's name.
+- `WITH DOCKER` settings are passed to `dockerd-wrapper.sh` as command-line flags instead of
+  `EARTHLY_*` environment variables, so they no longer appear in the environment of commands run
+  inside `WITH DOCKER`. An older `earth` CLI paired with a newer buildkitd image still works, with
+  a warning.
+
+### Fixed
+
+- `EARTH_WITH_DOCKER` is now honoured. Previously only `EARTHLY_WITH_DOCKER` was read, so following
+  the deprecation warning silently disabled the `/sys/fs/cgroup` mount needed for earth-in-earth.
+  [#751](https://github.com/EarthBuild/earthbuild/issues/751)
+
+### Removed
+
+- `EARTHLY_IMAGE` and `EARTHLY_GIT_CONFIG`, which had no reader and no writer respectively.
+
 ## v0.8.16 - 2025-07-16
 
 ### Changed

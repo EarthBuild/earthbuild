@@ -1,15 +1,25 @@
 #!/bin/sh
 set -e
 
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=earth-env.sh
+. /usr/bin/earth-env.sh
+
+# The EARTH_* variables below are the documented interface of this image; the
+# EARTHLY_ spellings are still accepted, with a deprecation warning.
+EARTH_TMP_DIR="$(earth_env TMP_DIR)"
+EARTH_CACHE_VERSION="$(earth_env CACHE_VERSION)"
+EARTH_RESET_TMP_DIR="$(earth_env RESET_TMP_DIR)"
+EARTH_GIT_HASH="$(earth_env GIT_HASH)"
+EARTH_ADDITIONAL_BUILDKIT_CONFIG="$(earth_env ADDITIONAL_BUILDKIT_CONFIG)"
+export EARTH_ADDITIONAL_BUILDKIT_CONFIG # substituted into buildkitd.toml.template
+
 # Docker 29+ (containerd v2) lowered the default open file limit from 1048576
 # to 1024, which starves buildkitd. Ensure we always have enough.
 # shellcheck disable=SC3045
 ulimit -n 1048576 2>/dev/null || true
 
-EARTH_ADDITIONAL_BUILDKIT_CONFIG="${EARTH_ADDITIONAL_BUILDKIT_CONFIG:-${EARTHLY_ADDITIONAL_BUILDKIT_CONFIG:-}}"
-export EARTH_ADDITIONAL_BUILDKIT_CONFIG
-
-echo "starting earthly-buildkit with EARTHLY_GIT_HASH=$EARTHLY_GIT_HASH BUILDKIT_BASE_IMAGE=$BUILDKIT_BASE_IMAGE"
+echo "starting earthly-buildkit with EARTH_GIT_HASH=$EARTH_GIT_HASH BUILDKIT_BASE_IMAGE=$BUILDKIT_BASE_IMAGE"
 
 if [ "$BUILDKIT_DEBUG" = "true" ]; then
     set -x
@@ -35,8 +45,8 @@ if [ -z "$BUILDKIT_MAX_PARALLELISM" ]; then
     exit 1
 fi
 
-if [ -z "$EARTHLY_TMP_DIR" ]; then
-    echo "EARTHLY_TMP_DIR not set"
+if [ -z "$EARTH_TMP_DIR" ]; then
+    echo "EARTH_TMP_DIR not set"
     exit 1
 fi
 
@@ -45,8 +55,8 @@ if [ -z "$NETWORK_MODE" ]; then
     exit 1
 fi
 
-if [ -z "$EARTHLY_CACHE_VERSION" ]; then
-    echo "EARTHLY_CACHE_VERSION not set"
+if [ -z "$EARTH_CACHE_VERSION" ]; then
+    echo "EARTH_CACHE_VERSION not set"
     exit 1
 fi
 
@@ -55,21 +65,21 @@ if [ -f "/sys/fs/cgroup/cgroup.controllers" ]; then
     test "$(cat /sys/fs/cgroup/cgroup.type)" = "domain" || (echo >&2 "WARNING: invalid root cgroup type: $(cat /sys/fs/cgroup/cgroup.type)")
 fi
 
-earthly_cache_version_path="${EARTHLY_TMP_DIR}/internal.earthly.version"
+earthly_cache_version_path="${EARTH_TMP_DIR}/internal.earthly.version"
 if [ -f "$earthly_cache_version_path" ]; then
     current_cache_version="$(cat "$earthly_cache_version_path")"
 else
     current_cache_version="0"
 fi
-if [ "$EARTHLY_CACHE_VERSION" != "$current_cache_version" ]; then
-    EARTHLY_RESET_TMP_DIR="true"
+if [ "$EARTH_CACHE_VERSION" != "$current_cache_version" ]; then
+    EARTH_RESET_TMP_DIR="true"
 fi
 
-if [ "$EARTHLY_RESET_TMP_DIR" = "true" ]; then
-    echo "Resetting dir $EARTHLY_TMP_DIR"
-    rm -rf "${EARTHLY_TMP_DIR:?}"/* || true
-    mkdir -p "$EARTHLY_TMP_DIR" # required for eine tests
-    echo "$EARTHLY_CACHE_VERSION" > "$earthly_cache_version_path"
+if [ "$EARTH_RESET_TMP_DIR" = "true" ]; then
+    echo "Resetting dir $EARTH_TMP_DIR"
+    rm -rf "${EARTH_TMP_DIR:?}"/* || true
+    mkdir -p "$EARTH_TMP_DIR" # required for eine tests
+    echo "$EARTH_CACHE_VERSION" > "$earthly_cache_version_path"
 fi
 
 if [ -z "$IP_TABLES" ]; then
@@ -125,7 +135,7 @@ ln -sf "/sbin/$IP_TABLES" /sbin/iptables
 # clear any leftovers (that aren't explicitly cached) in the dind dir
 find /tmp/earthbuild/dind/ -maxdepth 1 -mindepth 1 | grep -v cache_ | xargs -r rm -rf
 
-mkdir -p "$EARTHLY_TMP_DIR/dind"
+mkdir -p "$EARTH_TMP_DIR/dind"
 
 # setup git credentials and config
 i=0
@@ -143,7 +153,6 @@ do
     fi
     i=$((i+1))
 done
-echo "$EARTHLY_GIT_CONFIG" | base64 -d >/root/.gitconfig
 
 #Set up CNI
 if [ -z "$CNI_MTU" ]; then
@@ -154,7 +163,7 @@ fi
 envsubst </etc/cni/cni-conf.json.template >/etc/cni/cni-conf.json
 
 # Set up buildkit cache.
-export BUILDKIT_ROOT_DIR="$EARTHLY_TMP_DIR"/buildkit
+export BUILDKIT_ROOT_DIR="$EARTH_TMP_DIR"/buildkit
 mkdir -p "$BUILDKIT_ROOT_DIR"
 CACHE_SETTINGS=
 
@@ -176,8 +185,8 @@ fi
 if [ "$CACHE_SIZE_PCT" -gt "0" ]; then
     # %b -> "Total data blocks"
     # %S -> "Fundamental block size"
-    # -f $EARTHLY_TMP_DIR -> filesystem where directory resides, usually a volume in docker's root directory
-    CALCULATED_CACHE_MB="$(stat -c "%b * %S * ${CACHE_SIZE_PCT} / 100 / 1024 / 1024" -f "$EARTHLY_TMP_DIR" | bc)"
+    # -f $EARTH_TMP_DIR -> filesystem where directory resides, usually a volume in docker's root directory
+    CALCULATED_CACHE_MB="$(stat -c "%b * %S * ${CACHE_SIZE_PCT} / 100 / 1024 / 1024" -f "$EARTH_TMP_DIR" | bc)"
     if [ -z "$EFFECTIVE_CACHE_SIZE_MB" ]; then
         EFFECTIVE_CACHE_SIZE_MB="$CALCULATED_CACHE_MB"
     elif [ "$CALCULATED_CACHE_MB" -lt "$EFFECTIVE_CACHE_SIZE_MB" ]; then
@@ -199,8 +208,8 @@ if [ "$CACHE_SIZE_MB" -eq "0" ]; then
     # no config value was set by the user; buildkit would set this to 10% by default:
     #   https://github.com/moby/buildkit/blob/54b8ff2fc8648c86b1b8c35e5cd07517b56ac2d5/cmd/buildkitd/config/gcpolicy_unix.go#L16
     # however, we will be aggressive and set it to min(55%, max(10%, 20GB))
-    CACHE_MB_10PCT="$(stat -c "10 * %b * %S / 100 / 1024 / 1024" -f "$EARTHLY_TMP_DIR" | bc)"
-    CACHE_MB_55PCT="$(stat -c "55 * %b * %S / 100 / 1024 / 1024" -f "$EARTHLY_TMP_DIR" | bc)"
+    CACHE_MB_10PCT="$(stat -c "10 * %b * %S / 100 / 1024 / 1024" -f "$EARTH_TMP_DIR" | bc)"
+    CACHE_MB_55PCT="$(stat -c "55 * %b * %S / 100 / 1024 / 1024" -f "$EARTH_TMP_DIR" | bc)"
     CACHE_SIZE_MB="20480" # first start with 20GB
     if [ "$CACHE_MB_10PCT" -gt "$CACHE_SIZE_MB" ]; then
         CACHE_SIZE_MB="$CACHE_MB_10PCT" # increase it to 10% of the disk if bigger

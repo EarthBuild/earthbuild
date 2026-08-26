@@ -19,7 +19,7 @@ pipeline:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - FORCE_COLOR=1
-      - EARTHLY_EXEC_CMD="/bin/sh" 
+      - EARTH_EXEC_CMD="/bin/sh" 
     secrets: [REGISTRY, REGISTRY_USER, REGISTRY_PASSWORD]
     commands:
      - docker login -u $${REGISTRY_USER} -p $${REGISTRY_PASSWORD} $${REGISTRY}

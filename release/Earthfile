@@ -94,7 +94,7 @@ signed-release:
     # If not provided, defaults to RELEASE_TAG for backwards compatibility
     ARG VERSION="$RELEASE_TAG"
 
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
 
     COPY (../+all-binaries/* \
          --VERSION=$VERSION \
@@ -142,10 +142,10 @@ promote-artifacts-to-gh:
     FROM +gh-cli
 
     # Built-ins: Full commit SHA, First 8 of commit SHA
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
 
     # Default to earthly-inferred commit SHA but accept an override
-    ARG COMMIT_SHA="$EARTHLY_GIT_HASH"
+    ARG COMMIT_SHA="$EARTH_GIT_HASH"
 
     # Trim COMMIT_SHA to first 8 chars
     LET ARTIFACT_NAME="$(echo $COMMIT_SHA | cut -c1-8)"

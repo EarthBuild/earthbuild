@@ -49,7 +49,7 @@ echo "$earthly"
 "$crustly" --no-buildkit-update -P ../../tests/with-docker+all
 
 # validate buildkitd container was compiled using the current branch
-buildkitd_earthly_version="$(docker logs earthly-integration-buildkitd |& grep -o 'EARTHLY_GIT_HASH=[a-z0-9]*')"
-acbtest "$buildkitd_earthly_version" = "EARTHLY_GIT_HASH=$current_git_sha"
+buildkitd_earthly_version="$(docker logs earthly-integration-buildkitd |& grep -o 'EARTH_GIT_HASH=[a-z0-9]*')"
+acbtest "$buildkitd_earthly_version" = "EARTH_GIT_HASH=$current_git_sha"
 
 echo "=== All tests have passed ==="

@@ -42,6 +42,21 @@ func TestWarningsFor(t *testing.T) {
 			environ: []string{"EARTH_GIT_HASH=abc123"},
 			want:    nil,
 		},
+		{
+			// The scan cannot tell a user-set variable from one earthbuild set
+			// on itself, so the published images must only ever set EARTH_
+			// names.
+			name: "environment of the published image is silent",
+			environ: []string{
+				"EARTH_CACHE_VERSION=2",
+				"EARTH_DISABLE_REMOTE_REGISTRY_PROXY=true",
+				"EARTH_GIT_HASH=abc123",
+				"EARTH_RESET_TMP_DIR=false",
+				"EARTH_TMP_DIR=/tmp/earthbuild",
+				"PATH=/usr/bin",
+			},
+			want: nil,
+		},
 	}
 
 	for _, tc := range testCases {

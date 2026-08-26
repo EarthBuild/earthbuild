@@ -16,7 +16,7 @@ test-aws:
 test-aws-base:
     COPY test-aws.sh .
     COPY aws.earth Earthfile
-    ENV EARTHLY_EXEC_CMD=/test/test-aws.sh
+    ENV EARTH_EXEC_CMD=/test/test-aws.sh
 
 test-aws-success:
     FROM +test-aws-base

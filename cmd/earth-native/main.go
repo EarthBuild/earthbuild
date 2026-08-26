@@ -192,7 +192,14 @@ func main() {
 	// **Before parsing**, because Go's flag package stops at the first non-flag
 	// argument: `doc --long` reaches it as a subcommand with an argument, and
 	// the flag is reported as a build argument that is not one.
-	flag.CommandLine.Parse(hoistSubcommandFlags(os.Args[1:])) //nolint:errcheck // ExitOnError
+	// Reported rather than discarded, even though `flag.CommandLine` is
+	// ExitOnError and does not return one: a silenced error here is a promise
+	// about a package's configuration made at a call site that cannot see it.
+	parseErr := flag.CommandLine.Parse(hoistSubcommandFlags(os.Args[1:]))
+	if parseErr != nil {
+		fmt.Fprintln(os.Stderr, parseErr)
+		os.Exit(2)
+	}
 
 	// The sandbox outlives a build on purpose. This is how it is taken away,
 	// and it takes no target because it is not a build.

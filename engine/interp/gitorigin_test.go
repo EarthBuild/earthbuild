@@ -59,7 +59,7 @@ func TestARepositoryWithNoRemoteHasNoQualifier(t *testing.T) {
 func run(t *testing.T, dir string, args ...string) {
 	t.Helper()
 
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(t.Context(), "git", args...)
 	cmd.Dir = dir
 
 	out, err := cmd.CombinedOutput()

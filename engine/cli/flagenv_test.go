@@ -23,7 +23,8 @@ func TestAFlagNotGivenTakesItsValueFromTheEnvironment(t *testing.T) {
 	argFile := fs.String("arg-file-path", "", "")
 	noOutput := fs.Bool("no-output", false, "")
 
-	if err := fs.Parse([]string{"--arg-file-path", ".given"}); err != nil {
+	err := fs.Parse([]string{"--arg-file-path", ".given"})
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -33,7 +34,7 @@ func TestAFlagNotGivenTakesItsValueFromTheEnvironment(t *testing.T) {
 		"EARTH_NO_OUTPUT":       "true",
 	}
 
-	err := ApplyEnvDefaults(fs, func(n string) string { return env[n] })
+	err = ApplyEnvDefaults(fs, func(n string) string { return env[n] })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,13 +64,14 @@ func TestThisEnginesOwnPrefixWins(t *testing.T) {
 	fs := flag.NewFlagSet("t", flag.ContinueOnError)
 	dir := fs.String("dir", ".", "")
 
-	if err := fs.Parse(nil); err != nil {
+	err := fs.Parse(nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	env := map[string]string{"EARTH_DIR": "/mine", "EARTHLY_DIR": "/theirs"}
 
-	err := ApplyEnvDefaults(fs, func(n string) string { return env[n] })
+	err = ApplyEnvDefaults(fs, func(n string) string { return env[n] })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,13 +90,14 @@ func TestAnUnusableValueNamesTheVariable(t *testing.T) {
 	fs.SetOutput(discard{})
 	fs.Bool("push", false, "")
 
-	if err := fs.Parse(nil); err != nil {
+	err := fs.Parse(nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	env := map[string]string{"EARTHLY_PUSH": "yes please"}
 
-	err := ApplyEnvDefaults(fs, func(n string) string { return env[n] })
+	err = ApplyEnvDefaults(fs, func(n string) string { return env[n] })
 	if err == nil {
 		t.Fatal("a value the flag cannot take was accepted")
 	}

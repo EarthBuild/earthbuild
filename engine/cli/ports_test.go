@@ -89,14 +89,13 @@ var schedulerPorts = map[string]port{
 		" Earthfile, so a graph containing one never reaches a scheduler. Green paper I10 is met" +
 		" by that path, and this one is a second gate for a caller that builds a graph directly."},
 
-	// Inert in production and no longer untested: zero means NumCPU, which is
-	// the documented default the front end wants, and the *bound* is what
+	// Wired since EARTH_PARALLELISM. Unset it is still zero, which is NumCPU
+	// and the default every build had; what changed is that a caller can now
+	// ask for fewer. A serial build is a diagnostic instrument - a build that
+	// stops with eight steps in flight could not be told apart from one that
+	// would stop anyway - and the *bound* is what
 	// `TestParallelismBoundsWhatRunsAtOnce` exercises with 1, 2 and 3 (E136).
-	// The reason a port is unset and the question of whether it works are
-	// different questions, and this row used to answer only the first.
-	"Parallelism": {role: inert, reason: "zero means NumCPU, which is a documented default rather" +
-		" than an absent decision - the front end wants every core. The non-zero path bounds how" +
-		" many steps run at once and is exercised directly (E136)."},
+	"Parallelism": {role: mustSet},
 }
 
 // Every port is either wired or has a reason.

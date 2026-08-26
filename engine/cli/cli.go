@@ -508,6 +508,10 @@ func runPlan(
 		Workers:  workers,
 		Executor: over,
 		Cache:    ac,
+		// Zero is one per core, which is every build that does not ask. See
+		// EnvParallelism - a serial build is how a hang with several steps in
+		// flight is told apart from one that would hang anyway.
+		Parallelism: parallelismFrom(o.env),
 		// The invocation saying "redo it all": reads nothing already there and
 		// writes everything it produces, so the *next* build is warm (E462).
 		NoCache: o.NoCache,

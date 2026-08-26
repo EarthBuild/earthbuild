@@ -405,12 +405,21 @@ func (b *dockerfileBuild) instruction(
 				b.where, len(cp.SourcePaths))
 		}
 
+		// **Through the producing target's artifacts, as an Earthfile's own COPY
+		// is.** The source went through verbatim, so `COPY bc.txt ./` asked the
+		// guest for `/bc.txt` - and `SAVE ARTIFACT ./*` under `WORKDIR /test`
+		// puts it at `/test/bc.txt` (tests/gen-dockerfile.earth). A name that
+		// matches nothing saved comes back as written, which is what it was
+		// before.
 		return &ir.Node{
 			Platform: platformOf(rs.platform),
 			Op: ir.Op{
 				Kind: ir.OpFile,
-				Args: []string{cp.SourcePaths[0], resolveDest(cp.DestPath, rs.dir)},
-				Dir:  rs.dir, User: rs.user,
+				Args: []string{
+					b.plan.savedAt(b.context, cp.SourcePaths[0]),
+					resolveDest(cp.DestPath, rs.dir),
+				},
+				Dir: rs.dir, User: rs.user,
 			},
 			Inputs:  []*ir.Node{prev},
 			Sources: []*ir.Node{b.context},

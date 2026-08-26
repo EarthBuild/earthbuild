@@ -465,7 +465,12 @@ main:
 	var copied *ir.Node
 
 	for _, n := range p.Graph.Nodes() {
-		if n.Op.Kind == ir.OpFile && len(n.Op.Args) == 2 && n.Op.Args[0] == testFileA {
+		// By base name: the source is resolved through the producing target's
+		// saved artifacts, so `a.txt` in the Dockerfile is the artifact's own
+		// path here. What this test asserts is below - that the node exists and
+		// reads from the named target - and neither changes with the spelling.
+		if n.Op.Kind == ir.OpFile && len(n.Op.Args) == 2 &&
+			filepath.Base(n.Op.Args[0]) == testFileA {
 			copied = n
 		}
 	}

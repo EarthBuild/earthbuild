@@ -2,7 +2,7 @@ VERSION 0.8
 FROM --pass-args ..+base
 
 # replace the earth config.yml (which typically has buildkit_additional_config configured
-# to use the earthly docker hub registry); we want to intentionally use docker hub for this test
+# to use the earth docker hub registry); we want to intentionally use docker hub for this test
 RUN echo "global:
 " > "/etc/.\${EARTH_IMAGE_INSTALLATION_NAME:-earth}/config.yml"
 

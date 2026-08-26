@@ -4,7 +4,7 @@ FROM --pass-args ../../+base
 RUN adduser -h /home/bambi -D bambi
 RUN echo "#!/bin/sh
 set -ex
-earthly bootstrap --with-autocomplete --no-buildkit 2>&1 | tee out.txt
+earth bootstrap --with-autocomplete --no-buildkit 2>&1 | tee out.txt
 " > /tmp/bootstrap-script && chmod +x /tmp/bootstrap-script
 
 test-bash-non-root-fallback-dir:

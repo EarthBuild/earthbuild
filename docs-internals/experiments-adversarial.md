@@ -33601,9 +33601,36 @@ the hang in E723.
 | default (host directory, shared into the VM) | deletion lost, `rc=1`        |
 | `EARTH_STORE_IN_VM=1`                        | deletion applied, `rc=0`     |
 
-An overlayfs deletion is a character device 0:0, made with `mknod`. The share
-backing the host store cannot hold one, so the marker never lands and the layer
-carries no record of the removal. `engine/guest/copy.go` already says what
+**The marker lands; the layer is then told to ignore it.** The first reading -
+that the share cannot hold a device node, so nothing is recorded - is half right
+and stops one step short. The store does hold `.wh.dummy`, exactly as intended:
+
+```text
+~/.cache/earthbuild/layers/8de387f1.../test/.wh.dummy      <- written
+~/.cache/earthbuild/layers/8de387f1....unmarked            <- and disregarded
+```
+
+Every link in the chain is individually correct:
+
+* a deletion in an overlay's upper directory is a character device named after
+  what it removes;
+* `layer.marked` looks for the `.wh.` **name**, and the capture is taken over
+  that delta (`layer.TakeExcludingIn(h.Delta(), ...)`), so it reports that the
+  layer carries no markers;
+* `copySpecial` cannot `mknod` on the share and correctly falls back to writing
+  `.wh.dummy`;
+* but the capture's answer was recorded first, `.unmarked` was written beside
+  the layer, and that note tells the materialiser to skip the translation which
+  turns the marker back into a deletion.
+
+With the store inside the VM the same layer keeps a real device node, which
+overlayfs reads directly and needs no translation - which is why it worked there
+and only there.
+
+**Fixed**: the placement reports which spelling it wrote (`copyOpts.Portable`),
+and the note is withheld when it wrote the portable one. A layer that really
+carries no deletion is noted exactly as before, so the walk this note exists to
+avoid (E561) is still avoided everywhere it was. `engine/guest/copy.go` already says what
 happens when this goes wrong - "every deletion was dropped on the way into the
 store, and the layer that arrived said nothing had been removed. Measured:
 `RUN rm /marker.txt` followed by a step that looks for it found it" - and that is
@@ -33612,10 +33639,10 @@ exactly the symptom, still present for this store.
 Pre-existing: reproduced identically at 11b031262, before any of this session's
 changes.
 
-**This reframes the storage-mode question.** In-guest storage was being weighed
+**On the storage-mode question.** In-guest storage was being weighed
 as six corpus invocations against the layers living only as long as the sandbox
-(and, per the nit, against the export and probe faults it currently has). It is
-not a tuning choice: with the store on the share, `RUN rm` does not delete on
-macOS. Whatever the eventual arrangement, a store that cannot represent a
-deletion must be *refused* rather than used, in the way `--keep-own` is already
-refused when the store discards ownership - the same probe, one field along.
+(and, per the nit, against the export and probe faults it currently has). That weighing stands, but this is no longer
+an argument for it: the host store *can* represent a deletion, in the portable
+spelling, and now does. What remains true is that a store which can represent
+neither should be refused rather than used, in the way `--keep-own` is already
+refused when the store discards ownership.

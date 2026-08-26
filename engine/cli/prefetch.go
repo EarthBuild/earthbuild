@@ -60,6 +60,22 @@ func prefetch(ctx context.Context, learned *core.Predictions, pull pullFunc) fun
 		}
 	}
 
+	// **Abandoned on the way out, not waited for.** A pull that has not
+	// finished by the time the build has cannot take a round trip off its
+	// critical path - that is the whole of what this tier is for - so waiting
+	// on it only lengthens the build that was supposed to benefit.
+	//
+	// Measured: a warm no-op build is 380ms with a predictions file and 37ms
+	// with it moved aside, and the difference is this wait (E727). Ten times
+	// the build, fetching images it never asked for - one of them, on a machine
+	// that has built for two platforms, an image the other platform wanted and
+	// this one cannot use at all.
+	//
+	// Still waited on after cancelling, which is what the wait was for: a pull
+	// must not outlive the build that speculated on it, leaving bytes landing
+	// in a cache directory nobody is watching any more.
+	ctx, stop := context.WithCancel(ctx)
+
 	var wg sync.WaitGroup
 
 	for ref := range wanted {
@@ -68,7 +84,10 @@ func prefetch(ctx context.Context, learned *core.Predictions, pull pullFunc) fun
 		})
 	}
 
-	return wg.Wait
+	return func() {
+		stop()
+		wg.Wait()
+	}
 }
 
 // recordNeeds attributes a build's images to the conditions it evaluated.

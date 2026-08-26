@@ -33859,3 +33859,42 @@ settled from the manifest before anything is fetched.
 
 **The method note is the lesson.** An A/B against the parent commit takes two
 minutes and was skipped, on a change whose entire justification was a number.
+
+### E727b - the wait, and what removing it is worth
+
+The cost is not the pull. It is that the build *waits* for it.
+
+`prefetch` returns `wg.Wait`, so a build blocks on every speculative fetch the
+predictions asked for before it can exit. Moving the predictions file aside
+settles the size of it, with no code changed at all:
+
+| warm no-op build     | wall clock |
+| -------------------- | ---------- |
+| predictions present  | 380ms      |
+| predictions aside    | 37ms       |
+
+Ten times the build, spent fetching images the build never asked for.
+
+The returned function now cancels before it waits. A pull that has not finished
+by the time the build has cannot take a round trip off its critical path, which
+is the whole of what this tier is for; and it is still waited on after
+cancelling, because the wait was there for a reason - a pull must not outlive
+the build that speculated on it and leave bytes landing in a cache directory
+nobody is watching.
+
+A/B against the parent commit, alternating, on the same cache:
+
+| round | parent  | with the fix |
+| ----- | ------- | ------------ |
+| 1     | 1020ms  | 484ms        |
+| 2     | 961ms   | 45ms         |
+| 3     | 961ms   | 37ms         |
+
+**The trade, stated plainly.** Cancelling means an image that would have been
+prefetched is not in the cache for a *later* build either - the parent's own
+number rises from 377ms to 961ms once the fixed binary stops warming the cache
+for it, which is the same effect seen from the other side. That is the right
+trade for the tier as it is documented: it exists to take a round trip off the
+critical path of the build that speculated, and a fetch still running when that
+build ends did not. A prefetch that wants to warm the cache for *future* builds
+is a different tier and would need to say so.

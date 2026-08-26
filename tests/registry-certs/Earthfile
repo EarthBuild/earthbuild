@@ -62,5 +62,5 @@ DO_REMOTE_CACHE_EARTH:
             $target; echo exit_code=$? \
         ) 2>&1 | tee ./output && \
         if ! tail -n 1 output | grep 'exit_code=0'; then \
-            echo "ERROR: earthly failed (exit_code=0 not found)" && tail -n 1 output && exit 1; \
+            echo "ERROR: earth failed (exit_code=0 not found)" && tail -n 1 output && exit 1; \
         fi

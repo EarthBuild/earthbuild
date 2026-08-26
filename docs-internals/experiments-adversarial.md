@@ -33822,3 +33822,40 @@ failure there would be silent by construction.
 A measurement note, because it cost time: `EARTH_TIMINGS` has to be set to see
 any of this. Two runs looked clean at zero registry phases purely because the
 variable was not exported, which reads as a fix and is a blindfold.
+
+### E727a - a fix for it, attempted and withdrawn
+
+The reason the pull fails is a platform mismatch:
+
+```text
+configuration of alpine@sha256:79ff19e9...:
+  this image is linux/amd64 and the build is for linux/arm64
+```
+
+The prediction naming it is a cross-platform corpus target,
+`Earthfile:46 echo bGludXgvYW1kNjQ= | base64 -d`, and `Predictions` remembers an
+image without remembering which platform wanted it. So a machine that has built
+for two of them speculates on both, and the one for the other platform can never
+succeed.
+
+`image.ErrWrongPlatform` was added to name that refusal so `Prefetch` could
+remember it beside the cache entry and stop retrying. The warm build then
+measured 380ms against 945ms, which reads as a 60% win and is not one: **the
+same build on the parent commit also measures 377ms.** The improvement happened
+between the two measurements - the cache warmed - and the change was credited
+with it.
+
+Worse, the new branch never ran. No `.unusable` note was ever written, because
+the platform check lives in `pullConfig`, which the comment beside it says is
+"fetched after the layers" - and by then the pull was already failing earlier,
+at the manifest. The code looked right, did nothing, and was justified by
+somebody else's number. Reverted.
+
+What stands: a warm no-op build is about 380ms, `registry:token` is 0.28s of it,
+and it is still resolving an amd64 digest this arm64 machine cannot use on every
+build. The fix belongs either in `Predictions`, which should remember which
+platform wanted an image, or in the order of the checks, so a platform is
+settled from the manifest before anything is fetched.
+
+**The method note is the lesson.** An A/B against the parent commit takes two
+minutes and was skipped, on a change whose entire justification was a number.

@@ -34,18 +34,24 @@ const (
 	dockerIgnore  = ".dockerignore"
 )
 
-// Implicit is excluded from every context whether a file says so or not.
+// Implicit is what a context leaves out whether a file says so or not, and it
+// is empty.
 //
-// The build's own description is not one of its inputs: an Earthfile that
-// changes changes the build, and including it in a COPY's digest would make
-// every COPY miss whenever any line of the Earthfile moved.
-var Implicit = []string{
-	".tmp-earth-out/",
-	"build.earth",
-	"Earthfile",
-	earthIgnore,
-	earthlyIgnore,
-}
+// **`--no-implicit-ignore` is `enabled_in_version:"0.6"`**, and this engine
+// accepts no Earthfile older than that - so for every file it can build, the
+// reference puts `.tmp-earth-out/`, `build.earth`, `Earthfile`, `.earthignore`
+// and `.earthlyignore` in the context like anything else.
+//
+// Considered and rejected: keeping them out anyway, on the argument that the
+// build's own description is not one of its inputs, so including it in a COPY's
+// digest makes every COPY miss whenever any line of the Earthfile moves. That is
+// true and it is not this engine's decision to make - `tests/no-implicit-ignore`
+// does `COPY . .` and then `RUN ls Earthfile`, and a project that wants the
+// Earthfile out of its context writes one line in `.earthlyignore`.
+//
+// Kept as a name rather than deleted, because the list is the thing a reader
+// goes looking for, and an empty one with this note answers them.
+var Implicit []string
 
 // Matcher decides whether a path is left out of the context.
 //

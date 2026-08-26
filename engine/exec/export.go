@@ -2,6 +2,8 @@ package exec
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -138,8 +140,14 @@ func (e *Executor) exportTo(
 	// Named by destination so two artifacts cannot collide in the staging area,
 	// and so a partial export is visible as the wrong file rather than as a
 	// mysteriously absent one.
+	// **A pattern stages under a name of its own**, because staging it under
+	// the destination means the exports root for `AS LOCAL .` - see
+	// stagingFor. The contents are copied out below, which is what makes the
+	// destination a place rather than a name.
+	stage := stagingFor(path, localDest)
+
 	endStage := phase("export:stage", path)
-	shared, err := c.Export(ctx, h, path, localDest)
+	shared, err := c.Export(ctx, h, path, stage)
 	endStage()
 
 	if err != nil {
@@ -153,7 +161,7 @@ func (e *Executor) exportTo(
 		return err
 	}
 
-	staged := filepath.Join(e.sb.StoreDir(), "exports", filepath.Clean("/"+localDest))
+	staged := filepath.Join(e.sb.StoreDir(), "exports", filepath.Clean("/"+stage))
 
 	// Nothing was staged, because nothing needed to be: the guest recognised
 	// the artifact as a file the store already holds, so the host reads it off
@@ -173,6 +181,29 @@ func (e *Executor) exportTo(
 }
 
 // copyOut moves a staged artifact to where the user asked for it.
+// stagingFor is where the guest puts what it exported, before it is copied to
+// the destination on this machine.
+//
+// The destination itself for a single artifact, which is what every other part
+// of export assumes. **A pattern gets a directory of its own**, and this is the
+// whole of the fix: staged under the destination, `SAVE ARTIFACT /output/* AS
+// LOCAL .` stages into `exports/.` - the exports *root*, holding every artifact
+// this store has ever staged - and copying that out wrote thirteen unrelated
+// files from other tests into the project.
+//
+// Named from the request rather than randomly, so a build repeated does not
+// leave one directory per invocation, and two patterns to one destination do
+// not share.
+func stagingFor(path, localDest string) string {
+	if !strings.ContainsAny(filepath.Base(path), "*?[") {
+		return localDest
+	}
+
+	sum := sha256.Sum256([]byte(path + "\x00" + localDest))
+
+	return filepath.Join(".patterns", hex.EncodeToString(sum[:8]))
+}
+
 func copyOut(src, dst string) error {
 	// Lstat, not Stat. `copyDir` walks with `filepath.Walk`, which lstats: a
 	// symlink is not a directory to it, so the entry arrives here - and stat

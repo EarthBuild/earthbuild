@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -668,6 +669,21 @@ var _ = ir.NodeID{}
 // needed, arriving from the other end.
 func localPath(dest, name string) string {
 	if name == "" {
+		return dest
+	}
+
+	// **A pattern names however many files the build made**, so the destination
+	// is where they go rather than what they are called. Joined the way a
+	// single file is, `SAVE ARTIFACT /output/* AS LOCAL .` wrote to
+	// `./output/*` - a path with a star in it, which nothing is called - and
+	// the build reported success having written nothing.
+	//
+	// This was refused until the *staging* was fixed, and the refusal was
+	// right: returning the destination alone once made `exportTo` stage into
+	// the exports root and copy thirteen unrelated files into the project.
+	// `exec.stagingFor` gives a pattern a directory of its own, which is what
+	// makes this the correct half of the pair rather than the dangerous one.
+	if strings.ContainsAny(path.Base(name), "*?[") {
 		return dest
 	}
 

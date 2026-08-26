@@ -1514,7 +1514,6 @@ test-aws-flag-envs:
 
 # TODO: reinstate test once we have AWS access.
 # # test-aws-oidc tests expected errors for misusing of oidc flag
-# # for happy path test go to <repo>/tests/oidc
 # test-aws-oidc:
 #    DO +RUN_EARTH --earthfile=aws-flag.earth --target=+oidc --should_fail=true --output_contains="RUN --aws-oidc requires the --run-with-aws-oidc feature flag"
 #    DO +RUN_EARTH --earthfile=aws-flag.earth --extra_args="--allow-privileged" --target=+oidc-with-docker --should_fail=true --output_contains="RUN --aws-oidc requires the --run-with-aws-oidc feature flag"

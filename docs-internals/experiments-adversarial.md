@@ -32973,8 +32973,27 @@ PID  ELAPSED  COMMAND
 2382   16:42  sleep
 ```
 
-`SIGTERM` does not stop `earth-guestd`. `SIGKILL` does, and the instant it did,
-3583 lines appeared and `go test` completed.
+`SIGKILL` stopped it, and the instant it did, 3583 lines appeared and `go test`
+completed.
+
+**It was reported here that SIGTERM does not stop `earth-guestd`. That is wrong.**
+The `kill -TERM` was run with its errors discarded, so its failure was invisible,
+and the process outliving it was read as the process refusing it. Asked properly,
+of a leaked guest still running:
+
+```text
+SigIgn  0000000000000004    SIGQUIT
+SigBlk  0000000000000002    SIGINT
+SigCgt  0000000008010001    SIGHUP, SIGCHLD, SIGWINCH
+```
+
+SIGTERM is bit 14 and appears in none of them, so the default action stands and a
+TERM would end it. There is no signal handling in `cmd/earth-guestd` or
+`engine/guestd` at all.
+
+Which makes the leak simpler and duller than the first account: nothing resists
+being stopped, and nothing ever asks. An orphaned guest sits there because no
+part of the system is looking for it.
 
 So a leaked guest holds the test binary's standard output open, and `go test`
 waits on that descriptor rather than on the process. The runner appears hung on

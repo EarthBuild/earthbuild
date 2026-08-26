@@ -32619,7 +32619,7 @@ nested build a designed use.
 native in native      works    untraced: EBUSY, so no observed-input tier
 native in buildkit    works    needs RUN --privileged; traced; scratch in RAM
 buildkit in buildkit  works    the arrangement today
-buildkit in native    reaches the daemon; no arm64 buildkitd image to start
+buildkit in native    works    WITH DOCKER, and an image built for this arch
 ```
 
 Two things decide it, and they pull in opposite directions.
@@ -32689,27 +32689,47 @@ earth-in-earth than it is to a developer's rebuild, and the cost of losing it
 should be measured on the suite rather than assumed from the 31x figure, which
 was measured on something else entirely.
 
-### buildkit inside native, as far as it goes
+### buildkit inside native
 
-`WITH DOCKER` gives the step a daemon, `earthly --engine=buildkit` runs, and the
-chain gets to the last step before stopping on something that is not the engine's:
+`WITH DOCKER` gives the step a daemon, it starts buildkitd as a container, and
+`earth --engine=buildkit` drives a build inside it:
 
 ```text
-buildkitd | Starting buildkit daemon as a docker container
-docker: no matching manifest for linux/arm64/v8 in the manifest list entries
+buildkitd | Starting buildkit daemon as a docker container ... Done
+       +t | BUILDKIT-INNER-RAN
 ```
 
-Every published `buildkitd-staging-*` tag is built on `ubuntu-latest` and carries
-amd64 only, so there is nothing for an arm64 machine to start. On CI, which is
-x86, the same arrangement has an image to use. So this cell is unproven rather
-than broken, and what stands between it and proof is a published image rather
-than anything in this engine.
+So all four cells work.
 
-Two harness faults of my own on the way, both worth the note. The first attempt
-ran `build/linux/arm64/earthly`, which is this repository's `earth` and now
-defaults to the native engine - so it measured native-in-native a second time,
-wearing the other name. And the step was written as `... | tail -30`: a pipeline
-returns the last command's status, so the build reported `rc=0` while the inner
-daemon had failed to start. The same shape as the benchmark that recorded `rc=0`
-from inside a `$( )` (E691). A pipe is a place exit codes go to die, and this is
-the second time in this document.
+Getting there was two wrong turns and one wrong conclusion, and the conclusion is
+the one worth recording. Asked for the buildkitd images, I listed
+`ghcr.io/earthbuild/earthbuild` - thirty-eight tags, every one built on
+`ubuntu-latest` and carrying amd64 - and wrote down that no arm64 buildkitd
+existed. That was the wrong repository. `earthbuild/buildkitd` on Docker Hub has
+270 tags and `v0.8.19-eb545a2e`, which is the tip of `main`, is
+`linux/amd64,linux/arm64`. A registry answering "not here" is not a registry
+answering "nowhere", and this engine's own images are not the ones its CI
+happens to stage.
+
+The other two were harness faults. The first attempt ran
+`build/linux/arm64/earthly`, which is this repository's `earth` and defaults to
+the native engine - so it measured native-in-native a second time wearing the
+other name. And the step was written as `... | tail -30`: a pipeline returns the
+last command's status, so the build reported `rc=0` while the inner daemon had
+failed to start. That is the same shape as the benchmark that recorded `rc=0`
+from inside a `$( )` (E691), and the second time in this document. A pipe is
+where an exit code goes to die.
+
+### What nesting costs the suite, which is not what was being chased
+
+A `WITH DOCKER` step is uncacheable by construction here, and the engine says so:
+
+```text
+3 not cacheable (Earthfile:7: a docker daemon it may share, whose contents no
+  key describes - `WITH DOCKER --isolate` gets one that is described)
+```
+
+So a suite that nests buildkit pays for its daemon on every run whatever the
+layer cache does, which is a larger and more certain cost than the observed-input
+tier the listener limit takes away. Worth settling which of the two the suite
+actually spends its time on before optimising either.

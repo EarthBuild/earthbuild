@@ -174,6 +174,17 @@ func defaultsFor(version string) features {
 		// PROJECT is ordinary by 0.8: `tests/project-secrets.earth` writes it
 		// under a plain `VERSION 0.8`, and only the 0.6 file needs the flag.
 		f.projectSecrets = true
+		// LET and SET are ordinary from 0.8: `features.ArgScopeSet` carries
+		// `enabled_in_version:"0.8"`, and the reference gates the construct on
+		// that field and nothing else (`handleSet`).
+		//
+		// Gated on the flag alone until now, on a misreading of
+		// `tests/arg-set.earth` - a `--should_fail` file that is *itself*
+		// `VERSION 0.8`, so its refusal was never about the flag (E458). The
+		// corpus computes with LET and SET wherever it counts anything, so the
+		// gate did not refuse one construct: it left variables unset in every
+		// target that used them.
+		f.argScopeAndSet = true
 	}
 
 	return f

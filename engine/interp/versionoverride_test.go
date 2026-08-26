@@ -18,23 +18,29 @@ import (
 func TestAVersionFlagCanBeSuppliedByTheCaller(t *testing.T) {
 	t.Parallel()
 
-	// `SET` needs `--arg-scope-and-set`, which 0.8 does not turn on by itself -
-	// so the same source is a refusal without the override and a build with it,
-	// which is the whole of what the flag is for.
+	// `TRY` needs `--try`, which 0.8 does *not* turn on by itself: five files in
+	// this repository still declare `VERSION --try 0.8`. So the same source is a
+	// refusal without the override and a build with it, which is the whole of
+	// what the flag is for.
 	//
 	// Not `COMMAND`: the first version of this used it, and 0.8 already has the
 	// new keyword, so the file was refused before the override could decide
 	// anything. A gate that is already closed proves nothing about the key.
-	src := versioned + "\nFROM alpine:3.22\nARG --global x=1\n" +
-		"\nmain:\n    SET x = 2\n    RUN echo $x\n"
+	//
+	// Nor `SET`, which this used next and which 0.8 *does* turn on - the same
+	// fault in the same test twice, and the reason the feature stayed gated for
+	// as long as it did.
+	src := versioned + "\nFROM alpine:3.22\n" +
+		"\nmain:\n    TRY\n        RUN echo hi\n    FINALLY\n" +
+		"        RUN echo bye\n    END\n"
 
 	_, err := interp.Build(src, testMain)
 	if err == nil {
-		t.Fatal("SET without its feature was accepted, so the flag gates nothing")
+		t.Fatal("TRY without its feature was accepted, so the flag gates nothing")
 	}
 
 	_, err = interp.Build(src, testMain,
-		interp.WithVersionFlags([]string{"arg-scope-and-set"}))
+		interp.WithVersionFlags([]string{"try"}))
 	if err != nil {
 		t.Fatalf("the caller turned the feature on and the file was still refused: %v", err)
 	}

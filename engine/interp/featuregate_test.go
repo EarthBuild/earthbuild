@@ -23,17 +23,44 @@ import (
 func TestSetNeedsTheFeatureThatEnablesIt(t *testing.T) {
 	t.Parallel()
 
-	_, err := interp.Build("VERSION 0.8\n\nmain:\n    FROM alpine:3.22\n"+
+	// **0.7, not 0.8.** This asserted the refusal at 0.8, and it was wrong:
+	// `features.ArgScopeSet` carries `enabled_in_version:"0.8"`, and the
+	// reference refuses SET on that field alone (`handleSet`). E458 read
+	// `tests/arg-set.earth` - a `--should_fail` file that is itself `VERSION
+	// 0.8` - as evidence the flag was still needed, when what it proves is that
+	// the file fails for some *other* reason.
+	//
+	// The cost of the mistake was not the one construct. `LET`/`SET` are how
+	// the corpus computes anything, so every target using them was refused or
+	// silently left a variable unset - `wildcard-copy.earth`'s whole test
+	// function counts files with `SET count=$(...)` and counted zero.
+	_, err := interp.Build("VERSION 0.7\n\nmain:\n    FROM alpine:3.22\n"+
 		"    ARG foo\n    SET foo = bar\n    RUN echo $foo\n", testMain)
 	if err == nil {
-		t.Fatal("SET was accepted by a file that did not declare" +
-			" --arg-scope-and-set")
+		t.Fatal("SET was accepted by a file too old to have it")
 	}
 
 	for _, want := range []string{"SET", "--arg-scope-and-set"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("refused with %q, which does not mention %q", err, want)
 		}
+	}
+}
+
+// And 0.8 has it without asking, which is the half that was wrong.
+//
+// A feature `enabled_in_version:"0.8"` is part of the dialect from 0.8 on, and
+// a file stops naming a flag once its version implies it. Gating on the flag
+// alone refuses what every other engine builds.
+func TestSetIsOrdinaryAtVersionEightPointZero(t *testing.T) {
+	t.Parallel()
+
+	got := commandOfFirstExec(t, "VERSION 0.8\n\nmain:\n"+
+		"    FROM alpine:3.22\n    ARG foo=one\n    SET foo = two\n    RUN echo $foo\n")
+
+	if !strings.HasSuffix(got, "echo two") {
+		t.Errorf("the step runs %q; SET is ordinary at 0.8 and must update"+
+			" the argument without a flag", got)
 	}
 }
 

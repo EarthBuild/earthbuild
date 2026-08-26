@@ -147,6 +147,95 @@ func (p *Plan) substitute(cmd []string, base *ir.Node, dir, what, where string) 
 	return strings.TrimRight(res.Output, "\n"), nil
 }
 
+// commandSpan locates the first `$(...)` in a string.
+//
+// Reports the index of the `$` and of the closing bracket. `found` is false
+// when the bracket is unbalanced, which is a diagnostic for the caller rather
+// than a silent pass-through - `i` is still the start, so the caller can quote
+// what it could not read.
+//
+// Shared, because two callers walk these spans for opposite reasons - one to
+// run what is inside, one to leave what is inside alone - and two copies of a
+// bracket-matcher drift.
+func commandSpan(s string) (start, end int, found bool) {
+	i := strings.Index(s, "$(")
+	if i < 0 {
+		return -1, -1, false
+	}
+
+	depth := 1
+
+	for j := i + 2; j < len(s); j++ {
+		switch s[j] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+
+			if depth == 0 {
+				return i, j, true
+			}
+		}
+	}
+
+	return i, -1, false
+}
+
+// expandByRegion expands an argument, treating what is inside a `$(...)` as
+// what it is: a command line for a shell.
+//
+// **The rule in `command` is right and was applied to the wrong unit.** A
+// command line keeps its quoting because a shell re-parses it; a value has its
+// quoting resolved because this engine consumes it. An argument can be both,
+// and `LET n=$(echo "$files" | wc -l)` is - so the distinction is between
+// regions of the argument, not between commands.
+//
+// Resolved wholesale, that reached the shell as `echo one\ntwo\nthree | wc -l`
+// and the lines of the value became commands of their own.
+func expandByRegion(a string, value, word func(string) string) string {
+	// **Quoting is resolved over the whole argument, not piecewise.**
+	// `BUILD +dep --v="$(echo hello)"` has one pair of quotes with a command
+	// between them: expanding the halves apart leaves each half holding an
+	// unbalanced quote, which nothing then removes, and the dependent target is
+	// passed `"hello"` with the quotes in the value.
+	//
+	// So the commands stand aside under a marker, the argument is resolved as
+	// the single value it is, and the commands go back in with their own
+	// quoting untouched. The marker is a byte no Earthfile text carries.
+	var (
+		inner []string
+		b     strings.Builder
+		rest  = a
+	)
+
+	for {
+		i, end, found := commandSpan(rest)
+		if i < 0 || !found {
+			// Nothing to keep apart, or a bracket this cannot read - which
+			// expandCommands reports; resolving it here would change the text
+			// the diagnostic quotes.
+			b.WriteString(rest)
+
+			break
+		}
+
+		b.WriteString(rest[:i])
+		fmt.Fprintf(&b, "\x00%d\x00", len(inner))
+
+		inner = append(inner, rest[i+2:end])
+		rest = rest[end+1:]
+	}
+
+	out := value(b.String())
+
+	for i, in := range inner {
+		out = strings.Replace(out, fmt.Sprintf("\x00%d\x00", i),
+			"$("+word(in)+")", 1)
+	}
+
+	return out
+}
+
 // expandCommands replaces every `$(...)` in a value by running it.
 //
 // Nested parentheses are counted rather than matched by the first `)`, because
@@ -157,31 +246,12 @@ func (p *Plan) substitute(cmd []string, base *ir.Node, dir, what, where string) 
 // a RUN's command line rather than the one for a path this engine consumes.
 func (p *Plan) expandCommands(value string, base *ir.Node, dir, what, where string) (string, error) {
 	for {
-		i := strings.Index(value, "$(")
+		i, end, found := commandSpan(value)
 		if i < 0 {
 			return value, nil
 		}
 
-		depth, end := 1, -1
-
-		for j := i + 2; j < len(value); j++ {
-			switch value[j] {
-			case '(':
-				depth++
-			case ')':
-				depth--
-
-				if depth == 0 {
-					end = j
-				}
-			}
-
-			if end >= 0 {
-				break
-			}
-		}
-
-		if end < 0 {
+		if !found {
 			return "", fmt.Errorf("%s at %s: %q has no closing bracket", what, where, value[i:])
 		}
 

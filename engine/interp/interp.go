@@ -616,8 +616,11 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		expand = rs.args.expandWord
 	}
 
+	// **By region, not by command.** An argument may be a value that *contains*
+	// a command line, and `$(...)` is exactly that: what is inside goes to a
+	// shell, so it keeps its quoting whatever the command around it is.
 	for i, a := range c.Args {
-		c.Args[i] = expand(a)
+		c.Args[i] = expandByRegion(a, expand, rs.args.expandWord)
 	}
 
 	// A `$(...)` in a value the *engine* consumes has no shell to expand it, so

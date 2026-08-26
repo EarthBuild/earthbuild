@@ -33646,3 +33646,59 @@ an argument for it: the host store *can* represent a deletion, in the portable
 spelling, and now does. What remains true is that a store which can represent
 neither should be refused rather than used, in the way `--keep-own` is already
 refused when the store discards ownership.
+
+## E725 - a `$( )` substitution captures stderr as well as stdout
+
+`tests/wildcard-copy.earth+wildcard-if-exists` reports `found 1 files instead of
+0` after a COPY that correctly copies nothing. The count comes from the `TEST`
+function:
+
+```Dockerfile
+LET files=$(ls -d ${FILE_PATTERN}* || echo -n "")
+LET count=0
+IF [ "$files" != "" ]
+    SET count=$(echo "$files"|wc -l)
+END
+```
+
+With no match, `ls` writes `ls: helloworld*: No such file or directory` to
+**stderr** and exits 1; `|| echo -n ""` then makes the whole thing exit 0 with
+*no stdout*. A shell would set `files` to the empty string. This engine sets it
+to the error message - one line - so the guard is taken and `echo "" | wc -l`
+returns exactly 1.
+
+Confirmed in two lines:
+
+```Dockerfile
+LET v=$(sh -c 'echo OUT; echo ERR >&2')
+RUN echo "value=[$v]"
+```
+
+prints `value=[OUT
+ERR]` where a shell gives `OUT`.
+
+**One writer for two streams.** `engine/guest/guest.go`:
+
+```go
+cmd.Stdout, cmd.Stderr = w, w
+```
+
+which is right for a build log, where the two belong interleaved, and wrong for
+a substitution: `Response.Output` is what `interp.substitute` returns as the
+value, and `$( )` in every shell captures stdout alone.
+
+This is general. Every `ARG x=$(...)`, `LET`, `SET` and `BUILD --arg=$(...)`
+takes stderr into its value; it only shows when a command writes to stderr and
+still succeeds, which `cmd || fallback` does by construction.
+
+**The obvious fix is wrong.** Running the probe as `sh -c '{ cmd ; } 2>/dev/null'`
+gets the value right and throws away the diagnostic that `substitute` prints
+when the command fails - and `engine/cli/conditions.go` is explicit that "a
+command that failed is often the one whose message matters most". A shell does
+not discard stderr either; it lets it through to the terminal and keeps it out
+of the value, which is two channels doing two jobs.
+
+So the fix is a second channel: the step's reply carries stderr apart from
+stdout, the log interleaves them as now, and `substitute` reads only stdout.
+That is a protocol change rather than a patch, which is why this is written down
+rather than done.

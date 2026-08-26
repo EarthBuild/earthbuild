@@ -32895,8 +32895,21 @@ how a Linux-only suite comes to be run only by CI.
 E706 counted fourteen network-gated tests in `engine/exec`, `engine/image` and
 `engine/interp` that no CI job executes: they skip in `+engine-race` and
 `+unit-test`, and `+engine-daemon`, which is the one job that sets
-`EARTH_TEST_NETWORK`, compiles only `engine/guest` and `engine/cli`. Run here for
-the first time:
+`EARTH_TEST_NETWORK`, compiles only `engine/guest` and `engine/cli`.
+
+**Fourteen was an undercount, and by a lot.** `+engine-daemon` compiles
+`engine/cli` and then runs two tests out of it by name:
+
+```text
+/tmp/build.test -test.v -test.run 'ABuildWithADockerBlockRuns|ABuildInsideABuild'
+```
+
+`engine/cli` has 93 network-gated tests. So the set that never executes anywhere
+in CI is those fourteen plus ninety-one more - something like 105 of the 107 in
+the tree. Compiling a package is not running its tests, and a job that names two
+of them is evidence for two.
+
+Run here for the first time:
 
 ```text
 engine/exec    ok  1.118s

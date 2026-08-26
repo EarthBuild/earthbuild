@@ -41,3 +41,36 @@ t:
 		t.Errorf("RUN --privileged refused although the caller opted in: %v", err)
 	}
 }
+
+// TestTheOptInDoesNotCrossARepositoryBoundary.
+//
+// **A caller opting into privilege is saying it about the build they wrote.**
+// Not about whatever a fetched Earthfile turns out to contain: granting it there
+// would let a remote target take privilege the operator never considered, on
+// code they may never have read.
+//
+// The reference engine requires it be granted again at the `FROM` or `IMPORT`
+// that reaches out, and the corpus asserts the refusal in five places -
+// `reject-privileged-in-remote-repo-triggered-by-from-privileged` and its
+// siblings, each of which is *meant to fail*. Passing `--allow-privileged`
+// globally made all five build, which is the flag doing more than it was asked.
+func TestTheOptInDoesNotCrossARepositoryBoundary(t *testing.T) {
+	t.Parallel()
+
+	// A local Earthfile: the opt-in applies, as the test above asserts.
+	const local = `VERSION 0.8
+t:
+    FROM alpine:3.21
+    RUN --privileged echo hi
+`
+
+	_, err := interp.Build(local, "t", interp.WithAllowPrivileged(true))
+	if err != nil {
+		t.Fatalf("the caller's own Earthfile was refused: %v", err)
+	}
+
+	// The boundary itself is exercised by the corpus rather than here: reaching
+	// a remote repository needs a network and a repository, and what this
+	// package can hold is that the flag is read from the unit rather than from
+	// the build - which the local case above and `fetchedFrom` together fix.
+}

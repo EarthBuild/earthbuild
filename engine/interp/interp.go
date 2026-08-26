@@ -782,7 +782,16 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		}, nil
 
 	case earthfile.CmdRun:
-		rf, err := runFlags(c, rs.env, rs.dir, p.opt.terminal, p.opt.allowPrivileged)
+		// **The opt-in does not cross a repository boundary.** A caller saying
+		// they want privilege is saying it about the build they wrote, not
+		// about whatever a fetched Earthfile turns out to contain; granting it
+		// there would let a remote target take privilege the operator never
+		// considered. The reference engine requires it be granted again, at the
+		// FROM or IMPORT that reaches out, and the corpus asserts the refusal
+		// in five places.
+		allowHere := p.opt.allowPrivileged && p.here.fetchedFrom == ""
+
+		rf, err := runFlags(c, rs.env, rs.dir, p.opt.terminal, allowHere)
 		if err != nil {
 			return nil, err
 		}

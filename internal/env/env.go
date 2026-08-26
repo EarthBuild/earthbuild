@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -24,11 +25,42 @@ const Prefix = "EARTH_"
 // EARTHLY_ -> EARTH_ migration; drop it once EARTHLY_ support is officially
 // removed.
 func Lookup(suffix string) (string, bool) {
-	if v, ok := os.LookupEnv(Prefix + suffix); ok {
-		return v, true
+	_, value, ok := lookupNamed(suffix)
+
+	return value, ok
+}
+
+// lookupNamed is Lookup, additionally reporting which of the two names the value came
+// from, so diagnostics can name the variable the user actually set.
+func lookupNamed(suffix string) (name, value string, ok bool) {
+	name = Prefix + suffix
+	if value, ok = os.LookupEnv(name); ok {
+		return name, value, true
 	}
 
-	return os.LookupEnv(DeprecatedPrefix + suffix)
+	name = DeprecatedPrefix + suffix
+	value, ok = os.LookupEnv(name)
+
+	return name, value, ok
+}
+
+// Bool reports whether the environment variable identified by suffix holds a truthy
+// value, honouring the same prefix fallback as Lookup. Unset and empty are false
+// without an error; anything strconv.ParseBool rejects is false *with* one, so callers
+// can warn instead of silently taking the wrong branch on a typo such as
+// EARTH_WITH_DOCKER=yes.
+func Bool(suffix string) (bool, error) {
+	name, raw, _ := lookupNamed(suffix)
+	if raw == "" {
+		return false, nil
+	}
+
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("%s is set to %q, which is not a boolean: use true or false", name, raw)
+	}
+
+	return value, nil
 }
 
 // DeprecatedWarnings returns a deprecation warning message for each

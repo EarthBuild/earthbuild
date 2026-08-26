@@ -6,9 +6,11 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +18,8 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/env"
+	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/EarthBuild/earthbuild/util/buildkitutil"
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
@@ -26,6 +30,7 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/moby/buildkit/client"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+	otelsemconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 	"golang.org/x/mod/semver"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -56,7 +61,7 @@ func VolumeName(installationName string) string {
 func NewClient(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName string,
+	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	earthVersion string,
 	settings Settings,
@@ -145,7 +150,7 @@ func NewClient(
 		return nil, fmt.Errorf("%s not available", fe.Config().Binary)
 	}
 
-	info, workerInfo, err := maybeStart(ctx, log, image, containerName, fe, settings, opts...)
+	info, workerInfo, err := maybeStart(ctx, log, image, containerName, installationName, fe, settings, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("maybe start buildkitd: %w", err)
 	}
@@ -164,7 +169,7 @@ func NewClient(
 func ResetCache(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName string,
+	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	opts ...client.ClientOpt,
@@ -204,7 +209,7 @@ func ResetCache(
 		}
 	}
 
-	err = Start(ctx, log, image, containerName, fe, settings, true)
+	err = Start(ctx, log, image, containerName, installationName, fe, settings, true)
 	if err != nil {
 		return err
 	}
@@ -226,7 +231,7 @@ func ResetCache(
 func maybeStart(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName string,
+	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	opts ...client.ClientOpt,
@@ -288,7 +293,7 @@ func maybeStart(
 			workerInfo *client.WorkerInfo
 		)
 
-		info, workerInfo, err = maybeRestart(ctx, log, image, containerName, fe, settings, opts...)
+		info, workerInfo, err = maybeRestart(ctx, log, image, containerName, installationName, fe, settings, opts...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("maybe restart: %w", err)
 		}
@@ -300,7 +305,7 @@ func maybeStart(
 		WithPrefix("buildkitd").
 		Printf("Starting buildkit daemon as a %s container (%s)...\n", fe.Config().Binary, containerName)
 
-	err = Start(ctx, log, image, containerName, fe, settings, false)
+	err = Start(ctx, log, image, containerName, installationName, fe, settings, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("start: %w", err)
 	}
@@ -341,7 +346,7 @@ func maybeStart(
 func maybeRestart(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName string,
+	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	opts ...client.ClientOpt,
@@ -452,7 +457,7 @@ func maybeRestart(
 		return nil, nil, fmt.Errorf("could not wait for container %q to stop: %w", containerName, err)
 	}
 
-	err = Start(ctx, log, image, containerName, fe, settings, false)
+	err = Start(ctx, log, image, containerName, installationName, fe, settings, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not start container %q: %w", containerName, err)
 	}
@@ -491,7 +496,7 @@ func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, conta
 func Start(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName string,
+	image, containerName, installationName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	reset bool,
@@ -515,12 +520,17 @@ func Start(
 		// Keep going - it might still work.
 	}
 
-	envOpts := map[string]string{
-		"BUILDKIT_DEBUG":                 strconv.FormatBool(settings.Debug),
-		"BUILDKIT_TCP_TRANSPORT_ENABLED": strconv.FormatBool(settings.UseTCP),
-		"BUILDKIT_TLS_ENABLED":           strconv.FormatBool(settings.UseTCP && settings.UseTLS),
-		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
+	withDocker, err := env.Bool("WITH_DOCKER")
+	if err != nil {
+		// Not fatal: an unparsable value only mis-labels the build as outer,
+		// which costs the earth-in-earth cgroup mounts, not correctness of the
+		// build itself.
+		log.
+			WithPrefix("buildkitd").
+			Printf("Warning: %s. Treating this as an outer build.\n", err.Error())
 	}
+
+	envOpts := buildkitEnv(settings, containerName, installationName, withDocker, reset)
 
 	labelOpts := map[string]string{
 		"dev.earthly.settingshash": settingsHash,
@@ -537,17 +547,7 @@ func Start(
 
 	portOpts := containerutil.PortOpt{}
 
-	if settings.AdditionalConfig != "" {
-		envOpts["EARTHLY_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
-	}
-
-	if settings.IPTables != "" {
-		envOpts["IP_TABLES"] = settings.IPTables
-	}
-
 	const localhost = "127.0.0.1"
-
-	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if withDocker {
@@ -654,31 +654,6 @@ func Start(
 		}
 	}
 
-	if settings.CniMtu > 0 {
-		envOpts["CNI_MTU"] = strconv.Itoa(int(settings.CniMtu))
-	}
-
-	if settings.CacheSizeMb > 0 {
-		envOpts["CACHE_SIZE_MB"] = strconv.Itoa(settings.CacheSizeMb)
-	}
-
-	if settings.CacheSizePct > 0 {
-		envOpts["CACHE_SIZE_PCT"] = strconv.Itoa(settings.CacheSizePct)
-	}
-
-	if settings.CacheKeepDuration > 0 {
-		envOpts["CACHE_KEEP_DURATION"] = strconv.Itoa(settings.CacheKeepDuration)
-	}
-
-	if settings.EnableProfiler {
-		envOpts["BUILDKIT_PPROF_ENABLED"] = "true"
-	}
-
-	// Apply reset.
-	if reset {
-		envOpts["EARTHLY_RESET_TMP_DIR"] = "true"
-	}
-
 	// Ensure buildkitd gets sufficient file descriptors. Docker 29+ (containerd v2)
 	// lowered the default from 1048576 to 1024, which starves buildkitd.
 	additionalArgs := append([]string{"--ulimit", "nofile=1048576:1048576"}, settings.AdditionalArgs...)
@@ -695,10 +670,179 @@ func Start(
 		AdditionalArgs: additionalArgs,
 	})
 	if err != nil {
-		return fmt.Errorf("could not start buildkit: %w", err)
+		return fmt.Errorf("start buildkit: %w", err)
 	}
 
 	return nil
+}
+
+// buildkitdOTELServiceName is the OTel service.name buildkitd reports under; the CLI
+// itself reports as "EarthBuild".
+const buildkitdOTELServiceName = "EarthBuild-buildkitd"
+
+// otelPassthroughEnvVars are the OTel env vars the CLI forwards to buildkitd
+// unchanged. Only the transport is inherited - the identity (service name, resource
+// attributes) is buildkitd's own and is set separately below.
+var otelPassthroughEnvVars = []string{
+	"OTEL_EXPORTER_OTLP_ENDPOINT",
+	"OTEL_EXPORTER_OTLP_HEADERS",
+	"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+	"OTEL_EXPORTER_OTLP_METRICS_HEADERS",
+	"OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
+	"OTEL_EXPORTER_OTLP_PROTOCOL",
+	"OTEL_METRICS_EXPORTER",
+}
+
+// buildkitEnv is the single source of the environment the buildkitd container is
+// started with. It is a pure function of its arguments and the OTel env vars the CLI
+// forwards, so what buildkitd runs with can be asserted in a test rather than
+// reconstructed by reading Start top to bottom.
+func buildkitEnv(settings Settings, containerName, installationName string, withDocker, reset bool) map[string]string {
+	env := map[string]string{
+		"BUILDKIT_DEBUG":                 strconv.FormatBool(settings.Debug),
+		"BUILDKIT_TCP_TRANSPORT_ENABLED": strconv.FormatBool(settings.UseTCP),
+		"BUILDKIT_TLS_ENABLED":           strconv.FormatBool(settings.UseTCP && settings.UseTLS),
+		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
+	}
+
+	if settings.AdditionalConfig != "" {
+		env["EARTHLY_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
+	}
+
+	if settings.IPTables != "" {
+		env["IP_TABLES"] = settings.IPTables
+	}
+
+	if settings.CniMtu > 0 {
+		env["CNI_MTU"] = strconv.Itoa(int(settings.CniMtu))
+	}
+
+	if settings.CacheSizeMb > 0 {
+		env["CACHE_SIZE_MB"] = strconv.Itoa(settings.CacheSizeMb)
+	}
+
+	if settings.CacheSizePct > 0 {
+		env["CACHE_SIZE_PCT"] = strconv.Itoa(settings.CacheSizePct)
+	}
+
+	if settings.CacheKeepDuration > 0 {
+		env["CACHE_KEEP_DURATION"] = strconv.Itoa(settings.CacheKeepDuration)
+	}
+
+	if settings.EnableProfiler {
+		env["BUILDKIT_PPROF_ENABLED"] = "true"
+	}
+
+	if reset {
+		env["EARTHLY_RESET_TMP_DIR"] = "true"
+	}
+
+	// Telemetry keys are all OTEL_-prefixed, so the merge cannot collide with the above.
+	maps.Copy(env, buildkitTelemetryEnv(containerName, installationName, withDocker))
+
+	return env
+}
+
+// buildkitTelemetryEnv returns the OTel environment buildkitd is started with, or nil
+// if the CLI has no telemetry configured to hand it.
+func buildkitTelemetryEnv(containerName, installationName string, withDocker bool) map[string]string {
+	// buildkitd runs the same telemetry setup as the CLI, which opts in on the mere
+	// presence of any of these and lets autoexport pick the exporter - otlp by default.
+	// So this is only a gate: setting OTEL_METRICS_EXPORTER=otlp ourselves would pin a
+	// default that is already the default, and would override the user's exporter choice
+	// on any future path that reaches here without it. Gate first, so the common
+	// telemetry-off case does no passthrough work at all.
+	if os.Getenv("OTEL_METRICS_EXPORTER") == "" &&
+		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" &&
+		os.Getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") == "" {
+		return nil
+	}
+
+	envOpts := map[string]string{}
+
+	for _, key := range otelPassthroughEnvVars {
+		if value := os.Getenv(key); value != "" {
+			envOpts[key] = value
+		}
+	}
+
+	envOpts["OTEL_SERVICE_NAME"] = buildkitdOTELServiceName
+
+	// buildkitd is a separate process, so it takes its attributes as env rather than
+	// as attribute.KeyValue - hence the string forms of the shared semconv keys.
+	nesting := semconv.ProcessNestingOuter
+	if withDocker {
+		nesting = semconv.ProcessNestingInner
+	}
+
+	resourceAttrs := map[string]string{
+		string(semconv.ProcessRole):          semconv.ProcessRoleBuildkitd.Value.AsString(),
+		string(semconv.ProcessNesting):       nesting.Value.AsString(),
+		string(otelsemconv.ContainerNameKey): containerName,
+		string(semconv.InstallationName):     installationName,
+	}
+	envOpts["OTEL_RESOURCE_ATTRIBUTES"] = appendOTELResourceAttributes(
+		os.Getenv("OTEL_RESOURCE_ATTRIBUTES"),
+		resourceAttrs,
+	)
+
+	return envOpts
+}
+
+// otelResourceAttrValueEscaper percent-encodes the characters the OTel spec requires
+// in an OTEL_RESOURCE_ATTRIBUTES value: "," and "=" are the list separators, and "%"
+// itself, without which url.PathUnescape on the consumer side errors on a literal
+// percent and hands back the raw, untrimmed string. Nothing else is encoded - the
+// value stays readable and still round-trips exactly. Replacements are not rescanned,
+// so "%" -> "%25" cannot be mangled by the later rules.
+//
+// Keys are deliberately left alone. The spec asks for them to be encoded too, but
+// sdk/resource.fromEnv never decodes keys, so an encoded one would arrive as a literal
+// "a%2Cb" - and ours are constants with no separators in them.
+var otelResourceAttrValueEscaper = strings.NewReplacer("%", "%25", ",", "%2C", "=", "%3D")
+
+// appendOTELResourceAttributes merges attrs into an inherited
+// OTEL_RESOURCE_ATTRIBUTES string, dropping malformed entries and encoding the values
+// it adds. attrs wins on a key collision: the inherited value describes the process
+// that spawned buildkitd, ours describes buildkitd itself. Emitting the key twice is
+// not an option - collectors disagree on which duplicate survives. Inherited entries
+// are copied verbatim; they are already encoded by whoever wrote them.
+//
+// Format: https://opentelemetry.io/docs/specs/otel/resource/sdk/#specifying-resource-information-via-an-environment-variable
+//
+//nolint:lll // The spec anchor does not survive wrapping.
+func appendOTELResourceAttributes(base string, attrs map[string]string) string {
+	parts := make([]string, 0, len(attrs)+1)
+
+	for attr := range strings.SplitSeq(base, ",") {
+		attr = strings.TrimSpace(attr)
+		if attr == "" {
+			continue
+		}
+
+		key, value, ok := strings.Cut(attr, "=")
+		if !ok || strings.TrimSpace(value) == "" {
+			continue
+		}
+
+		override, ok := attrs[strings.TrimSpace(key)]
+		if ok && override != "" {
+			continue
+		}
+
+		parts = append(parts, attr)
+	}
+
+	// Sorted so the same inputs always produce the same env var.
+	for _, key := range slices.Sorted(maps.Keys(attrs)) {
+		if attrs[key] == "" {
+			continue
+		}
+
+		parts = append(parts, key+"="+otelResourceAttrValueEscaper.Replace(attrs[key]))
+	}
+
+	return strings.Join(parts, ",")
 }
 
 // Stop stops the buildkitd container.

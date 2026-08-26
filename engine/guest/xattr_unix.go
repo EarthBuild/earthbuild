@@ -83,6 +83,23 @@ func copyXattrs(src, dst string) error {
 // one. Everything else - user, trusted, security, system - describes the file
 // and is carried or the copy fails.
 func ours(name string) bool {
+	// **A nested overlay's escaped bookkeeping**, which is the same case wearing
+	// a different name. A build inside a build mounts an overlay whose upper
+	// lives in the outer step's filesystem, and that is an overlay too - so the
+	// outer one finds `trusted.overlay.origin` there and, to keep the two from
+	// being taken for each other, presents it as `trusted.overlay.overlay.…`.
+	//
+	// Carrying it fails outright and takes the whole nested build with it, which
+	// is most of this project's own test suite (E706). It describes how one
+	// filesystem is storing another's files and nothing a layer contains, so it
+	// is not the layer's to carry.
+	//
+	// The unescaped names stay: `trusted.overlay.opaque` carries a deletion, and
+	// the rest are in the digests of every layer already stored.
+	if strings.HasPrefix(name, "trusted.overlay.overlay.") {
+		return false
+	}
+
 	return !strings.HasPrefix(name, "com.apple.")
 }
 

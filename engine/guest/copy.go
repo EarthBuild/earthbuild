@@ -536,6 +536,25 @@ func copyFile(src, dst string, mode os.FileMode) error {
 
 	defer out.Close()
 
+	// **A creation mode is a request, and `umask` is the answer.** `O_CREATE`
+	// with 0777 under the ordinary umask of 022 makes a file 0755, so a step
+	// that ran `chmod 777 f` had its layer captured at 755 and the next step
+	// read 755.
+	//
+	// The determinism is the worse half: a mode is part of a layer (I8), so
+	// what this engine produced depended on the umask of whoever invoked it -
+	// two machines, two layers, two keys, for one build. That is environment
+	// leaking into identity, which is what a content-addressed store exists to
+	// prevent.
+	//
+	// `chmod` rather than `syscall.Umask(0)`, which would also work and is
+	// worse: it is global, it affects every other file this process writes, and
+	// it leaves the same trap for the next `OpenFile` somebody adds.
+	err = out.Chmod(mode)
+	if err != nil {
+		return fmt.Errorf("set the mode of %s: %w", dst, err)
+	}
+
 	_, err = io.Copy(out, in)
 	if err != nil {
 		return fmt.Errorf("copy %s: %w", src, err)

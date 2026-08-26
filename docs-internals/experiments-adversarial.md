@@ -33430,3 +33430,50 @@ What should happen *first*, whatever is decided: the vocabulary entry says
 supported and the engine does not support it. Either the command is honoured or
 it is refused by name - the third option, accepting it and doing nothing, is the
 one this repository refuses everywhere else.
+
+## E720 - the implicit ignore list is a 0.5 rule applied to every version
+
+`tests/no-implicit-ignore.earth` copies its context and asserts the Earthfile
+and `.earthlyignore` are *there*:
+
+```text
+COPY . .
+RUN ls Earthfile
+RUN ls .earthlyignore
+RUN ls notignored/
+RUN ! ls ignored/
+```
+
+This engine excludes both from every context, from `ignore.Implicit`, and the
+comment beside that list gives a good reason: *"an Earthfile that changes changes
+the build, and including it in a COPY's digest would make every COPY miss
+whenever any line of the Earthfile moved."*
+
+**The reference decided otherwise, and dated it.** `features.NoImplicitIgnore`
+carries `enabled_in_version:"0.6"` - so from 0.6 the implicit rules are off and
+those files belong in the context. The ignore file's *rules* still apply, which
+is why the same test expects `ignored/` to be absent; what stops is the
+exclusion of the build's own description.
+
+So the reasoning in that comment is not wrong, it is **out of date**: it argues
+for a behaviour the language dropped two versions before the one this engine
+targets. The same shape as the `--arg-scope-and-set` gate (E713), which was also
+a real argument for a rule the reference had already moved past.
+
+**Not fixed here, because the rule is applied in two places and they have to
+agree.** `ignore.Read` prepends `Implicit` unconditionally, and there are two
+callers: `interp/context.go`, which knows the Earthfile's version, and
+`exec/exec.go`, which does not - it works from the IR and has no VERSION line to
+consult. Gating only the first gives a context whose *digest* excludes the
+Earthfile and whose *copy* includes it, or the reverse, which is worse than
+either behaviour consistently.
+
+So the decision has to travel: the interpreter settles it and the IR carries it,
+which also puts it in the key - correctly, because it changes what a COPY
+copies. That is the work, and it is more than the one-line default that fixed
+E713.
+
+**The cost is real and worth stating before anybody does it.** Every context
+COPY in every project gains the Earthfile as an input, so editing a comment in an
+Earthfile re-runs every COPY that reads `.`. The reference pays that. This engine
+would too, and the first person to notice will think the cache is broken.

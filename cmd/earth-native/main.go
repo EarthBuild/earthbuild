@@ -142,6 +142,16 @@ func main() {
 		doPin    = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
 		long     = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
 		prune    = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
+		// Wiring, not mechanism: engine/cli already reads all three and had no
+		// way to be told. The names are earthly's, because a flag that does the
+		// same thing under a different spelling is a compatibility gap wearing
+		// a disguise.
+		argFile = flag.String("arg-file-path", "",
+			"read build arguments from this file (default \".arg\")")
+		secretFile = flag.String("secret-file-path", "",
+			"read secrets from this file (default \".secret\")")
+		noCache = flag.Bool("no-cache", false,
+			"build every step, reading no cache entry that is already there")
 		noOutput = flag.Bool("no-output", false,
 			"do not write SAVE ARTIFACT AS LOCAL artifacts to the working tree")
 		ci = flag.Bool("ci", false,
@@ -237,6 +247,9 @@ func main() {
 		Secrets:     secrets,
 		SecretFiles: secretFilePaths,
 		DryRun:      *dryRun,
+		ArgFile:     *argFile,
+		SecretFile:  *secretFile,
+		NoCache:     *noCache,
 		// **`--ci` means `--no-output --strict`.** Strict is what this engine
 		// already is: it refuses what it cannot reproduce rather than offering
 		// the choice (I10), so there is nothing for the flag to switch on. What

@@ -72,6 +72,28 @@ linters:
       - path: engine/(cli|exec)/
         linters:
           - contextcheck
+      # `G703` traces a remote reference into a path and reports the `Stat`,
+      # `RemoveAll` and `MkdirAll` that follow. The containment check it cannot
+      # see is three lines above the first of them:
+      #
+      #     if !within(root, dest) { return "", fmt.Errorf(...) }
+      #
+      # `filepath.Join` has already cleaned any `..` out of the reference, and
+      # `within` compares absolute paths anchored on a separator, so a name that
+      # climbs out of the cache is refused before anything is removed. The
+      # comment beside the check says why it is there rather than left to the
+      # interpreter: "the path is removed and recreated below, so being sure it
+      # is inside the cache is the difference between clearing a checkout and
+      # deleting something else".
+      #
+      # Stated here rather than five times in the file, and scoped to the rule
+      # as well as the file: excluding gosec wholesale here retired an unrelated
+      # `//nolint:gosec // a fixed argv` in the same file, which is the linter
+      # pointing out that the exclusion was wider than the reasoning behind it.
+      - path: engine/cli/remote\.go
+        text: G703
+        linters:
+          - gosec
       # `unparam` on a test helper reports the fixture vocabulary, not dead
       # flexibility. `fill(t, dir, 4096)` and `aLayerWithFile(t, "etc/hosts")`
       # name a size and a path that the reader of the test wants to see; moving

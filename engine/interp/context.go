@@ -192,9 +192,23 @@ func expandContextPatterns(root string, sources []string, where string) ([]strin
 	out := make([]string, 0, len(sources))
 
 	for _, src := range sources {
-		// An artifact reference names another target's output, which no
-		// directory holds yet.
-		if !hasPattern(src) || strings.Contains(src, "+") {
+		// **An artifact reference names another target's output**, which no
+		// directory holds yet - so a pattern in the artifact path is not this
+		// function's to expand. A pattern in the *directory* before the `+` is
+		// a different thing: it names which targets, and those are directories
+		// that exist now.
+		if strings.Contains(src, "+") {
+			refs, refErr := expandArtifactRef(root, src)
+			if refErr != nil {
+				return nil, refErr
+			}
+
+			out = append(out, refs...)
+
+			continue
+		}
+
+		if !hasPattern(src) {
 			out = append(out, src)
 
 			continue

@@ -29,7 +29,7 @@ func TestAReferenceMayNameSeveralTargets(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = os.WriteFile(filepath.Join(root, d, "Earthfile"), []byte("VERSION 0.8\n"), 0o600)
+		err = os.WriteFile(filepath.Join(root, d, "Earthfile"), []byte("VERSION 0.8\ntest:\n    FROM alpine:3.21\n"), 0o600)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -38,6 +38,19 @@ func TestAReferenceMayNameSeveralTargets(t *testing.T) {
 	// A directory with no Earthfile is not a target and must not be offered as
 	// one: the glob is over places a target could live, not over names.
 	err := os.MkdirAll(filepath.Join(root, "wildcard/notatarget"), 0o750)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// And one that has an Earthfile defining something else, which the corpus
+	// keeps as `tests/wildcard/no-target` for exactly this reason.
+	err = os.MkdirAll(filepath.Join(root, "wildcard/other"), 0o750)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(filepath.Join(root, "wildcard/other", "Earthfile"),
+		[]byte("VERSION 0.8\nnot-test:\n    FROM alpine:3.21\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +99,7 @@ func TestADoubleStarCrossesDirectories(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = os.WriteFile(filepath.Join(root, d, "Earthfile"), []byte("VERSION 0.8\n"), 0o600)
+		err = os.WriteFile(filepath.Join(root, d, "Earthfile"), []byte("VERSION 0.8\ntest:\n    FROM alpine:3.21\n"), 0o600)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -100,5 +113,64 @@ func TestADoubleStarCrossesDirectories(t *testing.T) {
 	want := []string{"./w/a+test", "./w/a/b+test", "./w/a/b/c+test"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// TestAnArtifactReferenceMayNameSeveralTargets.
+//
+// `COPY ./wildcard/*+test/out.txt ./` copies that artifact from every matching
+// target. It is the same expansion as `BUILD`, over the directory before the
+// `+`, and the artifact path after the target name comes along unchanged - the
+// pattern is over *which target*, never over what it produced, which no
+// directory holds yet.
+//
+// Thirteen of the corpus's invocations are this form, against five for BUILD.
+func TestAnArtifactReferenceMayNameSeveralTargets(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	for _, d := range []string{"w/bar", "w/baz"} {
+		err := os.MkdirAll(filepath.Join(root, d), 0o750)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = os.WriteFile(filepath.Join(root, d, "Earthfile"), []byte("VERSION 0.8\ntest:\n    FROM alpine:3.21\n"), 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, c := range []struct {
+		src  string
+		want []string
+	}{
+		{
+			"./w/*+test/out.txt",
+			[]string{"./w/bar+test/out.txt", "./w/baz+test/out.txt"},
+		},
+		// A deeper artifact path, and one with its own dots, both carried
+		// through untouched.
+		{
+			"./w/*+test/a/b.txt",
+			[]string{"./w/bar+test/a/b.txt", "./w/baz+test/a/b.txt"},
+		},
+		// No pattern in the directory: returned as written, whatever the
+		// artifact path looks like.
+		{"./w/bar+test/out.txt", []string{"./w/bar+test/out.txt"}},
+		{"+test/out.txt", []string{"+test/out.txt"}},
+		// A pattern in the *artifact* is not this function's business: it names
+		// files inside another target's output, which nothing here can list.
+		{"+test/*.txt", []string{"+test/*.txt"}},
+	} {
+		got, err := expandArtifactRef(root, c.src)
+		if err != nil {
+			t.Errorf("%s: %v", c.src, err)
+			continue
+		}
+
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("expandArtifactRef(%q) = %v, want %v", c.src, got, c.want)
+		}
 	}
 }

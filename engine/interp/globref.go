@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 // expandRef turns a reference whose path is a pattern into one reference per
@@ -41,7 +43,7 @@ func expandRef(dir, ref string) ([]string, error) {
 		return []string{ref}, nil
 	}
 
-	matches, err := globDirs(dir, pattern)
+	matches, err := globDirs(dir, pattern, name)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +61,7 @@ func expandRef(dir, ref string) ([]string, error) {
 // globDirs is every directory under dir matching the pattern and holding an
 // Earthfile, named as the pattern named them - relative, with the `./` the
 // author wrote.
-func globDirs(dir, pattern string) ([]string, error) {
+func globDirs(dir, pattern, target string) ([]string, error) {
 	rooted := pattern
 	if !filepath.IsAbs(pattern) {
 		rooted = filepath.Join(dir, pattern)
@@ -80,6 +82,16 @@ func globDirs(dir, pattern string) ([]string, error) {
 
 		_, statErr = os.Stat(filepath.Join(p, "Earthfile"))
 		if statErr != nil {
+			continue
+		}
+
+		// **And it must define the target.** The corpus keeps
+		// `tests/wildcard/no-target` beside the others precisely to check this:
+		// a pattern that failed on the one directory whose Earthfile says
+		// something else could never match a useful set. A reference naming one
+		// directory is a different matter and still says what is wrong, because
+		// it never reaches here.
+		if !defines(filepath.Join(p, "Earthfile"), target) {
 			continue
 		}
 
@@ -150,3 +162,70 @@ func expandDoubleStar(pattern string) ([]string, error) {
 // Distinguished by a sentinel rather than by the text, because the text is a
 // diagnostic and diagnostics are rewritten.
 var errNoSuchTarget = errors.New("no such target")
+
+// expandArtifactRef is expandRef for a `COPY` source, where an artifact path
+// follows the target name.
+//
+// `COPY ./wildcard/*+test/out.txt ./` takes that artifact from every matching
+// target. The pattern is over *which target*, and the artifact path after the
+// target name is carried through untouched: a pattern there would name files
+// inside another target's output, which nothing at this point can list.
+//
+// Thirteen of the corpus's invocations are this form, against five for `BUILD`.
+func expandArtifactRef(dir, src string) ([]string, error) {
+	at := strings.LastIndex(src, "+")
+	if at <= 0 {
+		return []string{src}, nil
+	}
+
+	path := src[:at]
+	if !strings.ContainsAny(path, "*?[") {
+		return []string{src}, nil
+	}
+
+	// The target's name ends at the first separator after the `+`; everything
+	// from there is the artifact.
+	rest := src[at+1:]
+
+	name, artifact := rest, ""
+	if slash := strings.Index(rest, "/"); slash >= 0 {
+		name, artifact = rest[:slash], rest[slash:]
+	}
+
+	refs, err := expandRef(dir, path+"+"+name)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]string, 0, len(refs))
+	for _, r := range refs {
+		out = append(out, r+artifact)
+	}
+
+	return out, nil
+}
+
+// defines reports whether an Earthfile has a target of this name.
+//
+// Parsed rather than scanned: a target header is not simply a line ending in a
+// colon, and a pattern that quietly skipped a real target would be a build
+// missing a piece with nothing said about it.
+//
+// An Earthfile that will not parse defines nothing here. That is not a
+// judgement on the file - whoever names it directly still gets the parser's own
+// account of what is wrong with it - only a statement that a pattern will not
+// adopt it.
+func defines(path, target string) bool {
+	tree, err := earthfile.ParseFile(path)
+	if err != nil {
+		return false
+	}
+
+	for _, t := range tree.Targets {
+		if t.Name == target {
+			return true
+		}
+	}
+
+	return false
+}

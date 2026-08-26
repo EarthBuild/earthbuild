@@ -33890,6 +33890,14 @@ A/B against the parent commit, alternating, on the same cache:
 | 2     | 961ms   | 45ms         |
 | 3     | 961ms   | 37ms         |
 
+**What it is worth over a corpus run.** The whole 250-invocation sweep finishes
+in **155s** with this, and comes back 223 ok with no timeouts - the same set as
+the run before it, so nothing was traded for the speed. Every invocation had
+been paying the wait, and the sweeps before this one ran long enough to be
+waited on across several ten-minute checks. That comparison is not a timed one:
+no sweep was clocked before the fix, and the honest per-build figure is the A/B
+above rather than a ratio inferred from how long the waiting felt.
+
 **The trade, stated plainly.** Cancelling means an image that would have been
 prefetched is not in the cache for a *later* build either - the parent's own
 number rises from 377ms to 961ms once the fixed binary stops warming the cache

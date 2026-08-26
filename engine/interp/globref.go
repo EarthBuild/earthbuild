@@ -173,6 +173,31 @@ var errNoSuchTarget = errors.New("no such target")
 //
 // Thirteen of the corpus's invocations are this form, against five for `BUILD`.
 func expandArtifactRef(dir, src string) ([]string, error) {
+	// **The overrides come merged into the token.** `ProcessParamsAndQuotes`
+	// hands `(./sub/*+make/out --NAME=given)` over whole, brackets and all, so
+	// without this the directory to match reads `(./sub/*` - which nothing is
+	// called, so the reference expanded to nothing and copied nothing, saying
+	// so nowhere.
+	//
+	// The overrides go back onto every expansion, because they are what the
+	// reference means: the same directory built with different arguments is a
+	// different build.
+	if inner, args, ok := strings.Cut(strings.TrimSuffix(
+		strings.TrimPrefix(src, "("), ")"), " "); ok && strings.HasPrefix(src, "(") &&
+		strings.HasSuffix(src, ")") {
+		refs, err := expandArtifactRef(dir, inner)
+		if err != nil {
+			return nil, err
+		}
+
+		out := make([]string, 0, len(refs))
+		for _, r := range refs {
+			out = append(out, "("+r+" "+args+")")
+		}
+
+		return out, nil
+	}
+
 	at := strings.LastIndex(src, "+")
 	if at <= 0 {
 		return []string{src}, nil

@@ -501,9 +501,9 @@ func isEarthInEarth() bool {
 		return false
 	}
 
-	withDocker, err := strconv.ParseBool(v)
+	withDocker, _ := strconv.ParseBool(v)
 
-	return err == nil && withDocker
+	return withDocker
 }
 
 // Start starts the buildkitd daemon.

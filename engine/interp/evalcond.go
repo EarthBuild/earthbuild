@@ -181,6 +181,22 @@ func commandSpan(s string) (start, end int, found bool) {
 	return i, -1, false
 }
 
+// regionMark brackets a command that has been stood aside.
+//
+// **Not a NUL, which is the obvious answer and the wrong one.** The argument
+// with the markers in it goes to `scope.expandValue`, which is buildkit's shell
+// lexer, and that prints
+//
+//	<input>:1:8: invalid character NUL
+//
+// straight to stderr for each one. It still returns the right answer, so
+// nothing was broken - but four error-shaped lines came out of one run of
+// `tests/build-arg.earth`, in a build that was working.
+//
+// U+E000 is the first Unicode private use codepoint: valid UTF-8, no meaning to
+// a shell or to a lexer, and not a character an Earthfile carries.
+const regionMark = '\uE000'
+
 // expandByRegion expands an argument, treating what is inside a `$(...)` as
 // what it is: a command line for a shell.
 //
@@ -201,7 +217,8 @@ func expandByRegion(a string, value, word func(string) string) string {
 	//
 	// So the commands stand aside under a marker, the argument is resolved as
 	// the single value it is, and the commands go back in with their own
-	// quoting untouched. The marker is a byte no Earthfile text carries.
+	// quoting untouched. See regionMark for what the marker is and why it is
+	// not the obvious choice.
 	var (
 		inner []string
 		b     strings.Builder
@@ -220,7 +237,7 @@ func expandByRegion(a string, value, word func(string) string) string {
 		}
 
 		b.WriteString(rest[:i])
-		fmt.Fprintf(&b, "\x00%d\x00", len(inner))
+		fmt.Fprintf(&b, "%c%d%c", regionMark, len(inner), regionMark)
 
 		inner = append(inner, rest[i+2:end])
 		rest = rest[end+1:]
@@ -229,7 +246,7 @@ func expandByRegion(a string, value, word func(string) string) string {
 	out := value(b.String())
 
 	for i, in := range inner {
-		out = strings.Replace(out, fmt.Sprintf("\x00%d\x00", i),
+		out = strings.Replace(out, fmt.Sprintf("%c%d%c", regionMark, i, regionMark),
 			"$("+word(in)+")", 1)
 	}
 

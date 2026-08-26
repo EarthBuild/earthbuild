@@ -2436,6 +2436,15 @@ func (p *Plan) do(c earthfile.Command, prev *ir.Node, caller *state) (*ir.Node, 
 	rs.dir = p.callerDir
 	rs.supplied = args
 
+	// **The caller's target, because a function is inlined into it.** The
+	// language reference puts the build *environment* in the same sentence as
+	// the build context, and `EARTHLY_TARGET_NAME` is part of that
+	// environment: `function.earth`'s `TEST_BUILTIN` declares it and asserts
+	// the name of the target that called it. Built fresh, the state had no
+	// target and the builtin answered the empty string - four lines from the
+	// assertion, saying nothing about where the name went.
+	rs.target = caller.target
+
 	// The globals travel in, and the call's own values beat them.
 	//
 	// `ARG --global` is the author saying "this one, everywhere", which is a

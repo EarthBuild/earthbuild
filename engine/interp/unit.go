@@ -90,14 +90,55 @@ func newUnit(tree earthfile.Tree, dir string, overrides []string) (*unit, error)
 		return nil, fmt.Errorf("%s: %w", filepath.Join(dir, "Earthfile"), err)
 	}
 
-	return &unit{
+	u := &unit{
 		tree:     tree,
 		dir:      dir,
 		features: f,
 		imports:  map[string]string{},
 		grants:   map[string]bool{},
 		resolved: map[string]*ir.Node{},
-	}, nil
+	}
+
+	u.collectImports()
+
+	return u, nil
+}
+
+// collectImports reads the file's IMPORT lines the moment it is loaded.
+//
+// **An IMPORT is a declaration about the file, not a step in it.** The map used
+// to be filled only when the command was *interpreted*, which happens while
+// walking a unit's base recipe - and a unit entered at one of its functions is
+// never walked that way. So a function calling through an alias its own file
+// declared was told the alias "was never imported", which is
+// `earthly-command-example/import/Earthfile` reached from
+// `tests/import.earth+test-command-import`.
+//
+// References resolve against the defining file, so the defining file has to know
+// its own imports before anything asks. Interpreting the line again is harmless
+// and still happens: it writes the same two entries.
+//
+// A malformed IMPORT is left to the interpreter, which reports it with a source
+// location. Refusing to load the file here would name the whole unit for a fault
+// on one line, and a file whose base recipe is never walked would be refused for
+// a line nothing was going to read.
+func (u *unit) collectImports() {
+	for _, c := range u.tree.BaseRecipe {
+		if c.Command == nil || c.Command.Name != earthfile.CmdImport {
+			continue
+		}
+
+		name, path, grant, err := importParts(c.Command.Args)
+		if err != nil {
+			continue
+		}
+
+		u.imports[name] = path
+
+		if grant {
+			u.grants[name] = true
+		}
+	}
 }
 
 // realDir is the one way a directory becomes comparable to another.

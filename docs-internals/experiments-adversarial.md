@@ -32778,3 +32778,34 @@ against a live sandbox is the E549 trap, is wrong: `Trace` is a field on each
 request, so alternating it is safe by construction. One occurrence in thirteen,
 unexplained, and recorded here rather than left in a log because the tracer is
 where this engine's hangs have come from before (E214, E522).
+
+## E708 - WITH DOCKER is uncacheable here, and the remedy is another backend's
+
+A nested-buildkit step re-runs on every build, and the engine says why:
+
+```text
+3 not cacheable (Earthfile:7: a docker daemon it may share, whose contents no
+  key describes - `WITH DOCKER --isolate` gets one that is described)
+```
+
+Measured on the same target twice, the step does re-run: `6 hit, 3 miss, 3 not
+cacheable` on the first pass and the same on the second, 3.40s then 2.67s. For a
+suite whose tests nest buildkit that is the dominant cost, and it dwarfs the
+observed-input tier that E707 was about.
+
+Taking the engine's own advice does not work on this machine:
+
+```text
+WITH DOCKER --isolate asks for a daemon of this step's own, and
+  this backend has only the sandbox VM's, which the blocks of a
+  build share
+```
+
+So the remedy is real but belongs to the Linux-native backend, where a step can
+have a daemon of its own. On the macOS sandbox-VM backend every `WITH DOCKER`
+block shares the VM's daemon, nothing describes its contents, and no key can.
+
+Which means the cost is platform-shaped rather than inherent, and the interesting
+question is one this machine cannot answer: whether `--isolate` on Linux makes a
+nested-buildkit step cacheable in practice, and what a daemon that dies with its
+step costs in image pulls. CI is Linux. This is unverified there.

@@ -1626,8 +1626,15 @@ func artifact(
 
 	// `SAVE ARTIFACT <path> <name>`: a second word that is not the start of
 	// `AS LOCAL` names the artifact.
+	//
+	// Cleaned, because every lookup compares `"/" + name`: a name written
+	// `./x.txt` became `/./x.txt` and equalled nothing, so the reference passed
+	// through to the guest as a path no layer has
+	// (tests/escape.earth+test-copy-artifact2). The default name above goes
+	// through filepath.Base and was always clean, which is why only the
+	// explicit-name form was affected.
 	if len(args) > 1 && !strings.EqualFold(args[1], "AS") {
-		a.Name = args[1]
+		a.Name = filepath.Clean(args[1])
 	}
 
 	for i := 1; i < len(args); i++ {

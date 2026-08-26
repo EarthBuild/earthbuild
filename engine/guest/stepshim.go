@@ -1,5 +1,7 @@
 package guest
 
+import "path/filepath"
+
 // stepShimFlag marks this process as the shim that prepares a step.
 //
 // Distinct from daemonShimFlag because the two prepare different things for
@@ -41,3 +43,16 @@ func stepShimAsked(args []string) *stepShim {
 
 	return &stepShim{root: args[root], dir: args[dir], argv: args[cmd:]}
 }
+
+// stepDir is the working directory the shim enters, named from inside the root.
+//
+// **Always absolute, because `chroot` does not change the working directory.**
+// The shim is still standing where it started when it chroots, which is outside
+// the root it has just entered - so a relative path resolves against that older
+// place, naming a directory in the guest rather than in the step, and possibly
+// one outside the new root altogether.
+//
+// The same rule is applied by the path this shim replaced, and `req.Dir` reaches
+// both the same way. Rooting it also contains it: `Clean` folds any `..` against
+// the leading separator rather than climbing out.
+func stepDir(dir string) string { return filepath.Clean("/" + dir) }

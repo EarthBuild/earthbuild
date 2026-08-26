@@ -63,3 +63,38 @@ func TestTheStepShimArgvIsTheStepsOwn(t *testing.T) {
 		t.Errorf("argv[0] is %q, want the step's own command", got.argv[0])
 	}
 }
+
+// TestTheShimsWorkingDirectoryIsAlwaysInsideTheRoot.
+//
+// **`chroot` does not change the working directory.** The shim is still standing
+// where it started when it chroots, which is outside the root it just entered -
+// so a relative working directory resolves against the *old* place, naming a
+// directory in the guest rather than in the step, and possibly one outside the
+// new root entirely.
+//
+// The path this replaced applies `filepath.Clean("/" + dir)` for the same
+// reason, and `req.Dir` reaches both of them the same way. A rule held in one
+// branch and not the other is the shape of E48, where `--dir` was right on one
+// side of a copy and wrong on the other for a year.
+func TestTheShimsWorkingDirectoryIsAlwaysInsideTheRoot(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct{ in, want string }{
+		{"", "/"},
+		{"/", "/"},
+		{"/earthly", "/earthly"},
+		// The case that motivated this: relative, and so resolved against
+		// wherever the shim happened to be standing.
+		{"sub", "/sub"},
+		{"sub/deeper", "/sub/deeper"},
+		{"./sub", "/sub"},
+		// Contained rather than escaping, which `Clean` gives for free once the
+		// path is rooted.
+		{"../etc", "/etc"},
+		{"/a/../b", "/b"},
+	} {
+		if got := stepDir(c.in); got != c.want {
+			t.Errorf("stepDir(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

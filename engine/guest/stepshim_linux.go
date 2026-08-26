@@ -54,10 +54,7 @@ func enterStep(sh *stepShim) error {
 	// **After the chroot, and named from inside it.** The working directory the
 	// step asked for is a path in its own filesystem; resolving it before would
 	// name a directory on the guest.
-	dir := sh.dir
-	if dir == "" {
-		dir = "/"
-	}
+	dir := stepDir(sh.dir)
 
 	err = syscall.Chdir(dir)
 	if err != nil {

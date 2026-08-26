@@ -33346,3 +33346,47 @@ Three ways to hold it, none of them this document's to pick:
 The cost of (1) is invisible and the cost of (2) is loud, which is the usual
 trade and the usual trap: an invisible cost gets chosen by default rather than
 on purpose.
+
+## E718 - the recursion pays a container per subtraction
+
+**Measured while a corpus sweep sat on one target for four minutes.**
+`command.earth+all-positive` had **nine** `container exec` processes alive at
+once. The cause is one line, repeated per level:
+
+```text
+RECURSIVE:
+    ARG level=5
+    IF [ "$level" -gt "0" ]
+        ARG newlevel="$(echo $((level-1)))"
+        DO +RECURSIVE --level=$newlevel
+```
+
+The `IF` is free since numeric comparisons are decided at plan time (E714's
+sibling). The `ARG` is not: `$(echo $((level-1)))` is a command substitution, so
+the engine starts a container to subtract one, five times.
+
+**Both halves are decidable here.** `$(( ))` is arithmetic over values the
+interpreter already holds, and `$(echo <words>)` is those words - `echo` with
+plain arguments is the one command whose output is its input.
+
+**Attempted and reverted**, which is the part worth recording. Two things the
+attempt got wrong:
+
+1. `$((` begins with `$(`, so the command scanner reads `$(( level - 1 ))` as a
+   command called `( level - 1 )`. Arithmetic has to be expanded *before*
+   command substitution, not inside it.
+2. Shell arithmetic reads a name **without** a `$` - `level`, not `$level` - so
+   an evaluator needs the argument scope, which the substitution path does not
+   carry.
+
+Both were solved. What stopped it was the third: `ARG` is handled early in
+`command`, before the argument-expansion loop, so nothing applied to `ARG`
+values at all. Wiring it there is a fourth place that has to agree about
+expansion order, and a half-applied version is worse than none - see E716 for
+the same call made the same way.
+
+The tight scope is the point when this is picked up: a flag (`echo -n`), a
+metacharacter, a nested substitution or a redirection goes to the shell, whose
+rules those are. Half an implementation of shell arithmetic - which has bit
+operations, comparisons, assignment and `**` - would be worse than no
+implementation.

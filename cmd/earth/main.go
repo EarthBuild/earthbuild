@@ -73,6 +73,7 @@ func main() {
 	// Linux the guest runs in this process, so it is this binary that gets
 	// re-executed.
 	guest.RunDaemonShimIfAsked()
+	guest.RunStepShimIfAsked()
 
 	// **This binary is also the sandbox agent.** `earth guestd ...` runs it, and
 	// that is how the agent reaches places the CLI is copied into - a nested

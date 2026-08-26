@@ -110,6 +110,7 @@ func Main(args []string) {
 	// `dockerd` needs a user namespace it is root in and a writable `/run`, and
 	// Go cannot run code between clone and exec (E373).
 	guest.RunDaemonShimIfAsked()
+	guest.RunStepShimIfAsked()
 
 	// Before anything else, and it may not return: a guest spawned into an
 	// unmapped user namespace waits here for its ids and then re-executes

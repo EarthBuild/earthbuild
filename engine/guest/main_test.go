@@ -15,6 +15,7 @@ import (
 // daemon passes while measuring an absence (E374).
 func TestMain(m *testing.M) {
 	RunDaemonShimIfAsked()
+	RunStepShimIfAsked()
 	runProbeIfAsked()
 	runResolveIfAsked()
 

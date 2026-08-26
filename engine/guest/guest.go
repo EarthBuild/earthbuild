@@ -578,7 +578,7 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		// handle's directories are removed on release: a layer that is digested
 		// and not persisted is a cache entry pointing at nothing.
 		endCommit := timing.Phase("guest:commit", c.ID.String())
-		err = s.commit(h.Delta(), c.ID)
+		portable, err := s.commit(h.Delta(), c.ID)
 
 		endCommit()
 		if err != nil {
@@ -596,7 +596,12 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		// Only the negative is recorded. A layer *with* markers has to be
 		// translated whatever anybody noted, and the translation is what leaves
 		// the durable evidence.
-		if !c.Marked && s.LayerDir != "" {
+		// **What the store holds, not what the delta held.** A deletion is a
+		// character device in the delta and `layer.marked` looks for the `.wh.`
+		// name, so a layer that removes something is captured as carrying no
+		// markers. Noting that skips the translation which turns the stored
+		// marker back into a deletion, and the removal never happens (E724).
+		if !c.Marked && !portable && s.LayerDir != "" {
 			store.DirStore(s.LayerDir).NoteUnmarked(c.ID)
 		}
 
@@ -750,6 +755,19 @@ type CopyOpts = copyOpts
 // `Follow bool` would have inverted that - every unconverted caller would have
 // stopped following, and nothing would have said so.
 type copyOpts struct {
+	// Portable, when not nil, is set to true if a deletion had to be written in
+	// the portable `.wh.` spelling because the destination could not hold a
+	// device node.
+	//
+	// **The capture cannot answer this and the store can.** A layer is captured
+	// over the overlay's upper directory, where a deletion is a character
+	// device named after what it removes - so `layer.marked`, which looks for
+	// the `.wh.` name, says the layer carries none. That is right about the
+	// delta and wrong about what lands in the store, and the note it produces
+	// (`.unmarked`) tells the materialiser to skip the translation that would
+	// have turned the marker back into a deletion (E724).
+	Portable *bool
+
 	// IfExists tolerates a source that is not there: `COPY --if-exists`.
 	//
 	// Decided here for an artifact, because only a filesystem can answer it -
@@ -1091,7 +1109,9 @@ func within(root, p string) (string, error) {
 func ExportCommit(_ context.Context, store, delta string, id ir.NodeID) error {
 	s := &Server{LayerDir: store}
 
-	return s.commit(delta, id)
+	_, err := s.commit(delta, id)
+
+	return err
 }
 
 // commit moves a captured delta into the layer store under its digest.
@@ -1099,25 +1119,30 @@ func ExportCommit(_ context.Context, store, delta string, id ir.NodeID) error {
 // A rename where possible, a copy otherwise: the delta and the store may be on
 // different filesystems, since scratch is deliberately local while the store is
 // shared (green paper §3.3b).
-func (s *Server) commit(delta string, id ir.NodeID) error {
+// commit places a step's delta in the store.
+//
+// `portable` reports that a deletion was written in the `.wh.` spelling because
+// the store could not hold a device node - which the caller needs, because the
+// capture was taken over the delta and cannot know it (E724).
+func (s *Server) commit(delta string, id ir.NodeID) (portable bool, err error) {
 	if s.LayerDir == "" {
-		return nil // no store configured; the caller keeps the digest and nothing else
+		return false, nil // no store configured; the caller keeps the digest and nothing else
 	}
 
 	dst := store.LayerStore(s.LayerDir).Path(id)
 
-	_, err := os.Stat(dst)
+	_, err = os.Stat(dst)
 	if err == nil {
 		// Already present. Two steps producing identical output is the good case,
 		// not a collision - the digest says they are the same layer.
-		return nil
+		return portable, nil
 	}
 
 	// As above: the layer store is the engine's, and its directories are not
 	// the build's output.
 	err = os.MkdirAll(filepath.Dir(dst), 0o750)
 	if err != nil {
-		return fmt.Errorf("prepare the layer store: %w", err)
+		return false, fmt.Errorf("prepare the layer store: %w", err)
 	}
 
 	// Copied, never renamed *from* the delta. The obvious optimisation - rename
@@ -1142,7 +1167,7 @@ func (s *Server) commit(delta string, id ir.NodeID) error {
 	// second process is not one of them.
 	tmp, err := os.MkdirTemp(filepath.Dir(dst), "."+id.String()+".partial-")
 	if err != nil {
-		return fmt.Errorf("stage a commit of layer %s: %w", id, err)
+		return false, fmt.Errorf("stage a commit of layer %s: %w", id, err)
 	}
 
 	// **Ownership travels with it.** The copy is the layer store's own, so the
@@ -1157,11 +1182,11 @@ func (s *Server) commit(delta string, id ir.NodeID) error {
 	// all. Where an id cannot be restored, `copyTree` says so rather than
 	// carrying on: a layer whose ownership is not what its digest says is a
 	// layer two machines cannot agree about (E313).
-	err = copyTree(delta, tmp, copyOpts{KeepOwn: true})
+	err = copyTree(delta, tmp, copyOpts{KeepOwn: true, Portable: &portable})
 	if err != nil {
 		_ = os.RemoveAll(tmp)
 
-		return err
+		return false, err
 	}
 
 	// Losing to another build committing the same layer is a race worth losing,
@@ -1170,10 +1195,10 @@ func (s *Server) commit(delta string, id ir.NodeID) error {
 	if err != nil {
 		_ = os.RemoveAll(tmp)
 
-		return fmt.Errorf("commit layer %s: %w", id, err)
+		return false, fmt.Errorf("commit layer %s: %w", id, err)
 	}
 
-	return nil
+	return portable, nil
 }
 
 // noteDegraded records why limits could not be applied. Visible to the host so

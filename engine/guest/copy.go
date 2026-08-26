@@ -438,6 +438,12 @@ func copyTree(src, dst string, opts copyOpts) error {
 				return copyErr
 			}
 
+			// A marker written rather than a node placed is the portable
+			// spelling, and the store has to say so - see copyOpts.Portable.
+			if !placed && opts.Portable != nil {
+				*opts.Portable = true
+			}
+
 			// A deletion recorded as a `.wh.` marker puts nothing at target, so
 			// there is nothing there to stamp or own.
 			if !placed {

@@ -32889,3 +32889,30 @@ is.
 None of these is a defect. They are the conditions the suite needs, and they are
 worth stating in one place because discovering them one failing run at a time is
 how a Linux-only suite comes to be run only by CI.
+
+### And the tests that run nowhere
+
+E706 counted fourteen network-gated tests in `engine/exec`, `engine/image` and
+`engine/interp` that no CI job executes: they skip in `+engine-race` and
+`+unit-test`, and `+engine-daemon`, which is the one job that sets
+`EARTH_TEST_NETWORK`, compiles only `engine/guest` and `engine/cli`. Run here for
+the first time:
+
+```text
+engine/exec    ok  1.118s
+engine/image   ok  1.994s
+engine/interp  ok  3.830s
+```
+
+They pass. That is worth knowing in both directions: nothing was hiding in them,
+and there is now no reason not to run them - a job that compiles those three
+packages with `EARTH_TEST_NETWORK` set would close the gap for the cost of the
+minutes above.
+
+One of them failed first, and the reason is a caution about reading test
+diagnostics. `TestADeclaredGitBuiltinIsAnswered` reported that a git builtin
+"expanded to nothing inside a checkout", which is exactly true and not the cause:
+git had refused the repository outright with `detected dubious ownership`,
+because the container ran as root over a bind mount owned by another user. The
+test cannot tell a builtin that resolved to nothing from a `git` that declined to
+speak, and says the first when it means either.

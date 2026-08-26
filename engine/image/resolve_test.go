@@ -147,3 +147,42 @@ func TestPinningKeepsTheIndexSoEveryPlatformStillBuilds(t *testing.T) {
 			" that only builds on the machine that wrote it")
 	}
 }
+
+// TestPinningASinglePlatformImageStillPinsIt.
+//
+// "Pin the index if there is one" - and where there is not, the manifest's own
+// digest is the pin, because it is the only thing to name. A single-platform
+// image has no choice left open for an index to fix.
+//
+// Worth its own case rather than assumed: `Index` reads as "descend no
+// further", and an implementation that took it as "find an index or fail"
+// would refuse every image that has only one.
+func TestPinningASinglePlatformImageStillPinsIt(t *testing.T) {
+	t.Parallel()
+
+	reg := &fakeRegistry{layers: [][]byte{gzipTar(t, "f", "hello")}}
+	host := reg.start(t)
+
+	got, err := image.Resolve(context.Background(), host+"/library/alpine:3.22",
+		image.Options{Plain: true, Index: true})
+	if err != nil {
+		t.Fatalf("a single-platform image could not be pinned: %v", err)
+	}
+
+	if !strings.Contains(got, "@sha256:") {
+		t.Errorf("resolved to %q, which pins nothing", got)
+	}
+
+	// The same answer either way: with no index there is nothing to descend
+	// through, so the flag changes nothing at all.
+	plain, err := image.Resolve(context.Background(), host+"/library/alpine:3.22",
+		image.Options{Plain: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got != plain {
+		t.Errorf("pinning gave %s and pulling gave %s; with no index the two"+
+			" have nothing to disagree about", got, plain)
+	}
+}

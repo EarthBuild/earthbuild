@@ -33390,3 +33390,43 @@ metacharacter, a nested substitution or a redirection goes to the shell, whose
 rules those are. Half an implementation of shell arithmetic - which has bit
 operations, comparisons, assignment and `**` - would be worse than no
 implementation.
+
+## E719 - `USER` is parsed, keyed, and never applied to a step
+
+**Measured, three lines:**
+
+```text
+RUN adduser -D testuser
+USER testuser
+RUN id -un        ->  root
+```
+
+`ir.Op.User` exists, carries a comment explaining that it changes what the
+operation does and therefore reaches the key, and is consumed **nowhere** in
+`engine/exec` or the guest. It reaches the image *configuration* - what a
+container started from the image runs as - and no step ever sees it.
+
+**The claim is the problem, not the gap.** `vocabulary_test.go` lists
+`{cmd: "USER", supported: true}`, and by its own measure that is right: the
+command is accepted rather than refused. But an Earthfile that drops privileges
+does not drop them, and nothing says so. A step written to run as `nobody` runs
+as root, which is the difference between a build that cannot write outside its
+tree and one that can.
+
+Found from `chown.earth+test`, which passes its `--chown` assertions and then
+fails at `RUN test -O ./a.txt` after `USER testuser` - the file is owned by
+testuser and the step is not testuser, so the test of ownership fails for the
+opposite of the obvious reason.
+
+**Not implemented here on purpose.** The shape is clear - a `User` on
+`guest.Step`, resolved against the step's own root as `--chown` already resolves
+names, and a `syscall.Credential` on the command - but privilege-dropping done
+carelessly is worse than not done: a step that half-drops, or drops after
+creating files, produces a tree nobody can reason about. It wants doing
+deliberately, with the interaction against the user namespace and the chroot
+thought through rather than discovered.
+
+What should happen *first*, whatever is decided: the vocabulary entry says
+supported and the engine does not support it. Either the command is honoured or
+it is refused by name - the third option, accepting it and doing nothing, is the
+one this repository refuses everywhere else.

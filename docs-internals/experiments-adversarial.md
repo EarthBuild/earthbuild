@@ -33181,3 +33181,42 @@ cannot see its base should say so.
 on the first run. That is the finding rather than a wasted test - ruling out the
 decision layer is what left the probe's input as the only suspect - and it stays
 as the guard for the half that works.
+
+## E714 - the pin cache is off unless asked, so every build pays the registry
+
+**Assumption:** a warm build with every step cached costs almost nothing.
+
+**Method:** five `RUN echo` steps on `alpine:3.24.1`, built repeatedly with
+`EARTH_TIMINGS=1`, warm store and warm sandbox.
+
+**Result: 0.37s, of which `registry:token` is 0.27s and `registry:manifest`
+0.09s.** Every step is an L1 hit and the base image is already unpacked; the
+time is a Docker Hub round trip to turn `alpine:3.24.1` into a digest.
+
+`Pins.Get` refuses to answer when `ttl <= 0`, and `PinTTLFromEnv` returns 0 for
+anything that is not a positive duration - including unset. So the pin cache is
+**off by default**: the file is written, and never read unless the caller sets
+`EARTH_PIN_TTL`. A build that resolves three unpinned images pays three round
+trips, every time, for answers it already has on disk.
+
+**The trade is real and the default is not obviously ours to pick.** A tag is
+mutable: `alpine:3.24.1` is not supposed to move, but `alpine:3` and `:latest`
+are, and a cached pin is a build using yesterday's image while saying today's
+tag. Against that, a round trip per reference per build is the largest single
+cost in an otherwise warm build, and every other tool in this space caches it
+for minutes at least.
+
+Recorded rather than changed, for E34's reason: this is a default with two
+defensible answers, and picking one quietly is the worst of the options open.
+
+**Two measurement faults worth naming, both mine.** The first timings were
+taken with a pin file 76 minutes old against a 60-minute TTL, which reads
+exactly like a cache that does not work. The later ones were taken after
+enough probing to earn a Docker Hub **429**, which reads exactly like a bug in
+digest handling - a pinned `FROM alpine:3.24.1@sha256:<index>` failing to fetch
+its manifest is rate limiting, not an index the engine cannot read.
+
+Both were diagnosed as engine defects before the evidence said otherwise. A
+measurement against a shared, rate-limited, TTL-bearing third party is not a
+measurement of this engine unless the state of that third party is established
+first.

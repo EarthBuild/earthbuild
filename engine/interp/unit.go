@@ -63,6 +63,13 @@ type unit struct {
 	// in another, and sharing them would let a reference resolve differently
 	// depending on which file happened to be parsed first.
 	imports map[string]string
+	// grants are the imported names that carried `--allow-privileged`.
+	//
+	// **The flag is on the import, so every reference through the name
+	// inherits it** - which is the point of naming a repository once.
+	// `allow-privileged-import.earth` grants on the IMPORT line and then writes
+	// `COPY privileged+privileged/proc-status .` with no flag of its own.
+	grants map[string]bool
 
 	resolved  map[string]*ir.Node
 	baseDone  bool
@@ -88,6 +95,7 @@ func newUnit(tree earthfile.Tree, dir string, overrides []string) (*unit, error)
 		dir:      dir,
 		features: f,
 		imports:  map[string]string{},
+		grants:   map[string]bool{},
 		resolved: map[string]*ir.Node{},
 	}, nil
 }
@@ -179,9 +187,13 @@ type reference struct {
 //
 // Without AS the alias is the last element of the path, which is how the
 // documentation writes it and how most of this repository does.
-func importPath(args []string) (name, path string, err error) {
+// importParts also reports whether the IMPORT granted privilege.
+//
+// Separate from importPath so the existing callers keep their two results; the
+// grant matters only where an import is recorded.
+func importParts(args []string) (name, path string, grant bool, err error) {
 	if len(args) == 0 {
-		return "", "", errors.New("IMPORT needs a path")
+		return "", "", false, errors.New("IMPORT needs a path")
 	}
 
 	// The flags first, so the path is the path. `IMPORT --allow-privileged
@@ -218,7 +230,7 @@ func importPath(args []string) (name, path string, err error) {
 		}
 
 		if i+1 >= len(args) {
-			return "", "", fmt.Errorf("IMPORT %s: AS needs a name", path)
+			return "", "", false, fmt.Errorf("IMPORT %s: AS needs a name", path)
 		}
 
 		name = args[i+1]
@@ -227,11 +239,11 @@ func importPath(args []string) (name, path string, err error) {
 	}
 
 	if name == "" || name == "." || name == ".." {
-		return "", "", fmt.Errorf(
+		return "", "", false, fmt.Errorf(
 			"IMPORT %s: cannot tell what to call this\n  give it a name with AS", path)
 	}
 
-	return name, path, nil
+	return name, path, opts.AllowPrivileged, nil
 }
 
 // parseRef splits `+name`, `./path+name`, `../..+name` and refuses the rest.

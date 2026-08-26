@@ -726,7 +726,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 
 			// The line granting privilege is this one, so the grant travels
 			// with the reference it is written on.
-			p.passPrivilege = from.allowPrivileged
+			p.passPrivilege = from.allowPrivileged || p.grantedByImport(from.ref)
 
 			pass := map[string]string{}
 
@@ -1074,7 +1074,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		return p.do(c, prev, rs)
 
 	case earthfile.CmdImport:
-		name, path, err := importPath(c.Args)
+		name, path, grant, err := importParts(c.Args)
 		if err != nil {
 			return nil, fmt.Errorf("%w (%s)", err, loc(c.SourceLocation))
 		}
@@ -1086,6 +1086,14 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// Fetching here instead would clone a repository for an alias nothing
 		// in the file goes on to use.
 		p.here.imports[name] = path
+
+		// **The grant belongs to the name, not to one use of it.** Every
+		// reference through this alias inherits it, which is why
+		// `allow-privileged-import.earth` writes the flag once on the IMPORT
+		// and nothing on the COPY that follows.
+		if grant {
+			p.here.grants[name] = true
+		}
 
 		return prev, nil
 
@@ -1326,7 +1334,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		}
 
 		// As on FROM: the line granting privilege is this one.
-		p.passPrivilege = opts.AllowPrivileged
+		p.passPrivilege = opts.AllowPrivileged || p.grantedByImport(ref)
 
 		// **One reference may name several targets.** `BUILD ./wildcard/*+test`
 		// builds the target of every directory it matches, which the corpus
@@ -1736,6 +1744,8 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 
 	// As on FROM and BUILD: the line granting privilege is this one, and it
 	// holds for every source it names.
+	// The grant may also come from the IMPORT the source is named through; the
+	// per-source check happens below, where each source is known.
 	p.passPrivilege = spec.AllowPrivileged
 	passArgs, platform, buildArgs := spec.PassArgs, spec.Platform, spec.BuildArgs
 
@@ -1812,6 +1822,10 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 			maps.Copy(pass, buildArgs)
 
 			p.passTo = pass
+		}
+
+		if p.grantedByImport(src) {
+			p.passPrivilege = true
 		}
 
 		source, inSource, err := p.copySource(src, loc(c.SourceLocation))
@@ -1957,6 +1971,21 @@ func (p *Plan) callerContext() string {
 	}
 
 	return p.here.dir
+}
+
+// grantedByImport reports whether a reference goes through an alias that was
+// imported with `--allow-privileged`.
+//
+// The grant belongs to the name: `IMPORT --allow-privileged <repo> AS priv`
+// then `COPY priv+privileged/out .` carries no flag of its own, and the whole
+// point of naming a repository once is that it does not have to.
+func (p *Plan) grantedByImport(ref string) bool {
+	at := strings.Index(ref, "+")
+	if at <= 0 || p.here == nil {
+		return false
+	}
+
+	return p.here.grants[ref[:at]]
 }
 
 // copySource resolves what a COPY reads from.

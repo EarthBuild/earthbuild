@@ -150,6 +150,12 @@ func main() {
 			"read build arguments from this file (default \".arg\")")
 		secretFile = flag.String("secret-file-path", "",
 			"read secrets from this file (default \".secret\")")
+		// Comma-separated, as earthly takes it. The seven corpus invocations
+		// that pass one name a feature this engine implements unconditionally,
+		// so what they need is for the flag to be understood rather than for
+		// anything to change (E473).
+		versionFlags = flag.String("version-flag-overrides", "",
+			"turn on these VERSION features for every file, comma-separated")
 		noCache = flag.Bool("no-cache", false,
 			"build every step, reading no cache entry that is already there")
 		noOutput = flag.Bool("no-output", false,
@@ -240,16 +246,17 @@ func main() {
 	defer stop()
 
 	err := cli.Run(ctx, cli.Options{
-		Dir:         *dir,
-		Target:      flag.Arg(0),
-		Platform:    *platform,
-		Args:        args,
-		Secrets:     secrets,
-		SecretFiles: secretFilePaths,
-		DryRun:      *dryRun,
-		ArgFile:     *argFile,
-		SecretFile:  *secretFile,
-		NoCache:     *noCache,
+		Dir:          *dir,
+		Target:       flag.Arg(0),
+		Platform:     *platform,
+		Args:         args,
+		Secrets:      secrets,
+		SecretFiles:  secretFilePaths,
+		DryRun:       *dryRun,
+		ArgFile:      *argFile,
+		SecretFile:   *secretFile,
+		NoCache:      *noCache,
+		VersionFlags: splitList(*versionFlags),
 		// **`--ci` means `--no-output --strict`.** Strict is what this engine
 		// already is: it refuses what it cannot reproduce rather than offering
 		// the choice (I10), so there is nothing for the flag to switch on. What
@@ -281,4 +288,19 @@ func report(err error) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// splitList is a comma-separated flag value as a list, with the empty value as
+// no entries rather than one empty one.
+func splitList(v string) []string {
+	if strings.TrimSpace(v) == "" {
+		return nil
+	}
+
+	out := strings.Split(v, ",")
+	for i := range out {
+		out[i] = strings.TrimSpace(out[i])
+	}
+
+	return out
 }

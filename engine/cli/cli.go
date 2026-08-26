@@ -280,6 +280,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		interp.WithCommands(g.commands(ctx)),
 		interp.WithRemotes(g.remotes(ctx)),
 		interp.WithSecrets(secrets),
+		interp.WithVersionFlags(o.VersionFlags),
 		interp.WithPlatform(o.platformOrDefault()),
 		interp.WithGitClone(g.gitClone(ctx)),
 		interp.WithImageResolver(resolver.Resolve),

@@ -22,7 +22,7 @@ func guestd(t *testing.T) string {
 
 	out := filepath.Join(t.TempDir(), "earth-guestd")
 
-	build := osexec.Command("go", "build", "-o", out,
+	build := osexec.CommandContext(t.Context(), "go", "build", "-o", out,
 		"github.com/EarthBuild/earthbuild/cmd/earth-guestd")
 	build.Env = append(os.Environ(), "GOOS=linux", "GOARCH=arm64", "CGO_ENABLED=0")
 

@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -40,7 +41,7 @@ func runProbeIfAsked() {
 		return
 	}
 
-	c, err := net.Dial("unix", os.Args[2]) //nolint:gosec // arguments this test wrote
+	c, err := (&net.Dialer{}).DialContext(context.Background(), "unix", os.Args[2]) //nolint:gosec // arguments this test wrote
 	if err != nil {
 		fmt.Println("no daemon at", os.Args[2]+":", err)
 		os.Exit(1)
@@ -65,7 +66,7 @@ func runResolveIfAsked() {
 		return
 	}
 
-	addrs, err := net.LookupHost(os.Args[2]) //nolint:gosec // arguments this test wrote
+	addrs, err := (&net.Resolver{}).LookupHost(context.Background(), os.Args[2]) //nolint:gosec // arguments this test wrote
 	if err != nil {
 		fmt.Println("cannot resolve", os.Args[2]+":", err)
 		os.Exit(1)

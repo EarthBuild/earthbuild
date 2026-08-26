@@ -70,12 +70,12 @@ func TestAStoppedSandboxIsResumed(t *testing.T) { //nolint:paralleltest // boots
 	// having stopped the VM anyway. So the state is polled instead, and a VM
 	// that will not stop is a machine this test cannot ask its question on
 	// rather than a failure of the engine.
-	_ = osexec.Command("container", "stop", sb.Name()).Run()
+	_ = osexec.CommandContext(t.Context(), "container", "stop", sb.Name()).Run()
 
 	stopped := false
 
 	for range 30 {
-		out, err := osexec.Command("container", "ls", "-a").Output()
+		out, err := osexec.CommandContext(t.Context(), "container", "ls", "-a").Output()
 		if err == nil && exec.ParseContainers(out)[sb.Name()] == "stopped" {
 			stopped = true
 

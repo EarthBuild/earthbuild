@@ -65,7 +65,7 @@ func TestRemovingASandboxRemovesItsVolume(t *testing.T) { //nolint:paralleltest 
 func volumeExists(t *testing.T, name string) bool {
 	t.Helper()
 
-	out, err := osexec.Command("container", "volume", "ls").Output()
+	out, err := osexec.CommandContext(t.Context(), "container", "volume", "ls").Output()
 	if err != nil {
 		t.Fatalf("list volumes: %v", err)
 	}

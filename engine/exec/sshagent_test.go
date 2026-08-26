@@ -85,7 +85,7 @@ func listening(t *testing.T) string {
 
 	path := filepath.Join(dir, "s")
 
-	l, err := net.Listen("unix", path)
+	l, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", path)
 	if err != nil {
 		// Not a skip. Every machine this runs on can make a unix socket, and
 		// one that cannot is a fact worth a failure rather than a silence.

@@ -62,7 +62,7 @@ func TestEnsureFileDoesNotOpenWhatItDidNotCreate(t *testing.T) {
 			defer wg.Done()
 
 			// The other step, binding something unopenable at the same path.
-			l, err := net.Listen("unix", target)
+			l, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", target)
 			if err == nil {
 				_ = l.Close()
 			}

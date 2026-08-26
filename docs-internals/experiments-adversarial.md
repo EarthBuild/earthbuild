@@ -32959,3 +32959,37 @@ noisier than they were presented.
 The engine cleans up carefully within a build - cgroups removed, deltas released,
 sandboxes reaped by name. This is the case outside that: the process that would
 do the cleaning is the one that was killed.
+
+### The leak also hangs the test runner, and the mechanism is exact
+
+Watched live. `cli.test` was sent SIGQUIT; it died, and `go` did not finish -
+nothing was written to the log at all, for minutes. Two `earth-guestd` and a
+`sleep` outlived it:
+
+```text
+PID  ELAPSED  COMMAND
+  1    17:13  go
+2345   16:43  earth-guestd     <- SIGTERM sent at 16:12, still here
+2382   16:42  sleep
+```
+
+`SIGTERM` does not stop `earth-guestd`. `SIGKILL` does, and the instant it did,
+3583 lines appeared and `go test` completed.
+
+So a leaked guest holds the test binary's standard output open, and `go test`
+waits on that descriptor rather than on the process. The runner appears hung on
+whichever test was last named, and the real cause is a guest from an earlier test
+in the same package that never exited. That is worth more than the wasted CPU:
+it is a leak that presents as a hang, in the runner, several tests later.
+
+### Six failures, and why they are not reported as bugs
+
+The run showed six, among them `layer … is named in a stack and is not in the
+store`, `the history does not mention "alpine:3.22"`, and `the second build saw 1
+lines, want 2 - the cache did not survive`.
+
+They are not claimed here. The environment had store state left by several runs
+killed part way, and a fifth of the machine held by the leak above; "named in a
+stack and not in the store" is precisely what a half-killed run leaves behind. A
+clean re-run - fresh scratch, no orphans - is what would tell, and until then
+these are observations rather than findings.

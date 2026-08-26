@@ -30,7 +30,7 @@ import (
 // normalisation to compare: a difference is a difference. Images carry
 // timestamps and digests that legitimately differ, and comparing those needs the
 // exclusions table, which is its own piece of work.
-func TestBothEnginesProduceTheSameArtifact(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+func TestBothEnginesProduceTheSameArtifact(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}

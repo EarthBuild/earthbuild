@@ -20,7 +20,7 @@ import (
 // this machine does. Running `LOCALLY` steps *as macOS* is the other half and
 // needs the platform to reach placement as something other than `linux/*`; it is
 // a plan item and not this.
-func TestADarwinWorkerHasASandbox(t *testing.T) { //nolint:paralleltest // t.Setenv
+func TestADarwinWorkerHasASandbox(t *testing.T) {
 	t.Setenv("EARTH_CACHE_DIR", t.TempDir())
 
 	sb, err := workerSandbox()
@@ -53,7 +53,7 @@ func TestADarwinWorkerHasASandbox(t *testing.T) { //nolint:paralleltest // t.Set
 // The same refusal the Linux backend makes, and for the same reason: a worker
 // materialises bases and captures results, so a store it did not choose is a
 // worker writing into somebody else's.
-func TestADarwinWorkerNeedsAStore(t *testing.T) { //nolint:paralleltest // t.Setenv
+func TestADarwinWorkerNeedsAStore(t *testing.T) {
 	t.Setenv("EARTH_CACHE_DIR", "")
 
 	_, err := workerSandbox()

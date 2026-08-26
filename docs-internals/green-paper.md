@@ -868,6 +868,30 @@ Two rules are normative:
 Mispredicted speculative work is deposited in σ, not discarded: should that branch ever be taken,
 the result is already present.
 
+### 4.8 Nested builds
+
+A step may run a build. The engine it runs is this engine and the step it runs in is a step like
+any other, so the arrangement composes: a build inside a build inside a build, to any depth. The
+bound is the machine's memory, disk and descriptors, and nothing in this specification.
+
+Two things a nested engine needs. Both are properties of where it is asked to keep its state, not
+of nesting itself.
+
+**A store on a filesystem that can carry the materialiser's mounts.** A step's own root is the
+materialiser's output and cannot also be its input: an overlay does not stack on an overlay. A
+nested engine's store therefore lives on a cache mount (§3.3c), or on any other filesystem the
+enclosing step did not receive as an overlay. An engine given nowhere suitable says so; it does not
+silently place a store where it cannot be read back, and it does not silently place one in memory.
+
+**Observation, or its absence.** Observation is per-task and admits one observer, so a step already
+watched by an enclosing engine cannot be watched by the engine running inside it. The inner 𝑟 is
+then absent, which §3.6 already governs: no Κ₂ entry, Κ₁ (4.5) unaffected. At most one engine in a
+nest observes, and it is the outermost one that asked to.
+
+Nesting therefore costs the inner build its Κ₂ tier and nothing else. It costs no correctness: an
+absent 𝑟 is the case §3.6 is written for, and a nested engine that reported a partial 𝑟 as complete
+would violate I3 exactly as a top-level one would.
+
 ## 5. Invariants
 
 Normative. An implementation that violates any of these is defective, not merely suboptimal.
@@ -985,6 +1009,9 @@ Normative. An implementation that violates any of these is defective, not merely
   is a key or the local context, is mounted read-only, and enters Κ₁ with its contents. A source
   with no ν is refused rather than bound. Omitting the contents would admit the false hit I3
   forbids, and a writable one would breach A3.
+* **I21 (Nesting).** A step may run a build, to any depth (§4.8). Where an enclosing engine already
+  observes the step, the nested engine's 𝑟 is absent rather than partial, and it derives no Κ₂ entry
+  from an observation it could not make.
 
 * **I19 (A secret is never written down).** A declared secret enters ε by identity and never by
   value, and never becomes a declaration: declarations are stored, content-addressed and shared, so a
@@ -1031,6 +1058,7 @@ from the strongest form to the weakest, so a lower number is a stronger guarante
 | I18       | the materialiser distinguishes a declaration from a layer the store does not hold, rather than creating an empty directory for whatever is absent                                       | 2     | **[GAP]**                                                     |
 | I19       | a secret reaches a step through the secret mechanism and has no path into a declaration; the type that carries a declaration carries no secret value                                    | 1     | **[GAP]**                                                     |
 | I20       | β's object and subtree hashed into Κ₁ at both mirrors; the guest binds it read-only, from one layer or an assembled stack; a source that is neither the context nor a result is refused |       |                                                               |
+| I21       | the nested engine reports 𝑟 incomplete when the observation source refuses it, and §3.6 yields no Κ₂ entry from an incomplete 𝑟                                                         | 2     | E706                                                          |
 
 An invariant with two mechanisms takes the **weaker** level, not the better one: I3 needs both the
 observation set to be closed and every field of ω to reach the key, so it is enforced only as well as

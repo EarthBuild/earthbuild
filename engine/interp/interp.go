@@ -1213,6 +1213,14 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// what it observed - stated three ways.
 		rs.host = true
 
+		// **And the working directory does not follow it here.** A WORKDIR set
+		// before this names a path inside the container; carried across, it had
+		// a host step asked to `chdir test` for a container's `/test`
+		// (tests/if.earth+test-switch-locally). The machine's build starts in
+		// the directory holding the Earthfile, which is what makes a WORKDIR
+		// written *after* LOCALLY relative to it.
+		rs.dir = ""
+
 		return prev, nil
 
 	case earthfile.CmdLet, earthfile.CmdSet:

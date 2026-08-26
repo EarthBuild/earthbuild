@@ -101,8 +101,8 @@ func (g *engine) artifacts(ctx context.Context, o Options, src string) interp.Ar
 			// made is not that, and the first real run of this path was refused
 			// for writing outside a project it was never asked to write into
 			// (E490).
-			dest := filepath.Join(into, filepath.Base(a.Path))
-			err := e.ExportInternal(ctx, stack, a.Path, dest, a.IfExists)
+			err := e.ExportInternal(ctx, stack, a.Path,
+				dockerfileDest(into, a.Path), a.IfExists)
 			if err != nil {
 				return "", err
 			}
@@ -125,4 +125,25 @@ func targetAndArtifact(ref string) (target, name string) {
 	}
 
 	return ref[:i], ref[i+1:]
+}
+
+// dockerfileDest is where one of a target's artifacts is put so the Dockerfile
+// can be read from beside it.
+//
+// **A pattern is already a directory.** `SAVE ARTIFACT ./*` is recorded with the
+// path `/test/*`, and taking `filepath.Base` of that named the destination `*` -
+// so the export landed in a directory of that name and the reader looking for
+// `<tmp>/Dockerfile` found nothing (tests/gen-dockerfile.earth,
+// tests/from-dockerfile-arg.earth).
+//
+// The export stages a pattern into a directory of its own holding each match
+// under its own name, so it copies out *as* this directory rather than into a
+// subdirectory of it. A plain path keeps its own name, which is what the reader
+// asks for.
+func dockerfileDest(into, path string) string {
+	if strings.ContainsAny(filepath.Base(path), "*?[") {
+		return into
+	}
+
+	return filepath.Join(into, filepath.Base(path))
 }

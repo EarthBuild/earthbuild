@@ -21,6 +21,7 @@ import (
 	"runtime"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -171,6 +172,20 @@ type Plan struct {
 	// passPlatform carries a --platform into the target being resolved. Empty
 	// means the invoking platform, which is what an unqualified reference means.
 	passPlatform string
+	// passPrivilege carries a reference's `--allow-privileged` into the target
+	// being resolved, and `granted` is that grant while its recipe is planned.
+	//
+	// **The grant is per reference, which is the point of it.** A remote
+	// Earthfile is not the reader's to trust, so the CLI's `--allow-privileged`
+	// says "this build may use privilege", not "anything it fetches may". What
+	// crosses a repository boundary is the referring line saying so:
+	// `FROM --allow-privileged github.com/org/repo+privileged`.
+	//
+	// Hand-off rather than a parameter, for the reason passPlatform and passTo
+	// are: every reference site would otherwise thread it through targetRef and
+	// targetIn to reach the one line that reads it.
+	passPrivilege bool
+	granted       bool
 	// resolved memoises each target's final node. Targets form a DAG: a shared
 	// dependency named by three targets is one subgraph, not three.
 	resolved map[string]*ir.Node
@@ -270,7 +285,12 @@ func (p *Plan) targetIn(u *unit, name string) (*ir.Node, *state, error) {
 	// built with two different arguments is two different builds, and keying on
 	// the name alone silently discarded the second - `BUILD +image --tag=one`
 	// followed by `--tag=two` produced one image.
-	memo := name + "\x00" + p.passPlatform + "\x00" + canonicalArgs(p.passTo)
+	// The grant is part of what is being asked for: the same target referenced
+	// with and without `--allow-privileged` is two different requests, and
+	// `reject-dedup` in the corpus exists to say so - it builds the granted one
+	// first and requires the plain one to be refused afterwards.
+	memo := name + "\x00" + p.passPlatform + "\x00" + canonicalArgs(p.passTo) +
+		"\x00" + strconv.FormatBool(p.passPrivilege)
 
 	if n, done := u.resolved[memo]; done {
 		return n, u.ended[memo], nil
@@ -354,6 +374,14 @@ func (p *Plan) targetIn(u *unit, name string) (*ir.Node, *state, error) {
 		p.passPlatform = ""
 	}
 
+	// Taken here and restored below, so the grant covers this target's recipe
+	// and everything it builds, and stops at the end of it.
+	prevGrant := p.granted
+	if p.passPrivilege {
+		p.granted = true
+		p.passPrivilege = false
+	}
+
 	if len(p.passTo) > 0 {
 		merged := map[string]string{}
 		maps.Copy(merged, p.passTo)
@@ -371,6 +399,7 @@ func (p *Plan) targetIn(u *unit, name string) (*ir.Node, *state, error) {
 	root, err := p.block(t.Recipe, base, rs)
 
 	p.here = prevUnit
+	p.granted = prevGrant
 	p.building = p.building[:len(p.building)-1]
 
 	if err != nil {
@@ -685,6 +714,10 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				p.passPlatform = from.platform
 			}
 
+			// The line granting privilege is this one, so the grant travels
+			// with the reference it is written on.
+			p.passPrivilege = from.allowPrivileged
+
 			pass := map[string]string{}
 
 			if from.passArgs {
@@ -793,7 +826,10 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// considered. The reference engine requires it be granted again, at the
 		// FROM or IMPORT that reaches out, and the corpus asserts the refusal
 		// in five places.
-		allowHere := p.opt.allowPrivileged && p.here.fetchedFrom == ""
+		// Either the operator opted in for a file this build owns, or the line
+		// that referred to this one granted it outright.
+		allowHere := p.granted ||
+			(p.opt.allowPrivileged && p.here.fetchedFrom == "")
 
 		rf, err := runFlags(c, rs.env, rs.dir, p.opt.terminal, allowHere)
 		if err != nil {
@@ -1255,6 +1291,9 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			p.passPlatform = opts.Platforms[0]
 		}
 
+		// As on FROM: the line granting privilege is this one.
+		p.passPrivilege = opts.AllowPrivileged
+
 		// **One reference may name several targets.** `BUILD ./wildcard/*+test`
 		// builds the target of every directory it matches, which the corpus
 		// writes five ways and this engine read literally, looking for a
@@ -1660,6 +1699,10 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 	}
 
 	args, dirCopy, ifExists := spec.Args, spec.Dir, spec.IfExists
+
+	// As on FROM and BUILD: the line granting privilege is this one, and it
+	// holds for every source it names.
+	p.passPrivilege = spec.AllowPrivileged
 	passArgs, platform, buildArgs := spec.PassArgs, spec.Platform, spec.BuildArgs
 
 	// `copy-sources = copy-source *( WSP copy-source )`: every argument but the
@@ -2226,6 +2269,9 @@ type copySpec struct {
 	// PassArgs forwards this target's arguments to the one the artifact comes
 	// from.
 	PassArgs bool
+	// AllowPrivileged is `COPY --allow-privileged`: this line grants the
+	// referenced target privilege, across a repository boundary if need be.
+	AllowPrivileged bool
 	// Platform builds the source target for a platform of its own.
 	Platform string
 	// BuildArgs are `--build-arg` values for the source target.
@@ -2299,7 +2345,8 @@ func copyArgs(c earthfile.Command) (copySpec, error) {
 		Args: rest, Dir: opts.IsDirCopy,
 		NoFollow: opts.SymlinkNoFollow, KeepOwn: opts.KeepOwn, Chown: opts.Chown,
 		IfExists: opts.IfExists, PassArgs: opts.PassArgs,
-		Platform: opts.Platform, BuildArgs: args,
+		AllowPrivileged: opts.AllowPrivileged,
+		Platform:        opts.Platform, BuildArgs: args,
 	}, nil
 }
 
@@ -2626,6 +2673,9 @@ type fromSpec struct {
 	args     map[string]string
 	passArgs bool
 	platform string
+	// allowPrivileged is `FROM --allow-privileged`: this line grants the
+	// referenced target privilege, across a repository boundary if need be.
+	allowPrivileged bool
 }
 
 func fromTarget(c earthfile.Command) (fromSpec, error) {
@@ -2635,6 +2685,8 @@ func fromTarget(c earthfile.Command) (fromSpec, error) {
 	if err != nil {
 		return fromSpec{}, flagFault("FROM", loc(c.SourceLocation), err)
 	}
+
+	allow := opts.AllowPrivileged
 
 	// An image rather than a target. The *parsed* first argument, not the raw
 	// one: `FROM --platform=linux/amd64 alpine` names alpine, and reading
@@ -2675,10 +2727,11 @@ func fromTarget(c earthfile.Command) (fromSpec, error) {
 	}
 
 	return fromSpec{
-		ref:      rest[0],
-		args:     args,
-		passArgs: opts.PassArgs,
-		platform: opts.Platform,
+		allowPrivileged: allow,
+		ref:             rest[0],
+		args:            args,
+		passArgs:        opts.PassArgs,
+		platform:        opts.Platform,
 	}, nil
 }
 

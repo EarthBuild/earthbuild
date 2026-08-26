@@ -227,14 +227,21 @@ var knownDropped = []string{
 	// the grant while refusing the thing granted is two answers to one
 	// question. The half that keeps this safe is
 	// `TestAllowPrivilegedDoesNotMakeAStepPrivileged`.
-	"BUILD --allow-privileged",
-	"COPY --allow-privileged",
-	"FROM --allow-privileged",
 	// deliberate: asks for a faster route to the answer this engine already
 	// gives, and a cache hint may not change results (I5). The same terms as
 	// `SAVE IMAGE --cache-hint` below, and the same terms this was refused on
 	// until the corpus drove it expecting a build (E484).
 	"BUILD --auto-skip",
+	// harness: the grant is real and only observable across a repository
+	// boundary. `--allow-privileged` on a reference lets the target it names
+	// use privilege where a remote Earthfile otherwise may not; against the
+	// *local* target this sweep builds, privilege is already permitted, so the
+	// plan is identical with the flag and without it and there is nothing here
+	// to see. TestAReferenceMayGrantPrivilegeAcrossARepositoryBoundary is
+	// where it is tested, over a fetched repository, on all three commands.
+	"BUILD --allow-privileged",
+	"COPY --allow-privileged",
+	"FROM --allow-privileged",
 	// harness: no arguments in scope to pass, as for COPY and FROM.
 	"BUILD --pass-args",
 	"COPY --keep-ts",                      // deliberate: interp.go, a capture keeps them

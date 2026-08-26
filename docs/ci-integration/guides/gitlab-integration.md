@@ -28,7 +28,7 @@ earth:
 
 Note that in this particular configuration, the `earthbuild/earthbuild` image will first
 start BuildKit under the same container via the image's entrypoint script; however
-by setting `EARTH_EXEC_CMD=/bin/sh`, the `/usr/bin/earthly-entrypoint.sh` script
+by setting `EARTH_EXEC_CMD=/bin/sh`, the `/usr/bin/earth-entrypoint.sh` script
 will present a shell rather than call the earth binary. This bootstrapping occurs
 before the `before_script` portion of the gitlab job executes.
 

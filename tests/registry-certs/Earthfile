@@ -57,7 +57,7 @@ DO_REMOTE_CACHE_EARTH:
         --mount=type=tmpfs,target=/tmp/earthbuild \
         -- \
         ( EARTH_ADDITIONAL_BUILDKIT_CONFIG=$EARTH_ADDITIONAL_BUILDKIT_CONFIG$REGISTRY_CONFIG \
-            /usr/bin/earthly-entrypoint.sh --ci --push \
+            /usr/bin/earth-entrypoint.sh --ci --push \
             --build-arg REGISTRY=$REGISTRY \
             $target; echo exit_code=$? \
         ) 2>&1 | tee ./output && \

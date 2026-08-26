@@ -104,7 +104,7 @@ jobs:
           INPUTS_BINARY: ${{inputs.BINARY}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: Test buildkit info-level logging
-        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd 2>&1 | grep 'running server on'
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earth-buildkitd 2>&1 | grep 'running server on'
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}

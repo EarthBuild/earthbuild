@@ -8,9 +8,14 @@ comments, docs or commit messages:
 * Use `earth` for the CLI / build tool (not `earthly`).
 * Use `EarthBuild` for the project name (not `Earthly`).
 * Leave existing `earthly` identifiers alone where they are literal: Earthfile
-  target names (`+earthly-docker`), installed binary paths (`/usr/bin/earthly`),
-  env var prefixes (`EARTHLY_*`), and published image/repo names. Those change
+  target names (`+earthly-docker`) and published image/repo names. Those change
   only as part of the rename itself.
+* Already renamed, do not reintroduce: the installed binary is `/usr/bin/earth`
+  and the image entrypoint is `/usr/bin/earth-entrypoint.sh` (each with an
+  `earthly`-spelled symlink kept for one deprecation cycle), the in-image config
+  lives at `/etc/.<installation name>/config.yml` (the old
+  `/etc/.earthly/config.yml` is still honoured if mounted), and the env var
+  prefix is `EARTH_*` (the `EARTHLY_*` spelling is still read, with a warning).
 
 ## Golang
 

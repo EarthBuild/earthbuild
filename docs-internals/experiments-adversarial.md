@@ -33750,3 +33750,47 @@ being built nor refused on a stated position.
 The two invocations are the whole cost, and they are the last two on this
 machine that are not environmental or already-recorded refusals: 224 of 250
 without them, 226 with.
+
+## E727 - a warm build re-pulls a base image it already has
+
+Four lines, and every build pays for them:
+
+```Dockerfile
+VERSION 0.8
+FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+main:
+  RUN true
+```
+
+Built twice, the second run takes about a second, and `EARTH_TIMINGS=1` says
+where it goes:
+
+| phase               | warm run |
+| ------------------- | -------- |
+| `registry:token`    | 0.262s   |
+| `layer:get`         | 0.248s   |
+| `registry:manifest` | 0.144s   |
+| `layer:unpack`      | 0.111s   |
+| `sandbox:dial`      | 0.064s   |
+| `sandbox:start`     | 0.052s   |
+
+Three quarters of a second of registry traffic on a build that changed nothing.
+The reference is a digest, so this is not tag resolution - `plan` is 0.002s and
+`EARTH_PIN_TTL` is not involved. The FROM is reported `L1 hit`, and the layer it
+names is in the store with seventeen entries in it.
+
+**It is not the image cheap path failing.** `materialiseImage` checks
+`imageLayerNamed(shared) && st.Populated(id)` and returns without fetching, and
+every input to that check is present: the note exists at
+`~/.cache/earthbuild/imagecache/<key>.layer`, the key is the same for
+`alpine:3.24.1@sha256:...` and `alpine@sha256:...` because it normalises to the
+digest, and the layer directory is populated.
+
+The function is never entered. A `fmt.Fprintf` on that branch prints nothing on
+the warm run - which is consistent with the FROM being a cache hit, so the node
+is never executed. Something *after* `sandbox:dial` pulls the image anyway, and
+`mat:stack` reports one layer immediately before it.
+
+So the question is which caller of `image.Pull`/`PullApart`/`FetchApart` runs
+when the step that would need one has already hit. Worth answering: this is most
+of a no-op build, on every build, for every project.

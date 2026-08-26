@@ -79,7 +79,7 @@ func TestOutputArrivesWhileTheStepRuns(t *testing.T) {
 
 	code, _, err := c.ExecStream(context.Background(), h,
 		[]string{sh(t), "-c", "echo early; " + bin(t, "sleep") + " 1; echo late"}, nil,
-		func(chunk string) {
+		func(chunk string, _ bool) {
 			mu.Lock()
 			defer mu.Unlock()
 
@@ -139,7 +139,7 @@ func TestConcurrentOutputStaysAttributed(t *testing.T) {
 
 			_, _, err = c.ExecStream(context.Background(), h,
 				[]string{sh(t), "-c", "for i in 1 2 3; do echo " + name + "; " + bin(t, "sleep") + " 0.02; done"}, nil,
-				func(chunk string) { got.WriteString(chunk) },
+				func(chunk string, _ bool) { got.WriteString(chunk) },
 			)
 			if err != nil {
 				t.Error(err)

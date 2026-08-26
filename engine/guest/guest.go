@@ -1269,7 +1269,7 @@ type Client struct {
 	mu      sync.Mutex
 	next    uint64
 	pending map[uint64]chan Response
-	sinks   map[uint64]func(string)
+	sinks   map[uint64]func(string, bool)
 	dead    error
 	// degraded is why the guest could not apply a step's resource limits. The
 	// first reason is kept: they are all the same reason in practice, and a
@@ -1317,7 +1317,7 @@ func Dial(rw io.ReadWriter) (*Client, error) {
 // trial is that a guest which never speaks is reported rather than waited for,
 // and that is the same fact at fifty milliseconds.
 func dialWithin(rw io.ReadWriter, within time.Duration) (*Client, error) {
-	cl := &Client{c: newConn(rw), pending: map[uint64]chan Response{}, sinks: map[uint64]func(string){}}
+	cl := &Client{c: newConn(rw), pending: map[uint64]chan Response{}, sinks: map[uint64]func(string, bool){}}
 
 	// The handshake is exchanged *synchronously*, before the demultiplexer
 	// starts, and must stay expressible in the oldest dialect the protocol has
@@ -1412,7 +1412,7 @@ func (c *Client) read() {
 			c.mu.Unlock()
 
 			if sink != nil {
-				sink(resp.Chunk)
+				sink(resp.Chunk, resp.Stderr)
 			}
 
 			continue
@@ -1464,7 +1464,7 @@ func (c *Client) do(ctx context.Context, req Request) (Response, error) {
 
 // doStream is do, with somewhere for a running step's output to go, and a
 // context that can abandon the wait.
-func (c *Client) doStream(ctx context.Context, req Request, sink func(string)) (Response, error) {
+func (c *Client) doStream(ctx context.Context, req Request, sink func(string, bool)) (Response, error) {
 	ch := make(chan Response, 1)
 
 	c.mu.Lock()
@@ -1783,7 +1783,7 @@ func outputFor(req Request, out []byte) string {
 
 // streamer returns a sink that forwards a step's output to the host as it
 // appears, or nil when the host did not ask for it.
-func streamer(c *conn, req Request) func([]byte) {
+func streamer(c *conn, req Request, isErr bool) func([]byte) {
 	if !req.Stream || c == nil {
 		return nil
 	}
@@ -1792,7 +1792,9 @@ func streamer(c *conn, req Request) func([]byte) {
 		// A send failure means the connection is gone; the read loop will find
 		// out. Failing the step because its *progress* could not be delivered
 		// would turn a cosmetic problem into a build failure.
-		_ = c.send(Response{ID: req.ID, Streaming: true, Chunk: string(b)})
+		_ = c.send(Response{
+			ID: req.ID, Streaming: true, Chunk: string(b), Stderr: isErr,
+		})
 	}
 }
 
@@ -1801,7 +1803,7 @@ func streamer(c *conn, req Request) func([]byte) {
 //
 // cmd.CombinedOutput would be shorter and would hold everything until the step
 // ends, which is exactly the silence this exists to remove.
-func run(cmd *osexec.Cmd, sink func([]byte)) ([]byte, error) {
+func run(cmd *osexec.Cmd, sink func([]byte, bool)) ([]byte, error) {
 	// Already attached to something: an interactive step owns a terminal, and
 	// its output is going there. Capturing as well is not possible - Output and
 	// CombinedOutput refuse a command whose Stdout is set, which is how this was
@@ -1824,19 +1826,29 @@ func run(cmd *osexec.Cmd, sink func([]byte)) ([]byte, error) {
 		buf []byte
 	)
 
-	// One writer for both streams, so interleaving is preserved as the step
-	// produced it rather than reordered by which pipe drained first.
-	w := writerFunc(func(b []byte) (int, error) {
-		mu.Lock()
-		buf = append(buf, b...)
-		mu.Unlock()
+	// **One buffer for both streams, and apart down the wire.** A build log
+	// wants them interleaved - that is how a command's error reads against the
+	// command that produced it - so `buf`, which is what a failing step's
+	// message is made of, still takes both in the order they arrived.
+	//
+	// A `$( )` substitution wants stdout alone, as every shell gives it, and
+	// cannot pick it out of a merged stream afterwards: `ls x || echo -n ""`
+	// succeeds having written only to stderr, and the error message became the
+	// value (E725). So the sink is told which stream each chunk came from and
+	// the reader decides what to do with it.
+	stream := func(isErr bool) writerFunc {
+		return func(b []byte) (int, error) {
+			mu.Lock()
+			buf = append(buf, b...)
+			mu.Unlock()
 
-		sink(b)
+			sink(b, isErr)
 
-		return len(b), nil
-	})
+			return len(b), nil
+		}
+	}
 
-	cmd.Stdout, cmd.Stderr = w, w
+	cmd.Stdout, cmd.Stderr = stream(false), stream(true)
 
 	// **`Wait` waits for the copying, not just the child.** `Stdout` here is not
 	// an `*os.File`, so `os/exec` makes an OS pipe and a goroutine to drain it,
@@ -2284,8 +2296,26 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 		defer timing.Phase("guest:exec", req.Handle)()
 
-		sink, flush := redactingSink(streamer(c, req), secretsFrom(req))
-		defer flush()
+		// **One redactor per stream.** `redactingSink` holds a tail so a secret
+		// split across two chunks is still caught, and a single redactor fed both
+		// streams would join a fragment of one to a fragment of the other.
+		secrets := secretsFrom(req)
+
+		toOut, flushOut := redactingSink(streamer(c, req, false), secrets)
+		toErr, flushErr := redactingSink(streamer(c, req, true), secrets)
+
+		defer func() { flushOut(); flushErr() }()
+
+		sink := func(b []byte, isErr bool) {
+			to := toOut
+			if isErr {
+				to = toErr
+			}
+
+			if to != nil {
+				to(b)
+			}
+		}
 
 		out, rerr = runStep(cmd, sink, req, s, h, mountPoints(mounts))
 
@@ -2506,7 +2536,7 @@ func (c *Client) Exec(ctx context.Context, h core.Handle, argv, env []string) (i
 // The complete output is still returned, because a failing step's message is
 // what its error is made of - streaming is in addition to that, not instead.
 func (c *Client) ExecStream(
-	ctx context.Context, h core.Handle, argv, env []string, sink func(string),
+	ctx context.Context, h core.Handle, argv, env []string, sink func(string, bool),
 ) (int, string, error) {
 	return c.ExecIn(ctx, h, "", argv, env, sink)
 }
@@ -2559,7 +2589,7 @@ type Step struct {
 // Keeps the three-value shape its callers use: they run a command and read what
 // it said, and none of them wants the step's resource usage.
 func (c *Client) ExecIn(
-	ctx context.Context, h core.Handle, dir string, argv, env []string, sink func(string),
+	ctx context.Context, h core.Handle, dir string, argv, env []string, sink func(string, bool),
 ) (int, string, error) {
 	got, err := c.RunStep(ctx, h, Step{Dir: dir, Argv: argv, Env: env}, sink)
 
@@ -2589,7 +2619,7 @@ type StepOutcome struct {
 // loose argv would be two ways to say the same thing, and the mounts would be
 // missing from whichever a caller happened to pick.
 func (c *Client) RunStep(
-	ctx context.Context, h core.Handle, step Step, sink func(string),
+	ctx context.Context, h core.Handle, step Step, sink func(string, bool),
 ) (StepOutcome, error) {
 	rh, ok := h.(*remoteHandle)
 	if !ok {
@@ -2915,7 +2945,7 @@ const stepWaitDelay = 5 * time.Second
 // its observation already lives: what a copy looked at, and now what a command
 // did (green paper §3.4).
 func runStep(
-	cmd *osexec.Cmd, sink func([]byte), req Request, s *Server, h core.Handle,
+	cmd *osexec.Cmd, sink func([]byte, bool), req Request, s *Server, h core.Handle,
 	provided []string,
 ) ([]byte, error) {
 	if !req.Trace {

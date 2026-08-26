@@ -57,7 +57,7 @@ func TestOutputWithNoTrailingNewlineIsNotLost(t *testing.T) {
 
 			var got []string
 
-			e := &Executor{Capture: func(_ *ir.Node, line string) {
+			e := &Executor{Capture: func(_ *ir.Node, line string, _ bool) {
 				got = append(got, line)
 			}}
 
@@ -65,7 +65,7 @@ func TestOutputWithNoTrailingNewlineIsNotLost(t *testing.T) {
 
 			write, done := e.sinkFor(n)
 			for _, c := range tc.chunks {
-				write(c)
+				write(c, false)
 			}
 
 			done()

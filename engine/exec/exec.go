@@ -147,7 +147,10 @@ type Executor struct {
 	// before it when they are not already cached, and taking the value out of
 	// the display stream took their output with it - so v depended on whether
 	// the machine had built this before.
-	Capture func(n *ir.Node, line string)
+	// stderr says the line came from the step's standard error. A build log
+	// wants both streams; a `$( )` substitution wants stdout alone, which is
+	// what every shell gives it (E725).
+	Capture func(n *ir.Node, line string, stderr bool)
 
 	sb Sandbox
 	c  *guest.Client
@@ -1087,7 +1090,7 @@ func (e *Executor) noteDocker(note string) {
 // The prefix is not decoration. Steps run concurrently, so their output
 // interleaves; unattributed lines are worse than none, because a user reads one
 // step's error under another step's heading and debugs the wrong command.
-func (e *Executor) sinkFor(n *ir.Node) (write func(string), done func()) {
+func (e *Executor) sinkFor(n *ir.Node) (write func(string, bool), done func()) {
 	if e.Progress == nil && e.Capture == nil {
 		return nil, func() {}
 	}
@@ -1097,32 +1100,42 @@ func (e *Executor) sinkFor(n *ir.Node) (write func(string), done func()) {
 		where = n.Op.Kind.String()
 	}
 
-	var pending string
+	// Indexed by stream: 0 is stdout, 1 is standard error.
+	var pending [2]string
 
-	emit := func(line string) {
+	emit := func(line string, isErr bool) {
 		if e.Progress != nil {
 			e.Progress(where, line)
 		}
 
 		if e.Capture != nil {
-			e.Capture(n, line)
+			e.Capture(n, line, isErr)
 		}
 	}
 
-	write = func(chunk string) {
+	write = func(chunk string, isErr bool) {
 		// Buffered to line boundaries: a write that splits mid-line would
 		// otherwise produce a prefix in the middle of a sentence.
-		pending += chunk
+		//
+		// **A tail per stream, not one between them.** A single tail joined
+		// half a line of stdout to the next line of standard error, which is a
+		// line neither of them printed.
+		at := 0
+		if isErr {
+			at = 1
+		}
+
+		pending[at] += chunk
 
 		for {
-			i := strings.IndexByte(pending, '\n')
+			i := strings.IndexByte(pending[at], '\n')
 			if i < 0 {
 				return
 			}
 
-			emit(pending[:i])
+			emit(pending[at][:i], isErr)
 
-			pending = pending[i+1:]
+			pending[at] = pending[at][i+1:]
 		}
 	}
 
@@ -1137,12 +1150,15 @@ func (e *Executor) sinkFor(n *ir.Node) (write func(string), done func()) {
 	// Nothing is emitted when the output ended cleanly: flushing an empty
 	// remainder would print a blank line after every step.
 	done = func() {
-		if pending == "" {
-			return
-		}
+		for at, tail := range pending {
+			if tail == "" {
+				continue
+			}
 
-		emit(pending)
-		pending = ""
+			emit(tail, at == 1)
+
+			pending[at] = ""
+		}
 	}
 
 	return write, done
@@ -1212,7 +1228,7 @@ func (e *Executor) hostStep(ctx context.Context, n *ir.Node) (core.Result, error
 const maxHostOutput = 64 << 10
 
 // runHost executes a command, streaming its output if anyone is listening.
-func runHost(cmd *osexec.Cmd, sink func(string)) ([]byte, error) {
+func runHost(cmd *osexec.Cmd, sink func(string, bool)) ([]byte, error) {
 	if sink == nil {
 		return cmd.CombinedOutput() //nolint:wrapcheck // the caller classifies this
 	}
@@ -1222,17 +1238,22 @@ func runHost(cmd *osexec.Cmd, sink func(string)) ([]byte, error) {
 		buf []byte
 	)
 
-	w := hostWriter(func(b []byte) (int, error) {
-		mu.Lock()
-		buf = append(buf, b...)
-		mu.Unlock()
+	// Both streams into one buffer and apart to the sink, for the reason the
+	// guest's `run` gives: a log wants them interleaved, a `$( )` substitution
+	// wants stdout alone (E725).
+	stream := func(isErr bool) hostWriter {
+		return func(b []byte) (int, error) {
+			mu.Lock()
+			buf = append(buf, b...)
+			mu.Unlock()
 
-		sink(string(b))
+			sink(string(b), isErr)
 
-		return len(b), nil
-	})
+			return len(b), nil
+		}
+	}
 
-	cmd.Stdout, cmd.Stderr = w, w
+	cmd.Stdout, cmd.Stderr = stream(false), stream(true)
 
 	err := cmd.Run()
 

@@ -457,8 +457,14 @@ func (g *engine) runGraph(ctx context.Context, graph *ir.Graph) (string, error) 
 	root := graph.Root.ID()
 
 	prev := e.Capture
-	e.Capture = func(n *ir.Node, line string) {
-		if n.ID() == root {
+	e.Capture = func(n *ir.Node, line string, stderr bool) {
+		// **Standard error is not the value.** `$( )` in every shell captures
+		// stdout alone and lets stderr through to the terminal, which is what
+		// the progress display above is. Taking both made
+		// `ls x || echo -n ""` - which succeeds having written only to stderr -
+		// evaluate to the error message rather than to nothing, and
+		// `wildcard-copy.earth` counted one file where there were none (E725).
+		if n.ID() == root && !stderr {
 			out.WriteString(line + "\n")
 		}
 	}

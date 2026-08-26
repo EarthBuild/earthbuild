@@ -31,7 +31,7 @@ func TestAStepWhoseGrandchildOutlivesItStillFinishes(t *testing.T) {
 	done := make(chan error, 1)
 
 	go func() {
-		_, err := run(cmd, func([]byte) {})
+		_, err := run(cmd, func([]byte, bool) {})
 		done <- err
 	}()
 
@@ -56,7 +56,7 @@ func TestAnOrdinaryStepIsNotDelayed(t *testing.T) {
 
 	start := time.Now()
 
-	out, err := run(osexec.CommandContext(t.Context(), "sh", "-c", "echo hello"), func([]byte) {})
+	out, err := run(osexec.CommandContext(t.Context(), "sh", "-c", "echo hello"), func([]byte, bool) {})
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}

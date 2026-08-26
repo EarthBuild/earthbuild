@@ -561,6 +561,13 @@ type Response struct {
 	// Streaming marks such a frame. A separate flag rather than "Chunk is
 	// non-empty", because a step legitimately prints an empty line.
 	Streaming bool `json:"streaming,omitempty"`
+	// Stderr says the chunk came from the step's standard error.
+	//
+	// The log wants both streams interleaved, and a `$( )` substitution wants
+	// stdout alone as every shell gives it - which cannot be recovered from a
+	// merged stream afterwards (E725). Absent from an older guest, which reads
+	// as stdout: exactly the behaviour before this existed.
+	Stderr bool `json:"stderr,omitempty"`
 
 	// More says this observe reply is a page and further entries remain.
 	//

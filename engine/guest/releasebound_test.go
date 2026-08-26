@@ -41,7 +41,7 @@ func TestReleasingAHandleGivesUpEventually(t *testing.T) {
 
 	// Built directly rather than through Dial: this guest never answers the
 	// handshake either, and that wait is bounded by its own test below.
-	c := &Client{c: newConn(g), pending: map[uint64]chan Response{}, sinks: map[uint64]func(string){}}
+	c := &Client{c: newConn(g), pending: map[uint64]chan Response{}, sinks: map[uint64]func(string, bool){}}
 
 	go c.read()
 

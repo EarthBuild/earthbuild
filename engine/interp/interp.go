@@ -1143,6 +1143,40 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 						"\n  introduce it with LET, or check the spelling",
 					name, loc(c.SourceLocation))
 			}
+
+			// **An ARG is the target's interface, not its state.** A caller may
+			// override one, and a build reading the same Earthfile with
+			// different arguments is a different build - so writing to one from
+			// inside would make its value depend on where in the recipe you
+			// looked. `tests/arg-set.earth` exists to be refused, and pins this
+			// wording as well as the refusal.
+			//
+			// `declared` rather than `args`: it is the names this recipe has an
+			// ARG line for, which is the case the corpus states. A name
+			// inherited as an argument from elsewhere is left alone until
+			// something says what the reference does with it.
+			// Keyed by scope, as `declare` writes them: a name is an ARG here
+			// whether it was declared local to the recipe or global to the file.
+			if rs.declared["local:"+name] || rs.declared["global:"+name] {
+				// A plain error, not ErrRefused: this is an Earthfile that is
+				// wrong rather than a construct this engine declines, and the
+				// two are counted apart.
+				return nil, fmt.Errorf(
+					"SET %[1]s at %[2]s cannot be done"+
+						"\n  Hint: '%[1]s' is an ARG and cannot be used with SET"+
+						" - try declaring `LET %[1]s = $%[1]s` first",
+					name, loc(c.SourceLocation))
+			}
+		}
+
+		// **LET re-introduces the name.** `ARG foo = sports` then
+		// `LET foo = ${foo}` makes `foo` a variable of this recipe rather than
+		// its interface, which is precisely what the refusal above tells the
+		// author to write - so the ARG-ness has to go, or the rule refuses its
+		// own advice. `tests/cli/testdata/let-set/Earthfile` is that shape.
+		if c.Name == earthfile.CmdLet {
+			delete(rs.declared, "local:"+name)
+			delete(rs.declared, "global:"+name)
 		}
 
 		rs.args[name] = value

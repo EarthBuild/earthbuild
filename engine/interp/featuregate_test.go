@@ -55,8 +55,11 @@ func TestSetNeedsTheFeatureThatEnablesIt(t *testing.T) {
 func TestSetIsOrdinaryAtVersionEightPointZero(t *testing.T) {
 	t.Parallel()
 
+	// LET rather than ARG: an ARG is the target's interface and SET refuses it
+	// (TestSetRefusesAnArgAndSaysHowToFixIt), so writing the example that way
+	// would test the wrong rule.
 	got := commandOfFirstExec(t, "VERSION 0.8\n\nmain:\n"+
-		"    FROM alpine:3.22\n    ARG foo=one\n    SET foo = two\n    RUN echo $foo\n")
+		"    FROM alpine:3.22\n    LET foo = one\n    SET foo = two\n    RUN echo $foo\n")
 
 	if !strings.HasSuffix(got, "echo two") {
 		t.Errorf("the step runs %q; SET is ordinary at 0.8 and must update"+
@@ -69,7 +72,7 @@ func TestSetIsFineWithTheFeature(t *testing.T) {
 	t.Parallel()
 
 	got := commandOfFirstExec(t, "VERSION --arg-scope-and-set 0.8\n\nmain:\n"+
-		"    FROM alpine:3.22\n    ARG foo=one\n    SET foo = two\n    RUN echo $foo\n")
+		"    FROM alpine:3.22\n    LET foo = one\n    SET foo = two\n    RUN echo $foo\n")
 
 	if !strings.HasSuffix(got, "echo two") {
 		t.Errorf("the step runs %q, and SET updated the argument", got)

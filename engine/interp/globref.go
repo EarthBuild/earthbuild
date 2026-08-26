@@ -2,6 +2,7 @@ package interp
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -62,6 +63,23 @@ func expandRef(dir, ref string) ([]string, error) {
 // Earthfile, named as the pattern named them - relative, with the `./` the
 // author wrote.
 func globDirs(dir, pattern, target string) ([]string, error) {
+	// **Refused, and this engine can do it.** `expandDoubleStar` crosses
+	// directories perfectly well; the reference does not, and the corpus pins
+	// its words - `wildcard-copy.earth+wildcard-globstar` is driven
+	// `--should_fail=true --output_contains="pattern not yet supported"`.
+	//
+	// Building it anyway is the failure this engine is arranged against, in the
+	// direction that looks like generosity: an Earthfile written here with `**`
+	// builds here and nowhere else, and its author finds out from somebody
+	// else's CI. "Not yet" is the reference's own word, so when it lands this
+	// refusal is the only thing to remove.
+	if strings.Contains(pattern, "**") {
+		return nil, fmt.Errorf("%q: `**` is a pattern not yet supported"+
+			"\n  it matches any number of directories in the reference and in"+
+			" neither engine yet"+
+			"\n  name the directories, or use a single `*` per level", pattern)
+	}
+
 	rooted := pattern
 	if !filepath.IsAbs(pattern) {
 		rooted = filepath.Join(dir, pattern)

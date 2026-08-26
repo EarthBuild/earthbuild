@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -89,7 +90,7 @@ func TestAReferenceMayNameSeveralTargets(t *testing.T) {
 // `**` is not `*`, and `filepath.Glob` knows only the second: it treats `**` as
 // a single level, so `./wildcard/**/*+test` matched one directory down and
 // stopped. The corpus uses it to mean any depth.
-func TestADoubleStarCrossesDirectories(t *testing.T) {
+func TestADoubleStarIsRefusedAsTheReferenceRefusesIt(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -105,14 +106,27 @@ func TestADoubleStarCrossesDirectories(t *testing.T) {
 		}
 	}
 
-	got, err := expandRef(root, "./w/**/*+test")
-	if err != nil {
-		t.Fatal(err)
+	// **Refused, and this engine can do it.** `expandDoubleStar` crosses
+	// directories perfectly well; the reference does not, and says so in the
+	// words the corpus pins: `wildcard-copy.earth+wildcard-globstar` and
+	// `wildcard-build.earth+wildcard-globstar` are driven `--should_fail=true
+	// --output_contains="pattern not yet supported"`.
+	//
+	// Implementing it is the failure class this engine is arranged against, in
+	// the direction that looks like generosity: an Earthfile written here with
+	// `**` builds here and nowhere else, and its author finds out from somebody
+	// else's CI. "Not yet" is the reference's word, so the day it lands this is
+	// one line and the message names what to remove.
+	_, err := expandRef(root, "./w/**/*+test")
+	if err == nil {
+		t.Fatal("`**` was expanded; an Earthfile using it builds here and" +
+			" fails for everybody else")
 	}
 
-	want := []string{"./w/a+test", "./w/a/b+test", "./w/a/b/c+test"}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %v, want %v", got, want)
+	for _, want := range []string{"**", "pattern not yet supported"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refused with %q, which does not carry %q", err, want)
+		}
 	}
 }
 

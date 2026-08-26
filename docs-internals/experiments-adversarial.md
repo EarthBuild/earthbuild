@@ -33819,6 +33819,31 @@ So the bytes are fetched on every build and nothing is kept - about 0.77s of a
 `Prefetch` swallows several errors on that path (`_ = os.Rename(...)`), so a
 failure there would be silent by construction.
 
+**The reason, and the fix.** The pull fails at the configuration:
+
+```text
+configuration of alpine@sha256:79ff19e9...:
+  this image is linux/amd64 and the build is for linux/arm64
+```
+
+The prediction that names it is a cross-platform corpus target,
+`Earthfile:46 echo bGludXgvYW1kNjQ= | base64 -d`, and `Predictions` remembers an
+image without remembering which platform wanted it. So a machine that has built for two
+platforms speculates on both, and the one for the other platform is fetched
+*whole*, manifest and layer blob and unpack, before anything looks at what it is
+for. A single-manifest image has no arm64 inside it to choose, so it is refused,
+nothing is kept, and the next build does it again.
+
+`image.ErrWrongPlatform` now names that refusal, and `Prefetch` remembers it
+beside the cache entry it would have filled - the key already carries the
+platform, so the note says nothing about any other. Only this refusal is
+remembered: a registry that timed out is a registry to ask again.
+
+| warm no-op build | before | after |
+| ---------------- | ------ | ----- |
+| wall clock       | 945ms  | 380ms |
+| registry phases  | 4      | 2     |
+
 A measurement note, because it cost time: `EARTH_TIMINGS` has to be set to see
 any of this. Two runs looked clean at zero registry phases purely because the
 variable was not exported, which reads as a fix and is a blindfold.

@@ -5,7 +5,6 @@ package guest
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"syscall"
 )
 
@@ -52,36 +51,12 @@ func RunStepShimIfAsked() {
 	// process table.
 	//
 	// G204: the argv is the step's, which is the whole job.
-	// **After entering the root, because that is the filesystem to search.**
-	// A bare name is a PATH lookup and there is no shell in the exec form to do
-	// it - see resolveProgram.
-	at, err := resolveProgram(sh.argv[0], lookOnPath)
+	err = resolveProgram(sh.argv[0])
 	if err != nil {
 		fail(err)
 	}
 
-	err = syscall.Exec(at, sh.argv, os.Environ()) //nolint:gosec // see above
+	err = syscall.Exec(sh.argv[0], sh.argv, os.Environ()) //nolint:gosec // see above
 
 	fail(fmt.Errorf("exec %s: %w", sh.argv[0], err))
-}
-
-// defaultPath is where a bare name is looked for when the step says nothing.
-//
-// An image need not declare `PATH`, and Go's own lookup treats an empty one as
-// "nowhere" rather than "the usual places" - so a step in an image with no
-// declared PATH would fail to find `sh`. This is the list every container
-// runtime falls back to, and it is a fallback only: a declared PATH is used
-// exactly as declared.
-const defaultPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-// lookOnPath finds a bare name on the step's PATH, inside the step's root.
-func lookOnPath(name string) (string, error) {
-	if os.Getenv("PATH") == "" {
-		// Set rather than passed, because exec.LookPath reads the environment
-		// itself. This process is about to become the step, so nothing else
-		// observes it.
-		_ = os.Setenv("PATH", defaultPath)
-	}
-
-	return exec.LookPath(name)
 }

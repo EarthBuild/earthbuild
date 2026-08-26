@@ -33,7 +33,7 @@ import (
 func TestKeepOwnRefusesWhenTheStoreCannotCarryOwnership(t *testing.T) {
 	t.Parallel()
 
-	err := checkStoreOwnership(t.TempDir(), func(string, int, int) error {
+	err := checkStoreOwnership(t.TempDir(), "--keep-own", func(string, int, int) error {
 		// A share that accepts the call and keeps its own answer, which is what
 		// virtiofs onto macOS does: nothing fails, and nothing changes.
 		return nil
@@ -64,7 +64,7 @@ func TestKeepOwnAcceptsAStoreThatCarriesOwnership(t *testing.T) {
 	// sees it, which is what a filesystem that honours the call does.
 	applied := map[string][2]int{}
 
-	err := checkStoreOwnership(dir, func(path string, uid, gid int) error {
+	err := checkStoreOwnership(dir, "--keep-own", func(path string, uid, gid int) error {
 		applied[path] = [2]int{uid, gid}
 
 		return nil
@@ -88,7 +88,7 @@ func TestTheOwnershipProbeCleansUpAfterItself(t *testing.T) {
 
 	dir := t.TempDir()
 
-	_ = checkStoreOwnership(dir, func(string, int, int) error { return nil })
+	_ = checkStoreOwnership(dir, "--keep-own", func(string, int, int) error { return nil })
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {

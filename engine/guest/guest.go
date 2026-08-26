@@ -780,8 +780,8 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 	// and not about this path: a flag that is going to be lost should say so
 	// instead of producing an image whose files belong to the wrong user (A2,
 	// I10). Once per process - it is a filesystem property.
-	if opts.KeepOwn {
-		err := s.own.check(s.LayerDir)
+	if asked, needs := needsOwnershipInTheStore(opts); needs {
+		err := s.own.check(s.LayerDir, asked)
 		if err != nil {
 			return err
 		}

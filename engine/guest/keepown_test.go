@@ -43,7 +43,7 @@ func otherGroup(t *testing.T) int {
 func needsOwnershipStore(t *testing.T, dir string) {
 	t.Helper()
 
-	err := checkStoreOwnership(dir, os.Lchown)
+	err := checkStoreOwnership(dir, "--keep-own", os.Lchown)
 	if err != nil {
 		t.Skipf("this store cannot carry ownership: %v", err)
 	}

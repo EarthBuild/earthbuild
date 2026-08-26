@@ -83,7 +83,7 @@ func probeGroup() (int, bool) {
 //
 // chown is a parameter so the failure can be tested without a filesystem that
 // has the fault, which is most of them.
-func checkStoreOwnership(dir string, chown func(path string, uid, gid int) error) error {
+func checkStoreOwnership(dir, asked string, chown func(path string, uid, gid int) error) error {
 	probe := filepath.Join(dir, ".ownership-probe")
 
 	err := os.WriteFile(probe, nil, 0o600)
@@ -142,15 +142,18 @@ func checkStoreOwnership(dir string, chown func(path string, uid, gid int) error
 	// line that asked and nobody would find it: the flag is honoured inside the
 	// step and lost when the layer is committed to a store the host filesystem
 	// owns.
+	// **Named by the flag that asked**, not by the first one that needed the
+	// check: `--chown` reaching a diagnostic about `--keep-own` sends the
+	// reader after a flag their Earthfile does not use.
 	return fmt.Errorf(
-		"--keep-own: %s discards ownership - a file handed to uid %d came back as %d"+
+		"%[4]s: %[1]s discards ownership - a file handed to uid %[2]d came back as %[3]d"+
 			"\n  the layer store is a host directory shared into the sandbox, and a share"+
 			"\n  whose host filesystem has no uids of its own cannot carry them: measured"+
 			"\n  on macOS, a file a step made 65534:65534 is the invoking user in the store"+
 			"\n  the flag works where the store is on a filesystem with real uids, which"+
 			"\n  means a Linux host; refusing here rather than putting differently-owned"+
 			"\n  files in the image and reporting success (green paper A2)",
-		dir, want.id, got)
+		dir, want.id, got, asked)
 }
 
 // storeOwnership answers the question once per process.
@@ -163,8 +166,31 @@ type storeOwnership struct {
 	err  error
 }
 
-func (s *storeOwnership) check(dir string) error {
-	s.once.Do(func() { s.err = checkStoreOwnership(dir, os.Lchown) })
+func (s *storeOwnership) check(dir, asked string) error {
+	// The *property* is answered once - it is the filesystem's, not the
+	// flag's - and the flag that asked is carried into the message, so the
+	// second caller does not inherit the first one's wording.
+	s.once.Do(func() { s.err = checkStoreOwnership(dir, asked, os.Lchown) })
 
 	return s.err
+}
+
+// needsOwnershipInTheStore reports whether a copy puts a file in the image
+// owned by somebody other than the invoking user.
+//
+// **Two flags, one property.** `--keep-own` takes the source's owner and
+// `--chown` names one outright, and both are honoured inside the step and lost
+// when the layer is committed to a store the host filesystem owns. Only
+// `--keep-own` asked, so `--chown` produced root-owned files on macOS and
+// reported success - the outcome the refusal exists to prevent (A2, I10),
+// reached by the flag that was not checked.
+func needsOwnershipInTheStore(opts copyOpts) (string, bool) {
+	switch {
+	case opts.KeepOwn:
+		return "--keep-own", true
+	case opts.Chown != "":
+		return "--chown", true
+	default:
+		return "", false
+	}
 }

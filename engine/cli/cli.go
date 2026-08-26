@@ -290,7 +290,6 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		interp.WithPlatform(o.platformOrDefault()),
 		interp.WithGitClone(g.gitClone(ctx)),
 		interp.WithImageResolver(resolver.Resolve),
-		interp.WithVersionFlags(o.VersionFlags),
 		// Withheld from a dry run, which promises to run nothing: a plan that
 		// needs a target built to exist is refused there, saying so (E488).
 		interp.WithArtifacts(artifactsFor(ctx, o, g, string(src))))

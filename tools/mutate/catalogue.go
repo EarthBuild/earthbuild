@@ -2182,9 +2182,13 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
-		Name:        "interp: privileged execution refused whatever grants it (E420)",
-		File:        "engine/interp/runflags.go",
-		Anchor:      "\tif opts.Privileged {",
+		Name: "interp: privileged execution refused whatever grants it (E420)",
+		File: "engine/interp/runflags.go",
+		// The condition grew a second half rather than moving: `--allow-privileged`
+		// is an operator's opt-in, and the refusal now asks whether one was
+		// given. Re-anchored rather than deleted, which is what the guard
+		// exists to force.
+		Anchor:      "\tif opts.Privileged && !allowPrivileged {",
 		Replacement: "\tif false {",
 		Package:     "./engine/interp/",
 	},

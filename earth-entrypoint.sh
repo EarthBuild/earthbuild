@@ -18,23 +18,32 @@ fi
 earth_installation_name="$(earth_env INSTALLATION_NAME "${EARTH_IMAGE_INSTALLATION_NAME:-earth}")"
 earth_certs_dir="${HOME:-/root}/.${earth_installation_name}/certs"
 
-# A documented mount point for callers supplying their own config, rather than a
-# path the CLI derives, so it is independent of the installation name and is
-# passed explicitly via --config below.
-earthly_config="/etc/.earthly/config.yml"
-if [ ! -f "$earthly_config" ]; then
+# A mount point for callers supplying their own config, passed explicitly via
+# --config below. It tracks the installation name so it stays alongside the
+# other per-installation paths.
+earth_config="/etc/.${earth_installation_name}/config.yml"
+
+# The pre-rename location, honoured for one deprecation cycle so a caller still
+# mounting a config there keeps working. Only consulted when nothing is mounted
+# at the current location, so a caller supplying both is not surprised.
+earth_config_deprecated="/etc/.earthly/config.yml"
+if [ ! -f "$earth_config" ] && [ -f "$earth_config_deprecated" ]; then
+  earth_config="$earth_config_deprecated"
+fi
+
+if [ ! -f "$earth_config" ]; then
   # Missing config, generate it and use the env vars
   # Do not do both, since that would write to the mounted config
-  mkdir -p "$(dirname $earthly_config)" && touch "$earthly_config"
+  mkdir -p "$(dirname "$earth_config")" && touch "$earth_config"
 
   # Apply global configuration
   if [ -n "$GLOBAL_CONFIG" ]; then
-    earth --config "$earthly_config" config global "$GLOBAL_CONFIG"
+    earth --config "$earth_config" config global "$GLOBAL_CONFIG"
   fi
 
   # Apply git configuration
   if [ -n "$GIT_CONFIG" ]; then
-    earth --config $earthly_config config git "$GIT_CONFIG"
+    earth --config "$earth_config" config git "$GIT_CONFIG"
   fi
 fi
 
@@ -48,18 +57,18 @@ if [ -z "$NO_BUILDKIT" ]; then
     fi
 
     if [ -f "/sys/fs/cgroup/cgroup.controllers" ]; then
-        echo >&2 "detected cgroups v2; earthly-entrypoint.sh running under pid=$$ with controllers \"$(cat /sys/fs/cgroup/cgroup.controllers)\" in group $(cat /proc/self/cgroup)"
+        echo >&2 "detected cgroups v2; earth-entrypoint.sh running under pid=$$ with controllers \"$(cat /sys/fs/cgroup/cgroup.controllers)\" in group $(cat /proc/self/cgroup)"
         test "$(cat /sys/fs/cgroup/cgroup.type)" = "domain" || (echo >&2 "WARNING: invalid root cgroup type: $(cat /sys/fs/cgroup/cgroup.type)")
     fi
 
     # generate certificates
-    earth --config "$earthly_config" --buildkit-host=tcp://127.0.0.1:8372 bootstrap --certs-hostname="$(hostname)" --no-buildkit --force-certificate-generation
+    earth --config "$earth_config" --buildkit-host=tcp://127.0.0.1:8372 bootstrap --certs-hostname="$(hostname)" --no-buildkit --force-certificate-generation
 
     # Fail loudly rather than leaving dangling symlinks: if the CLI's
     # installation name and $earth_certs_dir ever disagree, buildkitd would
     # otherwise start and fail its TLS handshake with no hint why.
     if [ ! -d "$earth_certs_dir" ]; then
-      echo >&2 "earthly-entrypoint.sh: expected generated certificates in $earth_certs_dir, but that directory does not exist"
+      echo >&2 "earth-entrypoint.sh: expected generated certificates in $earth_certs_dir, but that directory does not exist"
       exit 1
     fi
 
@@ -105,11 +114,13 @@ fi
 
 EARTH_EXEC_CMD="$(earth_env EXEC_CMD)"
 if [ -n "$EARTH_EXEC_CMD" ]; then
-    export earthly_config
+    export earth_config
+    # Deprecated alias, kept for one cycle for callers reading $earthly_config.
+    export earthly_config="$earth_config"
     exec "$EARTH_EXEC_CMD"
     exit 1 # this should never be reached
 fi
 
 # Run earth with given args.
 # Exec so we don't have to trap and manage signal propagation
-exec earth --config "$earthly_config" "$@"
+exec earth --config "$earth_config" "$@"

@@ -127,7 +127,7 @@ func PortOffset(installationName string) int {
 	switch installationName {
 	// "earth" and "earthly" are both official installation names and must map
 	// to a zero offset. Several places hardcode the ports a zero offset
-	// produces -- earthly-entrypoint.sh, buildkitd/buildkitd.tcp.template and
+	// produces -- earth-entrypoint.sh, buildkitd/buildkitd.tcp.template and
 	// BUILDKIT_LOCAL_REGISTRY_LISTEN_PORT in buildkitd/Earthfile -- so an
 	// official name must offset to zero or the in-image client and buildkitd
 	// disagree about the port.

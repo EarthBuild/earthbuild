@@ -16,7 +16,7 @@ func TestPortOffset(t *testing.T) {
 	}{
 		{
 			// The ports derived from a zero offset are hardcoded in
-			// earthly-entrypoint.sh and buildkitd/buildkitd.tcp.template, so the
+			// earth-entrypoint.sh and buildkitd/buildkitd.tcp.template, so the
 			// official installation name must not be offset.
 			name:             "official name is not offset",
 			installationName: "earth",

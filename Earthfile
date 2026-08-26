@@ -75,7 +75,7 @@ lint-scripts-base:
 
 lint-scripts-misc:
     FROM +lint-scripts-base
-    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/entrypoint.sh ./earthly-entrypoint.sh \
+    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/entrypoint.sh ./earth-entrypoint.sh \
         ./buildkitd/dockerd-wrapper.sh ./buildkitd/docker-auto-install.sh ./buildkitd/oom-adjust.sh.template \
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
@@ -552,15 +552,19 @@ earthly-docker:
     # (which won't be exposed by the container). Let's fall back to tar-based
     # image transfer until this can be addressed further.
     ENV EARTH_DISABLE_REMOTE_REGISTRY_PROXY=true
-    # Tells earthly-entrypoint.sh which installation name the CLI was built with,
-    # so it can find the certificates generated under ~/.<name>/certs.
+    # Tells earth-entrypoint.sh which installation name the CLI was built with,
+    # so it can find the certificates generated under ~/.<name>/certs, and the
+    # config under /etc/.<name>.
     #
     # Deliberately not EARTH_INSTALLATION_NAME: that is the CLI's own variable,
     # and setting it here would take precedence over a caller's
     # EARTHLY_INSTALLATION_NAME, silently ignoring the deprecated spelling.
     ENV EARTH_IMAGE_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME"
-    COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
-    ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
+    COPY earth-entrypoint.sh /usr/bin/earth-entrypoint.sh
+    # earthly-entrypoint.sh remains a symlink for one deprecation cycle: it is
+    # the documented entrypoint in the CI integration guides.
+    RUN ln -s earth-entrypoint.sh /usr/bin/earthly-entrypoint.sh
+    ENTRYPOINT ["/usr/bin/earth-entrypoint.sh"]
     WORKDIR /workspace
     COPY (+earthly/earthly \
         --VERSION="$VERSION" \
@@ -615,11 +619,12 @@ earthbuild-integration-test-base:
     END
     RUN rm ./setup-registry.sh
 
-    # pull out buildkit_additional_config from the earthly config, for the special case of earthly-in-earthly testing
-    # which runs earthly-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTHLY_VERSION_FLAG_OVERRIDES to be set
+    # pull out buildkit_additional_config from the earth config, for the special case of earth-in-earth testing
+    # which runs earth-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTH_VERSION_FLAG_OVERRIDES to be set
     # NOTE: yq will print out `null` if the key does not exist, this will cause a literal null to be inserted into /etc/buildkit.toml, which will
     # cause buildkit to crash -- this is why we first assign it to a tmp variable, followed by an if.
-    ENV EARTH_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat /etc/.earthly/config.yml | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
+    # The path follows the installation name the image was built with, matching where setup-registry.sh wrote it.
+    ENV EARTH_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat "/etc/.${EARTH_IMAGE_INSTALLATION_NAME:-earth}/config.yml" | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
 
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease

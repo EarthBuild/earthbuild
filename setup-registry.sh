@@ -1,7 +1,9 @@
 #!/bin/sh
 set -e
 
-configpath="/etc/.earthly/config.yml"
+# Written where earth-entrypoint.sh looks for it, which follows the
+# installation name the image was built with.
+configpath="/etc/.${EARTH_IMAGE_INSTALLATION_NAME:-earth}/config.yml"
 
 if [ -f "$configpath" ]; then
   echo >&2 "error: $configpath already exists, unable to setup registry"

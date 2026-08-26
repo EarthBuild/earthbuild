@@ -897,6 +897,30 @@ no run ever recorded loses nothing, because there was nothing to match.
 Nesting costs no correctness either: an absent 𝑟 is the case §3.6 is written for, and a nested
 engine that reported a partial 𝑟 as complete would violate I3 exactly as a top-level one would.
 
+**What the levels may share.** Nothing above requires a nested engine to keep its own copy of
+anything, and a nest of depth 𝑛 that fetched every base 𝑛 times would be paying 𝑛 times for one
+answer. The rule for sharing is not about nesting at all:
+
+> State derived from content may be shared by any number of engines. State that maps a mutable
+> name to content may not.
+
+The blob store (§2.1) is named by ℋ of what it holds and every blob is verified against that name
+before use (I2), so a blob from another engine - another level, another build, another machine - is
+either the bytes asked for or is rejected. The action cache (§2.2) is keyed by Κ, and Κ is complete
+by I3, so an entry from another engine answers the question this one is asking or does not match it.
+Neither can be made wrong by being shared; both may therefore be one store for the whole machine,
+and a nested engine given the enclosing one's store re-fetches and re-runs nothing.
+
+Θ (§3.4d) is the exception, and the only one. It maps a tag to a digest, a tag moves, and an answer
+that was right when it was written may be wrong when it is read - so it is not shared state, it is
+remembered state with a lifetime, and §3.4d governs how long. A build that wants none of that
+writes the digest into the file and asks nothing.
+
+Sharing a store between levels requires only what §4.8 already requires of a nested store: a
+filesystem that can carry the materialiser's mounts, reachable from inside the step. Concurrency
+needs nothing further - a layer is staged under a name of its own and published by rename (§2.4),
+so 𝑛 engines writing one store race only to be the one whose identical bytes arrive first.
+
 ## 5. Invariants
 
 Normative. An implementation that violates any of these is defective, not merely suboptimal.

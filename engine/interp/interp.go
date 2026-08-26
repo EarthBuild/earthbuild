@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -1763,8 +1764,9 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 		// own copy in the plan and the key covers exactly what was taken: a
 		// producer that starts saving a second artifact is a different build
 		// and should look like one.
-		if strings.HasSuffix(inSource, "/*") || inSource == "/*" {
-			taken, err := p.allSavedBy(source, src, loc(c.SourceLocation))
+		if artifactPattern(inSource) {
+			taken, err := p.savedMatching(source, inSource, src,
+				loc(c.SourceLocation), ifExists)
 			if err != nil {
 				return nil, err
 			}
@@ -1953,6 +1955,85 @@ func (p *Plan) allSavedBy(from *ir.Node, src, where string) ([]Artifact, error) 
 
 	// Ordered, so a build reading this twice reads the same plan.
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+
+	return out, nil
+}
+
+// artifactPattern reports whether an artifact path selects among what a target
+// saved rather than naming one file of it.
+//
+// The last segment decides, because that is the only part a pattern may live
+// in: `+build/dist/*` globs within `dist`, and a `*` earlier in the path would
+// be a target reference this never sees.
+func artifactPattern(inSource string) bool {
+	return strings.ContainsAny(path.Base(inSource), "*?[")
+}
+
+// savedMatching is every artifact of a target whose name the pattern selects.
+//
+// **The match is against what the producer declared, not against a tree.** A
+// target's artifacts are known at plan time, so `+build/main.*` resolves where
+// `+build/*` already does, and each match is its own copy in the key - a
+// producer that starts saving a second matching artifact is a different build.
+// Passed through instead, the guest looked for a file called `main.*` in the
+// producing layer and reported it missing in the *consuming* target.
+func (p *Plan) savedMatching(
+	from *ir.Node, pattern, src, where string, ifExists bool,
+) ([]Artifact, error) {
+	all, err := p.allSavedBy(from, src, where)
+	if err != nil {
+		if ifExists {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	// **The bare star keeps its own meaning**, which is wider than a match:
+	// `path.Match` stops at a separator, where `+build/*` has always taken
+	// artifacts saved into directories of the namespace too.
+	if pattern == "/*" || strings.HasSuffix(pattern, "/*") {
+		return all, nil
+	}
+
+	want := "/" + strings.TrimPrefix(pattern, "/")
+
+	var out []Artifact
+
+	for _, a := range all {
+		ok, merr := path.Match(want, "/"+strings.TrimPrefix(a.Name, "/"))
+		if merr != nil {
+			return nil, fmt.Errorf("COPY %s at %s: %q is not a valid pattern: %w",
+				src, where, pattern, merr)
+		}
+
+		if ok {
+			out = append(out, a)
+		}
+	}
+
+	// **Nothing matched is refused, not copied as nothing.** The artifacts are
+	// listed, because the author is choosing among names they wrote and the
+	// mismatch is usually visible the moment both are on the screen.
+	if len(out) == 0 {
+		names := make([]string, 0, len(all))
+		for _, a := range all {
+			names = append(names, a.Name)
+		}
+
+		// **Unless the author said it might match nothing.** `--if-exists`
+		// means for a pattern what it means for a path, and
+		// `COPY --if-exists +save/*_ok .` from a target saving `ok` is a
+		// corpus target asserting exactly that.
+		if ifExists {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf(
+			"COPY %s at %s: no artifact of that target matches %q"+
+				"\n  it saves %s",
+			src, where, pattern, strings.Join(names, ", "))
+	}
 
 	return out, nil
 }

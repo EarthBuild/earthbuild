@@ -1,6 +1,7 @@
 package interp_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -383,4 +384,104 @@ docker:
 	}
 
 	t.Errorf("no copy in the plan:\n%s", describe(p.Graph.Nodes()))
+}
+
+// TestAPartialPatternSelectsAmongTheArtifactsSaved.
+//
+// `+build/main.*` is the same mechanism as `+build/*` with a narrower pattern,
+// and the corpus reaches for it far more often than for the bare star:
+// `COPY ./wildcard/*+test/helloworld* .` globs the directory *and* the
+// artifact, and twelve `wildcard-copy` targets turn on the second half.
+//
+// Matched against what the producer *declared*, not against a tree - the
+// artifacts are known at plan time, so a pattern over them is resolved where
+// the star already is, and each match is its own copy in the key.
+func TestAPartialPatternSelectsAmongTheArtifactsSaved(t *testing.T) {
+	t.Parallel()
+
+	p, err := interp.Build(versioned+`
+build:
+    FROM alpine:3.22
+    WORKDIR /code
+    RUN make
+    SAVE ARTIFACT main.o
+    SAVE ARTIFACT main.d
+    SAVE ARTIFACT notes.txt
+
+use:
+    FROM alpine:3.22
+    COPY +build/main.* /out/
+`, "use")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	found := map[string]bool{}
+
+	for _, n := range p.Graph.Nodes() {
+		if n.Op.Kind == ir.OpFile && len(n.Op.Args) == 2 {
+			found[n.Op.Args[0]] = true
+		}
+	}
+
+	for _, want := range []string{testObject, "/code/main.d"} {
+		if !found[want] {
+			t.Errorf("%q was not copied; the plan has %v", want, found)
+		}
+	}
+
+	// And the pattern selects: an artifact it does not match stays behind.
+	if found["/code/notes.txt"] {
+		t.Error("notes.txt was copied by `main.*`, so the pattern was ignored" +
+			" and every artifact taken")
+	}
+}
+
+// TestAPatternMatchingNothingIsToleratedByIfExists.
+//
+// A pattern that selects none of a target's artifacts is ordinarily the
+// author's mistake and refused - but `--if-exists` is the author saying they
+// know it may match nothing, and it means that for a pattern exactly as it
+// means it for a path. `if-exists.earth+artifact-copy-not-exist-wildcard`
+// copies `+save/*_ok` from a target saving `ok`, and asserts the file is
+// absent afterwards.
+func TestAPatternMatchingNothingIsToleratedByIfExists(t *testing.T) {
+	t.Parallel()
+
+	src := versioned + `
+save:
+    FROM alpine:3.22
+    WORKDIR /code
+    RUN touch ok
+    SAVE ARTIFACT ok
+
+use:
+    FROM alpine:3.22
+    COPY %s +save/*_ok /out/
+`
+
+	// Without the flag the mismatch is the finding, and it names what the
+	// target does save - the author is choosing among names they wrote.
+	_, err := interp.Build(fmt.Sprintf(src, ""), "use")
+	if err == nil {
+		t.Fatal("a pattern matching no artifact was accepted; it copies nothing," +
+			" and the image is quietly missing whatever was meant")
+	}
+
+	if !strings.Contains(err.Error(), "ok") {
+		t.Errorf("the refusal does not say what the target saves: %v", err)
+	}
+
+	// With it, the copy is dropped and the build carries on.
+	p, err := interp.Build(fmt.Sprintf(src, "--if-exists"), "use")
+	if err != nil {
+		t.Fatalf("--if-exists did not tolerate a pattern matching nothing: %v", err)
+	}
+
+	for _, n := range p.Graph.Nodes() {
+		if n.Op.Kind == ir.OpFile && len(n.Op.Args) == 2 &&
+			strings.Contains(n.Op.Args[0], "_ok") {
+			t.Errorf("the plan copies %q, which no artifact matches", n.Op.Args[0])
+		}
+	}
 }

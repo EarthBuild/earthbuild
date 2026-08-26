@@ -7,7 +7,7 @@ Learning EarthBuild does not stop here. Discover more of what EarthBuild can do 
 ##### Recommended reading:
 
 - [The Earthfile reference](../earthfile/earthfile.md)
-- [The **earth command** reference](../earthly-command/earthly-command.md)
+- [The **earth command** reference](../earth-command/earth-command.md)
 - [Guides](https://tinyurl.com/2p8cpnxv) <!-- should be ../earthfile/guides but gitbook produces a 404 link for this -->
 
 - [Examples using EarthBuild](../examples/examples.md)

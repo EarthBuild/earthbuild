@@ -34,7 +34,7 @@ The file will not be saved to the image snapshot.
 
 ## Setting secret values
 
-The value for `passwd` in examples above must then be supplied when earthly is invoked.
+The value for `passwd` in examples above must then be supplied when earth is invoked.
 
 This is possible in a few ways:
 
@@ -42,46 +42,46 @@ This is possible in a few ways:
 1. Directly, on the command line:
 
    ```bash
-   earthly --secret passwd=itsasecret +hush
+   earth --secret passwd=itsasecret +hush
    ```
 
 2. Via an environment variable:
 
    ```bash
    export passwd=itsasecret
-   earthly --secret passwd +hush
+   earth --secret passwd +hush
    ```
 
-   If the value of the secret is omitted on the command line Earthly will lookup the environment variable with that name.
+   If the value of the secret is omitted on the command line EarthBuild will lookup the environment variable with that name.
 
 3. Via the environment variable `EARTHLY_SECRETS`
 
    ```bash
    export EARTHLY_SECRETS="passwd=itsasecret"
-   earthly +hush
+   earth +hush
    ```
 
    Multiple secrets can be specified by separating them with a comma.
 
 4. Via the `.secret` file.
 
-   Create a `.secret` file in the same directory where you plan to run `earthly` from. Its contents should be:
+   Create a `.secret` file in the same directory where you plan to run `earth` from. Its contents should be:
    
    ```
    passwd=itsasecret
    ```
    
-   Then simply run earthly:
+   Then simply run earth:
    
    ```bash
-   earthly +hello
+   earth +hello
    ```
 
 5. Via your own secret manager. To share secrets across a team, fetch them from a system you
    control (for example HashiCorp Vault, AWS Secrets Manager, or your CI provider's secret store)
    and pass them in using one of the approaches above.
 
-Regardless of the approach chosen from above, once earthly is invoked, in our example, it will output:
+Regardless of the approach chosen from above, once earth is invoked, in our example, it will output:
 
 ```
 +hush | --> RUN echo "my password is $mypassword"
@@ -91,20 +91,20 @@ Regardless of the approach chosen from above, once earthly is invoked, in our ex
 {% hint style='info' %}
 ### How Arguments and Secrets affect caching
 
-Commands in earthly must be re-evaluated when the command itself changes (e.g. `echo "hello $name"` is changed to `echo "greetings $name"`), or when
-one of its inputs has changed (e.g. `--name=world` is changed to `--name=banana`). Earthly creates a hash based on both the contents
+Commands in earth must be re-evaluated when the command itself changes (e.g. `echo "hello $name"` is changed to `echo "greetings $name"`), or when
+one of its inputs has changed (e.g. `--name=world` is changed to `--name=banana`). EarthBuild creates a hash based on both the contents
 of the command and the contents of all defined arguments of the target build context.
 
-However, in the case of secrets, the contents of the secret *is not* included in the hash; therefore, if the contents of a secret changes, Earthly is unable to
+However, in the case of secrets, the contents of the secret *is not* included in the hash; therefore, if the contents of a secret changes, EarthBuild is unable to
 detect such a change, and thus the command will not be re-evaluated.
 {% endhint %}
 
 ## Storage of local secrets
 
-Earthly stores the contents of command-line-supplied secrets in memory on the localhost. When a `RUN` command that requires a secret is evaluated by BuildKit, the BuildKit
-daemon will request the secret from the earthly command-line process and will temporarily mount the secret inside the runc container that is evaluating the `RUN` command.
+EarthBuild stores the contents of command-line-supplied secrets in memory on the localhost. When a `RUN` command that requires a secret is evaluated by BuildKit, the BuildKit
+daemon will request the secret from the earth command-line process and will temporarily mount the secret inside the runc container that is evaluating the `RUN` command.
 Once the command finishes the secret is unmounted. It will not persist as an environment variable within the saved container snapshot. Secrets will be kept in-memory
-until the earthly command exits.
+until the earth command exits.
 
 Secrets are never written to disk by EarthBuild, and never leave the machine running the build.
 
@@ -112,10 +112,10 @@ Secrets are never written to disk by EarthBuild, and never leave the machine run
 
 ##### Cloud-based secrets have been removed
 
-Earthly offered a hosted secret store, managed with `earthly secret set ...`. That service and the
+EarthBuild offered a hosted secret store, managed with `earth secret set ...`. That service and the
 `secret`/`secrets` commands were removed as part of the cloud teardown and are not part of
 EarthBuild. To share secrets across a team, fetch them from a secret manager you control and pass
 them in via `--secret`, `--secret-file-path`, or the environment. See
-[Migrating from earthly](../migrating-from-earthly.md) for the full list of removed commands.
+[Migrating from earth](../migrating-from-earthly.md) for the full list of removed commands.
 
 {% endhint %}

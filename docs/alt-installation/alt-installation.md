@@ -103,7 +103,7 @@ if the signature verification fails.
 The deb and rpm repositories are **not currently available**.
 
 These repositories were hosted at `pkg.earthly.dev`, which was decommissioned along with the rest of
-the Earthly infrastructure; that hostname no longer resolves. EarthBuild has not yet stood up
+the EarthBuild infrastructure; that hostname no longer resolves. EarthBuild has not yet stood up
 replacement package repositories.
 
 Until replacements are published, install the binary directly (see [Install earth](#install-earth)
@@ -117,8 +117,8 @@ which has the fingerprint:
 
     0890 0479 B981 AF7C 32C8 B918 604C 8879 FF83 C260
 
-Note that this is a *different* key from the one Earthly used to sign its releases
-(`5816 B221 3DD1 CEB6 1FC9 52BA B118 5ECA 33F8 EB64`). If you verified Earthly releases previously,
+Note that this is a *different* key from the one EarthBuild used to sign its releases
+(`5816 B221 3DD1 CEB6 1FC9 52BA B118 5ECA 33F8 EB64`). If you verified EarthBuild releases previously,
 you will need to import the new key — see [Checksum Verification](#checksum-verification) above.
 
 ### Native Windows
@@ -164,7 +164,7 @@ To install from source, see the [contributing page](https://github.com/earthbuil
 
 If you use SSH-based git authentication, then your git credentials will just work with EarthBuild. Read more about [git auth](../guides/auth.md).
 
-For a full list of configuration options, see the [Configuration reference](../earthly-config/earthly-config.md)
+For a full list of configuration options, see the [Configuration reference](../earth-config/earth-config.md)
 
 ## Verify installation
 
@@ -207,11 +207,11 @@ docker rm --force earth-buildkitd
 docker volume rm --force earth-cache
 ```
 
-If you previously had Earthly installed, its state lives under the old names and is not removed by
+If you previously had EarthBuild installed, its state lives under the old names and is not removed by
 the commands above. To clean that up as well:
 
 ```bash
-rm -rf ~/.earthly
-docker rm --force earthly-buildkitd
-docker volume rm --force earthly-cache
+rm -rf ~/.earth
+docker rm --force earth-buildkitd
+docker volume rm --force earth-cache
 ```

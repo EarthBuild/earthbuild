@@ -1,13 +1,13 @@
-# Earthly configuration file
+# EarthBuild configuration file
 
-Global configuration values for earthly can be stored on disk in the configuration file.
+Global configuration values for earth can be stored on disk in the configuration file.
 
-By default, earthly reads the configuration file `~/.earthly/config.yml`; however, it can also be
+By default, earth reads the configuration file `~/.earth/config.yml`; however, it can also be
 overridden with the `--config` command flag option.
 
 ## Format
 
-The earthly config file is a [YAML](https://yaml.org/) formatted file that looks like:
+The earth config file is a [YAML](https://yaml.org/) formatted file that looks like:
 
 ```yaml
 global:
@@ -39,16 +39,16 @@ git:
 
 {% hint style='info' %}
 ##### Tip
-To quickly change a configuration item via the `earthly` command, you can use [`earthly config`](../earthly-command/earthly-command.md#earthly-config).
+To quickly change a configuration item via the `earth` command, you can use [`earth config`](../earth-command/earth-command.md#earth-config).
 
 ```bash
-earthly config <key> <value>
+earth config <key> <value>
 ```
 
 For example
 
 ```bash
-earthly config global.cache_size_mb 20000
+earth config global.cache_size_mb 20000
 ```
 {% endhint %}
 
@@ -66,10 +66,10 @@ When used in combination with `cache_size_mb`, the lesser of the two values will
 
 ### secret_provider (experimental)
 
-A custom user-supplied program to call which returns a secret for use by earthly. The secret identifier is passed as the first argument to the program.
+A custom user-supplied program to call which returns a secret for use by earth. The secret identifier is passed as the first argument to the program.
 
-If no secret is found, the program can instruct earthly to continue searching for secrets under `.secret`, by exiting with a status code of `2`, all other non-zero
-status codes will cause earthly to exit.
+If no secret is found, the program can instruct earth to continue searching for secrets under `.secret`, by exiting with a status code of `2`, all other non-zero
+status codes will cause earth to exit.
 
 For example, if you have:
 
@@ -92,13 +92,13 @@ fi
 exit 2
 ```
 
-Then when earthly encounters a command that requires a secret, such as
+Then when earth encounters a command that requires a secret, such as
 
 ```Dockerfile
 RUN --secret mysecret echo "the passphrase is $mysecret."
 ```
 
-earthly will request the secret for `mysecret` by calling `my-secret_provider mysecret`.
+earth will request the secret for `mysecret` by calling `my-secret_provider mysecret`.
 
 {% hint style='info' %}
 ##### Note
@@ -106,7 +106,7 @@ earthly will request the secret for `mysecret` by calling `my-secret_provider my
 All stdout data will be used as the secret value, including whitespace (and newlines).
 You may want to use `echo -n` to prevent returning a newline.
 
-Any data sent to stderr will be displayed on the earthly console, this makes it possible
+Any data sent to stderr will be displayed on the earth console, this makes it possible
 to insert commands such as `echo >&2 "here is some debug text"` without affecting the contents
 of the secret.
 
@@ -129,8 +129,8 @@ Set this configuration to a lower value if your machine is resource constrained 
 
 ### buildkit_additional_args
 
-This option allows you to pass additional options to Docker when starting up the Earthly BuildKit daemon.
-Note that changes to these values will trigger earthly to restart BuildKit on the next run.
+This option allows you to pass additional options to Docker when starting up the EarthBuild BuildKit daemon. 
+Note that changes to these values will trigger earth to restart BuildKit on the next run.
 
 #### Bypass User Namespacing
 
@@ -157,7 +157,7 @@ This can be useful in cases where long-lived interactive sessions are used.
 ### buildkit_additional_config
 
 This option allows you to pass additional options to BuildKit.
-Note that changes to these values will trigger earthly to restart BuildKit on the next run.
+Note that changes to these values will trigger earth to restart BuildKit on the next run.
 
 
 #### Additional CA Certificates
@@ -174,15 +174,15 @@ global:
 
 ### cni_mtu
 
-Allows overriding Earthly's automatic MTU detection. This is used when configuring the BuildKit internal CNI network. MTU must be between 64 and 65,536.
+Allows overriding EarthBuild's automatic MTU detection. This is used when configuring the BuildKit internal CNI network. MTU must be between 64 and 65,536.
 
 ### ip_tables
 
-Allows overriding Earthly's automatic `ip_tables` module detection. Valid choices are `iptables-legacy` or `iptables-nft`.
+Allows overriding EarthBuild's automatic `ip_tables` module detection. Valid choices are `iptables-legacy` or `iptables-nft`.
 
 ### no_loop_device (obsolete)
 
-This option is obsolete and it is ignored. Earthly no longer uses a loop device for its cache.
+This option is obsolete and it is ignored. EarthBuild no longer uses a loop device for its cache.
 
 ### git_image
 
@@ -190,12 +190,12 @@ Allows to override the image used to run internal `git` commands (e.g. during `G
 
 ### org
 
-The default organization to use when performing Earthly operations that require an organization. Ignored when  the `--org` CLI option is present, or when the `EARTHLY_ORG` environment variable are set.
+The default organization to use when performing EarthBuild operations that require an organization. Ignored when  the `--org` CLI option is present, or when the `EARTH_ORG` environment variable are set.
 
 ### Frontend configuration
 
 This option allows you to specify what supported frontend you are using (Docker / Podman).
-By default, Earthly will attempt to discover the frontend in this order: Docker -> Podman -> None
+By default, EarthBuild will attempt to discover the frontend in this order: Docker -> Podman -> None
 
 For Docker:
 ```yaml
@@ -209,14 +209,14 @@ global:
   container_frontend: podman-shell
 ```
 
-You can use the following command to set the configuration option using the earthly CLI:
+You can use the following command to set the configuration option using the earth CLI:
 
 ```bash
 # Docker
-earthly config 'global.container_frontend' 'docker-shell'
+earth config 'global.container_frontend' 'docker-shell'
 
 # Podman
-earthly config 'global.container_frontend' 'podman-shell'
+earth config 'global.container_frontend' 'podman-shell'
 ```
 
 ## Git configuration reference
@@ -233,7 +233,7 @@ The git repository hostname. For example `github.com`, or `gitlab.com`
 
 Either `ssh`, `https`, or `auto` (default). If `https` is specified, user and password fields are used
 to authenticate over HTTPS when pulling from git for the corresponding site. If `auto` is specified
-earthly will use `ssh` when the ssh-agent is running and has at least one key loaded, and will fallback
+earth will use `ssh` when the ssh-agent is running and has at least one key loaded, and will fallback
 to using `https` when no ssh-keys are present.
 
 See the [Authentication guide](../guides/auth.md) for a guide on setting up authentication.

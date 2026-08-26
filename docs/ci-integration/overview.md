@@ -63,9 +63,9 @@ Finally, the `earth-buildkitd` daemon requires running in `--privileged` mode, w
 
 ### EarthBuild
 
-`earth` has quite a few configuration options that can either be set through a configuration file or environment variables. See our [configuration reference](../earthly-config/earthly-config.md) for a complete list of options.
+`earth` has quite a few configuration options that can either be set through a configuration file or environment variables. See our [configuration reference](../earth-config/earth-config.md) for a complete list of options.
 
-You can also configure `earth` by using the [`earth config` command](../earthly-command/earthly-command.md#earthly-config) from within a script. This can be useful for some dynamic configuration.
+You can also configure `earth` by using the [`earth config` command](../earth-command/earth-command.md#earth-config) from within a script. This can be useful for some dynamic configuration.
 
 Some options that may make sense in a CI environment are:
 
@@ -73,9 +73,9 @@ Some options that may make sense in a CI environment are:
 |----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `CNI_MTU`                  | In some environments, the MTU externally may be different than the MTU on the internal CNI network, causing the internet to be unavailable. This lets you configure the internal network for when `earth` auto-configures the MTU incorrectly. |
 | `NO_COLOR` / `FORCE_COLOR` | Lets you force on/off the ANSI color codes. Use this when `earth` misinterprets the presence of a terminal. Set either one to `1` to enable or disable colors.                                                                                 |
-| `EARTHLY_BUILDKIT_HOST`    | Use this when you have an external BuildKit instance you would like to use instead of the one `earth` manages.                                                                                                                                 |
+| `EARTH_BUILDKIT_HOST`    | Use this when you have an external BuildKit instance you would like to use instead of the one `earth` manages.                                                                                                                                 |
 
-EarthBuild also has some special command-line switches to ensure best practices are followed within your CI. These come *highly* recommended. Enable these with the [`--ci`](../earthly-command/earthly-command.md#--ci) option, which is shorthand for [`--save-inline-cache`](../earthly-command/earthly-command.md#save-inline-cache) [`--strict`](../earthly-command/earthly-command.md#strict) [`--no-output`](../earthly-command/earthly-command.md#no-output).
+EarthBuild also has some special command-line switches to ensure best practices are followed within your CI. These come *highly* recommended. Enable these with the [`--ci`](../earth-command/earth-command.md#--ci) option, which is shorthand for [`--save-inline-cache`](../earth-command/earth-command.md#save-inline-cache) [`--strict`](../earth-command/earth-command.md#strict) [`--no-output`](../earth-command/earth-command.md#no-output).
 
 EarthBuild also has a special [`--push`](../earthfile/earthfile.md#push) option that can be used when invoking a target. In a CI, you may want to ensure this flag is present to push images or run commands that are not typically done as part of a normal development workflow.
 
@@ -89,7 +89,7 @@ Upon invocation, `earth` depends on the availability of an `earth-buildkit` daem
 
 Large builds can generate many `docker` pull requests for certain images. You can set up and use a [pull through cache](pull-through-cache.md) to circumvent this.
 
-If `earth` is running on a dedicated host, the only consideration to take is the ability to run the container in a `--privileged` mode. Typical installations *should* support this out of the box. We also support running under user namespaces, [when `earth` is configured to start the `earth-buildkit` container with the `--userns host` option](../earthly-config/earthly-config.md#buildkit_additional_args). Rootless configurations are currently unsupported.
+If `earth` is running on a dedicated host, the only consideration to take is the ability to run the container in a `--privileged` mode. Typical installations *should* support this out of the box. We also support running under user namespaces, [when `earth` is configured to start the `earth-buildkit` container with the `--userns host` option](../earth-config/earth-config.md#buildkit_additional_args). Rootless configurations are currently unsupported.
 
 If `earth` is connecting to a remote `earth-buildkitd`, then you will need to take additional steps. See this article for [running a remote BuildKit instance](remote-buildkit.md).
 

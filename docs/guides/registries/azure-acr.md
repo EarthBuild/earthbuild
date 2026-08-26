@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The Azure Container Registry (ACR) is a hosted docker repository that requires extra configuration for day-to-day use. This configuration is not typical of other repositories, and there are some considerations to account for when using it with Earthly. This guide will walk you through creating an Earthfile, building an image, and pushing it to ACR.
+The Azure Container Registry (ACR) is a hosted docker repository that requires extra configuration for day-to-day use. This configuration is not typical of other repositories, and there are some considerations to account for when using it with EarthBuild. This guide will walk you through creating an Earthfile, building an image, and pushing it to ACR.
 
 
 This guide assumes you have already installed the [Azure CLI tool](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli), and [created a new repository named `helloearthly`](https://portal.azure.com/?quickstart=true#create/Microsoft.ContainerRegistry).
@@ -15,7 +15,7 @@ No special considerations are needed in the Earthfile itself. You can use `SAVE 
 FROM alpine:3.18
 
 build:
-    RUN echo "Hello from Earthly!" > motd
+    RUN echo "Hello from EarthBuild!" > motd
     ENTRYPOINT cat motd
     SAVE IMAGE --push helloearthly.azurecr.io/hello-earthly:with-love
 ```
@@ -48,7 +48,7 @@ ACR boasts many other methods of logging in, including [Service Principals](http
 
 Ensure that you have correct permissions to push and pull the images. Please reference the [ACR RBAC documentation](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-roles) to ensure you have the correct permissions set. To complete all the activities in this guide, you will need to have at least the `AcrPush` role.
 
-Earthly also works with Service Principals; and these do not require `az acr login`. You can simply login directly with `docker` like this: 
+EarthBuild also works with Service Principals; and these do not require `az acr login`. You can simply login directly with `docker` like this: 
 
 ```
 RUN --secret AZ_USERNAME=earthly-technologies/azure/ci-cd-username \
@@ -58,15 +58,15 @@ RUN --secret AZ_USERNAME=earthly-technologies/azure/ci-cd-username \
 
 ## Run the Target
 
-Once you are logged in, and have the optional credential helper installed, then you are ready to use Earthly to access images in ACR. To build and push an image, simply execute the build target. Don't forget the `--push` flag!
+Once you are logged in, and have the optional credential helper installed, then you are ready to use EarthBuild to access images in ACR. To build and push an image, simply execute the build target. Don't forget the `--push` flag!
 
 ```
 ❯ ../earthly/earthly --push --no-cache +build
-           buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+           buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
          alpine:3.18 | --> Load metadata linux/amd64
                +base | --> FROM alpine:3.18
                +base | [██████████] resolve docker.io/library/alpine:3.18@sha256:0bd0e9e03a022c3b0226667621da84fc9bf562a9056130424b5bfbd8bcb0397f ... 100%
-              +build | --> RUN echo "Hello from Earthly!" > motd
+              +build | --> RUN echo "Hello from EarthBuild!" > motd
               output | --> exporting outputs
               output | [██████████] exporting layers ... 100%
               output | [██████████] exporting manifest sha256:02df2d4600094d5550f7475b868ce9bb17d6c3a529e9669a453bbba7b2cdb659 ... 100%
@@ -96,8 +96,8 @@ run:
 And here is how you would run it:
 
 ```
-❯ earthly -P +run
-           buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+❯ earth -P +run
+           buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
   e/dind:alpine-main | --> Load metadata linux/amd64
 h/hello-earthly:with-love | --> Load metadata linux/amd64
 h/hello-earthly:with-love | --> DOCKER PULL helloearthly.azurecr.io/hello-earthly:with-love
@@ -109,7 +109,7 @@ h/hello-earthly:with-love | [██████████] resolve helloearthl
                 +run | Loading images...
                 +run | Loaded image: helloearthly.azurecr.io/hello-earthly:with-love
                 +run | ...done
-                +run | Hello from Earthly!
+                +run | Hello from EarthBuild!
               output | --> exporting outputs
               output | [██████████] sending tarballs ... 100%
 =========================== SUCCESS ===========================

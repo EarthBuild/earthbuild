@@ -279,7 +279,7 @@ RUN --ssh git config --global url."git@github.com:".insteadOf "https://github.co
 ```
 
 {% hint style='warning' %}
-Note that `RUN --ssh` option is only used for creating a tunnel to the host's ssh-agent's socket (set via `$SSH_AUTH_SOCK`); it is **not** related to the git section of the earth [configuration file](../earthly-config/earthly-config.md).
+Note that `RUN --ssh` option is only used for creating a tunnel to the host's ssh-agent's socket (set via `$SSH_AUTH_SOCK`); it is **not** related to the git section of the earth [configuration file](../earth-config/earth-config.md).
 {% endhint %}
 
 ##### `--mount <mount-spec>`
@@ -504,7 +504,7 @@ The classical form of the `COPY` command differs from Dockerfiles in three cases
 
 ##### Note
 
-To prevent EarthBuild from copying unwanted files, you may specify file patterns to be excluded from the build context using an [`.earthlyignore`](./earthlyignore.md) file. This file has the same syntax as a [`.dockerignore` file](https://docs.docker.com/engine/reference/builder/#dockerignore-file).
+To prevent EarthBuild from copying unwanted files, you may specify file patterns to be excluded from the build context using an [`.earthignore`](./earthignore.md) file. This file has the same syntax as a [`.dockerignore` file](https://docs.docker.com/engine/reference/builder/#dockerignore-file).
 {% endhint %}
 
 #### Options

@@ -1,6 +1,6 @@
 # Go example
 
-This page will walk you through an example of how to build a hello-world application using Earthly.
+This page will walk you through an example of how to build a hello-world application using EarthBuild.
 
 First, let's assume that you have written a Hello World app in `./main.go`:
 
@@ -36,13 +36,13 @@ build:
     SAVE ARTIFACT build/go-example /go-example AS LOCAL build/go-example
 ```
 
-The `SAVE ARTIFACT` line is necessary to inform Earthly that the resulting file `go-example` is important to us. This will output the file in a local directory at `build/go-example`.
+The `SAVE ARTIFACT` line is necessary to inform EarthBuild that the resulting file `go-example` is important to us. This will output the file in a local directory at `build/go-example`.
 
-To execute the build, we can run `earthly +build`:
+To execute the build, we can run `earth +build`:
 
 ```
-~/workspace/earthbuild/examples/go ❯ earthly +build
-buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+~/workspace/earthbuild/examples/go ❯ earth +build
+buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 context | --> local context .
 +base | --> FROM golang:1.15-alpine3.13
 +base | resolve docker.io/library/golang:1.15-alpine3.13@sha256:7d45a6fc9cde63c3bf41651736996fe94a8347e726fe581926fd8c26e244e3b2 0%
@@ -79,11 +79,11 @@ docker:
     SAVE IMAGE go-example:latest
 ```
 
-We can then run `earthly +docker` to build this target:
+We can then run `earth +docker` to build this target:
 
 ```
-~/workspace/earthbuild/examples/go ❯ earthly +docker
-buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+~/workspace/earthbuild/examples/go ❯ earth +docker
+buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 context | --> local context .
 +base | --> FROM golang:1.15-alpine3.13
 +base | resolve docker.io/library/golang:1.15-alpine3.13@sha256:7d45a6fc9cde63c3bf41651736996fe94a8347e726fe581926fd8c26e244e3b2 0%
@@ -118,12 +118,12 @@ And then we can run the built image like so:
 hello world
 ```
 
-Not only you can run your program with Earthly, but also your unit and integration tests.
+Not only you can run your program with EarthBuild, but also your unit and integration tests.
 
-To execute the unit-tests, we can run `earthly -P +unit-test`:
+To execute the unit-tests, we can run `earth -P +unit-test`:
 
 ```
-           buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+           buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 golang:1.15-alpine3.13 | --> Load metadata linux/amd64
                +base | --> FROM golang:1.15-alpine3.13
              context | --> local context .
@@ -145,10 +145,10 @@ golang:1.15-alpine3.13 | --> Load metadata linux/amd64
 
 ```
 
-To execute the integration-tests, we can run `earthly -P +integration-test`:
+To execute the integration-tests, we can run `earth -P +integration-test`:
 
 ```
-           buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+           buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 golang:1.15-alpine3.13 | --> Load metadata linux/amd64
                +base | --> FROM golang:1.15-alpine3.13
              context | --> local context .
@@ -186,10 +186,10 @@ golang:1.15-alpine3.13 | --> Load metadata linux/amd64
                +deps | Artifact github.com/earthbuild/earthbuild/examples/go:go-integration-test-example+deps/go.sum as local go.sum
 ```
 
-Finally, to run the build, unit test, integration test and docker image just run `earthly -P +all`:
+Finally, to run the build, unit test, integration test and docker image just run `earth -P +all`:
 
 ```
-          buildkitd | Found buildkit daemon as docker container (earthly-buildkitd)
+          buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
 golang:1.15-alpine3.13 | --> Load metadata linux/amd64
              context | --> local context .
                +base | --> FROM golang:1.15-alpine3.13
@@ -225,7 +225,7 @@ golang:1.15-alpine3.13 | --> Load metadata linux/amd64
                +deps | Artifact github.com/earthbuild/earthbuild/examples/go:go-integration-test-example+deps/go.mod as local go.mod
                +deps | Artifact github.com/earthbuild/earthbuild/examples/go:go-integration-test-example+deps/go.sum as local go.sum
              +docker | Image github.com/earthbuild/earthbuild/examples/go:go-integration-test-example+docker as earthbuild/examples:go
-             +docker | Did not push earthbuild/examples:go. Use earthly --push to enable pushing
+             +docker | Did not push earthbuild/examples:go. Use earth --push to enable pushing
 ```
 
 [![asciicast](https://asciinema.org/a/314637.svg)](https://asciinema.org/a/314637)

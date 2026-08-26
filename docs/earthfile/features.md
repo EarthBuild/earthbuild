@@ -1,23 +1,23 @@
 # Version-specific features
 
-Earthly makes use of feature flags to release new and experimental features.
+EarthBuild makes use of feature flags to release new and experimental features.
 Some features must be explicitly enabled to use them.
 
 {% hint style='danger' %}
 ##### Important
-Avoid using feature flags for critical workflows. You should only use feature flags for testing new experimental features. By using feature flags you are opting out of forwards/backwards semver compatibility guarantees. This means that running the same script in a different environment, with a different version of Earthly may result in a different behavior (i.e. it'll work on your machine, but may break the build for your colleagues or for the CI).
+Avoid using feature flags for critical workflows. You should only use feature flags for testing new experimental features. By using feature flags you are opting out of forwards/backwards semver compatibility guarantees. This means that running the same script in a different environment, with a different version of EarthBuild may result in a different behavior (i.e. it'll work on your machine, but may break the build for your colleagues or for the CI).
 {% endhint %}
 
-Earthly uses [semantic versioning](http://semver.org/); once a new feature
+EarthBuild uses [semantic versioning](http://semver.org/); once a new feature
 has reached stability, a new `VERSION` release will include the feature enabled by default.
 
-## Difference between the Earthly binary version and the Earthfile version
+## Difference between the EarthBuild binary version and the Earthfile version
 
-Earthly binary versions and Earthfile versions (declared via `VERSION`) follow the same minor versioning milestones, but are not the same.
+EarthBuild binary versions and Earthfile versions (declared via `VERSION`) follow the same minor versioning milestones, but are not the same.
 
-The Earthly binary is able to run some older Earthfiles, but newer Earthfiles are not able to run on older Earthly binaries. The table below shows the compatibility matrix:
+The EarthBuild binary is able to run some older Earthfiles, but newer Earthfiles are not able to run on older EarthBuild binaries. The table below shows the compatibility matrix:
 
-| Earthly binary version | Supported Earthfile VERSIONs |
+| EarthBuild binary version | Supported Earthfile VERSIONs |
 |------------------------|--------------------------------|
 | 0.8.x | `VERSION 0.6`, `VERSION 0.7`, `VERSION 0.8` |
 | 0.7.x | `VERSION 0.5`, `VERSION 0.6`, `VERSION 0.7` |
@@ -30,8 +30,8 @@ The Earthly binary is able to run some older Earthfiles, but newer Earthfiles ar
 In order to upgrade to `VERSION 0.8` safely, follow these steps:
 
 1. If you are still using `VERSION 0.5`, upgrade those Earthfiles to `VERSION 0.6` or `VERSION 0.7`.
-2. Upgrade your Earthly binary to 0.8 in CI and across your team. The Earthly 0.8 binary can run both `VERSION 0.6` and `VERSION 0.7` Earthfiles.
-3. Once everyone is using the Earthly 0.8 binary, upgrade your Earthfiles one by one to `VERSION 0.8`. It is ok to have a mix of `VERSION 0.6`, `VERSION 0.7` and `VERSION 0.8` Earthfiles in the same project. Earthly handles that gracefully.
+2. Upgrade your EarthBuild binary to 0.8 in CI and across your team. The EarthBuild 0.8 binary can run both `VERSION 0.6` and `VERSION 0.7` Earthfiles.
+3. Once everyone is using the EarthBuild 0.8 binary, upgrade your Earthfiles one by one to `VERSION 0.8`. It is ok to have a mix of `VERSION 0.6`, `VERSION 0.7` and `VERSION 0.8` Earthfiles in the same project. EarthBuild handles that gracefully.
 
 When upgrading between `VERSION`s, keep in mind that you will encounter backwards-incompatible changes. Check out the change log of each version for more information.
 
@@ -42,7 +42,7 @@ When upgrading between `VERSION`s, keep in mind that you will encounter backward
 
 ## Specifying Version and features
 
-Each Earthfile should list the current earthly version it depends on using the [`VERSION`](../earthfile/earthfile.md#version) command.
+Each Earthfile should list the current earth version it depends on using the [`VERSION`](../earthfile/earthfile.md#version) command.
 The `VERSION` command was first introduced under `0.5` and is required as of `0.7`.
 
 ```Dockerfile
@@ -58,9 +58,9 @@ VERSION [<flags>...] <version-number>
 | `--referenced-save-only`                | 0.6                                                                             | Changes the behavior of SAVE commands in a significant way                                                        |
 | `--for-in`                              | 0.6                                                                             | Enables support for `FOR ... IN ...` commands                                                                     |
 | `--require-force-for-unsafe-saves`      | 0.6                                                                             | Requires `--force` for saving artifacts locally outside the Earthfile's directory                                 |
-| `--no-implicit-ignore`                  | 0.6                                                                             | Eliminates implicit `.earthlyignore` entries, such as `Earthfile` and `.tmp-earth-out`                          |
+| `--no-implicit-ignore`                  | 0.6                                                                             | Eliminates implicit `.earthignore` entries, such as `Earthfile` and `.tmp-earth-out`                          |
 | `--earthly-version-arg`                 | 0.7                                                                             | Enables builtin ARGs: `EARTHLY_VERSION` and `EARTHLY_BUILD_SHA`                                                   |
-| `--shell-out-anywhere`                  | 0.7                                                                             | Allows shelling-out in any earthly command (including in the middle of `ARG`)                                     |
+| `--shell-out-anywhere`                  | 0.7                                                                             | Allows shelling-out in any earth command (including in the middle of `ARG`)                                     |
 | `--explicit-global`                     | 0.7                                                                             | Base target args must have a `--global` flag in order to be considered global args                                |
 | `--check-duplicate-images`              | 0.7                                                                             | Check for duplicate images during output                                                                          |
 | `--use-cache-command`                   | 0.7                                                                             | Allow use of `CACHE` command in Earthfiles                                                                        |
@@ -93,20 +93,20 @@ VERSION [<flags>...] <version-number>
 | `--raw-output`                          | Experimental                                                                    | Enable `--raw-output` for `RUN` output.                                                  |
 | `--run-with-aws-oidc`                   | Experimental                                                                    | Make AWS credentials via OIDC provider available to `RUN` commands                                      |
 
-Note that the features flags are disabled by default in Earthly versions lower than the version listed in the "status" column above.
+Note that the features flags are disabled by default in EarthBuild versions lower than the version listed in the "status" column above.
 
 ##### `--use-copy-include-patterns`
 
 *Speeds up COPY transfers.*
 
-When enabled, Earthly will only send the files listed for the specific [`COPY`](../earthfile/earthfile.md#copy) command.
-Without this feature, Earthly sends the entire directory of files excluding files listed in the [`.earthlyignore` file](../earthfile/earthlyignore.md).
+When enabled, EarthBuild will only send the files listed for the specific [`COPY`](../earthfile/earthfile.md#copy) command.
+Without this feature, EarthBuild sends the entire directory of files excluding files listed in the [`.earthignore` file](../earthfile/earthignore.md).
 
 ##### `--referenced-save-only`
 
 *Changes the behavior of SAVE commands in a significant way*
 
-When enabled, Earthly will output artifacts resulting from `SAVE ARTIFACT ... AS LOCAL ...` and images resulting from `SAVE IMAGE` and also execute `RUN --push` commands only if they are connected to the main target through a chain of `BUILD` commands.
+When enabled, EarthBuild will output artifacts resulting from `SAVE ARTIFACT ... AS LOCAL ...` and images resulting from `SAVE IMAGE` and also execute `RUN --push` commands only if they are connected to the main target through a chain of `BUILD` commands.
 
 For example, chains like these will produce outputs (and possibly push, if enabled):
 
@@ -125,7 +125,7 @@ While chains like these will NOT produce outputs nor would they push:
 
 This works the same regardless of whether the targets in the chain are remote or local.
 
-When this feature is **disabled**, Earthly will output artifacts and images regardless of whether they are connected to the main target through a chain of `BUILD` commands, however the outputs will be subject to the following rules:
+When this feature is **disabled**, EarthBuild will output artifacts and images regardless of whether they are connected to the main target through a chain of `BUILD` commands, however the outputs will be subject to the following rules:
 
 - All `SAVE ARTIFACT ... AS LOCAL ...`, with local Earthfiles will be output
 - `SAVE ARTIFACT ... AS LOCAL ...` produced in remote targets will not be output
@@ -136,4 +136,4 @@ When this feature is **disabled**, Earthly will output artifacts and images rega
 
 *Enables support for `FOR ... IN ...` commands*
 
-When enabled, Earthly will allow the use of `FOR ... IN ...` commands.
+When enabled, EarthBuild will allow the use of `FOR ... IN ...` commands.

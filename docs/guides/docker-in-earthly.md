@@ -1,12 +1,12 @@
-# Using Docker in Earthly
+# Using Docker in EarthBuild
 
-This guide walks through using Docker commands in Earthly.
+This guide walks through using Docker commands in EarthBuild.
 
 ## Basic usage
 
-In order to use Docker commands (such as `docker run`), Earthly makes available isolated Docker daemons which are started and stopped on-demand. The reason for using isolated instances of Docker daemons is such that no preexisting Docker state (e.g. images, containers, networks, volumes) can influence the way the build executes. This allows Earthly to achieve high degrees of reproducibility.
+In order to use Docker commands (such as `docker run`), EarthBuild makes available isolated Docker daemons which are started and stopped on-demand. The reason for using isolated instances of Docker daemons is such that no preexisting Docker state (e.g. images, containers, networks, volumes) can influence the way the build executes. This allows EarthBuild to achieve high degrees of reproducibility.
 
-Here is a quick example of running a `hello-world` docker container via `docker run` in Earthly:
+Here is a quick example of running a `hello-world` docker container via `docker run` in EarthBuild:
 
 ```Dockerfile
 hello:
@@ -18,17 +18,17 @@ hello:
 
 Let's break it down.
 
-`FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0` inherits from an Earthly-supported docker-in-docker (dind) image. This is recommended, because `WITH DOCKER` requires all the Docker binaries (not just the client) to be present in the build environment.
+`FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0` inherits from an EarthBuild-supported docker-in-docker (dind) image. This is recommended, because `WITH DOCKER` requires all the Docker binaries (not just the client) to be present in the build environment.
 
 `WITH DOCKER ... END` starts a Docker daemon for the purpose of running Docker commands against it. At the end of the execution, this also terminates the daemon and permanently deletes all of its data (e.g. daemon cached images).
 
-`--pull hello-world` pulls the image `hello-world` from the Docker Hub. This option could have been replaced with the more traditional `docker pull hello-world`. However, the Earthly variant additionally stores the image in the Earthly cache, so that the actual pull is performed only if the image changes. Because the daemon cache is cleared after each run, `docker pull` would not achieve the same.
+`--pull hello-world` pulls the image `hello-world` from the Docker Hub. This option could have been replaced with the more traditional `docker pull hello-world`. However, the EarthBuild variant additionally stores the image in the EarthBuild cache, so that the actual pull is performed only if the image changes. Because the daemon cache is cleared after each run, `docker pull` would not achieve the same.
 
 `RUN docker run hello-world` executes the `docker run` command in the context of the daemon created by `WITH DOCKER`.
 
-## Loading images built by Earthly
+## Loading images built by EarthBuild
 
-A typical use of Docker in Earthly is running an image that has been built via Earthly itself. To achieve that, the option `WITH DOCKER --load ...=...` can be used. Here is an example:
+A typical use of Docker in EarthBuild is running an image that has been built via EarthBuild itself. To achieve that, the option `WITH DOCKER --load ...=...` can be used. Here is an example:
 
 ```Dockerfile
 build:
@@ -63,15 +63,15 @@ WITH DOCKER \
 END
 ```
 
-Using the `--compose` flag has the added benefit that any images needed by the compose stack will be automatically added to the pull list by Earthly, thus using cache efficiently.
+Using the `--compose` flag has the added benefit that any images needed by the compose stack will be automatically added to the pull list by EarthBuild, thus using cache efficiently.
 
 ## Performance
 
 It's recommended to use the `earthbuild/dind:alpine-3.24-docker-29.5.3-r0` image for running docker-in-docker. See the best-practices' section on using [with docker](../guides/best-practices.md#use-earthly-dind) for more details.
 
-In cases when using `earthbuild/dind` is not possible, Earthly will attempt to install Docker in the image you have chosen. This has the drawback of not being able to use cache efficiently and is not recommended for performance reasons.
+In cases when using `earthbuild/dind` is not possible, EarthBuild will attempt to install Docker in the image you have chosen. This has the drawback of not being able to use cache efficiently and is not recommended for performance reasons.
 
-Another option is to use the Earthly UDC `INSTALL_DIND`. This will install Docker in the build environment, but you can control at what point in the build it happens, thus being able to optimize your cache use. For example:
+Another option is to use the EarthBuild UDC `INSTALL_DIND`. This will install Docker in the build environment, but you can control at what point in the build it happens, thus being able to optimize your cache use. For example:
 
 ```Dockerfile
 FROM my-image:latest
@@ -86,11 +86,11 @@ In the above example, the `INSTALL_DIND` command is executed before the `COPY` c
 
 ## Integration testing
 
-For more information on integration testing and working with service dependencies see our [tutorial on integration testing in Earthly](./integration.md).
+For more information on integration testing and working with service dependencies see our [tutorial on integration testing in EarthBuild](./integration.md).
 
-## Limitations of Docker in Earthly
+## Limitations of Docker in EarthBuild
 
-The current implementation of Docker in Earthly has a number of limitations:
+The current implementation of Docker in EarthBuild has a number of limitations:
 
 - Only one `RUN` command is allowed within the `WITH DOCKER` clause. The reason for this is that only one cache layer is used for the entire clause. You can, however, chain multiple shell commands together within a single `RUN` command. For example:
   ```Dockerfile
@@ -102,16 +102,16 @@ The current implementation of Docker in Earthly has a number of limitations:
   END
   ```
 - It is recommended that the target containing the WITH DOCKER clause inherits from a supported Docker-in-Docker (dind) image such as earthbuild/dind:alpine-3.23-docker-29.1.2-r1 or earthbuild/dind:ubuntu-26.04-docker-29.4.0-1. If your build requires the use of an alternative environment as part of a test (e.g. to run commands like sbt test or go test together with a docker-compose stack), consider placing the test itself in a Docker image, then loading that image via --load and running the test as a Docker container.
-- If you do not use an officially supported Docker-in-Docker image, Earthly will attempt to install Docker in whatever image you have chosen. This has the drawback of not being able to use cache efficiently and is not recommended for performance reasons.
-- To maximize the use of cache, all external images used should be declared via the options `--pull` or `--compose`. Even though commands such as `docker run` automatically pull an image if it is not found locally, it will do so every single time the `WITH DOCKER` clause is executed, due to Docker caching not being preserved between runs. Pre-declaring the images ensures that they are properly cached by Earthly to minimize unnecessary redownloads.
-- `docker build` cannot be used to build Dockerfiles. However, the Earthly command `FROM DOCKERFILE` can be used instead. See [alternative to docker build](#alternative-to-docker-build) below.
-- The state of the Docker daemon within Earthly cannot be inspected on the host (e.g. for debugging purposes). For example, if a `docker-compose` stack fails, you cannot execute commands like `docker-compose logs` or `docker logs` on the host. However, you may use the interactive mode to drop into a shell within the build environment and execute such commands there. For more information, see the [debugging guide](./debugging.md).
-- It is currently not possible to mount `/var/run/docker.sock` in order to use the host Docker daemon. This goes against Earthly's principles of keeping execution repeatable. Mounting the Docker socket may cause builds to depend on the host Daemon state (e.g. pre-cached images) in ways that may not be obvious or easy to reproduce if the build were executed in another environment.
+- If you do not use an officially supported Docker-in-Docker image, EarthBuild will attempt to install Docker in whatever image you have chosen. This has the drawback of not being able to use cache efficiently and is not recommended for performance reasons.
+- To maximize the use of cache, all external images used should be declared via the options `--pull` or `--compose`. Even though commands such as `docker run` automatically pull an image if it is not found locally, it will do so every single time the `WITH DOCKER` clause is executed, due to Docker caching not being preserved between runs. Pre-declaring the images ensures that they are properly cached by EarthBuild to minimize unnecessary redownloads.
+- `docker build` cannot be used to build Dockerfiles. However, the EarthBuild command `FROM DOCKERFILE` can be used instead. See [alternative to docker build](#alternative-to-docker-build) below.
+- The state of the Docker daemon within EarthBuild cannot be inspected on the host (e.g. for debugging purposes). For example, if a `docker-compose` stack fails, you cannot execute commands like `docker-compose logs` or `docker logs` on the host. However, you may use the interactive mode to drop into a shell within the build environment and execute such commands there. For more information, see the [debugging guide](./debugging.md).
+- It is currently not possible to mount `/var/run/docker.sock` in order to use the host Docker daemon. This goes against EarthBuild's principles of keeping execution repeatable. Mounting the Docker socket may cause builds to depend on the host Daemon state (e.g. pre-cached images) in ways that may not be obvious or easy to reproduce if the build were executed in another environment.
 - Creating external networks (the default docker behavior), will sometimes fail and produce 100% packet loss; however **internal** networks do no have this issue. Use `docker network create --internal ...` or the `internal: true` compose option instead. See [#3495](https://github.com/earthly/earthly/issues/3495) for details.
 
-## Alternatives to Docker in Earthly
+## Alternatives to Docker in EarthBuild
 
-It is not always necessary to execute docker commands within an Earthly build. Certain operations can be replicated with Earthly constructs.
+It is not always necessary to execute docker commands within an EarthBuild build. Certain operations can be replicated with EarthBuild constructs.
 
 ### Alternative to docker run
 
@@ -135,12 +135,12 @@ This, of course, has limitations, such as not being able to mount volumes the sa
 
 ### Alternative to docker build
 
-Running `docker build` within Earthly is discouraged, as it has a number of key limitations:
+Running `docker build` within EarthBuild is discouraged, as it has a number of key limitations:
 
 - Layer caching does not work. This is because `WITH DOCKER` does not preserve Docker cache between runs (other than `--pull`).
 - Once an image is created, it cannot be exported as a build output in a form other than a TAR archive (e.g. it cannot be automatically loaded onto the host Docker daemon).
 
-Instead of executing `docker build`, it is advisable to use the Earthly command `FROM DOCKERFILE`. For example, the command `docker build -t my-image:latest .` can be emulated by:
+Instead of executing `docker build`, it is advisable to use the EarthBuild command `FROM DOCKERFILE`. For example, the command `docker build -t my-image:latest .` can be emulated by:
 
 ```Dockerfile
 FROM DOCKERFILE .
@@ -151,4 +151,4 @@ SAVE IMAGE my-image:latest
 
 - Reference for [`WITH DOCKER`](../earthfile/earthfile.md#with-docker)
 - [Debugging techniques](./debugging.md)
-- [Tutorial on integration testing in Earthly](./integration.md)
+- [Tutorial on integration testing in EarthBuild](./integration.md)

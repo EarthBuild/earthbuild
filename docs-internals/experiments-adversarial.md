@@ -32560,3 +32560,38 @@ anything escapes: the other pids' entries are not readable, and `/proc/1/environ
 yields nothing. So no secret of this build or any other is reachable this way,
 and what leaks is one fixed shell command with nothing in it. Worth correcting
 the comment; not worth alarm.
+
+### Built, and the observation worry did not arrive
+
+The shim stays on the guest's filesystem rather than being placed inside the
+step, so its startup reads are at paths outside the step's root. Rebuilding the
+guest with different bytes leaves a warm build at `92 hit, 0 miss`, which is the
+sharp version of the question: if the shim were an observed input, changing it
+would invalidate every step.
+
+With it on, a step agrees with itself:
+
+```text
+default             shell=1   /proc/self Pid: 1     agree
+EARTH_STEP_SHIM=0   shell=1   /proc/self Pid: 12    the old behaviour
+```
+
+The cost is not measurable end to end. Two cold builds each way came out
+44.08s/44.58s without and 53.52s/42.27s with - an eleven-second spread on one arm
+against a predicted 15ms. "Not measurable" is the honest claim; "free" is not.
+
+### What it fixed in the engine's own suite
+
+`+engine-race` run through the native engine used to fail four tests on
+`/proc/<pid>/mem: no such file or directory` for pids that existed. With the shim
+those errors are gone entirely and nothing in the suite fails.
+
+It still does not pass, for a different and duller reason: the skip ceiling is
+calibrated for the container CI runs that target in, and the native sandbox is a
+different environment that skips 178 where that container skips 174. The ceiling
+is per-container by construction, so a target run under two runtimes cannot share
+one - worth knowing before reading the number as a regression.
+
+What remains inherent is the tracer's own tests, which cannot install a
+notification listener inside a step that already has the engine's: one per
+thread, and `EBUSY` for the second.

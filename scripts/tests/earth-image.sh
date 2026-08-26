@@ -70,6 +70,7 @@ acbgrep "you can .rm /usr/bin/earthly" output.txt
 echo "Test the entrypoint is on PATH under its released name."
 # The CI integration guides name the entrypoint explicitly, so both the current
 # and the deprecated spelling must resolve to the same script.
+# shellcheck disable=SC2016 # the readlink runs in the container, not out here
 "$FRONTEND" run --rm --entrypoint sh "${EARTH_IMAGE}" -c \
     'test -f /usr/bin/earth-entrypoint.sh && test "$(readlink /usr/bin/earthly-entrypoint.sh)" = earth-entrypoint.sh'
 

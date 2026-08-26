@@ -92,7 +92,7 @@ func TestAStepsMountsIncludeItsDeclaredHosts(t *testing.T) {
 
 	var found bool
 
-	for _, m := range stepMounts(Request{Hosts: []string{"api.test 10.0.0.1"}}) {
+	for _, m := range stepMounts(Request{Hosts: []string{"api.test 10.0.0.1"}}, nil) {
 		if m.Target == "/etc/hosts" {
 			found = true
 		}
@@ -103,7 +103,7 @@ func TestAStepsMountsIncludeItsDeclaredHosts(t *testing.T) {
 			" resolves by whatever its image shipped")
 	}
 
-	for _, m := range stepMounts(Request{}) {
+	for _, m := range stepMounts(Request{}, nil) {
 		if m.Target == "/etc/hosts" {
 			t.Error("a step declaring nothing was given a hosts file anyway")
 		}

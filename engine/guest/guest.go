@@ -1888,9 +1888,17 @@ const maxOutput = 64 << 10
 // into the step's root, because what a step writes into its own filesystem is
 // captured and a resolver file is this engine's doing rather than the step's
 // output.
-func stepMounts(req Request) []Mount {
+func stepMounts(req Request, env []string) []Mount {
 	out := append(deviceMounts(), resolverMount()...)
-	out = append(out, req.Mounts...)
+
+	// **Against the step's environment**, because a target may name one of its
+	// variables and the plan cannot know them - see expandTarget. Only what the
+	// request asked for: the device, resolver and hosts mounts are this
+	// engine's own and carry no variables.
+	for _, m := range req.Mounts {
+		m.Target = expandTarget(m.Target, env)
+		out = append(out, m)
+	}
 
 	return append(out, hostsMount(req.Hosts)...)
 }
@@ -2049,7 +2057,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 	defer undoProc()
 
-	mounts := stepMounts(req)
+	mounts := stepMounts(req, stepEnv(declaredBy(h, req), req.Env))
 
 	// A view of an earlier result is a stack and has to be assembled before
 	// anything can be bound to it (§3.3d, ν ∈ 𝕂). Released after the step, not

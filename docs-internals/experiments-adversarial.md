@@ -33572,3 +33572,50 @@ and the too-large case already falls back to a small reply.
 `EARTH_PARALLELISM` was added to isolate this and is what the table above rests
 on. Running the corpus serially also stops it losing one to three invocations a
 sweep while the fault is open.
+
+## E724 - a deletion is silently lost when the layer store is on the host share
+
+Five lines, and it is wrong on macOS today:
+
+```Dockerfile
+VERSION 0.8
+FROM alpine:3.24.1
+WORKDIR /test
+
+main:
+    RUN touch dummy
+    RUN test -f dummy      # passes
+    RUN rm dummy
+    RUN ! test -f dummy    # FAILS - the file is still there
+```
+
+A file removed by one step is present in the next. Nothing is reported: the step
+runs, exits zero, and the layer it commits says nothing was removed. This is not
+a failure the build surfaces, it is a **wrong build**, which makes it worse than
+the hang in E723.
+
+**It is the store's filesystem.** One variable:
+
+| store                                        | result                       |
+| -------------------------------------------- | ---------------------------- |
+| default (host directory, shared into the VM) | deletion lost, `rc=1`        |
+| `EARTH_STORE_IN_VM=1`                        | deletion applied, `rc=0`     |
+
+An overlayfs deletion is a character device 0:0, made with `mknod`. The share
+backing the host store cannot hold one, so the marker never lands and the layer
+carries no record of the removal. `engine/guest/copy.go` already says what
+happens when this goes wrong - "every deletion was dropped on the way into the
+store, and the layer that arrived said nothing had been removed. Measured:
+`RUN rm /marker.txt` followed by a step that looks for it found it" - and that is
+exactly the symptom, still present for this store.
+
+Pre-existing: reproduced identically at 11b031262, before any of this session's
+changes.
+
+**This reframes the storage-mode question.** In-guest storage was being weighed
+as six corpus invocations against the layers living only as long as the sandbox
+(and, per the nit, against the export and probe faults it currently has). It is
+not a tuning choice: with the store on the share, `RUN rm` does not delete on
+macOS. Whatever the eventual arrangement, a store that cannot represent a
+deletion must be *refused* rather than used, in the way `--keep-own` is already
+refused when the store discards ownership - the same probe, one field along.

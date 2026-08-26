@@ -6,8 +6,6 @@ if ! command -v "$earthly"; then
     earthly="earth"
 fi
 
-"$earthly" config global.disable_analytics true
-
 "$earthly" --version
 
 "$earthly" github.com/EarthBuild/earthly-example-scala/simple:main+test

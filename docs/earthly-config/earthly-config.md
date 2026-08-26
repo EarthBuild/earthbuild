@@ -112,14 +112,6 @@ of the secret.
 
 {% endhint %}
 
-### disable_analytics
-
-When set to true, disables collecting command line analytics; otherwise, earthly will report anonymized analytics for invocation of the earthly command. For more information see the [data collection page](../data-collection/data-collection.md).
-
-### disable_log_sharing
-
-When set to true, disables sharing build logs after each build. This setting applies to logged-in users only.
-
 ### conversion_parallelism
 
 The number of concurrent converters for speeding up build targets that use blocking commands like `IF`, `WITH DOCKER --load`, `FROM DOCKERFILE` and others.
@@ -137,7 +129,7 @@ Set this configuration to a lower value if your machine is resource constrained 
 
 ### buildkit_additional_args
 
-This option allows you to pass additional options to Docker when starting up the Earthly BuildKit daemon. 
+This option allows you to pass additional options to Docker when starting up the Earthly BuildKit daemon.
 Note that changes to these values will trigger earthly to restart BuildKit on the next run.
 
 #### Bypass User Namespacing

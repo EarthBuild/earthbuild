@@ -67,11 +67,11 @@ jobs:
           BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Build latest earthly/buildkitd image using released earthly
         run: |
           scripts/ci/earth-retry.sh \
@@ -82,7 +82,7 @@ jobs:
         run: |
           # shellcheck disable=SC2016  # the snippet is passed verbatim to earth-retry.sh, which runs it
           scripts/ci/earth-retry.sh -c '
-            GORACE="halt_on_error=1" go run -race ./cmd/earthly --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test -P --no-output \
+            GORACE="halt_on_error=1" go run -race ./cmd/earth --buildkit-image ghcr.io/earthbuild/earthbuild:buildkitd-race-test -P --no-output \
               "${INPUTS_TEST_TARGET}"
           '
         env:

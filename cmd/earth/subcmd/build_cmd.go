@@ -17,9 +17,9 @@ import (
 	"github.com/EarthBuild/earthbuild/builder"
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cleanup"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/bk"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/common"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earth/bk"
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
 	"github.com/EarthBuild/earthbuild/debugger/terminal"
 	"github.com/EarthBuild/earthbuild/docker2earth"
@@ -373,7 +373,6 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		b.cli.Log(),
 		b.cli.Flags().BuildkitdImage,
 		b.cli.Flags().ContainerName,
-		b.cli.Flags().InstallationName,
 		b.cli.Flags().ContainerFrontend,
 		b.cli.Version(),
 		b.cli.Flags().BuildkitdSettings,

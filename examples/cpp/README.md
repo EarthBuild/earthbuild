@@ -48,7 +48,7 @@ int fib(int n)
 We will use CMake to manage the build process of the c++ code, with the following CMakeList.txt file:
 
 ```
-cmake_minimum_required(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.10...3.30)
 project (fibonacci)
 add_executable(fibonacci main.cpp fib.cpp)
 ```
@@ -60,7 +60,7 @@ files to allow for faster builds on a local machine. Here's a sample `Earthfile`
 ```Dockerfile
 # Earthfile
 VERSION 0.8
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ## for apt to be noninteractive
 ENV DEBIAN_FRONTEND noninteractive

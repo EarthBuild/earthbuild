@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/flag"
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/client"
@@ -90,7 +90,7 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 
 		err = buildkitd.ResetCache(
 			ctx, a.cli.Log(), a.cli.Flags().BuildkitdImage, a.cli.Flags().ContainerName,
-			a.cli.Flags().InstallationName, a.cli.Flags().ContainerFrontend, a.cli.Flags().BuildkitdSettings,
+			a.cli.Flags().ContainerFrontend, a.cli.Flags().BuildkitdSettings,
 		)
 		if err != nil {
 			return fmt.Errorf("reset cache: %w", err)

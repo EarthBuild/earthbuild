@@ -133,7 +133,7 @@ runs:
         platforms: all
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
       with:
-        go-version: '1.26.6'
+        go-version: '1.27.0'
     - if: ${{ inputs.BINARY == 'podman' }}
       name: Set up Podman
       run: |
@@ -199,7 +199,7 @@ runs:
       # belonged to the Docker-29 pinned-image workaround this step replaces.
       # Podman jobs must exercise the PR's buildkitd too.
       shell: bash
-      # EARTHLY_BUILDKIT_IMAGE has to reach the caller's later steps, so
+      # EARTH_BUILDKIT_IMAGE has to reach the caller's later steps, so
       # GITHUB_ENV is the only channel available to a composite action. The
       # value is constrained rather than trusted: TAG_SUFFIX is matched against
       # a strict character class before it is written, so a malformed
@@ -213,8 +213,8 @@ runs:
           exit 1
         fi
         BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
-        echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> "$GITHUB_ENV"
-        echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
+        echo "EARTH_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> "$GITHUB_ENV"
+        echo "Set EARTH_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-

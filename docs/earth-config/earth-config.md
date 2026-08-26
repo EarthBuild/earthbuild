@@ -112,14 +112,6 @@ of the secret.
 
 {% endhint %}
 
-### disable_analytics
-
-When set to true, disables collecting command line analytics; otherwise, earth will report anonymized analytics for invocation of the earth command. For more information see the [data collection page](../data-collection/data-collection.md).
-
-### disable_log_sharing
-
-When set to true, disables sharing build logs after each build. This setting applies to logged-in users only.
-
 ### conversion_parallelism
 
 The number of concurrent converters for speeding up build targets that use blocking commands like `IF`, `WITH DOCKER --load`, `FROM DOCKERFILE` and others.

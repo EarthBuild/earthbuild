@@ -8,9 +8,10 @@ if [ -f "$configpath" ]; then
   exit 1
 fi
 
-if [ "$USE_EARTHLY_MIRROR" = "true" ]; then
+USE_EARTH_MIRROR="${USE_EARTH_MIRROR:-${USE_EARTHLY_MIRROR:-false}}"
+if [ "$USE_EARTH_MIRROR" = "true" ]; then
   if [ -n "$DOCKERHUB_MIRROR" ]; then
-    echo >&2 "error: DOCKERHUB_MIRROR should be empty when using the USE_EARTHLY_MIRROR option"
+    echo >&2 "error: DOCKERHUB_MIRROR should be empty when using the USE_EARTH_MIRROR option"
     exit 1
   fi
   DOCKERHUB_MIRROR="mirror.gcr.io"
@@ -20,7 +21,6 @@ fi
 mkdir -p "$(dirname "$configpath")"
 cat>"$configpath"<<EOF
 global:
-  disable_analytics: true
 EOF
 
 # In July 2025, the following Docker Hub mirrors offer anonymous free pulling.

@@ -41,12 +41,22 @@ var (
 	ErrBuildkitConnectionFailure = errors.New("buildkitd did not respond (in time)")
 )
 
+// ContainerName returns the buildkitd container name for a given installation.
+func ContainerName(installationName string) string {
+	return installationName + "-buildkitd"
+}
+
+// VolumeName returns the cache volume name for a given installation.
+func VolumeName(installationName string) string {
+	return installationName + "-cache"
+}
+
 // NewClient returns a new buildkitd client. If the buildkitd daemon is local, this function
 // might start one up, if not already started.
 func NewClient(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName, installationName string,
+	image, containerName string,
 	fe containerutil.ContainerFrontend,
 	earthVersion string,
 	settings Settings,
@@ -68,11 +78,12 @@ func NewClient(
 					settings.ClientTLSCert,
 				}
 				if containsAny(retErr.Error(), tlsPaths...) {
-					retErr = hint.Wrap(
+					retErr = hint.Wrapf(
 						retErr,
 						"podman now requires TLS certs by default - "+
-							"try stopping the earthly-buildkitd container and re-running 'earth bootstrap'",
-						"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
+							"try stopping the %s container and re-running 'earth bootstrap'\n"+
+							"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
+						containerName,
 					)
 				}
 			default:
@@ -85,8 +96,11 @@ func NewClient(
 			// verification errors can happen server-side, which means
 			// errors.Is() won't work. We use strings.Contains instead to handle
 			// that case.
-			retErr = hint.Wrap(retErr,
-				"did earth's certificates get regenerated? you may need to manually stop the earthly-buildkitd container.")
+			retErr = hint.Wrapf(
+				retErr,
+				"did earth's certificates get regenerated? you may need to manually stop the %s container.",
+				containerName,
+			)
 
 			return
 		}
@@ -131,7 +145,7 @@ func NewClient(
 		return nil, fmt.Errorf("%s not available", fe.Config().Binary)
 	}
 
-	info, workerInfo, err := maybeStart(ctx, log, image, containerName, installationName, fe, settings, opts...)
+	info, workerInfo, err := maybeStart(ctx, log, image, containerName, fe, settings, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("maybe start buildkitd: %w", err)
 	}
@@ -150,7 +164,7 @@ func NewClient(
 func ResetCache(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName, installationName string,
+	image, containerName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	opts ...client.ClientOpt,
@@ -190,7 +204,7 @@ func ResetCache(
 		}
 	}
 
-	err = Start(ctx, log, image, containerName, installationName, fe, settings, true)
+	err = Start(ctx, log, image, containerName, fe, settings, true)
 	if err != nil {
 		return err
 	}
@@ -212,7 +226,7 @@ func ResetCache(
 func maybeStart(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName, installationName string,
+	image, containerName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	opts ...client.ClientOpt,
@@ -274,7 +288,7 @@ func maybeStart(
 			workerInfo *client.WorkerInfo
 		)
 
-		info, workerInfo, err = maybeRestart(ctx, log, image, containerName, installationName, fe, settings, opts...)
+		info, workerInfo, err = maybeRestart(ctx, log, image, containerName, fe, settings, opts...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("maybe restart: %w", err)
 		}
@@ -286,7 +300,7 @@ func maybeStart(
 		WithPrefix("buildkitd").
 		Printf("Starting buildkit daemon as a %s container (%s)...\n", fe.Config().Binary, containerName)
 
-	err = Start(ctx, log, image, containerName, installationName, fe, settings, false)
+	err = Start(ctx, log, image, containerName, fe, settings, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("start: %w", err)
 	}
@@ -327,7 +341,7 @@ func maybeStart(
 func maybeRestart(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName, installationName string,
+	image, containerName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	opts ...client.ClientOpt,
@@ -438,7 +452,7 @@ func maybeRestart(
 		return nil, nil, fmt.Errorf("could not wait for container %q to stop: %w", containerName, err)
 	}
 
-	err = Start(ctx, log, image, containerName, installationName, fe, settings, false)
+	err = Start(ctx, log, image, containerName, fe, settings, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not start container %q: %w", containerName, err)
 	}
@@ -477,7 +491,7 @@ func RemoveExited(ctx context.Context, fe containerutil.ContainerFrontend, conta
 func Start(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName, _ string,
+	image, containerName string,
 	fe containerutil.ContainerFrontend,
 	settings Settings,
 	reset bool,
@@ -993,7 +1007,7 @@ func GetDockerVersion(ctx context.Context, fe containerutil.ContainerFrontend) (
 	return fmt.Sprintf("%#v", info), nil
 }
 
-// GetLogs returns earthly-buildkitd logs.
+// GetLogs returns buildkitd daemon container logs.
 func GetLogs(
 	ctx context.Context, containerName string, fe containerutil.ContainerFrontend, settings Settings,
 ) (string, error) {

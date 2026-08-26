@@ -867,6 +867,24 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				source = spec
 			}
 
+			// **The prefix names where a secret lives, not what it is
+			// called.** `+secrets/TOKEN` is a project store's TOKEN, and an
+			// engine with no project store still has whatever the caller
+			// passed - refusing that over the spelling is a refusal about
+			// nothing. `tests/secrets.earth` supplies SECRET1 and then asks
+			// for `+secrets/SECRET1`, which is the same secret twice.
+			source = strings.TrimPrefix(source, "+secrets/")
+
+			// **An empty source supplies nothing, and that is allowed.**
+			// `ARG SECRET_ID=+secrets/SECRET1` overridden with
+			// `--build-arg SECRET_ID=""` makes the source empty on purpose,
+			// and `tests/secrets.earth` asserts the variable is then empty
+			// *and the build carries on*. Refusing it demands a secret the
+			// author deliberately removed.
+			if source == "" {
+				continue
+			}
+
 			if !p.opt.secrets[source] {
 				// ErrNotProvided: the third place the rule holds, after a
 				// probe to run and a repository to fetch. A secret arrives
@@ -881,7 +899,11 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		}
 
 		for _, m := range rf.mounts {
-			if m.Secret && !p.opt.secrets[m.ID] {
+			// The same two names for one secret, reaching the other line that
+			// looks one up.
+			m.ID = strings.TrimPrefix(m.ID, "+secrets/")
+
+			if m.Secret && m.ID != "" && !p.opt.secrets[m.ID] {
 				// Same family as the flag spelling above: one condition must
 				// not classify two ways depending on how it was written.
 				return nil, fmt.Errorf(

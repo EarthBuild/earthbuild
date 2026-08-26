@@ -58,6 +58,17 @@ func TestTheVocabularyIsWhatWeSayItIs(t *testing.T) {
 		{cmd: testCmdSaveImage, body: "    SAVE IMAGE thing:latest\n", supported: true},
 		{cmd: "SHELL", body: `    SHELL ["/bin/sh", "-c"]` + "\n", supported: false},
 		{cmd: "STOPSIGNAL", body: "    STOPSIGNAL SIGTERM\n", supported: true},
+		// **Accepted, and only half honoured** - which this column cannot say,
+		// so the comment must. `USER` reaches the image *configuration*, so a
+		// container started from the image runs as that user; it does not
+		// reach a *step*, and `RUN id -un` after `USER testuser` prints
+		// `root`. `ir.Op.User` is carried and keyed and consumed nowhere.
+		//
+		// Left as supported because the measure here is refusal, and the
+		// command is not refused. E719 has the measurement and the reason it
+		// was not fixed in passing: dropping privileges carelessly is worse
+		// than not dropping them, and an Earthfile that says `USER nobody` and
+		// gets root should be fixed deliberately or refused by name.
 		{cmd: "USER", body: "    USER nobody\n", supported: true},
 		{cmd: "VOLUME", body: "    VOLUME /data\n", supported: true},
 		{cmd: "WAIT", body: "    WAIT\n        RUN make\n    END\n", supported: true},

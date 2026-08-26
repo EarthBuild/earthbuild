@@ -33906,3 +33906,42 @@ trade for the tier as it is documented: it exists to take a round trip off the
 critical path of the build that speculated, and a fetch still running when that
 build ends did not. A prefetch that wants to warm the cache for *future* builds
 is a different tier and would need to say so.
+
+### E727c - where the floor is, once the waiting is gone
+
+With the prefetch no longer waited on, a build that runs a step costs about
+326ms and more than half of it is acquiring the machine:
+
+| phase            | reused sandbox |
+| ---------------- | -------------- |
+| `sandbox:start`  | 0.106s         |
+| `sandbox:dial`   | 0.077s         |
+| five trivial RUN | ~0.020s each   |
+
+`Prewarm` already exists to put that boot beside the interpretation rather than
+in front of it, and it is called for every build that may need a machine. It no
+longer has anything to hide behind: `plan` is 2ms now, so there is no half-second
+of parsing and registry work left for the boot to overlap. The first step pays
+it, and the phase log shows that plainly - `exec:client` is 0.211s on the first
+step and 0.000s on every one after, being a `sync.Once`.
+
+**Most of what is left is not ours.** Timed directly against a running sandbox:
+
+| command          | cost |
+| ---------------- | ---- |
+| `container ls`   | 32ms |
+| `container exec` | 86ms |
+
+So `sandbox:start` is roughly `ls` plus the `exec` spawn, and `dial` is the
+handshake with the guest that spawn starts. The 86ms is Apple's CLI, paid once
+per build, and no amount of care on this side removes it.
+
+What could be taken: the `ls`, by attempting the `exec` first and falling back to
+`ensureRunning` when it fails - `Start` already recovers from a sandbox that is
+gone, so the machinery is there. That is 32ms of 183ms, and it trades a clean
+failure path for a speculative one. Worth doing only with the measurement in
+hand, which is why it is written down rather than done.
+
+A different transport - dialling the sandbox's address instead of spawning
+`container exec` - is where the rest of it is. That is a design change, not a
+tuning one.

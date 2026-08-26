@@ -152,7 +152,11 @@ func TestEveryRefusedFlagSaysWhatItWas(t *testing.T) {
 	// the message names `type=bind` rather than `--mount`. That is a better
 	// refusal, not a missing one - TestADockerfileBindMountIsRefusedByKind is
 	// the test of it - and this scan counts flags, so the number moved.
-	if len(flags) < 11 {
+	// 11 -> 10: `--chmod` is implemented, so it is refused nowhere and the scan
+	// no longer finds it. A flag leaving this list because the engine grew is
+	// the good direction, and the floor moves with it rather than being kept
+	// where a green run would need a refusal nobody wants back.
+	if len(flags) < 10 {
 		t.Fatalf("only %d refused flags found (%v), so the scan is wrong rather"+
 			" than the source", len(flags), flags)
 	}

@@ -96,21 +96,34 @@ func TestUnknownCopyFlagsAreStillRefused(t *testing.T) {
 	// --keep-ts is no longer here either, for a different reason: it asks for
 	// what this engine already does. Refusing it rejected an Earthfile for
 	// requesting the behaviour it was going to get (E34).
-	for _, flag := range []string{"--chmod=0755"} {
-		t.Run(flag, func(t *testing.T) {
-			t.Parallel()
+	// **The list emptied**, and `--chmod` was the last entry. It is honoured
+	// now: a mode is part of a layer and this engine already keeps modes
+	// through SAVE ARTIFACT, so there was nothing here a store could fail to
+	// carry - which is what made it different from `--chown`.
+	//
+	// So this asserts the flag arrives rather than that it is refused. This is the `--dir` file's shape.
+	p, err := interp.Build(versioned+"\nbuild:\n    FROM alpine\n    COPY --chmod=0755 src /dst\n",
+		"build", interp.WithContext(ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-			_, err := interp.Build(versioned+"\nbuild:\n    FROM alpine\n    COPY "+flag+" src /dst\n",
-				"build", interp.WithContext(ctx))
-			if err == nil {
-				t.Fatalf("COPY %s was accepted and its flag ignored", flag)
-			}
+	var seen bool
 
-			name, _, _ := strings.Cut(flag, "=")
-			if !strings.Contains(err.Error(), name) {
-				t.Errorf("the refusal does not name %s:\n%s", name, err)
-			}
-		})
+	for _, n := range p.Graph.Nodes() {
+		if n.Op.Kind != ir.OpFile {
+			continue
+		}
+
+		seen = true
+
+		if n.Op.Chmod != "0755" {
+			t.Errorf("the copy carries mode %q, so the step cannot set it", n.Op.Chmod)
+		}
+	}
+
+	if !seen {
+		t.Fatal("no copy was planned")
 	}
 }
 

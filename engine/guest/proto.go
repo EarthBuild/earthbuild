@@ -342,6 +342,10 @@ type Request struct {
 	// an artifact - `SAVE ARTIFACT --if-exists` declares one the producer may
 	// not have made, and the plan cannot know which.
 	IfExists bool `json:"ifExists,omitempty"`
+	// Chmod is `COPY --chmod=777`: the mode the copied files get, octal as the
+	// author wrote it. Parsed here rather than by the caller, so a bad one is
+	// reported once and against the line that wrote it.
+	Chmod string `json:"chmod,omitempty"`
 	// NoFollow is `COPY --symlink-no-follow`: a symlink the copy names arrives
 	// as a link rather than as what it points at.
 	//

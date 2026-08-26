@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,11 +100,40 @@ func copyPath(root, src, dst string, opts copyOpts) error {
 // arbitrary user, and a build that asked for ownership and silently did not get
 // it produces an image whose files belong to the wrong user - a failure that
 // surfaces at runtime, in a container, a long way from here.
+// setMode applies `COPY --chmod`, which replaces the source's mode rather than
+// modifying it: the author wrote the number they want, not an adjustment to one
+// they cannot see.
+//
+// A symlink is skipped, because its mode is not a thing on Linux - `chmod` on
+// one changes the target, which is a file the flag was not talking about.
+func setMode(fi os.FileInfo, dst string, opts copyOpts) error {
+	if opts.Chmod == "" || fi.Mode()&os.ModeSymlink != 0 {
+		return nil
+	}
+
+	mode, err := strconv.ParseUint(opts.Chmod, 8, 32)
+	if err != nil {
+		return fmt.Errorf("--chmod=%s: not an octal mode: %w", opts.Chmod, err)
+	}
+
+	err = os.Chmod(dst, os.FileMode(mode))
+	if err != nil {
+		return fmt.Errorf("--chmod=%s: set the mode of %s: %w", opts.Chmod, dst, err)
+	}
+
+	return nil
+}
+
 func keepOwn(fi os.FileInfo, dst string, opts copyOpts) error {
+	err := setMode(fi, dst, opts)
+	if err != nil {
+		return err
+	}
+
 	// `--chown` names the owner outright, so there is nothing to take from the
 	// source. Resolved once per copy against the destination image (E419).
 	if opts.Chown != "" {
-		err := os.Lchown(dst, opts.chownUID, opts.chownGID)
+		err = os.Lchown(dst, opts.chownUID, opts.chownGID)
 		if err != nil {
 			return fmt.Errorf("--chown=%s: set the owner of %s: %w", opts.Chown, dst, err)
 		}
@@ -129,7 +159,7 @@ func keepOwn(fi os.FileInfo, dst string, opts copyOpts) error {
 		return fmt.Errorf("--keep-own: %s does not report ownership on this platform", dst)
 	}
 
-	err := os.Lchown(dst, uid, gid)
+	err = os.Lchown(dst, uid, gid)
 	if err != nil {
 		return fmt.Errorf("--keep-own: set the owner of %s: %w", dst, err)
 	}

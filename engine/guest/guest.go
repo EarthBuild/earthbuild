@@ -492,6 +492,7 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 			copyOpts{
 				AsDir: req.DirCopy, NoFollow: req.NoFollow, KeepOwn: req.KeepOwn,
 				Chown: req.Chown, Clamp: clampAt(req.Clamp), IfExists: req.IfExists,
+				Chmod: req.Chmod,
 			})
 
 		unlock()
@@ -726,6 +727,8 @@ type copyOpts struct {
 	// not have made, so the plan is right to emit the copy and wrong to insist
 	// on it.
 	IfExists bool
+	// Chmod is `COPY --chmod=777`: the mode the copied files get.
+	Chmod string
 	// AsDir is `--dir`: the directory itself rather than its contents.
 	AsDir bool
 	// NoFollow is `--symlink-no-follow`: a symlink the copy names arrives as a
@@ -2414,6 +2417,7 @@ func (c *Client) Copy(
 		Path: src, Dest: dest,
 		DirCopy: opts.AsDir, NoFollow: opts.NoFollow, KeepOwn: opts.KeepOwn,
 		IfExists: opts.IfExists,
+		Chmod:    opts.Chmod,
 		Chown:    opts.Chown,
 	})
 

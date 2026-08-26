@@ -1854,6 +1854,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 						// inside one more directory would apply the rule twice.
 						Dir: rs.dir, User: rs.user, DirCopy: false,
 						NoFollow: spec.NoFollow, KeepOwn: spec.KeepOwn, Chown: spec.Chown,
+						Chmod:    spec.Chmod,
 						IfExists: ifExists,
 					},
 					Inputs:  []*ir.Node{prev},
@@ -1898,6 +1899,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 						// lands under, so the guest has nothing left to decide.
 						Dir: rs.dir, User: rs.user, DirCopy: false,
 						NoFollow: spec.NoFollow, KeepOwn: spec.KeepOwn, Chown: spec.Chown,
+						Chmod:    spec.Chmod,
 						IfExists: ifExists,
 					},
 					Inputs:  []*ir.Node{prev},
@@ -1918,6 +1920,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 				Kind: ir.OpFile, Args: []string{inSource, dest},
 				Dir: rs.dir, User: rs.user, DirCopy: dir,
 				NoFollow: spec.NoFollow, KeepOwn: spec.KeepOwn, Chown: spec.Chown,
+				Chmod:    spec.Chmod,
 				IfExists: ifExists,
 			},
 			Inputs:  []*ir.Node{prev},
@@ -2312,6 +2315,8 @@ type copySpec struct {
 	Chown string
 	// IfExists tolerates a source that is not there.
 	IfExists bool
+	// Chmod is `COPY --chmod=777`: the mode the copied files get.
+	Chmod string
 	// PassArgs forwards this target's arguments to the one the artifact comes
 	// from.
 	PassArgs bool
@@ -2343,11 +2348,14 @@ func copyArgs(c earthfile.Command) (copySpec, error) {
 
 	// Options that change *what* is copied are refused rather than ignored.
 	// --dir is honoured, because it is expressible as a destination.
+	// --chmod is honoured: a mode is part of a layer and this engine already
+	// keeps modes through SAVE ARTIFACT, so there is nothing here a store can
+	// fail to carry - unlike --chown, which asks for an owner a shared mount
+	// has no room for.
 	for _, u := range []struct {
 		set  bool
 		name string
 	}{
-		{opts.Chmod != "", "--chmod"},
 		// --keep-ts is absent on purpose: it asks for what this engine already
 		// does. See the note on SAVE ARTIFACT below.
 		// --keep-own is absent: implemented, and measured first (E34, E84).
@@ -2390,7 +2398,7 @@ func copyArgs(c earthfile.Command) (copySpec, error) {
 	return copySpec{
 		Args: rest, Dir: opts.IsDirCopy,
 		NoFollow: opts.SymlinkNoFollow, KeepOwn: opts.KeepOwn, Chown: opts.Chown,
-		IfExists: opts.IfExists, PassArgs: opts.PassArgs,
+		IfExists: opts.IfExists, PassArgs: opts.PassArgs, Chmod: opts.Chmod,
 		AllowPrivileged: opts.AllowPrivileged,
 		Platform:        opts.Platform, BuildArgs: args,
 	}, nil
@@ -2943,7 +2951,6 @@ func wrapRef(cmd string, c earthfile.Command, err error) error {
 // somebody can contradict.
 var flagMeanings = map[string]string{
 	"--sharing": "decides whether concurrent builds wait for the cache mount, share it, or each get their own",
-	"--chmod":   "changes the permissions of the copied files, given in octal",
 	"--network": "isolates the command from the networking stack and the internet",
 	"--oidc":    "obtains temporary AWS credentials for the command through a federated session",
 	// Documented as *absent from the language*, so this describes what it does

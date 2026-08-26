@@ -133,7 +133,7 @@ func TestTheFlagsAreWhatWeSayTheyAre(t *testing.T) {
 		{flag: "COPY --dir", body: "    COPY --dir tree /t\n", supported: true},
 		{flag: "COPY --if-exists", body: "    COPY --if-exists src.txt /s\n", supported: true},
 		{flag: "COPY --keep-ts", body: "    COPY --keep-ts src.txt /s\n", supported: true},
-		{flag: "COPY --chmod", body: "    COPY --chmod=0755 src.txt /s\n", supported: false},
+		{flag: "COPY --chmod", body: "    COPY --chmod=0755 src.txt /s\n", supported: true},
 		// Implemented on 2026-08-19 (E419): the names resolve against the
 		// destination image, in the guest, because only it has that image.
 		{flag: "COPY --chown", body: "    COPY --chown=1:1 src.txt /s\n", supported: true},

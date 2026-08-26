@@ -103,6 +103,7 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 	h.Str(n.Op.User)
 	h.Bool(n.Op.NoCache)
 	h.Bool(n.Op.IfExists)
+	h.Str(n.Op.Chmod)
 	h.Bool(n.Op.NoNetwork)
 	h.Bool(n.Op.Interactive)
 	h.Bool(n.Op.Docker)

@@ -242,6 +242,19 @@ type Op struct {
 	// source is not the same step as one that requires it, and sharing an entry
 	// would let a build that skipped the copy serve one that must not.
 	IfExists bool
+	// Chmod is `COPY --chmod=777`: the mode the copied files get, in octal as
+	// the author wrote it.
+	//
+	// In the key because it changes what the step produces, and
+	// `tests/copy.earth+copy-chmod` is the case that proves it: one file
+	// copied to one place four times, differing only in mode. Keys that
+	// ignored it would make those one step, and the second assertion would
+	// read the first's answer.
+	//
+	// A string rather than a parsed mode, because it is the author's text and
+	// this is where the author's text belongs; the guest parses it once, where
+	// a bad one can be reported against the line that wrote it.
+	Chmod string
 	// NoNetwork says the step runs with no network at all: `RUN --network=none`.
 	//
 	// In the key for the reason NoCache is: the same command with and without a
@@ -641,6 +654,7 @@ func (n *Node) ID() NodeID {
 	h.Str(n.Op.User)
 	h.Bool(n.Op.NoCache)
 	h.Bool(n.Op.IfExists)
+	h.Str(n.Op.Chmod)
 	h.Bool(n.Op.NoNetwork)
 	h.Bool(n.Op.Interactive)
 	h.Bool(n.Op.Docker)

@@ -27,6 +27,9 @@ type gitFacts struct {
 	authorMail string
 	origin     string
 	project    string
+	// qualifier is `host/org/repo`: what a target reference is qualified with,
+	// which is the project *and its host*. See qualifierFromURL.
+	qualifier string
 }
 
 // gitCache holds one answer per directory, for this process.
@@ -96,6 +99,7 @@ func gitFactsFor(dir string) gitFacts {
 	if out, ok := git(ctx, dir, "config", "--get", "remote.origin.url"); ok {
 		facts.origin = out
 		facts.project = projectFromURL(out)
+		facts.qualifier = qualifierFromURL(out)
 	}
 
 	gitCache.Store(dir, facts)
@@ -167,4 +171,36 @@ func projectFromURL(url string) string {
 	}
 
 	return first + "/" + last
+}
+
+// qualifierFromURL is the `host/org/repo` a target reference is qualified with.
+//
+// **Longer than `projectFromURL` by exactly the host**, which is the difference
+// between `EARTHLY_GIT_PROJECT_NAME` (`earthly/earthly`) and
+// `EARTHLY_TARGET_PROJECT` (`github.com/earthly/earthly`) - and
+// `tests/empty-git.earth` asserts both in the same target, so they cannot be
+// the same function.
+//
+// Empty where there is no origin, because a repository with no remote has
+// nothing to qualify a reference with - which is what `+test-empty` asserts.
+func qualifierFromURL(url string) string {
+	trimmed := strings.TrimSuffix(scrubbed(url), ".git")
+	trimmed = strings.TrimSuffix(trimmed, "/")
+
+	// `git@host:org/repo` is the same reference written for ssh.
+	if at := strings.LastIndex(trimmed, "@"); at >= 0 {
+		trimmed = trimmed[at+1:]
+	}
+
+	trimmed = strings.TrimPrefix(trimmed, "https://")
+	trimmed = strings.TrimPrefix(trimmed, "http://")
+	trimmed = strings.TrimPrefix(trimmed, "ssh://")
+	trimmed = strings.Replace(trimmed, ":", "/", 1)
+
+	parts := strings.Split(trimmed, "/")
+	if len(parts) < 3 {
+		return ""
+	}
+
+	return strings.Join(parts[len(parts)-3:], "/")
 }

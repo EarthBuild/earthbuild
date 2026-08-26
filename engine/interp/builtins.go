@@ -56,8 +56,10 @@ func builtinArgs(target, native, name, dir string, locally, push bool) map[strin
 		// The reference as this file would write it. A target elsewhere is
 		// reached by a path, and this engine plans one file at a time, so the
 		// unqualified form is the one a step can act on.
-		"EARTH_TARGET":  "+" + name,
-		"EARTH_LOCALLY": boolArg(locally),
+		"EARTH_TARGET": "+" + name,
+		// Filled in below where a git origin qualifies it.
+		"EARTH_TARGET_PROJECT": "",
+		"EARTH_LOCALLY":        boolArg(locally),
 		// Whether this is a CI build. **One of two words, never empty**: an
 		// Earthfile branches on it, and in a shell an empty string reads exactly
 		// like "not set", so a build on a CI machine would take the local path
@@ -112,6 +114,21 @@ func builtinArgs(target, native, name, dir string, locally, push bool) map[strin
 	out["EARTH_GIT_ORIGIN_URL_SCRUBBED"] = scrubbed(g.origin)
 	out["EARTH_GIT_PROJECT_NAME"] = g.project
 
+	// **A reference is qualified by the repository it is in, when it is in
+	// one.** `tests/empty-git.earth` asserts both halves in one file: with an
+	// origin `EARTHLY_TARGET` is `github.com/earthly/earthly+test-origin-no-hash`,
+	// and in a repository with no remote it is `+test-empty` - because there is
+	// nothing to qualify it with.
+	//
+	// The comment on the unqualified form argued that a step can only act on
+	// it. True, and beside the point: these are informational, they reach image
+	// tags and messages, and a build that cannot say which project it is is
+	// missing the useful half.
+	if g.qualifier != "" {
+		out["EARTH_TARGET_PROJECT"] = g.qualifier
+		out["EARTH_TARGET"] = g.qualifier + "+" + name
+	}
+
 	// The tag half of the canonical reference, which for a checkout is the
 	// branch it is on: `github.com/org/repo:branch+target`. Empty outside a
 	// repository, because there is no canonical form to take a tag from.
@@ -126,7 +143,7 @@ func builtinArgs(target, native, name, dir string, locally, push bool) map[strin
 	// (E423). Supplying only the new spelling would be a rename this project did
 	// to *other people's* files.
 	for _, n := range []string{
-		"EARTH_TARGET_NAME", "EARTH_TARGET", "EARTH_LOCALLY",
+		"EARTH_TARGET_NAME", "EARTH_TARGET", "EARTH_TARGET_PROJECT", "EARTH_LOCALLY",
 		"EARTH_CI", "EARTH_SOURCE_DATE_EPOCH",
 		"EARTH_VERSION", "EARTH_BUILD_SHA", "EARTH_PUSH",
 		"EARTH_TARGET_TAG", "EARTH_TARGET_TAG_DOCKER",

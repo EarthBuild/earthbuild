@@ -52,7 +52,10 @@ build:
     RUN echo "[$EARTH_TARGET_NAME][$EARTH_TARGET][$EARTH_LOCALLY]"
 `, "build")
 
-	if want := "[build][+build][false]"; !strings.Contains(got, want) {
+	// `+build` no longer, in a repository with a remote: a reference is
+	// qualified by the project it is in, which `empty-git.earth` asserts and
+	// this engine now does. The suffix is what stays constant.
+	if want := "+build][false]"; !strings.Contains(got, want) {
 		t.Errorf("the declared builtins expanded to %s, want %s", got, want)
 	}
 
@@ -197,7 +200,9 @@ build:
 			}
 		}
 
-		if want := "[build][+build]"; !strings.Contains(got, want) {
+		// As above: the reference is qualified where there is a project to
+		// qualify it with, so the suffix is what both spellings share.
+		if want := "+build]"; !strings.Contains(got, want) {
 			t.Errorf("built as %q, the builtins expanded to %s, want %s", name, got, want)
 		}
 	}

@@ -2478,7 +2478,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: a file whose name holds a plus copied as a file (E441)",
 		File:        "engine/interp/interp.go",
-		Anchor:      "\t\tn, cerr := p.contextNode(\"COPY\", src, where)\n\t\tif cerr == nil {\n\t\t\treturn n, src, nil\n\t\t}",
+		Anchor:      "\t\tn, cerr := p.contextNode(\"COPY\", src, where)\n\t\tif cerr == nil {\n\t\t\treturn n, src, \"\", nil\n\t\t}",
 		Replacement: "",
 		Package:     "./engine/interp/",
 	},
@@ -2885,7 +2885,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "cli: a produced Dockerfile exported to the engine's own directory (E490)",
 		File:        "engine/cli/dockerfileartifact.go",
-		Anchor:      "\t\t\terr := e.ExportInternal(ctx, stack, a.Path, dest, a.IfExists)\n\t\t\tif err != nil {",
+		Anchor:      "\t\t\terr := e.ExportInternal(ctx, stack, a.Path,\n\t\t\t\tdockerfileDest(into, a.Path), a.IfExists)\n\t\t\tif err != nil {",
 		Replacement: "\t\t\tif err := e.Export(ctx, stack, a.Path, dest, a.IfExists); err != nil {",
 		Package:     "./engine/cli/",
 	},
@@ -3004,7 +3004,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: ownership kept when a layer is committed (E446)",
 		File:        "engine/guest/guest.go",
-		Anchor:      "\terr = copyTree(delta, tmp, copyOpts{KeepOwn: true})",
+		Anchor:      "\terr = copyTree(delta, tmp, copyOpts{KeepOwn: true, Portable: &portable})",
 		Replacement: "\terr = copyTree(delta, tmp, copyOpts{})",
 		Package:     "./engine/cli/",
 		OS:          "linux",
@@ -3033,14 +3033,14 @@ var Mutants = []Mutant{
 	{
 		Name:        "exec: the last line of a step's output flushed (E449)",
 		File:        "engine/exec/exec.go",
-		Anchor:      "\t\temit(pending)\n\t\tpending = \"\"",
+		Anchor:      "\t\t\temit(tail, at == 1)\n\n\t\t\tpending[at] = \"\"",
 		Replacement: "",
 		Package:     "./engine/exec/",
 	},
 	{
 		Name:        "exec: nothing emitted when the output ended cleanly (E449)",
 		File:        "engine/exec/exec.go",
-		Anchor:      "\t\tif pending == \"\" {\n\t\t\treturn\n\t\t}",
+		Anchor:      "\t\t\tif tail == \"\" {\n\t\t\t\tcontinue\n\t\t\t}",
 		Replacement: "",
 		Package:     "./engine/exec/",
 	},

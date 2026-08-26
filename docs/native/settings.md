@@ -500,6 +500,23 @@ change re-does what the previous VM had already done.
 
 Default: this machine's core count.
 
+## `EARTH_PARALLELISM`
+
+How many steps run at once. Defaults to one per core.
+
+**A serial build is a diagnostic instrument.** The scheduler has always had the bound and nothing
+set it, so a build that stops with several steps in flight could not be run one step at a time to
+find out whether the concurrency was the cause. That is what this was added for (E723), and it is
+worth knowing that the answer there was no: the deadlock it was meant to isolate happens serially
+too, just less often.
+
+Set it to `1` to make a build's step order deterministic, or lower than the default on a machine
+with other work to do. A value that is not a positive number falls back to the default rather than
+refusing: it bounds how fast a build goes and nothing about what it produces, so a typo in it should
+cost the default, not the build.
+
+Default: this machine's core count.
+
 ## `EARTH_ALLOW_LEAKED_SECRETS`
 
 Lets a build save an image holding a secret it was given. **The check is on by default and this is

@@ -917,6 +917,54 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 // The host cannot read the guest's filesystem - that is the whole reason the
 // guest exists (experiment E1b) - so the copy happens here and the host collects
 // it from the mount they share.
+// exportMatches exports every file a pattern names, each under its own name.
+//
+// The destination is where the matches go, not what they are called: a pattern
+// resolving to two files and one name would export whichever came last.
+//
+// A pattern matching nothing is refused rather than exported as nothing - the
+// author named files they expected to exist, and an empty export is an artifact
+// silently missing downstream. `SAVE ARTIFACT --if-exists` is how to say the
+// other thing.
+func (s *Server) exportMatches(
+	h core.Handle, src, dst, path string, clamp *time.Time,
+) error {
+	matches, err := filepath.Glob(src)
+	if err != nil {
+		return fmt.Errorf("SAVE ARTIFACT %s: %w", path, err)
+	}
+
+	if len(matches) == 0 {
+		return fmt.Errorf("SAVE ARTIFACT %s: nothing matches it", path)
+	}
+
+	// Ordered, so two runs of the same build export in the same order.
+	sort.Strings(matches)
+
+	err = os.MkdirAll(dst, 0o750)
+	if err != nil {
+		return fmt.Errorf("prepare the export directory: %w", err)
+	}
+
+	for _, at := range matches {
+		rel, relErr := filepath.Rel(h.Root(), at)
+		if relErr != nil {
+			return fmt.Errorf("SAVE ARTIFACT %s: %w", path, relErr)
+		}
+
+		done := timing.Phase("guest:export:copy", rel)
+		err = copyPath(h.Root(), at, filepath.Join(dst, filepath.Base(at)),
+			copyOpts{Clamp: clamp})
+		done()
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (s *Server) export(h core.Handle, path, dest string, clamp *time.Time) error {
 	// Timed on this side of the boundary, because the host's `export:stage`
 	// covers a round trip as well as the work and 0.35s of a 1.16s build was
@@ -949,6 +997,16 @@ func (s *Server) export(h core.Handle, path, dest string, clamp *time.Time) erro
 	// link the copy would follow correctly is refused here first, and the
 	// engine's answer to `SAVE ARTIFACT link` depends on which of two checks
 	// happens to run.
+	// **A pattern names files whose count the build decides.** `SAVE ARTIFACT
+	// ./out-* AS LOCAL ./output/` writes one file per build argument, so there
+	// is nothing to stat when the plan is made - and stat'ing the pattern
+	// itself reported `no such file or directory` naming a path with a star in
+	// it. `findInStack` has matched patterns on the consuming side since the
+	// beginning, for this reason and in these words.
+	if strings.ContainsAny(filepath.Base(src), "*?[") {
+		return s.exportMatches(h, src, dst, path, clamp)
+	}
+
 	resolved, err := resolveLast(h.Root(), src)
 	if err != nil {
 		return fmt.Errorf("SAVE ARTIFACT %s: %w", path, err)

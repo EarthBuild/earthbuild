@@ -25,24 +25,32 @@ import (
 // process umask to 0 instead would work and is worse: it is global, it affects
 // every other file this process writes, and it would leave the same trap for
 // the next person who adds an `OpenFile`.
-func TestACopiedFileKeepsItsModeWhateverTheUmask(t *testing.T) {
-	// Not parallel: umask is per-process state.
+func TestACopiedFileKeepsItsModeWhateverTheUmask(t *testing.T) { //nolint:paralleltest // umask is per-process state
+	// Not parallel, and the linter is told why: umask belongs to the process,
+	// so a parallel test would set it under another one.
 	old := syscall.Umask(0o022)
 	defer syscall.Umask(old)
 
 	root := t.TempDir()
 
 	src := filepath.Join(root, "src")
-	if err := os.WriteFile(src, []byte("x"), 0o600); err != nil {
+
+	err := os.WriteFile(src, []byte("x"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.Chmod(src, 0o777); err != nil {
+	// 0777 is the subject, not a lapse: the point is that a mode the umask
+	// would trim survives the copy.
+	err = os.Chmod(src, 0o777) //nolint:gosec // the mode under test
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	dst := filepath.Join(root, "dst")
-	if err := copyFile(src, dst, 0o777); err != nil {
+
+	err = copyFile(src, dst, 0o777)
+	if err != nil {
 		t.Fatal(err)
 	}
 

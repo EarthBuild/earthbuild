@@ -237,7 +237,6 @@ var knownDropped = []string{
 	"BUILD --auto-skip",
 	// harness: no arguments in scope to pass, as for COPY and FROM.
 	"BUILD --pass-args",
-	"COPY --if-exists",                    // harness: the sweep's source exists
 	"COPY --keep-ts",                      // deliberate: interp.go, a capture keeps them
 	"COPY --pass-args",                    // harness: no arguments in scope to pass
 	"FROM --pass-args",                    // harness: as above

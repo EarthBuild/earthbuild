@@ -227,6 +227,21 @@ type Op struct {
 	// latest of something, or reads the clock, produces a result the key cannot
 	// bound - the same reasoning I7 applies to a host step.
 	NoCache bool
+	// IfExists says a copy tolerates a source that is not there:
+	// `COPY --if-exists`.
+	//
+	// **For an artifact it can only be decided here.** A context path is
+	// resolved by the interpreter, which can look at the build context; an
+	// artifact's presence is a fact about the filesystem the producing target
+	// left behind, and `SAVE ARTIFACT --if-exists not_ok` declares an artifact
+	// that may or may not have been made. Resolved in the interpreter, the flag
+	// was dropped and a tolerated absence became "nothing in that target has
+	// it" from inside the guest.
+	//
+	// In the key for the reason NoCache is: a step that tolerates a missing
+	// source is not the same step as one that requires it, and sharing an entry
+	// would let a build that skipped the copy serve one that must not.
+	IfExists bool
 	// NoNetwork says the step runs with no network at all: `RUN --network=none`.
 	//
 	// In the key for the reason NoCache is: the same command with and without a
@@ -625,6 +640,7 @@ func (n *Node) ID() NodeID {
 	h.Str(n.Op.Dir)
 	h.Str(n.Op.User)
 	h.Bool(n.Op.NoCache)
+	h.Bool(n.Op.IfExists)
 	h.Bool(n.Op.NoNetwork)
 	h.Bool(n.Op.Interactive)
 	h.Bool(n.Op.Docker)

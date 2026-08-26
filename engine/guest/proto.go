@@ -337,6 +337,11 @@ type Request struct {
 	// Without it a directory source contributes what is in it, which is the rule
 	// everywhere else and one a trailing separator cannot express.
 	DirCopy bool `json:"dirCopy,omitempty"`
+	// IfExists is `COPY --if-exists`: a source that is not there is not a
+	// failure. Carried over the wire because only this side can answer it for
+	// an artifact - `SAVE ARTIFACT --if-exists` declares one the producer may
+	// not have made, and the plan cannot know which.
+	IfExists bool `json:"ifExists,omitempty"`
 	// NoFollow is `COPY --symlink-no-follow`: a symlink the copy names arrives
 	// as a link rather than as what it points at.
 	//

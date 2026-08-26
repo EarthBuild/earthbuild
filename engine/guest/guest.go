@@ -491,7 +491,7 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		err := s.copyIn(h, req.From, req.Path, req.Dest,
 			copyOpts{
 				AsDir: req.DirCopy, NoFollow: req.NoFollow, KeepOwn: req.KeepOwn,
-				Chown: req.Chown, Clamp: clampAt(req.Clamp),
+				Chown: req.Chown, Clamp: clampAt(req.Clamp), IfExists: req.IfExists,
 			})
 
 		unlock()
@@ -719,6 +719,13 @@ type CopyOpts = copyOpts
 // `Follow bool` would have inverted that - every unconverted caller would have
 // stopped following, and nothing would have said so.
 type copyOpts struct {
+	// IfExists tolerates a source that is not there: `COPY --if-exists`.
+	//
+	// Decided here for an artifact, because only a filesystem can answer it -
+	// `SAVE ARTIFACT --if-exists not_ok` declares an artifact the producer may
+	// not have made, so the plan is right to emit the copy and wrong to insist
+	// on it.
+	IfExists bool
 	// AsDir is `--dir`: the directory itself rather than its contents.
 	AsDir bool
 	// NoFollow is `--symlink-no-follow`: a symlink the copy names arrives as a
@@ -794,6 +801,14 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 
 	srcPaths, err := s.findInStack(from, src)
 	if err != nil {
+		// **Absent is an answer when the author said it might be.** Only this
+		// absence, though: a store that cannot be read, or a stack with no
+		// layers, is still a failure - `--if-exists` is a statement about the
+		// file, not about the machinery that looks for it.
+		if opts.IfExists && errors.Is(err, errNotInStack) {
+			return nil
+		}
+
 		return err
 	}
 
@@ -2340,7 +2355,8 @@ func (c *Client) Copy(
 		Kind: KindCopy, Handle: rh.id, From: layerIDs(from), Clamp: hostClamp(),
 		Path: src, Dest: dest,
 		DirCopy: opts.AsDir, NoFollow: opts.NoFollow, KeepOwn: opts.KeepOwn,
-		Chown: opts.Chown,
+		IfExists: opts.IfExists,
+		Chown:    opts.Chown,
 	})
 
 	return err
@@ -2678,6 +2694,11 @@ type layerPath struct {
 // A pattern is matched here too: `SAVE ARTIFACT target/*-standalone.jar` names
 // a file whose version the build decides, so it cannot be resolved when the
 // plan is made - only against a filesystem that has it.
+// errNotInStack says the source is absent from every layer, as distinct from
+// the search having failed. `--if-exists` tolerates the first and not the
+// second.
+var errNotInStack = errors.New("nothing in that target has it")
+
 func (s *Server) findInStack(from []string, src string) ([]layerPath, error) {
 	if s.LayerDir == "" {
 		return nil, errors.New("no layer store configured, so there is nothing to copy from")
@@ -2721,7 +2742,7 @@ func (s *Server) findInStack(from []string, src string) ([]layerPath, error) {
 		return nil, last
 	}
 
-	return nil, fmt.Errorf("COPY %s: nothing in that target has it", src)
+	return nil, fmt.Errorf("COPY %s: %w", src, errNotInStack)
 }
 
 // layerIDs is a stack in the form the protocol carries.

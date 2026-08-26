@@ -1749,6 +1749,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 						// inside one more directory would apply the rule twice.
 						Dir: rs.dir, User: rs.user, DirCopy: false,
 						NoFollow: spec.NoFollow, KeepOwn: spec.KeepOwn, Chown: spec.Chown,
+						IfExists: ifExists,
 					},
 					Inputs:  []*ir.Node{prev},
 					Sources: []*ir.Node{source},
@@ -1792,6 +1793,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 						// lands under, so the guest has nothing left to decide.
 						Dir: rs.dir, User: rs.user, DirCopy: false,
 						NoFollow: spec.NoFollow, KeepOwn: spec.KeepOwn, Chown: spec.Chown,
+						IfExists: ifExists,
 					},
 					Inputs:  []*ir.Node{prev},
 					Sources: []*ir.Node{source},
@@ -1811,6 +1813,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 				Kind: ir.OpFile, Args: []string{inSource, dest},
 				Dir: rs.dir, User: rs.user, DirCopy: dir,
 				NoFollow: spec.NoFollow, KeepOwn: spec.KeepOwn, Chown: spec.Chown,
+				IfExists: ifExists,
 			},
 			Inputs:  []*ir.Node{prev},
 			Sources: []*ir.Node{source},

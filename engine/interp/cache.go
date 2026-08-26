@@ -488,10 +488,22 @@ func (p *Plan) gitCloneNode(c earthfile.Command, prev *ir.Node, rs *state) (*ir.
 
 	return &ir.Node{
 		Platform: platformOf(rs.platform),
-		Op:       ir.Op{Kind: ir.OpFile, Args: []string{".", dest}, Dir: rs.dir, User: rs.user},
-		Inputs:   []*ir.Node{prev},
-		Sources:  []*ir.Node{src},
-		Meta:     ir.Meta{Source: where, Description: "GIT CLONE " + url + " " + dest},
+		// **Anchored, as every other copy is.** `WORKDIR /test` then
+		// `GIT CLONE <url> buildkit` means `/test/buildkit`, and unanchored the
+		// checkout landed at `/buildkit` - a directory the Earthfile never
+		// mentions. The failure then arrived two lines later as `ls .git`
+		// finding nothing, which is a question about git and not about where
+		// anything went.
+		//
+		// `resolveDest`'s own comment is already about this shape; GIT CLONE is
+		// a copy with a destination and was the one that did not call it.
+		Op: ir.Op{
+			Kind: ir.OpFile, Args: []string{".", resolveDest(dest, rs.dir)},
+			Dir: rs.dir, User: rs.user,
+		},
+		Inputs:  []*ir.Node{prev},
+		Sources: []*ir.Node{src},
+		Meta:    ir.Meta{Source: where, Description: "GIT CLONE " + url + " " + dest},
 	}, nil
 }
 

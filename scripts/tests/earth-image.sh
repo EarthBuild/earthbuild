@@ -15,8 +15,8 @@ cat > "$dockerconfig" <<EOF
 EOF
 
 # Note that it is not possible to use GLOBAL_CONFIG for this, due to the fact
-# earthly-entrypoint.sh starts buildkit instead of the earthly binary,
-# as a result the buildkit_additional_config value in ~/.earthly/config.yml is ignored.
+# earth-entrypoint.sh starts buildkit instead of the earth binary,
+# as a result the buildkit_additional_config value in /etc/.<installation name>/config.yml is ignored.
 export EARTH_ADDITIONAL_BUILDKIT_CONFIG='[registry."docker.io"]
   mirrors = ["mirror.gcr.io", "public.ecr.aws"]'
 
@@ -52,9 +52,52 @@ fi
 acbgrep "Executes earth builds" output.txt # Display help
 acbgrep "no target reference provided" output.txt # Show error
 
+echo "Test the CLI is on PATH under its released name."
+# The image must expose the CLI as 'earth' on PATH, matching the name the
+# release binaries are published under.
+"$FRONTEND" run --rm --entrypoint sh "${EARTH_IMAGE}" -c 'command -v earth' 2>&1 | tee output.txt
+acbgrep "/earth$" output.txt
+"$FRONTEND" run --rm -e NO_BUILDKIT=1 --entrypoint earth "${EARTH_IMAGE}" --version 2>&1 | tee output.txt
+acbgrep "^earth version" output.txt
+
+echo "Test the deprecated name still resolves, and says so."
+# 'ls' with no Earthfile in the workdir exits non-zero; the rename notice is
+# emitted by the before hook, ahead of that error.
+"$FRONTEND" run --rm -e NO_BUILDKIT=1 --entrypoint earthly "${EARTH_IMAGE}" ls 2>&1 | tee output.txt || true
+acbgrep "the earthly binary has been renamed to earth" output.txt
+acbgrep "you can .rm /usr/bin/earthly" output.txt
+
+echo "Test the entrypoint is on PATH under its released name."
+# The CI integration guides name the entrypoint explicitly, so both the current
+# and the deprecated spelling must resolve to the same script.
+# shellcheck disable=SC2016 # the readlink runs in the container, not out here
+"$FRONTEND" run --rm --entrypoint sh "${EARTH_IMAGE}" -c \
+    'test -f /usr/bin/earth-entrypoint.sh && test "$(readlink /usr/bin/earthly-entrypoint.sh)" = earth-entrypoint.sh'
+
+echo "Test the config path follows the installation name."
+# EARTH_EXEC_CMD makes the entrypoint export the path it resolved and hand over
+# to the given command, so 'env' reports the resolution without a build.
+"$FRONTEND" run --rm -e NO_BUILDKIT=1 -e EARTH_EXEC_CMD=env "${EARTH_IMAGE}" 2>&1 | tee output.txt
+acbgrep "^earth_config=/etc/.earth/config.yml$" output.txt
+
+echo "Test a config mounted at the deprecated location is still honoured."
+# A caller mounting the pre-rename path must keep working for one deprecation
+# cycle, so it wins over the derived path when nothing is mounted there.
+deprecated_config="$(mktemp /tmp/earthbuild-image-test-config.XXXXXX)"
+cat > "$deprecated_config" <<EOF
+global:
+  disable_analytics: true
+EOF
+"$FRONTEND" run --rm -e NO_BUILDKIT=1 -e EARTH_EXEC_CMD=env \
+    -v "$deprecated_config:/etc/.earthly/config.yml" "${EARTH_IMAGE}" 2>&1 | tee output.txt
+rm "$deprecated_config"
+acbgrep "^earth_config=/etc/.earthly/config.yml$" output.txt
+# The deprecated spelling is still exported for callers that read it.
+acbgrep "^earthly_config=/etc/.earthly/config.yml$" output.txt
+
 # A trivial build that only needs the parser, so the deprecation scan can be
 # observed without standing up buildkit.
-deprecation_probe='cd /tmp && printf "VERSION 0.8\nfoo:\n    FROM alpine\n" > Earthfile && earthly ls'
+deprecation_probe='cd /tmp && printf "VERSION 0.8\nfoo:\n    FROM alpine\n" > Earthfile && earth ls'
 
 echo "Test the image does not emit deprecation warnings for its own configuration."
 # The deprecation scan cannot tell a user-set EARTHLY_* variable from one

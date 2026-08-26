@@ -69,7 +69,7 @@ jobs:
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Run parallel buildkit start test. It ensures that earthly starting up buildkit does not race with itself.
         run: |-
-          ${INPUTS_SUDO} "${INPUTS_BINARY}" stop earthly-buildkitd || true && \
+          ${INPUTS_SUDO} "${INPUTS_BINARY}" stop earth-buildkitd || true && \
           for i in 1 2 3 4; do
               ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --no-output github.com/EarthBuild/hello-world+hello & \
               pids[i]=$!

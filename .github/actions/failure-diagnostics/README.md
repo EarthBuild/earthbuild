@@ -32,7 +32,7 @@ integration. Pin `@<sha>` rather than `@main` if you pin your other actions.
 `sudo -E`. Default empty.
 
 `CONTAINERS` — space-separated buildkit container names to inspect. Default
-`earthly-buildkitd earthly-dev-buildkitd earthly-integration-buildkitd
+`earth-buildkitd earth-dev-buildkitd earth-integration-buildkitd
 earthly-test-buildkitd`. Override it when you build with a custom
 `DEFAULT_INSTALLATION_NAME`, which renames the daemon container.
 

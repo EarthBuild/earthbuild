@@ -14,7 +14,7 @@ Please see the reference documentation of the [`earthbuild/earthbuild` image on 
 
 It is recommended that the `earthbuild/earthbuild` image is used with a pinned version when used in the context of a CI, in order to avoid accidental future breakage as `earth` evolves.
 
-#### Using `/usr/bin/earthly-entrypoint.sh` as the entrypoint
+#### Using `/usr/bin/earth-entrypoint.sh` as the entrypoint
 
 The `earthbuild/earthbuild` image comes with an entrypoint that first starts up BuildKit and then issues an `earth` command that makes use of it. You may use the image just as you would use `earth` itself otherwise. Any arguments are passed into the `earth` command directly.
 

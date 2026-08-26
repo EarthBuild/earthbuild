@@ -75,7 +75,7 @@ lint-scripts-base:
 
 lint-scripts-misc:
     FROM +lint-scripts-base
-    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/entrypoint.sh ./earthly-entrypoint.sh \
+    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/entrypoint.sh ./earth-entrypoint.sh \
         ./buildkitd/dockerd-wrapper.sh ./buildkitd/docker-auto-install.sh ./buildkitd/oom-adjust.sh.template \
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
@@ -532,6 +532,16 @@ earthly-docker:
     # with the released binaries (+all-binaries).
     ARG VERSION="$TAG"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$TAG"
+    # DEFAULT_INSTALLATION_NAME must match what the release binaries bake in
+    # (release+signed-release passes "earth"), otherwise the CLI inside the
+    # published image disagrees with the released binaries about its own name,
+    # its config dir, its buildkitd container and its cache volume.
+    #
+    # Unlike the +earthly-* binary targets this does not default to
+    # "earthly-dev": that default exists to keep a dev binary's config dir and
+    # buildkitd container off a developer's real ones, which is moot inside a
+    # container, so the image build uses the release name instead.
+    ARG DEFAULT_INSTALLATION_NAME="earth"
     # RELEASE_VERSION keeps the embedded buildkitd's reported version in sync
     # with the CLI version, and makes this the same buildkitd build as
     # release+perform-release-buildkitd-dockerhub pushes.
@@ -542,14 +552,28 @@ earthly-docker:
     # (which won't be exposed by the container). Let's fall back to tar-based
     # image transfer until this can be addressed further.
     ENV EARTH_DISABLE_REMOTE_REGISTRY_PROXY=true
-    COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
-    ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
+    # Tells earth-entrypoint.sh which installation name the CLI was built with,
+    # so it can find the certificates generated under ~/.<name>/certs, and the
+    # config under /etc/.<name>.
+    #
+    # Deliberately not EARTH_INSTALLATION_NAME: that is the CLI's own variable,
+    # and setting it here would take precedence over a caller's
+    # EARTHLY_INSTALLATION_NAME, silently ignoring the deprecated spelling.
+    ENV EARTH_IMAGE_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME"
+    COPY earth-entrypoint.sh /usr/bin/earth-entrypoint.sh
+    # earthly-entrypoint.sh remains a symlink for one deprecation cycle: it is
+    # the documented entrypoint in the CI integration guides.
+    RUN ln -s earth-entrypoint.sh /usr/bin/earthly-entrypoint.sh
+    ENTRYPOINT ["/usr/bin/earth-entrypoint.sh"]
     WORKDIR /workspace
     COPY (+earthly/earthly \
         --VERSION="$VERSION" \
         --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
-        --DEFAULT_INSTALLATION_NAME="earthly" \
-        ) /usr/bin/earthly
+        --DEFAULT_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME" \
+        ) /usr/bin/earth
+    # earthly remains a symlink for one deprecation cycle; the CLI warns when
+    # invoked under that name (see warnRenamedFromEarthly).
+    RUN ln -s earth /usr/bin/earthly
 
     # TODO update cache-from to use earthbuild/earthbuild:main
     # Multiple SAVE IMAGE's lead to differing image digests, but multiple
@@ -595,11 +619,12 @@ earthbuild-integration-test-base:
     END
     RUN rm ./setup-registry.sh
 
-    # pull out buildkit_additional_config from the earthly config, for the special case of earthly-in-earthly testing
-    # which runs earthly-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTHLY_VERSION_FLAG_OVERRIDES to be set
+    # pull out buildkit_additional_config from the earth config, for the special case of earth-in-earth testing
+    # which runs earth-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTH_VERSION_FLAG_OVERRIDES to be set
     # NOTE: yq will print out `null` if the key does not exist, this will cause a literal null to be inserted into /etc/buildkit.toml, which will
     # cause buildkit to crash -- this is why we first assign it to a tmp variable, followed by an if.
-    ENV EARTH_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat /etc/.earthly/config.yml | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
+    # The path follows the installation name the image was built with, matching where setup-registry.sh wrote it.
+    ENV EARTH_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat "/etc/.${EARTH_IMAGE_INSTALLATION_NAME:-earth}/config.yml" | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
 
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
@@ -632,7 +657,11 @@ ci-release:
     BUILD \
         --platform=linux/amd64 \
         ./buildkitd+buildkitd --TAG=${EARTH_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
-    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTH_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTH_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) /earthly-linux-amd64
+    # +ci-release is the binary the integration suites actually run (stage2-setup
+    # extracts it via `earthly upgrade`), so its installation name determines the
+    # buildkitd container those suites address. It must match the pin in ci.yml
+    # and build-earthly.yml -- see the comment there.
+    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTH_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTH_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earth) /earthly-linux-amd64
 
     # TODO after bootstrap, we should use our own buildkitd image as the cache-from image
     SAVE IMAGE --cache-from=docker.io/earthbuild/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTH_GIT_HASH}-${TAG_SUFFIX}

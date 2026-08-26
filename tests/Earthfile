@@ -1727,12 +1727,12 @@ RUN_EARTH:
             export EARTH_EXEC_CMD=\"$exec_cmd\"
             echo running earthly with EARTH_EXEC_CMD=\$EARTH_EXEC_CMD
             set +e
-            (/bin/sh /usr/bin/earthly-entrypoint.sh; echo exit_code=\$?) 2>&1 | tee earthly.output
+            (/bin/sh /usr/bin/earth-entrypoint.sh; echo exit_code=\$?) 2>&1 | tee earthly.output
             set -e
         else
             echo running earthly with $extra_args $target $post_command
             set +e
-            (eval \"/usr/bin/earthly-entrypoint.sh $extra_args $target $post_command\"; echo exit_code=\$?) 2>&1 | tee earthly.output
+            (eval \"/usr/bin/earth-entrypoint.sh $extra_args $target $post_command\"; echo exit_code=\$?) 2>&1 | tee earthly.output
             set -e
         fi
 

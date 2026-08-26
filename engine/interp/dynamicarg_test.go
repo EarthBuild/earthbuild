@@ -185,3 +185,40 @@ func commandOfFirstExecWith(t *testing.T, src string, opts ...interp.Option) str
 
 	return ""
 }
+
+// TestADynamicDefaultKeepsItsEscapes.
+//
+// **An escape inside `$(...)` belongs to the shell, not to this engine.** The
+// default was unquoted whole - delimiters removed *and* `\x` resolved to `x`
+// across the entire text - before the command region was ever picked out. So
+//
+//	ARG c=$( echo $(echo "\""))
+//
+// reached the shell as `echo $(echo """)`, an unterminated quote, and
+// `tests/quotes-extra.earth` failed with the shell's syntax error rather than
+// with a quote character.
+//
+// The rule is the one expandByRegion already states: a command line keeps its
+// quoting because a shell re-parses it, a value has its quoting resolved because
+// this engine consumes it, and an argument can be both.
+func TestADynamicDefaultKeepsItsEscapes(t *testing.T) {
+	t.Parallel()
+
+	var asked []string
+
+	run := func(cmd []string, _ *ir.Node, _, _ string) (interp.Result, error) {
+		asked = append(asked, strings.Join(cmd, " "))
+
+		return interp.Result{Output: "\"\n"}, nil
+	}
+
+	_ = commandOfFirstExecWith(t, versioned+
+		"\nmain:\n    FROM alpine:3.22\n"+
+		"    ARG c=$( echo $(echo \"\\\"\"))\n    RUN echo [$c]\n",
+		interp.WithCommands(run))
+
+	if len(asked) != 1 || asked[0] != ` echo $(echo "\"")` {
+		t.Errorf("the probe was asked to run %q, and the Earthfile wrote"+
+			" ` echo $(echo \"\\\"\")` - the backslash is the shell's", asked)
+	}
+}

@@ -205,7 +205,14 @@ func (s scope) declare(
 
 	// The grammar allows `arg-default = dynamic-expr / WORD / QUOTED-STRING`,
 	// so a quoted default is the value without its delimiters.
-	def = unquote(def)
+	//
+	// **By region, because a `$(...)` is not a value.** Resolved across the
+	// whole default, `ARG c=$( echo $(echo "\""))` reached the shell as
+	// `echo $(echo """)` - an unterminated quote - because the escape was
+	// resolved by this engine when it belonged to the shell that was about to
+	// re-parse it. Variables are expanded further down, so the command region
+	// is left exactly as written here.
+	def = expandByRegion(def, unquote, func(in string) string { return in })
 
 	// One declaration per name per *scope*, and a second is an error.
 	//

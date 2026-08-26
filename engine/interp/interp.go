@@ -397,12 +397,19 @@ func (p *Plan) targetIn(u *unit, name string) (*ir.Node, *state, error) {
 	}
 
 	// Everything in a recipe resolves against its own Earthfile's directory.
-	prevUnit := p.here
-	p.here = u
+	//
+	// **Including the function count.** A target reached *from* a function is
+	// not inside one: a function is inlined into its caller and borrows the
+	// caller's context, where a target is a unit of its own and brings its own.
+	// Left set, `FROM hello-world+hello` inside a fetched function had that
+	// repository's target read `globe.txt` from the *invoking* project - see
+	// callerContext, and tests/import.earth+test-command-import.
+	prevUnit, prevFn := p.here, p.inFunction
+	p.here, p.inFunction = u, 0
 
 	root, err := p.block(t.Recipe, base, rs)
 
-	p.here = prevUnit
+	p.here, p.inFunction = prevUnit, prevFn
 	p.granted = prevGrant
 	p.building = p.building[:len(p.building)-1]
 

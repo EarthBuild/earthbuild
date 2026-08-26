@@ -271,10 +271,21 @@ func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error 
 		// symlinks at all. Adopting it would trade a real guard for a
 		// recognisable one.
 		//
-		// So this asserts containment where the analyser is looking, in the form
-		// it understands, and states the same property `safePath` returned. If
-		// the two ever disagree the unpack stops, which is the right outcome for
-		// a disagreement about whether a write leaves the layer.
+		// So this asserts containment where the analyser is looking and states
+		// the same property `safePath` returned. If the two ever disagree the
+		// unpack stops, which is the right outcome for a disagreement about
+		// whether a write leaves the layer.
+		//
+		// **It does not satisfy CodeQL, and this comment used to imply it
+		// would.** `go/zipslip` and `go/unsafe-unzip-symlink` are still
+		// reported here on every run. The assertion earns its place by being
+		// true and by dominating the sink; convincing the analyser is a
+		// separate problem and not one worth weakening the guard for. What
+		// makes the property checkable is the tests -
+		// TestNoLayerEntryCanEscapeItsRoot, TestPathTraversalIsRefused,
+		// TestWritesThroughSymlinksAreRefused and
+		// TestALayerCannotWriteThroughAPlantedSymlink cover `..` at any depth,
+		// absolute names, and writes through a planted symlink.
 		err = insideRoot(root, target, h.Name)
 		if err != nil {
 			return err

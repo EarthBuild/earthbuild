@@ -9110,19 +9110,28 @@ Counting is cheap and settles the order. `cmd/earth/flag/global.go` declares 44
 global flags; `earth-native` has 12. Forty-two are missing, and most of them do
 not matter: the question is which the corpus actually passes.
 
-| Flag                       | Corpus uses | State   | Note                                                   |
-| -------------------------- | ----------- | ------- | ------------------------------------------------------ |
-| `--no-output`              | 29          | present | added with `--ci`                                      |
-| `--allow-privileged`       | 16          | missing | gates `RUN --privileged` and privileged remote targets |
-| `--build-arg`              | 15          | present |                                                        |
-| `--secret`                 | 13          | present |                                                        |
-| `--version-flag-overrides` | 7           | missing | turns named language features on for one build         |
-| `--push`                   | 5           | missing | `RUN --push` and image pushes; the engine refuses both |
-| `--with_docker_ignore`     | 4           | missing | underscored, and only the corpus uses it               |
-| `--arg-file-path`          | 4           | missing | build arguments read from a file                       |
-| `--secret-file`            | 2           | present |                                                        |
-| `--no-cache`               | 2           | missing | runs every step, ignoring both tiers                   |
-| `--verbose`                | 1           | missing | diagnostics                                            |
+| Flag                       | Corpus uses | State   | Note                                                      |
+| -------------------------- | ----------- | ------- | --------------------------------------------------------- |
+| `--no-output`              | 29          | present | added with `--ci`                                         |
+| `--allow-privileged`       | 16          | present | and the per-reference form, which is the one that gates   |
+| `--build-arg`              | 15          | present |                                                           |
+| `--secret`                 | 13          | present |                                                           |
+| `--version-flag-overrides` | 7           | present |                                                           |
+| `--push`                   | 5           | present | `RUN --push` runs; an *image* push still needs a registry |
+| `--with_docker_ignore`     | 4           | n/a     | not a flag - see below                                    |
+| `--arg-file-path`          | 4           | present |                                                           |
+| `--secret-file`            | 2           | present |                                                           |
+| `--no-cache`               | 2           | present |                                                           |
+| `--verbose`                | 1           | missing | per-file context transfer: `sent data for a.txt (1 B)`    |
+| `--exec-stats`             | 1           | missing | `total CPU: … total memory: …` across steps               |
+
+**The two that are left are features, not flags**, which is why they are last
+rather than next. `--verbose` reports what the *context transfer* moved, file by
+file, in buildkit's vocabulary for a transfer this engine does not perform.
+`--exec-stats` needs per-step CPU and peak memory, which means reading `cpu.stat`
+and `memory.peak` from the step's cgroup in the guest and reporting them back -
+there is no accounting of any kind today. Accepting either flag without the
+work behind it would be a lie the corpus would catch and a user would not.
 
 One row was a mistake and is worth keeping visible. `--with_docker_ignore` is
 not a flag: it appears inside `--target="+create-files

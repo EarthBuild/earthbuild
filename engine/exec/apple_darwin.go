@@ -1157,4 +1157,10 @@ func digestSetting() string { return os.Getenv(image.EnvHashOnUnpack) }
 // previous build said. An A/B whose arms share a sandbox reports that the switch
 // does nothing, which reads exactly like a switch that does nothing (E549, E682,
 // E701).
-func shimSetting() string { return os.Getenv(guest.EnvStepShim) }
+func shimSetting() string {
+	if guest.StepShimWanted() {
+		return "shim"
+	}
+
+	return "noshim"
+}

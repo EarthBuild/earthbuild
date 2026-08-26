@@ -73,9 +73,9 @@ Pins are kept beside the images, per machine, not per project.
 ### `EARTH_STEP_SHIM`
 
 Launch each step through a shim that mounts `/proc` inside the step's own PID
-namespace.
+namespace. `0` turns it off.
 
-Default: empty - off.
+Default: on.
 
 A step runs in a PID namespace of its own, so its shell is pid 1, while `/proc`
 is mounted by the guest before that and answers with the guest's numbering. The
@@ -86,10 +86,16 @@ It costs one extra process launch per step, measured at 2.2ms - about 15ms of a
 41s cold build of this repository, which launches a process in seven of its
 steps.
 
-Off by default while it earns its place: it changes who performs the chroot, on
-the most delicate call in the engine. Note also that the shim runs inside the
-traced step, so its own startup is recorded among the step's observed inputs
-until the tracer is taught that a step's observations begin at its own `execve`.
+On, because the arrangement without it is wrong: a step that disagrees with its
+own `/proc` is a step that misleads anything reading it. The switch remains
+because this changes who performs the chroot, on the most delicate call in the
+engine, so an operator who suspects it can turn it off and compare on one
+machine.
+
+The shim stays on the guest's filesystem rather than being placed inside the
+step, so nothing is written into the step's tree and the shim's own startup
+reads are at paths outside it - rebuilding the guest leaves a warm build at 92
+hit, 0 miss.
 
 ### `EARTH_TRACE`
 

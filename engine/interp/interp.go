@@ -2482,7 +2482,19 @@ func (p *Plan) do(c earthfile.Command, prev *ir.Node, caller *state) (*ir.Node, 
 		rs.supplied = merged
 	}
 
-	site := "fn:" + u.dir + "+" + fnRef.name
+	// **The arguments are part of the site.** A function calling itself with a
+	// *different* argument is bounded recursion, which the language has and the
+	// corpus uses: `command.earth`'s `RECURSIVE` counts down from 5, touching a
+	// file per level, and asserts that `./0` is never made. Keyed on the name
+	// alone, the second call read as a loop and the build was refused.
+	//
+	// The target memo learned this already - it keys on the reference and its
+	// arguments, because the same target with different arguments is a
+	// different build. The same is true of a function, and for the same reason.
+	//
+	// Unchanged arguments are still a cycle, because that one does not
+	// terminate.
+	site := "fn:" + u.dir + "+" + fnRef.name + "\x00" + canonicalArgs(rs.supplied)
 
 	if slices.Contains(p.building, site) {
 		return nil, &CycleError{Loop: []string{"+" + fnRef.name, "+" + fnRef.name}}

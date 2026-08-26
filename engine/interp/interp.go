@@ -848,7 +848,9 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// It was neither refused nor planned away before this, because the flag
 		// was parsed and dropped - so `RUN --push ./publish.sh` ran on every
 		// build, which is precisely what the option exists to prevent (E436).
-		if rf.pushOnly {
+		// Unless the caller said this build is a push, in which case the step
+		// is an ordinary RUN and runs where it stands.
+		if rf.pushOnly && !p.opt.push {
 			return prev, nil
 		}
 

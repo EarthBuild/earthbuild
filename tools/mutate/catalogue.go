@@ -2405,9 +2405,12 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
-		Name:        "interp: a push command kept out of the plan (E436)",
-		File:        "engine/interp/interp.go",
-		Anchor:      "\t\tif rf.pushOnly {\n\t\t\treturn prev, nil\n\t\t}",
+		Name: "interp: a push command kept out of the plan (E436)",
+		File: "engine/interp/interp.go",
+		// The condition grew a second half rather than moving: a push step is
+		// kept out of an ordinary build and runs when the caller says this
+		// build is a push.
+		Anchor:      "\t\tif rf.pushOnly && !p.opt.push {\n\t\t\treturn prev, nil\n\t\t}",
 		Replacement: "",
 		Package:     "./engine/interp/",
 	},

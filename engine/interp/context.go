@@ -30,7 +30,9 @@ type options struct {
 	// allowPrivileged accepts `RUN --privileged` rather than refusing it. See
 	// WithAllowPrivileged.
 	allowPrivileged bool
-	args            map[string]string
+	// push says this build is a push, so `RUN --push` steps run.
+	push bool
+	args map[string]string
 	// terminal says the invocation has one, so an interactive step can run.
 	terminal bool
 	// commands runs what the plan cannot work out: a condition it cannot
@@ -352,6 +354,21 @@ func WithVersionFlags(flags []string) Option {
 // to be wrong.
 func WithAllowPrivileged(on bool) Option {
 	return func(o *options) { o.allowPrivileged = on }
+}
+
+// WithPush says this build is a push, so `RUN --push` steps run.
+//
+// **The flag is the caller's statement about the build, not about the step.**
+// `RUN --push` marks work that belongs to publishing - tagging a registry,
+// posting a release - and planning it away is right for an ordinary build.
+// Once the caller says this is a push, nothing about the step is special: it is
+// a RUN, and it runs, in the place it was written.
+//
+// Not the same question as pushing an *image*: `SAVE IMAGE --push` needs a
+// registry, credentials and a network, where this needs a shell. Conflating
+// the two is why `tests/push.earth` ran nothing for as long as it did.
+func WithPush(on bool) Option {
+	return func(o *options) { o.push = on }
 }
 
 // Artifacts builds a target and reports where its output can be read.

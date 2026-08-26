@@ -77,6 +77,9 @@ type Options struct {
 	// namespace - and a caller who asks for it anyway is taken at their word
 	// (interp.WithAllowPrivileged).
 	AllowPrivileged bool
+	// Push says this build is a push, so `RUN --push` steps run rather than
+	// being planned away (interp.WithPush).
+	Push bool
 	// NoCache builds every step, reading no cache entry that is already there.
 	//
 	// Two of the corpus's own invocations pass `--no-cache` and the gate could
@@ -287,6 +290,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		interp.WithSecrets(secrets),
 		interp.WithVersionFlags(o.VersionFlags),
 		interp.WithAllowPrivileged(o.AllowPrivileged),
+		interp.WithPush(o.Push),
 		interp.WithPlatform(o.platformOrDefault()),
 		interp.WithGitClone(g.gitClone(ctx)),
 		interp.WithImageResolver(resolver.Resolve),

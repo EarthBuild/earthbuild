@@ -157,6 +157,9 @@ func main() {
 		// anything to change (E473).
 		versionFlags = flag.String("version-flag-overrides", "",
 			"turn on these VERSION features for every file, comma-separated")
+		push = flag.Bool("push", false,
+			"this build is a push: `RUN --push` steps run rather than being"+
+				" planned away")
 		allowPriv = flag.Bool("allow-privileged", false,
 			"accept RUN --privileged, which this engine otherwise refuses")
 		noCache = flag.Bool("no-cache", false,
@@ -279,6 +282,7 @@ func main() {
 		SecretFile:      *secretFile,
 		NoCache:         *noCache,
 		AllowPrivileged: *allowPriv,
+		Push:            *push,
 		VersionFlags:    splitList(*versionFlags),
 		// **`--ci` means `--no-output --strict`.** Strict is what this engine
 		// already is: it refuses what it cannot reproduce rather than offering

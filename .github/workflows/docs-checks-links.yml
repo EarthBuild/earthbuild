@@ -19,7 +19,7 @@ env:
 
 jobs:
   check-broken-links:
-    runs-on: "ubuntu-latest"
+    runs-on: "ubuntu-26.04"
     permissions:
       contents: read
     env:

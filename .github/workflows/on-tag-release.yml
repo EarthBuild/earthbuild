@@ -13,7 +13,7 @@ env:
 
 jobs:
     add-artifacts-to-release:
-        runs-on: ubuntu-24.04-arm
+        runs-on: ubuntu-26.04-arm
         permissions:
             contents: write
             actions: read
@@ -40,7 +40,7 @@ jobs:
                   earth --ci --push --secret GITHUB_TOKEN="${GITHUB_TOKEN}" ./release+promote-artifacts-to-gh \
                       --RELEASE_TAG="${RELEASE_TAG}"
     release-images-to-dockerhub:
-        runs-on: ubuntu-24.04-arm
+        runs-on: ubuntu-26.04-arm
         permissions:
             contents: read
             packages: read

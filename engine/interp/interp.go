@@ -1782,6 +1782,24 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 	dest := resolveDest(args[len(args)-1], rs.dir)
 	sources := args[:len(args)-1]
 
+	// **Two things cannot both become the destination.** `COPY a b dest` places
+	// each source inside dest whether or not dest is there; the destination was
+	// resolved once and handed to every source unchanged, so with dest absent
+	// the first source *became* it and only the second landed beside it
+	// (tests/copy.earth+copy-art-multi-no-exist).
+	//
+	// A trailing separator is how "inside" is already spelled here - see
+	// `copy-art-trailing-slash`, which asks for exactly this and gets it - so
+	// this states the same thing rather than adding a second way to say it.
+	//
+	// From the sources as *written*, before any pattern is expanded: a wildcard
+	// is one written source, and a rule that changed meaning according to how
+	// many files happened to match would make the build depend on what is in
+	// the directory.
+	if len(sources) > 1 && !strings.HasSuffix(dest, "/") {
+		dest += "/"
+	}
+
 	// `--dir` copies the directory itself rather than its contents, and it is
 	// carried as a flag rather than as a trailing separator on the destination.
 	//
@@ -2314,6 +2332,36 @@ func (p *Plan) savedAt(from *ir.Node, name string) string {
 		if at, ok := underPattern(a.Path, want); ok {
 			return at
 		}
+	}
+
+	// **A reference may descend into a saved artifact.** `SAVE ARTIFACT in`
+	// names one artifact, `/in`, and `+artifact/in/sub/1` names something inside
+	// it - which nothing above resolves, because the name is not equal to `/in`
+	// and `/in` is not a directory *of* artifacts the way savedUnder means. The
+	// reference was passed through as written, so the guest was asked for
+	// `/in/sub/1`, a path no layer has (tests/copy.earth+copy-art-multi-*).
+	//
+	// The longest matching name wins, so a target that saves both a directory
+	// and something inside it resolves through the more specific one.
+	best, under := "", ""
+
+	for _, a := range p.Artifacts {
+		if a.From == nil || a.From.ID() != from.ID() {
+			continue
+		}
+
+		named := "/" + strings.TrimPrefix(a.Name, "/")
+		if named == "/" || !strings.HasPrefix(want, strings.TrimSuffix(named, "/")+"/") {
+			continue
+		}
+
+		if len(named) > len(best) {
+			best, under = named, a.Path
+		}
+	}
+
+	if best != "" {
+		return filepath.Join(under, strings.TrimPrefix(want, strings.TrimSuffix(best, "/")))
 	}
 
 	return want

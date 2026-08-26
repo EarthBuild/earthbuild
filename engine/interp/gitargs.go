@@ -71,9 +71,21 @@ func gitFactsFor(dir string) gitFacts {
 		}
 	}
 
+	// **Before the no-commit return, because it describes the repository.**
+	// `remote.origin.url` is set by `git remote add` and owes nothing to a
+	// commit; asking for it after the return meant a checkout that had been
+	// initialised and given a remote but not yet committed had no qualifier, so
+	// `EARTHLY_TARGET` came out bare where the corpus asserts it is qualified
+	// (`tests/empty-git.earth+test-origin-no-hash`).
+	if out, ok := git(ctx, dir, "config", "--get", "remote.origin.url"); ok {
+		facts.origin = out
+		facts.project = projectFromURL(out)
+		facts.qualifier = qualifierFromURL(out)
+	}
+
 	if facts.hash == "" {
-		// No commit, or not a repository. Everything else describes the commit,
-		// so there is nothing left to ask.
+		// No commit, or not a repository. Everything remaining describes the
+		// commit, so there is nothing left to ask.
 		gitCache.Store(dir, facts)
 
 		return facts
@@ -94,12 +106,6 @@ func gitFactsFor(dir string) gitFacts {
 	// backwards and would name a tag this commit does not carry.
 	if out, ok := git(ctx, dir, "tag", "--points-at", "HEAD"); ok {
 		facts.tag = strings.SplitN(out, "\n", 2)[0]
-	}
-
-	if out, ok := git(ctx, dir, "config", "--get", "remote.origin.url"); ok {
-		facts.origin = out
-		facts.project = projectFromURL(out)
-		facts.qualifier = qualifierFromURL(out)
 	}
 
 	gitCache.Store(dir, facts)

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/cli"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 )
 
 // TestAStepsProcIsItsOwn.
@@ -45,6 +46,10 @@ t:
     SAVE ARTIFACT /out.txt AS LOCAL out.txt
 `, nil)
 
+	// **The shim is what this tests, so this turns it on.** It is off by
+	// default while it earns its place, and a test that asserted the default
+	// would be asserting the bug.
+	t.Setenv(guest.EnvStepShim, "1")
 	t.Setenv("EARTH_GUESTD", buildGuestd(t))
 	t.Setenv("EARTH_IMAGE_CACHE_DIR", sharedImages(t))
 	useStore(t, storeDir(t))

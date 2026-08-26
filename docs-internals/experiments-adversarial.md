@@ -33095,3 +33095,34 @@ four at a time; a pass rate quoted without that correction is wrong in the
 direction that flatters nobody. And `refused-by-design` is not a failure at all -
 it is the engine declining a construct on purpose, which the corpus asserts and
 this harness scores as a loss.
+
+### A quarter of the corpus is meant to fail
+
+The larger error was in the scoring rather than the running. `corpus.Invocation`
+carries `ShouldFail`, and `tests/Earthfile` writes `--should` seventy-two times:
+
+```text
+209 invocations expected to succeed
+ 71 invocations expected to fail
+```
+
+Seventy-one of two hundred and eighty. A harness that counts a non-zero exit as a
+loss marks every one of them wrong for being right, and no amount of care in the
+*running* recovers it. Re-scored, with each pass confirmed serially, refusals and
+rate limits set aside:
+
+```text
+correct outcome   128/216   59%
+wrong              88
+refused             7
+rate-limit          5
+```
+
+Against thirty-one per cent from the same runs read the other way. The engine did
+not change between the two numbers; only the question did.
+
+That is worth more than the figure. A corpus like this asserts what an engine
+*declines* as much as what it builds, so "how many pass" is not a well-formed
+question about it - "how many produce the outcome the corpus asserts" is. The
+`linux-earthtests-run` ratchet counts targets that build, which is a third thing
+again, and none of the three should be quoted as another.

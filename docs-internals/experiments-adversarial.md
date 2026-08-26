@@ -32929,3 +32929,33 @@ git had refused the repository outright with `detected dubious ownership`,
 because the container ran as root over a bind mount owned by another user. The
 test cannot tell a builtin that resolved to nothing from a `git` that declined to
 speak, and says the first when it means either.
+
+## E711 - the engine's tests leak guest processes, for days
+
+Looking for why a test run on the Linux box seemed slow:
+
+```text
+ELAPSED     %CPU  COMMAND
+8-15:07:57   0.0  exec.test
+7-04:03:32   1.4  exec.test
+7-00:41:15   1.4  exec.test
+6-18:54:04   1.4  exec.test
+6-01:44:09   1.4  exec.test
+1-16:05:35   0.0  guest.test
+                  earth-guestd x 22
+```
+
+Twenty-two `earth-guestd` processes and a run of compiled test binaries up to
+eight days old, together burning 19% of the machine continuously. They are the
+residue of earlier runs of this work: a `go test` killed from outside leaves its
+test binary orphaned, and the binary keeps the guests it started.
+
+Two things follow. The leak is real - a step's guest outlives the test that
+started it, indefinitely, and nothing reaps it. And every measurement taken on
+that box, E709's `--isolate` timings among them, ran against a fifth of the
+machine already spoken for; the hit counts there are unaffected, the seconds are
+noisier than they were presented.
+
+The engine cleans up carefully within a build - cgroups removed, deltas released,
+sandboxes reaped by name. This is the case outside that: the process that would
+do the cleaning is the one that was killed.

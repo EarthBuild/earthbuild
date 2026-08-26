@@ -2,6 +2,7 @@ package guest
 
 import (
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -25,8 +26,11 @@ func expandTarget(target string, env []string) string {
 	}
 
 	return os.Expand(target, func(name string) string {
-		for i := len(env) - 1; i >= 0; i-- {
-			if k, v, ok := strings.Cut(env[i], "="); ok && k == name {
+		// Backwards, because a later entry wins: the step's environment is
+		// layered floor-then-image-then-ARG, and the last word is the most
+		// specific about this step.
+		for _, kv := range slices.Backward(env) {
+			if k, v, ok := strings.Cut(kv, "="); ok && k == name {
 				return v
 			}
 		}

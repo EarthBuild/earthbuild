@@ -2081,7 +2081,7 @@ func (p *Plan) grantedByImport(ref string) bool {
 // the build context. It is what the file must land under: the *stored* path may
 // carry a different name, because `SAVE ARTIFACT ./file.txt ./other.txt` keeps
 // the bytes at /test/file.txt and calls them /other.txt.
-func (p *Plan) copySource(src, where string) (n *ir.Node, inSource, asked string, err error) {
+func (p *Plan) copySource(src, where string) (*ir.Node, string, string, error) {
 	// `artifact-with-args = "(" WSP artifact-ref *( WSP build-arg-override )
 	// WSP ")"`. ProcessParamsAndQuotes has already merged this into one token,
 	// so it arrives whole rather than as flags on the COPY itself.
@@ -2178,7 +2178,7 @@ func (p *Plan) copySource(src, where string) (n *ir.Node, inSource, asked string
 			src, where, p.here.dir)
 	}
 
-	n, _, err = p.targetRef(src[:i]+ref, where)
+	n, _, err := p.targetRef(src[:i]+ref, where)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("COPY %s (%s): %w", src, where, err)
 	}

@@ -9176,3 +9176,48 @@ Two of the flags above are not flags at all but refusals with a reason.
 step already has every capability inside its namespace. So accepting the flag
 means deciding what it now means, which is a language question rather than a
 parsing one, and those two want settling before they are typed in.
+
+## Where the run gate stands, and what the last twenty-six are
+
+Running every corpus invocation the way `tests/Earthfile` drives it - 250 of
+them, `DO +RUN_EARTH` reproduced faithfully - the engine is at **223 ok**, with
+no timeouts. `build-arg.earth+all` passes too but only against a cold cache, for
+a reason worth keeping: the fix for it (E724) changes a *note* beside a layer
+rather than the layer, so every key matched and a warm sweep went on serving the
+answers computed while deletions were being lost. A fix that changes only a
+sidecar is invisible to a warm sweep.
+
+The twenty-six that remain are not a work list. Sorted by what they actually
+are:
+
+| what                                 | count | where it stands                        |
+| ------------------------------------ | ----- | -------------------------------------- |
+| documented refusals (`diverges`)     | 8     | positions, already cited               |
+| macOS case-insensitivity (`dind`)    | 4     | the host filesystem, not the engine    |
+| ownership the host store cannot hold | 3     | the `--keep-own` feature, see the nits |
+| unjudgeable / unmodelled             | 5     | the harness, not the engine            |
+| `RUN --aws`                          | 2     | **a decision** - E726                  |
+| `--verbose`, `--exec-stats`          | 2     | features, not flags - see below        |
+| `LOCALLY` prefix under a probe       | 1     | a real gap, `--engine=buildkit` today  |
+| `LOCALLY` in a fetched Earthfile     | 1     | a position spelled as a plain error    |
+
+Two of those deserve a sentence each, because they are the ones a reader will
+otherwise put on a list and try to do.
+
+`RUN --aws` is E726: the corpus asserts the credentials appear **in the build
+output**, which is the opposite of a position this engine already holds and
+enforces with a secret scanner. It is neither built nor refused, and "not yet
+built" is currently false in both directions.
+
+The `LOCALLY`-in-a-fetched-Earthfile refusal is a position - it is about a
+repository's commands running on your machine as you - and it is spelled with a
+plain `fmt.Errorf` rather than `refusedOnPurpose`, so the corpus counts it as a
+gap. Converting it is right and was deliberately not done here: it would not
+move the count (a refusal is not an `ok`), and changing a security refusal's
+error identity can change control flow in callers that test for `ErrRefused` -
+`--if-exists` already swallows refusals.
+
+**The one thing in the way is not on this list.** E723, the deadlock in
+`seccomp_do_user_notification`, costs one to three invocations a sweep at random
+and is what makes any two sweeps hard to compare. It is characterised, it is not
+concurrency-gated, and it is open.

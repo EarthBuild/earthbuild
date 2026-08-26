@@ -33702,3 +33702,51 @@ So the fix is a second channel: the step's reply carries stderr apart from
 stdout, the log interleaves them as now, and `substitute` reads only stdout.
 That is a protocol change rather than a patch, which is why this is written down
 rather than done.
+
+## E726 - `RUN --aws` is a decision, not a gap
+
+Two corpus invocations remain reachable only by implementing
+`--run-with-aws`, and the corpus says exactly what implementing it means.
+`tests/Earthfile`:
+
+```Dockerfile
+test-aws-flag-configs:
+   RUN mkdir -p /root/.aws
+   RUN echo "[default]
+aws_access_key_id = aws-access-key
+aws_secret_access_key = aws-secret-key
+aws_session_token = aws-token" > /root/.aws/credentials
+   DO +RUN_EARTH --earthfile=aws-flag.earth --target=+basic
+   RUN cat earthly.output | acbgrep "AWS_SECRET_ACCESS_KEY=aws-secret-key"
+```
+
+and `aws-flag.earth` is `RUN --aws env | grep AWS`, entire.
+
+So the feature is: read the invoking user's credentials from `~/.aws/credentials`
+(or `AWS_*` in the environment), put them in a step's environment, and - because
+the assertion greps the build's own output for the **value** - let them through
+into the log unredacted.
+
+**That is the opposite of a position this engine already holds.** It has a
+secret scanner (`redactSecrets`, `layer.FindSecrets`), it refuses to let a
+secret's value travel with a finding about it - "the value never travels with
+the finding: a refusal is written to the build's output, which is the log the
+credential was being kept out of" - and `configSecrets` exists to report a
+secret that merely *appears* in an image's configuration. Implementing `--aws`
+as the corpus specifies drives a hole through all of it, by design rather than
+by accident.
+
+It is opt-in twice, at the VERSION line and again per RUN, and it is what the
+language does. Both are true and neither settles it, which is why this is
+written down rather than built: the engine's taxonomy has a name for a construct
+that works and that the engine will not do (`refusedOnPurpose`), and choosing
+between that and building the feature is a decision about what this engine is
+for.
+
+Until it is decided, `RUN --aws` stays `unsupported` - "not yet built" - which
+is the one description that is currently false in both directions. It is neither
+being built nor refused on a stated position.
+
+The two invocations are the whole cost, and they are the last two on this
+machine that are not environmental or already-recorded refusals: 224 of 250
+without them, 226 with.

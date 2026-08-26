@@ -157,6 +157,8 @@ func main() {
 		// anything to change (E473).
 		versionFlags = flag.String("version-flag-overrides", "",
 			"turn on these VERSION features for every file, comma-separated")
+		allowPriv = flag.Bool("allow-privileged", false,
+			"accept RUN --privileged, which this engine otherwise refuses")
 		noCache = flag.Bool("no-cache", false,
 			"build every step, reading no cache entry that is already there")
 		noOutput = flag.Bool("no-output", false,
@@ -263,17 +265,18 @@ func main() {
 	defer stop()
 
 	err := cli.Run(ctx, cli.Options{
-		Dir:          *dir,
-		Target:       flag.Arg(0),
-		Platform:     *platform,
-		Args:         args,
-		Secrets:      secrets,
-		SecretFiles:  secretFilePaths,
-		DryRun:       *dryRun,
-		ArgFile:      *argFile,
-		SecretFile:   *secretFile,
-		NoCache:      *noCache,
-		VersionFlags: splitList(*versionFlags),
+		Dir:             *dir,
+		Target:          flag.Arg(0),
+		Platform:        *platform,
+		Args:            args,
+		Secrets:         secrets,
+		SecretFiles:     secretFilePaths,
+		DryRun:          *dryRun,
+		ArgFile:         *argFile,
+		SecretFile:      *secretFile,
+		NoCache:         *noCache,
+		AllowPrivileged: *allowPriv,
+		VersionFlags:    splitList(*versionFlags),
 		// **`--ci` means `--no-output --strict`.** Strict is what this engine
 		// already is: it refuses what it cannot reproduce rather than offering
 		// the choice (I10), so there is nothing for the flag to switch on. What

@@ -27,7 +27,10 @@ type options struct {
 	// invocations pass it, and it is how a tree drives one file through two
 	// dialects without keeping two copies of it (E473).
 	versionFlags []string
-	args         map[string]string
+	// allowPrivileged accepts `RUN --privileged` rather than refusing it. See
+	// WithAllowPrivileged.
+	allowPrivileged bool
+	args            map[string]string
 	// terminal says the invocation has one, so an interactive step can run.
 	terminal bool
 	// commands runs what the plan cannot work out: a condition it cannot
@@ -319,6 +322,22 @@ func WithGitClone(fn GitClone) Option {
 // and is given another one silently has no way to find out.
 func WithVersionFlags(flags []string) Option {
 	return func(o *options) { o.versionFlags = flags }
+}
+
+// WithAllowPrivileged lets a step ask for privilege it already has.
+//
+// `RUN --privileged` is refused by default, and rightly: a step here holds every
+// capability inside its namespace and cannot reach past it, so the flag promises
+// something it cannot deliver and the refusal says so.
+//
+// By default, though, and not for ever. This is the caller saying they know what
+// the flag means here and want it accepted anyway - which is what
+// `--allow-privileged` says in the reference engine, and what sixteen of this
+// repository's corpus invocations pass. An engine that refuses a construct the
+// operator has explicitly opted into is refusing to be used rather than refusing
+// to be wrong.
+func WithAllowPrivileged(on bool) Option {
+	return func(o *options) { o.allowPrivileged = on }
 }
 
 // Artifacts builds a target and reports where its output can be read.

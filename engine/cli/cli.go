@@ -72,6 +72,11 @@ type Options struct {
 	// resolution, context digests, capability refusals - and none of the work
 	// that can fail for reasons in the environment.
 	DryRun bool
+	// AllowPrivileged accepts `RUN --privileged` rather than refusing it. The
+	// flag buys nothing here - a step already holds every capability inside its
+	// namespace - and a caller who asks for it anyway is taken at their word
+	// (interp.WithAllowPrivileged).
+	AllowPrivileged bool
 	// NoCache builds every step, reading no cache entry that is already there.
 	//
 	// Two of the corpus's own invocations pass `--no-cache` and the gate could
@@ -281,6 +286,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		interp.WithRemotes(g.remotes(ctx)),
 		interp.WithSecrets(secrets),
 		interp.WithVersionFlags(o.VersionFlags),
+		interp.WithAllowPrivileged(o.AllowPrivileged),
 		interp.WithPlatform(o.platformOrDefault()),
 		interp.WithGitClone(g.gitClone(ctx)),
 		interp.WithImageResolver(resolver.Resolve),

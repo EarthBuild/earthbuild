@@ -65,7 +65,10 @@ type runOpts struct {
 	secrets     []string
 }
 
-func runFlags(c earthfile.Command, env map[string]string, workdir string, hasTerminal bool) (runOpts, error) {
+func runFlags(
+	c earthfile.Command, env map[string]string, workdir string,
+	hasTerminal, allowPrivileged bool,
+) (runOpts, error) {
 	// The exec form takes no flags: `RUN ["a", "--b"]` is an argv, and reading
 	// `--b` as an option would eat an argument the author wrote deliberately.
 	if c.ExecMode {
@@ -104,7 +107,10 @@ func runFlags(c earthfile.Command, env map[string]string, workdir string, hasTer
 	// common case. The corpus's own instance is
 	// `RUN --privileged echo "hello …" > a.txt`, which needs no privilege at
 	// all - so the refusal leads with the fix that works.
-	if opts.Privileged {
+	// **Refused by default, accepted when the caller opts in.** See
+	// WithAllowPrivileged: the flag buys nothing here, and an operator who says
+	// so anyway is entitled to be taken at their word.
+	if opts.Privileged && !allowPrivileged {
 		return runOpts{}, refusedOnPurpose("RUN --privileged", loc(c.SourceLocation),
 			"a step here already has every capability, and cannot reach past its"+
 				" namespace whatever the flag says - no device nodes, no host mounts"+

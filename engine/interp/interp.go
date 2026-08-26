@@ -1058,20 +1058,38 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		return prev, nil
 
 	case earthfile.CmdDo:
+		// **Not checked here, because the function may bring one.** A function
+		// is inlined into its caller, so a function beginning with `FROM` is
+		// how a target beginning with `DO` gets its base -
+		// `import.earth+test-command-import` is one line and does exactly that.
+		// Refusing before the function is read was true at that instant and not
+		// at the next.
+		//
 		// A host target has no base and needs none: its commands run on a
-		// machine that already exists. Requiring one refused every function call
-		// inside a LOCALLY target.
-		if prev == nil && !rs.host {
-			return nil, fmt.Errorf(
-				"DO at %s has no filesystem to run in"+
-					"\n  a target begins with FROM, which gives its commands a filesystem",
-				loc(c.SourceLocation))
-		}
+		// machine that already exists. The check below covers both, and keeps
+		// the diagnostic for the case it was written for - a function that
+		// establishes nothing still has no filesystem, and still says so.
 
 		p.callerDir, p.callerArgs, p.callerHost = rs.dir, rs.args, rs.host
 		p.callerGlobals = rs.globals
 
-		return p.do(c, prev, rs)
+		out, doErr := p.do(c, prev, rs)
+		if doErr != nil {
+			return nil, doErr
+		}
+
+		// The check the early one became: a function that established nothing
+		// leaves the target where it started, and there is still nothing for
+		// its commands to run in.
+		if out == nil && !rs.host {
+			return nil, fmt.Errorf(
+				"DO at %s has no filesystem to run in"+
+					"\n  a target begins with FROM, which gives its commands a"+
+					" filesystem - or calls a function that does",
+				loc(c.SourceLocation))
+		}
+
+		return out, nil
 
 	case earthfile.CmdImport:
 		name, path, grant, err := importParts(c.Args)

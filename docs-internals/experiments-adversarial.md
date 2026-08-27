@@ -36593,3 +36593,36 @@ entry argued from `docker inspect alpine` that the base's environment ought to
 survive; this is the reference implementation agreeing. `created` differs on the
 same axis as the artifacts above: earthly writes the time of the build, ours
 writes nothing unless clamped (E772).
+
+## E776 - `docker history` is empty for an image this engine wrote
+
+The third thing the differential of E775 turned up, after the archive format and
+the dropped base configuration:
+
+```console
+$ docker history cmp:earthly
+IMAGE          CREATED        CREATED BY                          SIZE     COMMENT
+ebf076cbeca3   5 minutes ago  [eyJzbCI6eyJmaWxlIjoiRWFydGhmaWxl…  0B       buildkit.export…
+<missing>      5 minutes ago  mount / from exec /bin/sh -c PATH=… 3B       buildkit.export…
+<missing>      4 weeks ago    pulled from docker.io/library/…     8.42MB   buildkit.export…
+
+$ docker history cfgtest:img
+IMAGE     CREATED   CREATED BY   SIZE      COMMENT
+```
+
+Nothing at all. The OCI configuration's `history` array is optional and the
+image works without it - it loads, it runs, it inspects correctly since E771 -
+but `docker history` is a tool people reach for to find out what is in an image
+and where its size went, and it has nothing to say about ours.
+
+**Not implemented here, and the reason is worth stating.** Half of it is cheap:
+one entry per layer would give `docker history` its rows and its sizes, which is
+most of what the tool is used for. The other half is not: `created_by` wants the
+step's command, and packing has ids rather than descriptions - the plan knows
+them and the executor does not, so the useful version needs the text plumbed
+from the interpreter through `ir`, the wire and the guest, the same route E772's
+`created` took for one field.
+
+Worth doing deliberately rather than at the end of a session, and worth doing as
+one change that carries the text rather than two that argue about whether sizes
+alone are better than nothing.

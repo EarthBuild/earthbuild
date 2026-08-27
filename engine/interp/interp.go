@@ -1221,13 +1221,23 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// says so in its own words, and the RUN it says must never run was
 		// reached (E439).
 		if p.here.fetchedFrom != "" {
-			return nil, fmt.Errorf(
-				"LOCALLY at %s is in an Earthfile fetched from %s"+
-					"\n  it would run that repository's commands on this machine,"+
-					" outside the sandbox, as you"+
-					"\n  build it from a checkout you have read if that is what you"+
-					" meant",
-				loc(c.SourceLocation), p.here.fetchedFrom)
+			// **A position, and it says so.** This is not a construct the engine
+			// has yet to build - `LOCALLY` works, and works in the Earthfile in
+			// front of you. It is one it declines for whoever wrote *this* file,
+			// which is the third of the three refusals and the one that promises
+			// nothing (see refusedOnPurpose).
+			//
+			// Said in the taxonomy's words rather than in its own, because a
+			// deliberate refusal that does not declare itself reads as a defect:
+			// the corpus counted this one as a gap while three sibling targets
+			// refusing privileged remotes counted as decisions, the whole
+			// difference being that those say "on purpose".
+			return nil, refusedOnPurpose(
+				"LOCALLY in an Earthfile fetched from "+p.here.fetchedFrom,
+				loc(c.SourceLocation),
+				"it would run that repository's commands on this machine, outside"+
+					" the sandbox, as you; build it from a checkout you have read"+
+					" if that is what you meant")
 		}
 
 		// Everything after this runs on the invoking machine. The specification

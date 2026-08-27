@@ -36836,3 +36836,47 @@ Recorded beside E774 and E781 because the three together are the engine's
 performance story with numbers rather than adjectives: nothing serialised that
 could run at once, about 13ms a step of the engine's own, and a cache that
 neither over- nor under-invalidates.
+
+## E783 - an escaped `\$(` was run as a command, and half of why
+
+`tests/shell-out/new.earth` asserts that an escape is text:
+
+```earthfile
+ARG VAR1="literal\$(string)"
+RUN test "$VAR1" == "literal\$(string)"
+```
+
+and the build fails with
+
+```console
+ARG at Earthfile:49: "string" exited 127
+```
+
+`string` is a command nobody wrote. It was found by a scan for `$(` that did
+not look at what preceded it, so `\$(` - which the grammar defines as text,
+`escaped-char = "\" %x21-7E` - was read as a substitution.
+
+**`commandSpan` now skips an escaped occurrence**, counting backslashes rather
+than checking for one: `\\$(ls)` is a literal backslash followed by a real
+substitution, so the count has to be odd. Tested against both, and against a
+string where an escaped one precedes a real one - skipping is not enough if it
+also loses the place.
+
+**That is half the fix, and the failing corpus case is the other half.** The ARG
+path unquotes its default before it looks for commands:
+
+```go
+def = expandByRegion(def, unquote, func(in string) string { return in })   // args.go:215
+...
+if expand != nil && strings.Contains(def, "$(") {                          // args.go:327
+```
+
+`unquote` resolves `\$` to `$`, so by the time the scan runs the escape is gone
+and `literal$(string)` is indistinguishable from a substitution somebody meant.
+The ordering is deliberate - the comment above the second says a default's
+command must not run when the caller supplied a value - so the fix is to defer
+the resolution of `\$` past the expansion rather than to move either step.
+
+Left there rather than done at the end of a long session: escape handling is
+where a hurried change makes two bugs out of one, and the scanner being right is
+worth having on its own.

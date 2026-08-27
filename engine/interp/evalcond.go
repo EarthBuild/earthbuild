@@ -157,8 +157,37 @@ func (p *Plan) substitute(cmd []string, base *ir.Node, dir, what, where string) 
 // Shared, because two callers walk these spans for opposite reasons - one to
 // run what is inside, one to leave what is inside alone - and two copies of a
 // bracket-matcher drift.
+// unescapedIndex is where the first substitution that is one begins.
+//
+// **`\$(` is text.** The grammar has `escaped-char = "\" %x21-7E` and
+// `unescape` resolves it, but the scan for `$(` runs first - so
+// `ARG VAR1="literal\$(string)"` had `string` run as a command and the build
+// failed with `"string" exited 127`, quoting a command nobody wrote (E783).
+//
+// A backslash that is itself escaped does not escape the dollar: `\\$(ls)` is a
+// literal backslash followed by a real substitution, so the count has to be
+// odd rather than merely non-zero.
+func unescapedIndex(s string) int {
+	for i := 0; i+1 < len(s); i++ {
+		if s[i] != '$' || s[i+1] != '(' {
+			continue
+		}
+
+		slashes := 0
+		for j := i - 1; j >= 0 && s[j] == '\\'; j-- {
+			slashes++
+		}
+
+		if slashes%2 == 0 {
+			return i
+		}
+	}
+
+	return -1
+}
+
 func commandSpan(s string) (start, end int, found bool) {
-	i := strings.Index(s, "$(")
+	i := unescapedIndex(s)
 	if i < 0 {
 		return -1, -1, false
 	}

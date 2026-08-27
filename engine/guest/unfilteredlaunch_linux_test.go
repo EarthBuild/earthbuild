@@ -53,6 +53,22 @@ func seccompOfCallingThread() string {
 //
 //nolint:paralleltest // runs a step, which the traced path gives a thread of its own
 func TestTheThreadAStepIsStartedFromIsNotFiltered(t *testing.T) {
+	// **Under a filter already, this cannot tell whose it is.** The `Seccomp:`
+	// field is a *mode* rather than a count, so a thread reads 2 whether the
+	// filter is the guest's or the container's - and a CI runner commonly
+	// applies one to everything it runs. Locally the difference is a
+	// `--security-opt seccomp=unconfined`, which is exactly why this passed here
+	// and failed there.
+	//
+	// Skipped rather than weakened: the invariant is still checked wherever the
+	// question can be answered, and an assertion that cannot fail is worse than
+	// one that does not run.
+	if ambient := seccompOfCallingThread(); ambient != "" && ambient != "0" {
+		t.Skipf("this process is already under a seccomp filter (Seccomp: %s),"+
+			" so a filter found on the launching thread cannot be attributed"+
+			" to the guest", ambient)
+	}
+
 	root := t.TempDir()
 
 	present := filepath.Join(root, "read-by-the-step")

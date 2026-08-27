@@ -30,6 +30,21 @@ type Worker struct {
 	ID        string
 	Platform  ir.Platform
 	IsInvoker bool // the machine that started the build; the only place OpHost may run
+	// Emulates are platforms this machine can run through emulation - binfmt,
+	// with qemu registered for the architecture - rather than natively.
+	//
+	// **A fallback and never a preference.** A machine of the architecture runs
+	// the step; one that can only emulate it runs the step when there is no such
+	// machine. Preferring an emulator would make placement turn on load rather
+	// than on what the machines are, and emulated work is slower by a large
+	// factor - so this widens what a build *can* do without changing what it
+	// does when it has the choice.
+	Emulates []ir.Platform
+}
+
+// canEmulate reports whether this machine can run that platform under emulation.
+func (w Worker) canEmulate(p ir.Platform) bool {
+	return slices.Contains(w.Emulates, p)
 }
 
 // Executor runs one step against a base stack, reading from zero or more
@@ -172,9 +187,10 @@ func noWorkerFor(n *ir.Node, workers []Worker) error {
 
 	return fmt.Errorf(
 		"%w: this step is for %s and this build has %s"+
-			"\n  building one architecture on another needs emulation, which this engine"+
-			"\n  does not have - build the target for %s, or use --engine=buildkit",
-		ErrNoEligibleWorker, want, strings.Join(have, ", "), have[0])
+			"\n  building one architecture on another needs emulation, and no machine"+
+			"\n  in this build offers it - register binfmt for %s, build the target"+
+			"\n  for %s, or use --engine=buildkit",
+		ErrNoEligibleWorker, want, strings.Join(have, ", "), want, have[0])
 }
 
 // Scheduler is Sched-1 from docs-internals/scheduling.md: correct,
@@ -1041,6 +1057,30 @@ func (s *Scheduler) place(n *ir.Node, load map[string]int) (Worker, error) {
 		eligible = append(eligible, w)
 	}
 
+	// **Emulation is a second pass, not a looser first one.** Widening
+	// eligibility instead would let an idle emulator take work from a busy
+	// machine of the right architecture, so placement would turn on load rather
+	// than on what the machines are - and emulated work is slower by a large
+	// factor. Only when nothing can run the step natively is a machine that can
+	// emulate it considered at all.
+	if len(eligible) == 0 {
+		for _, w := range s.Workers {
+			if !w.canEmulate(n.Platform) {
+				continue
+			}
+
+			// **The same predicate, with the one question it would fail
+			// answered.** Every other constraint still holds - an invoker-only
+			// step still needs the invoker - and restating them here is how the
+			// placement model and the fleet's guarantee drifted apart before
+			// (E426). A copy of the node would have been the obvious way to say
+			// "pretend the platform matches", and `ir.Node` carries a lock.
+			if eligible0(n, w, native, true) {
+				eligible = append(eligible, w)
+			}
+		}
+	}
+
 	if len(eligible) == 0 {
 		return Worker{}, noWorkerFor(n, s.Workers)
 	}
@@ -1076,6 +1116,15 @@ func (s *Scheduler) native() ir.Platform {
 // native is the invoking machine's platform, and it is what an unstated one on
 // the node means.
 func eligibleFor(n *ir.Node, w Worker, native ir.Platform) bool {
+	return eligible0(n, w, native, false)
+}
+
+// eligible0 is eligibleFor with the architecture question settled by the caller.
+//
+// `platformSatisfied` is true only for the emulation pass, where the machine can
+// run the step's platform by emulating it - every other constraint is asked
+// exactly as it is asked of a native placement, from this one copy of them.
+func eligible0(n *ir.Node, w Worker, native ir.Platform, platformSatisfied bool) bool {
 	// Everything the fleet will refuse to delegate.
 	//
 	// One list, in `ir`, read by both: the fleet's refusal is the guarantee and
@@ -1114,6 +1163,22 @@ func eligibleFor(n *ir.Node, w Worker, native ir.Platform) bool {
 	// produces binaries for a machine nobody asked about, filed under a key
 	// that does not record which (E267). The failure is silent in the worst
 	// way - the step succeeds and the layer is real.
+	if platformSatisfied {
+		return true
+	}
+
+	return platformFits(n, w, native)
+}
+
+// eligibleApartFromPlatform is everything eligibleFor checks except which
+// architecture the machine is.
+//
+// Emulation reads it: a machine that can emulate the step's platform must still
+// be the invoker when the step demands one, and must still not be charged with
+// a mounted step. Only the architecture is in question, and only the
+// architecture is skipped.
+// platformFits is the architecture half of eligibility.
+func platformFits(n *ir.Node, w Worker, native ir.Platform) bool {
 	want := n.Platform
 	if want == (ir.Platform{}) {
 		want = native

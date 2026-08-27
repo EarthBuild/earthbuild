@@ -36935,3 +36935,49 @@ cacheable and the value is still nowhere: the second run hits both steps.
 That is the whole of what `EARTH_HMAC` is for, and it is worth having measured,
 because "secrets are cacheable now" and "secrets are in the cache now" are one
 typo apart and only one of them is true.
+
+## E786 - a condition holding a command was answered "no" rather than "I cannot tell"
+
+The worst kind of defect this sweep found, because the build succeeds:
+
+```console
+$ earth-native +subst          # IF [ "$(echo yes)" = "yes" ] ... RUN echo SUBST-IF-RAN
+  (nothing, exit 0)
+$ earthly +subst
+  SUBST-IF-RAN
+```
+
+The branch is skipped, nothing is printed, and the build exits 0 having done
+less than the Earthfile said. A plain `IF [ "yes" = "yes" ]` works, so the
+difference is the command.
+
+**Where it came from.** `branch` expands *arguments* and then asks `decide`,
+which compares tokens as strings. `"$(echo yes)"` and `"yes"` are two different
+strings, so `decide` returned false - and it returned no *error*, so the
+fallback below it, which exists precisely to run a condition that cannot be
+decided, never fired:
+
+```go
+taken, err := decide(expanded, rs.args, rs.env)
+if err == nil {
+    return taken, nil          // false, confidently
+}
+...
+return p.evaluate(expanded, prev, rs.dir, where)   // never reached
+```
+
+A token still holding an unescaped `$(` now goes straight to `evaluate`. With a
+runner the condition is decided by running it, as earthly decides it; without
+one the engine says so - `IF at Earthfile:4 needs to run "[…]"` - instead of
+answering no.
+
+Escaped ones are still text, via E783's `unescapedIndex`: `\$(x)` is the string
+`$(x)` and compares as one. The two changes are the same distinction seen from
+opposite sides - one stopped text being run, the other stopped a command being
+compared.
+
+**Found by comparison, not by reading.** The engine's own `RUN`, `ARG` and `LET`
+paths all expand commands; only the condition path did not, and nothing in it
+looks wrong until the same Earthfile is put through the other engine. Neither
+suite catches it: the corpus ratchets do not move, because a target whose
+condition is silently false still *plans*.

@@ -1888,6 +1888,20 @@ func (p *Plan) ifStatement(st *earthfile.IfStatement, prev *ir.Node, rs *state) 
 	return prev, nil
 }
 
+// holdsCommand reports whether any token still has a `$(...)` to run.
+//
+// Escaped ones do not count: `\$(x)` is the text `$(x)`, which is a string like
+// any other and compares as one (E783).
+func holdsCommand(tokens []string) bool {
+	for _, t := range tokens {
+		if unescapedIndex(t) >= 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 // branch expands a condition's arguments and decides it, evaluating it against
 // the preceding step's filesystem when it cannot be decided.
 func (p *Plan) branch(expr []string, prev *ir.Node, rs *state, where string) (bool, error) {
@@ -1899,6 +1913,16 @@ func (p *Plan) branch(expr []string, prev *ir.Node, rs *state, where string) (bo
 	expanded := make([]string, len(expr))
 	for i, tok := range expr {
 		expanded[i] = rs.args.expand(tok)
+	}
+
+	// **A command is not text, and comparing it as text answers `false`.**
+	// `decide` compares tokens, so `[ "$(echo yes)" = "yes" ]` is two unequal
+	// strings and it said no - not "I cannot tell", no - and the fallback below
+	// never fired. The branch was skipped, nothing was printed, and the build
+	// exited 0 having done less than the Earthfile said. earthly runs the same
+	// file and takes the branch (E786).
+	if holdsCommand(expanded) {
+		return p.evaluate(expanded, prev, rs.dir, where)
 	}
 
 	taken, err := decide(expanded, rs.args, rs.env)

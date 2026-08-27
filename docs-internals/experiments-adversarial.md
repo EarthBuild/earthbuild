@@ -34674,3 +34674,50 @@ to its filesystem, one so it can enter it.
 **[GAP]** `EARTH_STEP_SHIM=0` has nothing between the clone and the step to
 change identity in, so `USER` is still recorded and not applied there. That is
 now what the switch costs, alongside the E723 deadlock it keeps.
+
+## E737 - ownership the filesystem discards, and where it could be kept anyway
+
+Three corpus failures on macOS are one cause: `COPY --chown` and `COPY
+--keep-own` set an owner, the layer store is a directory shared from the host,
+and a virtiofs share swallows the change. The guest's probe says so precisely,
+and says it about the right thing:
+
+```text
+--chown: /var/lib/earthbuild/store discards ownership - a file handed to uid 1
+came back as 0
+```
+
+**The probe is not the bug and neither is the message.** `probeOwner` hands the
+file to a *group* the process already belongs to rather than to another uid,
+because any process may do that: a change that does not stick is then a
+filesystem discarding it rather than a caller who was not allowed to ask. The
+first version conflated the two and reported a healthy ext4 as unable to carry
+ownership.
+
+### Where it could be kept
+
+The engine already treats ownership as metadata in one direction. An image's
+declared owners travel as `map[string]image.Owner`, are converted by
+`declaredOwners`, and `layer.TakeOwnedIn(root, uids, gids, own)` accepts an
+`own` map - so a capture can be told what the owners *are* even when the
+filesystem it is reading no longer says so.
+
+What is missing is the same trick for a layer this engine produced. For these
+two cases the engine knows the answer without asking the filesystem, because it
+performed the copy and was told the owner: `--chown=testuser:testgroup` is an
+instruction, not an observation. Recording the requested owner in the layer and
+re-applying it when the layer is materialised into the guest's overlay - which
+is a Linux filesystem and holds ownership perfectly well - would make both
+targets pass on a host-share store.
+
+**The limit of that fix, stated so nobody expects more of it.** It works for
+ownership the engine *asked for*. A `RUN chown` inside a step changes an owner
+the engine never named, and recovering that would mean reading it back from a
+filesystem that has already discarded it - which is the thing that cannot be
+done. `chown.earth` needs both: its `COPY --chown` is recoverable this way and
+its later `stat -c %U` reads what the step's own filesystem says, which is the
+overlay rather than the store, so it would hold.
+
+**[GAP]** Not implemented. It is a real fix rather than a workaround, and it is
+worth more than the three corpus cases: any host-share store on any platform
+loses ownership the same way, and today the engine can only refuse.

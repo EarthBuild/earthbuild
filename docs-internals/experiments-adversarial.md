@@ -35512,14 +35512,29 @@ results, and the claim that packing was the only site was made from a search
 that could not have found it. The corrected sweep is for the *path*, not the
 type: `filepath.Join(.*"layers"`.
 
-That sweep leaves one place worth stating rather than asserting: **the fleet has
-no declaration handling at all**. `Layers.Has` stats `layers/<id>`, so a
-declaration in a delegated step's base reads as missing and is fetched as a
-layer, and nothing in `engine/fleet` writes or serves a `.decl`. Either such a
-build fails on the worker in `classify` - which has the diagnosis ready, "holds
-neither a layer nor a declaration" - or something ships it that this reading has
-not found. Unresolved, and not the cause of the current fleet-e2e failure, which
-is a worker-discovery assertion ("both workers did not ...").
+That sweep raised a third site, and **the third site was not a defect** - which
+is recorded here because the reasoning was sound and the conclusion was wrong.
+`engine/fleet` contains no declaration handling: `Layers.Has` stats
+`layers/<id>` and wants a directory, `Assignment` carries plain ids with no
+field for a declaration, and `lacking` asks `Has` of every element of a
+delegated step's base. On that reading a declaring base - `FROM alpine`, so
+nearly every base - either fetches a declaration as a layer or fails on the
+worker in `classify`, which has the diagnosis ready.
+
+It does neither. `tests/fleet` builds four targets from `FROM alpine:3.22`,
+whose config declares a PATH, and a green fleet-e2e run shows ten delegations
+across two workers with no `holds neither a layer nor a declaration`, no missing
+input, and no re-run. The mechanism was not confirmed; the most likely one is
+that a declaration is *derivable* rather than transferable - `declarationFor`
+reconstructs it from the config sidecar beside the layer and `decl.Write` files
+it under the same content-derived id - so it needs no field in `Assignment` and
+no bytes on the wire.
+
+The lesson is the one E751 already had to learn once: reading the code found two
+real defects and one imaginary one, and the difference was only ever going to
+come from running it. The fleet-e2e failure on the previous head was a
+worker-discovery assertion ("both workers did not ..."), unrelated, and passes
+on this one.
 
 **The fix.** `squashInto` skips a declaration and refuses every other absence
 exactly as before, with a test for each half: a range carrying one is squashed,

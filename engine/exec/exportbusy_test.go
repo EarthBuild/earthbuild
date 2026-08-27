@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -58,18 +60,26 @@ func TestAnArtifactCanReplaceARunningBinary(t *testing.T) {
 		_, _ = running.Process.Wait()
 	}()
 
-	// Started is not running: the kernel takes the write lock at execve, and
-	// Start returns before that has happened.
-	for range 100 {
-		if err = os.WriteFile(dst, binary, 0o755); err != nil {
-			break
-		}
-
-		time.Sleep(10 * time.Millisecond)
+	// **Waited for, not timed.** `Start` returns before `execve`, and the write
+	// lock arrives with it - so the first version polled for a second and gave
+	// up with `t.Skip`. Under `-race -shuffle=on` a loaded machine sometimes
+	// took longer, the test skipped instead of running, and the skip ceiling
+	// moved from 175 to 176 for a reason nobody could name from the log (E770).
+	//
+	// /proc/<pid>/exe resolves once the exec has happened, so this waits for
+	// the condition itself rather than for a length of time.
+	if runtime.GOOS == "linux" {
+		waitForExec(t, running.Process.Pid, dst)
+	} else {
+		// Elsewhere there is no such file to consult, and macOS permits the
+		// write anyway - so the honest thing is to say so rather than to assert
+		// something this platform does not do.
+		t.Skip("only linux takes a write lock on a running binary")
 	}
 
+	err = os.WriteFile(dst, binary, 0o755)
 	if err == nil {
-		t.Skip("this kernel let a running binary be written to; nothing to prove")
+		t.Fatal("a running binary could be written to, so there is no lock to work around")
 	}
 
 	src := filepath.Join(dir, "new")
@@ -93,4 +103,26 @@ func TestAnArtifactCanReplaceARunningBinary(t *testing.T) {
 		t.Errorf("the destination is %d bytes, want the new artifact's %d",
 			len(got), len(binary)+1)
 	}
+}
+
+// waitForExec blocks until the process has actually exec'd the binary.
+//
+// The write lock a running binary carries is taken by `execve`, so a test that
+// wants it has to wait for the exec and not for the fork. Deadlined rather than
+// unbounded: a wait that hangs is worse than a test that fails.
+func waitForExec(t *testing.T, pid int, want string) {
+	t.Helper()
+
+	deadline := time.Now().Add(30 * time.Second)
+
+	for time.Now().Before(deadline) {
+		at, err := os.Readlink(filepath.Join("/proc", strconv.Itoa(pid), "exe"))
+		if err == nil && at == want {
+			return
+		}
+
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	t.Fatalf("pid %d never exec'd %s", pid, want)
 }

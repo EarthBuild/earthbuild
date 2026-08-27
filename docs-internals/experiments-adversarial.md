@@ -36347,3 +36347,40 @@ hypotheses - a malformed archive, then a missing daemon feature - were both
 about what the daemon wanted. Comparing against the reference implementation's
 *output* skipped all of it: the difference is one file, and it is visible in two
 `tar t` listings.
+
+## E770 - the skip ceiling moved because a test was timed rather than waited for
+
+`+engine-race` failed with `176 > 175`, which gated every job behind it. Two
+previous runs had reported exactly 175, so the number looked stable and the
+extra skip looked new.
+
+No new test skips. `TestAnArtifactCanReplaceARunningBinary` (E760) starts a real
+binary and needs the write lock `execve` takes, and it waited for that lock by
+*polling for a second and giving up*:
+
+```go
+for range 100 {
+    if err = os.WriteFile(dst, binary, 0o755); err != nil { break }
+    time.Sleep(10 * time.Millisecond)
+}
+if err == nil { t.Skip("this kernel let a running binary be written to") }
+```
+
+Under `-race -shuffle=on` on a loaded runner the exec sometimes takes longer than
+that, so the test skipped rather than ran, and the count moved. It passes in
+`+unit-test`, which has no `-race`, which is why the two lists disagreed and the
+diff came back empty.
+
+`/proc/<pid>/exe` resolves once the exec has happened, so the test now waits for
+the *condition* rather than for a length of time, with a deadline so a wait that
+hangs fails instead. Three runs under `-race`, three passes.
+
+**The general defect, which is worth more than the fix.** A test that skips on a
+timeout is a test whose result depends on load, and a gate counting skips will
+then flap on a busy machine. `t.Skip` on a deadline should be read as a bug in
+the test: either the condition is observable, and the test should wait for it,
+or it is not, and the test should not pretend to have checked.
+
+That the ceiling caught it is the ceiling working. That nobody could say *which*
+skip moved - the target prints an aggregated count, and the reasons live in the
+tree - is the part worth fixing next; test-plan records it.

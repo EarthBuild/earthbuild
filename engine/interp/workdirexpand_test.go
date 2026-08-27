@@ -108,3 +108,37 @@ main:
 		}
 	}
 }
+
+// **A stage inherits the working directory of the stage it comes FROM**, as it
+// inherits the environment, and for the same reason: it begins at that stage's
+// image, and an image records where it works.
+//
+// Resetting it to `/` is not a cosmetic difference. `RUN --mount=target=.` in a
+// stage that inherited `WORKDIR /src` mounts the context at `/src`; anchored at
+// `/` instead it mounts *over the whole filesystem*, read-only, and the step
+// then cannot even make room for `/proc` (E747). buildkit's own Dockerfile has
+// exactly that shape.
+func TestAStageInheritsTheWorkdirOfTheStageItComesFrom(t *testing.T) {
+	t.Parallel()
+
+	dir := withDockerfile(t, "Dockerfile", `FROM alpine:3.22 AS base
+WORKDIR /src
+
+FROM base AS out
+RUN make it
+`)
+
+	p, err := interp.Build(versioned+`
+main:
+    FROM DOCKERFILE --target out .
+`, testMain, interp.WithContext(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, n := range p.Graph.Nodes() {
+		if n.Op.Kind == ir.OpExec && n.Op.Dir != "/src" {
+			t.Errorf("step runs in %q, want /src", n.Op.Dir)
+		}
+	}
+}

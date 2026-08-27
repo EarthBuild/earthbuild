@@ -155,6 +155,7 @@ func (p *Plan) fromDockerfile(c earthfile.Command, prev *ir.Node, rs *state) (*i
 	b := &dockerfileBuild{
 		plan: p, stages: stages, built: map[string]*ir.Node{},
 		envOf: map[string]map[string]string{},
+		dirOf: map[string]string{},
 		where: where, context: fromTarget,
 		globals: globalArgs(meta, opt.args),
 	}
@@ -190,6 +191,11 @@ type dockerfileBuild struct {
 	// same question asked of the same key, and a stage answered from the cache
 	// must answer with its environment too.
 	envOf map[string]map[string]string
+	// dirOf is the working directory each built stage ended in, inherited for the
+	// reason envOf is: a stage begins at its base's image, and an image records
+	// where it works. Resetting it to `/` makes `RUN --mount=target=.` mount over
+	// the whole filesystem rather than over the directory the author meant.
+	dirOf map[string]string
 	where string
 	// context is the target whose output the Dockerfile's COPY reads from, when
 	// a target was named instead of a directory. Nil means the ordinary case:
@@ -247,6 +253,9 @@ func (b *dockerfileBuild) stage(
 	// Why this stage's environment is incomplete, if it is.
 	var unreadable error
 
+	// Where this stage starts, inherited like its environment.
+	var startIn string
+
 	if other, ok := b.find(baseName); ok {
 		n, err := b.stage(other, prev, rs, pending)
 		if err != nil {
@@ -257,6 +266,7 @@ func (b *dockerfileBuild) stage(
 		// Read after the base is built, not before: until it has run there is
 		// nothing recorded under its name.
 		inherited = b.envOf[strings.ToLower(baseName)]
+		startIn = b.dirOf[strings.ToLower(baseName)]
 	} else {
 		n, err := b.plan.command(earthfile.Command{
 			Name: earthfile.CmdFrom, Args: []string{baseName},
@@ -268,7 +278,10 @@ func (b *dockerfileBuild) stage(
 
 		base = n
 
-		inherited, unreadable = b.declaredBy(baseName, rs)
+		var declared ImageDeclares
+
+		declared, unreadable = b.declaredBy(baseName, rs)
+		inherited, startIn = declared.Env, declared.WorkingDir
 	}
 
 	// Each stage gets its own environment and working directory: they are the
@@ -287,7 +300,7 @@ func (b *dockerfileBuild) stage(
 	if sub.env == nil {
 		sub.env = map[string]string{}
 	}
-	sub.dir = ""
+	sub.dir = startIn
 	sub.user = ""
 	sub.cfg = Config{Labels: map[string]string{}, Env: map[string]string{}}
 
@@ -346,6 +359,7 @@ func (b *dockerfileBuild) stage(
 	if st.Name != "" {
 		b.built[strings.ToLower(st.Name)] = base
 		b.envOf[strings.ToLower(st.Name)] = maps.Clone(sub.env)
+		b.dirOf[strings.ToLower(st.Name)] = sub.dir
 	}
 
 	return base, nil
@@ -652,17 +666,17 @@ func expandWith(in string, vals map[string]string) string {
 // WORKDIR actually names a variable, and refusing a build that never reads the
 // environment - because a registry was briefly unreachable - would be a refusal
 // about nothing.
-func (b *dockerfileBuild) declaredBy(ref string, rs *state) (map[string]string, error) {
+func (b *dockerfileBuild) declaredBy(ref string, rs *state) (ImageDeclares, error) {
 	if b.plan.opt.imageEnv == nil {
-		return nil, nil
+		return ImageDeclares{}, nil
 	}
 
-	env, err := b.plan.opt.imageEnv(ref, b.plan.targetPlatform(rs))
+	declared, err := b.plan.opt.imageEnv(ref, b.plan.targetPlatform(rs))
 	if err != nil {
-		return nil, err
+		return ImageDeclares{}, err
 	}
 
-	return env, nil
+	return declared, nil
 }
 
 // selectStage picks the stage to build, naming what exists when the one asked

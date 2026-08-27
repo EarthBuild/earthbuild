@@ -35298,8 +35298,35 @@ registry that will not answer is a reason to stop rather than to improvise. The
 failure is *carried* rather than raised where it happens: a stage that never
 names a variable does not care that a registry was briefly unreachable.
 
-**Measured**: the buildkit fork now builds past the step that started this, and
-stops at a different one - `earthbuild step shim: make room for /proc: mkdir
-.../merged/proc: read-only file system`. A separate defect on the guest side, and
-the next link rather than this one. Corpus unchanged at 235 with an empty
-case-by-case diff.
+**The next failure was the same gap wearing different clothes.** With the
+environment fixed the fork built further and stopped at
+
+```console
+earthbuild step shim: make room for /proc: mkdir .../merged/proc: read-only file system
+```
+
+which reads like a guest-side defect and is not one. A stage inherits its base's
+*working directory* as well as its environment, and this reset it to `/` for
+every stage:
+
+```dockerfile
+FROM gobuild-base AS buildkit-base
+WORKDIR /src                       # set here
+FROM buildkit-base AS buildkit-version
+RUN --mount=target=. ...           # meant /src, anchored at /
+```
+
+`anchoredAt` had written down the consequence long before anyone met it -
+"anchoring a relative target at the root mounts it over the whole filesystem" -
+and that is what happened: the context bound read-only over `/`, after which the
+step cannot make room for `/proc`. The error names the last thing to fail rather
+than the first.
+
+Inherited now from a base stage, and from an image's `WorkingDir` through the
+same seam the environment uses.
+
+**Measured: the fork builds, exit 0.** Five faults in one chain, each hidden
+behind the next - WORKDIR not expanding ENV, stages not inheriting ENV, base
+image ENV unknown at plan time, stages not inheriting WorkingDir, base image
+WorkingDir unknown. Corpus unchanged at 235 with an empty case-by-case diff at
+every step of the work.

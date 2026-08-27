@@ -336,7 +336,19 @@ func WithSecrets(secrets map[string]string) Option {
 // Returning an error is not the same as returning nothing: nothing means the
 // image sets no environment, an error means this machine could not find out,
 // and only the second is a reason to refuse a stage that needs it.
-type ImageEnv func(ref, platform string) (map[string]string, error)
+type ImageEnv func(ref, platform string) (ImageDeclares, error)
+
+// ImageDeclares is what an image says about running, for the parts a Dockerfile
+// reads before anything is unpacked.
+//
+// Two fields because a stage inherits both, and for one reason: it begins at its
+// base's image. `WORKDIR $GOPATH/src/x` reads Env; `RUN --mount=target=.` in a
+// stage that set no WORKDIR of its own reads WorkingDir, and anchoring that at
+// `/` mounts over the whole filesystem instead of over the directory meant.
+type ImageDeclares struct {
+	Env        map[string]string
+	WorkingDir string
+}
 
 // WithImageEnv supplies Θ's neighbour: what an image declares, rather than which
 // image it is.

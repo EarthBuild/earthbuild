@@ -20,9 +20,9 @@ func (g *engine) imageEnv(ctx context.Context) interp.ImageEnv {
 	var known sync.Map
 
 	type held struct {
-		once sync.Once
-		env  map[string]string
-		err  error
+		once     sync.Once
+		declared interp.ImageDeclares
+		err      error
 	}
 
 	challenges, err := imageCacheDir()
@@ -30,14 +30,14 @@ func (g *engine) imageEnv(ctx context.Context) interp.ImageEnv {
 		challenges = ""
 	}
 
-	return func(ref, platform string) (map[string]string, error) {
+	return func(ref, platform string) (interp.ImageDeclares, error) {
 		key := ref + "\x00" + platform
 
 		slot, _ := known.LoadOrStore(key, &held{})
 
 		h, ok := slot.(*held)
 		if !ok {
-			return nil, nil
+			return interp.ImageDeclares{}, nil
 		}
 
 		h.once.Do(func() {
@@ -51,21 +51,23 @@ func (g *engine) imageEnv(ctx context.Context) interp.ImageEnv {
 			}
 
 			// An image that declares nothing is ordinary, and is not an error.
+			h.declared.WorkingDir = cfg.WorkingDir
+
 			if len(cfg.Env) == 0 {
 				return
 			}
 
-			h.env = make(map[string]string, len(cfg.Env))
+			h.declared.Env = make(map[string]string, len(cfg.Env))
 
 			for _, kv := range cfg.Env {
 				name, value, found := cutEnv(kv)
 				if found {
-					h.env[name] = value
+					h.declared.Env[name] = value
 				}
 			}
 		})
 
-		return h.env, h.err
+		return h.declared, h.err
 	}
 }
 

@@ -1414,6 +1414,24 @@ tests skip because the machine is better than the test needs, and a ceiling that
 counts those alongside the second row will move for reasons that are not about
 coverage at all.
 
+### One of the skipped ones, checked by hand
+
+`TestABuildThatFailedLeavesAUsableStore` is in that list, and the property it
+guards is easy to confirm without it:
+
+```console
+$ earth-native +bad          # a RUN that exits 3
+  failed with exit code 3
+$ earth-native +ok           # the step above it, on the same store
+  cache  2 hit, 0 miss
+```
+
+The failure names its exit code and the successful work is still cached, so a
+build that failed leaves a store the next build can use. That is one skip whose
+subject is known good today; the other 175 are not individually known either
+way, which is the argument for the lever below rather than for shrugging at the
+count.
+
 ### The one lever worth pulling
 
 The gate's own output, the first time it printed reasons, put 46 of the skips

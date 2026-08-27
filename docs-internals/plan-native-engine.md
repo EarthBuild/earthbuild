@@ -9231,3 +9231,32 @@ error identity can change control flow in callers that test for `ErrRefused` -
 `seccomp_do_user_notification`, costs one to three invocations a sweep at random
 and is what makes any two sweeps hard to compare. It is characterised, it is not
 concurrency-gated, and it is open.
+
+## Decisions waiting, as of the E749-E780 sweep
+
+Eight things this sweep found that are choices rather than defects. Each is
+evidenced where it is named; none should be settled by whoever next reads the
+code, because each could reasonably go the other way.
+
+| what                              | the choice                                                                                      | where               |
+| --------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------- |
+| `WITH DOCKER` on a podman machine | serve the docker API from podman, run a daemon from the step's image, or declare it unsupported | E767, and 5 CI jobs |
+| `--load` and the daemon's storage | load engine-side, key the mount to the block, or capture the storage                            | nits                |
+| more than one `RUN` in a block    | refuse as earthly does, or share the daemon across the block                                    | nits                |
+| `EARTH_PIN_TTL`'s default         | 420ms a build against a tag that may have moved                                                 | E766                |
+| the sandbox's name                | `buildkitsandbox` kept, or renamed and the corpus updated                                       | E758                |
+| artifact mtimes                   | the real time, or earthly's fixed 2020 epoch                                                    | E775                |
+| `../run/` in the completion test  | the expectation encodes earthly's own directories                                               | E780                |
+| a CHANGELOG line for the engine   | one paragraph, at merge rather than at release                                                  | pr-blockers         |
+
+**What is not on this list is anything that was fixed.** Eleven of the fifteen
+Native failures this sweep classified have fixes in flight; these eight are what
+is left when the defects are taken out, and every one of them is a sentence
+somebody has to write rather than a bug somebody has to find.
+
+The pattern worth carrying forward: seven of the findings behind this table came
+from running the same Earthfile through `earthly` and comparing the *output* -
+tar listings, `docker inspect`, `/run` - rather than from reading either
+implementation. Where the two engines disagree, the disagreement is a fact and
+which side is right is a decision; conflating those two is what makes a
+comparison feel like a bug report.

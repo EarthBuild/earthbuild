@@ -34491,7 +34491,47 @@ Two candidate causes are visible in one local run and are not yet separated:
   `EARTH_` migration (#800), and buildkit evidently tolerates the failure where
   this engine does not.
 
-**[GAP]** Which of those two ends the build is not established, and until the
-fixture builds, no per-target comparison exists to classify. The next step is
-not a sweep of thirty jobs. It is one target, `+earthbuild-integration-test-base`,
-reproduced locally, which it already is.
+### It is the gap this branch already knew about, reached by an unpinned path
+
+Built locally, `+earthbuild-integration-test-base` fails on its own. The `ENV` at
+`Earthfile:934` is where it surfaces and not what breaks: the base is
+`FROM --pass-args +earthly-docker`, that image carries buildkitd, and buildkitd
+comes from the buildkit remote, whose `RUN --mount=type=bind,...,from=runc-src`
+is the step that dies.
+
+**That gap is documented in this repository's own CI file**, beside the release
+steps, which are pinned to `--engine=buildkit` for exactly this reason:
+
+> buildkitd is built through `FROM DOCKERFILE`, whose `RUN --mount` the native
+> engine refuses rather than running without the mounts it was given. So the
+> engine that builds the *other* engine's image is the other engine.
+
+The release steps were pinned. **The suite jobs were not**, and every one of them
+reaches the same buildkitd through the fixture they share. So the thirty
+failures are one known capability gap, on a path nobody pinned - not thirty
+divergences, and not a discovery.
+
+That resolves the two candidates: the `ENV` exiting 1 is downstream of the base
+never being built, not a cause. It also explains why Docker suites pass and
+these do not, which four earlier guesses could not.
+
+### A second defect, and this one is real
+
+The comment says the engine **refuses**. It does not. It exits 1 and *prints
+nothing*:
+
+```text
+RUN --mount=type=bind,target=.,source=/usr/src/runc,from=runc-src ...
+  exited 1, and printed nothing
+```
+
+A refusal names the flag and says why (I11 and the `refusedOnPurpose` taxonomy
+exist for this). A silent non-zero exit is the failure mode those were built to
+remove, and it is what sent this investigation through four wrong explanations
+before a local build showed the chain. Refusing `RUN --mount` audibly would have
+made thirty red jobs self-describing.
+
+**[GAP]** Two things follow and neither is done. The suite jobs want the same
+pin the release steps have, so the fixture is built by buildkit and the tests
+still run native - that is the arrangement E603 wants and the one it is not
+getting. And the silent exit wants a refusal with a message.

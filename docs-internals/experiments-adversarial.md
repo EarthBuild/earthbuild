@@ -36880,3 +36880,28 @@ the resolution of `\$` past the expansion rather than to move either step.
 Left there rather than done at the end of a long session: escape handling is
 where a hurried change makes two bugs out of one, and the scanner being right is
 worth having on its own.
+
+## E784 - COPY agrees with the reference on every case that usually breaks
+
+`COPY` is the most-used command in the language and the one where a
+reimplementation quietly diverges. The same tree through both engines - a plain
+file, an executable, a symlink, a *dangling* symlink, and a nested file:
+
+| entry          | native            | earthly           |
+| -------------- | ----------------- | ----------------- |
+| `plain.txt`    | 644 regular file  | 644 regular file  |
+| `run.sh`       | 755 regular file  | 755 regular file  |
+| `link.txt`     | 777 symbolic link | 777 symbolic link |
+| `dangling.txt` | 777 symbolic link | 777 symbolic link |
+| `sub/deep.txt` | 644 regular file  | 644 regular file  |
+
+Identical throughout. The dangling symlink is the case worth the trouble of
+constructing: an implementation that stats what it copies rather than lstats it
+either fails on that entry or silently drops it, and either way the divergence
+appears in somebody's image months later as a missing file.
+
+With E775 - artifacts byte-identical, permissions identical - the two engines now
+agree on everything a build *produces* that has been compared: file contents,
+modes, types, image configuration, and the archive format. What is left
+disagreeing is the clock (E775) and what each leaves in `/run` (E780), both of
+which are about the engine rather than the build.

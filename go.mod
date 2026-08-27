@@ -18,7 +18,7 @@ require (
 	github.com/elastic/go-sysinfo v1.15.5
 	github.com/fatih/color v1.19.0
 	github.com/go-logr/stdr v1.2.2
-	github.com/gofrs/flock v0.13.0
+	github.com/gofrs/flock v0.13.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/jdxcode/netrc v1.0.0

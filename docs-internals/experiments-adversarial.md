@@ -35000,3 +35000,59 @@ Worth keeping as method: compare outcomes per case rather than totals, and where
 a run fetches over the network, run each side twice and take the second of each.
 The hasher was innocent, and `HashSecretDigest` contributing nothing on an empty
 map is why - every step without a digest keys exactly as it did.
+
+## E743 - registry credentials in the native engine
+
+`earth` can pull a private image and `earth-native` could not, which makes this a
+parity regression rather than a gap. The buildkit path registers an
+`auth.AuthServer` as a session attachable and BuildKit calls *back* to the client
+when a registry refuses; the client answers from docker's config, a credential
+helper, or podman. The native engine talks to registries in its own process, so
+there is nobody to call back to - it has to ask the same question directly.
+
+**The same library, not a second implementation.** `cmd/earth` builds its
+attachable from `config.LoadDefaultConfigFile`; `engine/image` now calls
+`GetAuthConfig` on the same config. Two engines reading one credential store was
+the point of doing it this way - two engines with two ideas of where credentials
+live is the thing worth avoiding, and is what a hand-rolled reader would have
+become.
+
+**Docker Hub is filed somewhere other than where it is dialled.** This engine
+requests from `registry-1.docker.io`; docker's own `getAuthConfigKey` maps
+`docker.io` and `index.docker.io` to the canonical key and nothing else. Asking
+under the host actually dialled misses a `docker login` that plainly happened,
+and misses it silently. `authHost` maps it back, and a test pins it.
+
+**Measured**, `ghcr.io/<user>/<repo that does not exist>`:
+
+|             | before                              | after                             |
+| ----------- | ----------------------------------- | --------------------------------- |
+| token stage | 403 Forbidden - never got past auth | succeeds                          |
+| manifest    | never reached                       | 404 Not Found - the honest answer |
+
+The 403 becoming a 404 is the whole proof: the exchange now presents a credential
+from the `desktop` helper, so the registry stops refusing and starts answering.
+
+**The credential is chosen by the registry, never by the realm.** A registry
+answers the challenge and the challenge names the realm, so choosing from the
+realm would let a hostile registry nominate which credential this machine hands
+over. Deciding from the host the manifest is fetched from means the worst it can
+do is receive the credential its own user already gave it. Tested.
+
+**It cost 40ms and then it did not.** A credential helper is a process - 59ms of
+keychain on this Mac - and resolving before dialling added it to every build,
+including the public ones that will never present anything: 483ms became ~515ms.
+Started as a goroutine and waited for at the exchange, it overlaps the dial that
+was happening anyway and the public path returns to ~474ms, which is the
+baseline. Same shape as E535.
+
+**An identity token is reported rather than misused.** Some registries hand
+docker an OAuth2 refresh token instead of a password, redeemed by a POST with
+`grant_type=refresh_token`. This does the GET exchange only, so sending one as a
+password would present a credential in a form the registry does not accept and
+report whatever it made of that. It says so instead.
+
+**Still open:** podman's store, which the buildkit path reads and this does not;
+and the corpus does not cover any of it - `private-image-test` and
+`./private-https+all` exist in `tests/Earthfile` and reach the extracted
+invocations not at all, not even as `-todo`.

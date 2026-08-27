@@ -85,14 +85,23 @@ func ParseRef(s string) (Ref, error) {
 	return r, nil
 }
 
+// dockerHubDomain is the canonical *name* of the default registry, which is not
+// a host that serves the API. dockerHubHost is the host that does. Keeping the
+// two apart is the whole of registryHost, and getting them the wrong way round
+// is how a `docker login` goes unnoticed - see authHost.
+const (
+	dockerHubDomain = "docker.io"
+	dockerHubHost   = "registry-1.docker.io"
+)
+
 // registryHost is the host to talk to for a domain.
 //
 // `docker.io` is the canonical *name* of the default registry and not a host
 // that serves the API; the requests go to registry-1.docker.io. Keeping the two
 // apart is why Ref.Registry holds the domain rather than an address.
 func registryHost(domain string) string {
-	if domain == "docker.io" {
-		return "registry-1.docker.io"
+	if domain == dockerHubDomain {
+		return dockerHubHost
 	}
 
 	return domain
@@ -656,6 +665,21 @@ func verify(blob []byte, want string) error {
 func token(ctx context.Context, client *http.Client, url, dir, key string) (string, error) {
 	defer timing.Phase("registry:token", key)()
 
+	// Who this machine can prove to be at the registry the manifest comes from -
+	// not at the realm, which is a different host issuing tokens on its behalf.
+	//
+	// **Resolved while the connection is being opened.** A credential helper is
+	// a process - the keychain on a Mac, and ~59ms of it - so asking for one
+	// before dialling would add that to every build, including the public ones
+	// that will never present it. Started here and waited for at the exchange,
+	// it costs what the dial was costing anyway. Same reason `warm` exists
+	// (E535).
+	resolved := make(chan credential, 1)
+
+	go func() { resolved <- credentialForURL(url) }()
+
+	cred := sync.OnceValue(func() credential { return <-resolved })
+
 	// Where this repository's token came from last time. A stale answer costs a
 	// probe rather than a build: the exchange below runs and replaces it.
 	if at := rememberedChallenge(dir, key); at != "" {
@@ -667,7 +691,7 @@ func token(ctx context.Context, client *http.Client, url, dir, key string) (stri
 		// (E535).
 		done := warm(ctx, client, url)
 
-		tok, err := fetchToken(ctx, client, at)
+		tok, err := fetchTokenAs(ctx, client, at, cred())
 
 		done()
 
@@ -721,7 +745,7 @@ func token(ctx context.Context, client *http.Client, url, dir, key string) (stri
 
 	at := fmt.Sprintf("%s?service=%s&scope=%s", realm, service, scope)
 
-	tok, err := fetchToken(ctx, client, at)
+	tok, err := fetchTokenAs(ctx, client, at, cred())
 	if err != nil {
 		return "", err
 	}
@@ -772,41 +796,6 @@ func warm(ctx context.Context, client *http.Client, manifestURL string) func() {
 	// Waited for, so the connection is in the pool before the manifest asks for
 	// one - and so this goroutine never outlives the call that started it.
 	return func() { <-done }
-}
-
-// fetchToken asks a realm for a token.
-func fetchToken(ctx context.Context, client *http.Client, at string) (string, error) {
-	// **Already held, and certainly still good.** A cold `+earthly` made eleven
-	// of these exchanges - 5.5s of a 72s build - each a TLS handshake and a
-	// round trip for a credential it was already carrying. See tokenHold for why
-	// the margin is generous.
-	if tok, ok := tokens.get(at); ok {
-		return tok, nil
-	}
-
-	body, err := get(ctx, client, "", at, maxManifest)
-	if err != nil {
-		return "", err
-	}
-
-	var t struct {
-		Token       string `json:"token"`
-		AccessToken string `json:"access_token"`
-	}
-
-	err = json.Unmarshal(body, &t)
-	if err != nil {
-		return "", fmt.Errorf("parse the token response: %w", err)
-	}
-
-	got := t.Token
-	if got == "" {
-		got = t.AccessToken
-	}
-
-	tokens.put(at, got)
-
-	return got, nil
 }
 
 // accepts is every manifest format this engine can read.

@@ -30,7 +30,6 @@ const SandboxHost = "buildkitsandbox"
 // The address comes first: that is the file's format, and a line written the
 // other way round resolves nothing while looking correct.
 func hostsFile(entries []string) string {
-
 	var b strings.Builder
 
 	b.WriteString("127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost ip6-loopback\n")

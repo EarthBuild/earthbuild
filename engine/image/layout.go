@@ -93,18 +93,6 @@ type configBody struct {
 	Healthcheck *Healthcheck `json:"Healthcheck,omitempty"`
 }
 
-// WriteLayout writes an image as an OCI layout.
-//
-// The layout is the interchange format rather than one of several options:
-// `docker load`, `skopeo copy`, `crane push` and every registry client start
-// here. Writing something almost-but-not-quite like it would produce a
-// directory only this engine understands, which is the opposite of the point -
-// so the types come from image-spec and the structure is whatever that says.
-//
-// Layers are uncompressed. That keeps a layer's digest and its diff id the same
-// value, which removes a whole class of mismatch, and it avoids gzip - whose
-// header carries a modification time, so compressing would put a clock back
-// into an image built to be reproducible.
 // dockerManifest is the entry docker's classic image store reads.
 //
 // Named for the file rather than the format because that is what identifies it:
@@ -167,6 +155,18 @@ func writeDockerManifest(dir, ref string, config ocispec.Descriptor, layers []oc
 	return nil
 }
 
+// WriteLayout writes an image as an OCI layout.
+//
+// The layout is the interchange format rather than one of several options:
+// `docker load`, `skopeo copy`, `crane push` and every registry client start
+// here. Writing something almost-but-not-quite like it would produce a
+// directory only this engine understands, which is the opposite of the point -
+// so the types come from image-spec and the structure is whatever that says.
+//
+// Layers are uncompressed. That keeps a layer's digest and its diff id the same
+// value, which removes a whole class of mismatch, and it avoids gzip - whose
+// header carries a modification time, so compressing would put a clock back
+// into an image built to be reproducible.
 func WriteLayout(dir string, spec Spec) error {
 	if spec.Ref == "" {
 		return errors.New("an image needs a name")
@@ -331,7 +331,7 @@ func writeConfig(blobs string, spec Spec, diffIDs []digest.Digest) (ocispec.Desc
 
 	if !spec.Created.IsZero() {
 		at := spec.Created.UTC()
-		cfg.Image.Created = &at
+		cfg.Created = &at
 	}
 
 	desc, err := writeBlob(blobs, ocispec.MediaTypeImageConfig, cfg)

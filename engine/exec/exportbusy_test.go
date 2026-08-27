@@ -43,14 +43,17 @@ func TestAnArtifactCanReplaceARunningBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile(dst, binary, 0o755)
+	// Executable, because only a binary the kernel is running takes the write
+	// lock this is about.
+
+	err = os.WriteFile(dst, binary, 0o755) //nolint:gosec // G306: 0600 cannot be executed
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// The helper-process idiom: the copy is this test binary, so it is asked to
 	// run one test that does nothing but wait.
-	running := exec.Command(dst)
+	running := exec.CommandContext(t.Context(), dst)
 	running.Env = append(os.Environ(), sleepHelperEnv+"=1")
 
 	err = running.Start()
@@ -100,7 +103,7 @@ func TestAnArtifactCanReplaceARunningBinary(t *testing.T) {
 		default:
 		}
 
-		err = os.WriteFile(dst, binary, 0o755)
+		err = os.WriteFile(dst, binary, 0o755) //nolint:gosec // G306: 0600 cannot be executed
 		if err == nil {
 			time.Sleep(5 * time.Millisecond)
 		}
@@ -114,7 +117,7 @@ func TestAnArtifactCanReplaceARunningBinary(t *testing.T) {
 
 	src := filepath.Join(dir, "new")
 
-	err = os.WriteFile(src, append(binary, '\n'), 0o755)
+	err = os.WriteFile(src, append(binary, '\n'), 0o755) //nolint:gosec // G306: 0600 cannot be executed
 	if err != nil {
 		t.Fatal(err)
 	}

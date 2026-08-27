@@ -26,20 +26,21 @@ func TestAnArtifactCanReplaceARunningBinary(t *testing.T) {
 	dir := t.TempDir()
 	dst := filepath.Join(dir, "tool")
 
-	// A real binary, because only executing one takes the write lock that this
-	// is about: a shell script's interpreter holds it open for reading, which
-	// nothing objects to.
-	// Looked up rather than assumed at /bin/sleep, which NixOS has not got:
-	// /bin holds only sh there, and the first version of this test skipped
-	// silently on the one machine that could have run it.
-	from, err := exec.LookPath("sleep")
+	// **This test's own binary, because it is the one thing certainly runnable
+	// here.** Only executing a real binary takes the write lock this is about -
+	// a shell script's interpreter holds it open for reading, which nothing
+	// objects to. The first version copied `sleep`, and in the CI container the
+	// copy exited 127, so the test skipped and the skip ceiling moved (E770).
+	// Whatever that copy was missing, the process running this test is not
+	// missing it.
+	self, err := os.Executable()
 	if err != nil {
-		t.Skipf("no sleep on this machine to copy: %v", err)
+		t.Fatal(err)
 	}
 
-	binary, err := os.ReadFile(from)
+	binary, err := os.ReadFile(self)
 	if err != nil {
-		t.Skipf("cannot read %s: %v", from, err)
+		t.Fatal(err)
 	}
 
 	err = os.WriteFile(dst, binary, 0o755)
@@ -47,7 +48,10 @@ func TestAnArtifactCanReplaceARunningBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	running := exec.Command(dst, "30")
+	// The helper-process idiom: the copy is this test binary, so it is asked to
+	// run one test that does nothing but wait.
+	running := exec.Command(dst)
+	running.Env = append(os.Environ(), sleepHelperEnv+"=1")
 
 	err = running.Start()
 	if err != nil {
@@ -130,3 +134,10 @@ func TestAnArtifactCanReplaceARunningBinary(t *testing.T) {
 			len(got), len(binary)+1)
 	}
 }
+
+// sleepHelperEnv makes the test binary wait instead of running the suite.
+//
+// Read by TestMain in helpers_test.go, which is the external test package and
+// cannot see this constant - so the string is written out there too, and in no
+// third place.
+const sleepHelperEnv = "EARTH_TEST_SLEEP_HELPER"

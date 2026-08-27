@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -162,7 +163,22 @@ var (
 )
 
 // TestMain removes what the shared builds left behind, which no test owns.
+//
+// It also answers as the sleeping helper `TestAnArtifactCanReplaceARunningBinary`
+// needs: that test wants a *running binary* to hold a write lock, and the only
+// binary certain to run wherever this suite runs is this suite. Dispatched here
+// rather than from a `Test` function so the helper costs no skip of its own -
+// a helper that skips whenever it is not the helper is a skip on every run, and
+// this suite is watched by a ceiling that counts them (E770).
 func TestMain(m *testing.M) {
+	// The literal, because the test that sets it is in the *internal* test
+	// package and this file is in the external one. Named in both places and
+	// nowhere else; see exportbusy_test.go.
+	if os.Getenv("EARTH_TEST_SLEEP_HELPER") != "" {
+		time.Sleep(time.Minute)
+		os.Exit(0)
+	}
+
 	code := m.Run()
 
 	for _, d := range sharedDirs {

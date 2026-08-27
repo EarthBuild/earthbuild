@@ -36182,8 +36182,19 @@ that moves is not noticed until the window expires. What the measurement adds is
 that the cost of "off" is not a slice of a no-op build, it is a no-op build -
 36 times what the engine spends on its own work.
 
-⚠ **The settings page's figure for this disagrees.** It says `plan` is 0.585s of
-a 0.61s no-op `+earthly` and 0.21s with a ten-minute window - a third rather
-than all of it. Different target and possibly an older engine, but one of the
-two numbers is stale and neither should be trusted until they are measured the
-same way. Flagged rather than quietly edited.
+**The settings page's figure looked like a contradiction and is not one.** It
+says `plan` is 0.585s of a 0.61s no-op `+earthly`, and 0.21s with a ten-minute
+window - a third removed rather than all of it. The first reading was that one
+of the two numbers must be stale. It was worth a measurement before saying so:
+
+| build                          | warm, `EARTH_PIN_TTL=10m` | `plan` |
+| ------------------------------ | ------------------------- | ------ |
+| 20 steps, one `FROM`           | 12 ms                     | 0.001s |
+| 60 targets, 121 steps, one `FROM` | 16 ms                  | 0.004s |
+
+Plan work does not grow into a fifth of a second with the graph, so the residual
+is not the planner. `+earthly` resolves **remote Earthfiles** -
+`github.com/EarthBuild/buildkit+…` - and that is a fetch the *image*-pin TTL
+does not cover, being about image references rather than about the tree an
+Earthfile is read from. Two different network costs, one of them still paid.
+Both numbers stand, and what the page could say is which of the two remains.

@@ -34820,3 +34820,46 @@ same process.
 **[GAP]** Worth doing with a test that fails first - two identical host steps in
 one build, and a `FOR` whose prefix must run exactly once - rather than worth
 doing quickly.
+
+## E740 - the deadlock was the performance problem
+
+A day spent on speed produced one measurable per-build win - E732's prefetch
+scoping, at about 556ms - and a great many micro-measurements that the noise
+floor swallowed. The largest speed result of the day was not a speed change at
+all.
+
+**The corpus sweep, before and after today's work**, two full sweeps of 250
+builds per binary, alternating, same image cache:
+
+| binary | run 1          | run 2         |
+| ------ | -------------- | ------------- |
+| before | 1326s (228 ok) | 551s (230 ok) |
+| after  | 101s (233 ok)  | 107s (233 ok) |
+
+Nine times faster on the mean. **And the spread is the better number**: two runs
+of the *same* old binary differ by 775 seconds, where the new one differs by
+six.
+
+That variance is E723. A hang costs the harness its whole 120s timeout, and the
+deadlock fired on roughly two cold builds in five, so a sweep's duration was
+mostly a count of how many coins came up hangs. The prefetch fix accounts for
+about 139s of the difference (556ms x 250) and the rest is stalls that no longer
+happen.
+
+### What that says about where the day went
+
+The morning was spent measuring `container ls` at 32ms, per-step removals at
+1.4ms, and a hand-off at 1-2ms - all of them under a 28% run-to-run spread, so
+none of them decidable. Meanwhile a correctness bug was costing two minutes a
+throw, and it did not look like a performance problem because it did not look
+like anything: a hung build produces no slow phase, no hot function and no
+number. It produces an absence.
+
+**A profile cannot show you the work that never finished.** Every instrument
+used that morning - `EARTH_TIMINGS`, per-step medians, whole-build wall clock -
+reports on builds that completed. The build that mattered was the one that did
+not, and it was found by chasing a *reliability* report rather than a slow one.
+
+The practical rule: when a build system is intermittently slow, count the
+failures before profiling the successes. A 40% chance of a two-minute stall
+outweighs every microsecond in this document.

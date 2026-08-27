@@ -36790,3 +36790,27 @@ engine is measured against. Recorded here rather than changed.
 **E767's error is the ordinary one.** A signature absent from a job's log means
 "not found in this log", and a job that failed earlier has a shorter log. Two of
 three had been fixed and the third was never reached.
+
+## E781 - independent targets do run at once
+
+Asked of the scheduler rather than assumed of it. Eight targets over one base,
+each a busy loop rather than a sleep - a sleeping step parallelises whether or
+not anything is scheduled, and would prove nothing:
+
+| what                  | time     |
+| --------------------- | -------- |
+| one fresh target      | 4392 ms  |
+| six more, together    | 4720 ms  |
+| six serially would be | 26352 ms |
+
+5.6x on a sixteen-core machine, and the six cost 7% more than the one. The
+scheduler is doing what it exists for.
+
+Measured on a warm store with the base already pulled, because the first attempt
+compared eight targets on a warm store against one target on a cold one and made
+the single target look *slower* than eight - the pull was in it. A number beside
+another number is not a comparison unless both were asked the same question.
+
+With E774 this says where a build's time is: the network until it is pinned, the
+step's own work after that, and the engine neither serialising what could run at
+once nor spending anything measurable of its own.

@@ -170,6 +170,25 @@ func main() {
 			"do not write SAVE ARTIFACT AS LOCAL artifacts to the working tree")
 		ci = flag.Bool("ci", false,
 			"execute in CI mode; implies -no-output (this engine is already strict)")
+		// Wiring, not mechanism, exactly as the three above: `engine/cli`
+		// already has ExecStats and prints `total CPU: ... total memory: ...`
+		// from it (E467), and nothing could set it - so the option was
+		// reachable from its own tests and from nowhere a user could stand.
+		execStats = flag.Bool("exec-stats", false,
+			"print what the build spent: total CPU across its steps, and peak memory")
+		// **Accepted, and it changes nothing.** earthly's `--verbose` asks for
+		// more logging; this engine prints a row per step either way and has no
+		// quieter mode to be raised from. Refusing it would make an invocation
+		// that asks for detail fail outright, which is a worse answer than
+		// giving it the detail there is - and `engine/cli`'s own corpus harness
+		// already treats it as being about the invocation rather than the
+		// build. Named here so that stance is visible rather than implied by a
+		// flag nobody declared.
+		// Declared without binding a variable: nothing reads it, and a name
+		// here would have to be read somewhere to compile - which would be a
+		// use invented to satisfy the compiler rather than the build.
+		_ = flag.Bool("verbose", false,
+			"accepted for compatibility; this engine's output does not have a quieter mode")
 		// Made here rather than on first use, for the reason the two below are:
 		// a nil map takes no assignment, and the arguments written after the
 		// target are merged into this one whether or not -build-arg was used.
@@ -319,6 +338,7 @@ func main() {
 		ArgFile:         *argFile,
 		SecretFile:      *secretFile,
 		NoCache:         *noCache,
+		ExecStats:       *execStats,
 		AllowPrivileged: *allowPriv,
 		Push:            *push,
 		VersionFlags:    splitList(*versionFlags),

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
@@ -52,6 +53,16 @@ func squashInto(ctx context.Context, store string, into ir.NodeID, rng []ir.Node
 		err := ctx.Err()
 		if err != nil {
 			return err
+		}
+
+		// A declaration is a stack element and not a layer: it travels with the
+		// stack so a worker fetching one fetches it too, and it is filed as
+		// `layers/<id>.decl` - a file, where this wants a tree. It contributes
+		// nothing to a merged tree, so it is skipped rather than refused, and
+		// only it: an absence that is not one of these is still a build whose
+		// result would be missing files (E751).
+		if decl.Has(store, id) {
+			continue
 		}
 
 		src := filepath.Join(store, "layers", id.String())

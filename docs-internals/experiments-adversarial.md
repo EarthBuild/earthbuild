@@ -35403,10 +35403,14 @@ if res.Declares != (ir.NodeID{}) {
 
 But `decl.Write` files it at `layers/<id>.decl`, a **file**, while
 `LayerStore.Has` stats `layers/<id>` and requires `IsDir()`. Asked of a
-declaration, that test cannot succeed. Every other consumer was indifferent -
-`LayerStore.View` joins paths without stating them - so `packImageInto` was the
-only place the disagreement was reachable, and it reported a correct build as a
-lost layer.
+declaration, that test cannot succeed. `LayerStore.View` is indifferent - it joins paths without
+stating them - and the overlay materialiser had the answer already, classifying
+each element as a layer, a declaration, or neither. `packImageInto` had none of
+that and reported a correct build as a lost layer.
+
+**It was not the only one.** This paragraph first said it was, on the strength
+of a grep for `LayerStore`; `squashInto` reaches the store through
+`filepath.Join` and was not in those results. E751 has it.
 
 **How the evidence read, and why it misled.** Three facts pointed away from the
 answer for most of a day:
@@ -35480,3 +35484,43 @@ It then fails for a reason the engine already diagnoses: this box is NixOS, its
 `docker` client is dynamically linked and so cannot be injected into the
 sandbox, and the test's image carries none. That is a property of the machine,
 not of the engine, and the message says so.
+
+## E751 - the second consumer that thought a declaration was a layer
+
+E749 fixed packing and claimed it was the only place the confusion was
+reachable. The Native suite's `+test-misc` said otherwise, three times in one
+job:
+
+```console
+collapse 2 layers into one: layer bd727dfa4357... is named in a stack and is
+not in the store
+```
+
+The same id as E749 - `FROM alpine`'s declaration, whose identity is its content
+digest and so is the same on every machine and every run.
+
+**Where it was.** Φ collapses a range of the stack into one layer so the rest
+can be mounted (§4.8). `squashInto` walks that range, stats `layers/<id>`, and
+refuses what is not there. A declaration falls inside the range whenever the
+base of a squashed stack declares anything, which is to say whenever the base is
+an image.
+
+**Why the E749 sweep missed it.** That sweep grepped for `LayerStore`, which is
+how most of the engine reaches the store. `squashInto` builds its path with
+`filepath.Join(store, "layers", id.String())` directly, so it was not in the
+results, and the claim that packing was the only site was made from a search
+that could not have found it. The corrected sweep is for the *path*, not the
+type: `filepath.Join(.*"layers"`.
+
+That sweep leaves one place worth stating rather than asserting: **the fleet has
+no declaration handling at all**. `Layers.Has` stats `layers/<id>`, so a
+declaration in a delegated step's base reads as missing and is fetched as a
+layer, and nothing in `engine/fleet` writes or serves a `.decl`. Either such a
+build fails on the worker in `classify` - which has the diagnosis ready, "holds
+neither a layer nor a declaration" - or something ships it that this reading has
+not found. Unresolved, and not the cause of the current fleet-e2e failure, which
+is a worker-discovery assertion ("both workers did not ...").
+
+**The fix.** `squashInto` skips a declaration and refuses every other absence
+exactly as before, with a test for each half: a range carrying one is squashed,
+and a range naming a layer that genuinely is not there is still refused.

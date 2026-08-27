@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
@@ -160,5 +161,65 @@ func TestAnInterruptedSquashLeavesNoLayer(t *testing.T) {
 	_, err = os.Stat(filepath.Join(store, "layers", into.String()))
 	if err == nil {
 		t.Error("a failed squash left a layer behind, which a later mount would use")
+	}
+}
+
+// A declaration in the range is skipped, not mistaken for a lost layer.
+//
+// An image's environment travels as a stack element so a worker fetching the
+// stack fetches it too, and it is stored as `layers/<id>.decl` - a file, where
+// this wants a tree. Φ collapses a *range* of the stack, so a declaration falls
+// inside it whenever the base of a squashed stack declares anything, and every
+// such build stopped with the declaration reported as a layer the store had
+// lost (E749, E751).
+func TestSquashingARangeThatCarriesADeclaration(t *testing.T) {
+	t.Parallel()
+
+	store := t.TempDir()
+	lower, upper, into := ir.NodeID{1}, ir.NodeID{2}, ir.NodeID{3}
+
+	writeLayer(t, store, lower, map[string]string{"a": "from the lower"})
+	writeLayer(t, store, upper, map[string]string{"b": "from the upper"})
+
+	declares, err := decl.Write(store, decl.Declaration{Env: []string{"PATH=/usr/bin"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Above the layer it came with, which is where the scheduler puts it.
+	err = squashInto(context.Background(), store, into, []ir.NodeID{lower, declares, upper})
+	if err != nil {
+		t.Fatalf("a range carrying a declaration was refused: %v", err)
+	}
+
+	// Both layers merged, the declaration contributing nothing to the tree.
+	for name, want := range map[string]string{"a": "from the lower", "b": "from the upper"} {
+		got, readErr := os.ReadFile(filepath.Join(store, "layers", into.String(), name))
+		if readErr != nil {
+			t.Fatalf("%s did not reach the squashed layer: %v", name, readErr)
+		}
+
+		if string(got) != want {
+			t.Errorf("%s = %q, want %q", name, got, want)
+		}
+	}
+}
+
+// A layer the store really has not got is still refused.
+//
+// The declaration skip must not become a general tolerance for absence: a stack
+// naming a layer that is not there is a build whose result would be missing
+// files, and the whole value of the check is that it says so (E751).
+func TestSquashingStillRefusesALayerThatIsNotThere(t *testing.T) {
+	t.Parallel()
+
+	store := t.TempDir()
+	present, absent, into := ir.NodeID{1}, ir.NodeID{9}, ir.NodeID{3}
+
+	writeLayer(t, store, present, map[string]string{"a": "here"})
+
+	err := squashInto(context.Background(), store, into, []ir.NodeID{present, absent})
+	if err == nil {
+		t.Fatal("a range naming a layer the store does not hold was squashed")
 	}
 }

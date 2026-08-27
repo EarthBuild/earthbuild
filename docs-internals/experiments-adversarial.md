@@ -36038,3 +36038,46 @@ is unchanged by this and is still unattributed: it appears in a job that
 previously died earlier, which is the same shape as `test-misc` moving from the
 collapse fault to E760's, and that is evidence of progress rather than of
 breakage.
+
+## E763 - the harness was the flake, and what the cgroup work does not do
+
+E762 withdrew a regression that a single run had invented. This settles the
+question properly, because the harness can be made deterministic.
+
+**Why it was flaky.** `EARTH_CACHE_DIR=/store` inside a container with no volume
+puts the store on the container's own overlayfs, and overlayfs will not stack on
+overlayfs - so `Mountable` took the escape it was written for and put the step's
+scratch on a tmpfs. A dind daemon then loads images into memory and sometimes
+runs out. The engine says all of this in its own output; it was read as noise.
+Mount a volume and it stops:
+
+```console
+docker run --privileged -v "$store:/store" -e EARTH_CACHE_DIR=/store \
+  -v "$build:/b:ro" -e EARTH_GUESTD=/b/eg-static docker:27-dind /b/en-static +wd
+```
+
+| store                        | result              |
+| ---------------------------- | ------------------- |
+| container's own overlayfs    | 2 of 3, then 3 of 3, then 1 of 3 - noise |
+| a volume on the machine's disk | 3 of 3, no fallback message |
+
+**With that, the A/B is worth running, and it says nothing happened.** `WITH
+DOCKER` passes 3 of 3 both before the three mount commits and on current code,
+and the nested daemon reports `27.5.1 2` in both - the same server, the same
+cgroup version.
+
+**Which corrects why E753 and E754 were done.** Both were justified partly by a
+nested daemon needing cgroups, and a nested daemon does not: the daemon **runs
+beside the step, not inside it** (E368), in the guest's namespaces, where
+`/sys/fs/cgroup` was always present. Mounting `/sys` and cgroup2 *in the step*
+cannot have affected it and did not.
+
+What those mounts are still for is unchanged and narrower than claimed:
+`earth-entrypoint.sh` runs **inside** a step in the earth-in-earth tests and
+probes `/sys/fs/cgroup/cgroup.controllers` there; and a step reading `/sys` for
+cpu count or cgroup limits gets an answer instead of the machine's. The I3
+argument for the cgroup namespace is untouched - a step was reading the
+machine's cgroup path.
+
+No claim is made here that group4 is fixed. That will be visible in CI or it
+will not.

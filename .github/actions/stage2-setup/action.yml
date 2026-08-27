@@ -17,6 +17,7 @@ inputs:
   USE_QEMU:
     description: "Whether to set up QEMU"
     required: false
+    default: 'false'
   USE_NEXT:
     description: "Whether to use earthly-next"
     required: false
@@ -56,6 +57,18 @@ runs:
       shell: bash
       run: |
         unset CI
+    - name: Load legacy iptables kernel modules
+      # On Ubuntu 26.04+ runners, the kernel defaults to nf_tables and does not
+      # auto-load legacy iptables modules. Legacy DinD images that use iptables-legacy
+      # (such as ubuntu:20.04 DinD and docker:20.10 DinD) cannot modprobe inside
+      # containers because /lib/modules is not mounted. Pre-loading these modules on
+      # the host ensures legacy DinD containers can initialize the NAT/filter tables.
+      shell: bash
+      run: |
+        sudo modprobe ip_tables 2>/dev/null || true
+        sudo modprobe iptable_filter 2>/dev/null || true
+        sudo modprobe iptable_nat 2>/dev/null || true
+        sudo modprobe iptable_mangle 2>/dev/null || true
     - name: Check if running on fork
       id: fork-check
       shell: bash
@@ -206,9 +219,9 @@ runs:
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}
-    - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
-      # qemu-user-static needed for cross-compilation (--platform) targets
-      run: ${INPUTS_SUDO} apt-get update && ${INPUTS_SUDO} apt-get install -y qemu-user-static
+    - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU == 'true' }}
+      # qemu-user-binfmt needed for cross-compilation (--platform) targets
+      run: ${INPUTS_SUDO} apt-get update && ${INPUTS_SUDO} apt-get install -y qemu-user-binfmt
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}
@@ -265,7 +278,7 @@ runs:
         echo "Extracting earth binary from stage1 of build"
         export TAG=${GITHUB_SHA}-latest
         if [ "${INPUTS_USE_NEXT}" = "true" ]; then export TAG="$TAG-ticktock"; fi
-        ${INPUTS_SUDO} ./earthly upgrade
+        ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" ./earthly upgrade
         ${INPUTS_SUDO} chown -R $USER ~/.earthly # restore non-sudo user ownership
         test -n "${INPUTS_BUILT_EARTH_PATH}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
         mkdir -p "$(dirname "${INPUTS_BUILT_EARTH_PATH}")"

@@ -85,12 +85,12 @@ reset_buildkit() {
     # Before the reset, which destroys it. Without this an attempt-1
     # session-loss failure is undiagnosable.
     echo "::group::buildkitd logs from failed attempt $1"
-    $sudo_prefix "$binary" logs earthly-buildkitd 2>&1 | tail -n "$log_tail" || true
+    $sudo_prefix "$binary" logs earth-buildkitd 2>&1 | tail -n "$log_tail" || true
     echo "::endgroup::"
   fi
-  $sudo_prefix "$binary" rm -fv earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
-  $sudo_prefix "$binary" volume rm earthly-cache earthly-dev-cache 2>/dev/null || true
-  $sudo_prefix rm -rf ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
+  $sudo_prefix "$binary" rm -fv earth-buildkitd earth-dev-buildkitd earthly-buildkitd earthly-dev-buildkitd 2>/dev/null || true
+  $sudo_prefix "$binary" volume rm earth-cache earth-dev-cache earthly-cache earthly-dev-cache 2>/dev/null || true
+  $sudo_prefix rm -rf ~/.earth/buildkit ~/.earth-dev/buildkit ~/.earthly/buildkit ~/.earthly-dev/buildkit 2>/dev/null || true
   if [ "$sleep_secs" -gt 0 ] 2>/dev/null; then
     sleep "$sleep_secs"
   fi

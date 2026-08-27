@@ -167,6 +167,17 @@
       ],
       datasourceTemplate: 'pypi',
     },
+    {
+      customType: 'regex',
+      description: 'Update GitHub Actions runner versions',
+      managerFilePatterns: [
+        '/(^|/)\\.github/workflows/.+\\.ya?ml$/',
+      ],
+      matchStrings: [
+        '(?:runs-on|RUNS_ON):\\s*[\'"]?(?<depName>ubuntu|macos|windows)-(?<currentValue>[^\'"\\s#]+)[\'"]?',
+      ],
+      datasourceTemplate: 'github-runners',
+    },
   ],
   labels: [
     'renovate',

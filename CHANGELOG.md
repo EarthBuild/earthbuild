@@ -4,6 +4,52 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ## Unreleased
 
+### Changed
+
+- Completed the `EARTHLY_*` -> `EARTH_*` environment variable rename for the variables EarthBuild
+  sets on itself. The published `earthbuild/earthbuild` image no longer emits deprecation warnings
+  for its own configuration. [#751](https://github.com/EarthBuild/earthbuild/issues/751)
+- The image-facing variables `EARTH_ADDITIONAL_BUILDKIT_CONFIG`, `EARTH_EXEC_CMD`, `EARTH_TMP_DIR`,
+  `EARTH_RESET_TMP_DIR`, `EARTH_DEBUG`, `EARTH_BUILDKIT_HOST`, `EARTH_DOCKER_WRAPPER_DEBUG`,
+  `EARTH_DOCKER_WRAPPER_DEBUG_CMD` and `EARTH_DOCKER_WRAPPER_PRE_SCRIPT` are now the current names.
+  The `EARTHLY_` spellings still work and log a deprecation warning. The unprefixed `BUILDKIT_HOST`
+  read by the all-in-one image is unchanged, as it is upstream BuildKit's name.
+- `WITH DOCKER` settings are passed to `dockerd-wrapper.sh` as command-line flags instead of
+  `EARTHLY_*` environment variables, so they no longer appear in the environment of commands run
+  inside `WITH DOCKER`. An older `earth` CLI paired with a newer buildkitd image still works, with
+  a warning.
+- The `earthbuild/earthbuild` image now installs the CLI as `/usr/bin/earth`, matching the released
+  binaries, with `/usr/bin/earthly` kept as a symlink for one deprecation cycle. Invoking `earthly`
+  warns. [#796](https://github.com/EarthBuild/earthbuild/issues/796)
+- The official installation name `earth` no longer receives a buildkit port offset, so the default
+  buildkit port stays 8372 and the local registry stays 8371. Previously only the deprecated
+  `earthly` name was exempt, which would have moved an `earth` installation to 8846/8845 and
+  desynchronised it from the ports hardcoded in the image.
+  [#796](https://github.com/EarthBuild/earthbuild/issues/796)
+
+### Fixed
+
+- The published docker image shipped only `earthly` while the release assets were all named `earth`,
+  so `earth` was absent from the image entirely and following the v0.8.18 release notes into the
+  image failed with `earth: not found`. The image build path hardcoded its own
+  `DEFAULT_INSTALLATION_NAME`; it is now threaded from the release path, so the image and the
+  released binaries cannot disagree about the CLI's name, config dir, buildkitd container name or
+  cache volume name. [#796](https://github.com/EarthBuild/earthbuild/issues/796)
+- The `earthly` deprecation notice no longer claims the command "is currently symlinked" when it is
+  not, and its `rm` suggestion is no longer gated on a path built from the deprecated name, which
+  tested for the invoked binary itself rather than its replacement.
+  [#796](https://github.com/EarthBuild/earthbuild/issues/796)
+
+### Fixed
+
+- `EARTH_WITH_DOCKER` is now honoured. Previously only `EARTHLY_WITH_DOCKER` was read, so following
+  the deprecation warning silently disabled the `/sys/fs/cgroup` mount needed for earth-in-earth.
+  [#751](https://github.com/EarthBuild/earthbuild/issues/751)
+
+### Removed
+
+- `EARTHLY_IMAGE` and `EARTHLY_GIT_CONFIG`, which had no reader and no writer respectively.
+
 ## v0.8.16 - 2025-07-16
 
 ### Changed

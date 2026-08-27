@@ -45,22 +45,22 @@ test-connect:
     COPY ./certs/domain.crt ./test.ca
     DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test-connect
 
-# Work around the lack of variable overriding, since the base image already includes EARTHLY_ADDITIONAL_BUILDKIT_CONFIG
+# Work around the lack of variable overriding, since the base image already includes EARTH_ADDITIONAL_BUILDKIT_CONFIG
 DO_REMOTE_CACHE_EARTH:
     FUNCTION
 
-    ARG EARTHLY_ADDITIONAL_BUILDKIT_CONFIG
+    ARG EARTH_ADDITIONAL_BUILDKIT_CONFIG
     ARG REGISTRY_CONFIG
     ARG target
 
     RUN --privileged \
         --mount=type=tmpfs,target=/tmp/earthbuild \
         -- \
-        ( EARTHLY_ADDITIONAL_BUILDKIT_CONFIG=$EARTHLY_ADDITIONAL_BUILDKIT_CONFIG$REGISTRY_CONFIG \
-            /usr/bin/earthly-entrypoint.sh --ci --push \
+        ( EARTH_ADDITIONAL_BUILDKIT_CONFIG=$EARTH_ADDITIONAL_BUILDKIT_CONFIG$REGISTRY_CONFIG \
+            /usr/bin/earth-entrypoint.sh --ci --push \
             --build-arg REGISTRY=$REGISTRY \
             $target; echo exit_code=$? \
         ) 2>&1 | tee ./output && \
         if ! tail -n 1 output | grep 'exit_code=0'; then \
-            echo "ERROR: earthly failed (exit_code=0 not found)" && tail -n 1 output && exit 1; \
+            echo "ERROR: earth failed (exit_code=0 not found)" && tail -n 1 output && exit 1; \
         fi

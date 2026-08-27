@@ -9,7 +9,7 @@ jobs:
   update-docker-hub-readmes:
     name: update dockerhub readmes
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     env:

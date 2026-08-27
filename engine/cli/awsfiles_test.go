@@ -113,3 +113,32 @@ func writeAWS(t *testing.T, path, body string) {
 		t.Fatal(err)
 	}
 }
+
+// **Where this machine keeps its credentials is not the step's business.**
+// `AWS_SHARED_CREDENTIALS_FILE` and `AWS_CONFIG_FILE` name host paths; forwarded
+// into a sandbox they point the AWS tooling at files that are not there, which
+// is worse than saying nothing - the values read *from* those files are what the
+// step is given.
+//
+// It also made a test lie: isolating the corpus's no-credentials case by
+// pointing these at an empty directory added two AWS_ variables, and
+// `RUN --aws env | grep AWS` found them, so a target declared as must-fail built.
+func TestTheLocationOfCredentialsIsNotForwarded(t *testing.T) {
+	t.Parallel()
+
+	got := awsCredentials([]string{
+		"AWS_SHARED_CREDENTIALS_FILE=/home/someone/.aws/credentials",
+		"AWS_CONFIG_FILE=/home/someone/.aws/config",
+		"AWS_ACCESS_KEY_ID=AKIAEXAMPLE",
+	}, awsPaths{home: t.TempDir()})
+
+	for _, name := range []string{"AWS_SHARED_CREDENTIALS_FILE", "AWS_CONFIG_FILE"} {
+		if _, forwarded := got[name]; forwarded {
+			t.Errorf("%s was forwarded to the step", name)
+		}
+	}
+
+	if got["AWS_ACCESS_KEY_ID"] != "AKIAEXAMPLE" {
+		t.Errorf("the credential itself was lost: %v", got)
+	}
+}

@@ -951,6 +951,15 @@ func awsFromEnv(environ []string) map[string]string {
 			continue
 		}
 
+		// **Where this machine keeps its credentials is not the step's
+		// business.** These name host paths, and a sandbox has neither the path
+		// nor the file - so forwarding them points the AWS tooling at something
+		// absent, which is worse than saying nothing. What the files hold is
+		// forwarded instead, by awsFromFiles.
+		if name == "AWS_SHARED_CREDENTIALS_FILE" || name == "AWS_CONFIG_FILE" {
+			continue
+		}
+
 		if out == nil {
 			out = map[string]string{}
 		}

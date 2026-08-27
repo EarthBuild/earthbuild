@@ -48,6 +48,19 @@ func TestHowManyEarthTestsBuild(t *testing.T) {
 
 	t.Setenv("EARTH_GUESTD", guest)
 	t.Setenv("EARTH_IMAGE_CACHE_DIR", sharedImages(t))
+
+	// **Away from whatever credentials this machine has.** `RUN --aws` reads the
+	// shared AWS files, which is the point of it - and `aws-flag.earth+basic` is
+	// declared as a target that *must fail* for want of credentials. On a
+	// developer's machine with `aws configure` run once, it stopped failing, and
+	// the sweep reported a target building that the tree says cannot.
+	//
+	// Pointed at an empty directory rather than moving HOME, which the Go build
+	// cache underneath this test still needs.
+	empty := t.TempDir()
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(empty, "credentials"))
+	t.Setenv("AWS_CONFIG_FILE", filepath.Join(empty, "config"))
+	t.Setenv("AWS_PROFILE", "")
 	useStore(t, cache)
 
 	// The tree's location, not a path relative to this file.

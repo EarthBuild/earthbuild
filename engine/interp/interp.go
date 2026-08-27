@@ -1450,6 +1450,27 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		dir := c.Args[0]
 		if rs.stage != nil {
 			dir = expandWith(dir, rs.envFor())
+
+			// **A variable still standing, and no way to know what it was.**
+			// Running here would put the step in a directory *named* `$GOPATH`,
+			// and the build would fail somewhere else entirely - buildkit's own
+			// Dockerfile failed three layers away on `go: go.mod file not
+			// found`, because a bind mount aimed at the working directory
+			// landed where the WORKDIR was supposed to be (E747).
+			//
+			// Only when the environment could not be read. A variable that is
+			// simply unset is a different thing and not this one's to decide.
+			if rs.envUnreadable != nil && strings.Contains(dir, "$") {
+				return nil, fmt.Errorf(
+					"WORKDIR %s at %s names a variable and this build cannot say what it holds"+
+						"\n  the base image declares the environment a Dockerfile's WORKDIR reads,"+
+						" and it could not be read: %w"+
+						"\n  running anyway would use a directory named as written, and fail later"+
+						" somewhere else"+
+						"\n  the image is needed to build this either way, so try again when the"+
+						" registry answers",
+					c.Args[0], loc(c.SourceLocation), rs.envUnreadable)
+			}
 		}
 
 		rs.dir = resolveDir(rs.dir, dir)

@@ -69,6 +69,13 @@ type state struct {
 	// name of the target it wandered into behind it.
 	target string
 	cfg    Config
+	// envUnreadable is why this stage's environment is incomplete, when the base
+	// image could not be asked what it declares.
+	//
+	// Carried rather than raised at the point it happens: it matters only if
+	// something later actually reads the environment, and a stage that never
+	// names a variable does not care that a registry was briefly unreachable.
+	envUnreadable error
 }
 
 func newState() *state {

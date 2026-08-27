@@ -394,6 +394,29 @@ func prepare(ctx context.Context, ref string, opt Options) (prepared, error) {
 	return prepared{client: client, tok: tok, base: base, m: m}, nil
 }
 
+// Config fetches what an image declares, without fetching the image.
+//
+// The manifest and the configuration blob, and no layer: a Dockerfile's
+// `WORKDIR $GOPATH/src/x` needs to know what the base image set long before
+// anything is unpacked, and pulling an image to read one environment variable
+// would make planning cost what building costs (E747).
+//
+// Two round trips, both of which a pull makes anyway - so on a build that goes
+// on to use the image this is work brought forward rather than added.
+func Config(ctx context.Context, ref string, opt Options) (ocispec.ImageConfig, error) {
+	p, err := prepare(ctx, ref, opt)
+	if err != nil {
+		return ocispec.ImageConfig{}, err
+	}
+
+	cfg, err := pullConfig(ctx, p.client, p.tok, p.base, p.m.Config, opt.Platform)
+	if err != nil {
+		return ocispec.ImageConfig{}, fmt.Errorf("configuration of %s: %w", ref, err)
+	}
+
+	return cfg, nil
+}
+
 // Pull fetches an image and unpacks every layer into one directory.
 func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfig, error) {
 	p, err := prepare(ctx, ref, opt)

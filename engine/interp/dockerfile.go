@@ -2,6 +2,7 @@ package interp
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -153,6 +154,7 @@ func (p *Plan) fromDockerfile(c earthfile.Command, prev *ir.Node, rs *state) (*i
 
 	b := &dockerfileBuild{
 		plan: p, stages: stages, built: map[string]*ir.Node{},
+		envOf: map[string]map[string]string{},
 		where: where, context: fromTarget,
 		globals: globalArgs(meta, opt.args),
 	}
@@ -180,7 +182,15 @@ type dockerfileBuild struct {
 	plan   *Plan
 	stages []instructions.Stage
 	built  map[string]*ir.Node
-	where  string
+	// envOf is the environment each built stage ended with.
+	//
+	// A stage built FROM another starts from that stage's *image*, and an image
+	// carries the ENV that made it - so the environment travels even though the
+	// files are all a later stage inherits. Kept beside `built` because it is the
+	// same question asked of the same key, and a stage answered from the cache
+	// must answer with its environment too.
+	envOf map[string]map[string]string
+	where string
 	// context is the target whose output the Dockerfile's COPY reads from, when
 	// a target was named instead of a directory. Nil means the ordinary case:
 	// files on this machine.
@@ -230,6 +240,13 @@ func (b *dockerfileBuild) stage(
 		expandPredefined(st.BaseName, b.plan.targetPlatform(rs), b.plan.opt.nativePlatform()),
 		b.globals)
 
+	// What this stage starts with: the base stage's environment, or the base
+	// image's. Both branches below set it; neither leaves it as declared here.
+	var inherited map[string]string
+
+	// Why this stage's environment is incomplete, if it is.
+	var unreadable error
+
 	if other, ok := b.find(baseName); ok {
 		n, err := b.stage(other, prev, rs, pending)
 		if err != nil {
@@ -237,6 +254,9 @@ func (b *dockerfileBuild) stage(
 		}
 
 		base = n
+		// Read after the base is built, not before: until it has run there is
+		// nothing recorded under its name.
+		inherited = b.envOf[strings.ToLower(baseName)]
 	} else {
 		n, err := b.plan.command(earthfile.Command{
 			Name: earthfile.CmdFrom, Args: []string{baseName},
@@ -247,6 +267,8 @@ func (b *dockerfileBuild) stage(
 		}
 
 		base = n
+
+		inherited, unreadable = b.declaredBy(baseName, rs)
 	}
 
 	// Each stage gets its own environment and working directory: they are the
@@ -256,7 +278,15 @@ func (b *dockerfileBuild) stage(
 	// The configuration is its own too, and starts empty for the same reason -
 	// a stage's VOLUME is the stage's, not the caller's.
 	sub := *rs
-	sub.env = map[string]string{}
+	// Starts from the base stage's environment, which is Docker's rule - `FROM
+	// base AS x` begins at base's image and an image carries the ENV that made
+	// it. An empty map here left a variable set in one stage undefined in the
+	// next, and a chain of stages is how a real Dockerfile is written.
+	sub.envUnreadable = unreadable
+	sub.env = maps.Clone(inherited)
+	if sub.env == nil {
+		sub.env = map[string]string{}
+	}
 	sub.dir = ""
 	sub.user = ""
 	sub.cfg = Config{Labels: map[string]string{}, Env: map[string]string{}}
@@ -315,6 +345,7 @@ func (b *dockerfileBuild) stage(
 
 	if st.Name != "" {
 		b.built[strings.ToLower(st.Name)] = base
+		b.envOf[strings.ToLower(st.Name)] = maps.Clone(sub.env)
 	}
 
 	return base, nil
@@ -609,6 +640,29 @@ func globalArgs(meta []instructions.ArgCommand, supplied map[string]string) map[
 // A second expander was never needed. This one is a name for the right one.
 func expandWith(in string, vals map[string]string) string {
 	return scope(vals).expandWord(in)
+}
+
+// declaredBy is the environment a base image carries, and why it is unknown.
+//
+// A stage built from a registry image starts in that image's environment, and a
+// Dockerfile reads it: `WORKDIR $GOPATH/src/x` is buildkit's own, with GOPATH
+// set by the golang image and by nothing in the file (E747).
+//
+// **A failure is returned rather than raised.** It matters only if some later
+// WORKDIR actually names a variable, and refusing a build that never reads the
+// environment - because a registry was briefly unreachable - would be a refusal
+// about nothing.
+func (b *dockerfileBuild) declaredBy(ref string, rs *state) (map[string]string, error) {
+	if b.plan.opt.imageEnv == nil {
+		return nil, nil
+	}
+
+	env, err := b.plan.opt.imageEnv(ref, b.plan.targetPlatform(rs))
+	if err != nil {
+		return nil, err
+	}
+
+	return env, nil
 }
 
 // selectStage picks the stage to build, naming what exists when the one asked

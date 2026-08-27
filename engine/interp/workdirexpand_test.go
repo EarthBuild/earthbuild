@@ -73,3 +73,38 @@ main:
 		}
 	}
 }
+
+// **A stage inherits the environment of the stage it is built FROM**, which is
+// Docker's rule: `FROM base AS x` starts from base's image, and that image
+// carries base's ENV. Each stage started empty here, so a variable set in one
+// stage was gone in the next - and buildkit's own Dockerfile is a chain of
+// exactly that shape, `golang` -> `golatest` -> `gobuild-base` -> `runc`, with
+// GOPATH set at the bottom and read at the top.
+func TestAStageInheritsTheEnvOfTheStageItComesFrom(t *testing.T) {
+	t.Parallel()
+
+	dir := withDockerfile(t, "Dockerfile", `FROM alpine:3.22 AS base
+ENV ROOT=/go
+
+FROM base AS mid
+ENV SUB=src
+
+FROM mid AS out
+WORKDIR $ROOT/$SUB/thing
+RUN make it
+`)
+
+	p, err := interp.Build(versioned+`
+main:
+    FROM DOCKERFILE --target out .
+`, testMain, interp.WithContext(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, n := range p.Graph.Nodes() {
+		if n.Op.Kind == ir.OpExec && n.Op.Dir != "/go/src/thing" {
+			t.Errorf("step runs in %q, want /go/src/thing", n.Op.Dir)
+		}
+	}
+}

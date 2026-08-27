@@ -35275,6 +35275,31 @@ what a build fetches before it decides anything - and this engine deliberately
 lets an unreachable registry proceed unpinned rather than fail. That is a
 decision about the plan's dependencies, not a defect to fix quietly.
 
-**[GAP]** Base-image environment at plan time. Until it exists, a Dockerfile
-whose `WORKDIR` names a variable the base image sets cannot be planned correctly,
-and buildkit's own Dockerfile is such a file.
+**Closed.** Planning now reads what a base image declares, in two halves,
+because the environment arrives by two routes:
+
+* **a stage inherits the stage it is built FROM.** `FROM base AS x` begins at
+  base's *image*, and an image carries the ENV that made it. Every stage started
+  from an empty map here, so a variable set in one stage was undefined in the
+  next - and a real Dockerfile is a chain of exactly that shape;
+* **a stage built from a registry image starts in that image's environment.**
+  `image.Config` fetches the manifest and the configuration blob and no layer:
+  pulling an image to read one variable would make planning cost what building
+  costs, and both round trips are ones a pull makes anyway, so on a build that
+  goes on to use the image it is work brought forward rather than added.
+
+buildkit's chain is `golang` -> `golatest` -> `gobuild-base` -> `runc`, needing
+both.
+
+**When it cannot be read, the build refuses**, which is the decision this needed
+and got: guessing a working directory would run the step somewhere arbitrary and
+fail later somewhere else, and the image is needed to build at all - so a
+registry that will not answer is a reason to stop rather than to improvise. The
+failure is *carried* rather than raised where it happens: a stage that never
+names a variable does not care that a registry was briefly unreachable.
+
+**Measured**: the buildkit fork now builds past the step that started this, and
+stops at a different one - `earthbuild step shim: make room for /proc: mkdir
+.../merged/proc: read-only file system`. A separate defect on the guest side, and
+the next link rather than this one. Corpus unchanged at 235 with an empty
+case-by-case diff.

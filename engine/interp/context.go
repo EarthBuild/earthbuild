@@ -65,6 +65,8 @@ type options struct {
 	// value. Empty unless a fleet key is configured, and the only route by
 	// which anything derived from a secret's value reaches the graph.
 	secretDigest map[string]string
+	// imageEnv reads what a base image declares. See WithImageEnv.
+	imageEnv ImageEnv
 	// platform is what the build runs on when no `--platform` says otherwise:
 	// the sandbox's own, which is also what NATIVE* reports. Empty means the
 	// invoking machine's, which is right for a plan resolved without a sandbox.
@@ -321,6 +323,30 @@ func WithSecrets(secrets map[string]string) Option {
 	}
 
 	return func(o *options) { o.secrets = names }
+}
+
+// ImageEnv is the environment an image carries, for a reference this build is
+// about to start a stage from.
+//
+// A Dockerfile's `WORKDIR $GOPATH/src/x` reads what the *base image* set, and
+// until this existed the engine knew a base image's digest and nothing else
+// about it - so the variable stayed as written and the step ran in a directory
+// named `$GOPATH` (E747).
+//
+// Returning an error is not the same as returning nothing: nothing means the
+// image sets no environment, an error means this machine could not find out,
+// and only the second is a reason to refuse a stage that needs it.
+type ImageEnv func(ref, platform string) (map[string]string, error)
+
+// WithImageEnv supplies Θ's neighbour: what an image declares, rather than which
+// image it is.
+//
+// Separate from WithImageResolver because the two answer different questions and
+// fail differently - a reference that cannot be resolved leaves a build unpinned
+// and running, while an environment that cannot be read leaves a `WORKDIR` this
+// engine cannot honour.
+func WithImageEnv(fn ImageEnv) Option {
+	return func(o *options) { o.imageEnv = fn }
 }
 
 // WithSecretDigests supplies a fleet-keyed digest per secret, which is what

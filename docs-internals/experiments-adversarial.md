@@ -34326,4 +34326,29 @@ Existing prediction files stop matching, which is correct: those entries were
 never safe to apply to another project, and they are relearned in a build or
 two.
 
-**[GAP]** Not yet implemented, and deliberately not folded into the E723 work.
+### Done, and what it moved
+
+Relative locations are qualified with the build root; `prefetch` speculates only
+on sites under the root it is running in.
+
+**The mechanism is the decisive measurement, not the stopwatch.** With the same
+alpine-heavy snapshot restored before each run, the phases read:
+
+```text
+before:  registry:token 0.281s  registry-1.docker.io/library/alpine
+         registry:token 0.281s  registry-1.docker.io/library/python
+         pin:token      0.282s  docker.io
+
+after:   registry:token 0.285s  registry-1.docker.io/library/python
+         pin:token      0.285s  docker.io
+```
+
+The alpine work is gone rather than smaller, which no timing spread can be
+confused about. The clock agrees, and less crisply - the gap between a build
+with predictions and one with them moved aside falls from 556ms to 74ms of a
+~2.7s build, over three runs each, with one cold first run dominating the means
+(474ms to 231ms). Three samples cannot resolve 74ms; they do not need to, since
+the phase that was being paid for is no longer there.
+
+Old prediction files stop matching and go inert. That is correct rather than
+unfortunate: those entries were never safe to apply to another project.

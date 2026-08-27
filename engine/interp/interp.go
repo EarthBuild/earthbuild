@@ -608,6 +608,48 @@ func withProtocol(port string) string {
 	return port + "/tcp"
 }
 
+// secretDigestFor maps the sources a step draws on to their fleet-keyed digests.
+//
+// Nil - and so an uncacheable step - unless every source has one. A partial map
+// would key some of what the step depends on and not the rest, which is worse
+// than not keying at all: the entry would answer for a build supplying a
+// different value for the secret that was left out.
+func (p *Plan) secretDigestFor(specs []string) map[string]string {
+	if len(specs) == 0 || len(p.opt.secretDigest) == 0 {
+		return nil
+	}
+
+	out := make(map[string]string, len(specs))
+
+	for _, spec := range specs {
+		// The same reading as the check above: `NAME=SOURCE` draws on SOURCE,
+		// a bare `NAME` on a secret of that name.
+		_, source, ok := strings.Cut(spec, "=")
+		if !ok {
+			source = spec
+		}
+
+		source = ir.SecretName(source)
+		if source == "" {
+			// Deliberately supplying nothing, which the check above allows.
+			continue
+		}
+
+		digest, ok := p.opt.secretDigest[source]
+		if !ok {
+			return nil
+		}
+
+		out[source] = digest
+	}
+
+	if len(out) == 0 {
+		return nil
+	}
+
+	return out
+}
+
 func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, error) {
 	// ARG declares; everything after it sees the value. Expansion happens here,
 	// before the node exists, so an argument's value is part of the operation
@@ -994,6 +1036,10 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			argv, fromImage = append(append([]string{}, rs.cfg.Entrypoint...), argv...), false
 		}
 
+		// Computed once, and only from names the caller already resolved: this
+		// package holds no credential to derive it from.
+		secretDigest := p.secretDigestFor(rf.secrets)
+
 		return &ir.Node{
 			Op: ir.Op{
 				Kind: ir.OpExec, Args: argv, Entrypoint: fromImage,
@@ -1021,11 +1067,18 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				// `rf.aws` for the reason `rf.secrets` is here: the credentials
 				// are not in the key and must not be, so a step that ran with
 				// one set cannot answer for a step asking with another.
+				//
+				// A fleet key changes that for `rf.secrets` and only for it: a
+				// keyed digest of each value goes into the key, so the step
+				// *can* say which credential it ran with. AWS keeps the old
+				// rule - its session tokens are reissued constantly, so keying
+				// on them would miss every time and fill the cache doing it.
 				NoCache: rf.noCache || uncacheable(rs.mounts) || uncacheable(rf.mounts) ||
-					len(rf.secrets) > 0 || rf.aws,
-				Mounts:    mounts,
-				SecretEnv: rf.secrets,
-				AWS:       rf.aws,
+					(len(rf.secrets) > 0 && secretDigest == nil) || rf.aws,
+				Mounts:       mounts,
+				SecretEnv:    rf.secrets,
+				SecretDigest: secretDigest,
+				AWS:          rf.aws,
 				// What this step resolves names by. Carried like the mounts and
 				// hashed like them, because it changes what the command does
 				// rather than where it runs.

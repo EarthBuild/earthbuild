@@ -34922,5 +34922,64 @@ load-bearing the moment a remote cache exists.
 **And say out loud that rotation invalidates.** Every step that used the old
 secret misses, which is correct and will look like a stampede the first time.
 
-**[GAP]** Not implemented. It needs I19 amended first, which is a decision about
-what this engine promises rather than about how it is built.
+Not implemented here. It needs I19 amended first, which is a decision about what
+this engine promises rather than about how it is built. Built in E742, under a
+fleet key, which answers the objection this entry could not.
+
+## E742 - keying a secret by a fleet-keyed digest
+
+E741 stopped at an oracle: a bare `sha256(secret)` in a cache key lets anyone who
+can read a shared cache directory hash a candidate credential and look for it,
+and a hit confirms the value without anything being decrypted. Credentials come
+from a space small enough to enumerate, so that is not a theoretical objection.
+
+**A MAC removes the ability to compute a candidate's digest at all.** With a
+fleet key that the reader does not have, there is nothing to compare against.
+This is the attack a MAC exists to answer, and it is the difference between the
+construction E741 rejected and the one built here.
+
+**The design question was where to compute it**, and the first answer was wrong.
+Hashing the value inside the interpreter would have meant handing the interpreter
+secret values - and `interp.WithSecrets` says why it does not have them: *"it
+needs the value for nothing, and not having it is what makes a value in the graph
+impossible rather than merely avoided."* I19 is enforced there at level 1,
+unrepresentable, and paying for a cache with that would trade a structural
+guarantee for a written promise. The digest is computed in the CLI, where the
+credentials and the fleet key already are, and the interpreter is given
+`WithSecretDigests` - opaque strings it cannot invert and never a value. The
+level-1 enforcement survives the feature intact.
+
+**Measured**, `RUN --secret TOK=TOK` over `alpine:3.24.1`:
+
+| Fleet key | Secret    | Cache                                      |
+| --------- | --------- | ------------------------------------------ |
+| unset     | any       | 0 hit, 2 miss, 1 not cacheable             |
+| set       | first run | 0 hit, 2 miss, 1 unpredicted               |
+| set       | unchanged | **2 hit, 0 miss**                          |
+| set       | changed   | 1 hit, 1 miss - the step, correctly, again |
+
+Stable across repeat runs: no non-determinism reported once the store has an
+entry. The one `NON-DETERMINISM` line seen while testing came from comparing
+across a `--no-cache` run and did not recur.
+
+**A short key is refused**, because it restores the oracle by the other route:
+guess the fleet key once, then test credentials freely. Thirty-two characters,
+the width of the digest it feeds. Length is a crude proxy for entropy and known
+to be one - `aaaa...` passes - and is kept because the failure it catches is a
+placeholder committed as a fleet key, and the alternative is an entropy estimator
+that rejects legitimate keys.
+
+**An empty digest map contributes nothing to a key, rather than a zero count.**
+The first draft wrote `Count(0)` unconditionally, which changes the key of every
+step in every build: shipping it would have emptied every cache in the fleet to
+record the absence of a feature almost nobody turns on. Steps with no digest key
+exactly as they did before.
+
+**A claim made here in E741 and refuted by measurement.** That entry expected
+cacheable secret steps to produce layers, so `NoteLeaked` would fire at commit
+and close the export hole structurally. It does not: a build writing a secret to
+a file and saving an image still exits 0 with a fleet key set, exactly as it does
+without one. The export hole is untouched by this change and remains as filed.
+`docs/native/settings.md` still describes that check as on by default and
+refusing at save, which is a second reason to fix it: the document asserts a
+guard the build does not perform.

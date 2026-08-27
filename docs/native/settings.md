@@ -562,3 +562,40 @@ Set this when a step writes a credential on purpose - an `.npmrc` or a `.netrc` 
 Somebody doing that deliberately can say so; nobody doing it by accident has to know this exists.
 
 Default: unset, so a leak is refused.
+
+## `EARTH_HMAC`
+
+Makes a step holding a secret cacheable, by keying it on a digest of the secret rather than on
+nothing at all. **Unset by default, and unset means the behaviour this engine has always had.**
+
+A step given a secret is not cached. The honest reason is that no key describes it: two builds
+supplying different credentials to the same command are different builds, and a key that cannot
+tell them apart would hand the second the first one's result. So the step is marked uncacheable
+and runs every time - correct, and expensive for anyone whose build authenticates early.
+
+Set this to a fleet-wide random key and the step gets a key it can keep: `HMAC(EARTH_HMAC, name ‖
+value)` goes into the cache key. Same credential, same digest, cache hit; rotate the credential
+and every step that used it misses, which is the correct answer and will look like a stampede the
+first time.
+
+**Why a MAC and not a hash.** A bare `sha256(secret)` in a cache key is an oracle. Credentials are
+drawn from a small space - an attacker with a candidate list, or simply a guess at which key was
+used, can hash each one and look for it among the keys in a shared cache directory. A hit confirms
+the credential without anything ever being decrypted. Keying the digest removes the ability to
+compute a candidate's digest at all, which is the attack a MAC exists to answer. It also separates
+fleets: two teams sharing a cache directory with different keys cannot read, or test against, each
+other's entries.
+
+**The value still goes nowhere.** The digest is computed where the credentials already are, and the
+interpreter is handed digests only - it is never given a secret's value, which is what keeps a
+credential in the build graph impossible rather than merely avoided (I19). `EARTH_HMAC` itself is
+not one of the build's secrets: no step sees it, and it is not scanned for or redacted.
+
+A key shorter than 32 characters is refused. A guessable fleet key restores the oracle by the other
+route - guess the key once, then test credentials at will - so a placeholder committed as a fleet
+key is worse than no key, because it looks like protection.
+
+Generate one with `openssl rand -hex 32` and set it once, as a repository secret in CI. It is not
+per-build and not per-user; a fleet that does not share it does not share these cache entries.
+
+Default: unset, so a step given a secret is not cached.

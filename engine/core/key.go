@@ -132,6 +132,9 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 		h.Str(name)
 	}
 
+	// The value-derived half, where a fleet key is configured (I19).
+	ir.HashSecretDigest(h, n.Op.SecretDigest)
+
 	// The image's own configuration, when this step writes one: two loads of
 	// the same layers under different entrypoints run different commands, so
 	// they cannot share a cache entry.

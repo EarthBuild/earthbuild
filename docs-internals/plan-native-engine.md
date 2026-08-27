@@ -8766,6 +8766,16 @@ Three things the implementation must not get wrong, each now an invariant or an 
 * a secret is never a declaration (I19). Declarations are stored, content-addressed and shared, so a
   secret value in one is published to every machine that materialises the stack. ε keeps secrets by
   identity and keeps them;
+  **I19 was weakened deliberately, and here is the weakening.** It used to say a secret is never
+  written down. It now says a secret's *value* is never written down, and permits one thing derived
+  from a value into a cache key: a MAC over the secret's name and value under a fleet key, and only
+  where the invocation supplies such a key. Absent one, nothing changes and a step holding a secret
+  is uncacheable, as before. The reason for the concession is that the old rule made every
+  authenticating build pay for its credential on every run; the reason it is a MAC and not a hash is
+  that an unkeyed digest of a credential is an oracle against a shared cache (E742). What is not
+  conceded: the interpreter is still never handed a value, so a credential in the graph stays
+  unrepresentable rather than merely unwritten, which is the level-1 half of the invariant and the
+  half worth keeping;
 * an element that declares is not an element that is missing (I18).
 
 Sequencing, once the model is settled: declarations in the store and the materialiser first, because

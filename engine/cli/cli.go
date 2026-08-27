@@ -304,6 +304,16 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 	resolver := newPrefetchResolver(g.imageResolver(ctx))
 	resolver.start(pin.References(src), o.platformOrDefault())
 
+	// A fleet key makes a step holding a secret cacheable, by putting a keyed
+	// digest of the value into its key instead of nothing at all. Computed
+	// here because this is where both the key and the credentials already are:
+	// the interpreter is handed digests and still never a value, which is what
+	// keeps a credential in the graph impossible rather than merely avoided.
+	secretDigest, err := secretDigests(os.Getenv(EnvSecretHMAC), secrets)
+	if err != nil {
+		return err
+	}
+
 	plan, err := interp.Build(string(src), o.Target,
 		interp.WithContextCache(g.contexts),
 		interp.WithTerminal(tty != nil),
@@ -311,6 +321,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		interp.WithCommands(g.commands(ctx)),
 		interp.WithRemotes(g.remotes(ctx)),
 		interp.WithSecrets(secrets),
+		interp.WithSecretDigests(secretDigest),
 		interp.WithVersionFlags(o.VersionFlags),
 		interp.WithAllowPrivileged(o.AllowPrivileged),
 		interp.WithPush(o.Push),

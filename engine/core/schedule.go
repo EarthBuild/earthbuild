@@ -818,8 +818,12 @@ func whyUncacheable(n *ir.Node) string {
 	case len(n.Op.Mounts) > 0:
 		return "a cache mount, whose contents no key describes"
 
-	case len(n.Op.SecretEnv) > 0:
-		return "a secret, which no key may describe"
+	// A digest, where the fleet has a key, is exactly a key describing it - so
+	// the step reaching here has some other reason and naming the secret would
+	// send the author to fix what is already right (E393, as for WITH DOCKER).
+	case len(n.Op.SecretEnv) > 0 && len(n.Op.SecretDigest) == 0:
+		return "a secret, which no key may describe" +
+			" - set `EARTH_HMAC` for the fleet to key it by a digest of its value"
 
 	default:
 		return "--no-cache"

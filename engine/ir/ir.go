@@ -420,6 +420,19 @@ type Op struct {
 	// different step; the values are supplied at execution and exist nowhere in
 	// the graph.
 	SecretEnv []string
+	// SecretDigest maps a secret's source name to a fleet-keyed digest of its
+	// value, and is empty unless a fleet key is configured.
+	//
+	// This is the one thing in the graph derived from a credential's value, and
+	// it exists so that a step holding a secret can be cached at all. It is
+	// HMAC(fleet key, name ‖ value): without the key it cannot be produced from
+	// a guess, so a reader of the cache cannot use it to test candidates. A
+	// bare hash would not do - credentials come from a small enough space to
+	// enumerate. See I19, which this narrows rather than abandons: the value
+	// still exists nowhere in the graph.
+	//
+	// Empty is the default and means the step is uncacheable, as it always was.
+	SecretDigest map[string]string
 	// Mounts are directories bound into the step's filesystem that outlive it:
 	// CACHE.
 	//
@@ -700,6 +713,10 @@ func (n *Node) ID() NodeID {
 		h.Str(name)
 	}
 
+	// The value-derived half, where a fleet key is configured. A step cached
+	// under one credential must not answer for a build supplying another.
+	HashSecretDigest(h, n.Op.SecretDigest)
+
 	// The image's own configuration, when this operation writes one. Two loads
 	// of the same layers under different entrypoints are different images, so
 	// they are different steps.
@@ -772,6 +789,41 @@ func (n *Node) ID() NodeID {
 	n.id.Store(&id)
 
 	return id
+}
+
+// HashSecretDigest folds a step's fleet-keyed secret digests into a key.
+//
+// Shared by both hashers rather than written twice, for the reason HashImage is:
+// two copies of a key contribution drift, and a key that drifts between the
+// place it is computed and the place it is checked is a silent cache miss at
+// best and a wrong hit at worst.
+//
+// Sorted by name, because a map walk is not an order and a key must be one.
+func HashSecretDigest(h *Hasher, m map[string]string) {
+	// Nothing at all when there is none, rather than a zero count.
+	//
+	// A zero would be indistinguishable in meaning and expensive in fact: it
+	// changes the key of every step in every build, so shipping this would
+	// empty every cache in the fleet to record the absence of a feature almost
+	// nobody has turned on. Steps that have no digest keyed as they always did
+	// is the same statement, made for free.
+	if len(m) == 0 {
+		return
+	}
+
+	h.Count(len(m))
+
+	names := make([]string, 0, len(m))
+	for name := range m {
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+
+	for _, name := range names {
+		h.Str(name)
+		h.Str(m[name])
+	}
 }
 
 // HashImage writes an image configuration into the encoding of §1.4.

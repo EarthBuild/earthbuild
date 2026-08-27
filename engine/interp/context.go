@@ -61,6 +61,10 @@ type options struct {
 	// here: the interpreter needs to know a secret exists so it can refuse one
 	// that does not, and needs the value for nothing at all.
 	secrets map[string]bool
+	// secretDigest maps a secret's source name to a fleet-keyed digest of its
+	// value. Empty unless a fleet key is configured, and the only route by
+	// which anything derived from a secret's value reaches the graph.
+	secretDigest map[string]string
 	// platform is what the build runs on when no `--platform` says otherwise:
 	// the sandbox's own, which is also what NATIVE* reports. Empty means the
 	// invoking machine's, which is right for a plan resolved without a sandbox.
@@ -317,6 +321,20 @@ func WithSecrets(secrets map[string]string) Option {
 	}
 
 	return func(o *options) { o.secrets = names }
+}
+
+// WithSecretDigests supplies a fleet-keyed digest per secret, which is what
+// lets a step holding one be cached.
+//
+// Digests, not values - computed by the caller, which has the fleet key and the
+// credentials, so this package needs neither. The rule WithSecrets states holds
+// unchanged: a value cannot appear in the graph because nothing here is ever
+// given one.
+//
+// Absent, every secret step stays uncacheable, which is the default and the
+// behaviour this engine has always had.
+func WithSecretDigests(digests map[string]string) Option {
+	return func(o *options) { o.secretDigest = digests }
 }
 
 // GitClone fetches a repository and returns the directory it landed in.

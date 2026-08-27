@@ -36116,3 +36116,41 @@ assumed rather than measured. It holds.
 Method: two fresh `EARTH_CACHE_DIR`s per variant, `.decl`, `.config` and
 `.unmarked` entries filtered out of the layer listing, diffed. Three RUN steps,
 because one step could agree by luck.
+
+## E765 - the other answer to what the machine is called
+
+E758 set the name in the step's UTS namespace, which is what `hostname` and
+`uname -n` report, and left `/etc/hostname` as whatever the image shipped:
+
+```console
+$ earth-native +h        # after E758, before this
+  buildkitsandbox        # hostname
+  localhost              # cat /etc/hostname
+```
+
+Both are widely read and by different things - shells and `uname -n` ask the
+kernel, while init scripts, JVM startup and a good deal of packaging read the
+file - so which answer a tool got was a property of the tool. E758 listed this
+as one of three faults and fixed two.
+
+Shadowed always, as `resolverMount` already does for `/etc/resolv.conf` and as
+every container runtime does: an image's `/etc/hostname` is a leftover from
+whoever built the image and describes a machine that no longer exists. A mount
+rather than a written file, so it reaches no layer. 0644 explicitly, because a
+step running as a non-root user that cannot read its own machine name is a
+stranger failure than not having one.
+
+**Adding an "always" mount is not a local change.** Written first in the shared
+`hosts.go`, it gave *every* step on every platform a mount - and on darwin, where
+`deviceMounts` is nil and a step can legitimately have none, `len(mounts) > 0`
+became true and took a path that refuses with `cannot isolate the step: requires
+linux`. Six tests in `engine/exec` that have never been near a hostname went red:
+`TestCloseStopsTheSandbox`, `TestOneSandboxServesEveryStep`,
+`TestSchedulerDrivesRealProcesses` and three more.
+
+The fix is the shape the file already had for devices - a `mount_linux.go` and a
+`mount_other.go` returning nothing - and the lesson is that "every step gets X"
+is a statement about platforms that have X. The green tests on the platform the
+change was written for said nothing about it; the other platform's suite is what
+caught it, which is the argument for running both before pushing rather than
+after.

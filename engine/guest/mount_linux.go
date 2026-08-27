@@ -889,3 +889,24 @@ func applyMode(path string, m Mount, deflt os.FileMode) error {
 func count(n int) string {
 	return strconv.Itoa(n)
 }
+
+// hostnameMount is the `/etc/hostname` a step gets.
+//
+// **Because the kernel's answer and the file's answer are both read.** E758 set
+// the name in the step's UTS namespace, which is what `hostname` and `uname -n`
+// report; `/etc/hostname` was left as whatever the image shipped - `localhost`
+// in alpine's case - so the two disagreed and which one a tool believed was a
+// property of the tool. Init scripts, JVM startup and a good deal of packaging
+// read the file (E765).
+//
+// Always, and shadowing the image's, which is what a container runtime does and
+// what `resolverMount` already does for `/etc/resolv.conf`: the image's copy is
+// a leftover from whoever built it and describes a machine that no longer
+// exists. A mount rather than a written file, so it is not captured into the
+// step's layer.
+//
+// 0644 explicitly. A step running as a non-root user that cannot read its own
+// machine name is a stranger failure than not having one.
+func hostnameMount() []Mount {
+	return []Mount{{Target: "/etc/hostname", Secret: SandboxHost + "\n", Mode: 0o644}}
+}

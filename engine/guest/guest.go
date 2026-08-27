@@ -1904,6 +1904,7 @@ const maxOutput = 64 << 10
 // output.
 func stepMounts(req Request, env []string) []Mount {
 	out := append(deviceMounts(), resolverMount()...)
+	out = append(out, hostnameMount()...)
 
 	// **Against the step's environment**, because a target may name one of its
 	// variables and the plan cannot know them - see expandTarget. Only what the

@@ -31,6 +31,15 @@ func mountCgroup2(string) (func(), error) { return func() {}, nil }
 
 func linkStdio(string) error { return nil }
 
+// hostnameMount is nothing here.
+//
+// The linux one shadows the image's `/etc/hostname`, and shadowing needs a bind
+// this platform has not got. Returning the mount anyway made every step on this
+// platform have one, and a step with any mount at all takes a path that refuses
+// with "cannot isolate the step: requires linux" - so six tests that had never
+// been near a hostname went red (E765).
+func hostnameMount() []Mount { return nil }
+
 func mountDevPts(string) (func(), error) { return func() {}, nil }
 
 // resolverMount is empty off Linux.

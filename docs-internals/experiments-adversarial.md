@@ -35179,3 +35179,36 @@ The engine was right in all four. **Regenerate the invocations as part of the
 sweep rather than trusting a file**, and make an excuse derive from the host it
 is excusing, or a corpus score quietly stops meaning anything - which is the
 failure this document exists to catch.
+
+## E746 - `RUN --aws` was reading half of where credentials live
+
+The corpus has three drivers for `--aws`, one per way credentials reach a
+machine: `AWS_*` in the environment, `~/.aws/credentials` written by `aws
+configure`, and neither. The environment one passed, the file one did not, and
+the feature had shipped believing itself complete.
+
+**Two faults, and the case needed both fixed.** The engine read only the
+environment. The harness ran *setup* with `HOME` pointed at the working
+directory - it maps the container's `/root/` there when replaying - and then ran
+the *build* with the developer's real home, so a driver that wrote credentials
+into the staged `/root/.aws` put them somewhere the engine would never look.
+Either fault alone keeps the case red, which is why it had survived.
+
+Pinning `HOME` for the build had to pin the caches with it: `~/.cache` moves with
+`HOME`, so left alone every invocation would have started cold and every result
+would have changed for a reason with nothing to do with the engine.
+
+| Sweep              | ok  |
+| ------------------ | --- |
+| before             | 234 |
+| after, macOS/arm64 | 235 |
+
+One case moved and nothing else did, which is the check that the `HOME` change
+was surgical rather than merely favourable.
+
+**What the reader deliberately does not do.** It resolves one profile from two
+files - `[default]` in the credentials file, `[profile x]` in the config file,
+which are the same profile spelled differently and worth knowing. It does not
+follow `source_profile` chains, assume roles, or resolve SSO sessions. A build
+needing those is one this cannot serve, and half-resolving a credential is worse
+than declining to.

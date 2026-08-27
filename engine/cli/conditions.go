@@ -323,7 +323,11 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		// The same rule for `RUN --aws`: gathered here with the rest of the
 		// invocation's ambient state, so the executor is handed a value and
 		// nothing below this line reads the environment.
-		e.AWSCredentials = awsFromEnv(os.Environ())
+		// The environment and the shared files both, in the order the AWS
+		// tools resolve them. `RUN --aws` shipped reading the environment only,
+		// which is the less common of the two ways credentials reach a machine:
+		// `aws configure` writes files.
+		e.AWSCredentials = awsCredentials(os.Environ(), awsPathsFromEnv(os.Environ()))
 
 		imageRoot, err := imageCacheDir()
 		if err == nil {

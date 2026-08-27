@@ -2448,10 +2448,22 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
-		Name:        "interp: a fetched Earthfile refused the host (E439)",
-		File:        "engine/interp/interp.go",
-		Anchor:      "\t\tif p.here.fetchedFrom != \"\" {",
+		Name: "interp: a fetched Earthfile refused the host (E439)",
+		File: "engine/interp/interp.go",
+		Anchor: "\t\tif p.here.fetchedFrom != \"\" && p.here.reachedUnpinned &&\n" +
+			"\t\t\t!p.opt.unsafeUnpinnedRemoteLocally {",
 		Replacement: "\t\tif false {",
+		Package:     "./engine/interp/",
+	},
+	{
+		// The pin is the whole of the relaxation: without it every fetched
+		// LOCALLY is allowed, which is the guard E439 exists to hold. Anchored
+		// on the chain rule rather than on `pinnedRev`, because inheriting it
+		// from the referrer is the half that a single-link check would miss.
+		Name:        "interp: a pin counts only when the chain was pinned too",
+		File:        "engine/interp/unit.go",
+		Anchor:      "\t\tu.reachedUnpinned = from.reachedUnpinned || !pinnedRev(ref.remote.rev)",
+		Replacement: "\t\tu.reachedUnpinned = false",
 		Package:     "./engine/interp/",
 	},
 	{

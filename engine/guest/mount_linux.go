@@ -611,6 +611,61 @@ func linkStdio(root string) error {
 	return nil
 }
 
+// mountDevPts gives a step a pty of its own to allocate.
+//
+// Without it `openpty` has nothing to open: /dev is a tmpfs this engine makes
+// and there is no /dev/ptmx in it, so `script`, `expect`, `docker run -t`, tmux
+// and anything testing its own behaviour on a terminal fail with "failed to
+// create pseudo-terminal" (E757).
+//
+// `newinstance`, so the ptys are this step's and not the machine's: two steps
+// allocating at once must not be handed each other's, and a step must not see
+// terminals belonging to whatever else is on the box - which would be ambient
+// state no key describes (I3).
+//
+// `gid=5` is the tty group, which is the convention every image's `tty` binary
+// expects. A user namespace that has not mapped that group cannot set it, and
+// the kernel says EINVAL rather than ignoring it, so the mount is tried again
+// without: a step whose terminals are owned by the wrong group works, and a
+// step with no terminals at all does not.
+//
+// Skipped where it cannot be mounted, on the rule /sys follows: a step without
+// a pty is worse than one with and far better than no step.
+func mountDevPts(root string) (undo func(), why error) {
+	target := filepath.Join(root, "dev", "pts")
+
+	//nolint:gosec // a mount point carries the mode the mount asked for
+	err := os.MkdirAll(target, 0o755)
+	if err != nil {
+		return func() {}, fmt.Errorf("make room for /dev/pts: %w", err)
+	}
+
+	const flags = unix.MS_NOSUID | unix.MS_NOEXEC
+
+	err = unix.Mount("devpts", target, "devpts", flags,
+		"newinstance,ptmxmode=0666,mode=0620,gid=5")
+	if err != nil {
+		err = unix.Mount("devpts", target, "devpts", flags,
+			"newinstance,ptmxmode=0666,mode=0620")
+	}
+
+	if err != nil {
+		return func() {}, fmt.Errorf("mount /dev/pts for the step: %w", err)
+	}
+
+	// Relative, and to this instance's own ptmx rather than the machine's:
+	// opening /dev/ptmx has to allocate from the instance mounted above, which
+	// is the whole point of `newinstance`.
+	err = os.Symlink("pts/ptmx", filepath.Join(root, "dev", "ptmx"))
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		unmountAll(target)
+
+		return func() {}, fmt.Errorf("link /dev/ptmx to this step's pts: %w", err)
+	}
+
+	return func() { unmountAll(target) }, nil
+}
+
 // resolverMount gives a step the machine's resolver configuration.
 //
 // An image ships no /etc/resolv.conf, because the runtime is expected to

@@ -35770,3 +35770,44 @@ that matched the `bindMounts` error block and placed the new code *after the
 return inside it* - unreachable, compiling cleanly, and the tests would have
 passed while the links were never made. The end-to-end check is what would have
 caught it, and reading the diff is what did.
+
+## E757 - no step could allocate a terminal
+
+The last of `/dev`. `/dev` is a tmpfs this engine makes, so there was no
+`/dev/ptmx` in it and nothing to open:
+
+```console
+$ earth-native +pty       # before
+  script: failed to create pseudo-terminal
+```
+
+What wants one: `script`, `expect`, `docker run -t`, tmux, and - more often than
+any of those - a test that checks how a program behaves on a terminal. Those
+tests do not report a missing device; they report that the program under test
+got the non-terminal branch, which is a true statement about a wrong
+environment.
+
+`newinstance`, so the ptys are the step's own. Two steps allocating at once must
+not be handed each other's, and a step must not see terminals belonging to
+whatever else is on the machine, which would be ambient state no key describes
+(I3).
+
+`gid=5` is the tty group and is what every image's `tty` expects to own a
+terminal. A user namespace that has not mapped that group cannot set it and the
+kernel answers EINVAL rather than ignoring it, so the mount is tried again
+without it: a step whose terminals are owned by the wrong group works, and a
+step with no terminals does not.
+
+```console
+$ earth-native +pty       # after, both as root in a privileged container
+  PTY-OK                  # and rootless on the host
+```
+
+With this, what a step gets in `/dev` matches what an OCI runtime provides,
+except `/dev/mqueue` - POSIX message queues, which nothing in this corpus or in
+any build seen so far has asked for. Left out deliberately rather than
+overlooked: it is a mount that would be there for symmetry and not for a caller.
+
+The mount needs root, so there is no unit test for it - the check is
+end-to-end, on both sides of the privilege line, and stated here rather than
+implied by a green suite.

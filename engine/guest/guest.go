@@ -2157,6 +2157,15 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 			return Response{Err: linkErr.Error()}
 		}
 
+		// Inside that same /dev, and skipped where it cannot be had. See
+		// mountDevPts.
+		endPts := timing.Phase("guest:devpts", req.Handle)
+		undoPts, _ := mountDevPts(h.Root())
+
+		endPts()
+
+		defer undoPts()
+
 		defer func() {
 			unlock := s.lockHandle(req.Handle)
 			undo()

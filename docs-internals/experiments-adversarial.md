@@ -34749,3 +34749,39 @@ where today it is bind-mounted.
 to decline. It is worth more than the three corpus cases either way: any
 host-share store on any platform loses ownership the same way, and today the
 engine can only refuse.
+
+## E738 - one mechanism would answer both of the store's failures
+
+E737 ends at the translator, and so does the case-collision that costs four
+corpus targets. They are the same problem twice:
+
+| what the layer means           | what the store can hold     |
+| ------------------------------ | --------------------------- |
+| `a.txt` owned by uid 1000      | `a.txt` owned by the caller |
+| `libip6t_HL.so` *and* `_hl.so` | one of the two              |
+
+In both cases the store is a lossy medium and the layer is the truth. The engine
+already owns the idea: `translator.use` stacks the store's own directory, or a
+corrected copy where the store's spelling of a *deletion* is not the one
+overlayfs reads.
+
+**The difference between the two is where the loss happens**, and it decides how
+much of a mechanism is needed:
+
+* Ownership is lost on the way *out*. The bytes are intact in the store and only
+  the metadata is wrong, so the translator alone can restore it.
+* A case collision is lost on the way *in*. One of the two files never reaches
+  the store, so the translator has nothing to restore - the *unpack* has to keep
+  both under names the store can hold, and only then can the translator put the
+  names back.
+
+So one hook fixes three targets and two hooks fix seven. That is worth saying
+before either is built, because "the translator can fix ownership" invites
+somebody to reach for it for the case problem too, and find at the end that the
+file they wanted was discarded three layers earlier.
+
+**What it is not.** Neither is needed on Linux, where the store holds both
+without help - `EARTH_IMAGE_CACHE_DIR` on a case-sensitive volume already takes
+the corpus from 229 to 233 here, with no engine change at all. This is about
+whether macOS is a first-class place to *develop* the engine, which is a
+different question from whether it is a place to run builds.

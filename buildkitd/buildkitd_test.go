@@ -3,8 +3,10 @@ package buildkitd
 import (
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const appleContainerName = "Apple Container"
@@ -156,4 +158,49 @@ func TestUpdateContainerEndpoints(t *testing.T) {
 		assert.Equal(t, "docker-container://test-container", settings.BuildkitAddress)
 		assert.Equal(t, "http://127.0.0.1:8371", settings.LocalRegistryAddress)
 	})
+}
+
+func TestStart_InvalidAddresses(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
+	eng := engine.NewTestClient(engine.Metadata{
+		Name:   "Docker",
+		Scheme: engine.SchemeDocker,
+	})
+
+	tests := []struct {
+		name        string
+		settings    Settings
+		errContains string
+	}{
+		{
+			name: "invalid buildkit port",
+			settings: Settings{
+				BuildkitAddress: "tcp://localhost",
+				UseTCP:          true,
+			},
+			errContains: "invalid port in buildkit address",
+		},
+		{
+			name: "invalid local registry port",
+			settings: Settings{
+				BuildkitAddress:      "tcp://127.0.0.1:8372",
+				LocalRegistryAddress: "docker-container://my-reg",
+				UseTCP:               true,
+			},
+			errContains: "invalid port in local registry address",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := Start(ctx, log, "test-image", "test-container", eng, tt.settings, false)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errContains)
+		})
+	}
 }

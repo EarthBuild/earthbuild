@@ -86,7 +86,7 @@ jobs:
         run: |-
           ${{ env.BUILT_EARTH_PATH }} config global.buildkit_additional_config "'[registry.\"docker.io\"]
           mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
-          ${{ env.BUILT_EARTH_PATH }} config global.container_frontend apple-container-shell
+          ${{ env.BUILT_EARTH_PATH }} config global.container_frontend apple-container
       - name: Bootstrap earth
         run: ${{ env.BUILT_EARTH_PATH }} bootstrap
       - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env

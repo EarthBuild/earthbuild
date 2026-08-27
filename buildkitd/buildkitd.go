@@ -600,14 +600,14 @@ func Start(
 
 			lrURL, err = url.Parse(settings.LocalRegistryAddress)
 			if err != nil {
-				panic("Local registry address was not a URL when attempting to start buildkit")
+				return fmt.Errorf("parse local registry address %q: %w", settings.LocalRegistryAddress, err)
 			}
 
 			var hostPort int
 
 			hostPort, err = strconv.Atoi(lrURL.Port())
 			if err != nil {
-				panic("Local registry host port was not a number when attempting to start buildkit")
+				return fmt.Errorf("invalid port in local registry address %q: %w", settings.LocalRegistryAddress, err)
 			}
 
 			ports = append(ports, engine.Port{
@@ -630,7 +630,7 @@ func Start(
 
 			hostPort, err = strconv.Atoi(bkURL.Port())
 			if err != nil {
-				panic("Local registry host port was not a number when attempting to start buildkit")
+				return fmt.Errorf("invalid port in buildkit address %q: %w", settings.BuildkitAddress, err)
 			}
 
 			ports = append(ports, engine.Port{

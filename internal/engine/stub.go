@@ -49,6 +49,10 @@ func (m *mockDriver) Metadata() Metadata {
 	return m.meta
 }
 
+func (m *mockDriver) InspectContainers(_ context.Context, _ ...string) ([]Container, error) {
+	return nil, nil
+}
+
 // NewTestClient creates a *Client for testing with custom metadata.
 func NewTestClient(meta Metadata) *Client {
 	return &Client{

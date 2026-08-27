@@ -34983,3 +34983,20 @@ without one. The export hole is untouched by this change and remains as filed.
 `docs/native/settings.md` still describes that check as on by default and
 refusing at save, which is a second reason to fix it: the document asserts a
 guard the build does not perform.
+
+**Corpus parity, and a false regression on the way to it.** The first sweep read
+228 ok for the parent and 224 for the change, with the four losses all in
+`visited-upfront-hash-collection.earth` - a hash-collision test, against a change
+to the hasher, which is about as guilty as circumstantial evidence gets. They
+reproduced 4-of-4 when run alone, and passed 4-of-4 on the parent.
+
+It was run order. The harness invokes with no `EARTH_IMAGE_CACHE_DIR` and a 240s
+timeout, so the first sweep pays a registry pull for `earthbuild/dind` and the
+second finds it warm - and the changed binary went first both times. Re-run with
+the cache warm: 228 ok, and an empty case-by-case diff against the parent. Not
+one case changed outcome.
+
+Worth keeping as method: compare outcomes per case rather than totals, and where
+a run fetches over the network, run each side twice and take the second of each.
+The hasher was innocent, and `HashSecretDigest` contributing nothing on an empty
+map is why - every step without a digest keys exactly as it did.

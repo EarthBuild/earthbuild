@@ -35695,3 +35695,32 @@ problem this engine had.
 Verified as root in a privileged container - the configuration CI uses, since
 the box this was written on has no passwordless sudo - and rootless on the host,
 which also gets the namespace.
+
+## E755 - what the three new mounts cost, which is nothing measurable
+
+E752, E753 and E754 each added a mount to every step. E635 and E636 are the
+reason to check rather than assume: per-step mount cost is exactly what made a
+build quadratic in its own length once already, and six devices bound into an
+overlay took binding from 17.4ms a step to 31.7ms.
+
+Twenty trivial `RUN` steps, five interleaved pairs, root in a privileged
+container, a fresh store each run:
+
+| variant                          | runs (ms)                     | median |
+| -------------------------------- | ----------------------------- | ------ |
+| before (`56383bd4f`)             | 2571 2470 2358 2504 2403      | 2470   |
+| after (`104988a17`)              | 2452 2390 2440 2474 2526      | 2452   |
+
+The medians differ by 0.7% and the run-to-run spread is about 8%, so the honest
+reading is **no measurable cost** - not that it got faster, which is what a
+single pair of numbers would have said. Interleaved rather than run in blocks,
+because a machine that warms up or a neighbour that starts would otherwise be
+attributed to whichever variant ran second.
+
+That these mounts are cheap where the devices were not is not luck: each is one
+mount call, where `deviceMounts` was six binds *into the step's overlay*, which
+made overlayfs materialise the parent through every lower layer. The cost there
+was the overlay, not the mounting.
+
+`guest:sys` and `guest:cgroupfs` are now phases, so the next person measuring
+this does not have to build two binaries to find out.

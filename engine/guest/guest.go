@@ -2081,14 +2081,20 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// nothing consumes; and printing per step would say it once per step on
 	// every rootless build. Reporting it once, properly, is worth doing and is
 	// not this change.
+	endSys := timing.Phase("guest:sys", req.Handle)
 	undoSys, _ := mountSys(h.Root())
+
+	endSys()
 
 	defer undoSys()
 
 	// Inside the /sys above, and on the same weak rule: a machine on cgroups v1
 	// has none of this and a step there is still a correct step. See
 	// mountCgroup2.
+	endCgroupFS := timing.Phase("guest:cgroupfs", req.Handle)
 	undoCgroupFS, _ := mountCgroup2(h.Root())
+
+	endCgroupFS()
 
 	defer undoCgroupFS()
 

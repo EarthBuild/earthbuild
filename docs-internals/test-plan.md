@@ -1384,3 +1384,46 @@ become invisible by being tolerated.
 Two mutations check it: an unclamped write is reported by file and line, and a walk finding fewer
 than three writes fails outright - a source-reading guard that reads nothing otherwise passes for
 the best-looking wrong reason there is.
+
+## What the skip ceiling is counting
+
+`+engine-race` fails if more than `SKIP_CEILING` tests skip, because a green run
+that verified less is the failure the ceiling exists to catch. The number is
+bare, and it covers four different kinds of skip - only one of which is coverage
+given up.
+
+**There is nothing on `main` to compare it against.** `main` has no `engine/`
+directory: 0 test files against this branch's 879, and 0 `t.Skip` call sites
+against 395. Every skip counted here belongs to a suite that exists only on this
+branch, so the question is not how many were added but how many are real.
+
+Of the 40 top-level tests that skip in that container:
+
+| kind                                          | n   | what it means                                                                                                                               |
+| --------------------------------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| opt-in switches                               | 10  | `EARTH_TEST_NETWORK`, `_BOOTSTRAP`, `_BUILD`, `_TRACE_FRACTION` - run deliberately elsewhere                                                |
+| the container cannot                          | 9   | seccomp user notification, an overlay materialiser, a whiteout device, a daemon in its own namespace                                        |
+| the environment is *more* capable than needed | 7   | running as root so the unprivileged path is unreachable; a case-sensitive filesystem with nothing to warn about; a backend that can isolate |
+| a fixture or binary is absent                 | 4   | the recursion fixture, `true`, `cat`, fewer `.earth` files than a checkout has                                                              |
+| not resolvable by reading the source          | 9   | the reason is composed at the call site or lives two helpers deep                                                                           |
+
+Only the second row is coverage lost, and each of those asks whether an
+*operation* works rather than asserting a platform, so each is answered on a
+machine that grants the privilege. The third row is the surprising one: seven
+tests skip because the machine is better than the test needs, and a ceiling that
+counts those alongside the second row will move for reasons that are not about
+coverage at all.
+
+Regenerate from a CI log:
+
+```bash
+gh api "repos/EarthBuild/earthbuild/actions/jobs/<id>/logs" \
+  | grep engine-race | grep -oE 'SKIP: [A-Za-z0-9_/]+' | sed 's/SKIP: //' \
+  | sort | uniq -c | sort -rn
+```
+
+The reasons are not in that log - the target prints an aggregated
+`1 --- SKIP: <name>` rather than go's `-v` output - so they have to be joined
+back to the `t.Skip` calls in the source. That is the main thing wrong with the
+list today: **the count is in CI and the reasons are in the tree**, and nothing
+prints them together at the moment one goes red.

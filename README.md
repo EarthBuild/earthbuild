@@ -241,8 +241,8 @@ WORKDIR /proto-example
 proto:
   RUN apk add --no-cache protobuf-dev protobuf
   RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
-  COPY api.proto ./
-  RUN mkdir pb && protoc --go_out=./pb --go_opt=paths=source_relative api.proto
+  COPY pb/api.proto ./pb/
+  RUN protoc --go_out=. --go_opt=paths=source_relative pb/api.proto
   SAVE ARTIFACT pb /pb AS LOCAL pb
 
 build:

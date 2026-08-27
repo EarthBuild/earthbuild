@@ -327,7 +327,20 @@ engine-race:
     #
     # 174: `TestAStepsProcIsItsOwn` (E705) is the same shape - a registry and a
     # sandbox - and skips here for the same reason.
-    ARG SKIP_CEILING=174
+    #
+    # 175: `TestTheThreadAStepIsStartedFromIsNotFiltered` (E723) asks whether the
+    # thread a step is started from is carrying a seccomp filter, because a
+    # filter live across `os/exec`'s `CLONE_VFORK` is the deadlock it exists to
+    # prevent. `Seccomp:` in /proc is a *mode* and not a count, so under this
+    # container's own profile a thread reads 2 whether the filter is the guest's
+    # or the container's, and the question cannot be answered here.
+    #
+    # Not coverage given up. It is answered on any machine that does not filter
+    # the test process, which is where it was developed and where it fails if
+    # the guest ever installs before the clone again. The alternative was an
+    # assertion that reported the runner's filter as the engine's - it did,
+    # exactly once, on the first CI run this branch ever had.
+    ARG SKIP_CEILING=175
     # Nothing is excluded. Every test needing a privilege this container does
     # not grant - a user namespace, an overlay mount, a device node - now skips
     # with the reason, because each asks whether the *operation* works rather

@@ -34390,3 +34390,68 @@ Rules that follow, for anyone reading this log:
 **[GAP]** Nothing in the output says which phase contains which. Indenting by
 depth, or printing a parent, would make the structure visible - the log is
 otherwise a correct record that reliably misleads.
+
+## E734 - the differential E603 designed, run for the first time
+
+E603 flipped the default to `native` so that every job in this repository's CI
+becomes a comparison against a suite that has been run against buildkit for
+years, and said what to expect: "the pull request is expected to go red, and
+that is the output rather than a problem".
+
+**Nobody had ever seen the output.** The PR was `CONFLICTING`, so GitHub could
+not build a merge ref, so the `pull_request`-triggered `CI` workflow never fired
+on any of 614 commits. What the PR displayed came from `fleet-e2e` and CodeQL,
+which pass in about ninety seconds and gate nothing. Merging main unblocked it.
+
+### The first numbers
+
+| suite               | pass | fail |
+| ------------------- | ---- | ---- |
+| Docker Integrations | 23   | 0    |
+| Docker              | 16   | 0    |
+| Docker Examples     | 5    | 0    |
+| Next                | 15   | 1    |
+| Native              | 1    | 15   |
+| Podman              | 1    | 15   |
+| Podman Examples     | 0    | 5    |
+
+**Forty-four Docker jobs pass.** That is the whole docker suite, target for
+target, and it is the strongest evidence this branch has produced about itself.
+
+**Native and Podman fail on the identical target list** - all thirteen groups
+plus `+test-qemu` and `+test-misc`, the same set in both columns. Two runtimes
+failing on exactly the same targets is one cause wearing two hats, not thirty.
+
+### What the count is not
+
+A group fails if *any* target in it fails, and the groups are not small:
+`ga-no-qemu-group5` builds 52 targets and `group4` builds 32. Fifteen red jobs
+is consistent with a handful of divergences spread across large groups, and
+reporting it as fifteen defects would overstate the finding by an order of
+magnitude.
+
+Nor is it all `LOCALLY`, which the native engine refuses by design and which
+would have been the comfortable answer: only `group1` names such targets, two of
+its nine, and `group4`, `5`, `6`, `7`, `9` and `11` name none.
+
+### What is not yet known
+
+**Why Native and Podman fail where Docker passes.** Four explanations were
+tried against the evidence and none survived: that native leaks into the podman
+jobs (`FRONTEND` selects what hosts buildkitd, and podman hosts buildkit); that
+removing the `earth-guestd` copy broke the artifact (nothing consumes it);
+that the merge changed `DEFAULT_INSTALLATION_NAME` from `earthly` to `earth`
+(it did, but only in fork-only steps that this PR skips - and the merged tests
+expect `earth-buildkitd`, so the change is right); and that the missing
+container is the fault (`earth-retry.sh` removes four legacy names with
+`|| true`, so those lines are cleanup noise).
+
+One clue is unexplained and worth starting from: the Native jobs report
+**`no container engine found; skipping engine and buildkit diagnostics`**. A
+test harness that reaches for `$frontend` to connect a network or read a
+daemon's logs has nothing to reach for there.
+
+**[GAP]** The per-target classification E603 asks for - a capability this engine
+lacks, against the same thing done differently - is not done. It needs the
+per-target logs rather than the job list, and it is the work this run exists to
+make possible rather than something the run answers by itself.

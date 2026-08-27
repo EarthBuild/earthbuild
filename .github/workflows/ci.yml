@@ -57,7 +57,9 @@ jobs:
       # --- Build Standard EarthBuild ---
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env:
+          GHCR_USER: ${{ github.actor }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
       - name: 'Put back the git branch into git (EarthBuild uses it for tagging)'
         run: |
           branch=""
@@ -222,9 +224,13 @@ jobs:
           # shared runner IPs (unauthenticated is 60 req/hr/IP).
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env:
+          GHCR_USER: ${{ github.actor }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
       - name: 'Put back the git branch into git (EarthBuild uses it for tagging)'
         run: |
           branch=""
@@ -369,8 +375,11 @@ jobs:
     needs:
       - fast-check-and-build
       - build-buildkit-arm64
+    permissions:
+      contents: read
     uses: ./.github/workflows/ci-apple-container-mac.yml
-    secrets: inherit
+    secrets:
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   # --- Merge Gate ---
   # The ONLY check that branch protection should require. Every other job's

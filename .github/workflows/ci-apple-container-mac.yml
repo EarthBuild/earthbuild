@@ -2,7 +2,13 @@ name: Apple Container CI macOs
 
 on:
   workflow_call:
+    secrets:
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -55,6 +61,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - name: Download build-earth artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:

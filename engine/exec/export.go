@@ -268,24 +268,74 @@ func copyOut(src, dst string) error {
 		return fmt.Errorf("read the staged artifact: %w", err)
 	}
 
-	// dst is checked by insideProject immediately above, which resolves
-	// symlinks on the nearest existing ancestor - the taint is real and the
-	// guard is what answers it. TestASymlinkCannotBeUsedToEscapeTheProject
-	// fails if that check is removed, so this suppression is one somebody
-	// keeps true rather than one they have to remember.
-	err = os.WriteFile(dst, b, fi.Mode()) //nolint:gosec // guarded by insideProject, above
+	return placeOut(dst, b, fi)
+}
+
+// placeOut writes an artifact beside its destination and renames it over.
+//
+// **Because a build often replaces the program that is running it.** CI builds
+// `build/linux/amd64/earthly` with the copy of it that is executing, and
+// opening that path for writing fails with ETXTBSY - "text file busy" - which
+// is not a fault in the Earthfile and nothing the build can act on. A rename
+// replaces the *name*: the running program keeps the inode it started from and
+// the next execution gets the new one, which is how every package manager on
+// the machine replaces a binary in use.
+//
+// Atomic as a consequence, which is worth as much. A reader sees the old file
+// or the new one and never half of either, and a build interrupted midway
+// leaves the previous artifact rather than a truncated one (E760).
+//
+// dst is checked by insideProject before this is reached, which resolves
+// symlinks on the nearest existing ancestor; the temporary lands in that same
+// directory, because a rename cannot cross a filesystem.
+func placeOut(dst string, b []byte, fi os.FileInfo) error {
+	tmp, err := os.CreateTemp(filepath.Dir(dst), "."+filepath.Base(dst)+"-")
 	if err != nil {
-		return fmt.Errorf("write %s: %w", dst, err)
+		return fmt.Errorf("stage %s beside its destination: %w", dst, err)
+	}
+
+	staged := tmp.Name()
+
+	undo := func(because error) error {
+		_ = tmp.Close()
+		_ = os.Remove(staged)
+
+		return because
+	}
+
+	_, err = tmp.Write(b)
+	if err != nil {
+		return undo(fmt.Errorf("write %s: %w", dst, err))
+	}
+
+	err = tmp.Close()
+	if err != nil {
+		return undo(fmt.Errorf("write %s: %w", dst, err))
+	}
+
+	// Before the rename, so the artifact never exists at its own name with the
+	// wrong mode: CreateTemp makes it 0600, and an executable arriving
+	// unreadable is a worse failure than one arriving a moment later.
+	err = os.Chmod(staged, fi.Mode())
+	if err != nil {
+		return undo(fmt.Errorf("set the mode of %s: %w", dst, err))
 	}
 
 	// Preserved because an artifact's mtime is part of what it is: a build tool
 	// that stamps every output with the current time defeats every downstream
-	// tool that compares timestamps, which is most of them (I8).
-	// The clamp when the invocation asked for one, the file's own time
-	// otherwise. See clampTime: pinning timestamps and keeping them true are
-	// both right, for different builds, so the engine takes the instruction
-	// rather than choosing.
-	return stampOut(dst, fi)
+	// tool that compares timestamps, which is most of them (I8). Stamped before
+	// the rename for the same reason as the mode.
+	err = stampOut(staged, fi)
+	if err != nil {
+		return undo(err)
+	}
+
+	err = os.Rename(staged, dst)
+	if err != nil {
+		return undo(fmt.Errorf("put %s in place: %w", dst, err))
+	}
+
+	return nil
 }
 
 // stampOut gives an exported artifact the time it should carry.

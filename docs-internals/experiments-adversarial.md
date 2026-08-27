@@ -35914,3 +35914,43 @@ every step creates. What a step inherits is a good place to keep looking:
 `ulimit -n` is still the caller's, and is recorded as a nit rather than changed,
 because a file-descriptor limit changes how much work a compiler will attempt
 rather than what it produces.
+
+## E760 - the build could not replace the program that was running it
+
+A Podman job failed with
+
+```console
+Error: write build/linux/amd64/earthly: open build/linux/amd64/earthly:
+  text file busy
+```
+
+which is this engine's own message, from `copyOut`. `SAVE ARTIFACT` opened the
+destination for writing, and the destination was a binary the machine was
+executing - CI builds `build/linux/amd64/earthly` with the copy of it that is
+running. The kernel refuses that with ETXTBSY, and there is nothing the
+Earthfile can do about it: the fault is in how the artifact is placed, not in
+what it is.
+
+A rename replaces the *name*. The running program keeps the inode it was started
+from, the next execution gets the new one, and the write never touches a file
+anybody is executing - which is how every package manager on the machine
+replaces a binary in use.
+
+Atomicity comes with it and is worth as much. A reader now sees the old artifact
+or the new one and never half of either, and a build interrupted midway leaves
+the previous artifact rather than a truncated one. `SAVE ARTIFACT` over a file
+another program is reading was already a race; it is not one now.
+
+**The test needed two machines to be worth anything.** It copies a real binary,
+runs it, and asks the engine to replace it - and it skipped on both machines it
+was first run on, for different reasons: macOS permits writing to a running
+binary, so there is nothing to prove there, and NixOS has no `/bin/sleep`,
+because `/bin` holds only `sh`. Looked up with `exec.LookPath` it runs on the
+Linux box and fails on the unfixed engine with the message above. A test that
+skips is a test that passes, and a green suite said so twice.
+
+Order inside `placeOut`: mode and timestamps go on the staged file before the
+rename, so the artifact never exists at its own name in a state a reader could
+observe - an executable that arrives unreadable is worse than one that arrives a
+moment later, and an mtime set after the rename is a window where a downstream
+tool compares the wrong times (I8).

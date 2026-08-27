@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package = "github.com/EarthBuild/earthbuild/examples/readme/proto/pb";
+
+message Person {
+  string name = 1;
+  int32 id = 2;
+  string email = 3;
+}

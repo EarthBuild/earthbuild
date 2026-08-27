@@ -379,6 +379,20 @@ engine-race:
         if [ "$skipped" -gt "$SKIP_CEILING" ]; then \
             echo "more tests skipped than this container should need ($skipped > $SKIP_CEILING):"; \
             echo "a green run that verified less is the failure this ceiling exists to catch"; \
+            # **The reason, not just the count.** The count is here and the
+            # reasons are in the tree, so the first time this tripped nobody
+            # could say which skip had moved: two runs of log archaeology, a
+            # diff against a partial log, and the answer in the end was a test
+            # that skipped on a *timeout* and so flapped under load (E770).
+            # go's -v prints "  file_test.go:12: reason" immediately above each
+            # "--- SKIP", so the pairing is free and the grouping says which
+            # kind of skip moved - a privilege this container lacks, an opt-in
+            # switch, or a machine more capable than the test needs.
+            echo "--- every skip, by reason:"; \
+            grep -B1 -E "^ *--- SKIP: " /tmp/t.log \
+                | grep -E "^ *[a-z0-9_]+\.go:[0-9]+: " \
+                | sed -E "s/^ *[a-z0-9_]+\.go:[0-9]+: //" \
+                | cut -c1-90 | sort | uniq -c | sort -rn | head -30; \
             exit 1; \
         fi
 

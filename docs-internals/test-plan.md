@@ -1422,8 +1422,18 @@ gh api "repos/EarthBuild/earthbuild/actions/jobs/<id>/logs" \
   | sort | uniq -c | sort -rn
 ```
 
-The reasons are not in that log - the target prints an aggregated
-`1 --- SKIP: <name>` rather than go's `-v` output - so they have to be joined
-back to the `t.Skip` calls in the source. That is the main thing wrong with the
-list today: **the count is in CI and the reasons are in the tree**, and nothing
-prints them together at the moment one goes red.
+The reasons are not in the *aggregated* output - the target prints
+`1 --- SKIP: <name>` - but they are in the log go writes, immediately above each
+`--- SKIP`. The gate now prints them, grouped, when it trips:
+
+```console
+more tests skipped than this container should need (176 > 175):
+--- every skip, by reason:
+     10 set EARTH_TEST_NETWORK=1 to run tests that reach the internet
+      4 no seccomp user notification here: %v
+      …
+```
+
+Before that it printed a number and nothing else, and the first time it tripped
+the answer took two rounds of log archaeology and a diff against a partial log -
+for a skip that turned out to be timing-dependent and to have flapped (E770).

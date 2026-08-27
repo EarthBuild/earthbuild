@@ -36981,3 +36981,19 @@ paths all expand commands; only the condition path did not, and nothing in it
 looks wrong until the same Earthfile is put through the other engine. Neither
 suite catches it: the corpus ratchets do not move, because a target whose
 condition is silently false still *plans*.
+
+**How far it went, measured rather than assumed.** Five other conditional forms
+through both engines, one target each:
+
+| form                         | native         | earthly        |
+| ---------------------------- | -------------- | -------------- |
+| `[ -f /etc/alpine-release ]` | taken          | taken          |
+| `! [ -f /nope ]`             | taken          | taken          |
+| `ELSE IF` with `ARG N=2`     | the second arm | the second arm |
+| `[ "$WHO" = "world" ]`       | taken          | taken          |
+| `[ -z "" ]`                  | taken          | taken          |
+
+Identical throughout, so the substitution form was the only one deciding wrongly
+and the rest of the conditional path is sound. Worth the run: a fix that
+addresses one form of a construct says nothing about the others, and "the
+conditionals are fine now" is exactly the sentence that ages badly.

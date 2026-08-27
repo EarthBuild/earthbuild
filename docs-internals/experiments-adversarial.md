@@ -34785,3 +34785,38 @@ without help - `EARTH_IMAGE_CACHE_DIR` on a case-sensitive volume already takes
 the corpus from 229 to 233 here, with no engine change at all. This is about
 whether macOS is a first-class place to *develop* the engine, which is a
 different question from whether it is a place to run builds.
+
+## E739 - FOR over a LOCALLY, and why the obvious fix is the dangerous one
+
+`for.earth+all` is the last corpus failure that is neither this machine's nor a
+decision. `FOR variable IN $(ls)` after a `LOCALLY` is refused:
+
+```text
+deciding it needs the LOCALLY steps before it to have run, and a host step is
+never cached - so running them to decide would run them twice
+```
+
+The reasoning is sound. A condition is answered by running it on the filesystem
+the recipe has built up to that line, so the prefix runs first; for a container
+step that costs nothing on the second pass because the steps are keyed and the
+build hits the same entries. A host step has no key by construction (I7), so the
+prefix runs again and `RUN touch a b c d` happens twice on the invoking machine.
+
+**There is a fix and it is smaller than it looks.** `decideByRunning` is handed
+the actual `*ir.Node` the plan holds and hangs the probe off it, so the prefix
+the probe executes *is* the prefix the build will execute - same nodes, same
+ids. A memo of host nodes already run in this invocation would let the build
+continue from the state the probe left, which for a host step is simply the
+machine as it now stands. That is not caching: nothing is published, nothing is
+read on a later build, and I7 is untouched.
+
+**And it is the wrong thing to build at the end of a long session.** Its failure
+mode is a step that silently does not run, which is the worst kind this engine
+has: a wrong build that reports success. Everything else in the scheduler that
+skips work does so against a key that proves the work was done before; this
+would skip against a memo that proves only that *something* ran earlier in the
+same process.
+
+**[GAP]** Worth doing with a test that fails first - two identical host steps in
+one build, and a `FOR` whose prefix must run exactly once - rather than worth
+doing quickly.

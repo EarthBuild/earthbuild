@@ -210,9 +210,11 @@ jobs:
           # default. "earth" gives them "earth-buildkitd".
           #
           # `--engine=buildkit` because this branch makes the native engine the
-          # default, and a suite that addresses a buildkitd by name needs one to
-          # exist: without it this builds the artifact on native and then waits
-          # for a daemon nothing started.
+          # default and this step is one of the buildkit-facing ones - the same
+          # rule as the ci-release steps above, where the engine that builds the
+          # other engine's artifacts is the other engine. Stated as the rule it
+          # follows rather than as a failure mode: the flag predates this merge
+          # and what breaks without it has not been observed here.
           ./build/linux/amd64/earthly --ci --engine=buildkit --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
@@ -268,9 +270,11 @@ jobs:
           # default. "earth" gives them "earth-buildkitd".
           #
           # `--engine=buildkit` because this branch makes the native engine the
-          # default, and a suite that addresses a buildkitd by name needs one to
-          # exist: without it this builds the artifact on native and then waits
-          # for a daemon nothing started.
+          # default and this step is one of the buildkit-facing ones - the same
+          # rule as the ci-release steps above, where the engine that builds the
+          # other engine's artifacts is the other engine. Stated as the rule it
+          # follows rather than as a failure mode: the flag predates this merge
+          # and what breaks without it has not been observed here.
           ./build/linux/amd64/earthly --ci --engine=buildkit --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \

@@ -23,7 +23,7 @@ func SeedPrediction(t *testing.T, dir string, cond []string, where string, taken
 	p := core.NewPredictions()
 
 	for range times {
-		recordBranch(p, cond, where, taken)
+		recordBranch(p, cond, where, taken, "")
 	}
 
 	err := savePredictions(dir, p)
@@ -42,7 +42,7 @@ func SeedPrediction(t *testing.T, dir string, cond []string, where string, taken
 		t.Fatalf("the seeded history does not load: %v", err)
 	}
 
-	branch, confident := back.Predict(siteOf(cond, where))
+	branch, confident := back.Predict(siteOf(cond, where, ""))
 	if !confident || branch != taken {
 		t.Fatalf("the seeded history is not confident about %v: (%v, %v)"+
 			"\n  a test built on it would assert that an *absent* prediction changes"+

@@ -196,6 +196,9 @@ type engine struct {
 	// learned is what earlier builds observed about each condition, loaded on
 	// demand and written back once the build is over.
 	learned *core.Predictions
+	// root is o.Dir made absolute, and is what makes a prediction site this
+	// project's rather than every project's. Resolved once, in Run.
+	root string
 	// decided is which way each condition went in *this* build, so what the
 	// build needed can be attributed to them afterwards.
 	mu      sync.Mutex
@@ -411,7 +414,7 @@ func (g *engine) commands(ctx context.Context) interp.Commands {
 		if err == nil {
 			taken := res.Exit == 0
 
-			recordBranch(g.learned, cmd, where, taken)
+			recordBranch(g.learned, cmd, where, taken, g.root)
 
 			g.mu.Lock()
 
@@ -419,7 +422,7 @@ func (g *engine) commands(ctx context.Context) interp.Commands {
 				g.decided = map[string]bool{}
 			}
 
-			g.decided[siteOf(cmd, where)] = taken
+			g.decided[siteOf(cmd, where, g.root)] = taken
 			g.mu.Unlock()
 		}
 
@@ -631,8 +634,33 @@ func localWorker(platform string) core.Worker {
 // everything built before it, so that identity changes with almost any commit.
 // Keyed on the site, a condition that has gone the same way for a month is
 // still known to after an unrelated edit.
-func siteOf(cond []string, where string) string {
-	return where + " " + strings.Join(cond, " ")
+func siteOf(cond []string, where, root string) string {
+	return qualify(where, root) + " " + strings.Join(cond, " ")
+}
+
+// qualify names a source location in a way another project cannot collide with.
+//
+// **A local file's location is relative**, so `Earthfile:10` is every project's
+// tenth line at once. Predictions outlive a build and are shared by every build
+// on the machine, so an unqualified site let one project's branch history decide
+// what another would probably do - and a `python` build spent half a second
+// prefetching `alpine` because the corpus had taught it to (E732).
+//
+// Only the relative ones. A remote Earthfile is already named by an absolute
+// path under the remotes cache, keyed by commit, so two projects importing the
+// same remote target really are at the same site and should go on sharing what
+// they learned about it.
+//
+// The root has to be absolute or this does nothing: `filepath.Join(".",
+// "Earthfile:10")` is `Earthfile:10` again, which is the collision it is meant
+// to remove. Resolved once by the caller rather than here, which would put a
+// `Getwd` on the path of every condition a build evaluates.
+func qualify(where, root string) string {
+	if root == "" || strings.HasPrefix(where, "/") {
+		return where
+	}
+
+	return filepath.Join(root, where)
 }
 
 // recordBranch remembers which way a condition went.
@@ -641,12 +669,12 @@ func siteOf(cond []string, where string) string {
 // the condition yielded (green paper I5) - the history decides what is worth
 // speculating on, never what is true, and keeping those two apart is what stops
 // a stale statistic from becoming a wrong build.
-func recordBranch(p *core.Predictions, cond []string, where string, taken bool) {
+func recordBranch(p *core.Predictions, cond []string, where string, taken bool, root string) {
 	if p == nil {
 		return
 	}
 
-	p.Observe(siteOf(cond, where), taken)
+	p.Observe(siteOf(cond, where, root), taken)
 }
 
 // historyFile is where a machine keeps what it has learned about conditions.

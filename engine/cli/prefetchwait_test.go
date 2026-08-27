@@ -26,12 +26,12 @@ func TestAPrefetchCancelsWhatItSpeculatedOn(t *testing.T) {
 	t.Parallel()
 
 	learned := core.NewPredictions()
-	site := siteOf([]string{"true"}, "Earthfile:1")
+	site := siteOf([]string{"true"}, "Earthfile:1", "")
 
 	// Three consistent decisions, because Predict wants at least two and a
 	// three-quarters majority before it will speculate on a site.
 	for range 3 {
-		recordBranch(learned, []string{"true"}, "Earthfile:1", true)
+		recordBranch(learned, []string{"true"}, "Earthfile:1", true, "")
 	}
 
 	recordNeeds(learned, map[string]bool{site: true}, []string{"alpine:3.22"})
@@ -50,7 +50,7 @@ func TestAPrefetchCancelsWhatItSpeculatedOn(t *testing.T) {
 		return nil
 	}
 
-	done := prefetch(context.Background(), learned, pull)
+	done := prefetch(context.Background(), "", learned, pull)
 	done()
 
 	mu.Lock()

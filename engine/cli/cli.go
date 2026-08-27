@@ -166,7 +166,18 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 	// it: a condition the interpreter cannot decide is answered by running it,
 	// which needs a sandbox. It builds one lazily, so a plan that decides all
 	// its conditions - which is nearly all of them - still boots nothing.
-	g := &engine{o: o, contexts: &interp.ContextCache{}}
+	// Absolute, and resolved once: a prediction site is qualified with this, and
+	// `filepath.Join(".", "Earthfile:10")` is `Earthfile:10` again - which is
+	// the collision the qualification exists to remove (E732).
+	root, rootErr := filepath.Abs(o.Dir)
+	if rootErr != nil {
+		// Not a reason to refuse a build. An unqualified site is what every
+		// build had before this, so the cost is speculation that is too eager
+		// rather than a build that does not run.
+		root = ""
+	}
+
+	g := &engine{o: o, root: root, contexts: &interp.ContextCache{}}
 
 	defer g.close()
 
@@ -209,7 +220,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 
 			// Waited for on the way out, so no pull outlives the build that
 			// speculated on it.
-			defer prefetch(ctx, learned, intoImageCache(dir, platform))()
+			defer prefetch(ctx, root, learned, intoImageCache(dir, platform))()
 
 			// Started for every build, not only one whose history says a
 			// condition will need it. A build that runs *any* step needs the

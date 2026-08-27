@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -40,7 +42,7 @@ type pullFunc func(ctx context.Context, ref string) error
 // image will be pulled properly when something actually needs it - so an error
 // is dropped rather than reported, and a prefetch that could fail a build would
 // make a hint load-bearing.
-func prefetch(ctx context.Context, learned *core.Predictions, pull pullFunc) func() {
+func prefetch(ctx context.Context, root string, learned *core.Predictions, pull pullFunc) func() {
 	if learned == nil || pull == nil {
 		return func() {}
 	}
@@ -50,6 +52,20 @@ func prefetch(ctx context.Context, learned *core.Predictions, pull pullFunc) fun
 	wanted := map[string]bool{}
 
 	for _, site := range learned.Sites() {
+		// **This build's history, not the machine's.** Predictions are shared by
+		// every build on the machine and a site names the file it is in, so
+		// speculating on all of them means fetching what other projects needed
+		// - measured at half a second on a three-second build, for an image
+		// this one never mentions (E732).
+		//
+		// Sites under other roots are skipped rather than deferred. A remote
+		// target this build imports is reached during interpretation and pulled
+		// then; speculating on it here would be guessing at an import that has
+		// not been read yet, which is a guess about a guess.
+		if !under(site, root) {
+			continue
+		}
+
 		branch, confident := learned.Predict(site)
 		if !confident {
 			continue
@@ -145,4 +161,16 @@ func intoImageCache(root, platform string) pullFunc {
 				})
 			})
 	}
+}
+
+// under reports whether a prediction site belongs to a build rooted at root.
+//
+// An empty root speculates on everything, which is what a caller with no build
+// directory - a test, or a reader command - already meant.
+func under(site, root string) bool {
+	if root == "" {
+		return true
+	}
+
+	return strings.HasPrefix(site, root+string(filepath.Separator))
 }

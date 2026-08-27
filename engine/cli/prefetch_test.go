@@ -58,7 +58,7 @@ func TestAConfidentPredictionPrefetchesWhatThatBranchNeeded(t *testing.T) {
 
 	p := &puller{}
 
-	prefetch(context.Background(), learned, p.pull)()
+	prefetch(context.Background(), "", learned, p.pull)()
 
 	// The branch it expects, and not the one it does not.
 	if got := p.got(); got != testTwoImages {
@@ -83,7 +83,7 @@ func TestAnUnconfidentSiteFetchesNothing(t *testing.T) {
 
 	p := &puller{}
 
-	prefetch(context.Background(), learned, p.pull)()
+	prefetch(context.Background(), "", learned, p.pull)()
 
 	if got := p.got(); got != "" {
 		t.Errorf("fetched %q on a single observation", got)
@@ -108,7 +108,7 @@ func TestAnAlternatingSiteFetchesNothing(t *testing.T) {
 
 	p := &puller{}
 
-	prefetch(context.Background(), learned, p.pull)()
+	prefetch(context.Background(), "", learned, p.pull)()
 
 	if got := p.got(); got != "" {
 		t.Errorf("fetched %q for a condition that alternates", got)
@@ -133,7 +133,7 @@ func TestAFailedPrefetchIsNotAFailure(t *testing.T) {
 
 	learned.Needed(site, true, []string{testBaseImage})
 
-	prefetch(context.Background(), learned, func(context.Context, string) error {
+	prefetch(context.Background(), "", learned, func(context.Context, string) error {
 		return context.DeadlineExceeded
 	})()
 }
@@ -226,7 +226,7 @@ func TestAPrefetchDoesNotBlockTheBuild(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
 
-	wait := prefetch(context.Background(), learned, func(context.Context, string) error {
+	wait := prefetch(context.Background(), "", learned, func(context.Context, string) error {
 		close(started)
 		<-release
 
@@ -282,7 +282,7 @@ func TestAPrefetchIsFinishedBeforeTheBuildReturns(t *testing.T) {
 		done int
 	)
 
-	wait := prefetch(context.Background(), learned, func(context.Context, string) error {
+	wait := prefetch(context.Background(), "", learned, func(context.Context, string) error {
 		time.Sleep(10 * time.Millisecond)
 
 		mu.Lock()

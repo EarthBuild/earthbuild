@@ -255,9 +255,9 @@ func TestAConditionsOutcomeIsRecorded(t *testing.T) {
 
 	learned := core.NewPredictions()
 
-	recordBranch(learned, []string{testCommand, "-v", testUnbuffer}, "Earthfile:12", true)
-	recordBranch(learned, []string{testCommand, "-v", testUnbuffer}, "Earthfile:12", true)
-	recordBranch(learned, []string{testCommand, "-v", testUnbuffer}, "Earthfile:12", true)
+	recordBranch(learned, []string{testCommand, "-v", testUnbuffer}, "Earthfile:12", true, "")
+	recordBranch(learned, []string{testCommand, "-v", testUnbuffer}, "Earthfile:12", true, "")
+	recordBranch(learned, []string{testCommand, "-v", testUnbuffer}, "Earthfile:12", true, "")
 
 	err := savePredictions(dir, learned)
 	if err != nil {
@@ -269,13 +269,13 @@ func TestAConditionsOutcomeIsRecorded(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	branch, confident := next.Predict(siteOf([]string{testCommand, "-v", testUnbuffer}, "Earthfile:12"))
+	branch, confident := next.Predict(siteOf([]string{testCommand, "-v", testUnbuffer}, "Earthfile:12", ""))
 	if !confident || !branch {
 		t.Errorf("the next build does not know which way this condition goes (%v, %v)", branch, confident)
 	}
 
 	// A different line is a different site, even with the same words.
-	if _, confident := next.Predict(siteOf([]string{testCommand, "-v", testUnbuffer}, "Earthfile:99")); confident {
+	if _, confident := next.Predict(siteOf([]string{testCommand, "-v", testUnbuffer}, "Earthfile:99", "")); confident {
 		t.Error("history from one line was applied to another")
 	}
 }

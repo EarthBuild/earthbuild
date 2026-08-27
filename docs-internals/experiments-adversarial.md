@@ -36292,3 +36292,58 @@ unconditional gave every step on that platform a mount and re-broke the
 `requires linux` path, so `hostsMountFor` keeps darwin's old rule exactly and
 only linux gets the unconditional one. A step's own name need only resolve where
 a step could dial it.
+
+## E769 - WITH DOCKER --load wrote an archive docker could not read
+
+Every `--load` test failed with a message from inside the daemon:
+
+```console
+open /var/lib/docker/tmp/docker-import-703003986/blobs/json:
+  no such file or directory
+```
+
+A packed image is an OCI layout - `oci-layout`, `index.json`,
+`blobs/sha256/…` - and docker's **classic** image store cannot load one. Its
+loader falls back to the format that predates `manifest.json`, where every
+top-level directory is a layer, so it takes `blobs` for a layer directory and
+asks for the `json` inside it. The containerd image store reads the same tar
+without complaint, which is why this is invisible on a machine that has it
+enabled and total on one that does not.
+
+Reproduced locally and *deterministically* - 3 of 3, on the current branch and
+on a binary from before any of this work, so pre-existing rather than caused:
+
+```console
+$ dockerd --storage-driver=vfs                                 # docker load … blobs/json
+$ dockerd --storage-driver=vfs --feature=containerd-snapshotter=true
+  Loaded image: test:img
+```
+
+**The first fix was the wrong one, and a suggestion caught it.** That experiment
+made the daemon flag look like the answer: one line in `daemonArgs`, and the
+archive loads. It also needs docker 25, and an older daemon refuses to start on
+an unknown flag rather than starting without it - so it would raise the engine's
+floor to work around a file it can write. Asked to compare against what earthly
+produces, `docker save` answers it immediately:
+
+```console
+$ docker save alpine:3.21 | tar t
+  blobs/  blobs/sha256/…  index.json  manifest.json      # docker's own output
+$ tar tf …/images/<id>.tar
+  blobs/  blobs/sha256/…  index.json  oci-layout         # ours
+```
+
+docker writes **both** formats over one set of blobs, and its `manifest.json`
+names the same `blobs/sha256/…` paths the OCI index does. That costs one small
+file here, because layers are written uncompressed on both sides -
+`application/vnd.oci.image.layer.v1.tar` - so neither format needs a copy.
+
+With the manifest written, an unmodified classic-store daemon says
+`Loaded image: test:img`.
+
+**What the differential was worth.** The failing message named docker's
+temporary directory, so it read as a daemon problem, and the first two
+hypotheses - a malformed archive, then a missing daemon feature - were both
+about what the daemon wanted. Comparing against the reference implementation's
+*output* skipped all of it: the difference is one file, and it is visible in two
+`tar t` listings.

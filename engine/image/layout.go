@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -99,6 +100,68 @@ type configBody struct {
 // value, which removes a whole class of mismatch, and it avoids gzip - whose
 // header carries a modification time, so compressing would put a clock back
 // into an image built to be reproducible.
+// dockerManifest is the entry docker's classic image store reads.
+//
+// Named for the file rather than the format because that is what identifies it:
+// a `manifest.json` at the root of the tar is how `docker load` tells a
+// docker-save archive from anything else.
+type dockerManifest struct {
+	Config       string                        `json:"Config"`
+	RepoTags     []string                      `json:"RepoTags"`
+	Layers       []string                      `json:"Layers"`
+	LayerSources map[string]ocispec.Descriptor `json:"LayerSources,omitempty"`
+}
+
+// writeDockerManifest adds the file docker's classic image store needs.
+//
+// **Both formats, one set of blobs.** The layout this writes is OCI, and
+// docker's classic store cannot read one: its loader falls back to the format
+// that predates `manifest.json`, treats each top-level directory as a layer,
+// and fails asking for `blobs/json`. Every `WITH DOCKER --load` failed that way
+// against a daemon that was not using the containerd image store, which is
+// still the default on most machines.
+//
+// `docker save` solves it by writing both, and this is that: a `manifest.json`
+// naming the *same* blob paths the OCI index already names. It costs one small
+// file, because layers are written uncompressed - `application/vnd.oci.image
+// .layer.v1.tar` on both sides - so neither format needs a copy of its own.
+//
+// Considered and rejected: starting the daemon with
+// `--feature=containerd-snapshotter=true`, which also loads the archive. It
+// needs docker 25, and an older daemon refuses to start on an unknown flag
+// rather than starting without it - so it would raise this engine's floor to
+// fix a file it can simply write (E769).
+func writeDockerManifest(dir, ref string, config ocispec.Descriptor, layers []ocispec.Descriptor) error {
+	blobPath := func(d ocispec.Descriptor) string {
+		return path.Join("blobs", "sha256", d.Digest.Encoded())
+	}
+
+	entry := dockerManifest{
+		Config:       blobPath(config),
+		RepoTags:     []string{ref},
+		Layers:       make([]string, 0, len(layers)),
+		LayerSources: make(map[string]ocispec.Descriptor, len(layers)),
+	}
+
+	for _, l := range layers {
+		entry.Layers = append(entry.Layers, blobPath(l))
+		entry.LayerSources[l.Digest.String()] = l
+	}
+
+	b, err := json.Marshal([]dockerManifest{entry})
+	if err != nil {
+		return fmt.Errorf("encode the docker manifest: %w", err)
+	}
+
+	//nolint:gosec // read by a daemon running as another user; the layout is not secret
+	err = os.WriteFile(filepath.Join(dir, "manifest.json"), b, 0o644)
+	if err != nil {
+		return fmt.Errorf("write the docker manifest: %w", err)
+	}
+
+	return nil
+}
+
 func WriteLayout(dir string, spec Spec) error {
 	if spec.Ref == "" {
 		return errors.New("an image needs a name")
@@ -143,6 +206,11 @@ func WriteLayout(dir string, spec Spec) error {
 	// and denied by `docker image inspect`, and `docker run` went looking for
 	// it in a registry. It ran perfectly well by ID, which is what showed the
 	// image was right and only its name was wrong.
+	err = writeDockerManifest(dir, spec.Ref, configDesc, layers)
+	if err != nil {
+		return err
+	}
+
 	manifestDesc.Annotations = map[string]string{
 		ocispec.AnnotationRefName:  spec.Ref,
 		"io.containerd.image.name": FullReference(spec.Ref),

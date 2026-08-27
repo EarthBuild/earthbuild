@@ -603,26 +603,28 @@ func Start(
 				return fmt.Errorf("parse local registry address %q: %w", settings.LocalRegistryAddress, err)
 			}
 
-			var hostPort int
+			if lrURL.Scheme == "tcp" || lrURL.Port() != "" {
+				var hostPort int
 
-			hostPort, err = strconv.Atoi(lrURL.Port())
-			if err != nil {
-				return fmt.Errorf("invalid port in local registry address %q: %w", settings.LocalRegistryAddress, err)
+				hostPort, err = strconv.Atoi(lrURL.Port())
+				if err != nil {
+					return fmt.Errorf("invalid port in local registry address %q: %w", settings.LocalRegistryAddress, err)
+				}
+
+				ports = append(ports, engine.Port{
+					IP:            localhost,
+					HostPort:      hostPort,
+					ContainerPort: 8371,
+					Protocol:      engine.ProtocolTCP,
+				})
 			}
-
-			ports = append(ports, engine.Port{
-				IP:            localhost,
-				HostPort:      hostPort,
-				ContainerPort: 8371,
-				Protocol:      engine.ProtocolTCP,
-			})
 		}
 
 		var bkURL *url.URL
 
 		bkURL, err = url.Parse(settings.BuildkitAddress)
 		if err != nil {
-			return fmt.Errorf("error parsing buildkit address url: %w", err)
+			return fmt.Errorf("parse buildkit address %q: %w", settings.BuildkitAddress, err)
 		}
 
 		if settings.UseTCP {

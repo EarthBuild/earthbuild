@@ -12,11 +12,13 @@ import (
 
 // Settings represents the buildkitd settings used to start up the daemon with.
 type Settings struct {
-	TLSCA                string
-	ServerTLSCert        string
-	IPTables             string
-	StartUpLockPath      string // StartUpLockPath is not included in hash.
-	BuildkitAddress      string
+	TLSCA           string
+	ServerTLSCert   string
+	IPTables        string
+	StartUpLockPath string // StartUpLockPath is not included in hash.
+	BuildkitAddress string
+	// LocalRegistryAddress is the host address or URL of the local registry used for image exports
+	// (e.g. "tcp://127.0.0.1:8371", "http://127.0.0.1:8371", "docker-container://<name>", or "" when disabled).
 	LocalRegistryAddress string
 	ServerTLSKey         string
 	ClientTLSKey         string

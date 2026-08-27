@@ -1048,6 +1048,28 @@ var Mutants = []Mutant{
 		Package:     "./engine/ir/",
 	},
 	{
+		Name:        "guest: the shared memory every step is entitled to (E752)",
+		File:        "engine/guest/mount_linux.go",
+		Anchor:      "\t\t{Ephemeral: true, Tmpfs: true, Target: \"/dev/shm\", Mode: 0o1777},",
+		Replacement: "",
+		Package:     "./engine/guest/",
+		OS:          "linux",
+	},
+	{
+		Name:        "guest: a declaration skipped rather than packed as a layer (E749)",
+		File:        "engine/guest/packimage.go",
+		Anchor:      "\t\tif decl.Has(root, id) {\n\t\t\tcontinue\n\t\t}",
+		Replacement: "\t\tif decl.Has(root, id) \u0026\u0026 false {\n\t\t\tcontinue\n\t\t}",
+		Package:     "./engine/guest/",
+	},
+	{
+		Name:        "guest: the step's own name in its hosts file (E768)",
+		File:        "engine/guest/hosts.go",
+		Anchor:      "\tb.WriteString(\"127.0.0.1\\t\" + SandboxHost + \"\\n\")",
+		Replacement: "",
+		Package:     "./engine/guest/",
+	},
+	{
 		Name:        "guest: the devices given a directory of their own (E637)",
 		File:        "engine/guest/mount_linux.go",
 		Anchor:      "\t\t{Ephemeral: true, Target: \"/dev\", Mode: 0o755},",

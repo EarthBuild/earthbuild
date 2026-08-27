@@ -34535,3 +34535,49 @@ made thirty red jobs self-describing.
 pin the release steps have, so the fixture is built by buildkit and the tests
 still run native - that is the arrangement E603 wants and the one it is not
 getting. And the silent exit wants a refusal with a message.
+
+## E735 - what 250 of 250 would actually cost
+
+The sweep is 226 ok, 11 wrong, 8 diverges, 3 unjudgeable, 2 unmodelled. Asked
+how close the corpus can get to complete, the useful answer is not a number but
+a decomposition, because the last two dozen are four different kinds of thing
+and only one kind is a defect.
+
+| what remains                       | n   | what it would take                         |
+| ---------------------------------- | --- | ------------------------------------------ |
+| macOS filesystem                   | 6   | nothing - they pass on Linux               |
+| `USER` is recorded and not applied | 1   | implement it; also needs a Linux store     |
+| `LOCALLY`                          | 2   | a capability this engine does not have     |
+| `RUN --aws`                        | 2   | **a decision**, see E726                   |
+| this machine is darwin/arm64       | 2   | a linux/amd64 worker                       |
+| the harness cannot model it        | 3   | `corpus_run.py`, not the engine            |
+| deliberate divergences             | 8   | **abandoning positions this engine holds** |
+
+**Six of the eleven failures are not the engine.** `visited-upfront-hash-collection`
+(4) fails because `earthbuild/dind` ships `libip6t_HL.so` and `libip6t_hl.so`,
+which a case-insensitive volume cannot hold; `copy-keep-own` (2) because a store
+on a host share cannot carry an ownership the guest set. Both pass with the store
+on a Linux filesystem, which is what CI has - and what `EARTH_STORE_IN_VM` gives
+here, at the cost of 46 other cases, because the guest then stages exports where
+the host cannot read them.
+
+**The eight divergences are the interesting column.** They are not gaps:
+
+* `RUN --privileged` and privileged remote targets are refused **on purpose**,
+  four of the eight.
+* `SAVE ARTIFACT --force` and `RUN --mount type=bind-experimental` likewise.
+* `mtime.earth` diverges because this engine *preserves* mtimes and clamps them
+  under `SOURCE_DATE_EPOCH` (E34), which is the reproducibility the reference
+  does not offer.
+* `privileged.earth` diverges on `CapEff` (E157).
+
+Converting those to `ok` means giving up the position, not fixing a bug. A
+corpus score that counted them would be measuring conformance to buildkit rather
+than correctness, and three of the four security refusals would have to be
+dropped to earn the point.
+
+**So the reachable ceiling is 242 of 250**, and it is reached by: running on
+Linux (+6), a linux/amd64 worker (+2), teaching the harness three cases (+3),
+implementing `USER` (+1) and `LOCALLY` (+2), and deciding `RUN --aws` (+2). The
+remaining 8 are the engine declining to do things, and are better read as the
+corpus disagreeing with the engine than the engine failing the corpus.

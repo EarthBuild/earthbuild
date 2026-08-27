@@ -35439,3 +35439,44 @@ must not weaken.
 none had been) and the build reaches a further fault: the sandbox has no
 `/var/lib/earthbuild/store/images`, the store not being mounted where the daemon
 in the `WITH DOCKER` sandbox looks. Downstream of this and separate from it.
+
+## E750 - the store's path inside a sandbox that has not got one
+
+With E749's refusal gone, `WITH DOCKER --load` reached a second fault and
+stopped:
+
+```console
+the sandbox has no /var/lib/earthbuild/store/images
+  /var/lib/earthbuild/store/images does not exist; the nearest directory that
+  does is /var/lib
+```
+
+**Why the path is fixed, and why that is right.** The loading step runs `docker
+load -i <archive>`, so the archive's path is in its argv and therefore in its
+key. A host path there would give one build a different key on every machine,
+and the same build a different key the moment the cache directory moved. So the
+plan names the archive at `StorePath` - where a VM's kernel mounts the store -
+and the interpreter needs no backend to build it.
+
+**What it missed.** Only the darwin backend mounts anything there. A Linux
+sandbox *is* this machine's filesystem, the store is wherever the cache
+directory put it, and nothing puts it at `StorePath`; the mount named a
+directory that does not exist. The contract was written for the sandbox that has
+a store of its own and applied to the one that has not.
+
+**The fix.** The guest resolves a sandbox path against the store it actually
+has: identity in a VM, a rebase onto `s.LayerDir` on this machine. The
+translation belongs there because the guest is the only party that knows both
+the fixed path and the real one - the host cannot, since the point of the fixed
+path is that the host's own is not usable.
+
+Only the store prefix moves, and it moves on a separator boundary: a sandbox
+path is otherwise the machine's own - the docker client and its socket - and
+`/var/lib/earthbuild/store-docker` is a different directory that a string prefix
+would have taken. Both are tested.
+
+**Where it stops on this machine.** The mount now resolves and the load runs.
+It then fails for a reason the engine already diagnoses: this box is NixOS, its
+`docker` client is dynamically linked and so cannot be injected into the
+sandbox, and the test's image carries none. That is a property of the machine,
+not of the engine, and the message says so.

@@ -217,7 +217,7 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 		// where a socket was expected and the failure would appear inside the
 		// step as a daemon that is not answering.
 		if m.Sandbox != "" {
-			source = m.Sandbox
+			source = sandboxSource(m.Sandbox, layers)
 
 			err := waitFor(source)
 			if err != nil {

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"os"
 	"path"
@@ -16,7 +15,6 @@ import (
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
 	"github.com/EarthBuild/earthbuild/builder"
-	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/cmd/earth/bk"
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
@@ -358,37 +356,11 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		return nil
 	}
 
-	err = b.cli.InitContainer(cmd)
+	bkClient, err := b.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
-		return fmt.Errorf("could not init container engine: %w", err)
-	}
-
-	// After configuring container engine, buildkit address should not be empty.
-	// It should be set to a local container or remote address at this point.
-	if b.cli.Flags().BuildkitdSettings.BuildkitAddress == "" {
-		return errors.New("could not determine buildkit address - is Docker or Podman running?")
-	}
-
-	bkClient, err := buildkitd.NewClient(
-		ctx,
-		b.cli.Log(),
-		b.cli.Flags().BuildkitdImage,
-		b.cli.Flags().ContainerName,
-		b.cli.Flags().Engine,
-		b.cli.Version(),
-		b.cli.Flags().BuildkitdSettings,
-	)
-	if err != nil {
-		return fmt.Errorf("build new buildkitd client: %w", err)
+		return err
 	}
 	defer bkClient.Close()
-
-	if b.cli.Flags().Engine.Metadata().Scheme == engine.SchemeApple {
-		c, inspectErr := b.cli.Flags().Engine.InspectContainer(ctx, b.cli.Flags().ContainerName)
-		if inspectErr == nil && c.IPs["bridge"] != "" {
-			b.cli.Flags().LocalRegistryHost = "http://" + net.JoinHostPort(c.IPs["bridge"], "8371")
-		}
-	}
 
 	platr, err := b.platformResolver(ctx, bkClient, target)
 	if err != nil {
@@ -832,7 +804,8 @@ func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 
 	if isLocal && !b.cli.Flags().Engine.IsAvailable(ctx) {
 		return "", false, errors.New(
-			"container engine is not available to perform the build; is Docker or Podman installed and running?",
+			"container engine is not available to perform the build; " +
+				"is Docker, Podman, or Apple Container installed and running?",
 		)
 	}
 

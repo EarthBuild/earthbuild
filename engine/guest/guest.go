@@ -2085,6 +2085,13 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 	defer undoSys()
 
+	// Inside the /sys above, and on the same weak rule: a machine on cgroups v1
+	// has none of this and a step there is still a correct step. See
+	// mountCgroup2.
+	undoCgroupFS, _ := mountCgroup2(h.Root())
+
+	defer undoCgroupFS()
+
 	mounts := stepMounts(req, stepEnv(declaredBy(h, req), req.Env))
 
 	// A view of an earlier result is a stack and has to be assembled before

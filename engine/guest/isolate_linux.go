@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // ErrCannotIsolate reports that the guest cannot confine a step.
@@ -50,19 +52,41 @@ func isolateShim(cmd *exec.Cmd, root string, dropNet bool) error {
 	return isolateWith(cmd, root, dropNet, true)
 }
 
+// unixCLONENEWCGROUP is CLONE_NEWCGROUP, which x/sys/unix spells and the
+// syscall package does not.
+const unixCLONENEWCGROUP = unix.CLONE_NEWCGROUP
+
+// isolationFlags is the confinement a step gets, as clone flags.
+//
+// Separated from applying them so the policy can be read and tested without a
+// process to apply it to - the flags are the whole of what "isolated" means
+// here, and a missing one is invisible in any test that only checks a step ran.
+func isolationFlags(dropNet bool) uintptr {
+	flags := uintptr(syscall.CLONE_NEWNS |
+		syscall.CLONE_NEWPID |
+		syscall.CLONE_NEWUTS |
+		syscall.CLONE_NEWIPC |
+		// **Its own cgroup, and its own view of where that is.** Without this a
+		// step reads the machine's path for its cgroup out of
+		// /proc/self/cgroup, and once /sys/fs/cgroup is mounted it can walk the
+		// whole hierarchy: ambient state a step can observe that no key
+		// describes (I3). It is also what makes a nested runtime possible -
+		// creating cgroups in its own tree rather than in the machine's (E754).
+		unixCLONENEWCGROUP)
+
+	if dropNet {
+		flags |= syscall.CLONE_NEWNET
+	}
+
+	return flags
+}
+
 func isolateWith(cmd *exec.Cmd, root string, dropNet, shimming bool) error {
 	if os.Geteuid() != 0 {
 		return ErrCannotIsolate
 	}
 
-	flags := uintptr(syscall.CLONE_NEWNS |
-		syscall.CLONE_NEWPID |
-		syscall.CLONE_NEWUTS |
-		syscall.CLONE_NEWIPC)
-
-	if dropNet {
-		flags |= syscall.CLONE_NEWNET
-	}
+	flags := isolationFlags(dropNet)
 
 	// Filled in rather than replaced.
 	//

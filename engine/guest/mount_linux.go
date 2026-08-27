@@ -528,6 +528,51 @@ func mountSys(root string) (undo func(), why error) {
 	return func() { unmountAll(target) }, nil
 }
 
+// mountCgroup2 puts the step's own cgroup tree at /sys/fs/cgroup.
+//
+// **Why a step wants one.** `earth-entrypoint.sh` tells cgroups v2 from v1 by
+// looking for `/sys/fs/cgroup/cgroup.controllers`, and a nested runtime -
+// buildkitd, dockerd, runc - makes cgroups for what it starts. Absent, the
+// entrypoint reads v2 as v1 and configures a daemon for a machine that is not
+// there, which is how `connect provided buildkit: timeout` was arrived at
+// (E754).
+//
+// **Why it is safe to give.** The step is in a cgroup namespace of its own, so
+// what it mounts here is rooted at *its* cgroup and it cannot see or touch the
+// machine's tree - the same arrangement a container runtime uses for
+// `--privileged` with `cgroupns=private`. Without the namespace this would hand
+// a step the machine's whole hierarchy, so the two go together and this refuses
+// to mount if the namespace is not there.
+//
+// Skipped where the machine is on cgroups v1, whose layout is a directory per
+// controller and whose delegation rules are not these. Nothing here needs to
+// work on v1: it is a fallback for a nested build, and a nested build on a v1
+// machine has the same problem this engine does.
+func mountCgroup2(root string) (undo func(), why error) {
+	target := filepath.Join(root, "sys", "fs", "cgroup")
+
+	// A v2 machine has this file at the root of the unified hierarchy. Asked of
+	// the machine rather than of the step, which has not got one yet.
+	_, err := os.Stat("/sys/fs/cgroup/cgroup.controllers")
+	if err != nil {
+		return func() {}, fmt.Errorf("this machine is not on cgroups v2: %w", err)
+	}
+
+	//nolint:gosec // a mount point carries the mode the mount asked for
+	err = os.MkdirAll(target, 0o755)
+	if err != nil {
+		return func() {}, fmt.Errorf("make room for /sys/fs/cgroup: %w", err)
+	}
+
+	err = unix.Mount("cgroup2", target, "cgroup2", unix.MS_NOSUID|unix.MS_NODEV|
+		unix.MS_NOEXEC, "")
+	if err != nil {
+		return func() {}, fmt.Errorf("mount /sys/fs/cgroup for the step: %w", err)
+	}
+
+	return func() { unmountAll(target) }, nil
+}
+
 // resolverMount gives a step the machine's resolver configuration.
 //
 // An image ships no /etc/resolv.conf, because the runtime is expected to

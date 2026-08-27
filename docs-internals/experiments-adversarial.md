@@ -35651,3 +35651,47 @@ with nothing mounted on it, so the entrypoint's `cgroup.controllers` probe still
 finds nothing. Finishing group4 needs a cgroup2 mount, and doing that safely
 needs `CLONE_NEWCGROUP` as well - without a cgroup namespace the step would see
 the machine's whole cgroup tree, which is a larger decision than a mount call.
+
+## E754 - a cgroup of one's own
+
+E753 mounted `/sys` and said what it did not finish: `/sys/fs/cgroup` was a
+directory with nothing on it, so `earth-entrypoint.sh` still could not find
+`cgroup.controllers`, still read cgroups v2 as v1, and the nested daemon still
+never came up. This finishes it, and the order matters - the mount is only safe
+because of the namespace.
+
+**The namespace, which is worth having on its own.** A step read the machine's
+path for its own cgroup:
+
+```console
+$ earth-native +cg      # before
+  0::/earthbuild.main
+```
+
+That is ambient state a step can observe and no key describes (I3), and with a
+cgroup filesystem mounted it would have been the machine's whole hierarchy
+rather than a name. `CLONE_NEWCGROUP` joins the four namespaces a step already
+gets, and the policy moved into `isolationFlags` so it can be read and tested
+without a process to apply it to - a missing namespace is invisible to any test
+that only checks a step ran.
+
+**Then the mount.** cgroup2 at `/sys/fs/cgroup`, inside the namespace, which is
+`cgroupns=private` plus `--privileged` as a container runtime arranges it: what
+the step mounts is rooted at its own cgroup, so a nested runtime creates cgroups
+in its own tree and cannot reach the machine's. The two go together, and the
+mount would be a hole without the namespace.
+
+```console
+$ earth-native +cg      # after
+  0::/
+  cpuset cpu io memory hugetlb pids rdma misc
+```
+
+Skipped on a machine running cgroups v1, whose layout is a directory per
+controller and whose delegation rules are not these. Nothing is lost: this is a
+fallback for a nested build, and a nested build on a v1 machine has the same
+problem this engine had.
+
+Verified as root in a privileged container - the configuration CI uses, since
+the box this was written on has no passwordless sudo - and rootless on the host,
+which also gets the namespace.

@@ -142,6 +142,13 @@ type Tracer struct {
 	// whether that is a failure.
 	hungUp atomic.Bool
 
+	// soleCarrier says the step is the only thing carrying this filter, which
+	// is true when a shim installed it and sent the listener back. Then a
+	// hang-up is the step exiting rather than a servicer abandoning a filtered
+	// thread, and is not worth a line in the log. Set by FromListener, which is
+	// the only way that arrangement builds a tracer.
+	soleCarrier bool
+
 	// mem is `/proc/<pid>/mem` kept open for whichever process was asked about
 	// last, saving the open and close that were two thirds of the handler
 	// (E681). Touched only from the notification loop, which is one goroutine.
@@ -254,6 +261,19 @@ func (t *Tracer) stopped(err error) {
 	}
 
 	t.stopErr = err
+
+	// **Not a fault when the step was the only carrier.** A hang-up then means
+	// the step exited, which every traced step does - reported, it puts a
+	// "syscall tracer stopped" line in the log for every step of every build.
+	// Where the guest filtered a thread of its own, the same event means that
+	// thread is still filtered with nothing answering it, which is the hang
+	// this print exists to name (E520, E521).
+	//
+	// Recorded either way: `Stopped` still returns it, so a caller that cares
+	// is unaffected. Only the log is quiet.
+	if t.soleCarrier && t.hungUp.Load() {
+		return
+	}
 
 	// First one wins, here as in Stopped: a loop stops once, and a second line
 	// reads as a second fault.
@@ -595,7 +615,12 @@ func (t *Tracer) Sightings() Sightings {
 // and sends it back: `NewTracer` takes a descriptor number, and an `*os.File`
 // dropped after that call closes the descriptor from a finaliser, leaving the
 // step stopped on a listener nobody holds (E215). Ownership is the difference.
-func FromListener(f *os.File) *Tracer { return fromFile(f) }
+func FromListener(f *os.File) *Tracer {
+	t := fromFile(f)
+	t.soleCarrier = true
+
+	return t
+}
 
 // fromFile is a tracer that owns the file its listener came in.
 //

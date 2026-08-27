@@ -34225,3 +34225,37 @@ starts cannot. `rm` before `cp`.
 
 **An implausibly large win deserves the scrutiny of an implausibly large loss**,
 and gets less of it.
+
+### E731a - what the hand-off costs per step
+
+The shim arrangement adds a socketpair, an `SCM_RIGHTS` pass and a receive to
+every traced step, and none of that had been measured. A deadlock removed at the
+price of a slower inner loop is still worth having, but the price belongs in
+writing rather than in somebody else's later surprise.
+
+**About one to two milliseconds a step, which is the noise floor here.** Per-step
+phases from `EARTH_TIMINGS`, first 21 steps of each binary:
+
+| phase           | before, median | after, median | before, mean | after, mean |
+| --------------- | -------------- | ------------- | ------------ | ----------- |
+| `guest:exec`    | 16.0ms         | 18.0ms        | 18.3ms       | 17.7ms      |
+| `guest:prepare` | 3.0ms          | 4.0ms         | 3.0ms        | 4.0ms       |
+
+The mean for `guest:exec` moves the *other* way from its median, which is what a
+difference at the noise floor looks like. `guest:tracer-wait` disappears from the
+new path entirely: there is no window to wait out, because the step cannot start
+before the shim has installed and sent.
+
+**Two confounds, both of which flattered the old arrangement.** Taken naively the
+same data reads as +3ms on `exec` and +5ms on `prepare`:
+
+* the old binary **hung** on all three attempts, so its log covers only the first
+  21 of 45 steps;
+* a deeper layer stack costs more per step, so the new binary's 45-step median
+  includes late steps the old one never reached.
+
+Comparing whole-run medians therefore measured stack depth and called it the
+cost of the change. Restricting both sides to their first 21 steps removes it.
+Whole-build wall-clock cannot settle this either - 3533ms against 3731ms with
+the ranges overlapping - because one build is one sample and a per-step phase is
+forty-five.

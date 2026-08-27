@@ -12,15 +12,22 @@ test-bash-non-root-fallback-dir:
     RUN mkdir -p "$path"
     USER bambi
     DO --pass-args +RUN_EARTH
-    RUN grep '^complete' "$path/earthly" && \
+    # The command word is derived from the name the binary is installed under,
+    # so derive the expectation the same way rather than hardcoding it. A binary
+    # installed as earthly additionally registers the earth alias.
+    RUN cmd="$(basename "$(readlink -f "$(command -v earth)")")" && \
+        grep '^complete' "$path/$cmd" && \
+        grep -q "$cmd\$" "$path/$cmd" && \
+        if [ "$cmd" = earthly ]; then grep -q 'earth$' "$path/earth"; fi && \
         grep -i 'successfully enabled bash-completion' out.txt
 
 # simplistic; can't account for installs to previous alternate locations
 test-bash-non-root-no-overwrite:
     ARG path="/home/bambi/.local/share/bash-completion/completions"
     RUN mkdir -p "$path" && \
-        echo "can't touch this" > "$path/earthly" && \
-        md5sum "$path/earthly" > /tmp/sum
+        cmd="$(basename "$(readlink -f "$(command -v earth)")")" && \
+        echo "can't touch this" > "$path/$cmd" && \
+        md5sum "$path/$cmd" > /tmp/sum
     USER bambi
     DO --pass-args +RUN_EARTH
     RUN md5sum /tmp/sum && \
@@ -34,7 +41,14 @@ test-bash-non-root-custom-dir:
     RUN mkdir -p "$path"
     USER bambi
     DO --pass-args +RUN_EARTH
-    RUN grep '^complete' "$path/earthly" && grep -i 'successfully enabled bash-completion' out.txt
+    # The command word is derived from the name the binary is installed under,
+    # so derive the expectation the same way rather than hardcoding it. A binary
+    # installed as earthly additionally registers the earth alias.
+    RUN cmd="$(basename "$(readlink -f "$(command -v earth)")")" && \
+        grep '^complete' "$path/$cmd" && \
+        grep -q "$cmd\$" "$path/$cmd" && \
+        if [ "$cmd" = earthly ]; then grep -q 'earth$' "$path/earth"; fi && \
+        grep -i 'successfully enabled bash-completion' out.txt
 
 test-bash-non-root-xdg-dir:
     ENV XDG_DATA_HOME=/home/bambi/weird/xdg
@@ -42,7 +56,14 @@ test-bash-non-root-xdg-dir:
     RUN mkdir -p "$path"
     USER bambi
     DO --pass-args +RUN_EARTH
-    RUN grep '^complete' "$path/earthly" && grep -i 'successfully enabled bash-completion' out.txt
+    # The command word is derived from the name the binary is installed under,
+    # so derive the expectation the same way rather than hardcoding it. A binary
+    # installed as earthly additionally registers the earth alias.
+    RUN cmd="$(basename "$(readlink -f "$(command -v earth)")")" && \
+        grep '^complete' "$path/$cmd" && \
+        grep -q "$cmd\$" "$path/$cmd" && \
+        if [ "$cmd" = earthly ]; then grep -q 'earth$' "$path/earth"; fi && \
+        grep -i 'successfully enabled bash-completion' out.txt
 
 test-bash-root-no-home-entries:
     # Adding XDG to cheat and do two tests in one... that custom is used, and trumps XDG
@@ -54,7 +75,8 @@ test-bash-root-no-home-entries:
     # for clarity
     USER root
     DO --pass-args +RUN_EARTH
-    RUN test -z "$(find /root -name earthly -type f)"
+    RUN test -z "$(find /root -name earthly -type f)" && \
+        test -z "$(find /root -name earth -type f)"
 
 test-all:
     BUILD +test-bash-non-root-fallback-dir

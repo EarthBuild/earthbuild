@@ -35066,6 +35066,17 @@ The unit tests could not have caught it: each half was right. `authHost` leaves
 under whatever name it is given. The defect lived in the join, which is the part
 only an end-to-end test looks at.
 
+**A memo that stores once is not a memo that resolves once.** References are
+resolved concurrently - `prefetchResolver.begin` is a goroutine per image - and
+the first memo read, computed and then stored, which leaves a window every
+goroutine fits through. Twenty concurrent lookups of one host ran the credential
+helper twenty times; a build with six images from one registry would have paid
+six keychain round trips to learn the same thing. `LoadOrStore` settles which
+slot and the slot's `sync.Once` settles who fills it, so the rest wait for an
+answer they were going to wait for anyway. The test counts resolutions rather
+than timing them: the execs overlapped, so the honest claim is N process spawns
+becoming one, not N times the latency.
+
 **Still open:** podman's store, which the buildkit path reads and this does not;
 and the corpus does not cover any of it - `private-image-test` and
 `./private-https+all` exist in `tests/Earthfile` and reach the extracted

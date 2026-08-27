@@ -94,7 +94,22 @@ var dockerConfig = sync.OnceValue(func() *configfile.ConfigFile {
 })
 
 // credentials memoises per host, for the reason dockerConfig is read once.
+//
+// Holds a slot rather than a value, so the *resolution* happens once and not
+// merely the storing of it - see credentialFor.
 var credentials sync.Map
+
+// heldCredential is one host's answer, resolved at most once however many
+// goroutines want it.
+type heldCredential struct {
+	once sync.Once
+	val  credential
+}
+
+// resolveCredential is the expensive half, named so a test can count it.
+var resolveCredential = func(host string) credential {
+	return lookupIn(dockerConfig(), host)
+}
 
 // credentialFor is what this machine can prove about one registry, or nothing.
 //
@@ -103,19 +118,23 @@ var credentials sync.Map
 // engine did before credentials existed and is right for every public image. A
 // registry that genuinely needs one refuses, and that refusal is the diagnostic.
 func credentialFor(host string) credential {
-	key := authHost(host)
+	// **Resolved once per host, not merely stored once.** A build resolves its
+	// references concurrently - one goroutine per image - and a memo that reads,
+	// computes and then stores leaves a window every one of them fits through:
+	// six images from one registry would exec the credential helper six times to
+	// learn the same thing. LoadOrStore settles which slot, and the slot's Once
+	// settles who fills it; the rest wait for an answer they were going to wait
+	// for anyway.
+	slot, _ := credentials.LoadOrStore(authHost(host), &heldCredential{})
 
-	if c, ok := credentials.Load(key); ok {
-		if known, is := c.(credential); is {
-			return known
-		}
+	held, ok := slot.(*heldCredential)
+	if !ok {
+		return resolveCredential(host)
 	}
 
-	out := lookupIn(dockerConfig(), host)
+	held.once.Do(func() { held.val = resolveCredential(host) })
 
-	credentials.Store(key, out)
-
-	return out
+	return held.val
 }
 
 // lookupIn asks one config about one registry, under the name that config files

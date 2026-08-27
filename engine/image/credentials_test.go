@@ -5,7 +5,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
@@ -157,8 +160,8 @@ func TestAnIdentityTokenIsReportedRatherThanMisused(t *testing.T) {
 func TestTheCredentialFollowsTheRegistryAndNotTheRealm(t *testing.T) {
 	t.Parallel()
 
-	credentials.Store("registry.example", credential{User: "right", Secret: "x"})
-	credentials.Store("collector.example", credential{User: "wrong", Secret: "y"})
+	presetCredential("registry.example", credential{User: "right", Secret: "x"})
+	presetCredential("collector.example", credential{User: "wrong", Secret: "y"})
 
 	got := credentialForURL("https://registry.example/v2/thing/manifests/latest")
 	if got.User != "right" {
@@ -353,4 +356,60 @@ func TestAPortIsPartOfTheRegistryName(t *testing.T) {
 	if got := lookupIn(cfg, "localhost:5000"); got.User != "local" {
 		t.Fatalf("a registry on a port was not found: %+v", got)
 	}
+}
+
+// A credential helper is a process, and a build resolves its references
+// concurrently - one goroutine per image. A memo that reads, computes and then
+// stores lets every one of them miss and every one of them exec the helper, so
+// a build with six images from one registry pays six keychain round trips to
+// learn the same thing.
+//
+// Not parallel: it swaps a package-level resolver.
+//
+//nolint:paralleltest // swaps a package-level resolver
+func TestOneResolutionServesConcurrentLookups(t *testing.T) {
+	var calls atomic.Int64
+
+	was := resolveCredential
+	resolveCredential = func(string) credential {
+		calls.Add(1)
+		// Long enough that a racing caller is still inside the window a
+		// read-then-store memo leaves open.
+		time.Sleep(20 * time.Millisecond)
+
+		return credential{User: "u", Secret: "p"}
+	}
+
+	credentials.Clear()
+
+	t.Cleanup(func() {
+		resolveCredential = was
+		credentials.Clear()
+	})
+
+	var wg sync.WaitGroup
+
+	for range 20 {
+		wg.Go(func() {
+			if got := credentialFor("ghcr.io"); got.User != "u" {
+				t.Errorf("concurrent lookup got %+v", got)
+			}
+		})
+	}
+
+	wg.Wait()
+
+	if n := calls.Load(); n != 1 {
+		t.Errorf("the helper ran %d times for one host; a build with several images pays that per image", n)
+	}
+}
+
+// presetCredential seeds the memo with an answer already resolved, so a test can
+// say what this machine knows without a config or a helper.
+func presetCredential(host string, c credential) {
+	held := &heldCredential{val: c}
+	// Marked resolved, or the first real lookup would overwrite the seed.
+	held.once.Do(func() {})
+
+	credentials.Store(authHost(host), held)
 }

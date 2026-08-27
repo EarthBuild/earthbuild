@@ -981,6 +981,7 @@ func checkConnection(
 
 			return
 		}
+		defer bkClient.Close()
 
 		ctxInfo, cancelInfo := context.WithTimeout(ctxTimeout, timeout)
 		defer cancelInfo()
@@ -1002,21 +1003,13 @@ func checkConnection(
 			return
 		}
 
-		info, err = bkClient.Info(ctxInfo)
-		if err != nil {
-			mu.Lock()
-			connErr = err
-			mu.Unlock()
-
-			return
-		}
-
 		mu.Lock()
 		defer mu.Unlock()
 
 		connErr = nil
+		workerInfo = workers[0]
 
-		info, err = bkClient.Info(ctxTimeout)
+		info, err = bkClient.Info(ctxInfo)
 		if err != nil {
 			s, ok := status.FromError(err)
 			if ok && s.Code() == codes.Unimplemented {
@@ -1267,6 +1260,10 @@ func printBuildkitInfo(
 				}
 			}
 		}
+	}
+
+	if workerInfo == nil {
+		return
 	}
 
 	ps := make([]string, len(workerInfo.Platforms))

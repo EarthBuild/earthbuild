@@ -5,6 +5,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/engine"
+	client "github.com/moby/buildkit/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -230,4 +231,39 @@ func TestStart_ContainerLocalRegistryAddr(t *testing.T) {
 	if err != nil {
 		assert.NotContains(t, err.Error(), "invalid port in local registry address")
 	}
+}
+
+func TestPrintBuildkitInfo(t *testing.T) {
+	t.Parallel()
+
+	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
+	info := &client.Info{
+		BuildkitVersion: client.BuildkitVersion{
+			Package:  "github.com/EarthBuild/buildkit",
+			Version:  "v0.13.0",
+			Revision: "abcd1234",
+		},
+	}
+
+	t.Run("nil worker info does not panic", func(t *testing.T) {
+		t.Parallel()
+
+		assert.NotPanics(t, func() {
+			printBuildkitInfo(log, info, nil, "v0.13.0", true, true)
+		})
+	})
+
+	t.Run("populated worker info does not panic", func(t *testing.T) {
+		t.Parallel()
+
+		worker := &client.WorkerInfo{
+			ParallelismMax:     4,
+			ParallelismCurrent: 1,
+			ParallelismWaiting: 0,
+		}
+
+		assert.NotPanics(t, func() {
+			printBuildkitInfo(log, info, worker, "v0.13.0", true, true)
+		})
+	})
 }

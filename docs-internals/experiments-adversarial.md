@@ -36198,3 +36198,43 @@ is not the planner. `+earthly` resolves **remote Earthfiles** -
 does not cover, being about image references rather than about the tree an
 Earthfile is read from. Two different network costs, one of them still paid.
 Both numbers stand, and what the page could say is which of the two remains.
+
+## E767 - what CI confirmed, and one misreading of it
+
+The first full Native run carrying E749-E761. Three fixes are confirmed by their
+symptoms being gone rather than by argument:
+
+| job          | was                                        | now              |
+| ------------ | ------------------------------------------ | ---------------- |
+| `+test-misc` | `collapse 2 layers into one: layer bd727…` | gone (E751)      |
+| `group8`     | `this store holds no layer bd727…`         | gone (E749)      |
+| `group1`     | `RUN diff "expected" "actual" failed`      | gone (E752/E753) |
+
+The third is the one that was not aimed at. `tests/autocompletion` compares a
+directory listing, and completion only offers a directory that `hasSubDirs`;
+`/dev` gained subdirectories when `/dev/shm` arrived and `/sys` when sysfs did,
+so the listing now matches. A test that looked like it was about tab-completion
+was reporting that steps had thinner pseudo-filesystems than any other engine
+gives them, and fixing the second fixed the first.
+
+**A misreading, recorded because it survived two turns.** `cache initialization
+failed: Operation not permitted` was read as a new and serious failure - it is
+not a failure at all. In full:
+
+```text
+level=info msg="Deleting nftables IPv6 rules" error="exit status 1"
+  output="Operation not permitted (you must be root)\nnetlink: Error: cache
+  initialization failed: Operation not permitted"
+```
+
+It is *nftables'* netlink cache, inside an **info**-level line from a daemon
+that could not delete an ip6tables rule it does not need. Grepping for a
+substring across a log full of a daemon's own logging finds the daemon's
+vocabulary, not the build's. Match the level as well as the words.
+
+**Still open, and not attributed to anything:** `+test-misc` now fails with `the
+step producing /earthly/build/earthly did not run`, which is `StackFor` returning
+empty for an artifact's producing node. It is new, but the two runs before it
+died earlier, so "new" and "caused by the last change" are not the same claim -
+E762 is what that mistake costs. A `SAVE ARTIFACT AS LOCAL` from a cache-hit step
+on a warm store does not reproduce it.

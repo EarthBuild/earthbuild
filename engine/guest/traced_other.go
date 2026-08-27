@@ -2,7 +2,11 @@
 
 package guest
 
-import "github.com/EarthBuild/earthbuild/engine/trace"
+import (
+	"os"
+
+	"github.com/EarthBuild/earthbuild/engine/trace"
+)
 
 // runObserved runs the step, unobserved.
 //
@@ -18,3 +22,22 @@ func runObserved(
 
 	return out, trace.Unobserved(nil), err
 }
+
+// runObservedViaShim runs the step, unobserved, for the same reason.
+//
+// The shim hand-off is a seccomp arrangement, so there is nothing here for it to
+// hand over. The channel is nil, and the closure is written to expect that.
+func runObservedViaShim(
+	fn func(channel *os.File) ([]byte, error), _ func(string) error, _ func(),
+) ([]byte, trace.Sightings, error) {
+	out, err := fn(nil)
+
+	return out, trace.Unobserved(nil), err
+}
+
+// pinChoice reports that nothing is pinned.
+//
+// CPU affinity is a Linux facility, and the shim arrangement that would carry it
+// to the step does not exist here either. Answering "no" keeps the caller free of
+// build tags for a decision that has one possible answer on this platform.
+func pinChoice() (int, bool) { return 0, false }

@@ -9,6 +9,36 @@ import "path/filepath"
 // from mounting a daemon's `/run` over a step's filesystem.
 const stepShimFlag = "--earthbuild-step-shim"
 
+// EnvStepTraceFD names the descriptor the shim hands its seccomp listener back
+// on, and is empty for a step nobody is watching.
+//
+// **The install happens here rather than in the guest, and that is the point.**
+// A filter installed before the clone is inherited by this process, so this
+// process's own `execve` - the guest exec'ing the shim, the child's very first
+// syscall - traps to a supervisor that the `CLONE_VFORK` is preventing from
+// running, and neither side moves again (E723, E729).
+//
+// Installing here instead means the guest clones with no filter anywhere, the
+// vfork is released as soon as this binary execs, and the only `execve` that
+// traps is the step's own - by which time the guest is an ordinary process that
+// can answer it.
+//
+// An environment variable rather than another argv slot: `stepShimAsked` reads
+// the step's command from a fixed index, and a field added before it would
+// silently reinterpret the argv of every step.
+const EnvStepTraceFD = "EARTH_STEP_TRACE_FD"
+
+// EnvStepTracePin is the CPU the step should be pinned to, and is empty unless
+// EARTH_TRACE_PIN asked for pinning.
+//
+// **The pin has to be set where the step is, and the step is here.** `trace.Pin`
+// applies to the calling thread and a step inherits its thread's affinity across
+// the exec - which is how the guest pinned a step when the guest was what forked
+// it. Under the shim it is this process that becomes the step, so this is the
+// only place that can still do it, and without this the setting would go on
+// being documented while doing nothing (E681, E685).
+const EnvStepTracePin = "EARTH_STEP_TRACE_PIN"
+
 // stepShim is what the shim was asked to prepare and become.
 type stepShim struct {
 	// root is the filesystem the step sees, named from outside it: the chroot

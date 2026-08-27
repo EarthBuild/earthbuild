@@ -52,6 +52,8 @@ var internalSettings = map[string]string{
 	"EARTH_GUEST_MEMORY_MAX":    hostToGuest,
 	"EARTH_GUEST_PIDS_MAX":      hostToGuest,
 	"EARTH_GUEST_ROOT":          hostToGuest,
+	"EARTH_STEP_TRACE_FD":       "passed to the step shim by the guest",
+	"EARTH_STEP_TRACE_PIN":      "passed to the step shim by the guest",
 	"EARTH_GUEST_SCRATCH":       hostToGuest,
 	"EARTH_GUEST_TERMINALS":     hostToGuest,
 	"EARTH_PROBE":               "marks a process as the engine's own probe",

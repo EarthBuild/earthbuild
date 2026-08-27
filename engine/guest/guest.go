@@ -11,6 +11,7 @@ import (
 	osexec "os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -25,6 +26,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/store"
 	"github.com/EarthBuild/earthbuild/engine/timing"
+	"github.com/EarthBuild/earthbuild/engine/trace"
 )
 
 // Server is the guest half: it runs inside the VM and serves a real
@@ -2317,7 +2319,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 			}
 		}
 
-		out, rerr = runStep(cmd, sink, req, s, h, mountPoints(mounts))
+		out, rerr = runStep(cmd, sink, req, s, h, mountPoints(mounts), shimming)
 
 		return rerr
 	}
@@ -2946,7 +2948,7 @@ const stepWaitDelay = 5 * time.Second
 // did (green paper §3.4).
 func runStep(
 	cmd *osexec.Cmd, sink func([]byte, bool), req Request, s *Server, h core.Handle,
-	provided []string,
+	provided []string, shimming bool,
 ) ([]byte, error) {
 	if !req.Trace {
 		return run(cmd, sink)
@@ -2964,8 +2966,47 @@ func runStep(
 		_ = cmd.Cancel()
 	}
 
-	out, seen, err := runObserved(
-		func() ([]byte, error) { return run(cmd, sink) }, s.filler(req.Handle), release)
+	var (
+		out  []byte
+		seen trace.Sightings
+		err  error
+	)
+
+	// **The shim installs the filter when there is a shim to install it.**
+	// Doing it in the guest means the filter is live across the `CLONE_VFORK`
+	// in `os/exec`, so the child's first `execve` traps and the supervisor that
+	// would answer cannot be scheduled past the stopped thread (E723, E729).
+	//
+	// `EARTH_STEP_SHIM=0` leaves nothing to install in, so that switch keeps the
+	// old arrangement - and keeps the deadlock with it. It is a comparison knob,
+	// and this is the cost of turning it.
+	if shimming {
+		out, seen, err = runObservedViaShim(
+			func(channel *os.File) ([]byte, error) {
+				if channel != nil {
+					// ExtraFiles[i] is fd 3+i in the child. Counted rather than
+					// written down, so a second extra file added later does not
+					// silently rename this one.
+					fd := 3 + len(cmd.ExtraFiles)
+
+					cmd.ExtraFiles = append(cmd.ExtraFiles, channel)
+					cmd.Env = append(cmd.Env, EnvStepTraceFD+"="+strconv.Itoa(fd))
+
+					// The shim pins the step, because under the shim it is the
+					// shim's thread that becomes the step's. Told only when
+					// pinning was asked for, so an unset variable means off.
+					if cpu, on := pinChoice(); on {
+						cmd.Env = append(cmd.Env,
+							EnvStepTracePin+"="+strconv.Itoa(cpu))
+					}
+				}
+
+				return run(cmd, sink)
+			}, s.filler(req.Handle), release)
+	} else {
+		out, seen, err = runObserved(
+			func() ([]byte, error) { return run(cmd, sink) }, s.filler(req.Handle), release)
+	}
 
 	s.recordSightings(h, h.Root(), seen, provided, s.ownWritesFor(req.Handle, h))
 

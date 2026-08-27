@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/fdpass"
 	"github.com/EarthBuild/earthbuild/engine/timing"
 	"github.com/EarthBuild/earthbuild/engine/trace"
 )
@@ -82,68 +83,11 @@ func runObserved(
 		// rather than filling.
 		tr.Fill = fill
 
-		reading := make(chan struct{})
 		// Closed when the step is over, so the goroutine below can tell a
 		// tracer that outlived its step from one that stopped underneath it.
 		finished := make(chan struct{})
 
-		go func() {
-			if pinning {
-				// Locked and never unlocked, because an affinity left on a
-				// thread handed back to the scheduler is inherited by whatever
-				// runs there next. This goroutine ends when the tracer does,
-				// and a locked goroutine ending destroys its thread.
-				//
-				// Before `tr.Run()` rather than inside it: the step does not
-				// start until this loop is servicing, so the thread this needs
-				// is created while nothing is filtered - which is the window
-				// E673 says must stay clear.
-				runtime.LockOSThread()
-
-				_ = trace.Pin(cpu)
-			}
-
-			tr.Run()
-			close(reading)
-
-			// **The step has to be let go, or nothing below ever runs.** A
-			// tracer that stops while its step is still filtered leaves that
-			// step's next intercepted syscall stopped in the kernel with
-			// nothing coming to answer it. The report for exactly this is
-			// twenty lines further down (E520) - and it is downstream of
-			// `fn()`, which is the one thing a wedged step never does.
-			//
-			// Measured: `+all-binaries` sat for thirty minutes on a `printf`,
-			// the step blocked in `seccomp_do_user_notification` and the guest
-			// in `__futex_wait`, with the machine otherwise idle. The diagnosis
-			// was already written and could not be reached (E582).
-			if tr.Stopped() == nil {
-				return
-			}
-
-			select {
-			case <-finished:
-				// Over already: whatever the tracer thinks, nothing is waiting.
-			default:
-				// **Close the listener first, and this is the release that
-				// works.** `release` cancels the step's *process*, and
-				// `os/exec` fills `cmd.Process` in only once the child has
-				// execed - which is exactly what a child stopped at its first
-				// intercepted `execve` has not done. So at the one moment this
-				// matters there is a process and nothing to cancel, and the
-				// guard on `cmd.Process` returns having done nothing (E673).
-				//
-				// Closing the notification descriptor does not need to know the
-				// pid: the kernel fails every syscall blocked on it with ENOSYS
-				// (`seccomp_unotify(2)`). The step then fails, saying so,
-				// instead of waiting for a supervisor that has gone.
-				_ = tr.Close()
-
-				if release != nil {
-					release()
-				}
-			}
-		}()
+		reading := supervise(tr, release, finished, cpu, pinning)
 
 		// **A filtered step must not start before somebody is answering.**
 		// `StartOnSelf` installs the filter and returns; the loop above starts
@@ -287,3 +231,241 @@ func pinChoice() (int, bool) {
 // two steps read the same turn and pick the same CPU, which is the one thing
 // rotating exists to avoid.
 var pinTurn atomic.Uint64
+
+// supervise runs the tracer's notification loop and guarantees the step is let
+// go if that loop stops early.
+//
+// Shared by both arrangements - the filter installed in the guest before the
+// clone, and the filter installed by the shim and sent back - because what it
+// guards is the same either way and is the most expensive lesson in this
+// package: a tracer that stops while its step is still filtered leaves that
+// step's next intercepted syscall stopped in the kernel with nothing coming to
+// answer it (E520, E582).
+//
+// The returned channel closes when the loop is done, so a caller can wait for it
+// before taking sightings. `finished` is the caller's promise that the step is
+// already over and nothing needs releasing.
+func supervise(
+	tr *trace.Tracer, release func(), finished <-chan struct{}, cpu int, pinning bool,
+) <-chan struct{} {
+	reading := make(chan struct{})
+
+	go func() {
+		if pinning {
+			// Locked and never unlocked, because an affinity left on a
+			// thread handed back to the scheduler is inherited by whatever
+			// runs there next. This goroutine ends when the tracer does,
+			// and a locked goroutine ending destroys its thread.
+			//
+			// Before `tr.Run()` rather than inside it: the step does not
+			// start until this loop is servicing, so the thread this needs
+			// is created while nothing is filtered - which is the window
+			// E673 says must stay clear.
+			runtime.LockOSThread()
+
+			_ = trace.Pin(cpu)
+		}
+
+		tr.Run()
+		close(reading)
+
+		// **The step has to be let go, or nothing below ever runs.** A
+		// tracer that stops while its step is still filtered leaves that
+		// step's next intercepted syscall stopped in the kernel with
+		// nothing coming to answer it. The report for exactly this is
+		// twenty lines further down (E520) - and it is downstream of
+		// `fn()`, which is the one thing a wedged step never does.
+		//
+		// Measured: `+all-binaries` sat for thirty minutes on a `printf`,
+		// the step blocked in `seccomp_do_user_notification` and the guest
+		// in `__futex_wait`, with the machine otherwise idle. The diagnosis
+		// was already written and could not be reached (E582).
+		if tr.Stopped() == nil {
+			return
+		}
+
+		select {
+		case <-finished:
+			// Over already: whatever the tracer thinks, nothing is waiting.
+		default:
+			// **Close the listener first, and this is the release that
+			// works.** `release` cancels the step's *process*, and
+			// `os/exec` fills `cmd.Process` in only once the child has
+			// execed - which is exactly what a child stopped at its first
+			// intercepted `execve` has not done. So at the one moment this
+			// matters there is a process and nothing to cancel, and the
+			// guard on `cmd.Process` returns having done nothing (E673).
+			//
+			// Closing the notification descriptor does not need to know the
+			// pid: the kernel fails every syscall blocked on it with ENOSYS
+			// (`seccomp_unotify(2)`). The step then fails, saying so,
+			// instead of waiting for a supervisor that has gone.
+			_ = tr.Close()
+
+			if release != nil {
+				release()
+			}
+		}
+	}()
+
+	return reading
+}
+
+// stepResult is what a step left behind: its combined output and how it ended.
+type stepResult struct {
+	out []byte
+	err error
+}
+
+// listenerWait is how long the guest waits for the shim's seccomp listener.
+//
+// **A deadline, because the failure that matters does not fail.** A shim that
+// cannot install a filter closes the channel and the wait ends at once; a shim
+// that dies between the install and the send sends nothing at all, and a read
+// without a deadline then waits for a descriptor that is not coming - which is
+// a build that hangs rather than one that says what happened (E587, E607).
+//
+// Generous against the work involved, which is a `seccomp` call and a `sendmsg`.
+const listenerWait = 10 * time.Second
+
+// runObservedViaShim runs a step that installs its own filter and sends it back.
+//
+// **The arrangement that does not deadlock.** The guest starts the shim with no
+// filter anywhere, so the `CLONE_VFORK` in `os/exec` is released by the shim's
+// own exec instead of waiting on an `execve` that has trapped; the shim then
+// installs the filter on the thread that becomes the step and hands the listener
+// over this channel. By the time anything traps, the guest is an ordinary
+// process that can answer (E723, E729, E730).
+//
+// Two things fall out of it rather than being arranged. The tracer no longer has
+// to disregard a thread of its own, because no thread of the guest's is filtered
+// and the engine's own opens can no longer be recorded as the step's (E211). And
+// `release` works at the moment it is needed: the shim has exec'd, so
+// `cmd.Process` is filled in, where a step stopped at its first `execve` had no
+// process to cancel (E673).
+func runObservedViaShim(
+	fn func(channel *os.File) ([]byte, error), fill func(string) error, release func(),
+) ([]byte, trace.Sightings, error) {
+	here, there, err := fdpass.SocketPair()
+	if err != nil {
+		out, runErr := fn(nil)
+
+		return out, trace.Unobserved(fmt.Errorf("make a channel for the step's listener: %w", err)), runErr
+	}
+
+	defer func() { _ = here.Close() }()
+
+	channel, err := there.File()
+	if err != nil {
+		out, runErr := fn(nil)
+
+		return out, trace.Unobserved(fmt.Errorf("name the step's end of the channel: %w", err)), runErr
+	}
+
+	defer func() { _ = channel.Close(); _ = there.Close() }()
+
+	done := make(chan stepResult, 1)
+	// Closed when the step is over, so the supervisor can tell a tracer that
+	// outlived its step from one that stopped underneath it.
+	finished := make(chan struct{})
+
+	// **Started before the listener arrives, because the listener comes from
+	// it.** The step blocks at its own `execve` until somebody answers, and
+	// that is a wait rather than a deadlock now: nothing here is inside a
+	// clone, so the goroutine that answers can always be scheduled.
+	go func() {
+		out, runErr := fn(channel)
+
+		close(finished)
+
+		done <- stepResult{out: out, err: runErr}
+	}()
+
+	err = here.SetReadDeadline(time.Now().Add(listenerWait))
+	if err != nil {
+		return finishUnobserved(done, fmt.Errorf("set a deadline on the listener channel: %w", err))
+	}
+
+	listener, err := fdpass.RecvFile(here)
+	if err != nil {
+		// The shim closed the channel or died. Either way this step runs
+		// untraced, which costs it the tier and nothing else.
+		return finishUnobserved(done, fmt.Errorf("the step sent no syscall listener: %w", err))
+	}
+
+	// Cleared, or every later read on this connection inherits it.
+	err = here.SetReadDeadline(time.Time{})
+	if err != nil {
+		return finishUnobserved(done, fmt.Errorf("clear the listener deadline: %w", err))
+	}
+
+	// Owned, not borrowed: a tracer holding only the number loses the listener
+	// to a finaliser (E215).
+	tr := trace.FromListener(listener)
+	tr.Fill = fill
+
+	// **Both ends, or neither** - the same trade as the arrangement this
+	// replaces. The step is pinned by the shim, which is the only thing left
+	// that shares a thread with it; the loop that answers it is pinned here, to
+	// the same CPU. Pinning one and not the other buys nothing and was measured
+	// not to (E685).
+	cpu, pinning := pinChoice()
+
+	reading := supervise(tr, release, finished, cpu, pinning)
+
+	r := <-done
+
+	if os.Getenv(timing.Env) != "" {
+		fmt.Fprintf(os.Stderr, "earth: traced %d path calls\n", tr.Handled())
+	}
+
+	runErr := r.err
+
+	// A file this engine could not obtain fails the step, and it has to be
+	// checked here because the step itself cannot tell: it asked, was handed
+	// "no such file", and took the other branch (E289).
+	unfilled := tr.Unfilled()
+	if unfilled != nil && runErr == nil {
+		runErr = unfilled
+	}
+
+	// **A hang-up is how a step of this kind ends, not how it fails.** When the
+	// guest installed the filter, a thread of the guest's carried it and the
+	// listener stayed open for as long as that thread lived - so POLLHUP meant
+	// trouble (E520, E521). Here the step is the only thing carrying the filter,
+	// so the listener hangs up the moment the step exits, which is every step.
+	//
+	// Nor can it hide the hazard those experiments describe: that one needs a
+	// filtered task still running, and POLLHUP is the kernel saying there is
+	// none. Any other reason for stopping is still the step's business.
+	stopped := tr.Stopped()
+	if tr.HungUp() {
+		stopped = nil
+	}
+
+	if stopped != nil && runErr == nil {
+		runErr = fmt.Errorf("this step's syscall tracer stopped while it was"+
+			" running: %w\n  anything the step did after that is stopped in"+
+			" the kernel, so the step cannot be trusted to have finished", stopped)
+	}
+
+	seen := tr.Sightings()
+
+	_ = tr.Close()
+	<-reading
+
+	return r.out, seen, runErr
+}
+
+// finishUnobserved waits for a step that is running without a tracer and reports
+// why it has no observation.
+//
+// Separate because the alternative is four copies of the same three lines, and
+// the thing they must all get right is that the step is **waited for**: it is
+// already running, and returning without it would leave a live process behind
+// and report an exit nobody had.
+func finishUnobserved(done <-chan stepResult, why error) ([]byte, trace.Sightings, error) {
+	r := <-done
+
+	return r.out, trace.Unobserved(why), r.err
+}

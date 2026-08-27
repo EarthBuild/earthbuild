@@ -137,6 +137,11 @@ type Tracer struct {
 	// loop that increments it is a different goroutine (E689).
 	handled atomic.Int64
 
+	// hungUp records that Run stopped on POLLHUP rather than for another
+	// reason. See Tracer.HungUp for why the caller, not the tracer, decides
+	// whether that is a failure.
+	hungUp atomic.Bool
+
 	// mem is `/proc/<pid>/mem` kept open for whichever process was asked about
 	// last, saving the open and close that were two thirds of the handler
 	// (E681). Touched only from the notification loop, which is one goroutine.
@@ -335,6 +340,13 @@ func (t *Tracer) waitForWork() bool {
 		// for this stall from a summary and were wrong each time; the loop now
 		// says which of its exits it took (E521).
 		if r := fds[0].Revents; r&(unix.POLLERR|unix.POLLHUP|unix.POLLNVAL) != 0 {
+			// Recorded apart from the message, because whether this is ordinary
+			// depends on who was carrying the filter and only the caller knows.
+			// A guest that installed it on a thread of its own is still filtered
+			// here and in trouble; a step that installed its own through the
+			// shim is simply gone. See Tracer.HungUp.
+			t.hungUp.Store(true)
+
 			t.stopped(fmt.Errorf("the notification listener reported %s while the"+
 				" step was still running", pollEvents(r)))
 
@@ -577,7 +589,15 @@ func (t *Tracer) Sightings() Sightings {
 	return out
 }
 
-// FromFile is a tracer that owns the file its listener came in.
+// FromListener is a tracer that owns the listener it was handed.
+//
+// For the guest, which does not install its own filter when a shim installs one
+// and sends it back: `NewTracer` takes a descriptor number, and an `*os.File`
+// dropped after that call closes the descriptor from a finaliser, leaving the
+// step stopped on a listener nobody holds (E215). Ownership is the difference.
+func FromListener(f *os.File) *Tracer { return fromFile(f) }
+
+// fromFile is a tracer that owns the file its listener came in.
 //
 // Keeping the file rather than its number is the whole point: see Tracer.listener.
 func fromFile(f *os.File) *Tracer {
@@ -586,6 +606,17 @@ func fromFile(f *os.File) *Tracer {
 
 	return t
 }
+
+// HungUp reports whether Run stopped because the listener hung up.
+//
+// **Ordinary or fatal depending on who held the filter**, which is why this is
+// reported rather than judged. POLLHUP means the kernel has no filtered task
+// left. Where the filter was installed by the guest on a thread of its own, that
+// thread is still filtered and its next intercepted syscall will stop in the
+// kernel with nothing to answer it (E520, E521). Where the step installed its
+// own and handed the listener back, there is no filtered task because the step
+// has exited - which is how every such step ends.
+func (t *Tracer) HungUp() bool { return t.hungUp.Load() }
 
 // Close stops Run and releases the listener.
 //

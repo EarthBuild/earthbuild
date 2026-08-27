@@ -36664,3 +36664,47 @@ position to be in and worth saying rather than implying otherwise.
 the same tests: the collapse fault, then ETXTBSY, then the archive format, then
 the dropped configuration, now the resolver. That is what a build that never got
 past its first step looks like when it starts working.
+
+## E778 - the daemon would not start because sysfs and the routing table disagreed
+
+E768 made the sandbox's name resolve, and the nested-buildkit cluster's failure
+moved from a name that answered nothing to a port that refused:
+
+```console
+Connecting to tcp://buildkitsandbox:8372...       # resolves now
+connect provided buildkit: timeout 1m0s           # and nothing is listening
+```
+
+The daemon's own log says why, and it is four lines from the top:
+
+```text
+Autodetecting iptables
+Detected iptables-legacy module
+cat: can't open '/sys/class/net/eth0/mtu': No such file or directory
++ exit 6
+```
+
+`entrypoint.sh` takes the MTU from the device the default route uses:
+
+```sh
+device=$(ip route show | grep ^default | head -n 1 | sed 's|.* dev \(\w*\)\s.*|\1|')
+CNI_MTU=$(cat /sys/class/net/"$device"/mtu)
+```
+
+**Both readings are correct and they disagree.** `ip route` reads the network
+namespace the process is in; `/sys/class/net` reads the namespace whose sysfs
+was mounted. A step that shares the machine's network while carrying a sysfs
+mounted elsewhere sees a default route via a device sysfs does not list. `cat`
+fails, `set -e` ends the entrypoint, and a minute later the build reports a
+timeout naming neither the device nor the MTU.
+
+Now: the device is checked before it is read, and a missing MTU falls back to
+1500 - the ethernet default, and what CNI uses when told nothing - with a line
+saying so. A daemon running with a conservative MTU is a daemon; one that will
+not start is not.
+
+**Five faults deep in one chain and each was invisible behind the last.** The
+collapse fault hid ETXTBSY, which hid the archive format, which hid the dropped
+configuration, which hid the resolver and this. None could have been found by
+reading, and none of the later four would have been reachable without fixing the
+earlier ones.

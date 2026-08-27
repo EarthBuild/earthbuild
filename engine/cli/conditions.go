@@ -626,7 +626,10 @@ func localWorker(platform string) core.Worker {
 		platform = exec.DefaultPlatform()
 	}
 
-	w := core.Worker{ID: "local", IsInvoker: true}
+	// What this machine can run by emulating it, which placement uses only when
+	// no machine runs the step's platform natively. Empty on a machine with no
+	// binfmt registered, which is most of them, and then nothing changes.
+	w := core.Worker{ID: "local", IsInvoker: true, Emulates: exec.EmulatedPlatforms()}
 
 	p, err := platforms.Parse(platform)
 	if err == nil {

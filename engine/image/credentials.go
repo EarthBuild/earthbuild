@@ -106,16 +106,29 @@ func credentialFor(host string) credential {
 		}
 	}
 
-	var out credential
-
-	a, err := dockerConfig().GetAuthConfig(key)
-	if err == nil {
-		out = credentialFrom(a)
-	}
+	out := lookupIn(dockerConfig(), host)
 
 	credentials.Store(key, out)
 
 	return out
+}
+
+// lookupIn asks one config about one registry, under the name that config files
+// it under.
+//
+// Separated from credentialFor so the mapping and the resolution can be tested
+// together against docker's own lookup rather than a stand-in: authHost can be
+// right and the question still be put wrongly, or the reverse, and neither shows
+// up in a test of either half alone.
+func lookupIn(cfg *configfile.ConfigFile, host string) credential {
+	a, err := cfg.GetAuthConfig(authHost(host))
+	if err != nil {
+		// A helper that fails is a machine that pulls anonymously. See
+		// credentialFor: the registry's own refusal is the diagnostic.
+		return credential{}
+	}
+
+	return credentialFrom(a)
 }
 
 // credentialForURL is the credential for the registry a request is going to.

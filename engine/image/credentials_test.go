@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
 )
 
@@ -172,5 +173,59 @@ func TestAnUnparseableURLYieldsNoCredential(t *testing.T) {
 
 	if got := credentialForURL("://not a url"); !got.empty() {
 		t.Errorf("got %+v, want nothing", got)
+	}
+}
+
+// The whole chain, against docker's own resolution rather than a stand-in: a
+// config holding a Hub login under the canonical key must answer when this
+// engine asks about the host it actually dials.
+//
+// This is the bug the mapping exists to prevent, and it is invisible to every
+// other test here - `authHost` could be correct and `GetAuthConfig` still be
+// asked the wrong question, or the reverse.
+func TestAHubLoginIsFoundUnderTheHostWeDial(t *testing.T) {
+	t.Parallel()
+
+	cfg := &configfile.ConfigFile{
+		AuthConfigs: map[string]types.AuthConfig{
+			"https://index.docker.io/v1/": {Username: "hubuser", Password: "hubpass"},
+		},
+	}
+
+	got := lookupIn(cfg, dockerHubHost)
+	if got.User != "hubuser" || got.Secret != "hubpass" {
+		t.Fatalf("a Hub login was not found from %s: %+v", dockerHubHost, got)
+	}
+}
+
+// A registry filed under its own name is the ordinary case and must not be
+// disturbed by the Hub special case.
+func TestAnOrdinaryRegistryIsFoundUnderItsOwnName(t *testing.T) {
+	t.Parallel()
+
+	cfg := &configfile.ConfigFile{
+		AuthConfigs: map[string]types.AuthConfig{
+			"ghcr.io": {Username: "gh", Password: "pat"},
+		},
+	}
+
+	if got := lookupIn(cfg, "ghcr.io"); got.User != "gh" || got.Secret != "pat" {
+		t.Fatalf("ghcr.io credential not found: %+v", got)
+	}
+}
+
+// A machine logged in to one registry must not present that credential to
+// another. Obvious, and exactly the sort of thing a keying change breaks.
+func TestALoginDoesNotLeakToADifferentRegistry(t *testing.T) {
+	t.Parallel()
+
+	cfg := &configfile.ConfigFile{
+		AuthConfigs: map[string]types.AuthConfig{
+			"ghcr.io": {Username: "gh", Password: "pat"},
+		},
+	}
+
+	if got := lookupIn(cfg, "quay.io"); !got.empty() {
+		t.Fatalf("quay.io was handed ghcr.io's credential: %+v", got)
 	}
 }

@@ -36541,3 +36541,40 @@ in a privileged container it is a mount call and still not visible in the total.
 network plus the step's own work, and a warm one is network alone until it is
 pinned. There is no phase here worth attacking, and knowing that is worth more
 than another round of guessing at one.
+
+## E775 - the two engines agree on every byte and disagree about the clock
+
+The same Earthfile built by `earth-native` and by `earthly v0.8.17`, artifacts
+compared:
+
+| field           | native              | earthly        |
+| --------------- | ------------------- | -------------- |
+| content, sha256 | `e23628ed42e3`      | `e23628ed42e3` |
+| mode            | 755 / 644           | 755 / 644      |
+| mtime, plain    | the real time       | 1587038400     |
+| mtime, clamped  | the epoch asked for | 1587038400     |
+
+**Content and permissions are identical**, which is the result worth having and
+the first end-to-end differential this work has run against the reference
+implementation rather than against a description of it.
+
+The clock is the divergence, and both sides are defensible. `1587038400` is
+2020-04-16, buildkit's fixed epoch: every artifact it writes carries it, so its
+output is reproducible by construction and `SOURCE_DATE_EPOCH` changes nothing.
+This engine preserves the real time, because an artifact's mtime is part of what
+it is (I8), and honours `SOURCE_DATE_EPOCH` when asked (E764).
+
+**It is a migration hazard, and a quiet one.** A downstream `make` compares
+timestamps: under earthly every artifact is dated 2020 and therefore older than
+any source, so a dependent rule always fires; under this engine an artifact is
+dated now and therefore newer, so the same rule may not. Nothing errors either
+way and the build output is byte-identical - what changes is what the *next*
+tool decides to do.
+
+Neither behaviour is a defect and this records the difference rather than
+proposing a change. If parity is wanted it is one line and a decision; if the
+current behaviour is wanted, the migration note is the deliverable.
+
+Method: `earthly v0.8.17` and `earth-native` on the same machine, the same
+Earthfile, `SOURCE_DATE_EPOCH` set and unset, comparing `sha256sum`, `stat -c
+%a` and `stat -c %Y` of two saved artifacts.

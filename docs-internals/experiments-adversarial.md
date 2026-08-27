@@ -35094,3 +35094,40 @@ join.
 and the corpus does not cover any of it - `private-image-test` and
 `./private-https+all` exist in `tests/Earthfile` and reach the extracted
 invocations not at all, not even as `-todo`.
+
+## E744 - where a no-op build's time actually goes, and why it stops here
+
+A warm rebuild of a two-step Earthfile, everything cached:
+
+| Earthfile            | warm rebuild | what it is                   |
+| -------------------- | ------------ | ---------------------------- |
+| tag, no pin TTL      | 483ms        | token 289ms + manifest 158ms |
+| tag, `EARTH_PIN_TTL` | 20ms         | neither, inside the window   |
+| digest-pinned        | 70ms         | no registry request at all   |
+
+**The 447ms is two network round trips and nothing else.** `--pin` removes both,
+which is why the engine already recommends it in as many words. The remaining two
+ways to remove them are policy and not engineering: defaulting `EARTH_PIN_TTL`
+hands out a staleness window the code deliberately refuses to give unasked, and
+persisting bearer tokens writes a credential to disk - and the anonymous subset
+that would be safe to persist lives 600 seconds, so it only helps a rebuild
+within ten minutes of the last one.
+
+**Of the 70ms floor, startup is 30ms, and 30ms is the floor.** Package init is
+not the cost - `GODEBUG=inittrace=1` puts the largest at 0.39ms and the whole set
+around 2ms. Nor is binary size: `-ldflags="-s -w"` takes 19.4MB to 13.3MB and
+startup does not move, because DWARF is never paged in. The control settles it -
+a 1.7MB hello-world Go binary costs 23-28ms on this machine against
+`earth-native`'s 30ms. What is left is macOS process creation and Go runtime
+start, which this engine does not own.
+
+**Nor is buildkit dead weight in the native binary.** It links six buildkit
+packages and they are the Dockerfile frontend - `parser`, `shell`, `command`,
+`suggest` - which `FROM DOCKERFILE` needs. None of the client, session or solver
+is there.
+
+So a no-op build is ~30ms of process startup, ~22ms of phases and ~18ms
+unaccounted, and the engine's own compute is under 20ms of it. **Speed work has
+reached its floor without a decision.** Anything further is one of the two fenced
+policies above, or a rewrite of what a build does rather than how fast it does
+it.

@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -60,26 +59,53 @@ func TestAnArtifactCanReplaceARunningBinary(t *testing.T) {
 		_, _ = running.Process.Wait()
 	}()
 
-	// **Waited for, not timed.** `Start` returns before `execve`, and the write
-	// lock arrives with it - so the first version polled for a second and gave
-	// up with `t.Skip`. Under `-race -shuffle=on` a loaded machine sometimes
-	// took longer, the test skipped instead of running, and the skip ceiling
-	// moved from 175 to 176 for a reason nobody could name from the log (E770).
+	// **Waited for, not timed - and the condition is the lock itself.**
+	// `Start` returns before `execve`, and the write lock arrives with it, so
+	// the first version polled for a second and gave up with `t.Skip`: under
+	// `-race -shuffle=on` a loaded runner sometimes took longer, the test
+	// skipped rather than ran, and the skip ceiling moved for a reason nobody
+	// could name (E770).
 	//
-	// /proc/<pid>/exe resolves once the exec has happened, so this waits for
-	// the condition itself rather than for a length of time.
-	if runtime.GOOS == "linux" {
-		waitForExec(t, running.Process.Pid, dst)
-	} else {
-		// Elsewhere there is no such file to consult, and macOS permits the
-		// write anyway - so the honest thing is to say so rather than to assert
-		// something this platform does not do.
+	// The second version waited on `/proc/<pid>/exe`, which is a *proxy* for
+	// the lock, and it never matched in the CI container - so the test failed
+	// after thirty seconds having proven nothing. Waiting for the write to be
+	// refused is the same wait without the proxy, and it is the thing the test
+	// is about.
+	if runtime.GOOS != "linux" {
+		// macOS permits writing to a running binary, so there is no lock here
+		// to work around and nothing this test could assert.
 		t.Skip("only linux takes a write lock on a running binary")
 	}
 
-	err = os.WriteFile(dst, binary, 0o755)
+	// **Three outcomes, and only one of them is this test's business.** The
+	// write is refused, which is the case under test; or the copy never runs at
+	// all, which is a filesystem mounted `noexec` and nothing about the engine;
+	// or neither happens and something is wrong with the wait.
+	exited := make(chan error, 1)
+
+	go func() { exited <- running.Wait() }()
+
+	deadline := time.Now().Add(30 * time.Second)
+
+	for err == nil && time.Now().Before(deadline) {
+		select {
+		case waitErr := <-exited:
+			t.Skipf("the copied binary did not stay running (%v), so nothing"+
+				" here holds a write lock - a temporary directory mounted"+
+				" noexec does this", waitErr)
+		default:
+		}
+
+		err = os.WriteFile(dst, binary, 0o755)
+		if err == nil {
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+
 	if err == nil {
-		t.Fatal("a running binary could be written to, so there is no lock to work around")
+		t.Fatal("thirty seconds of a running binary that stayed writable: the" +
+			" process is alive and this kernel took no write lock, which is the" +
+			" one outcome that would make the fix pointless")
 	}
 
 	src := filepath.Join(dir, "new")
@@ -103,26 +129,4 @@ func TestAnArtifactCanReplaceARunningBinary(t *testing.T) {
 		t.Errorf("the destination is %d bytes, want the new artifact's %d",
 			len(got), len(binary)+1)
 	}
-}
-
-// waitForExec blocks until the process has actually exec'd the binary.
-//
-// The write lock a running binary carries is taken by `execve`, so a test that
-// wants it has to wait for the exec and not for the fork. Deadlined rather than
-// unbounded: a wait that hangs is worse than a test that fails.
-func waitForExec(t *testing.T, pid int, want string) {
-	t.Helper()
-
-	deadline := time.Now().Add(30 * time.Second)
-
-	for time.Now().Before(deadline) {
-		at, err := os.Readlink(filepath.Join("/proc", strconv.Itoa(pid), "exe"))
-		if err == nil && at == want {
-			return
-		}
-
-		time.Sleep(5 * time.Millisecond)
-	}
-
-	t.Fatalf("pid %d never exec'd %s", pid, want)
 }

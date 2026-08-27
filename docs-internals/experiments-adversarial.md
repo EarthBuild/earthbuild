@@ -34100,3 +34100,58 @@ can start the tracer, and that the shim's window between install and exec admits
 only the send and the exec - a constraint the code already respects, which is why
 `lookIn` resolves the program in the guest and `resolveProgram` in the shim only
 formats the message.
+
+## E730 - the fix for E723 is wiring, and the wiring is already tested
+
+E729 settled that the seccomp filter is necessary for the hang and that the
+execve which traps is the shim's exec of the guest binary, because the filter is
+installed before the clone. The remaining question was what the shim
+arrangement would cost to build.
+
+**It is already built.** Every primitive is present, and the exact sequence runs
+today in `engine/trace`'s test harness rather than in the engine:
+
+| piece                                   | where it lives                        |
+| --------------------------------------- | ------------------------------------- |
+| `trace.InstallOnSelf`                   | written for a helper, no callers      |
+| `fdpass.SocketPair`, `fdpass.RecvFile`  | `engine/fdpass`                       |
+| `fdpass.ConnFromFD`, `fdpass.SendFile`  | used by the helper                    |
+| lock, install, send, `syscall.Exec`     | `exec_linux_test.go`'s `TestMain`     |
+| build a tracer from a received listener | `trace.NewTracer(int(listener.Fd()))` |
+
+`TestTheFilterSurvivesExecAndTracesTheStep` starts a child with a socketpair on
+fd 3, the child locks its thread, installs the filter, sends the listener back
+and execs a real program, and the parent builds the tracer from what it received.
+That is the shim arrangement exactly. The engine takes the other branch.
+
+### The order that matters
+
+1. The guest starts the shim **with no filter installed**, so the child's execve
+   of the guest binary does not trap and the vfork is released at once.
+2. The shim does its path-touching work first - `prepareStep`, `enterStep`,
+   `resolveProgram` - because a traced syscall made after the install and before
+   the guest is reading would block with nobody to answer it.
+3. The shim locks its thread, installs, and sends the listener. `sendmsg` is not
+   in `traced`, so the send itself cannot trap - which is what makes the
+   hand-off possible at all rather than a smaller deadlock.
+4. The shim execs the step. That execve traps, and the guest - which is not in a
+   vfork, because step 1 released it - answers.
+
+### Two things to carry over
+
+**The tracer must own the listener.** `NewTracer` takes a descriptor number, and
+an `*os.File` dropped after the call closes it from a finaliser (E215). The test
+keeps it in scope; the guest has to do so deliberately.
+
+**The unshimmed path keeps the old arrangement.** `EARTH_STEP_SHIM=0` leaves no
+shim to install in, so `StartOnSelf` stays for that case - and so does the hang.
+That is the honest position for an escape hatch whose purpose is comparison, but
+it means the switch stops being free and should say so.
+
+### What it buys beyond the hang
+
+The tracer currently skips the installing thread's syscalls by tid, because that
+thread goes on doing the engine's work while filtered and `exec.Cmd` alone opens
+`/dev/null` on it (E211). A filter installed in the shim is on a thread that
+*becomes* the step, so there is nothing of the engine's inside the window and
+nothing to skip - the hazard goes away rather than being guarded.

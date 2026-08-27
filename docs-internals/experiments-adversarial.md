@@ -35052,6 +35052,20 @@ docker an OAuth2 refresh token instead of a password, redeemed by a POST with
 password would present a credential in a form the registry does not accept and
 report whatever it made of that. It says so instead.
 
+**The end-to-end test found a defect every unit test had missed.** Standing a
+config in front of the loader and running the whole dance - challenge, realm,
+credential, token - against a local registry that refuses anonymously failed at
+once: `credentialForURL` took `u.Hostname()`, which drops the port. Docker files
+a registry on a non-default port under `host:port`, so `localhost:5000` - the
+ordinary self-hosted case - looked up a name nothing was ever stored under and
+the login silently did not apply. `u.Host` keeps an explicit port and omits an
+implicit one, which is the rule docker wrote the key with.
+
+The unit tests could not have caught it: each half was right. `authHost` leaves
+`localhost:5000` alone and is tested doing so; `lookupIn` finds a credential
+under whatever name it is given. The defect lived in the join, which is the part
+only an end-to-end test looks at.
+
 **Still open:** podman's store, which the buildkit path reads and this does not;
 and the corpus does not cover any of it - `private-image-test` and
 `./private-https+all` exist in `tests/Earthfile` and reach the extracted

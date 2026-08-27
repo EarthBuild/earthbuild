@@ -229,3 +229,128 @@ func TestALoginDoesNotLeakToADifferentRegistry(t *testing.T) {
 		t.Fatalf("quay.io was handed ghcr.io's credential: %+v", got)
 	}
 }
+
+// withConfig puts a config in front of the real one for the duration of a test,
+// and clears the per-host memo either side so tests cannot leak into each other.
+func withConfig(t *testing.T, cfg *configfile.ConfigFile) {
+	t.Helper()
+
+	was := dockerConfig
+	dockerConfig = func() *configfile.ConfigFile { return cfg }
+	credentials.Clear()
+
+	t.Cleanup(func() {
+		dockerConfig = was
+		credentials.Clear()
+	})
+}
+
+// The dance end to end, against a registry that refuses anonymously: challenge,
+// realm, credential, token. This is the path a private image takes, and the one
+// that was missing entirely - a unit test of each part passes without it.
+//
+// Not parallel: it stands a config in front of a package variable.
+//
+//nolint:paralleltest // stands a config in front of a package variable
+func TestAPrivateRegistryIsReachedWithAStoredLogin(t *testing.T) {
+	mux := http.NewServeMux()
+
+	var issued bool
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok || user != "u" || pass != "p" {
+			w.WriteHeader(http.StatusForbidden)
+
+			return
+		}
+
+		issued = true
+
+		_, _ = w.Write([]byte(`{"token":"granted"}`))
+	})
+
+	mux.HandleFunc("/v2/private/thing/manifests/latest", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("WWW-Authenticate",
+			`Bearer realm="`+srv.URL+`/token",service="reg",scope="repository:private/thing:pull"`)
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+
+	host := strings.TrimPrefix(srv.URL, "http://")
+	withConfig(t, &configfile.ConfigFile{
+		AuthConfigs: map[string]types.AuthConfig{host: {Username: "u", Password: "p"}},
+	})
+
+	tok, err := token(context.Background(), srv.Client(),
+		srv.URL+"/v2/private/thing/manifests/latest", t.TempDir(), "private/thing")
+	if err != nil {
+		t.Fatalf("a stored login did not reach the registry: %v", err)
+	}
+
+	if !issued {
+		t.Fatal("the token endpoint was never satisfied")
+	}
+
+	if tok != "granted" {
+		t.Errorf("token = %q", tok)
+	}
+}
+
+// The same registry with nothing stored must fail, or the test above proves
+// only that the server is generous.
+//
+//nolint:paralleltest // stands a config in front of a package variable
+func TestTheSameRegistryRefusesWithoutALogin(t *testing.T) {
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+
+	defer srv.Close()
+
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		if _, _, ok := r.BasicAuth(); !ok {
+			w.WriteHeader(http.StatusForbidden)
+
+			return
+		}
+
+		_, _ = w.Write([]byte(`{"token":"granted"}`))
+	})
+
+	mux.HandleFunc("/v2/private/thing/manifests/latest", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("WWW-Authenticate",
+			`Bearer realm="`+srv.URL+`/token",service="reg",scope="repository:private/thing:pull"`)
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+
+	withConfig(t, &configfile.ConfigFile{AuthConfigs: map[string]types.AuthConfig{}})
+
+	_, err := token(context.Background(), srv.Client(),
+		srv.URL+"/v2/private/thing/manifests/latest", t.TempDir(), "private/thing")
+	if err == nil {
+		t.Fatal("an anonymous fetch was accepted, so the test above proves nothing")
+	}
+
+	if !strings.Contains(err.Error(), "no credential was presented") {
+		t.Errorf("the refusal does not say what to do: %v", err)
+	}
+}
+
+// A self-hosted registry on a non-default port is filed under `host:port`, so
+// dropping the port looks up a name nothing was stored under. This failed
+// before `credentialForURL` used `Host` rather than `Hostname`.
+func TestAPortIsPartOfTheRegistryName(t *testing.T) {
+	t.Parallel()
+
+	cfg := &configfile.ConfigFile{
+		AuthConfigs: map[string]types.AuthConfig{
+			"localhost:5000": {Username: "local", Password: "pw"},
+		},
+	}
+
+	if got := lookupIn(cfg, "localhost:5000"); got.User != "local" {
+		t.Fatalf("a registry on a port was not found: %+v", got)
+	}
+}

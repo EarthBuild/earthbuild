@@ -81,6 +81,11 @@ func authHost(host string) string {
 // dockerConfig is read once. Resolving a credential can exec a helper - the
 // keychain on a Mac - and a build asking per reference would pay for that per
 // reference.
+//
+// A variable rather than a call so a test can put a config of its own in front
+// of it: the interesting behaviour is what this engine does with what docker
+// stored, and a test that can only read the developer's own login tests the
+// developer's machine.
 var dockerConfig = sync.OnceValue(func() *configfile.ConfigFile {
 	// Warnings go nowhere: this is a best-effort lookup on a path that works
 	// without any credentials at all, and a note about a malformed config would
@@ -142,7 +147,13 @@ func credentialForURL(raw string) credential {
 		return credential{}
 	}
 
-	return credentialFor(u.Hostname())
+	// **Host and not Hostname: the port is part of the name.** Docker files a
+	// registry on a non-default port under `host:port` - `localhost:5000` is the
+	// ordinary self-hosted case - so dropping it looks up a name nothing was
+	// ever stored under, and the login silently does not apply. `Host` keeps an
+	// explicit port and omits an implicit one, which is the same rule docker
+	// wrote the key with.
+	return credentialFor(u.Host)
 }
 
 // fetchTokenAs performs the token exchange, presenting a credential when there

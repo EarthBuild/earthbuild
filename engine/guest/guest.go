@@ -2792,7 +2792,7 @@ func lookIn(root, name string, env []string) string {
 		// The name the *step* will use, checked against where it lives now.
 		inStep := filepath.Join(dir, name)
 
-		fi, err := os.Stat(filepath.Join(root, inStep))
+		fi, err := statInRoot(root, inStep)
 		if err == nil && !fi.IsDir() && fi.Mode()&0o111 != 0 {
 			return inStep
 		}
@@ -3502,4 +3502,55 @@ func placedAs(srcPath, as string) string {
 	}
 
 	return filepath.Base(srcPath)
+}
+
+// statInRoot stats a path inside a root, following symlinks the way the step
+// will rather than the way this process would.
+//
+// **`/usr/bin/python3 -> /usr/bin/python3.13` is how Debian ships it**, and
+// distroless with it. The target is absolute *inside the image*, so `os.Stat`
+// from out here follows it against the guest's own root, finds nothing of the
+// step's there, and reports a program sitting on PATH as missing. The symptom
+// was `RUN ["python3", "--version"]` failing on an image built to run python,
+// while the shell form and an absolute path both worked - only the portable
+// spelling failed.
+//
+// Only the named entry's own links are re-rooted. An intermediate component
+// that is a symlink resolves correctly already, because `/bin -> usr/bin` and
+// its kind are written relative; an intermediate *absolute* link would still
+// escape, and is not something an image has been seen to do.
+//
+// Bounded, because a link may point at itself: the loop answers ELOOP rather
+// than running until the stack does.
+func statInRoot(root, path string) (os.FileInfo, error) {
+	at := path
+
+	for range 40 {
+		full := filepath.Join(root, filepath.Clean("/"+at))
+
+		fi, err := os.Lstat(full)
+		if err != nil {
+			return nil, err
+		}
+
+		if fi.Mode()&os.ModeSymlink == 0 {
+			return fi, nil
+		}
+
+		target, err := os.Readlink(full)
+		if err != nil {
+			return nil, err
+		}
+
+		// Absolute means absolute *in the step*, so it is re-rooted rather than
+		// followed. Relative is relative to the link's own directory, which is
+		// the one rule both filesystems agree on.
+		if filepath.IsAbs(target) {
+			at = target
+		} else {
+			at = filepath.Join(filepath.Dir(at), target)
+		}
+	}
+
+	return nil, syscall.ELOOP
 }

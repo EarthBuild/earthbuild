@@ -35212,3 +35212,69 @@ which are the same profile spelled differently and worth knowing. It does not
 follow `source_profile` chains, assume roles, or resolve SSO sessions. A build
 needing those is one this cannot serve, and half-resolving a credential is worse
 than declining to.
+
+## E747 - WORKDIR did not expand what ENV set, and why that was only half of it
+
+CI's non-docker suites all died on one step, in buildkit's own Dockerfile, with a
+message about the wrong thing:
+
+```console
+go: go.mod file not found in current directory or any parent directory
+```
+
+Five framings preceded the cause, each defensible on the evidence to hand and
+each wrong: buildkitd will not start (that was the post-mortem diagnostics), the
+container has no network (a Go build failed identically), podman-specific (native
+fails the same way), a recent regression (there is no green point in the branch's
+CI to bisect toward), missing binfmt (**refuted by a control**: the same job
+passes on `main` with `USE_QEMU: false` and `setup-qemu-action` skipped).
+
+**What settled it was reproducing it locally, which was possible all along.** The
+native engine builds the fork on a Linux box in one command, and there the output
+was captured where CI had shown "printed nothing".
+
+**Minimal reproducer:**
+
+```dockerfile
+FROM alpine:3.20 AS out
+ENV GOPATH=/go
+WORKDIR $GOPATH/src/github.com/example/thing
+RUN --mount=type=bind,target=.,source=/usr/src/thing,from=src echo "pwd=$(pwd)"
+```
+
+```console
+pwd=/$GOPATH/src/github.com/example/thing
+```
+
+The step ran in a directory *named* `$GOPATH`. The generic expansion in
+`Plan.command` resolves build arguments, which is the Earthfile's rule; Docker's
+is that `WORKDIR` reads what `ENV` set. Fixed, guarded on being inside a stage so
+an Earthfile's WORKDIR keeps expanding arguments only - which of the two an
+Earthfile should follow is a question about this language, and Docker's rule is
+not ours to reinterpret.
+
+Everything else the reproducer might have blamed was tested and cleared first: a
+bind mount from a stage works, a sub-path `source=` works, two mounts on one step
+work, and the `runc-src` stage produces `/usr/src/runc` exactly as written.
+
+**And it does not fix the buildkit build**, which is the useful half of the
+finding. `GOPATH` is never set by an `ENV` line there - it comes from the golang
+base image's own configuration:
+
+```dockerfile
+FROM golatest AS gobuild-base
+...
+WORKDIR $GOPATH/src/github.com/opencontainers/runc
+```
+
+`envFor` merges the stage's `ENV` and its build arguments and nothing else, and
+`dockerfile.go` starts each stage at `Env: map[string]string{}`. **This engine
+does not know a base image's environment at plan time.** Expanding against it
+means reading the config blob of every base image while planning, which changes
+what a build fetches before it decides anything - and this engine deliberately
+lets an unreachable registry proceed unpinned rather than fail. That is a
+decision about the plan's dependencies, not a defect to fix quietly.
+
+**[GAP]** Base-image environment at plan time. Until it exists, a Dockerfile
+whose `WORKDIR` names a variable the base image sets cannot be planned correctly,
+and buildkit's own Dockerfile is such a file.

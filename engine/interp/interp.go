@@ -1434,7 +1434,25 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// State, not a step: it changes where later commands run and produces no
 		// filesystem of its own. A relative path resolves against the current
 		// one, as every shell does.
-		rs.dir = resolveDir(rs.dir, c.Args[0])
+		//
+		// **Inside a Dockerfile the environment expands here too.** The generic
+		// expansion above resolves build arguments and nothing else, which is
+		// the Earthfile's rule; Docker's is that `WORKDIR $GOPATH/src/x` reads
+		// what `ENV` set. Left unexpanded the step ran in a directory *named*
+		// `$GOPATH`, and buildkit's own Dockerfile - which this repository
+		// builds - then failed three layers away on `go: go.mod file not found`,
+		// because the bind mount had been placed where the WORKDIR was supposed
+		// to be (E747).
+		//
+		// Guarded on being in a stage so an Earthfile's WORKDIR keeps expanding
+		// arguments only. Which of the two is right for an Earthfile is a
+		// question about this language; Docker's rule is not ours to reinterpret.
+		dir := c.Args[0]
+		if rs.stage != nil {
+			dir = expandWith(dir, rs.envFor())
+		}
+
+		rs.dir = resolveDir(rs.dir, dir)
 
 		return prev, nil
 

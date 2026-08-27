@@ -36384,3 +36384,51 @@ or it is not, and the test should not pretend to have checked.
 That the ceiling caught it is the ceiling working. That nobody could say *which*
 skip moved - the target prints an aggregated count, and the reasons live in the
 tree - is the part worth fixing next; test-plan records it.
+
+## E771 - a packed image declared nothing its base had declared
+
+Following E769's fix through to `docker inspect` rather than stopping at
+`Loaded image:`:
+
+```console
+$ docker inspect alpine:3.24.1 --format '{{.Config.Env}}'
+  [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin]
+$ docker inspect cfgtest:img  --format '{{.Config.Env}}'      # ours, FROM alpine
+  [GREETING=hello]
+```
+
+The base's PATH is gone, and with it anything else a base declares -
+`JAVA_HOME` from an openjdk image, `GOPATH` from golang, `LANG` from a locale
+layer. The Earthfile's own `ENV` is all that survived.
+
+**Why it hid.** `docker run` substitutes a default PATH for an image that
+declares none, so the image *works*: a shell in it finds `ls`, and the test that
+ran it printed what it should. Only `inspect` disagrees, and nothing was
+inspecting. An image built `FROM openjdk` would have failed later and elsewhere,
+which is where this class of defect is always found.
+
+**Where it came from.** An image's configuration is assembled at plan time, from
+what the Earthfile said, and the base's declaration is not known then - it is
+read at run time from the layer's config sidecar and travels the stack (§3.2a).
+Steps therefore see the base's environment and the packed image did not, which
+is the odd asymmetry: the same build, two answers about what the image declares.
+
+Packing now composes the stack's declarations - `decl.Compose`, oldest first,
+the order a stack is in - and lays the target's configuration over the result.
+The target wins where it speaks and silence is not a word: a `WORKDIR` the
+target does not set leaves the base's standing, exactly as a step already sees.
+
+```console
+$ docker inspect cfgtest:img --format '{{.Config.Env}}'      # after
+  [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin GREETING=hello]
+```
+
+Merged in place rather than appended, so a variable both set appears once: two
+entries for one name is a file whose meaning depends on which end the reader
+starts from, and readers differ.
+
+**This came out of a suggestion to compare our tar with earthly's.** That
+comparison found E769 immediately; carrying it one step further - not just does
+the archive load, but does the loaded image *say* what it should - found this.
+Comparing against a reference implementation's output is worth more than reading
+its source, and worth much more than reasoning about ours.

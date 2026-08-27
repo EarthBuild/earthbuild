@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/containerd/platforms"
@@ -51,7 +52,7 @@ func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) 
 	// One converter, shared with the path that saves an image to disk. There
 	// were two, and the difference between them was `ExposedPorts` and
 	// `Volumes` (E44).
-	spec.Config = ir.OCIConfig(n.Op.Image)
+	spec.Config = configWithBase(baseDeclaration(root, base), ir.OCIConfig(n.Op.Image))
 	spec.Healthcheck = ir.OCIHealthcheck(n.Op.Image)
 
 	// **The config is a blob a registry serves to anybody who can pull.** The
@@ -141,6 +142,96 @@ func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) 
 	// which is outside it. An empty layer is the honest result, and the step
 	// that loads it stands on this one for ordering rather than for content.
 	return core.Result{Captured: false}, nil
+}
+
+// baseDeclaration is what the stack's own declarations say.
+//
+// An image's environment travels the stack as a declaration (§3.2a), and until
+// now packing read only what the *target* declared - so an image built `FROM
+// alpine` was written with no PATH, because alpine's PATH is the base's word
+// and not the Earthfile's (E771).
+func baseDeclaration(root string, base []ir.NodeID) decl.Declaration {
+	var found []decl.Declaration
+
+	for _, id := range base {
+		d, held, err := decl.Read(root, id)
+		if err != nil || !held {
+			continue
+		}
+
+		found = append(found, d)
+	}
+
+	// Oldest first, which is the order a stack is in, so a later base overrides
+	// an earlier one exactly as it does at run time.
+	return decl.Compose(found...)
+}
+
+// configWithBase is what the image declares: its base's word, then its own.
+//
+// **The target wins, and silence is not a word.** A target that sets a variable
+// the base also set means to change it, so its value replaces. A target that
+// says nothing about the working directory, the user, the entrypoint or the
+// command leaves the base's standing - which is what every other engine does
+// and what a step already sees at run time. An image is the odd one out only
+// because its configuration was assembled at plan time, where the base's
+// declaration is not yet known.
+func configWithBase(base decl.Declaration, declared ocispec.ImageConfig) ocispec.ImageConfig {
+	out := declared
+
+	out.Env = mergedEnv(base.Env, declared.Env)
+
+	if out.WorkingDir == "" {
+		out.WorkingDir = base.WorkingDir
+	}
+
+	if out.User == "" {
+		out.User = base.User
+	}
+
+	if len(out.Entrypoint) == 0 {
+		out.Entrypoint = base.Entrypoint
+	}
+
+	if len(out.Cmd) == 0 {
+		out.Cmd = base.Cmd
+	}
+
+	return out
+}
+
+// mergedEnv is the base's environment with the target's laid over it.
+//
+// In place rather than appended, so a variable set by both appears once. Two
+// entries for one name is a file whose meaning depends on which end a reader
+// starts from, and readers differ.
+func mergedEnv(base, over []string) []string {
+	out := slices.Clone(base)
+
+	for _, e := range over {
+		name, _, ok := strings.Cut(e, "=")
+		if !ok {
+			out = append(out, e)
+
+			continue
+		}
+
+		at := slices.IndexFunc(out, func(had string) bool {
+			was, _, _ := strings.Cut(had, "=")
+
+			return was == name
+		})
+
+		if at < 0 {
+			out = append(out, e)
+
+			continue
+		}
+
+		out[at] = e
+	}
+
+	return out
 }
 
 // layerSources turns a stack into the trees an archive is written from.

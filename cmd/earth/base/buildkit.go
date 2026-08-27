@@ -17,7 +17,7 @@ func (cli *CLI) GetBuildkitClient(ctx context.Context, cmd *cli.Command) (*clien
 		return nil, fmt.Errorf("init container engine: %w", err)
 	}
 
-	if cli.Flags().BuildkitdSettings.BuildkitAddress == "" {
+	if cli.Flags().BuildkitdSettings.BuildkitAddr == "" {
 		return nil, errors.New(
 			"could not determine buildkit address - is Docker, Podman, or Apple Container running?",
 		)

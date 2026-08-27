@@ -56,7 +56,7 @@ func newPodmanEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 
 	e.Rootless = isRootless
 
-	e.Endpoints, err = e.ResolveEndpoints(PodmanShell, cfg)
+	e.Addrs, err = resolveAddrs(e, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
 	}
@@ -71,7 +71,7 @@ func (e *podmanEngine) Metadata() Metadata {
 		Scheme:    SchemePodman,
 		Binary:    e.BinaryName,
 		Transport: TransportShell,
-		Endpoints: e.Endpoints,
+		Addrs:     e.Addrs,
 		IsPodman:  true,
 	}
 }
@@ -157,7 +157,7 @@ func (e *podmanEngine) PullImage(ctx context.Context, refs ...string) error {
 
 	for _, ref := range refs {
 		args := []string{"pull"}
-		if strings.HasPrefix(ref, e.Endpoints.LocalRegistryHost.Host+"/") {
+		if strings.HasPrefix(ref, e.Addrs.LocalRegistry.Host+"/") {
 			// Rather than force users to add an exemption locally in /etc/containers/registries.conf, detect when we are
 			// pulling from our own internal registry and manually exempt it from TLS.
 			args = append(args, "--tls-verify=false")
@@ -267,4 +267,14 @@ func (e *podmanEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 	}
 
 	return volumes, err
+}
+
+// DefaultAddr returns the default address for the Podman engine.
+func (e *podmanEngine) DefaultAddr(cfg *Config) (string, error) {
+	return defaultTCPAddr(cfg.DefaultPort), nil
+}
+
+// ContainerAddr returns the reachable address for the specified port on a Podman container.
+func (e *podmanEngine) ContainerAddr(_ context.Context, _ string, port int) (string, error) {
+	return defaultTCPAddr(port), nil
 }

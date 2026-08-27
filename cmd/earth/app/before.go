@@ -166,9 +166,9 @@ func (app *EarthApp) parseEngine(ctx context.Context) error {
 	// These URLs were calculated relative to the configured engine. In the
 	// case of an automatically detected engine, they are calculated according
 	// to the first selected one in order of precedence.
-	endpoints := app.BaseCLI.Flags().Engine.Metadata().Endpoints
-	app.BaseCLI.Flags().BuildkitHost = endpoints.BuildkitHost.String()
-	app.BaseCLI.Flags().LocalRegistryHost = endpoints.LocalRegistryHost.String()
+	addrs := app.BaseCLI.Flags().Engine.Metadata().Addrs
+	app.BaseCLI.Flags().BuildkitHost = addrs.Buildkit.String()
+	app.BaseCLI.Flags().LocalRegistryHost = addrs.LocalRegistry.String()
 
 	return nil
 }

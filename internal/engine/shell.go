@@ -42,7 +42,7 @@ type containerInfoJSON struct {
 // shellEngine provides shared shell-execution functionality across CLI-based container engines.
 type shellEngine struct {
 	Log                     *conslogging.ConsoleLogger
-	Endpoints               Endpoints
+	Addrs                   Addrs
 	BinaryName              string
 	RunCompatibilityArgs    []string
 	GlobalCompatibilityArgs []string
@@ -440,9 +440,4 @@ func (e *shellEngine) Command(ctx context.Context, args ...string) *exec.Cmd {
 // CommandArgs generates the full command argument slice with binary name and compatibility args.
 func (e *shellEngine) CommandArgs(args ...string) []string {
 	return slices.Concat([]string{e.BinaryName}, e.GlobalCompatibilityArgs, args)
-}
-
-// ResolveEndpoints configures Endpoints for the engine.
-func (e *shellEngine) ResolveEndpoints(driver Driver, cfg *Config) (Endpoints, error) {
-	return ResolveEndpoints(driver, cfg)
 }

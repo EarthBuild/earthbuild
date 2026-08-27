@@ -125,7 +125,7 @@ func TestBuildArgMatrix(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		urls, err := ResolveEndpoints(DockerShell, &Config{
+		urls, err := ResolveAddrs(DockerShell, &Config{
 			BuildkitHostCLIValue:       tt.args.buildkit,
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
@@ -135,8 +135,8 @@ func TestBuildArgMatrix(t *testing.T) {
 		})
 		r.NoError(err)
 		assert.Equal(t, tt.expected, results{
-			buildkit:      urls.BuildkitHost.String(),
-			localRegistry: urls.LocalRegistryHost.String(),
+			buildkit:      urls.Buildkit.String(),
+			localRegistry: urls.LocalRegistry.String(),
 		})
 	}
 }
@@ -188,7 +188,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		_, err := ResolveEndpoints(DockerShell, &Config{
+		_, err := ResolveAddrs(DockerShell, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Log:                        logger,
@@ -226,12 +226,12 @@ func TestParseURLFailures(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := ParseURL(tt.url)
+		_, err := parseAddr(tt.url)
 		assert.ErrorIs(t, err, tt.expected)
 	}
 }
 
-func TestParseURL(t *testing.T) {
+func TestParseAddr(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -249,12 +249,50 @@ func TestParseURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := ParseURL(tt.url)
+		_, err := parseAddr(tt.url)
 		assert.NoError(t, err)
 	}
 }
 
-func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
+func TestResolveAddrsLogging(t *testing.T) {
+	t.Parallel()
+
+	r := require.New(t)
+
+	tests := []struct {
+		testName string
+		log      string
+		config   config.GlobalConfig
+	}{
+		{
+			testName: "Buildkit/Local Registry host mismatch, schemes match",
+			config: config.GlobalConfig{
+				BuildkitHost:      "tcp://localhost:8372",
+				LocalRegistryHost: "tcp://remotehost:8371",
+			},
+			log: "Buildkit and local registry URLs are pointed at different hosts",
+		},
+	}
+
+	for _, tt := range tests {
+		var logs strings.Builder
+
+		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
+		logger = logger.WithWriter(&logs)
+
+		_, err := ResolveAddrs(DockerShell, &Config{
+			BuildkitHostFileValue:      tt.config.BuildkitHost,
+			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
+			Log:                        logger,
+			LocalContainerName:         "test",
+			DefaultPort:                8372,
+		})
+		r.NoError(err)
+		assert.Contains(t, logs.String(), tt.log)
+	}
+}
+
+func TestResolveAddrsLoggingNonIssues(t *testing.T) {
 	t.Parallel()
 
 	r := require.New(t)
@@ -288,7 +326,7 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		_, err := ResolveEndpoints(DockerShell, &Config{
+		_, err := ResolveAddrs(DockerShell, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Log:                        logger,
@@ -298,6 +336,79 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 		r.NoError(err)
 		assert.NotContains(t, logs.String(), tt.log)
 	}
+}
+
+func TestDriverDefaultAddr(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		LocalContainerName: "custom-buildkitd",
+		DefaultPort:        9999,
+	}
+
+	tests := []struct {
+		driver   engineDriver
+		expected string
+	}{
+		{
+			driver:   &dockerEngine{},
+			expected: "docker-container://custom-buildkitd",
+		},
+		{
+			driver:   &podmanEngine{},
+			expected: "tcp://127.0.0.1:9999",
+		},
+		{
+			driver:   &appleEngine{},
+			expected: "apple-container://custom-buildkitd",
+		},
+		{
+			driver:   &stubEngine{},
+			expected: "docker-container://custom-buildkitd",
+		},
+	}
+
+	r := require.New(t)
+
+	for _, tt := range tests {
+		addr, err := tt.driver.DefaultAddr(cfg)
+		r.NoError(err)
+		assert.Equal(t, tt.expected, addr)
+	}
+}
+
+func TestContainerAddr(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	r := require.New(t)
+
+	t.Run("docker", func(t *testing.T) {
+		t.Parallel()
+
+		e := &dockerEngine{}
+		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
+		r.NoError(err)
+		assert.Equal(t, "docker-container://my-container", addr)
+	})
+
+	t.Run("podman", func(t *testing.T) {
+		t.Parallel()
+
+		e := &podmanEngine{}
+		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
+		r.NoError(err)
+		assert.Equal(t, "tcp://127.0.0.1:8372", addr)
+	})
+
+	t.Run("stub", func(t *testing.T) {
+		t.Parallel()
+
+		e := &stubEngine{}
+		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
+		r.NoError(err)
+		assert.Equal(t, "docker-container://my-container", addr)
+	})
 }
 
 func BenchmarkIsLocal(b *testing.B) {

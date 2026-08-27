@@ -782,7 +782,7 @@ func receiveFileVersion2(
 func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 	var runnerName string
 
-	isLocal := engine.IsLocal(b.cli.Flags().BuildkitdSettings.BuildkitAddress)
+	isLocal := engine.IsLocal(b.cli.Flags().BuildkitdSettings.BuildkitAddr)
 	if isLocal {
 		hostname, err := os.Hostname()
 		if err != nil {
@@ -793,7 +793,7 @@ func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 
 		runnerName = "local:" + hostname
 	} else {
-		runnerName = "bk:" + b.cli.Flags().BuildkitdSettings.BuildkitAddress
+		runnerName = "bk:" + b.cli.Flags().BuildkitdSettings.BuildkitAddr
 	}
 
 	if !isLocal && (b.cli.Flags().UseInlineCache || b.cli.Flags().SaveInlineCache) {

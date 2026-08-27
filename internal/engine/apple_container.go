@@ -107,7 +107,7 @@ func newAppleEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 		return nil, errors.New("empty output from system status")
 	}
 
-	e.Endpoints, err = e.ResolveEndpoints(AppleContainer, cfg)
+	e.Addrs, err = resolveAddrs(e, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
 	}
@@ -122,7 +122,7 @@ func (e *appleEngine) Metadata() Metadata {
 		Scheme:    SchemeApple,
 		Binary:    e.BinaryName,
 		Transport: TransportShell,
-		Endpoints: e.Endpoints,
+		Addrs:     e.Addrs,
 	}
 }
 
@@ -363,9 +363,9 @@ func (e *appleEngine) PullImage(ctx context.Context, refs ...string) error {
 	for _, ref := range refs {
 		args := []string{"image", "pull"}
 
-		isLocalReg := e.Endpoints.LocalRegistryHost != nil &&
-			e.Endpoints.LocalRegistryHost.Host != "" &&
-			strings.HasPrefix(ref, e.Endpoints.LocalRegistryHost.Host+"/")
+		isLocalReg := e.Addrs.LocalRegistry != nil &&
+			e.Addrs.LocalRegistry.Host != "" &&
+			strings.HasPrefix(ref, e.Addrs.LocalRegistry.Host+"/")
 
 		if strings.HasPrefix(ref, "127.0.0.1:") || strings.HasPrefix(ref, "localhost:") || isLocalReg {
 			args = append(args, "--scheme", "http")
@@ -510,4 +510,30 @@ func buildAppleMountArgs(mounts []Mount) []string {
 	}
 
 	return args
+}
+
+// DefaultAddr returns the default address for the Apple Container engine.
+// The actual reachable bridge IP address is determined dynamically later
+// via [appleEngine.ContainerAddr] once the container is running.
+func (e *appleEngine) DefaultAddr(cfg *Config) (string, error) {
+	return AppleSchemePrefix + cfg.LocalContainerName, nil
+}
+
+// ContainerAddr returns the reachable address for the specified port on an Apple Container.
+func (e *appleEngine) ContainerAddr(ctx context.Context, containerName string, port int) (string, error) {
+	containers, err := e.InspectContainers(ctx, containerName)
+	if err != nil {
+		return "", err
+	}
+
+	if len(containers) == 0 {
+		return "", fmt.Errorf("container %s not found", containerName)
+	}
+
+	bridgeIP, ok := containers[0].IPs["bridge"]
+	if !ok || bridgeIP == "" {
+		return "", fmt.Errorf("container %s has no bridge IP", containerName)
+	}
+
+	return "tcp://" + net.JoinHostPort(bridgeIP, strconv.Itoa(port)), nil
 }

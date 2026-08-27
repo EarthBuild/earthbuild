@@ -21,9 +21,9 @@ func newStubEngine(cfg *Config) (engineDriver, error) {
 
 	var err error
 
-	e.Endpoints, err = e.ResolveEndpoints(Stub, cfg)
+	e.Addrs, err = resolveAddrs(e, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
+		return nil, fmt.Errorf("calculate buildkit addresses: %w", err)
 	}
 
 	return e, nil
@@ -65,6 +65,16 @@ func NewTestClient(meta Metadata) *Client {
 	}
 }
 
+// DefaultAddr returns the default address for the stub engine.
+func (e *stubEngine) DefaultAddr(cfg *Config) (string, error) {
+	return DockerSchemePrefix + cfg.LocalContainerName, nil
+}
+
+// ContainerAddr returns the reachable address for the stub engine.
+func (e *stubEngine) ContainerAddr(_ context.Context, containerName string, _ int) (string, error) {
+	return DockerSchemePrefix + containerName, nil
+}
+
 // IsAvailable always returns false for the stub engine.
 func (*stubEngine) IsAvailable(context.Context) bool {
 	return false
@@ -73,9 +83,9 @@ func (*stubEngine) IsAvailable(context.Context) bool {
 // Metadata returns engine configuration for the stub engine.
 func (e *stubEngine) Metadata() Metadata {
 	return Metadata{
-		Name:      "Stub",
-		Scheme:    SchemeInvalid,
-		Endpoints: e.Endpoints,
+		Name:   "Stub",
+		Scheme: SchemeInvalid,
+		Addrs:  e.Addrs,
 	}
 }
 

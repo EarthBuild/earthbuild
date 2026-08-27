@@ -7,7 +7,6 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -84,9 +83,10 @@ func NewClient(
 				if containsAny(retErr.Error(), tlsPaths) {
 					retErr = hint.Wrapf(
 						retErr,
-						"podman now requires TLS certs by default - "+
+						"%s requires TLS certs by default - "+
 							"try stopping the %s container and re-running 'earth bootstrap'\n"+
 							"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
+						engineName(eng),
 						containerName,
 					)
 				}
@@ -109,22 +109,22 @@ func NewClient(
 		}
 	}()
 
-	baseOpts := opts
-
-	opts, err := addRequiredOpts(settings, baseOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("add required client opts: %w", err)
-	}
-
-	isLocal := engine.IsLocal(settings.BuildkitAddress)
+	isLocal := engine.IsLocal(settings.BuildkitAddr)
 	if !isLocal {
+		reqOpts, err := requiredOpts(settings)
+		if err != nil {
+			return nil, fmt.Errorf("required client opts: %w", err)
+		}
+
+		opts = append(opts, reqOpts...)
+
 		var (
 			remoteConsole = log.WithPrefix("buildkitd")
 			info          *client.Info
 			workerInfo    *client.WorkerInfo
 		)
 
-		remoteConsole.Printf("Connecting to %s...", settings.BuildkitAddress)
+		remoteConsole.Printf("Connecting to %s...", settings.BuildkitAddr)
 
 		info, workerInfo, err = waitForConnection(ctx, containerName, settings, eng, opts...)
 		if err != nil {
@@ -136,7 +136,7 @@ func NewClient(
 
 		var bkClient *client.Client
 
-		bkClient, err = client.New(ctx, settings.BuildkitAddress, opts...)
+		bkClient, err = client.New(ctx, settings.BuildkitAddr, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("start provided buildkit: %w", err)
 		}
@@ -144,9 +144,10 @@ func NewClient(
 		return bkClient, nil
 	}
 
-	bkCons := log.WithPrefix("buildkitd")
 	if !eng.IsAvailable(ctx) {
-		bkCons.Printf("Is %[1]s installed and running? Are you part of any needed groups?\n", engineName(eng))
+		log.WithPrefix("buildkitd").
+			Printf("Is %[1]s installed and running? Are you part of any needed groups?\n", engineName(eng))
+
 		return nil, fmt.Errorf("%s not available", engineName(eng))
 	}
 
@@ -155,14 +156,18 @@ func NewClient(
 		return nil, fmt.Errorf("maybe start buildkitd: %w", err)
 	}
 
-	opts, err = updateClientSettings(ctx, containerName, eng, &settings, baseOpts...)
+	updateContainerAddrs(ctx, eng, containerName, &settings)
+
+	reqOpts, err := requiredOpts(settings)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("required client opts: %w", err)
 	}
+
+	opts = append(opts, reqOpts...)
 
 	printBuildkitInfo(log, info, workerInfo, earthVersion, isLocal, settings.HasConfiguredCacheSize())
 
-	bkClient, err := client.New(ctx, settings.BuildkitAddress, opts...)
+	bkClient, err := client.New(ctx, settings.BuildkitAddr, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("new buildkit client: %w", err)
 	}
@@ -180,14 +185,16 @@ func ResetCache(
 	opts ...client.ClientOpt,
 ) error {
 	// Prune by resetting container.
-	if !engine.IsLocal(settings.BuildkitAddress) {
+	if !engine.IsLocal(settings.BuildkitAddr) {
 		return errors.New("cannot reset cache of a provided buildkit-host setting")
 	}
 
-	opts, err := addRequiredOpts(settings, opts...)
+	reqOpts, err := requiredOpts(settings)
 	if err != nil {
-		return fmt.Errorf("add required client opts: %w", err)
+		return fmt.Errorf("required client opts: %w", err)
 	}
+
+	opts = append(opts, reqOpts...)
 
 	log.
 		WithPrefix("buildkitd").
@@ -419,17 +426,23 @@ func maybeRestart(
 		}
 
 		if useExistingContainer {
-			opts, err = updateClientSettings(ctx, containerName, eng, &settings, opts...)
+			updateContainerAddrs(ctx, eng, containerName, &settings)
+
+			var reqOpts []client.ClientOpt
+
+			reqOpts, err = requiredOpts(settings)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, fmt.Errorf("required client opts: %w", err)
 			}
+
+			opts = append(opts, reqOpts...)
 
 			var (
 				info       *client.Info
 				workerInfo *client.WorkerInfo
 			)
 
-			info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
+			info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddr, 5*time.Second, opts...)
 			if err != nil {
 				return nil, nil, fmt.Errorf("could not connect to buildkitd: %w", err)
 			}
@@ -441,17 +454,23 @@ func maybeRestart(
 	case settings.NoUpdate:
 		bkLog.Printf("Updated image available; however update was inhibited.\n")
 
-		opts, err = updateClientSettings(ctx, containerName, eng, &settings, opts...)
+		updateContainerAddrs(ctx, eng, containerName, &settings)
+
+		var reqOpts []client.ClientOpt
+
+		reqOpts, err = requiredOpts(settings)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("required client opts: %w", err)
 		}
+
+		opts = append(opts, reqOpts...)
 
 		var (
 			info       *client.Info
 			workerInfo *client.WorkerInfo
 		)
 
-		info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddress, 5*time.Second, opts...)
+		info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddr, 5*time.Second, opts...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("could not verify connection to buildkitd container: %w", err)
 		}
@@ -595,20 +614,20 @@ func Start(
 			Dest:   "/sys/fs/cgroup",
 		})
 	} else {
-		if settings.LocalRegistryAddress != "" {
-			var lrURL *url.URL
+		if settings.LocalRegistryAddr != "" {
+			var localRegistryURL *url.URL
 
-			lrURL, err = url.Parse(settings.LocalRegistryAddress)
+			localRegistryURL, err = url.Parse(settings.LocalRegistryAddr)
 			if err != nil {
-				return fmt.Errorf("parse local registry address %q: %w", settings.LocalRegistryAddress, err)
+				return fmt.Errorf("parse local registry address %q: %w", settings.LocalRegistryAddr, err)
 			}
 
-			if lrURL.Scheme == "tcp" || lrURL.Port() != "" {
+			if localRegistryURL.Scheme == "tcp" || localRegistryURL.Port() != "" {
 				var hostPort int
 
-				hostPort, err = strconv.Atoi(lrURL.Port())
+				hostPort, err = strconv.Atoi(localRegistryURL.Port())
 				if err != nil {
-					return fmt.Errorf("invalid port in local registry address %q: %w", settings.LocalRegistryAddress, err)
+					return fmt.Errorf("invalid port in local registry address %q: %w", settings.LocalRegistryAddr, err)
 				}
 
 				ports = append(ports, engine.Port{
@@ -622,9 +641,9 @@ func Start(
 
 		var bkURL *url.URL
 
-		bkURL, err = url.Parse(settings.BuildkitAddress)
+		bkURL, err = url.Parse(settings.BuildkitAddr)
 		if err != nil {
-			return fmt.Errorf("parse buildkit address %q: %w", settings.BuildkitAddress, err)
+			return fmt.Errorf("parse buildkit address %q: %w", settings.BuildkitAddr, err)
 		}
 
 		if settings.UseTCP {
@@ -632,7 +651,7 @@ func Start(
 
 			hostPort, err = strconv.Atoi(bkURL.Port())
 			if err != nil {
-				return fmt.Errorf("invalid port in buildkit address %q: %w", settings.BuildkitAddress, err)
+				return fmt.Errorf("invalid port in buildkit address %q: %w", settings.BuildkitAddr, err)
 			}
 
 			ports = append(ports, engine.Port{
@@ -783,13 +802,13 @@ func WaitUntilStarted(
 	opts ...client.ClientOpt,
 ) (*client.Info, *client.WorkerInfo, error) {
 	opTimeout := settings.Timeout
-	address := settings.BuildkitAddress
-	// Check that containerName and address match when address connects over the docker-container:// scheme
-	if strings.HasPrefix(address, engine.DockerSchemePrefix) {
-		expectedAddress := engine.DockerSchemePrefix + containerName
-		if address != expectedAddress {
+	addr := settings.BuildkitAddr
+	// Check that containerName and addr match when addr connects over the docker-container:// scheme
+	if strings.HasPrefix(addr, engine.DockerSchemePrefix) {
+		expectedAddr := engine.DockerSchemePrefix + containerName
+		if addr != expectedAddr {
 			// This shouldn't happen unless there's a programming error
-			return nil, nil, fmt.Errorf("expected address to be %s, but got %s", expectedAddress, address)
+			return nil, nil, fmt.Errorf("expected addr to be %s, but got %s", expectedAddr, addr)
 		}
 	}
 	// First, wait for the container to be marked as started.
@@ -819,10 +838,14 @@ ContainerRunningLoop:
 		}
 	}
 
-	opts, err := updateClientSettings(ctxTimeout, containerName, eng, &settings, opts...)
+	updateContainerAddrs(ctxTimeout, eng, containerName, &settings)
+
+	reqOpts, err := requiredOpts(settings)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("required client opts: %w", err)
 	}
+
+	opts = append(opts, reqOpts...)
 
 	// Wait for the connection to be available.
 	info, workerInfo, err := waitForConnection(ctx, containerName, settings, eng, opts...)
@@ -878,8 +901,8 @@ func waitForConnection(
 	opts ...client.ClientOpt,
 ) (*client.Info, *client.WorkerInfo, error) {
 	opTimeout := settings.Timeout
-	address := settings.BuildkitAddress
-	isLocal := engine.IsLocal(settings.BuildkitAddress)
+	addr := settings.BuildkitAddr
+	isLocal := engine.IsLocal(settings.BuildkitAddr)
 
 	retryInterval := 200 * time.Millisecond
 	if !isLocal {
@@ -905,7 +928,7 @@ func waitForConnection(
 				}
 			}
 
-			info, workerInfo, err := checkConnection(ctxTimeout, address, attemptTimeout, opts...)
+			info, workerInfo, err := checkConnection(ctxTimeout, addr, attemptTimeout, opts...)
 			if err != nil {
 				// Try again.
 				attemptTimeout *= 2
@@ -919,7 +942,7 @@ func waitForConnection(
 
 			return info, workerInfo, nil
 		case <-ctxTimeout.Done():
-			info, workerInfo, err := checkConnection(ctx, address, attemptTimeout, opts...)
+			info, workerInfo, err := checkConnection(ctx, addr, attemptTimeout, opts...)
 			if err != nil {
 				// We give up.
 				return nil, nil, fmt.Errorf("timeout %s: could not connect to buildkit: %w: %w",
@@ -934,7 +957,7 @@ func waitForConnection(
 const unknown = "unknown"
 
 func checkConnection(
-	ctx context.Context, address string, timeout time.Duration, opts ...client.ClientOpt,
+	ctx context.Context, addr string, timeout time.Duration, opts ...client.ClientOpt,
 ) (*client.Info, *client.WorkerInfo, error) {
 	// Each attempt has limited time to succeed, to prevent hanging for too long
 	// here.
@@ -950,45 +973,48 @@ func checkConnection(
 	go func() {
 		defer cancel()
 
-		bkClient, err := client.New(ctxTimeout, address, opts...)
+		bkClient, err := client.New(ctxTimeout, addr, opts...)
 		if err != nil {
 			mu.Lock()
-
 			connErr = err
-
 			mu.Unlock()
 
 			return
 		}
-		defer bkClient.Close()
-		// Use ListWorkers for backwards compatibility. (Info is relatively new)
-		ws, err := bkClient.ListWorkers(ctxTimeout)
+
+		ctxInfo, cancelInfo := context.WithTimeout(ctxTimeout, timeout)
+		defer cancelInfo()
+
+		workers, err := bkClient.ListWorkers(ctxInfo)
 		if err != nil {
 			mu.Lock()
-
 			connErr = err
-
 			mu.Unlock()
 
 			return
 		}
 
-		if len(ws) == 0 {
+		if len(workers) == 0 {
 			mu.Lock()
-
-			connErr = errors.New("no workers")
-
+			connErr = errors.New("no workers found")
 			mu.Unlock()
 
 			return
 		}
 
-		// Success.
+		info, err = bkClient.Info(ctxInfo)
+		if err != nil {
+			mu.Lock()
+			connErr = err
+			mu.Unlock()
+
+			return
+		}
+
 		mu.Lock()
 		defer mu.Unlock()
 
 		connErr = nil
-		workerInfo = ws[0]
 
 		info, err = bkClient.Info(ctxTimeout)
 		if err != nil {
@@ -1064,7 +1090,7 @@ func GetDockerVersion(ctx context.Context, eng *engine.Client) (string, error) {
 func GetLogs(
 	ctx context.Context, containerName string, eng *engine.Client, settings Settings,
 ) (string, error) {
-	if !engine.IsLocal(settings.BuildkitAddress) {
+	if !engine.IsLocal(settings.BuildkitAddr) {
 		return "", nil
 	}
 
@@ -1318,63 +1344,49 @@ func getCacheSize(ctx context.Context, volumeName string, eng *engine.Client) (i
 	return int(info.SizeBytes), nil // #nosec G115
 }
 
-func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.ClientOpt, error) {
-	server, err := url.Parse(settings.BuildkitAddress)
+func requiredOpts(settings Settings) ([]client.ClientOpt, error) {
+	server, err := url.Parse(settings.BuildkitAddr)
 	if err != nil {
-		return []client.ClientOpt{}, fmt.Errorf("failed to parse buildkit url %s: %w", settings.BuildkitAddress, err)
+		return nil, fmt.Errorf("failed to parse buildkit address %s: %w", settings.BuildkitAddr, err)
 	}
 
 	if !settings.UseTCP || !settings.UseTLS {
-		return opts, nil
+		return nil, nil
 	}
 
 	if settings.TLSCA == "" && settings.ClientTLSCert == "" && settings.ClientTLSKey == "" {
-		return append(opts, client.WithServerConfigSystem("")), nil
+		return []client.ClientOpt{client.WithServerConfigSystem("")}, nil
 	}
 
 	serverName := server.Hostname()
-	if engine.IsLocal(settings.BuildkitAddress) {
+	if engine.IsLocal(settings.BuildkitAddr) {
 		serverName = "localhost"
 	}
 
-	opts = append(
-		opts,
+	return []client.ClientOpt{
 		client.WithCredentials(settings.ClientTLSCert, settings.ClientTLSKey),
 		client.WithServerConfig(serverName, settings.TLSCA),
-	)
-
-	return opts, nil
+	}, nil
 }
 
-func updateContainerEndpoints(ctx context.Context, containerName string, eng *engine.Client, settings *Settings) {
-	if eng == nil || eng.Metadata().Scheme != engine.SchemeApple {
+func updateContainerAddrs(ctx context.Context, eng *engine.Client, containerName string, settings *Settings) {
+	if eng == nil {
 		return
 	}
 
-	info, err := eng.InspectContainer(ctx, containerName)
-	if err == nil && info.IPs["bridge"] != "" {
-		settings.BuildkitAddress = "tcp://" + net.JoinHostPort(info.IPs["bridge"], "8372")
-		if settings.LocalRegistryAddress != "" {
-			settings.LocalRegistryAddress = "http://" + net.JoinHostPort(info.IPs["bridge"], "8371")
+	addr, err := eng.ContainerAddr(ctx, containerName, 8372)
+	if err == nil && addr != "" {
+		settings.BuildkitAddr = addr
+	}
+
+	if settings.LocalRegistryAddr != "" {
+		regAddr, err := eng.ContainerAddr(ctx, containerName, 8371)
+		if err == nil && regAddr != "" {
+			if after, ok := strings.CutPrefix(regAddr, "tcp://"); ok {
+				settings.LocalRegistryAddr = "http://" + after
+			}
 		}
 	}
-}
-
-func updateClientSettings(
-	ctx context.Context,
-	containerName string,
-	eng *engine.Client,
-	settings *Settings,
-	opts ...client.ClientOpt,
-) ([]client.ClientOpt, error) {
-	updateContainerEndpoints(ctx, containerName, eng, settings)
-
-	requiredOpts, err := addRequiredOpts(*settings, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("add required client opts: %w", err)
-	}
-
-	return requiredOpts, nil
 }
 
 func containsAny(hs string, needles []string) bool {

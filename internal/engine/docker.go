@@ -53,7 +53,7 @@ func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 		e.RunCompatibilityArgs = []string{"--userns", "host"}
 	}
 
-	e.Endpoints, err = e.ResolveEndpoints(DockerShell, cfg)
+	e.Addrs, err = resolveAddrs(e, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
 	}
@@ -85,7 +85,7 @@ func (e *dockerEngine) Metadata() Metadata {
 		Scheme:    SchemeDocker,
 		Binary:    e.BinaryName,
 		Transport: TransportShell,
-		Endpoints: e.Endpoints,
+		Addrs:     e.Addrs,
 		IsPodman:  e.isPodman,
 	}
 }
@@ -191,4 +191,14 @@ func (e *dockerEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 	}
 
 	return volumes, err
+}
+
+// DefaultAddr returns the default address for the Docker engine.
+func (e *dockerEngine) DefaultAddr(cfg *Config) (string, error) {
+	return DockerSchemePrefix + cfg.LocalContainerName, nil
+}
+
+// ContainerAddr returns the reachable address for the specified port on a Docker container.
+func (e *dockerEngine) ContainerAddr(_ context.Context, containerName string, _ int) (string, error) {
+	return DockerSchemePrefix + containerName, nil
 }

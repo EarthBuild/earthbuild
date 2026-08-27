@@ -16,27 +16,27 @@ type Settings struct {
 	ServerTLSCert   string
 	IPTables        string
 	StartUpLockPath string // StartUpLockPath is not included in hash.
-	BuildkitAddress string
-	// LocalRegistryAddress is the host address or URL of the local registry used for image exports
+	BuildkitAddr    string
+	// LocalRegistryAddr is the host address or URL of the local registry used for image exports
 	// (e.g. "tcp://127.0.0.1:8371", "http://127.0.0.1:8371", "docker-container://<name>", or "" when disabled).
-	LocalRegistryAddress string
-	ServerTLSKey         string
-	ClientTLSKey         string
-	ClientTLSCert        string
-	VolumeName           string
-	AdditionalConfig     string
-	AdditionalArgs       []string
-	CacheSizeMb          int
-	CacheSizePct         int
-	Timeout              time.Duration // Timeout is not included in hash.
-	MaxParallelism       int
-	CacheKeepDuration    int
-	CniMtu               uint16
-	UseTLS               bool
-	UseTCP               bool
-	EnableProfiler       bool
-	NoUpdate             bool // NoUpdate is not included in hash.
-	Debug                bool
+	LocalRegistryAddr string
+	ServerTLSKey      string
+	ClientTLSKey      string
+	ClientTLSCert     string
+	VolumeName        string
+	AdditionalConfig  string
+	AdditionalArgs    []string
+	CacheSizeMb       int
+	CacheSizePct      int
+	Timeout           time.Duration // Timeout is not included in hash.
+	MaxParallelism    int
+	CacheKeepDuration int
+	CniMtu            uint16
+	UseTLS            bool
+	UseTCP            bool
+	EnableProfiler    bool
+	NoUpdate          bool // NoUpdate is not included in hash.
+	Debug             bool
 }
 
 type settingsHasher struct {
@@ -92,8 +92,8 @@ func (s Settings) Hash() (string, error) {
 	sh.writeString(s.TLSCA)
 	sh.writeString(s.ServerTLSCert)
 	sh.writeString(s.IPTables)
-	sh.writeString(s.BuildkitAddress)
-	sh.writeString(s.LocalRegistryAddress)
+	sh.writeString(s.BuildkitAddr)
+	sh.writeString(s.LocalRegistryAddr)
 	sh.writeString(s.ServerTLSKey)
 	sh.writeString(s.ClientTLSKey)
 	sh.writeString(s.ClientTLSCert)

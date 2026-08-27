@@ -130,7 +130,7 @@ func TestVolumeName(t *testing.T) {
 	}
 }
 
-func TestUpdateContainerEndpoints(t *testing.T) {
+func TestUpdateContainerAddrs(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
@@ -139,15 +139,15 @@ func TestUpdateContainerEndpoints(t *testing.T) {
 		t.Parallel()
 
 		settings := Settings{
-			BuildkitAddress:      defaultBuildkitTCP,
-			LocalRegistryAddress: "http://127.0.0.1:8371",
+			BuildkitAddr:      defaultBuildkitTCP,
+			LocalRegistryAddr: "http://127.0.0.1:8371",
 		}
-		updateContainerEndpoints(ctx, "test-container", nil, &settings)
-		assert.Equal(t, defaultBuildkitTCP, settings.BuildkitAddress)
-		assert.Equal(t, "http://127.0.0.1:8371", settings.LocalRegistryAddress)
+		updateContainerAddrs(ctx, nil, "test-container", &settings)
+		assert.Equal(t, defaultBuildkitTCP, settings.BuildkitAddr)
+		assert.Equal(t, "http://127.0.0.1:8371", settings.LocalRegistryAddr)
 	})
 
-	t.Run("non-apple engine does not overwrite addresses", func(t *testing.T) {
+	t.Run("docker engine uses container name", func(t *testing.T) {
 		t.Parallel()
 
 		eng := engine.NewTestClient(engine.Metadata{
@@ -155,16 +155,16 @@ func TestUpdateContainerEndpoints(t *testing.T) {
 			Scheme: engine.SchemeDocker,
 		})
 		settings := Settings{
-			BuildkitAddress:      "docker-container://test-container",
-			LocalRegistryAddress: "http://127.0.0.1:8371",
+			BuildkitAddr:      "docker-container://test-container",
+			LocalRegistryAddr: "http://127.0.0.1:8371",
 		}
-		updateContainerEndpoints(ctx, "test-container", eng, &settings)
-		assert.Equal(t, "docker-container://test-container", settings.BuildkitAddress)
-		assert.Equal(t, "http://127.0.0.1:8371", settings.LocalRegistryAddress)
+		updateContainerAddrs(ctx, eng, "test-container", &settings)
+		assert.Equal(t, "docker-container://test-container", settings.BuildkitAddr)
+		assert.Equal(t, "http://127.0.0.1:8371", settings.LocalRegistryAddr)
 	})
 }
 
-func TestStart_InvalidAddresses(t *testing.T) {
+func TestStart_InvalidAddrs(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
@@ -182,17 +182,17 @@ func TestStart_InvalidAddresses(t *testing.T) {
 		{
 			name: "invalid buildkit port",
 			settings: Settings{
-				BuildkitAddress: "tcp://localhost",
-				UseTCP:          true,
+				BuildkitAddr: "tcp://localhost",
+				UseTCP:       true,
 			},
 			errContains: "invalid port in buildkit address",
 		},
 		{
 			name: "invalid local registry port",
 			settings: Settings{
-				BuildkitAddress:      defaultBuildkitTCP,
-				LocalRegistryAddress: "tcp://localhost",
-				UseTCP:               true,
+				BuildkitAddr:      defaultBuildkitTCP,
+				LocalRegistryAddr: "tcp://localhost",
+				UseTCP:            true,
 			},
 			errContains: "invalid port in local registry address",
 		},
@@ -209,7 +209,7 @@ func TestStart_InvalidAddresses(t *testing.T) {
 	}
 }
 
-func TestStart_ContainerLocalRegistryAddress(t *testing.T) {
+func TestStart_ContainerLocalRegistryAddr(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
@@ -220,9 +220,9 @@ func TestStart_ContainerLocalRegistryAddress(t *testing.T) {
 	})
 
 	settings := Settings{
-		BuildkitAddress:      defaultBuildkitTCP,
-		LocalRegistryAddress: "docker-container://my-reg",
-		UseTCP:               true,
+		BuildkitAddr:      defaultBuildkitTCP,
+		LocalRegistryAddr: "docker-container://my-reg",
+		UseTCP:            true,
 	}
 
 	// Should not fail with port parsing error for docker-container:// scheme.

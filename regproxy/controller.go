@@ -97,8 +97,8 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 
 	if c.darwinProxy {
 		containerName := fmt.Sprintf("%s-%s", darwinContainerPrefix, stringutil.RandomAlphanumeric(6))
-		stopFn := func(_ context.Context) {
-			err := c.stopDarwinProxy(containerName, true) //nolint:contextcheck
+		stopFn := func(ctx context.Context) {
+			err := c.stopDarwinProxy(ctx, containerName, true)
 			if err != nil {
 				c.log.VerbosePrintf("Failed to stop registry proxy support container: %v", err)
 			}
@@ -132,7 +132,7 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 	go func() {
 		err := c.stopOldDarwinProxies(ctx)
 		if err != nil {
-			c.log.VerbosePrintf("Failed to stop old Darwin proxy support container: %s", err)
+			c.log.VerbosePrintf("Failed to stop old Darwin proxy support container: %v", err)
 		}
 	}()
 
@@ -202,10 +202,10 @@ func (c *Controller) stopOldDarwinProxies(ctx context.Context) error {
 		return err
 	}
 
-	for _, cntr := range containers {
-		if strings.HasPrefix(cntr.Name, darwinContainerPrefix) &&
-			time.Since(cntr.Created) > darwinContainerMaxAge {
-			err = c.stopDarwinProxy(cntr.Name, false) //nolint:contextcheck
+	for _, container := range containers {
+		if strings.HasPrefix(container.Name, darwinContainerPrefix) &&
+			time.Since(container.Created) > darwinContainerMaxAge {
+			err = c.stopDarwinProxy(ctx, container.Name, false)
 			if err != nil {
 				return err
 			}
@@ -215,13 +215,13 @@ func (c *Controller) stopOldDarwinProxies(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) stopDarwinProxy(containerName string, checkExists bool) error {
-	// Ignore parent context cancellations as to prevent orphaned containers.
-	detachedCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+func (c *Controller) stopDarwinProxy(ctx context.Context, containerName string, checkExists bool) error {
+	// Ignore parent context cancellations to prevent orphaned containers.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 	defer cancel()
 
 	if checkExists {
-		info, err := c.engine.InspectContainer(detachedCtx, containerName)
+		info, err := c.engine.InspectContainer(ctx, containerName)
 		if err != nil {
 			return err
 		}
@@ -231,7 +231,7 @@ func (c *Controller) stopDarwinProxy(containerName string, checkExists bool) err
 		}
 	}
 
-	err := c.engine.RemoveContainer(detachedCtx, true, containerName)
+	err := c.engine.RemoveContainer(ctx, true, containerName)
 	if err != nil {
 		return fmt.Errorf("failed to stop support container: %w", err)
 	}

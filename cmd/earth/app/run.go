@@ -344,7 +344,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
 		)
 
-		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) {
 			app.printCrashLogs(ctx)
 		}
 
@@ -361,7 +361,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
 		)
 
-		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) {
 			app.printCrashLogs(ctx)
 		}
 
@@ -374,7 +374,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			err.Error(),
 		)
 
-		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) {
 			app.BaseCLI.Log().Warn(
 				"Error: It seems that buildkitd had an issue. " +
 					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
@@ -392,7 +392,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			app.BaseCLI.Log().Warn("Canceled\n")
 		}
 
-		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) && lastSignal.Get() == nil {
 			app.printCrashLogs(ctx)
 		}
 

@@ -51,8 +51,8 @@ func (cli *CLI) InitContainer(cmd *cli.Command) error {
 	cli.Flags().BuildkitdSettings.AdditionalConfig = cli.Cfg().Global.BuildkitAdditionalConfig
 	cli.Flags().BuildkitdSettings.Timeout = time.Duration(cli.Cfg().Global.BuildkitRestartTimeoutS) * time.Second
 	cli.Flags().BuildkitdSettings.Debug = cli.Flags().Debug
-	cli.Flags().BuildkitdSettings.BuildkitAddress = cli.Flags().BuildkitHost
-	cli.Flags().BuildkitdSettings.LocalRegistryAddress = cli.Flags().LocalRegistryHost
+	cli.Flags().BuildkitdSettings.BuildkitAddr = cli.Flags().BuildkitHost
+	cli.Flags().BuildkitdSettings.LocalRegistryAddr = cli.Flags().LocalRegistryHost
 	cli.Flags().BuildkitdSettings.UseTCP = bkURL.Scheme == "tcp"
 	cli.Flags().BuildkitdSettings.UseTLS = cli.Cfg().Global.TLSEnabled
 	cli.Flags().BuildkitdSettings.MaxParallelism = cli.Cfg().Global.BuildkitMaxParallelism

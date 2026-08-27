@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +27,8 @@ var (
 
 // engineDriver is an unexported interface specifying all the container operations EarthBuild needs to perform.
 type engineDriver interface {
+	DefaultAddr(cfg *Config) (string, error)
+	ContainerAddr(ctx context.Context, containerName string, port int) (string, error)
 	IsAvailable(ctx context.Context) bool
 	Metadata() Metadata
 	Version(ctx context.Context) (Version, error)
@@ -50,6 +53,16 @@ type engineDriver interface {
 // Client is the concrete struct used for interacting with the container engine.
 type Client struct {
 	driver engineDriver
+}
+
+// DefaultAddr returns the default address for the container engine given a config.
+func (c *Client) DefaultAddr(cfg *Config) (string, error) {
+	return c.driver.DefaultAddr(cfg)
+}
+
+// ContainerAddr returns the reachable address for a given port on a container.
+func (c *Client) ContainerAddr(ctx context.Context, containerName string, port int) (string, error) {
+	return c.driver.ContainerAddr(ctx, containerName, port)
 }
 
 // IsAvailable returns true if the container engine is installed and accessible.
@@ -501,8 +514,8 @@ const (
 
 // Metadata contains information describing an engine implementation.
 type Metadata struct {
-	// Endpoints holds network addresses for communicating with the engine.
-	Endpoints Endpoints
+	// Addrs holds network addresses for communicating with the engine.
+	Addrs Addrs
 
 	// Name is the display name of the engine (e.g. "Docker", "Podman", "Apple Container").
 	Name string
@@ -581,8 +594,8 @@ func (s Scheme) String() string {
 	}
 }
 
-// ParseScheme parses and validates a raw scheme string.
-func ParseScheme(s string) (Scheme, error) {
+// parseScheme parses and validates a raw scheme string.
+func parseScheme(s string) (Scheme, error) {
 	switch s {
 	case "tcp":
 		return SchemeTCP, nil
@@ -603,96 +616,102 @@ func ParseScheme(s string) (Scheme, error) {
 }
 
 const (
-	// TCPAddressFmt is the address at which the daemon is available when using TCP.
-	TCPAddressFmt = "tcp://127.0.0.1:%d"
-
 	// DockerSchemePrefix is used to construct the buildkit address for local docker-based connections.
 	DockerSchemePrefix = "docker-container://"
+
+	// AppleSchemePrefix is used to construct the buildkit address for local apple-container-based connections.
+	AppleSchemePrefix = "apple-container://"
 )
 
-// Endpoints contains the relevant host URLs to contact a container engine or buildkit daemon.
-type Endpoints struct {
-	BuildkitHost      *url.URL
-	LocalRegistryHost *url.URL
+// defaultTCPAddr returns the default localhost TCP address for a given port.
+func defaultTCPAddr(port int) string {
+	return "tcp://127.0.0.1:" + strconv.Itoa(port)
 }
 
-// ResolveEndpoints calculates and validates buildkit and registry URLs based on the given configuration.
-func ResolveEndpoints(driver Driver, cfg *Config) (Endpoints, error) {
-	calculatedBuildkitHost := cfg.BuildkitHostCLIValue
-	if cfg.BuildkitHostCLIValue == "" {
+// Addrs contains the network addresses to contact a container engine or buildkit daemon.
+type Addrs struct {
+	Buildkit      *url.URL
+	LocalRegistry *url.URL
+}
+
+// ResolveAddrs calculates and validates buildkit and registry URLs based on the given configuration.
+func ResolveAddrs(driver Driver, cfg *Config) (Addrs, error) {
+	drv, err := newDriverForAddrs(driver, cfg)
+	if err != nil {
+		return Addrs{}, err
+	}
+
+	return resolveAddrs(drv, cfg)
+}
+
+func newDriverForAddrs(driver Driver, cfg *Config) (engineDriver, error) {
+	switch driver {
+	case DockerShell, Docker:
+		return &dockerEngine{shellEngine: &shellEngine{Log: cfg.Log}}, nil
+	case PodmanShell, Podman:
+		return &podmanEngine{shellEngine: &shellEngine{Log: cfg.Log}}, nil
+	case AppleContainer:
+		return &appleEngine{shellEngine: &shellEngine{Log: cfg.Log}}, nil
+	case Stub:
+		return &stubEngine{shellEngine: &shellEngine{Log: cfg.Log}}, nil
+	case Auto:
+		return nil, fmt.Errorf("cannot determine default buildkit address for %s", driver)
+	}
+
+	return nil, fmt.Errorf("no default buildkit address for %s", driver)
+}
+
+func resolveAddrs(drv engineDriver, cfg *Config) (Addrs, error) {
+	addr := cfg.BuildkitHostCLIValue
+	if addr == "" {
 		if cfg.BuildkitHostFileValue != "" {
-			calculatedBuildkitHost = cfg.BuildkitHostFileValue
+			addr = cfg.BuildkitHostFileValue
 		} else {
 			var err error
 
-			calculatedBuildkitHost, err = DefaultAddress(driver, cfg.LocalContainerName, cfg.DefaultPort)
+			addr, err = drv.DefaultAddr(cfg)
 			if err != nil {
-				return Endpoints{}, fmt.Errorf("validate default address: %w", err)
+				return Addrs{}, fmt.Errorf("validate default addr: %w", err)
 			}
 		}
 	}
 
-	bkURL, err := ParseURL(calculatedBuildkitHost)
+	bkURL, err := parseAddr(addr)
 	if err != nil {
-		return Endpoints{}, err
+		return Addrs{}, err
 	}
 
-	lrURL := &url.URL{}
-	if IsLocal(calculatedBuildkitHost) && cfg.LocalRegistryHostFileValue != "" {
+	localRegistryURL := &url.URL{}
+	if IsLocal(addr) && cfg.LocalRegistryHostFileValue != "" {
 		// Local registry only matters when local, and specified.
-		lrURL, err = ParseURL(cfg.LocalRegistryHostFileValue)
+		localRegistryURL, err = parseAddr(cfg.LocalRegistryHostFileValue)
 		if err != nil {
-			return Endpoints{}, err
+			return Addrs{}, err
 		}
 
-		if !IsLocal(cfg.LocalRegistryHostFileValue) && bkURL.Hostname() != lrURL.Hostname() {
+		if !IsLocal(cfg.LocalRegistryHostFileValue) && bkURL.Hostname() != localRegistryURL.Hostname() {
 			format := "Buildkit and local registry URLs are pointed at different hosts (%s vs. %s)"
-			cfg.Log.Warnf(format, bkURL.Hostname(), lrURL.Hostname())
+			cfg.Log.Warnf(format, bkURL.Hostname(), localRegistryURL.Hostname())
 		}
 	} else if cfg.LocalRegistryHostFileValue != "" {
 		cfg.Log.
 			VerbosePrintf("Local registry host is specified while using remote buildkit. Local registry will not be used.")
 	}
 
-	return Endpoints{
-		BuildkitHost:      bkURL,
-		LocalRegistryHost: lrURL,
+	return Addrs{
+		Buildkit:      bkURL,
+		LocalRegistry: localRegistryURL,
 	}, nil
 }
 
-// DefaultAddress returns an address (signifying the desired/default transport)
-// for a given container driver.
-func DefaultAddress(driver Driver, localContainerName string, defaultPort int) (string, error) {
-	switch driver {
-	case DockerShell, Docker:
-		return DockerSchemePrefix + localContainerName, nil
-
-	case PodmanShell, Podman:
-		// Podman only works over TCP. There are weird errors when trying to use the provided helper from buildkit.
-		return fmt.Sprintf(TCPAddressFmt, defaultPort), nil
-
-	case AppleContainer:
-		// Apple container only works over TCP.
-		return fmt.Sprintf(TCPAddressFmt, defaultPort), nil
-
-	case Stub:
-		return DockerSchemePrefix + localContainerName, nil // Maintain old behavior
-
-	case Auto:
-		return "", fmt.Errorf("cannot determine default buildkit address for %s", driver)
-	}
-
-	return "", fmt.Errorf("no default buildkit address for %s", driver)
-}
-
-// ParseURL parses and checks if a URL has an allowed scheme and required port.
-func ParseURL(addr string) (*url.URL, error) {
+// parseAddr parses and checks if an address has an allowed scheme and required port.
+func parseAddr(addr string) (*url.URL, error) {
 	parsed, err := url.Parse(addr)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", addr, errInvalidURL)
 	}
 
-	scheme, err := ParseScheme(parsed.Scheme)
+	scheme, err := parseScheme(parsed.Scheme)
 	if err != nil {
 		return nil, err
 	}

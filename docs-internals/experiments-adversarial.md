@@ -34155,3 +34155,73 @@ thread goes on doing the engine's work while filtered and `exec.Cmd` alone opens
 `/dev/null` on it (E211). A filter installed in the shim is on a thread that
 *becomes* the step, so there is nothing of the engine's inside the window and
 nothing to skip - the hazard goes away rather than being guarded.
+
+## E731 - the shim-installed filter, measured against the arrangement it replaces
+
+The fix E730 described is in. The filter is installed by the step shim, after the
+shim's own exec has released the `CLONE_VFORK`, and the listener comes back to
+the guest over `SCM_RIGHTS`. No thread of the guest carries a filter.
+
+**The hang is gone.** On the nits file's recipe, sandbox reset before each run:
+
+| guest binary       | hangs   |
+| ------------------ | ------- |
+| before             | 2 of 5  |
+| filter in the shim | 0 of 10 |
+
+and in a direct comparison the older binary hung on its **first** run of the same
+Earthfile, stalling after 21 of 45 steps, where the fixed one completed all 45.
+
+**Nothing else moved.** The corpus was swept with both binaries, and the outcomes
+are identical - 223 ok, 14 wrong, 8 diverges, 3 unjudgeable, 2 unmodelled - with
+the *sets* equal and not merely the counts:
+
+```text
+newly wrong under the fix:  (none)
+fixed by the fix:           (none)
+```
+
+That comparison is the point of running it. An equal count can hide one case
+fixed and another broken, and the tally alone would not say so.
+
+**Observation is intact.** Both L2 tests pass, so a RUN is still reused over a
+base it did not run on and the hit still serves what a rebuild would produce.
+Raw notifications per step fall from about twelve to five: the shim's own `/proc`
+work and its exec of the guest binary are no longer trapped, which is engine
+activity that was being recorded as things the step read. That is the E211
+misattribution, removed rather than guarded by a thread-id skip.
+
+### Three faults found by running it, not by reading it
+
+* **Every traced build failed.** With the step the only carrier of the filter,
+  the listener hangs up when the step exits - the ordinary end - and the E520
+  check read that as a tracer stopping underneath a running step. The tracer now
+  records *why* it stopped and the caller judges. A first attempt asked whether
+  the tracer stopped before the step *finished*, which is always true: the
+  process exits before `fn()` returns with its output.
+* **Ten seconds a step** wherever a filter cannot be installed. The guest holds
+  its own copy of the step's end of the channel, so a shim that closes produces
+  no end-of-file. It now sends a message carrying no descriptor.
+* **The listener was inherited by the step**, which could then answer its own
+  notifications and choose what this engine records about it. `ConnFromFD`
+  duplicates and closes what it is given, so the first attempt at closing it on
+  exec was guarding a descriptor that was already shut.
+
+### Two broken instruments, both reading as success
+
+Recorded because they cost more than the bugs did.
+
+A probe meant to run steps untraced discarded the tracer *after* `StartOnSelf`
+had installed the filter, leaving it live with nothing answering: a guaranteed
+hang, returning 2 of 2 and reading as a refutation of the whole diagnosis. The
+tell was unanimity, on a phenomenon that had been running at 2 in 5.
+
+A baseline sweep put the older binary in place with `cp` over the existing file.
+On macOS that invalidates a code-signed binary's cached signature and the process
+is killed on launch - `rc=137`, no output. The sweep returned 62 ok against 223,
+reading as though this change had fixed 137 corpus cases. The tell was that every
+failure line had an empty reason: a build that fails says why, and one that never
+starts cannot. `rm` before `cp`.
+
+**An implausibly large win deserves the scrutiny of an implausibly large loss**,
+and gets less of it.

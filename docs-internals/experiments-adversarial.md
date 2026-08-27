@@ -34863,3 +34863,64 @@ not, and it was found by chasing a *reliability* report rather than a slow one.
 The practical rule: when a build system is intermittently slow, count the
 failures before profiling the successes. A 40% chance of a two-minute stall
 outweighs every microsecond in this document.
+
+## E741 - could a secret be keyed by its digest, and what that costs
+
+A step using a secret is uncacheable - "a secret, which no key may describe" -
+and that is expensive: every such step rebuilds on every build. The obvious
+escape is to key on `ℋ(value)` rather than the value, so the key describes the
+secret without containing it.
+
+**The first objection is weaker than it looks.** A digest in a key is a
+confirmation oracle: anyone who can read the key can test a guess offline, and
+the engine cannot tell a 240-bit credential from `hunter2`. But that only
+matters if keys reach somebody who does not already have the secret, and today
+they do not:
+
+* a step with `SecretEnv` is already invoker-only - `OnInvokerOnly` returns "it
+  needs a secret, which an assignment does not carry" - so no assignment
+  carries the key to a worker;
+* nothing pushes the store anywhere;
+* keys are not printed.
+
+So the key would live on the machine that already holds the secret, readable by
+somebody who can already read the store.
+
+**The residual exposure is a shared store.** `EARTH_CACHE_DIR` may name a
+network mount or a synced directory, which `ir.go` anticipates in as many words:
+putting a value in a key "would put a credential in the cache key - which is
+written to disk and shared between machines". There, a digest is an offline
+oracle for everyone with access, and for a low-entropy secret that is a crack
+rather than a theory.
+
+### The real blocker is I19, and it is a specification change
+
+> **I19 (A secret is never written down).** A declared secret enters ε by
+> identity and never by value.
+
+A digest is not the value and *is* a function of it, so "by identity, never by
+value" does not obviously stretch to cover it. Keying on `ℋ(value)` therefore
+means amending I19, updating its row in §5.1, and following its citations -
+deliberately, and not as a side effect of wanting a faster build.
+
+### What it would buy, beyond speed
+
+**It closes the export hole structurally.** A cacheable secret step produces a
+layer, and `NoteLeaked` fires at commit - so the leak recorded in E-nits today,
+where a secret reaches an exported image because the leaking step is
+`uncaptured` and never commits, stops being reachable. That is a better fix than
+attaching a second check to the export path, because it removes the case rather
+than covering it.
+
+### The shape, if it is done
+
+Digest the value into the key, and mark such entries **not shareable**: never
+served from or written to a store the engine treats as shared, and never
+delegated, which is already true. Today that is one flag; it becomes
+load-bearing the moment a remote cache exists.
+
+**And say out loud that rotation invalidates.** Every step that used the old
+secret misses, which is correct and will look like a stampede the first time.
+
+**[GAP]** Not implemented. It needs I19 amended first, which is a decision about
+what this engine promises rather than about how it is built.

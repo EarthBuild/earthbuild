@@ -485,6 +485,49 @@ func mountProc(root string) (undo func(), err error) {
 	return func() { unmountAll(target) }, nil
 }
 
+// mountSys puts a sysfs in a step's root, if this machine will allow one.
+//
+// **What reads it.** Every runtime that asks how big the machine is: the JVM's
+// container awareness, Go's cgroup-aware `GOMAXPROCS`, `nproc`, and anything
+// enumerating block devices or interfaces. They read `/sys/fs/cgroup` and
+// `/sys/devices/system/cpu`, and where those are absent they do not fail - they
+// answer with the *host's* numbers, or with one CPU, which is a wrong answer
+// delivered confidently. `earth-entrypoint.sh` branches on
+// `/sys/fs/cgroup/cgroup.controllers` to tell cgroups v2 from v1, so a nested
+// build reads the absence as v1 (E753).
+//
+// Read-only, as an OCI runtime mounts it: a step has no business writing to the
+// machine's device tree, and the one thing that legitimately wants a writable
+// path under here - a nested runtime making cgroups - needs a cgroup2 mount
+// rather than a writable sysfs.
+//
+// **Degraded rather than refused, unlike /proc.** Mounting sysfs needs the
+// network namespace to belong to the user namespace doing the mounting, which
+// is true for a guest running as root and false for a rootless one sharing the
+// machine's network. A step without /sys is worse than a step with it and far
+// better than no step at all, so this reports and continues - the rule cgroups
+// already follow, and the opposite of the rule /proc follows, because a JDK
+// cannot start at all without /proc/self/exe.
+func mountSys(root string) (undo func(), why error) {
+	target := filepath.Join(root, "sys")
+
+	//nolint:gosec // a mount point carries the mode the mount asked for
+	err := os.MkdirAll(target, 0o755)
+	if err != nil {
+		return func() {}, fmt.Errorf("make room for /sys: %w", err)
+	}
+
+	err = unix.Mount("sysfs", target, "sysfs", unix.MS_RDONLY|unix.MS_NOSUID|
+		unix.MS_NODEV|unix.MS_NOEXEC, "")
+	if err != nil {
+		return func() {}, fmt.Errorf(
+			"mount /sys for the step: %w\n  a step without one is told the machine"+
+				"\n  has one CPU and no cgroup limits, rather than being told nothing", err)
+	}
+
+	return func() { unmountAll(target) }, nil
+}
+
 // resolverMount gives a step the machine's resolver configuration.
 //
 // An image ships no /etc/resolv.conf, because the runtime is expected to

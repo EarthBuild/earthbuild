@@ -35585,3 +35585,54 @@ need a decision about whether a step may silently differ between machines (I3)
 rather than just a mount call, and neither has the consequences `/dev/shm` has.
 The completion test therefore still fails, and it should: two thirds of what it
 is asserting are still true.
+
+## E753 - /sys, and the rule it is mounted under
+
+E752 gave a step `/dev/shm` and left `/sys` alone. `+test-no-qemu-group4` is the
+reason to go back for it:
+
+```text
+Error: build new buildkitd client: connect provided buildkit: timeout
+```
+
+three times in one job, from `RUN_EARTH` - the harness a great many tests run
+their inner build through. That harness runs `earth-entrypoint.sh` inside a
+privileged step, and the entrypoint decides which cgroup version it is on by
+looking for `/sys/fs/cgroup/cgroup.controllers`. With no sysfs the file is
+absent, and absent reads as cgroups v1 - so the nested daemon is configured for
+a machine that does not exist and the client waits for it until it gives up.
+
+More generally, what reads sysfs is everything that asks how big the machine is:
+the JVM's container awareness, Go's cgroup-aware `GOMAXPROCS`, `nproc`,
+block-device and interface enumeration. None of them *fail* without it. They
+answer with the host's numbers, or with one CPU, confidently.
+
+Mounted read-only, as an OCI runtime mounts it. A step has no business writing
+to the machine's device tree, and the one caller that legitimately wants a
+writable path underneath - a nested runtime creating cgroups - needs a cgroup2
+mount, not a writable sysfs.
+
+**The rule it is mounted under, which is not /proc's.** Mounting sysfs requires
+the network namespace to belong to the user namespace doing the mounting. A
+guest running as root satisfies that; a rootless one sharing the machine's
+network does not, and it is refused. So this degrades where `mountProc` refuses:
+a step without `/proc` cannot run a JDK at all, and a step without `/sys` is
+merely told less than it asked. That is the rule cgroups already follow.
+
+Verified on both sides of that line, which is the point of stating it:
+
+```console
+$ earth-native +sys                       # rootless, host network
+  (no /sys, no message)
+$ docker run --privileged … earth-native +sys      # root, as CI runs
+  block bus class dev devices firmware fs hypervisor kernel module power
+```
+
+**Two things this does not do, said plainly.** The failure is not reported: the
+only channel back is `noteDegraded`, which means one specific thing - why a step
+ran without the *limits* it was given - and putting a mount failure through it
+would corrupt a signal somebody reads. And `/sys/fs/cgroup` is a sysfs directory
+with nothing mounted on it, so the entrypoint's `cgroup.controllers` probe still
+finds nothing. Finishing group4 needs a cgroup2 mount, and doing that safely
+needs `CLONE_NEWCGROUP` as well - without a cgroup namespace the step would see
+the machine's whole cgroup tree, which is a larger decision than a mount call.

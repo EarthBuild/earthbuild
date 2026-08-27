@@ -25,5 +25,7 @@ func deviceMounts() []Mount { return nil }
 // other backend; the difference is that here nothing was promised.
 func mountProc(string) (func(), error) { return func() {}, nil }
 
+func mountSys(string) (func(), error) { return func() {}, nil }
+
 // resolverMount is empty off Linux.
 func resolverMount() []Mount { return nil }

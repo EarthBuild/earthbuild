@@ -2071,6 +2071,20 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 	defer undoProc()
 
+	// After /proc and on a weaker rule: a step that cannot have one is still a
+	// correct step, so this carries on rather than failing. See mountSys.
+	//
+	// The reason is dropped, which is the least bad of three. `noteDegraded` is
+	// the only channel back and it means one specific thing - why a step ran
+	// without the *limits* it was given - so putting a mount failure through it
+	// would corrupt a signal somebody reads; a field of its own would be an API
+	// nothing consumes; and printing per step would say it once per step on
+	// every rootless build. Reporting it once, properly, is worth doing and is
+	// not this change.
+	undoSys, _ := mountSys(h.Root())
+
+	defer undoSys()
+
 	mounts := stepMounts(req, stepEnv(declaredBy(h, req), req.Env))
 
 	// A view of an earlier result is a stack and has to be assembled before

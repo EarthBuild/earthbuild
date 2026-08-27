@@ -36814,3 +36814,25 @@ another number is not a comparison unless both were asked the same question.
 With E774 this says where a build's time is: the network until it is pinned, the
 step's own work after that, and the engine neither serialising what could run at
 once nor spending anything measurable of its own.
+
+## E782 - the cache invalidates on what a build reads and nothing else
+
+The engine's central claim, asked end to end rather than of the key functions:
+
+| step                               | result        |
+| ---------------------------------- | ------------- |
+| cold                               | 0 hit, 4 miss |
+| the same build again               | 4 hit, 0 miss |
+| after editing the copied file      | 1 hit, 3 miss |
+| after editing a file nobody copies | 4 hit, 0 miss |
+
+The third row is the one worth having twice over: the `FROM` still hits while
+the `COPY` and the `RUN` above it rebuild, so invalidation reaches exactly as
+far as the change does. The fourth says the context is read for what the build
+asks for rather than hashed whole - a build in a directory with a large
+unrelated file does not rebuild when that file changes.
+
+Recorded beside E774 and E781 because the three together are the engine's
+performance story with numbers rather than adjectives: nothing serialised that
+could run at once, about 13ms a step of the engine's own, and a cache that
+neither over- nor under-invalidates.

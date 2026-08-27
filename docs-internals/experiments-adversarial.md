@@ -34259,3 +34259,71 @@ cost of the change. Restricting both sides to their first 21 steps removes it.
 Whole-build wall-clock cannot settle this either - 3533ms against 3731ms with
 the ranges overlapping - because one build is one sample and a per-step phase is
 forty-five.
+
+## E732 - a build prefetches images it has no use for, and pays half a second
+
+Profiling a 45-step `--no-cache` build over `python:3.13-slim` shows a registry
+token being fetched for **alpine**, an image that build never mentions:
+
+```text
+earth: registry:token   0.281s  registry-1.docker.io/library/alpine
+earth: registry:token   0.281s  registry-1.docker.io/library/python
+earth: pin:token        0.282s  docker.io
+```
+
+**Sized before anything was written**, by moving `predictions.json` aside and
+alternating - the technique E727 used, and the only one that settles it, since
+prefetch runs concurrently and its phase timings overlap the build:
+
+| predictions | median | mean   |
+| ----------- | ------ | ------ |
+| present     | 3050ms | 3122ms |
+| moved aside | 2494ms | 2648ms |
+
+So a wrong prediction costs about **half a second on a three-second build**,
+presumably in bandwidth taken from the pull the build actually needs. Adding the
+three token phases together instead gives 844ms and would have been wrong:
+phases overlap, and a sum of overlapping phases is not wall-clock.
+
+### Why it prefetches alpine at all
+
+`prefetch` walks *every* confidently-predicted site in the store and fetches what
+each needed last time. It has no notion of which build is running. The comment
+above it already records the symptom without naming the cause - "an image the
+other platform wanted and this one cannot use at all" - and E727b fixed the
+build *waiting* for those pulls, not the build *starting* them.
+
+**The site key is not project-qualified.** `siteOf` is `where + " " + cond`, and
+`where` is the diagnostic location, which for a local file is relative:
+
+```text
+Earthfile:10 [ -e /cache/persisted/persisted.txt ]
+```
+
+Every project has an `Earthfile`, so a condition at line 10 of one project is
+the same site as a condition at line 10 of another. This machine's store holds
+36 sites learned mostly from the corpus, which builds alpine; a python build in
+a different directory inherits them all and speculates on them.
+
+That is a correctness question and not only a speed one. The branch history of
+an unrelated project is being used to decide what this one will probably do -
+harmless today because a prediction only selects what to *speculate* on (I5),
+and not harmless in any future where a prediction decides anything else.
+
+### What the fix has to do
+
+Qualify the site with the build root, and have `prefetch` speculate only on
+sites under the root it is running in. The two go together: qualification alone
+leaves prefetch walking every site, and filtering alone has nothing to filter
+on.
+
+`where` must stay relative in diagnostics - a build that reports
+`/Users/.../Earthfile:10` where it used to say `Earthfile:10` has made its
+errors worse to make its cache better. So the qualification belongs in the
+prediction layer, not in the source location.
+
+Existing prediction files stop matching, which is correct: those entries were
+never safe to apply to another project, and they are relearned in a build or
+two.
+
+**[GAP]** Not yet implemented, and deliberately not folded into the E723 work.

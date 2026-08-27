@@ -35131,3 +35131,51 @@ unaccounted, and the engine's own compute is under 20ms of it. **Speed work has
 reached its floor without a decision.** Anything further is one of the two fenced
 policies above, or a rewrite of what a build does rather than how fast it does
 it.
+
+## E745 - the corpus on two platforms, and four accusations that were the harness
+
+Measured 2026-08-27, same commit, corrected extraction:
+
+| Outcome     | macOS/arm64 | Linux/amd64 |
+| ----------- | ----------- | ----------- |
+| ok          | 234         | 238         |
+| diverges    | 6           | 6           |
+| wrong       | 5           | 2           |
+| unjudgeable | 3           | 2           |
+| unmodelled  | 2           | 2           |
+
+**Linux is worth four cases, not the five that had been claimed.** Three are
+ownership - `chown` and `copy-keep-own` twice - which fail on macOS because the
+store discards it, and the engine says so precisely rather than producing a wrong
+file. The fourth is `user-arg`, which was not a platform difference at all: the
+harness had excused it.
+
+**The genuine-defect bucket on Linux is two.** `aws-flag` wants real credentials
+in the environment, and `for.earth` is the I7 decision - a `FOR` over `$(ls)`
+needs the `LOCALLY` steps before it to have run, and a host step is never cached,
+so deciding the loop would run them twice. Everything else is a deliberate
+refusal, a single-architecture machine, or a case the harness cannot model.
+
+**Every accusation the corpus made against the engine this week was the harness.**
+Four of them:
+
+* excuses hardcoded as facts about the developer's Mac. Run on x86 Linux the
+  table announced "this machine is darwin/arm64", and excused two cases the
+  machine could judge. `platform-expansion`'s excuse named the wrong
+  architecture, having been written from the other side - it is unjudgeable on
+  any *single-architecture* machine, not on macOS;
+* `env` setup lines run through `sh -c`, setting a variable in a subshell that
+  exits, so `--secret NAME` - which reads the environment - failed as a bad flag;
+* `--build-arg X=""` split by the shell rather than by `shlex`, so the engine
+  looked up a secret named `""`; and `pre_command` dropped entirely, which is how
+  several cases set `EARTHLY_ARG_FILE_PATH`;
+* a *stale* `invocations.json`. The extractor already handled the multi-line
+  heredoc that stages `allow-privileged-import`'s fixture - its docstring
+  describes the bug and ends "The engine was reported wrong for it" - and the
+  file predated the fix. Regenerating moved the case from `wrong` to `diverges`:
+  `RUN --privileged` refused on purpose, working exactly as intended.
+
+The engine was right in all four. **Regenerate the invocations as part of the
+sweep rather than trusting a file**, and make an excuse derive from the host it
+is excusing, or a corpus score quietly stops meaning anything - which is the
+failure this document exists to catch.

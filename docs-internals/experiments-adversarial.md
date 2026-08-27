@@ -36478,3 +36478,28 @@ a question nobody asked it (E549) - so the time goes in the request, beside the
 configuration it belongs to. The first attempt set it host-side only, and both
 runs printed an empty `created` because the host is not the side that writes the
 file.
+
+## E773 - two ways to write an image, and only one of them had been fixed
+
+E771 taught the packed-image path to keep what its base declared, and E772 gave
+it a `created` time under a clamp. `SAVE IMAGE` does not go through that path: it
+writes its layout from `engine/cli`, out of `img.Config` alone, so the same image
+written the other way still declared no PATH and no time.
+
+Two paths to one format that disagree about what an image says are worse than
+either being wrong. A build's answer to `docker inspect` would have depended on
+whether the image reached the daemon through `WITH DOCKER --load` or through
+`SAVE IMAGE`, and nothing in either path says the other exists.
+
+Both now compose the same way, through one implementation: `BaseDeclaration`
+reads the stack's declarations and `ConfigWithBase` lays the target's
+configuration over them. Exported from `engine/exec` rather than copied, because
+a third hand-written copy of these fields is exactly what E44 records going
+wrong before.
+
+**The fourth site was already right, which is worth saying.** `engine/cli` has
+its own `layerSources`, and it skips an element the layer store has not got -
+with a comment naming §3.2a and `classify`. So the declaration-as-layer
+confusion that took three fixes (E749, E751, E761) never reached here: somebody
+writing this path knew a stack holds two kinds of thing. The bug is not that the
+knowledge was missing but that it was in one place and needed in four.

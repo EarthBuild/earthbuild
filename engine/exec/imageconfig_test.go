@@ -25,7 +25,7 @@ func TestAPackedImageKeepsWhatItsBaseDeclared(t *testing.T) {
 		Cmd:        []string{"/bin/base"},
 	}
 
-	got := configWithBase(base, ocispec.ImageConfig{
+	got := ConfigWithBase(base, ocispec.ImageConfig{
 		Env:        []string{"GREETING=hello", "LANG=en_GB.UTF-8"},
 		WorkingDir: "/w",
 	})

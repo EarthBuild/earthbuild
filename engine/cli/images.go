@@ -6,8 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/exec"
+	"github.com/EarthBuild/earthbuild/engine/fstime"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -21,17 +24,25 @@ import (
 // Kept apart from the writing so the mapping can be checked without a layer
 // store, and because the two are different kinds of work: this one is about
 // what `SAVE IMAGE` meant, and the other about what the format requires.
-func specFor(img interp.Image, platform string, layers []image.LayerSource) image.Spec {
+func specFor(
+	img interp.Image, platform string, layers []image.LayerSource,
+	base decl.Declaration, created time.Time,
+) image.Spec {
 	// The same two conversions the packed-image path uses, and for the reason
 	// that path exists: this was a third hand-written copy of the same fields,
 	// and it was the one that had them all while the other did not (E44).
 	spec := image.Spec{
 		Ref:    img.Ref,
 		Layers: layers,
-		Config: ir.OCIConfig(img.Config.ToIR()),
+		// The base's word and then the target's, as the packed path composes
+		// it: an image built FROM alpine declares alpine's PATH whichever way it
+		// is written (E771, E773).
+		Config: exec.ConfigWithBase(base, ir.OCIConfig(img.Config.ToIR())),
 		// The extension the OCI configuration has no field for, carried beside
 		// it and through the same converter (E486).
 		Healthcheck: ir.OCIHealthcheck(img.Config.ToIR()),
+		// Only under a clamp; see image.Spec.Created and E772.
+		Created: created,
 	}
 
 	p, err := platforms.Parse(platform)
@@ -100,7 +111,10 @@ func writeImages(
 			return fmt.Errorf("clear the previous %s: %w", img.Ref, err)
 		}
 
-		err = image.WriteLayout(dir, specFor(img, o.Platform, layers))
+		created, _ := fstime.Clamp()
+
+		err = image.WriteLayout(dir, specFor(img, o.Platform, layers,
+			exec.BaseDeclaration(store, stack), created))
 		if err != nil {
 			return fmt.Errorf("write %s (%s): %w", img.Ref, img.Source, err)
 		}

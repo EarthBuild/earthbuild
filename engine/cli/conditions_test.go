@@ -5,8 +5,10 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -210,7 +212,7 @@ func TestAnImageSpecCarriesWhatTheEarthfileDeclared(t *testing.T) {
 			Labels:     map[string]string{"org.example.by": "earthbuild"},
 			Exposed:    []string{"8080/tcp"},
 		},
-	}, "linux/arm64", nil)
+	}, "linux/arm64", nil, decl.Declaration{}, time.Time{})
 
 	if spec.Ref != "app:latest" {
 		t.Errorf("the spec is called %q", spec.Ref)

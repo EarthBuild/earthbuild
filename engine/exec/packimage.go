@@ -61,7 +61,7 @@ func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) 
 	// One converter, shared with the path that saves an image to disk. There
 	// were two, and the difference between them was `ExposedPorts` and
 	// `Volumes` (E44).
-	spec.Config = configWithBase(baseDeclaration(root, base), ir.OCIConfig(n.Op.Image))
+	spec.Config = ConfigWithBase(BaseDeclaration(root, base), ir.OCIConfig(n.Op.Image))
 	spec.Healthcheck = ir.OCIHealthcheck(n.Op.Image)
 
 	// **The config is a blob a registry serves to anybody who can pull.** The
@@ -153,13 +153,13 @@ func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) 
 	return core.Result{Captured: false}, nil
 }
 
-// baseDeclaration is what the stack's own declarations say.
+// BaseDeclaration is what the stack's own declarations say.
 //
 // An image's environment travels the stack as a declaration (§3.2a), and until
 // now packing read only what the *target* declared - so an image built `FROM
 // alpine` was written with no PATH, because alpine's PATH is the base's word
 // and not the Earthfile's (E771).
-func baseDeclaration(root string, base []ir.NodeID) decl.Declaration {
+func BaseDeclaration(root string, base []ir.NodeID) decl.Declaration {
 	var found []decl.Declaration
 
 	for _, id := range base {
@@ -176,7 +176,11 @@ func baseDeclaration(root string, base []ir.NodeID) decl.Declaration {
 	return decl.Compose(found...)
 }
 
-// configWithBase is what the image declares: its base's word, then its own.
+// ConfigWithBase is what the image declares: its base's word, then its own.
+//
+// Exported because `SAVE IMAGE` writes its layout from engine/cli and packing
+// writes one from here, and two paths to one format that disagree about what an
+// image says are worse than either being wrong (E773).
 //
 // **The target wins, and silence is not a word.** A target that sets a variable
 // the base also set means to change it, so its value replaces. A target that
@@ -185,7 +189,7 @@ func baseDeclaration(root string, base []ir.NodeID) decl.Declaration {
 // and what a step already sees at run time. An image is the odd one out only
 // because its configuration was assembled at plan time, where the base's
 // declaration is not yet known.
-func configWithBase(base decl.Declaration, declared ocispec.ImageConfig) ocispec.ImageConfig {
+func ConfigWithBase(base decl.Declaration, declared ocispec.ImageConfig) ocispec.ImageConfig {
 	out := declared
 
 	out.Env = mergedEnv(base.Env, declared.Env)

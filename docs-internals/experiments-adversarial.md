@@ -36905,3 +36905,33 @@ agree on everything a build *produces* that has been compared: file contents,
 modes, types, image configuration, and the archive format. What is left
 disagreeing is the clock (E775) and what each leaves in `/run` (E780), both of
 which are about the engine rather than the build.
+
+## E785 - a secret reaches the step, is not written down, and costs a rebuild unless keyed
+
+Three properties of `RUN --secret`, asked end to end with a canary value:
+
+```console
+$ earth-native --secret TOKEN=CANARY-9d2f7a1e-SECRET +s
+  the step saw a secret of length 22
+$ grep -rl CANARY-9d2f7a1e "$EARTH_CACHE_DIR"
+  (nothing)
+```
+
+The step gets the value and the store holds no copy of it - not in a layer, not
+in an action record, not in a key. That is I19, verified rather than asserted.
+
+The second property is the cost:
+
+| configuration    | second run of the same build |
+| ---------------- | ---------------------------- |
+| no `EARTH_HMAC`  | 1 hit, 1 miss                |
+| `EARTH_HMAC` set | 2 hit, 0 miss                |
+
+Without a key the step holding a secret is `NoCache` and runs again - the `FROM`
+above it still hits, so the rebuild is exactly the step that saw the secret and
+nothing more. With a key its contribution is a MAC of the value, so the step is
+cacheable and the value is still nowhere: the second run hits both steps.
+
+That is the whole of what `EARTH_HMAC` is for, and it is worth having measured,
+because "secrets are cacheable now" and "secrets are in the cache now" are one
+typo apart and only one of them is true.

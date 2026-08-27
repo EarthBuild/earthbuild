@@ -40,7 +40,11 @@ type fakeRegistry struct {
 	// mediaType is what the manifest declares each layer to be. Empty means
 	// gzip, which every existing case here serves.
 	mediaType string
-	served    int
+	// requireLogin makes the token endpoint refuse an anonymous exchange, which
+	// is what a private repository does. `auth` alone only makes the registry
+	// challenge - every public image does that too.
+	requireLogin bool
+	served       int
 
 	// inFlight counts blob requests being served at this moment, and mostBlobs
 	// the highest that ever was. Layers are independent objects and fetching
@@ -141,7 +145,16 @@ func (f *fakeRegistry) start(t *testing.T) string {
 	// realm and the URL is not known until then.
 	var realm string
 
-	mux.HandleFunc("/token", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		if f.requireLogin {
+			user, pass, ok := r.BasicAuth()
+			if !ok || user != "u" || pass != "p" {
+				w.WriteHeader(http.StatusForbidden)
+
+				return
+			}
+		}
+
 		f.tokens++
 
 		_ = json.NewEncoder(w).Encode(map[string]any{"token": "issued"})
@@ -548,4 +561,69 @@ func (f *fakeRegistry) peakBlobs() int {
 	defer f.blobMu.Unlock()
 
 	return f.mostBlobs
+}
+
+// A private image, pulled the whole way: manifest, config and every layer.
+//
+// The token stage having worked says nothing about the blobs - those are fetched
+// separately, and a change that minted a token correctly and then fetched layers
+// anonymously would pass every other test here. This unpacks the files, so the
+// credential has to have carried all the way through.
+//
+// Not parallel: it stands a docker config in front of a package variable.
+//
+//nolint:paralleltest // stands a config in front of a package variable
+func TestAPrivateImagePullsWithAStoredLogin(t *testing.T) {
+	reg := &fakeRegistry{
+		auth:         true,
+		requireLogin: true,
+		layers: [][]byte{
+			gzipTar(t, "base", "one"),
+			gzipTar(t, "top", "two"),
+		},
+	}
+
+	host := reg.start(t)
+	image.LoginForTest(t, host, "u", "p")
+
+	dir := t.TempDir()
+
+	_, err := image.Pull(context.Background(), host+"/library/test:1", dir, image.Options{Plain: true})
+	if err != nil {
+		t.Fatalf("a stored login did not carry through the pull: %v", err)
+	}
+
+	for name, want := range map[string]string{"base": "one", "top": "two"} {
+		b, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+
+			continue
+		}
+
+		if string(b) != want {
+			t.Errorf("%s = %q, want %q", name, b, want)
+		}
+	}
+}
+
+// The same registry with nothing stored must refuse, or the test above shows
+// only that the fixture is generous.
+//
+//nolint:paralleltest // stands a config in front of a package variable
+func TestAPrivateImageRefusesWithoutALogin(t *testing.T) {
+	reg := &fakeRegistry{
+		auth:         true,
+		requireLogin: true,
+		layers:       [][]byte{gzipTar(t, "base", "one")},
+	}
+
+	host := reg.start(t)
+	image.LogOutForTest(t)
+
+	_, err := image.Pull(context.Background(), host+"/library/test:1", t.TempDir(),
+		image.Options{Plain: true})
+	if err == nil {
+		t.Fatal("an anonymous pull of a private image succeeded")
+	}
 }

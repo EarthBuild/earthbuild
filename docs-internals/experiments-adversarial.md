@@ -35077,6 +35077,19 @@ answer they were going to wait for anyway. The test counts resolutions rather
 than timing them: the execs overlapped, so the honest claim is N process spawns
 becoming one, not N times the latency.
 
+**The blobs were covered by inference, and now by a test.** That a token is
+minted correctly says nothing about the layers: they are fetched separately, and
+a change that authenticated the manifest and then pulled blobs anonymously would
+pass every other test here. `fakeRegistry` grew a `requireLogin` flag - `auth`
+alone only makes a registry *challenge*, which every public image does too - and
+a pull against it now unpacks the files, so the credential has to have carried
+the whole way. The negative case is tested beside it, or the positive one shows
+only that the fixture is generous.
+
+Reading `streamLayerApart` and seeing it take a token was enough to believe it
+and not enough to claim it. Two defects this week lived in exactly that kind of
+join.
+
 **Still open:** podman's store, which the buildkit path reads and this does not;
 and the corpus does not cover any of it - `private-image-test` and
 `./private-https+all` exist in `tests/Earthfile` and reach the extracted

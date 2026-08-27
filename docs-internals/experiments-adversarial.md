@@ -36750,3 +36750,43 @@ configuration, while `WORKDIR`, `USER` and `ENV` are the *step's* and are folded
 in when an image is made. `SAVE IMAGE` had always done that folding inline, so
 the second caller had to be told - it is `state.imageConfig()` now, written once
 where both callers reach it, for the reason E773 records.
+
+## E780 - the last third of the completion diff belongs to the other engine
+
+E767 recorded the autocompletion diff as gone. It is two thirds gone, and the
+entry was written from a run whose job had died before reaching that test. What
+the diff says now:
+
+```text
+@@ -4,7 +4,6 @@
+-../run/
+```
+
+`../dev/` and `../sys/` are present - E752 gave `/dev` its `shm` and E753 mounted
+sysfs, so both have subdirectories and completion offers them. `/run` does not.
+
+**Because the directories it would need are earthly's.** The same Earthfile
+through both engines:
+
+```text
+earthly   /run   . .. earthly_interactive earthly_save lock secrets
+native    /run   . .. lock
+```
+
+`earthly_save`, `earthly_interactive` and `secrets` are that engine's own
+machinery. Under the test's base image `/run` holds nothing else, so `../run/`
+is in the expectation only because earthly puts its working directories there.
+
+So the remaining third is not a capability this engine lacks. Matching it would
+mean creating directories with earthly's names for no reason but to be listed,
+which is worse than the failing assertion. What the test is really asserting -
+that a step's `/run` looks like a container's - is not a property either engine
+guarantees; it is a property of what each leaves lying about.
+
+The resolution is the test's expectation, not the engine, and that is a decision
+rather than a fix: the file is corpus, and the corpus is the specification this
+engine is measured against. Recorded here rather than changed.
+
+**E767's error is the ordinary one.** A signature absent from a job's log means
+"not found in this log", and a job that failed earlier has a shorter log. Two of
+three had been fixed and the third was never reached.

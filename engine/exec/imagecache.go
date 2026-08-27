@@ -210,6 +210,20 @@ func fetchImageFrom(ctx context.Context, imageRoot, ref, platform, dest string, 
 	return store.PlaceConfig(shared, dest)
 }
 
+// imageRootMode is the mode an unpacked image's own root directory gets.
+//
+// **`os.MkdirTemp` makes it 0700, and an image root is not 0700.** The staging
+// directory *becomes* the image root, so every image this engine unpacked had a
+// root no unprivileged process could walk into. Nothing noticed while every
+// step ran as root; `USER testuser` then failed with `exec /bin/sh: permission
+// denied`, naming a shell that was right there (E735).
+//
+// 0755 rather than the archive's own entry for `.`: every image anybody ships
+// has a 0755 root, the entry is frequently absent, and a root the archive does
+// not describe is this engine's to name. What the *contents* may be read by is
+// still the image's business, entry by entry.
+const imageRootMode = 0o755
+
 // Prefetch puts an image in the shared cache before anything asks for it.
 //
 // The freely-speculable tier: it moves bytes and changes nothing, so a wrong
@@ -237,6 +251,14 @@ func Prefetch(ctx context.Context, root, ref, platform string, pull pullInto) er
 		_ = image.RemoveAll(staging)
 
 		return err
+	}
+
+	// The staging directory is about to be the image's root. See imageRootMode.
+	err = os.Chmod(staging, imageRootMode)
+	if err != nil {
+		_ = image.RemoveAll(staging)
+
+		return fmt.Errorf("set the root mode of %s: %w", ref, err)
 	}
 
 	// A prefetched entry carries its configuration too, or the build that uses

@@ -2276,6 +2276,17 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// something I3 has anything to say about.
 	cmd.Env = stepEnv(declared, req.Env)
 
+	// **Told to the shim, not to the step.** The shim resolves it after the
+	// chroot, where `/etc/passwd` is the step's own, and `stepEnviron` takes it
+	// back out before the exec so the step never sees it (E735).
+	//
+	// Only where there is a shim to tell: without one there is nothing between
+	// the clone and the step to change identity in, and `USER` goes on being
+	// recorded and not applied - which is what `EARTH_STEP_SHIM=0` now costs.
+	if shimming && req.User != "" {
+		cmd.Env = append(cmd.Env, EnvStepUser+"="+req.User)
+	}
+
 	// Registered for exactly as long as it runs, so a cancel arriving in the
 	// middle finds it and one arriving after finds nothing.
 	s.began(req.ID, kill)
@@ -2551,6 +2562,8 @@ func (c *Client) ExecStream(
 type Step struct {
 	// Dir is the working directory inside the step's filesystem.
 	Dir string
+	// User is who the step runs as: USER, as the Earthfile wrote it.
+	User string
 	// Argv is the command.
 	Argv []string
 	// Env is ε, and only ε.
@@ -2636,6 +2649,7 @@ func (c *Client) RunStep(
 		BaseEnv:   step.BaseEnv,
 		SecretEnv: step.SecretEnv,
 		Dir:       step.Dir,
+		User:      step.User,
 		Mounts:    step.Mounts,
 		NoNet:     step.NoNet,
 		Trace:     step.Trace,

@@ -64,7 +64,7 @@ func NewSplit(layerDir, scratchDir string) (*Materialiser, error) {
 		return nil, fmt.Errorf("prepare the layer store: %w", err)
 	}
 
-	err = os.MkdirAll(scratchDir, 0o750)
+	err = os.MkdirAll(scratchDir, stepPathMode)
 	if err != nil {
 		return nil, fmt.Errorf("prepare the scratch directory: %w", err)
 	}
@@ -89,7 +89,7 @@ func NewSplit(layerDir, scratchDir string) (*Materialiser, error) {
 		}
 	}
 
-	err = os.MkdirAll(filepath.Join(scratchDir, "mounts"), 0o750)
+	err = os.MkdirAll(filepath.Join(scratchDir, "mounts"), stepPathMode)
 	if err != nil {
 		return nil, fmt.Errorf("prepare the scratch directory: %w", err)
 	}
@@ -143,6 +143,31 @@ func (m *Materialiser) layerDir(id ir.NodeID) string {
 
 // farmDir is where the short names live. Under scratch, because the layer store
 // is read-only to the guest whenever it arrives over a shared mount.
+// stepPathMode is the mode of a directory a step has to walk through to reach
+// its own filesystem.
+//
+// **Traverse, not read.** `USER testuser` drops the step to an unprivileged
+// identity, and that identity then has to reach a root sitting under
+// `scratch/mounts/<handle>/merged`. At 0750 it cannot: every ancestor refuses
+// it, and the step fails with `exec /bin/sh: permission denied` naming a shell
+// that is right there.
+//
+// 0751 grants the one bit that is needed. The directories stay unlistable, so
+// nothing learns what other handles exist from walking them, and the step's own
+// root keeps whatever mode the image gave it - which is the mode that decides
+// what the step may actually read.
+//
+// This tree is inside the guest, whose only other user is the step itself, so
+// the exposure the extra bit buys is a step being able to `cd` through a
+// directory it cannot list on the way to its own filesystem.
+const stepPathMode = 0o751
+
+// stepRootMode is the mode of the step's own `/`, which overlayfs takes from the
+// upper layer rather than from any image below it. Every image anybody ships has
+// a 0755 root, and a step that has dropped to another user has to be able to
+// enter its own filesystem.
+const stepRootMode = 0o755
+
 func (m *Materialiser) farmDir() string { return filepath.Join(m.scratch, "l") }
 
 // WriteLayer implements coretest.LayerBuilder, so the content-level conformance
@@ -190,6 +215,13 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 		return nil, fmt.Errorf("create a mount directory: %w", err)
 	}
 
+	// MkdirTemp makes it 0700, which no step running as anyone else can walk
+	// through. See stepPathMode.
+	err = os.Chmod(base, stepPathMode)
+	if err != nil {
+		return nil, fmt.Errorf("open the path to the step's filesystem: %w", err)
+	}
+
 	merged := filepath.Join(base, "merged")
 	upper := filepath.Join(base, "upper")
 	work := filepath.Join(base, "work")
@@ -199,6 +231,17 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 		if mkdirErr != nil {
 			return nil, fmt.Errorf("create mount dirs: %w", mkdirErr)
 		}
+	}
+
+	// **The upper layer's mode is the step's `/`.** overlayfs takes the merged
+	// root's attributes from the upper directory, so a 0750 upper gives the step
+	// a root only its owner can enter - which is invisible while every step runs
+	// as root, and is `exec /bin/sh: permission denied` the moment one does not
+	// (E735). The lower layers keep saying what their own contents are; this
+	// says only that the door is not locked.
+	err = os.Chmod(upper, stepRootMode)
+	if err != nil {
+		return nil, fmt.Errorf("open the step's root: %w", err)
 	}
 
 	// Scratch: no lower layers, so there is nothing to overlay. A plain

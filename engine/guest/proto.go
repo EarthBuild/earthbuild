@@ -371,8 +371,15 @@ type Request struct {
 	// listening to.
 	Stream bool `json:"stream,omitempty"`
 	// Dir is the working directory inside the step's filesystem: WORKDIR.
-	Dir string   `json:"dir,omitempty"`
-	Env []string `json:"env,omitempty"` // exec only, "K=V"; ε, and only ε
+	Dir string `json:"dir,omitempty"`
+	// User is who the step runs as: USER. Empty keeps the identity the guest
+	// already has, which is root.
+	//
+	// Carried rather than applied on the host, because the names in it are the
+	// *step's*: `testuser` means whatever the step's `/etc/passwd` says, and the
+	// host has no business reading that file or agreeing with it.
+	User string   `json:"user,omitempty"`
+	Env  []string `json:"env,omitempty"` // exec only, "K=V"; ε, and only ε
 	// SecretEnv names the entries of Env that are credentials.
 	//
 	// **Names, never values** - the values are already in Env and travel there

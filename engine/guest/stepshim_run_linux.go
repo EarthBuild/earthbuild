@@ -5,6 +5,7 @@ package guest
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"runtime"
 	"strconv"
 	"strings"
@@ -70,6 +71,14 @@ func RunStepShimIfAsked() {
 	// which is why `prepareStep`, `enterStep` and `resolveProgram` are all
 	// above this line, and why the program lookup happens in the guest.
 	err = handOverTracing()
+	if err != nil {
+		fail(err)
+	}
+
+	// **Last, so everything above it runs with the privilege it needs.** The
+	// mount, the chroot and the filter install all want root; the step does not,
+	// and said so.
+	err = becomeStepUser()
 	if err != nil {
 		fail(err)
 	}
@@ -174,7 +183,8 @@ func stepEnviron() []string {
 
 	for _, kv := range all {
 		if strings.HasPrefix(kv, EnvStepTraceFD+"=") ||
-			strings.HasPrefix(kv, EnvStepTracePin+"=") {
+			strings.HasPrefix(kv, EnvStepTracePin+"=") ||
+			strings.HasPrefix(kv, EnvStepUser+"=") {
 			continue
 		}
 
@@ -182,4 +192,101 @@ func stepEnviron() []string {
 	}
 
 	return out
+}
+
+// becomeStepUser drops to the identity the Earthfile asked for, or does nothing
+// when it asked for none.
+//
+// **USER was recorded and never applied.** The interpreter carried it and the
+// key hashed it, so two steps differing only in USER were different steps - and
+// both ran as root. A step that says it drops privileges and does not is
+// running build code with more authority than the file granted it, which is the
+// wrong way round for a mistake to go.
+//
+// Resolved here because here is after the chroot: `/etc/passwd` is the step's
+// own, and a CGO-free `os/user` reads it directly. A numeric spec needs no file
+// at all, which is what lets `USER 1000` work in an image that has no passwd -
+// a scratch image, or a distroless one.
+//
+// Groups before the user, and supplementary groups dropped in between: after
+// `setuid` there is no privilege left to change a group with.
+func becomeStepUser() error {
+	spec := os.Getenv(EnvStepUser)
+	if spec == "" {
+		return nil
+	}
+
+	name, group, numeric := splitUserSpec(spec)
+
+	uid, gid, err := resolveUser(name, group, numeric)
+	if err != nil {
+		return err
+	}
+
+	// Dropped rather than kept: a step that becomes `testuser` should not still
+	// carry root's groups. Best effort on the setgroups, because a kernel that
+	// refuses it leaves the step no *more* privileged than the group change
+	// below makes it.
+	_ = syscall.Setgroups([]int{gid})
+
+	err = syscall.Setgid(gid)
+	if err != nil {
+		return fmt.Errorf("become group %q for USER %s: %w", group, spec, err)
+	}
+
+	err = syscall.Setuid(uid)
+	if err != nil {
+		return fmt.Errorf("become user %q for USER %s: %w", name, spec, err)
+	}
+
+	return nil
+}
+
+// resolveUser turns a USER spec into the numbers the kernel wants.
+//
+// A named group is looked up on its own, so `USER 1000:staff` works: the user is
+// a number the step's passwd need not mention and the group is a name it must.
+// Without a group, the user's own primary group is used, which is what every
+// other tool does with `USER name`.
+func resolveUser(name, group string, numeric bool) (int, int, error) {
+	if numeric {
+		uid, _ := strconv.Atoi(name)
+		gid := uid
+
+		if group != "" {
+			gid, _ = strconv.Atoi(group)
+		}
+
+		return uid, gid, nil
+	}
+
+	u, err := user.Lookup(name)
+	if err != nil {
+		return 0, 0, fmt.Errorf("USER %s: %w"+
+			"\n  the name is looked up in the step's own /etc/passwd"+
+			"\n  a numeric id needs no such file", name, err)
+	}
+
+	uid, err := strconv.Atoi(u.Uid)
+	if err != nil {
+		return 0, 0, fmt.Errorf("USER %s: uid %q is not a number: %w", name, u.Uid, err)
+	}
+
+	gidOf := u.Gid
+
+	if group != "" {
+		g, gErr := user.LookupGroup(group)
+		if gErr != nil {
+			return 0, 0, fmt.Errorf("USER %s: group %s: %w", name, group, gErr)
+		}
+
+		gidOf = g.Gid
+	}
+
+	gid, err := strconv.Atoi(gidOf)
+	if err != nil {
+		return 0, 0, fmt.Errorf("USER %s: gid %q is not a number: %w", name, gidOf, err)
+	}
+
+	return uid, gid, nil
 }

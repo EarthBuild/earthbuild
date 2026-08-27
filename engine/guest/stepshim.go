@@ -39,6 +39,16 @@ const EnvStepTraceFD = "EARTH_STEP_TRACE_FD"
 // being documented while doing nothing (E681, E685).
 const EnvStepTracePin = "EARTH_STEP_TRACE_PIN"
 
+// EnvStepUser is who the step runs as, as the Earthfile wrote it, and is empty
+// for a step that keeps the guest's identity.
+//
+// **The names in it belong to the step, not to the guest.** `USER testuser`
+// means whatever the step's own `/etc/passwd` says, which is why this is
+// resolved in the shim after the chroot rather than anywhere earlier: at that
+// point `/etc/passwd` *is* the step's, and a pure-Go lookup reads the right
+// file without the guest having to parse it or agree with it.
+const EnvStepUser = "EARTH_STEP_USER"
+
 // stepShim is what the shim was asked to prepare and become.
 type stepShim struct {
 	// root is the filesystem the step sees, named from outside it: the chroot

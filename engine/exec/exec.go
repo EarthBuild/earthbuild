@@ -608,7 +608,7 @@ func (e *Executor) Run(
 	endRun := phase("run", n.Meta.Source)
 
 	step, err := c.RunStep(ctx, h, guest.Step{
-		Dir: n.Op.Dir, Argv: argv, Env: env, Mounts: mounts,
+		Dir: n.Op.Dir, User: n.Op.User, Argv: argv, Env: env, Mounts: mounts,
 		SecretEnv: secretNames,
 		NoNet:     n.Op.NoNetwork, Daemon: daemon, Hosts: n.Op.Hosts,
 		// Observed, so the step can be reused against a base it did not run on.

@@ -45,6 +45,48 @@ are safe wherever they come from - every digest is checked against the manifest 
 moves may resolve to an older image than the registry would give. Pinning (`--pin`) always asks
 the registry itself for that reason.
 
+### `DOCKER_CONFIG`
+
+Where this engine looks for registry credentials. **A `docker login` applies here**: it reads
+docker's own store rather than keeping one of its own.
+
+Default: `~/.docker/config.json`. A `credsStore` or a `credHelpers` entry works, because the
+lookup goes through the same library `earth` hands to BuildKit - the credential lives wherever
+docker put it, including the system keychain, and neither engine has an opinion about where that
+is. Two engines reading one store is the point; two engines with two ideas of where credentials
+live is the thing worth avoiding.
+
+**A public image needs none of this.** Nothing is presented unless something is stored for that
+registry, and a machine with no docker config pulls exactly as it always did.
+
+Two names catch people out, and both are handled:
+
+* **Docker Hub is filed under `docker.io`**, while the requests go to `registry-1.docker.io`.
+  Docker's own key mapping does not recognise the second, so asking under the host actually
+  dialled would miss a login that plainly happened - and miss it silently.
+* **A port is part of the name.** A registry on a non-default port is stored under `host:port`,
+  so `localhost:5000` is looked up as written rather than as `localhost`.
+
+**The credential is chosen by the registry, never by the realm it names.** A registry answers the
+challenge and the challenge says where to get a token, so choosing from the realm would let a
+registry nominate which credential this machine hands over. Deciding from the host the manifest
+is being fetched from means the worst a hostile registry can do is receive the credential its own
+user already gave it.
+
+It is never written down: the credential goes in a header and not in a URL - the "was not pinned"
+note prints that URL verbatim - and the bearer token it buys is held in memory for the life of
+the process and never reaches the cache directory.
+
+Two things it does not do, both of which `earth` does:
+
+* **podman's store is not read.** A machine authenticated only through podman is not
+  authenticated here.
+* **an identity token cannot be redeemed.** Some registries store an OAuth2 refresh token instead
+  of a password, which needs a POST exchange this engine does not perform. It says so rather than
+  presenting the token as a password and reporting whatever the registry made of that.
+
+Default: unset, so `~/.docker/config.json`, and no credential where there is no file.
+
 ### `EARTH_PIN_TTL`
 
 How long a resolved image reference may be reused before the registry is asked

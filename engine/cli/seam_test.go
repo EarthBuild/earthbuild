@@ -106,6 +106,10 @@ func TestEveryOutputFieldIsAccountedFor(t *testing.T) {
 				"From":      "exportAll: the step that produced it",
 				"Source":    "exportAll: named in diagnostics",
 				"IfExists":  "Export: an absent path is not a failure",
+				"Force": "Export: the caller permitting a write outside the project. The " +
+					"interpreter has already decided the flag applies - it reaches an " +
+					"Earthfile this machine owns and stops at a fetched one - and this " +
+					"carries the answer to the check at the point of writing.",
 				"Name": "consumed inside the interpreter rather than here: `COPY +build/*` " +
 					"lands each artifact under the name it was given, because a pattern's " +
 					"match carries a version the author did not write. Nothing the CLI does " +

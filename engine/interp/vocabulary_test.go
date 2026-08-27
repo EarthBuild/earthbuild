@@ -157,7 +157,7 @@ func TestTheFlagsAreWhatWeSayTheyAre(t *testing.T) {
 		{flag: "SAVE ARTIFACT --if-exists", body: "    RUN make\n    SAVE ARTIFACT --if-exists /out\n", supported: true},
 		{flag: "SAVE ARTIFACT --keep-ts", body: "    RUN make\n    SAVE ARTIFACT --keep-ts /out\n", supported: true},
 		{flag: "SAVE ARTIFACT --keep-own", body: "    RUN make\n    SAVE ARTIFACT --keep-own /out\n", supported: true},
-		{flag: testForcedArtifact, body: "    RUN make\n    SAVE ARTIFACT --force /out\n", supported: false},
+		{flag: testForcedArtifact, body: "    RUN make\n    SAVE ARTIFACT --force /out\n", supported: true},
 
 		// RUN.
 		{flag: "RUN --no-cache", body: "    RUN --no-cache make\n", supported: true},

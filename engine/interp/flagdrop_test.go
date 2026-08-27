@@ -241,6 +241,13 @@ var knownDropped = []string{
 	// where it is tested, over a fetched repository, on all three commands.
 	"BUILD --allow-privileged",
 	"COPY --allow-privileged",
+	// harness: `--force` only changes an answer for a destination *outside* the
+	// project, and this sweep saves to a relative path inside it - where the
+	// flag correctly decides nothing, because there is nothing to permit. It is
+	// honoured: TestForceIsCarriedRatherThanRefused builds a save to an outside
+	// path and asserts the artifact reaches the plan carrying it, and the export
+	// reads it where the write happens.
+	"SAVE ARTIFACT --force",
 	"FROM --allow-privileged",
 	// harness: no arguments in scope to pass, as for COPY and FROM.
 	"BUILD --pass-args",

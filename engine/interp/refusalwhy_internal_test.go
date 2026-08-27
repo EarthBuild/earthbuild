@@ -159,7 +159,11 @@ func TestEveryRefusedFlagSaysWhatItWas(t *testing.T) {
 	// 10 -> 9: `--aws` likewise. It is gated by `VERSION --run-with-aws` now
 	// rather than refused, and a gate is not a refusal - `features.needs` says
 	// what the file must declare, which is a different sentence from this scan's.
-	if len(flags) < 9 {
+	// 9 -> 8: `--force` likewise. The reference engine treats a save outside the
+	// project as unsafe rather than forbidden, and this engine now honours that
+	// opt-in for an Earthfile the machine owns rather than overriding it - so
+	// the flag is refused nowhere and the scan no longer finds it.
+	if len(flags) < 8 {
 		t.Fatalf("only %d refused flags found (%v), so the scan is wrong rather"+
 			" than the source", len(flags), flags)
 	}

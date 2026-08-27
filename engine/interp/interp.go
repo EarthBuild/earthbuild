@@ -45,6 +45,16 @@ type Artifact struct {
 	// An execution-time property rather than a planning one: whether the path
 	// exists is not knowable until the step producing it has run.
 	IfExists bool
+	// Force is `SAVE ARTIFACT --force`: the caller permitting a write outside the
+	// project.
+	//
+	// **Carried rather than refused.** The reference engine treats such a save as
+	// unsafe rather than forbidden - its own flag is described as "require the
+	// --force flag when saving to path outside of current path" - so the position
+	// is "not unless asked", and asked twice: the version feature, then the flag.
+	// This engine now honours that rather than overriding it, and the check at
+	// the point of writing reads this.
+	Force bool
 	// LocalDest is where it is written on the host. Empty means the artifact is
 	// produced but not exported - other targets may still reference it.
 	LocalDest string
@@ -1628,7 +1638,9 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				loc(c.SourceLocation))
 		}
 
-		a, err := artifact(c, prev, rs.dir, rs.args.expandDest)
+		// `--force` is the caller's own opt-in, so it reaches an Earthfile this
+		// machine owns and stops at one fetched from elsewhere.
+		a, err := artifact(c, prev, rs.dir, rs.args.expandDest, p.here.fetchedFrom == "")
 		if err != nil {
 			return nil, err
 		}
@@ -1692,6 +1704,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 // artifact parses `SAVE ARTIFACT <path> [AS LOCAL <dest>]`.
 func artifact(
 	c earthfile.Command, from *ir.Node, workdir string, expandDest func(string) string,
+	ownEarthfile bool,
 ) (Artifact, error) {
 	// Read the flags off the front, or the first one becomes the path: `SAVE
 	// ARTIFACT --if-exists /out /dst` was saving an artifact whose path was
@@ -1742,15 +1755,6 @@ func artifact(
 		}
 	}
 
-	// The only refusal here, and a decision rather than a gap: --force exists to
-	// permit a save outside the Earthfile's directory, which three checks refuse
-	// - this one, the CLI's, and insideProject at the point of writing, which
-	// resolves symlinks so the position cannot be walked around.
-	if opts.Force {
-		return Artifact{}, refusedOnPurpose("SAVE ARTIFACT --force", loc(c.SourceLocation),
-			"this engine never writes outside the project, and checks that again where it writes")
-	}
-
 	if len(args) == 0 {
 		return Artifact{}, fmt.Errorf("SAVE ARTIFACT needs a path (%s)", loc(c.SourceLocation))
 	}
@@ -1781,7 +1785,7 @@ func artifact(
 
 	a := Artifact{
 		Path: path, Name: filepath.Base(path), From: from,
-		Source: loc(c.SourceLocation), IfExists: opts.IfExists,
+		Source: loc(c.SourceLocation), IfExists: opts.IfExists, Force: opts.Force,
 	}
 
 	// `SAVE ARTIFACT <path> <name>`: a second word that is not the start of
@@ -1815,7 +1819,7 @@ func artifact(
 		// with no VARIANT declared writes build/arm64/x, as the reference does.
 		dest := expandDest(args[i+2])
 
-		err := checkLocalDest(dest, loc(c.SourceLocation))
+		err := checkLocalDest(dest, loc(c.SourceLocation), opts.Force && ownEarthfile)
 		if err != nil {
 			return Artifact{}, err
 		}
@@ -3282,11 +3286,11 @@ var flagMeanings = map[string]string{
 	"--ssh":              "gives the command the host's ssh authentication client",
 	"--with-docker":      "starts a Docker daemon for the duration of the command",
 	"--interactive-keep": "opens a prompt in the container and keeps what the session changed",
-	// Refusing this one is a position rather than a gap: it exists to permit a
-	// save outside the directory holding the Earthfile, which is the thing
-	// insideProject was written to stop. "Not supported" invites somebody to
-	// implement it.
-	"--force": "permits a save that writes outside the directory containing the Earthfile",
+	// `--force` was here while it was refused. It is honoured now - the
+	// reference engine treats a save outside the project as unsafe rather than
+	// forbidden, and this follows it for an Earthfile the machine owns - so a
+	// meaning recorded here could never be printed, and a rule that cannot fire
+	// is indistinguishable from one that is satisfied (E473).
 }
 
 // flagMeaning finds the description for the flag a construct ends with.

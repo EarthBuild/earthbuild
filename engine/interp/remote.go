@@ -184,9 +184,23 @@ func safeComponent(s string) bool {
 // An absolute path or one climbing out of the project is that Earthfile
 // choosing where to write on this machine: a crontab, an authorized_keys, a
 // shell profile. It is a place inside the project or it is refused.
-func checkLocalDest(dest, where string) error {
+func checkLocalDest(dest, where string, forcedByALocalEarthfile bool) error {
 	if dest == "" {
 		return fmt.Errorf("SAVE ARTIFACT at %s: AS LOCAL needs a destination", where)
+	}
+
+	// **`--force` opens this, and only for an Earthfile this machine owns.**
+	// The reference engine treats a save outside the project as unsafe rather
+	// than forbidden and gates it behind the flag and a version feature, and
+	// this now honours that rather than overriding it.
+	//
+	// The gate stops at a fetched Earthfile, for the reason the paragraph above
+	// gives: `--force` there is a file somebody else wrote asking to choose
+	// where to write on this machine, and a flag the caller passed for their own
+	// build is not consent for that. The same boundary `RUN --privileged` draws
+	// - an operator's opt-in reaches the files they own and no further.
+	if forcedByALocalEarthfile {
+		return nil
 	}
 
 	if filepath.IsAbs(dest) || strings.HasPrefix(dest, "~") {

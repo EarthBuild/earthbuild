@@ -88,7 +88,7 @@ build:
 	dest := filepath.Join(t.TempDir(), "hello.txt")
 
 	for _, a := range p.Artifacts {
-		exportErr := e.Export(t.Context(), s.StackFor(a.From), a.Path, dest, a.IfExists)
+		exportErr := e.Export(t.Context(), s.StackFor(a.From), a.Path, dest, a.IfExists, false)
 		if exportErr != nil {
 			t.Fatal(exportErr)
 		}

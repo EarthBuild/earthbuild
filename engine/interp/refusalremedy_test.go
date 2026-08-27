@@ -74,11 +74,15 @@ func TestARefusalForAnEngineGapStillOffersTheOtherEngine(t *testing.T) {
 
 // A refusal that is a decision does not read as a gap.
 //
-// `SAVE ARTIFACT --force` permits a save outside the directory holding the
-// Earthfile, which is the thing three separate checks exist to stop - the
-// interpreter's, the CLI's, and `insideProject` at the point of writing, the
-// last of which resolves symlinks precisely so the position cannot be walked
-// around. It is not missing. It is declined.
+// `RUN --mount=type=bind-experimental` gives a step a writable window onto the
+// machine running the build, at a path the Earthfile chooses. It is not missing.
+// It is declined.
+//
+// The example was `SAVE ARTIFACT --force` until that stopped being refused: the
+// reference engine treats a save outside the project as unsafe rather than
+// forbidden, and this engine now honours that opt-in for an Earthfile the
+// machine owns. What is being tested is how a decision reads, not which
+// construct is one.
 //
 // The table recording what each refused flag asks for already says so: *"Refusing
 // this one is a position rather than a gap ... 'Not supported' invites somebody
@@ -100,9 +104,10 @@ func TestARefusalThatIsADecisionSaysSoRatherThanReadingAsAGap(t *testing.T) {
 	t.Parallel()
 
 	_, err := interp.Build(versioned+
-		"\nmain:\n    FROM alpine:3.22\n    RUN touch x\n    SAVE ARTIFACT --force x AS LOCAL out\n", testMain)
+		"\nmain:\n    FROM alpine:3.22\n"+
+		"    RUN --mount=type=bind-experimental,target=/b,source=/tmp true\n", testMain)
 	if err == nil {
-		t.Fatal("SAVE ARTIFACT --force was accepted")
+		t.Fatal("RUN --mount=type=bind-experimental was accepted")
 	}
 
 	if strings.Contains(err.Error(), "not supported") {
@@ -116,7 +121,7 @@ func TestARefusalThatIsADecisionSaysSoRatherThanReadingAsAGap(t *testing.T) {
 
 	// The policy itself, not just its name: a reader who disagrees needs to know
 	// what they would be switching off.
-	if !strings.Contains(err.Error(), "outside the project") {
+	if !strings.Contains(err.Error(), "layer") {
 		t.Errorf("the refusal does not say which position it is defending:\n%s", err)
 	}
 
@@ -183,7 +188,8 @@ func TestADeliberateRefusalIsNotWorkAndNotInvalidInput(t *testing.T) {
 
 	for name, src := range map[string]string{
 		"privileged": "\nmain:\n    FROM alpine:3.22\n    RUN --privileged make\n",
-		"force":      "\nmain:\n    FROM alpine:3.22\n    RUN make\n    SAVE ARTIFACT --force /out\n",
+		"host bind": "\nmain:\n    FROM alpine:3.22\n" +
+			"    RUN --mount=type=bind-experimental,target=/b,source=/tmp true\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -228,9 +234,10 @@ func TestEveryRefusalIsExactlyOneKind(t *testing.T) {
 		// `RUN --ssh` was the gap here until it was implemented (E466), then
 		// `--aws` until it was too. `--oidc` is one still, and asks for
 		// credentials from a federated session this engine cannot open.
-		"a gap":                  "\nmain:\n    FROM alpine:3.22\n    RUN --oidc thing make\n",
-		"not in the language":    "\nmain:\n    FROM alpine:3.22\n    COPY --from=other /a /b\n",
-		"a decision":             "\nmain:\n    FROM alpine:3.22\n    RUN make\n    SAVE ARTIFACT --force /out\n",
+		"a gap":               "\nmain:\n    FROM alpine:3.22\n    RUN --oidc thing make\n",
+		"not in the language": "\nmain:\n    FROM alpine:3.22\n    COPY --from=other /a /b\n",
+		"a decision": "\nmain:\n    FROM alpine:3.22\n" +
+			"    RUN --mount=type=bind-experimental,target=/b,source=/tmp true\n",
 		"privileged, a decision": "\nmain:\n    FROM alpine:3.22\n    RUN --privileged make\n",
 	} {
 		t.Run(name, func(t *testing.T) {

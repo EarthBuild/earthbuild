@@ -21,10 +21,25 @@ import (
 // they share, because the host cannot read the sandbox's filesystem; the host
 // then copies it where the user asked, because the store is the engine's and
 // not somewhere a user's `dist/` should live.
-func (e *Executor) Export(ctx context.Context, stack []ir.NodeID, path, localDest string, ifExists bool) error {
+func (e *Executor) Export(ctx context.Context, stack []ir.NodeID, path, localDest string, ifExists, force bool) error {
 	// The project the destination has to be inside. See insideProject: the
 	// check is about a path the *Earthfile* named.
-	return e.exportTo(ctx, stack, path, localDest, ifExists, e.Context)
+	project := e.Context
+
+	// **`--force` is the caller saying where "outside" stops mattering**, which
+	// is the state insideProject already has a word for: no project, no
+	// containment. Said this way rather than with a second flag through the
+	// export path, so there is one rule about outside-the-project writes and one
+	// place that implements it.
+	//
+	// The permission was decided in the interpreter, which allows it for an
+	// Earthfile this machine owns and never for a fetched one. By here it is a
+	// decision already taken.
+	if force {
+		project = ""
+	}
+
+	return e.exportTo(ctx, stack, path, localDest, ifExists, project)
 }
 
 // ExportInternal writes an artifact to a directory the engine chose itself.

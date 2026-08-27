@@ -672,14 +672,17 @@ func exportAll(ctx context.Context, o Options, e *exec.Executor, s *core.Schedul
 		// to have been started.
 		dest := filepath.Join(o.Dir, localPath(a.LocalDest, a.Name))
 
-		// The interpreter already refuses a destination that leaves the
+		// The interpreter already decides whether a destination may leave the
 		// project, and this is the layer that does the writing. A check here
-		// does not depend on that one having been right.
-		if !within(o.Dir, dest) {
+		// does not depend on that one having been right - but it reads the same
+		// answer, because `--force` on an Earthfile this machine owns is the
+		// caller permitting exactly this and refusing it here would override a
+		// decision already made rather than double-check it.
+		if !a.Force && !within(o.Dir, dest) {
 			return fmt.Errorf("%s: %q is not inside the project", a.Source, a.LocalDest)
 		}
 
-		err := e.Export(ctx, stack, a.Path, dest, a.IfExists)
+		err := e.Export(ctx, stack, a.Path, dest, a.IfExists, a.Force)
 		if err != nil {
 			return err
 		}

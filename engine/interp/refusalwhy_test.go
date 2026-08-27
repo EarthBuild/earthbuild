@@ -54,14 +54,15 @@ func TestARefusedFlagSaysWhatItAsksFor(t *testing.T) {
 			want: "credential",
 		},
 		{
-			// The one where refusing is a position rather than a gap. `--force`
-			// exists to permit a save that writes outside the project
-			// directory, which is the thing insideProject was written to stop.
-			// Saying "not supported" of a flag this engine will never have
-			// invites somebody to implement it.
-			name: testForcedArtifact,
-			body: "    RUN mkdir /out\n    SAVE ARTIFACT --force /out AS LOCAL out\n",
-			want: "outside",
+			// `SAVE ARTIFACT --force` stood here while it was refused. It is
+			// honoured now for an Earthfile the machine owns, so it refuses
+			// nothing and could not be a case about how a refusal reads. The
+			// bind is the position that remains, and it is a position rather
+			// than a gap for the same reason: the engine could do it and does
+			// not.
+			name: "RUN --mount=type=bind-experimental",
+			body: "    RUN --mount=type=bind-experimental,target=/b,source=/tmp true\n",
+			want: "layer",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

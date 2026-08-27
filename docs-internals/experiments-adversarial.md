@@ -35330,3 +35330,52 @@ behind the next - WORKDIR not expanding ENV, stages not inheriting ENV, base
 image ENV unknown at plan time, stages not inheriting WorkingDir, base image
 WorkingDir unknown. Corpus unchanged at 235 with an empty case-by-case diff at
 every step of the work.
+
+## E748 - two refusals reconsidered, and one of them is not a refusal
+
+Both were filed as positions this engine holds. Examined together they turned out
+to rest on different things, and only one of them held.
+
+**`SAVE ARTIFACT --force` was overriding upstream rather than defending
+something.** The reference engine already treats a save outside the project as
+*unsafe* rather than forbidden - `features.go` describes the flag as "require the
+--force flag when saving to path outside of current path" - so the position it
+encodes is *not unless asked*, asked twice: the version feature, then the flag.
+This engine refused it outright, which is a stronger promise, and the corpus case
+that fails is `save-artifact-overwrite.earth+overwrite-root`, whose target is
+named for what it does and writes to `/root` deliberately.
+
+Now honoured, for an Earthfile this machine owns and never for a fetched one -
+the boundary `RUN --privileged` already draws, because a flag the caller passed
+for their own build is not consent for a file somebody else wrote.
+
+**The bind's stated reason was wrong, and the code already said so elsewhere.**
+It reads "a step's writes are held to its own layer, and a bind is a window out
+of it", which would disqualify `type=cache` equally - and that is accepted
+deliberately: *"a cache mount is an accelerator, and is cached… what a step
+produces may depend on what was in the mount, which no key describes. True, and
+equally true of `RUN curl https://…`"* (E424).
+
+Nor are the reads invisible. The syscall tracer records what a step reads and L2
+keys on it (green paper §4.3), so a bind's reads could be keyed exactly as a
+base's are. What cannot be recovered is a *write* to a path the Earthfile chose:
+observation makes reads keyable and writes merely auditable.
+
+So the objection is containment, not correctness, and it is the same objection
+`--force` raised - which the code says in as many words, "the same hazard by a
+different door (E485)".
+
+**The decision taken was to allow it behind an opt-in, and the work is larger
+than the gate.** Implementing the gate showed why: `bind-experimental` is not
+merely refused, it is unimplemented - with the refusal bypassed it falls through
+to `unsupported`. A host bind needs an arbitrary source plumbed through `ir`,
+the protocol and the guest, and on macOS the sandbox is a VM, so a host path is
+not visible to the guest at all without a virtiofs share. The gate was reverted
+rather than shipped, because a flag that permits something the engine cannot do
+is worse than the refusal it replaces.
+
+**[GAP]** `RUN --mount=type=bind-experimental`, approved to be permitted behind
+an operator opt-in, blocked on implementing the mount. The motivating case is a
+cache directory the host toolchain already filled - `~/.cache-cargo` - which
+`type=cache` cannot serve, because its cache lives in the engine's store rather
+than where cargo put one.

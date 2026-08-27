@@ -177,6 +177,39 @@ A step that outgrows it fails with `no space left on device` and a message sayin
 happened. A size that is not a number and a unit is refused rather than ignored; a percentage is
 refused too, although the kernel would accept one.
 
+## What a build produces
+
+### `SOURCE_DATE_EPOCH`
+
+Clamps the timestamps a build writes to the given Unix time, as
+`SOURCE_DATE_EPOCH=1700000000`. The cross-project reproducible-builds convention,
+and read from the environment rather than from a flag for that reason. Also
+available inside an Earthfile as `EARTH_SOURCE_DATE_EPOCH`.
+
+Default: unset, and a file created by a step carries the moment it was created.
+
+**What it buys, measured on two builds with nothing cached:**
+
+| what                           | unset                       | set                     |
+| ------------------------------ | --------------------------- | ----------------------- |
+| artifact content               | identical                   | identical               |
+| artifact mtime                 | differs by a second         | the epoch you asked for |
+| layer ids, across fresh stores | differ for every `RUN` step | identical               |
+
+The last row is the one to care about on more than one machine. A layer's
+identity includes its files' mtimes - deliberately, so that an artifact's
+timestamp survives a build rather than being reset to "now" - so without the
+clamp two machines running the same step arrive at two names for the same
+result. With it they arrive at one, which is what lets a fleet reuse a layer
+another machine built instead of building it again.
+
+Set it from something stable and meaningful, not from the clock: the commit's
+own time is the usual choice.
+
+```bash
+SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct) earth +build
+```
+
 ## What a step is allowed
 
 ### `EARTH_ALLOW_HOST_DOCKER=1`

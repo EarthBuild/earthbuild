@@ -29,5 +29,7 @@ func mountSys(string) (func(), error) { return func() {}, nil }
 
 func mountCgroup2(string) (func(), error) { return func() {}, nil }
 
+func linkStdio(string) error { return nil }
+
 // resolverMount is empty off Linux.
 func resolverMount() []Mount { return nil }

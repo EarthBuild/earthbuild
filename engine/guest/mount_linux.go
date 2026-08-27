@@ -5,6 +5,7 @@ package guest
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -571,6 +572,43 @@ func mountCgroup2(root string) (undo func(), why error) {
 	}
 
 	return func() { unmountAll(target) }, nil
+}
+
+// linkStdio makes the four names a shell expects to find in /dev.
+//
+// **The one that fails silently.** `/dev` here is a tmpfs this engine mounts,
+// and a tmpfs starts empty. Without `/dev/stdin` and `/dev/fd`, `< /dev/stdin`
+// and process substitution fail with a message naming the path - legible, if
+// unwelcome. Without `/dev/stdout`, `echo … > /dev/stdout` does not fail at
+// all: the shell creates a *regular file* called `stdout` in the tmpfs, writes
+// to it, and the tmpfs goes away with the step. The output is gone and nothing
+// said so, which is the worst way for a build to be wrong (E756).
+//
+// Symlinks into /proc/self/fd, which is what every runtime provides and what
+// makes them work: they resolve per process, so the step's own descriptors are
+// what they name. They are made inside the tmpfs, so they vanish with the step
+// and reach no layer.
+//
+// An existing name is left as it is. Some images ship their own, and a step
+// must not fail to start over a link that is already there.
+func linkStdio(root string) error {
+	for _, l := range []struct{ at, to string }{
+		{"fd", "/proc/self/fd"},
+		{"stdin", "/proc/self/fd/0"},
+		{"stdout", "/proc/self/fd/1"},
+		{"stderr", "/proc/self/fd/2"},
+	} {
+		at := filepath.Join(root, "dev", l.at)
+
+		err := os.Symlink(l.to, at)
+		if err == nil || errors.Is(err, fs.ErrExist) {
+			continue
+		}
+
+		return fmt.Errorf("link /dev/%s to %s: %w", l.at, l.to, err)
+	}
+
+	return nil
 }
 
 // resolverMount gives a step the machine's resolver configuration.

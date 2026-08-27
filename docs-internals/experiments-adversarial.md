@@ -35724,3 +35724,49 @@ was the overlay, not the mounting.
 
 `guest:sys` and `guest:cgroupfs` are now phases, so the next person measuring
 this does not have to build two binaries to find out.
+
+## E756 - the redirect that wrote to nowhere
+
+`/dev` is a tmpfs this engine mounts, and a tmpfs starts empty. The four names a
+shell expects to find in it are symlinks into `/proc/self/fd`, and nothing made
+them:
+
+```console
+$ earth-native +fd              # before
+  ls: /dev/fd: No such file or directory
+  cat: can't open '/dev/stdin': No such file or directory
+  full null random shm stdout tty urandom zero
+```
+
+Two of those are unwelcome and legible. The third line is the finding: there is
+a `stdout` in that listing, and it is a **regular file**. `echo … > /dev/stdout`
+did not fail - the shell created a file of that name in the tmpfs, wrote to it,
+and the tmpfs was discarded with the step. The output went nowhere and nothing
+said so.
+
+That is worse than the missing mount of E752, which at least produced an error
+naming a semaphore. A build step that writes its report to `/dev/stdout` -
+`tee /dev/stderr`, `cmd > /dev/stdout`, anything that treats them as the
+portable way to reach the caller - produced no output and exited 0.
+
+```console
+$ earth-native +fd              # after
+  VIA-STDOUT
+  VIA-STDERR
+  piped
+  FD-OK
+  fd full null random shm stderr stdin stdout tty urandom zero
+```
+
+Symlinks rather than binds, into `/proc/self/fd`, which is what makes them work
+at all: they resolve per process, so each names the descriptors of whatever
+opens them. They are made inside the tmpfs after it is mounted - a link made
+before would be hidden by the mount - so they vanish with the step and reach no
+layer. An existing name is left alone, since an image may ship its own and a
+step must not fail to start over a link that is already right.
+
+**A note on how this was nearly got wrong.** The call was inserted by a script
+that matched the `bindMounts` error block and placed the new code *after the
+return inside it* - unreachable, compiling cleanly, and the tests would have
+passed while the links were never made. The end-to-end check is what would have
+caught it, and reading the diff is what did.

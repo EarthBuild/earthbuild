@@ -2149,6 +2149,14 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 			return Response{Err: bindErr.Error()}
 		}
 
+		// After the mounts, because /dev is one of them: the tmpfs has to be
+		// there before the links can be made inside it, and a link made first
+		// would be hidden by the mount. See linkStdio.
+		linkErr := linkStdio(h.Root())
+		if linkErr != nil {
+			return Response{Err: linkErr.Error()}
+		}
+
 		defer func() {
 			unlock := s.lockHandle(req.Handle)
 			undo()

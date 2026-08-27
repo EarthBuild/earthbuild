@@ -35561,11 +35561,11 @@ subdirectories, which is why the expectation omits `bin`, `sbin`, `tmp`, `mnt`,
 about three directories being missing. They are about three directories being
 *emptier* under this engine than under an OCI runtime:
 
-| path   | under runc                  | here                        |
-| ------ | --------------------------- | --------------------------- |
-| `/dev` | `pts`, `shm`, `mqueue`      | six device files, no subdirs|
-| `/sys` | sysfs                       | the image's empty directory |
-| `/run` | populated                   | the image's empty directory |
+| path   | under runc             | here                         |
+| ------ | ---------------------- | ---------------------------- |
+| `/dev` | `pts`, `shm`, `mqueue` | six device files, no subdirs |
+| `/sys` | sysfs                  | the image's empty directory  |
+| `/run` | populated              | the image's empty directory  |
 
 **The test was the messenger, and the message was worth more than the test.**
 `/dev/shm` is where POSIX shared memory lives and there is no alternative path:
@@ -35706,10 +35706,10 @@ overlay took binding from 17.4ms a step to 31.7ms.
 Twenty trivial `RUN` steps, five interleaved pairs, root in a privileged
 container, a fresh store each run:
 
-| variant                          | runs (ms)                     | median |
-| -------------------------------- | ----------------------------- | ------ |
-| before (`56383bd4f`)             | 2571 2470 2358 2504 2403      | 2470   |
-| after (`104988a17`)              | 2452 2390 2440 2474 2526      | 2452   |
+| variant              | runs (ms)                | median |
+| -------------------- | ------------------------ | ------ |
+| before (`56383bd4f`) | 2571 2470 2358 2504 2403 | 2470   |
+| after (`104988a17`)  | 2452 2390 2440 2474 2526 | 2452   |
 
 The medians differ by 0.7% and the run-to-run spread is about 8%, so the honest
 reading is **no measurable cost** - not that it got faster, which is what a
@@ -36013,8 +36013,8 @@ exec [/bin/sh -c docker info …]: /bin/sh: a symlink to /bin/busybox
 
 Run three times each instead of once, the answer inverts:
 
-| binary                   | result   |
-| ------------------------ | -------- |
+| binary                   | result              |
+| ------------------------ | ------------------- |
 | before the three commits | 2 pass, 1 fail of 3 |
 | E758, the "culprit"      | 3 pass, 0 fail of 3 |
 
@@ -36056,10 +36056,10 @@ docker run --privileged -v "$store:/store" -e EARTH_CACHE_DIR=/store \
   -v "$build:/b:ro" -e EARTH_GUESTD=/b/eg-static docker:27-dind /b/en-static +wd
 ```
 
-| store                        | result              |
-| ---------------------------- | ------------------- |
-| container's own overlayfs    | 2 of 3, then 3 of 3, then 1 of 3 - noise |
-| a volume on the machine's disk | 3 of 3, no fallback message |
+| store                          | result                                   |
+| ------------------------------ | ---------------------------------------- |
+| container's own overlayfs      | 2 of 3, then 3 of 3, then 1 of 3 - noise |
+| a volume on the machine's disk | 3 of 3, no fallback message              |
 
 **With that, the A/B is worth running, and it says nothing happened.** `WITH
 DOCKER` passes 3 of 3 both before the three mount commits and on current code,
@@ -36087,11 +36087,11 @@ will not.
 Asked whether two builds of one Earthfile agree, on fresh stores, with nothing
 cached:
 
-| what                          | plain                   | `SOURCE_DATE_EPOCH=1700000000` |
-| ----------------------------- | ----------------------- | ------------------------------ |
-| artifact content (sha256)     | identical               | identical                      |
-| artifact mtime                | differs by a second     | exactly the epoch asked for    |
-| layer ids across fresh stores | all three RUN steps differ | **identical**               |
+| what                          | plain                      | `SOURCE_DATE_EPOCH=1700000000` |
+| ----------------------------- | -------------------------- | ------------------------------ |
+| artifact content (sha256)     | identical                  | identical                      |
+| artifact mtime                | differs by a second        | exactly the epoch asked for    |
+| layer ids across fresh stores | all three RUN steps differ | **identical**                  |
 
 Both halves are the design working. A layer's identity carries mtimes on
 purpose - `entry.hash` takes a `times` flag and the store uses `withTimes` for
@@ -36159,11 +36159,11 @@ after.
 
 A twenty-step build with nothing to do, on a warm store, timed five times:
 
-| configuration            | warm build | `plan` phase |
-| ------------------------ | ---------- | ------------ |
-| as written               | 433 ms     | 0.423 s      |
-| `EARTH_PIN_TTL=10m`      | 12 ms      | 0.001 s      |
-| `FROM alpine@sha256:…`   | 12 ms      | -            |
+| configuration          | warm build | `plan` phase |
+| ---------------------- | ---------- | ------------ |
+| as written             | 433 ms     | 0.423 s      |
+| `EARTH_PIN_TTL=10m`    | 12 ms      | 0.001 s      |
+| `FROM alpine@sha256:…` | 12 ms      | -            |
 
 The first row is 21 cache hits and no misses, so nothing was built. Inside its
 `plan`: `registry:token` 0.273s and `pin:manifest` 0.149s - one token exchange
@@ -36187,10 +36187,10 @@ says `plan` is 0.585s of a 0.61s no-op `+earthly`, and 0.21s with a ten-minute
 window - a third removed rather than all of it. The first reading was that one
 of the two numbers must be stale. It was worth a measurement before saying so:
 
-| build                          | warm, `EARTH_PIN_TTL=10m` | `plan` |
-| ------------------------------ | ------------------------- | ------ |
-| 20 steps, one `FROM`           | 12 ms                     | 0.001s |
-| 60 targets, 121 steps, one `FROM` | 16 ms                  | 0.004s |
+| build                             | warm, `EARTH_PIN_TTL=10m` | `plan` |
+| --------------------------------- | ------------------------- | ------ |
+| 20 steps, one `FROM`              | 12 ms                     | 0.001s |
+| 60 targets, 121 steps, one `FROM` | 16 ms                     | 0.004s |
 
 Plan work does not grow into a fifth of a second with the graph, so the residual
 is not the planner. `+earthly` resolves **remote Earthfiles** -
@@ -36503,3 +36503,41 @@ with a comment naming §3.2a and `classify`. So the declaration-as-layer
 confusion that took three fixes (E749, E751, E761) never reached here: somebody
 writing this path knew a stack holds two kinds of thing. The bug is not that the
 knowledge was missing but that it was in one place and needed in four.
+
+## E774 - where a cold build's time goes, per phase
+
+Twenty steps, empty store, one `FROM alpine`, on the 16-core Linux box:
+
+| phase           | time   | what it is                                     |
+| --------------- | ------ | ---------------------------------------------- |
+| `schedule`      | 1.395s | the whole execution, containing the rest       |
+| `image:pull`    | 0.845s | fetching the base, of which `layer:get` 0.450s |
+| `step` / `exec` | 0.866s | twenty steps of `echo`, so ~43ms each          |
+| `plan`          | 0.618s | of which `registry:token` 0.475s               |
+
+Two of the four are the network, and the second of those is removable: `plan` is
+a token exchange and a manifest fetch that `EARTH_PIN_TTL` or a pinned digest
+deletes outright (E766). What is left - about a second of pulling a base the
+build genuinely needs, and 43ms a step - is the work.
+
+Guest-side, per step, averaged over the twenty:
+
+| phase           | avg    |
+| --------------- | ------ |
+| `guest:request` | 6.0 ms |
+| `guest:exec`    | 4.1 ms |
+| `guest:bind`    | 1.0 ms |
+| `guest:prepare` | 1.0 ms |
+| `guest:unbind`  | 1.0 ms |
+| `guest:sys`     | 0.0 ms |
+
+So the engine's own overhead is about 13ms a step and the mounts added by E752
+to E757 are not in it - which is what E755 measured end-to-end and this measures
+per phase, by removing the need to build two binaries to find out. `guest:sys`
+reads zero partly because this box is rootless and the mount is refused there;
+in a privileged container it is a mount call and still not visible in the total.
+
+**No optimisation follows from this, which is the finding.** A cold build is
+network plus the step's own work, and a warm one is network alone until it is
+pinned. There is no phase here worth attacking, and knowing that is worth more
+than another round of guessing at one.

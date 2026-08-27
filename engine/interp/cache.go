@@ -182,6 +182,9 @@ const mountFieldTarget = "target"
 // a reader skims past.
 const mountKindBind = "bind"
 
+// mountKindTmpfs is memory a step writes into and nobody keeps.
+const mountKindTmpfs = "tmpfs"
+
 // mountFieldDst is `target` under its other name, which both languages accept.
 const mountFieldDst = "dst"
 
@@ -246,6 +249,31 @@ func parseMount(spec, workdir, where string) (ir.Mount, string, error) {
 	// So: unbuilt, not declined. The distinction is the sentinel both corpus
 	// sweeps count, and it decides whether 371 targets read as a settled
 	// question or as the largest piece of work left. They are the latter.
+	if kind == mountKindTmpfs {
+		// **Ephemeral as well, and with no identity.** A tmpfs is memory for one
+		// step: two steps asking for scratch share nothing, so giving it a cache
+		// id would hand the second what the first wrote. The guest mounts the
+		// tmpfs; everything else about staging it is what an ephemeral mount
+		// already does.
+		err := onlyKnownFields(fields, kind, where)
+		if err != nil {
+			return ir.Mount{}, "", err
+		}
+
+		perm, err := mountMode(fields, where)
+		if err != nil {
+			return ir.Mount{}, "", err
+		}
+
+		return ir.Mount{
+			Target:    anchoredAt(workdir, fields[mountFieldTarget]),
+			Ephemeral: true,
+			Tmpfs:     true,
+			ReadOnly:  readOnly(fields),
+			Mode:      perm,
+		}, "", nil
+	}
+
 	if kind != "cache" && kind != mountKindSecret && kind != mountKindBind {
 		return ir.Mount{}, "", unsupported("RUN --mount type="+kind, where, "")
 	}
@@ -371,6 +399,13 @@ var mountFields = map[string][]string{
 	},
 	mountKindSecret: {
 		mountFieldType, mountFieldTarget, mountFieldDst, "id",
+		mountFieldRO, "ro", mountFieldMode, mountFieldChmod,
+	},
+	// A tmpfs takes where it goes and how it is presented, and nothing about
+	// sharing or identity: two steps asking for scratch memory share nothing,
+	// so there is no `id` to give and no `sharing` to choose.
+	mountKindTmpfs: {
+		mountFieldType, mountFieldTarget, mountFieldDst,
 		mountFieldRO, "ro", mountFieldMode, mountFieldChmod,
 	},
 	// A bound view (§3.3d). `from` names an earlier stage and is read here so

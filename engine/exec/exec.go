@@ -503,7 +503,7 @@ func (e *Executor) Run(
 			// The sharing mode, which decides whether the guest queues steps on
 			// this directory and whether it is a directory anybody else can see
 			// (E432).
-			Exclusive: m.Exclusive, Ephemeral: m.Ephemeral, Mode: m.Mode,
+			Exclusive: m.Exclusive, Ephemeral: m.Ephemeral, Tmpfs: m.Tmpfs, Mode: m.Mode,
 		}
 
 		// A bound view names the object it shows by identity (§3.3d). Zero for

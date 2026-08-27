@@ -51,14 +51,14 @@ func TestABindMountFromTheHostIsRefusedOnPurpose(t *testing.T) {
 // A mount type nobody has heard of is still a gap rather than a decision.
 //
 // The other direction, and what keeps the label meaning something: this engine
-// has no position on `type=tmpfs`, it simply does not have one, and saying
+// has no position on `type=ssh`, it simply does not have one, and saying
 // "on purpose" about everything it cannot do would make the word useless.
 func TestAnUnknownMountTypeIsStillAGap(t *testing.T) {
 	t.Parallel()
 
 	_, err := interp.Build(versioned+
 		"\nmain:\n    FROM alpine:3.22\n"+
-		"    RUN --mount=type=tmpfs,target=/t ls /t\n", testMain)
+		"    RUN --mount=type=ssh,target=/t ls /t\n", testMain)
 	if err == nil {
 		t.Fatal("an unknown mount type was accepted")
 	}

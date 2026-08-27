@@ -163,7 +163,7 @@ func TestTheFlagsAreWhatWeSayTheyAre(t *testing.T) {
 		{flag: "RUN --no-cache", body: "    RUN --no-cache make\n", supported: true},
 		{flag: "RUN --entrypoint", body: "    RUN --entrypoint -- -f x\n", supported: true},
 		{flag: "RUN --mount type=cache", body: "    RUN --mount=type=cache,target=/c make\n", supported: true},
-		{flag: "RUN --mount type=tmpfs", body: "    RUN --mount=type=tmpfs,target=/t make\n", supported: false},
+		{flag: "RUN --mount type=tmpfs", body: "    RUN --mount=type=tmpfs,target=/t make\n", supported: true},
 		// The fields of a mount, which were read into a map and dropped (E435).
 		{flag: "RUN --mount sharing", body: "    RUN --mount=type=cache,target=/c,sharing=locked make\n", supported: true},
 		{flag: "RUN --mount mode", body: "    RUN --mount=type=cache,target=/c,mode=0700 make\n", supported: true},

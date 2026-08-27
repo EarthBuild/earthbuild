@@ -722,15 +722,17 @@ main:
 // translated rather than refused, and the case here failed only because this
 // test supplied no secret, which is a refusal any engine would make.
 //
-// What is listed below is what this engine genuinely does not provide. A
-// `tmpfs` gives a step memory that disappears and an `ssh` hands it an agent;
-// neither is a cache, a credential or a view, and providing something else
-// instead would run the step with something other than what it asked for.
+// What is listed below is what this engine genuinely does not provide. An `ssh`
+// mount hands a step an agent, which is not a cache, a credential or a view, and
+// providing something else instead would run the step with something other than
+// what it asked for.
+//
+// `tmpfs` was here and is not any more: the engine provides it, through the same
+// Dockerfile path, because parseMount is shared.
 func TestADockerfileRunWithMountsIsRefused(t *testing.T) {
 	t.Parallel()
 
 	for _, mount := range []string{
-		"--mount=type=tmpfs,target=/scratch",
 		"--mount=type=ssh,target=/run/ssh",
 	} {
 		dir := withDockerfile(t, "Dockerfile", "FROM alpine:3.22\nRUN "+mount+" true\n")

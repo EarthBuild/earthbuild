@@ -504,6 +504,9 @@ type Mount struct {
 	// storage must be out of the image and must not outlive the step, and a
 	// named cache differs only in the second.
 	Ephemeral bool `json:"ephemeral,omitempty"`
+	// Tmpfs makes the ephemeral directory memory rather than disk: the step
+	// writes into it and nothing reaches a filesystem that outlives the step.
+	Tmpfs bool `json:"tmpfs,omitempty"`
 	// Secret is the credential's value, present only for a secret mount.
 	//
 	// It travels on the wire and never reaches a layer: the guest writes it to

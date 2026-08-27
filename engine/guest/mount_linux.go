@@ -240,6 +240,20 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 				return nil, fmt.Errorf("make a directory for this step: %w", err)
 			}
 
+			// **`--mount=type=tmpfs` is memory, and the difference is the
+			// point.** An ephemeral directory already disappears with the step,
+			// so a disk one satisfies every promise the construct makes except
+			// the one worth having: what a step writes here must not reach a
+			// filesystem it could be recovered from.
+			if m.Tmpfs {
+				err = unix.Mount("tmpfs", dir, "tmpfs", 0, "")
+				if err != nil {
+					unmount()
+
+					return nil, fmt.Errorf("mount a tmpfs for this step at %s: %w", m.Target, err)
+				}
+			}
+
 			// MkdirTemp makes it 0700, which is right for a directory nobody
 			// else may enter and wrong for one the step asked to be 0777.
 			err = applyMode(dir, m, 0o755)

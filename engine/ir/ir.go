@@ -183,6 +183,14 @@ type Mount struct {
 	// the image - that is what any mount does - and keeps it out of every other
 	// step as well, which is what `private` means (E432).
 	Ephemeral bool
+	// Tmpfs is `RUN --mount=type=tmpfs`: memory the step writes into, and which
+	// never reaches a disk.
+	//
+	// Ephemeral as well, and always: what distinguishes it is *where* the bytes
+	// live, not how long. A directory on disk would satisfy every observable
+	// promise the construct makes and quietly break the one that matters - a
+	// step putting a credential somewhere it cannot be recovered from.
+	Tmpfs bool
 	// Exclusive is `CACHE --sharing=locked`, the default: one step in this
 	// directory at a time.
 	//
@@ -738,6 +746,7 @@ func (n *Node) ID() NodeID {
 		// things, and until now they keyed the same (E432).
 		h.Bool(m.Secret)
 		h.Bool(m.Ephemeral)
+		h.Bool(m.Tmpfs)
 		h.Bool(m.Exclusive)
 		h.Bool(m.Persist)
 		h.Count(int(m.Mode))

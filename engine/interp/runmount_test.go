@@ -74,17 +74,20 @@ func TestRunMountIDNamesTheCache(t *testing.T) {
 
 // A mount type this engine cannot provide is refused by name.
 //
-// `type=secret` hands a credential to a step; `type=tmpfs` gives it memory that
-// disappears. Neither is a cache, and providing a cache instead would be a step
-// running with something other than what it asked for - a secret silently
-// absent is the worst of them, because the command that needed it fails
-// somewhere far away.
+// `type=secret` hands a credential to a step, which is not a cache - and
+// providing a cache instead would be a step running with something other than
+// what it asked for. A silently absent secret is the worst of them, because the
+// command that needed it fails somewhere far away.
 func TestUnsupportedMountTypesAreRefused(t *testing.T) {
 	t.Parallel()
 
 	for _, spec := range []string{
 		"type=secret,id=token,target=/run/secret",
-		"type=tmpfs,target=/tmp/scratch",
+		// **`type=tmpfs` is not here any more**, for the reason `type=bind`
+		// left: the engine provides it. An ephemeral mount already gives a step
+		// a directory of its own, and the guest mounts a tmpfs on it so the
+		// bytes are memory rather than disk - which is the half of the promise
+		// a directory could not keep. TestATmpfsMountIsPlanned holds it now.
 		// **`type=bind` is not here any more**: a view of the build context is
 		// built (§3.3d), so refusing the type outright would be refusing
 		// something this engine does. A path outside the context is still

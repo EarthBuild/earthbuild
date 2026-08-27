@@ -152,6 +152,7 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 		// things, and until now they keyed the same (E432).
 		h.Bool(m.Secret)
 		h.Bool(m.Ephemeral)
+		h.Bool(m.Tmpfs)
 		h.Bool(m.Exclusive)
 		h.Bool(m.Persist)
 		h.Count(int(m.Mode))

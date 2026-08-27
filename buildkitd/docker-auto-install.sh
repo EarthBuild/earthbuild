@@ -5,6 +5,27 @@ set -eu
 distro=$(. /etc/os-release && echo "$ID")
 DOCKER_VERSION="${DOCKER_VERSION:-}"
 
+# Whether the caller intends to run docker compose. The earth CLI passes
+# --start-compose; when invoked by hand with no flags we install compose too, to
+# preserve the previous default.
+start_compose="true"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --start-compose) start_compose="true" ;;
+        --no-start-compose) start_compose="false" ;;
+        *)
+            echo >&2 "docker-auto-install.sh: unrecognized option \"$1\"."
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+# NOTE: the EARTHLY_DEBUG fallback is a temporary shim to support the
+# EARTHLY_ -> EARTH_ migration; drop it once EARTHLY_ support is officially
+# removed.
+debug="${EARTH_DEBUG:-${EARTHLY_DEBUG:-}}"
+
 detect_dockerd() {
     set +e
     command -v dockerd >/dev/null
@@ -43,11 +64,9 @@ detect_jq() {
 }
 
 print_debug() {
-    set +u
-    if [ "$EARTHLY_DEBUG" = "true" ] ; then
+    if [ "$debug" = "true" ] ; then
         echo "$@"
     fi
-    set -u
 }
 
 detect_alpine_3_18_or_newer() {
@@ -225,9 +244,7 @@ else
     print_debug "dockerd already installed"
 fi
 
-set +u
-if [ "$EARTHLY_START_COMPOSE" = "true" ] || [ "$EARTHLY_START_COMPOSE" = "" ]; then
-    set -u
+if [ "$start_compose" = "true" ]; then
     set +e;
     docker_compose="$(detect_docker_compose_cmd)"
     set -e

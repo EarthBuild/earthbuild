@@ -230,20 +230,6 @@ func (e *appleEngine) InspectContainers(
 	return containers, nil
 }
 
-// ContainerEndpoint returns the host-accessible connection endpoint for a container port on Apple Container.
-func (e *appleEngine) ContainerEndpoint(ctx context.Context, containerName string, port int) (string, error) {
-	containers, err := e.InspectContainers(ctx, containerName)
-	if err != nil {
-		return "", err
-	}
-
-	if len(containers) > 0 && containers[0].IPs["bridge"] != "" {
-		return "tcp://" + net.JoinHostPort(containers[0].IPs["bridge"], strconv.Itoa(port)), nil
-	}
-
-	return fmt.Sprintf("tcp://127.0.0.1:%d", port), nil
-}
-
 // RemoveContainer deletes the specified containers.
 func (e *appleEngine) RemoveContainer(ctx context.Context, force bool, namesOrIDs ...string) error {
 	args := []string{"delete"}

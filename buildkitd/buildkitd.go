@@ -7,6 +7,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/engine"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/util/buildkitutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -79,7 +81,7 @@ func NewClient(
 					settings.ClientTLSKey,
 					settings.ClientTLSCert,
 				}
-				if containsAny(retErr.Error(), tlsPaths...) {
+				if containsAny(retErr.Error(), tlsPaths) {
 					retErr = hint.Wrapf(
 						retErr,
 						"podman now requires TLS certs by default - "+
@@ -504,6 +506,24 @@ func RemoveExited(ctx context.Context, eng *engine.Client, containerName string)
 	return nil
 }
 
+// isEarthInEarth reports whether this CLI is itself running inside a WITH
+// DOCKER, which buildkitd/dockerd-wrapper.sh signals by exporting
+// EARTH_WITH_DOCKER. When it is, buildkitd needs /sys/fs/cgroup bind-mounted.
+//
+// NOTE: the deprecated EARTHLY_WITH_DOCKER spelling is still accepted, so that
+// an older buildkitd image keeps working; drop it along with the rest of the
+// EARTHLY_ support.
+func isEarthInEarth() bool {
+	v, ok := env.Lookup("WITH_DOCKER")
+	if !ok {
+		return false
+	}
+
+	withDocker, _ := strconv.ParseBool(v)
+
+	return withDocker
+}
+
 // Start starts the buildkitd daemon.
 func Start(
 	ctx context.Context,
@@ -555,7 +575,7 @@ func Start(
 	ports := []engine.Port{}
 
 	if settings.AdditionalConfig != "" {
-		envs["EARTHLY_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
+		envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
 	}
 
 	if settings.IPTables != "" {
@@ -564,7 +584,7 @@ func Start(
 
 	const localhost = "127.0.0.1"
 
-	withDocker, _ := strconv.ParseBool(os.Getenv("EARTHLY_WITH_DOCKER"))
+	withDocker := isEarthInEarth()
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if withDocker {
@@ -711,7 +731,7 @@ func Start(
 
 	// Apply reset.
 	if reset {
-		envs["EARTHLY_RESET_TMP_DIR"] = "true"
+		envs["EARTH_RESET_TMP_DIR"] = "true"
 	}
 
 	// Ensure buildkitd gets sufficient file descriptors. Docker 29+ (containerd v2)
@@ -1325,24 +1345,15 @@ func addRequiredOpts(settings Settings, opts ...client.ClientOpt) ([]client.Clie
 }
 
 func updateContainerEndpoints(ctx context.Context, containerName string, eng *engine.Client, settings *Settings) {
-	if eng == nil {
+	if eng == nil || eng.Metadata().Scheme != engine.SchemeApple {
 		return
 	}
 
-	addr, err := eng.ContainerEndpoint(ctx, containerName, 8372)
-	if err == nil && addr != "" {
-		settings.BuildkitAddress = addr
-	}
-
-	if settings.LocalRegistryAddress != "" {
-		regAddr, err := eng.ContainerEndpoint(ctx, containerName, 8371)
-		if err == nil && regAddr != "" {
-			regURL, parseErr := url.Parse(regAddr)
-			if parseErr == nil && regURL.Scheme == "tcp" {
-				regAddr = "http://" + regURL.Host
-			}
-
-			settings.LocalRegistryAddress = regAddr
+	info, err := eng.InspectContainer(ctx, containerName)
+	if err == nil && info.IPs["bridge"] != "" {
+		settings.BuildkitAddress = "tcp://" + net.JoinHostPort(info.IPs["bridge"], "8372")
+		if settings.LocalRegistryAddress != "" {
+			settings.LocalRegistryAddress = "http://" + net.JoinHostPort(info.IPs["bridge"], "8371")
 		}
 	}
 }
@@ -1364,7 +1375,7 @@ func updateClientSettings(
 	return requiredOpts, nil
 }
 
-func containsAny(hs string, needles ...string) bool {
+func containsAny(hs string, needles []string) bool {
 	for _, n := range needles {
 		if strings.Contains(hs, n) {
 			return true

@@ -49,10 +49,6 @@ func (m *mockDriver) Metadata() Metadata {
 	return m.meta
 }
 
-func (m *mockDriver) ContainerEndpoint(_ context.Context, _ string, port int) (string, error) {
-	return fmt.Sprintf("tcp://127.0.0.1:%d", port), nil
-}
-
 // NewTestClient creates a *Client for testing with custom metadata.
 func NewTestClient(meta Metadata) *Client {
 	return &Client{
@@ -147,9 +143,4 @@ func (*stubEngine) LoadImage(context.Context, ...io.Reader) error {
 // InspectVolumes returns ErrNotInitialized.
 func (*stubEngine) InspectVolumes(context.Context, ...string) ([]Volume, error) {
 	return nil, ErrNotInitialized
-}
-
-// ContainerEndpoint returns ErrNotInitialized.
-func (*stubEngine) ContainerEndpoint(context.Context, string, int) (string, error) {
-	return "", ErrNotInitialized
 }

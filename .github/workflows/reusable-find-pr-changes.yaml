@@ -9,7 +9,7 @@ on:
 
 jobs:
   file-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # Set permissions to minimum required
     permissions:
       pull-requests: read

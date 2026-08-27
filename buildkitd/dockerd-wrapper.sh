@@ -1,23 +1,129 @@
 #!/bin/sh
 set -eu
 
-# Normalize EARTH_ vs legacy EARTHLY_ environment variables
-EARTH_DOCKERD_DATA_ROOT="${EARTH_DOCKERD_DATA_ROOT:-${EARTHLY_DOCKERD_DATA_ROOT:-}}"
-EARTH_DOCKERD_CACHE_DATA="${EARTH_DOCKERD_CACHE_DATA:-${EARTHLY_DOCKERD_CACHE_DATA:-false}}"
-EARTH_DOCKER_LOAD_FILES="${EARTH_DOCKER_LOAD_FILES:-${EARTHLY_DOCKER_LOAD_FILES:-}}"
-EARTH_DOCKER_LOAD_REGISTRY="${EARTH_DOCKER_LOAD_REGISTRY:-${EARTHLY_DOCKER_LOAD_REGISTRY:-}}"
-EARTH_START_COMPOSE="${EARTH_START_COMPOSE:-${EARTHLY_START_COMPOSE:-false}}"
-EARTH_COMPOSE_FILES="${EARTH_COMPOSE_FILES:-${EARTHLY_COMPOSE_FILES:-}}"
-EARTH_COMPOSE_SERVICES="${EARTH_COMPOSE_SERVICES:-${EARTHLY_COMPOSE_SERVICES:-}}"
-EARTH_DOCKER_WRAPPER_DEBUG="${EARTH_DOCKER_WRAPPER_DEBUG:-${EARTHLY_DOCKER_WRAPPER_DEBUG:-}}"
-EARTH_DOCKER_WRAPPER_DEBUG_CMD="${EARTH_DOCKER_WRAPPER_DEBUG_CMD:-${EARTHLY_DOCKER_WRAPPER_DEBUG_CMD:-}}"
-EARTH_DOCKER_WRAPPER_PRE_SCRIPT="${EARTH_DOCKER_WRAPPER_PRE_SCRIPT:-${EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT:-/usr/share/earthly/dockerd-wrapper-pre-script}}"
-EARTH_FLOCK_AQUIRED="${EARTH_FLOCK_AQUIRED:-${EARTHLY_FLOCK_AQUIRED:-}}"
+# This script is the WITH DOCKER wrapper. It is bind-mounted into RUN commands
+# as a single file, so it cannot source buildkitd/earth-env.sh and carries its
+# own copy of earth_env below.
+#
+# Everything the earth CLI needs to tell this script is passed as flags (see
+# parse_args). Only user-facing escape hatches are read from the environment.
 
-export EARTH_DOCKERD_DATA_ROOT
-export EARTH_DOCKERD_CACHE_DATA
+# earth_env SUFFIX [DEFAULT] — see buildkitd/earth-env.sh.
+#
+# NOTE: the EARTHLY_ fallback is a temporary shim to support the
+# EARTHLY_ -> EARTH_ migration; drop it once EARTHLY_ support is officially
+# removed.
+earth_env() {
+    eval "_earth_env_v=\${EARTH_$1-}"
+    if [ -n "$_earth_env_v" ]; then
+        printf '%s' "$_earth_env_v"
+        return 0
+    fi
 
-if [ "$EARTH_DOCKER_WRAPPER_DEBUG" = "1" ]; then
+    eval "_earth_env_v=\${EARTHLY_$1-}"
+    if [ -n "$_earth_env_v" ]; then
+        echo >&2 "WARNING: EARTHLY_$1 is deprecated. Use EARTH_$1."
+        printf '%s' "$_earth_env_v"
+        return 0
+    fi
+
+    printf '%s' "${2-}"
+}
+
+# Values supplied by the earth CLI via flags; see parse_args.
+dockerd_data_root=""
+cache_data="false"
+start_compose="false"
+flock_acquired="false"
+compose_files=""
+compose_services=""
+load_files=""
+parsed_count=0
+
+# parse_args consumes the leading flags of a wrapper invocation and records how
+# many arguments it consumed in parsed_count, so the caller can shift past them
+# to reach the user command.
+parse_args() {
+    parsed_count=0
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --)
+                parsed_count=$((parsed_count+1))
+                return 0
+                ;;
+            --data-root=*)
+                dockerd_data_root="${1#*=}"
+                ;;
+            --cache-data)
+                cache_data="true"
+                ;;
+            --flock-acquired)
+                flock_acquired="true"
+                ;;
+            --start-compose)
+                start_compose="true"
+                ;;
+            --compose-file=*)
+                compose_files="$compose_files ${1#*=}"
+                ;;
+            --compose-service=*)
+                compose_services="$compose_services ${1#*=}"
+                ;;
+            --load-file=*)
+                load_files="$load_files ${1#*=}"
+                ;;
+            --image-digest=*)
+                # Not used. Present only so that a changed image digest busts
+                # the RUN cache.
+                ;;
+            -*)
+                echo >&2 "dockerd-wrapper.sh: unrecognized option \"$1\"."
+                echo >&2 "This usually means the earth CLI and the buildkitd image are different versions."
+                exit 1
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+
+        shift
+        parsed_count=$((parsed_count+1))
+    done
+}
+
+# apply_legacy_env_protocol reads the pre-flags EARTHLY_* protocol, which is how
+# earth CLIs older than the flags refactor talk to this script. Only consulted
+# when the flags did not supply the value, i.e. when the caller is such a CLI.
+#
+# NOTE: temporary shim to keep older CLIs working against a newer buildkitd
+# image; drop it once EARTHLY_ support is officially removed.
+apply_legacy_env_protocol() {
+    if [ -z "${EARTHLY_DOCKERD_DATA_ROOT-}" ] && [ -z "${EARTHLY_COMPOSE_FILES-}" ]; then
+        return 0
+    fi
+
+    echo >&2 "WARNING: this earth CLI passes WITH DOCKER settings via EARTHLY_* environment variables, which is deprecated. Upgrade the earth CLI to match the buildkitd image."
+
+    dockerd_data_root="${EARTHLY_DOCKERD_DATA_ROOT-}"
+    cache_data="${EARTHLY_DOCKERD_CACHE_DATA:-false}"
+    start_compose="${EARTHLY_START_COMPOSE:-false}"
+    compose_files="${EARTHLY_COMPOSE_FILES-}"
+    compose_services="${EARTHLY_COMPOSE_SERVICES-}"
+    load_files="${EARTHLY_DOCKER_LOAD_FILES-}"
+
+    if [ -n "${EARTHLY_FLOCK_AQUIRED-}" ]; then
+        flock_acquired="true"
+    fi
+
+    if [ -z "${EARTH_DOCKER_LOAD_REGISTRY-}" ] && [ -n "${EARTHLY_DOCKER_LOAD_REGISTRY-}" ]; then
+        EARTH_DOCKER_LOAD_REGISTRY="$EARTHLY_DOCKER_LOAD_REGISTRY"
+        export EARTH_DOCKER_LOAD_REGISTRY
+    fi
+}
+
+docker_wrapper_debug="$(earth_env DOCKER_WRAPPER_DEBUG)"
+if [ "$docker_wrapper_debug" = "1" ]; then
     echo "enabling docker wrapper debug mode"
     set -x
 fi
@@ -44,7 +150,7 @@ detect_docker_compose_cmd() {
 # Runs docker-compose with the right -f flags.
 docker_compose_cmd() {
     compose_file_flags=""
-    for f in $EARTH_COMPOSE_FILES; do
+    for f in $compose_files; do
         compose_file_flags="$compose_file_flags -f $f"
     done
     export COMPOSE_HTTP_TIMEOUT=600
@@ -60,14 +166,18 @@ write_compose_config() {
 }
 
 execute() {
-    if [ -z "$EARTH_DOCKERD_DATA_ROOT" ]; then
-        echo "EARTH_DOCKERD_DATA_ROOT not set"
+    if [ -z "$dockerd_data_root" ]; then
+        echo "--data-root not set"
         exit 1
     fi
-    mkdir -p "$EARTH_DOCKERD_DATA_ROOT"
+    mkdir -p "$dockerd_data_root"
 
-    if [ -f "/sys/fs/cgroup/cgroup.controllers" ] && [ -z "$EARTH_FLOCK_AQUIRED" ]; then
-        if [ "$EARTH_DOCKER_WRAPPER_DEBUG" = "1" ]; then
+    # Exported for tools in the RUN that resolve it themselves, such as
+    # podman's storage.conf (see run-integration-tests.sh).
+    export EARTH_DOCKERD_DATA_ROOT="$dockerd_data_root"
+
+    if [ -f "/sys/fs/cgroup/cgroup.controllers" ] && [ "$flock_acquired" != "true" ]; then
+        if [ "$docker_wrapper_debug" = "1" ]; then
             echo >&2 "detected cgroups v2"
         fi
 
@@ -90,12 +200,11 @@ execute() {
         fi
     fi
 
-    if [ "$EARTH_DOCKERD_CACHE_DATA" = "true" ] && [ -z "$EARTH_FLOCK_AQUIRED" ]; then
-        FLOCK_PATH="$EARTH_DOCKERD_DATA_ROOT/.earthly-docker-lock"
-        echo "aquiring flock for $FLOCK_PATH"
-        export EARTH_FLOCK_AQUIRED="true"
-        # dockerd-wrapper.sh will be recursively called once the lock is aquired
-        flock "$FLOCK_PATH" "$0" "$@"
+    if [ "$cache_data" = "true" ] && [ "$flock_acquired" != "true" ]; then
+        flock_path="$dockerd_data_root/.earthly-docker-lock"
+        echo "acquiring flock for $flock_path"
+        # dockerd-wrapper.sh will be recursively called once the lock is acquired
+        flock "$flock_path" "$0" "$wrapper_cmd" --flock-acquired "$@"
         exit 0
     fi
 
@@ -122,7 +231,7 @@ execute() {
         fi
     done
 
-    if [ "$EARTH_DOCKERD_CACHE_DATA" = "true" ]; then
+    if [ "$cache_data" = "true" ]; then
         clean_leftover_docker_objects
 
         # rename existing tags, so we can track which ones get re-tagged
@@ -136,24 +245,24 @@ execute() {
     load_registry_images
 
     # delete cached images (which weren't re-tagged via the pull)
-    if [ "$EARTH_DOCKERD_CACHE_DATA" = "true" ]; then
+    if [ "$cache_data" = "true" ]; then
         docker images -f reference=$earthly_cached_docker_image_prefix'*' --format '{{.Repository}}:{{.Tag}}' | xargs --no-run-if-empty docker rmi --force
         docker images -f "dangling=true" -q | xargs --no-run-if-empty docker rmi --force
     fi
 
-    if [ "$EARTH_START_COMPOSE" = "true" ]; then
+    if [ "$start_compose" = "true" ]; then
         # shellcheck disable=SC2086
-        docker_compose_cmd up -d $EARTH_COMPOSE_SERVICES
+        docker_compose_cmd up -d $compose_services
     fi
 
-    shift
+    shift "$parsed_count"
     export EARTH_WITH_DOCKER=1
     set +e
     "$@"
     exit_code="$?"
     set -e
 
-    if [ "$EARTH_START_COMPOSE" = "true" ]; then
+    if [ "$start_compose" = "true" ]; then
         docker_compose_cmd down --remove-orphans
     fi
     stop_dockerd
@@ -161,10 +270,10 @@ execute() {
 }
 
 start_dockerd() {
-    if [ "$EARTH_DOCKERD_CACHE_DATA" = "true" ]; then
-        data_root="$EARTH_DOCKERD_DATA_ROOT"
+    if [ "$cache_data" = "true" ]; then
+        data_root="$dockerd_data_root"
     else
-        data_root=$(TMPDIR="$EARTH_DOCKERD_DATA_ROOT/" mktemp -d)
+        data_root=$(TMPDIR="$dockerd_data_root/" mktemp -d)
     fi
     echo "Starting dockerd with data root $data_root"
 
@@ -298,7 +407,7 @@ stop_dockerd() {
 }
 
 wipe_data_root() {
-    if [ "$EARTH_DOCKERD_CACHE_DATA" = "true" ]; then
+    if [ "$cache_data" = "true" ]; then
         return 0
     fi
     if ! rm -rf "$1" 2>/dev/null >&2 && [ -n "$(ls -A "$1")" ]; then
@@ -324,9 +433,9 @@ wipe_data_root() {
 }
 
 load_file_images() {
-    if [ -n "$EARTH_DOCKER_LOAD_FILES" ]; then
+    if [ -n "$load_files" ]; then
         echo "Loading images from BuildKit via tar files..."
-        for img in $EARTH_DOCKER_LOAD_FILES; do
+        for img in $load_files; do
             docker load -i "$img" || (stop_dockerd; exit 1)
         done
         echo "...done"
@@ -360,13 +469,16 @@ clean_leftover_docker_objects() {
 }
 
 load_registry_images() {
-    if [ -n "$EARTH_DOCKER_LOAD_REGISTRY" ]; then
+    # Passed as a BuildKit secret-as-env rather than a flag, so that the
+    # (per-build) intermediate image names do not bust the RUN cache.
+    load_registry=${EARTH_DOCKER_LOAD_REGISTRY:-''}
+    if [ -n "$load_registry" ]; then
         echo "Loading images from BuildKit via embedded registry..."
 
         start_time="$(get_current_time_ns)"
         bg_processes=""  # Initialize the background processes variable
 
-        for img in $EARTH_DOCKER_LOAD_REGISTRY; do
+        for img in $load_registry; do
             case "$img" in
                 *'|'*)
                     with_reg="$buildkit_docker_registry/$(printf '%s' "$img" | cut -d'|' -f1)"
@@ -402,30 +514,47 @@ load_registry_images() {
     fi
 }
 
-if [ -n "$EARTH_DOCKER_WRAPPER_DEBUG_CMD" ]; then
-    echo "Running debug command: $EARTH_DOCKER_WRAPPER_DEBUG_CMD"
-    eval "$EARTH_DOCKER_WRAPPER_DEBUG_CMD"
+docker_wrapper_debug_cmd="$(earth_env DOCKER_WRAPPER_DEBUG_CMD)"
+if [ -n "$docker_wrapper_debug_cmd" ]; then
+    echo "Running debug command: $docker_wrapper_debug_cmd"
+    eval "$docker_wrapper_debug_cmd"
     echo "debug command exited with $?; forcing exit 1 to prevent saving RUN snapshot"
     exit 1
 fi
 
-if [ -f "$EARTH_DOCKER_WRAPPER_PRE_SCRIPT" ]; then
-    "$EARTH_DOCKER_WRAPPER_PRE_SCRIPT"
+docker_wrapper_pre_script="$(earth_env DOCKER_WRAPPER_PRE_SCRIPT "/usr/share/earthly/dockerd-wrapper-pre-script")"
+if [ -f "$docker_wrapper_pre_script" ]; then
+    "$docker_wrapper_pre_script"
 fi
 
-case "$1" in
+wrapper_cmd="${1-}"
+shift 2>/dev/null || true
+
+case "$wrapper_cmd" in
     get-compose-config)
+        parse_args "$@"
+        if [ -z "$compose_files" ]; then
+            apply_legacy_env_protocol
+        fi
+
         write_compose_config
         exit 0
         ;;
 
     execute)
+        # Note that execute is passed the un-shifted arguments, so that it can
+        # repeat the original invocation when it re-execs itself under flock.
+        parse_args "$@"
+        if [ -z "$dockerd_data_root" ]; then
+            apply_legacy_env_protocol
+        fi
+
         execute "$@"
         exit "$?"
         ;;
 
     *)
-        echo "Invalid command $1"
+        echo "Invalid command $wrapper_cmd"
         exit 1
         ;;
 esac

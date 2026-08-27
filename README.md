@@ -18,7 +18,8 @@ If you're interested in understanding why the community fork is happening, [this
 
 </div>
 
-[![GitHub Actions CI](https://github.com/earthbuild/earthbuild/workflows/staging%20release/badge.svg)](https://github.com/earthbuild/earthbuild/actions?query=workflow%3A%22staging%20release%22+branch%3Amain)
+[![CI](https://github.com/EarthBuild/earthbuild/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EarthBuild/earthbuild/actions/workflows/ci.yml?query=branch%3Amain)
+[![Staging Release](https://github.com/EarthBuild/earthbuild/actions/workflows/ci-staging-deploy.yml/badge.svg?branch=main)](https://github.com/EarthBuild/earthbuild/actions/workflows/ci-staging-deploy.yml?query=branch%3Amain)
 [![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://www.earthbuild.dev/slack)
 [![Docs](https://img.shields.io/badge/docs-earthbuild.dev-blue)](https://docs.earthbuild.dev)
 [![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://www.earthbuild.dev)
@@ -234,14 +235,15 @@ No need to ask your team to install `protoc`, a specific version of Python, Java
 
 ```Earthfile
 VERSION 0.8
-FROM golang:1.15-alpine3.13
+FROM golang:1.27-alpine3.24
 WORKDIR /proto-example
 
 proto:
-  FROM namely/protoc-all:1.29_4
-  COPY api.proto /defs
-  RUN --entrypoint -- -f api.proto -l go
-  SAVE ARTIFACT ./gen/pb-go /pb AS LOCAL pb
+  RUN apk add --no-cache protobuf-dev protobuf
+  RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+  COPY api.proto ./
+  RUN mkdir pb && protoc --go_out=./pb --go_opt=paths=source_relative api.proto
+  SAVE ARTIFACT pb /pb AS LOCAL pb
 
 build:
   COPY go.mod go.sum .

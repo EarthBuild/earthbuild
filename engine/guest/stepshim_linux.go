@@ -11,6 +11,28 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// stepUmask is the file-creation mask every step runs under.
+//
+// 022, which is what a container runtime gives a step and what every image is
+// built expecting. A tighter mask produces an image whose own user cannot read
+// its files, and that failure surfaces when the image is *run* - somewhere else,
+// later, with nothing pointing back at the build.
+const stepUmask = 0o022
+
+// setStepUmask fixes the mask a step creates files under.
+//
+// **A umask is inherited, and it is in the digest.** The mask decides the mode
+// of every file a step creates, and those modes are part of the layer's
+// identity. Inherited from whoever ran the build, the same Earthfile under
+// `umask 077` produced `-rw-------` where it had produced `-rw-r--r--`: a
+// different layer, under a key that mentions no umask. Two machines, or two
+// shells on one machine, silently disagreed about what a build produces, and a
+// fleet worker could hand back a layer nothing else would have made (E759).
+//
+// Called in the shim, inside the step's own process, so it applies to the step
+// and not to the guest that started it.
+func setStepUmask() { unix.Umask(stepUmask) }
+
 // prepareStep gives the step a `/proc` that describes the step.
 //
 // **This is the whole reason the shim exists.** A step runs in a PID namespace
@@ -34,6 +56,8 @@ func prepareStep(sh *stepShim) error {
 	// Reported by not being fatal: a step whose name is the machine's builds
 	// correctly and reproduces badly, which is worth continuing for.
 	_ = unix.Sethostname([]byte(SandboxHost))
+
+	setStepUmask()
 
 	at := filepath.Join(sh.root, "proc")
 

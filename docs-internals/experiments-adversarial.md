@@ -35869,3 +35869,48 @@ Steps that declare no `HOST` entries still get their image's hosts file and so
 still cannot resolve their own name. Writing one unconditionally would replace
 whatever every image ships, for every step in every build, which is a much
 larger change than making a name resolve.
+
+## E759 - the caller's umask was in the layer
+
+A umask is inherited, and the mode of every file a step creates is in the
+layer's digest. Nothing set one, so the build's identity depended on the shell
+that started it:
+
+```console
+$ (umask 022; earth-native +u)        # before
+  -rw-r--r--  /f      drwxr-xr-x  /d
+$ (umask 077; earth-native +u)        # before
+  -rw-------  /f      drwx------  /d
+```
+
+Same Earthfile, same engine, same image, same commit. A different layer, under a
+key that mentions no umask - so this is not only irreproducible, it is
+*undetectably* irreproducible: two machines agree they built the same thing and
+did not. On a fleet, a worker with a tighter mask hands back a layer nothing
+else would have made, and the cache serves it to everyone.
+
+The consequence is worse than the digest. An image whose files the image's own
+user cannot read fails when it is *run* - somewhere else, later, with nothing
+pointing back at the build that made it that way.
+
+```console
+$ (umask 077; earth-native +u)        # after
+  0022
+  -rw-r--r--  /f      drwxr-xr-x  /d
+```
+
+022, which is what a container runtime gives a step and what every image is
+built expecting. Fixed rather than configurable: a per-build umask is a knob
+whose only effect is to make two builds of one Earthfile differ, which is the
+thing being removed.
+
+Set in the shim, in the step's own process, so it applies to the step and not to
+the guest that started it - beside the hostname, and for the same reason (E758).
+
+**Found by asking what else a step inherits.** The hostname was one; this was
+the next question, and the answer was worse, because a hostname is only in the
+output of a build that records it while a umask is in the mode of every file
+every step creates. What a step inherits is a good place to keep looking:
+`ulimit -n` is still the caller's, and is recorded as a nit rather than changed,
+because a file-descriptor limit changes how much work a compiler will attempt
+rather than what it produces.

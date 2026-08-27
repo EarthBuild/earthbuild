@@ -33513,10 +33513,10 @@ a slow aggregate. It is not slow. From a completely cold start each time -
 `EARTH_RESET_CACHE=1 scripts/reset-native-sandbox.sh`, a fresh sandbox and an
 empty host cache, nothing killed anywhere - one variable moved:
 
-| condition                    | result                                       |
-| ---------------------------- | -------------------------------------------- |
-| cold + `EARTH_PARALLELISM=1` | rc=0 in **3s**, 79 steps totalling 2.9s      |
-| cold + default parallelism   | hangs; four processes blocked in seccomp     |
+| condition                    | result                                   |
+| ---------------------------- | ---------------------------------------- |
+| cold + `EARTH_PARALLELISM=1` | rc=0 in **3s**, 79 steps totalling 2.9s  |
+| cold + default parallelism   | hangs; four processes blocked in seccomp |
 
 The whole target is three seconds of work. The 420s cap was never the question.
 
@@ -33624,10 +33624,10 @@ the hang in E723.
 
 **It is the store's filesystem.** One variable:
 
-| store                                        | result                       |
-| -------------------------------------------- | ---------------------------- |
-| default (host directory, shared into the VM) | deletion lost, `rc=1`        |
-| `EARTH_STORE_IN_VM=1`                        | deletion applied, `rc=0`     |
+| store                                        | result                   |
+| -------------------------------------------- | ------------------------ |
+| default (host directory, shared into the VM) | deletion lost, `rc=1`    |
+| `EARTH_STORE_IN_VM=1`                        | deletion applied, `rc=0` |
 
 **The marker lands; the layer is then told to ignore it.** The first reading -
 that the share cannot hold a device node, so nothing is recorded - is half right
@@ -33836,10 +33836,10 @@ ref=busybox@sha256:8f2ffdcb46f1b...  populated=true
 `store.Populated(shared)` first and the root is right (`storeDir()`, not the
 project). The entry is simply never there:
 
-| run | before   | registry phases | after    |
-| --- | -------- | --------------- | -------- |
-| 1   | false    | 4               | false    |
-| 2   | false    | 4               | false    |
+| run | before | registry phases | after |
+| --- | ------ | --------------- | ----- |
+| 1   | false  | 4               | false |
+| 2   | false  | 4               | false |
 
 So the bytes are fetched on every build and nothing is kept - about 0.77s of a
 1.0s no-op build, repeated for ever. The digest is not stale: it answers HTTP
@@ -33896,10 +33896,10 @@ The cost is not the pull. It is that the build *waits* for it.
 predictions asked for before it can exit. Moving the predictions file aside
 settles the size of it, with no code changed at all:
 
-| warm no-op build     | wall clock |
-| -------------------- | ---------- |
-| predictions present  | 380ms      |
-| predictions aside    | 37ms       |
+| warm no-op build    | wall clock |
+| ------------------- | ---------- |
+| predictions present | 380ms      |
+| predictions aside   | 37ms       |
 
 Ten times the build, spent fetching images the build never asked for.
 
@@ -33912,11 +33912,11 @@ nobody is watching.
 
 A/B against the parent commit, alternating, on the same cache:
 
-| round | parent  | with the fix |
-| ----- | ------- | ------------ |
-| 1     | 1020ms  | 484ms        |
-| 2     | 961ms   | 45ms         |
-| 3     | 961ms   | 37ms         |
+| round | parent | with the fix |
+| ----- | ------ | ------------ |
+| 1     | 1020ms | 484ms        |
+| 2     | 961ms  | 45ms         |
+| 3     | 961ms  | 37ms         |
 
 **What it is worth over a corpus run.** The whole 250-invocation sweep finishes
 in **155s** with this, and comes back 223 ok with no timeouts - the same set as
@@ -33973,3 +33973,49 @@ hand, which is why it is written down rather than done.
 A different transport - dialling the sandbox's address instead of spawning
 `container exec` - is where the rest of it is. That is a design change, not a
 tuning one.
+
+## E728 - the supervisor's missing thread does not explain the E723 hang
+
+E723 is the build that deadlocks in the kernel, diagnosed in the nits file from
+both sides' stacks: a step started with `vfork` stops its parent until the child
+execs, the child's `execve` traps to a seccomp notification, and the notification
+is answered by a goroutine in `engine/guest/traced_linux.go`.
+
+That goroutine calls `runtime.LockOSThread()` only when pinning is on, and
+`pinChoice` returns false unless `EARTH_TRACE_PIN` is set - so by default the
+loop that must answer the notification has no thread of its own. The reading was
+that the runtime cannot schedule it past a thread stopped in vfork - the nit's
+diagnosis ends on *a thread that can still run when the vfork lands*, and giving
+the supervisor one looked like the cheap way to get it.
+
+To be clear about provenance: this was **not** one of the nit's three fix
+directions, which are a separate supervising process, starting the step without
+`CLONE_VFORK`, and not trapping the step's own first `execve`. It was an
+inference drawn from the diagnosis, and it is the inference that failed - the
+three directions are untouched by this result.
+
+**It is not the cause.** Locking the thread unconditionally and pinning only when
+asked, then re-running the nit's own recipe (45 steps over `python:3.13-slim`,
+sandbox reset before each run, `--no-cache`, 120s timeout):
+
+| binary            | hangs  |
+| ----------------- | ------ |
+| unmodified        | 2 of 5 |
+| supervisor locked | 1 of 5 |
+
+The rate is the weaker half of that result and five runs cannot separate 1 from
+2. The decisive half is that **a hang still occurred**. Had the missing thread
+been the mechanism, an unconditionally locked supervisor would end the hangs
+outright rather than move a small-sample frequency; one hang under the fix
+falsifies it as the explanation, whatever the counts do.
+
+Reverted. The change costs a locked OS thread per traced step and buys nothing
+demonstrable, and a plausible mechanism that survives only because the sample is
+too small to kill it is how a defect gets marked fixed while it is still there.
+
+**What this rules out, and what it leaves.** The supervisor being schedulable is
+not sufficient. Still open: whether it is *necessary* (untested - the hang may
+have several ways to arrive), and the two other directions in the nit. The next
+experiment wants the stacks from a hang taken *under the fix*: if the child is
+still waiting on a notification the supervisor never received, the thread was
+never the constraint and the answer is upstream of scheduling.

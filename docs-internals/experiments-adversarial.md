@@ -34451,7 +34451,47 @@ One clue is unexplained and worth starting from: the Native jobs report
 test harness that reaches for `$frontend` to connect a network or read a
 daemon's logs has nothing to reach for there.
 
-**[GAP]** The per-target classification E603 asks for - a capability this engine
-lacks, against the same thing done differently - is not done. It needs the
-per-target logs rather than the job list, and it is the work this run exists to
-make possible rather than something the run answers by itself.
+### The thirty failures are one failure, and it is upstream of every test
+
+Read the per-target logs and the picture collapses. Every Native group fails at
+the same line:
+
+```text
+Error: BUILD --pass-args (Earthfile:1159): FROM --pass-args
+  (tests/Earthfile:2): FROM ../..+earthbuild-integration-test-base
+  ...remotes/github.com/EarthBuild/buildkit/51fe8fb9.../Earthfile:10:0:
+  RUN --mount=type=bind,...,from=runc-src ... exited 1, and printed nothing
+```
+
+group1, group4 and group9 name the same base, the same remote and the same
+commit, and the failure is reproducible locally - `tests+arg-redeclare-error`
+fails on this machine with the identical remote and line.
+
+**So the suites never reach their tests.** `tests/Earthfile:2` is `FROM
+../..+earthbuild-integration-test-base`, which every group inherits, and that
+base builds the buildkit repository. The build dies assembling the *fixture*.
+
+That is why Native and Podman fail on identical target lists, and why the lists
+are complete rather than partial: there is one failure, before any test target
+runs, repeated thirty times.
+
+**The differential has therefore measured nothing yet.** E603's expectation -
+"a red one names, per target, where the two engines disagree" - assumes the
+suites run. These did not. The red says only that this engine cannot build the
+test fixture, which is a single capability question and not thirty divergences.
+
+Two candidate causes are visible in one local run and are not yet separated:
+
+* the buildkit Earthfile's `RUN --mount=type=bind,...,from=runc-src` - a mount
+  form the native engine refuses - failing with **no output at all**, which is
+  its own defect whatever the cause;
+* an `ENV` at `Earthfile:934`, `export tmp=$(cat
+  "/etc/.${EARTH_IMAGE_INSTALLATION_NAME:-earth}/config.yml" | yq ...)`, exiting
+  1 where the file is absent. That line arrived from main in the `EARTHLY_` to
+  `EARTH_` migration (#800), and buildkit evidently tolerates the failure where
+  this engine does not.
+
+**[GAP]** Which of those two ends the build is not established, and until the
+fixture builds, no per-target comparison exists to classify. The next step is
+not a sweep of thirty jobs. It is one target, `+earthbuild-integration-test-base`,
+reproduced locally, which it already is.

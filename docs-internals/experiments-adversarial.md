@@ -36994,6 +36994,10 @@ through both engines, one target each:
 | `[ -z "" ]`                  | taken          | taken          |
 
 Identical throughout, so the substitution form was the only one deciding wrongly
-and the rest of the conditional path is sound. Worth the run: a fix that
+and the rest of the conditional path is sound. The other places a `$(…)` can
+appear agree too - `ARG A=$(echo from-arg)`, `LET B=$(echo from-let)`, a `FOR`
+over `$(echo "a b c")`, and a nested `$(echo "outer $(echo inner)")` all give
+the same values under both engines - so `IF` was the one site that read a
+command as text. Worth the run: a fix that
 addresses one form of a construct says nothing about the others, and "the
 conditionals are fine now" is exactly the sentence that ages badly.

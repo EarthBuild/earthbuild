@@ -169,9 +169,7 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 		// image already had keeps whatever the image put in it.
 		endCreated := timing.Phase("guest:unbind:created", count(len(created)))
 
-		for i := range slices.Backward(created) {
-			_ = os.Remove(created[i])
-		}
+		removeCreated(created)
 
 		endCreated()
 

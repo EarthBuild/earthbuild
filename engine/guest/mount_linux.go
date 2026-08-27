@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -122,7 +123,7 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 		// phase covered it and nothing else did.
 		defer timing.Phase("guest:unbind", "")()
 
-		endDetach := timing.Phase("guest:unbind:umount", "")
+		endDetach := timing.Phase("guest:unbind:umount", count(len(done)))
 
 		// Reverse order: a mount inside another has to go first, and the list is
 		// applied outermost-first.
@@ -136,7 +137,7 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 		// persisted cache survives to the next build. Errors are dropped: the
 		// step has already run and succeeded, and failing it now for a cache
 		// that could not be written back would discard work that was done.
-		endPersist := timing.Phase("guest:unbind:persist", "")
+		endPersist := timing.Phase("guest:unbind:persist", count(len(persisted)))
 
 		for _, pair := range persisted {
 			_ = copyTree(pair[0], pair[1], copyOpts{})
@@ -146,7 +147,7 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 
 		// Removed after the unmount, so a credential does not outlive the step
 		// that was given it.
-		endStaged := timing.Phase("guest:unbind:staged", "")
+		endStaged := timing.Phase("guest:unbind:staged", count(len(staged)))
 
 		for _, dir := range staged {
 			_ = os.RemoveAll(dir)
@@ -166,7 +167,7 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 		// Deepest first, and only when empty - `os.Remove` on a non-empty
 		// directory fails, which is exactly the guard wanted: a mount point the
 		// image already had keeps whatever the image put in it.
-		endCreated := timing.Phase("guest:unbind:created", "")
+		endCreated := timing.Phase("guest:unbind:created", count(len(created)))
 
 		for i := range slices.Backward(created) {
 			_ = os.Remove(created[i])
@@ -176,7 +177,7 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 
 		// After the removals, because what is being asked is whether the
 		// directory ends as it began.
-		endTouched := timing.Phase("guest:unbind:touched", "")
+		endTouched := timing.Phase("guest:unbind:touched", count(len(touched)))
 
 		for _, d := range touched {
 			d.restore()
@@ -652,4 +653,15 @@ func applyMode(path string, m Mount, deflt os.FileMode) error {
 	}
 
 	return nil
+}
+
+// count labels a phase with how many things it was for.
+//
+// **A duration with no denominator cannot be acted on.** `guest:unbind:created`
+// reads 7ms a step, which is either a handful of removes over a share with a
+// round trip each or a great many cheap ones - opposite conclusions, and the
+// phase said nothing either way. Naming the count makes the per-item cost
+// visible without a second experiment.
+func count(n int) string {
+	return strconv.Itoa(n)
 }

@@ -36081,3 +36081,38 @@ machine's cgroup path.
 
 No claim is made here that group4 is fixed. That will be visible in CI or it
 will not.
+
+## E764 - the engine is bit-reproducible when asked, and measurably not when not
+
+Asked whether two builds of one Earthfile agree, on fresh stores, with nothing
+cached:
+
+| what                          | plain                   | `SOURCE_DATE_EPOCH=1700000000` |
+| ----------------------------- | ----------------------- | ------------------------------ |
+| artifact content (sha256)     | identical               | identical                      |
+| artifact mtime                | differs by a second     | exactly the epoch asked for    |
+| layer ids across fresh stores | all three RUN steps differ | **identical**               |
+
+Both halves are the design working. A layer's identity carries mtimes on
+purpose - `entry.hash` takes a `times` flag and the store uses `withTimes` for
+identity and `withoutTimes` for content - because an artifact's mtime is part of
+what it is (I8), and a build tool that stamps every output with the current time
+defeats every downstream tool that compares timestamps. So without a clamp, two
+builds *should* disagree: they happened at different moments and the engine is
+not pretending otherwise.
+
+With the clamp they agree completely, and the third row is the one worth having.
+Identical layer ids across independent stores means two machines building the
+same step arrive at the same name for the result, which is what makes a fleet's
+dedup work at all: without it, two workers doing identical work produce two
+layers, and every consumer has to be told which one it got.
+
+**Recorded because it is a property nobody had checked.** The clamp is
+implemented (`engine/fstime`), documented and reachable through
+`EARTH_SOURCE_DATE_EPOCH` as a builtin, and its effect on *layer identity* -
+rather than on artifact timestamps, which is what it was written for - was
+assumed rather than measured. It holds.
+
+Method: two fresh `EARTH_CACHE_DIR`s per variant, `.decl`, `.config` and
+`.unmarked` entries filtered out of the layer listing, diffed. Three RUN steps,
+because one step could agree by luck.

@@ -164,6 +164,16 @@ func main() {
 				" planned away")
 		allowPriv = flag.Bool("allow-privileged", false,
 			"accept RUN --privileged, which this engine otherwise refuses")
+		// **Named `unsafe` because it is.** A `LOCALLY` in a fetched Earthfile
+		// runs that repository's commands on this machine, outside the sandbox,
+		// as you; behind a commit hash that is a decision you can check, and
+		// behind a branch it is one somebody else can revisit after you made
+		// it. Offered anyway, because a caller knows things this engine does
+		// not - a repository they control, a network they trust - and an engine
+		// that refuses what the operator explicitly asked for is refusing to be
+		// used rather than refusing to be wrong.
+		unsafeUnpinned = flag.Bool("unsafe-allow-unpinned-remote-locally", false,
+			"accept LOCALLY from a remote reference that is not pinned to a commit")
 		noCache = flag.Bool("no-cache", false,
 			"build every step, reading no cache entry that is already there")
 		noOutput = flag.Bool("no-output", false,
@@ -340,8 +350,10 @@ func main() {
 		NoCache:         *noCache,
 		ExecStats:       *execStats,
 		AllowPrivileged: *allowPriv,
-		Push:            *push,
-		VersionFlags:    splitList(*versionFlags),
+
+		UnsafeAllowUnpinnedRemoteLocally: *unsafeUnpinned,
+		Push:                             *push,
+		VersionFlags:                     splitList(*versionFlags),
 		// **`--ci` means `--no-output --strict`.** Strict is what this engine
 		// already is: it refuses what it cannot reproduce rather than offering
 		// the choice (I10), so there is nothing for the flag to switch on. What

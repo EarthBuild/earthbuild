@@ -30,6 +30,10 @@ type options struct {
 	// allowPrivileged accepts `RUN --privileged` rather than refusing it. See
 	// WithAllowPrivileged.
 	allowPrivileged bool
+	// unsafeUnpinnedRemoteLocally accepts a `LOCALLY` reached through a
+	// reference that is not pinned to a commit. See
+	// WithUnsafeUnpinnedRemoteLocally.
+	unsafeUnpinnedRemoteLocally bool
 	// push says this build is a push, so `RUN --push` steps run.
 	push bool
 	args map[string]string
@@ -354,6 +358,25 @@ func WithVersionFlags(flags []string) Option {
 // to be wrong.
 func WithAllowPrivileged(on bool) Option {
 	return func(o *options) { o.allowPrivileged = on }
+}
+
+// WithUnsafeUnpinnedRemoteLocally accepts a `LOCALLY` reached through a
+// reference nobody pinned.
+//
+// **The refusal it lifts is about mutability, not about remoteness.** A
+// `LOCALLY` in a fetched Earthfile runs that repository's commands on this
+// machine, outside the sandbox, as you. Behind a commit hash that is a decision
+// you can make once and check: the commands are fixed and you can read them
+// before you name them. Behind a branch or a tag it is a decision somebody else
+// can revisit after you made it, which is what the engine declines by default.
+//
+// Named `unsafe` because it is, and offered anyway because the caller knows
+// things this engine does not - a repository they control, a network they
+// trust, a build that is already running as them. An engine that refuses a
+// construct the operator has explicitly opted into is refusing to be used
+// rather than refusing to be wrong.
+func WithUnsafeUnpinnedRemoteLocally(on bool) Option {
+	return func(o *options) { o.unsafeUnpinnedRemoteLocally = on }
 }
 
 // WithPush says this build is a push, so `RUN --push` steps run.

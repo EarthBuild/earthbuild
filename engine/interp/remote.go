@@ -205,3 +205,29 @@ func checkLocalDest(dest, where string) error {
 
 	return nil
 }
+
+// pinnedRev reports whether a revision names one immutable commit.
+//
+// **A revision is not a pin.** `:main` and `:v1.2.3` are revisions and both are
+// whatever the person with push access last made them - a tag can be moved, and
+// on most forges by anyone who can push. Only an object name fixes what will be
+// fetched, and only then can a reader check the commands before naming them.
+//
+// Full length, not a prefix: git resolves an abbreviated hash against the
+// objects it happens to have, so a short one names different commits in
+// different clones and is a pin only by luck. Both digest sizes are accepted
+// because git is midway through changing them.
+func pinnedRev(rev string) bool {
+	if len(rev) != 40 && len(rev) != 64 {
+		return false
+	}
+
+	for _, r := range rev {
+		isHex := (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f')
+		if !isHex {
+			return false
+		}
+	}
+
+	return true
+}

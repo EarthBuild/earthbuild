@@ -1220,7 +1220,8 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// The engine fetched and built these. `tests/allow-privileged.earth`
 		// says so in its own words, and the RUN it says must never run was
 		// reached (E439).
-		if p.here.fetchedFrom != "" {
+		if p.here.fetchedFrom != "" && p.here.reachedUnpinned &&
+			!p.opt.unsafeUnpinnedRemoteLocally {
 			// **A position, and it says so.** This is not a construct the engine
 			// has yet to build - `LOCALLY` works, and works in the Earthfile in
 			// front of you. It is one it declines for whoever wrote *this* file,
@@ -1233,11 +1234,21 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			// refusing privileged remotes counted as decisions, the whole
 			// difference being that those say "on purpose".
 			return nil, refusedOnPurpose(
-				"LOCALLY in an Earthfile fetched from "+p.here.fetchedFrom,
+				"LOCALLY in an unpinned Earthfile fetched from "+p.here.fetchedFrom,
 				loc(c.SourceLocation),
 				"it would run that repository's commands on this machine, outside"+
-					" the sandbox, as you; build it from a checkout you have read"+
-					" if that is what you meant")
+					" the sandbox, as you, and nothing here is pinned to a commit -"+
+					" so what runs is whatever that repository says later, chosen by"+
+					" whoever can push to it"+
+					"\n  name a commit (`repo:<40-hex>+target`) and this is"+
+					" allowed: the commands are then fixed and you can read them"+
+					" before you name them"+
+					"\n  every link has to be pinned, because a pinned repository"+
+					" that imports an unpinned one has moved the choice rather than"+
+					" removed it"+
+					"\n  --unsafe-allow-unpinned-remote-locally accepts it anyway,"+
+					" for a caller who knows the repository better than this engine"+
+					" does")
 		}
 
 		// Everything after this runs on the invoking machine. The specification

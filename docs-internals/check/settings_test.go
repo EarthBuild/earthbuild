@@ -54,13 +54,22 @@ var internalSettings = map[string]string{
 	"EARTH_GUEST_ROOT":          hostToGuest,
 	"EARTH_STEP_TRACE_FD":       "passed to the step shim by the guest",
 	"EARTH_STEP_TRACE_PIN":      "passed to the step shim by the guest",
-	"EARTH_GUEST_SCRATCH":       hostToGuest,
-	"EARTH_GUEST_TERMINALS":     hostToGuest,
-	"EARTH_PROBE":               "marks a process as the engine's own probe",
-	"EARTH_PROBE_PATH":          "marks a process as the engine's own probe",
-	"EARTH_TEST_IN_USERNS":      "set by the namespace test harness on its own child",
-	"EARTH_TEST_TMPFS":          "set by the namespace test harness on its own child",
-	"EARTH_ENGINE_TRACE":        "the phase-0 measurement harness",
+	"EARTH_STEP_USER":           "passed to the step shim by the guest",
+	// Three that arrived with main's EARTHLY_ to EARTH_ migration (#800). All
+	// three are buildkit-side plumbing: the operator-facing knob for the first
+	// is `global.buildkit_additional_config` in the config file, and the other
+	// two are set by this engine on the daemon and on a WITH DOCKER secret.
+	"EARTH_ADDITIONAL_BUILDKIT_CONFIG": "carried to buildkitd from the config file's" +
+		" global.buildkit_additional_config",
+	"EARTH_DOCKER_LOAD_REGISTRY": "passed to a WITH DOCKER step as a secret",
+	"EARTH_RESET_TMP_DIR":        "set on buildkitd by this engine",
+	"EARTH_GUEST_SCRATCH":        hostToGuest,
+	"EARTH_GUEST_TERMINALS":      hostToGuest,
+	"EARTH_PROBE":                "marks a process as the engine's own probe",
+	"EARTH_PROBE_PATH":           "marks a process as the engine's own probe",
+	"EARTH_TEST_IN_USERNS":       "set by the namespace test harness on its own child",
+	"EARTH_TEST_TMPFS":           "set by the namespace test harness on its own child",
+	"EARTH_ENGINE_TRACE":         "the phase-0 measurement harness",
 }
 
 // Every setting an operator can set is written down.

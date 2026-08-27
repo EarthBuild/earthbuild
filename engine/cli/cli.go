@@ -78,6 +78,10 @@ type Options struct {
 	// namespace - and a caller who asks for it anyway is taken at their word
 	// (interp.WithAllowPrivileged).
 	AllowPrivileged bool
+	// UnsafeAllowUnpinnedRemoteLocally accepts a `LOCALLY` reached through a
+	// reference nobody pinned to a commit
+	// (interp.WithUnsafeUnpinnedRemoteLocally).
+	UnsafeAllowUnpinnedRemoteLocally bool
 	// Push says this build is a push, so `RUN --push` steps run rather than
 	// being planned away (interp.WithPush).
 	Push bool
@@ -310,6 +314,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		interp.WithVersionFlags(o.VersionFlags),
 		interp.WithAllowPrivileged(o.AllowPrivileged),
 		interp.WithPush(o.Push),
+		interp.WithUnsafeUnpinnedRemoteLocally(o.UnsafeAllowUnpinnedRemoteLocally),
 		interp.WithPlatform(o.platformOrDefault()),
 		interp.WithGitClone(g.gitClone(ctx)),
 		interp.WithImageResolver(resolver.Resolve),

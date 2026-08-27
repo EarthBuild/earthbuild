@@ -46,6 +46,11 @@ type unit struct {
 	// of the cache and lets a remote repository name any Earthfile on this
 	// machine and have it built.
 	confinedTo string
+	// reachedUnpinned says some link in the chain that led here named a branch
+	// or a tag rather than a commit, so what this file contains can change
+	// after somebody decided to trust it. False for the Earthfile in front of
+	// you, which is nobody's to change but yours.
+	reachedUnpinned bool
 	// fetchedFrom names the repository this Earthfile came from, empty for one
 	// on this machine.
 	//
@@ -372,6 +377,12 @@ func (p *Plan) resolve(from *unit, ref reference) (*unit, error) {
 		u.confinedTo = root
 		u.fetchedFrom = ref.remote.repo
 
+		// **The chain, not the link.** A pinned repository that imports an
+		// unpinned one has moved the choice one hop away rather than removed
+		// it, so a pin only counts when everything in front of it was pinned
+		// too.
+		u.reachedUnpinned = from.reachedUnpinned || !pinnedRev(ref.remote.rev)
+
 		return u, nil
 	}
 
@@ -395,6 +406,7 @@ func (p *Plan) resolve(from *unit, ref reference) (*unit, error) {
 	if u.confinedTo == "" {
 		u.confinedTo = from.confinedTo
 		u.fetchedFrom = from.fetchedFrom
+		u.reachedUnpinned = from.reachedUnpinned
 	}
 
 	return u, nil

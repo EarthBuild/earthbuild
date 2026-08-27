@@ -5,6 +5,8 @@ package guest
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -16,9 +18,85 @@ import (
 // that dies badly leaves nothing on the machine, and two daemons cannot see each
 // other's plugin sockets.
 func prepareShim() error {
+	// Read before the mount, because after it the file is not there to read.
+	// See resolver.
+	keep := savedResolver()
+
 	err := unix.Mount("none", "/run", "tmpfs", 0, "")
 	if err != nil {
 		return fmt.Errorf("mount a private /run: %w%s", err, sysAdminHint(err))
+	}
+
+	return restoreResolver(keep)
+}
+
+// resolver is the machine's resolver configuration, and where it lives.
+//
+// **A private /run can hide the resolver.** On a machine using
+// systemd-resolved - which is every GitHub runner - `/etc/resolv.conf` is a
+// symlink into `/run/systemd/resolve/`, so the tmpfs above covers the file it
+// points at. The daemon then finds no nameserver, falls back to localhost, and
+// every pull fails with
+//
+//	lookup registry-1.docker.io on [::1]:53: read: connection refused
+//
+// which reads as a network problem and is a mount (E777).
+type resolver struct {
+	at   string
+	data []byte
+}
+
+// savedResolver reads the resolver the machine is using, following the symlink
+// so that what is saved is the file the tmpfs will hide rather than the link.
+func savedResolver() resolver {
+	at, err := filepath.EvalSymlinks("/etc/resolv.conf")
+	if err != nil {
+		return resolver{}
+	}
+
+	data, err := os.ReadFile(at) //nolint:gosec // the machine's own resolver
+	if err != nil {
+		return resolver{}
+	}
+
+	return resolver{at: at, data: data}
+}
+
+// restoreResolver puts the resolver back inside the private /run.
+//
+// Only there. A resolver that is a real file, or one pointing into the store as
+// it does on NixOS, is untouched by the mount, and writing a copy would be this
+// engine inventing a resolver nobody asked it for.
+//
+// Not fatal on failure: a daemon that cannot resolve is worse than one that
+// can, and both are better than a step that does not run at all.
+func restoreResolver(keep resolver) error {
+	if !hiddenByPrivateRun(keep.at) {
+		return nil
+	}
+
+	return writeResolver(keep.at, keep.data)
+}
+
+// hiddenByPrivateRun reports whether the tmpfs above covers this path.
+//
+// Only `/run`. A resolver that is a real file, or one pointing into the store
+// as it does on NixOS, is untouched by the mount, and writing a copy would be
+// this engine inventing a resolver nobody asked it for.
+func hiddenByPrivateRun(at string) bool {
+	return at != "" && strings.HasPrefix(at, "/run/")
+}
+
+// writeResolver puts the saved configuration back where the symlink expects it.
+func writeResolver(at string, data []byte) error {
+	err := os.MkdirAll(filepath.Dir(at), 0o755)
+	if err != nil {
+		return fmt.Errorf("make room for the resolver at %s: %w", at, err)
+	}
+
+	err = os.WriteFile(at, data, 0o644) //nolint:gosec // a resolver is world-readable
+	if err != nil {
+		return fmt.Errorf("put the resolver back at %s: %w", at, err)
 	}
 
 	return nil

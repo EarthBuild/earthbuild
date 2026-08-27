@@ -36626,3 +36626,41 @@ from the interpreter through `ir`, the wire and the guest, the same route E772's
 Worth doing deliberately rather than at the end of a session, and worth doing as
 one change that carries the text rather than two that argue about whether sizes
 alone are better than nothing.
+
+## E777 - the private /run hid the resolver
+
+With the load fixed (E769) the `WITH DOCKER` tests got far enough to pull, and
+the pull failed:
+
+```console
+Error response from daemon: Get "https://registry-1.docker.io/v2/":
+  dial tcp: lookup registry-1.docker.io on [::1]:53:
+  read udp …->[::1]:53: read: connection refused
+```
+
+`[::1]:53` is what a resolver library falls back to when it finds no nameserver,
+so this is not a network failure however much it reads like one. `prepareShim`
+mounts a tmpfs over `/run` - deliberately, so a daemon that dies badly leaves
+nothing on the machine and two daemons cannot see each other's sockets - and on
+a machine using systemd-resolved, which is every GitHub runner,
+`/etc/resolv.conf` is a symlink into `/run/systemd/resolve/`. The mount covers
+the file the symlink points at, the daemon finds nothing, and every pull fails.
+
+The resolver is now read before the mount and written back inside the new
+`/run`, and only there: a resolver that is a real file, or one pointing into the
+store as it does on NixOS, is untouched by the mount, and writing a copy would
+be this engine inventing a resolver nobody asked it for.
+
+**Not verified end to end, and here is why.** Reproducing it needs a machine
+whose `/etc/resolv.conf` points into `/run`. This one is NixOS, where it points
+into the store; building the shape inside a container fails because docker
+bind-mounts `/etc/resolv.conf`, so `ln -sf` answers `File exists`. What is
+tested is the decision and the write - which paths the mount hides, and that the
+directory it took away is remade - and what is diagnosed is the error above
+against the mount that causes it. CI is the verification, which is an honest
+position to be in and worth saying rather than implying otherwise.
+
+**The pattern this is the fifth of.** Each fix has revealed the next failure in
+the same tests: the collapse fault, then ETXTBSY, then the archive format, then
+the dropped configuration, now the resolver. That is what a build that never got
+past its first step looks like when it starts working.

@@ -35811,3 +35811,61 @@ overlooked: it is a mount that would be there for symmetry and not for a caller.
 The mount needs root, so there is no unit test for it - the check is
 end-to-end, on both sides of the privilege line, and stated here rather than
 implied by a green suite.
+
+## E758 - a step knew which machine it was on
+
+A step has a UTS namespace of its own and nothing ever set a name in it, and an
+unset hostname in a new namespace is the machine's:
+
+```console
+$ earth-native +h        # before, on the 16-core box
+  nixos
+  localhost              # ...which is what the image's /etc/hostname says
+  hostname: nixos: Host not found
+```
+
+Three things wrong in three lines. The step reads the machine it landed on -
+ambient state a step can observe that no key describes (I3), and a
+reproducibility hole with teeth: `uname -n` goes into JAR manifests, RPM
+headers, kernel builds and any configure script that records its build host, so
+two machines produced different bytes while the key said they were the same.
+`hostname` and `/etc/hostname` disagreed, so which answer a tool got depended on
+which it asked. And the name did not resolve, which is a class of slow build
+rather than a broken one: `InetAddress.getLocalHost()` and
+`gethostbyname(uname -n)` wait for a resolver to say no.
+
+**The corpus already specified this and nothing was reading it.**
+`tests/git-metadata` and `tests/git-ssh-server` contain
+
+```sh
+# first ensure these two /etc/hosts entries are working
+ping -c 1 git.example.com
+ping -c 1 buildkitsandbox
+```
+
+so the reference engine names its sandbox and puts that name in the step's
+hosts file, and six places in the tree depend on it.
+
+```console
+$ earth-native +h        # after
+  buildkitsandbox
+  PING buildkitsandbox (127.0.0.1): 56 data bytes
+  PING git.example.com (10.0.0.1): 56 data bytes
+```
+
+Set in the step shim, because that is the only code that runs inside the step's
+namespaces - the same reason `/proc` is mounted there and not by the guest
+(E705). Not fatal if it fails: a step named after the machine builds correctly
+and reproduces badly, which is worth continuing for.
+
+**The name is the reference engine's, kept deliberately.** A post-buildkit
+engine calling its sandbox `buildkitsandbox` is odd, and renaming it would break
+the corpus, anything grepping a build log for it, and any Earthfile that pings
+it - for a word. It is a decision about what users see rather than an
+implementation detail, so it is a constant with its reasoning attached rather
+than a literal.
+
+Steps that declare no `HOST` entries still get their image's hosts file and so
+still cannot resolve their own name. Writing one unconditionally would replace
+whatever every image ships, for every step in every build, which is a much
+larger change than making a name resolve.

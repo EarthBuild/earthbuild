@@ -2,6 +2,20 @@ package guest
 
 import "strings"
 
+// SandboxHost is the name a step knows itself by.
+//
+// **A constant, because the alternative is not reproducible.** A step inherits
+// the machine's hostname unless something sets one, so a build that records
+// where it ran - and many do: `uname -n`, JAR manifests, RPM headers, configure
+// scripts - produced different bytes on different machines while its key said
+// they were the same. A constant makes that field a constant too (I3).
+//
+// The reference engine's name, kept. The corpus pings it to check a hosts file
+// is working, tools grep build logs for it, and a post-buildkit engine that
+// renamed it would break those for a word. Changing it is a decision about what
+// users see, not an implementation detail.
+const SandboxHost = "buildkitsandbox"
+
 // hostsFile is the `/etc/hosts` a step gets, or empty where it declared none.
 //
 // **Written, not merged.** An image ships its own `/etc/hosts`, and a step that
@@ -23,6 +37,11 @@ func hostsFile(entries []string) string {
 	var b strings.Builder
 
 	b.WriteString("127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost ip6-loopback\n")
+
+	// The step's own name, which is the machine's to a program that asks the
+	// kernel and nobody's at all to one that then tries to resolve it. See
+	// SandboxHost.
+	b.WriteString("127.0.0.1\t" + SandboxHost + "\n")
 
 	for _, e := range entries {
 		name, address, ok := strings.Cut(e, " ")

@@ -25,6 +25,16 @@ import (
 //
 // Mounted at the path outside the root, because the chroot has not happened yet.
 func prepareStep(sh *stepShim) error {
+	// **In here, because there is nowhere else.** The step has a UTS namespace
+	// of its own, and an unset hostname in a new namespace is the machine's -
+	// so a step read whatever box it landed on. This process is already inside
+	// that namespace, which is the same reason /proc is mounted here rather
+	// than by the guest (E758).
+	//
+	// Reported by not being fatal: a step whose name is the machine's builds
+	// correctly and reproduces badly, which is worth continuing for.
+	_ = unix.Sethostname([]byte(SandboxHost))
+
 	at := filepath.Join(sh.root, "proc")
 
 	err := os.MkdirAll(at, 0o555)

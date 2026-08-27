@@ -34718,6 +34718,34 @@ done. `chown.earth` needs both: its `COPY --chown` is recoverable this way and
 its later `stat -c %U` reads what the step's own filesystem says, which is the
 overlay rather than the store, so it would hold.
 
-**[GAP]** Not implemented. It is a real fix rather than a workaround, and it is
-worth more than the three corpus cases: any host-share store on any platform
-loses ownership the same way, and today the engine can only refuse.
+### Corrected: recording it is not enough, and the place is the translator
+
+The paragraph above is half a design and the missing half is the load-bearing
+one. A layer's contents are not copied into the step: `Materialiser.layerDir`
+names `<root>/layers/<id>` in the store and the overlay stacks that directory
+*directly* as a lower. So ownership restored into a layer's metadata has nothing
+to apply itself to - the bytes the step reads are the store's own files, on the
+filesystem that discarded the ownership in the first place.
+
+**There is already a hook, and it exists for this shape of problem.** The
+translator sits between the store and the lower stack:
+
+> `use` returns the directory to stack for a layer: the store's own, or a
+> translated copy where the layer records a deletion.
+
+Whiteouts need a translated copy because the store's spelling of a deletion is
+not the one overlayfs reads. Ownership the store could not hold is the same
+kind of mismatch - what the store *says* is not what the layer *means* - and the
+answer is the same: produce a corrected copy and stack that instead.
+
+The cost is what makes it a decision rather than an obvious win. Whiteouts are
+rare, so translating is cheap; a layer that carries `COPY --chown` would be
+copied out of the store on every materialise that stacks it. Only affected
+layers pay, and only on a store that discards ownership - a Linux store keeps
+it and translates nothing - but on macOS a large chowned layer would be copied
+where today it is bind-mounted.
+
+**[GAP]** Not implemented, and now described accurately enough to implement or
+to decline. It is worth more than the three corpus cases either way: any
+host-share store on any platform loses ownership the same way, and today the
+engine can only refuse.

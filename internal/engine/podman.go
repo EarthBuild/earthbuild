@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"al.essio.dev/pkg/shellescape"
 	"github.com/dustin/go-humanize"
 	_ "github.com/moby/buildkit/client/connhelper/podmancontainer" // Load "podman-container://" helper.
 )
@@ -176,7 +177,7 @@ func (e *podmanEngine) PullImage(ctx context.Context, refs ...string) error {
 
 // ImageLoadCommand returns the shell command to load an image from a file.
 func (e *podmanEngine) ImageLoadCommand(filename string) string {
-	return strings.Join(e.CommandArgs("pull", "docker-archive:"+filename), " ")
+	return strings.Join(e.CommandArgs("pull", shellescape.Quote("docker-archive:"+filename)), " ")
 }
 
 // LoadImage writes the image to a temp file and pulls it into Podman.

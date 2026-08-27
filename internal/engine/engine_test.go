@@ -411,6 +411,64 @@ func TestContainerAddr(t *testing.T) {
 	})
 }
 
+func TestImageLoadCommand(t *testing.T) {
+	t.Parallel()
+
+	filenameWithSpaces := "/tmp/path with spaces/my image.tar"
+	filenameWithInjection := "/tmp/image.tar; rm -rf /"
+
+	t.Run("docker quotes filename", func(t *testing.T) {
+		t.Parallel()
+
+		e := &dockerEngine{shellEngine: &shellEngine{BinaryName: "docker"}}
+		cmd := e.ImageLoadCommand(filenameWithSpaces)
+		assert.Equal(t, "cat '/tmp/path with spaces/my image.tar' | docker load", cmd)
+
+		cmdInj := e.ImageLoadCommand(filenameWithInjection)
+		assert.Equal(t, "cat '/tmp/image.tar; rm -rf /' | docker load", cmdInj)
+	})
+
+	t.Run("apple container quotes filename", func(t *testing.T) {
+		t.Parallel()
+
+		e := &appleEngine{shellEngine: &shellEngine{BinaryName: "container"}}
+		cmd := e.ImageLoadCommand(filenameWithSpaces)
+		assert.Equal(t, "container image load --input '/tmp/path with spaces/my image.tar'", cmd)
+
+		cmdInj := e.ImageLoadCommand(filenameWithInjection)
+		assert.Equal(t, "container image load --input '/tmp/image.tar; rm -rf /'", cmdInj)
+	})
+
+	t.Run("podman quotes filename", func(t *testing.T) {
+		t.Parallel()
+
+		e := &podmanEngine{shellEngine: &shellEngine{BinaryName: "podman"}}
+		cmd := e.ImageLoadCommand(filenameWithSpaces)
+		assert.Equal(t, "podman pull 'docker-archive:/tmp/path with spaces/my image.tar'", cmd)
+
+		cmdInj := e.ImageLoadCommand(filenameWithInjection)
+		assert.Equal(t, "podman pull 'docker-archive:/tmp/image.tar; rm -rf /'", cmdInj)
+	})
+
+	t.Run("shell engine quotes filename", func(t *testing.T) {
+		t.Parallel()
+
+		e := &shellEngine{BinaryName: "nerdctl"}
+		cmd := e.ImageLoadCommand(filenameWithSpaces)
+		assert.Equal(t, "nerdctl load -i '/tmp/path with spaces/my image.tar'", cmd)
+
+		cmdInj := e.ImageLoadCommand(filenameWithInjection)
+		assert.Equal(t, "nerdctl load -i '/tmp/image.tar; rm -rf /'", cmdInj)
+	})
+
+	t.Run("stub engine returns empty string", func(t *testing.T) {
+		t.Parallel()
+
+		e := &stubEngine{}
+		assert.Empty(t, e.ImageLoadCommand(filenameWithSpaces))
+	})
+}
+
 func BenchmarkIsLocal(b *testing.B) {
 	addrs := []string{
 		"docker-container://earthly-buildkitd",

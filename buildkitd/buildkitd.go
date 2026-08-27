@@ -690,11 +690,17 @@ func Start(
 
 				if eng.Metadata().Scheme == engine.SchemeApple {
 					// Apple Container requires directory-level bind mounts.
-					// Mount the certificates directory to /etc/earth-certs.
-					certsDir := filepath.Dir(settings.ServerTLSCert)
+					// Mount an isolated server certificates directory containing only the server certs/key.
+					var serverCertsDir string
+
+					serverCertsDir, err = prepareServerCertsDir(settings)
+					if err != nil {
+						return fmt.Errorf("prepare server certs dir: %w", err)
+					}
+
 					mounts = append(mounts, engine.Mount{
 						Type:     engine.MountBind,
-						Source:   certsDir,
+						Source:   serverCertsDir,
 						Dest:     "/etc/earth-certs",
 						ReadOnly: true,
 					})
@@ -1419,4 +1425,75 @@ func engineContainer(eng *engine.Client) string {
 	}
 
 	return name + " container"
+}
+
+// prepareServerCertsDir stages only the server-required certificates and private key
+// (ca_cert.pem, buildkit_cert.pem, and buildkit_key.pem) into a secure, isolated directory
+// for container engines (such as Apple Container) that require directory-level bind mounts.
+func prepareServerCertsDir(settings Settings) (string, error) {
+	certsDir := filepath.Dir(settings.ServerTLSCert)
+	serverCertsDir := filepath.Join(certsDir, "buildkitd")
+
+	err := os.MkdirAll(serverCertsDir, 0o700)
+	if err != nil {
+		return "", fmt.Errorf("create server certs directory %s: %w", serverCertsDir, err)
+	}
+
+	// #nosec G302 -- directory permissions 0700 are restricted to the owner and require execute bits for traversal
+	err = os.Chmod(serverCertsDir, 0o700)
+	if err != nil {
+		return "", fmt.Errorf("chmod server certs directory %s: %w", serverCertsDir, err)
+	}
+
+	files := []struct {
+		src  string
+		name string
+		perm os.FileMode
+	}{
+		{src: settings.TLSCA, name: "ca_cert.pem", perm: 0o644},
+		{src: settings.ServerTLSCert, name: "buildkit_cert.pem", perm: 0o644},
+		{src: settings.ServerTLSKey, name: "buildkit_key.pem", perm: 0o600},
+	}
+
+	allowedNames := make(map[string]struct{}, len(files))
+
+	for _, f := range files {
+		allowedNames[f.name] = struct{}{}
+
+		if f.src == "" {
+			continue
+		}
+
+		// #nosec G304 -- certificate file paths are provided via explicit user configuration
+		data, readErr := os.ReadFile(f.src)
+		if readErr != nil {
+			return "", fmt.Errorf("read %s: %w", f.src, readErr)
+		}
+
+		destPath := filepath.Join(serverCertsDir, f.name)
+
+		// #nosec G306,G703 -- destination filenames are static constants and permissions are restricted
+		writeErr := os.WriteFile(destPath, data, f.perm)
+		if writeErr != nil {
+			return "", fmt.Errorf("write %s: %w", destPath, writeErr)
+		}
+
+		// Ensure permissions match desired perm even if file existed previously.
+		chmodErr := os.Chmod(destPath, f.perm)
+		if chmodErr != nil {
+			return "", fmt.Errorf("chmod %s: %w", destPath, chmodErr)
+		}
+	}
+
+	// Clean up any extraneous files in the server certs directory to prevent credential leaks.
+	entries, readDirErr := os.ReadDir(serverCertsDir)
+	if readDirErr == nil {
+		for _, entry := range entries {
+			if _, ok := allowedNames[entry.Name()]; !ok {
+				_ = os.RemoveAll(filepath.Join(serverCertsDir, entry.Name()))
+			}
+		}
+	}
+
+	return serverCertsDir, nil
 }

@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"al.essio.dev/pkg/shellescape"
 )
 
 type appleContainerInspect struct {
@@ -420,7 +422,7 @@ func (e *appleEngine) RemoveImage(ctx context.Context, force bool, refs ...strin
 
 // ImageLoadCommand returns the shell command to load an image from a file.
 func (e *appleEngine) ImageLoadCommand(filename string) string {
-	return strings.Join(e.CommandArgs("image", "load", "--input", filename), " ")
+	return strings.Join(e.CommandArgs("image", "load", "--input", shellescape.Quote(filename)), " ")
 }
 
 // LoadImage reads image tarballs and loads them into the container store.

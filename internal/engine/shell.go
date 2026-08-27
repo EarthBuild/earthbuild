@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"al.essio.dev/pkg/shellescape"
 	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
@@ -353,7 +354,7 @@ func (e *shellEngine) LoadImage(ctx context.Context, images ...io.Reader) error 
 
 // ImageLoadCommand returns the shell command used to load an image from a file.
 func (e *shellEngine) ImageLoadCommand(filename string) string {
-	return fmt.Sprintf("%s load -i %s", e.BinaryName, filename)
+	return strings.Join(e.CommandArgs("load", "-i", shellescape.Quote(filename)), " ")
 }
 
 type volumeInspectJSON struct {

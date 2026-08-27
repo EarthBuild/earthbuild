@@ -1,6 +1,8 @@
 package buildkitd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -266,4 +268,80 @@ func TestPrintBuildkitInfo(t *testing.T) {
 			printBuildkitInfo(log, info, worker, "v0.13.0", true, true)
 		})
 	})
+}
+
+func TestPrepareServerCertsDir(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	caCertPath := filepath.Join(tmpDir, "ca_cert.pem")
+	caKeyPath := filepath.Join(tmpDir, "ca_key.pem")
+	serverCertPath := filepath.Join(tmpDir, "buildkit_cert.pem")
+	serverKeyPath := filepath.Join(tmpDir, "buildkit_key.pem")
+	clientCertPath := filepath.Join(tmpDir, "earthly_cert.pem")
+	clientKeyPath := filepath.Join(tmpDir, "earthly_key.pem")
+
+	require.NoError(t, os.WriteFile(caCertPath, []byte("CA CERT DATA"), 0o600))              // #nosec G306
+	require.NoError(t, os.WriteFile(caKeyPath, []byte("SECRET CA KEY DATA"), 0o600))         // #nosec G306
+	require.NoError(t, os.WriteFile(serverCertPath, []byte("SERVER CERT DATA"), 0o600))      // #nosec G306
+	require.NoError(t, os.WriteFile(serverKeyPath, []byte("SERVER KEY DATA"), 0o600))        // #nosec G306
+	require.NoError(t, os.WriteFile(clientCertPath, []byte("CLIENT CERT DATA"), 0o600))      // #nosec G306
+	require.NoError(t, os.WriteFile(clientKeyPath, []byte("SECRET CLIENT KEY DATA"), 0o600)) // #nosec G306
+
+	settings := Settings{
+		TLSCA:         caCertPath,
+		ServerTLSCert: serverCertPath,
+		ServerTLSKey:  serverKeyPath,
+		ClientTLSCert: clientCertPath,
+		ClientTLSKey:  clientKeyPath,
+	}
+
+	serverCertsDir, err := prepareServerCertsDir(settings)
+	require.NoError(t, err)
+
+	// Verify the directory itself
+	assert.Equal(t, filepath.Join(tmpDir, "buildkitd"), serverCertsDir)
+	info, err := os.Stat(serverCertsDir)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir())
+	assert.Equal(t, os.FileMode(0o700), info.Mode().Perm())
+
+	// Verify only server files are copied into the staging directory
+	entries, err := os.ReadDir(serverCertsDir)
+	require.NoError(t, err)
+
+	copiedNames := make([]string, 0, len(entries))
+	for _, e := range entries {
+		copiedNames = append(copiedNames, e.Name())
+	}
+
+	assert.ElementsMatch(t, []string{"ca_cert.pem", "buildkit_cert.pem", "buildkit_key.pem"}, copiedNames)
+
+	// Critical: Ensure CA key and client keys are NOT in serverCertsDir
+	assert.NoFileExists(t, filepath.Join(serverCertsDir, "ca_key.pem"))
+	assert.NoFileExists(t, filepath.Join(serverCertsDir, "earthly_key.pem"))
+	assert.NoFileExists(t, filepath.Join(serverCertsDir, "earthly_cert.pem"))
+
+	// Verify content correctness
+	caData, err := os.ReadFile(filepath.Join(serverCertsDir, "ca_cert.pem")) // #nosec G304
+	require.NoError(t, err)
+	assert.Equal(t, "CA CERT DATA", string(caData))
+
+	serverKeyData, err := os.ReadFile(filepath.Join(serverCertsDir, "buildkit_key.pem")) // #nosec G304
+	require.NoError(t, err)
+	assert.Equal(t, "SERVER KEY DATA", string(serverKeyData))
+
+	keyInfo, err := os.Stat(filepath.Join(serverCertsDir, "buildkit_key.pem"))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), keyInfo.Mode().Perm())
+
+	// Test cleanup of extraneous files on subsequent run
+	strayFile := filepath.Join(serverCertsDir, "stray_leak.key")
+	require.NoError(t, os.WriteFile(strayFile, []byte("LEAKED SECRET"), 0o600)) // #nosec G306
+	assert.FileExists(t, strayFile)
+
+	_, err = prepareServerCertsDir(settings)
+	require.NoError(t, err)
+	assert.NoFileExists(t, strayFile)
 }

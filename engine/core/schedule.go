@@ -35,10 +35,10 @@ type Worker struct {
 	//
 	// **A fallback and never a preference.** A machine of the architecture runs
 	// the step; one that can only emulate it runs the step when there is no such
-	// machine. Preferring an emulator would make placement turn on load rather
-	// than on what the machines are, and emulated work is slower by a large
-	// factor - so this widens what a build *can* do without changing what it
-	// does when it has the choice.
+	// machine. Emulated work runs on the order of a hundred times slower - every
+	// instruction through an interpreter - so no amount of load on the native
+	// machine makes the emulator the better answer. This widens what a build *can* do without
+	// changing what it does when it has the choice.
 	Emulates []ir.Platform
 }
 
@@ -1059,10 +1059,16 @@ func (s *Scheduler) place(n *ir.Node, load map[string]int) (Worker, error) {
 
 	// **Emulation is a second pass, not a looser first one.** Widening
 	// eligibility instead would let an idle emulator take work from a busy
-	// machine of the right architecture, so placement would turn on load rather
-	// than on what the machines are - and emulated work is slower by a large
-	// factor. Only when nothing can run the step natively is a machine that can
-	// emulate it considered at all.
+	// machine of the right architecture, and that is never the faster choice.
+	// Not "usually slower": emulated work runs on the order of a hundred times
+	// slower, because every instruction goes through an interpreter. A queue on
+	// the native machine would have to be a hundred steps deep before the
+	// comparison even became close.
+	//
+	// That makes the ordering a rule rather than a heuristic, and it is why
+	// there is no load comparison between the two passes and should not be one.
+	// Only when nothing can run the step natively is a machine that can emulate
+	// it considered at all.
 	if len(eligible) == 0 {
 		for _, w := range s.Workers {
 			if !w.canEmulate(n.Platform) {

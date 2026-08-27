@@ -1414,6 +1414,34 @@ tests skip because the machine is better than the test needs, and a ceiling that
 counts those alongside the second row will move for reasons that are not about
 coverage at all.
 
+### The one lever worth pulling
+
+The gate's own output, the first time it printed reasons, put 46 of the skips
+under a single cause:
+
+```text
+ 46 this machine will not make a user namespace, so nothing ran: fork/exec …
+ 38 set EARTH_TEST_NETWORK=1 to run tests that reach the internet
+  9 this process is already under a seccomp filter
+```
+
+Forty-six is more than every other container-capability reason put together, and
+they are one privilege apart from running. `+engine-race` is a plain `RUN`, so
+its container gets buildkit's default seccomp profile, which refuses
+`clone(CLONE_NEWUSER)` - and every test that materialises a step, isolates one,
+or asks what a step can do needs a user namespace to try it in.
+
+What it would take, and why it is not done here: `RUN --privileged`, which
+requires the *invocation* to pass `--allow-privileged` as well. That is a change
+to how this suite is run rather than to what it asserts, it cannot be checked
+without a full CI cycle, and it would be a poor thing to discover broken on a
+run that was finally getting through. Worth doing deliberately, with the run
+that tests it not carrying anything else.
+
+The other two rows are not levers. The 38 are opt-in and run elsewhere on
+purpose; the 9 cannot be answered by a process that is already filtered,
+whatever privilege it is given.
+
 Regenerate from a CI log:
 
 ```bash

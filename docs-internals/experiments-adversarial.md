@@ -36154,3 +36154,36 @@ is a statement about platforms that have X. The green tests on the platform the
 change was written for said nothing about it; the other platform's suite is what
 caught it, which is the argument for running both before pushing rather than
 after.
+
+## E766 - a no-op build is 97% network, and two settings each remove all of it
+
+A twenty-step build with nothing to do, on a warm store, timed five times:
+
+| configuration            | warm build | `plan` phase |
+| ------------------------ | ---------- | ------------ |
+| as written               | 433 ms     | 0.423 s      |
+| `EARTH_PIN_TTL=10m`      | 12 ms      | 0.001 s      |
+| `FROM alpine@sha256:…`   | 12 ms      | -            |
+
+The first row is 21 cache hits and no misses, so nothing was built. Inside its
+`plan`: `registry:token` 0.273s and `pin:manifest` 0.149s - one token exchange
+and one manifest fetch to Docker Hub, to resolve a tag the build then does not
+use, because every step hits. The engine's own work is the remaining 10 ms.
+
+**Both remedies already exist and both are off.** Pinning is a source change the
+engine already recommends in its footer; the TTL is a setting, documented, and
+defaulting to off. Either takes the build to 12 ms, and the measurement is
+stable to a millisecond either way, because at that size there is no network in
+it at all.
+
+**The parked decision now has a number.** Whether `EARTH_PIN_TTL` should default
+to something non-zero is a trade between freshness and 420 ms per build: a tag
+that moves is not noticed until the window expires. What the measurement adds is
+that the cost of "off" is not a slice of a no-op build, it is a no-op build -
+36 times what the engine spends on its own work.
+
+⚠ **The settings page's figure for this disagrees.** It says `plan` is 0.585s of
+a 0.61s no-op `+earthly` and 0.21s with a ten-minute window - a third rather
+than all of it. Different target and possibly an older engine, but one of the
+two numbers is stale and neither should be trusted until they are measured the
+same way. Flagged rather than quietly edited.

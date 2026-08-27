@@ -1050,8 +1050,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: the devices given a directory of their own (E637)",
 		File:        "engine/guest/mount_linux.go",
-		Anchor:      "\tout := []Mount{{Ephemeral: true, Target: \"/dev\", Mode: 0o755}}",
-		Replacement: "\tvar out []Mount",
+		Anchor:      "\t\t{Ephemeral: true, Target: \"/dev\", Mode: 0o755},",
+		Replacement: "",
 		Package:     "./engine/guest/",
 		OS:          "linux",
 	},
@@ -2392,7 +2392,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: a mount staged with the mode asked for (E435)",
 		File:        "engine/guest/mount_linux.go",
-		Anchor:      "\tif m.Mode == 0 || os.FileMode(m.Mode).Perm() == deflt {\n\t\treturn nil\n\t}",
+		Anchor:      "\tif m.Mode == 0 || modeOf(m.Mode) == deflt {\n\t\treturn nil\n\t}",
 		Replacement: "\treturn nil",
 		Package:     "./engine/guest/",
 		OS:          "linux",

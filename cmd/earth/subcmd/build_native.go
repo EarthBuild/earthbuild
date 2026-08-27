@@ -56,16 +56,44 @@ func (b *Build) runNative(ctx context.Context, target domain.Target, flagArgs []
 		return err
 	}
 
-	return cli.Run(ctx, cli.Options{
-		Dir:    dir,
-		Target: "+" + target.Target,
+	return cli.Run(ctx, nativeOptions(nativeInput{
+		dir:             dir,
+		target:          target.Target,
+		platform:        platform,
+		args:            args,
+		allowPrivileged: b.cli.Flags().AllowPrivileged,
+	}))
+}
+
+// nativeInput is what the command line said, in the terms this engine takes.
+//
+// A struct and a function rather than a literal inline, so a test can assert
+// that a flag *arrives*. The bug this exists to prevent is the one the build
+// arguments already had and `--allow-privileged` then repeated: a flag parsed
+// into the globals, never copied into the options, and the engine refusing on a
+// permission the operator had granted. Eleven of fifteen Native CI jobs failed
+// on it, and read as a policy decision rather than a dropped field.
+type nativeInput struct {
+	dir             string
+	target          string
+	platform        string
+	args            map[string]string
+	allowPrivileged bool
+}
+
+// nativeOptions is the whole of the translation, in one place that can be read.
+func nativeOptions(in nativeInput) cli.Options {
+	return cli.Options{
+		Dir:    in.dir,
+		Target: "+" + in.target,
 		// One platform, because this engine builds for one at a time: the
 		// reference takes a list and fans out, and taking the first of a list
 		// silently would build something the caller did not ask for.
-		Platform: platform,
-		Args:     args,
-		Out:      os.Stdout,
-	})
+		Platform:        in.platform,
+		Args:            in.args,
+		AllowPrivileged: in.allowPrivileged,
+		Out:             os.Stdout,
+	}
 }
 
 // nativeArgs is the build arguments a native build starts with.

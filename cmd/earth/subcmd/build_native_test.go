@@ -103,3 +103,26 @@ func TestABareBuildArgumentWithNothingBehindItIsRefused(t *testing.T) {
 		}
 	}
 }
+
+// **`-P` reaches the engine.** It landed in the global flags and was never
+// copied into the native path's options, so the interpreter saw
+// `allowPrivileged=false` and refused every `RUN --privileged` - including in
+// files the operator owns, where the flag is exactly the opt-in the refusal
+// asks for. Eleven of fifteen Native CI jobs failed on it, reading as a policy
+// decision when it was a dropped field.
+//
+// The same shape as the build-argument bug above: accepted, stored, never
+// looked at.
+func TestAllowPrivilegedReachesTheNativeEngine(t *testing.T) {
+	t.Parallel()
+
+	for _, on := range []bool{false, true} {
+		got := nativeOptions(nativeInput{
+			dir: ".", target: "+x", allowPrivileged: on,
+		})
+
+		if got.AllowPrivileged != on {
+			t.Errorf("-P %v arrived as %v", on, got.AllowPrivileged)
+		}
+	}
+}

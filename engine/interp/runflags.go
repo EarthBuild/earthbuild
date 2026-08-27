@@ -61,8 +61,11 @@ type runOpts struct {
 	noNet bool
 	// interactive is `--interactive`: the step runs on the caller's terminal.
 	interactive bool
-	mounts      []ir.Mount
-	secrets     []string
+	// aws is `RUN --aws`: the step is given the invoking user's AWS
+	// credentials. Gated by `VERSION --run-with-aws`.
+	aws     bool
+	mounts  []ir.Mount
+	secrets []string
 }
 
 func runFlags(
@@ -86,7 +89,6 @@ func runFlags(
 		set  bool
 		name string
 	}{
-		{opts.WithAWS, "--aws"},
 		{opts.OIDC != "", "--oidc"},
 		{opts.WithDocker, "--with-docker"},
 		{opts.InteractiveKeep, "--interactive-keep"},
@@ -164,6 +166,7 @@ func runFlags(
 		// The invoking user's ssh agent, which is how a build reaches a private
 		// dependency without a key ever being written into an image (E466).
 		ssh:      opts.WithSSH,
+		aws:      opts.WithAWS,
 		pushOnly: opts.Push,
 	}
 

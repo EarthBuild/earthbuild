@@ -44,12 +44,13 @@ func TestARefusedFlagSaysWhatItAsksFor(t *testing.T) {
 		{
 			// `RUN --ssh` was here, as the case whose wanted phrase appeared in
 			// the flag's own name - *"a wanted phrase that appears in the
-			// flag's own name tests nothing"*. It is implemented now (E466), so
-			// the case is `RUN --aws`, which asks for credentials this engine
-			// has no way to obtain and whose refusal must therefore say what it
-			// is about rather than repeat the flag.
-			name: "RUN --aws",
-			body: "    RUN --aws echo hi\n",
+			// flag's own name tests nothing"*. It was implemented (E466) and
+			// `RUN --aws` took its place; that is implemented too now, so the
+			// case is `RUN --oidc`, which asks for credentials from a federated
+			// session this engine cannot open and whose refusal must therefore
+			// say what it is about rather than repeat the flag.
+			name: "RUN --oidc",
+			body: "    RUN --oidc thing echo hi\n",
 			want: "credential",
 		},
 		{

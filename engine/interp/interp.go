@@ -915,6 +915,17 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			}
 		}
 
+		// **A capability, so the file has to ask.** `RUN --aws` hands the
+		// invoking user's credentials to a step; a file that uses it without
+		// declaring the feature is refused rather than quietly given them.
+		if rf.aws {
+			err := p.here.features.needs(p.here.features.runWithAWS,
+				"RUN --aws", "--run-with-aws", loc(c.SourceLocation))
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		for _, m := range rf.mounts {
 			// The same two names for one secret, reaching the other line that
 			// looks one up.
@@ -1007,10 +1018,14 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				// `--persist` is the exception and is real: it copies the mount's
 				// contents into the image, so they are part of what the step
 				// produces rather than something beside it.
+				// `rf.aws` for the reason `rf.secrets` is here: the credentials
+				// are not in the key and must not be, so a step that ran with
+				// one set cannot answer for a step asking with another.
 				NoCache: rf.noCache || uncacheable(rs.mounts) || uncacheable(rf.mounts) ||
-					len(rf.secrets) > 0,
+					len(rf.secrets) > 0 || rf.aws,
 				Mounts:    mounts,
 				SecretEnv: rf.secrets,
+				AWS:       rf.aws,
 				// What this step resolves names by. Carried like the mounts and
 				// hashed like them, because it changes what the command does
 				// rather than where it runs.
@@ -3152,7 +3167,6 @@ var flagMeanings = map[string]string{
 	"--ssh":              "gives the command the host's ssh authentication client",
 	"--with-docker":      "starts a Docker daemon for the duration of the command",
 	"--interactive-keep": "opens a prompt in the container and keeps what the session changed",
-	"--aws":              "makes the host's AWS credentials available to the command",
 	// Refusing this one is a position rather than a gap: it exists to permit a
 	// save outside the directory holding the Earthfile, which is the thing
 	// insideProject was written to stop. "Not supported" invites somebody to

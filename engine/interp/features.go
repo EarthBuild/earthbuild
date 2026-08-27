@@ -24,8 +24,10 @@ import (
 // flag is a file written for a dialect this engine does not have, and saying so
 // is better than building it as though the flag were absent.
 type features struct {
-	try      bool
-	passArgs bool
+	// runWithAWS is `--run-with-aws`, which RUN --aws needs.
+	runWithAWS bool
+	try        bool
+	passArgs   bool
 	// projectSecrets is `--use-project-secrets`, which PROJECT arrived with. A
 	// file older than the feature is using a keyword its dialect does not have,
 	// and `tests/project-secrets-without-flag.earth` says so in the command it
@@ -69,6 +71,9 @@ var knownFeatures = map[string]func(*features){
 	// The builtin argument of the same name, which is a value rather than a
 	// construct - the third thing a feature flag can gate.
 	"--earthly-ci-runner-arg": func(f *features) { f.ciRunner = true },
+	// `RUN --aws`, which hands the invoking user's AWS credentials to a step.
+	// A capability rather than a spelling, so a file that uses it says so.
+	"--run-with-aws": func(f *features) { f.runWithAWS = true },
 }
 
 // ignoredFeatures are flags this engine understands to exist and does not gate.

@@ -101,6 +101,7 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 
 	h.Str(n.Op.Dir)
 	h.Str(n.Op.User)
+	h.Bool(n.Op.AWS)
 	h.Bool(n.Op.NoCache)
 	h.Bool(n.Op.IfExists)
 	h.Str(n.Op.As)

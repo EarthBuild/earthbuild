@@ -273,6 +273,17 @@ type Op struct {
 	// safe and honouring it wrongly is not: a step that asked to be cut off and
 	// was not may reach the network and produce a result nobody can reproduce.
 	NoNetwork bool
+	// AWS says the step asked for the invoking user's AWS credentials:
+	// `RUN --aws`.
+	//
+	// In the key because a step given credentials is not the step that ran
+	// without them - it may reach an account and produce a different result -
+	// and *only* the fact, never the values: a credential in a key is a
+	// credential in the cache, and the key is written down.
+	//
+	// The step is uncacheable anyway, for the reason a `--secret` step is: two
+	// invocations with different credentials are not each other's answer.
+	AWS bool
 	// Interactive says the step runs on the caller's terminal:
 	// `RUN --interactive`.
 	//
@@ -658,6 +669,7 @@ func (n *Node) ID() NodeID {
 	// rather than making the field optional.
 	h.Str(n.Op.Dir)
 	h.Str(n.Op.User)
+	h.Bool(n.Op.AWS)
 	h.Bool(n.Op.NoCache)
 	h.Bool(n.Op.IfExists)
 	h.Str(n.Op.As)

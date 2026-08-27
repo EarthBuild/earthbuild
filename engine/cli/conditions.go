@@ -320,6 +320,10 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		// rather than reaching for it, so nothing below this line depends on the
 		// environment (E466).
 		e.SSHAuthSock = os.Getenv("SSH_AUTH_SOCK")
+		// The same rule for `RUN --aws`: gathered here with the rest of the
+		// invocation's ambient state, so the executor is handed a value and
+		// nothing below this line reads the environment.
+		e.AWSCredentials = awsFromEnv(os.Environ())
 
 		imageRoot, err := imageCacheDir()
 		if err == nil {
@@ -927,4 +931,28 @@ func RemoveSandbox() error {
 	}
 
 	return firstErr
+}
+
+// awsFromEnv picks the AWS variables out of an environment.
+//
+// Takes the environment rather than reading it, so a test can hand it one and
+// the rule about what counts as an AWS variable is checkable without a process
+// to set them in.
+func awsFromEnv(environ []string) map[string]string {
+	var out map[string]string
+
+	for _, kv := range environ {
+		name, value, ok := strings.Cut(kv, "=")
+		if !ok || !strings.HasPrefix(name, "AWS_") || value == "" {
+			continue
+		}
+
+		if out == nil {
+			out = map[string]string{}
+		}
+
+		out[name] = value
+	}
+
+	return out
 }

@@ -156,7 +156,10 @@ func TestEveryRefusedFlagSaysWhatItWas(t *testing.T) {
 	// no longer finds it. A flag leaving this list because the engine grew is
 	// the good direction, and the floor moves with it rather than being kept
 	// where a green run would need a refusal nobody wants back.
-	if len(flags) < 10 {
+	// 10 -> 9: `--aws` likewise. It is gated by `VERSION --run-with-aws` now
+	// rather than refused, and a gate is not a refusal - `features.needs` says
+	// what the file must declare, which is a different sentence from this scan's.
+	if len(flags) < 9 {
 		t.Fatalf("only %d refused flags found (%v), so the scan is wrong rather"+
 			" than the source", len(flags), flags)
 	}

@@ -120,6 +120,15 @@ type Executor struct {
 	// Held here rather than in the graph so a value has nowhere to leak: the IR
 	// carries a secret's id, and this is the only place the value exists.
 	Secrets map[string]string
+	// AWSCredentials are the invoking environment's AWS_* variables, for
+	// `RUN --aws`.
+	//
+	// Supplied rather than read from the environment here, for the reason
+	// SSHAuthSock is: a caller that is not a CLI has its own idea of what the
+	// invocation held, and a package that reaches for `os.Environ` decides for
+	// them. Empty means a step asking for credentials is given none, which is
+	// the honest answer when the invocation had none to give.
+	AWSCredentials map[string]string
 	// SSHAuthSock is where the invoking user's ssh agent listens, empty when
 	// there is none.
 	//
@@ -575,6 +584,19 @@ func (e *Executor) Run(
 
 		env = append(env, name+"="+v)
 		secretNames = append(secretNames, name)
+	}
+
+	// **`RUN --aws`: the credentials travel like a secret because they are
+	// one.** Registering the names means the scanner redacts their values from
+	// the log and fails the build if one reaches a layer - which is the whole
+	// reason to forward them through this path rather than as plain
+	// environment. See awsEnv for why only some of the AWS variables are
+	// named.
+	if n.Op.AWS {
+		awsVars, awsSecret := awsEnv(e.AWSCredentials)
+
+		env = append(env, awsVars...)
+		secretNames = append(secretNames, awsSecret...)
 	}
 
 	// Before anything runs: a step built for a platform this sandbox cannot

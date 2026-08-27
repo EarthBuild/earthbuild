@@ -225,10 +225,10 @@ func TestEveryRefusalIsExactlyOneKind(t *testing.T) {
 	t.Parallel()
 
 	for name, src := range map[string]string{
-		// `RUN --ssh` was the gap here until it was implemented (E466); `--aws`
-		// is one still, and asks for credentials from a service this engine
-		// does not talk to.
-		"a gap":                  "\nmain:\n    FROM alpine:3.22\n    RUN --aws make\n",
+		// `RUN --ssh` was the gap here until it was implemented (E466), then
+		// `--aws` until it was too. `--oidc` is one still, and asks for
+		// credentials from a federated session this engine cannot open.
+		"a gap":                  "\nmain:\n    FROM alpine:3.22\n    RUN --oidc thing make\n",
 		"not in the language":    "\nmain:\n    FROM alpine:3.22\n    COPY --from=other /a /b\n",
 		"a decision":             "\nmain:\n    FROM alpine:3.22\n    RUN make\n    SAVE ARTIFACT --force /out\n",
 		"privileged, a decision": "\nmain:\n    FROM alpine:3.22\n    RUN --privileged make\n",

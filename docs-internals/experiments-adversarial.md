@@ -34581,3 +34581,96 @@ Linux (+6), a linux/amd64 worker (+2), teaching the harness three cases (+3),
 implementing `USER` (+1) and `LOCALLY` (+2), and deciding `RUN --aws` (+2). The
 remaining 8 are the engine declining to do things, and are better read as the
 corpus disagreeing with the engine than the engine failing the corpus.
+
+### Corrected: it was 229, and the harness was mis-filing three passes
+
+The 226 above is wrong, and so is the shape of the table. The harness asked
+whether the log said "on purpose" *before* it asked whether the target was
+expected to fail, so a target the corpus wants rejected, which this engine
+rejects deliberately, was filed as a divergence rather than a pass. Three
+`allow-privileged.earth+reject-privileged-in-remote-repo-*` targets had been
+counted that way throughout.
+
+`diverges` means the engine declined something the corpus expected to *succeed*.
+Asked in that order the sweep is:
+
+| outcome     | n   |
+| ----------- | --- |
+| ok          | 229 |
+| wrong       | 10  |
+| diverges    | 6   |
+| unjudgeable | 3   |
+| unmodelled  | 2   |
+
+and the ten failures are four causes, seven of them this machine's:
+
+| cause                                    | n   | nature           |
+| ---------------------------------------- | --- | ---------------- |
+| the dind image needs a case-sensitive fs | 4   | macOS            |
+| a host-share store discards ownership    | 3   | macOS            |
+| `RUN --aws`                              | 2   | a decision, E726 |
+| `FOR` over a `LOCALLY`                   | 1   | an engine gap    |
+
+**On Linux that is 236 of 250**, with two awaiting a decision and one real gap.
+The lesson is the day's own: a number that had been quoted all afternoon was
+measuring the classifier, not the engine.
+
+## E736 - USER was recorded, hashed, and never applied
+
+`USER testuser` did nothing. The interpreter carried it into `Op.User`, the key
+hashed it - so two steps differing only in `USER` were *different steps* and
+missed each other's cache entries - and both of them ran as root.
+
+An Earthfile that says a step drops privileges and is handed root instead is the
+wrong way round for a mistake to go. Nothing in the engine noticed, because
+nothing had ever run as anyone else: every test, every corpus target and every
+build ran as uid 0, so no path that depends on not being root was ever taken.
+
+### Four faults, each hidden by the one before it
+
+1. **`Op.User` reached the guest nowhere.** `guest.Step` had no field for it, so
+   the value stopped at the host. `USER` reached the *image configuration* -
+   what the built image declares - and never the step.
+2. **Nothing dropped privileges.** The shim does it now, and does it last: the
+   `/proc` mount, the chroot and the seccomp install all want the root they
+   have, and the step does not. Names are resolved after the chroot, where
+   `/etc/passwd` is the step's own and a CGO-free `os/user` reads exactly that
+   file; a numeric spec reads no file at all, so `USER 1000` works in an image
+   that has no passwd - a scratch image, a distroless one.
+3. **The scratch path was 0750.** A step that had dropped could not walk through
+   `scratch/mounts/<handle>` to reach its own filesystem. Now 0751: traverse,
+   not list, so nothing learns what other handles exist by walking.
+4. **The overlay upper directory was 0750, and that is the step's `/`.**
+   overlayfs takes the merged root's attributes from the upper layer, not from
+   any image below it. A step that dropped privileges could not enter its own
+   root and reported
+
+   ```text
+   earthbuild step shim: exec /bin/sh: permission denied
+   ```
+
+   about a shell that was right there. This is the one that took longest,
+   because the message names the shell and the fault is in the directory two
+   levels above it.
+
+A fifth was found on the way: `os.MkdirTemp` makes 0700, and the staging
+directory *becomes* the unpacked image's root, so every image this engine
+unpacked had a root no unprivileged process could enter.
+
+### What it is worth
+
+**No corpus movement**, and that is worth stating plainly: `chown.earth+test` is
+the only target that exercises `USER`, and it fails earlier on this machine
+because a host-share store cannot carry an ownership the guest set. The feature
+is verified directly instead - `USER name` and `USER uid:gid` both take effect,
+`EARTH_STEP_USER` does not reach the step's environment, and a step with no
+`USER` still runs as root - and the sweep is 226 with identical sets, so nothing
+regressed.
+
+The permission changes are the part to review. Two directories gained a bit each,
+both inside the guest, whose only other user is the step: one so a step can walk
+to its filesystem, one so it can enter it.
+
+**[GAP]** `EARTH_STEP_SHIM=0` has nothing between the clone and the step to
+change identity in, so `USER` is still recorded and not applied there. That is
+now what the switch costs, alongside the E723 deadlock it keeps.

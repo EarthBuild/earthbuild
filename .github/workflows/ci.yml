@@ -183,11 +183,19 @@ jobs:
           fi
           docker save "$IMG" -o ./artifacts-standard/buildkitd-image.tar
 
-          # The standalone sandbox agent, shipped for anyone who wants one -
-          # not for the native jobs, which run the CLI as their own agent. It
-          # is deliberately *not* installed beside the CLI in stage2-setup; see
-          # the note there for why supplying it would hide the bug it fixes.
-          cp ./build/linux/amd64/earth-guestd ./artifacts-standard/earth-guestd
+          # **The standalone agent is not shipped here, and was never being
+          # shipped.** This step used to `cp ./build/linux/amd64/earth-guestd`,
+          # which nothing on this path produces: `+ci-release` saves a *pushed
+          # image*, and the only target that writes that binary locally is
+          # `+for-linux-amd64`, which CI does not run. The copy failed the first
+          # time this workflow ever executed on the branch.
+          #
+          # Removed rather than fixed, because nothing wants it. The native jobs
+          # run the CLI as their own agent - `earth guestd ...` serves out of the
+          # CLI itself, which is the only arrangement a nested build can use -
+          # and stage2-setup deliberately does not install a sibling agent,
+          # since supplying one would hide the bug that arrangement fixes.
+          # Anyone who does want the binary can build `+for-linux-amd64`.
       - name: Build earth binary artifact (fork only)
         # Fork PRs cannot read the binary from ghcr, so it ships in the
         # artifact. Non-fork jobs fetch it via `earth upgrade` instead --

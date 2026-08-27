@@ -97,7 +97,11 @@ func TestTheEarthTestsSweep(t *testing.T) {
 
 	var (
 		planned int
-		total   int
+		// plans names every target that planned, so two machines disagreeing
+		// about the count can be diffed rather than argued about. See
+		// ratchetSlice.
+		plans []string
+		total int
 		// sweeps counts refusals this sweep caused, which are not the engine's
 		// and must not be counted as work left.
 		sweeps int
@@ -143,6 +147,10 @@ func TestTheEarthTestsSweep(t *testing.T) {
 				_, err := interp.Build(string(src), target, opts...)
 				if err == nil {
 					planned++
+					// Relative to the corpus, not absolute: the sweep runs in
+					// a temporary directory whose name is different every run,
+					// and a list carrying it differs from itself.
+					plans = append(plans, relTo(root, f)+"+"+target)
 
 					continue
 				}
@@ -262,7 +270,17 @@ func TestTheEarthTestsSweep(t *testing.T) {
 		planned, total, planned, judged, sweeps, invalid, declaredFailing, onPurpose,
 		len(found), strings.Join(top, ", "))
 
-	ratchetSlice(t, "earthtests", planned)
+	ratchetSlice(t, "earthtests", planned, plans...)
+}
+
+// relTo is a path as the corpus names it, for a list two machines will diff.
+func relTo(root, path string) string {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return path
+	}
+
+	return rel
 }
 
 // readTree reads the corpus's own `tests/Earthfile`, or an empty string.

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -105,7 +106,16 @@ func readRatchetKey(t *testing.T, key string) (int, error) {
 // Same rule as the whole-corpus ratchet, in both directions: a fall is a
 // regression and a rise is a level worth recording, and moving the number is one
 // line for whoever earned it.
-func ratchetSlice(t *testing.T, name string, planned int) {
+// EnvRatchetList names a file to write the planned targets to when a slice's
+// count does not match what is committed.
+//
+// **Why a list and not a better number.** The count moving says a target moved
+// and not which one, and the two machines that disagree are usually not the
+// same machine - a developer's and a runner's. Sorted, one per line, so
+// `diff` finishes the diagnosis in a line.
+const EnvRatchetList = "EARTH_RATCHET_LIST"
+
+func ratchetSlice(t *testing.T, name string, planned int, plans ...string) {
 	t.Helper()
 
 	key := runtime.GOOS + "-" + name
@@ -124,8 +134,36 @@ func ratchetSlice(t *testing.T, name string, planned int) {
 			"\n  something that used to build no longer does, and the whole-corpus"+
 			" count moves too little to show it", planned, name, want, ratchetAt)
 	case planned > want:
+		// **Not simply "move the number".** A rise is usually work, and moving
+		// the number is then exactly right. But this count is not the same on
+		// every machine - a target whose planning turns on installed tooling or
+		// a feature probe plans on a developer's box and not on a runner - and
+		// a number moved from a local run puts CI red on this same test in the
+		// other direction. So say where the number comes from.
 		t.Errorf("%d %s targets plan, against %d committed in %s"+
-			"\n  more than before: move the number, which is the point of it",
-			planned, name, want, ratchetAt)
+			"\n  more than before: move the number, which is the point of it -"+
+			" but take it from CI"+
+			"\n  a rise seen only on this machine is a target that plans here"+
+			" and not on a runner, and committing it turns CI red the other way"+
+			"\n  set %s to a path to write the planned targets, and diff the"+
+			" two machines' lists to see which target moved",
+			planned, name, want, ratchetAt, EnvRatchetList)
+	}
+
+	// Written on any mismatch, in either direction, because the question is the
+	// same one both ways: which target moved.
+	if at := os.Getenv(EnvRatchetList); at != "" && planned != want && len(plans) > 0 {
+		sorted := append([]string(nil), plans...)
+		sort.Strings(sorted)
+
+		err := os.WriteFile(at, []byte(strings.Join(sorted, "\n")+"\n"), 0o600)
+		if err != nil {
+			t.Errorf("write the planned targets to %s: %v", at, err)
+
+			return
+		}
+
+		t.Logf("the %d planned targets are in %s, sorted; diff it against the"+
+			" same file from the machine that disagrees", len(sorted), at)
 	}
 }

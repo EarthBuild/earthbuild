@@ -544,7 +544,22 @@ func deviceMounts() []Mount {
 	//
 	// First, because `bindMounts` works the list in order: a /dev arriving
 	// later would be mounted over the devices already beneath it.
-	out := []Mount{{Ephemeral: true, Target: "/dev", Mode: 0o755}}
+	out := []Mount{
+		{Ephemeral: true, Target: "/dev", Mode: 0o755},
+		// **Shared memory, which is a mount and not a device.** POSIX shared
+		// memory is a file in a tmpfs at this path and nowhere else, so a step
+		// without one has no `sem_open`, no `shm_open` and no
+		// `multiprocessing`. The OCI runtime specification mounts it, so every
+		// other engine a build has run under provided it, and its absence is
+		// reported by whatever reached for it rather than as a missing mount:
+		// Python says a semaphore does not exist, Chrome dies on its first tab,
+		// PostgreSQL will not start (E752).
+		//
+		// Second, so it lands inside the /dev above rather than being hidden by
+		// it. 1777 as everywhere else - world-writable, and sticky so one user
+		// cannot remove another's segment.
+		{Ephemeral: true, Tmpfs: true, Target: "/dev/shm", Mode: 0o1777},
+	}
 
 	for _, dev := range []string{
 		"/dev/null", "/dev/zero", "/dev/full",
@@ -654,12 +669,28 @@ func unmountAll(target string) {
 // the Earthfile asked for nothing - `MkdirAll` and `WriteFile` already used the
 // default, and chmod-ing to the same value would be a syscall that can fail for
 // no reason.
+// modeOf is a mount's mode as a FileMode, sticky bit and all.
+//
+// `os.FileMode.Perm()` masks to the low nine bits and Go spells the sticky bit
+// outside them, so a mount asking for 1777 was chmodded to 0777 in silence.
+// /dev/shm is 1777 on every machine a build has run on, and the difference does
+// not show up until one user removes another's segment (E752).
+func modeOf(mode uint32) os.FileMode {
+	out := os.FileMode(mode).Perm()
+
+	if mode&unix.S_ISVTX != 0 {
+		out |= os.ModeSticky
+	}
+
+	return out
+}
+
 func applyMode(path string, m Mount, deflt os.FileMode) error {
-	if m.Mode == 0 || os.FileMode(m.Mode).Perm() == deflt {
+	if m.Mode == 0 || modeOf(m.Mode) == deflt {
 		return nil
 	}
 
-	err := os.Chmod(path, os.FileMode(m.Mode).Perm())
+	err := os.Chmod(path, modeOf(m.Mode))
 	if err != nil {
 		return fmt.Errorf("set mode %#o on %s: %w", m.Mode, m.Target, err)
 	}

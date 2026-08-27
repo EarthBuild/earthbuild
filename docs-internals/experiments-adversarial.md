@@ -35524,3 +35524,64 @@ is a worker-discovery assertion ("both workers did not ...").
 **The fix.** `squashInto` skips a declaration and refuses every other absence
 exactly as before, with a test for each half: a range carrying one is squashed,
 and a range naming a layer that genuinely is not there is still refused.
+
+## E752 - a step had no shared memory, and the completion test knew
+
+`+test-no-qemu-group1` failed on a diff of a *directory listing*:
+
+```text
+--- expected
++++ actual
+-../dev/
+ ../etc/
+ ../lib/
+...
+-../run/
+-../sys/
+```
+
+The completion suggests a directory only when `hasSubDirs` says it has
+subdirectories, which is why the expectation omits `bin`, `sbin`, `tmp`, `mnt`,
+`opt` and `srv` as well - alpine ships those empty. So the three lines are not
+about three directories being missing. They are about three directories being
+*emptier* under this engine than under an OCI runtime:
+
+| path   | under runc                  | here                        |
+| ------ | --------------------------- | --------------------------- |
+| `/dev` | `pts`, `shm`, `mqueue`      | six device files, no subdirs|
+| `/sys` | sysfs                       | the image's empty directory |
+| `/run` | populated                   | the image's empty directory |
+
+**The test was the messenger, and the message was worth more than the test.**
+`/dev/shm` is where POSIX shared memory lives and there is no alternative path:
+a step without one has no `sem_open`, no `shm_open`, no `multiprocessing`.
+Nothing reports that as a missing mount. Python says a semaphore does not exist,
+Chrome dies on its first tab, PostgreSQL will not start - each naming itself.
+This engine had shipped without one.
+
+Verified absent, and then present:
+
+```console
+$ earth-native +shm      # before: ls: /dev/shm: No such file or directory
+  drwxrwxrwt 2 root root 40 /dev/shm
+  tmpfs  31.4G  0  31.4G  0%  /dev/shm
+```
+
+Half of RAM rather than docker's 64M, which is the size that made
+`--shm-size` a thing every Chrome-in-CI guide has to mention.
+
+**A second defect, found by writing the test for the first.** `applyMode` set
+the mode with `os.FileMode(m.Mode).Perm()`, and `Perm` masks to the low nine
+bits while Go spells the sticky bit outside them. A mount asking for 1777 was
+chmodded to 0777 in silence. That is invisible until one user removes another's
+shared-memory segment, which is exactly the failure the sticky bit exists to
+prevent; `--mount=type=tmpfs,mode=1777` was affected as well.
+
+**Left undone, deliberately.** `/sys` and `/dev/pts` are the other two. Mounting
+sysfs needs the network namespace to be owned by the user namespace, and these
+tests run `NETWORK_MODE=host`, so it will fail on exactly the configuration that
+wants it; devpts needs a gid mapping that a rootless build may not have. Both
+need a decision about whether a step may silently differ between machines (I3)
+rather than just a mount call, and neither has the consequences `/dev/shm` has.
+The completion test therefore still fails, and it should: two thirds of what it
+is asserting are still true.

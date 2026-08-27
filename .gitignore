@@ -15,6 +15,14 @@
 # a stray build of ./tools/mutate; the tool is run with `go run`
 /mutate
 
+# Stray builds of ./cmd/*, for the same reason: `go build ./cmd/earth-native/`
+# without -o drops a 20MB binary here, and the intended output is /build/.
+/debugger
+/earth
+/earth-guestd
+/earth-native
+/earth-worker
+
 # Generated test fixtures: a hundred thousand files is a repository nobody can
 # clone, for content that is a for loop. See engine/exec/bigtree_test.go.
 **/testdata/bigtree-*

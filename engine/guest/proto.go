@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/image"
@@ -886,6 +887,11 @@ type ImageSpec struct {
 	Platform ocispec.Platform `json:"platform"`
 	// Config is what the target declared: entrypoint, environment, labels.
 	Config ocispec.ImageConfig `json:"config"`
+	// Created is when the image says it was made, zero to say nothing. It
+	// travels because the guest packs the archive and the *host* is the only
+	// side that reads SOURCE_DATE_EPOCH - a guest consulting its own
+	// environment would answer a question nobody asked it (E549, E772).
+	Created time.Time `json:"created,omitzero"`
 }
 
 // Spec is this description as the image writer wants it, without layers.
@@ -898,6 +904,7 @@ func (i ImageSpec) Spec() image.Spec {
 		Platform:    i.Platform,
 		Config:      i.Config,
 		Healthcheck: i.Healthcheck,
+		Created:     i.Created,
 	}
 }
 
@@ -908,5 +915,6 @@ func ImageSpecOf(spec image.Spec) ImageSpec {
 		Platform:    spec.Platform,
 		Config:      spec.Config,
 		Healthcheck: spec.Healthcheck,
+		Created:     spec.Created,
 	}
 }

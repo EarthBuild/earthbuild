@@ -36432,3 +36432,49 @@ comparison found E769 immediately; carrying it one step further - not just does
 the archive load, but does the loaded image *say* what it should - found this.
 Comparing against a reference implementation's output is worth more than reading
 its source, and worth much more than reasoning about ours.
+
+## E772 - the image said nothing about when it was made, on purpose, and could say more
+
+Carrying the comparison from E769 and E771 through the rest of `docker inspect`:
+
+```console
+$ docker inspect alpine:3.24.1 --format '{{.Created}}'
+2026-06-16T00:01:29.967161902Z
+$ docker inspect cfgtest:img --format '{{.Created}}'
+
+
+```
+
+**Which turned out to be deliberate**, and the comment saying so was two lines
+above where the change would have gone:
+
+> No `created` timestamp. It is the one field the format invites that would make
+> two builds of one input produce different images, which is the property this
+> engine is for.
+
+That is a fence with its reason attached, and the reason is right: a timestamp
+from the clock defeats E764. The change that would have been made without
+reading it - "set it to now, like docker does" - would have traded the
+engine's headline property for a cosmetic field.
+
+**There is a third option the fence does not forbid.** A build asked to be
+reproducible has already said what time to use. Written from `SOURCE_DATE_EPOCH`
+and from nothing else, the field is present exactly when it is safe:
+
+```console
+$ earth-native +wd && docker inspect cfgtest:img --format '{{.Created}}'
+
+$ SOURCE_DATE_EPOCH=1700000000 earth-native +wd && docker inspect cfgtest:img --format '{{.Created}}'
+2023-11-14T22:13:20Z
+```
+
+Both halves matter. Absent, two builds still produce identical images. Present,
+`docker image ls` has an age, a scanner has a date to judge staleness by, and
+the image still reproduces byte for byte.
+
+**It travels on the wire.** The guest packs the archive and only the host reads
+`SOURCE_DATE_EPOCH` - a guest consulting its own environment would be answering
+a question nobody asked it (E549) - so the time goes in the request, beside the
+configuration it belongs to. The first attempt set it host-side only, and both
+runs printed an empty `created` because the host is not the side that writes the
+file.

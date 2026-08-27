@@ -12,6 +12,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/decl"
+	"github.com/EarthBuild/earthbuild/engine/fstime"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/store"
@@ -44,6 +45,14 @@ func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) 
 	root := e.sb.StoreDir()
 
 	spec := image.Spec{Ref: n.Op.Args[0]}
+
+	// Only under a clamp. An image that says when it was made is the ordinary
+	// thing and what every reader expects, and a time taken from the clock
+	// would make two builds of one input differ - so it is written exactly when
+	// the build has already said what time to use (E772).
+	if at, ok := fstime.Clamp(); ok {
+		spec.Created = at
+	}
 
 	// What the target declared about how the image runs. Written as layers
 	// alone, the loaded image had no entrypoint and no command, and the very

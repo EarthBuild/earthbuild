@@ -49,6 +49,11 @@ type Spec struct {
 	// read, so it is written alongside the standard fields - which is what every
 	// other builder does and what a daemon looks for (E486).
 	Healthcheck *Healthcheck
+	// Created is when the image says it was made, or the zero time to say
+	// nothing at all. Only a build with SOURCE_DATE_EPOCH set gives it a value,
+	// because it is the one field that would otherwise make two builds of one
+	// input differ; see writeConfig.
+	Created time.Time
 }
 
 // Healthcheck is a health check as an image config carries it.
@@ -303,9 +308,16 @@ func writeLayers(blobs string, sources []LayerSource) ([]ocispec.Descriptor, []d
 
 // writeConfig writes the image configuration and returns its descriptor.
 func writeConfig(blobs string, spec Spec, diffIDs []digest.Digest) (ocispec.Descriptor, error) {
-	// No `created` timestamp. It is the one field the format invites that would
-	// make two builds of one input produce different images, which is the
-	// property this engine is for.
+	// **`created` only when it can be given a value that does not move.** It is
+	// the one field the format invites that would otherwise make two builds of
+	// one input produce different images, which is the property this engine is
+	// for - so for a long time it was left out entirely, and `docker inspect`
+	// reported an empty string where every other image reports a time.
+	//
+	// A build asked to be reproducible has already said what time to use:
+	// `SOURCE_DATE_EPOCH` fixes every file's mtime (E764) and fixes this too.
+	// Set from that and from nothing else, the field is present exactly when it
+	// is safe and absent exactly when it is not (E772).
 	cfg := configWith{
 		Image: ocispec.Image{
 			Platform: spec.Platform,
@@ -315,6 +327,11 @@ func writeConfig(blobs string, spec Spec, diffIDs []digest.Digest) (ocispec.Desc
 			ImageConfig: spec.Config,
 			Healthcheck: spec.Healthcheck,
 		},
+	}
+
+	if !spec.Created.IsZero() {
+		at := spec.Created.UTC()
+		cfg.Image.Created = &at
 	}
 
 	desc, err := writeBlob(blobs, ocispec.MediaTypeImageConfig, cfg)

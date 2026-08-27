@@ -50,14 +50,18 @@ func Resolve(ctx context.Context, ref string, opt Options) (string, error) {
 
 	base := fmt.Sprintf("%s://%s/v2/%s", scheme, registryHost(r.Registry), r.Repository)
 
-	endToken := timing.Phase("pin:token", r.Registry)
 	// **The origin, and deliberately not a mirror.** A pull may take its bytes
 	// from anywhere because every digest is verified against the manifest; a
 	// resolution *is* the answer to "what does this tag mean today", and a
 	// mirror's answer is its own cache. Pinning to a stale digest would be
 	// worse than not pinning at all, so this asks the registry itself.
+	//
+	// Not timed here: `token` opens a `registry:token` phase of its own, so a
+	// phase around this call reports the same round trip twice - two lines
+	// agreeing to the millisecond, which anybody reading the log as a list of
+	// costs will add together (E733). The inner one also names the repository
+	// where this named only the registry.
 	tok, err := token(ctx, client, base+"/manifests/"+r.Tag, opt.Challenges, challengeKey(r))
-	endToken()
 
 	if err != nil {
 		return "", fmt.Errorf("authenticate to %s: %w", r.Registry, err)

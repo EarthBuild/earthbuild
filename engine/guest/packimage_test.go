@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -99,5 +100,50 @@ func TestPackingAnImageWithAMissingLayerIsRefused(t *testing.T) {
 	_, statErr := os.Stat(filepath.Join(root, "images"))
 	if statErr == nil {
 		t.Error("a refused pack left an images directory behind")
+	}
+}
+
+// A declaration in the stack is not a missing layer.
+//
+// An image's environment travels as a stack element rather than a file beside
+// the layer, so that a worker fetching every id in the stack fetches it too
+// (green paper §3.2a). It is written as `layers/<id>.decl`, a file - so the
+// layer test, which stats `layers/<id>` and wants a directory, can never be
+// satisfied by one. Packing asked that test of every element and refused a
+// correct build: `WITH DOCKER --load` of an image whose base declares anything
+// reported the declaration as a layer the store had lost (E749).
+func TestPackingAnImageWhoseStackCarriesADeclaration(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	layer := ir.NodeID{4}
+	into := ir.NodeID{5}
+
+	write(t, root, layer, map[string]string{"greeting": "hello"})
+
+	declares, err := decl.Write(root, decl.Declaration{
+		Env: []string{"PATH=/usr/bin"}, WorkingDir: "/w",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c := pairWith(t, &guest.Server{LayerDir: root})
+
+	// Above the layer it came with, which is where the scheduler puts it.
+	err = c.PackImage(context.Background(), into, []ir.NodeID{layer, declares},
+		image.Spec{Ref: "demo:latest"})
+	if err != nil {
+		t.Fatalf("a stack carrying a declaration was refused: %v", err)
+	}
+
+	// The declaration is not a filesystem layer, so the archive holds one.
+	manifest, err := os.ReadFile(filepath.Join(root, "images", into.String(), "index.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(manifest) == 0 {
+		t.Error("the pack wrote an empty index")
 	}
 }

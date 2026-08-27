@@ -35379,3 +35379,63 @@ an operator opt-in, blocked on implementing the mount. The motivating case is a
 cache directory the host toolchain already filled - `~/.cache-cargo` - which
 `type=cache` cannot serve, because its cache lives in the engine's store rather
 than where cargo put one.
+
+## E749 - a declaration is not a layer, and pack was the only consumer that disagreed
+
+`WITH DOCKER --load` of several images built from one target failed with
+
+```console
+pack another-test-img:i5: this store holds no layer bd727dfa4357...
+```
+
+on a store that had lost nothing.
+
+**What the id was.** An image's environment travels as a *stack element* rather
+than as a file beside the layer (§3.2a) - that is what puts it in ids(𝑏) and what
+makes a worker fetch it along with everything else in the stack. The scheduler
+pushes it exactly like a layer:
+
+```go
+if res.Declares != (ir.NodeID{}) {
+    stack = pushLayer(stack, res.Declares)
+}
+```
+
+But `decl.Write` files it at `layers/<id>.decl`, a **file**, while
+`LayerStore.Has` stats `layers/<id>` and requires `IsDir()`. Asked of a
+declaration, that test cannot succeed. Every other consumer was indifferent -
+`LayerStore.View` joins paths without stating them - so `packImageInto` was the
+only place the disagreement was reachable, and it reported a correct build as a
+lost layer.
+
+**How the evidence read, and why it misled.** Three facts pointed away from the
+answer for most of a day:
+
+* the missing id was *identical* on every run and on both machines, which reads
+  as determinism in the producer rather than in the id - a declaration's identity
+  is its content digest, so `FROM alpine` mints the same id every time;
+* *which image* reported it varied (i4 in CI, i5 locally), which reads as a
+  race. It is only the concurrency of five packs, any of which fails first;
+* an earlier store had `bd727dfa4357` present in `layers/`, apparently
+  contradicting the refusal. It was there as `bd727dfa4357….decl`, and the
+  listing was read without its suffix.
+
+The `bytes: 0` and `declared: true` in the action record were the tell, and were
+in the first store dumped.
+
+**Discipline.** "Named in a stack and not in the store" was attributed to a
+half-killed run leaving debris. That is true locally, where a cancelled build
+dirties the store, and impossible in CI, whose runners are ephemeral and hold no
+`actions/cache` for the store. An explanation that cannot hold where the failure
+also occurs is not the explanation.
+
+**The fix.** `packImageInto` skips a stack element that `decl.Has` recognises,
+and refuses any other absence exactly as before - a missing layer still produces
+an image that loads and is missing files, which is worth refusing. Tested by
+`TestPackingAnImageWhoseStackCarriesADeclaration`, alongside the refusal test it
+must not weaken.
+
+**What it revealed.** With the refusal gone the images pack (10 written where
+none had been) and the build reaches a further fault: the sandbox has no
+`/var/lib/earthbuild/store/images`, the store not being mounted where the daemon
+in the `WITH DOCKER` sandbox looks. Downstream of this and separate from it.

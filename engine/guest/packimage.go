@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/store"
@@ -38,6 +39,18 @@ func packImageInto(root string, into ir.NodeID, layers []ir.NodeID, spec image.S
 	spec.Layers = make([]image.LayerSource, 0, len(layers))
 
 	for _, id := range layers {
+		// **A declaration is not a layer, and its absence is not a loss.**
+		// An image's environment travels as a stack element so that a worker
+		// fetching every id in the stack fetches it too (green paper §3.2a),
+		// but it is stored as `layers/<id>.decl` - a file, where the test
+		// below wants a tree. Asked of it, that test could only ever fail, and
+		// a correct `WITH DOCKER --load` was refused for losing a layer that
+		// was never one (E749). What it declares reaches the image through
+		// spec.Config, which the host filled in from the same declaration.
+		if decl.Has(root, id) {
+			continue
+		}
+
 		// Refused rather than skipped. A missing layer here would produce an
 		// image that loads and is missing files, which the daemon reports as a
 		// program that is not there - a message with nothing in it to connect

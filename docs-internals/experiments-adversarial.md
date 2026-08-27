@@ -36578,3 +36578,18 @@ current behaviour is wanted, the migration note is the deliverable.
 Method: `earthly v0.8.17` and `earth-native` on the same machine, the same
 Earthfile, `SOURCE_DATE_EPOCH` set and unset, comparing `sha256sum`, `stat -c
 %a` and `stat -c %Y` of two saved artifacts.
+
+**The same comparison on a `SAVE IMAGE`, which confirms E771 against the thing
+it was guessing at.** Both engines, one Earthfile with an `ENV`, a `WORKDIR` and
+a `CMD` over `FROM alpine`:
+
+```text
+earthly  env=[PATH=/usr/local/sbin:… GREETING=hello] wd=/w cmd=[/bin/cat /marker]
+ours     env=[PATH=/usr/local/sbin:… GREETING=hello] wd=/w cmd=[/bin/cat /marker]
+```
+
+Exact agreement, including the base's PATH - which ours dropped until E771. That
+entry argued from `docker inspect alpine` that the base's environment ought to
+survive; this is the reference implementation agreeing. `created` differs on the
+same axis as the artifacts above: earthly writes the time of the build, ours
+writes nothing unless clamped (E772).

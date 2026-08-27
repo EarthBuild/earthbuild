@@ -34019,3 +34019,84 @@ have several ways to arrive), and the two other directions in the nit. The next
 experiment wants the stacks from a hang taken *under the fix*: if the child is
 still waiting on a notification the supervisor never received, the thread was
 never the constraint and the answer is upstream of scheduling.
+
+## E729 - the filter is necessary for the E723 hang, and the shim inherits it
+
+E728 refuted a guess about E723 without testing the diagnosis it was guessing
+from. This tests the diagnosis.
+
+**A probe that never installs the filter does not hang.** `runTraced` already has
+an unobserved path for a failed install, so forcing it exercises a supported
+arrangement rather than a broken one - the step runs, the observation says it was
+not watched, and the build completes:
+
+| guest binary           | hangs  |
+| ---------------------- | ------ |
+| unmodified             | 2 of 5 |
+| filter never installed | 0 of 5 |
+
+The seccomp filter is therefore necessary for the hang, which is what the kernel
+stacks in the nits file already said and what E728's failure left unverified.
+
+**A false start worth recording.** The first attempt at this probe wrote
+
+```go
+tr, err := trace.StartOnSelf()
+tr, err = nil, errors.New("probe: tracing forced off")
+```
+
+`StartOnSelf` installs the filter and only then returns the tracer, so discarding
+the tracer left the filter live with nothing answering it. That is a guaranteed
+hang, and it came back 2 of 2 reading exactly like a refutation of the whole
+diagnosis. The tell was unanimity: a phenomenon running at 2 in 5 does not become
+deterministic unless the measurement changed. **A broken instrument reads like a
+decisive result** - the same shape as a `golangci-lint` run that aborts on a
+typecheck error and reports "1 issue".
+
+### Where the trapped execve actually comes from
+
+The step shim is **on by default** (`EARTH_STEP_SHIM`, off only at `0`), so a
+step is launched by exec'ing the guest's own binary and letting it chroot itself.
+The filter is installed *before* the clone, by `StartOnSelf` on the guest's
+thread, and inherited across it. So the execve that traps - the child's first
+syscall, per the stacks - is **the shim's exec of the guest binary**, not the
+step's exec of the step. The vfork parent is waiting for an exec that is waiting
+for a supervisor that the vfork is preventing from running.
+
+### What this makes of the three directions
+
+* **A separate supervising process** still works and is still the heaviest.
+* **Without `CLONE_VFORK`** has exactly one lever, and it is not a tuning one.
+  Go 1.26.2 `syscall/exec_linux.go` reads
+
+  ```go
+  flags = sys.Cloneflags
+  if sys.Cloneflags&CLONE_NEWUSER == 0 && sys.Unshareflags&CLONE_NEWUSER == 0 {
+      flags |= CLONE_VFORK | CLONE_VM
+  }
+  ```
+
+  so avoiding vfork inside `os/exec` means adding `CLONE_NEWUSER` - a user
+  namespace and a uid map, which is an isolation change and not a workaround -
+  or hand-rolling `forkAndExecInChild`, which must be async-signal-safe between
+  clone and exec.
+* **Not trapping the step's own first execve** becomes something better than it
+  sounded, because the shim already exists: install the filter *in the shim*,
+  after the vfork has been released by the shim's own exec, rather than in the
+  guest before the clone. `trace.InstallOnSelf` is written for precisely this -
+  "for the helper that a step is exec'd from" - specifies the `SCM_RIGHTS`
+  hand-off, and **has no production callers**.
+
+**It also removes a hazard rather than guarding one.** `StartOnSelf` exists
+because the installing thread goes on doing the engine's work while filtered, so
+the tracer must skip that thread's syscalls by tid or record them as things the
+step read (E211, and `ownthread_linux_test.go`, which notes the rule "was written
+twice and asserted nowhere" until a mutation sweep found the gap). A filter
+installed in the shim is on a thread that *becomes* the step, so there are no
+engine syscalls in the window to misattribute and nothing to skip.
+
+The cost is that the guest must receive the listener over a socketpair before it
+can start the tracer, and that the shim's window between install and exec admits
+only the send and the exec - a constraint the code already respects, which is why
+`lookIn` resolves the program in the guest and `resolveProgram` in the shim only
+formats the message.

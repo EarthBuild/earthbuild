@@ -669,12 +669,12 @@ func Start(
 
 				if eng.Metadata().Scheme == engine.SchemeApple {
 					// Apple Container requires directory-level bind mounts.
-					// Mount the certificates directory to /etc/earthly-certs (entrypoint.sh will symlink to /etc/*.pem).
+					// Mount the certificates directory to /etc/earth-certs.
 					certsDir := filepath.Dir(settings.ServerTLSCert)
 					mounts = append(mounts, engine.Mount{
 						Type:     engine.MountBind,
 						Source:   certsDir,
-						Dest:     "/etc/earthly-certs",
+						Dest:     "/etc/earth-certs",
 						ReadOnly: true,
 					})
 				} else {
@@ -682,7 +682,7 @@ func Start(
 						mounts = append(mounts, engine.Mount{
 							Type:     engine.MountBind,
 							Source:   settings.TLSCA,
-							Dest:     "/etc/ca.pem",
+							Dest:     "/etc/earth-certs/ca_cert.pem",
 							ReadOnly: true,
 						})
 					}
@@ -691,7 +691,7 @@ func Start(
 						mounts = append(mounts, engine.Mount{
 							Type:     engine.MountBind,
 							Source:   settings.ServerTLSCert,
-							Dest:     "/etc/cert.pem",
+							Dest:     "/etc/earth-certs/buildkit_cert.pem",
 							ReadOnly: true,
 						})
 					}
@@ -700,7 +700,7 @@ func Start(
 						mounts = append(mounts, engine.Mount{
 							Type:     engine.MountBind,
 							Source:   settings.ServerTLSKey,
-							Dest:     "/etc/key.pem",
+							Dest:     "/etc/earth-certs/buildkit_key.pem",
 							ReadOnly: true,
 						})
 					}

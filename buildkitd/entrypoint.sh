@@ -246,11 +246,6 @@ export PPROF_SETTINGS
 # Set up TLS feature flag
 TLS_ENABLED=
 if [ "$BUILDKIT_TLS_ENABLED" = "true" ]; then
-    if [ ! -f /etc/ca.pem ] && [ -f /etc/earthly-certs/ca_cert.pem ]; then
-        ln -sf /etc/earthly-certs/ca_cert.pem /etc/ca.pem
-        ln -sf /etc/earthly-certs/buildkit_cert.pem /etc/cert.pem
-        ln -sf /etc/earthly-certs/buildkit_key.pem /etc/key.pem
-    fi
     TLS_ENABLED="$(cat /etc/buildkitd.tls.template)"
 fi
 export TLS_ENABLED

@@ -205,12 +205,12 @@ func TestBuildAppleMountArgs(t *testing.T) {
 				{
 					Type:     MountBind,
 					Source:   "/Users/test/.earthly/certs",
-					Dest:     "/etc/earthly-certs",
+					Dest:     "/etc/earth-certs",
 					ReadOnly: true,
 				},
 			},
 			expected: []string{
-				"--mount", "type=bind,source=/Users/test/.earthly/certs,target=/etc/earthly-certs,readonly",
+				"--mount", "type=bind,source=/Users/test/.earthly/certs,target=/etc/earth-certs,readonly",
 			},
 		},
 		{
@@ -225,13 +225,13 @@ func TestBuildAppleMountArgs(t *testing.T) {
 				{
 					Type:     MountBind,
 					Source:   "/host/certs",
-					Dest:     "/etc/earthly-certs",
+					Dest:     "/etc/earth-certs",
 					ReadOnly: true,
 				},
 			},
 			expected: []string{
 				"--mount", "type=volume,source=my-vol,target=/data",
-				"--mount", "type=bind,source=/host/certs,target=/etc/earthly-certs,readonly",
+				"--mount", "type=bind,source=/host/certs,target=/etc/earth-certs,readonly",
 			},
 		},
 	}

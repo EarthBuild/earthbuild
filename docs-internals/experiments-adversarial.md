@@ -36238,3 +36238,57 @@ empty for an artifact's producing node. It is new, but the two runs before it
 died earlier, so "new" and "caused by the last change" are not the same claim -
 E762 is what that mistake costs. A `SAVE ARTIFACT AS LOCAL` from a cache-hit step
 on a warm store does not reproduce it.
+
+## E768 - a step could not resolve its own name, and five jobs waited a minute to find out
+
+The largest remaining Native cluster - `+test-no-qemu-group2`, `3`, `4`, `5` and
+`7` - fails with
+
+```console
+Error: build new buildkitd client: connect provided buildkit: timeout 1m0s
+```
+
+and one line above it, the inner build says what it is dialling:
+
+```console
+buildkitd | Connecting to tcp://buildkitsandbox:8372
+```
+
+`earth-entrypoint.sh` derives the inner build's daemon address from the step's
+own name - `EARTH_BUILDKIT_HOST="tcp://$(hostname):8372"` - and nothing in the
+step could resolve that name. `hostsMount` produced a file only where an
+Earthfile declared `HOST` entries; these steps declare none, so they kept their
+image's `/etc/hosts`, which names localhost and nothing else.
+
+**This is older than the sandbox's name.** Before E758 `hostname` returned the
+*machine's* - `fv-az1033-604` on a GitHub runner - which a step resolves no
+better. So the cluster was failing this way before any of this work, and E758
+changed which unresolvable name it was. That is worth stating precisely: the
+regression was mine, the failure was not.
+
+The fix is to write `/etc/hosts` for every step rather than only for a step with
+declarations, carrying localhost and the sandbox's own name. Written and not
+merged, as before - what a step resolves by is what the Earthfile said - with
+the correction that two names are not the Earthfile's to say.
+
+```console
+$ earth-native +n            # a step declaring no HOST entries
+  buildkitsandbox
+  127.0.0.1  buildkitsandbox  buildkitsandbox
+  PING buildkitsandbox (127.0.0.1): 56 data bytes
+```
+
+**Four tests asserted the rule this changes, and three of them were not mine.**
+`TestNoEntriesMeansNoFile` said in as many words that a step declaring nothing
+must get whatever its image ships. That reasoning is still right about
+*declared* entries and was wrong about the two a step is entitled to; the tests
+now assert the new rule with the old rule's reasoning preserved where it
+applies. Rewriting somebody else's test to match new code is how a suite stops
+meaning anything - the defence here is that the rule changed for a measured
+reason and the tests say which reason.
+
+The darwin lesson from E765 recurred immediately: making the mount
+unconditional gave every step on that platform a mount and re-broke the
+`requires linux` path, so `hostsMountFor` keeps darwin's old rule exactly and
+only linux gets the unconditional one. A step's own name need only resolve where
+a step could dial it.

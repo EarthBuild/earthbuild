@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -42,15 +43,27 @@ func TestTheHostsFileIsWhatTheEarthfileSaid(t *testing.T) {
 	}
 }
 
-// No entries, no file.
+// No entries, but still the two names every step is entitled to.
 //
-// A step that declared nothing must get whatever its image ships, not an engine
-// invention - the same rule as every other piece of ambient state here.
-func TestNoEntriesMeansNoFile(t *testing.T) {
+// **This asserted "no entries, no file" until E768.** That rule read well - a
+// step gets what its image ships rather than an engine invention - and it left
+// a step unable to resolve its own name, which `earth-entrypoint.sh` turns into
+// the address of the inner build's daemon. Five Native jobs waited a minute
+// each for a name nothing answered.
+//
+// The reasoning survives where it applies: declared entries are still *written*
+// rather than merged with the image's, so what a step resolves by is what the
+// Earthfile said. It now also gets localhost and its own name, which no
+// Earthfile should have to declare.
+func TestNoEntriesStillMeansAResolvableSandbox(t *testing.T) {
 	t.Parallel()
 
-	if got := hostsFile(nil); got != "" {
-		t.Errorf("a step that declared no hosts was given a file:\n%s", got)
+	got := hostsFile(nil)
+
+	for _, want := range []string{"127.0.0.1\tlocalhost\n", "127.0.0.1\t" + SandboxHost + "\n"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("a step declaring nothing cannot resolve %q:\n%s", want, got)
+		}
 	}
 }
 
@@ -77,8 +90,15 @@ func TestDeclaredHostsTravelAsAMount(t *testing.T) {
 		t.Errorf("the mount does not carry the entry: %q", got[0].Secret)
 	}
 
-	if len(hostsMount(nil)) != 0 {
-		t.Error("a step that declared nothing was given a hosts mount")
+	// Since E768 a step that declared nothing gets one too, carrying the two
+	// names it is entitled to and nothing else.
+	bare := hostsMount(nil)
+	if len(bare) != 1 {
+		t.Fatalf("a step declaring nothing got %d mount(s), want 1", len(bare))
+	}
+
+	if strings.Contains(bare[0].Secret, "api.test") {
+		t.Error("a step was given another step's entries")
 	}
 }
 
@@ -103,9 +123,20 @@ func TestAStepsMountsIncludeItsDeclaredHosts(t *testing.T) {
 			" resolves by whatever its image shipped")
 	}
 
-	for _, m := range stepMounts(Request{}, nil) {
-		if m.Target == "/etc/hosts" {
-			t.Error("a step declaring nothing was given a hosts file anyway")
+	// And a step that declared nothing gets one as well, because its own name
+	// has to resolve whether or not an Earthfile mentioned any (E768). On a
+	// platform with no mounts it gets none, which is what hostsMountFor is for.
+	if runtime.GOOS == "linux" {
+		var bare bool
+
+		for _, m := range stepMounts(Request{}, nil) {
+			if m.Target == "/etc/hosts" {
+				bare = true
+			}
+		}
+
+		if !bare {
+			t.Error("a step declaring nothing cannot resolve its own name")
 		}
 	}
 }

@@ -1915,7 +1915,7 @@ func stepMounts(req Request, env []string) []Mount {
 		out = append(out, m)
 	}
 
-	return append(out, hostsMount(req.Hosts)...)
+	return append(out, hostsMountFor(req.Hosts)...)
 }
 
 // execRequest runs a command against a materialised handle.

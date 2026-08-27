@@ -29,16 +29,26 @@ func TestAStepsOwnNameIsInItsHostsFile(t *testing.T) {
 	}
 }
 
-// A step that declared nothing still gets no hosts file.
+// A step that declared nothing still gets a hosts file.
 //
-// Writing one unconditionally would replace whatever its image ships for every
-// step in every build, which is a much larger change than making a name
-// resolve - and the image's file is what a step without declarations has always
-// resolved by.
-func TestAStepThatDeclaredNoHostsStillGetsNoFile(t *testing.T) {
+// **This test asserted the opposite until E768, and the opposite was wrong.**
+// A step with no `HOST` entries kept its image's `/etc/hosts`, which does not
+// name the sandbox - and `earth-entrypoint.sh` derives the inner build's
+// buildkit address from `hostname`, so once the sandbox had a name (E758) the
+// inner build dialled one nothing resolved and waited a minute to find out.
+//
+// The old rule's reasoning survives: what a step resolves by is what the
+// Earthfile said, written rather than merged with whatever the image shipped.
+// What it missed is that a step is entitled to two names before any Earthfile
+// says anything - localhost, and its own.
+func TestAStepThatDeclaredNoHostsStillResolvesItsOwnName(t *testing.T) {
 	t.Parallel()
 
-	if got := hostsFile(nil); got != "" {
-		t.Errorf("a step declaring nothing got a hosts file:\n%s", got)
+	got := hostsFile(nil)
+
+	for _, want := range []string{"127.0.0.1\tlocalhost\n", "127.0.0.1\t" + SandboxHost + "\n"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("a step declaring nothing cannot resolve %q:\n%s", want, got)
+		}
 	}
 }

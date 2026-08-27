@@ -40,6 +40,21 @@ func linkStdio(string) error { return nil }
 // been near a hostname went red (E765).
 func hostnameMount() []Mount { return nil }
 
+// hostsMountFor is what it always was here: a mount for declared entries, and
+// nothing for a step that declared none.
+//
+// Not the linux rule, deliberately. There a step always gets one so its own
+// name resolves (E768); here a step that declared nothing has no mounts at all,
+// and giving it one sends it down a path that refuses with "requires linux"
+// (E765). The name only has to resolve where a step could dial it.
+func hostsMountFor(entries []string) []Mount {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	return hostsMount(entries)
+}
+
 func mountDevPts(string) (func(), error) { return func() {}, nil }
 
 // resolverMount is empty off Linux.

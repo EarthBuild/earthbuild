@@ -30,9 +30,6 @@ const SandboxHost = "buildkitsandbox"
 // The address comes first: that is the file's format, and a line written the
 // other way round resolves nothing while looking correct.
 func hostsFile(entries []string) string {
-	if len(entries) == 0 {
-		return ""
-	}
 
 	var b strings.Builder
 
@@ -55,7 +52,19 @@ func hostsFile(entries []string) string {
 	return b.String()
 }
 
-// hostsMount is the mount a step's declared entries travel in, or none.
+// hostsMount is the `/etc/hosts` a step gets.
+//
+// **Unconditional since E768, and that is the whole of the fix.** It used to be
+// produced only where an Earthfile declared `HOST` entries, so a step that
+// declared none kept its image's file - which does not name the sandbox. Once
+// the sandbox had a name (E758), `earth-entrypoint.sh` derived
+// `EARTH_BUILDKIT_HOST=tcp://$(hostname):8372` from it, and the inner build
+// dialled a name nothing resolved. Five Native jobs timed out for a minute
+// each waiting for it.
+//
+// Written rather than merged, as before: what a step resolves by is a function
+// of what the Earthfile said, plus the two things every step is entitled to -
+// localhost, and its own name.
 //
 // Separated from the file's contents so that *whether a step gets one* can be
 // asserted without a running guest: the mutation sweep found the composition

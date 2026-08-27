@@ -2156,7 +2156,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: a step's declared hosts reaching the step (E415)",
 		File:        "engine/guest/guest.go",
-		Anchor:      "\treturn append(out, hostsMount(req.Hosts)...)",
+		Anchor:      "\treturn append(out, hostsMountFor(req.Hosts)...)",
 		Replacement: "\treturn out",
 		Package:     "./engine/guest/",
 	},

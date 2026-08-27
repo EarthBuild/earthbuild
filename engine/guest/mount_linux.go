@@ -910,3 +910,6 @@ func count(n int) string {
 func hostnameMount() []Mount {
 	return []Mount{{Target: "/etc/hostname", Secret: SandboxHost + "\n", Mode: 0o644}}
 }
+
+// hostsMountFor is the `/etc/hosts` mount, on the platform that has mounts.
+func hostsMountFor(entries []string) []Mount { return hostsMount(entries) }

@@ -35994,3 +35994,47 @@ joins its own paths. E751 corrected that to a grep for the *path*,
 `filepath.Join(.*"layers"`, and that sweep does list `exec/packimage.go` - it
 was read as a writer of images rather than a reader of layers and passed over.
 The sweep was right and the reading of it was not.
+
+## E762 - a regression that was not there, found twice over by single runs
+
+A `WITH DOCKER` build inside `docker:27-dind` exited 1 with the current branch
+and 0 with a binary from before three of its commits. That is a clean A/B and it
+was wrong.
+
+Bisecting the six commits between them put the fault on E758, the one that names
+the sandbox - which made no sense: `Sethostname` cannot decide whether `/bin/sh`
+resolves, and the failure was
+
+```console
+exec [/bin/sh -c docker info …]: /bin/sh: a symlink to /bin/busybox
+  the image does not have this program
+  /bin holds 83 entries, so the base is there and has no sh
+```
+
+Run three times each instead of once, the answer inverts:
+
+| binary                   | result   |
+| ------------------------ | -------- |
+| before the three commits | 2 pass, 1 fail of 3 |
+| E758, the "culprit"      | 3 pass, 0 fail of 3 |
+
+The harness is flaky, and the reason is in its own output: the engine reports
+`/store/scratch cannot host an overlay mount, so this step's scratch is
+/dev/shm/…` - memory rather than disk. A dind daemon loading images into a
+tmpfs-backed overlay exhausts it sometimes, and the missing file is whichever
+one lost the race. `busybox` is simply the one everything else is a symlink to.
+
+**Every step of this was already written down.** "Per-step noise is about 28%,
+so one run cannot compare two variants" is a note in this repository, and it was
+quoted earlier the same day while measuring E755 - where five interleaved pairs
+were run precisely because one pair proves nothing. The rule was applied to a
+timing measurement and forgotten for a pass/fail one, as though a boolean were
+less noisy than a number. It is not: a flaky test is a boolean with a
+distribution, and a single sample of it is an anecdote.
+
+No regression is established, and none of the six commits is implicated. The
+open question about CI's `cache initialization failed: Operation not permitted`
+is unchanged by this and is still unattributed: it appears in a job that
+previously died earlier, which is the same shape as `test-misc` moving from the
+collapse fault to E760's, and that is evidence of progress rather than of
+breakage.

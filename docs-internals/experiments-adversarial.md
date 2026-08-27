@@ -35954,3 +35954,43 @@ rename, so the artifact never exists at its own name in a state a reader could
 observe - an executable that arrives unreadable is worse than one that arrives a
 moment later, and an mtime set after the rename is a window where a downstream
 tool compares the wrong times (I8).
+
+## E761 - the third packer, and the one with no check at all
+
+A Podman job failed with
+
+```console
+pack print-countries:latest (tests/with-docker-compose/Earthfile:25):
+  write print-countries:latest: read /root/.cache/earthbuild/layers/3c7691e8…:
+  lstat /root/.cache/earthbuild/layers/3c7691e8…: no such file or directory
+```
+
+which is not E749's message, and that is the whole finding. E749 taught the
+*guest's* packer that a declaration is not a layer and E751 taught the squasher;
+the host's packer was never taught, because it does not ask. It turned every
+stack element into a path:
+
+```go
+for _, id := range base {
+    spec.Layers = append(spec.Layers, image.FromDir(st.LayerPath(id)))
+}
+```
+
+No existence check, so a declaration's element became a path to nothing and the
+failure surfaced two layers down, inside the archive writer, as an `lstat` of a
+store path. A reader of that message learns the store's directory layout and
+nothing about the build.
+
+Both halves are fixed together, because they are one question asked once:
+`layerSources` skips an element the store holds as a declaration and refuses one
+it holds not at all - refuses it *here*, with a message that says "this store
+holds no layer", which is what the guest's packer has said since E749. An image
+missing a layer loads and is missing files, and the daemon reports that as a
+program that is not there.
+
+**Three consumers, three sweeps, and the third was found by a failing job rather
+than by looking.** E749 grepped for `LayerStore` and missed the squasher, which
+joins its own paths. E751 corrected that to a grep for the *path*,
+`filepath.Join(.*"layers"`, and that sweep does list `exec/packimage.go` - it
+was read as a writer of images rather than a reader of layers and passed over.
+The sweep was right and the reading of it was not.

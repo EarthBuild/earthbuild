@@ -10,6 +10,7 @@ import (
 	"github.com/containerd/platforms"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/store"
@@ -123,11 +124,9 @@ func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) 
 		return core.Result{Captured: false}, nil
 	}
 
-	st := store.DirStore(root)
-
-	spec.Layers = make([]image.LayerSource, 0, len(base))
-	for _, id := range base {
-		spec.Layers = append(spec.Layers, image.FromDir(st.LayerPath(id)))
+	spec.Layers, err = layerSources(root, base)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("pack %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
 	}
 
 	// Named after this step's own identity, so two loads of different images in
@@ -142,6 +141,40 @@ func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) 
 	// which is outside it. An empty layer is the honest result, and the step
 	// that loads it stands on this one for ordering rather than for content.
 	return core.Result{Captured: false}, nil
+}
+
+// layerSources turns a stack into the trees an archive is written from.
+//
+// **Two kinds of element, and only one of them is a tree.** An image's
+// environment travels in the stack so that a worker fetching the stack fetches
+// it too, and it is filed as `layers/<id>.decl` - a file. Handed to the archive
+// writer as a directory it named nothing, and the build failed some way further
+// on with `lstat …: no such file or directory` about an id that was never a
+// layer. The guest's packer learned this in E749 and the squasher in E751; this
+// is the third consumer and the one that had no check at all (E761).
+//
+// A layer that is genuinely absent is refused here rather than discovered by
+// the writer, for the reason the guest refuses it: an image missing a layer
+// loads and is missing files, which the daemon reports as a program that is not
+// there. Said here, the message can name the build instead of the store's
+// layout.
+func layerSources(root string, base []ir.NodeID) ([]image.LayerSource, error) {
+	st := store.DirStore(root)
+	out := make([]image.LayerSource, 0, len(base))
+
+	for _, id := range base {
+		if decl.Has(root, id) {
+			continue
+		}
+
+		if !st.Has(id) {
+			return nil, fmt.Errorf("this store holds no layer %s", id)
+		}
+
+		out = append(out, image.FromDir(st.LayerPath(id)))
+	}
+
+	return out, nil
 }
 
 // PackedImagePath is where a packed image waits, as the guest sees it.

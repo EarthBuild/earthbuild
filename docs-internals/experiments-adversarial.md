@@ -34352,3 +34352,41 @@ the phase that was being paid for is no longer there.
 
 Old prediction files stop matching and go inert. That is correct rather than
 unfortunate: those entries were never safe to apply to another project.
+
+## E733 - the phase log nests, so its lines must not be added up
+
+`EARTH_TIMINGS` prints one line per phase and nothing marks which phases contain
+which. They nest, and reading the log as a flat list of costs overstates a build
+several times over.
+
+`pin:token` and `registry:token` are **the same call, timed twice**: `resolve`
+wraps its call to `token` in a phase, and `token` opens one of its own. The
+giveaway is in the numbers, which agree to the millisecond across runs:
+
+```text
+run 1:  registry:token 0.319s   pin:token 0.319s
+run 2:  registry:token 0.264s   pin:token 0.264s
+```
+
+Two lines, one round trip. Sizing the registry work at 570ms by adding them is
+double-counting; it is 285ms. The same holds further up: `step` contains `exec`,
+`run` contains `guest:request`, and `schedule` contains all of it - 2424ms of
+`schedule` against 2177ms of `step` is not 4.6 seconds of anything.
+
+**This is how E732 was nearly mis-sized.** Three token lines summed to 844ms and
+read as 23% of the build. There were two fetches, not three, and the honest
+figure came from moving `predictions.json` aside and timing the build both
+ways: 556ms, arrived at without reading a single phase.
+
+Rules that follow, for anyone reading this log:
+
+* a phase's duration includes its children;
+* siblings may also overlap, because prefetch and the boot run concurrently with
+  the build - so even a correct sum of leaves is not wall-clock;
+* to size anything, remove it and time the build, or make it fail and see what
+  the build stops paying. The clock on the whole build is the only figure that
+  cannot be double-counted.
+
+**[GAP]** Nothing in the output says which phase contains which. Indenting by
+depth, or printing a parent, would make the structure visible - the log is
+otherwise a correct record that reliably misleads.

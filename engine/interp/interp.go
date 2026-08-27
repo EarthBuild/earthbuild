@@ -158,6 +158,15 @@ type Plan struct {
 	// callerGlobals are the `ARG --global` values in force where a function was
 	// called. See the note where a function's state is built (E425).
 	callerGlobals map[string]string
+	// callerCtx is the build context in force where a function was called.
+	//
+	// A function inherits the caller's context, which the language reference
+	// states plainly and which callerContext answered only for *fetched* units.
+	// Locally it looked like the same directory - and is, until a function is
+	// defined in a parent Earthfile and called from a subdirectory, where the
+	// file the caller names is in the caller's directory and the function's is
+	// somewhere else entirely.
+	callerCtx string
 	// callerDir is the working directory in force where a function was called,
 	// which the function inherits.
 	callerDir string
@@ -2186,6 +2195,15 @@ func (p *Plan) callerContext() string {
 		return p.opt.context
 	}
 
+	// **The context where the call was written, for a local function too.** A
+	// function defined in a parent Earthfile and called from a subdirectory has
+	// a different directory from its caller, and the caller's is the one that
+	// answers - `tests/invalid/Earthfile` calls `tests+RUN_EARTH`, whose COPY
+	// names a file in `tests/invalid/`. Buildkit builds that and this did not.
+	if p.inFunction > 0 && p.callerCtx != "" {
+		return p.callerCtx
+	}
+
 	return p.here.dir
 }
 
@@ -2805,6 +2823,10 @@ func (p *Plan) do(c earthfile.Command, prev *ir.Node, caller *state) (*ir.Node, 
 	p.building = append(p.building, site)
 
 	prevUnit := p.here
+	// Taken before the unit changes, so it is the caller's and not the
+	// function's. Saved and restored because functions call functions.
+	prevCtx := p.callerCtx
+	p.callerCtx = p.callerContext()
 	p.here = u
 
 	// The unit changes so `+other` resolves against the file the function was
@@ -2816,6 +2838,7 @@ func (p *Plan) do(c earthfile.Command, prev *ir.Node, caller *state) (*ir.Node, 
 
 	p.inFunction--
 	p.here = prevUnit
+	p.callerCtx = prevCtx
 	p.building = p.building[:len(p.building)-1]
 
 	if err != nil {

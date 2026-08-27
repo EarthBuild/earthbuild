@@ -30,7 +30,7 @@ require (
 	github.com/moby/patternmatcher v0.6.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
-	github.com/sirupsen/logrus v1.10.1
+	github.com/sirupsen/logrus v1.10.2
 	github.com/stretchr/testify v1.12.1
 	github.com/tonistiigi/fsutil v0.0.0-20260819142231-83cac42c1c52
 	github.com/urfave/cli/v3 v3.11.0

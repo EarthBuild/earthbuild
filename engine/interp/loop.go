@@ -555,7 +555,7 @@ func (p *Plan) dockerPull(ref string, prev *ir.Node, rs *state, where string) *i
 func (p *Plan) dockerLoad(spec string, prev *ir.Node, rs *state, where string) (*ir.Node, error) {
 	name, ref := splitLoad(spec)
 
-	from, err := p.loadSource(ref, where)
+	from, loaded, err := p.loadSource(ref, where)
 	if err != nil {
 		return nil, fmt.Errorf("WITH DOCKER --load %s (%s): %w", spec, where, err)
 	}
@@ -576,7 +576,7 @@ func (p *Plan) dockerLoad(spec string, prev *ir.Node, rs *state, where string) (
 			Kind: ir.OpPackImage, Args: []string{name},
 			// What the target declared about how the image runs. Without it
 			// the layers were loaded and `docker run` had no command.
-			Image: p.configOf(from),
+			Image: p.loadedConfig(from, loaded),
 		},
 		Inputs: []*ir.Node{from},
 		Meta:   ir.Meta{Source: where, Description: "pack image " + name},
@@ -614,6 +614,26 @@ func (p *Plan) dockerLoad(spec string, prev *ir.Node, rs *state, where string) (
 	}
 
 	return load, nil
+}
+
+// loadedConfig is what a packed image should declare about running.
+//
+// A `SAVE IMAGE` says it, and where there is none the target's own state says
+// it instead: `--load name=+target` is allowed to name an image the target
+// never declared, and packing its layers under a name of the caller's choosing
+// is exactly what was asked for - but the target's `EXPOSE`, `ENV`, `CMD` and
+// the rest are declarations it made, and dropping them because it did not also
+// name the image is losing something that was said (E779).
+func (p *Plan) loadedConfig(from *ir.Node, loaded *state) *ir.ImageConfig {
+	if cfg := p.configOf(from); cfg != nil {
+		return cfg
+	}
+
+	if loaded == nil {
+		return nil
+	}
+
+	return loaded.imageConfig().ToIR()
 }
 
 // imageOf is the reference a target saves, if it saves one.
@@ -676,30 +696,33 @@ func splitLoad(spec string) (name, ref string) {
 
 // loadSource resolves the target whose image is loaded, in either form a
 // reference can take.
-func (p *Plan) loadSource(ref, where string) (*ir.Node, error) {
+// loadSource is the target `--load` names, and the state it ended in.
+//
+// **The state, because a loaded target need not have declared an image.**
+// `--load name=+target` packs whatever the target produced under a name of the
+// caller's choosing, so `configOf` finds nothing when there is no `SAVE IMAGE`
+// - and the target's own `EXPOSE`, `ENV` and `CMD` reached the packed image
+// through nothing else. It was declared and then dropped (E779).
+func (p *Plan) loadSource(ref, where string) (*ir.Node, *state, error) {
 	if !strings.HasPrefix(ref, "(") {
-		n, _, err := p.targetRef(ref, where)
-
-		return n, err
+		return p.targetRef(ref, where)
 	}
 
 	// `(+target --arg=value ...)`: the parser has already merged this into one
 	// token, so it arrives whole rather than as flags on the WITH DOCKER.
 	fields := strings.Fields(strings.TrimSuffix(strings.TrimPrefix(ref, "("), ")"))
 	if len(fields) == 0 {
-		return nil, fmt.Errorf("empty reference in parentheses (%s)", where)
+		return nil, nil, fmt.Errorf("empty reference in parentheses (%s)", where)
 	}
 
 	args, err := overrides(fields[1:], where)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	p.passTo = args
 
-	n, _, err := p.targetRef(fields[0], where)
-
-	return n, err
+	return p.targetRef(fields[0], where)
 }
 
 // composeFlags is the `-p name -f file...` sequence shared by up and down.

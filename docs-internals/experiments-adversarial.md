@@ -36708,3 +36708,45 @@ collapse fault hid ETXTBSY, which hid the archive format, which hid the dropped
 configuration, which hid the resolver and this. None could have been found by
 reading, and none of the later four would have been reachable without fixing the
 earlier ones.
+
+## E779 - a loaded target's own declarations were dropped
+
+`tests/with-docker-expose` inspects a loaded image and diffs the result:
+
+```console
+RUN docker inspect test:img | jq '.[].Config.ExposedPorts' > actual && diff expected actual
+```
+
+and the diff showed `"1234/tcp": {}` present in `expected` and absent from
+`actual`. Reproduced in three lines:
+
+```console
+$ earth-native +wd     # WITH DOCKER --load=test:img=+single, +single has EXPOSE 1234
+  ports=map[] env=[PATH=…]
+```
+
+The target's `EXPOSE` is gone, and so is its `ENV`; only the base's PATH
+survives, and only since E771.
+
+**Because the target declared no image.** `configOf` searches the images a
+`SAVE IMAGE` named, and `+single` is `FROM alpine` and `EXPOSE 1234` with no
+`SAVE IMAGE` at all - which is legitimate and the code says so: `--load
+name=+target` packs a target's layers under a name of the caller's choosing.
+What it missed is that the target still *declared* things, and dropping them
+because it did not also name the image loses something that was said.
+
+`loadSource` already had the answer and threw it away: `targetRef` returns the
+target's state and the call kept only the node. It now keeps both, and where no
+`SAVE IMAGE` names the image the target's own state supplies the configuration.
+
+```console
+$ earth-native +wd     # after
+  ports=map[1234/tcp:{}] env=[PATH=… WHO=me]
+```
+
+**Two lists, and an image needs both.** The first attempt used `state.cfg`
+alone and produced ports without an environment: `EXPOSE` and `LABEL` are
+configuration, while `WORKDIR`, `USER` and `ENV` are the *step's* and are folded
+in when an image is made. `SAVE IMAGE` had always done that folding inline, so
+the second caller had to be told - it is `state.imageConfig()` now, written once
+where both callers reach it, for the reason E773 records.

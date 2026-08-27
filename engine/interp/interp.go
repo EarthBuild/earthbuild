@@ -499,6 +499,26 @@ func (e *CycleError) Error() string {
 }
 
 // targetRef resolves a reference that may name a target in another Earthfile.
+// imageConfig is what an image made from this state declares about running.
+//
+// The commands that set a configuration and the ones that set a *step* are
+// different lists, and an image needs both: `EXPOSE` and `LABEL` are the
+// former, `WORKDIR`, `USER` and `ENV` the latter, and an image that took only
+// the first would declare its ports and not its environment.
+//
+// One implementation, because there are two callers and they were written
+// months apart: `SAVE IMAGE`, and a `--load` of a target that declared no image
+// at all - which took the configuration alone and produced an image with no
+// environment, no working directory and no user (E779).
+func (s *state) imageConfig() Config {
+	cfg := s.cfg.clone()
+	cfg.User, cfg.WorkingDir = s.user, s.dir
+
+	maps.Copy(cfg.Env, s.env)
+
+	return cfg
+}
+
 func (p *Plan) targetRef(s, where string) (*ir.Node, *state, error) {
 	ref, err := parseRef(s, where, p.here.imports)
 	if err != nil {
@@ -1617,10 +1637,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		}
 
 		for _, a := range refs {
-			cfg := rs.cfg.clone()
-			cfg.User, cfg.WorkingDir = rs.user, rs.dir
-
-			maps.Copy(cfg.Env, rs.env)
+			cfg := rs.imageConfig()
 
 			p.Images = append(p.Images, Image{
 				Ref: a, Push: img.Push, Config: cfg,

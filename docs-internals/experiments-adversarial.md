@@ -37575,3 +37575,58 @@ a private one, and a cache that cannot tell them apart takes the stronger risk.
 So "cache the tag resolution" is two questions wearing one coat, and the cheaper
 half to implement is the smaller half of the cost. Both are the owner's; neither
 is implemented here.
+
+## E798 - the secret the detector found and the writer published
+
+Secrets came through the sweep well. A `RUN --secret` build leaves no trace of
+the value in the build log, the store or the project tree, under either engine,
+and the step sees the value it was given. That is the ordinary case and it is
+sound.
+
+The interesting case is a step that writes its secret down:
+
+```console
+$ earth-native --secret S=... +t
+  rc=0
+```
+
+The Earthfile is `RUN --secret S sh -c 'printf "%s" "$S" > /leak.txt'` followed
+by `SAVE IMAGE`. Exit zero, and the value in the layer *and in the image blob*.
+
+**Nothing in the mechanism failed.** The guest found it, `NoteLeaked` wrote the
+note beside the layer, and it says exactly the right thing:
+
+```text
+layers/4af5acbb….leaked:  S in leak.txt
+```
+
+`RefuseLeakedImage` was sitting ready to turn that note into an error, with a
+message that names the secret and its file and never its value. It was never
+called on this path. The check guards the packed-image writer in `engine/exec`;
+an ordinary `SAVE IMAGE` is written by `engine/cli`, which had no check at all.
+The comment above the guarded one calls it "**the exit point**" - and there are
+two, which is the whole defect in one word.
+
+After the fix the build is refused, the image is not written, and the layer
+still holds the value, which is right: a credential in this build's own store
+has gone nowhere.
+
+```text
+rc=1
+  S in leak.txt
+  an image is saved to be used elsewhere, which is where the credential would go
+  keep the secret out of the layer, or set EARTH_ALLOW_LEAKED_SECRETS if it belongs there
+```
+
+Earthly publishes the image in this case, so this is a control the reference does
+not have rather than a divergence from it - which is also why no differential
+would have found it. It came from asking what a documented mechanism actually
+does, and the answer was "half of what it says".
+
+**The pattern is now three for three.** E794: `Observation.Listings` carried,
+paged, stored and verified, and never filled. E798: a leak detected, noted, and
+never refused at the writer people use. Both times every part existed and one
+wiring did not, and both times the tests passed because they tested the parts.
+The guard added here is deliberately about *every* writer rather than about this
+behaviour, because a third exit point is the version of this that gets added by
+someone who has never heard of the rule.

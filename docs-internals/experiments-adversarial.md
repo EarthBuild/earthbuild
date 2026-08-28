@@ -39373,3 +39373,45 @@ next person does not spend the same twenty minutes discovering it.
 ceiling printing the top forty of a hundred and sixty-three, and the failure
 diagnostics reporting their own absence as the job's error. Each cost more of
 this investigation than the fault did.
+
+## E829 - COPY costs three quarters of a millisecond a file, and handles each twice
+
+**Nothing in this document had measured `COPY`.** Every per-step figure was a
+`RUN`. `COPY` is at least as common, and on a build that brings in a source tree
+it is the larger cost. Context regenerated for every run so nothing caches,
+sandboxes stopped, exit codes checked:
+
+| context    | wall   | over the ~460ms baseline |
+| ---------- | ------ | ------------------------ |
+| 10 files   | 497ms  | 37ms                     |
+| 100 files  | 545ms  | 85ms                     |
+| 500 files  | 817ms  | 357ms                    |
+| 2000 files | 1957ms | 1497ms                   |
+
+**0.73ms a file, linear, and not about bytes.** 500 files totalling 12MB cost
+487ms; a single 9.8MB file costs 115ms. The size does not matter and the count
+does: `COPY . /src` on a ten-thousand-file repository is about seven seconds, and
+a `node_modules` is half a minute.
+
+**And the host handles every file twice.** `stageContextInGuest` copies the
+context into a staging directory with `copyContextInto`, then reads all of it
+back with `packInto` to make the tarball the guest unpacks. Measured on this
+machine, writing 2000 small files is about 0.2ms each and reading them back
+about the same - so two thirds of the 0.73ms is the host walking the same tree
+twice before the guest sees anything.
+
+For contrast, the guest unpacks 15,741 files from a layer in 0.589s: **0.037ms a
+file, twenty times cheaper than the host spends staging one**.
+
+**The fix is to tar straight from the context.** The selection `copyContextInto`
+applies - the ignore files, the path filters - would have to move into the tar
+walk rather than being applied by copying first. That is a real change to a path
+that decides what enters a build, and it is recorded rather than attempted at the
+end of a long day; the measurement is the part that was missing.
+
+**And a caveat on the measurement itself.** The first version of this experiment
+reported COPY as free and flat - 482ms for one file and 479ms for five hundred -
+because the context did not change between repetitions and `COPY` was cached.
+Best-of-three then picked a cached run. It was caught by the flatness being
+implausible rather than by the harness, which is the fourth time today that a
+number was too good and the reason was that nothing had happened.

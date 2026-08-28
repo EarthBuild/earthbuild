@@ -37836,3 +37836,40 @@ share a checkout; the second belongs on another machine or in a `git worktree`.
 E291, E292, E297, E299, E309, E319, E446, E494, E634. Eight of the thirteen are
 `fleet`, which is the subsystem with the fewest tests and the most machinery -
 the two facts are the same fact.
+
+## E802 - parallelism, which is where the engine is furthest ahead
+
+N independent targets, each `RUN --no-cache sleep 2`, built together by one
+target's `BUILD` lines. Digest-pinned so no tag lookup is in the number. A
+32-core machine.
+
+| n   | native | earthly | ratio |
+| --- | ------ | ------- | ----- |
+| 1   | 2110ms | 3556ms  | 1.7x  |
+| 8   | 2104ms | 4030ms  | 1.9x  |
+| 16  | 2134ms | 6125ms  | 2.9x  |
+| 32  | 2228ms | 9257ms  | 4.2x  |
+| 48  | 4233ms | -       | -     |
+| 64  | 4391ms | -       | -     |
+
+**Native's wall clock does not move.** One target and thirty-two take the same
+2.1 seconds, which is one sleep plus the fixed cost - so the scheduler is running
+all thirty-two at once on thirty-two cores. Past the core count it degrades
+exactly as it should: 48 and 64 take two sleeps, not four or eight. Flat to the
+hardware limit and then linear in waves is the theoretical shape, and it is worth
+recording that a real implementation reached it rather than approached it.
+
+The reference does not. Its wall clock grows from 3.5s to 9.3s over the same
+range. Subtracting its fixed cost, 32 targets cost it about four sleeps, which
+puts its effective concurrency near eight - **derived, not measured**: the honest
+statement is the wall clock, and the concurrency is an inference from it.
+
+This is the widest gap the comparison has found. The per-step figure (E797) is
+6x and the no-op figure is 80x, but both are about overhead; this one is about
+the thing a build system exists to do. It is also the least surprising: removing
+a daemon that serialises work is the reason for the engine, and the measurement
+says the reason was sound.
+
+No bottleneck to attack here, which is itself the finding. The speed work worth
+doing is the tag resolution that E797 measured and the parked decisions behind
+it, not the scheduler.

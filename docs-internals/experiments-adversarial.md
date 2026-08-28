@@ -41171,3 +41171,36 @@ findings immediately above the error, and they were not the failure: the failing
 *step* was `Engine race and shuffle`, and the lint text came from a step whose
 name ends "(report only)". Reading the step conclusions settled in one query what
 three greps had confused. Grep found the loudest thing again (E841c).
+
+### E856 - the assertion whose *pattern* was broken, not the message
+
+`+arg-set` fails under `--engine=native`, and the interesting part is where.
+
+```text
+what the engine printed   ...try declaring 'LET foo = $foo' first     correct
+what grep looked for      ...try declaring 'LET foo = \' first        mangled
+```
+
+The message matches the assertion exactly. The **pattern** does not survive the
+journey: `tests/Earthfile` writes `\\\$foo`, that value is interpolated into an
+`echo` that writes a shell script, and the script's own shell expands `$foo` to
+nothing, leaving the backslash. Two shell layers, and the escaping survives one.
+
+**Not caused by the escaping fix.** Checked before assuming, in a worktree at the
+commit before it: `+arg-set` exits 1 there too. E848a changed which escapes
+survive for `\"`; this is `\$` through a different path and was already broken.
+
+**And a correction to E846a.** That entry called this assertion an *exact match*
+that the sweep had wrongly reported missing. It compared the first forty
+characters, which stop before the difference. The engine's message is right, but
+"the sweep called it missing and it matches" was itself a truncated comparison -
+the third time in this document that a shortened string produced a confident
+wrong answer.
+
+Widened with an alternative carrying no `$` at all, so it cannot be eaten by
+either shell layer, and verified: `+arg-set` exits 0 under both engines.
+
+The deeper question - that a `--output_contains` pattern passes through two shell
+layers and only one round of escaping survives - is left recorded rather than
+fixed. It is the harness's escaping, not the engine's, and every assertion that
+avoids `$` is unaffected.

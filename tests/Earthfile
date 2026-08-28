@@ -1219,7 +1219,7 @@ arg-scope-requires-shellout-anywhere:
     DO +RUN_EARTH --earthfile=arg-scope-requires-shellout-anywhere.earth --target=+base --should_fail=true
 
 arg-set:
-    DO +RUN_EARTH --earthfile=arg-set.earth --target=+base --should_fail=true --output_contains="Hint: 'foo' is an ARG and cannot be used with SET - try declaring 'LET foo = \\\$foo' first"
+    DO +RUN_EARTH --earthfile=arg-set.earth --target=+base --should_fail=true --output_contains="Hint: 'foo' is an ARG and cannot be used with SET - try declaring 'LET foo = \\\$foo' first" --output_contains_native="is an ARG and cannot be used with SET - try declaring"
 
 if:
     RUN touch exists-locally

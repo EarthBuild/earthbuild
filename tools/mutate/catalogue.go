@@ -1144,8 +1144,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "trace: fetching a path before the step sees it is missing (E289)",
 		File:        "engine/trace/tracer_linux.go",
-		Anchor:      "\tt.fill(path)\n\tt.record(path)",
-		Replacement: "\tt.record(path)",
+		Anchor:      "\tt.fill(path)\n\tt.record(path, isOpenNR(n.Data.NR))",
+		Replacement: "\tt.record(path, isOpenNR(n.Data.NR))",
 		Package:     "./engine/trace/",
 		OS:          "linux",
 	},

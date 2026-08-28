@@ -40744,3 +40744,47 @@ for nested builds, which asks for the half that has no frontend.
 That is not a bug to fix in an afternoon; it is what the earth-in-earth suite
 rests on. Any estimate of how much of `tests/` can pass under the native engine
 has to price it.
+
+### E846 - a share of the Native suite is wording, not behaviour, and this engine's wording is better
+
+Sweeping every `--output_contains` assertion in `tests/Earthfile` for strings
+this engine can never produce gives 49 assertions and about a dozen candidates.
+Checking them by *running* them rather than by grepping inverts the conclusion.
+
+Five, chosen because a missing string looked like a missing check:
+
+```text
+legacy (asserted by tests/)                     this engine
+invalid number of arguments for HOST            HOST takes a hostname and an address, and "c"
+                                                  is a third argument (Earthfile:12)
+invalid HOST ip                                 HOST needs a hostname and an address (Earthfile:4)
+LABEL keys starting with "dev.earthly."         LABEL dev.earthly.reserved at Earthfile:8 is in the
+  are reserved                                    engine's own namespace
+                                                  dev.earthly.* is where the engine records what it
+                                                  did: use a prefix of your own
+cannot save artifact +test/foo, since it        Earthfile:7: COPY /foo: nothing in that target has it
+  does not exist
+value cannot be specified for built-in          ARG at Earthfile:11 sets EARTHLY_VERSION, which the
+  build arg EARTHLY_VERSION                       engine supplies
+                                                  the engine's answer is the only one there can be:
+                                                  declare it with `ARG EARTHLY_VERSION` to read it
+```
+
+Five for five: the behaviour is present, the refusal is correct, and the message
+names the file, the line and usually the fix. The assertion fails on wording.
+
+**This is not work, it is a reconciliation.** These cannot be "fixed" without
+making the engine worse - the messages exist in this form because a refusal that
+says what failed, where, and how to fix it is the standard this engine set for
+itself. Three ways out, and the choice is not the engine's:
+
+* teach `RUN_EARTH` to accept either wording where both are correct;
+* keep the legacy assertions as the buildkit suite's and give the native suite
+  its own expectations;
+* change the messages back, which trades a diagnostic for a green tick.
+
+**And it revises the estimate again.** Part of the Native suite's fifteen
+failures is not a defect count but a text mismatch between two engines that
+disagree about how to phrase a refusal. Any percentage that counts those as
+remaining work is overstating what is left to build and understating what has to
+be decided.

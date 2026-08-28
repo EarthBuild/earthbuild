@@ -40382,3 +40382,47 @@ Finding the commit needs a bisect over the branch's CI history, which is its own
 piece of work. E828 recorded these failures as predating this session, and that
 still holds; what is new is the baseline that makes "regression" a measurement
 rather than an impression.
+
+### E840a - two corrections, and the engine default is the right place to look
+
+**First correction: "exercised for the first time" was wrong.** E840 said the
+Native suite's failures are not a regression because the suite is new. The suite
+is new *to `main`* - it does not exist there - but this branch has run nine CI
+runs today and Native has produced results, and failed identically, in every one
+of them. What is true is narrower and less comfortable: there is no green Native
+baseline anywhere, on this branch or on `main`, so its failures can be called
+neither a regression nor a first sighting. They are simply unfixed, and the /sys
+bind is the first thing aimed at them.
+
+**Second correction: the engine default is where to look for Podman, and the
+branch says so itself.** `.github/actions/stage2-setup/action.yml` carries this,
+added by this branch:
+
+> **`BINARY` says which engine, not only which runtime.** The CLI this branch
+> builds defaults to native, so without this every suite job runs native -
+> including the docker and podman ones, whose whole purpose is to be the
+> buildkit half of the comparison. They were, and they failed building buildkitd
+> through `FROM DOCKERFILE`.
+
+So the default *did* change to native, it *did* break the buildkit suites once,
+and a guard was written. The open question is whether that guard is complete,
+not whether the default is implicated.
+
+**What the logs establish.** The outer `earth-buildkitd` is started by
+stage2-setup at 18:12:38 and holds 8371 and 8372. The inner buildkitd, at
+18:15:41, cannot bind either. On `main`'s green Podman job the inner
+`buildkitsandbox` connects on 8372 with no bind error at all, so on `main` the
+two are not competing for one socket.
+
+**Two candidates eliminated by reading rather than by guessing.**
+
+* The `CNI_MTU` change in `buildkitd/entrypoint.sh` is inert here: its fallback
+  message appears zero times in the failing job.
+* The folded `docker info` probe in `util/containerutil/docker.go` never runs
+  for podman: `podmanShellFrontend` embeds `*shellFrontend` and has an
+  `Information` of its own.
+
+**Still not established:** which change puts the inner daemon in the outer's
+network namespace. The next move is the outer-buildkit pointer that
+`stage2-setup` sets for non-native jobs - if the inner `earth` stops being told
+about the outer daemon, it starts its own, which is exactly this symptom.

@@ -534,6 +534,13 @@ func mountSys(root string) (undo func(), why error) {
 //
 // Read-only either way: a step has no business writing to the machine's sysfs,
 // and MS_BIND does not carry flags, so the remount asserts them.
+//
+// **Shallow, not MS_REC.** The machine mounts cgroup2 at /sys/fs/cgroup, and a
+// recursive bind brings it along - so a step whose own cgroup mount is skipped,
+// on a cgroups v1 machine, would be handed the machine's entire hierarchy. A
+// fresh sysfs mount shows an empty directory there, and this has to match it:
+// ambient state a step can observe that no key describes is exactly what I3
+// forbids.
 func mountSysWith(root string, mount mountFunc) (undo func(), why error) {
 	target := filepath.Join(root, "sys")
 
@@ -550,7 +557,7 @@ func mountSysWith(root string, mount mountFunc) (undo func(), why error) {
 		return func() { unmountAll(target) }, nil
 	}
 
-	bound := mount("/sys", target, "none", unix.MS_BIND|unix.MS_REC, "")
+	bound := mount("/sys", target, "none", unix.MS_BIND, "")
 	if bound == nil {
 		// A bind takes the source's flags, so read-only is asserted afterwards.
 		// Failing that is not failing the mount: a step with a writable /sys is

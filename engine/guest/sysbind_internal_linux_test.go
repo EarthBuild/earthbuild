@@ -47,6 +47,19 @@ func TestSysFallsBackToABindWhenSysfsIsRefused(t *testing.T) {
 				t.Errorf("the fallback is not a bind: flags %#x", flags)
 			}
 
+			// **Not recursive, and this is the whole difference between a
+			// bind that is equivalent to a fresh sysfs and one that is not.**
+			// The machine mounts cgroup2 at /sys/fs/cgroup, and MS_REC would
+			// bring it along - so a step whose own cgroup mount is skipped, on
+			// a cgroups v1 machine, would be shown the machine's entire
+			// hierarchy. A fresh `mount -t sysfs` gives an empty directory
+			// there. Ambient state a step can observe that no key describes is
+			// what I3 forbids, so the bind must be shallow.
+			if flags&unix.MS_REMOUNT == 0 && flags&unix.MS_REC != 0 {
+				t.Errorf("the bind of /sys is recursive: it carries the machine's "+
+					"own submounts, including its cgroup tree (flags %#x)", flags)
+			}
+
 			if flags&unix.MS_REMOUNT != 0 && flags&unix.MS_RDONLY != 0 {
 				readOnlyRemount = true
 			}

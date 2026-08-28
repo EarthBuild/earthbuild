@@ -37001,3 +37001,34 @@ the same values under both engines - so `IF` was the one site that read a
 command as text. Worth the run: a fix that
 addresses one form of a construct says nothing about the others, and "the
 conditionals are fine now" is exactly the sentence that ages badly.
+
+## E787 - two places this engine allows what the reference refuses
+
+Most of this sweep's differentials found this engine doing less than earthly.
+Two go the other way, and they are worth knowing before somebody writes an
+Earthfile that only builds here.
+
+**`FINALLY` may hold a `RUN`.**
+
+```console
+$ earthly +t
+  Error: CATCH/FINALLY body only (currently) supports SAVE ARTIFACT ... AS LOCAL
+         commands; got RUN
+$ earth-native +t
+  IN-TRY … exit code 4 … IN-FINALLY        # and the build fails, as it should
+```
+
+The semantics here are the ones the word means: `FINALLY` runs after a `TRY`
+that failed *and* after one that succeeded, and a failing `TRY` still fails the
+build with its own exit code.
+
+**A `WITH DOCKER` block may hold more than one `RUN`** - earthly answers `only
+one command is allowed in WITH DOCKER and it has to be RUN`. That one is
+recorded as a defect rather than a feature, because the extra commands do not
+share the block's daemon: state from the first is gone by the second, which is
+worse than refusing them.
+
+The distinction between the two is whether the extra permission *works*.
+`FINALLY` with a `RUN` does what it says; a second `RUN` in `WITH DOCKER` does
+not, so one is a superset and the other is a trap. An Earthfile using either
+builds here and not there, which is the direction of portability nobody checks.

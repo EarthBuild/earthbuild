@@ -33,6 +33,12 @@
 # resolves `SAVE ARTIFACT ... AS LOCAL` against the invoked Earthfile's own
 # directory - so the binary lands in tests/build rather than /build, and the
 # module files the test base copies in land beside it. None was ever tracked.
-/tests/build/
+# Any tests/ subdirectory invoked directly gets its own, so the pattern is
+# broad. Nothing under tests/ named build/ is tracked.
+/tests/**/build/
+# Only at the top level: tests/docker2earth/go.mod and tests/go-project/go.mod
+# are tracked fixtures, and a broad pattern here would silently hide the next
+# one somebody adds. The copies a local run leaves in other subdirectories stay
+# visible, which is the lesser problem.
 /tests/go.mod
 /tests/go.sum

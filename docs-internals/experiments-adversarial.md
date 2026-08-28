@@ -40788,3 +40788,42 @@ failures is not a defect count but a text mismatch between two engines that
 disagree about how to phrase a refusal. Any percentage that counts those as
 remaining work is overstating what is left to build and understating what has to
 be decided.
+
+### E846a - the sweep that found E846 over-reports, and here is by how much
+
+E846 said "about a dozen candidates" from grepping `engine/` for the strings
+`tests/Earthfile` asserts. That count is not trustworthy and the correction is
+the same one this session has made twice already: a message built with a format
+verb has no literal in the source, so grep cannot find it.
+
+Three more, run rather than grepped:
+
+```text
+assertion                                     what this engine actually prints
+Hint: 'foo' is an ARG and cannot be used      Hint: 'foo' is an ARG and cannot be used with SET -
+  with SET - try declaring 'LET foo =           try declaring `LET foo = $foo` first
+                                              ** exact match; the sweep called it missing **
+
+invalid ARG arguments: global ARG can only    ARG --global g at Earthfile:9 is inside a target
+  be set in the base target                     a global belongs to the commands before the first
+                                                target, which is what every target starts from
+
+arg default value supplied for built-in ARG   ARG at Earthfile:13 sets EARTHLY_TARGET, which the
+                                                engine supplies
+```
+
+One exact match the sweep reported as missing, and two genuine wording
+differences. So the list in E846 mixes three things - real matches, wording
+differences, and strings that are test *output* rather than engine messages -
+and only running each tells them apart.
+
+**What survives from E846**, because it was established by running and not by
+grepping: five assertions where the behaviour is present and the wording differs,
+and the reconciliation they imply. **What does not survive** is any count of how
+many there are. Producing that number means running all 49, which is worth doing
+before anyone plans around it.
+
+**Third time today.** `EARTH_ENGINE` looked like dead config until the flag that
+reads it turned out to build its name from `flag.EarthEnvVars("ENGINE")`. A
+constructed string is invisible to a search for the thing it constructs, and
+this codebase constructs most of its messages.

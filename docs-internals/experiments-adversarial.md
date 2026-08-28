@@ -39318,3 +39318,37 @@ would be worth less than the list above.
 `git diff origin/main...HEAD -- <path>` and a line count. Ruling out is faster
 than ruling in, and a list of what it is *not* is the part of an unfinished
 investigation that survives being handed over.
+
+### E828b - and the label that would have said which test
+
+**The frontend error is a red herring too.** `main`'s log carries thirty-eight of
+the same `podman: executable file not found in $PATH` lines and passes. Failing
+to autodetect a frontend inside a nested build is normal here and tolerated. What
+differs is narrower than it looked: of the buildkit connections a job makes,
+`main` fails none of nine and this branch fails two of twelve.
+
+**Two of twelve is not a broken configuration.** It is a specific pair of nested
+builds timing out where the other ten succeed, which points at timing or
+contention rather than at a missing binary - and away from every structural
+candidate ruled out in E828a.
+
+**Which test, though, cannot be read from the log, and that is a regression of
+its own.** The two engines label a step's output differently:
+
+```text
+main:  ./tests+arg-redeclare-error       |  buildkitd | Connecting to tcp://...
+ours:  /home/.../tests/Earthfile:1792    |  buildkitd | Connecting to tcp://...
+```
+
+`main` names the target. This branch names the file and line of the *user-defined
+command* the output came through - `RUN_EARTH`, at `tests/Earthfile:1701` - which
+is the same 1,182 times for every test in the job. So the log says a nested build
+failed and cannot say which of the group's tests was running it.
+
+That is why `tests/Earthfile:1792` was read here as "the failing test" for two
+rounds of this investigation. It is not a test; it is the label every test shares.
+
+**Recorded as the third diagnosability finding of the day**, after the skip
+ceiling printing the top forty of a hundred and sixty-three, and the failure
+diagnostics reporting their own absence as the job's error. Each cost more of
+this investigation than the fault did.

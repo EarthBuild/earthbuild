@@ -40024,3 +40024,38 @@ neither a CI log nor a local run can say whether either mount succeeded; the
 only way to find out was to build the engine and probe from inside a step. That
 is now the change worth making, and E834's wrong hypothesis is the argument for
 it.
+
+### E835 - what parallel export actually risks, which is less than it looked
+
+`exportConcurrently` grouped artifacts by exact destination equality, so two
+artifacts whose destinations *contained* one another ran at once - `SAVE
+ARTIFACT tree AS LOCAL out` beside `SAVE ARTIFACT tree/sub/i.txt AS LOCAL
+out/sub/i.txt`.
+
+**The first reading was wrong and worth recording as such.** "One export writes
+a tree the other is writing inside" suggests tearing or a lost directory. It is
+not what happens. `Export` does not clear its destination - no `RemoveAll` - and
+`placeOut` stages every file beside its destination and renames it into place.
+So an overlap is a per-file overwrite: each file is complete, and the tree is
+the union of both artifacts.
+
+**What is actually lost is the answer to "which one won".** Serially it is the
+Earthfile's order, and two artifacts naming the *identical* destination already
+relied on that - the equality grouping existed precisely so the second could
+win. Under containment the same question has the same answer serially and a coin
+flip concurrently, which is a determinism defect and not a corruption one.
+
+**So the fix is cheap and the justification is narrow.** `exportGroups` unions
+destinations that contain one another, by path separator rather than string
+prefix (`out/ab` does not contain `out/abc`) and transitively (`a/b/c`, `a`,
+`a/b` are one group). Overlapping saves stay legal and still overwrite; they
+just overwrite in the order they were written. Everything else still goes at
+once, which is the whole point of the option.
+
+Three runs of a build with an overlapping destination and
+`EARTH_PARALLEL_EXPORT=8`: identical output each time.
+
+**Still off by default**, and for a reason this does not touch: concurrently, an
+artifact already in flight when a build fails may land, where serially it never
+would. That is a change to when a failing build stops writing, and is a separate
+question from which of two overlapping artifacts wins.

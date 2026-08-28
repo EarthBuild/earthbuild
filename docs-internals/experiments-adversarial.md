@@ -36902,7 +36902,9 @@ appears in somebody's image months later as a missing file.
 
 With E775 - artifacts byte-identical, permissions identical - the two engines now
 agree on everything a build *produces* that has been compared: file contents,
-modes, types, image configuration, and the archive format. What is left
+modes, types, image configuration, and the archive format. `CACHE` agrees too -
+three builds appending to one cache mount read 1, 2 and 3 lines under both, so
+the mount persists across builds and is keyed the same way. What is left
 disagreeing is the clock (E775) and what each leaves in `/run` (E780), both of
 which are about the engine rather than the build.
 

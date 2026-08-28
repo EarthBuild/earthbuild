@@ -562,6 +562,20 @@ type Response struct {
 	// Never the value: this travels to a build's output.
 	Leaked []string `json:"leaked,omitempty"`
 
+	// Absent says an `--if-exists` export found nothing to export.
+	//
+	// **Answered by the side that can see the filesystem.** The host used to
+	// decide this itself, with an os.Stat of the materialised root - but that
+	// root is a path inside the guest's mount namespace, so the stat failed
+	// whatever was there and `--if-exists` never saved anything at all. See
+	// remoteHandle.Delta for the same rule stated from the other end.
+	//
+	// Distinct from Err because "the file was not there" and "the export went
+	// wrong" must not be the same answer: treating them alike turns a broken
+	// export into a silently skipped artifact. The guest sets this only from
+	// the two checks that precede any copying, never from a copy that failed.
+	Absent bool `json:"absent,omitempty"`
+
 	// Chunk is a piece of a running step's output.
 	//
 	// A frame carrying one is *not* the reply: it is progress from a request

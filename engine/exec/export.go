@@ -140,18 +140,6 @@ func (e *Executor) exportTo(
 		endRel()
 	}()
 
-	// `SAVE ARTIFACT --if-exists` means an absent path is not a failure. Asked
-	// of the materialised filesystem rather than inferred from an export error,
-	// because "the file was not there" and "the export went wrong" must not be
-	// the same answer - treating them alike would turn a broken export into a
-	// silently skipped artifact.
-	if ifExists {
-		_, statErr := os.Stat(filepath.Join(h.Root(), filepath.Clean("/"+path)))
-		if statErr != nil {
-			return nil
-		}
-	}
-
 	// Named by destination so two artifacts cannot collide in the staging area,
 	// and so a partial export is visible as the wrong file rather than as a
 	// mysteriously absent one.
@@ -161,12 +149,24 @@ func (e *Executor) exportTo(
 	// destination a place rather than a name.
 	stage := stagingFor(path, localDest)
 
+	// `SAVE ARTIFACT --if-exists` means an absent path is not a failure. The
+	// question travels with the export and is answered in the guest, because
+	// the materialised root is a path in the guest's mount namespace: stat'ing
+	// it from here failed whatever was there, so the flag skipped every save it
+	// was ever applied to. The guest still answers it separately from the
+	// export's own error, since "the file was not there" and "the export went
+	// wrong" must not be the same answer - treating them alike would turn a
+	// broken export into a silently skipped artifact.
 	endStage := phase("export:stage", path)
-	shared, err := c.Export(ctx, h, path, stage)
+	shared, absent, err := c.Export(ctx, h, path, stage, ifExists)
 	endStage()
 
 	if err != nil {
 		return err
+	}
+
+	if absent {
+		return nil
 	}
 
 	// Checked here, next to the write, and not only in the interpreter that

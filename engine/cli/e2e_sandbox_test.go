@@ -347,14 +347,22 @@ build:
 	}
 }
 
-// `SAVE ARTIFACT --if-exists` skips what the build did not produce.
+// `SAVE ARTIFACT --if-exists` saves what the build produced and skips what it
+// did not.
 //
 // Before the flag was parsed it *became* the artifact's path, so the build
 // exported a file called `--if-exists` and treated the real path as the
 // destination - the wrong file, in the wrong place, reported as success.
 //
+// **Both halves, because only one of them can fail quietly.** This test used
+// to apply the flag solely to a path that was absent, where "skips correctly"
+// and "never saves anything" are the same observation; the flagged save of a
+// file that *is* there went untested for as long as the flag existed. It was
+// broken that whole time - a differential against earthly found it, not this
+// test.
+//
 // Not parallel: boots a VM, see e2e_sandbox_test.go.
-func TestSaveArtifactIfExistsSkipsWhatIsAbsent(t *testing.T) {
+func TestSaveArtifactIfExistsFollowsWhatIsThere(t *testing.T) {
 	if os.Getenv("EARTH_TEST_NETWORK") == "" {
 		t.Skip("set EARTH_TEST_NETWORK=1 to run tests that reach the internet")
 	}
@@ -370,6 +378,7 @@ build:
     FROM alpine:3.22
     RUN `+sh+` -c "echo made > /present.txt"
     SAVE ARTIFACT --if-exists /absent.txt AS LOCAL absent.txt
+    SAVE ARTIFACT --if-exists /present.txt AS LOCAL flagged.txt
     SAVE ARTIFACT /present.txt AS LOCAL present.txt
 `, nil)
 
@@ -390,10 +399,13 @@ build:
 		t.Fatalf("%v\n%s", err, out.String())
 	}
 
-	// The one that exists arrives.
-	b, err := os.ReadFile(filepath.Join(dir, "present.txt"))
-	if err != nil || string(b) != "made\n" {
-		t.Errorf("present.txt is %q (%v), want the file the build made", b, err)
+	// The one that exists arrives, flagged or not. The flag says an absent
+	// path is tolerable; it does not say a present one may be dropped.
+	for _, name := range []string{"present.txt", "flagged.txt"} {
+		b, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil || string(b) != "made\n" {
+			t.Errorf("%s is %q (%v), want the file the build made", name, b, err)
+		}
 	}
 
 	// The one that does not is simply absent - not an error, and not a file

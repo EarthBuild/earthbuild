@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	osexec "os/exec"
@@ -485,7 +486,11 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 			}
 		}
 
-		err := s.export(h, req.Path, req.Dest, clampAt(req.Clamp))
+		err := s.export(h, req.Path, req.Dest, clampAt(req.Clamp), req.IfExists)
+		if errors.Is(err, errArtifactAbsent) {
+			return Response{Absent: true}
+		}
+
 		if err != nil {
 			return Response{Err: err.Error()}
 		}
@@ -984,7 +989,7 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 // silently missing downstream. `SAVE ARTIFACT --if-exists` is how to say the
 // other thing.
 func (s *Server) exportMatches(
-	h core.Handle, src, dst, path string, clamp *time.Time,
+	h core.Handle, src, dst, path string, clamp *time.Time, ifExists bool,
 ) error {
 	matches, err := filepath.Glob(src)
 	if err != nil {
@@ -992,6 +997,10 @@ func (s *Server) exportMatches(
 	}
 
 	if len(matches) == 0 {
+		if ifExists {
+			return errArtifactAbsent
+		}
+
 		return fmt.Errorf("SAVE ARTIFACT %s: nothing matches it", path)
 	}
 
@@ -1022,7 +1031,9 @@ func (s *Server) exportMatches(
 	return nil
 }
 
-func (s *Server) export(h core.Handle, path, dest string, clamp *time.Time) error {
+func (s *Server) export(
+	h core.Handle, path, dest string, clamp *time.Time, ifExists bool,
+) error {
 	// Timed on this side of the boundary, because the host's `export:stage`
 	// covers a round trip as well as the work and 0.35s of a 1.16s build was
 	// being attributed to a copy without anybody having measured the copy
@@ -1061,16 +1072,33 @@ func (s *Server) export(h core.Handle, path, dest string, clamp *time.Time) erro
 	// it. `findInStack` has matched patterns on the consuming side since the
 	// beginning, for this reason and in these words.
 	if strings.ContainsAny(filepath.Base(src), "*?[") {
-		return s.exportMatches(h, src, dst, path, clamp)
+		return s.exportMatches(h, src, dst, path, clamp, ifExists)
+	}
+
+	// Absence is what --if-exists tolerates, and it surfaces at whichever of
+	// these two checks reaches the missing name first: resolveLast walks the
+	// path and fails on a missing parent, the lstat below fails on a missing
+	// leaf. A path that is there but cannot be stat'ed is a different answer
+	// and stays an error, or the flag would swallow a permission problem too.
+	absent := func(err error) bool {
+		return ifExists && errors.Is(err, fs.ErrNotExist)
 	}
 
 	resolved, err := resolveLast(h.Root(), src)
 	if err != nil {
+		if absent(err) {
+			return errArtifactAbsent
+		}
+
 		return fmt.Errorf("SAVE ARTIFACT %s: %w", path, err)
 	}
 
 	_, err = os.Lstat(resolved)
 	if err != nil {
+		if absent(err) {
+			return errArtifactAbsent
+		}
+
 		return fmt.Errorf("SAVE ARTIFACT %s: %w", path, err)
 	}
 
@@ -2534,16 +2562,20 @@ func (c *Client) Capture(
 // The returned path, when not empty, is where the bytes already sit in the
 // store, relative to its root: nothing was copied and the host reads them off
 // its own disk. See Response.Shared.
+// The bool reports that nothing was there and ifExists said so was fine; the
+// caller writes no artifact and the build carries on. It is answered here and
+// not by the host, which cannot see the guest's filesystem to ask.
 func (c *Client) Export(
-	ctx context.Context, h core.Handle, path, dest string,
-) (string, error) {
+	ctx context.Context, h core.Handle, path, dest string, ifExists bool,
+) (string, bool, error) {
 	rh, ok := h.(*remoteHandle)
 	if !ok {
-		return "", errors.New("handle did not come from this guest")
+		return "", false, errors.New("handle did not come from this guest")
 	}
 
 	resp, err := c.do(ctx, Request{
 		Kind: KindExport, Handle: rh.id, Path: path, Dest: dest, Clamp: hostClamp(),
+		IfExists: ifExists,
 		// **Not when the store is the guest's own.** The fast path answers with
 		// a path in the store so the host can take the bytes off its own disk,
 		// which is precisely what a store on a block device inside the VM is
@@ -2552,10 +2584,10 @@ func (c *Client) Export(
 		MayShare: ShareExports() && !StoreInVM(),
 	})
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
-	return resp.Shared, nil
+	return resp.Shared, resp.Absent, nil
 }
 
 // Copy places a path from a stored layer into a step's filesystem.
@@ -2929,6 +2961,14 @@ type layerPath struct {
 // the search having failed. `--if-exists` tolerates the first and not the
 // second.
 var errNotInStack = errors.New("nothing in that target has it")
+
+// errArtifactAbsent says an export found nothing at the path it was given.
+//
+// Returned only from the two checks that run before anything is copied - an
+// empty glob, and a source that is not there - so it can never be raised by a
+// copy that went wrong. `SAVE ARTIFACT --if-exists` turns it into a skip; every
+// other export turns it into the failure it has always been.
+var errArtifactAbsent = errors.New("the path is not there")
 
 func (s *Server) findInStack(from []string, src string) ([]layerPath, error) {
 	if s.LayerDir == "" {

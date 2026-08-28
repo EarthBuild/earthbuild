@@ -37,7 +37,7 @@ func TestExportingAPatternExportsEveryMatch(t *testing.T) {
 
 	s := &Server{LayerDir: dir}
 
-	err := s.export(fixedHandle{root: root}, "out-*", "output/", nil)
+	err := s.export(fixedHandle{root: root}, "out-*", "output/", nil, false)
 	if err != nil {
 		t.Fatalf("a pattern naming two files was refused: %v", err)
 	}

@@ -150,7 +150,7 @@ func TestExportingALinkToADirectoryExportsTheTree(t *testing.T) {
 
 	s := &Server{LayerDir: dir}
 
-	err = s.export(fixedHandle{root: root}, "link", "art", nil)
+	err = s.export(fixedHandle{root: root}, "link", "art", nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

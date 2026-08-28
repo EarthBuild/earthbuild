@@ -37401,3 +37401,48 @@ contaminated: the harness rebuilt `earth-native` for each commit and not
 fixed guest with the old CLI. A binary that is not rebuilt is a variable that is
 not controlled, and an A/B over two commits controls neither unless every
 artefact under test moves with them.
+
+## E795 - the fix that reached only empty caches
+
+E794's fix applies when a step re-runs. It does not apply to the entries the
+defect already wrote, and those are the ones every existing store is full of -
+this repository's CI included. A correctness fix that reaches only machines
+which have never built is half a fix, and the half it misses is all of them.
+
+The first attempt versioned Κ₂, reasoning that what changed was the *meaning* of
+an observation: an entry recorded before the fix says nothing about a
+directory's contents, its own record is what the consistency check consults, and
+a check against a record that never mentioned the listing passes exactly as
+vacuously as it did before. That reasoning is correct and the fix retired
+nothing. Measured, on a store poisoned by the pre-fix engine and then rebuilt
+with the fix in place:
+
+```console
+$ earth-native +t
+  /c/a.txt
+  Earthfile:5    L1 hit     RUN find /c -type f
+```
+
+**`L1`.** A false L2 hit does not stay in L2. The result it serves is recorded
+under the *chain* key of the base the step actually ran over - and that base is
+entirely correct, containing the file the answer omits. So the wrong answer
+outlives the observation that produced it, and afterwards is served by Κ₁, which
+never changed and had no reason to. Poison crosses key spaces; a generation of
+entries is the smallest thing that can be retired.
+
+One epoch now, hashed into both keys and named for what it does. With it, the
+same poisoned store answers correctly without being cleared:
+
+```console
+$ earth-native +t
+  /c/a.txt /c/b.txt
+  Earthfile:5    miss       RUN find /c -type f
+```
+
+Two things this cost, both worth the price. A generation retired is one cold
+build per store - cheap here, where the store's population is developers and CI.
+And the argument that talked me out of epoching Κ₁ in the first place was a good
+one: the chain key was not wrong, its inputs were not wrong, and nothing about
+it had changed. All true, and all beside the point, because what it *held* was
+written by something that was wrong. A key does not have to be defective to
+carry a defective answer.

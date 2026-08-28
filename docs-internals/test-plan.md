@@ -1493,7 +1493,7 @@ of code that can be deleted with the suite still green.
 | code     | mechanism                                                                                                                                              |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | ~~E274~~ | fleet: not dialling when nothing was delegated - **done**: a counting Keeper, since a taken shortcut asks it nothing                                   |
-| E279     | fleet: correcting a reply's address before anybody sees it                                                                                             |
+| ~~E279~~ | fleet: correcting a reply's address before anybody sees it - **done**: a guard on the call site; the existing test was checking its own helper         |
 | ~~E281~~ | layer: asking for nothing meaning everything - **not a gap**: an equivalent mutant, re-anchored onto `newKeeper`'s `all` and killed                    |
 | ~~E282~~ | fleet: leaving nothing behind when a fragment fails to arrive - **done**: a failed put leaves no `.incoming-*` behind                                  |
 | ~~E291~~ | guest: a fault-in answer finding the request that asked - **done**: a reply addressed to nobody must not unblock a waiter                              |

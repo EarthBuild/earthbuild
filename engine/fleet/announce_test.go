@@ -146,8 +146,17 @@ func TestWithNoDriverAddressNothingIsCorrected(t *testing.T) {
 // used the corrected one. Two records of one fact, correcting only one of them
 // (E279).
 //
-// This asserts the reply itself is corrected, which is what makes the second
-// table right without knowing anything about it.
+// **This does not assert that.** It calls `correctedForTest`, which looks the
+// worker up and applies `correctHost` itself - so what it checks is that the
+// correction works when performed by the helper, not that `Assign` performs it.
+// Deleting the line in `Assign` leaves this test green, which a mutation sweep
+// proved by deleting it and finding nothing noticed (E804).
+//
+// It is kept because the lookup it does exercise is real, and its claim is
+// corrected rather than its body: the call site is guarded by
+// `TestAReplysAddressIsCorrectedWhereEveryReplyPasses`, which reads the source,
+// because on one machine an announced address and a seen address are the same
+// string and the correction has nothing to do.
 func TestAReplyIsCorrectedBeforeAnybodySeesIt(t *testing.T) {
 	t.Parallel()
 

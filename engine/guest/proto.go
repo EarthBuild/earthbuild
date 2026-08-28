@@ -631,6 +631,11 @@ type Response struct {
 	// degrade-and-say-so, and a build whose steps all ran without the ceiling
 	// they asked for has to learn that while it can still act on it (E123).
 	Degraded string `json:"degraded,omitempty"`
+	// Unmounted is why a step's filesystem was not fully built - a /sys or
+	// cgroup mount that could not be made. Separate from Degraded, which is
+	// about resource limits: a reader who sees one and acts on the other is
+	// chasing the wrong machine (E834a).
+	Unmounted string `json:"unmounted,omitempty"`
 
 	// Layer and Content are a capture's two digests, hex. Layer is the identity
 	// (timestamps included); Content excludes them, so determinism screening

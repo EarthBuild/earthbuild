@@ -112,6 +112,10 @@ type Server struct {
 	termMu   sync.Mutex
 	n        int
 	degraded string
+	// unmounted is why a step's filesystem was not fully built - the first
+	// reason, kept for the life of the guest. Separate from degraded, which
+	// means one specific thing (E834a).
+	unmounted string
 	// running is how to abandon each exec in flight, by request id.
 	//
 	// A function rather than the *exec.Cmd it came from. Holding the command
@@ -1286,6 +1290,51 @@ func (s *Server) Degraded() string {
 	return s.degraded
 }
 
+// whyMount renders a mount failure as a reason, or empty when there was none.
+//
+// A function rather than an `if` at each call site: there are two of them and a
+// third would be written by copying one of these, which is how the first two
+// came to drop the reason.
+func whyMount(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	return err.Error()
+}
+
+// noteUnmounted records the first reason a step's filesystem was incomplete.
+//
+// The first rather than the last: forty steps fail the same mount for the same
+// reason, and a later unrelated failure must not replace the cause the reader
+// still needs.
+func (s *Server) noteUnmounted(reason string) {
+	if reason == "" {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.unmounted == "" {
+		s.unmounted = reason
+	}
+}
+
+// Unmounted reports why a step's filesystem was not fully built, if it was not.
+//
+// A step without /sys is still a correct step, which is why the mounts degrade
+// rather than refuse. This is the other half of I11: until it existed, neither a
+// CI log nor a local run could say whether either mount had succeeded, and
+// establishing that they do meant building the engine and probing from inside a
+// step (E834a).
+func (s *Server) Unmounted() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.unmounted
+}
+
 // lockHandle serialises filesystem work against one handle, and returns the
 // release.
 //
@@ -1344,6 +1393,10 @@ type Client struct {
 	// build reporting it once is read while a build reporting it per step is
 	// not (E123).
 	degraded string
+	// unmounted is why a step's filesystem was not fully built, carried back
+	// from the guest. The guest and the host are different machines on macOS,
+	// so a reason that stays on the guest is a reason nobody reads.
+	unmounted string
 }
 
 // Degraded reports why steps ran without the resource limits they were given,
@@ -1370,6 +1423,32 @@ func (c *Client) noteDegraded(reason string) {
 
 	if c.degraded == "" {
 		c.degraded = reason
+	}
+}
+
+// Unmounted reports why a step's filesystem was not fully built, or empty if
+// it was.
+//
+// Asked of the client rather than announced, the same shape as Degraded beside
+// it: the caller decides when a build-level warning belongs in its output.
+func (c *Client) Unmounted() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.unmounted
+}
+
+// noteUnmounted records the first reason a step's filesystem was incomplete.
+func (c *Client) noteUnmounted(reason string) {
+	if reason == "" {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.unmounted == "" {
+		c.unmounted = reason
 	}
 }
 
@@ -2141,17 +2220,20 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// After /proc and on a weaker rule: a step that cannot have one is still a
 	// correct step, so this carries on rather than failing. See mountSys.
 	//
-	// The reason is dropped, which is the least bad of three. `noteDegraded` is
-	// the only channel back and it means one specific thing - why a step ran
-	// without the *limits* it was given - so putting a mount failure through it
-	// would corrupt a signal somebody reads; a field of its own would be an API
-	// nothing consumes; and printing per step would say it once per step on
-	// every rootless build. Reporting it once, properly, is worth doing and is
-	// not this change.
+	// **The reason is kept, on a channel of its own.** It used to be dropped -
+	// `noteDegraded` means one specific thing, why a step ran without the
+	// *limits* it was given, and a mount failure sent through it would corrupt
+	// a signal somebody reads. So neither a CI log nor a local run could say
+	// whether this mount had succeeded, and finding out took building the
+	// engine and probing from inside a step, to answer a question the guest
+	// already knew (E834a). `noteUnmounted` is that channel: kept per guest,
+	// carried back per step, printed once per build.
 	endSys := timing.Phase("guest:sys", req.Handle)
-	undoSys, _ := mountSys(h.Root())
+	undoSys, whySys := mountSys(h.Root())
 
 	endSys()
+
+	s.noteUnmounted(whyMount(whySys))
 
 	defer undoSys()
 
@@ -2159,9 +2241,11 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// has none of this and a step there is still a correct step. See
 	// mountCgroup2.
 	endCgroupFS := timing.Phase("guest:cgroupfs", req.Handle)
-	undoCgroupFS, _ := mountCgroup2(h.Root())
+	undoCgroupFS, whyCgroupFS := mountCgroup2(h.Root())
 
 	endCgroupFS()
+
+	s.noteUnmounted(whyMount(whyCgroupFS))
 
 	defer undoCgroupFS()
 
@@ -2464,7 +2548,8 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 		return Response{
 			Exit: exitErr.ExitCode(), Output: outputFor(req, out), Degraded: degradedNow,
-			CPUNanos: cpu.Nanoseconds(), MaxRSS: rss,
+			Unmounted: s.Unmounted(),
+			CPUNanos:  cpu.Nanoseconds(), MaxRSS: rss,
 		}
 	}
 
@@ -2500,7 +2585,8 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 	return Response{
 		Exit: 0, Output: outputFor(req, out), Degraded: degradedNow,
-		CPUNanos: cpu.Nanoseconds(), MaxRSS: rss,
+		Unmounted: s.Unmounted(),
+		CPUNanos:  cpu.Nanoseconds(), MaxRSS: rss,
 	}
 }
 
@@ -2795,6 +2881,10 @@ func (c *Client) RunStep(
 	// Why a step ran unbounded, recorded as the step reports it rather than
 	// when the guest exits (E123).
 	c.noteDegraded(resp.Degraded)
+
+	// And why its filesystem was not fully built, on the same rule and for the
+	// same reason: reported as the step reports it, not when the guest exits.
+	c.noteUnmounted(resp.Unmounted)
 
 	return StepOutcome{
 		Exit: resp.Exit, Output: resp.Output,

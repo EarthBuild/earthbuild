@@ -39977,3 +39977,50 @@ Unverified, and it is the first thing to test.
 What does not go away is I3: a bind of the host's cgroup tree makes a step's
 contents depend on the machine it landed on. That is a decision about what a
 step is entitled to see, not an optimisation, so it is recorded here and left.
+
+### E834a - E834 was wrong, and the way it was wrong is the finding
+
+E834 asserted that `stepMounts` never mounts `/sys`, and concluded the Native
+suite fails because a step has no cgroup tree. Both halves are wrong. The
+correction matters more than the original.
+
+**What the code actually does.** `execRequest` does not mount `/sys` through
+`stepMounts` at all; it calls `mountSys` and then `mountCgroup2` directly
+(`engine/guest/guest.go`, the `guest:sys` and `guest:cgroupfs` phases). Reading
+`stepMounts` alone and concluding what a step is given was the mistake - the
+function's own doc comment says it is "everything bound into a step", which is
+true of binds and not of the filesystems mounted beside them.
+
+**What a step actually gets, measured rather than read.** A native build on
+Linux (privileged container, cgroup v2 host), probing from inside a step:
+
+```text
+/proc/self/cgroup            0::/
+statfs /sys/fs/cgroup        63677270   (CGROUP2_SUPER_MAGIC)
+mkdir /sys/fs/cgroup/probe   OK
+cgroup.controllers           cpuset cpu io memory hugetlb pids rdma
+mountinfo                    486 483 0:40 /.. /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime - cgroup2 cgroup2 rw
+```
+
+Unified mode, the step at its own namespace root, controllers delegated, and a
+nested runtime able to create its own cgroup. Everything runc needs is there.
+
+**So the CI failure is not reproduced, and its cause is still unknown.** The
+`runc run failed: no cgroup mount found in mountinfo` in the Native jobs is real
+and is upstream of the `tail`/`exit_code` noise, so E834's ranking correction
+stands. What does not stand is the explanation.
+
+One narrowing worth keeping: that message is runc's **cgroup v1** path
+(`ErrNoCgroupMountFound`), reached only after it has decided the machine is not
+in unified mode. On the evidence above a step *is* in unified mode, so whatever
+fails in CI happens somewhere this probe did not look - most likely inside the
+nested dockerd/buildkitd the test starts, rather than in the step this engine
+built.
+
+**And the reason an hour went into a wrong answer.** `mountSys` and
+`mountCgroup2` both have their errors discarded at the call site, with a comment
+saying a proper report "is worth doing and is not this change". Because of that,
+neither a CI log nor a local run can say whether either mount succeeded; the
+only way to find out was to build the engine and probe from inside a step. That
+is now the change worth making, and E834's wrong hypothesis is the argument for
+it.

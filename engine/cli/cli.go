@@ -582,6 +582,11 @@ func runPlan(
 	// reason back with each step and the first one is kept (E123).
 	warnUnbounded(o.Out, e.Degraded())
 
+	// And why a step's filesystem was not fully built, on the same rule: said
+	// where it can be acted on rather than left for whoever meets `no cgroup
+	// mount found in mountinfo` from a nested runtime (E834a).
+	warnIncomplete(o.Out, e.Unmounted())
+
 	// Said before the reader meets `docker: not found` from a step, rather than
 	// after (E146).
 	warnNoDockerClient(o.Out, e.DockerNote())

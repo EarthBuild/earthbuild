@@ -1046,6 +1046,26 @@ func (e *Executor) Degraded() string {
 	return c.Degraded()
 }
 
+// Unmounted reports why a step's filesystem was not fully built.
+//
+// Passed through from the guest for the reason Degraded is: mounting /sys is
+// something only the guest can attempt, and only the guest knows whether it
+// worked. Empty when every mount was made, so a caller can print it
+// unconditionally.
+func (e *Executor) Unmounted() string {
+	// Never starts a sandbox, on the rule above: a query with a side effect is
+	// not a query.
+	e.mu.Lock()
+	c := e.c
+	e.mu.Unlock()
+
+	if c == nil {
+		return ""
+	}
+
+	return c.Unmounted()
+}
+
 // EnvTrace turns off watching what a step reads.
 //
 // **A lever and a measurement.** Observation is how a step earns an L2 hit - a

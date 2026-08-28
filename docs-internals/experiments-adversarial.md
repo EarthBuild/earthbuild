@@ -40275,3 +40275,39 @@ in that gap and not in the 15ms.
 
 That is the argument for treating tag resolution as the next piece of work,
 whichever way the caching decision goes.
+
+### E839 - the Native suite's inner buildkitd cannot start, and the netns is why
+
+The `Unmounted` channel (E834a's remedy) earned its keep on its first CI run, by
+saying nothing. `Native / +test-no-qemu-group4` failed with no
+`filesystem was incomplete` warning and no `no cgroup mount found in mountinfo`
+at all - so the mounts succeeded on the runner, which is what the local probe
+said and what E834 denied.
+
+**What it failed with instead:**
+
+```text
+Registry serve error: listen tcp 0.0.0.0:8371: bind: address already in use
+buildkitd:            listen tcp 0.0.0.0:8372: bind: address already in use
+Error: build new buildkitd client: ... timeout 1m0s: could not connect to buildkit
+```
+
+**And that is a namespace, not a port.** `isolationFlags` applies CLONE_NEWNS,
+NEWPID, NEWUTS, NEWIPC and NEWCGROUP, and states plainly that CLONE_NEWNET is
+*deliberately* not applied - cutting the network would break every build that
+fetches a dependency. So every step shares the machine's network namespace. The
+legacy engine ran each inner build inside a Docker container with a namespace of
+its own, so each got its own 8372; here two steps starting a buildkitd, or one
+step starting one beside the outer daemon, are bidding for the same socket.
+
+**Stated carefully, because the symptom moved.** The same job on the previous run
+showed the cgroup message eight times and no bind failure; on this run, four bind
+failures and no cgroup message. Two runs, two symptoms, one job - so this is not
+yet "the" cause of all fifteen. What both have in common is a nested runtime
+failing to start, and only the second names a mechanism this engine chose.
+
+**Why the fix is not "add CLONE_NEWNET".** A private network namespace with no
+plumbing has no route out, which breaks every `RUN` that fetches anything. Giving
+each step a namespace *and* connectivity means a veth pair and NAT, or a
+userspace stack - real work, and a decision about what a step's network is,
+which is the kind of thing this document records rather than settles.

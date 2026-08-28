@@ -40092,3 +40092,39 @@ GET on a pull that was going to fail anyway.
 first and 0.087-0.133s for the second, so token acquisition remains the larger
 prize by a factor of five, and remains a decision about credentials rather than
 an optimisation.
+
+### E836a - and the 0.12s comes off, because nothing depended on it
+
+E836 named the configuration blob fetch as the unaccounted 16% of a pull and
+noted it was serial after the layers by a decision about error economy. Starting
+it beside them removes it from the critical path.
+
+**Overlap asserted, not timed.** The fake registry counts concurrent blob
+requests, so the test says "these two overlapped" rather than "this got faster" -
+which is the difference between a test and a test that fails on a loaded machine.
+Red before at one request in flight, green after at two.
+
+**Two independent measurements, because elapsed time alone was network
+variance.** The three runs after the change had a faster network than the three
+before - `layer:get` 0.243-0.255 against 0.371-0.581 - so the raw drop in
+`image:pull` cannot be attributed to the change:
+
+```text
+                          before                 after
+registry:config     0.116 0.120 0.121      0.000 0.000 0.000
+image:pull          0.899 0.806 1.045      0.565 0.543 0.569
+image:pull - layer:get   0.400 0.435 0.464      0.310 0.288 0.326
+                    mean 0.433             mean 0.308
+```
+
+The phase now times the *wait* rather than the request, and reads zero three
+times: the configuration had arrived before the layers finished. Subtracting the
+variable transfer, the residual fell by 0.125s - the size of the round trip it
+stopped waiting for. Two numbers agreeing from different directions is what
+makes this a result rather than a coincidence, on a measurement this small
+against this much noise.
+
+**What survives unchanged.** A pull whose layers fail still returns the layer's
+error, not the configuration's; the error is discarded with the goroutine. The
+cost of the change is one wasted GET on a pull that was going to fail anyway,
+which is the trade the old ordering was making in the opposite direction.

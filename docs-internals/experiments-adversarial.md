@@ -41204,3 +41204,40 @@ The deeper question - that a `--output_contains` pattern passes through two shel
 layers and only one round of escaping survives - is left recorded rather than
 fixed. It is the harness's escaping, not the engine's, and every assertion that
 avoids `$` is unaffected.
+
+### E856a - group 5: nineteen targets pass alone, the group does not
+
+`ga-no-qemu-group5` holds fifty-two targets, not the eleven a first screenful
+shows. Nineteen of them were run individually under `--engine=native`:
+
+```text
++push-build  +build-arg-repeat  +arg-scope-requires-shellout-anywhere  +arg-set
++if  +for  +first-command  +platform-output  +command  +function
++function-nested-global  +duplicate  +reserved  +quotes-test
++true-false-flag-invalid  +test-aws-flag-configs  +test-aws-flag-none
++test-cache-mount-mode  +test-exec-stats
+```
+
+All nineteen exit 0. The group exits 1, at `EARTH_PARALLELISM=1`, on a target
+that passes alone - the last invocation before the failure is `+all-positive`,
+which is `+function`, which exits 0 on its own twice.
+
+**Serialising the outer build does not serialise the work.** `EARTH_PARALLELISM`
+bounds the steps of the build it is set on; each `RUN_EARTH` step then starts an
+*inner* build that parallelises again. So a serial group of fifty-two targets is
+still fifty-two inner builds' worth of concurrency, arriving one after another
+rather than at once - and the errors are `DeadlineExceeded` and a failure to
+refresh AWS credentials, both of which are what a machine under sustained load
+produces.
+
+This is E854's category rather than a new one, with the qualification that
+`EARTH_PARALLELISM=1` is not a complete answer: it fixed group 3 and does not fix
+group 5.
+
+**One target fixed on the way**: `+arg-set` (E856), which was a mangled pattern
+rather than a wrong message.
+
+**What is not established** is which of the remaining thirty-three targets, if
+any, fails on its own. Nineteen samples say the group-level failure is not
+distributed evenly across them, and testing the rest is an hour this note is not
+worth.

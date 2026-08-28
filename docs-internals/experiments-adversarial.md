@@ -37717,3 +37717,29 @@ sweep talks itself into a tidy story; the honest position is that the Native
 failures have at least three causes, two of them parked and one of them
 unidentified, and that separating them needs the per-job work this has not
 done.
+
+**And it cannot be done on the machine this sweep runs on.** Chasing the third
+cause reaches a nested container that will not start:
+
+```text
+io.containerd.runc.v2: failed to adjust OOM score for shim:
+  get parent OOM score: open /proc/502/oom_score_adj: no such file or directory
+```
+
+`WITH DOCKER` starts its daemon and pulls images; `docker run` inside the block
+then fails, with and without `--privileged`. The step's own client is fine - the
+dind image carries `/usr/bin/docker`, 26 MB, on PATH, unshadowed by anything the
+block mounts - and `dockerd` is simply not in the step's PID namespace, which is
+where the shim's parent lookup goes wrong.
+
+**Earthly fails the same Earthfile on the same box.** So this is the machine,
+not the engine: a 6.12 kernel under NixOS with cgroup2, on which neither engine
+runs a nested container. Nothing about the Native suite's third cause can be
+concluded here, and the attempt is recorded so the next person does not spend
+the afternoon rediscovering it.
+
+Worth noting how nearly this became a finding. The first reading of the failure
+was `docker run` not working at all in this engine, which would have been the
+largest defect of the sweep. The check that stopped it was running the identical
+Earthfile under the reference - the same check that started the sweep, applied to
+its own conclusion.

@@ -37974,3 +37974,55 @@ was written on, `Macintosh HD` included: `touch Foo.txt` leaves `foo.txt`
 present. Linux is the outlier here rather than Windows being the only one - which
 is exactly why `caseNoteFor` exists and why it suggests an `hdiutil create` disk
 image for the layer store.
+
+## E805 - a test hook that reimplements what it exposes
+
+E279's mutant survived every sweep while a test named
+`TestAReplyIsCorrectedBeforeAnybodySeesIt` sat next to it, documenting the
+defect's history and asserting, in its own words, "the reply itself is
+corrected". It does not. It calls `correctedForTest`, a helper in production
+code that looks the worker up and applies `correctHost` **itself**:
+
+```go
+func (r *Rendezvous) correctedForTest(reply Reply, id string) string {
+    for _, w := range r.conns {
+        if w.id == id {
+            return correctHost(reply.HeldAt, w.from)
+        }
+    }
+    …
+}
+```
+
+So the test checks that the correction works when the *helper* performs it. The
+line in `Assign` that performs it for real can be deleted with the test still
+green, which is what the sweep found.
+
+This is the sweep's recurring shape reduced to its smallest form. Everywhere else
+it was "the part that computes is tested and the part that acts is not"; here the
+part that computes **is a test-only copy of the part that acts**, so the test and
+the code under test have no line in common.
+
+**Hunted for others.** Eight `*ForTest` hooks exist in non-test source:
+
+| hook                                    | shape                                 |
+| --------------------------------------- | ------------------------------------- |
+| `DigestedForTest`, `MeasuredForTest`    | accessors over a counter              |
+| `ObservedOwnerForTest`, `flightForTest` | seams - inject or set state           |
+| `AddForTest`, `NoteForTest`             | delegate to the production method     |
+| `anyWaiterForTest`                      | exists only as a mutant's replacement |
+| **`correctedForTest`**                  | **duplicates the logic**              |
+
+One of eight, and it is the one the sweep caught. A hook that *calls* production
+code cannot mislead; a hook that *reproduces* it always can, and the way to tell
+them apart is whether deleting the real line breaks the test.
+
+The guard that replaced it reads the source, which is worth defending rather than
+apologising for: on one machine the address a worker announces and the address it
+is seen from are the same string, so `correctHost` returns its input and its
+absence changes nothing. A real fleet formed on this hardware passes with the
+line deleted. The only thing checkable without two machines is that the call is
+still in the path.
+
+Cost of the thirteen tests this sweep added: 0.37 seconds in total, of which
+0.27 is one deliberate wait for a reply that must never come.

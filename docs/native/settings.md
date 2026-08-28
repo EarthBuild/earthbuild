@@ -806,8 +806,14 @@ releases queue on the kernel rather than finishing sooner.
 What is deferred is *when* a mount comes down and never *whether*: `Close` waits for the
 outstanding releases, so a build cannot exit leaving mounts up.
 
+**And it is worth nothing on some machines.** The 18.55ms above is an x86 box running the engine on
+bare metal. On macOS, where the same work happens inside a Linux VM, a release is 2.55ms - 17% of a
+step rather than 71% - and turning this on measures as noise: 763ms against 741ms over five pairs,
+ranges overlapping. Whatever makes an overlay unmount expensive is that machine's, not Linux's.
+
 Off by default. A release behind the answer is a mount still up while the next step runs, and the
 failure that would cause - a sandbox that has run out of them - shows under load rather than in a
-test.
+test. Turn it on where a build's `release` phase is a large share of its steps, which
+`EARTH_TIMINGS=1` will tell you.
 
 Default: off.

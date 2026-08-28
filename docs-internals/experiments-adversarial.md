@@ -39009,3 +39009,46 @@ fails without naming what moved is a ratchet that gets raised by whoever is leas
 patient. `head -40` against 163 possible culprits is the whole story - and the
 target already knows how to print the full list, because that is what was
 temporarily switched on to find this.
+
+## E825 - the release optimisation is one machine's, not one platform's
+
+**Measured again on macOS, where the guest is a Linux VM.** Five pairs, sandboxes
+stopped first, artifact asserted:
+
+| 20-step chain             | median | all five            |
+| ------------------------- | ------ | ------------------- |
+| release before the answer | 763ms  | 792 763 699 805 701 |
+| release after it          | 741ms  | 677 741 749 675 772 |
+
+Three per cent, ranges overlapping. Nothing, against 1.50x on the x86 box.
+
+**Because the release is cheap there.** Per step:
+
+| machine            | step    | release | share |
+| ------------------ | ------- | ------- | ----- |
+| x86, bare metal    | 26.00ms | 18.55ms | 71%   |
+| macOS, guest in VM | 14.86ms | 2.55ms  | 17%   |
+
+Seven times cheaper - and the guest doing that unmount **is Linux**. So the
+15.8ms overlay unmount of E817 is not a property of Linux, or of overlayfs, or of
+mount teardown. It is a property of that machine: a NixOS box, its kernel, its
+configuration, and possibly the several thousand mounts a week of engine testing
+had left it holding.
+
+**Which is a caveat on E817 through E820 and a correction to what they imply.**
+The measurements are right - overlay unmount really is 15.1ms there against
+2.9ms for a bind, really is flat in stack depth, really does parallelise only
+2.4x. What does not follow is that any of it generalises. Every one of those
+numbers came from a single machine, and the second machine disagrees by a factor
+of seven on the quantity they are all about.
+
+**So `EARTH_ASYNC_RELEASE` stays off, and now for a better reason than caution.**
+It is worth 1.50x where a release is 71% of a step and nothing at all where it is
+17%. A default that helps one machine and is inert on another is a default that
+should be asked for by the machine it helps, which is what an environment
+variable is.
+
+**And the lesson is the one this document keeps learning in new clothes.** Two
+platforms was enough to catch it. One never is - and the eight experiments before
+this one were all single-machine, including the ones that read most like facts
+about kernels.

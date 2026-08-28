@@ -40579,3 +40579,35 @@ most three of the eight.
 **And `incomplete=3` in every job** is the cgroup2 mount failing on every runner,
 which is the standing I3 decision from E841a rather than a defect: a step is
 using the machine's tree because it cannot have its own.
+
+### E841c - the fix removed the errors and not the failures
+
+The honest ending to the /sys line, and it is not the one E841a implied.
+
+```text
+                     before the fix        after
+Native passing       +test-no-qemu-kind    +test-no-qemu-kind
+Native failing       15                    15
+```
+
+Identical. The same single job passes; the same fifteen fail. The bind fallback
+demonstrably works - `mount /sys ... not permitted` and `no cgroup mount found in
+mountinfo` are gone from every sampled job - and it fixed nothing that CI
+measures.
+
+**So the /sys defect was real and was not the cause.** Those messages appeared
+three and four-to-nine times per job, which is what made them look causal; the
+jobs were failing on other things at the same time. That is the same error as
+ranking a cluster by how often its string appears (E834, E839b) - the third
+instance today, and the most expensive, because this one survived being measured
+twice and only died against the outcome.
+
+**What is worth keeping.** A step now has /sys, which it is entitled to and which
+the JDK, `nproc` and every cgroup-aware runtime read. The change is right on its
+own terms. It is simply not a CI fix, and describing it as one would have been
+the fourth wrong claim.
+
+**And the standing lesson, now with a shape.** "This error is frequent" and "this
+error is fatal" are different measurements, and only the second is answered by
+whether the job's outcome changes. Nothing in a log distinguishes them; only a
+before-and-after on the outcome does.

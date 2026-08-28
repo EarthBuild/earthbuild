@@ -2092,6 +2092,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tif uid == 0 {\n\t\treturn a\n\t}",
 		Replacement: "",
 		Package:     "./engine/guest/",
+		OS:          "linux",
 	},
 	{
 		Name:        "guest: a daemon asked on its own socket (E378)",

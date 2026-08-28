@@ -41532,3 +41532,43 @@ The one that came closest to being too general is `arg-set`'s, which had to drop
 `$foo` because neither shell layer would carry it (E856), leaving
 `is an ARG and cannot be used with SET - try declaring`. It still names the ARG,
 the command and the advice, and it is the weakest of the twelve.
+
+### E858b - the false hit is persistent, and it spreads
+
+E858a said switching `EARTH_STORE_IN_VM` breaks the run that switches it. That
+understates it.
+
+`./tests+quotes-test` built successfully at 25.82s earlier in this session. After
+one run of the same target with the flag off, it fails - with the flag back at
+its default, no code changed:
+
+```text
+7fc1ddc0... is in this step's base and this store holds neither a layer nor a
+  declaration for it
+```
+
+So does `./tests+ga-no-qemu-group6`, which had never been run with the flag off
+at all. The poisoning is in the shared action cache and reaches any target whose
+graph touches a poisoned entry.
+
+**What recovers it**, established by elimination:
+
+```text
+rm -rf ~/.cache/earthbuild/index      no effect - the directory is empty
+rm -rf ~/.cache/earthbuild/actions    recovers; 111MB, every cached step result
+```
+
+**So the shape of the defect is:** an entry in `actions` records that a step
+produced layer X. Which store holds X is not part of what is recorded. Change
+stores and the entry is still a hit, still points at X, and X is somewhere the
+current store cannot reach - and it stays that way until the whole action cache
+is deleted, because nothing invalidates on the mismatch.
+
+**A user meets this without touching the flag.** The volume goes with the
+sandbox by design, so a reaped or stopped sandbox produces the same mismatch
+(E859 is the other face of it). The difference is only whether the machine is
+told the step is non-deterministic or told the store holds nothing.
+
+That makes this the more serious of the pair: E859 prints a wrong sentence,
+this one stops the build until 111MB of correct cache is thrown away with the
+handful of bad entries.

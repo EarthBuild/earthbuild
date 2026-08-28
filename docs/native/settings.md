@@ -778,9 +778,15 @@ Earthfile's order, because the later one is meant to win; the rest cannot see ea
 printed and the error returned are in the Earthfile's order whatever order the writes finished in,
 so a build that fails fails the same way twice.
 
+**It pays on both platforms**, unlike `EARTH_ASYNC_RELEASE`, which rests on the same unmount cost
+and collapses to noise where that cost is small. Thirty-two artifacts: 1.76x on an x86 box, 1.13x
+on macOS, four and five pairs respectively, ranges disjoint on both. Concurrency wins something even
+when each unit is cheap.
+
 Off by default because it changes what a failing build leaves behind: written serially, an artifact
 after a failure is never written, while concurrently one already in flight may land before the
 cancellation reaches it. Same error, same exit code, one or two more files in the working tree.
+That is a decision about what a failed build leaves behind rather than about speed.
 
 Default: off.
 

@@ -39052,3 +39052,38 @@ variable is.
 platforms was enough to catch it. One never is - and the eight experiments before
 this one were all single-machine, including the ones that read most like facts
 about kernels.
+
+### E825a - and the export switch does pay on both
+
+**The same second-platform check, for the other switch.** Thirty-two artifacts on
+macOS, four pairs, sandboxes stopped, artifact count asserted:
+
+| 32 artifacts | median | all four        |
+| ------------ | ------ | --------------- |
+| off          | 780ms  | 769 816 790 780 |
+| on           | 690ms  | 666 714 690 728 |
+
+1.13x, and the ranges do not overlap - the slowest concurrent run beats the
+fastest serial one, on four pairs out of four.
+
+**So the two switches are not the same kind of thing, and E825 nearly tarred them
+together.**
+
+| switch                  | x86 bare metal | macOS guest |
+| ----------------------- | -------------- | ----------- |
+| `EARTH_ASYNC_RELEASE`   | 1.50x          | noise       |
+| `EARTH_PARALLEL_EXPORT` | 1.76x          | 1.13x       |
+
+Both rest on the cost of a release, so it would have been reasonable to assume
+both collapse where a release is 2.55ms rather than 18.55ms. One does. The other
+does not, because concurrency wins something even when each unit is cheap: eight
+exports of 2.55ms overlapping still beat thirty-two of them in a row, and there
+is a per-export cost beyond the release that the serial loop also pays one at a
+time.
+
+**Which changes the recommendation.** `EARTH_PARALLEL_EXPORT` earns a default on
+the evidence: two platforms, disjoint ranges on both, the corpus ratchet passing,
+and order preserved where order is observable. What holds it off is the one
+behaviour change - an artifact already in flight can land after a failure that
+serial writing would have prevented - and that is a decision about what a failed
+build leaves behind rather than about speed.

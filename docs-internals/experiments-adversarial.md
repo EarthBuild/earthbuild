@@ -41424,3 +41424,50 @@ real build is not, and cannot be until the flag stops poisoning the cache it
 shares.
 
 The clean comparison is one `XDG_CACHE_HOME` per arm, each warmed separately.
+
+### E859 - losing the sandbox makes the engine accuse the build of non-determinism
+
+Five lines and one `container stop` reproduce it.
+
+```text
+VERSION 0.8
+probe:
+    FROM alpine@sha256:e7a1a92a...
+    RUN echo one > a.txt
+```
+
+Build it warm (`1 hit, 1 miss`). Stop the sandboxes. Build it again:
+
+```text
+cache  0 hit, 2 miss, 1 predicted and not stored
+since the last build of this target:
+  RUN echo one > a.txt  NON-DETERMINISM: nothing in the key changed and the output did
+    every component of the key is identical; the step is not reproducible
+    at Earthfile:4
+```
+
+`echo one > a.txt` is as deterministic as a step gets. What changed is not the
+step: the layer store lives on the sandbox's own volume when
+`EARTH_STORE_IN_VM` is on, which is the default, and that volume goes when the
+sandbox does. The *record* of what the step produced is on the host and stays.
+So the step re-runs against a re-fetched base, produces a layer that does not
+match the stored digest, and the screening reports the only thing it can see:
+same key, different output.
+
+**Why this matters more than a wrong message.** Determinism screening is a
+headline property of this engine, and its first output to a user here is a false
+accusation about their build. An author who reads it will look for
+non-determinism in `echo one > a.txt` and find none. The engine knows the store
+was lost - the same run reports `0 hit` for a step it had cached - and does not
+connect the two.
+
+**Reachable in ordinary use**, not only by the flag-toggling of E858a: a stopped
+sandbox, a reaped one, a machine restarted. This document's own benchmarking
+advice is to stop idle sandboxes before measuring, which is exactly how it was
+found.
+
+**Two candidate fixes, both cheap, and neither is mine to choose.** Screening
+could decline to report when the previous layer is absent from the store rather
+than merely different - absence is not divergence. Or the record could be scoped
+to the store that holds the layer, so losing the volume loses the claim with it.
+The second is the same fix E858a needs.

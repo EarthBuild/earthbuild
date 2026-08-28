@@ -1629,3 +1629,51 @@ reporting it for the mirror of E394's reason).
 A test that passes beside a mutant is not evidence that it kills it - E278 was
 covered that way and the mutant went on surviving until the test was checked
 against its absence.
+
+## Measuring a build, without measuring something else
+
+Four numbers were published from this repository and then withdrawn, all in one
+day, and none of them was wrong arithmetic. They are worth listing because each
+failure is a different way for a benchmark to answer confidently about the wrong
+thing.
+
+**Check the exit code, and assert the artifact.** A change that broke every build
+on macOS measured 23% faster, eight alternating pairs out of eight, because a
+build that fails at its first `RUN` has already done the `FROM` - the fetch and
+the unpack, which is most of a cold benchmark - and then stops. Failing is
+quicker than working. Every harness must capture `$?` *and* read back what the
+build was supposed to produce, and report the discard count beside the medians; a
+nonzero count invalidates the comparison rather than shrinking the sample
+(E811).
+
+**Count the running sandboxes, or stop them.** A sandbox is per store, and
+`sandboxCPUs` gives each one `runtime.NumCPU()`. Six left running from earlier
+experiments is six VMs asking for sixteen vCPUs each on a sixteen-core machine,
+and the same script that measured 547ms measured 1636ms. Stopping them restored
+it to 550ms (E815):
+
+```sh
+container list | tail -n +2 | awk '{print $1}' | while read c; do container stop "$c"; done
+container list | tail -n +2 | wc -l    # report this beside the numbers
+```
+
+**Measure both arms in one sitting.** A comparison whose halves are hours apart
+is a comparison against whatever else changed. An apparent O(depth^2) cost - per
+step growing eightfold as a chain went from 5 steps to 20 - was one half clean
+and one half not; run together it is sub-linear, with no quadratic term. Both
+halves were internally consistent, which is exactly why it read as a finding.
+
+**Do not confound the workload with the thing being measured.** A ceiling of 175
+steps a second was measured with `echo` steps, where per-step overhead is 100% of
+the cost. With `sleep 0.1` in each step the same shape runs at 61% of its slots
+and there is no ceiling to speak of. Any overhead looks like a wall if the
+workload is nothing but overhead (E812a).
+
+**And check that the instrument is not the answer.** `EARTH_TIMINGS` was tested
+for this and is free - timings on measured marginally faster than off. The
+guest's own profiler was not: at `SetBlockProfileRate(1)` a 1.5s build took
+15.2s. Contention profiling is now behind `EARTH_GUEST_PROFILE_MODE=all` for that
+reason, and CPU-only measures free (8819ms against 8983ms).
+
+None of these is exotic. Every one of them produced a plausible, self-consistent,
+publishable number that a second measurement destroyed.

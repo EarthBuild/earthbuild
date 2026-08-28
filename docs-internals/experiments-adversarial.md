@@ -39655,3 +39655,34 @@ back, and now forty-nine corpus targets with their exit codes compared.
 None of that is proof. It is the difference between a default chosen on evidence
 about the thing that could break, and one chosen on evidence about the thing that
 was hoped to improve.
+
+## E830 - the day, end to end
+
+**The branch point against HEAD, on a build that copies a real context.** 1600
+files in 40 packages, one file touched each run so nothing caches, four
+alternating pairs, exit code and file count checked every time:
+
+| engine                  | median | all four            |
+| ----------------------- | ------ | ------------------- |
+| c83ee6152, branch point | 2656ms | 3376 2656 2708 2605 |
+| HEAD                    | 891ms  | 879 891 902 891     |
+
+**2.98x, and the ranges do not overlap** - the slowest new run beats the fastest
+old one by 1.7 seconds.
+
+**Two changes, and neither is new code on a hot loop.** The store moved onto the
+guest's own device, which was a switch already written and left off (E808); and
+the build context is now packed where it lies instead of being copied into a
+staging directory first (E829d). The first is worth 1.41x on a cold `FROM`, the
+second 1.6x on a `COPY`, and this build does both.
+
+**What it is not.** This is one build shape - a large context, few steps, one
+image. A build with many steps and no context sees the per-step machinery
+instead, and a build that pulls a large image sees the network. The corpus of 486
+small Earthfiles moved 6% on the day's other switches, which is the number to
+quote for a normal day rather than this one.
+
+**And the largest single lever is still the one nobody wrote.** Pinning the
+`FROM` digest removes the registry lookup from every build - 403ms on Linux, 140
+on macOS - and has been printed as a note after any build whose lookups cost more
+than 100ms since long before today (E822).

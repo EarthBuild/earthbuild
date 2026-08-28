@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -93,12 +94,19 @@ func selectedUnder(root, src, sub string, ex excluder) ([]string, error) {
 
 	// The directories above the context's own root are entries too: staging
 	// created them with MkdirAll and packing the staging directory carried them.
-	for dir := filepath.Dir(filepath.FromSlash(sub)); ; dir = filepath.Dir(dir) {
-		if dir == "." || dir == string(filepath.Separator) {
+	//
+	// **Walked relative, because `sub` is not.** packContextDirect builds it as
+	// `filepath.Clean("/" + arg)`, a containment idiom that makes `..` unable to
+	// climb out - so walking it upwards yields `/inputgraph`, and an archive
+	// entry naming an absolute path is one the unpacker refuses outright, as it
+	// should. Stripping the leading separator first keeps the containment and
+	// names the entry the way every other entry here is named (E848).
+	for dir := path.Dir(strings.TrimPrefix(filepath.ToSlash(sub), "/")); ; dir = path.Dir(dir) {
+		if dir == "." || dir == "/" || dir == "" {
 			break
 		}
 
-		names = append(names, filepath.ToSlash(dir))
+		names = append(names, dir)
 	}
 
 	sort.Strings(names)

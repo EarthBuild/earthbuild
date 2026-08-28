@@ -27,3 +27,12 @@
 # clone, for content that is a for loop. See engine/exec/bigtree_test.go.
 **/testdata/bigtree-*
 **/testdata/bigtree-*.complete
+
+# What running the test suite locally leaves behind. `AGENTS.md` now tells a
+# developer to run `./tests+<target>` directly, and a target invoked that way
+# resolves `SAVE ARTIFACT ... AS LOCAL` against the invoked Earthfile's own
+# directory - so the binary lands in tests/build rather than /build, and the
+# module files the test base copies in land beside it. None was ever tracked.
+/tests/build/
+/tests/go.mod
+/tests/go.sum

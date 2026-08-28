@@ -41344,3 +41344,44 @@ That is a hypothesis with a number attached and not a finding: the same phase on
 Linux was not obtained, because the x86 runs never reached a warm state to show
 it. Getting that comparison is the next thing worth doing, and it is one
 `EARTH_TIMINGS` run on a machine whose image cache persists.
+
+### E858 - the in-VM store makes every cache lookup a round trip
+
+`lookup` wraps the L1 lookup, which consults `s.Blobs`. `EARTH_STORE_IN_VM` is
+on by default, so on macOS those blobs live in the virtual machine and the
+lookup crosses a machine boundary. Measured on a two-step warm build:
+
+```text
+EARTH_STORE_IN_VM=1    lookup 0.234s   schedule 0.253s
+EARTH_STORE_IN_VM=0    lookup 0.000s   schedule 0.001s
+```
+
+Two hundred and thirty milliseconds to ask whether a step is already built.
+
+**On a real target it is 26%, not everything.** `./tests+quotes-test`, warm:
+
+```text
+store-in-VM ON     25.82s
+store-in-VM OFF    19.10s      6.7s saved
+buildkit            4.40s
+```
+
+The arithmetic that predicted more was wrong and is worth recording as such:
+168 hits times 0.23s is 39s, which is larger than the whole build, because
+lookups overlap and most steps are not on the critical path. A per-item cost
+multiplied by an item count is not a duration - the same mistake as summing
+sibling phases.
+
+**A trade-off, not a regression to revert.** Store-in-VM was measured at 1.41x on
+a context-heavy build: it makes what a build *writes* cheap by keeping it where
+the steps are. It makes what a build *reads to decide* expensive for exactly the
+same reason. Warm builds are mostly deciding.
+
+So the honest shape is: on by default helps cold context-heavy builds and hurts
+warm cached ones by a quarter, on macOS only - the boundary it crosses does not
+exist on Linux. Whether the answer is a default flip, a split (writes in the VM,
+the lookup index on the host), or leaving it, is a decision with two measurements
+behind it rather than one.
+
+**And 15s of the 21s gap to buildkit is still unexplained**, which is the next
+thing and is not this.

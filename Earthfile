@@ -409,6 +409,20 @@ engine-race:
                 | grep -E "^ *[a-z0-9_]+\.go:[0-9]+: " \
                 | sed -E "s/^ *[a-z0-9_]+\.go:[0-9]+: //" \
                 | cut -c1-90 | sort | uniq -c | sort -rn | head -30; \
+            # **And the names, all of them, sorted.** The grouping above says
+            # which *kind* of skip moved; it cannot say which test, and a new
+            # skip that shares a reason with an existing one is invisible in it.
+            # Naming them costs a hundred and sixty-odd lines of a log nobody
+            # reads unless this trips, and saves reproducing this container to
+            # get the same list - which is what finding the last one took: the
+            # top forty were printed, there were a hundred and sixty-three, and
+            # the two that moved were not among them (E824).
+            #
+            # Sorted, so the way to use it is `diff` against the last green run.
+            echo "--- every skipped test, sorted (diff against a green run):"; \
+            grep -E "^ *--- SKIP: " /tmp/t.log \
+                | sed -E "s/^ *--- SKIP: //; s/ \([0-9.]+s\)$//" \
+                | sort; \
             exit 1; \
         fi
 

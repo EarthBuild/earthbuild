@@ -312,7 +312,12 @@ func copyTree(src, dst string, opts copyOpts) error {
 
 		switch {
 		case fi.IsDir():
-			modes[target] = fi.Mode().Perm()
+			// Not .Perm(), which masks to the low nine bits and so drops
+			// setuid, setgid and sticky. Sticky on a directory means only the
+			// owner may delete what is in it - what /tmp is for - so losing it
+			// changes what the directory permits, not just how it prints.
+			modes[target] = fi.Mode() &
+				(os.ModePerm | os.ModeSetuid | os.ModeSetgid | os.ModeSticky)
 			owners[target] = fi
 
 			// A symlink already where a directory belongs is removed rather

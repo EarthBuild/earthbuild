@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
@@ -381,7 +382,16 @@ type excluder interface{ Excludes(rel string) bool }
 // thousand fixture files into gitignored `testdata/`, every one of them named by
 // `.earthlyignore`, and every native build copied all of them.
 func copyDirExcluding(src, dst string, ex excluder) error {
-	return filepath.Walk(src, func(p string, fi os.FileInfo, walkErr error) error {
+	// Directory modes are applied once everything is in place, deepest first,
+	// for the two reasons the guest's copyTree gives - and this side needed them
+	// just as much, which nothing noticed because the export tests compare
+	// files. A directory the build left unwritable cannot be *filled* after it
+	// is created at its own mode, so the copy failed outright; and os.MkdirAll
+	// passes its mode through the umask, so one that could be created arrived
+	// with a mode nobody asked for.
+	modes := map[string]os.FileMode{}
+
+	walked := filepath.Walk(src, func(p string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -405,7 +415,12 @@ func copyDirExcluding(src, dst string, ex excluder) error {
 		target := filepath.Join(dst, rel)
 
 		if fi.IsDir() {
-			err := os.MkdirAll(target, fi.Mode())
+			modes[target] = fi.Mode() &
+				(os.ModePerm | os.ModeSetuid | os.ModeSetgid | os.ModeSticky)
+
+			// Writable while it is being filled; the mode it keeps is set
+			// below, after its contents are in.
+			err := os.MkdirAll(target, 0o700)
 			if err != nil {
 				return fmt.Errorf("create %s: %w", target, err)
 			}
@@ -415,6 +430,38 @@ func copyDirExcluding(src, dst string, ex excluder) error {
 
 		return copyOut(p, target)
 	})
+	if walked != nil {
+		return walked
+	}
+
+	return applyDirModes(modes)
+}
+
+// applyDirModes sets the collected directory modes, deepest first.
+//
+// Deepest first so a directory is never made unwritable before the one beneath
+// it has been given its own mode, and by chmod rather than by the mode passed
+// to MkdirAll, which the umask filters: 0777 asked for under the usual 022
+// arrives as 0755, and a mode that is a request is not a mode.
+func applyDirModes(modes map[string]os.FileMode) error {
+	paths := make([]string, 0, len(modes))
+	for p := range modes {
+		paths = append(paths, p)
+	}
+
+	sort.Slice(paths, func(i, j int) bool {
+		return strings.Count(paths[i], string(os.PathSeparator)) >
+			strings.Count(paths[j], string(os.PathSeparator))
+	})
+
+	for _, p := range paths {
+		err := os.Chmod(p, modes[p])
+		if err != nil {
+			return fmt.Errorf("set the mode on %s: %w", p, err)
+		}
+	}
+
+	return nil
 }
 
 // insideProject refuses a destination that would write outside the project.

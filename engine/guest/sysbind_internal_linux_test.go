@@ -34,30 +34,41 @@ func TestSysFallsBackToABindWhenSysfsIsRefused(t *testing.T) {
 		var (
 			tried           []string
 			readOnlyRemount bool
+			blanked         bool
 		)
 
-		_, err := mountSysWith(t.TempDir(), func(source, _, fstype string, flags uintptr, _ string) error {
+		_, err := mountSysWith(t.TempDir(), func(source, target, fstype string, flags uintptr, _ string) error {
 			tried = append(tried, fstype+" from "+source)
 
 			if fstype == "sysfs" {
 				return unix.EPERM
 			}
 
+			// The tmpfs that blanks the inherited cgroup tree is a mount of
+			// its own and not part of the bind, so it is judged separately
+			// below.
+			if fstype == "tmpfs" {
+				if strings.HasSuffix(target, "/sys/fs/cgroup") {
+					blanked = true
+				}
+
+				return nil
+			}
+
 			if flags&unix.MS_BIND == 0 {
 				t.Errorf("the fallback is not a bind: flags %#x", flags)
 			}
 
-			// **Not recursive, and this is the whole difference between a
-			// bind that is equivalent to a fresh sysfs and one that is not.**
-			// The machine mounts cgroup2 at /sys/fs/cgroup, and MS_REC would
-			// bring it along - so a step whose own cgroup mount is skipped, on
-			// a cgroups v1 machine, would be shown the machine's entire
-			// hierarchy. A fresh `mount -t sysfs` gives an empty directory
-			// there. Ambient state a step can observe that no key describes is
-			// what I3 forbids, so the bind must be shallow.
-			if flags&unix.MS_REMOUNT == 0 && flags&unix.MS_REC != 0 {
-				t.Errorf("the bind of /sys is recursive: it carries the machine's "+
-					"own submounts, including its cgroup tree (flags %#x)", flags)
+			// **Recursive, and it has to be.** A shallow bind of /sys is
+			// refused outright in a user namespace - EINVAL, because it would
+			// expose files hidden by submounts - which is precisely the
+			// namespace this fallback exists for. Measured on the kernel
+			// rather than reasoned about: `mount --bind /sys` fails there and
+			// `mount --rbind /sys` succeeds.
+			if flags&unix.MS_REMOUNT == 0 && flags&unix.MS_BIND != 0 &&
+				flags&unix.MS_REC == 0 && source == "/sys" {
+				t.Errorf("the bind of /sys is not recursive: a shallow one is "+
+					"refused in the namespace this fallback is for (flags %#x)", flags)
 			}
 
 			if flags&unix.MS_REMOUNT != 0 && flags&unix.MS_RDONLY != 0 {
@@ -70,11 +81,13 @@ func TestSysFallsBackToABindWhenSysfsIsRefused(t *testing.T) {
 			t.Fatalf("a refused sysfs mount should fall back to a bind, got: %v", err)
 		}
 
-		// Three: the refused sysfs, the bind, and the remount that puts the
+		// Four: the refused sysfs, the recursive bind, the tmpfs that blanks
+		// the cgroup tree the bind dragged in, and the remount that puts the
 		// read-only flag back - a bind takes its source's flags, so read-only
 		// has to be asserted after it rather than with it.
-		if len(tried) != 3 {
-			t.Fatalf("attempts were %v, want sysfs, then a bind of /sys, then a remount", tried)
+		if len(tried) != 4 {
+			t.Fatalf("attempts were %v, want sysfs, a recursive bind of /sys, "+
+				"a tmpfs over its cgroup tree, then a remount", tried)
 		}
 
 		if !strings.HasPrefix(tried[0], "sysfs") || !strings.HasPrefix(tried[1], "none from /sys") {
@@ -83,6 +96,18 @@ func TestSysFallsBackToABindWhenSysfsIsRefused(t *testing.T) {
 
 		if !readOnlyRemount {
 			t.Error("the bound /sys was left writable: no read-only remount followed it")
+		}
+
+		// **And the machine's cgroup tree is covered.** A recursive bind brings
+		// the machine's cgroup2 with it - 85 entries, measured - where a fresh
+		// sysfs gives an empty directory. It cannot be unmounted: mounts
+		// inherited when a user namespace was created are locked. A tmpfs over
+		// it restores what a fresh mount would have shown, and the step's own
+		// cgroup mount goes on top of that as usual. Ambient state a step can
+		// observe that no key describes is what I3 forbids.
+		if !blanked {
+			t.Error("the machine's cgroup tree came in with the recursive bind " +
+				"and was left visible to the step")
 		}
 	})
 

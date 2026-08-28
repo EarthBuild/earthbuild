@@ -39450,3 +39450,39 @@ first time the answer survived.** The other three demoted `EARTH_ASYNC_RELEASE`
 to machine-specific, rescued `EARTH_PARALLEL_EXPORT`, and cut the pinning
 headline from 46x to 1.5x. A habit that changes the conclusion three times in
 four is not a formality.
+
+### E829b - the two context paths, and why one is slower
+
+**The phases were missing on both.** A `COPY` step had no sub-phase at all, so a
+profile said "this step is slow" and stopped - which is how `release` hid 71% of
+a step until it was timed (E819). Timed now, on both paths, 2000 files:
+
+| phase          | Linux native | macOS guest |
+| -------------- | ------------ | ----------- |
+| the COPY step  | 0.373s       | 1.561s      |
+| `context:copy` | 0.159s       | 1.068s      |
+| `context:pack` | -            | 0.278s      |
+
+**They are different functions, which is most of the difference.** `OpLocal`
+picks `stageContext` when the store is local and `stageContextInGuest` when it is
+in the VM. The first copies the context into a store staging directory and
+commits it as a layer: one pass. The second copies it into a staging directory,
+tars that, and has the guest unpack the tar: one pass, plus a tar, plus an
+unpack.
+
+**And the copy itself is 6.6x dearer on macOS** - 0.53ms a file against 0.08ms -
+which is the same APFS file-creation cost that made moving the store onto the
+guest's ext4 worth a third of a cold build (E808). The two compound: a slower
+copy, and then a tar of what was copied.
+
+**So the fix helps the slow machine most.** Packing straight from the context
+removes `context:copy` entirely, which is 68% of the macOS path and 43% of the
+Linux one - about 3x there and 1.9x here, and it would bring a macOS `COPY` to
+roughly what Linux costs today.
+
+**For contrast, copying from another target is five times cheaper.**
+`COPY +producer/out` costs at most 0.15ms a file - an upper bound, since the
+measurement includes the producer's shell loop writing them. That path never
+leaves the guest: the artifact is already a layer on its own ext4, so there is no
+host, no tar and no crossing. Getting files *into* the guest is the expensive
+part, not moving them once they are there.

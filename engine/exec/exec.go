@@ -927,7 +927,14 @@ func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 		}
 	}()
 
+	// Timed on this path too, so the two can be compared: this one copies and
+	// commits, while the guest path copies, tars, and has the guest unpack -
+	// which is the whole of why a `COPY` costs 0.31ms a file here and 0.73ms
+	// there (E829a).
+	endCopy := phase("context:copy", n.Meta.Source)
 	err = e.copyContextInto(n, dir)
+	endCopy()
+
 	if err != nil {
 		return core.Result{}, err
 	}
@@ -1884,14 +1891,26 @@ func (e *Executor) stageContextInGuest(ctx context.Context, n *ir.Node) (core.Re
 
 	defer func() { _ = os.RemoveAll(staged) }()
 
+	// **Timed, because the step around it was the whole story.** A `COPY` of
+	// 2000 files is 1.5s and had no sub-phase at all, so the profile said "this
+	// step is slow" and nothing else - which is how `release` hid 71% of a step
+	// until it was timed (E819). These two are the pass over the tree and the
+	// pass back over it, and knowing the split is what decides whether packing
+	// straight from the context is worth the change it takes (E829).
+	endCopy := phase("context:copy", n.Meta.Source)
 	err = e.copyContextInto(n, staged)
+	endCopy()
+
 	if err != nil {
 		return core.Result{}, err
 	}
 
 	tarball := filepath.Join(blobs, "context-"+n.ID().String()+".tar")
 
+	endPack := phase("context:pack", n.Meta.Source)
 	err = packInto(staged, tarball)
+	endPack()
+
 	if err != nil {
 		return core.Result{}, err
 	}

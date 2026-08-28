@@ -41385,3 +41385,42 @@ behind it rather than one.
 
 **And 15s of the 21s gap to buildkit is still unexplained**, which is the next
 thing and is not this.
+
+### E858a - E858's measurement is void, and the reason is a defect
+
+Two faults, and the second is worth more than the number was.
+
+**The ordering.** E858 measured store-in-VM ON, then OFF, then compared. A later
+run of the same target came in at ~6s against the 19s recorded for OFF, so the
+cache was still warming across the comparison and the second arm was handed the
+first arm's warming. Alternating arms is the rule this document applies to every
+other A/B and did not apply here.
+
+**And the arms cannot be alternated, because switching the flag breaks the
+build:**
+
+```text
+dfd878f7... is in this step's base and this store holds neither a layer nor a
+  declaration for it
+  looked for /var/lib/earthbuild/fast/store/layers/dfd878f7...
+```
+
+A run with the store on the host writes layers there. A run with it in the VM
+then consults the *same cache index*, is told the step is a hit, and tries to
+materialise a base whose layers that store has never held. The index is shared
+between the two modes; the layer stores are not.
+
+**That is a defect and not a testing inconvenience.** An L1 hit whose layers
+cannot be produced is precisely the false hit the green paper's cache invariants
+exist to forbid: the key answers for a result this store cannot make. Anyone who
+sets `EARTH_STORE_IN_VM` on a machine that has built without it gets a build that
+fails on a cached step, and the message names a digest and a path rather than the
+flag.
+
+**What survives from E858:** the direct phase measurement, which needs no A/B - a
+two-step warm build spends `lookup 0.234s` with the store in the VM and `0.000s`
+without. That the lookup crosses a machine boundary is measured. What it costs a
+real build is not, and cannot be until the flag stops poisoning the cache it
+shares.
+
+The clean comparison is one `XDG_CACHE_HOME` per arm, each warmed separately.

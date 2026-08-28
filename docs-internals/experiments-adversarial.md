@@ -41087,3 +41087,51 @@ then the next thing to find.
 
 Group 4 stands at 8 of 9, its ninth declining by design (E850). Two groups
 characterised; fourteen jobs not yet looked at.
+
+### E854 - a fourth category: passes alone, fails in the group
+
+`./tests+ga-no-qemu-group3` fails under `--engine=native` and every target in it
+passes when run on its own. The failure moved between runs - `Earthfile:529`
+once, `Earthfile:1817` the next - which is contention rather than a defect in
+any one target.
+
+Three runs settle it, same machine, same group:
+
+```text
+native,   default parallelism (one per core, 16 here)   rc=1
+native,   EARTH_PARALLELISM=1                           rc=0
+buildkit, default parallelism                           rc=0
+```
+
+The error is `connect provided buildkit: timeout 1m0s`. Each nested build wants
+a daemon, sixteen steps in flight want sixteen, and one of them waits out the
+minute. **Buildkit schedules the same work without it**, so this is not simply
+"the tests are heavy": it is this engine committing to more concurrent work than
+the other does for the same graph.
+
+**Why this category matters more than the other three.** CI only ever runs
+groups. A job can be red while every target in it is correct, the log names a
+timeout rather than a cause, and nothing in that log distinguishes it from a
+real defect. It is a plausible contributor to the afternoon's wrong answers.
+
+**Found with the instrument built for it.** `EnvParallelism` exists because
+"`Scheduler.Parallelism` has always been there and nothing set it, so a build
+that stops with eight steps in flight could not be run one step at a time to
+find out whether the concurrency was the cause". That is exactly the question,
+and the answer took one environment variable.
+
+**Not fixed here, deliberately.** The obvious moves each cost something real:
+lowering the default slows every build, bounding only the steps that start a
+daemon needs a way to know which those are, and raising the sixty-second
+timeout hides the condition rather than removing it. Scheduling defaults are
+load-bearing for the performance measured all through this document, so this is
+a decision with a one-line reproducer attached rather than a change.
+
+**The four categories, complete:**
+
+| Kind                          | Fixable by             | Example              |
+| ----------------------------- | ---------------------- | -------------------- |
+| defect                        | engine change          | escaping (E848a)     |
+| wording, both engines correct | widened assertion      | HOST, LABEL (E846)   |
+| declined by design            | a decision             | `ip link add` (E850) |
+| passes alone, fails in group  | scheduling, or a bound | group 3 (here)       |

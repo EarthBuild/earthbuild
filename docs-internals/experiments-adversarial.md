@@ -37034,3 +37034,61 @@ The distinction between the two is whether the extra permission *works*.
 `FINALLY` with a `RUN` does what it says; a second `RUN` in `WITH DOCKER` does
 not, so one is a superset and the other is a trap. An Earthfile using either
 builds here and not there, which is the direction of portability nobody checks.
+
+## E788 - `--if-exists` never saved anything, and the blind side that made it
+
+The differential's third finding, and the only one where this engine is not
+merely stricter or looser than the reference but *wrong*:
+
+```console
+$ cat Earthfile
+    RUN sh -c "echo made > /present.txt"
+    SAVE ARTIFACT --if-exists /present.txt AS LOCAL flagged.txt
+
+$ earth-native +t   # rc=0, flagged.txt absent
+$ earthly     +t    # rc=0, flagged.txt present
+```
+
+The flag did not narrow what was saved. It saved nothing, ever, whatever was
+there - `SAVE ARTIFACT --if-exists` was a no-op for the whole life of the flag.
+
+The cause is a question asked on the wrong side of the wire. The host decided
+absence itself:
+
+```go
+_, statErr := os.Stat(filepath.Join(h.Root(), filepath.Clean("/"+path)))
+if statErr != nil {
+    return nil
+}
+```
+
+A materialised root is a path in the *guest's* mount namespace. The host holds
+the string and cannot see what it names - `remoteHandle.Delta` says exactly
+this, eleven lines below the `Root()` accessor the stat calls. So the stat
+failed for every path, and every flagged save was skipped.
+
+**Why it survived.** The comment above that stat is right about the design:
+absence must be answered separately from an export error, "or a broken export
+becomes a silently skipped artifact". The reasoning was sound and the placement
+was not, which is the failure mode a careful comment cannot catch. And the only
+test of the flag applied it to a path that was absent - where "skips correctly"
+and "never saves anything" are one observation. The test passed for the same
+reason the feature failed.
+
+The fix moves the question to the side that can see the filesystem, keeping the
+property the comment demanded: the guest raises absence only from the two checks
+that precede any copying (an empty glob, a source that is not there), never from
+a copy that failed, and a path that exists but cannot be stat'ed stays an error
+rather than being swallowed.
+
+**The class is now empty.** That stat was the *only* host-side use of a handle's
+root in `engine/exec` and `engine/cli`; removing it leaves none, and
+`TestTheHostNeverStatsAPathInsideTheGuest` keeps it that way. The guard was
+checked against the original line rather than trusted for passing - a source
+guard that has never been seen to fire is a comment.
+
+Worth stating plainly, because it generalises past this flag: an option whose
+only test exercises the case where doing nothing is correct has not been tested.
+Both of `--if-exists`'s halves are now asserted, in the guest and end-to-end,
+and the end-to-end one was run against the parent commit to confirm it fails
+there.

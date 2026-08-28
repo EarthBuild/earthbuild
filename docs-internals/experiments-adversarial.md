@@ -40913,3 +40913,46 @@ that passing quoted tokens through unresolved produced `"wildcard-copy.earth" is
 not in the build context` 226 times, so the unescaping was added for a reason.
 What is now established is exactly where the two disagree, with a three-line
 reproducer, which is the part that was missing.
+
+### E849 - six targets green on both engines, none of it through CI
+
+The escaping fix (E848a) and the wording widenings, checked by running each
+target under both engines and reading the exit code:
+
+```text
+target                    native   buildkit   what it exercises
++copy-tilde-test            0         0       the escaping fix
++host-invalid               0         0       three widened wordings
++test-reserved-label        0         0       one widened wording
++project-secrets-test       0         0       the PROJECT warning, plus two widenings
++secrets-test               0         0       escaped quotes in assertions
++test-aws-flag-envs         0         0       escaped quotes in assertions
+```
+
+Every one was red under native this morning. **None regressed under buildkit**,
+which is the half that matters: `tests/Earthfile` is shared, and a careless
+widening would quietly weaken the suite that has been guarding the other engine
+for years.
+
+**One fix, four targets.** Every target whose assertions carry an escaped quote
+now passes; `unquoteKeepingEscapes` reaches all of them. That is the first thing
+this session that behaved like a lever rather than a tail, and it was invisible
+from CI logs because the symptom was a grep pattern that had quietly lost its
+quotes.
+
+**And the method is the result.** Four CI rounds today produced three wrong
+hypotheses and one fix. One evening of running the same suite locally produced a
+shipped regression caught (E848), an engine differential characterised and fixed,
+and six targets moved from red to green - because a local run answers in minutes
+and can be asked again immediately with one variable changed.
+
+`tests/Earthfile` runs on this machine, against either engine, with:
+
+```text
+EARTH_GUESTD=<fresh guestd>            earth -P --engine=native   ./tests+<target>
+EARTH_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1 \
+                                       earth -P --engine=buildkit ./tests+<target>
+```
+
+The buildkitd image is prebuilt for arm64 on ghcr, so the buildkit side needs no
+local image build at all.

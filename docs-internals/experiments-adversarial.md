@@ -40853,3 +40853,63 @@ and neither is the whole picture:
   different and larger claim, and includes text nobody has decided to reconcile.
 
 Quoting either alone answers a question the reader did not ask.
+
+### E848 - running the suite locally, which is what this tool is for
+
+Two weeks of this document measure CI. The suite runs locally, which is the
+whole argument for a build tool of this kind, and doing so cost ten minutes and
+found more than the last four CI rounds.
+
+**A regression shipped today, on by default.** `COPY --dir inputgraph/*.go
+inputgraph/testdata inputgraph/` in this repository's own Earthfile:
+
+```text
+unpack-layer: layer entry "/inputgraph/" names an absolute path
+```
+
+`packContextDirect` builds its sub-path as `filepath.Clean("/" + arg)`, a
+containment idiom; `selectedUnder` walked that value upwards for the parent
+directories and emitted them with the leading slash on. Every `tests/` target
+that FROMs the integration base was behind it. A/B'd with
+`EARTH_DIRECT_CONTEXT_PACK=0` before blaming the change, then fixed with a test
+that also holds the parent directory in place - dropping it would trade one bug
+for a context missing the directories its files live in.
+
+The corpus run that validated the direct pack covered 49 targets and none of that
+shape. A corpus is a sample, and this is what a sample misses.
+
+**Two more things the local run named on the way past.** `unknown request
+unpack-layer` from a stale guest agent - the unversioned-protocol nit, seen in
+the wild - and `RUN --privileged` refused by design with `the other engine
+permits it: --engine=buildkit`, which is the expected wall rather than a defect.
+
+### E848a - the engines disagree about escaping, and 17 assertions depend on it
+
+With both engines runnable locally, the first real differential falls out in one
+build. `DO +SHOW --msg='a \"b\" c'`, printed by the function it is passed to:
+
+```text
+native    GOT:[a "b" c]      the \" is unescaped here
+buildkit  GOT:[a \"b\" c]    the backslash is passed through
+```
+
+**Which matters because the value is later embedded in a shell script.**
+`RUN_EARTH` writes `grep \"$output_contains\"`, so with buildkit the shell does
+the unescaping and the pattern keeps its quotes; with native the quotes arrive
+already bare and the shell consumes them as syntax:
+
+```text
+buildkit  grep 'destination path "~/." contains a "~" which does not expand...'
+native    grep 'destination path ~/. contains a ~ which does not expand...'
+```
+
+The engine's message has the quotes, so the native pattern cannot match. That is
+not a wording difference (E846) and cannot be widened away: the assertion is
+right and the value reaching it is wrong.
+
+**Seventeen `output_contains` assertions carry an escaped quote**, so this is not
+one test. It is also not obviously native's bug to fix: `unquote`'s doc records
+that passing quoted tokens through unresolved produced `"wildcard-copy.earth" is
+not in the build context` 226 times, so the unescaping was added for a reason.
+What is now established is exactly where the two disagree, with a three-line
+reproducer, which is the part that was missing.

@@ -1503,14 +1503,14 @@ of code that can be deleted with the suite still green.
 | E309     | fleet: a holder that will not dial saying so                                                                                        |
 | E319     | fleet: the pilot going out rather than waiting on itself                                                                            |
 | E446     | guest: ownership kept when a layer is committed                                                                                     |
-| E494     | cli: the sandbox asked how it shares the store                                                                                      |
+| ~~E494~~ | cli: the sandbox asked how it shares the store - **done**: viewsFor must use the answer, not merely receive it                      |
 | ~~E634~~ | guest: the scratch relocated off an overlay - **done**: a source guard that production takes the escape                             |
 
 Eight are `fleet`. That is the subsystem with the most machinery and the fewest
 tests, and those are not two observations.
 
-Three are closed and struck through: E278 (the I1 rebuild identity check),
-E281 (which was never a gap), and E634.
+Four are closed and struck through: E278 (the I1 rebuild identity check),
+E281 (which was never a gap), E634 and E494.
 
 **How to work this list:** write the test, then remove it and re-run the mutant.
 A test that passes beside a mutant is not evidence that it kills it - E278 was

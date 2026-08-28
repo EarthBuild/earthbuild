@@ -41135,3 +41135,39 @@ a decision with a one-line reproducer attached rather than a change.
 | wording, both engines correct | widened assertion      | HOST, LABEL (E846)   |
 | declined by design            | a decision             | `ip link add` (E850) |
 | passes alone, fails in group  | scheduling, or a bound | group 3 (here)       |
+
+### E855 - four groups measured locally, and what CI's "1 of 16" actually contains
+
+Running the CI groups on this machine under `--engine=native`:
+
+```text
+group   default parallelism   serial (EARTH_PARALLELISM=1)
+1       -                     pass
+2       pass                  pass
+3       fail (contention)     pass
+4       8 of 9 targets        the ninth declines by design (E850)
+```
+
+CI reports one Native job green of sixteen. Locally, three of these four groups
+pass outright and the fourth is one deliberate refusal away. The gap between
+those two statements is E852 (a job is a whole group, so it cannot show partial
+progress) and E854 (a group fails under concurrency that its targets survive
+alone).
+
+**So the Native number understates the engine twice over**, and only measurement
+separates the causes. Anyone planning from "1 of 16" is planning against a figure
+that contains: real defects, wording differences already reconciled, constructs
+declined on purpose, and jobs red only because sixteen steps ran at once.
+
+**The fleet timeout, for the record.** `engine/fleet` failed the gate at 1320s
+with no test named. It passes here in 12.8s under `-race -shuffle=on` on macOS,
+in 5.8s in a privileged Linux container, and in six consecutive shuffled runs
+with different seeds. It does not reproduce off a hosted runner, which is why the
+answer is to make the failing run say which ordering it used rather than to keep
+guessing - the seed and the timeout's goroutine dump are now printed on failure.
+
+**And a near-miss worth recording.** The failing CI job showed golangci-lint
+findings immediately above the error, and they were not the failure: the failing
+*step* was `Engine race and shuffle`, and the lint text came from a step whose
+name ends "(report only)". Reading the step conclusions settled in one query what
+three greps had confused. Grep found the loudest thing again (E841c).

@@ -580,6 +580,13 @@ func runPlan(
 
 	// Said while it can still be acted on, and once: the guest carries the
 	// reason back with each step and the first one is kept (E123).
+	// What interpretation noticed and did not stop for. Said after the build
+	// rather than before it: a note printed while the plan is still being read
+	// arrives before the reader knows which target it belongs to.
+	for _, note := range plan.Advice {
+		fmt.Fprintf(o.Out, "warning: %s\n", note)
+	}
+
 	warnUnbounded(o.Out, e.Degraded())
 
 	// And why a step's filesystem was not fully built, on the same rule: said

@@ -99,7 +99,13 @@ type Image struct {
 // at the graph - and because a build with no artifacts is a legitimate build,
 // not a degenerate one.
 type Plan struct {
-	Graph     *ir.Graph
+	Graph *ir.Graph
+	// Advice is what a build should be told but not stopped for - a COPY
+	// destination containing a `~`, and whatever joins it. Collected here
+	// rather than printed as it is found, because interpretation has no output
+	// of its own and a note that arrives before the build has started reads as
+	// part of the parse.
+	Advice    []string
 	Artifacts []Artifact
 	// Images are the images this target declares it produces.
 	Images []Image
@@ -645,6 +651,28 @@ func withProtocol(port string) string {
 	}
 
 	return port + "/tcp"
+}
+
+// tildeInDestination reports whether a COPY destination contains a path
+// component that is `~`, or begins with one.
+//
+// A shell expands `~` before a command sees it; a COPY destination is not a
+// shell word, so `COPY in ~/.` makes a directory literally named `~` and the
+// author almost never meant that. The legacy engine has warned about it for
+// years and this one did not, which `tests/Earthfile`'s copy-tilde-test
+// catches (E843).
+//
+// **By component, not by substring.** `some/di~r.` contains a tilde and must
+// not warn - the test asserts that explicitly, and it is the case a
+// `strings.Contains` would get wrong while passing every other one.
+func tildeInDestination(dest string) bool {
+	for _, part := range strings.Split(dest, "/") {
+		if strings.HasPrefix(part, "~") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // expandPorts turns one EXPOSE argument into the ports it declares.
@@ -2043,6 +2071,16 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 	// last is a source. Taking only the first silently dropped the rest - a
 	// build that succeeds and produces an image missing half of what the
 	// Earthfile put in it.
+	// **Before resolution, because the author's spelling is what the message
+	// has to quote.** Resolved against the working directory, `~/.` becomes
+	// `/test/~/.` and the note would name a path the Earthfile does not
+	// contain.
+	if raw := args[len(args)-1]; tildeInDestination(raw) {
+		p.Advice = append(p.Advice, fmt.Sprintf(
+			`destination path %q contains a "~" which does not expand to a home directory`,
+			raw))
+	}
+
 	dest := resolveDest(args[len(args)-1], rs.dir)
 	sources := args[:len(args)-1]
 

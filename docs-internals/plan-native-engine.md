@@ -9245,7 +9245,7 @@ code, because each could reasonably go the other way.
 | more than one `RUN` in a block    | refuse as earthly does, or share the daemon across the block                                               | nits                |
 | `EARTH_PIN_TTL`'s default         | 420ms a build against a tag that may have moved                                                            | E766                |
 | the sandbox's name                | `buildkitsandbox` kept, or renamed and the corpus updated                                                  | E758                |
-| artifact mtimes                   | the real time, or earthly's fixed 2020 epoch                                                               | E775                |
+| artifact mtimes                   | the real time, or earthly's fixed 2020 epoch - note `--keep-ts` is a no-op until this is settled (E789)    | E775                |
 | `../run/` in the completion test  | the expectation encodes earthly's own directories                                                          | E780                |
 | a CHANGELOG line for the engine   | one paragraph, at merge rather than at release                                                             | pr-blockers         |
 | a docker client inside a step     | inject a dynamically-linked one with its interpreter, ship a static one, or require the image to carry one | E767, group2        |

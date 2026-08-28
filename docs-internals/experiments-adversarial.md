@@ -37092,3 +37092,54 @@ only test exercises the case where doing nothing is correct has not been tested.
 Both of `--if-exists`'s halves are now asserted, in the guest and end-to-end,
 and the end-to-end one was run against the parent commit to confirm it fails
 there.
+
+## E789 - a 25-case differential sweep, and the one defect in it
+
+E788 found its bug by running one Earthfile under both engines. This is the
+same method widened: 25 small Earthfiles, each producing local artifacts, run
+under `earth-native` and `earthly v0.8.17` on the same machine, compared on exit
+code and on every exported file's path, content hash, mode and mtime.
+
+Two of the first draft's cases were worthless and are worth naming, because both
+failure modes are the ones this document keeps finding in other people's tests.
+Two used `COPY /abs /dst` and so tested nothing but that both engines reject a
+source that is not in the context. And the `--keep-ts` case compared content and
+mode but **not mtime** - a snapshot that cannot observe the property under test,
+which is exactly E788's shape reproduced inside the harness written to find it.
+
+**Result after fixing the harness: one defect, and one systematic divergence.**
+
+*The defect.* `SAVE ARTIFACT /d AS LOCAL out/d` exported the previous build's
+files as well as its own. Staging lives in the store, is named from the request,
+and was never emptied; `copyPath` merges into a directory that already exists.
+So the second build carried the first's tree out, and the third carried both.
+The store outlives any one project, so a *fresh* project's first build already
+exported `f.txt` and `sub/a.txt` left by two unrelated builds from earlier in
+this sweep. The output depended on the store's history rather than on the build,
+and it disclosed another build's tree. Fixed by emptying staging before filling
+it, in the guest; the exports root is exempt, since it holds the build's other
+artifacts. Note the shape: the pattern-staging fix recorded above addressed the
+same class for `AS LOCAL .` by *renaming* rather than by clearing, so it stayed
+live for every other destination. A fix that removes one instance of a class
+tends to be mistaken for a fix of the class.
+
+*The divergence.* With that fixed, 24 of the 25 cases agree on exit code,
+content, mode and file set, and differ **only** in mtime:
+
+```text
+earthly : 1587038400   (2020-04-16T00:00:00Z, a fixed epoch)
+native  : 1787876744   (wall clock - whenever the RUN happened)
+```
+
+This is the parked `artifact mtimes` decision, and the sweep sharpens it beyond
+"which epoch". Earthly clamps every exported artifact to the epoch *unless*
+`--keep-ts`, which preserves the source mtime. Native preserves the source mtime
+always - so `SAVE ARTIFACT --keep-ts` is a **no-op here**: it asks for behaviour
+the default already has. The measured consequence is that a native build's
+output is not byte-reproducible across runs, which is the property the fixed
+epoch exists to provide.
+
+That remains a decision rather than a defect, because it is the default that is
+in question and not the flag. But it should be decided knowing that one of the
+vocabulary's flags currently means nothing, which was not visible when the row
+was written.

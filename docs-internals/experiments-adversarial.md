@@ -37143,3 +37143,55 @@ That remains a decision rather than a defect, because it is the default that is
 in question and not the flag. But it should be decided knowing that one of the
 vocabulary's flags currently means nothing, which was not visible when the row
 was written.
+
+## E790 - a build argument's value is shell, not text
+
+E789's sweep flagged `ARG a=literal\$(echo run)` as producing `literalrun` here
+and `literal$(echo run)` under earthly. The escaped-default defect that finding
+named is real and is fixed - `commandSpan` honoured the escape, the unquoting
+that follows erased it, and the lazy command scan then read a written command
+where an escape had been. But it is **not** what the end-to-end case was
+measuring, and the same Earthfile still produced `literalrun` after that fix.
+The commit message claiming the reference comparison as the fixed symptom
+overstated it; this is the correction.
+
+The second cause is larger. A build argument's value is substituted into the
+command *text*, and the shell then parses the result:
+
+```console
+$ earth-native +t --a='$(echo INJECTED)'
+  INJECTED
+$ earthly +t --a='$(echo INJECTED)'
+  $(echo INJECTED)
+```
+
+The Earthfile is `ARG a=safe` / `RUN printf "%s" "$a"`. Nothing in it asks for a
+command to run. The value came from the command line, and running it is this
+engine's doing: `interp.go` expands every command's arguments before the step
+sees them, so `$a` is replaced by its value and `/bin/sh` re-parses what comes
+out. Any value carrying `$( )`, a backtick, `;` or `&&` therefore executes.
+
+The reference does not do this, and neither does Docker: a build argument is put
+in the step's *environment*, `$a` is expanded by the shell at run time, and the
+result of a parameter expansion is not rescanned for command substitution. That
+is the whole of the difference - one engine hands the shell a value, the other
+hands it a program.
+
+**Why this matters past the divergence.** A caller who passes a build argument
+they did not write - a branch name, a tag, a version string, a PR title, which
+is the ordinary shape of `earth +build --version="$SOMETHING"` in CI - is
+executing it. It is not a sandbox escape and not an escalation, since anyone who
+can edit the Earthfile can write `RUN` directly; it is that the *caller's* data
+becomes the *author's* code, which is the boundary an injection crosses.
+
+**Left as a decision rather than fixed here**, because the fix is architectural:
+build arguments would travel to the step as environment and `RUN` would stop
+being expanded by the engine, which changes what every existing textual
+expansion means and is not a change to make at the end of a sweep. Recorded in
+the decisions table with the two measurements above.
+
+The method note is the same one E788 and E789 earned. Three of the four defects
+this sweep found were invisible to the test suite and obvious the moment the
+same input went to both engines - and this one was found only because the first
+fix did *not* change the end-to-end answer, which is the check that a passing
+unit test cannot perform for you.

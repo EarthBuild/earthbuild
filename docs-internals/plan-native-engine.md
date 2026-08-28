@@ -9238,17 +9238,18 @@ Eight things this sweep found that are choices rather than defects. Each is
 evidenced where it is named; none should be settled by whoever next reads the
 code, because each could reasonably go the other way.
 
-| what                              | the choice                                                                                                 | where               |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------- |
-| `WITH DOCKER` on a podman machine | serve the docker API from podman, run a daemon from the step's image, or declare it unsupported            | E767, and 5 CI jobs |
-| `--load` and the daemon's storage | load engine-side, key the mount to the block, or capture the storage                                       | nits                |
-| more than one `RUN` in a block    | refuse as earthly does, or share the daemon across the block                                               | nits                |
-| `EARTH_PIN_TTL`'s default         | 420ms a build against a tag that may have moved                                                            | E766                |
-| the sandbox's name                | `buildkitsandbox` kept, or renamed and the corpus updated                                                  | E758                |
-| artifact mtimes                   | the real time, or earthly's fixed 2020 epoch - note `--keep-ts` is a no-op until this is settled (E789)    | E775                |
-| `../run/` in the completion test  | the expectation encodes earthly's own directories                                                          | E780                |
-| a CHANGELOG line for the engine   | one paragraph, at merge rather than at release                                                             | pr-blockers         |
-| a docker client inside a step     | inject a dynamically-linked one with its interpreter, ship a static one, or require the image to carry one | E767, group2        |
+| what                              | the choice                                                                                                                                                                                                       | where               |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `WITH DOCKER` on a podman machine | serve the docker API from podman, run a daemon from the step's image, or declare it unsupported                                                                                                                  | E767, and 5 CI jobs |
+| `--load` and the daemon's storage | load engine-side, key the mount to the block, or capture the storage                                                                                                                                             | nits                |
+| more than one `RUN` in a block    | refuse as earthly does, or share the daemon across the block                                                                                                                                                     | nits                |
+| `EARTH_PIN_TTL`'s default         | 420ms a build against a tag that may have moved                                                                                                                                                                  | E766                |
+| the sandbox's name                | `buildkitsandbox` kept, or renamed and the corpus updated                                                                                                                                                        | E758                |
+| artifact mtimes                   | the real time, or earthly's fixed 2020 epoch - note `--keep-ts` is a no-op until this is settled (E789)                                                                                                          | E775                |
+| `../run/` in the completion test  | the expectation encodes earthly's own directories                                                                                                                                                                | E780                |
+| a CHANGELOG line for the engine   | one paragraph, at merge rather than at release                                                                                                                                                                   | pr-blockers         |
+| build arguments in a `RUN`        | expand into the command text as now, or hand them to the step as environment as earthly and docker do - the value is currently re-parsed by the shell, so a supplied argument carrying `$( )` is executed (E790) | E790                |
+| a docker client inside a step     | inject a dynamically-linked one with its interpreter, ship a static one, or require the image to carry one                                                                                                       | E767, group2        |
 
 **The last row is the one that keeps reappearing.** A step with no docker client
 cannot run `docker inspect`, which is what E779's test does, and an *inner*

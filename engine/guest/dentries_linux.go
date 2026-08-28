@@ -8,13 +8,6 @@ import (
 	"strings"
 )
 
-// EnvDentryLimit is how many looked-up names a sandbox lets accumulate before
-// it releases them.
-//
-// Zero turns the release off, which is what this engine did before it existed.
-// Unset means the default below.
-const EnvDentryLimit = "EARTH_GUEST_DENTRY_LIMIT"
-
 // defaultDentryLimit is the number of cached names at which a sandbox lets go.
 //
 // **Under a ceiling that cannot be asked about.** A shared store costs the

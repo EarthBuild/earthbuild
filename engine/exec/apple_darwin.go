@@ -593,6 +593,16 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 		args = append(args, "-e", image.EnvHashOnUnpack+"="+on)
 	}
 
+	// **Settings the guest reads have to be handed to the guest.** Both of these
+	// are read inside the sandbox and neither was forwarded, so on this backend
+	// they did nothing at all - and the way that surfaced was an experiment that
+	// "ruled out" dentry relief by raising a limit the guest never saw (E812).
+	// A setting that silently does nothing is worse than one that is missing,
+	// because it answers when it is asked.
+	if on := os.Getenv(guest.EnvDentryLimit); on != "" {
+		args = append(args, "-e", guest.EnvDentryLimit+"="+on)
+	}
+
 	args = append(args, a.name, "/earth/"+filepath.Base(guestBin))
 
 	cmd := osexec.CommandContext(ctx, "container", args...) //nolint:gosec // a fixed argv

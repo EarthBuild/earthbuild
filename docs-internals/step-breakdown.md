@@ -119,7 +119,7 @@ individually, and there are five of them plus untimed glue.
 | `guest:exec`        | 7.5ms   | `guest:bind`                | everything after   | this is the work                       |
 | `capture`           | 1.5ms   | output exists               | the step's result  | **yes** - see §6                       |
 | `guest:commit`      | 1.0ms   | `guest:exec` done           | the *next* step    | no - it produces the next base         |
-| `guest:unbind`      | 1.0ms   | `guest:exec` done           | nothing            | **yes** - see §6                       |
+| `guest:unbind`      | 1.0ms   | `guest:exec` done           | `capture`          | no - `capture` reads under the mount   |
 
 ## 4. What the numbers say about a whole build
 
@@ -146,9 +146,10 @@ What is already parallel:
   running too, and it works: 8 seconds of `sleep` offered as 80 steps across 16 targets
   completes in 1.3s, about 61% of what sixteen slots allow. What does not overlap is
   roughly **4ms of per-step overhead** - visible as a 175 steps/s ceiling when every step
-  is `echo` and invisible when a step does real work (E812, E812a). That number is why
-  shaving `bind` and `unbind` is worth more than it looks: they are 2.0ms of the 4ms that
-  is not overlapping with anything.
+  is `echo` and invisible when a step does real work (E812, E812a). `bind` and `unbind` are
+  2.0ms of that 4ms - but neither can simply be moved: `bind` must precede the process and
+  `unbind` must precede `capture` (E813). Reducing the *number* of mounts is the lever,
+  not relocating them.
 - **layers within an image** - one goroutine per layer, each unpacking as its blob lands
   rather than after all of them have.
 - **fetch against unpack** - available, but *off*. The guest can read a growing blob, so an
@@ -164,14 +165,14 @@ process needs a rootfs, and `commit` must follow it because it produces the next
 
 Ranked by what is actually available, not by what would be nice.
 
-| Candidate                      | Ceiling      | Constraint that decides it                    |
-| ------------------------------ | ------------ | --------------------------------------------- |
-| cache the bearer token         | ~277ms/build | none - the manifest GET still asks the origin |
-| `unbind` off the critical path | ~1.0ms/step  | nothing consumes it; it is teardown           |
-| `capture` against `commit`     | ~1.0ms/step  | disjoint inputs - output vs layer             |
-| parallelise unpack writes      | ~450ms cold  | measured and rejected - see below             |
-| cache the tag resolution       | ~149ms/build | rejected: correctness, see below              |
-| overlap steps in a chain       | 0            | impossible - the layer edge is real           |
+| Candidate                          | Ceiling      | Constraint that decides it                         |
+| ---------------------------------- | ------------ | -------------------------------------------------- |
+| cache the bearer token             | ~277ms/build | none - the manifest GET still asks the origin      |
+| ~~`unbind` off the critical path~~ | 0            | **wrong** - `capture` reads under the mount (E813) |
+| `capture` against `commit`         | ~1.0ms/step  | disjoint inputs - output vs layer                  |
+| parallelise unpack writes          | ~450ms cold  | measured and rejected - see below                  |
+| cache the tag resolution           | ~149ms/build | rejected: correctness, see below                   |
+| overlap steps in a chain           | 0            | impossible - the layer edge is real                |
 
 **Caching the token is the one real item.** It saves the whole `registry:token` round trip
 for any build inside the token's life (Docker Hub issues ~300s), and it is orthogonal to
@@ -190,9 +191,17 @@ tag-to-digest resolution is deliberate: a resolution *is* the answer to what a t
 today, `resolve.go` asks the origin on purpose, and anyone who would rather have the
 149ms can pin by digest and skip the resolution entirely.
 
-**The two per-step items are worth about 2ms of a 16.1ms step** and both are teardown or
-disjoint work rather than anything on the chain. Worth having, not worth reaching for
-first.
+**One of the two was not there.** Moving `unbind` behind the step's answer was called a
+no-brainer here, on the grounds that nothing consumes it. Something does: the host's
+`capture` reads the step's result from a path *under* the mount, after the reply has gone
+back, and a teardown that has already run takes the result with it - `capture the result
+of Earthfile:8: open /var/lib/earthbuild/scratch/mounts/h-341...`, on every build, at
+every width. The edge is real and this document did not have it, because §3 was written
+from the phase list rather than from what each phase touches (E813).
+
+`capture` against `commit` still stands - disjoint inputs, about 1ms. And the lever on the
+4ms is the *number* of mounts a step makes, five groups of them, not where the teardown
+sits.
 
 ## 7. What would change these numbers
 

@@ -38362,3 +38362,48 @@ it when every step is `echo`. Choosing a workload where the thing being measured
 is 100% of the cost makes any overhead look like a ceiling, and the fix was to
 run the same experiment with the work turned up rather than to reason about the
 first result harder.
+
+## E813 - the teardown that something was waiting for
+
+**`step-breakdown.md` said `guest:unbind` blocks nothing.** It is the last thing a
+step does, it is 1.0ms serial and 17.55ms when sixteen steps run at once, and
+nothing in the phase list comes after it. Moving it behind the step's answer
+looked like the cheapest 1ms in the engine.
+
+**It fails on every build, at every width.** The mounts are taken down with the
+per-handle lock held, which is the barrier a deferred teardown needs, and
+`commit` reads the step's *delta* rather than the merged root, so an unmount
+cannot change what it sees. Both of those are true. What is also true, and was
+not in the document:
+
+```text
+capture the result of Earthfile:8:
+  open /var/lib/earthbuild/scratch/mounts/h-341...
+```
+
+The host's `capture` reads the result from a path *under* the mount, after the
+reply has gone back. `unbind` does not merely unmount; it takes the directory
+with it, and `capture` is the consumer the phase list does not show because it
+runs on the other side of the connection.
+
+**Which is a fault in how the document was written, not only in the change.**
+§3's constraint table was built from the phase log - what runs, in what order,
+for how long - and a phase log cannot show a dependency that crosses machines.
+`unbind → capture` is exactly that shape: the producer is in the guest, the
+consumer is on the host, and nothing in either one's timings hints at the edge.
+The dataflow was supposed to be read off the code; for this row it was read off
+the profile.
+
+**Kept from the attempt:** two settings the guest reads were never forwarded to
+it. `EARTH_GUEST_DENTRY_LIMIT` is documented, has a default, and did nothing at
+all on this backend - which is how E812 came to "rule out" dentry relief by
+raising a limit the guest never saw. Forwarded now, and re-run: 531ms against
+539ms, so the conclusion survives, this time on a probe that reached the
+mechanism. A setting that silently does nothing is worse than a missing one,
+because it answers when it is asked.
+
+**What is left of the 4ms.** `bind` must precede the process, `unbind` must
+precede `capture`, and `commit` produces the next step's base. None of the three
+can be relocated. The remaining lever is the *number* of mounts - five groups per
+step: `proc`, `sys`, `cgroup2`, the bind set, and `devpts` - and each one takes
+the kernel's namespace lock exclusively. Fewer mounts, not later ones.

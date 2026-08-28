@@ -1618,8 +1618,12 @@ claim about the command. Before writing a test for a survivor, check what else
 already exercises the mechanism - here the answer was two corpus targets named
 after the option.
 
-Five are closed and struck through: E278 (the I1 rebuild identity check),
-E281 (which was never a gap), E634, E494 and E446.
+Eight are closed: E278 (the I1 rebuild identity check), E281 (never a gap - an
+equivalent mutant), E446 (guarded by the corpus), E494, E634, E274, and two the
+darwin sweep found that the linux one could not judge - E423 (a target name
+stripped of its plus exactly once) and E377 (root given no nested user
+namespace, and tagged linux-only, since darwin does not compile the file and was
+reporting it for the mirror of E394's reason).
 
 **How to work this list:** write the test, then remove it and re-run the mutant.
 A test that passes beside a mutant is not evidence that it kills it - E278 was

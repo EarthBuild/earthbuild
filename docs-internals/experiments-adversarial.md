@@ -39895,3 +39895,41 @@ repro did not, and failed for a reason that had nothing to do with the fault.
 this one and `apply SAVE ARTIFACT: unable to save to /test` - which looked like a
 single root cause in the working directory. It is not: `WORKDIR /test` works,
 writes into it persist, and a later step reads them.
+
+### E833 - the second pull-ping EOF, which makes it a class
+
+E828 recorded a blob transfer from buildkit's own session registry dying
+part-way, in `Docker Integrations / EarthBuild Image Test`, and said explicitly
+that one occurrence could not distinguish a flake from a break - so that a second
+would be recognised as a second. This is the second.
+
+**Different job, different port, same signature.** `Docker Integrations / Race
+Tests (Misc)` on run 33191596281:
+
+```text
+failed to copy: httpReadSeeker: failed open: failed to do request:
+  Get "https://127.0.0.1:37593/v2/sess-.../pullping/blobs/sha256:1c4d6013..." : EOF
+```
+
+Twenty-seven layers of the `+buildkitd` image, ten of them already reported
+`Download complete`, and the eleventh blob's connection closes. The build then
+fails with `pull ping error: pull ping response: ... exit status 1`.
+
+**The outer message is not the failure.** What CI surfaces, and what a grep of
+the log finds first, is `Error: pull ping error: ... docker pull 127.0.0.1:37593/
+...: exit status 1` - which names the mechanism and not the fault. The `EOF` is
+inside a quoted, backslash-escaped buildkitd log line two hundred lines further
+on. Both occurrences cost a full log download to read.
+
+**What it is not.** Not caused by the change under test: the diff between this
+run and the last complete one is three commits touching only this file. The same
+job passed on the previous run.
+
+**What is now known, and what is not.** Two occurrences, two different jobs, both
+on this branch, none seen on `main` - but nobody has run `main` enough times to
+say the rate there is zero, so "branch-specific" remains unsupported. The shape
+is a localhost HTTP connection closing mid-body, which no retry covers: the
+callback treats a failed `docker pull` as terminal.
+
+**Recorded, not fixed** - the pull-ping path is legacy-engine CI infrastructure
+and belongs to the flake-hardening effort, not to this one.

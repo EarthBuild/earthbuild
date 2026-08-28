@@ -191,6 +191,9 @@ type Plan struct {
 	callerArgs map[string]string
 	// callerHost says the call was made from a target that runs on this machine.
 	callerHost bool
+	// saidProjectDeprecated keeps the PROJECT note to one per build. A function
+	// inlined into forty callers would otherwise say it forty times.
+	saidProjectDeprecated bool
 	// passTo carries a BUILD --pass-args caller's arguments into the target
 	// being resolved.
 	passTo map[string]string
@@ -1770,6 +1773,24 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			"PROJECT", "--use-project-secrets", loc(c.SourceLocation))
 		if err != nil {
 			return nil, err
+		}
+
+		// **Said, not only accepted.** The cloud integration is gone, so this
+		// declaration has no effect here unless a custom secret command reads
+		// it - and an author whose Earthfile still carries the line cannot
+		// learn that from a build which works silently. The legacy engine says
+		// it and `tests/Earthfile` asserts it (E846).
+		//
+		// Once per build rather than per occurrence: a file declares a project
+		// at most once at the top, and a function inlined into forty callers
+		// must not say it forty times.
+		if !p.saidProjectDeprecated {
+			p.saidProjectDeprecated = true
+
+			p.Advice = append(p.Advice,
+				"the PROJECT command is deprecated and has no effect here"+
+					"\n  the cloud integration it addressed has been removed, so the"+
+					"\n  declaration is read and ignored unless a custom secret command uses it")
 		}
 
 		if len(c.Args) != 1 || !strings.Contains(c.Args[0], "/") {

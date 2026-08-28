@@ -49,11 +49,13 @@ func TestWhatTheGuestReceivesForACopiedContext(t *testing.T) {
 		"excluded/gone.txt",
 	} {
 		p := filepath.Join(root, rel)
-		if mkErr := os.MkdirAll(filepath.Dir(p), 0o750); mkErr != nil {
+		mkErr := os.MkdirAll(filepath.Dir(p), 0o750)
+		if mkErr != nil {
 			t.Fatal(mkErr)
 		}
 
-		if wErr := os.WriteFile(p, []byte("x"), 0o600); wErr != nil {
+		wErr := os.WriteFile(p, []byte("x"), 0o600)
+		if wErr != nil {
 			t.Fatal(wErr)
 		}
 	}
@@ -73,7 +75,7 @@ func TestWhatTheGuestReceivesForACopiedContext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(tarball) //nolint:gosec // a path this test made
+	f, err := os.Open(tarball)
 	if err != nil {
 		t.Fatal(err)
 	}

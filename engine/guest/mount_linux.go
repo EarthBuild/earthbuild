@@ -510,6 +510,31 @@ func mountProc(root string) (undo func(), err error) {
 // already follow, and the opposite of the rule /proc follows, because a JDK
 // cannot start at all without /proc/self/exe.
 func mountSys(root string) (undo func(), why error) {
+	return mountSysWith(root, unix.Mount)
+}
+
+// mountSysWith is mountSys with the mount call supplied, so the refusal that
+// matters can be forced rather than waited for.
+//
+// **The bind is not a lesser /sys, it is the same one.** sysfs is
+// network-namespace tagged, and this engine deliberately does not apply
+// CLONE_NEWNET (see isolationFlags), so a step shares the guest's network
+// namespace and a fresh sysfs mount would show exactly what a bind of the
+// guest's own /sys shows. What differs is only what the kernel asks for:
+// instantiating a sysfs superblock requires the mounting user namespace to own
+// the network namespace, and binding an existing mount requires nothing of the
+// sort.
+//
+// That distinction is the whole of this. Every Native CI job reported
+// `mount /sys for the step: operation not permitted`, three times each, because
+// a GitHub runner is exactly the case the comment above predicted - and a
+// developer's privileged container is exactly the case that hides it. Without
+// /sys there is nowhere to put /sys/fs/cgroup, so the inner runtime found no
+// cgroup mount and started nothing (E839a).
+//
+// Read-only either way: a step has no business writing to the machine's sysfs,
+// and MS_BIND does not carry flags, so the remount asserts them.
+func mountSysWith(root string, mount mountFunc) (undo func(), why error) {
 	target := filepath.Join(root, "sys")
 
 	//nolint:gosec // a mount point carries the mode the mount asked for
@@ -518,16 +543,36 @@ func mountSys(root string) (undo func(), why error) {
 		return func() {}, fmt.Errorf("make room for /sys: %w", err)
 	}
 
-	err = unix.Mount("sysfs", target, "sysfs", unix.MS_RDONLY|unix.MS_NOSUID|
-		unix.MS_NODEV|unix.MS_NOEXEC, "")
-	if err != nil {
-		return func() {}, fmt.Errorf(
-			"mount /sys for the step: %w\n  a step without one is told the machine"+
-				"\n  has one CPU and no cgroup limits, rather than being told nothing", err)
+	const flags = unix.MS_RDONLY | unix.MS_NOSUID | unix.MS_NODEV | unix.MS_NOEXEC
+
+	fresh := mount("sysfs", target, "sysfs", flags, "")
+	if fresh == nil {
+		return func() { unmountAll(target) }, nil
 	}
 
-	return func() { unmountAll(target) }, nil
+	bound := mount("/sys", target, "none", unix.MS_BIND|unix.MS_REC, "")
+	if bound == nil {
+		// A bind takes the source's flags, so read-only is asserted afterwards.
+		// Failing that is not failing the mount: a step with a writable /sys is
+		// worse than one with a read-only /sys and much better than one with
+		// none, which is the rule this whole function follows.
+		_ = mount("", target, "none", unix.MS_BIND|unix.MS_REMOUNT|flags, "")
+
+		return func() { unmountAll(target) }, nil
+	}
+
+	// Both reasons, because either alone sends a reader to the wrong half of
+	// this: the first says the namespace does not permit a new sysfs, and the
+	// second says the machine's own could not be shown instead.
+	return func() {}, fmt.Errorf(
+		"mount /sys for the step: %w\n  and binding the machine's own instead: %w"+
+			"\n  a step without one is told the machine"+
+			"\n  has one CPU and no cgroup limits, rather than being told nothing",
+		fresh, bound)
 }
+
+// mountFunc is unix.Mount, named so it can be supplied.
+type mountFunc func(source, target, fstype string, flags uintptr, data string) error
 
 // mountCgroup2 puts the step's own cgroup tree at /sys/fs/cgroup.
 //

@@ -39601,3 +39601,29 @@ Two changes, and only one of them was written today. The other has been in the
 engine the whole time, printed as a note after any build whose lookups cost more
 than 100ms, and worth more on its own than a day of measurement found anywhere
 else (E822).
+
+### E829f - the implementation reaches the floor the benchmark predicted
+
+**Faster than before is not the same as fast.** With the context packed directly
+and the image pinned, the `COPY` step of the 1600-file build breaks down as:
+
+| phase                | cost   | per file |
+| -------------------- | ------ | -------- |
+| `context:pack`       | 0.137s | 0.086ms  |
+| `context:digest`     | 0.056s | 0.035ms  |
+| `layer:unpack:guest` | 0.047s | 0.029ms  |
+
+The standalone benchmark of E829c packed 2000 files in 152ms, or 0.076ms each;
+the engine now does 0.086ms. The guest's unpack was measured at 0.037ms a file
+against a layer, and does 0.029ms here. Both are within a hair of their floors,
+which is the difference between an optimisation that worked and one that merely
+moved the cost somewhere unmeasured.
+
+**And `COPY` is no longer the story.** It fell from 0.73ms a file to 0.29ms
+including everything around it. What is left of a pinned build of this shape is
+the per-step machinery - `guest:request` 0.180s across the steps, `sandbox:start`
+0.195s once - and no single phase dominates it.
+
+**Which is where this line of work stops being about `COPY`.** The next thing to
+measure is whatever the machinery costs when a build has more steps than this
+one, and that is a different experiment rather than another turn of this one.

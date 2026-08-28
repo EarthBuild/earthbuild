@@ -143,10 +143,12 @@ What is already parallel:
 - **independent steps**, bounded by `Parallelism` (NumCPU when zero). The scheduler is a
   DAG executor: `remaining` counts each node's unfinished inputs and `dependents` is the
   reverse edge, so anything with no path between it and the running work is already
-  running too. **But it does not scale**: throughput saturates near 175 steps/s from
-  width 4 onward, about 14% of what sixteen cores allow, and eight times the vCPUs buys
-  19%. Not dentry relief, not the instrument, not CPU - a serial resource of about 5.7ms
-  a step that is not yet named (E812). This is the largest number in this document.
+  running too, and it works: 8 seconds of `sleep` offered as 80 steps across 16 targets
+  completes in 1.3s, about 61% of what sixteen slots allow. What does not overlap is
+  roughly **4ms of per-step overhead** - visible as a 175 steps/s ceiling when every step
+  is `echo` and invisible when a step does real work (E812, E812a). That number is why
+  shaving `bind` and `unbind` is worth more than it looks: they are 2.0ms of the 4ms that
+  is not overlapping with anything.
 - **layers within an image** - one goroutine per layer, each unpacking as its blob lands
   rather than after all of them have.
 - **fetch against unpack** - available, but *off*. The guest can read a growing blob, so an

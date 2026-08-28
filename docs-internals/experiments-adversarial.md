@@ -38322,3 +38322,43 @@ from outside it. Recorded here unfinished, because the size of the prize is the
 part that matters: a build wide enough to use this machine is using about a
 seventh of it, and that is a larger number than anything else in
 `step-breakdown.md`.
+
+### E812a - the same measurement with steps that do something
+
+**E812 overstates it, and the error is in the workload.** Every step in it was
+`echo`, which is entirely per-step overhead, so what saturated at 175 steps/s was
+the overhead and not the engine. A build whose steps take a measurable time is a
+different picture. Same shape, same depth, `sleep 0.1` in each step:
+
+| width | steps | work offered | wall   |
+| ----- | ----- | ------------ | ------ |
+| 1     | 5     | 500ms        | 1115ms |
+| 4     | 20    | 2000ms       | 1184ms |
+| 16    | 80    | 8000ms       | 1308ms |
+
+Eight seconds of work in 1.3 seconds. Taking the fixed prologue at about 490ms,
+the steps occupy some 818ms against a floor of 500ms if all sixteen slots were
+busy every moment - **61% parallel efficiency, not 14%**.
+
+**And the deficit is the same serial overhead, now measured directly.** 818ms
+against a 500ms floor is 318ms spread over 80 steps: about 4ms a step that does
+not overlap with anything, which agrees with the 5.7ms implied by the trivial-step
+ceiling and is a better estimate because the work is no longer confounded with it.
+
+**So the finding is narrower and more useful than E812 claimed.** There is no
+scaling failure. There is a serialised per-step cost of roughly 4ms, and it is
+invisible on a build whose steps take much longer than that and dominant on one
+whose steps take less. `echo` steps at 13.2ms are the second kind; a compile is
+the first.
+
+The practical reading: work that reduces per-step overhead - `guest:unbind` is
+1.0ms of it, `guest:bind` another 1.0ms - buys latency on narrow builds *and*
+parallel efficiency on wide ones, because it is exactly the quantity that is not
+overlapping. Work that chases a scaling bug will not find one.
+
+**Recorded because I published the wrong number first.** E812 went into the
+repository claiming a build uses a seventh of this machine. It uses a seventh of
+it when every step is `echo`. Choosing a workload where the thing being measured
+is 100% of the cost makes any overhead look like a ceiling, and the fix was to
+run the same experiment with the work turned up rather than to reason about the
+first result harder.

@@ -43,7 +43,10 @@ jobs:
           set -euo pipefail
 
           # Skip in forked repositories or fork pull requests
-          if [ "$GITHUB_REPO" != "earthbuild/earthbuild" ] || [ "$REPO_IS_FORK" = "true" ] || { [ "$EVENT_NAME" = "pull_request" ] && [ "$HEAD_REPO" != "$GITHUB_REPO" ]; }; then
+          GITHUB_REPO_LOWER="$(echo "$GITHUB_REPO" | tr '[:upper:]' '[:lower:]')"
+          HEAD_REPO_LOWER="$(echo "$HEAD_REPO" | tr '[:upper:]' '[:lower:]')"
+
+          if [ "$REPO_IS_FORK" = "true" ] || { [ "$EVENT_NAME" = "pull_request" ] && [ -n "$HEAD_REPO" ] && [ "$HEAD_REPO_LOWER" != "$GITHUB_REPO_LOWER" ]; }; then
             echo "Skipping Apple Container tests: running in a forked repository or fork pull request."
             echo "has-runner=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -195,7 +198,6 @@ jobs:
           echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute ${{ matrix.target }}
         run: ${{ env.BUILT_EARTH_PATH }} --ci -P ${{ matrix.target }}
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       - name: Execute fail test
         run: '! ${{ env.BUILT_EARTH_PATH }} --ci ./tests/fail+test-fail'
       - name: Buildkit logs (runs on failure)

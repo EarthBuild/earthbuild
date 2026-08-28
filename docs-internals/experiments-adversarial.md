@@ -37675,6 +37675,15 @@ collide with.
 The test covers two flags rather than the one that was noticed. That is the
 lesson E798 taught, applied on purpose this time rather than in hindsight.
 
+**And the class is closed, not merely the command.** Every other flag that takes
+a value was checked the same way, and all of them already expanded:
+`COPY --chmod=$v` gives `600`, `RUN --mount=type=tmpfs,target=/$v` mounts,
+`CACHE --id $v` builds, `FROM $v` resolves. `WITH DOCKER` was the only statement
+whose flags were read before anything expanded them - which is what one would
+expect from the way it is parsed, and is worth having measured rather than
+assumed, since the same reasoning said `--pull` was the only flag affected and
+that was wrong.
+
 **A note on attribution, since it nearly went the other way.** The Native suite
 showed fifteen failures where an earlier sweep had left four, which looks exactly
 like a regression from the six engine changes above it. It is not: the causes are

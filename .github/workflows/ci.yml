@@ -377,8 +377,10 @@ jobs:
       - build-buildkit-arm64
     permissions:
       contents: read
+      actions: read
     uses: ./.github/workflows/ci-apple-container-mac.yml
     secrets:
+      GH_RUNNER_READ_TOKEN: ${{ secrets.GH_RUNNER_READ_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   # --- Merge Gate ---

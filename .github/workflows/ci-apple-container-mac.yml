@@ -3,12 +3,15 @@ name: Apple Container CI macOs
 on:
   workflow_call:
     secrets:
+      GH_RUNNER_READ_TOKEN:
+        required: false
       OTEL_EXPORTER_OTLP_HEADERS:
         required: false
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -18,9 +21,98 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
+  check-runner:
+    name: Check for macOS ARM64 runner
+    runs-on: ubuntu-26.04-arm
+    outputs:
+      has-runner: ${{ steps.check.outputs.has-runner }}
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Check runner availability
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GH_RUNNER_READ_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          REPO_IS_FORK: ${{ github.event.repository.fork }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |-
+          set -euo pipefail
+
+          # Skip in forked repositories or fork pull requests
+          if [ "$GITHUB_REPO" != "earthbuild/earthbuild" ] || [ "$REPO_IS_FORK" = "true" ] || { [ "$EVENT_NAME" = "pull_request" ] && [ "$HEAD_REPO" != "$GITHUB_REPO" ]; }; then
+            echo "Skipping Apple Container tests: running in a forked repository or fork pull request."
+            echo "has-runner=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          RUNNER_FOUND="false"
+
+          echo "Checking for self-hosted macOS ARM64 runner..."
+
+          # 1. Query repository-level runners
+          REPO_RUNNERS=$(gh api "repos/$GITHUB_REPO/actions/runners" 2>/dev/null || true)
+          if [ -n "$REPO_RUNNERS" ]; then
+            echo "Repository runners:"
+            echo "$REPO_RUNNERS" | jq -r '(.runners // [])[]? | "  - \(.name) (OS: \(.os), Status: \(.status), Labels: \([(.labels // [])[].name] | join(", "))"' || true
+
+            ONLINE_COUNT=$(echo "$REPO_RUNNERS" | jq '[
+              (.runners // [])[] |
+              select(type == "object" and .status == "online") |
+              ( [ (.labels // [])[] | (.name // "") | ascii_downcase ] ) as $labels |
+              select(
+                ((.os // "") | ascii_downcase == "macos" or ($labels | index("macos") != null)) and
+                ($labels | index("arm64") != null) and
+                ($labels | index("self-hosted") != null)
+              )
+            ] | length')
+
+            if [ "$ONLINE_COUNT" -gt 0 ]; then
+              echo "Found $ONLINE_COUNT online macOS ARM64 self-hosted runner(s) at repository level."
+              RUNNER_FOUND="true"
+            fi
+          fi
+
+          # 2. Query organization-level runners if not found at repository level
+          if [ "$RUNNER_FOUND" = "false" ]; then
+            ORG_RUNNERS=$(gh api "orgs/$REPO_OWNER/actions/runners" 2>/dev/null || true)
+            if [ -n "$ORG_RUNNERS" ]; then
+              echo "Organization runners:"
+              echo "$ORG_RUNNERS" | jq -r '(.runners // [])[]? | "  - \(.name) (OS: \(.os), Status: \(.status), Labels: \([(.labels // [])[].name] | join(", "))"' || true
+
+              ONLINE_COUNT=$(echo "$ORG_RUNNERS" | jq '[
+                (.runners // [])[] |
+                select(type == "object" and .status == "online") |
+                ( [ (.labels // [])[] | (.name // "") | ascii_downcase ] ) as $labels |
+                select(
+                  ((.os // "") | ascii_downcase == "macos" or ($labels | index("macos") != null)) and
+                  ($labels | index("arm64") != null) and
+                  ($labels | index("self-hosted") != null)
+                )
+              ] | length')
+
+              if [ "$ONLINE_COUNT" -gt 0 ]; then
+                echo "Found $ONLINE_COUNT online macOS ARM64 self-hosted runner(s) at organization level."
+                RUNNER_FOUND="true"
+              fi
+            fi
+          fi
+
+          if [ "$RUNNER_FOUND" = "true" ]; then
+            echo "has-runner=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No online macOS ARM64 self-hosted runner found. Skipping Apple Container tests."
+            echo "has-runner=false" >> "$GITHUB_OUTPUT"
+          fi
+
   tests:
     name: ${{ matrix.target }}
-    runs-on: self-hosted
+    needs: check-runner
+    if: needs.check-runner.outputs.has-runner == 'true'
+    runs-on: [self-hosted, macOS, ARM64]
     strategy:
       fail-fast: false
       matrix:

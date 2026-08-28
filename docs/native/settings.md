@@ -732,3 +732,19 @@ That costs something, which is why it is off unless asked for - a guest that pro
 is a guest whose measurements include the profiler.
 
 Default: unset, so nothing is collected and nothing is written.
+
+## `EARTH_GUEST_PROFILE_MODE`
+
+What `EARTH_GUEST_PROFILE` collects. `all` adds mutex and block profiling to the CPU and
+goroutine profiles taken otherwise.
+
+**Separate because contention profiling is not free.** `SetBlockProfileRate(1)` records a stack on
+every blocking event, and a guest that spends its life blocking on syscalls blocks constantly: the
+first build profiled this way took 15.2s where the same build takes 1.5s. A profile that slows its
+subject tenfold is a profile of the profiler, and the timings taken alongside it are worthless.
+
+CPU-only costs nothing measurable - 8819ms profiled against 8983ms not - so that is what the plain
+setting does. Ask for `all` when the question is *what is it waiting on*, and do not read the wall
+clock of that build.
+
+Default: unset, so CPU and goroutine profiles only.

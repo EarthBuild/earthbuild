@@ -68,11 +68,13 @@ func exportWidth() int {
 
 // exportConcurrently writes the artifacts several at a time.
 //
-// **Order is kept where order is observable.** Two artifacts naming the same
-// destination are written in the order the Earthfile gives, because the second
-// is meant to win; artifacts naming different destinations cannot see each
-// other and go in any order. So the work is grouped by destination, the groups
-// run concurrently, and each group runs in sequence.
+// **Order is kept where order is observable.** Two artifacts writing to the
+// same place are written in the order the Earthfile gives, because the second is
+// meant to win; artifacts writing to certainly different places cannot see each
+// other and go in any order. exportGroups decides which is which - and "the same
+// place" is wider than "the same destination", because `out` and `out/sub/x`
+// are different strings and one tree. The groups run concurrently, each group in
+// sequence.
 //
 // What the caller sees is ordered whatever happened: the lines are printed after
 // the wait, in the Earthfile's order, and the error returned is the earliest by
@@ -89,9 +91,8 @@ func exportConcurrently(
 	}
 
 	var (
-		jobs   []job
-		groups = map[string][]job{}
-		order  []string
+		jobs  []job
+		dests []string
 	)
 
 	for i, a := range plan.Artifacts {
@@ -110,14 +111,8 @@ func exportConcurrently(
 			return fmt.Errorf("%s: %q is not inside the project", a.Source, a.LocalDest)
 		}
 
-		j := job{at: i, dest: dest, a: a}
-		jobs = append(jobs, j)
-
-		if _, seen := groups[dest]; !seen {
-			order = append(order, dest)
-		}
-
-		groups[dest] = append(groups[dest], j)
+		jobs = append(jobs, job{at: i, dest: dest, a: a})
+		dests = append(dests, dest)
 	}
 
 	// Indexed by the artifact's position, so a result can be reported in the
@@ -138,7 +133,12 @@ func exportConcurrently(
 		bad  bool
 	)
 
-	for _, dest := range order {
+	for _, g := range exportGroups(dests) {
+		group := make([]job, 0, len(g))
+		for _, i := range g {
+			group = append(group, jobs[i])
+		}
+
 		wg.Add(1)
 
 		go func(group []job) {
@@ -168,7 +168,7 @@ func exportConcurrently(
 					return
 				}
 			}
-		}(groups[dest])
+		}(group)
 	}
 
 	wg.Wait()

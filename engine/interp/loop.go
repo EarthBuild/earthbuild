@@ -266,7 +266,26 @@ func (p *Plan) withStatement(st *earthfile.WithStatement, prev *ir.Node, rs *sta
 
 	var opts cmdopts.WithDocker
 
-	rest, err := flagutil.ParseArgsCleaned("WITH DOCKER", &opts, st.Command.Args)
+	// **The flags are expanded before they are parsed.** They were read straight
+	// off the command's arguments, which no expansion has touched, so
+	// `WITH DOCKER --pull alpine:$tag` reached the daemon as the eleven
+	// characters `alpine:$tag` and the pull failed naming a tag with a dollar in
+	// it. The corpus has had this since it was written.
+	//
+	// Every flag's value, not just `--pull`: `--compose`, `--load`, `--service`,
+	// `--platform` and `--build-arg` were all read the same way, and none of
+	// them is expanded anywhere later either - `pass[name] = value` stores what
+	// it was given. Fixing the one that was noticed would have left the rest.
+	//
+	// expandWord rather than expandValue, for the reason the FOR tokens above
+	// give: a `$(...)` here is a command line whose quoting belongs to the shell
+	// that will re-parse it, not to this engine.
+	expanded := make([]string, 0, len(st.Command.Args))
+	for _, tok := range st.Command.Args {
+		expanded = append(expanded, rs.args.expandWord(tok))
+	}
+
+	rest, err := flagutil.ParseArgsCleaned("WITH DOCKER", &opts, expanded)
 	if err != nil {
 		return nil, flagFault("WITH DOCKER", where, err)
 	}

@@ -21,6 +21,7 @@ import (
 	"lukechampine.com/blake3"
 
 	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/guestd"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/mat/overlay"
 	"github.com/EarthBuild/earthbuild/engine/timing"
@@ -601,6 +602,10 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	// because it answers when it is asked.
 	if on := os.Getenv(guest.EnvDentryLimit); on != "" {
 		args = append(args, "-e", guest.EnvDentryLimit+"="+on)
+	}
+
+	if on := os.Getenv(guestd.EnvProfile); on != "" {
+		args = append(args, "-e", guestd.EnvProfile+"="+on)
 	}
 
 	args = append(args, a.name, "/earth/"+filepath.Base(guestBin))

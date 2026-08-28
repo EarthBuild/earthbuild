@@ -702,3 +702,31 @@ Generate one with `openssl rand -hex 32` and set it once, as a repository secret
 per-build and not per-user; a fleet that does not share it does not share these cache entries.
 
 Default: unset, so a step given a secret is not cached.
+
+## `EARTH_GUEST_PROFILE`
+
+Writes profiles of the guest's own work to a directory when the build ends: `cpu.pprof`,
+`mutex.pprof`, `block.pprof` and `goroutine.pprof`.
+
+**For the one question the host cannot answer.** A wide build ceilings near 175 steps a second and
+the host spends that time in `__psynch_cvwait` - it is waiting, not working - so the cost is inside
+the sandbox. Everything reachable from outside was tested and eliminated: mounts are free in
+isolation (200 bind mounts in 1ms), dentry relief never fires, and eight times the vCPUs buys 19%.
+
+The first profile it produced named the cost in one reading: `bindMounts` is 21.7% of the guest's
+CPU, which is 3.2ms of every step, and the guest averages 2.1 of its 16 cores.
+
+Set it to a path the guest can write *and* the host can read - the store is bind-mounted through,
+so `/var/lib/earthbuild/store/prof` appears on the host under the cache directory:
+
+```sh
+EARTH_GUEST_PROFILE=/var/lib/earthbuild/store/prof earth +target
+go tool pprof -top build/earth-guestd ~/.cache/earthbuild/prof/cpu.pprof
+```
+
+Mutex and block profiling are set to sample everything rather than the sampled defaults: this runs
+for the length of one build, and a sampled contention profile over a few seconds is mostly zeroes.
+That costs something, which is why it is off unless asked for - a guest that profiles itself unasked
+is a guest whose measurements include the profiler.
+
+Default: unset, so nothing is collected and nothing is written.

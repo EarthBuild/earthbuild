@@ -38407,3 +38407,60 @@ precede `capture`, and `commit` produces the next step's base. None of the three
 can be relocated. The remaining lever is the *number* of mounts - five groups per
 step: `proc`, `sys`, `cgroup2`, the bind set, and `devpts` - and each one takes
 the kernel's namespace lock exclusively. Fewer mounts, not later ones.
+
+## E814 - naming the serial cost, from inside the guest
+
+**Everything outside the sandbox was eliminated first.** Mounts in isolation are
+free - 200 bind mounts in 1ms serially, and 16-way is no slower. Dentry relief
+never fires, now that the limit actually reaches the guest (E813). Eight times
+the vCPUs buys 19%. The instrument is not the bottleneck. And a host profile
+during a wide build is 39,473 samples in `__psynch_cvwait` against 355 in `link`
+and 138 in `open`: the host is waiting, not working.
+
+Two sandboxes at once give 228 steps/s against one sandbox's 176 - so the
+ceiling is mostly per-sandbox and partly shared.
+
+**So the guest profiles itself** (`EARTH_GUEST_PROFILE`), and the first reading
+names it:
+
+| measure                    | value                     |
+| -------------------------- | ------------------------- |
+| samples over 2.22s         | 4.74s, so 2.1 of 16 cores |
+| `internal/runtime/syscall` | 57.2% flat                |
+| `guest.bindMounts`         | **21.7% cumulative**      |
+
+`bindMounts` is 1.03s over 320 steps - **3.2ms a step**, which is essentially the
+whole 4ms that does not overlap (E812a). Inside it: `unix.Mount` 35.9%,
+`os.MkdirTemp` 28.2%, `ensureFile` 7.8%, `os.MkdirAll` 4.9%.
+
+**And the count is exact.** Every step, whatever it runs, makes eleven mounts
+before it starts:
+
+```text
+/dev /dev/shm /dev/null /dev/zero /dev/full /dev/random /dev/urandom /dev/tty
+/etc/resolv.conf /etc/hostname /etc/hosts
+```
+
+At about 115us each - twenty times the 5us a bind mount costs in isolation,
+because these go into a namespace being assembled rather than onto a bare tree -
+that is 1.3ms of the 3.2ms.
+
+**The obvious saving is not available, and the reason is worth writing down.**
+Six of those are device nodes bound one at a time, and the tidy version is a
+single directory of nodes bound once. They are bound individually *because*
+`mknod` is refused inside a user namespace: the fence is load-bearing. Anything
+here has to keep the nodes coming from outside the namespace.
+
+**What is testable is the count, and that is now a ratchet.** Timing a step is
+hopeless - the run-to-run spread is about 28%, so a threshold loose enough not to
+flake is loose enough to miss a doubling. The number of mounts is exact, it is
+what the cost is proportional to, and a twelfth arriving unnoticed is the
+regression worth catching. `TestHowManyMountsAStepCosts` fails on a longer list
+and says what a new mount has to justify, the way `SKIP_CEILING` makes each
+increment name itself.
+
+Not attempted here: `os.MkdirTemp` is 28% of `bindMounts` and generates a random
+name per call. A per-sandbox counter would be one `mkdir` and no retry loop. It
+is only reached for ephemeral and secret mounts, so a plain `RUN` does not pay
+it - which is why it is recorded rather than fixed on the strength of a profile
+taken from a build that had neither.

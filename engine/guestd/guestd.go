@@ -260,7 +260,15 @@ func run() error {
 		os.Exit(0)
 	})
 
+	// Started here rather than at the top of Main: the modes above are one-shot
+	// helpers that exit, and a profile of one of those is a profile of a process
+	// that did nothing the ceiling is about.
+	writeProfiles := profiling()
+
 	err = srv.Serve(context.Background(), stdio{})
+
+	writeProfiles()
+
 	if err != nil {
 		return fmt.Errorf("serve: %w", err)
 	}

@@ -39933,3 +39933,47 @@ callback treats a failed `docker pull` as terminal.
 
 **Recorded, not fixed** - the pull-ping path is legacy-engine CI infrastructure
 and belongs to the flake-hardening effort, not to this one.
+
+### E834 - the Native suite's dominant failure is a step with no /sys
+
+E832a triaged the fifteen Native failures into about ten causes and ranked a
+four-job `tail: can't open 'earthly.output'` cluster first. That ranking was
+wrong, and reading the logs rather than the summaries says why.
+
+**The signature.** Five of six Native jobs sampled on run 33191596281:
+
+```text
+runc run failed: no cgroup mount found in mountinfo
+```
+
+In each, the step that dies is trivial - `RUN touch hello.txt` in `+dep`,
+`RUN mkdir sub sub/1 sub/2` in `+setup`. Nothing about the test is at fault.
+
+**The cause, confirmed in code rather than inferred.** `stepMounts`
+(`engine/guest/guest.go:1971`) is devices, resolver, hostname, whatever the
+request asked for, and `/etc/hosts`. There is no `/sys`. An inner buildkitd's
+runc looks for a cgroup mount in `/proc/self/mountinfo`, finds none, and refuses
+to start any container - so every `RUN` inside a nested build fails, whatever it
+was going to do.
+
+**Why the legacy suite does not show it.** The legacy engine runs its inner
+buildkitd in a Docker container, which is given `/sys` as a matter of course.
+The divergence is this engine's, not the test's.
+
+**Why the earlier ranking misled.** `tail: can't open 'earthly.output'` and
+`exit_code=1` are what a grep of the log surfaces, because they are the harness
+reacting; the runc line is upstream of them and appears once per inner build
+rather than once per job. Counting error strings ranked the reaction above the
+cause - the same mistake as E833, twice in one afternoon.
+
+**Not fixed, and deliberately.** The nit that already recorded the missing `/sys`
+(2026-08-27) argued the fix is not a mount call, because mounting sysfs needs the
+network namespace owned by the user namespace and the integration tests run
+`NETWORK_MODE=host`. One correction: that constraint binds a *fresh* `mount -t
+sysfs` and not a **bind** of an existing sysfs subtree, so binding the guest's
+own `/sys/fs/cgroup` may work on exactly the configuration a fresh mount cannot.
+Unverified, and it is the first thing to test.
+
+What does not go away is I3: a bind of the host's cgroup tree makes a step's
+contents depend on the machine it landed on. That is a decision about what a
+step is entitled to see, not an optimisation, so it is recorded here and left.

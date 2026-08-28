@@ -41572,3 +41572,44 @@ told the step is non-deterministic or told the store holds nothing.
 That makes this the more serious of the pair: E859 prints a wrong sentence,
 this one stops the build until 111MB of correct cache is thrown away with the
 handful of bad entries.
+
+### E858c - the guard exists and the failure is not on the path it guards
+
+E858b said the action-cache entry does not record which store holds its layer.
+Reading the code says otherwise, and the correction matters because it moves
+where a fix belongs.
+
+`core.Lookup` already refuses an entry whose result is absent:
+
+```text
+// A claim whose result is not present is not usable, however well signed.
+if bs != nil && !bs.Has(e.Layer) { return Entry{}, false }
+```
+
+and `engine/cli/cli.go` already points that `bs` at the guest when the store is
+in the VM, with a comment naming this exact hazard: "the host's own root reads an
+empty answer, Lookup turns that into a miss, and the build rebuilds everything it
+already had - which is what KindStoreHas was written for". When the executor
+cannot be asked, it says so and caches nothing rather than guessing.
+
+**So the L1 path is guarded, and the failure is not on it.** The error is:
+
+```text
+materialise the base for Earthfile:62: 7fc1ddc0... is in this step's base and
+  this store holds neither a layer nor a declaration for it
+```
+
+That is a *base* being assembled - the stack of an earlier step's result - not
+the failing step's own entry. Whatever produced that base was satisfied by
+something the guest store cannot serve, and it reached materialisation before
+anybody checked.
+
+**What is established:** the poisoning is real, persistent, and cleared only by
+deleting the action cache (E858b, measured). **What is now known to be wrong:**
+the explanation that entries do not record their store. **What is not
+established:** which path admits the unbacked base - the record, a view digest,
+or an L2 entry - and that is the question a fix has to answer first.
+
+Recorded rather than chased because the three candidates are distinguishable in
+about twenty minutes with a fresh cache and one instrumented run, and guessing
+between them at this hour is how the wrong one gets fixed.

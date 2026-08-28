@@ -91,6 +91,9 @@ const (
 	verdictSurvived  = "SURVIVED"
 	verdictKilled    = "killed"
 	verdictDirty     = "DIRTY"
+	// verdictElsewhere is a mutant that survived `go test` and is guarded by
+	// a suite this tool does not run. See Mutant.Judge.
+	verdictElsewhere = "elsewhere"
 )
 
 func main() {
@@ -140,6 +143,14 @@ func main() {
 		}
 
 		verdict, detail := run(*root, m, *timeout, *compileOnly)
+
+		// A mutant whose guard is a suite this tool does not run survived
+		// the wrong command. Reported as itself rather than as a gap. See
+		// Mutant.Judge.
+		if verdict == verdictSurvived && m.Judge != "" {
+			verdict = verdictElsewhere
+			detail = "guarded by " + m.Judge + ", which no go test invocation runs"
+		}
 
 		fmt.Printf("%-10s %s\n", verdict, m.Name)
 

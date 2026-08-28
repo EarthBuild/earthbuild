@@ -40,6 +40,23 @@ type Mutant struct {
 	// same fault E241 records, arriving from the other direction: the entries
 	// had no way to say which platform they belonged to.
 	OS string
+
+	// Judge names the suite that actually guards this mechanism, when it is not
+	// the package's `go test`.
+	//
+	// The tool applies a mutant and runs `go test Package`. Several of this
+	// engine's mechanisms are guarded by suites driven from an Earthfile - the
+	// corpus through `tests/Earthfile`, the fleet through `tests/fleet` - and no
+	// `go test` invocation runs them. A mutant whose guard lives there survives
+	// a command that was never going to catch it, and the report says
+	// `SURVIVED`, which is indistinguishable from a mechanism nothing guards.
+	//
+	// Set this and the verdict becomes `elsewhere`, which is honest in both
+	// directions: the mutant did survive the command that ran, and the command
+	// that ran was the wrong one. It does not make the mechanism guarded, and it
+	// is not a licence to silence an inconvenient survivor - only for one whose
+	// guard has been *found*, and named here so the next reader can check it.
+	Judge string
 }
 
 // Mutants are the mechanisms this engine's correctness rests on.
@@ -3107,6 +3124,7 @@ var Mutants = []Mutant{
 		Replacement: "\terr = copyTree(delta, tmp, copyOpts{})",
 		Package:     "./engine/cli/",
 		OS:          "linux",
+		Judge:       "tests/copy-keep-own.earth and tests/chown.earth in the corpus",
 	},
 	{
 		Name:        "interp: the engine naming itself when nothing stamped it (E448)",

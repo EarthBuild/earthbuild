@@ -39360,6 +39360,15 @@ reference, tolerated frontend errors, and two of twelve nested connections timin
 out. Everything structural is eliminated and what remains looks like contention.
 The next step is a local reproduction rather than another log.
 
+**That reproduction was attempted and is not cheap.** Both CLIs build fine - this
+branch's from `cmd/earth`, `main`'s from `cmd/earthly`, which is the rename this
+branch carries - and both then fail identically on a machine with a docker daemon
+but no buildkitd image: `could not start buildkit: docker: Error response from
+daemon: manifest unknown`. Comparing how the two label a step needs a buildkitd
+image the comparison machine does not have, so pinning the label regression needs
+either that image built locally or a CI run instrumented for it. Recorded so the
+next person does not spend the same twenty minutes discovering it.
+
 **Recorded as the third diagnosability finding of the day**, after the skip
 ceiling printing the top forty of a hundred and sixty-three, and the failure
 diagnostics reporting their own absence as the job's error. Each cost more of

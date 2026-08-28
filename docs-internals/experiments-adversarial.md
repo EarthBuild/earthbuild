@@ -40504,3 +40504,45 @@ plausible inference that a five-second command refuted. This one was caught only
 because the fallback was tried against a real kernel rather than trusted to a
 unit test with an injected mount - which passed both the wrong version and the
 right one.
+
+### E841a - the bind fixed it, and the blank would have unfixed it
+
+The recursive-bind fallback reached CI. Two Native jobs from run 33200524673,
+against the same jobs before it:
+
+```text                                     before      after
+mount /sys for the step: not permitted        3          0
+no cgroup mount found in mountinfo           4-9         0
+```
+
+Both original symptoms gone: the bind is permitted where a fresh sysfs mount is
+not, and a step now has /sys.
+
+**And the guest immediately named the next thing**, which is what the channel was
+built for. The warning still fires, with a different reason:
+
+```text
+6x  mount /sys/fs/cgroup for the step: operation not permitted
+3x  mount /sys/fs/cgroup for the step: device or resource busy
+```
+
+`mountCgroup2` fails on a runner. So the *only* reason `no cgroup mount found`
+disappeared is that the recursive bind supplies the machine's cgroup tree - the
+very thing E841 proposed to cover with a tmpfs on I3 grounds.
+
+**That blank was written, tested, and withdrawn before it shipped.** Covering the
+inherited tree would leave a step with an empty /sys/fs/cgroup on exactly the
+machines where its own cannot be mounted, putting the original failure straight
+back. The I3 reasoning was right and the change would have made CI worse; both
+statements hold at once, and only the measurement separates them.
+
+**What is left is a decision, stated with numbers rather than as a worry.** A
+step on a runner sees the machine's cgroup hierarchy, because that is the only
+one available to it. The alternatives are: leave it (nested runtimes work,
+ambient state is observable), blank it (I3 clean, nested runtimes break), or
+give the guest a private cgroup tree some other way. The guest now says which
+case it is in, every build, which is the part that was missing.
+
+Jobs still fail - `WITH DOCKER got a daemon and no client`, and a `docker load`
+in `tests/with-docker-expose` - but those are different failures than the ones
+this started with, and they are the next thing rather than this thing.

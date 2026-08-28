@@ -22,6 +22,55 @@ func unquote(s string) string {
 	return unescape(s)
 }
 
+// unquoteKeepingEscapes removes a token's delimiters and leaves its escapes.
+//
+// **The delimiters are this engine's syntax; the escapes are the value's.** A
+// `--flag=value` on DO or BUILD is passed on to something that parses it again -
+// `RUN_EARTH` writes it into a shell script - so resolving `\"` here means the
+// script's own shell never sees an escape and consumes the bare quote as
+// syntax. Measured against buildkit, which strips the delimiters and keeps the
+// escapes; matching it is the point (E848a).
+//
+// The delimiters still go, for the reason unquote records: a quoted token passed
+// through whole produced `"wildcard-copy.earth" is not in the build context`, a
+// file nobody has, 226 times.
+func unquoteKeepingEscapes(s string) string {
+	if len(s) >= 2 {
+		if q := s[0]; (q == '"' || q == '\'') && s[len(s)-1] == q {
+			// Only when the pair delimits the whole token. `"a" and "b"` opens
+			// and closes twice, and taking one quote off each end would leave a
+			// value nobody wrote - while `"a \"b\" c"` is one token whose inner
+			// quotes are escaped and therefore content.
+			if !hasBareRune(s[1:len(s)-1], q) {
+				return s[1 : len(s)-1]
+			}
+		}
+	}
+
+	return s
+}
+
+// hasBareRune reports whether c appears in s outside an escape.
+//
+// A backslash consumes the byte after it, so `\"` is content and `"` is
+// syntax - which is the whole of the difference between one delimited token
+// and two.
+func hasBareRune(s string, c byte) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' {
+			i++
+
+			continue
+		}
+
+		if s[i] == c {
+			return true
+		}
+	}
+
+	return false
+}
+
 // unescape resolves `\x` to `x`, per the grammar's escaped-char.
 //
 // A trailing lone backslash is left alone rather than swallowing the character

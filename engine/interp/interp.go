@@ -3091,14 +3091,19 @@ func overrides(args []string, where string) (map[string]string, error) {
 
 		name, value, joined := strings.Cut(strings.TrimPrefix(a, "--"), "=")
 		if joined {
-			// **A value this engine consumes has its quoting resolved**, the
-			// rule the rest of the interpreter follows. `escape.earth` passes
-			// `FILE="file-with-\+.txt"` - the backslash is what stops the `+`
-			// being read as a target reference, and it is punctuation, not part
-			// of the name. Passed through, the target looked for a file called
-			// `file-with-\+.txt` and reported it missing, naming a file nobody
-			// has.
-			out[name] = unquote(value)
+			// **Delimiters resolved, escapes kept**, which is what buildkit
+			// does and what this value needs. A `--flag=value` on DO or BUILD
+			// reaches something that parses it again - `RUN_EARTH` writes it
+			// into a shell script - so resolving `\"` here means that shell
+			// never sees an escape and eats the bare quote as syntax. Measured:
+			// buildkit yields `a \"b\" c` where this engine yielded `a "b" c`,
+			// which silently broke 17 assertions (E848a).
+			//
+			// The delimiters still go. `escape.earth` passes
+			// `FILE="file-with-\+.txt"`, and passed through whole the target
+			// looked for a file called `"file-with-\+.txt"` and reported it
+			// missing, naming a file nobody has.
+			out[name] = unquoteKeepingEscapes(value)
 
 			continue
 		}
@@ -3110,7 +3115,8 @@ func overrides(args []string, where string) (map[string]string, error) {
 		}
 
 		i++
-		out[name] = unquote(args[i])
+		// The separated spelling of the same thing: `--flag value`.
+		out[name] = unquoteKeepingEscapes(args[i])
 	}
 
 	// A caller may not pass a value for a name the engine answers.

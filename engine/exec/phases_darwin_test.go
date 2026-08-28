@@ -29,6 +29,7 @@ import (
 // developer's machine varies with what else is running, so a threshold here
 // would fail for reasons that are nobody's fault.
 func TestSandboxPhaseTimings(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+	sharedStore(t)
 	if os.Getenv("EARTH_TEST_TIMINGS") == "" {
 		t.Skip("set EARTH_TEST_TIMINGS=1 to measure the phases of a rebuild")
 	}

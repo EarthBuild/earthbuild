@@ -400,8 +400,24 @@ Default: off.
 ### `EARTH_STORE_IN_VM`
 
 Puts the layer store on the block device the guest owns rather than in a directory shared from the
-host. Set to any non-empty value. Implies `EARTH_UNPACK_IN_GUEST`, because the host cannot write a
-device it does not have.
+host.
+
+**On by default where the sandbox is a virtual machine**, which today means macOS. Set
+`EARTH_STORE_IN_VM=0` to put the store back on the shared mount - the way to answer "is this what
+broke my build" without rebuilding the engine. On Linux there is no device to move it to and the
+setting does nothing.
+
+Implies `EARTH_UNPACK_IN_GUEST` and `EARTH_IMAGE_LAYERS`, because the host cannot write a device it
+does not have and the whole-image path puts its result where the host can reach. Asked for without
+them the store moved and the image did not, and every build failed at its first `FROM` looking for a
+base nobody had put there.
+
+Measured end to end on a cold build of a 14,541-file image, three pairs with the same layout either
+side: 61.0s/52.1s/45.8s on the shared mount against 44.5s/39.9s/34.5s on the device - about a third
+off, every time. And it is the *correct* side as well as the fast one: macOS is case-insensitive by
+default, so two files in a layer differing only in case collide on the way in, while the guest's
+volume is ext4. A volume outlives the container that used it, so the cache does not go with the
+sandbox.
 
 **A shared directory is reached over virtiofs, and every metadata operation on it is a round trip
 across the VM boundary.** Measured from inside the guest on one layer of `golang:1.26-alpine`:

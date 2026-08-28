@@ -1052,7 +1052,7 @@ func (s *Server) export(
 		return err
 	}
 
-	dst, err := within(filepath.Join(s.LayerDir, "exports"), dest)
+	dst, err := within(filepath.Join(s.exportRoot(), "exports"), dest)
 	if err != nil {
 		return err
 	}
@@ -1146,7 +1146,7 @@ func (s *Server) export(
 // left alone rather than refused, because it is reached only by a caller that
 // stages a single artifact there and overwrites it in place.
 func (s *Server) clearStage(dst string) error {
-	root := filepath.Join(s.LayerDir, "exports")
+	root := filepath.Join(s.exportRoot(), "exports")
 	if dst == root || !strings.HasPrefix(dst, root+string(filepath.Separator)) {
 		return nil
 	}
@@ -3196,6 +3196,22 @@ func declaredBy(h core.Handle, req Request) []string {
 // rather than merely plausible.
 const EnvShareExports = "EARTH_SHARE_EXPORTS"
 
+// EnvExportDir is where the guest stages an artifact on its way out.
+//
+// **An export leaves the sandbox; a layer does not.** They lived in one
+// directory because for a long time there was only one - the store, shared from
+// the host - and staging an export there put it somewhere the host could read.
+// Moving the layers onto the guest's own block device moved the staging with
+// them, to a filesystem the host has no way to open, and every `SAVE ARTIFACT`
+// failed with `the guest did not stage` naming a path on the host that was never
+// going to exist.
+//
+// So the two are separated: the layers go wherever they are fastest, and the
+// exports stay on the shared mount, which is the one thing about them that
+// matters. Empty means the store's own directory, which is what every build did
+// before the store could move.
+const EnvExportDir = "EARTH_EXPORT_DIR"
+
 // EnvStoreInVM puts the layer store on the block device the guest owns.
 //
 // **A shared directory is reached over virtiofs, and every metadata operation
@@ -3230,13 +3246,34 @@ const EnvStoreInVM = "EARTH_STORE_IN_VM"
 const EnvTracePin = "EARTH_TRACE_PIN"
 
 // StoreInVM reports whether the layer store is on the guest's own device.
-func StoreInVM() bool { return os.Getenv(EnvStoreInVM) != "" }
+func StoreInVM() bool {
+	switch os.Getenv(EnvStoreInVM) {
+	case "":
+		return storeInVMByDefault
+	case "0", "false", "no":
+		return false
+	default:
+		return true
+	}
+}
 
 // ShareExports reports whether an export may come from the store directly.
 //
 // On unless switched off: the slow path is always correct, so the failure this
 // guards against is a wrong answer, not a missing one.
 func ShareExports() bool { return os.Getenv(EnvShareExports) != "0" }
+
+// exportRoot is the directory this server stages exports under.
+//
+// The layer directory unless told otherwise, so a guest whose store is on the
+// shared mount behaves exactly as it always has. See EnvExportDir.
+func (s *Server) exportRoot() string {
+	if at := os.Getenv(EnvExportDir); at != "" {
+		return at
+	}
+
+	return s.LayerDir
+}
 
 // hostClamp is the timestamp this build asked every file it writes to carry.
 //

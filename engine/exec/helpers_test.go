@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/guest"
+
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
@@ -200,4 +202,16 @@ func probeArch() string {
 	}
 
 	return testArch
+}
+
+// sharedStore keeps a test's layers on a store the guest reads directly.
+//
+// Tests that seed a layer with putProbeLayerAt put it into the host store by
+// hand, which only means anything while the guest reads that same store. The
+// default is now the guest's own device, where such a seed lands somewhere
+// nothing will look for it. These tests are about the sandbox, not about where
+// the store lives, so they ask for the arrangement their seeding assumes.
+func sharedStore(t *testing.T) {
+	t.Helper()
+	t.Setenv(guest.EnvStoreInVM, "0")
 }

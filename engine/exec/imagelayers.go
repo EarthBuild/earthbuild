@@ -13,6 +13,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/engine/blob"
 	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
@@ -30,6 +31,22 @@ import (
 // an image's unpack, once, against 0.67ms per layer per step for as long as the
 // build runs, which breaks even somewhere near eighty steps (E646, E648).
 const EnvImageLayers = "EARTH_IMAGE_LAYERS"
+
+// LayersApart reports whether an image is stored as one layer per layer.
+//
+// **A store on the guest's own device implies it**, for the same reason it
+// implies the guest unpacks: the whole-image path puts the result where the host
+// can reach it, and the host cannot reach that device. Asked for alone, the
+// store moved and the image did not, so every build failed at its first FROM
+// with a base the guest had been told to look for and nobody had put there.
+//
+// The two implications are stated in the same shape and for the same reason -
+// one switch, everything it entails - because the alternative is a user who sets
+// the documented variable and gets a build that cannot start. See
+// UnpacksInGuest.
+func LayersApart() bool {
+	return os.Getenv(EnvImageLayers) != "" || guest.StoreInVM()
+}
 
 // EnvImageStream unpacks each layer as it arrives rather than after it lands.
 //

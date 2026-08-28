@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/cli"
+
+	"github.com/EarthBuild/earthbuild/engine/guest"
 )
 
 // The case-insensitivity note appears where it can explain something.
@@ -74,6 +76,11 @@ func TestTheCaseNoteIsPrintedWhenSomethingFailed(t *testing.T) {
 	}
 
 	t.Setenv("EARTH_CACHE_DIR", store)
+	// The note is about a store this machine unpacks into, and the default
+	// store is no longer one - it is a case-sensitive device inside the
+	// sandbox. These tests are about the note, so they ask for the case
+	// that still has one.
+	t.Setenv(guest.EnvStoreInVM, "0")
 
 	var out strings.Builder
 
@@ -116,6 +123,11 @@ func TestTheCaseNoteReachesAFailureAfterPlanning(t *testing.T) {
 	}
 
 	t.Setenv("EARTH_CACHE_DIR", store)
+	// The note is about a store this machine unpacks into, and the default
+	// store is no longer one - it is a case-sensitive device inside the
+	// sandbox. These tests are about the note, so they ask for the case
+	// that still has one.
+	t.Setenv(guest.EnvStoreInVM, "0")
 	t.Setenv("EARTH_GUESTD", filepath.Join(t.TempDir(), "no-such-guest"))
 
 	var out strings.Builder

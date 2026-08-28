@@ -78,6 +78,7 @@ func TestTheNativeBackendTurnsOnUserNamespaces(t *testing.T) {
 // there is no VM: "boot" is a subprocess and costs microseconds rather than the
 // ~650ms a VM needs.
 func TestNativeSandboxConfinesWhenItCan(t *testing.T) {
+	sharedStore(t)
 	t.Parallel()
 
 	sb := exec.NewNative()
@@ -123,6 +124,7 @@ func TestNativeSandboxConfinesWhenItCan(t *testing.T) {
 // One guest serves the whole run here too, though for a different reason: not
 // boot cost, but that a second guest would hold a second set of mounts.
 func TestNativeSandboxStartsOneGuest(t *testing.T) {
+	sharedStore(t)
 	t.Parallel()
 
 	sb := exec.NewNative()

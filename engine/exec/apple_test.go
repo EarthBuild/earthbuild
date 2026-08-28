@@ -21,6 +21,7 @@ import (
 //
 // Everything before this was correct and uncacheable by construction.
 func TestAppleSandboxConfinesAndCaptures(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+	sharedStore(t)
 	sb := exec.NewApple()
 	sb.GuestBinary = buildGuestd(t)
 
@@ -75,6 +76,7 @@ func TestAppleSandboxConfinesAndCaptures(t *testing.T) { //nolint:paralleltest /
 // measured on this machine, matching experiment E1b - a VM per step would spend
 // more time booting than building.
 func TestAppleSandboxBootsOnce(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+	sharedStore(t)
 	sb := exec.NewApple()
 	sb.GuestBinary = buildGuestd(t)
 

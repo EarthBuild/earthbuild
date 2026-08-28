@@ -22,6 +22,7 @@ import (
 // The property that makes it safe is this one: a prewarmed VM must be *reused*,
 // never booted a second time, or the optimisation is a way to run two machines.
 func TestAPrewarmedSandboxIsTheOneTheBuildUses(t *testing.T) { //nolint:paralleltest // boots a VM
+	sharedStore(t)
 	sb := exec.NewApple()
 	sb.GuestBinary = buildGuestd(t)
 

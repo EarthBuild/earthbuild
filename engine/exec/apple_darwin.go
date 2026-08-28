@@ -518,6 +518,10 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	args := []string{
 		"exec", "-i",
 		"-e", "EARTH_GUEST_ROOT=" + a.guestRoot(),
+		// Where an export is staged, which is not where the layers live once
+		// they move off the shared mount. Empty means "the same place", which
+		// is what it is until they do. See guestExportDir.
+		"-e", guest.EnvExportDir + "=" + a.guestExportDir(),
 		// Scratch stays on the VM's own filesystem: the shared mount cannot serve
 		// as an overlay upper layer, and keeping it out also means a step cannot
 		// write into the host's cache.
@@ -1121,6 +1125,26 @@ func (a *Apple) guestRoot() string {
 	}
 
 	return guestStore
+}
+
+// guestExportDir is where the guest stages an artifact on its way out.
+//
+// The shared mount, whenever the layers are not already on it. An export exists
+// to leave the sandbox and the host reads it off that mount by a path it
+// computes itself; when the layers moved to the guest's own device the staging
+// followed them, onto a filesystem the host cannot open, and every SAVE ARTIFACT
+// failed with `the guest did not stage` naming a host path that was never going
+// to exist.
+//
+// Empty when the layers have not moved, because then the guest's own default is
+// this directory already and saying it twice is how two answers come to
+// disagree. See guest.EnvExportDir.
+func (a *Apple) guestExportDir() string {
+	if guest.StoreInVM() {
+		return guestStore
+	}
+
+	return ""
 }
 
 // storeSetting is where this invocation asked the layer store to live.

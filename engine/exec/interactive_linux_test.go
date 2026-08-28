@@ -31,6 +31,7 @@ import (
 // and that difference is why this construct needs a descriptor rather than a
 // relay.
 func TestARealGuestGivesAStepTheCallersTerminal(t *testing.T) {
+	sharedStore(t)
 	t.Parallel()
 
 	sb := exec.NewNative()

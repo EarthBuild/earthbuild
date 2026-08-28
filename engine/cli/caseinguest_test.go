@@ -28,6 +28,11 @@ func TestNoCaseAdviceWhenTheGuestUnpacks(t *testing.T) {
 	// reason to be produced and only the guest's unpack stops it. On a
 	// case-sensitive machine there is nothing to suppress and the assertion
 	// below is vacuous, which is worth saying rather than hiding.
+	// The note only exists where the host is the one unpacking, which since the
+	// store moved to the guest's device is no longer the default here. Opting
+	// out is what makes the control assertion below mean anything.
+	t.Setenv(guest.EnvStoreInVM, "0")
+
 	dir := t.TempDir()
 	if caseSensitiveStore(dir) {
 		t.Skip("this filesystem is case-sensitive, so there is no note to withhold")
@@ -50,7 +55,7 @@ func TestNoCaseAdviceWhenTheGuestUnpacks(t *testing.T) {
 			" unpacks: the host cannot write a block device it does not have")
 	}
 
-	t.Setenv(guest.EnvStoreInVM, "")
+	t.Setenv(guest.EnvStoreInVM, "0")
 	t.Setenv(exec.EnvUnpackInGuest, "1")
 
 	if !exec.UnpacksInGuest() {

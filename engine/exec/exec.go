@@ -779,7 +779,7 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// Behind a flag while it earns its place: the merged form is what every
 	// cache key in existence was derived from, so turning this on changes them.
 	// See E646 and E648 for what it buys and what it costs.
-	if os.Getenv(EnvImageLayers) != "" {
+	if LayersApart() {
 		// **The guest unpacks where it can grant what the archive says**, and
 		// the host does where it cannot ask. Both keep the layers apart; they
 		// differ only in which side writes them. See EnvUnpackInGuest.

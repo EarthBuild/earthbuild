@@ -21,6 +21,7 @@ import (
 // directory, so each one minted a volume nothing would ever name again: 11 of
 // them, holding 14GB, accumulated in an hour of running this suite (E526).
 func TestRemovingASandboxRemovesItsVolume(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+	sharedStore(t)
 	sb := exec.NewApple()
 	sb.GuestBinary = buildGuestd(t)
 

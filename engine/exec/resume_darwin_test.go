@@ -21,6 +21,7 @@ import (
 // fails on the name, an `rm -f`, and a full boot - 953ms measured, against 592ms
 // to restart the one already there (E524).
 func TestAStoppedSandboxIsResumed(t *testing.T) { //nolint:paralleltest // boots a VM, see e2e_sandbox_test.go
+	sharedStore(t)
 	sb := exec.NewApple()
 	sb.GuestBinary = buildGuestd(t)
 

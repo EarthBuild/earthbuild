@@ -49,8 +49,13 @@ func TestALocalContextSaysWhyItCannotBeStagedIntoTheGuestsStore(t *testing.T) {
 }
 
 // And with the store where the context is, nothing is refused.
+//
+// `"0"` rather than `""`: empty means "whatever this platform defaults to",
+// which on a mac is now the guest's device. The distinction did not exist while
+// the setting was off everywhere, and a test that says "unset" when it means
+// "off" starts asserting the opposite the day a default moves.
 func TestALocalContextIsFineWhenTheStoreIsOnTheHost(t *testing.T) {
-	t.Setenv(guest.EnvStoreInVM, "")
+	t.Setenv(guest.EnvStoreInVM, "0")
 
 	err := localContextRefusal()
 	if err != nil {

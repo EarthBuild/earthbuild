@@ -37496,3 +37496,62 @@ get renamed - every path inside the step's own root - so the change would have
 looked correct, recorded no listing at all, and put E794's stale build back with
 a green suite. It is guarded by a test, and the test was checked against the
 shape that fails rather than trusted for passing.
+
+## E797 - where the time goes, against the reference
+
+Same machine, same Earthfiles, both engines, median of five. Warm rebuilds
+rather than cold ones: a cold build is dominated by the registry pull, which is
+the same network for both and says nothing about either engine.
+
+| case                              | native | earthly | ratio |
+| --------------------------------- | ------ | ------- | ----- |
+| warm no-op                        | 427ms  | 808ms   | 1.89x |
+| warm no-op, ten steps             | 483ms  | 935ms   | 1.94x |
+| warm no-op, five targets          | 432ms  | 818ms   | 1.89x |
+| one step forced with `--no-cache` | 502ms  | 919ms   | 1.83x |
+| ten steps forced                  | 786ms  | 2608ms  | 3.32x |
+| 300-file context, one step forced | 505ms  | 997ms   | 1.97x |
+
+The ratio is the least interesting column. The marginal cost of a step is the
+one that describes the design:
+
+```text
+native   (786 - 502) / 9  =  32ms per additional step
+earthly  (2608 - 919) / 9 = 188ms per additional step
+```
+
+Six times cheaper per step, which is what removing a daemon round trip per step
+buys and is the whole argument for the engine.
+
+**The fixed cost is not the engine's.** A warm no-op build spends its entire
+427ms resolving `alpine:3.22`:
+
+```text
+registry:token   0.269s   registry-1.docker.io/library/alpine
+pin:manifest     0.151s   alpine:3.22
+plan             0.420s   t          <- the two above, nested
+```
+
+Every step is a cache hit and nothing is pulled. The build is waiting on Docker
+Hub to say which image a tag means. Replace the tag with the digest it resolves
+to and the same build, producing the same artifact with the same two cache hits,
+takes **9ms**:
+
+| warm no-op, digest-pinned | native | earthly |
+| ------------------------- | ------ | ------- |
+| wall clock                | 9ms    | 723ms   |
+
+Eighty times. And checked rather than assumed: the 9ms run exits zero, reports
+two L1 hits, and writes `out/r.txt` containing what the build makes - a
+measurement of a build that did not happen would have looked exactly as good.
+
+This sharpens the parked `EARTH_PIN_TTL` decision rather than settling it. The
+question was framed as "420ms a build against a tag that may have moved"; the
+measurement says that 420ms is not *part* of the fixed cost, it **is** the fixed
+cost, and that the engine underneath it answers a warm build in single-digit
+milliseconds. What is being traded for tag freshness is a 47x difference in what
+a no-op build feels like.
+
+Worth noting that earthly pays its 723ms whether the reference is pinned or not,
+so the trade does not arise there: a daemon round trip is not something an
+Earthfile can pin away.

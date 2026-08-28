@@ -38513,3 +38513,34 @@ number of running sandboxes beside its numbers, or stop them first. A machine
 that degrades three-fold between two runs of the same script will otherwise
 manufacture whichever conclusion is being looked for, and it will do it with a
 straight face - both halves of that O(N^2) comparison were internally consistent.
+
+### E814a - the same profile on a machine that was not carrying six VMs
+
+**E814's ordering was wrong, for the reason E815 gives.** Re-profiled with no
+other sandbox running, and the two biggest named costs swap:
+
+| consumer                        | E814 (degraded) | clean  |
+| ------------------------------- | --------------- | ------ |
+| `overlay.(*Materialiser)` chain | not in top      | 18.18% |
+| `guest.bindMounts`              | 21.73%          | 12.65% |
+| `os.MkdirTemp`                  | 10.97%          | 9.83%  |
+
+`Syscall6` remains the flat leader at 46%, and the guest still uses about one
+core of sixteen.
+
+**So the largest identifiable cost is materialising the layer stack, not binding
+the step's mounts**, and inside it the cost is the mount syscall itself:
+`unix.Mount` is 58.8% of `Materialise`, with `os.MkdirAll` 13.5% and
+`os.MkdirTemp` 10.1% behind it. That is 10.7% of all guest CPU in one syscall.
+
+**Which makes it depth-shaped, in a way `bindMounts` is not.** A step's eleven
+mounts are eleven whatever the build (E814); an overlay is one mount over as
+many lowerdirs as the stack is deep, and the kernel resolves each. Every step
+assembles the whole stack again rather than adding to the one before it, because
+overlayfs cannot gain a lowerdir after it is mounted.
+
+**Not acted on.** The obvious moves - reuse the previous step's merged view as a
+single lowerdir, or keep a mount alive across a chain - change what a layer
+stack *is*, and this is the fourth measurement today whose first reading did not
+survive being taken again. The finding is recorded; the redesign is not started
+on the strength of one profile.

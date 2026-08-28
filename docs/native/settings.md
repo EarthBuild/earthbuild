@@ -713,8 +713,10 @@ the host spends that time in `__psynch_cvwait` - it is waiting, not working - so
 the sandbox. Everything reachable from outside was tested and eliminated: mounts are free in
 isolation (200 bind mounts in 1ms), dentry relief never fires, and eight times the vCPUs buys 19%.
 
-The first profile it produced named the cost in one reading: `bindMounts` is 21.7% of the guest's
-CPU, which is 3.2ms of every step, and the guest averages 2.1 of its 16 cores.
+The first profile it produced named a cost in one reading - and the second, taken with no other
+sandbox running, reordered it: materialising the layer stack is 18.2% of the guest's CPU against
+`bindMounts` at 12.7%, and the guest uses about one core of sixteen. Stop other sandboxes before
+profiling, or the answer is about them (E815).
 
 Set it to a path the guest can write *and* the host can read - the store is bind-mounted through,
 so `/var/lib/earthbuild/store/prof` appears on the host under the cache directory:

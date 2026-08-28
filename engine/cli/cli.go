@@ -666,6 +666,10 @@ func exportAll(ctx context.Context, o Options, e *exec.Executor, s *core.Schedul
 		return nil
 	}
 
+	if w := exportWidth(); w > 1 {
+		return exportConcurrently(ctx, o, e, s, plan, w)
+	}
+
 	for _, a := range plan.Artifacts {
 		if a.LocalDest == "" {
 			continue

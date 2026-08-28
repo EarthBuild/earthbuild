@@ -752,3 +752,34 @@ setting does. Ask for `all` when the question is *what is it waiting on*, and do
 clock of that build.
 
 Default: unset, so CPU and goroutine profiles only.
+
+## `EARTH_PARALLEL_EXPORT`
+
+Writes several artifacts at once. A number sets how many; `yes` or `true` takes this machine's
+core count, bounded at eight.
+
+**An export is an unmount, and the unmount is all of it.** Staging an artifact and copying it out
+are free - 0.06ms to materialise, 0.00ms to stage, 0.00ms to copy - while releasing the handle
+afterwards is 18.19ms of an 18.25ms export. That release is `unix.Unmount` and then
+`os.RemoveAll`, 15.8ms and 3.5ms on Linux, against the 5us it costs to make the mount in the first
+place.
+
+Artifacts are otherwise written one at a time, so a build with thirty-two of them pays thirty-two
+of those in a row - 582ms of a 1425ms build, where taking the `SAVE ARTIFACT` out entirely brings
+the same build to 751ms.
+
+**The kernel only half-allows it.** Thirty-two overlay unmounts take 87ms one at a time and 36ms
+sixteen at a time: 2.4x, because `namespace_sem` is held for write through each one. That is why
+the width is capped at eight however many cores there are - past the point the mount lock
+saturates, more goroutines only make the queue longer.
+
+Order is kept where order is observable. Artifacts naming the same destination are written in the
+Earthfile's order, because the later one is meant to win; the rest cannot see each other. The lines
+printed and the error returned are in the Earthfile's order whatever order the writes finished in,
+so a build that fails fails the same way twice.
+
+Off by default because it changes what a failing build leaves behind: written serially, an artifact
+after a failure is never written, while concurrently one already in flight may land before the
+cancellation reaches it. Same error, same exit code, one or two more files in the working tree.
+
+Default: off.

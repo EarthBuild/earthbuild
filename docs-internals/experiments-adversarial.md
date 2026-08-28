@@ -38922,3 +38922,47 @@ artifacts; both are real, both were hard-won, and both are smaller than a
 one-line change to the Earthfile that the engine has been recommending on every
 build all along. The cheapest optimisation available was the one already
 shipped and under-quantified.
+
+## E823 - the token is three quarters of the lookup, and caching it is not mine to decide
+
+**Where the unpinned build's 427ms goes**, measured on Linux with the challenge
+already remembered:
+
+| phase            | cost   |
+| ---------------- | ------ |
+| `registry:token` | 0.543s |
+| `pin:manifest`   | 0.175s |
+| `plan`           | 0.719s |
+
+`plan` is the sum, as E812 found on the other machine. The token exchange is
+three quarters of it - a round trip to a *different host* from the manifest, and
+the one thing on the path that is not already overlapped: the challenge is
+remembered (E534), the registry is pre-dialled during the token fetch, the
+credential helper resolves during the dial (E535), and the sandbox boots through
+all of it (E537).
+
+**And the reason it is not cached is written down.** `challenge.go` says the
+challenge is remembered because it is "stable, public metadata", and then: "The
+*token* is not: it is a credential, it expires, and putting one in a cache
+directory is a decision about credentials rather than an optimisation (E535)."
+
+**There is a distinction that comment does not make.** A token fetched with no
+credential presented is not a credential. `credential.empty()` already
+distinguishes them, and an anonymous Docker Hub token is scoped to
+`repository:library/<name>:pull`, expires in about 300 seconds, and can be minted
+by anyone from any address. What it protects is rate-limit accounting, not
+access. Caching only those would save the 0.543s on every unpinned public build
+and would never write anything a stolen file could use, and the manifest GET
+would still happen, so what a tag means today would still be asked of the origin.
+
+**Not implemented, because the comment is right about what kind of decision it
+is.** "A decision about credentials rather than an optimisation" is a policy
+call, and the narrowing above is a good argument rather than an authorisation.
+Recorded here with the measurement so that whoever makes that call has the number
+in front of them.
+
+**And it is second-best anyway.** Pinning the digest removes the whole 719ms
+rather than 543ms of it, needs no cache, and is one line in the Earthfile that
+the engine already recommends on every build (E822). A token cache is for people
+who will not pin - which, being honest about how software is used, is most of
+them.

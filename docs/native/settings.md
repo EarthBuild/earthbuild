@@ -783,3 +783,31 @@ after a failure is never written, while concurrently one already in flight may l
 cancellation reaches it. Same error, same exit code, one or two more files in the working tree.
 
 Default: off.
+
+## `EARTH_ASYNC_RELEASE`
+
+Takes a step's base down after the step's answer instead of before it. A number sets how many
+releases may be in flight; `yes` takes this machine's core count, bounded at eight.
+
+**Releasing is most of a step.** Measured per step on Linux, twenty deep: `exec` is 26.00ms, of
+which `release` is 18.55ms and `run` - the command the Earthfile asked for - is 6.05ms. Seventy-one
+per cent of a step is taking down a mount whose work has already finished.
+
+A release is `unix.Unmount` and then `os.RemoveAll`, 15.8ms and 3.5ms, against the 5us the mount
+cost to make. Nothing reads through the handle afterwards: the step's result is committed and
+captured first, and what this releases is the host's handle on the materialised base, not the
+guest's own bind mounts - those come down inside the request, before the answer, and `capture` does
+read underneath them.
+
+Bounded because the kernel bounds it: thirty-two overlay unmounts take 87ms one at a time and 36ms
+sixteen at a time, since `namespace_sem` is held for write through each. Past a handful the
+releases queue on the kernel rather than finishing sooner.
+
+What is deferred is *when* a mount comes down and never *whether*: `Close` waits for the
+outstanding releases, so a build cannot exit leaving mounts up.
+
+Off by default. A release behind the answer is a mount still up while the next step runs, and the
+failure that would cause - a sandbox that has run out of them - shows under load rather than in a
+test.
+
+Default: off.

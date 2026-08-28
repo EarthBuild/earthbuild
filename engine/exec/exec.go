@@ -64,6 +64,11 @@ type Sandbox interface {
 
 // Executor runs steps inside one sandbox. Implements core.Executor.
 type Executor struct {
+	// releases holds the teardowns that were moved behind their step's answer.
+	// Waited for by Close, so what is deferred is when a mount comes down and
+	// never whether it does.
+	releases releaser
+
 	// leaked is which layers this build produced hold a secret it was given.
 	// Refused at the exit points rather than where it was found - see
 	// leakedLayers.
@@ -1321,6 +1326,10 @@ func (hostOnlyStore) Confines() bool   { return false }
 // Close stops the sandbox. Idempotent, because a deferred Close and an explicit
 // one on an error path both run, and the second must not mask the first error.
 func (e *Executor) Close() error {
+	// Before the sandbox is let go: a release still running refers to a mount
+	// inside it, and a build must never exit leaving one up.
+	e.releases.wait()
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -1603,17 +1612,21 @@ func (e *Executor) base(
 		e.remember(named.HandleID(), primedBase{stack: stack, complete: true})
 
 		return h, func() {
-			defer phase("release", n.Meta.Source)()
+			e.releases.release(releaseWidth(), func() {
+				defer phase("release", n.Meta.Source)()
 
-			e.forget(named.HandleID())
-			_ = h.Release()
+				e.forget(named.HandleID())
+				_ = h.Release()
+			})
 		}, nil
 	}
 
 	return h, func() {
-		defer phase("release", n.Meta.Source)()
+		e.releases.release(releaseWidth(), func() {
+			defer phase("release", n.Meta.Source)()
 
-		_ = h.Release()
+			_ = h.Release()
+		})
 	}, nil
 }
 

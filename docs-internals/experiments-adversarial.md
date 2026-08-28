@@ -37503,6 +37503,18 @@ Same machine, same Earthfiles, both engines, median of five. Warm rebuilds
 rather than cold ones: a cold build is dominated by the registry pull, which is
 the same network for both and says nothing about either engine.
 
+That last sentence turned out to be worth checking. Cold, with an empty store on
+each side and the runs alternated so a slow moment on the network hits both:
+
+| cold build, median of three | native | earthly |
+| --------------------------- | ------ | ------- |
+| wall clock                  | 1576ms | 2413ms  |
+
+1.5x, and steady - native 1521/1576/1624, earthly 2385/2413/2720. So the pull is
+not the whole of a cold build after all; unpacking and committing the layers is
+enough of it to show. The ratio is the smallest in this entry, which is what one
+would expect from the case where most of the time is somebody else's.
+
 | case                              | native | earthly | ratio |
 | --------------------------------- | ------ | ------- | ----- |
 | warm no-op                        | 427ms  | 808ms   | 1.89x |

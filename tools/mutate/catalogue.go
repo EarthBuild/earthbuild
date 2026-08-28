@@ -1194,6 +1194,22 @@ var Mutants = []Mutant{
 		Package:     "./engine/exec/",
 	},
 	{
+		Name:        "exec: a guest that unpacks while the host still fetches (E810)",
+		File:        "engine/exec/inguest.go",
+		Anchor:      "\t\treturn UnpacksInGuest()",
+		Replacement: "\t\treturn false",
+		Package:     "./engine/exec/",
+		Judge:       "TestWhetherAGuestUnpacksWhileTheHostIsStillFetching",
+	},
+	{
+		Name:        "exec: an off spelling that stops the streaming (E810)",
+		File:        "engine/exec/inguest.go",
+		Anchor:      "\tcase \"0\", \"false\", \"no\":",
+		Replacement: "\tcase \"0\":",
+		Package:     "./engine/exec/",
+		Judge:       "TestAskingNotToStreamToTheGuest",
+	},
+	{
 		Name:        "guest: the store on the guest's device by default (E809)",
 		File:        "engine/guest/storeinvm_darwin.go",
 		Anchor:      "const storeInVMByDefault = true",

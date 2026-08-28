@@ -565,11 +565,25 @@ bytes have arrived and is paced by the fetch. The phase around it is what shorte
 point: the waiting moved inside the work.
 
 Turning this on starts the fault-in relay for the sandbox, which a local build does not otherwise
-need. Off by default because it is new and because a build that waits on a blob is a build that can
-wait for ever if the two sides disagree - which they did once, for five minutes, before the progress
-marker was made the floor beneath the socket rather than the alternative to it (E688).
+need - so it follows the store rather than being on everywhere. A build that unpacks on the host has
+no guest to relay to and would pay for the relay without a layer to overlap.
 
-Default: off.
+It was off while it was new, and because a build that waits on a blob is a build that can wait for
+ever if the two sides disagree - which they did once, for five minutes, before the progress marker
+was made the floor beneath the socket rather than the alternative to it (E688). The wait is now
+bounded and names the blob it gave up on, and eight alternating cold pairs came out the same way
+every time - 5751ms against 4401ms at the median (E810).
+
+| stream | cold (median of 8) | image:unpack:guest |
+| ------ | ------------------ | ------------------ |
+| off    | 5751ms             | 3.933s             |
+| on     | 4401ms             | 2.759s             |
+
+`EARTH_STREAM_TO_GUEST=0` takes it away again, which is how to answer "is this what my build is
+hanging on" without rebuilding the engine. `0`, `false` and `no` all mean off.
+
+Default: on wherever the guest unpacks - which on macOS is every build, because the store lives on
+the guest's own device. Off elsewhere.
 
 ## `EARTH_SANDBOX_CPUS`
 

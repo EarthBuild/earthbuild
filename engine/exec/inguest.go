@@ -302,16 +302,36 @@ const blobPatience = 45 * time.Second
 // EnvStreamToGuest lets the guest unpack a layer while the host is still
 // fetching it.
 //
-// **Off, because it measures as a wash.** The machinery works - the guest reads
-// a growing blob byte-for-byte and a bad digest can never release the last byte
-// - but the guest learns how far the fetch has got from a file on the shared
-// mount, and that file is about 460ms stale. The largest layer of
-// `golang:1.26-alpine` streams in 1.43s and its unpack takes 3.29s waiting on
-// markers, against 1.63s when handed the finished blob: the head start and the
-// waiting cancel, and three cold builds each way came out identical (E688).
+// **On where the guest unpacks, having twice been off.** The machinery always
+// worked - the guest reads a growing blob byte-for-byte and a bad digest can
+// never release the last byte - but it first measured as an exact wash, because
+// the guest learned how far the fetch had got from a file on the shared mount
+// about 460ms stale, and gave the head start straight back in waiting (E688).
 //
-// It pays only once progress travels somewhere with no filesystem in it - the
-// fault-in socket is the obvious candidate, being guest-to-host already.
+// Progress then moved onto the fault-in socket, which is guest-to-host already
+// and has no filesystem in it, and the store moved onto the guest's own device,
+// which made the unpack fast enough for a head start to be worth having. Eight
+// alternating cold pairs, every one the same way: 5751ms against 4401ms at the
+// median, and the phase that shortens is the one around both - 3.933s to 2.759s
+// - while the largest layer's own unpack gets *longer*, 2.164s to 2.519s,
+// because it now starts before its bytes arrive and is paced by the fetch. The
+// waiting moved inside the work (E810).
+//
+// Off where nothing unpacks in a guest: it starts the fault-in relay for the
+// sandbox, and a build with no guest to relay to pays for it and gets nothing.
+//
+// `EARTH_STREAM_TO_GUEST=0` takes it away without rebuilding the engine, which
+// is how to answer "is this what my build is hanging on" - the wait is bounded
+// and names the blob it gave up on, but a bounded wait is still a wait.
 const EnvStreamToGuest = "EARTH_STREAM_TO_GUEST"
 
-func streamToGuest() bool { return os.Getenv(EnvStreamToGuest) != "" }
+func streamToGuest() bool {
+	switch os.Getenv(EnvStreamToGuest) {
+	case "":
+		return UnpacksInGuest()
+	case "0", "false", "no":
+		return false
+	default:
+		return true
+	}
+}

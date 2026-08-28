@@ -38077,3 +38077,97 @@ date` has no `%N`, so the first three attempts at the streaming figure divided b
 a zero elapsed time and reported 512,000 MB/s without anybody's arithmetic being
 wrong. The byte count was the thing that caught it - 536,870,912 bytes really had
 arrived, in "0ms".
+
+## E808 - the store on the guest's own device, by default
+
+**Question.** `EARTH_STORE_IN_VM` had been opt-in since it was written. Is the
+shared mount the right default on a machine whose sandbox is a virtual machine?
+
+**It is not, and for two reasons that are independent of each other.**
+
+It is slower. Every metadata operation on the shared mount crosses the VM
+boundary - 0.31 ms per file a step opens (E807) - while the guest's own device is
+a filesystem in the guest's kernel. Three cold pairs on a 14,541-file image, the
+same layout either side, alternated: 61.0/52.1/45.8s on the shared mount against
+44.5/39.9/34.5s on the device. About a third off, every time.
+
+It is also wrong. macOS is case-insensitive by default, so two files in a layer
+differing only in case collide on the way in; `container volume create` gives an
+ext-family volume, and `touch Foo.txt` there leaves `foo.txt` absent. The engine
+had five lines of advice about `hdiutil create` for this. Not having the problem
+is a better answer, and `caseNoteFor` now says nothing when the guest unpacks.
+
+**What was assumed to be the cost is not one.** A volume outlives the container
+that used it - written by one, read back by another after the first had been
+removed - so the cache does not die with the sandbox. This was the objection
+that had kept the switch off, and it was never tested.
+
+**Two bugs had to go first, and both predate the switch.** Exports were staged
+under the layer directory, so with the store on the device they landed where the
+host cannot read them; and image layers were only kept apart when asked. Both
+reproduce at the branch point `3fa3a3c0e` with the switch set by hand, so
+neither is a regression - the paths had simply never been walked, which is what
+an opt-in default buys you.
+
+**The honest caveat.** Nine tests seed a layer into the host store directly,
+which only means anything while the guest reads that store, and they now opt out
+explicitly. That is nine tests no longer covering the default configuration.
+What covers it instead is E810's cold builds and the corpus, not a unit test.
+
+## E809 - what happens to a switch when empty stops meaning off
+
+**A default that no test names is a default that moves silently.** The
+per-platform constants behind `StoreInVM` are referred to by nothing else in the
+engine: dropping the `!darwin` build tag, or flipping either constant, changes
+the default everywhere and no other test in the suite notices. The rest either
+opts out explicitly or never boots a sandbox.
+
+**And `""` changed meaning, which is the part that bites later.** It used to mean
+off - the switch was opt-in and every caller wanting the old arrangement left it
+unset. It now means "whatever this platform does", so the off spellings became
+load-bearing for the nine tests of E808 and for anyone bisecting a broken build.
+
+Both are pinned by tests of their own and both mutants die: flipping the darwin
+constant to `false` kills on `TestWhereTheStoreLivesWhenNobodySaid`, and
+narrowing `case "0", "false", "no"` to `case "0"` kills on
+`TestAskingForTheStoreSomewhereElse`.
+
+## E810 - a wash that stopped being one
+
+**Question.** E688 measured streaming a blob to the guest as an exact wash and
+left it off. Two things have moved since - progress came off the shared mount
+and onto the fault-in socket, and the store moved onto the guest's own device
+(E808). Does the conclusion survive?
+
+**It does not.** Eight alternating cold pairs, every single one the same way:
+
+| stream | cold, median of 8 | all eight                               |
+| ------ | ----------------- | --------------------------------------- |
+| off    | 5751ms            | 6146 7746 6717 7974 5320 5751 5208 5160 |
+| on     | 4401ms            | 4559 5407 6161 4711 4163 4401 4192 4232 |
+
+Eight of eight is a sign test at p = 1/256, which matters here because the
+per-step noise floor is about 28% and no smaller sample could have said anything.
+
+**The phase log says why, and it is not the wall clock.** With streaming off,
+the phase around fetch and unpack is 3.933s and its two children are 1.880s and
+2.164s - it is the sum, so they are sequential. With it on the phase is 2.759s
+against children of 1.799s and 2.519s - it is the larger of the two, so they
+overlap. The largest layer's own unpack gets *longer*, 2.164s to 2.519s, because
+it now starts before its bytes have arrived and is paced by the fetch. The
+waiting moved inside the work.
+
+**Why E688 was right when it was written.** The head start it won was given
+straight back waiting on a progress marker read from the shared mount, about
+460ms stale. What changed is not the streaming but what it waits on, and how
+fast the unpack it is racing has become: on ext4 in the guest, the unpack is
+quick enough that a head start is worth having, where on the shared mount it was
+not. The two defaults compound - neither would have paid alone.
+
+**Which is the general lesson, and it is uncomfortable.** A measurement kills a
+feature under the configuration it was taken in, and the record of it reads like
+a fact about the feature. E688's own note said where to look next - "it pays only
+once progress travels somewhere with no filesystem in it" - and that was acted
+on, but the *default* stayed off for two more changes of the thing it depended
+on. A killed experiment needs re-running when its premise moves, and nothing in
+the process makes that happen.

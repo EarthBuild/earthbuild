@@ -133,7 +133,7 @@ lint:
     FROM +go
     RUN apk add --no-cache curl
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    LET golangci_lint_version=2.13.1
+    LET golangci_lint_version=2.13.2
     RUN curl -sSfL --retry 7 --retry-all-errors -o /tmp/golangci-install.sh https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh && \
         sh /tmp/golangci-install.sh -b $(go env GOPATH)/bin v$golangci_lint_version && \
         rm /tmp/golangci-install.sh

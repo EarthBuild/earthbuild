@@ -40205,3 +40205,41 @@ There is no double fetch to remove; the machinery is already doing this.
 
 What remains is one genuine authentication round trip per build against an
 unpinned tag, and caching *that* across builds is the reserved decision.
+
+### E838a - resolution is already concurrent, so the floor is two round trips
+
+If a warm build is 95% tag resolution (E838), the next question is whether a
+build with several base images pays for them one after another. It does not.
+
+Four targets, four different images, warm cache, phases in the order they end:
+
+```text
+registry:token   0.263s  library/debian
+registry:token   0.263s  library/alpine
+registry:token   0.263s  library/alpine
+registry:token   0.263s  library/busybox
+pin:manifest     0.138s  debian:bookworm-slim
+pin:manifest     0.143s  alpine:3
+pin:manifest     0.150s  busybox:1
+pin:manifest     0.222s  alpine:3.20
+plan             0.486s  all
+```
+
+Four identical token durations are four requests in one wall window, and `plan`
+is 0.486s against 0.410s for a single image: the marginal base image costs
+almost nothing. Nothing to parallelise - it already is.
+
+**So the floor is named.** An unpinned tag costs one token exchange and one
+manifest GET, and the second needs the first, so they cannot overlap:
+0.26 + 0.14 = 0.40s, which is what a warm no-op build costs. Two sequential
+round trips is the minimum for "what does this tag mean today" and no
+arrangement of the existing requests improves it. Only not asking improves it -
+which is `--pin` (10.2x, E838) or a cross-build cache, which is the reserved
+decision.
+
+**One observation kept for the nits file rather than acted on.** `alpine:3` and
+`alpine:3.20` are the same repository and fetched a token each, concurrently:
+the per-process cache cannot collapse requests that start before either
+finishes. Wall time is identical, so this is not a speed defect - but it doubles
+authentication traffic against Docker Hub's rate limits on a build whose targets
+share a repository, and single-flight would fix it.

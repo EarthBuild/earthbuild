@@ -2167,6 +2167,7 @@ var Mutants = []Mutant{
 		Anchor:      "\terr := checkIsolationSupported(plan.Graph)\n\tif err != nil {\n\t\treturn nil, err\n\t}",
 		Replacement: "",
 		Package:     "./engine/cli/",
+		OS:          "darwin",
 	},
 	{
 		Name:        "cli: an ordinary docker block surviving the check (E394)",
@@ -2174,6 +2175,7 @@ var Mutants = []Mutant{
 		Anchor:      "\t\tif !n.Op.IsolateDocker {\n\t\t\tcontinue\n\t\t}",
 		Replacement: "",
 		Package:     "./engine/cli/",
+		OS:          "darwin",
 	},
 	{
 		Name:        "overlay: a misspelt scratch size refused, not ignored (E407)",

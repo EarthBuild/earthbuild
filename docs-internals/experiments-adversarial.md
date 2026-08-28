@@ -37555,3 +37555,23 @@ a no-op build feels like.
 Worth noting that earthly pays its 723ms whether the reference is pinned or not,
 so the trade does not arise there: a daemon round trip is not something an
 Earthfile can pin away.
+
+**And there is a second decision inside the first.** The 420ms is not one round
+trip but two, and the larger is not the one the TTL would cover:
+
+```text
+registry:token   0.269s   the bearer-token exchange with auth.docker.io
+pin:manifest     0.151s   the manifest fetch the token authorises
+```
+
+A TTL on the resolved manifest removes the 151ms. The 269ms stays, because the
+token is fetched afresh every build: `rememberedChallenge` caches the
+*challenge* (the realm and scope to ask for) and not the answer. Keeping it means
+writing a bearer token to disk, which grants whatever the credentials behind it
+grant and sits close to I19's rule that a secret's value is never written down.
+Anonymous pulls of a public image are a weaker case than an authenticated pull of
+a private one, and a cache that cannot tell them apart takes the stronger risk.
+
+So "cache the tag resolution" is two questions wearing one coat, and the cheaper
+half to implement is the smaller half of the cost. Both are the owner's; neither
+is implemented here.

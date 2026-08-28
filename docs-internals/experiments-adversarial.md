@@ -40611,3 +40611,79 @@ the fourth wrong claim.
 error is fatal" are different measurements, and only the second is answered by
 whether the job's outcome changes. Nothing in a log distinguishes them; only a
 before-and-after on the outcome does.
+
+### E842 - EXPOSE with a range makes an image no daemon will load
+
+Reading the *fatal* error rather than the frequent one (E841c) found a real
+defect on the first try. `Native / +test-no-qemu-group11` ends at:
+
+```text
+tests/with-docker-expose/Earthfile:88 | invalid port '1234-1239': invalid syntax
+Error: docker load test:img failed with exit code 1
+```
+
+The `WITH DOCKER got a daemon and no client` warning three lines earlier is a red
+herring: the same job logs `Loaded image: test:img` at line 47, so the client
+works.
+
+`EXPOSE 1234-1239` declares six ports and docker expands the range when it parses
+the Dockerfile. This engine appended the protocol and stored the range whole, so
+the configuration carried `1234-1239/tcp` - which the daemon does not ignore but
+refuses. The message names the port and neither the image nor the build that made
+it, which is why it read as a docker problem.
+
+Expanded at `EXPOSE`. Verified: an image built with `1234-1239`, `7000/udp` and
+`8080` writes `1234/tcp` through `1239/tcp`, `7000/udp` and `8080/tcp`, and the
+range form appears in no file. Malformed ranges pass through unchanged so the
+daemon reports them in its own words rather than two messages arriving for one
+mistake with the less informed one first.
+
+### E843 - a ~ in a COPY destination, and the case that specifies the rule
+
+`Native / +test-no-qemu-group2` fails on an assertion about a message this engine
+never printed:
+
+```text
+ERROR: earth output did not contain "destination path ~/. contains a ~ which
+does not expand to a home directory"
+```
+
+The legacy engine has warned since `earthfile2llb/interpreter.go` was written; a
+shell expands `~` before a command sees it, a COPY destination is not a shell
+word, and `COPY in ~/.` makes a directory literally named `~`.
+
+**The sixth test case is the specification.** `tests/Earthfile` asserts the
+message for five destinations and its *absence* for `some/di~r.`. So the rule is
+about a path component that is `~` or begins with one, not about the character
+appearing anywhere - and a `strings.Contains` passes every case that matters
+while failing the one written to catch it.
+
+Two details worth keeping. The check runs before the destination is resolved,
+because the message quotes the author's spelling: resolved against the working
+directory `~/.` becomes `/test/~/.`, naming a path the Earthfile does not
+contain. And the note travels on a new `Plan.Advice` rather than being printed
+where it is found, because interpretation has no output of its own - which
+`TestEveryPlanOutputIsConsumed` immediately made a condition of, refusing a plan
+field nothing reads.
+
+### E844 - what is left in the Native suite, by fatal error rather than by frequency
+
+Eight failures, each read to its own last error rather than its most common one:
+
+```text
+2   connect provided buildkit: failed to list workers - x509: certificate signed
+      by unknown authority, and dial tcp 127.0.0.1:8372: connection refused
+1   EXPOSE range           fixed, E842
+1   COPY ~ destination     fixed, E843
+1   failed to extract exit_code
+3   generic wrapper failure, inner error not yet isolated
+```
+
+The two TLS ones are the largest remaining group and are legacy-buildkit
+territory: an inner buildkitd that connects, serves a version banner, begins the
+build, and then cannot be reached again. Nothing about them is native-engine
+specific on the evidence so far.
+
+**The method is the finding.** Ranking by error frequency produced three wrong
+answers today (E834, E839b, E841c). Reading each job to its own fatal line
+produced two fixes in an hour. The difference costs one log download per job.

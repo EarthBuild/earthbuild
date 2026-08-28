@@ -37446,3 +37446,53 @@ one: the chain key was not wrong, its inputs were not wrong, and nothing about
 it had changed. All true, and all beside the point, because what it *held* was
 written by something that was wrong. A key does not have to be defective to
 carry a defective answer.
+
+## E796 - the other half of a cache: what it rebuilds that it need not
+
+E794 and E795 chased *under*-invalidation, where the answer is wrong. This is
+the same sweep pointed the other way, at steps that re-run when nothing they
+could observe has changed. A miss here costs time rather than correctness, which
+is why it goes unnoticed for longer.
+
+Five mutations that must change nothing, each built, mutated and rebuilt:
+
+| mutation                                     | steps re-run |
+| -------------------------------------------- | ------------ |
+| `touch` a context file, same content         | none         |
+| a new file outside anything copied           | none         |
+| a comment appended to the Earthfile          | none         |
+| a whole target added but not built           | none         |
+| **a sibling file inside a copied directory** | **two**      |
+
+The first four are right, and the mtime one is worth naming: `ℓ_con` excludes
+mtimes deliberately, so a fresh clone does not rebuild the world, and the sweep
+confirms it end to end.
+
+The fifth was the cost of E794's fix, paid by every step in the engine. `COPY
+--dir ctx /c` with `RUN cat /c/f.txt` re-ran whenever any sibling of `f.txt`
+appeared. E794 recorded a listing for every directory a step touched, on the
+reasoning that the tracer could not tell an enumerated directory from one merely
+walked past - and resolving any path stats every ancestor of it, so every step
+was keyed on the full contents of every directory above everything it read.
+
+The reasoning was wrong about the tracer. `getdents` needs a descriptor and a
+descriptor needs an open, so an *opened* directory is a sound over-approximation
+of an enumerated one; a stat'ed one is a directory the step walked through. The
+tracer already computed that distinction for its write check and discarded it.
+
+After narrowing, both properties hold at once - the added file appears in all
+three enumeration forms, and the sibling costs nothing:
+
+```text
+find /c   [/c/a.txt] -> [/c/a.txt /c/b.txt]     correct
+sibling   misses=2   -> misses=0                and free
+```
+
+**The trap in the narrowing was worth more than the narrowing.** `Opened` is
+keyed on the name the tracer used, from outside the step's root, and
+`recordSightings` renames every path to the name the base holds. Testing
+membership against the renamed name matches nothing for exactly the paths that
+get renamed - every path inside the step's own root - so the change would have
+looked correct, recorded no listing at all, and put E794's stale build back with
+a green suite. It is guarded by a test, and the test was checked against the
+shape that fails rather than trusted for passing.

@@ -40995,3 +40995,37 @@ work overstates what is left to build for the third time in this document
 `+chown-test`, `+star-test`, `+fail-test`, `+push-arg-test`,
 `+gen-dockerfile-test` all exit 0 under `--engine=native`; `+dockerfile-test`
 exits 1 for the reason above.
+
+### E851 - the boundary of the local run, and of the native engine itself
+
+Two group-1 targets mark the edge, and they mark the same edge.
+
+`./tests/locally-in-command+all` under `--engine=native`:
+
+```text
+Error: build new buildkitd client: connect provided buildkit: timeout 1m0s
+```
+
+The inner build wants a buildkitd of its own. `earth-entrypoint.sh` starts one
+when `BUILDKIT_HOST` is unset - and refuses to, because its first act is
+`captest --text | grep sys_admin`, and a native step has every capability
+*within its namespace* and none that reaches outside it. So the nested daemon
+cannot start, and the target cannot pass, on this machine or in CI.
+
+**This is E845's structural point, now demonstrated rather than inferred.** A
+large part of `tests/` is earth-in-earth, and an inner build has three options:
+its own buildkitd (needs privilege this engine declines), a buildkitd someone
+else started (what CI arranges), or the native engine (needs no daemon at all).
+Only the third is self-contained, and `earthly-docker` currently sets
+`ENV EARTH_ENGINE=buildkit` for nested builds, which asks for one of the first
+two.
+
+**One false alarm, recorded because it nearly became a finding.**
+`./tests/command-to-function-rename+all` exited 1 on its first run and 0 on the
+two after it, with a cold cache the only difference. A single red run is not a
+result; it took two more runs and thirty seconds to know that.
+
+**And a limit on the local method** worth stating beside the recommendation in
+AGENTS.md: a target whose inner build needs a daemon this engine will not start
+cannot be run locally under `--engine=native`. Run those under
+`--engine=buildkit`, which is what they are testing anyway.

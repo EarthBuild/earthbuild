@@ -80,6 +80,12 @@ EARTH_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1 \
 Run both engines. A difference between them is the finding; a failure in one
 alone says nothing until you know what the other does.
 
+One limit: a target whose *inner* build starts its own buildkitd cannot run
+under `--engine=native`, because starting a daemon inside a step needs a
+privilege this engine declines by design. Run those under `--engine=buildkit`.
+And a single red run is not a result - a cold cache produced one false failure
+in this suite; re-run before believing it.
+
 Four symptoms that each cost an hour before being understood:
 
 | Symptom                                       | Cause                                                     |

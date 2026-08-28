@@ -76,12 +76,18 @@ func (e *Executor) leakedIn(stack []ir.NodeID) []string {
 	return out
 }
 
-// refuseLeakedImage stops an image that carries a credential from being written.
+// RefuseLeakedImage stops an image that carries a credential from being written.
 //
 // The message names the secret and where it was found, and never the value: it
 // goes to the build's output, which is the log the credential was being kept out
 // of.
-func (e *Executor) refuseLeakedImage(where string, stack []ir.NodeID) error {
+//
+// Exported because there is more than one exit point and they must agree. The
+// packed-image path in this package is not the one an ordinary `SAVE IMAGE`
+// takes; that one lives in engine/cli, and for as long as this was unexported it
+// was also unguarded - the secret was detected, noted beside the layer, and
+// published anyway.
+func (e *Executor) RefuseLeakedImage(where string, stack []ir.NodeID) error {
 	if os.Getenv(EnvAllowLeakedSecrets) != "" {
 		return nil
 	}

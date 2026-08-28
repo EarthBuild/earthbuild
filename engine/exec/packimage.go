@@ -74,7 +74,7 @@ func (e *Executor) packImage(ctx context.Context, n *ir.Node, base []ir.NodeID) 
 	// **The exit point.** A layer holding a credential has gone nowhere while it
 	// sits in this build's store; saving the image is what sends it somewhere
 	// else, so this is where a finding becomes a refusal.
-	err := e.refuseLeakedImage(n.Meta.Source, base)
+	err := e.RefuseLeakedImage(n.Meta.Source, base)
 	if err != nil {
 		return core.Result{}, err
 	}

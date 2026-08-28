@@ -114,6 +114,18 @@ func writeImages(
 			return fmt.Errorf("SAVE IMAGE %s (%s): the step producing it did not run", img.Ref, img.Source)
 		}
 
+		// **The other exit point.** A layer holding a credential has gone
+		// nowhere while it sits in this build's store; writing the image is
+		// what sends it somewhere else, and this is the path an ordinary `SAVE
+		// IMAGE` takes. The packed-image path in engine/exec has checked since
+		// the mechanism was written and this one never did, so the detection
+		// ran, wrote its note beside the layer, and the image was published
+		// with the secret in it regardless.
+		err = e.RefuseLeakedImage(img.Source, stack)
+		if err != nil {
+			return err
+		}
+
 		layers := layerSources(ctx, e, store, stack)
 
 		// Named after the reference so two images from one build do not land on

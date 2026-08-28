@@ -40687,3 +40687,60 @@ specific on the evidence so far.
 **The method is the finding.** Ranking by error frequency produced three wrong
 answers today (E834, E839b, E841c). Reading each job to its own fatal line
 produced two fixes in an hour. The difference costs one log download per job.
+
+### E845 - the missing device, the false diagnosis, and what a nested build is standing on
+
+Continuing to read each Native failure to its own fatal line (E844), three more
+causes, and one structural observation that bears on how much of this suite can
+ever pass.
+
+**A missing device, reported as an unprivileged container.** The
+`failed to extract exit_code` job unwinds to:
+
+```text
+line 53: can't create /dev/null: Permission denied
+Container appears to be running unprivileged
+tee: earthly.output: Permission denied
+tail: can't open 'earthly.output'
+ERROR: failed to extract exit_code
+```
+
+Line 53 of `earth-entrypoint.sh` is `captest --text | grep sys_admin > /dev/null`.
+`/dev/null` is absent, so the *redirect* fails, so the test fires, so the
+entrypoint announces a privilege problem that does not exist. Two wrong
+diagnoses from one silence, and the thing CI reports is the fifth line down.
+
+Not reproducible here - a step on this machine has `/dev/null`, a writable
+working directory, uid 0 and `CapEff 000001ffffffffff` - so `deviceMounts` now
+reports what it skipped, the last of the four mounts in that family to do so.
+
+**`whoami` exits 1, and the build it exits is a native one inside a native one.**
+
+```text
+earth: /root/.cache/earthbuild/scratch cannot host an overlay mount, so this
+  step's scratch is /dev/shm/earth-overlay-...
+Error: BUILD +test5 (Earthfile:9): ARG at Earthfile:57: "whoami" exited 1
+  it printed nothing
+```
+
+Both lines are this engine's, so the inner build is native, two user namespaces
+deep. `whoami` fails when the current uid is not in `/etc/passwd`, which is the
+same shape as the unwritable directory above: a uid that is root on this machine
+and something else in CI.
+
+**And the observation worth more than either.** Immediately above that:
+
+```text
+frontend | auto frontend initialization failed due to failed to autodetect a
+  supported frontend
+frontend | podman-shell frontend failed to initialize: podman: not found
+```
+
+A nested build has no docker and no podman inside the step. So under the legacy
+engine it has no frontend to run buildkit with, and under this engine it needs
+nested user namespaces to work. `earthly-docker` sets `ENV EARTH_ENGINE=buildkit`
+for nested builds, which asks for the half that has no frontend.
+
+That is not a bug to fix in an afternoon; it is what the earth-in-earth suite
+rests on. Any estimate of how much of `tests/` can pass under the native engine
+has to price it.

@@ -39627,3 +39627,31 @@ the per-step machinery - `guest:request` 0.180s across the steps, `sandbox:start
 **Which is where this line of work stops being about `COPY`.** The next thing to
 measure is whatever the machinery costs when a build has more steps than this
 one, and that is a different experiment rather than another turn of this one.
+
+### E829g - and against the corpus, on the platform that uses it
+
+**The Linux corpus ratchet cannot validate this change**, because the change is a
+no-op there: `OpLocal` only packs a tarball when the store is in the VM. So the
+486-Earthfile sweep that vouched for `EARTH_PARALLEL_EXPORT` says nothing about
+this one, and macOS has no equivalent test.
+
+The nearest thing available was to run the corpus files that use `COPY` directly,
+both ways:
+
+| arm            | targets | non-zero |
+| -------------- | ------- | -------- |
+| direct pack on | 49      | 0        |
+| staging (off)  | 49      | 0        |
+
+Twenty files, forty-nine targets, and no outcome differs between the arms.
+
+**Which is what a default needs and what the last one lacked.**
+`EARTH_STREAM_TO_GUEST` was defaulted on this morning on eight alternating pairs
+of wall-clock and broke every build, because the harness measured time and never
+asked whether a build had happened. This one has: an archive compared entry by
+entry, a guest filesystem compared by digest, eight builds with the artifact read
+back, and now forty-nine corpus targets with their exit codes compared.
+
+None of that is proof. It is the difference between a default chosen on evidence
+about the thing that could break, and one chosen on evidence about the thing that
+was hoped to improve.

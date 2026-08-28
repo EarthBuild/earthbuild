@@ -400,14 +400,16 @@ secrets-test:
         --extra_args="--secret SECRET1 --secret SECRET2=bar --build-arg SECRET_ID=\"\" --build-arg SECRET_ID_2=\"\"" \
         --target=+test \
         --should_fail=true \
-        --output_contains='unable to lookup secret \"SECRET3\": not found'
+        --output_contains='unable to lookup secret \"SECRET3\": not found' \
+        --output_contains_native='which was not supplied'
 
 project-secrets-test:
     DO +RUN_EARTH \
         --earthfile=project-secrets-without-flag.earth \
         --target=+without-flag \
         --should_fail=true \
-        --output_contains="must be enabled in order to use PROJECT"
+        --output_contains="must be enabled in order to use PROJECT" \
+        --output_contains_native="needs the --use-project-secrets feature"
     DO +RUN_EARTH \
         --earthfile=project-secrets.earth \
         --target=+local-override \

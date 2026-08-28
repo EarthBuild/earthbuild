@@ -38700,3 +38700,54 @@ timings show directly. Nothing waits on it except the build's own exit. That is
 a different fix from parallelising, and a safer one, but E813 is the reason it
 gets measured before it gets written: the last teardown that "nothing waits on"
 turned out to have `capture` reading underneath it.
+
+## E818 - writing the artifacts at once, and what it is actually worth
+
+**The unmounts do parallelise, but only 2.4x.** The microbenchmark of E817 was
+void because it unmounted `x/N` where the mount was at `x/N/merged`, and
+suppressed the error that said so. Corrected, and verified by counting
+`/proc/mounts` before and after so a silent failure cannot pass as a fast
+success:
+
+| 32 overlay unmounts | total | each    |
+| ------------------- | ----- | ------- |
+| one at a time       | 87ms  | 2,718us |
+| sixteen at a time   | 36ms  | 1,125us |
+
+`namespace_sem` is held for write through each unmount, so the kernel gives back
+a factor of two and a half rather than a factor of thirty-two. That is why
+`exportWidth` caps at eight however many cores are present: past the point the
+mount lock saturates, more goroutines lengthen the queue and not the throughput.
+
+**End to end, five pairs, idle machine, contents asserted:**
+
+| 32 artifacts | median | all five                 |
+| ------------ | ------ | ------------------------ |
+| off          | 1176ms | 1176 1410 1190 1381 1420 |
+| on (width 8) | 670ms  | 670 976 887 871 949      |
+
+1.76x, and the ranges do not overlap - the slowest concurrent run beats the
+fastest serial one.
+
+**And what it is worth on a build anybody actually has:**
+
+| artifacts | off    | on    | saved |
+| --------- | ------ | ----- | ----- |
+| 3         | 543ms  | 501ms | 42ms  |
+| 8         | 625ms  | 564ms | 61ms  |
+| 32        | 1176ms | 670ms | 506ms |
+
+Eight to ten per cent on a normal build, and most of a second on one that writes
+thirty-two artifacts. Worth having; not the headline the 1.76x makes it look.
+
+**Left off by default, and the reason is not performance.** Written one at a
+time, an artifact after a failure is never written. Written eight at a time, one
+already in flight lands before the cancellation reaches it. Same error, same
+exit code, one or two more files in the working tree - a behaviour change, and
+after five defaults asserted and withdrawn in a day it is one to be asked for
+rather than assumed.
+
+**What order is kept.** Artifacts sharing a destination run in the Earthfile's
+order, because the later one is meant to win; the rest cannot observe each other.
+The lines printed and the error returned are ordered by the Earthfile whatever
+order the writes completed in, so a build that fails fails the same way twice.

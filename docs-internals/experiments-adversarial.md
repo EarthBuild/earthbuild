@@ -37743,3 +37743,33 @@ was `docker run` not working at all in this engine, which would have been the
 largest defect of the sweep. The check that stopped it was running the identical
 Earthfile under the reference - the same check that started the sweep, applied to
 its own conclusion.
+
+## E800 - argument scoping, and the limit of a differential
+
+Eight Earthfiles over the part of the language most likely to leak between
+targets: an `ARG` in one target visible from another, `ARG --global`, a
+`--build-arg` passed through `BUILD` and through a parenthesised `COPY`, a
+`FUNCTION`'s own `ARG` after the `DO` returns, an `ARG` whose default names the
+`ARG` above it, `ENV` shadowing `ARG`, and a target built twice.
+
+Both engines agree everywhere, and - checked separately, because agreement is
+not correctness - both are *right*:
+
+| case                            | value            | meaning                        |
+| ------------------------------- | ---------------- | ------------------------------ |
+| `ARG` seen from another target  | `[]`             | does not leak                  |
+| `ARG --global`                  | `[GLOBALVALUE]`  | reaches a dependency           |
+| `--build-arg` through `BUILD`   | `[passed]`       | arrives                        |
+| a `FUNCTION`'s `ARG` afterwards | `[UNSET]`        | does not escape the function   |
+| `ARG b=$a-second`               | `[first-second]` | resolves against the ARG above |
+
+**The second column is the point of the entry.** A differential can only report
+that two engines said the same thing, and this sweep has already recorded two
+places where they agree and both are wrong. The security-shaped case here - an
+argument leaking into a target that never declared it - would look identical
+whether both engines contained it or both leaked it, so it was read rather than
+compared. Every case in this round was.
+
+That is the limit worth stating after eight rounds of this method: a differential
+finds *divergence*, and divergence is a proxy for defect that fails exactly where
+two implementations share a lineage - which these two do.

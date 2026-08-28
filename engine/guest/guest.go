@@ -1057,6 +1057,23 @@ func (s *Server) export(
 		return err
 	}
 
+	// **Staging is emptied before it is filled.** It lives in the store, it is
+	// named from the request so that a build repeated does not litter, and
+	// therefore two builds saving to the same destination stage into the same
+	// directory - which copyPath merges into rather than replaces. So an
+	// artifact carried out the previous build's files, and the one after that
+	// carried both. The store outlives any single project, so the extra files
+	// came from *other* builds: the output depended on the store's history
+	// instead of on the build, and it disclosed another build's tree.
+	//
+	// Here rather than at the copy, because it must happen once per export and
+	// exactly as much as the copy is about to write - and both the pattern
+	// branch and the single-artifact one below write into dst.
+	err = s.clearStage(dst)
+	if err != nil {
+		return err
+	}
+
 	// copyPath resolves and stats too, and this one is kept for its wording
 	// alone: it names the path the Earthfile asked for, where the copy would
 	// name the resolved one inside a sandbox root the author never wrote down.
@@ -1121,6 +1138,27 @@ func (s *Server) export(
 }
 
 // within joins a path onto a root and refuses anything that leaves it.
+// clearStage empties an export's staging directory before it is written.
+//
+// Confined to the exports tree, and never the exports root itself: that root
+// holds every artifact this build has staged, so removing it would take the
+// build's other artifacts with it. A destination that resolves to the root is
+// left alone rather than refused, because it is reached only by a caller that
+// stages a single artifact there and overwrites it in place.
+func (s *Server) clearStage(dst string) error {
+	root := filepath.Join(s.LayerDir, "exports")
+	if dst == root || !strings.HasPrefix(dst, root+string(filepath.Separator)) {
+		return nil
+	}
+
+	err := os.RemoveAll(dst)
+	if err != nil {
+		return fmt.Errorf("clear the staging directory for the export: %w", err)
+	}
+
+	return nil
+}
+
 func within(root, p string) (string, error) {
 	clean := filepath.Clean("/" + p)
 

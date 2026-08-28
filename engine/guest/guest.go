@@ -2317,10 +2317,18 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 		// Inside that same /dev, and skipped where it cannot be had. See
 		// mountDevPts.
+		//
+		// The third of these, and reported like the two above it: a step with
+		// no /dev/pts cannot allocate a terminal, and `expect`, `script` and
+		// `docker run -t` say so in their own words a long way from the cause.
+		// Two of three reported would be worse than none, because the silence
+		// would then look like proof the mount succeeded.
 		endPts := timing.Phase("guest:devpts", req.Handle)
-		undoPts, _ := mountDevPts(h.Root())
+		undoPts, whyPts := mountDevPts(h.Root())
 
 		endPts()
+
+		s.noteUnmounted(whyMount(whyPts))
 
 		defer undoPts()
 

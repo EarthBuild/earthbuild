@@ -826,3 +826,37 @@ test. Turn it on where a build's `release` phase is a large share of its steps, 
 `EARTH_TIMINGS=1` will tell you.
 
 Default: off.
+
+## `EARTH_DIRECT_CONTEXT_PACK`
+
+Packs the build context where it lies instead of copying it into a staging directory first.
+
+**One pass over the tree instead of two.** A `COPY` stages the context into a directory and then
+reads all of it back to build the tarball the guest unpacks. Measured over 2000 files: 350ms of
+copying in front of 154ms of packing, against 152ms to pack alone - so the copy is the whole of
+the difference, and on macOS it is worse still because creating files there costs several times
+what it costs on the guest's ext4.
+
+**It also changes hardlinks, which is why it is a switch and not a fix.** Staging copies file
+contents, so two names sharing an inode arrive as two independent files. Packing the context sees
+the inode twice and writes the second as a link - more faithful to what the directory holds, and a
+different archive, so a context containing hardlinks gets a different layer digest and misses the
+cache once.
+
+Everything else is byte-identical: `TestPackingStraightFromTheContextCarriesTheSameThing` compares
+the two archives entry by entry, name, type, mode and link target. And the guest receives the same
+filesystem either way - a nested context with an ignore file arrives as 1200 files with the same
+digest of its listing, whichever route packed it.
+
+| context                         | staged | direct |
+| ------------------------------- | ------ | ------ |
+| 2000 flat files                 | 2404ms | 1415ms |
+| 1600 files, nested, ignore file | 1611ms | 1034ms |
+
+Five pairs and three respectively, ranges disjoint on the first. This path is only taken when the
+store is in the VM, so on Linux the setting does nothing: 1138ms against 1118ms, which is noise.
+
+`EARTH_DIRECT_CONTEXT_PACK=0` goes back to staging, which is the way to answer "is this what
+changed my cache" without rebuilding the engine.
+
+Default: on.

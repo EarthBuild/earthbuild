@@ -1897,22 +1897,36 @@ func (e *Executor) stageContextInGuest(ctx context.Context, n *ir.Node) (core.Re
 	// until it was timed (E819). These two are the pass over the tree and the
 	// pass back over it, and knowing the split is what decides whether packing
 	// straight from the context is worth the change it takes (E829).
-	endCopy := phase("context:copy", n.Meta.Source)
-	err = e.copyContextInto(n, staged)
-	endCopy()
-
-	if err != nil {
-		return core.Result{}, err
-	}
-
 	tarball := filepath.Join(blobs, "context-"+n.ID().String()+".tar")
 
-	endPack := phase("context:pack", n.Meta.Source)
-	err = packInto(staged, tarball)
-	endPack()
+	// **One pass over the tree, or two.** Staging copies the context into a
+	// directory and then reads all of it back to pack it; packing it where it
+	// lies does that work once. 350ms of copying in front of 154ms of packing,
+	// against 152ms to pack alone, over 2000 files (E829c).
+	if directContextPack() {
+		endPack := phase("context:pack", n.Meta.Source)
+		err = e.packContextDirect(n, tarball)
+		endPack()
 
-	if err != nil {
-		return core.Result{}, err
+		if err != nil {
+			return core.Result{}, err
+		}
+	} else {
+		endCopy := phase("context:copy", n.Meta.Source)
+		err = e.copyContextInto(n, staged)
+		endCopy()
+
+		if err != nil {
+			return core.Result{}, err
+		}
+
+		endPack := phase("context:pack", n.Meta.Source)
+		err = packInto(staged, tarball)
+		endPack()
+
+		if err != nil {
+			return core.Result{}, err
+		}
 	}
 
 	// Kept only until the guest has read it: this is a copy of the context and

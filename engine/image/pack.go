@@ -48,6 +48,27 @@ func Pack(dir string, w io.Writer) (digest string, size int64, err error) {
 		return "", 0, err
 	}
 
+	return PackSelected(root, names, w)
+}
+
+// PackSelected packs the named entries and nothing else.
+//
+// **The names are the archive and the paths are where to read them**, and this
+// is what lets a caller pack a tree it is not rooted at. `packOne` derives both
+// from `root` and the entry's name, so a caller that wants the content of
+// `<root>/ctx` to appear in the archive as `ctx/...` passes `root` and names
+// beginning `ctx/` - which is exactly what staging into a directory and packing
+// that directory used to produce, one full copy of the tree ago (E829c).
+//
+// Order is the caller's. `Pack` sorts, because a layer's digest has to be the
+// same for the same tree; a caller assembling names itself is responsible for
+// the same property.
+func PackSelected(root string, names []string, w io.Writer) (digest string, size int64, err error) {
+	root, err = filepath.Abs(root)
+	if err != nil {
+		return "", 0, fmt.Errorf("resolve %s: %w", root, err)
+	}
+
 	h := sha256.New()
 	counter := &countingWriter{w: io.MultiWriter(w, h)}
 	tw := tar.NewWriter(counter)

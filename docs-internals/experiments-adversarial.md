@@ -39517,3 +39517,45 @@ walks one tree into one archive with no path rewriting, where the engine places
 the content at `filepath.Clean("/" + Args[0])` and keeps a hardlink map keyed on
 the names it has written. Those are the two thirds of the change that
 `TestWhatTheGuestReceivesForACopiedContext` does not yet cover.
+
+## E829d - the change, made and kept
+
+**Packing the context where it lies, instead of copying it into a staging
+directory and packing that.** `image.PackSelected` takes the entry list rather
+than walking for it, so a caller can name entries relative to a root it is not
+sitting in - which is exactly what staging produced by accident, and what this
+now produces on purpose. `Pack` became a two-line wrapper around it.
+
+**Measured, both arms, artifact asserted on every run:**
+
+| context                         | staged | direct | pairs |
+| ------------------------------- | ------ | ------ | ----- |
+| 2000 flat files                 | 2404ms | 1415ms | 5     |
+| 1600 files, nested, ignore file | 1557ms | 948ms  | 3     |
+
+1.70x and 1.64x, ranges disjoint on the first, and the guest receives the same
+filesystem either way: 1200 files after the ignore file removed 400, with the
+same digest of the listing.
+
+**And it does nothing on Linux**, which is correct rather than disappointing:
+`OpLocal` only takes this path when the store is in the VM. Measured at 1138ms
+against 1118ms there, which is noise.
+
+**The one difference the tests found rather than the author.** The equivalence
+test compared the two archives entry by entry and failed on the first run:
+
+```text
+staged: ctx/deep/linked.txt type=0
+direct: ctx/deep/linked.txt type=1 link=ctx/a.txt
+```
+
+Staging copies file contents, so two names sharing an inode arrive as two
+independent files. Packing the context sees the inode twice and writes a link,
+which is what `packOne` has always done for layers. More faithful, smaller, and a
+*different archive* - so a context containing hardlinks gets a different digest
+and misses the cache once. That is now a named test rather than a surprise.
+
+**Kept, and on by default.** The evidence is the kind that was missing when
+`EARTH_STREAM_TO_GUEST` was defaulted on and broke every build: not just a
+stopwatch, but the contents of what the guest received, compared. `=0` goes back
+to staging.

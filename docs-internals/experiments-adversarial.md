@@ -38171,3 +38171,31 @@ once progress travels somewhere with no filesystem in it" - and that was acted
 on, but the *default* stayed off for two more changes of the thing it depended
 on. A killed experiment needs re-running when its premise moves, and nothing in
 the process makes that happen.
+
+**The two together, against the branch point.** Six alternating cold pairs,
+`c83ee6152` against `HEAD`, the same Earthfile and the same warm VM either side:
+
+| engine                       | cold, median of 6 | all six                       |
+| ---------------------------- | ----------------- | ----------------------------- |
+| c83ee6152, both defaults off | 7912ms            | 9280 8205 7892 8131 7912 7827 |
+| HEAD, both defaults on       | 4422ms            | 4422 4439 4558 4685 4385 4098 |
+
+1.79x, and the ranges do not overlap - the slowest new run is faster than the
+fastest old one, which is a stronger statement than any median. Neither change
+is new code on the critical path: both are switches that were already written,
+already tested, and left off.
+
+**What was measured and rejected, so it is not measured again.** Parallelising
+the file writes inside an unpack looked like the next thing until it was sized:
+on the guest's ext4 an unpack of the largest layer of `golang:1.24-alpine` is
+1.040s of inflate, 0.011s of tar walk and 0.589s of writing 15,741 files. The
+same blob on the host's APFS spends 2.195s writing - 3.7x slower, and a fourth
+independent argument for E808 - which is what made the write side look like the
+place to spend effort. Perfect parallelism saves under half a second on a 4.4s
+build, in the one function that enforces Zip Slip. Not worth it.
+
+Caching the tag-to-digest resolution was rejected for a different reason: it is
+deliberate. A resolution is the answer to "what does this tag mean today", and
+`resolve.go` asks the origin rather than a mirror on purpose. The 0.63s it costs
+on a fully cached build is the price of a mutable tag, and anyone who does not
+want to pay it can pin by digest, which skips the resolution entirely.

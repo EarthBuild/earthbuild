@@ -37683,3 +37683,22 @@ flag defect, and the branch point reproduces all three. The comparison that woul
 have proved it directly - a CI run on the parent - did not exist, because every
 one had been cancelled by the next push. Pushing faster than CI can run is how a
 branch loses its own baseline.
+
+**What the Native suite is actually blocked on.** With the flag defect fixed, a
+census of the failing jobs leaves two signatures and no others:
+
+| signature                                   | jobs               | cause                           |
+| ------------------------------------------- | ------------------ | ------------------------------- |
+| `failed to autodetect a supported frontend` | groups 3, 8, 9, 11 | no docker client in the step    |
+| `docker: not found`                         | groups 8, 11, 12   | the same decision, said plainly |
+| `did not run`                               | `+test-misc`       | the parked `+test-misc` shape   |
+
+The first two are one parked decision wearing two error messages, and the plan
+already calls it "the row that keeps reappearing". `cgroup-v2-test` is the case
+in miniature: fixing the unexpanded flag moves it from failing on `docker pull
+ubuntu:$ubuntu_img_tag` to failing on `exit 127` from a step whose image has no
+docker in it. One defect removed, one decision exposed.
+
+So the Native suite is not fifteen problems. It is one question the owner has
+not answered, and answering it is worth more to that suite than any further
+defect this sweep could find.

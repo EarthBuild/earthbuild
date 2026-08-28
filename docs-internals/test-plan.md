@@ -1499,7 +1499,7 @@ of code that can be deleted with the suite still green.
 | ~~E291~~ | guest: a fault-in answer finding the request that asked - **done**: a reply addressed to nobody must not unblock a waiter                              |
 | ~~E292~~ | fleet: priming nothing when nothing was predicted - **not a gap**: an equivalent mutant, entry removed; the decision it looked like is guarded by E288 |
 | E297     | exec: giving the guest a fault-in channel only when asked                                                                                              |
-| E299     | fleet: omitting a proof the caller says it has                                                                                                         |
+| ~~E299~~ | fleet: omitting a proof the caller says it has - **done**: asserted on the bytes, since the reader tolerates both shapes                               |
 | E309     | fleet: a holder that will not dial saying so                                                                                                           |
 | E319     | fleet: the pilot going out rather than waiting on itself                                                                                               |
 | ~~E446~~ | guest: ownership kept when a layer is committed - **covered by the corpus**, which the mutant's `go test` never runs                                   |

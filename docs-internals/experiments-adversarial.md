@@ -37693,12 +37693,27 @@ census of the failing jobs leaves two signatures and no others:
 | `docker: not found`                         | groups 8, 11, 12   | the same decision, said plainly |
 | `did not run`                               | `+test-misc`       | the parked `+test-misc` shape   |
 
-The first two are one parked decision wearing two error messages, and the plan
-already calls it "the row that keeps reappearing". `cgroup-v2-test` is the case
-in miniature: fixing the unexpanded flag moves it from failing on `docker pull
-ubuntu:$ubuntu_img_tag` to failing on `exit 127` from a step whose image has no
-docker in it. One defect removed, one decision exposed.
+The first two look like one parked decision wearing two error messages, and the
+plan already calls it "the row that keeps reappearing".
 
-So the Native suite is not fifteen problems. It is one question the owner has
-not answered, and answering it is worth more to that suite than any further
-defect this sweep could find.
+**That reading is a count of strings, not a diagnosis, and the example chosen to
+illustrate it was wrong.** `cgroup-v2-test` was cited here as the case in
+miniature - the unexpanded flag fixed, leaving a step with no docker in it. It is
+not. Both dind images that target uses carry `/usr/bin/docker`, and the step's
+own output says what actually happens once the pull succeeds:
+
+```text
+docker: Error response from daemon: failed to create task for container:
+        failed to start shim: start failed: io.containerd…
+```
+
+A nested container failing to start, which is a cgroup and shim question and has
+nothing to do with the client. The `exit 127` that follows is downstream of it.
+
+What survives is narrower and worth stating as such: the two signatures *appear*
+in the failing jobs, in the numbers above, and one target that showed them turns
+out to fail for a third reason. Attributing a suite from grep counts is how a
+sweep talks itself into a tidy story; the honest position is that the Native
+failures have at least three causes, two of them parked and one of them
+unidentified, and that separating them needs the per-job work this has not
+done.

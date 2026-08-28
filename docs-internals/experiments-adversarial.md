@@ -39828,3 +39828,39 @@ anyone has been looking.
 **Recorded, not fixed**, for the reason the Podman ones were: several separate
 pieces of work, none of them a speed question, and the useful thing to leave
 behind is that these jobs are new to CI rather than new to failing.
+
+### E832a - the fifteen, triaged
+
+**Fifteen failures is not fifteen problems.** Each failing `Native` job's first
+`Error:` line, grouped:
+
+| cause                                                               | jobs |
+| ------------------------------------------------------------------- | ---- |
+| `RUN --privileged ... /tmp/earthbuild-tmpfs /bin/sh` (nested earth) | 4    |
+| `cache initialization failed: Operation not permitted`              | 2    |
+| `VERSION --raw-output is a feature this engine does not know`       | 1    |
+| `parse build arg EARTHLY_VERSION=...`                               | 1    |
+| `SAVE ARTIFACT: unable to save to /test; path must be under ...`    | 1    |
+| `BUILD --pass-args`                                                 | 1    |
+| `the step producing /earthly/build/earthly did not run`             | 1    |
+| `read config: config.yml: no such file`                             | 1    |
+| `ARG at Earthfile:57: "whoami" exited 1`                            | 1    |
+| `RUN diff "expected" "actual" failed`                               | 1    |
+| `RUN --privileged --entrypoint ... --no-output`                     | 1    |
+
+**About ten distinct causes, and they are not all the same kind.** Some name a
+construct the engine has not implemented - `VERSION --raw-output` says so in as
+many words, and `BUILD --pass-args` and the `EARTHLY_VERSION` build-arg parse
+read the same way. Some are environmental and may not be the engine's fault at
+all: `Operation not permitted` initialising a cache, and four jobs failing in the
+same privileged tmpfs `RUN` that the corpus uses to invoke a nested `earth`.
+
+**The largest cluster is one script.** Four of the fifteen die in
+`RUN --privileged --mount=type=tmpfs,target=/tmp/earthbuild-tmpfs /bin/sh
+/tmp/earthbuild-script`, which is how `tests/Earthfile` runs a build inside a
+build. One fix there is worth a quarter of the list.
+
+**Which is the point of triaging rather than reporting a count.** "Fifteen of
+sixteen fail" is a number to despair at; "about ten causes, one of them worth
+four jobs, three of them naming an unimplemented construct" is a morning's work
+with an order to do it in.

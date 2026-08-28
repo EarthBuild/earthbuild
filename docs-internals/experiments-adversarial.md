@@ -39426,3 +39426,27 @@ because the context did not change between repetitions and `COPY` was cached.
 Best-of-three then picked a cached run. It was caught by the flatness being
 implausible rather than by the harness, which is the fourth time today that a
 number was too good and the reason was that nothing had happened.
+
+### E829a - COPY is per-file on both machines
+
+**The second-platform check, which this time confirms.** Same experiment on
+Linux with no virtual machine anywhere:
+
+| files | Linux native | macOS guest |
+| ----- | ------------ | ----------- |
+| 100   | 502ms        | 545ms       |
+| 500   | 637ms        | 817ms       |
+| 2000  | 1090ms       | 1957ms      |
+
+From 100 files to 2000: 588ms for 1,900 files on Linux, **0.31ms each**, against
+0.73ms on macOS. Two and a half times cheaper without a VM boundary, and per-file
+on both - so this is not a virtiofs artefact, it is what `COPY` costs.
+
+A ten-thousand-file repository pays about 3.1 seconds on Linux and 7.3 on macOS,
+before a single step runs.
+
+**Fourth time today the same experiment was run on a second machine, and the
+first time the answer survived.** The other three demoted `EARTH_ASYNC_RELEASE`
+to machine-specific, rescued `EARTH_PARALLEL_EXPORT`, and cut the pinning
+headline from 46x to 1.5x. A habit that changes the conclusion three times in
+four is not a formality.

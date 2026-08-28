@@ -179,8 +179,8 @@ when the second machine was asked (E822a, E825, E825a).
 | tar the context in one pass       | ~0.4ms/file    | ~0.4ms/file | not attempted - see below                  |
 
 **`COPY` is per-file, and nobody had measured it.** 0.73ms a file, linear, and
-independent of size - `COPY . /src` on a ten-thousand-file repository is about seven
-seconds. Two thirds of that is the host handling every file twice: copying the context
+independent of size - and on both machines: 0.31ms a file on Linux, 0.73ms on macOS, so
+`COPY . /src` on a ten-thousand-file repository is 3.1 seconds there and 7.3 here. Two thirds of that is the host handling every file twice: copying the context
 into a staging directory, then reading it all back to tar it, where the guest unpacks
 the same tar at 0.037ms a file (E829).
 

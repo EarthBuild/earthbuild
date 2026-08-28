@@ -443,6 +443,23 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 	// waiting was time in which nothing was unpacked (E641).
 	fetching := newLayerFetch(ctx, client, tok, base, m.Layers)
 
+	// **Started here, awaited below.** The configuration's digest is named by
+	// the manifest, so nothing about fetching it depends on a layer having
+	// arrived - and fetched strictly last it was a stable 0.12s of round trip
+	// after all the transferring was done (E836).
+	//
+	// It used to be last for a reason that this keeps: a manifest whose layers
+	// cannot be pulled has nothing worth configuring. That still holds for the
+	// *result* - the layer error is returned and this one is discarded - and
+	// what it now costs is one wasted GET on a pull that was going to fail,
+	// rather than a round trip on every pull that succeeds.
+	config := make(chan configFetch, 1)
+
+	go func() {
+		cfg, err := pullConfig(ctx, client, tok, base, m.Config, opt.Platform)
+		config <- configFetch{cfg: cfg, err: err}
+	}()
+
 	for i, d := range m.Layers {
 		got := fetching.await(i)
 		if got.err != nil {
@@ -461,18 +478,27 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 	// an image that declares nothing is ordinary and its manifest may not name
 	// a config at all.
 	//
-	// Timed, because it is a round trip to the registry and was the only part
-	// of a pull that was not: `image:pull` exceeded the sum of its children by
-	// 16% on an alpine pull, and this was the gap (E836).
+	// Timed around the *wait*, so the phase says what the pull spent on it
+	// rather than what the request took: overlapped, those are different
+	// numbers, and the one worth reporting is the one that is still on the
+	// critical path (E836).
 	endConfig := timing.Phase("registry:config", ref)
-	cfg, err := pullConfig(ctx, client, tok, base, m.Config, opt.Platform)
+	got := <-config
 
 	endConfig()
-	if err != nil {
-		return ocispec.ImageConfig{}, fmt.Errorf("configuration of %s: %w", ref, err)
+
+	if got.err != nil {
+		return ocispec.ImageConfig{}, fmt.Errorf("configuration of %s: %w", ref, got.err)
 	}
 
-	return cfg, nil
+	return got.cfg, nil
+}
+
+// configFetch is the result of fetching an image's configuration blob beside
+// its layers.
+type configFetch struct {
+	cfg ocispec.ImageConfig
+	err error
 }
 
 // pullConfig fetches and verifies an image's configuration blob.

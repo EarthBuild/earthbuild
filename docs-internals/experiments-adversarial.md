@@ -37270,3 +37270,49 @@ once. It stays a question rather than a change because settling it loosens a
 permission, but it should be settled rather than tolerated.
 
 Four rounds, 77 cases, four defects found and fixed, three questions raised.
+
+## E793 - the image configuration, compared field by field
+
+The one class the sweeps had not touched. Both engines build one Earthfile carrying
+`ENV` twice, `WORKDIR`, `USER`, `LABEL`, `EXPOSE`, `VOLUME`, `ENTRYPOINT`, `CMD`
+and a `RUN` that writes a file; the image each produces is loaded into docker and
+its configuration compared. This engine writes a layout *directory*
+rather than a tar, so the load is `tar -C <layout> -cf - . | docker load`, which
+works because the layout carries a legacy `manifest.json` beside the OCI one.
+
+**The harness reported IDENTICAL on its first run, and was lying.** Both builds
+had failed - `USER nobody` before a `RUN` that writes to `/`, which both engines
+refuse and correctly so - and the comparison was between two empty files. It now
+refuses to compare a config it did not get. Same shape as E789's `--keep-ts`
+case and E791's directories: this makes three, and the pattern is that a
+comparison of nothing reads as agreement about everything.
+
+*Found and fixed.* `architecture` and `os` were written **empty**, on any build
+not given an explicit `--platform`, which is nearly every build. Both are
+required by the image specification. The platform string was parsed, the parse
+of `""` failed, and `if err == nil` discarded the error and left the zero value:
+
+```console
+$ docker image inspect imgdiff:probe --format '{{.Architecture}}'
+              # this engine: nothing at all
+  amd64       # earthly, same machine, same Earthfile
+```
+
+*Everything else matched exactly* - `Env` including PATH and in order, `Cmd`,
+`Entrypoint`, `User`, `WorkingDir`, `ExposedPorts`, `Volumes`, `StopSignal`,
+`Healthcheck`, and the author's own label. That is a real result for the
+declaration work: the config path is right, and one empty field was worth
+chasing precisely because it stood alone.
+
+Three differences remain and none is a defect:
+
+| difference         | why                                                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `Created` is unset | deliberate: set only under a clamp, so two builds of one input agree (E772)                                            |
+| `dev.earthly.*`    | the reference stamps its own version into every image; a fork's provenance labels are a product decision, not a defect |
+| 2 layers against 3 | tighter packing, not a lost one                                                                                        |
+
+The layer count was checked by **running** the image rather than by trusting the
+number: `/f.txt`, `KEEP`, the working directory and the user all arrive. A count
+that differs is exactly the shape that a missing layer would also take, and the
+metadata cannot tell the two apart.

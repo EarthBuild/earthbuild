@@ -9250,6 +9250,7 @@ code, because each could reasonably go the other way.
 | a CHANGELOG line for the engine   | one paragraph, at merge rather than at release                                                                                                                                                                   | pr-blockers         |
 | build arguments in a `RUN`        | expand into the command text as now, or hand them to the step as environment as earthly and docker do - the value is currently re-parsed by the shell, so a supplied argument carrying `$( )` is executed (E790) | E790                |
 | the mode of a local destination   | `0750` here, `0755` under earthly - tighter is the better default, but it is the caller's directory rather than the artifact's, and it differs in every build that saves into a subdirectory (E791)              | E791                |
+| provenance labels on an image     | earthly stamps `dev.earthly.version`, `git-sha` and `built-by` into every image; this stamps none - whether a fork wants its own is a product question, not a defect (E793)                                      | E793                |
 | a docker client inside a step     | inject a dynamically-linked one with its interpreter, ship a static one, or require the image to carry one                                                                                                       | E767, group2        |
 
 **The last row is the one that keeps reappearing.** A step with no docker client

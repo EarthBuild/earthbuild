@@ -38889,3 +38889,36 @@ the sixth withdrawn claim of the day - and the most embarrassing, because the
 corpus is the thing the repository trusts. It survived only because the pair was
 run again, which is now the fourth entry in the test-plan's rules and the one
 that keeps earning its place.
+
+## E822 - the largest number of the day was already implemented
+
+**A no-op incremental build is 412ms, and 405ms of it is asking a registry what
+a tag means.** Pinned, the same build is 9ms. Measured on Linux, warm cache, best
+of three, artifacts read back to prove the build happened:
+
+| build           | unpinned | pinned |
+| --------------- | -------- | ------ |
+| nothing to do   | 412ms    | 9ms    |
+| one step to run | 498ms    | 71ms   |
+
+Forty-six times on a no-op, seven times on a one-step change, and the same 427ms
+either way because it is fixed and paid before anything starts.
+
+**Nothing to fix.** `--pin` writes the digest into the Earthfile and the lookup
+stops happening; the engine already prints a `note` after a build whose lookups
+cost more than 100ms, reporting that build's own measured cost rather than an
+estimate. The mechanism, the advice, and the honesty about the number were all
+there before this measurement.
+
+**What was missing was the size of it.** "Skips the 0.60s these lookups cost"
+reads like a tidy-up. On the incremental builds a developer runs all day, that
+lookup *is* the build - it is 98% of a no-op and 86% of a one-step change. The
+pinning documentation now carries the table, because reproducibility is why
+pinning exists and latency is why anyone will keep it.
+
+**And it puts the rest of the day in proportion.** `EARTH_ASYNC_RELEASE` is worth
+1.50x on a chain of steps and `EARTH_PARALLEL_EXPORT` 1.76x on thirty-two
+artifacts; both are real, both were hard-won, and both are smaller than a
+one-line change to the Earthfile that the engine has been recommending on every
+build all along. The cheapest optimisation available was the one already
+shipped and under-quantified.

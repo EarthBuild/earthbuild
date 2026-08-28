@@ -38803,3 +38803,51 @@ and it is the one E813 was missing.
 **Left off by default.** A release behind the answer is a mount still up while
 the next step runs. Nothing in a test will notice; a sandbox that has run out of
 mounts will, under load, on somebody else's machine.
+
+## E820 - what an overlay unmount costs, and the four ways it cannot be made cheaper
+
+Releasing a step's base is 18.55ms of a 26.00ms step (E819), and 15.8ms of that
+is one `unmount`. Four ways to make it cheaper were measured on Linux, in a user
+namespace, twenty overlays each, and none of them works.
+
+**It is not the mount type being slow in general.** Overlay is specifically dear:
+
+| unmount | cost     |
+| ------- | -------- |
+| tmpfs   | 2,890us  |
+| bind    | 2,911us  |
+| overlay | 15,079us |
+
+Five times a bind or a tmpfs, and even those are three milliseconds - this
+kernel's floor for taking any mount away is not small.
+
+**A lazy detach does not help.** `MNT_DETACH` returns before the cleanup and was
+the obvious answer: 15,119us against 15,904us, which is the same number. The cost
+is the teardown itself and not waiting for a reference to drop.
+
+**Depth does not matter.** An overlay over one lower directory unmounts in the
+same time as one over twelve:
+
+| lowerdirs | per unmount |
+| --------- | ----------- |
+| 1         | 15,704us    |
+| 4         | 15,610us    |
+| 12        | 14,822us    |
+
+So squashing a deep stack into fewer layers buys nothing here, which is worth
+knowing because it is the natural thing to try after E814a suggested the mount
+side was depth-shaped. It is not, at either end.
+
+(24 lowerdirs would not mount at all - "wrong fs type, bad option, bad
+superblock". A separate limit, and not one this engine reaches.)
+
+**Concurrency gives a factor of two and a half and no more.** Thirty-two
+unmounts take 87ms serially and 36ms sixteen at a time; `namespace_sem` is held
+for write through each (E818).
+
+**Which leaves one lever: not doing it while anything is waiting.** That is
+`EARTH_ASYNC_RELEASE`, and it is worth 1.50x on a chain of steps precisely
+because none of the four cheaper-looking options exists. A fixed fifteen
+milliseconds to take away something that cost five microseconds to make is a
+property of the kernel, and the only thing an engine can do with a fixed cost is
+stop standing next to it.

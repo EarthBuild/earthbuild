@@ -38026,3 +38026,54 @@ still in the path.
 
 Cost of the thirteen tests this sweep added: 0.37 seconds in total, of which
 0.27 is one deliberate wait for a reply that must never come.
+
+## E807 - what a second VM would cost to read from
+
+The question, asked directly: if the cache lived in a long-lived VM and the build
+ran in an ephemeral one - earthly's model, where a daemon outlives the build and
+has a flush command - what does it cost to read a file across that boundary?
+
+Measured on this machine, Apple's `container` runtime, two VMs on the same
+virtual network:
+
+| where the file is            | per file | streaming |
+| ---------------------------- | -------- | --------- |
+| the same VM, on its own ext4 | ~1 us    | ~5 GB/s   |
+| the host, over virtiofs      | 310 us   | -         |
+| another VM, over the network | 390 us   | 95 MB/s   |
+
+The virtiofs figure is the engine's own, from E511. The others are from 10,000
+opens in one process (0.01s), a 2 GB read on a 1 GB VM (0.40s), twenty ICMP
+round trips (0.356/0.393/0.512 ms), and 512 MB over `nc` with a 1 KB control run
+subtracted for container startup.
+
+**A second VM is not a way out of virtiofs.** 390us against 310us is the same
+order and slightly worse, which is unsurprising once measured from the other
+side: host-to-VM is 0.427 ms, so guest-to-guest is routed through the host and
+pays the same crossing twice. Anything that reads *files* across a VM boundary
+costs about what the shared mount already costs.
+
+**Moving layers is a different question and the answer is the opposite.** One
+stream at 95 MB/s, unpacked into the ephemeral VM's own ext4, and every read
+afterwards is the 1 us column. For the image this was measured against - 14,541
+files - fetching individually is 5.7 seconds of latency and nothing else;
+shipping ~300 MB once is about 3 seconds, after which the reads total 15
+milliseconds.
+
+**And the engine already does exactly that.** Fetching a layer from a peer,
+verifying it, and unpacking it locally is `Provision`, `Fragments` and
+`PutVerified` - the fleet. A long-lived cache VM on this machine is a fleet peer
+that happens to be one hop away rather than one network away, and the fragment
+machinery narrows it further: what crosses is what the step was predicted to
+read, not the layer.
+
+Two caveats, both in the direction of the design looking better than this says.
+95 MB/s is `nc`'s number over a shell pipeline, and there is no reason to think
+it is the link's limit. And the 5 GB/s is partly page cache, which is the honest
+figure for a warm cache VM but not for a cold disk.
+
+The measurement that did *not* work is worth recording beside them: `busybox
+date` has no `%N`, so the first three attempts at the streaming figure divided by
+a zero elapsed time and reported 512,000 MB/s without anybody's arithmetic being
+wrong. The byte count was the thing that caught it - 536,870,912 bytes really had
+arrived, in "0ms".

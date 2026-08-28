@@ -176,6 +176,13 @@ when the second machine was asked (E822a, E825, E825a).
 | `EARTH_ASYNC_RELEASE`             | 1.50x          | noise       | implemented, off by default                |
 | cache an *anonymous* bearer token | -543ms/build   | -277ms      | not written - a credentials decision       |
 | `capture` against `commit`        | ~1ms/step      | ~1ms/step   | not attempted, small                       |
+| tar the context in one pass       | ~0.4ms/file    | ~0.4ms/file | not attempted - see below                  |
+
+**`COPY` is per-file, and nobody had measured it.** 0.73ms a file, linear, and
+independent of size - `COPY . /src` on a ten-thousand-file repository is about seven
+seconds. Two thirds of that is the host handling every file twice: copying the context
+into a staging directory, then reading it all back to tar it, where the guest unpacks
+the same tar at 0.037ms a file (E829).
 
 **Pinning is the largest and it was already there.** An unpinned `FROM` is two
 network round trips on the critical path of every build, and the engine prints

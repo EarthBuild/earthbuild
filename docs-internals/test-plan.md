@@ -1553,6 +1553,31 @@ stay open: whether `tests/fleet+all` catches them is unknown, and unknown is not
 elsewhere. The field is for a guard that has been found, not for a survivor that
 is inconvenient.
 
+**Attempted, and it stays unknown.** Four of the fleet mutants were applied by
+hand and judged with `earth-native -dir tests/fleet +all`; all four survived. The
+result is worthless. The run built locally:
+
+```text
+fleet: 0 of 2 worker(s) joined within 4m0s - building locally
+```
+
+No worker ever joined, so nothing was delegated and nothing those mutants touch
+was executed. It took three passes to notice - first the suite ran without
+`EARTH_FLEET_WORKERS` at all, then with workers but fully cached (`5 hit, 0
+miss`), then cold and still local.
+
+The workflow already guards this and says why, which is the best sentence in it:
+*a fleet that formed, placed nothing and built everything on the driver prints an
+otherwise identical log and exits zero.* It asserts `2 worker(s) joined` **and**
+`fleet <n> delegated`, and either alone would pass a local build wearing a
+fleet's clothes.
+
+So answering this needs two real `earth-worker` processes reachable at the
+driver's address with a shared `EARTH_FLEET_SECRET` - which is what the CI
+workflow arranges and a single machine does not. Until somebody does that, the
+eight fleet entries are neither guarded nor known to be unguarded, and the list
+should keep saying so.
+
 **E446 is the one open entry in code that runs today** - ownership kept when a
 layer is committed - and it turns out to be guarded already, by something the
 sweep cannot see.

@@ -40243,3 +40243,35 @@ the per-process cache cannot collapse requests that start before either
 finishes. Wall time is identical, so this is not a speed defect - but it doubles
 authentication traffic against Docker Hub's rate limits on a build whose targets
 share a repository, and single-flight would fix it.
+
+### E838b - the engine's own floor is 15ms
+
+Removing the network entirely - pinned digest, warm cache, nothing to do -
+leaves what this engine costs to start, plan and decide six steps are cached:
+
+```text
+pinned warm no-op    0.015s median   (0.023 0.009 0.041 0.015 0.012)
+  schedule           0.001s
+```
+
+Everything else is process start and reading a cache. There is no phase in it
+worth naming, which is the first time that has been true of anything measured
+here.
+
+Set against the two rows above it:
+
+```text
+pinned,   warm, no-op     0.015s
+unpinned, warm, no-op     0.426s      28x
+unpinned, cold            1.203s
+```
+
+**The engine is not what a build waits for.** Twenty-eight times the cost of a
+complete no-op build is two HTTP round trips establishing what `alpine:3` means
+today, and the third row adds the transfer. Every remaining lever measured this
+session - the config overlap that was won (E836a), the token machinery that was
+already optimal (E838), the resolution that was already concurrent (E838a) - sits
+in that gap and not in the 15ms.
+
+That is the argument for treating tag resolution as the next piece of work,
+whichever way the caching decision goes.

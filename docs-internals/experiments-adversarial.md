@@ -39230,3 +39230,50 @@ for a confusing exec failure.
 The last row would take the floor to nearly nothing and is the one principle 8
 forbids.
 and is the one principle 8 forbids.
+
+## E828 - fixing the ceiling revealed the layer beneath it
+
+**The skip ceiling was not the only thing wrong with this branch's CI - it was
+the only thing CI had got far enough to say.** Before E824, every run died at
+`Fast Check & Build` with nine jobs attempted. With the ceiling raised, the run
+expands to ninety-nine jobs, and fifteen of them fail. None of them had ever run
+on this branch.
+
+**Two distinct failures, both about the legacy engine under Podman.**
+
+The Examples jobs fail on the network:
+
+```text
+examples/clojure/Earthfile:6: RUN apt update && apt install zip -y
+  exited 100, and printed nothing
+```
+
+Three attempts, all the same. The core Podman tests fail differently, and worse:
+
+```text
+Error: build new buildkitd client: connect provided buildkit:
+  timeout 1m0s: could not connect to buildkit
+```
+
+buildkitd does not come up at all, three attempts, a minute each.
+
+**Not caused by today's work, and not obviously by any single change.** `main`
+runs twenty-one Podman jobs and passes all of them, so this is branch-specific
+rather than environmental. This branch touches `.github/workflows/reusable-test.yml`
+in one place, and that change only skips a diagnostic step on *native* jobs. The
+Earthfile changes are large, and the branch's whole purpose is to replace the
+engine those jobs exercise, so a plausible cause is that the buildkitd image
+those tests connect to is no longer built the way they expect.
+
+**And a diagnostic that makes it harder to see.** The failure-diagnostics action
+tries to collect logs from `earth-test-buildkitd`, `earthly-buildkitd` and
+`earth-buildkitd`; when a job failed *because* buildkitd never started, none of
+them exist, and the action's own error - `no container with name or ID
+"earthly-buildkitd" found` - is the last line in the log. The real cause is a
+hundred and fifty lines earlier. Two greps of that log found the diagnostic's
+error and not the failure.
+
+**Recorded, not fixed.** This is legacy-engine CI infrastructure, it is a
+separate piece of work from anything measured in this document, and starting it
+without direction would be the third time today that a plausible next step turned
+out to be somebody else's decision.

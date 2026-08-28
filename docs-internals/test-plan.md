@@ -1538,6 +1538,21 @@ engine's mechanisms are judged by suites driven from an Earthfile - the corpus,
 there. Fixing that means teaching the catalogue to name a command rather than a
 package, which is a change to the tool and not to the tests.
 
+That is now done, in the smaller form that does not require running the suite:
+`Mutant.Judge` names the guard, and the verdict becomes `elsewhere` - counted as
+neither a gap nor a problem, with the guard printed beside it:
+
+```text
+elsewhere  guest: ownership kept when a layer is committed (E446)
+             guarded by tests/copy-keep-own.earth and tests/chown.earth in the
+             corpus, which no go test invocation runs
+```
+
+Only E446 carries it, because only E446's guard has been read. The fleet entries
+stay open: whether `tests/fleet+all` catches them is unknown, and unknown is not
+elsewhere. The field is for a guard that has been found, not for a survivor that
+is inconvenient.
+
 **E446 is the one open entry in code that runs today** - ownership kept when a
 layer is committed - and it turns out to be guarded already, by something the
 sweep cannot see.

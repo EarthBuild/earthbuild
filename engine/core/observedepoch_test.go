@@ -34,11 +34,24 @@ func TestBothKeysCarryTheCacheEpoch(t *testing.T) {
 		Listings: map[string]ir.NodeID{},
 	}
 
-	got := DeriveObservedKey(n, nil, obs)
-
-	if got == deriveObservedKeyAtEpoch(n, nil, obs, cacheEpoch+1) {
+	if DeriveObservedKey(n, nil, obs) ==
+		deriveObservedKeyAtEpoch(n, nil, obs, cacheEpoch+1) {
 		t.Error("the epoch does not reach Κ₂: entries recorded under an older" +
 			" meaning of an observation stay reachable, and a cache-semantics" +
 			" fix would not apply to any store that already exists")
+	}
+
+	// Κ₁ is the half that matters most and the half that was missing. This
+	// assertion was written once and silently did not land - the edit that was
+	// supposed to add it replaced nothing - so the epoch could be deleted from
+	// the chain key with the suite still green, which the catalogue's E795
+	// mutant then proved by surviving.
+	base := []ir.NodeID{{1}}
+
+	if DeriveChainKey(n, base, nil) ==
+		deriveChainKeyAtEpoch(n, base, nil, cacheEpoch+1) {
+		t.Error("the epoch does not reach Κ₁, so a result a false L2 hit" +
+			" recorded under a correct base survives the fix and is served" +
+			" from L1 - which is what a poisoned store was measured doing")
 	}
 }

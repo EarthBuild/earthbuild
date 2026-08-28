@@ -1142,6 +1142,27 @@ var Mutants = []Mutant{
 		Package:     "./engine/fleet/",
 	},
 	{
+		Name:        "guest: a directory observed without its listing (E794)",
+		File:        "engine/guest/sightings.go",
+		Anchor:      "\t\t\t\tw.list(p, listing)",
+		Replacement: "\t\t\t\t_ = listing",
+		Package:     "./engine/guest/",
+	},
+	{
+		Name:        "core: a key that does not carry the cache generation (E795)",
+		File:        "engine/core/key.go",
+		Anchor:      "\th.Count(epoch)",
+		Replacement: "\t_ = epoch",
+		Package:     "./engine/core/",
+	},
+	{
+		Name:        "cli: an image written without refusing a leaked secret (E798)",
+		File:        "engine/cli/images.go",
+		Anchor:      "\t\terr = e.RefuseLeakedImage(img.Source, stack)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\n",
+		Replacement: "",
+		Package:     "./engine/exec/",
+	},
+	{
 		Name:        "trace: fetching a path before the step sees it is missing (E289)",
 		File:        "engine/trace/tracer_linux.go",
 		Anchor:      "\tt.fill(path)\n\tt.record(path, isOpenNR(n.Data.NR))",

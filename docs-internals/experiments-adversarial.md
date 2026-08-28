@@ -38258,3 +38258,67 @@ number. A benchmark harness that cannot distinguish success from failure is a
 probe that fails open, and it will always report the failure as an improvement,
 because failing is quicker than working. Every harness in this document now
 checks the exit code and asserts on the artifact.
+
+## E812 - a wide DAG does not scale, and the reason is not any of the obvious ones
+
+**Question.** `step-breakdown.md` asserts that a build's parallelism comes from
+the width of its DAG, bounded by `Parallelism` (NumCPU when zero). It asserts it
+because the scheduler is plainly a DAG executor, not because anyone measured it.
+
+**It does not hold.** N independent targets, five chained `RUN`s each, so depth is
+constant and only width varies. Exit code checked and every target's artifact
+counted on every run; nothing discarded:
+
+| width | steps | wall   | steps/s |
+| ----- | ----- | ------ | ------- |
+| 1     | 5     | 547ms  | 88      |
+| 2     | 10    | 540ms  | 185     |
+| 4     | 20    | 581ms  | 218     |
+| 8     | 40    | 709ms  | 183     |
+| 16    | 80    | 944ms  | 176     |
+| 32    | 160   | 1408ms | 174     |
+
+Throughput saturates at about 175 steps/s from width 4 onward. Sixteen cores at
+13.2ms a step is 1,200 steps/s, so this is roughly 14% of what the hardware
+allows - about 2.3 steps genuinely in flight however many are offered.
+
+**Everything inflates, including things that do nothing.** Per-step phases at
+width 1 against width 16:
+
+| phase           | width 1 | width 16 | inflation |
+| --------------- | ------- | -------- | --------- |
+| `guest:prepare` | 1.2ms   | 18.22ms  | 15x       |
+| `guest:unbind`  | 1.0ms   | 17.55ms  | 17x       |
+| `guest:bind`    | 1.0ms   | 13.16ms  | 13x       |
+| `guest:exec`    | 11.8ms  | 34.04ms  | 2.9x      |
+| `materialise`   | 1.9ms   | 8.39ms   | 4.4x      |
+
+`guest:prepare` is a map lookup under a mutex held nowhere else for longer than
+a map operation. Eighteen milliseconds of it is not the lookup; it is the
+goroutine waiting to run at all.
+
+**Three hypotheses, all tested, all wrong.**
+
+* *Dentry relief.* `relieveDentries` runs at the end of every request and can
+  write to `/proc/sys/vm/drop_caches`, which is global and serialising. Raising
+  the limit to a hundred million made no difference (909ms against 986ms), so it
+  never fires at this scale.
+* *The instrument.* `timing.Phase` writes to stderr, which is lock-serialised,
+  and a 16-wide build makes some 1,600 of those writes. Timings on measured
+  982ms against 1057ms off - if anything faster, so noise. The phase numbers
+  above are not an artefact of collecting them.
+* *CPU.* Eight times the cores buys 19%: `EARTH_SANDBOX_CPUS=2` is 1081ms and
+  `=16` is 911ms. A build that scaled with cores would not do that.
+
+**So there is a serial resource costing roughly 5.7ms a step and it has not been
+identified.** Mount operations are the standing suspect - five mount groups per
+step, `proc` `sys` `cgroup2` the bind set and `devpts`, and the kernel takes
+`namespace_sem` exclusively for each - and the mount phases are the ones that
+inflate most. But the arithmetic does not close: 2.0ms of mount service time at
+width 1 would cap throughput near 500 steps/s, not 175.
+
+Naming it needs a profile from inside the guest rather than another hypothesis
+from outside it. Recorded here unfinished, because the size of the prize is the
+part that matters: a build wide enough to use this machine is using about a
+seventh of it, and that is a larger number than anything else in
+`step-breakdown.md`.

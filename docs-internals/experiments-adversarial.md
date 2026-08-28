@@ -39348,6 +39348,18 @@ failed and cannot say which of the group's tests was running it.
 That is why `tests/Earthfile:1792` was read here as "the failing test" for two
 rounds of this investigation. It is not a test; it is the label every test shares.
 
+**And the engine selection is correct, which was the last structural
+hypothesis.** `stage2-setup` sets `EARTH_ENGINE=buildkit` for every non-native
+job, and the failing job's environment shows `EARTH_ENGINE: buildkit` fifteen
+times over. It is not accidentally running the native engine - a real risk, since
+this branch's CLI defaults to native and that action exists precisely because the
+docker and podman jobs once failed for that reason.
+
+So: right engine, identical test file, identical frontend code, consistent image
+reference, tolerated frontend errors, and two of twelve nested connections timing
+out. Everything structural is eliminated and what remains looks like contention.
+The next step is a local reproduction rather than another log.
+
 **Recorded as the third diagnosability finding of the day**, after the skip
 ceiling printing the top forty of a hundred and sixty-three, and the failure
 diagnostics reporting their own absence as the job's error. Each cost more of

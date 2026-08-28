@@ -41471,3 +41471,35 @@ could decline to report when the previous layer is absent from the store rather
 than merely different - absence is not divergence. Or the record could be scoped
 to the store that holds the layer, so losing the volume loses the claim with it.
 The second is the same fix E858a needs.
+
+### E859a - the obvious fix for E859 does not work, and the reason is the defect
+
+Chasing the fix far enough to price it. `whyItReran` (engine/cli/records.go)
+holds the store path and the previous record, so the check looks available:
+before reporting non-determinism, ask whether the previous layer is still in the
+store, and stay quiet if it is not.
+
+**It is not available.** With `EARTH_STORE_IN_VM` on - the default - the layers
+are on the sandbox's own volume, and the host cannot see them. The very
+condition that makes the report false is the one that makes the test for it
+impossible from where the report is written. `core.Diverge` and `core.Report` are
+both pure functions over two records, deliberately, so neither can ask either.
+
+**So the fix is a design choice, not an edit**, and there are three shapes:
+
+* ask the *guest* whether the layer is there, which makes reporting depend on a
+  live sandbox;
+* have the L1 lookup record that it missed for a key whose previous record
+  claimed a layer - absence observed where it happens, and carried, rather than
+  reconstructed later;
+* scope the record to the store, so losing the volume loses the claim, which is
+  also E858a's fix.
+
+The second is the one that fits how this engine already reasons: the lookup is
+the only place that knows "I was told this exists and it does not", and every
+other diagnostic in this document that worked was one that reported what it
+observed rather than one that inferred it afterwards.
+
+Left here with the reproducer and the pricing, because choosing between three
+shapes of a cache invariant at four in the morning is how a subtle one gets
+chosen.

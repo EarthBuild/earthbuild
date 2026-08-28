@@ -647,6 +647,54 @@ func withProtocol(port string) string {
 	return port + "/tcp"
 }
 
+// expandPorts turns one EXPOSE argument into the ports it declares.
+//
+// `EXPOSE 1234-1239` is six ports and docker expands it when it parses the
+// Dockerfile, so an image configuration carries an entry each. This appended
+// the protocol and stored the range whole, which put `1234-1239/tcp` in the
+// configuration - a value the daemon does not merely ignore but refuses:
+// `docker load` fails with `invalid port '1234-1239': invalid syntax`, which
+// names the port and neither the image nor the build that made it (E842).
+//
+// **Malformed input is passed through, not diagnosed.** A reversed or
+// non-numeric range keeps the shape it had, so the daemon reports it in its own
+// words at the point it matters. Inventing a second opinion here would put two
+// different messages in front of the same mistake, and this one would arrive
+// first and know less.
+func expandPorts(port string) []string {
+	spec, proto, hasProto := strings.Cut(port, "/")
+
+	lo, hi, isRange := strings.Cut(spec, "-")
+	if !isRange {
+		return []string{withProtocol(port)}
+	}
+
+	first, err := strconv.Atoi(lo)
+	if err != nil {
+		return []string{withProtocol(port)}
+	}
+
+	last, err := strconv.Atoi(hi)
+	if err != nil || last < first {
+		return []string{withProtocol(port)}
+	}
+
+	out := make([]string, 0, last-first+1)
+
+	// Inclusive of the upper bound, which is what `EXPOSE 1234-1239` means and
+	// what docker writes: six entries, not five.
+	for p := first; p <= last; p++ {
+		one := strconv.Itoa(p)
+		if hasProto {
+			one += "/" + proto
+		}
+
+		out = append(out, withProtocol(one))
+	}
+
+	return out
+}
+
 // secretDigestFor maps the sources a step draws on to their fleet-keyed digests.
 //
 // Nil - and so an uncacheable step - unless every source has one. A partial map
@@ -1261,8 +1309,12 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// and an OCI configuration says so as `8080/tcp`. Stored raw, the saved
 		// image had `{"8080":{}}` where every other tool writes `{"8080/tcp":{}}`
 		// - which docker accepts and nothing else recognises as a tcp port.
+		//
+		// A range is expanded here for the same reason: `EXPOSE 1234-1239`
+		// declares six ports, and an image carrying `1234-1239/tcp` is one the
+		// daemon refuses to load at all (E842).
 		for _, p := range c.Args {
-			rs.cfg.Exposed = append(rs.cfg.Exposed, withProtocol(p))
+			rs.cfg.Exposed = append(rs.cfg.Exposed, expandPorts(p)...)
 		}
 
 		return prev, nil

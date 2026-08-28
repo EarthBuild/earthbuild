@@ -15,6 +15,9 @@ func bindMounts(_, _, _, _ string, _ []Mount) (func(), error) {
 // deviceMounts is empty off Linux: there is no step filesystem to put them in.
 func deviceMounts() []Mount { return nil }
 
+// missingDevices names nothing off Linux, where deviceMounts binds nothing.
+func missingDevices(string) []string { return nil }
+
 // mountProc has nothing to do off Linux, which is not the same as failing to do
 // it.
 //

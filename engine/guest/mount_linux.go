@@ -757,6 +757,38 @@ func resolverMount() []Mount {
 	return []Mount{{Sandbox: path, Target: path, ReadOnly: true, Mode: 0o644}}
 }
 
+// stepDevices are the device files every step is entitled to, named once so
+// that what is bound and what is reported missing cannot drift apart.
+var stepDevices = []string{
+	"/dev/null", "/dev/zero", "/dev/full",
+	"/dev/random", "/dev/urandom", "/dev/tty",
+}
+
+// missingDevices names the devices this sandbox does not have, relative to root.
+//
+// deviceMounts skips an absent device on purpose - a sandbox image is entitled
+// to differ, and a build must not stop because the machine has no /dev/full -
+// but nothing said which were skipped. A step without /dev/null does not report
+// that: it reports whatever reached for it, and in CI that was `line 53: can't
+// create /dev/null: Permission denied`, followed by an entrypoint concluding
+// from the failed redirect that the container was unprivileged. Two wrong
+// diagnoses, from one silence (E845).
+//
+// Rooted rather than absolute so a test can supply a directory instead of a
+// machine; the guest passes "/".
+func missingDevices(root string) []string {
+	var out []string
+
+	for _, dev := range stepDevices {
+		_, err := os.Stat(filepath.Join(root, dev))
+		if err != nil {
+			out = append(out, dev)
+		}
+	}
+
+	return out
+}
+
 // deviceMounts are the device files every step is entitled to.
 //
 // A step's filesystem is its layer stack, and a layer stack contains no
@@ -807,10 +839,7 @@ func deviceMounts() []Mount {
 		{Ephemeral: true, Tmpfs: true, Target: "/dev/shm", Mode: 0o1777},
 	}
 
-	for _, dev := range []string{
-		"/dev/null", "/dev/zero", "/dev/full",
-		"/dev/random", "/dev/urandom", "/dev/tty",
-	} {
+	for _, dev := range stepDevices {
 		_, err := os.Stat(dev)
 		if err != nil {
 			continue

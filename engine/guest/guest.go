@@ -2242,6 +2242,18 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 	s.noteUnmounted(whyMount(whySys))
 
+	// **The fourth member of this family, and the one that skips silently.**
+	// deviceMounts drops a device the sandbox has not got, which is right - a
+	// build must not stop because the machine has no /dev/full - but a step
+	// without /dev/null reports whatever reached for it instead. In CI that
+	// was a failed `> /dev/null` redirect, read by the entrypoint as proof the
+	// container was unprivileged: two wrong diagnoses from one silence (E845).
+	if absent := missingDevices("/"); len(absent) > 0 {
+		s.noteUnmounted("this sandbox has no " + strings.Join(absent, ", ") +
+			"\n  a step reaching for one is told the file does not exist," +
+			"\n  which reads as a broken image rather than a missing mount")
+	}
+
 	defer undoSys()
 
 	// Inside the /sys above, and on the same weak rule: a machine on cgroups v1

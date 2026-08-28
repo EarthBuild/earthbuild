@@ -959,8 +959,15 @@ var Mutants = []Mutant{
 	{
 		Name:        "layer: asking for nothing meaning everything (E281)",
 		File:        "engine/layer/pack.go",
-		Anchor:      "\tif len(want) == 0 {\n\t\treturn entries\n\t}",
-		Replacement: "\tif false {\n\t\treturn entries\n\t}",
+		// Anchored on the keeper rather than on `keeping`'s early return, which
+		// was where this pointed and which is an *optimisation*: `keeps` is
+		// `k.all || …` and `all` is already `len(want) == 0`, so deleting the
+		// early return changes nothing a test could see. An equivalent mutant
+		// is unkillable, and a sweep reports it as a survivor for ever - which
+		// costs an afternoon per reader until somebody moves it to the line
+		// that decides.
+		Anchor:      "\t\tall:      len(want) == 0,",
+		Replacement: "\t\tall:      false,",
 		Package:     "./engine/layer/",
 	},
 	{

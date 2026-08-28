@@ -1302,13 +1302,6 @@ var Mutants = []Mutant{
 		Package:     "./engine/fleet/",
 	},
 	{
-		Name:        "fleet: priming nothing when nothing was predicted (E292)",
-		File:        "engine/fleet/filler.go",
-		Anchor:      "\tif len(want) == 0 {\n\t\treturn nil\n\t}\n\n\t// Bottom up here",
-		Replacement: "\tif false {\n\t\treturn nil\n\t}\n\n\t// Bottom up here",
-		Package:     "./engine/fleet/",
-	},
-	{
 		Name:        "fleet: priming bottom up so the top layer wins (E292)",
 		File:        "engine/fleet/filler.go",
 		Anchor:      "\tfor _, id := range f.Stack {\n\t\terr := f.primeLayer(ctx, id, want)",

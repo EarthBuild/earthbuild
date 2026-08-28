@@ -1490,21 +1490,21 @@ Thirteen mechanisms nothing guards, cross-checked on linux and darwin so that a
 platform-gated mutant is not mistaken for an untested one (E801). Each is a line
 of code that can be deleted with the suite still green.
 
-| code     | mechanism                                                                                                                           |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| ~~E274~~ | fleet: not dialling when nothing was delegated - **done**: a counting Keeper, since a taken shortcut asks it nothing                |
-| E279     | fleet: correcting a reply's address before anybody sees it                                                                          |
-| ~~E281~~ | layer: asking for nothing meaning everything - **not a gap**: an equivalent mutant, re-anchored onto `newKeeper`'s `all` and killed |
-| E282     | fleet: leaving nothing behind when a fragment fails to arrive                                                                       |
-| E291     | guest: a fault-in answer finding the request that asked                                                                             |
-| E292     | fleet: priming nothing when nothing was predicted                                                                                   |
-| E297     | exec: giving the guest a fault-in channel only when asked                                                                           |
-| E299     | fleet: omitting a proof the caller says it has                                                                                      |
-| E309     | fleet: a holder that will not dial saying so                                                                                        |
-| E319     | fleet: the pilot going out rather than waiting on itself                                                                            |
-| ~~E446~~ | guest: ownership kept when a layer is committed - **covered by the corpus**, which the mutant's `go test` never runs                |
-| ~~E494~~ | cli: the sandbox asked how it shares the store - **done**: viewsFor must use the answer, not merely receive it                      |
-| ~~E634~~ | guest: the scratch relocated off an overlay - **done**: a source guard that production takes the escape                             |
+| code     | mechanism                                                                                                                                              |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ~~E274~~ | fleet: not dialling when nothing was delegated - **done**: a counting Keeper, since a taken shortcut asks it nothing                                   |
+| E279     | fleet: correcting a reply's address before anybody sees it                                                                                             |
+| ~~E281~~ | layer: asking for nothing meaning everything - **not a gap**: an equivalent mutant, re-anchored onto `newKeeper`'s `all` and killed                    |
+| E282     | fleet: leaving nothing behind when a fragment fails to arrive                                                                                          |
+| E291     | guest: a fault-in answer finding the request that asked                                                                                                |
+| ~~E292~~ | fleet: priming nothing when nothing was predicted - **not a gap**: an equivalent mutant, entry removed; the decision it looked like is guarded by E288 |
+| E297     | exec: giving the guest a fault-in channel only when asked                                                                                              |
+| E299     | fleet: omitting a proof the caller says it has                                                                                                         |
+| E309     | fleet: a holder that will not dial saying so                                                                                                           |
+| E319     | fleet: the pilot going out rather than waiting on itself                                                                                               |
+| ~~E446~~ | guest: ownership kept when a layer is committed - **covered by the corpus**, which the mutant's `go test` never runs                                   |
+| ~~E494~~ | cli: the sandbox asked how it shares the store - **done**: viewsFor must use the answer, not merely receive it                                         |
+| ~~E634~~ | guest: the scratch relocated off an overlay - **done**: a source guard that production takes the escape                                                |
 
 Eight are `fleet`. That is the subsystem with the most machinery and the fewest
 tests, and those are not two observations.

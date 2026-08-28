@@ -45,10 +45,24 @@ func specFor(
 		Created: created,
 	}
 
+	// **An image always says what machine it is for.** `architecture` and `os`
+	// are required by the image specification, and this parsed the platform,
+	// discarded the error, and left the zero value in place - so a build with no
+	// `--platform`, which is nearly every build, wrote both empty. `docker
+	// inspect` reported no architecture on an image that was otherwise right,
+	// and a registry that validates its input would refuse it (E793).
+	//
+	// The default stands in for an answer that was never given; it does not
+	// replace one that was. A platform that will not parse falls back here too,
+	// because an image nothing can place is not the better failure - but the
+	// string reaching this function unparsed is a separate defect, and this is
+	// deliberately not the place that hides it.
 	p, err := platforms.Parse(platform)
-	if err == nil {
-		spec.Platform = ocispec.Platform{OS: p.OS, Architecture: p.Architecture, Variant: p.Variant}
+	if err != nil {
+		p = platforms.DefaultSpec()
 	}
+
+	spec.Platform = ocispec.Platform{OS: p.OS, Architecture: p.Architecture, Variant: p.Variant}
 
 	return spec
 }

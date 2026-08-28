@@ -37322,3 +37322,82 @@ The layer count was checked by **running** the image rather than by trusting the
 number: `/f.txt`, `KEEP`, the working directory and the user all arrive. A count
 that differs is exactly the shape that a missing layer would also take, and the
 metadata cannot tell the two apart.
+
+## E794 - a directory was keyed on its mode, and builds went stale
+
+The worst defect the sweep found, and the only one that makes a build silently
+wrong rather than merely different from the reference.
+
+The Earthfile is `COPY ctx /c` followed by `RUN find /c -type f`:
+
+```console
+$ earth-native +t
+  /c/a.txt
+$ echo b > ctx/b.txt && earth-native +t
+  /c/a.txt
+$ earthly +t
+  /c/a.txt /c/b.txt
+```
+
+The second build is the defect: the file is in the context and not in the
+result.
+
+`ls` and a shell glob behave identically, because all three *enumerate* rather
+than read. The class is every step whose result depends on which files exist:
+`go build ./...`, a `make` wildcard, cargo's scan of `src/`, any test discovery.
+A developer adds a source file, rebuilds, and the build succeeds without it.
+
+**The mechanism, which took four wrong guesses to reach.** Κ₂ has 𝐷 - "directories
+listed, with the digest of each listing". `Observation.Listings` carries it,
+`absorb` folds it, `observationPage` pages it, the profile store persists it, and
+`Consistent` verifies it. Every part of the pipeline exists. Nothing ever put
+anything in it: `recordSightings` called `w.read` for each path the tracer
+reported, `watcher.observation` returned `Listings` as a fresh empty map, and a
+directory's *read* digest is `PathDigestIn`'s answer about the entry **at** the
+path - its mode and ownership - which does not change when a file appears inside
+it. So the key moved for a file's contents and stood still for a directory's.
+
+The evidence that settled it was the stored profile rather than the code:
+
+```json
+{"reads":{"/bin/sh":"1c189c…","/c":"437f9bf2…","/c/a.txt":"d02e329d…"}}
+```
+
+`/c` is there - recorded, digested, and keyed on the wrong property. Guessing
+from the code had me looking for a missing `getdents` in the traced syscall list
+twice before the profile showed the path was observed all along.
+
+**Why the guard did not catch it.** `usableObservation` refuses an empty
+observation from an exec step precisely to stop this, and the observation was not
+empty - the step read `/bin/sh` and its libraries. `Incomplete` was false because
+the tracer did not know it had missed anything. The design's own rule is that a
+source which cannot report its own loss cannot be used for cache keys; this
+source could not report *this* loss, and nothing above it could tell.
+
+**The fix** records a directory the step looked at as a listing as well as a
+read, digesting it with one shared function that both sides call - the guest to
+record, the store to recompute when checking - because two spellings of one rule
+is the divergence this engine keeps finding. Any directory the step touched, not
+only one seen to be enumerated: the tracer does not watch `getdents`, so it
+cannot tell opening a directory from listing it, and the wide rule costs an L2
+hit that was available where the narrow one costs a wrong build.
+
+Measured, both binaries rebuilt per commit:
+
+| build            | before                   | after                  |
+| ---------------- | ------------------------ | ---------------------- |
+| fresh            | 0 hit, 4 miss            | 0 hit, 4 miss          |
+| after a file add | 1 hit, 2 miss, **stale** | 1 hit, 3 miss, correct |
+| no change        | 4 hit, 0 miss            | 4 hit, 0 miss          |
+| no change again  | 4 hit, 0 miss            | 4 hit, 0 miss          |
+
+One extra miss, in the build where the change happened, on the step that had to
+re-run. Steady-state caching is unchanged.
+
+**A method note worth more than the fix.** The first baseline said the parent
+commit was *correct*, which would have retracted the whole finding. It was
+contaminated: the harness rebuilt `earth-native` for each commit and not
+`earth-guestd`, and the defect lives in the guest - so the "before" run used the
+fixed guest with the old CLI. A binary that is not rebuilt is a variable that is
+not controlled, and an A/B over two commits controls neither unless every
+artefact under test moves with them.

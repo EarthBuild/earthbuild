@@ -40546,3 +40546,36 @@ case it is in, every build, which is the part that was missing.
 Jobs still fail - `WITH DOCKER got a daemon and no client`, and a `docker load`
 in `tests/with-docker-expose` - but those are different failures than the ones
 this started with, and they are the next thing rather than this thing.
+
+### E841b - the /sys fix holds across the suite; what is left is heterogeneous
+
+Eight Native failures from run 33200524673, sampled with a suite-filtered
+selector (E839b's lesson), counting signatures per job:
+
+```text
+job                sysEPERM  cgroup-missing  docker-client-warning  incomplete
+all eight             0            0              3 of 8               3 each
+```
+
+**The fix holds everywhere it was aimed.** `mount /sys for the step: operation
+not permitted` and `no cgroup mount found in mountinfo` are absent from all eight,
+where before they appeared three and four-to-nine times per job. One cause,
+removed across the suite.
+
+**What is left is not one thing.** The final errors cluster as six generic
+earth-in-earth wrapper failures and two specific `WITH DOCKER` ones - a `docker
+load` and a `docker inspect`. Three of the eight carry:
+
+```text
+warning: WITH DOCKER got a daemon and no client - /usr/bin/docker is
+  dynamically linked, so a step could not run it
+```
+
+which is this engine reporting, correctly and in advance, that it mounted a
+socket and could not supply a client. That is a named, bounded piece of work -
+supply a static client, or stop claiming to supply one - and it accounts for at
+most three of the eight.
+
+**And `incomplete=3` in every job** is the cgroup2 mount failing on every runner,
+which is the standing I3 decision from E841a rather than a defect: a step is
+using the machine's tree because it cannot have its own.

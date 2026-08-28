@@ -37885,3 +37885,43 @@ says the reason was sound.
 No bottleneck to attack here, which is itself the finding. The speed work worth
 doing is the tag resolution that E797 measured and the parked decisions behind
 it, not the scheduler.
+
+## E803 - the Podman failures are two things, not one
+
+The Podman suites have been described through this work as failing for one
+reason: the parked question of running `WITH DOCKER` on a machine whose docker
+daemon has been purged. Sampled rather than assumed, they are two.
+
+*The test jobs* fail as that story predicts:
+
+```text
+Error: connect provided buildkit: timeout 1m0s: could not connect to buildkit:
+       failed to list workers: Unavailable
+```
+
+The backend cannot bring up a buildkitd it can reach, which is the decision.
+
+*The Examples jobs do not.* They fail inside the example being built:
+
+```text
+examples/clojure/Earthfile:6: RUN apt update && apt install zip -y exited 100
+```
+
+`apt` exiting 100 is a package manager that could not reach or resolve its
+repositories. Two of the three sampled show it, six occurrences each; the third
+has some other cause and was not chased. Nothing about it is podman's, and
+nothing about it is this engine's - the same line would fail the same way under
+any backend on a runner whose network or mirror was unhappy at that moment.
+
+**The correction matters more than the finding.** "All the Podman failures are
+the parked decision" is the kind of statement that is cheap to repeat and
+expensive to check, and it had been repeated several times here. It survived
+because it was plausible and because the jobs are red either way. The same
+sentence about the Native suite was corrected two entries ago for the same
+reason - a grep count standing in for a diagnosis - which makes twice in one
+sweep that a tidy attribution turned out to be two untidy ones.
+
+The general form, since it keeps recurring: **a failing suite is a set of
+failures, and its cause is a claim about every member of that set.** Sampling
+three of them is not proof, but it is enough to disprove the claim that they are
+all one thing, which is the claim that gets made.

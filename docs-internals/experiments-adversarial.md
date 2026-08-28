@@ -37195,3 +37195,55 @@ this sweep found were invisible to the test suite and obvious the moment the
 same input went to both engines - and this one was found only because the first
 fix did *not* change the end-to-end answer, which is the check that a passing
 unit test cannot perform for you.
+
+## E791 - widening the harness one level, and what a directory hides
+
+Round four of the differential ran 18 Earthfiles built to break a filesystem:
+setuid and sticky bits, hardlinks, a broken relative symlink, names with spaces
+and with accents, a leading-dash name, dotfiles, an empty file, fifty files, a
+five-deep tree, `FROM +target`, `FUNCTION`/`DO`, a directory artifact copied
+between targets, `ENV` persistence, and a `WORKDIR` that does not exist yet.
+
+**All 18 agreed. Then the harness was corrected and 17 of them disagreed.**
+
+The snapshot walked `find out \( -type f -o -type l \)`. A directory is neither,
+so an exported directory's *mode* was never compared - a blind spot one level up
+from E788's, in the harness written to avoid E788's. Adding directories to the
+walk turned an unbroken column of agreement into two findings.
+
+*Found and fixed.* `chmod 1777 /d` came back as `0755`. Two independent losses,
+one per side of the wire. The guest recorded directory modes with
+`fi.Mode().Perm()`, which masks to the low nine bits and drops setuid, setgid
+and sticky. The host then created each directory with `os.MkdirAll` at the
+source's mode, which the umask filters - `0777` asked for arrives as `0755` - and
+never chmod'ed afterwards. Both now apply the whole mode explicitly, deepest
+first, which is what the guest's `copyTree` already did for the directories it
+did record and the reason it does it.
+
+The sharper half is not the wrong mode. A directory the build left at `0500`
+cannot be *filled* after it has been created at its own mode, so exporting one
+failed outright with `permission denied`. Worth knowing that the reference fails
+the same way and has not been fixed:
+
+```console
+$ earthly +t
+  Error: failed to create .tmp-earthly-out/.../ro/g: permission denied
+$ earth-native +t
+  ro=500
+```
+
+So this engine is now correct on a case earthly cannot do at all - the second
+such (see E787), and the first where the divergence is a defect on their side
+rather than a permission on ours.
+
+*Open, and in every build.* The destination directory the engine creates for
+`AS LOCAL out/...` is `0750` here and `0755` under earthly. Tighter is the
+better default and is presumably deliberate, but it is a divergence in every
+build that saves into a subdirectory, and it is the caller's directory rather
+than the artifact's - a CI step that uploads `out/` as another user reads
+nothing. Recorded as a question rather than changed, because the change loosens
+a permission and that is not a decision to take while tidying.
+
+The method note has now been earned three rounds running: **a harness that
+cannot observe a property reports agreement about it.** Files were compared and
+agreed; directories were not compared and did not.

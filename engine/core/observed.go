@@ -21,10 +21,36 @@ import (
 // nothing, so a key over 𝑅 alone would let it hit against a base where /x
 // exists. That is invariant I3 violated: a false cache hit, the one failure a
 // build system must never have.
+// observedEpoch versions what an observation *means*.
+//
+// A cache key describes a claim, and Κ₂'s claim is "this result is valid over
+// any base agreeing with what the step was seen to look at". When the seeing
+// changes, every entry written under the old seeing is still reachable and still
+// wrong - its own record is what the consistency check consults, so a check
+// against a record that never mentioned a directory's contents passes exactly as
+// vacuously as it did before the fix.
+//
+// **Bump this whenever an observation gains or loses a component**, or narrows
+// or widens what one of them covers. It costs one cold build per store, once;
+// not bumping it costs a fix that applies only to machines that have never built
+// before.
+//
+//	1  reads and negative lookups only
+//	2  directories carry their listing as well as their mode (E794)
+const observedEpoch = 2
+
+// DeriveObservedKey computes Κ₂ at the current epoch.
 func DeriveObservedKey(n *ir.Node, refs []ir.NodeID, obs Observation) Key {
+	return deriveObservedKeyAtEpoch(n, refs, obs, observedEpoch)
+}
+
+func deriveObservedKeyAtEpoch(
+	n *ir.Node, refs []ir.NodeID, obs Observation, epoch int,
+) Key {
 	h := ir.NewHasher()
 
 	h.Byte(domainObserved)
+	h.Count(epoch)
 
 	// sort(𝑅): paths read, with what was read. Sorted because map order must
 	// not reach a key.

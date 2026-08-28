@@ -786,7 +786,10 @@ when each unit is cheap.
 Off by default because it changes what a failing build leaves behind: written serially, an artifact
 after a failure is never written, while concurrently one already in flight may land before the
 cancellation reaches it. Same error, same exit code, one or two more files in the working tree.
-That is a decision about what a failed build leaves behind rather than about speed.
+That is a decision about what a failed build leaves behind rather than about speed - and what it
+leaves is a *complete* file, never a partial one: `placeOut` writes to a temporary beside the
+destination and renames, so a regular-file artifact either lands whole or not at all. Directory
+artifacts can be left part-written by a cancellation, as they can when written serially.
 
 Default: off.
 

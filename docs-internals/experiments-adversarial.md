@@ -39087,3 +39087,82 @@ and order preserved where order is observable. What holds it off is the one
 behaviour change - an artifact already in flight can land after a failure that
 serial writing would have prevented - and that is a decision about what a failed
 build leaves behind rather than about speed.
+
+## E826 - the whole matrix, so the decision has one table
+
+Both switches, both platforms, correctness and speed, in the form somebody
+choosing a default actually needs.
+
+**Correctness.** The Linux corpus ratchet - 486 Earthfiles, failing both when
+fewer build and when more do - passes with each switch and with both. The macOS
+suite passes with each. Nothing in either was weakened to get there.
+
+| check                         | `EARTH_PARALLEL_EXPORT` | `EARTH_ASYNC_RELEASE` |
+| ----------------------------- | ----------------------- | --------------------- |
+| Linux corpus ratchet          | passes                  | passes                |
+| macOS suite                   | green                   | green                 |
+| leaked mounts after a build   | none                    | none                  |
+| order of output and of errors | Earthfile order         | unaffected            |
+
+**Speed, by the shape of the build.**
+
+| build                         | Linux, bare metal | macOS, guest in VM |
+| ----------------------------- | ----------------- | ------------------ |
+| 20-step chain, async release  | 1.50x             | noise (1.03x)      |
+| 32 artifacts, parallel export | 1.76x             | 1.13x              |
+| 8 targets x 8 steps, both     | ~1.35x            | 1.08x              |
+| 486-Earthfile corpus, both    | 1.07x             | not run            |
+
+**What the table says.** `EARTH_PARALLEL_EXPORT` pays on both platforms and on
+every shape, from 8% to 76%. `EARTH_ASYNC_RELEASE` pays on one machine and is
+inert on the other, because it is worth exactly what that machine's overlay
+unmount costs. And the corpus figure is the one to quote to anyone asking what
+this is worth on a normal day: about 6%, because most builds are small and most
+steps are cached.
+
+**What the one behaviour change actually is, now it has been read rather than
+assumed.** Written concurrently, an artifact already in flight when another fails
+can complete and land where serial ordering would have skipped it. What it cannot
+be is *partial*: `placeOut` creates a temporary beside the destination, writes,
+`chmod`s and then `os.Rename`s, with an undo that removes the temporary on any
+failure - so a regular-file artifact either lands whole or not at all. Directory
+artifacts are copied entry by entry and can be left partial by a cancellation,
+but serial writing has exactly the same exposure for whichever artifact it was
+part-way through. The concurrent path adds a file that would not have been
+written; it does not add a way for one to be corrupt.
+
+**And none of it is the biggest number available.** Pinning the base image digest
+is 46x on a no-op build and 7x on a one-step change (E822), it is already
+implemented, and the engine already recommends it on every build whose lookups
+cost more than 100ms. Two weeks of measurement produced two switches worth
+single-digit percentages on a normal build; the thing already in the box is worth
+an order of magnitude. That is not an argument against the switches. It is an
+argument for reading the note.
+
+### E822a - and pinning is 46x on one machine and 1.5x on the other
+
+**The same second-platform check, applied to the day's largest claim.** E822 said
+pinning is worth forty-six times on a no-op build. That was one machine.
+
+| build           | Linux: unpinned | pinned | macOS: unpinned | pinned |
+| --------------- | --------------- | ------ | --------------- | ------ |
+| nothing to do   | 412ms           | 9ms    | 447ms           | 307ms  |
+| one step to run | 498ms           | 71ms   | 483ms           | 327ms  |
+
+**The saving is real on both and the ratio is not.** 403ms on the Linux box and
+140ms on the Mac - a network round trip, costing what the link costs. What
+differs is the leftover: a pinned no-op on Linux is 9ms, and on macOS 307ms of
+sandbox and virtual machine remain that pinning cannot touch. Forty-six times
+against one and a half, for the same optimisation, because the denominator is a
+different size.
+
+**So the honest form of the claim is absolute, not relative.** Pinning takes the
+registry off the critical path of every build; what fraction of the build that is
+depends on what else the machine has to pay. Quoting 46x without saying which
+machine is how a true measurement becomes a false expectation.
+
+**Seventh correction of the day, and the third caught by the same habit.** E825
+demoted `EARTH_ASYNC_RELEASE` on the second platform, E825a rescued
+`EARTH_PARALLEL_EXPORT` on it, and this one halves a headline. The habit is
+cheap - the same experiment, the other machine, before the number leaves the
+room - and it has now changed the conclusion three times out of three.

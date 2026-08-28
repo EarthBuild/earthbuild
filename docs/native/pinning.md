@@ -67,16 +67,22 @@ that lookup deliberately does not use a mirror or a cache. The lookup is two rou
 and a manifest, and it is on the critical path: nothing about the build can start until the base
 is known.
 
-Measured on Linux, one `RUN` step, warm cache, best of three:
+One `RUN` step, warm cache, best of three, on two machines:
 
-| build           | unpinned | pinned |
-| --------------- | -------- | ------ |
-| nothing to do   | 412ms    | 9ms    |
-| one step to run | 498ms    | 71ms   |
+| build           | Linux: unpinned | pinned | macOS: unpinned | pinned |
+| --------------- | --------------- | ------ | --------------- | ------ |
+| nothing to do   | 412ms           | 9ms    | 447ms           | 307ms  |
+| one step to run | 498ms           | 71ms   | 483ms           | 327ms  |
 
-Forty-six times faster on a no-op and seven times on a one-step change - and the difference is
-almost exactly the same 427ms either way, because it is a fixed cost paid before anything happens.
-On an incremental build, which is what a developer runs all day, that fixed cost *is* the build.
+**What pinning removes is the lookup, and what that is worth depends on what else the build pays.**
+The saving is 403ms on the Linux box and 140ms on the Mac - the lookup is a network round trip and
+costs what the link costs. The *ratio* differs far more, forty-six times against one and a half,
+because of what is left over: a pinned no-op on Linux is 9ms, while on macOS some 300ms of sandbox
+and virtual machine remains that no amount of pinning touches.
+
+So the honest claim is the absolute one. Pinning takes the registry off the critical path of every
+build. On a machine with nothing else fixed to pay that is nearly the whole build; on one that
+starts a virtual machine it is a large slice of one.
 
 The engine says so itself when the lookups are slow enough to matter: the `note` line after a build
 reports what that build's own lookups cost, measured rather than estimated.

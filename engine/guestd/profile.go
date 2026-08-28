@@ -3,9 +3,12 @@ package guestd
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"sync"
+	"syscall"
 )
 
 // EnvProfile writes profiles of the guest's own work to a directory when the
@@ -84,7 +87,18 @@ func profiling() func() {
 		return func() {}
 	}
 
-	return func() {
+	// **Written on a signal as well as on a return, because the guest is not
+	// always allowed to return.** On macOS the connection closes and `Serve`
+	// comes back; on Linux the daemon is killed when the build ends, and the
+	// first profile taken there was a zero-byte file - the profile had started
+	// and nothing ever stopped it. A diagnostic that works on one platform is
+	// worse than none, because it is trusted on both.
+	dying := make(chan os.Signal, 1)
+	signal.Notify(dying, syscall.SIGTERM, syscall.SIGINT)
+
+	var once sync.Once
+
+	write := func() {
 		pprof.StopCPUProfile()
 		_ = cpu.Close()
 
@@ -105,4 +119,12 @@ func profiling() func() {
 
 		fmt.Fprintf(os.Stderr, "%s: profiles written to %s\n", label(), dir)
 	}
+
+	go func() {
+		<-dying
+		once.Do(write)
+		os.Exit(0)
+	}()
+
+	return func() { once.Do(write) }
 }

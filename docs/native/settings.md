@@ -718,6 +718,10 @@ sandbox running, reordered it: materialising the layer stack is 18.2% of the gue
 `bindMounts` at 12.7%, and the guest uses about one core of sixteen. Stop other sandboxes before
 profiling, or the answer is about them (E815).
 
+A profile says where the time goes, not why. The explanation offered for that 18.2% - an overlay
+mount growing with the depth of the stack - was measured afterwards and is wrong: the last step of a
+forty-deep chain materialises in 4ms, the same as a five-deep one (E814b).
+
 Set it to a path the guest can write *and* the host can read - the store is bind-mounted through,
 so `/var/lib/earthbuild/store/prof` appears on the host under the cache directory:
 

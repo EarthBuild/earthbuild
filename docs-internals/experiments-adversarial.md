@@ -38544,3 +38544,44 @@ single lowerdir, or keep a mount alive across a chain - change what a layer
 stack *is*, and this is the fourth measurement today whose first reading did not
 survive being taken again. The finding is recorded; the redesign is not started
 on the strength of one profile.
+
+### E814b - materialise is not depth-shaped, and the mechanism was asserted
+
+**E814a claimed the overlay cost grows with stack depth.** The reasoning was
+tidy: an overlay is one mount over as many lowerdirs as the stack is deep, the
+kernel resolves each, and a step cannot add a lowerdir to a live mount, so every
+step reassembles from scratch. Tidy, and untested.
+
+Width 1, depths 5 to 40 in one sitting, no other sandbox running, per-phase
+rather than wall clock:
+
+| depth | first step | last step | mean |
+| ----- | ---------- | --------- | ---- |
+| 5     | 2ms        | 3ms       | 12ms |
+| 10    | 4ms        | 3ms       | 51ms |
+| 20    | 62ms       | 3ms       | 65ms |
+| 40    | 160ms      | 4ms       | 67ms |
+
+**The last step of a forty-deep chain materialises in 4ms**, the same as the last
+step of a five-deep one. If depth were the driver that is the number that would
+grow, and it is flat.
+
+The distribution says the same. At depth 40, per-step materialise runs
+`160 151 72 51 167 74 83 67 113 66 74 111 9 91 92 2 74 9 101 28 ... 232 122 5 71 82 74 60 10 11 16 4`
+between 2ms and 232ms, with no relation to position in the chain. The mean does
+rise with depth, sub-linearly, but a mean over a distribution that shape is not
+evidence of a mechanism.
+
+**So what stands and what does not.** Materialise really is 18.2% of the guest's
+CPU and `unix.Mount` really is 58.8% of it: those are profile proportions,
+measured within one run, and they survive. What does not stand is the *reason* -
+the depth story was inferred from how overlayfs works rather than from anything
+observed, and the observation contradicts it. The driver of that 18.2% is not
+identified.
+
+**Fifth correction in a day, and the pattern in them is one thing.** Every one
+was a mechanism asserted from plausible reasoning and not tested: `unbind` blocks
+nothing (E813), dentry relief was ruled out (E813), the ceiling is a scaling
+failure (E812a), streaming makes builds faster (E811), overlay cost is depth-shaped
+(here). The measurements that were merely *taken* held up; the ones that were
+*explained* did not.

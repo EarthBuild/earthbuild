@@ -39864,3 +39864,34 @@ build. One fix there is worth a quarter of the list.
 sixteen fail" is a number to despair at; "about ten causes, one of them worth
 four jobs, three of them naming an unimplemented construct" is a morning's work
 with an order to do it in.
+
+### E832b - the four-job cluster, narrowed and not reproduced
+
+**The four jobs die reading a file they had just written:**
+
+```text
++ tail -n 1 earthly.output
+tail: can't open 'earthly.output': No such file or directory
++ echo ERROR: failed to extract exit_code
+```
+
+`RUN_EARTH` pipes a nested `earth` through `tee earthly.output` in the UDC's
+working directory - `/test`, set at the top of `tests/Earthfile` - and then reads
+the last line back for the exit code. The `exit_code=1` line is in the log, so
+the subshell ran; the file it should have been teed into is not there.
+
+**The mechanism works when asked directly.** `WORKDIR /test`, a privileged `RUN`
+with the same tmpfs mount, `echo hello | tee earthly.output`, and a second step
+that reads it back: the file is written, listed at 6 bytes, and read. Not
+reproduced.
+
+**What was learned on the way, which is worth more than the guess.**
+`RUN --privileged` is refused by the native engine by design - it says so, and
+says the other engine permits it - so a local reproduction needs
+`--allow-privileged` on the invocation. CI passes it; the first attempt at a
+repro did not, and failed for a reason that had nothing to do with the fault.
+
+**And one hypothesis eliminated.** Two of the fifteen failures name `/test` -
+this one and `apply SAVE ARTIFACT: unable to save to /test` - which looked like a
+single root cause in the working directory. It is not: `WORKDIR /test` works,
+writes into it persist, and a later step reads them.

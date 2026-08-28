@@ -75,8 +75,7 @@ type stream struct {
 // build that is mysteriously slow rather than one that says why.
 func (a *Apple) serveFills() {
 	a.fillMu.Lock()
-	fill := a.fill
-	progress := a.progressAnswer
+	started := a.fill != nil
 	a.fillMu.Unlock()
 
 	// **A relay is wanted for either question.** Faulting a path in is the
@@ -86,7 +85,7 @@ func (a *Apple) serveFills() {
 	//
 	// The switch rather than `a.progress`, because that is set per build and
 	// this runs when the sandbox starts, long before any fetch exists.
-	if fill == nil && !streamToGuest() {
+	if !started && !streamToGuest() {
 		return
 	}
 
@@ -142,7 +141,8 @@ func (a *Apple) serveFills() {
 			_ = relay.Wait()
 		}()
 
-		_ = guest.ServeFillsAnd(stream{Reader: out, WriteCloser: in}, fill, progress)
+		_ = guest.ServeFillsAnd(stream{Reader: out, WriteCloser: in},
+			a.fillAnswer, a.progressAnswer)
 	}()
 }
 
@@ -150,6 +150,26 @@ func (a *Apple) serveFills() {
 func (a *Apple) noFills(err error) {
 	fmt.Fprintf(os.Stderr, "earth: this sandbox cannot fault paths in: %v"+
 		"\n  steps will take whole layers, which is slower and correct\n", err)
+}
+
+// fillAnswer reads the filler at the moment a question arrives.
+
+// **Not the one that was there when the relay started**, for the same reason
+// `progressAnswer` does not: a sandbox outlives any one build and the filler is
+// set per build, so a relay that captured it at boot holds nil for the life of
+// the sandbox. That was safe only while the relay refused to start without a
+// filler; streaming a blob is now a second reason to start it, and on macOS the
+// default one (E811).
+func (a *Apple) fillAnswer(handle, path string) error {
+	a.fillMu.Lock()
+	f := a.fill
+	a.fillMu.Unlock()
+
+	if f == nil {
+		return fmt.Errorf("no worker on this host can fault in %s", path)
+	}
+
+	return f(handle, path)
 }
 
 // progressAnswer reads the answerer at the moment a question arrives.

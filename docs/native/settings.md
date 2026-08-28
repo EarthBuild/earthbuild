@@ -564,26 +564,24 @@ The largest layer's own unpack gets *longer* - 2.36s against 1.99s - because it 
 bytes have arrived and is paced by the fetch. The phase around it is what shortens, which is the
 point: the waiting moved inside the work.
 
-Turning this on starts the fault-in relay for the sandbox, which a local build does not otherwise
-need - so it follows the store rather than being on everywhere. A build that unpacks on the host has
-no guest to relay to and would pay for the relay without a layer to overlap.
+Turning this on starts the fault-in relay for the sandbox, and that is the reason it is still
+off. The guest reads a running relay as "this host can fault paths in" - an inference that held
+while the relay only ever started *because* a filler existed. Started for the progress channel
+alone, on a local build that has no filler at all, the first step to want a path is refused and
+the build fails with `could not obtain /bin/cat`.
 
-It was off while it was new, and because a build that waits on a blob is a build that can wait for
-ever if the two sides disagree - which they did once, for five minutes, before the progress marker
-was made the floor beneath the socket rather than the alternative to it (E688). The wait is now
-bounded and names the blob it gave up on, and eight alternating cold pairs came out the same way
-every time - 5751ms against 4401ms at the median (E810).
+It was briefly made the default on that reasoning and every build on macOS broke. The measurement
+that justified the change did not notice, because the harness compared wall-clock times without
+checking exit codes: the failing arm skipped its `RUN` step and looked 23% faster for it (E811).
 
-| stream | cold (median of 8) | image:unpack:guest |
-| ------ | ------------------ | ------------------ |
-| off    | 5751ms             | 3.933s             |
-| on     | 4401ms             | 2.759s             |
+So the numbers this section used to carry are withdrawn. What it costs and saves will be known
+when the guest is *told* what the relay can do rather than inferring it from the relay existing,
+and not before.
 
-`EARTH_STREAM_TO_GUEST=0` takes it away again, which is how to answer "is this what my build is
-hanging on" without rebuilding the engine. `0`, `false` and `no` all mean off.
+`EARTH_STREAM_TO_GUEST=1` still turns it on, and on a fleet build - where a filler does exist -
+that is what it was written for.
 
-Default: on wherever the guest unpacks - which on macOS is every build, because the store lives on
-the guest's own device. Off elsewhere.
+Default: off.
 
 ## `EARTH_SANDBOX_CPUS`
 

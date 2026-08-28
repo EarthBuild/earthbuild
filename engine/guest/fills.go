@@ -399,6 +399,17 @@ func ServeFillsAnd(rw io.ReadWriter, fill func(handle, path string) error,
 					out.Bytes = n
 				}
 
+			// **Started for the streaming, asked about a path.** The relay
+			// runs whenever either question might be asked, and streaming a
+			// blob is reason enough on its own - so a build with nothing to
+			// fault paths in from still has one, and this is the arm that
+			// request lands in. Saying so costs a line; calling through a nil
+			// `fill` cost the whole process, and said neither which path nor
+			// which host (E811).
+			case fill == nil:
+				out.Error = "this host does not fault paths in, so it cannot" +
+					" provide " + req.Path
+
 			default:
 				err := fill(req.Handle, req.Path)
 				if err != nil {

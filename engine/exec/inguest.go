@@ -302,7 +302,7 @@ const blobPatience = 45 * time.Second
 // EnvStreamToGuest lets the guest unpack a layer while the host is still
 // fetching it.
 //
-// **On where the guest unpacks, having twice been off.** The machinery always
+// **Off, and the second attempt to turn it on is why.** The machinery always
 // worked - the guest reads a growing blob byte-for-byte and a bad digest can
 // never release the last byte - but it first measured as an exact wash, because
 // the guest learned how far the fetch had got from a file on the shared mount
@@ -317,19 +317,22 @@ const blobPatience = 45 * time.Second
 // because it now starts before its bytes arrive and is paced by the fetch. The
 // waiting moved inside the work (E810).
 //
-// Off where nothing unpacks in a guest: it starts the fault-in relay for the
-// sandbox, and a build with no guest to relay to pays for it and gets nothing.
+// **And it is still off, because turning it on breaks every build.** Starting
+// the relay is what makes streaming possible, and the guest reads a running
+// relay as "this host can fault paths in" - an inference that was sound while
+// the relay only ever started *because* a filler existed. Started for the
+// progress channel alone, on a local build that has no filler at all, the first
+// step asks for a path, is refused, and fails: `could not obtain /bin/cat`.
 //
-// `EARTH_STREAM_TO_GUEST=0` takes it away without rebuilding the engine, which
-// is how to answer "is this what my build is hanging on" - the wait is bounded
-// and names the blob it gave up on, but a bounded wait is still a wait.
+// So the default waits on the guest being told what the relay can do rather
+// than inferring it from the relay being there. Until then this stays opt-in,
+// and opting in on a fleet build - where a filler does exist - is what it was
+// written for (E811).
 const EnvStreamToGuest = "EARTH_STREAM_TO_GUEST"
 
 func streamToGuest() bool {
 	switch os.Getenv(EnvStreamToGuest) {
-	case "":
-		return UnpacksInGuest()
-	case "0", "false", "no":
+	case "", "0", "false", "no":
 		return false
 	default:
 		return true

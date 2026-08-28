@@ -146,8 +146,10 @@ What is already parallel:
   running too.
 - **layers within an image** - one goroutine per layer, each unpacking as its blob lands
   rather than after all of them have.
-- **fetch against unpack** - the guest reads a growing blob, so unpack of a layer starts
-  before its last byte arrives (E810).
+- **fetch against unpack** - available, but *off*. The guest can read a growing blob, so an
+  unpack can start before the last byte arrives; turning it on starts the fault-in relay,
+  which the guest reads as "this host can fault paths in", and on a local build nothing
+  can. It was briefly the default and broke every build on macOS (E811).
 
 So the overlap left inside a step is between host bookkeeping and guest work, and that is
 8.6ms of a 16.1ms step. Most of it is pinned: `bind` must precede `exec` because the

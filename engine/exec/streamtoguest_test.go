@@ -25,10 +25,11 @@ import (
 func TestWhetherAGuestUnpacksWhileTheHostIsStillFetching(t *testing.T) {
 	t.Setenv(EnvStreamToGuest, "")
 
-	if got, want := streamToGuest(), UnpacksInGuest(); got != want {
-		t.Fatalf("with nothing set, streaming to the guest = %v, want %v"+
-			"\n  it applies only where the guest unpacks, so that is what it follows",
-			got, want)
+	if streamToGuest() {
+		t.Fatal("streaming to the guest is on with nothing set" +
+			"\n  starting the relay is read by the guest as `this host can fault" +
+			"\n  paths in`, and on a local build nothing can - so the first step" +
+			"\n  that wants a path is refused and the build fails (E811)")
 	}
 }
 

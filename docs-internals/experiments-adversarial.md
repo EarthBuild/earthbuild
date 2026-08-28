@@ -38199,3 +38199,62 @@ deliberate. A resolution is the answer to "what does this tag mean today", and
 `resolve.go` asks the origin rather than a mirror on purpose. The 0.63s it costs
 on a fully cached build is the price of a mutable tag, and anyone who does not
 want to pay it can pin by digest, which skips the resolution entirely.
+
+## E811 - a measurement that could not tell a build from a failure
+
+**E810 is withdrawn.** Streaming a blob to the guest was made the default on the
+strength of eight alternating cold pairs, every one of them favouring it. Every
+one of those runs, on the arm that won, was a build that failed.
+
+**What the switch actually does.** Turning it on starts the fault-in relay,
+because the progress channel needs one. The guest reads a running relay as "this
+host can fault paths in" - an inference that was sound for as long as the relay
+only ever started *because* a filler existed. A local build has no filler at all:
+faulting a path in is a fleet worker's job. So the relay came up, the first step
+asked for `/usr/local/sbin/cat`, and there was nothing behind the question.
+
+Three faults, one behind the other:
+
+1. `ServeFillsAnd` called `fill` without checking it, and `fill` was nil. A
+   segfault, in the guest package, for a decision made in the host's - naming
+   neither the path nor the reason. `progress` had been guarded against exactly
+   this since it was written; `fill` had never needed it.
+2. The relay captured the filler *once, at sandbox start*. A sandbox is found by
+   name and outlives any one build, and the filler is set per build - so even
+   after one existed, the relay held the nil it started with. `progressAnswer`
+   reads its answerer late for precisely this reason; the filler did not.
+3. With both fixed, the honest failure remains: `could not obtain /f1: no worker
+   on this host can fault in /f1`. The guest is asking a question this host
+   cannot answer, and the fix is for it to be told what the relay can do rather
+   than to infer it from the relay being there. Not attempted here.
+
+**How it got past the measurement, which is the part worth keeping.** Every
+harness redirected the build to `/dev/null` and timed it. None checked the exit
+code. A build that fails at its first `RUN` has already done the `FROM` - the
+fetch and the unpack, which is what a cold-build benchmark mostly measures - and
+then stops early. It is faster, reliably and repeatably faster, and it is not a
+build.
+
+Eight of eight, a sign test at p = 1/256, and the effect was real: the arm really
+was faster, every time, for a reason the harness had no way to see. Confidence in
+a difference says nothing about what the difference is.
+
+**The corrected figure.** Re-run with the exit code checked and the artifact's
+contents verified on every run, five pairs, none discarded:
+
+| engine                               | cold, median of 5 | all five                 |
+| ------------------------------------ | ----------------- | ------------------------ |
+| c83ee6152, store on the shared mount | 7280ms            | 7488 7116 7280 7111 9509 |
+| HEAD, store on the guest's device    | 5164ms            | 4711 5099 5164 5458 5538 |
+
+1.41x, not the 1.79x claimed. E808 stands - the store on the guest's device is a
+real and separately-argued improvement, and its own three pairs were run against
+a working build. What does not stand is the part of the headline that came from
+streaming, which was the difference between a build and a crash.
+
+**The lesson has a name and I had already written it down.** `a probe can fail
+open` - verify the mechanism did what it claims, not merely that it returned a
+number. A benchmark harness that cannot distinguish success from failure is a
+probe that fails open, and it will always report the failure as an improvement,
+because failing is quicker than working. Every harness in this document now
+checks the exit code and asserts on the artifact.

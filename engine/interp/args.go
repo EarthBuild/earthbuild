@@ -212,7 +212,12 @@ func (s scope) declare(
 	// resolved by this engine when it belonged to the shell that was about to
 	// re-parse it. Variables are expanded further down, so the command region
 	// is left exactly as written here.
-	def = expandByRegion(def, unquote, func(in string) string { return in })
+	// The escaped dollars are stood aside before the unquoting that would
+	// erase them, and put back once the command scan below has had its look.
+	// See escapedDollar.
+	def = expandByRegion(def, func(in string) string {
+		return unquote(standAsideEscapedDollar(in))
+	}, func(in string) string { return in })
 
 	// One declaration per name per *scope*, and a second is an error.
 	//
@@ -346,6 +351,10 @@ func (s scope) declare(
 	// will parse again, and `ARG greeting="say \"hello\""` loses its inner
 	// quotes to an expansion that helpfully unquotes on the way past.
 	def = s.expandWord(def)
+
+	// Back to an ordinary dollar, now that nothing downstream will read it as
+	// the start of a command or of a name. See escapedDollar.
+	def = restoreEscapedDollar(def)
 
 	// A platform argument the engine knows the answer to. After the supplied
 	// value and after the author's default, because both of those are somebody

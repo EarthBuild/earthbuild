@@ -226,6 +226,69 @@ func commandSpan(s string) (start, end int, found bool) {
 // a shell or to a lexer, and not a character an Earthfile carries.
 const regionMark = '\uE000'
 
+// escapedDollar is a dollar the author escaped, kept apart from one they wrote.
+//
+// `ARG a=literal\$(echo run)` means the text `$(echo run)`. Two passes handle
+// it, both correctly, and the pair lost the fact: commandSpan is escape-aware
+// and leaves `\$(` in the text region, the text region is then unquoted - which
+// is what a backslash is *for* - and the lazy command scan further down re-reads
+// the unquoted text, where an honoured escape and a written command are the same
+// four characters. So the engine ran what the author escaped.
+//
+// Standing it aside is the fix rather than reordering the passes, because the
+// order is deliberate: a default's command must run late, after a supplied value
+// has made it unnecessary (see scope.declare), while its quoting must resolve
+// early. The mark travels between the two and is put back at the end.
+//
+// U+E001 for the same reasons as regionMark above, and next to it so the two
+// cannot be chosen independently.
+const escapedDollar = '\uE001'
+
+// standAsideEscapedDollar replaces an escaped `$` with escapedDollar, consuming
+// the backslash that escaped it exactly as unquoting would have.
+//
+// Counted rather than matched: `\\$(` is an escaped *backslash* followed by a
+// command, and a rule that looked only at the preceding byte would stand aside
+// a command that was genuinely written.
+func standAsideEscapedDollar(s string) string {
+	var b strings.Builder
+
+	slashes := 0
+
+	for i := range len(s) {
+		switch s[i] {
+		case '\\':
+			slashes++
+		case '$':
+			if slashes%2 == 1 {
+				// The escaping backslash is consumed here; the rest stay for
+				// the unquoting that follows.
+				b.WriteString(strings.Repeat("\\", slashes-1))
+				b.WriteRune(escapedDollar)
+			} else {
+				b.WriteString(strings.Repeat("\\", slashes))
+				b.WriteByte('$')
+			}
+
+			slashes = 0
+		default:
+			b.WriteString(strings.Repeat("\\", slashes))
+			slashes = 0
+
+			b.WriteByte(s[i])
+		}
+	}
+
+	b.WriteString(strings.Repeat("\\", slashes))
+
+	return b.String()
+}
+
+// restoreEscapedDollar puts back the dollars stood aside, as literal text.
+func restoreEscapedDollar(s string) string {
+	return strings.ReplaceAll(s, string(escapedDollar), "$")
+}
+
 // expandByRegion expands an argument, treating what is inside a `$(...)` as
 // what it is: a command line for a shell.
 //

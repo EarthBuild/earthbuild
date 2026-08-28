@@ -52,3 +52,37 @@ func TestTheSpanFoundSkipsPastTheEscapedOne(t *testing.T) {
 		t.Errorf("the span holds %q, want two", got)
 	}
 }
+
+// Escaped dollars are counted, not matched.
+//
+// `\\$(` is an escaped *backslash* followed by a command that was genuinely
+// written, and a rule looking only at the byte before the `$` stands aside a
+// command the author meant to run - the mirror of the bug escapedDollar exists
+// to fix, and the quieter one, since a command that silently does not run
+// leaves no `literalrun` behind to notice.
+func TestStandingAsideEscapedDollarsCountsTheBackslashes(t *testing.T) {
+	t.Parallel()
+
+	mark := string(escapedDollar)
+
+	for _, tc := range []struct{ in, want string }{
+		{`$(echo run)`, `$(echo run)`},                 // written: untouched
+		{`\$(echo run)`, mark + `(echo run)`},          // escaped: stood aside
+		{`\\$(echo run)`, `\\` + `$(echo run)`},        // escaped backslash, then a command
+		{`\\\$(echo run)`, `\\` + mark + `(echo run)`}, // escaped backslash, then an escaped $
+		{`\$HOME`, mark + `HOME`},                      // a literal dollar is not only about commands
+		{`plain`, `plain`},
+		{`ends\`, `ends\`},
+	} {
+		if got := standAsideEscapedDollar(tc.in); got != tc.want {
+			t.Errorf("%q became %q, want %q", tc.in, got, tc.want)
+		}
+	}
+
+	// What is stood aside comes back as an ordinary dollar, or the mark reaches
+	// a user's value and the fix is worse than the defect.
+	round := restoreEscapedDollar(standAsideEscapedDollar(`\$(echo run)`))
+	if round != `$(echo run)` {
+		t.Errorf("the round trip gave %q", round)
+	}
+}

@@ -37247,3 +37247,26 @@ a permission and that is not a decision to take while tidying.
 The method note has now been earned three rounds running: **a harness that
 cannot observe a property reports agreement about it.** Files were compared and
 agreed; directories were not compared and did not.
+
+## E792 - round five: context and COPY, and a divergence that is now the noise
+
+Fourteen Earthfiles covering the build context and every shape of `COPY`:
+`.earthignore`, a trailing slash on source and destination, several sources to
+one destination, copying onto an existing file, renaming, a symlink in the
+context, an empty directory, `ctx/.` into a `WORKDIR`, hidden files,
+`--if-exists` present and absent, a relative `SAVE ARTIFACT` under a `WORKDIR`,
+and a directory saved from one. Plus two that must fail: `COPY ../outside` and a
+pattern matching nothing.
+
+**Every case agrees on content, mode and exit code**, including both refusals,
+which are refused identically. No new defect.
+
+The whole of the remaining difference, in twelve of the fourteen, is the one
+E791 left open: the destination directory `out/` is `0750` here and `0755`
+there. It is worth saying plainly that this now fires in every build that saves
+into a subdirectory, so it is the noise floor of every future sweep - a
+divergence that shows up everywhere is harder to see past than one that shows up
+once. It stays a question rather than a change because settling it loosens a
+permission, but it should be settled rather than tolerated.
+
+Four rounds, 77 cases, four defects found and fixed, three questions raised.

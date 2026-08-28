@@ -203,6 +203,14 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		// Kept, not printed. See explainCase: this note belongs to a failure,
 		// and printing it before anything has happened is what made it read as
 		// the diagnosis of whatever failed next (E491).
+		//
+		// **And not kept at all when nothing is unpacked here.** The note is
+		// about directories an image is unpacked into; with the unpack in the
+		// guest - which a store on the guest's device implies - these are not
+		// those. The guest's volume is ext4 and case-sensitive, measured, so
+		// the case this warns about cannot arise there. Advising an `hdiutil`
+		// image for a directory the layers have left is the same true and
+		// irrelevant paragraph E491 removed, arriving by a different route.
 		g.caseNote = caseNoteFor(
 			cacheDir{path: dir, env: envCacheDir},
 			cacheDir{path: images, env: envImageCacheDir})

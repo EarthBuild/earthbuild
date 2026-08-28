@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/EarthBuild/earthbuild/engine/exec"
 )
 
 // caseSensitiveStore reports whether the layer store distinguishes Foo from foo.
@@ -86,6 +88,16 @@ func probeCase(dir string) (sensitive, known bool) {
 //
 // A build that worked has nothing for it to explain. A build that failed may.
 func caseNoteFor(dirs ...cacheDir) string {
+	// **Nothing is unpacked here, so nothing here can collide.** The note is
+	// about directories an image is unpacked into; with the unpack in the guest
+	// - which a store on the guest's own device implies - these are not those.
+	// The guest's volume is ext4 and case-sensitive, so the failure this
+	// explains cannot happen there, and explaining it anyway is the true and
+	// irrelevant paragraph this note was already trimmed once for carrying.
+	if exec.UnpacksInGuest() {
+		return ""
+	}
+
 	var b strings.Builder
 
 	warnCaseInsensitive(&b, dirs...)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/store"
@@ -33,6 +34,24 @@ import (
 // the point of separating them: the wiring can be exercised before the move it
 // is for.
 const EnvUnpackInGuest = "EARTH_UNPACK_IN_GUEST"
+
+// UnpacksInGuest reports whether an image's layers are unpacked inside the
+// sandbox rather than by this machine.
+//
+// **A store on the guest's device implies the guest unpacks**, because the host
+// cannot write a block device it does not have - so the two switches are one
+// question and this is where it is asked. It was asked inline where the unpack
+// is routed, which was fine while there was one reader; the case-sensitivity
+// note is a second, and two spellings of one rule is the divergence this engine
+// keeps finding.
+//
+// What it decides for that reader: a host directory that nothing is unpacked
+// into cannot be the reason a build failed on a name's case, and advice about it
+// is true and irrelevant - which is the shape E491 exists to keep out of a
+// failure's output.
+func UnpacksInGuest() bool {
+	return os.Getenv(EnvUnpackInGuest) != "" || guest.StoreInVM()
+}
 
 // materialiseImageInGuest fetches an image's layers and has the guest unpack
 // them.

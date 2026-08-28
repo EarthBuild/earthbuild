@@ -1166,6 +1166,20 @@ var Mutants = []Mutant{
 		Package:     "./engine/fleet/",
 	},
 	{
+		Name:        "cli: no case advice about a directory the guest unpacks into (E806)",
+		File:        "engine/cli/casecheck.go",
+		Anchor:      "\tif exec.UnpacksInGuest() {",
+		Replacement: "\tif exec.UnpacksInGuest() \u0026\u0026 false {",
+		Package:     "./engine/cli/",
+	},
+	{
+		Name:        "exec: a store on the guest's device implying the guest unpacks (E806)",
+		File:        "engine/exec/inguest.go",
+		Anchor:      "\treturn os.Getenv(EnvUnpackInGuest) != \"\" || guest.StoreInVM()",
+		Replacement: "\treturn os.Getenv(EnvUnpackInGuest) != \"\" \u0026\u0026 guest.StoreInVM()",
+		Package:     "./engine/cli/",
+	},
+	{
 		Name:        "guest: --if-exists asked of the guest rather than the host (E788)",
 		File:        "engine/guest/guest.go",
 		Anchor:      "\t\tIfExists: ifExists,",

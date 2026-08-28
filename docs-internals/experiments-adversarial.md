@@ -41280,3 +41280,38 @@ This is the most consequential number in this file and it needs a second
 machine before it is quoted anywhere: every ratio measured this session that was
 checked on the other machine changed. The comparison to run there is exactly the
 one above.
+
+### E857a - and on the other machine it is 1.62x, not 5.9x
+
+E857 said this engine is six times slower than buildkit warm on a real target,
+and said not to quote it before running it on the second machine. Run there, it
+is a different finding.
+
+```text
+                       native    buildkit    native/buildkit
+macOS, 16 core         25.82s      4.40s          5.9x
+x86 Linux, 32 core      6.38s      3.93s          1.62x
+```
+
+**The sharper reading is by column.** buildkit costs the same on both machines -
+4.40s and 3.93s, a 1.1x difference explained by the core count. This engine costs
+**4x more on macOS than on Linux**: 25.82s against 6.38s, same commit, same
+target, same warmed cache.
+
+So the six times is not an engine-versus-engine result at all. It is this
+engine's macOS path, where a step runs inside a virtual machine and buildkit's
+does not, against a Linux path where the gap to the tool being replaced is 1.62x.
+
+**Fifth time this session** that a second machine changed the conclusion, and the
+first time the ratio changed by enough to invert what should be done about it:
+the work is not "make the engine faster", it is "find out what macOS costs it".
+E838b already measured a warm pinned no-op at 0.015s in a Linux container against
+0.41s here, which is the same 25x-shaped gap on a build with two steps in it.
+
+**Still not established:** what the macOS path spends the time on. The candidates
+already named in this document are the sandbox VM floor of roughly 300ms per
+build and the per-step round trip to a guest that is a separate machine rather
+than a process. Both are measurable, neither is measured here.
+
+The number to quote is **1.62x on Linux**, with the macOS figure stated as a
+platform cost rather than an engine one.

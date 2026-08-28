@@ -37773,3 +37773,57 @@ compared. Every case in this round was.
 That is the limit worth stating after eight rounds of this method: a differential
 finds *divergence*, and divergence is a proxy for defect that fails exactly where
 two implementations share a lineage - which these two do.
+
+## E801 - mutation testing, and three ways a sweep lies
+
+This sweep's recurring defect - a mechanism fully built with one wiring absent,
+tests passing because they test the parts - is exactly what a mutation catalogue
+is for. The repository already has one, 451 entries, and it had never been run
+end to end here.
+
+**It found a real gap on its first pass.** `core: checking a rebuild produced the
+layer that was wanted (I1, E278)` survived: the recovery path reruns the step
+that made an unobtainable input and checks it produced the same layer, and
+nothing tested that check. The mutant makes it `res.Layer == res.Layer` and the
+suite stays green. It is now covered by a test that watches the *retry*, which is
+the only externally visible difference - without the check the scheduler believes
+the input was recovered and runs the consumer again against a base that is still
+not there.
+
+Verified in the only direction that means anything:
+
+```text
+with the test:     killed
+without the test:  SURVIVED
+```
+
+A test that passes beside a mutant is not evidence that it kills it. It had to be
+removed and the mutant re-run.
+
+**Three ways the sweep misleads, all met in one afternoon.**
+
+*A platform it cannot reach.* Two `cli: … (E394)` mutants survived on linux and
+are killed on darwin: `backendCanIsolate()` is true on linux, so
+`checkIsolationSupported` returns before the mutated line. A false survivor is
+worse than no result - it says a mechanism is untested when it is tested, and
+sends the next person to write a test that exists. The `OS` field already existed
+for this; both are tagged and linux now prints `unrun`.
+
+*A baseline it did not have.* 90 of 451 came back `DIRTY` - the verdict for "the
+package was already failing before the mutant, so this cannot be judged". The
+cause was mine: an unrelated `git checkout` for an A/B, run on the same machine
+while the sweep was in flight. The sweep still printed survivors and a summary,
+so the run looked complete while a fifth of it was never judged. **Read the DIRTY
+count, not only the survivor count.**
+
+*A tree it is still holding.* The tool edits real source in place. `git add -A`
+during a sweep can stage a live mutation - `engine/interp/runflags.go` was
+modified at the exact instant of staging - and killing the run leaves one
+applied, because `pkill -f tools/mutate` takes the `go run` parent while the
+compiled child under the build cache carries on editing. Two sweeps must not
+share a checkout; the second belongs on another machine or in a `git worktree`.
+
+**Confirmed survivors, cross-checked on both platforms:** E274, E279, E281, E282,
+E291, E292, E297, E299, E309, E319, E446, E494, E634. Eight of the thirteen are
+`fleet`, which is the subsystem with the fewest tests and the most machinery -
+the two facts are the same fact.

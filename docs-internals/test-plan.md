@@ -1483,3 +1483,33 @@ more tests skipped than this container should need (176 > 175):
 Before that it printed a number and nothing else, and the first time it tripped
 the answer took two rounds of log archaeology and a diff against a partial log -
 for a skip that turned out to be timing-dependent and to have flapped (E770).
+
+## Mutation survivors, as of the E801 sweep
+
+Thirteen mechanisms nothing guards, cross-checked on linux and darwin so that a
+platform-gated mutant is not mistaken for an untested one (E801). Each is a line
+of code that can be deleted with the suite still green.
+
+| code | mechanism                                                     |
+| ---- | ------------------------------------------------------------- |
+| E274 | fleet: not dialling when nothing was delegated                |
+| E279 | fleet: correcting a reply's address before anybody sees it    |
+| E281 | layer: asking for nothing meaning everything                  |
+| E282 | fleet: leaving nothing behind when a fragment fails to arrive |
+| E291 | guest: a fault-in answer finding the request that asked       |
+| E292 | fleet: priming nothing when nothing was predicted             |
+| E297 | exec: giving the guest a fault-in channel only when asked     |
+| E299 | fleet: omitting a proof the caller says it has                |
+| E309 | fleet: a holder that will not dial saying so                  |
+| E319 | fleet: the pilot going out rather than waiting on itself      |
+| E446 | guest: ownership kept when a layer is committed               |
+| E494 | cli: the sandbox asked how it shares the store                |
+| E634 | guest: the scratch relocated off an overlay                   |
+
+Eight are `fleet`. That is the subsystem with the most machinery and the fewest
+tests, and those are not two observations.
+
+**How to work this list:** write the test, then remove it and re-run the mutant.
+A test that passes beside a mutant is not evidence that it kills it - E278 was
+covered that way and the mutant went on surviving until the test was checked
+against its absence.

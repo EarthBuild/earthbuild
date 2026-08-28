@@ -40128,3 +40128,36 @@ against this much noise.
 error, not the configuration's; the error is discarded with the goroutine. The
 cost of the change is one wasted GET on a pull that was going to fail anyway,
 which is the trade the old ordering was making in the opposite direction.
+
+### E837 - the build is accounted for, and it is 41% token exchange
+
+With `registry:config` named (E836) and off the critical path (E836a), the
+whole of a cold five-step alpine build now accounts for itself. Measured
+host-side with a `docker run` baseline subtracted, five runs, medians:
+
+```text
+engine wall                    1.203s
+  registry:token   0.489s  41%    the anonymous token exchange
+  manifests        0.293s  24%    pin:manifest + registry:manifest
+  layer get+unpack 0.290s  24%
+  everything else  0.131s  11%
+```
+
+**Nothing is hiding any more.** Wall clock minus the docker baseline was 1.182s
+against a top-level phase sum of 1.173s - 0.009s, 1%, unaccounted. That is the
+first time in this document a build has been asked where its time went and had
+an answer for all of it. The rule that found four costs this session (a parent
+phase exceeding its children) now has nothing left to point at here.
+
+**And what is left is not engine work.** 89% of this build is round trips to a
+registry, and the largest single one is acquiring an anonymous bearer token -
+0.489s, more than the layer transfer and unpack together. There is no algorithm
+to improve: the remaining question is whether that token may be cached, which
+`challenge.go` reserves explicitly as "a decision about credentials rather than
+an optimisation".
+
+A caveat on generality: this is a *cold* build of a *small* image on a laptop
+with a home connection. A large image moves the balance to `layer:get`, a warm
+cache removes most of it, and a machine near a mirror removes the rest. What the
+number establishes is where the remaining time is when a build is small - which
+is exactly the shape of the corpus targets and of most CI steps.

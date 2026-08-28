@@ -38585,3 +38585,57 @@ nothing (E813), dentry relief was ruled out (E813), the ceiling is a scaling
 failure (E812a), streaming makes builds faster (E811), overlay cost is depth-shaped
 (here). The measurements that were merely *taken* held up; the ones that were
 *explained* did not.
+
+## E816 - the same ceiling on a second machine, and it is not our locks
+
+**Measured natively, on Linux, with no virtual machine anywhere.** A 32-core x86
+box, the native backend, so none of the Apple Virtualization, virtiofs or
+sandbox-per-store machinery that every previous number carried. Sandboxes and
+leftover test processes cleared first, load reported beside the numbers, exit
+code and artifact count checked on every run.
+
+| width | steps | wall   | per step |
+| ----- | ----- | ------ | -------- |
+| 1     | 5     | 583ms  | 32.0ms   |
+| 4     | 20    | 693ms  | 13.5ms   |
+| 8     | 40    | 767ms  | 8.6ms    |
+| 16    | 80    | 1244ms | 10.3ms   |
+| 32    | 160   | 1895ms | 9.2ms    |
+
+Fixed cost is 423ms, measured directly: a fully cached rebuild is 423ms at every
+width from 5 steps to 160, which is the same flatness the Mac shows.
+
+**Throughput ceilings near 110 steps/s on 32 cores** - about 3.5 steps genuinely
+in flight. The Mac reaches ~380/s on 16 cores, about 5. Two machines, two
+architectures, one with a VM in the way and one without, and both land at a
+handful of steps in flight rather than a core-count of them. That is a property
+of the engine and not of either machine.
+
+**And the phases inflate the same way.** Width 1 against width 32, natively:
+`guest:prepare` 1.00ms to 19.76ms - twenty times, for a map lookup - while
+`guest:exec` goes 4.40ms to 45.24ms. The same signature as the Mac: goroutines
+waiting to run while the CPU is idle.
+
+**So what are they waiting on? Not our locks.** The block profile is 22s of
+waiting, and it is `runtime.selectgo` 49.2%, `chanrecv1` 37.8% and `chanrecv2`
+9.5% - channel receives, which is what a server's idle goroutines do. `sync.Mutex.Lock`
+is 0.7% of it. The mutex profile is 1.06s, of which `runtime.unlock` is 72.1% and
+`_LostContendedRuntimeLock` another 15.2%: those are the Go runtime's own locks,
+not any lock in this codebase. Our `sync.Mutex` accounts for 136ms.
+
+**That kills a plausible direction before anyone spent a week on it.** "Minimise
+contention and locks" was the standing hypothesis, and there is no application
+lock to minimise - the contention is runtime-internal, of the kind that comes
+from heavy syscall entry and exit and goroutine churn rather than from a
+badly-shared data structure.
+
+**What it does not do is name the cause.** Runtime lock contention is consistent
+with a syscall-heavy, goroutine-heavy step, which is what a step is; it is not
+proof of it. Recorded as a direction closed rather than a direction found -
+which, after five mechanisms asserted and withdrawn in a day, is the more useful
+kind of result.
+
+**Also found, and unrelated:** 39 leaked `exec.test`, `fleet.test` and
+`earth-guestd` processes on that box, the oldest running for ten days and
+seventeen hours. Load average 16 with total CPU at 23.7%. The test suite leaks
+processes that outlive it by weeks.

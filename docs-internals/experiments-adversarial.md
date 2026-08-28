@@ -38639,3 +38639,64 @@ kind of result.
 `earth-guestd` processes on that box, the oldest running for ten days and
 seventeen hours. Load average 16 with total CPU at 23.7%. The test suite leaks
 processes that outlive it by weeks.
+
+## E817 - the ceiling was the exports, and the exports are one unmount each
+
+**Every throughput number in E812 through E816 was measured with a
+`SAVE ARTIFACT` per target.** Removing it, and changing nothing else, is the
+whole result:
+
+| 32 targets, one `RUN` each | wall             |
+| -------------------------- | ---------------- |
+| with `SAVE ARTIFACT`       | 1675/1202/1425ms |
+| without                    | 778/864/751ms    |
+
+The steps parallelise. Thirty-two of them cost 573ms against 486ms for one. What
+does not parallelise is the export, and `exportAll` says why in its own shape: a
+`for` loop over `plan.Artifacts` calling `e.Export` one at a time. Serial by
+construction, not by a lock - which is why the mutex profile of E816 found
+nothing.
+
+**And 95% of an export is releasing the handle.** Per artifact, over 32:
+
+| phase                | each    | total |
+| -------------------- | ------- | ----- |
+| `export:release`     | 18.19ms | 582ms |
+| `export:materialise` | 0.06ms  | 2ms   |
+| `export:stage`       | 0.00ms  | 0ms   |
+| `export:copyout`     | 0.00ms  | 0ms   |
+
+Staging the artifact and copying it out are free. The cost is entirely the
+release that follows.
+
+**Which is two syscalls, and they were measured.** `handle.Release` is
+`unix.Unmount` and then `os.RemoveAll` of the mount directories. In a user
+namespace on the same machine, over twenty overlays:
+
+| operation           | cost     |
+| ------------------- | -------- |
+| `unmount` (overlay) | 15,848us |
+| `RemoveAll`         | 3,493us  |
+
+19.3ms together, against the 18.19ms measured inside the engine. An overlay
+unmount costs sixteen milliseconds on this kernel, where a *mount* costs five
+microseconds - three thousand times cheaper to make one than to take it away.
+
+**What this reframes.** The "step throughput ceiling" of E812 and E816 was mostly
+this: a benchmark with one artifact per target measures serial 19ms releases and
+reports them as the cost of steps. The engine's step scheduling is not the
+problem it appeared to be.
+
+**What is not established.** Whether these unmounts parallelise. The obvious
+microbenchmark - thirty-two overlays, unmounted serially and then together -
+reported its unmounts as succeeding when `/proc/mounts` said all thirty-two were
+still there, so its numbers are void and are not quoted here. Until that is
+answered, parallelising `exportAll` has an unknown ceiling: if the kernel
+serialises unmounts anyway, the loop is not the thing to change.
+
+**The other end is worth more than the loop.** A release is cleanup - the
+artifact has already been copied out by the time it runs, which the phase
+timings show directly. Nothing waits on it except the build's own exit. That is
+a different fix from parallelising, and a safer one, but E813 is the reason it
+gets measured before it gets written: the last teardown that "nothing waits on"
+turned out to have `capture` reading underneath it.

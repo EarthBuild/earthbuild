@@ -204,6 +204,13 @@ from the phase list rather than from what each phase touches (E813).
 4ms is the *number* of mounts a step makes, five groups of them, not where the teardown
 sits.
 
+**The bigger one is not in this table at all.** Every throughput figure above was measured
+with a `SAVE ARTIFACT` per target, and exports run one at a time in a `for` loop - 18.19ms
+each, of which the artifact's own staging and copy-out are free and the release of the
+handle is all of it. A release is `unmount` plus `RemoveAll`: 15.8ms and 3.5ms on a Linux
+kernel, where making the mount costs 5us. Take the artifact out of the build and 32 targets
+go from 1425ms to 751ms (E817).
+
 ## 7. What would change these numbers
 
 The measurements are a floor for *this* shape of build. Three things move them:

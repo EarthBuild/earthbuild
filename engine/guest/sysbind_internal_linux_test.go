@@ -81,13 +81,12 @@ func TestSysFallsBackToABindWhenSysfsIsRefused(t *testing.T) {
 			t.Fatalf("a refused sysfs mount should fall back to a bind, got: %v", err)
 		}
 
-		// Four: the refused sysfs, the recursive bind, the tmpfs that blanks
-		// the cgroup tree the bind dragged in, and the remount that puts the
-		// read-only flag back - a bind takes its source's flags, so read-only
-		// has to be asserted after it rather than with it.
-		if len(tried) != 4 {
+		// Three: the refused sysfs, the recursive bind, and the remount that
+		// puts the read-only flag back - a bind takes its source's flags, so
+		// read-only has to be asserted after it rather than with it.
+		if len(tried) != 3 {
 			t.Fatalf("attempts were %v, want sysfs, a recursive bind of /sys, "+
-				"a tmpfs over its cgroup tree, then a remount", tried)
+				"then a remount", tried)
 		}
 
 		if !strings.HasPrefix(tried[0], "sysfs") || !strings.HasPrefix(tried[1], "none from /sys") {
@@ -98,16 +97,14 @@ func TestSysFallsBackToABindWhenSysfsIsRefused(t *testing.T) {
 			t.Error("the bound /sys was left writable: no read-only remount followed it")
 		}
 
-		// **And the machine's cgroup tree is covered.** A recursive bind brings
-		// the machine's cgroup2 with it - 85 entries, measured - where a fresh
-		// sysfs gives an empty directory. It cannot be unmounted: mounts
-		// inherited when a user namespace was created are locked. A tmpfs over
-		// it restores what a fresh mount would have shown, and the step's own
-		// cgroup mount goes on top of that as usual. Ambient state a step can
-		// observe that no key describes is what I3 forbids.
-		if !blanked {
-			t.Error("the machine's cgroup tree came in with the recursive bind " +
-				"and was left visible to the step")
+		// **The cgroup tree the bind drags in is deliberately left alone.**
+		// Blanking it with a tmpfs is possible and was measured to be worse: on
+		// a runner the step's own cgroup mount is refused too, so the inherited
+		// tree is the only one a nested runtime gets (E841a). Asserted so that
+		// re-adding the blank has to argue with this rather than look tidy.
+		if blanked {
+			t.Error("the inherited cgroup tree was blanked: on a runner that is " +
+				"the only cgroup mount a step has, and covering it breaks nested runtimes")
 		}
 	})
 

@@ -379,8 +379,8 @@ func TestTheRootIsNotARead(t *testing.T) {
 
 	tr := NewTracer(-1)
 
-	tr.record("/")
-	tr.record("/etc/passwd")
+	tr.record("/", false)
+	tr.record("/etc/passwd", true)
 
 	got := tr.Sightings()
 

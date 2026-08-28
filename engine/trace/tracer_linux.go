@@ -182,8 +182,8 @@ type Tracer struct {
 	stopMu  sync.Mutex
 	stopErr error
 
-	mu       sync.Mutex
-	paths    map[string]bool
+	mu    sync.Mutex
+	paths map[string]bool
 	// opened is the subset of paths the step opened rather than interrogated.
 	opened   map[string]bool
 	why      map[string]bool

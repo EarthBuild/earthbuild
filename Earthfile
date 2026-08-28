@@ -390,6 +390,24 @@ engine-race:
             grep -E -B 8 -A 1 "^ *--- FAIL" /tmp/t.log | head -80; \
             echo "--- and the last of the log, for a run that failed without one:"; \
             tail -20 /tmp/t.log; \
+            # **The seed, because -shuffle=on makes this run unreproducible
+            # without it.** engine/fleet failed here at 1320s with no test
+            # named - a package timeout, which is an ordering property - and the
+            # seed that produced the ordering went to /tmp/t.log and no further.
+            # `go test` prints it once at the top; without it the only way to
+            # chase an order-dependent hang is to run the suite until it happens
+            # again.
+            echo "--- the shuffle seed, to reproduce this exact ordering:"; \
+            grep -E "^-test.shuffle" /tmp/t.log || echo "(no seed line; -shuffle may be off)"; \
+            # **And what a timeout was doing.** Go prints `panic: test timed out`
+            # followed by a goroutine dump naming the running test, which is the
+            # only thing that says *which* test hung. None of the greps above
+            # match it, so a package that timed out reported a bare package name
+            # and nothing else.
+            if grep -q "test timed out" /tmp/t.log; then \
+                echo "--- a test timed out; the goroutine that was running:"; \
+                grep -A 12 "panic: test timed out" /tmp/t.log | head -30; \
+            fi; \
             exit "$rc"; \
         fi; \
         if [ "$skipped" -gt "$SKIP_CEILING" ]; then \

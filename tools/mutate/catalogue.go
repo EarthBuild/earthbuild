@@ -2990,6 +2990,7 @@ var Mutants = []Mutant{
 		Anchor:      "\tif runtime.GOOS == \"linux\" {\n\t\treturn \"\"\n\t}",
 		Replacement: "\tif true {\n\t\treturn \"\"\n\t}",
 		Package:     "./engine/exec/",
+		OS:          "darwin",
 	},
 	{
 		Name:        "exec: a guest that is not an ELF refused here (E490)",
@@ -3012,6 +3013,7 @@ var Mutants = []Mutant{
 		Anchor:      "\t\tif err != nil && g.caseNote != \"\" && o.Out != nil {",
 		Replacement: "\t\tif g.caseNote != \"\" && o.Out != nil {",
 		Package:     "./engine/cli/",
+		OS:          "darwin",
 	},
 	{
 		Name:        "core: a stale prediction naming both digests (E493)",

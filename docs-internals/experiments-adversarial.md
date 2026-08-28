@@ -37237,12 +37237,18 @@ such (see E787), and the first where the divergence is a defect on their side
 rather than a permission on ours.
 
 *Open, and in every build.* The destination directory the engine creates for
-`AS LOCAL out/...` is `0750` here and `0755` under earthly. Tighter is the
-better default and is presumably deliberate, but it is a divergence in every
-build that saves into a subdirectory, and it is the caller's directory rather
-than the artifact's - a CI step that uploads `out/` as another user reads
-nothing. Recorded as a question rather than changed, because the change loosens
-a permission and that is not a decision to take while tidying.
+`AS LOCAL out/...` is `0750` here and `0755` under earthly. It is a divergence in
+every build that saves into a subdirectory, and it is the caller's directory
+rather than the artifact's - a CI step that uploads `out/` as another user reads
+nothing.
+
+This was first written up as a deliberate tightening. It does not look like one.
+The line is `os.MkdirAll(filepath.Dir(dst), 0o750)` with no comment, and `0750`
+is exactly the most permissive value gosec's G301 accepts without a `nolint` -
+so the likelier story is that the linter chose it and nobody decided it. That
+changes the question from "should we loosen a deliberate tightening" to "what
+should this be", which nobody has yet answered. Recorded rather than changed,
+because it is still a permission and the answer is a decision either way.
 
 The method note has now been earned three rounds running: **a harness that
 cannot observe a property reports agreement about it.** Files were compared and

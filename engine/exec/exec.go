@@ -1594,16 +1594,27 @@ func (e *Executor) base(
 	// resolving a command walks PATH through several that never will be. A base
 	// assembled whole answers those with an honest absence, where an unknown
 	// handle has to be refused (see FillFor).
+	// **Timed, because it was the largest thing the phase log did not show.**
+	// A step's `exec` was 27.4ms against a `run` of 6.6ms, and the twenty-one
+	// milliseconds between them were attributed to nothing. Releasing a handle
+	// is an unmount and an `os.RemoveAll` - 15.8ms and 3.5ms - and it happens
+	// once per step, on the way out, where no phase was watching (E817).
 	if named, ok := h.(interface{ HandleID() string }); ok {
 		e.remember(named.HandleID(), primedBase{stack: stack, complete: true})
 
 		return h, func() {
+			defer phase("release", n.Meta.Source)()
+
 			e.forget(named.HandleID())
 			_ = h.Release()
 		}, nil
 	}
 
-	return h, func() { _ = h.Release() }, nil
+	return h, func() {
+		defer phase("release", n.Meta.Source)()
+
+		_ = h.Release()
+	}, nil
 }
 
 // Prewarm starts the sandbox's machine without waiting for anything to need it.

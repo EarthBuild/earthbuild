@@ -40059,3 +40059,36 @@ Three runs of a build with an overlapping destination and
 artifact already in flight when a build fails may land, where serially it never
 would. That is a change to when a failing build stops writing, and is a separate
 question from which of two overlapping artifacts wins.
+
+### E836 - the unnamed 16% of an image pull is the config blob
+
+Following the rule that a parent phase exceeding its children names a cost
+nobody has looked at: on a five-step alpine build, `image:pull` was 0.752s and
+its children summed to 0.634s. 0.118s, 16%, belonged to nothing.
+
+**It is `pullConfig`.** `Pull` is `prepare` (token, manifest - both timed), then
+the layer fetch and unpack (both timed), then a fetch of the configuration blob,
+which was the only round trip in a pull with no phase around it. Adding
+`registry:config` closes the gap to 0.003s.
+
+Three runs, after naming it:
+
+```text
+registry:config   0.116   0.120   0.121
+gap               0.003   0.002   0.003
+```
+
+Stable to a millisecond across runs whose `layer:get` varied by 50%, which is
+what a single small round trip looks like beside a transfer.
+
+**And it is serial after the layers, by a decision that is about error economy
+rather than correctness.** The comment says the configuration is fetched after
+the layers because "a manifest whose layers cannot be pulled has nothing worth
+configuring". Its digest is known as soon as the manifest is, so nothing stops
+it being fetched while the layers are - the cost of doing so is one wasted HTTP
+GET on a pull that was going to fail anyway.
+
+**For scale.** In the same builds `registry:token` cost 0.466-0.603s for the
+first and 0.087-0.133s for the second, so token acquisition remains the larger
+prize by a factor of five, and remains a decision about credentials rather than
+an optimisation.

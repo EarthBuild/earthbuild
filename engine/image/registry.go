@@ -460,7 +460,14 @@ func Pull(ctx context.Context, ref, dir string, opt Options) (ocispec.ImageConfi
 	// pulled has nothing worth configuring - and dropped if it is absent, since
 	// an image that declares nothing is ordinary and its manifest may not name
 	// a config at all.
+	//
+	// Timed, because it is a round trip to the registry and was the only part
+	// of a pull that was not: `image:pull` exceeded the sum of its children by
+	// 16% on an alpine pull, and this was the gap (E836).
+	endConfig := timing.Phase("registry:config", ref)
 	cfg, err := pullConfig(ctx, client, tok, base, m.Config, opt.Platform)
+
+	endConfig()
 	if err != nil {
 		return ocispec.ImageConfig{}, fmt.Errorf("configuration of %s: %w", ref, err)
 	}

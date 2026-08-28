@@ -41241,3 +41241,42 @@ rather than a wrong message.
 any, fails on its own. Nineteen samples say the group-level failure is not
 distributed evenly across them, and testing the rest is an hour this note is not
 worth.
+
+### E857 - on a real target, warm, this engine is six times slower than the one it replaces
+
+The first engine-versus-engine measurement on a real test target rather than a
+microbenchmark. `./tests+quotes-test`, both caches warmed first, runs alternated:
+
+```text
+native   median 25.82s   [25.76, 25.82, 31.38]
+buildkit median  4.40s   [4.40, 4.95, 4.33]
+                 5.9x slower
+```
+
+**Where it is not.** Three hypotheses, each killed by measurement rather than
+argument:
+
+* *Cache misses.* The warm native run is `168 hit, 6 miss` - caching works.
+* *The six misses.* All six are `FROM` steps, and a minimal build of one `FROM`
+  plus one `RUN` completes warm in **0.41s**. Six of those cannot be twenty
+  seconds.
+* *Registry work.* `pin:manifest` 3.06s over nine calls plus `registry:token`
+  2.16s over thirteen is 5.75s - real, and a fifth of the total.
+
+**A `FROM` misses on every warm run**, both `FROM alpine@sha256:...` and
+`FROM alpine:3@sha256:...`, on macOS. That contradicts E838b, which measured a
+warm pinned build at 0.015s reporting `6 hit, 0 miss` - but that ran
+`earth-native` inside a Linux container against a volume cache, and this runs on
+the macOS host. Platform difference, unconfirmed as cause.
+
+**What is established:** on a real workload this engine is six times slower than
+buildkit warm, and the cost is not the cache, not the misses, and not mostly the
+registry. **What is not:** where the remaining twenty seconds goes. The phase
+sums are dominated by `guest:exec` at 41s summed across concurrent steps, which
+is a sum over siblings and so not a duration - the rule this document has broken
+before.
+
+This is the most consequential number in this file and it needs a second
+machine before it is quoted anywhere: every ratio measured this session that was
+checked on the other machine changed. The comparison to run there is exactly the
+one above.

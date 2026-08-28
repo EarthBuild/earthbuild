@@ -39486,3 +39486,34 @@ measurement includes the producer's shell loop writing them. That path never
 leaves the guest: the artifact is already a layer on its own ext4, so there is no
 host, no tar and no crossing. Getting files *into* the guest is the expensive
 part, not moving them once they are there.
+
+### E829c - the saving, checked outside the engine first
+
+**Before changing a path that decides what enters a build, the saving was
+measured on its own.** Two routes to the same archive over 2000 files with a
+tenth of them excluded by a filter, in a standalone program with no engine
+involved:
+
+| route                          | cost  | tar size  |
+| ------------------------------ | ----- | --------- |
+| copy into staging, then pack   | 504ms | 2,049,024 |
+| pack straight from the context | 152ms | 2,049,024 |
+
+3.3x, and the archives are the same size - which is not proof that they are
+identical, but is the cheap check that the filter and the walk agree about what
+they are carrying.
+
+The split is the one E829b measured inside the engine: 350ms to copy and 154ms
+to pack, against 152ms to pack alone. The copy is the whole of the saving and the
+pack costs the same either way, which is what one would expect from a route that
+reads the same bytes once instead of writing then reading them.
+
+**So the estimate in E829b holds up.** Removing `context:copy` is worth about
+three times on the macOS path, and the number now comes from a measurement rather
+than from subtracting one phase from another.
+
+**What this does not settle** is the prefix and the hardlinks. The benchmark
+walks one tree into one archive with no path rewriting, where the engine places
+the content at `filepath.Clean("/" + Args[0])` and keeps a hardlink map keyed on
+the names it has written. Those are the two thirds of the change that
+`TestWhatTheGuestReceivesForACopiedContext` does not yet cover.

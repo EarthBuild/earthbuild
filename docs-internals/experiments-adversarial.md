@@ -38751,3 +38751,55 @@ rather than assumed.
 order, because the later one is meant to win; the rest cannot observe each other.
 The lines printed and the error returned are ordered by the Earthfile whatever
 order the writes completed in, so a build that fails fails the same way twice.
+
+## E819 - seventy-one per cent of a step was taking the mount down
+
+**The phase log did not mention it.** A step's `exec` measured 26.00ms against a
+`run` of 6.05ms and nothing accounted for the twenty milliseconds between. The
+step's base handle is released on the way out, deferred, and no phase was
+watching it. Timed:
+
+| phase, per step, depth 20 | cost    |
+| ------------------------- | ------- |
+| `exec`                    | 26.00ms |
+| `release`                 | 18.55ms |
+| `run`                     | 6.05ms  |
+| `guest:exec`              | 4.05ms  |
+
+**Seventy-one per cent of a step is taking down a mount whose work has
+finished**, against twenty-three per cent running the command the Earthfile
+asked for.
+
+**Moving it behind the answer, five pairs, idle machine, artifact asserted:**
+
+| 20-step chain             | median | all five                 |
+| ------------------------- | ------ | ------------------------ |
+| release before the answer | 1009ms | 1009 1000 1290 1005 1084 |
+| release after it          | 671ms  | 671 734 945 654 643      |
+
+1.50x, ranges disjoint. And nothing leaks: overlay mounts in `/proc/mounts` are
+the same before and after, and no scratch directory is left, because `Close`
+waits for the outstanding releases. What is deferred is *when* a mount comes
+down, never whether.
+
+**With both switches, on a build shaped like a real one** - 8 targets of 8 steps,
+8 artifacts, 64 steps in all:
+
+| both | runs               |
+| ---- | ------------------ |
+| off  | 1003 980 969 963ms |
+| on   | 1312 708 741 708ms |
+
+About 1.35x, with the first `on` run an outlier at 1312ms that the other three do
+not support and that is recorded rather than dropped.
+
+**Why this is stated and not assumed.** E813 is the same idea, tried in the wrong
+place: moving `guest:unbind` behind the answer fails every build, because
+`capture` reads underneath the guest's bind mounts. This is a different handle -
+the host's, on the materialised base - and by the time it is released the step's
+result is committed and captured. That distinction is the whole safety argument,
+and it is the one E813 was missing.
+
+**Left off by default.** A release behind the answer is a mount still up while
+the next step runs. Nothing in a test will notice; a sandbox that has run out of
+mounts will, under load, on somebody else's machine.

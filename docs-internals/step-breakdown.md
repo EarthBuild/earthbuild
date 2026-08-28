@@ -110,16 +110,17 @@ individually, and there are five of them plus untimed glue.
 
 ### Per-step constraints
 
-| Phase               | Cost    | Cannot start until          | Blocks             | Could it move?                         |
-| ------------------- | ------- | --------------------------- | ------------------ | -------------------------------------- |
-| `key` `lookup` `l2` | <0.05ms | the step's inputs are known | the cache decision | already free                           |
-| `materialise`       | 1.9ms   | base layers unpacked        | `guest:bind`       | only by predicting the base - see §6   |
-| `guest:prepare`     | 1.2ms   | the request arrives         | `guest:bind`       | handle lookup; nothing to overlap with |
-| `guest:bind`        | 1.0ms   | `materialise`               | `guest:exec`       | no - the rootfs must exist to run in   |
-| `guest:exec`        | 7.5ms   | `guest:bind`                | everything after   | this is the work                       |
-| `capture`           | 1.5ms   | output exists               | the step's result  | **yes** - see §6                       |
-| `guest:commit`      | 1.0ms   | `guest:exec` done           | the *next* step    | no - it produces the next base         |
-| `guest:unbind`      | 1.0ms   | `guest:exec` done           | `capture`          | no - `capture` reads under the mount   |
+| Phase               | Cost    | Cannot start until          | Blocks             | Could it move?                          |
+| ------------------- | ------- | --------------------------- | ------------------ | --------------------------------------- |
+| `key` `lookup` `l2` | <0.05ms | the step's inputs are known | the cache decision | already free                            |
+| `materialise`       | 1.9ms   | base layers unpacked        | `guest:bind`       | only by predicting the base - see §6    |
+| `guest:prepare`     | 1.2ms   | the request arrives         | `guest:bind`       | handle lookup; nothing to overlap with  |
+| `guest:bind`        | 1.0ms   | `materialise`               | `guest:exec`       | no - the rootfs must exist to run in    |
+| `guest:exec`        | 7.5ms   | `guest:bind`                | everything after   | this is the work                        |
+| `release`           | 18.55ms | `capture` and `commit` done | nothing            | **yes** - E819, and it is 71% of a step |
+| `capture`           | 1.5ms   | output exists               | the step's result  | **yes** - see §6                        |
+| `guest:commit`      | 1.0ms   | `guest:exec` done           | the *next* step    | no - it produces the next base          |
+| `guest:unbind`      | 1.0ms   | `guest:exec` done           | `capture`          | no - `capture` reads under the mount    |
 
 ## 4. What the numbers say about a whole build
 

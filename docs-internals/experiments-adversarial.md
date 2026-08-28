@@ -39403,11 +39403,22 @@ twice before the guest sees anything.
 For contrast, the guest unpacks 15,741 files from a layer in 0.589s: **0.037ms a
 file, twenty times cheaper than the host spends staging one**.
 
-**The fix is to tar straight from the context.** The selection `copyContextInto`
-applies - the ignore files, the path filters - would have to move into the tar
-walk rather than being applied by copying first. That is a real change to a path
-that decides what enters a build, and it is recorded rather than attempted at the
-end of a long day; the measurement is the part that was missing.
+**The fix is to tar straight from the context, and it is three things rather
+than one.** `Pack` is `sortedEntries` followed by `packOne` for each, so a
+`keep func(rel string) bool` filtering that list is easy. But `copyContextInto`
+does not only select - it also *places*, putting the content at
+`filepath.Clean("/" + Args[0])` inside the staging directory, and `packOne`
+derives each entry's name from its path relative to the root it was given. So a
+direct pack needs a prefix as well as a filter, and both have to be threaded
+through the hardlink map `packOne` keeps, which is keyed on the same paths.
+
+That is a change to a function shared with layer packing, in the path that
+decides what enters a build. `TestWhatTheGuestReceivesForACopiedContext` now pins
+the entries the guest gets for a context and an ignore file, so the selection half
+has a net under it; the prefix and hardlink halves do not yet.
+
+Recorded rather than attempted: the measurement was the part that was missing,
+and this is a piece of work rather than a tail-end edit.
 
 **And a caveat on the measurement itself.** The first version of this experiment
 reported COPY as free and flat - 482ms for one file and 479ms for five hundred -

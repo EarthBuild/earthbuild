@@ -40343,3 +40343,42 @@ reading a symptom and reasoning to a cause; this one came from reading the wrong
 file. Cheaper to prevent than the others: a CI job selector that does not name
 the suite will silently answer a question about a different suite, because the
 target names are shared by design.
+
+### E840 - the Podman regression, with a baseline and a mechanism
+
+E839b withdrew the claim that the port collision was a Native failure. Read as a
+Podman one, with `main` as the reference state, it is a clean regression.
+
+**The baseline, which nothing here had before.** `main` run 33189600001, the same
+day: **84 jobs, 84 successes**, Podman 21 of 21. And zero Native jobs - that
+suite does not exist on `main`, so its fifteen failures are this branch's own new
+work being exercised for the first time, not a regression. The twenty Podman
+failures are a regression.
+
+**The mechanism, from the job's own log.** `stage2-setup` starts the outer
+buildkitd as a podman container `earth-buildkitd` listening on
+`tcp://0.0.0.0:8372`. A test then runs an inner `earth` which starts its own
+buildkitd, `buildkitsandbox`, on the same port, and:
+
+```text
+Starting local registry for outputs on port 8371
+Registry serve error: listen tcp 0.0.0.0:8371: bind: address already in use
+buildkitd:            listen tcp 0.0.0.0:8372: bind: address already in use
+```
+
+On **attempt 1 of 3**, before any retry, so this is not a process left over from
+a previous attempt: the two daemons are in one network namespace and want one
+socket.
+
+**What is not established.** Which change on this branch causes it. Two
+candidates were opened and closed by reading rather than guessing:
+`buildkitd/entrypoint.sh` now defaults CNI_MTU instead of exiting, which could
+let a daemon start where one used to die; and `util/containerutil/docker.go`
+folds three `docker info` calls into one - but its fallback is intact, and a
+podman that cannot answer `{{.DockerRootDir}}` errors and falls through to the
+sequence that asks `{{.Store.GraphRoot}}`, exactly as before.
+
+Finding the commit needs a bisect over the branch's CI history, which is its own
+piece of work. E828 recorded these failures as predating this session, and that
+still holds; what is new is the baseline that makes "regression" a measurement
+rather than an impression.

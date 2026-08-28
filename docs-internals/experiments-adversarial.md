@@ -40161,3 +40161,47 @@ with a home connection. A large image moves the balance to `layer:get`, a warm
 cache removes most of it, and a machine near a mirror removes the rest. What the
 number establishes is where the remaining time is when a build is small - which
 is exactly the shape of the corpus targets and of most CI steps.
+
+### E838 - a warm build is 95% tag resolution, and --pin removes all of it
+
+Every measurement in E836-E837 was of a *cold* build, because the engine's cache
+lives at `/root/.cache/earthbuild` inside a `--rm` container and went with it.
+Giving it a volume changes the picture entirely, and the warm build is the one a
+developer actually runs.
+
+**A fully cached build does one millisecond of work.**
+
+```text
+warm, 6 cache hits, 0 miss        wall 0.431s
+  plan                            0.410s   95%
+    registry:token                0.259s   60%
+    pin:manifest                  0.148s   34%
+  schedule                        0.001s    0%
+```
+
+`schedule` is the whole of the build - six steps, all hits - and it is a
+millisecond. Everything else is asking Docker Hub what `alpine:3` means.
+
+**And pinning removes it, measured rather than asserted.** The same build with
+the digest written into the Earthfile, four runs each, medians:
+
+```text
+warm, tag alpine:3        wall 0.426s   plan 0.415   token 0.262   pin:manifest 0.153
+warm, pinned digest       wall 0.042s   plan 0.000   token 0.000   pin:manifest 0.000
+                                        10.2x, 0.384s off every warm build
+```
+
+The engine already prints a note recommending `--pin` and quoting the saving. It
+is right, and this is how right: a no-op unpinned build is ten times the cost of
+a no-op pinned one.
+
+**A line closed, not a win.** The two `registry:token` phases in a cold build
+look like the same token fetched twice. They are not: both paths go through
+`fetchTokenAs`, which reads and writes the per-process `tokenCache`, so the
+second is a hit. Its 0.086s is `warm()` dialling the registry - a connection the
+manifest request that follows reuses - plus waiting on the credential resolution
+that `holdKey` needs so two credentials cannot be handed each other's token.
+There is no double fetch to remove; the machinery is already doing this.
+
+What remains is one genuine authentication round trip per build against an
+unpinned tag, and caching *that* across builds is the reserved decision.

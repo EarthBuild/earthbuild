@@ -9,6 +9,7 @@ import (
 	"runtime/pprof"
 	"sync"
 	"syscall"
+	"time"
 )
 
 // EnvProfile writes profiles of the guest's own work to a directory when the
@@ -33,6 +34,13 @@ const EnvProfile = "EARTH_GUEST_PROFILE"
 // EnvProfileMode selects what is collected. `all` adds mutex and block
 // profiling, which is expensive enough to change the answer - see profiling.
 const EnvProfileMode = "EARTH_GUEST_PROFILE_MODE"
+
+// profileAll is the one value EnvProfileMode reads; anything else is CPU and
+// goroutines only.
+const profileAll = "all"
+
+// contended reports whether the operator asked for the expensive profiles.
+func contended() bool { return os.Getenv(EnvProfileMode) == profileAll }
 
 // profiling starts the profiles the environment asked for and returns the
 // function that writes them.
@@ -67,7 +75,7 @@ func profiling() func() {
 	// So `=cpu` (the default) collects only what is nearly free, and `=all` asks
 	// for contention as well, on the understanding that the timings alongside it
 	// are then worthless.
-	if os.Getenv(EnvProfileMode) == "all" {
+	if contended() {
 		runtime.SetMutexProfileFraction(1)
 		runtime.SetBlockProfileRate(1)
 	}
@@ -103,7 +111,7 @@ func profiling() func() {
 		_ = cpu.Close()
 
 		names := []string{"goroutine"}
-		if os.Getenv(EnvProfileMode) == "all" {
+		if contended() {
 			names = append(names, "mutex", "block")
 		}
 
@@ -126,5 +134,36 @@ func profiling() func() {
 		os.Exit(0)
 	}()
 
+	// **And on a timer, because the guest is usually not allowed to die
+	// politely.** A signal handler covers SIGTERM; the daemon is killed
+	// outright when a build ends, and a SIGKILL cannot be caught. The snapshot
+	// profiles are cheap to re-take and overwrite in place, so what survives is
+	// whatever the last tick saw - which for a question about what goroutines
+	// are waiting on is the whole of the answer.
+	go func() {
+		for range time.Tick(500 * time.Millisecond) {
+			snapshot(dir)
+		}
+	}()
+
 	return func() { once.Do(write) }
+}
+
+// snapshot writes the profiles that are a picture of now rather than a
+// recording of a period, overwriting whatever the last tick left.
+func snapshot(dir string) {
+	names := []string{"goroutine"}
+	if contended() {
+		names = append(names, "mutex", "block")
+	}
+
+	for _, name := range names {
+		f, err := os.Create(filepath.Join(dir, name+".pprof")) //nolint:gosec // an operator's own path
+		if err != nil {
+			continue
+		}
+
+		_ = pprof.Lookup(name).WriteTo(f, 0)
+		_ = f.Close()
+	}
 }

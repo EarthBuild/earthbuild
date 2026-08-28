@@ -1509,6 +1509,25 @@ of code that can be deleted with the suite still green.
 Eight are `fleet`. That is the subsystem with the most machinery and the fewest
 tests, and those are not two observations.
 
+**Nine of the ten open entries are one unfinished feature.** The `fleet` ones and
+the two fault-in ones (`engine/guest/fills.go`, the `n.Fill != nil` branch in
+`engine/exec/native_linux.go`) are all lazy transfer: a guest asking for a path
+its base does not have, and a peer fetching it. The engine says so itself, above
+the branch the mutant deletes - *"Absent, the guest gets no channel, its tracer
+gets no filler, and the step runs against a base that is all there, **which is
+every build today**"*.
+
+So these survive because the feature is unexercised, not because a guard is
+missing from shipped code. That is a different thing and wants a different
+answer: a test written now asserts what the machinery is *intended* to do, which
+is worth less than it looks, because the intention is the part most likely to
+change before anything uses it. The same reasoning is already recorded for
+`store.LayerStore.Verify`, which is marked `**[GAP]**` in the green paper for
+exactly this reason and is honest about it.
+
+**E446 is the one open entry in code that runs today** - ownership kept when a
+layer is committed - and is the one worth a test before the others.
+
 Four are closed and struck through: E278 (the I1 rebuild identity check),
 E281 (which was never a gap), E634 and E494.
 

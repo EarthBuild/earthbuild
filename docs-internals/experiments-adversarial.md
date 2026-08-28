@@ -37630,3 +37630,13 @@ wiring did not, and both times the tests passed because they tested the parts.
 The guard added here is deliberately about *every* writer rather than about this
 behaviour, because a third exit point is the version of this that gets added by
 someone who has never heard of the rule.
+
+**Hunted for a fourth, and did not find one.** Two mechanical passes over
+non-test source: struct fields that are read but whose only assignment is an
+empty literal (E794's signature), and guard-shaped functions counted by call
+site (E798's). The first returns nothing now that `Listings` is filled. The
+second surfaces one never-called function, `store.LayerStore.Verify` - which is
+already marked `**[GAP]**` in its own doc comment, with the reason: there is no
+fleet transport yet to be the boundary it guards. A gap that names itself is the
+opposite of this failure class, and finding it is how the search confirms it was
+looking in the right place.

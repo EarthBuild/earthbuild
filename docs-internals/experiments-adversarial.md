@@ -39686,3 +39686,37 @@ quote for a normal day rather than this one.
 `FROM` digest removes the registry lookup from every build - 403ms on Linux, 140
 on macOS - and has been printed as a note after any build whose lookups cost more
 than 100ms since long before today (E822).
+
+## E831 - what grows with a chain, and it is not the steps
+
+**Per-step cost rises with depth, and the phases say it does not.** A pinned
+chain on a clean machine, four runs each, medians tight enough to trust:
+
+| steps | median | per step | marginal       |
+| ----- | ------ | -------- | -------------- |
+| 20    | 531ms  | 12ms     | -              |
+| 40    | 828ms  | 13ms     | 14.9ms (20-40) |
+| 80    | 1812ms | 19ms     | 24.6ms (40-80) |
+
+But the mean `step` phase is 15.93ms at depth 40 and 14.91ms at 80 - flat, and
+lower at the depth that is slower. The one-off phases are flat too:
+`sandbox:start` 0.140s against 0.141s, `sandbox:dial` 0.075s against 0.076s.
+
+**The time is between the steps.** `schedule` wraps all of them: 0.720s at depth
+40 and 1.644s at 80, which is 18.0ms and 20.6ms a step against `step` phases of
+15.93ms and 14.91ms. So 2.1ms a step at depth 40 and 5.7ms at depth 80 falls
+outside every phase there is - and that gap is the whole of the depth effect.
+
+**Unattributed, and that is the finding.** No phase covers it, which is the same
+condition that hid `release` at 71% of a step (E819) and `context:copy` at 68% of
+a `COPY` (E829b) - both of which turned out to be the largest cost in their path
+once somebody timed them. Between one step ending and the next beginning the
+engine picks the next node, computes its key against a base that is one layer
+deeper, and looks it up; none of `key`, `lookup`, `l2` or `mat:stack` measured
+above 0.05ms when they were last read, so either one of them grows or the cost is
+somewhere with no phase at all.
+
+**Worth about 5ms a step on a long chain**, which is a third of a step at depth
+80 and nothing at depth 10. Recorded rather than chased: it is the third time
+today that a gap in the phase log was the answer, and the first two were only
+found because somebody added the phase.

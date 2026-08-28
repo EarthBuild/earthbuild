@@ -38851,3 +38851,41 @@ because none of the four cheaper-looking options exists. A fixed fifteen
 milliseconds to take away something that cost five microseconds to make is a
 property of the kernel, and the only thing an engine can do with a fixed cost is
 stop standing next to it.
+
+## E821 - the switches against the real corpus, and a headline that was cold
+
+**Correctness first, because that is what the corpus is for.** The `tests/` tree
+(486 Earthfiles that build on Linux) swept with `EARTH_ASYNC_RELEASE=8` and
+`EARTH_PARALLEL_EXPORT=8` both set. The run ratchet passes: it fails when fewer
+build than last time *and* when more do, so a pass means exactly the same set
+built as without them. Four sweeps, no failures either way.
+
+That is the evidence a default flip needs. The synthetic measurements say the
+switches are quick; the corpus says they are right.
+
+**And the speed on real Earthfiles is 6%, not 96%.**
+
+| sweep       | off      | on       |
+| ----------- | -------- | -------- |
+| first pair  | 52,235ms | 26,658ms |
+| second pair | 28,217ms | 26,295ms |
+| third pair  | 28,030ms | 26,333ms |
+
+The first `off` run was cold and filled the cache for everything after it. Taken
+alone it reads as 1.96x. Repeated, it is 1.07x - about 1.7 seconds off 28, and
+the 1.96x was cold-against-warm and nothing else.
+
+**Which is consistent, and worth understanding rather than being disappointed
+by.** A release costs 18.55ms and an export 18.19ms, so the switches are worth
+roughly what a build spends on releases and exports - which is most of a step
+(71%) but only a small part of a *corpus sweep*, where the Earthfiles are small,
+most steps are cached, and the fixed 423ms prologue of each of 486 builds is the
+dominant cost. The measured wins stand where they were measured: 1.50x on a
+twenty-step chain, 1.76x on thirty-two artifacts, 6% across a corpus of small
+builds.
+
+**The failure this nearly became.** One pair, reported as 1.96x, would have been
+the sixth withdrawn claim of the day - and the most embarrassing, because the
+corpus is the thing the repository trusts. It survived only because the pair was
+run again, which is now the fourth entry in the test-plan's rules and the one
+that keeps earning its place.

@@ -1500,8 +1500,8 @@ of code that can be deleted with the suite still green.
 | ~~E292~~ | fleet: priming nothing when nothing was predicted - **not a gap**: an equivalent mutant, entry removed; the decision it looked like is guarded by E288 |
 | E297     | exec: giving the guest a fault-in channel only when asked                                                                                              |
 | ~~E299~~ | fleet: omitting a proof the caller says it has - **done**: asserted on the bytes, since the reader tolerates both shapes                               |
-| E309     | fleet: a holder that will not dial saying so                                                                                                           |
-| E319     | fleet: the pilot going out rather than waiting on itself                                                                                               |
+| ~~E309~~ | fleet: a holder that will not dial saying so - **done**: the reason must survive being fetched from                                                    |
+| ~~E319~~ | fleet: the pilot going out rather than waiting on itself - **done**: the first caller returns, the second is held                                      |
 | ~~E446~~ | guest: ownership kept when a layer is committed - **covered by the corpus**, which the mutant's `go test` never runs                                   |
 | ~~E494~~ | cli: the sandbox asked how it shares the store - **done**: viewsFor must use the answer, not merely receive it                                         |
 | ~~E634~~ | guest: the scratch relocated off an overlay - **done**: a source guard that production takes the escape                                                |

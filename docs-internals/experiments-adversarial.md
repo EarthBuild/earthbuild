@@ -40461,3 +40461,46 @@ probe (`podmanShellFrontend` has its own `Information`), the engine default at
 both the job and the nested CLI, the two new native guards, and host networking.
 `buildkitd/` contains exactly one changed file. What remains is a bisect over the
 branch's own history, which nine CI runs in one day cannot substitute for.
+
+### E841 - the shallow bind was wrong, and the kernel said so
+
+E840a's commit made the /sys fallback a shallow bind, reasoning that MS_REC
+would drag the machine's cgroup tree in and violate I3. The reasoning was sound
+and the change was wrong, which the kernel settles in one command.
+
+In a user namespace that does not own the network namespace - the runner's
+situation, and the whole reason this fallback exists:
+
+```text
+mount -t sysfs none /tmp/s    permission denied          (the failure being worked around)
+mount --bind  /sys /tmp/b     wrong fs type, bad option  (EINVAL - the "fix")
+mount --rbind /sys /tmp/r     OK, 9 entries
+```
+
+A shallow bind is refused because it would expose files hidden by submounts. So
+MS_REC is not a preference; without it the fallback fails in exactly the
+namespace it was written for, and the shallow version would have shipped looking
+correct and doing nothing.
+
+**And the I3 objection was right too.** The recursive bind brings the machine's
+cgroup2 along - 85 entries where a fresh sysfs shows an empty directory. It
+cannot be removed: mounts inherited when a user namespace was created are
+locked, and `umount -l` on them is refused, measured.
+
+**What works is a tmpfs over it.** Mounting tmpfs needs nothing of the network
+namespace, so `/sys/fs/cgroup` can be blanked to the empty directory a fresh
+sysfs would have shown, and `mountCgroup2` puts the step's own tree on top as
+usual. Both objections satisfied, neither by argument.
+
+**What this does not settle.** In the same synthetic namespace, mounting cgroup2
+over the blank was itself refused. If that is also true on the runner then a step
+will have /sys and no cgroup tree, and a nested runtime will still find nothing -
+the difference being that the guest will now say so, because /sys succeeding
+promotes the cgroup failure to the first reason reported. That is the next data
+point, and it is one CI run away rather than an afternoon of reading.
+
+**The pattern, for the fifth time today.** Every wrong step this session was a
+plausible inference that a five-second command refuted. This one was caught only
+because the fallback was tried against a real kernel rather than trusted to a
+unit test with an injected mount - which passed both the wrong version and the
+right one.

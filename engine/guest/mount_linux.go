@@ -535,12 +535,17 @@ func mountSys(root string) (undo func(), why error) {
 // Read-only either way: a step has no business writing to the machine's sysfs,
 // and MS_BIND does not carry flags, so the remount asserts them.
 //
-// **Shallow, not MS_REC.** The machine mounts cgroup2 at /sys/fs/cgroup, and a
-// recursive bind brings it along - so a step whose own cgroup mount is skipped,
-// on a cgroups v1 machine, would be handed the machine's entire hierarchy. A
-// fresh sysfs mount shows an empty directory there, and this has to match it:
-// ambient state a step can observe that no key describes is exactly what I3
-// forbids.
+// **Recursive, and then blanked - both measured on the kernel rather than
+// reasoned about.** A shallow bind of /sys is refused in a user namespace with
+// EINVAL, because it would expose files hidden by submounts; the recursive form
+// succeeds. So MS_REC is not a choice.
+//
+// It brings the machine's cgroup2 with it - 85 entries where a fresh sysfs
+// shows an empty directory - and that cannot be unmounted: mounts inherited
+// when a user namespace was created are locked, and `umount` on them is
+// refused. A tmpfs over /sys/fs/cgroup restores what a fresh mount would have
+// shown, and mountCgroup2 puts the step's own tree on top of it as usual.
+// Ambient state a step can observe that no key describes is what I3 forbids.
 func mountSysWith(root string, mount mountFunc) (undo func(), why error) {
 	target := filepath.Join(root, "sys")
 
@@ -557,8 +562,18 @@ func mountSysWith(root string, mount mountFunc) (undo func(), why error) {
 		return func() { unmountAll(target) }, nil
 	}
 
-	bound := mount("/sys", target, "none", unix.MS_BIND, "")
+	bound := mount("/sys", target, "none", unix.MS_BIND|unix.MS_REC, "")
 	if bound == nil {
+		// Before the read-only remount, because this is a mount of its own and
+		// the remount below is about the bind underneath it.
+		//
+		// Best effort: a step whose /sys/fs/cgroup could not be blanked still
+		// gets its own cgroup tree mounted over it by mountCgroup2, which is
+		// the normal path. Failing that, it sees the machine's - which is worth
+		// reporting and is not worth refusing the step over.
+		_ = mount("none", filepath.Join(target, "fs", "cgroup"), "tmpfs",
+			unix.MS_RDONLY|unix.MS_NOSUID|unix.MS_NODEV|unix.MS_NOEXEC, "")
+
 		// A bind takes the source's flags, so read-only is asserted afterwards.
 		// Failing that is not failing the mount: a step with a writable /sys is
 		// worse than one with a read-only /sys and much better than one with

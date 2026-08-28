@@ -41029,3 +41029,32 @@ result; it took two more runs and thirty seconds to know that.
 AGENTS.md: a target whose inner build needs a daemon this engine will not start
 cannot be run locally under `--engine=native`. Run those under
 `--engine=buildkit`, which is what they are testing anyway.
+
+### E852 - why CI looked static while six targets went green
+
+The run carrying the EXPOSE fix, the COPY-tilde warning, the /sys bind and the
+device reporting finished 64 of 100, Native 1 of 16 - identical to the run
+before it.
+
+**Not the fixes failing: the granularity.** A Native job builds a whole group -
+`+test-no-qemu-group4` is thirteen `BUILD +<name>-test` lines - and one failing
+target reds the job. `+test-no-qemu-group11` holds the EXPOSE test that was
+fixed and several that were not, so the job stays red and reports nothing about
+the difference.
+
+So the CI number cannot move until every target in a group passes, while the
+local loop moves one target at a time and says so immediately. Measured today:
+
+```text
+group 4, locally, target by target   8 of 9 pass under --engine=native
+group 4, in CI                       1 job, red
+```
+
+The second number is true and carries almost no information. Anyone tracking
+progress on this branch by the CI job count will conclude nothing is happening
+for weeks, and then see several jobs flip at once.
+
+**What follows.** Work at target granularity locally; use the CI job count as a
+release gate rather than as a progress measure. And when reporting progress,
+quote targets, not jobs - `8 of 9 in group 4` is the honest form of the same
+afternoon that CI renders as `1 red`.

@@ -38966,3 +38966,46 @@ rather than 543ms of it, needs no cache, and is one line in the Earthfile that
 the engine already recommends on every build (E822). A token cache is for people
 who will not pin - which, being honest about how software is used, is most of
 them.
+
+## E824 - the skip ceiling, identified rather than guessed
+
+**CI had been red on it since before this branch's work started.** The
+`+engine-race` target refuses a run that skips more than `SKIP_CEILING` tests,
+and it reported `176 > 175` on every commit including the branch point. The
+ceiling had been set to 175 at `62860ec71`, a commit that never had a CI run of
+its own, so CI first saw the number at 176 and had been failing on it ever since.
+
+**It could not be identified from CI's logs.** The target prints the top forty
+skips and there are a hundred and sixty-three distinct ones; the failing test was
+never in the list. Two earlier attempts to name it from the log guessed, and
+guessing is what the rest of this document is about.
+
+**So the container was reproduced.** `earthly +engine-race` on a Linux box runs
+the same image CI does, and the target's `head -40` was temporarily widened to
+print all of them. Then the same at `62860ec71`, in a worktree:
+
+| commit    | skips       | result |
+| --------- | ----------- | ------ |
+| 62860ec71 | 175 of 2970 | passes |
+| HEAD      | 176 of 3172 | fails  |
+
+Diffing the two lists names the movers exactly: `TestSaveArtifactIfExistsFollowsWhatIsThere`
+and `TestNoCaseAdviceWhenTheGuestUnpacks` skip now and did not then, and one
+other has stopped skipping - which is why 2970 tests skipping 175 becomes 3172
+skipping 176 rather than 177.
+
+**Both are legitimate, and each is the shape of an entry already there.** The
+first needs a registry and a sandbox, so it skips without `EARTH_TEST_NETWORK`,
+exactly as 173 and 174 do. The second asks whether the case note is withheld when
+the guest unpacks, and there is no note to withhold on a case-sensitive
+filesystem - Linux is one, so the question cannot be put in this container at
+all.
+
+Ceiling raised to 176 with both named, and verified by running the target again
+in the same container: `176 of 3170`, and it passes.
+
+**What made this expensive was the diagnostic, not the defect.** A ratchet that
+fails without naming what moved is a ratchet that gets raised by whoever is least
+patient. `head -40` against 163 possible culprits is the whole story - and the
+target already knows how to print the full list, because that is what was
+temporarily switched on to find this.

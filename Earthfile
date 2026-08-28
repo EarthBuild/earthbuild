@@ -340,7 +340,23 @@ engine-race:
     # the guest ever installs before the clone again. The alternative was an
     # assertion that reported the runner's filter as the engine's - it did,
     # exactly once, on the first CI run this branch ever had.
-    ARG SKIP_CEILING=175
+    # 176: two arrived together and one left, so the number moves by one.
+    #
+    # `TestSaveArtifactIfExistsFollowsWhatIsThere` (E788) is the shape of 173 and
+    # 174 - it needs a registry and a sandbox, so it skips unless
+    # `EARTH_TEST_NETWORK` is set, and this container does not set it.
+    #
+    # `TestNoCaseAdviceWhenTheGuestUnpacks` (E806) asks whether the case note is
+    # withheld when the guest unpacks. There is no note to withhold on a
+    # case-sensitive filesystem and Linux is one, so the question cannot be put
+    # here at all - it is answered on the machine the note exists for.
+    #
+    # Verified rather than deduced: the target was run in this container at
+    # `62860ec71`, where it reports 175 of 2970 and passes, and at HEAD, where it
+    # reports 176 of 3172. Diffing the two skip lists names those two as new and
+    # one other as no longer skipping. CI could not have shown this - it prints
+    # the top forty and there are a hundred and sixty-three (E824).
+    ARG SKIP_CEILING=176
     # Nothing is excluded. Every test needing a privilege this container does
     # not grant - a user namespace, an overlay mount, a device node - now skips
     # with the reason, because each asks whether the *operation* works rather

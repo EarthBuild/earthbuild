@@ -27,6 +27,10 @@ import (
 // measurements include the profiler.
 const EnvProfile = "EARTH_GUEST_PROFILE"
 
+// EnvProfileMode selects what is collected. `all` adds mutex and block
+// profiling, which is expensive enough to change the answer - see profiling.
+const EnvProfileMode = "EARTH_GUEST_PROFILE_MODE"
+
 // profiling starts the profiles the environment asked for and returns the
 // function that writes them.
 //
@@ -50,8 +54,20 @@ func profiling() func() {
 		return func() {}
 	}
 
-	runtime.SetMutexProfileFraction(1)
-	runtime.SetBlockProfileRate(1)
+	// **Contention profiling is opt-in on top, because it is not free.**
+	// `SetBlockProfileRate(1)` records a stack on every blocking event, and a
+	// guest doing nothing but blocking on syscalls blocks constantly: the first
+	// build measured this way took 15.2s where the same build takes 1.5s. A
+	// profile that slows its subject tenfold is measuring the profiler, which is
+	// the trap this whole line of work keeps walking into.
+	//
+	// So `=cpu` (the default) collects only what is nearly free, and `=all` asks
+	// for contention as well, on the understanding that the timings alongside it
+	// are then worthless.
+	if os.Getenv(EnvProfileMode) == "all" {
+		runtime.SetMutexProfileFraction(1)
+		runtime.SetBlockProfileRate(1)
+	}
 
 	cpu, err := os.Create(filepath.Join(dir, "cpu.pprof")) //nolint:gosec // an operator's own path
 	if err != nil {
@@ -72,7 +88,12 @@ func profiling() func() {
 		pprof.StopCPUProfile()
 		_ = cpu.Close()
 
-		for _, name := range []string{"mutex", "block", "goroutine"} {
+		names := []string{"goroutine"}
+		if os.Getenv(EnvProfileMode) == "all" {
+			names = append(names, "mutex", "block")
+		}
+
+		for _, name := range names {
 			f, cerr := os.Create(filepath.Join(dir, name+".pprof")) //nolint:gosec // an operator's own path
 			if cerr != nil {
 				continue

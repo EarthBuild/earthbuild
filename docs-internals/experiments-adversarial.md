@@ -38464,3 +38464,52 @@ name per call. A per-sandbox counter would be one `mkdir` and no retry loop. It
 is only reached for ephemeral and secret mounts, so a plain `RUN` does not pay
 it - which is why it is recorded rather than fixed on the strength of a profile
 taken from a build that had neither.
+
+## E815 - the machine got three times slower while nobody was building
+
+**E812's ceiling was measured on a degraded machine.** Re-running the same
+script hours later gave 1636ms where it had given 547ms - identical script,
+identical binaries, same machine, nothing to do with the code. The cause was
+sitting in `container list`:
+
+| state              | count |
+| ------------------ | ----- |
+| sandboxes, total   | 37    |
+| sandboxes, running | 6     |
+| volumes            | 40    |
+
+**Six live VMs, each asking for `runtime.NumCPU()` vCPUs.** `sandboxCPUs`
+returns this machine's core count unconditionally, so six concurrent sandboxes
+request 96 vCPUs on sixteen cores. Stopping them restored the machine exactly:
+
+| width | E812 (degraded) | mid-session | stopped |
+| ----- | --------------- | ----------- | ------- |
+| 1     | 547ms           | 1636ms      | 550ms   |
+| 16    | 944ms           | 3244ms      | 687ms   |
+| 32    | 1408ms          | 5161ms      | 881ms   |
+
+**So the ceiling is about 380 steps/s, not 175.** Excluding the ~460ms
+prologue: 80 steps in 227ms at width 16, 160 in 421ms at width 32. Against the
+1,212/s that sixteen cores at 13.2ms a step allow, that is 31% - about five
+steps genuinely in flight rather than the 2.3 E812 reported. The shape of E812's
+conclusion survives and its number does not.
+
+**It is not only a measurement problem.** A sandbox is per store, so a developer
+with three checkouts open has three VMs, each sized for the whole machine, and
+they linger until the idle timeout takes them. Nothing warns, nothing is
+oversubscribed visibly, and every build on that machine is slower for reasons no
+build's own log can show. The engine sizes each sandbox as though it were the
+only one.
+
+**And it invalidated a finding that was half-written.** The comparison that
+looked like O(depth^2) - per-step cost growing 8x when a chain went from 5 steps
+to 20 - had its two halves measured hours apart, one on a clean machine and one
+on a machine carrying six VMs. Run at width 1 in a single sitting, depth 5 to
+depth 40 is eight times the work for 4.3x the wall: sub-linear, and no quadratic
+term at all.
+
+**The rule this leaves.** A benchmark harness in this repository must report the
+number of running sandboxes beside its numbers, or stop them first. A machine
+that degrades three-fold between two runs of the same script will otherwise
+manufacture whichever conclusion is being looked for, and it will do it with a
+straight face - both halves of that O(N^2) comparison were internally consistent.

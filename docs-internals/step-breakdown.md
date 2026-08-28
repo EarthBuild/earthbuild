@@ -145,8 +145,9 @@ What is already parallel:
   reverse edge, so anything with no path between it and the running work is already
   running too, and it works: 8 seconds of `sleep` offered as 80 steps across 16 targets
   completes in 1.3s, about 61% of what sixteen slots allow. What does not overlap is
-  roughly **4ms of per-step overhead** - visible as a 175 steps/s ceiling when every step
-  is `echo` and invisible when a step does real work (E812, E812a). `bind` and `unbind` are
+  roughly **4ms of per-step overhead** - visible as a ~380 steps/s ceiling when every step
+  is `echo` and invisible when a step does real work (E812, E812a, corrected by E815 -
+  the first number was measured on a machine carrying six idle sandboxes). `bind` and `unbind` are
   2.0ms of that 4ms - but neither can simply be moved: `bind` must precede the process and
   `unbind` must precede `capture` (E813). Reducing the *number* of mounts is the lever,
   not relocating them.

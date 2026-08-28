@@ -39166,3 +39166,67 @@ demoted `EARTH_ASYNC_RELEASE` on the second platform, E825a rescued
 `EARTH_PARALLEL_EXPORT` on it, and this one halves a headline. The habit is
 cheap - the same experiment, the other machine, before the number leaves the
 room - and it has now changed the conclusion three times out of three.
+
+## E827 - the 300ms floor on macOS is the CLI, not the VM
+
+**A pinned no-op build is 292-306ms and none of it is planning.** Pinning removes
+the registry lookup entirely (E822a), and what is left is:
+
+| phase           | cost  |
+| --------------- | ----- |
+| `sandbox:start` | 166ms |
+| `sandbox:dial`  | 82ms  |
+| `setup`         | 23ms  |
+| everything else | ~25ms |
+
+**And the VM is already running.** `sandbox:start` does not boot anything: it
+calls `Available()`, then `listContainers()`, then execs the guest binary, all by
+spawning Apple's `container` CLI. Measured on this machine, against a sandbox
+that is up:
+
+| invocation                           | cost     |
+| ------------------------------------ | -------- |
+| `container --version`                | 16ms     |
+| `container list`                     | 28ms     |
+| `container exec <sandbox> /bin/true` | 74-101ms |
+
+So the floor is thirteen shell-outs' worth of process startup and XPC, not
+virtualisation. The engine's own work in a no-op build is about 25ms.
+
+**And the daemon it is talking to is already resident.** `launchctl` lists
+`com.apple.container.container-core-images`,
+`container-network-vmnet.default`, and - for this very sandbox -
+`container-runtime-linux.earthbuild-8bda8e15d8001122`. Apple's stack is running
+whether the engine uses it or not; what costs 85ms is spawning a client to reach
+it.
+
+**Which matters because "one binary, no daemon" is principle 8 of the RFC.** That
+principle is about *this project's* daemon - buildkitd, its version skew, its
+`StopIfIdle` machinery. It says nothing about how to address a daemon the
+platform already runs. Speaking the apiserver's protocol instead of spawning its
+CLI would keep the principle intact and remove most of the startup cost.
+
+**What is available at each level:**
+
+| change                                            | saves        | costs                                          |
+| ------------------------------------------------- | ------------ | ---------------------------------------------- |
+| skip `Available`, fall back on failure            | ~16ms        | a worse diagnostic when `container` is missing |
+| skip `listContainers`                             | ~28ms        | **the garbage collection**                     |
+| talk to `container-apiserver` rather than the CLI | part of 85ms | a protocol dependency                          |
+| hold the guest connection across builds           | ~167ms       | a resident process of ours                     |
+
+**The second is not free, and reading the function is what says so.**
+`listContainers` is not a check: its result is handed to `reapOrphans` and
+`reapStranded`, and to the test that removes a sandbox which can no longer see
+its store. Skipping it does not skip a question, it skips the garbage collection -
+and sandboxes accumulating is precisely what made a machine three times slower in
+E815, thirty-seven of them with six running, each holding `NumCPU` vCPUs.
+
+Reaping on a schedule rather than on every build would keep both, and is a real
+design change rather than a saving lying about. What is genuinely spare is
+`Available` at 16ms, and even that trades a clear "container is not installed"
+for a confusing exec failure.
+
+The last row would take the floor to nearly nothing and is the one principle 8
+forbids.
+and is the one principle 8 forbids.

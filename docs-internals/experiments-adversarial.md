@@ -40426,3 +40426,38 @@ two are not competing for one socket.
 network namespace. The next move is the outer-buildkit pointer that
 `stage2-setup` sets for non-native jobs - if the inner `earth` stops being told
 about the outer daemon, it starts its own, which is exactly this symptom.
+
+### E840b - the engine default is guarded, and the Podman collision survives it
+
+Following E840a's lead - that the CLI's native default is where to look - the two
+places it could leak into a Podman job both check out, so the obvious form of the
+hypothesis is eliminated.
+
+* **The outer job.** `stage2-setup` writes `EARTH_ENGINE=buildkit` for every
+  non-native `BINARY`, and the failing job's environment dump carries it.
+* **The inner CLI.** `earthbuild-integration-test-base` is `FROM --pass-args
+  +earthly-docker`, and `ENV EARTH_ENGINE=buildkit` is inside that target
+  (`Earthfile:900`, target opens at 853). So a nested `earth` in an integration
+  test inherits buildkit, which is what the comment there claims and is worth
+  having checked rather than believed.
+* **The two `if: inputs.BINARY != 'native'` guards** this branch adds cover
+  "Load buildkitd image from artifact" and "Point outer buildkit at the PR's own
+  staging image". `BINARY` is `podman` for that suite, so both still run.
+
+**And the network arrangement is not new either.** `Earthfile:949` sets
+`ENV NETWORK_MODE=host` on the integration test base, unchanged from `main`. So
+the inner buildkitd has always run with host networking; that alone cannot be
+what changed.
+
+**What that leaves.** The inner daemon is buildkit and host-networked on both
+branches, and only collides here - so the outer `earth-buildkitd` must be holding
+host 8371/8372 on this branch and not on `main`. That is the next thing to
+establish, and it is not visible in a failing job's log, because the outer
+daemon's own start is only dumped when a build fails.
+
+**Eliminated so far**, each by reading rather than by supposition: the CNI_MTU
+entrypoint change (its message appears zero times), the folded `docker info`
+probe (`podmanShellFrontend` has its own `Information`), the engine default at
+both the job and the nested CLI, the two new native guards, and host networking.
+`buildkitd/` contains exactly one changed file. What remains is a bisect over the
+branch's own history, which nine CI runs in one day cannot substitute for.

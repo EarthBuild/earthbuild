@@ -39278,6 +39278,19 @@ separate piece of work from anything measured in this document, and starting it
 without direction would be the third time today that a plausible next step turned
 out to be somebody else's decision.
 
+**And one more, of a different shape.** `Docker Integrations / EarthBuild Image
+Test` failed once on this branch and passes on `main`:
+
+```text
+failed to copy: httpReadSeeker: failed open: failed to do request:
+  Get "https://127.0.0.1:40653/v2/sess-.../pullping/blobs/sha256:..."
+```
+
+A pull from buildkit's own session registry dying part-way through a blob. One
+occurrence has the shape of a flake rather than a break, and one occurrence
+cannot tell the difference - noted here so that the second one is recognised as a
+second rather than investigated as a first.
+
 ### E828a - narrowing the Podman failure, without reaching it
 
 **The precise error, which took getting past the diagnostics to see.** A nested

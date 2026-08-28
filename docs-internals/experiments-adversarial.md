@@ -37925,3 +37925,52 @@ The general form, since it keeps recurring: **a failing suite is a set of
 failures, and its cause is a claim about every member of that set.** Sampling
 three of them is not proof, but it is enough to disprove the claim that they are
 all one thing, which is the claim that gets made.
+
+## E804 - chasing the asymmetry, and finding none
+
+Two sweeps of the same catalogue, one on linux and one on darwin, 360 mutants
+judged by both. Every disagreement between them was chased.
+
+| verdicts differ                 | count |
+| ------------------------------- | ----- |
+| total disagreements             | 116   |
+| one side `DIRTY` or `unrun`     | 115   |
+| genuine difference in judgement | **0** |
+
+The one that looked genuine was `fleet: refusing a worker count that is not a
+number (E255)`: `STUCK` on linux, `killed` on darwin. `STUCK` means the package's
+tests never finished, which the tool is careful to distinguish from a survivor -
+"the tests did not notice" and "the tests never ran" are different answers. Run
+on its own it is killed on linux too, by `TestAnUnreadableWorkerCountIsRefused`,
+in 0.00s. The sweep was running mutants back to back on a loaded machine and the
+package timed out.
+
+**That is a fifth way a sweep misleads: load.** A mutant that dies instantly can
+be reported `STUCK` by a sweep that is competing with itself, and `STUCK` sits
+next to `SURVIVED` in the summary as a "problem". Worth knowing before treating
+one as evidence of anything.
+
+So the platforms agree wherever both could judge, and the 115 are accounted for
+exactly:
+
+* **`unrun`** - the mechanism does not compile on that platform. Five entries
+  needed their platform stated: E394's pair (darwin-only, reported on linux),
+  E377 (linux-only, reported on darwin), and E490 and E491 (darwin-only in
+  *effect* rather than by compilation - E490's replacement is what the original
+  already does on linux, and E491's note is empty where the filesystem is
+  case-sensitive).
+* **`DIRTY`** - the package was already red. That is this machine's two failing
+  tests, recorded in the nits file, and it is why the linux sweep could not judge
+  `interp` or `guest` at all.
+
+The second bullet is the reason to run both. Five of the eight survivors closed
+in this sweep came from the platform whose sweep could see them, and neither
+platform could see all five.
+
+Worth stating plainly, since the question was asked directly: **macOS is not
+case-sensitive by default.** APFS ships in two flavours and the installer picks
+the insensitive one; HFS+ was the same before it. Measured on the machine this
+was written on, `Macintosh HD` included: `touch Foo.txt` leaves `foo.txt`
+present. Linux is the outlier here rather than Windows being the only one - which
+is exactly why `caseNoteFor` exists and why it suggests an `hdiutil create` disk
+image for the layer store.

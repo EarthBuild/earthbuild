@@ -39768,3 +39768,63 @@ farm falls back to full paths on a name clash.
 The asymmetry is the point, and it is stated there: flattening one step sooner
 than strictly necessary costs one squash, while flattening one step too late
 costs the build. Checked and left alone.
+
+## E832 - the Native jobs had never run either
+
+**Two of sixteen `Native` jobs fail, and they are the first sixteen to run.**
+With the skip ceiling fixed the CI run reaches ninety-nine jobs, and the Native
+suite completes for the first time on this branch:
+
+| run                     | Native jobs         |
+| ----------------------- | ------------------- |
+| 33161680624 (f13daacf3) | 1, skipped          |
+| 33172654728 (eb2e3b824) | 16, all cancelled   |
+| this one                | 16, of which 2 fail |
+
+So they are newly *observed* rather than newly *caused* - the same shape as the
+Podman failures, and the same cause: for months CI died at `Fast Check & Build`
+and never got here.
+
+**The failure is `WITH DOCKER`:**
+
+```text
+Error: docker load test:img failed with exit code 1
+  (tests/with-docker-expose/Earthfile:74, :88, :65)
+```
+
+**And the day's changes are ruled out rather than assumed innocent.**
+`image.Pack` was refactored to delegate to a new `PackSelected`, which is exactly
+the sort of change that could alter a layer and break a `docker load` - so it was
+checked: `Pack` and `PackSelected` produce byte-identical archives, the same
+digest and the same length, over the same tree. The direct context pack cannot be
+involved either; it only runs when the store is in the VM, and these jobs are
+Linux. Everything else added today is a `timing.Phase`, which is a no-op unless
+`EARTH_TIMINGS` is set.
+
+**And it is not one failure.** The run completed at 64 passing and 36 failing of
+100: twenty Podman, fifteen of the sixteen Native, and `CI Success` behind them.
+Three sampled Native jobs gave three different causes:
+
+| job                     | failure                                                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `+test-no-qemu-group11` | `docker load test:img failed` (`with-docker-expose`)                                                       |
+| `+test-misc`            | `the step producing /earthly/build/earthly did not run`                                                    |
+| `+test-no-qemu-group1`  | `RUN diff "expected" "actual" failed` (`autocompletion`), and `RUN --privileged ip link add dummy0` exit 2 |
+
+**Which is the finding, and it is not about speed.** The native engine is what
+this branch exists to build, its test suite is the sixteen `Native` jobs, and
+those jobs have never completed in CI - skipped once, cancelled sixteen times,
+and never before run to a verdict. Now that the skip ceiling lets the run get
+there, eleven of sixteen fail with at least three unrelated causes.
+
+Fifteen of sixteen is not a flaky suite; it is a suite nobody has been able to
+read. That is a backlog rather than a regression, and none of it is caused by the
+day's work - `Pack` was verified byte-identical to its replacement, the direct context
+pack cannot run on Linux, the concurrent export is behind a switch that is off,
+and everything else added is a `timing.Phase`. But it means the engine's own
+suite has been unverified for as long as CI has been red, which is longer than
+anyone has been looking.
+
+**Recorded, not fixed**, for the reason the Podman ones were: several separate
+pieces of work, none of them a speed question, and the useful thing to leave
+behind is that these jobs are new to CI rather than new to failing.

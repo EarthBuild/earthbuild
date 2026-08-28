@@ -1572,11 +1572,32 @@ otherwise identical log and exits zero.* It asserts `2 worker(s) joined` **and**
 `fleet <n> delegated`, and either alone would pass a local build wearing a
 fleet's clothes.
 
-So answering this needs two real `earth-worker` processes reachable at the
-driver's address with a shared `EARTH_FLEET_SECRET` - which is what the CI
-workflow arranges and a single machine does not. Until somebody does that, the
-eight fleet entries are neither guarded nor known to be unguarded, and the list
-should keep saying so.
+Answering it needs two real `earth-worker` processes reachable at the driver's
+address with a shared `EARTH_FLEET_SECRET`. **A single machine can do that**, and
+the sequence is worth writing down because the ordering is the whole difficulty:
+the driver chooses its port at start and prints it, so the workers cannot exist
+before it does.
+
+1. start the driver with `EARTH_FLEET_WORKERS=2` and a wait long enough to be
+   started against - it blocks waiting for them;
+2. poll its log for `EARTH_FLEET_DRIVER=<addr>`, which it prints for this
+   purpose;
+3. start two `earth-worker` processes with that address, the same secret, and a
+   cache directory each;
+4. assert both of the workflow's markers before believing anything.
+
+Done that way it forms: `2 worker(s) joined`, `fleet 4 delegated, 1 local`.
+
+**And the four mutants tried survive it.** E274, E282, E292 and E299 were each
+applied against a fleet that really delegated, and the build passed every time.
+So for those four the answer is no longer unknown: neither `go test
+./engine/fleet/` nor `tests/fleet+all` notices their absence.
+
+The caveat that keeps them from being fully settled is that both workers were on
+one machine. A mechanism whose failure only shows across a network - correcting a
+reply's address is the obvious candidate - would not be exercised by this
+arrangement either, so a survivor here still means "these two suites did not
+notice" rather than "nothing could".
 
 **E446 is the one open entry in code that runs today** - ownership kept when a
 layer is committed - and it turns out to be guarded already, by something the

@@ -41058,3 +41058,32 @@ for weeks, and then see several jobs flip at once.
 release gate rather than as a progress measure. And when reporting progress,
 quote targets, not jobs - `8 of 9 in group 4` is the honest form of the same
 afternoon that CI renders as `1 red`.
+
+### E853 - a whole Native CI job passes, verified locally
+
+`./tests+ga-no-qemu-group2` exits 0 under `--engine=native`, run exactly as CI
+runs it rather than target by target. That is `Native / +test-no-qemu-group2`,
+red in every CI round today.
+
+```text
++copy-test                     0    +copy-test-wildcard                 0
++copy-test-verbose-output      0    +git-clone-test                     0
++copy-tilde-test               0    +builtin-args-invalid-default-test  0
++copy-keep-own-test            0    +builtin-args-invalid-pass-test     0
++copy-test-empty-src           0    +parser-smoke-test                  0
++copy-test-if-exists-wildcard  0
+```
+
+**`+copy-tilde-test` is why.** It was the group's last red target, and the
+escaping fix (E848a) is what cleared it - so one defect stood between eleven
+passing targets and a passing job. E852 said progress is invisible at job
+granularity; this is the same fact arriving from the other side, where a single
+fix moves a whole job at once.
+
+**A prediction with a measurement behind it**, which is more than the last one
+had: the next CI round should report Native 2 of 16 rather than 1. If it does
+not, the difference is between this machine and a runner, and that difference is
+then the next thing to find.
+
+Group 4 stands at 8 of 9, its ninth declining by design (E850). Two groups
+characterised; fourteen jobs not yet looked at.

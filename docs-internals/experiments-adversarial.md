@@ -39559,3 +39559,32 @@ and misses the cache once. That is now a named test rather than a surprise.
 `EARTH_STREAM_TO_GUEST` was defaulted on and broke every build: not just a
 stopwatch, but the contents of what the guest received, compared. `=0` goes back
 to staging.
+
+### E829e - and what dominates once the copy is gone
+
+**The profile flips back to the registry.** The same nested 1600-file build,
+after packing the context directly:
+
+| phase            | cost   |
+| ---------------- | ------ |
+| `plan`           | 0.667s |
+| `registry:token` | 0.413s |
+| `pin:manifest`   | 0.197s |
+| `schedule`       | 0.439s |
+
+`plan` is the two lookups, as ever, and it is now 60% of the build against 40%
+for every step in it. Removing the biggest cost promotes the next one, and the
+next one is the thing that was already fixable.
+
+**Which makes the stack for this build:**
+
+| configuration    | wall   | against the start |
+| ---------------- | ------ | ----------------- |
+| staged, unpinned | 1557ms | -                 |
+| direct, unpinned | 998ms  | 1.56x             |
+| direct, pinned   | 742ms  | 2.10x             |
+
+Two changes, and only one of them was written today. The other has been in the
+engine the whole time, printed as a note after any build whose lookups cost more
+than 100ms, and worth more on its own than a day of measurement found anywhere
+else (E822).

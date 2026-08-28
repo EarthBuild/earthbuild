@@ -39756,3 +39756,15 @@ adding a phase the reflex rather than the last resort.
 The two phases stay. They cost nothing when `EARTH_TIMINGS` is unset, and the
 next person to wonder why a long chain is slow now gets an answer instead of a
 gap.
+
+**And 64 is not a number to raise.** The obvious follow-on - overlayfs allows
+500, so why squash at 64 - is answered where the constant is defined (E49):
+`mount(2)` reads its options from a single page, a layer named by a 64-character
+digest under the guest's store costs 98 bytes of it, and the mount therefore
+fails at about 41 layers by full name and about 90 with the short-name farm. 64
+carries the margin because the arithmetic moves with where the store is and the
+farm falls back to full paths on a name clash.
+
+The asymmetry is the point, and it is stated there: flattening one step sooner
+than strictly necessary costs one squash, while flattening one step too late
+costs the build. Checked and left alone.

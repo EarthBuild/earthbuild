@@ -41315,3 +41315,32 @@ than a process. Both are measurable, neither is measured here.
 
 The number to quote is **1.62x on Linux**, with the macOS figure stated as a
 platform cost rather than an engine one.
+
+### E857b - two caveats on E857a, and where the macOS cost sits
+
+**The x86 native runs were not fully warm.** Repeating the minimal build there
+shows `image:pull` at 1.4s on every run - the image cache is not persisting
+between invocations on that machine, for a reason not chased here. So the 6.38s
+native figure carries a pull the buildkit figure does not, and **1.62x
+overstates the gap** rather than understating it. The direction of the error is
+worth having even when its size is not.
+
+**Where the macOS time goes, on a two-step warm build totalling 0.41s:**
+
+```text
+sandbox:start   0.166      the VM floor
+sandbox:dial    0.061
+lookup          0.230      a cache lookup
+eval:before     0.230      which is that lookup
+```
+
+`sandbox:start` plus `sandbox:dial` is 0.227s and already named in this
+document. The one worth a second look is `lookup` at **0.230s** - a cache lookup,
+which on a local store is microseconds of work. A lookup that costs a fifth of a
+second is a lookup that crossed a machine boundary, and on macOS the guest is a
+virtual machine rather than a process.
+
+That is a hypothesis with a number attached and not a finding: the same phase on
+Linux was not obtained, because the x86 runs never reached a warm state to show
+it. Getting that comparison is the next thing worth doing, and it is one
+`EARTH_TIMINGS` run on a machine whose image cache persists.

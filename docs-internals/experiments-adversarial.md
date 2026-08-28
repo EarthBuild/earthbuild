@@ -40956,3 +40956,42 @@ EARTH_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1 \
 
 The buildkitd image is prebuilt for arm64 on ghcr, so the buildkit side needs no
 local image build at all.
+
+### E850 - a third category: refused by design, and no assertion can bridge it
+
+Sweeping `ga-no-qemu-group4` locally, target by target, eight of nine pass under
+the native engine. The ninth is not a defect and not a wording difference.
+
+`tests/dockerfile/Earthfile:25`:
+
+```text
+RUN --privileged ip link add dummy0 type dummy && ip link delete dummy0
+  ip: RTNETLINK answers: Not supported
+```
+
+Creating a network device is precisely what `runflags.go` says a step here
+cannot do: "a step here already has every capability, and cannot reach past its
+namespace whatever the flag says - no device nodes, no host mounts". The refusal
+is deliberate, documented, and measured (E157). The test asks for the one thing
+`--privileged` does not buy in this engine.
+
+**So the Native suite's failures fall into three kinds**, and only the first is
+work:
+
+* a defect - the escaping (E848a), the missing PROJECT note, EXPOSE ranges;
+* a wording difference where both engines are right - widened by
+  `--output_contains_native` (E846), eleven so far;
+* **a construct this engine declines by design** - `LOCALLY`, cross-architecture
+  emulation, and privilege that reaches past the namespace, all three named in
+  the `--engine` flag's own comment.
+
+The third kind cannot be fixed by an assertion or by a message: either the
+engine grows the capability, or the suite records that this target is not for
+it. Deciding which is not a debugging question, and counting these as remaining
+work overstates what is left to build for the third time in this document
+(E840a, E846, and now here).
+
+**Group 4, measured rather than inferred:** `+required-arg-test`, `+ci-arg-test`,
+`+chown-test`, `+star-test`, `+fail-test`, `+push-arg-test`,
+`+gen-dockerfile-test` all exit 0 under `--engine=native`; `+dockerfile-test`
+exits 1 for the reason above.

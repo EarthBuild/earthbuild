@@ -21,27 +21,32 @@ import (
 // nothing, so a key over 𝑅 alone would let it hit against a base where /x
 // exists. That is invariant I3 violated: a false cache hit, the one failure a
 // build system must never have.
-// observedEpoch versions what an observation *means*.
+// cacheEpoch retires entries a previous engine may have written wrongly.
 //
-// A cache key describes a claim, and Κ₂'s claim is "this result is valid over
-// any base agreeing with what the step was seen to look at". When the seeing
-// changes, every entry written under the old seeing is still reachable and still
-// wrong - its own record is what the consistency check consults, so a check
-// against a record that never mentioned a directory's contents passes exactly as
-// vacuously as it did before the fix.
+// Hashed into **both** keys, which is the part that took a measurement to get
+// right. Κ₂'s meaning changing is only half of it: a false L2 hit does not stay
+// in L2. The result it served is recorded under the chain key of the base the
+// step actually ran over - a base that is perfectly correct - so the wrong
+// answer outlives the observation that produced it and is served afterwards by
+// Κ₁, which never changed and never had a reason to.
 //
-// **Bump this whenever an observation gains or loses a component**, or narrows
-// or widens what one of them covers. It costs one cold build per store, once;
-// not bumping it costs a fix that applies only to machines that have never built
-// before.
+// Measured, and it is why this is not `observedEpoch`. A store poisoned by the
+// pre-fix engine and then rebuilt with the fix still returned the stale listing,
+// reported as `L1 hit`. Epoching Κ₂ alone reached nothing.
 //
-//	1  reads and negative lookups only
-//	2  directories carry their listing as well as their mode (E794)
-const observedEpoch = 2
+// **Bump this when a defect may have written entries that are wrong**, or when
+// an observation gains or loses a component. Neither kind is distinguishable by
+// inspection - what makes such an entry wrong is what it does not say - so the
+// only sound move is to retire the generation. One cold build per store, once.
+//
+//	1  the engine before this constant existed
+//	2  directories carry their listing as well as their mode (E794), and the
+//	   chain-key entries a false L2 hit had already written are retired with it
+const cacheEpoch = 2
 
 // DeriveObservedKey computes Κ₂ at the current epoch.
 func DeriveObservedKey(n *ir.Node, refs []ir.NodeID, obs Observation) Key {
-	return deriveObservedKeyAtEpoch(n, refs, obs, observedEpoch)
+	return deriveObservedKeyAtEpoch(n, refs, obs, cacheEpoch)
 }
 
 func deriveObservedKeyAtEpoch(

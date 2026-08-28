@@ -33,9 +33,17 @@ type Key = ir.NodeID
 // through different ancestry has different node identities and the same chain
 // key, and it is the chain key that must govern.
 func DeriveChainKey(n *ir.Node, base, refs []ir.NodeID) Key {
+	return deriveChainKeyAtEpoch(n, base, refs, cacheEpoch)
+}
+
+func deriveChainKeyAtEpoch(n *ir.Node, base, refs []ir.NodeID, epoch int) Key {
 	h := ir.NewHasher()
 
 	h.Byte(domainChain)
+	// The generation this entry belongs to. A false L2 hit is recorded under
+	// this key, over a base that is correct, so poison reaches Κ₁ and only an
+	// epoch here can retire it. See cacheEpoch.
+	h.Count(epoch)
 
 	// ids(𝑏): a sequence of fixed-width digests, so one count and then raw
 	// bytes - no per-element prefix (§1.4).

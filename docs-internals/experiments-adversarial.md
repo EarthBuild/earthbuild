@@ -41503,3 +41503,32 @@ observed rather than one that inferred it afterwards.
 Left here with the reproducer and the pricing, because choosing between three
 shapes of a cache invariant at four in the morning is how a subtle one gets
 chosen.
+
+### E860 - the widenings did not weaken the suite they share
+
+`tests/Earthfile` is shared: the docker, podman and native suites all run it, and
+twelve assertions in it were widened this session to accept either engine's
+wording. A widening that is too loose weakens the suite that has guarded buildkit
+for years, and nothing about running the native engine would reveal that.
+
+Checked at group level rather than target level, since a group is what CI runs:
+
+```text
+buildkit  ./tests+ga-no-qemu-group2   rc=0
+buildkit  ./tests+ga-no-qemu-group3   rc=0
+```
+
+Group 2 holds `+copy-tilde-test`, group 3 holds `+secrets-test` and
+`+project-secrets-test` - between them most of what was touched. Both pass.
+
+**Worth doing because the failure mode is silent.** An `--output_contains_native`
+that matched something too general would pass under both engines, pass in CI, and
+quietly stop asserting what it was written to assert. The alternatives chosen are
+narrow for that reason - `is not an IP address`, `nothing in that target has it`,
+`which the engine supplies` - each naming the specific refusal rather than a
+phrase both messages happen to contain.
+
+The one that came closest to being too general is `arg-set`'s, which had to drop
+`$foo` because neither shell layer would carry it (E856), leaving
+`is an ARG and cannot be used with SET - try declaring`. It still names the ARG,
+the command and the advice, and it is the weakest of the twelve.

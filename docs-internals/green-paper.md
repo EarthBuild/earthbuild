@@ -717,12 +717,24 @@ performance cost.
 ### 4.4 Key derivation
 
 ```text
-(4.5)    Κ₁(s)     ≡ ℋ("c" ‖ ids(𝑏) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
-(4.6)    Κ₂(s, 𝑟)  ≡ ℋ("o" ‖ sort(𝑅) ‖ sort(𝑁) ‖ sort(𝐷) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
+(4.5)    Κ₁(s)     ≡ ℋ("c" ‖ ζ ‖ ids(𝑏) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
+(4.6)    Κ₂(s, 𝑟)  ≡ ℋ("o" ‖ ζ ‖ sort(𝑅) ‖ sort(𝑁) ‖ sort(𝐷) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
 ```
 
 The domain-separating tag is a single fixed byte - `0x01` for Κ₁, `0x02` for Κ₂ - and prevents a
-chain key from ever colliding with an observed-input key. Sorting is required: unordered input
+chain key from ever colliding with an observed-input key.
+
+**ζ is the cache generation, and both keys carry it.** An entry is a claim, and a defect in the
+engine that made it produces entries that are wrong in ways no inspection can find: what makes such
+an entry wrong is what it does not say. Incrementing ζ retires the whole generation, which is the
+smallest unit that can be retired soundly. It is incremented when an observation gains or loses a
+component, and when a defect may have written entries that do not hold.
+
+**Both, and not only Κ₂.** A false Κ₂ hit does not stay in Κ₂: the result it serves is recorded
+under the chain key of the base the step actually ran over, and that base is correct. The wrong
+answer therefore outlives the observation that produced it and is afterwards served by Κ₁, which
+never changed and had no reason to. A generation that reached only the observed key would retire
+nothing that mattered. Sorting is required: unordered input
 makes the key depend on traversal order, which is not reproducible. Sorting is over the encoded
 bytes, so fixed-width elements sort without decoding.
 
@@ -731,6 +743,7 @@ Per §1.4, prefixes appear only where a length varies:
 | Component      | Encoding                                                | Prefixed   |
 | -------------- | ------------------------------------------------------- | ---------- |
 | domain tag     | one byte                                                | no         |
+| ζ              | `u32`                                                   | no         |
 | `ids(𝑏)`       | `u32` count, then 32 bytes per layer id                 | count only |
 | `sort(𝑅)`      | `u32` count, then per entry: digest (32) ‖ `u16` ‖ path | per path   |
 | `sort(𝑁)`      | `u32` count, then per entry: `u16` ‖ path               | per path   |
@@ -1076,7 +1089,7 @@ from the strongest form to the weakest, so a lower number is a stronger guarante
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------- |
 | I1        | sampled determinism screening (§6)                                                                                                                                                                                                                      | 4     | E14; E7 fleet equivalence                                     |
 | I2        | digest verified on every read - it *is* the mechanism                                                                                                                                                                                                   | 2     | E5c, E15                                                      |
-| I3        | observation set closed at key time; every field of ω reaches Κ₁                                                                                                                                                                                         | 3     | **E5b**; core key-coverage tests                              |
+| I3        | observation set closed at key time; every field of ω reaches Κ₁; every component of 𝑟 is *recorded by the source*, not merely keyed once recorded                                                                                                       | 3     | **E5b**; core key-coverage tests; E794 (𝐷 recorded), E795 (ζ) |
 | I4        | Λ's return type has no error variant (4.4)                                                                                                                                                                                                              | **1** | E5c                                                           |
 | I5        | results identical with all hints disabled                                                                                                                                                                                                               | 3     | E12                                                           |
 | I6        | -                                                                                                                                                                                                                                                       | 5     | E15                                                           |
@@ -1513,6 +1526,7 @@ found and fixed in the process, listed at the end.
 | ------ | ---------------------------------------- | -------------- |
 | ℓ      | a layer                                  | (3.1)          |
 | γ      | a declaration                            | (3.8), (3.10)  |
+| ζ      | the cache generation                     | (4.5), (4.6)   |
 | s      | a step                                   | (3.2)          |
 | 𝑏      | a base stack                             | (3.2)          |
 | ω      | an operation                             | (3.2)          |

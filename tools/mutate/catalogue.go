@@ -957,8 +957,8 @@ var Mutants = []Mutant{
 		Package:     "./engine/layer/",
 	},
 	{
-		Name:        "layer: asking for nothing meaning everything (E281)",
-		File:        "engine/layer/pack.go",
+		Name: "layer: asking for nothing meaning everything (E281)",
+		File: "engine/layer/pack.go",
 		// Anchored on the keeper rather than on `keeping`'s early return, which
 		// was where this pointed and which is an *optimisation*: `keeps` is
 		// `k.all || …` and `all` is already `len(want) == 0`, so deleting the

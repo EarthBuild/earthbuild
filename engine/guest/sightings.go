@@ -34,7 +34,19 @@ func (s *Server) recordSightings(
 
 	uids, gids := OwnIDMaps()
 
+	opened := make(map[string]bool, len(seen.Opened))
+	for _, p := range seen.Opened {
+		opened[p] = true
+	}
+
 	for _, p := range seen.Paths {
+		// The name the tracer used, kept because `Opened` is keyed on it and p
+		// is renamed below to the name the base holds. Checking the renamed one
+		// would match nothing for exactly the paths that get renamed, which is
+		// every path inside the step's own root - so the narrowing would look
+		// like it worked and quietly record no listing at all.
+		outside := p
+
 		// Not the base's to describe. What this engine mounted into the step -
 		// the resolver, /proc, /dev, a cache directory - is regenerated or
 		// shared, so recording it makes the step stale on every later build
@@ -108,15 +120,21 @@ func (s *Server) recordSightings(
 			// took an L2 hit against a base holding different files: I3, the
 			// one failure this design exists to prevent.
 			//
-			// Recorded for any directory the step looked at rather than only
-			// for one it was seen to enumerate, because the tracer does not
-			// watch getdents and so cannot tell the two apart. The cost of the
-			// wider rule is a step that opened a directory without listing it
-			// missing an L2 hit it could have had; the cost of the narrower one
-			// is a wrong build. Erring is only allowed in one direction here.
-			listing, listErr := layer.ListingDigestAt(abs)
-			if listErr == nil {
-				w.list(p, listing)
+			// **Only a directory the step opened.** `getdents` needs a
+			// descriptor and a descriptor needs an open, so an opened directory
+			// is a sound over-approximation of an enumerated one - while a
+			// directory merely stat'ed is one the step walked *past*, which
+			// every step does to every ancestor of everything it reads.
+			// Recording those too was the first version of this fix and it
+			// re-ran `RUN cat /c/f.txt` whenever any sibling of `f.txt`
+			// appeared. A tracer that lost the distinction would have to keep
+			// the wide rule, since erring is only allowed in one direction; this
+			// one keeps it.
+			if opened[outside] {
+				listing, listErr := layer.ListingDigestAt(abs)
+				if listErr == nil {
+					w.list(p, listing)
+				}
 			}
 
 		case errors.Is(err, fs.ErrNotExist):

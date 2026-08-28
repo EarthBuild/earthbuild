@@ -33,6 +33,16 @@ type Sightings struct {
 	// Paths is sorted and deduplicated, so that two runs seeing the same things
 	// in a different order produce the same value (I12).
 	Paths []string
+	// Opened is the subset of Paths the step opened rather than interrogated.
+	//
+	// The distinction is only interesting for a directory. Opening one is how a
+	// step enumerates it, so its *contents* decide what the step does and belong
+	// in the key; stat'ing one is how a step walks past on the way to a file
+	// inside, and keying that on the directory's contents makes a sibling
+	// appearing invalidate a step that never looked at it.
+	//
+	// Sorted for Paths' reason (I12).
+	Opened []string
 	// Incomplete says this engine knows it missed something. A step whose
 	// sightings are incomplete can still be built and still be cached; what it
 	// cannot do is serve an L2 hit, because the reads it did not see are exactly
@@ -174,6 +184,8 @@ type Tracer struct {
 
 	mu       sync.Mutex
 	paths    map[string]bool
+	// opened is the subset of paths the step opened rather than interrogated.
+	opened   map[string]bool
 	why      map[string]bool
 	unfilled error
 }
@@ -449,7 +461,7 @@ func (t *Tracer) handle(n seccompNotif) {
 	}
 
 	t.fill(path)
-	t.record(path)
+	t.record(path, isOpenNR(n.Data.NR))
 }
 
 // fill fetches a path the step is about to open, if it is not here.
@@ -507,7 +519,12 @@ func (t *Tracer) Unfilled() error {
 }
 
 // record keeps a path, unless it is one that says nothing.
-func (t *Tracer) record(path string) {
+//
+// `opened` separates a path the step *opened* from one it merely interrogated,
+// which matters for a directory: opening one is how a step enumerates it, and
+// stat'ing one is how it walks past on the way to something inside. Only the
+// first needs the directory's contents in the key - see recordSightings.
+func (t *Tracer) record(path string, opened bool) {
 	// The root is not a read. "The filesystem has a root" decides no behaviour,
 	// while `/`'s digest carries a mode, an owner and a timestamp that move
 	// whenever anything at all is layered on the base - so recording it makes a
@@ -525,6 +542,14 @@ func (t *Tracer) record(path string) {
 	defer t.mu.Unlock()
 
 	t.paths[path] = true
+
+	if opened {
+		if t.opened == nil {
+			t.opened = map[string]bool{}
+		}
+
+		t.opened[path] = true
+	}
 }
 
 // writeOnly reports that an open can only have written.
@@ -590,8 +615,13 @@ func (t *Tracer) Sightings() Sightings {
 
 	out := Sightings{
 		Paths:      make([]string, 0, len(t.paths)),
+		Opened:     make([]string, 0, len(t.opened)),
 		Incomplete: len(t.why) > 0,
 		Why:        make([]string, 0, len(t.why)),
+	}
+
+	for p := range t.opened {
+		out.Opened = append(out.Opened, p)
 	}
 
 	for p := range t.paths {
@@ -604,6 +634,7 @@ func (t *Tracer) Sightings() Sightings {
 
 	// Both, because both are read out of maps and a map's order is not one.
 	slices.Sort(out.Paths)
+	slices.Sort(out.Opened)
 	slices.Sort(out.Why)
 
 	return out

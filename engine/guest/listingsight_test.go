@@ -41,14 +41,59 @@ func TestADirectoryIsRecordedAsAListing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.recordSightings(h, h.Root(), trace.Sightings{Paths: []string{dir}}, nil, nil)
+	s.recordSightings(h, h.Root(), trace.Sightings{
+		Paths:  []string{dir},
+		Opened: []string{dir},
+	}, nil, nil)
 
 	obs := s.observationOf(h)
 
 	if _, ok := obs.Listings[dir]; !ok {
-		t.Errorf("%q is a directory the step looked at and no listing was"+
+		t.Errorf("%q is a directory the step opened and no listing was"+
 			" recorded: %v\n  a step that enumerates it keys on nothing that"+
 			" changes when its contents do", dir, obs.Listings)
+	}
+}
+
+// A directory the step only walked past keeps no listing.
+//
+// Opening a directory is how a step enumerates it. Stat'ing one is how it
+// resolves a path to a file inside, which every step does to every ancestor of
+// everything it reads - so recording a listing for those would key `RUN cat
+// /c/f.txt` on the whole of `/c`, and a sibling file appearing would re-run a
+// step that never looked at it.
+//
+// Measured before this narrowing: `COPY --dir ctx /c` with `RUN cat /c/f.txt`,
+// then a new `ctx/sibling.txt`, re-ran the RUN. It is the cost the first version
+// of the fix accepted deliberately, and the tracer turned out to have kept
+// enough to avoid paying it.
+func TestADirectoryOnlyWalkedThroughKeepsNoListing(t *testing.T) {
+	t.Parallel()
+
+	s, h := copyFixture(t)
+
+	dir := "/w"
+
+	err := os.WriteFile(filepath.Join(h.Root(), "w", "seen.txt"), []byte("x"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Seen, but not opened: the step stat'ed it on the way to something inside.
+	s.recordSightings(h, h.Root(), trace.Sightings{Paths: []string{dir}}, nil, nil)
+
+	obs := s.observationOf(h)
+
+	if _, ok := obs.Listings[dir]; ok {
+		t.Errorf("%q was only interrogated and a listing was recorded anyway:"+
+			" a file appearing beside the one the step read would re-run it",
+			dir)
+	}
+
+	// Still a read: the step did ask about the directory, and its mode and
+	// ownership are as much an input as any file's.
+	if _, ok := obs.Reads[dir]; !ok {
+		t.Errorf("%q was not recorded at all", dir)
 	}
 }
 

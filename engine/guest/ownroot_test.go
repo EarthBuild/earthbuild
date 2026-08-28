@@ -108,3 +108,44 @@ func sortedReads(o core.Observation) []string {
 
 	return out
 }
+
+// A directory opened under its outside name still records a listing.
+//
+// The tracer names paths as *it* sees them, from outside the step's root, and
+// recordSightings renames each to the name the base holds. `Opened` is keyed on
+// the outside name, so a membership test against the renamed one matches nothing
+// for precisely the paths that get renamed - which is every path in the step's
+// own root. The narrowing would then look correct and record no listing at all,
+// putting E794's stale build back with a test suite that still passed.
+func TestAnOpenedDirectoryIsRecognisedByItsOutsideName(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	s := &Server{}
+	h := ownRootHandle{root: root}
+
+	err := os.MkdirAll(filepath.Join(root, "d"), 0o750)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(filepath.Join(root, "d", "f.txt"), []byte("x"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outside := filepath.Join(root, "d")
+
+	s.recordSightings(h, root, trace.Sightings{
+		Paths:  []string{outside},
+		Opened: []string{outside},
+	}, nil, nil)
+
+	got := s.watcherFor(h).observation()
+
+	if _, ok := got.Listings["/d"]; !ok {
+		t.Errorf("a directory the step opened recorded no listing: %v"+
+			"\n  Opened holds the tracer's outside name and the lookup used"+
+			" the renamed one", got.Listings)
+	}
+}

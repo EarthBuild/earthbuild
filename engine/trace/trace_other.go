@@ -21,6 +21,7 @@ package trace
 // honest value is an incomplete one - see Unobserved.
 type Sightings struct {
 	Paths      []string
+	Opened     []string
 	Incomplete bool
 	Why        []string
 }

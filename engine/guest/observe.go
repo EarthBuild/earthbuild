@@ -24,6 +24,7 @@ import (
 type watcher struct {
 	mu       sync.Mutex
 	reads    map[string]ir.NodeID
+	listings map[string]ir.NodeID
 	negative []string
 	why      map[string]bool
 }
@@ -37,6 +38,25 @@ func (w *watcher) read(path string, id ir.NodeID) {
 	}
 
 	w.reads[path] = id
+}
+
+// list records a directory's contents by name: green paper 𝐷.
+//
+// Kept apart from a read because the two answer different questions about the
+// same path. A read of a directory digests the entry *at* it - its mode and
+// ownership - which does not change when a file appears inside it; the listing
+// is the only thing that does. A step that enumerates and is keyed on the read
+// alone therefore hits against a base whose directory holds different files,
+// which is the false hit I3 forbids.
+func (w *watcher) list(path string, id ir.NodeID) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.listings == nil {
+		w.listings = map[string]ir.NodeID{}
+	}
+
+	w.listings[path] = id
 }
 
 func (w *watcher) absent(path string) {
@@ -83,7 +103,7 @@ func (w *watcher) observation() core.Observation {
 
 	obs := core.Observation{
 		Reads:      make(map[string]ir.NodeID, len(w.reads)),
-		Listings:   map[string]ir.NodeID{},
+		Listings:   make(map[string]ir.NodeID, len(w.listings)),
 		Negative:   append([]string(nil), w.negative...),
 		Incomplete: len(w.why) > 0,
 		Why:        make([]string, 0, len(w.why)),
@@ -98,6 +118,7 @@ func (w *watcher) observation() core.Observation {
 	slices.Sort(obs.Why)
 
 	maps.Copy(obs.Reads, w.reads)
+	maps.Copy(obs.Listings, w.listings)
 
 	return obs
 }

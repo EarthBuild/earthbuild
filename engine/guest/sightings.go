@@ -99,6 +99,26 @@ func (s *Server) recordSightings(
 		case err == nil:
 			w.read(p, id)
 
+			// **A directory is also enumerated, and the read cannot say so.**
+			// PathDigestIn digests the entry at the path - for a directory its
+			// own mode and ownership - which is unchanged by a file appearing
+			// inside it. So a step that lists rather than reads (`find`, `ls`,
+			// a shell glob, every compiler that scans a source directory) was
+			// keyed on nothing that moves when the directory's contents do, and
+			// took an L2 hit against a base holding different files: I3, the
+			// one failure this design exists to prevent.
+			//
+			// Recorded for any directory the step looked at rather than only
+			// for one it was seen to enumerate, because the tracer does not
+			// watch getdents and so cannot tell the two apart. The cost of the
+			// wider rule is a step that opened a directory without listing it
+			// missing an L2 hit it could have had; the cost of the narrower one
+			// is a wrong build. Erring is only allowed in one direction here.
+			listing, listErr := layer.ListingDigestAt(abs)
+			if listErr == nil {
+				w.list(p, listing)
+			}
+
 		case errors.Is(err, fs.ErrNotExist):
 			w.absent(p)
 

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
@@ -189,16 +188,9 @@ func (v stackView) ListingDigest(dir string) (ir.NodeID, bool) {
 		sorted = append(sorted, n)
 	}
 
-	sort.Strings(sorted)
-
-	h := ir.NewHasher()
-	h.Count(len(sorted))
-
-	for _, n := range sorted {
-		h.Str(n)
-	}
-
-	return h.Sum(), true
+	// The same function the guest records with, so the recorded digest and the
+	// one checked against it cannot drift apart. See layer.ListingDigestOf.
+	return layer.ListingDigestOf(sorted), true
 }
 
 // deleted reports whether this layer carries a marker hiding rel.

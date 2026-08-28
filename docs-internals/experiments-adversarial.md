@@ -37640,3 +37640,46 @@ already marked `**[GAP]**` in its own doc comment, with the reason: there is no
 fleet transport yet to be the boundary it guards. A gap that names itself is the
 opposite of this failure class, and finding it is how the search confirms it was
 looking in the right place.
+
+## E799 - the corpus as a differential, and a flag nobody expanded
+
+Running the corpus against this branch is the same method as the sweeps, with
+the reference replaced by the repository's own expectations. 250 invocations on
+linux: **240 ok**, 5 diverges, 2 unmodelled, 2 unjudgeable, 1 wrong. All five
+divergences are the recorded ones - CapEff, `bind-experimental`, two privileged
+refusals, mtimes - and the single `wrong`, `for.earth+all`, is the parked I7
+decision. **No regression from any of E788-E798**, checked by running the same
+invocation at the branch point.
+
+The value was not the corpus result. It was that the Native CI suite fails a
+job this corpus run does not cover, and chasing one of its signatures found a
+defect neither the corpus nor any differential had:
+
+```console
+$ earth-native +t          # WITH DOCKER --pull alpine:$img_tag
+  Error: docker pull alpine:$img_tag failed with exit code 1
+```
+
+The eleven characters `alpine:$tag` reached the daemon. `tests/with-docker`
+declares `ARG ubuntu_img_tag=26.04` and pulls `ubuntu:$ubuntu_img_tag`, so the
+corpus has carried this since it was written.
+
+**It was never `--pull`.** The block's flags are parsed straight off the
+command's arguments, which no expansion has touched, so every value every flag
+takes was affected - `--compose`, `--service`, `--load`, `--platform` and
+`--build-arg` alike. None of them is expanded later either: the build-arg loop
+stores `pass[name] = value` exactly as given. Expanding once before parsing fixes
+the class and cannot double-apply, because there was no second expansion to
+collide with.
+
+The test covers two flags rather than the one that was noticed. That is the
+lesson E798 taught, applied on purpose this time rather than in hindsight.
+
+**A note on attribution, since it nearly went the other way.** The Native suite
+showed fifteen failures where an earlier sweep had left four, which looks exactly
+like a regression from the six engine changes above it. It is not: the causes are
+the two parked ones (the autocompletion diff, the missing docker client) plus this
+flag defect, and the branch point reproduces all three. The comparison that would
+have proved it directly - a CI run on the parent - did not exist, because every
+one had been cancelled by the next push. Pushing faster than CI can run is how a
+branch loses its own baseline.

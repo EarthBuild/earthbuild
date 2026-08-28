@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -115,7 +116,14 @@ type Server struct {
 	// unmounted is why a step's filesystem was not fully built - the first
 	// reason, kept for the life of the guest. Separate from degraded, which
 	// means one specific thing (E834a).
-	unmounted string
+	//
+	// **Atomic rather than under s.mu**, alone among these. Every other field
+	// here is read when something has gone wrong; this one is read on the way
+	// out of *every* step, to put on the response. Taking the server's mutex
+	// once per step to answer "nothing to report" would put a new acquisition
+	// on the hot path this engine is trying to make narrower, to carry a string
+	// that is empty on every healthy build.
+	unmounted atomic.Pointer[string]
 	// running is how to abandon each exec in flight, by request id.
 	//
 	// A function rather than the *exec.Cmd it came from. Holding the command
@@ -1313,12 +1321,9 @@ func (s *Server) noteUnmounted(reason string) {
 		return
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.unmounted == "" {
-		s.unmounted = reason
-	}
+	// Compare-and-swap from empty, so the first reason is the one kept without
+	// a lock held across the read and the write.
+	s.unmounted.CompareAndSwap(nil, &reason)
 }
 
 // Unmounted reports why a step's filesystem was not fully built, if it was not.
@@ -1329,10 +1334,12 @@ func (s *Server) noteUnmounted(reason string) {
 // establishing that they do meant building the engine and probing from inside a
 // step (E834a).
 func (s *Server) Unmounted() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	reason := s.unmounted.Load()
+	if reason == nil {
+		return ""
+	}
 
-	return s.unmounted
+	return *reason
 }
 
 // lockHandle serialises filesystem work against one handle, and returns the

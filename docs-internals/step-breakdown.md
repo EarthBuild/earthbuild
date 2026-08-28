@@ -165,52 +165,41 @@ process needs a rootfs, and `commit` must follow it because it produces the next
 
 ## 6. Headroom, honestly
 
-Ranked by what is actually available, not by what would be nice.
+Ranked by what a build actually gets, not by how interesting the mechanism is.
+Every figure here was measured on two machines, because three of them changed
+when the second machine was asked (E822a, E825, E825a).
 
-| Candidate                          | Ceiling      | Constraint that decides it                         |
-| ---------------------------------- | ------------ | -------------------------------------------------- |
-| cache the bearer token             | ~277ms/build | none - the manifest GET still asks the origin      |
-| ~~`unbind` off the critical path~~ | 0            | **wrong** - `capture` reads under the mount (E813) |
-| `capture` against `commit`         | ~1.0ms/step  | disjoint inputs - output vs layer                  |
-| parallelise unpack writes          | ~450ms cold  | measured and rejected - see below                  |
-| cache the tag resolution           | ~149ms/build | rejected: correctness, see below                   |
-| overlap steps in a chain           | 0            | impossible - the layer edge is real                |
+| lever                             | x86 bare metal | macOS guest | state                                      |
+| --------------------------------- | -------------- | ----------- | ------------------------------------------ |
+| pin the `FROM` digest             | -403ms/build   | -140ms      | **shipped**, one line, already recommended |
+| `EARTH_PARALLEL_EXPORT`           | 1.76x          | 1.13x       | implemented, off by default                |
+| `EARTH_ASYNC_RELEASE`             | 1.50x          | noise       | implemented, off by default                |
+| cache an *anonymous* bearer token | -543ms/build   | -277ms      | not written - a credentials decision       |
+| `capture` against `commit`        | ~1ms/step      | ~1ms/step   | not attempted, small                       |
 
-**Caching the token is the one real item.** It saves the whole `registry:token` round trip
-for any build inside the token's life (Docker Hub issues ~300s), and it is orthogonal to
-freshness: the manifest GET still happens, so the answer to "what does this tag mean
-today" is still asked of the origin. It is not free of consequence - it writes a bearer
-credential to disk, in an engine that otherwise goes out of its way never to hold one
-(the interpreter is handed digests and never a value). That is a policy decision and it
-is not taken here.
+**Pinning is the largest and it was already there.** An unpinned `FROM` is two
+network round trips on the critical path of every build, and the engine prints
+what they cost after any build where they exceed 100ms. The switches below it are
+worth single-digit percentages on a normal build; this is worth an order of
+magnitude on an incremental one (E822, E822a).
 
-**Two things are rejected rather than pending.** Parallelising the file writes inside an
-unpack saves under half a second on a cold build, in the one function that enforces Zip
-Slip: on the guest's ext4, an unpack is 1.040s of inflate, 0.011s of tar walk and 0.589s
-of writing - the write side only looked worth attacking because the first measurement was
-taken on the host's APFS, which is 3.7x slower at creating files. And caching the
-tag-to-digest resolution is deliberate: a resolution *is* the answer to what a tag means
-today, `resolve.go` asks the origin on purpose, and anyone who would rather have the
-149ms can pin by digest and skip the resolution entirely.
+**Measured and rejected, so nobody sizes them again:**
 
-**One of the two was not there.** Moving `unbind` behind the step's answer was called a
-no-brainer here, on the grounds that nothing consumes it. Something does: the host's
-`capture` reads the step's result from a path *under* the mount, after the reply has gone
-back, and a teardown that has already run takes the result with it - `capture the result
-of Earthfile:8: open /var/lib/earthbuild/scratch/mounts/h-341...`, on every build, at
-every width. The edge is real and this document did not have it, because §3 was written
-from the phase list rather than from what each phase touches (E813).
+| candidate                       | why not                                                                                                                                                                                |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| parallelise unpack writes       | ~450ms ceiling, in the function enforcing Zip Slip - and the write side only looked big because the first measurement was on APFS, 3.7x slower at creating files than the guest's ext4 |
+| cache the tag *resolution*      | deliberate: a resolution is what a tag means today. Pinning is the sanctioned form of the same saving                                                                                  |
+| `unbind` off the critical path  | **wrong** - `capture` reads under the mount (E813)                                                                                                                                     |
+| overlap steps in a chain        | impossible - step n+1's base *is* step n's layer                                                                                                                                       |
+| lazy `unmount`, fewer lowerdirs | no effect: 15.1ms either way, flat in depth (E820)                                                                                                                                     |
+| skip `listContainers` on start  | ~28ms, but it drives the sandbox garbage collection - and accumulated sandboxes are what made a machine 3x slower (E815)                                                               |
 
-`capture` against `commit` still stands - disjoint inputs, about 1ms. And the lever on the
-4ms is the *number* of mounts a step makes, five groups of them, not where the teardown
-sits.
-
-**The bigger one is not in this table at all.** Every throughput figure above was measured
-with a `SAVE ARTIFACT` per target, and exports run one at a time in a `for` loop - 18.19ms
-each, of which the artifact's own staging and copy-out are free and the release of the
-handle is all of it. A release is `unmount` plus `RemoveAll`: 15.8ms and 3.5ms on a Linux
-kernel, where making the mount costs 5us. Take the artifact out of the build and 32 targets
-go from 1425ms to 751ms (E817).
+**And the floor beneath all of it.** A pinned no-op build on macOS is ~300ms, of
+which ~250ms is spawning Apple's `container` CLI three times to reach a daemon
+that is already resident. Getting that to nothing means speaking the apiserver's
+protocol instead of its CLI, or holding the guest connection between builds - and
+only the second is forbidden by "one binary, no daemon", which is about *this
+project's* daemon rather than the platform's (E827).
 
 ## 7. What would change these numbers
 

@@ -1517,13 +1517,26 @@ the branch the mutant deletes - *"Absent, the guest gets no channel, its tracer
 gets no filler, and the step runs against a base that is all there, **which is
 every build today**"*.
 
-So these survive because the feature is unexercised, not because a guard is
-missing from shipped code. That is a different thing and wants a different
-answer: a test written now asserts what the machinery is *intended* to do, which
-is worth less than it looks, because the intention is the part most likely to
-change before anything uses it. The same reasoning is already recorded for
-`store.LayerStore.Verify`, which is marked `**[GAP]**` in the green paper for
-exactly this reason and is honest about it.
+It is tempting to conclude that these survive because the feature is unexercised.
+**That was written here and it is wrong.** `.github/workflows/fleet-e2e.yml`
+exists and runs `earth-native -dir tests/fleet +all` against a real multi-worker
+build; the suite is modest - six targets - but it is not nothing, and the
+subsystem is exercised on every change to `engine/fleet`, `cmd/earth-worker` or
+`cmd/earth-native`.
+
+So the honest position is narrower and is the same one E446 reached: the mutants
+declare `Package: "./engine/fleet/"`, so the tool judges them by `go test
+./engine/fleet/`, and the coverage that exists is an Earthfile-driven workflow
+that no `go test` invocation runs. Whether `tests/fleet+all` would catch these
+particular mutations is **unknown** - nobody has run them against it - and that
+is a different sentence from "nothing covers this".
+
+The structural point, since it now applies to two entries and probably more: the
+catalogue's `Package` field assumes the judge is `go test <pkg>`. Several of this
+engine's mechanisms are judged by suites driven from an Earthfile - the corpus,
+`tests/fleet` - and a mutant pointed at the wrong judge reports a gap that is not
+there. Fixing that means teaching the catalogue to name a command rather than a
+package, which is a change to the tool and not to the tests.
 
 **E446 is the one open entry in code that runs today** - ownership kept when a
 layer is committed - and it turns out to be guarded already, by something the

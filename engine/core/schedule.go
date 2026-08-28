@@ -1209,6 +1209,22 @@ func platformFits(n *ir.Node, w Worker, native ir.Platform) bool {
 // to shared state goes through s.mu; the per-step work outside it - lookups,
 // execution, hashing - is where the time goes and is exactly what must overlap.
 func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
+	// **The whole of evaluating a node, so the gap around `step` has a number.**
+	// Per-step cost rises with the depth of a chain - 13ms a step at 40 and 19ms
+	// at 80 - while the `step` phase inside this one is flat. The difference is
+	// everything else here: building the node's stack from its inputs',
+	// flattening it, deriving the key, taking the component digests, and the
+	// bookkeeping after the step returns (E831).
+	//
+	// `eval` minus `step` is the quantity that grows. Timed rather than reasoned
+	// about, because the last three gaps in this log turned out to be the
+	// largest thing in their path once somebody measured them.
+	defer timing.Phase("eval", n.Meta.Source)()
+
+	// The half of `eval` that is not the step: stack, key and digests, each
+	// walking a base one layer deeper than the last.
+	endBefore := timing.Phase("eval:before", n.Meta.Source)
+
 	// Shared state is read under the lock and released before the expensive
 	// work. Holding it across a step's execution would serialise the build
 	// again, which is the whole thing this is for.
@@ -1430,6 +1446,8 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 	// Placement was decided before the build started, so nothing here depends on
 	// what other steps happen to be doing.
+	endBefore()
+
 	endStep := timing.Phase("step", n.Meta.Source)
 	res, err := s.runStep(ctx, n, s.placed[n.ID()], base, srcStacks)
 

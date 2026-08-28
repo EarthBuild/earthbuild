@@ -39720,3 +39720,39 @@ somewhere with no phase at all.
 80 and nothing at depth 10. Recorded rather than chased: it is the third time
 today that a gap in the phase log was the answer, and the first two were only
 found because somebody added the phase.
+
+### E831a - and it is squashing, at sixty-four layers, by design
+
+**The gap was timed rather than reasoned about, twice.** `eval` around the whole
+of `evalNode`, and `eval:before` around everything in it that precedes the step:
+
+| depth | `eval:before` | `step`  | `eval`  |
+| ----- | ------------- | ------- | ------- |
+| 40    | 0.00ms        | 21.10ms | 22.46ms |
+| 80    | 3.21ms        | 18.77ms | 23.40ms |
+
+**Nothing at forty and 3.21ms at eighty is a threshold, not a slope**, which
+rules out the O(depth) explanations - the stack copy, the digests, the key, which
+measures 0.00ms at both depths.
+
+**The threshold is `store.MountableStackDepth`, and it is 64.** `Flatten` squashes
+a stack deeper than the guest can mount, and `evalNode` calls it before every
+step. Under 64 layers nothing squashes and the cost is zero; over it, every step
+pays. Overlayfs refuses more than 500 lower layers and the guest's practical
+limit is lower still, so the alternative to squashing is a stack that cannot be
+mounted at all.
+
+**So the depth effect is a correctness mechanism doing its job**, not an
+inefficiency. A chain under 64 steps costs a flat 13ms a step; one over 64 costs
+about 3ms more, and buys a stack the guest can actually assemble.
+
+**Which is the right way for this to end.** Four gaps in the phase log were
+measured today: `release` was 71% of a step and worth fixing, `context:copy` was
+68% of a `COPY` and worth fixing, `plan` turned out to be the registry and worth
+pinning, and this one turns out to be a feature. Three for four is a good rate,
+and the fourth was only cheap to establish because the first three had made
+adding a phase the reflex rather than the last resort.
+
+The two phases stay. They cost nothing when `EARTH_TIMINGS` is unset, and the
+next person to wonder why a long chain is slow now gets an answer instead of a
+gap.

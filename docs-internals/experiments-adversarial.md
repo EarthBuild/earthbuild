@@ -39277,3 +39277,44 @@ error and not the failure.
 separate piece of work from anything measured in this document, and starting it
 without direction would be the third time today that a plausible next step turned
 out to be somebody else's decision.
+
+### E828a - narrowing the Podman failure, without reaching it
+
+**The precise error, which took getting past the diagnostics to see.** A nested
+`earth` - one run inside a step by `tests/Earthfile:1792` - cannot find a
+container frontend:
+
+```text
+auto frontend initialization failed due to failed to autodetect a supported
+  frontend: docker-shell frontend not available
+podman-shell frontend failed to initialize: command failed:
+  podman info --format={{.Host.Security.Rootless}}:
+  exec: "podman": executable file not found in $PATH
+```
+
+It then falls back to `Connecting to tcp://buildkitsandbox:8372...` and times out
+after a minute. The `could not connect to buildkit` in the summary is the
+*second* failure; the first is that neither frontend is available inside the
+container.
+
+**What has been ruled out, each by comparison against `main`:**
+
+| candidate                     | verdict                                                                                             |
+| ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| the test itself               | `tests/Earthfile` is identical - 0 lines of diff                                                    |
+| frontend selection            | `frontend.go`, `shell_shared.go` identical                                                          |
+| the docker probe refactor     | behaviour-preserving: the old path fetched `DockerRootDir` with the same `Store.GraphRoot` fallback |
+| the image the tests run in    | no `apt`, `install` or `COPY` changes in the Earthfile diff                                         |
+| the buildkitd image reference | consistent: loaded tag and `EARTH_BUILDKIT_IMAGE` carry the same SHA throughout                     |
+| flakiness                     | `main`'s completed run passes all 21 Podman jobs, 0 failures overall                                |
+
+**So it is branch-specific and none of the obvious candidates is it.** The
+remaining surface is the rest of this branch's `util/` changes and the buildkitd
+image it builds. Recorded here rather than guessed at, because five hypotheses
+have already been checked and discarded and a sixth offered without evidence
+would be worth less than the list above.
+
+**One thing this did establish.** Every one of those six comparisons was cheap -
+`git diff origin/main...HEAD -- <path>` and a line count. Ruling out is faster
+than ruling in, and a list of what it is *not* is the part of an unfinished
+investigation that survives being handed over.

@@ -40827,3 +40827,29 @@ before anyone plans around it.
 reads it turned out to build its name from `flag.EarthEnvVars("ENGINE")`. A
 constructed string is invisible to a search for the thing it constructs, and
 this codebase constructs most of its messages.
+
+### E847 - two numbers, two different questions
+
+Worth stating plainly, because they get quoted together and measure different
+things.
+
+`linux-earthtests-run 156` - `TestHowManyEarthTestsBuild` - builds one target per
+file in `tests/` and asks whether it succeeds or fails as the tree says. That is
+**behaviour**: does this engine produce the right bytes and the right outcome.
+Against `linux-earthtests 257`, which is how many of those targets plan, it is
+roughly 61%.
+
+The Native CI suite asks a strictly harder question. It runs `tests/Earthfile`'s
+own harness, which asserts on **output text** as well as outcome - 49
+`--output_contains` assertions among them - so an engine that behaves correctly
+and phrases a refusal differently fails there and passes the ratchet (E846).
+
+So "61% of the tree builds" and "1 of 16 Native jobs green" are not in tension
+and neither is the whole picture:
+
+* the ratchet is the honest measure of the engine, and it is a committed number
+  that cannot drift without somebody noticing;
+* the CI suite is the honest measure of *drop-in replacement*, which is a
+  different and larger claim, and includes text nobody has decided to reconcile.
+
+Quoting either alone answers a question the reader did not ask.

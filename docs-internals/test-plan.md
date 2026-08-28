@@ -1502,7 +1502,7 @@ of code that can be deleted with the suite still green.
 | E299     | fleet: omitting a proof the caller says it has                                                                                      |
 | E309     | fleet: a holder that will not dial saying so                                                                                        |
 | E319     | fleet: the pilot going out rather than waiting on itself                                                                            |
-| E446     | guest: ownership kept when a layer is committed                                                                                     |
+| ~~E446~~ | guest: ownership kept when a layer is committed - **covered by the corpus**, which the mutant's `go test` never runs                |
 | ~~E494~~ | cli: the sandbox asked how it shares the store - **done**: viewsFor must use the answer, not merely receive it                      |
 | ~~E634~~ | guest: the scratch relocated off an overlay - **done**: a source guard that production takes the escape                             |
 
@@ -1526,10 +1526,26 @@ change before anything uses it. The same reasoning is already recorded for
 exactly this reason and is honest about it.
 
 **E446 is the one open entry in code that runs today** - ownership kept when a
-layer is committed - and is the one worth a test before the others.
+layer is committed - and it turns out to be guarded already, by something the
+sweep cannot see.
 
-Four are closed and struck through: E278 (the I1 rebuild identity check),
-E281 (which was never a gap), E634 and E494.
+Its mutant is declared with `Package: "./engine/cli/"`, so the tool judges it by
+`go test ./engine/cli/`. The mechanism's actual coverage is the corpus:
+`copy-keep-own.earth+test-known-user` and `+test-unknown-user`, which pass on
+linux and would notice a commit that flattened every uid to the invoking user.
+The corpus is driven by `tests/Earthfile` and by `corpus_run.py`, neither of
+which is a `go test` invocation, so the mutant survives a command that was never
+going to catch it.
+
+**That is a fourth way a mutation sweep misleads**, after the platform it cannot
+reach, the baseline it did not have, and the equivalent mutant: *a test suite it
+does not run*. A survivor means "the command I ran did not fail", which is a
+claim about the command. Before writing a test for a survivor, check what else
+already exercises the mechanism - here the answer was two corpus targets named
+after the option.
+
+Five are closed and struck through: E278 (the I1 rebuild identity check),
+E281 (which was never a gap), E634, E494 and E446.
 
 **How to work this list:** write the test, then remove it and re-run the mutant.
 A test that passes beside a mutant is not evidence that it kills it - E278 was

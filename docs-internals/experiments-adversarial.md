@@ -40311,3 +40311,35 @@ plumbing has no route out, which breaks every `RUN` that fetches anything. Givin
 each step a namespace *and* connectivity means a veth pair and NAT, or a
 userspace stack - real work, and a decision about what a step's network is,
 which is the kind of thing this document records rather than settles.
+
+### E839b - E839 read a Podman job and called it Native
+
+E839 reported that the Native suite's inner buildkitd fails on `listen tcp
+0.0.0.0:8372: bind: address already in use`, and reasoned from there to the
+shared network namespace CLONE_NEWNET is deliberately not creating. The reasoning
+may or may not be sound; it does not matter, because the log was not a Native
+job.
+
+**The mistake, exactly.** The job was selected with `'group4' in j['name']` and
+no suite filter. Every suite - Docker, Podman, Native - has a
+`+test-no-qemu-group4`, and the one that matched first was
+`Podman / +test-no-qemu-group4`. Its own log said so in a line that was read past:
+"Starting buildkit daemon as a podman container".
+
+**What survives, and why.** E839a's finding is unaffected: those six jobs were
+selected with `j['name'].startswith('Native')`, and all six carried
+`mount /sys for the step: operation not permitted` three times. That is the
+Native cause and the `/sys` bind fallback addresses it.
+
+**What is now known about Podman, which is less than E839 claimed.** Port 8372 is
+already bound on *attempt 1*, before any retry, so it is not a lingering process
+from a previous attempt. By what, and whether the netns reasoning applies at all
+to a buildkitd running inside a podman container - which has a namespace of its
+own unless asked otherwise - is unestablished. E839's mechanism should be read as
+withdrawn rather than pending.
+
+**The class, since this is the fourth wrong hypothesis today.** Three came from
+reading a symptom and reasoning to a cause; this one came from reading the wrong
+file. Cheaper to prevent than the others: a CI job selector that does not name
+the suite will silently answer a question about a different suite, because the
+target names are shared by design.

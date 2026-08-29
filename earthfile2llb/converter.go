@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uuid"
 
 	"al.essio.dev/pkg/shellescape"
 	"github.com/EarthBuild/earthbuild/buildcontext"
@@ -53,7 +54,6 @@ import (
 	"github.com/EarthBuild/earthbuild/variables/reserved"
 	"github.com/containerd/platforms"
 	"github.com/distribution/reference"
-	"github.com/google/uuid"
 	"github.com/moby/buildkit/client/llb"
 	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
 	"github.com/moby/buildkit/frontend/dockerfile/dockerfile2llb"
@@ -2807,7 +2807,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 
 	if opts.NoCache {
 		// llb.IgnoreCache is not always enough; we will force a different cache key as a work-around
-		finalArgs = append(finalArgs, "#"+uuid.NewString())
+		finalArgs = append(finalArgs, "#"+uuid.New().String())
 	}
 
 	if opts.Locally {

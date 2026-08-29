@@ -401,11 +401,13 @@
       ],
     },
     // group all OpenTelemetry dependencies
+    // TODO(jhorsts): blocked by the BuildKit upgrade.
     {
       groupName: 'otel',
       matchPackageNames: [
         'go.opentelemetry.io/**',
       ],
+      enabled: false,
     },
 
   ],

@@ -44371,3 +44371,49 @@ open question when the message six lines down names emulation.
 So the parity gap is **not thirteen unrelated failures**. It is one privilege,
 two known limitations, and nothing else - and no amount of engine work moves the
 eleven until a step can mount a cgroup tree.
+
+### E911 - nested docker works; the runner will not allow it
+
+E910 put eleven of the thirteen Native failures on one blocker: a step cannot
+host a container runtime. That reads as missing functionality. It is not.
+
+On this Mac, under the native engine, with no fallback to mask a failure:
+
+```text
+WITH DOCKER
+    RUN docker version --format '{{.Server.Version}}' > /v && cat /v
+    RUN docker run --rm hello-world | head -2
+END
+
+rc=0
+Earthfile:7 | Status: Downloaded newer image for hello-world:latest
+Earthfile:7 | Hello from Docker!
+```
+
+`docker run hello-world` is precisely what `+test-no-qemu-group8` fails on in
+CI, with exit 126. Same engine, same construct, same command: it works here and
+is refused there.
+
+The difference is privilege, not code. The macOS sandbox is a VM whose guest is
+root and can mount what it likes; the Linux CI sandbox is a user namespace that
+cannot mount `/sys/fs/cgroup`, which is what the warning has been saying all
+along (E596).
+
+**A hypothesis worth one CI run.** The Podman suites pass `SUDO: "sudo"` and the
+Native suite passes nothing, so the native engine runs in CI as the unprivileged
+runner user. If the cgroup mount needs a capability that survives into the
+sandbox, running the suite the way Podman runs is one line and would move
+eleven jobs at once. It is a guess, and stated as one: the alternative is that
+the namespace is constructed the same way whoever starts it, in which case
+nothing changes and the guess is cheap to have made.
+
+Not tried yet, because a run is in flight testing something else and a push
+would cancel it (E907's manifest cache). Recorded first so the prediction is on
+the record before the run that settles it, which is what E903 got right and
+E894 did not.
+
+**What this changes.** The parity gap is not "the engine cannot nest a runtime".
+It is "the engine nests a runtime, and one of the two environments it is tested
+in forbids it". That is a question about how the Native suite is run, and it
+belongs beside the other environment decisions rather than in the engine's
+backlog.

@@ -1692,6 +1692,45 @@ func (e *Executor) Prewarm(ctx context.Context) {
 	_, _ = e.client()
 }
 
+// WarmImages performs the registry handshake for what this build will pull.
+//
+// **The third thing that need not wait for the machine.** Prewarm took the boot
+// off the critical path and then the handshake with the guest; what is left in
+// front of the first step is the pull, and the first 0.46s of a pull is
+// `registry:token` - a round trip to a token service, on the host, needing
+// nothing the VM provides. A cold build boots for 1.48s and then spends that
+// 0.46s; done beside the boot it costs nothing at all (E907).
+//
+// Paid even by a pinned reference, which is why this is not answered by pinning
+// the digest: pinning removes the resolution, not the pull.
+//
+// Nothing waits for these, and each is silent about failure - see image.Warm.
+// A reference the build turns out not to pull has cost one exchange against a
+// cache the pull would have filled anyway.
+func (e *Executor) WarmImages(ctx context.Context, refs []string, platform string) {
+	if len(refs) == 0 {
+		return
+	}
+
+	// **A build can have no sandbox at all**, which is what a local-only build
+	// is, and asking one for its store directory panics. The challenge cache is
+	// the only thing the directory is for, and `image.Warm` treats an empty one
+	// as "do not remember" - so a build without a machine still warms, it just
+	// does not write down where the token came from.
+	imageRoot := e.ImageCache
+	if imageRoot == "" && e.sb != nil {
+		imageRoot = e.sb.StoreDir()
+	}
+
+	for _, ref := range refs {
+		go image.Warm(ctx, ref, image.Options{
+			Platform:   platform,
+			Challenges: imageRoot,
+			Mirrors:    image.MirrorsFromEnv(),
+		})
+	}
+}
+
 // Connected reports whether the guest has been greeted.
 //
 // Exported so that "the handshake happened beside the plan rather than in front

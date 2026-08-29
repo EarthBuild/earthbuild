@@ -574,6 +574,21 @@ func runPlan(
 
 	endSetup()
 
+	// The registry handshake beside the boot rather than behind it.
+	//
+	// Here rather than beside `warm`, because that runs before anything has
+	// been parsed and the references are not known until the plan exists. The
+	// boot still has most of its 1.48s to run at this point, which is ample for
+	// an exchange that takes 0.46s (E907).
+	//
+	// Nothing waits for it, and a backend with nothing to warm says nothing -
+	// the same shape as Prewarm.
+	if w, ok := over.(interface {
+		WarmImages(context.Context, []string, string)
+	}); ok {
+		w.WarmImages(ctx, imageRefs(plan), o.Platform)
+	}
+
 	endSchedule := timing.Phase("schedule", o.Target)
 	_, runErr := s.Run(ctx, plan.Graph)
 	endSchedule()

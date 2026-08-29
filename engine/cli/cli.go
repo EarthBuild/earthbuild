@@ -420,7 +420,7 @@ func build(ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os
 
 	// After the artifacts, because a build that produced both should keep the
 	// artifacts even if writing an image fails.
-	return writeImages(ctx, o, e, s.StackFor, plan.Images)
+	return writeImages(ctx, o, e, s.StackFor, plan.Images, scheduled(plan.Graph))
 }
 
 // runPlan runs a plan and gives back what ran it.
@@ -659,7 +659,7 @@ func runPlan(
 
 	// After the artifacts, because a build that produced both should keep the
 	// artifacts even if writing an image fails.
-	err = writeImages(ctx, o, e, s.StackFor, plan.Images)
+	err = writeImages(ctx, o, e, s.StackFor, plan.Images, scheduled(plan.Graph))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -682,8 +682,17 @@ func exportAll(ctx context.Context, o Options, e *exec.Executor, s *core.Schedul
 		return exportConcurrently(ctx, o, e, s, plan, w)
 	}
 
+	// One target read with different arguments is read more than once, and each
+	// reading appends its `AS LOCAL`. Only the readings the graph reaches run, so
+	// an unscheduled one has nothing to copy - see scheduled().
+	inGraph := scheduled(plan.Graph)
+
 	for _, a := range plan.Artifacts {
 		if a.LocalDest == "" {
+			continue
+		}
+
+		if a.From != nil && !inGraph[a.From.ID()] {
 			continue
 		}
 

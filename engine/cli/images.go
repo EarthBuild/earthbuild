@@ -91,7 +91,7 @@ func emptyStackIsExpected(n *ir.Node) bool {
 // about has not really been produced.
 func writeImages(
 	ctx context.Context, o Options, e *exec.Executor,
-	stacks func(*ir.Node) []ir.NodeID, images []interp.Image,
+	stacks func(*ir.Node) []ir.NodeID, images []interp.Image, inGraph map[ir.NodeID]bool,
 ) error {
 	if len(images) == 0 {
 		return nil
@@ -107,6 +107,12 @@ func writeImages(
 	for _, img := range images {
 		if img.From == nil {
 			return fmt.Errorf("SAVE IMAGE %s (%s): nothing produces it", img.Ref, img.Source)
+		}
+
+		// The same reading that applies to AS LOCAL: an interpretation the graph
+		// never reached has no layers to send - see scheduled().
+		if !inGraph[img.From.ID()] {
+			continue
 		}
 
 		stack := stacks(img.From)

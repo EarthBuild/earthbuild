@@ -43828,3 +43828,50 @@ A small thing seen in passing: `$TARGETPLATFORM` did not expand in the `AS LOCAL
 destination - the file landed at `out/thing` rather than `out/linux/arm64/thing`.
 Not chased, because `Earthfile:705` uses explicit `$GOOS`/`$GOARCH` arguments
 rather than that variable, so it is not the same thing wearing a different name.
+
+### E895c - fixed: an export named a reading of a target the graph never scheduled
+
+The missing artifact, closed. Instrumenting the failing export said it in one
+line:
+
+```text
+ARTIFACT-DEBUG path="/earthly/build/earthly" inGraph=false kind=exec
+  same-path artifact: dest="build/linux/arm64/earthly" built=true
+  same-path artifact: dest="build/linux/arm64/earthly" built=false   <- the one that failed
+  same-path artifact: dest="build/linux/arm64/earthly" built=true
+```
+
+Interpretation is memoised on a target's name, platform and arguments, so a
+target reached with different arguments is **read more than once**, and each
+reading appends its `SAVE ARTIFACT ... AS LOCAL` and `SAVE IMAGE` to the plan.
+This repository reads `+earthly` three times - once from `COPY +earthly/earthly`
+and twice from `COPY (+earthly/* --arg=...)`. Only the readings the graph
+reaches are scheduled. The export loop stopped at the first unscheduled one and
+said the step producing it had not run, while two other readings had written
+exactly that file.
+
+**Not the Earthfile.** The reference engine builds `+test-misc` with `rc=0`, so
+what the tree asks for is legal and this engine was refusing it.
+
+The fix distinguishes the two ways a stack can be empty. A node the graph never
+reaches was never asked to run, and has nothing to copy; a node *in* the graph
+with an empty stack is a build that promised an output and did not write it,
+which is the case the check exists for. Both loops now skip the first and keep
+the second.
+
+```text
+before   Error: Earthfile:705: the step producing /earthly/build/earthly did not run
+then     Error: SAVE IMAGE ...buildkitd-dev...: the step producing it did not run
+after    RUN apk add --no-cache jq failed with exit code 127
+```
+
+The second error is the same defect one file over - `SAVE IMAGE` had it too, and
+fixing only the artifact loop moved the failure rather than removing it. The
+third is a different problem entirely and is where `+test-misc` now gets to.
+
+**A first fix keyed on duplicates was wrong** and is worth recording: it asked
+whether *any* reading of a destination produced it, which handles three readings
+of `+earthly` and not a single unscheduled `SAVE IMAGE` - and the single case is
+the one `buildkitd/Earthfile:97` presents. Graph membership answers both, because
+it asks the question the message was always about: was this node ever going to
+run?

@@ -42255,3 +42255,41 @@ the code that fails is *shared*: `HashTarget` is `inputgraph`'s and the wrapper
 is `internal/synccache`'s. So what differs is what each engine hands that code,
 not the hashing. `WORKDIR` is eliminated as the cause: it applies correctly under
 native, so a relative `.` inside a step is not silently the root.
+
+### E867 - --pass-args forwards what a function declared, not what it was given
+
+Chasing group 9's last target to a nine-line reproducer, and it is not about
+auto-skip at all.
+
+```text
+INNER:  FUNCTION / ARG target=+default / ARG extra
+OUTER:  FUNCTION / ARG extra / DO --pass-args +INNER --extra="prefixed $extra"
+probe:  DO --pass-args +OUTER --target=+mytarget --extra=given
+
+native    INNER target=+default   extra=prefixed given
+buildkit  INNER target=+mytarget  extra=prefixed given
+```
+
+An argument passed *through* two levels of `FUNCTION` is lost. The explicitly
+named one survives in both engines; the forwarded one does not survive the
+second hop here.
+
+**Why.** `--pass-args` copies `p.callerArgs`, which is set from `rs.args` - and
+`rs.args` is populated by `scope.declare`, which records the names an `ARG`
+statement mentions. `OUTER` declares `extra` and not `target`, so `target` was
+supplied to it, used by nothing, and never entered the map the next `--pass-args`
+copies from. What the other engine forwards is what was *supplied*, not what was
+declared.
+
+**And it explains the autoskip failure exactly.** `tests/autoskip`'s
+`RUN_EARTH_ARGS` forwards to `tests+RUN_EARTH` with `--pass-args`; `--target` is
+dropped; `target` falls back to `RUN_EARTH`'s default `+all`; the hasher then
+reports `No Earthfile nor build.earth file found for target +all` for a target
+nobody asked for. The message names the filesystem and the fault is two hops
+upstream - the fourth time in this document an error has named where it noticed
+rather than where it went wrong.
+
+**Not fixed here.** It is small in code and wide in effect: it changes what every
+`--pass-args` forwards, and `tests/` uses the construct throughout. It wants a
+corpus run and a fresh head rather than a decision at four in the morning, which
+is the same call made for the WITH DOCKER mount scope (E863h).

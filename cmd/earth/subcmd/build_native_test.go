@@ -222,6 +222,13 @@ func TestEveryOptionIsAccountedFor(t *testing.T) {
 
 	// Not carried, and why. A reason here is a decision; an absence is a bug.
 	//
+	// **Each of these was checked against the flag set, not assumed.** The first
+	// version of this map excused `ExecStats` as "earth has no --exec-stats" and
+	// `VersionFlags` as environment-only. Both were wrong - `flag/global.go`
+	// declares both - so the guard against dropped flags shipped having quietly
+	// excused two of them. An excuse is a claim and needs the same evidence as
+	// the code it excuses.
+	//
 	// gosec reads a `SecretFile` key beside a string value as a hardcoded
 	// credential. These are field names and explanations, and the map is the
 	// whole point of the test, so the finding is suppressed on the line below.

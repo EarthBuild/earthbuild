@@ -63,6 +63,10 @@ type fakeRegistry struct {
 	// reference fetches no blob at all, so a blob counter cannot tell "resolved
 	// without asking" from "did not resolve".
 	manifests int
+	// counts is held while the counters above are touched. The handlers run on
+	// the server's goroutines, so a test with concurrent callers races on them -
+	// which no test did until one exercised the token single-flight (E915).
+	counts sync.Mutex
 	// auth makes this registry behave like a real one: an unauthenticated
 	// request is answered with a challenge and nothing else, and a token has to
 	// be fetched from the realm it names. Every test here predates this and runs
@@ -155,7 +159,7 @@ func (f *fakeRegistry) start(t *testing.T) string {
 			}
 		}
 
-		f.tokens++
+		f.count(&f.tokens)
 
 		_ = json.NewEncoder(w).Encode(map[string]any{"token": "issued"})
 	})
@@ -170,7 +174,7 @@ func (f *fakeRegistry) start(t *testing.T) string {
 		// The ping. Counted apart from the probe: one is a connection being
 		// warmed, the other is a round trip fetching a challenge.
 		if r.URL.Path == "/v2/" {
-			f.pings++
+			f.count(&f.pings)
 
 			w.WriteHeader(http.StatusUnauthorized)
 
@@ -178,7 +182,7 @@ func (f *fakeRegistry) start(t *testing.T) string {
 		}
 
 		if f.auth && r.Header.Get("Authorization") == "" {
-			f.probes++
+			f.count(&f.probes)
 
 			w.Header().Set("WWW-Authenticate", `Bearer realm="`+realm+
 				`",service="fake",scope="repository:thing:pull"`)
@@ -189,7 +193,7 @@ func (f *fakeRegistry) start(t *testing.T) string {
 
 		switch {
 		case strings.Contains(r.URL.Path, "/manifests/"):
-			f.manifests++
+			f.count(&f.manifests)
 
 			// A manifest list, when the tag names one and the request is for
 			// the tag rather than for one of the images it lists.
@@ -626,4 +630,20 @@ func TestAPrivateImageRefusesWithoutALogin(t *testing.T) {
 	if err == nil {
 		t.Fatal("an anonymous pull of a private image succeeded")
 	}
+}
+
+// count increments one of the counters under the lock.
+func (f *fakeRegistry) count(n *int) {
+	f.counts.Lock()
+	defer f.counts.Unlock()
+
+	*n++
+}
+
+// seen reads a counter under the lock, for a test with concurrent callers.
+func (f *fakeRegistry) seen(n *int) int {
+	f.counts.Lock()
+	defer f.counts.Unlock()
+
+	return *n
 }

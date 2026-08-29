@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"sync"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
@@ -183,10 +185,45 @@ func credentialForURL(raw string) credential {
 // a query parameter would be published by a routine diagnostic rather than by
 // anything anyone would call a leak.
 func fetchTokenAs(ctx context.Context, client *http.Client, at string, cred credential) (string, error) {
-	if tok, ok := tokens.get(cred.holdKey(at)); ok {
+	key := cred.holdKey(at)
+
+	if tok, ok := tokens.get(key); ok {
 		return tok, nil
 	}
 
+	// **One exchange, however many callers want it.** Without this, "fetch the
+	// token early so the pull finds it cached" (E907) only helps when something
+	// delays the pull. On macOS a 1.4s VM boot does; on Linux there is no VM,
+	// the pull starts beside the warm, both miss the cache, and the build makes
+	// two full exchanges where it used to make one - measured on the x86 box,
+	// and an extra request against a rate limit for no gain (E915).
+	//
+	// The cost is that concurrent callers share the first one's context and its
+	// failure. Both are acceptable here: the contexts belong to the same build,
+	// and callers that would have failed separately now fail together.
+	v, err, _ := tokenFlight.Do(key, func() (any, error) {
+		// Re-checked inside the flight: a caller may have filled the cache
+		// between the check above and being admitted here.
+		if tok, ok := tokens.get(key); ok {
+			return tok, nil
+		}
+
+		return fetchTokenNow(ctx, client, at, cred)
+	})
+	if err != nil {
+		return "", err
+	}
+
+	tok, _ := v.(string)
+
+	return tok, nil
+}
+
+// tokenFlight collapses concurrent requests for the same token endpoint.
+var tokenFlight singleflight.Group
+
+// fetchTokenNow performs the exchange, with no cache and no sharing.
+func fetchTokenNow(ctx context.Context, client *http.Client, at string, cred credential) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, at, nil)
 	if err != nil {
 		return "", fmt.Errorf("build request: %w", err)

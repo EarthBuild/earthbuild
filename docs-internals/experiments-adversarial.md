@@ -43799,3 +43799,32 @@ that names platforms. An artifact registered for one platform and a target built
 for another would produce exactly this, and that is the next thing to try. Named
 as the next experiment rather than as the cause, which is the correction E896a
 was about.
+
+### E895b - the platform guess does not reproduce it either
+
+E895a named a platform-qualified export as the next thing to try. Tried:
+
+```earthfile
+producer:     SAVE ARTIFACT /thing AS LOCAL "out/$TARGETPLATFORM/thing"
+viaplatform:  BUILD --platform=linux/arm64 +producer
+```
+
+`rc=0`, the file is written, no failure. So an `AS LOCAL` artifact reached
+through a `BUILD --platform` is not by itself the shape.
+
+Two hypotheses named and two refuted, which leaves the failure exactly where
+E895a put it: reproducible locally, cause unknown, and that is the honest state. The chain in
+`+test-misc` is longer than either reproducer and something in it matters that
+these do not have.
+
+**A stale cache produced a different error first**, worth recording because it
+looked like a finding: without `XDG_CACHE_HOME` pointed at a fresh directory the
+run failed with `clear the staging directory for the export: unlinkat
+/var/lib/earthbuild/store/export...`, which is a leftover from an earlier
+experiment rather than anything about platforms. The variable was removed from the
+command while editing it and the cache it fell back to was three experiments old.
+
+A small thing seen in passing: `$TARGETPLATFORM` did not expand in the `AS LOCAL`
+destination - the file landed at `out/thing` rather than `out/linux/arm64/thing`.
+Not chased, because `Earthfile:705` uses explicit `$GOOS`/`$GOARCH` arguments
+rather than that variable, so it is not the same thing wearing a different name.

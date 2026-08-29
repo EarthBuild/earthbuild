@@ -155,3 +155,22 @@ func TestSecretsReachTheNativeEngine(t *testing.T) {
 		t.Errorf("--secret OTHER= did not arrive at all; the whole map was %v", got.Secrets)
 	}
 }
+
+// --no-cache reaches the native engine.
+//
+// **The fourth flag of this kind, and the first to be silently wrong rather
+// than loud.** `--secret` at least refused the build; this one returned success
+// having read the cache it was told not to. Measured before the fix: a second
+// `--no-cache` build of the same target reported `3 hit, 0 miss`, identical to
+// the same build with no flag at all.
+func TestNoCacheReachesTheNativeEngine(t *testing.T) {
+	t.Parallel()
+
+	for _, on := range []bool{false, true} {
+		got := nativeOptions(nativeInput{dir: ".", target: "+x", noCache: on})
+
+		if got.NoCache != on {
+			t.Errorf("--no-cache %v arrived as %v", on, got.NoCache)
+		}
+	}
+}

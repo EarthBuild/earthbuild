@@ -105,6 +105,7 @@ func (b *Build) runNative(
 		args:            args,
 		secrets:         secrets,
 		allowPrivileged: b.cli.Flags().AllowPrivileged,
+		noCache:         b.cli.Flags().NoCache,
 	}))
 }
 
@@ -123,6 +124,7 @@ type nativeInput struct {
 	args            map[string]string
 	secrets         map[string]string
 	allowPrivileged bool
+	noCache         bool
 }
 
 // nativeOptions is the whole of the translation, in one place that can be read.
@@ -137,6 +139,7 @@ func nativeOptions(in nativeInput) enginecli.Options {
 		Args:            in.args,
 		Secrets:         in.secrets,
 		AllowPrivileged: in.allowPrivileged,
+		NoCache:         in.noCache,
 		Out:             os.Stdout,
 	}
 }

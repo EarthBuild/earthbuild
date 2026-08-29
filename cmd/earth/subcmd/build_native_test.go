@@ -2,6 +2,7 @@ package subcmd
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -201,5 +202,68 @@ func TestTheRemainingFlagsReachTheNativeEngine(t *testing.T) {
 	got := nativeOptions(nativeInput{dir: ".", target: "+x", argFile: "/tmp/args.env"})
 	if got.ArgFile != "/tmp/args.env" {
 		t.Errorf("--arg-file arrived as %q", got.ArgFile)
+	}
+}
+
+// Every field of cli.Options is either set by nativeOptions or excused here.
+//
+// **The guard the other tests in this file are not.** `nativeInput` and its
+// per-flag tests exist because `--build-arg` was parsed and dropped, and
+// `--allow-privileged` repeated it. They did not stop `--secret`, `--no-cache`,
+// `--no-output`, `--push` and `--arg-file` from being dropped too, because a
+// test per flag only covers the flags somebody remembered to write one for.
+//
+// This one counts from the other end: it fills every field of nativeInput,
+// asks what nativeOptions produced, and fails on any Options field still at its
+// zero value. Adding a field to cli.Options that the native path should carry
+// then breaks this test until it is carried or listed below with a reason.
+func TestEveryOptionIsAccountedFor(t *testing.T) {
+	t.Parallel()
+
+	// Not carried, and why. A reason here is a decision; an absence is a bug.
+	//
+	// gosec reads a `SecretFile` key beside a string value as a hardcoded
+	// credential. These are field names and explanations, and the map is the
+	// whole point of the test, so the finding is suppressed on the line below.
+	excused := map[string]string{ //nolint:gosec // field names and prose, not credentials
+		"DryRun":                           "earth has no --dry-run; earth-native does, and passes it",
+		"Env":                              "the engine's own environment override, not a command-line flag",
+		"ExecStats":                        "earth has no --exec-stats; earth-native does",
+		"Long":                             "belongs to `earth-native doc`, which this path does not reach",
+		"SecretFile":                       "folded into Secrets by nativeSecrets, deliberately - see its comment",
+		"SecretFiles":                      "folded into Secrets by nativeSecrets, deliberately",
+		"UnsafeAllowUnpinnedRemoteLocally": "earth-native only; this path refuses remote targets",
+		"VersionFlags":                     "set from the environment by the engine, not from a flag",
+	}
+
+	got := nativeOptions(nativeInput{
+		dir: "d", target: "t", platform: "p",
+		args:            map[string]string{"A": "1"},
+		secrets:         map[string]string{"S": "2"},
+		allowPrivileged: true,
+		noCache:         true,
+		push:            true,
+		noOutput:        true,
+		argFile:         "f",
+	})
+
+	v := reflect.ValueOf(got)
+	for i := range v.NumField() {
+		name := v.Type().Field(i).Name
+		if !v.Field(i).IsZero() {
+			continue
+		}
+
+		if why, ok := excused[name]; ok {
+			if why == "" {
+				t.Errorf("cli.Options.%s is excused with no reason given", name)
+			}
+
+			continue
+		}
+
+		t.Errorf("cli.Options.%s is never set by nativeOptions"+
+			"\n  every field of nativeInput was filled, so this one cannot be reached from the"+
+			"\n  command line at all - wire it, or add it to `excused` with why not", name)
 	}
 }

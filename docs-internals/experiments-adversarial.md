@@ -43395,3 +43395,34 @@ So the fix is a netns *with* connectivity - a veth pair and NAT, or a userspace
 stack - which is real work rather than a flag. That is the cost this decision
 carries, and it was worth measuring before quoting: the version of this note that
 stopped at the first grep would have said "no build needs it, turn it on".
+
+### E888 - the blocker was the bug already fixed, and the bisect that found it pointed the wrong way
+
+The remote `FROM DOCKERFILE` failure - the one stopping any `./tests+<name>` from
+building locally under `--engine=native`, and the reason the `/run` item could not
+be scoped - is gone. It was fixed by E886b, which was written for something else:
+
+```text
+9042fc2d8  parent of the WITH DOCKER fix   rc=1   COPY examples/...: nothing in that target has it
+8c69f82a7  the WITH DOCKER fix             rc=0
+```
+
+Same tree, same cache, minutes apart. `./tests+copy-tilde-test`, `+host-invalid`
+and `+test-reserved-label` all build locally again.
+
+The chain: the integration base builds buildkit through `FROM DOCKERFILE`, and
+that build runs a `WITH DOCKER` whose `--load` lost its image between the loading
+step and the body. A later `COPY` then found nothing and the error named the
+Dockerfile, which is where everybody looked.
+
+**The bisect was right and the inference was wrong, which is the part worth
+keeping.** Moving one variable at a time established that the same Dockerfile and
+target built locally and failed remotely - a correct result. What followed was
+hours on `ContextRoot`, stage chains, `COPY --link` and variable stage names,
+none of which were involved, because "it only fails when remote" was read as "the
+remote path handles context differently". Remoteness mattered only because the
+remote path happened to go through a `WITH DOCKER` and the local one did not.
+
+A variable that correlates is not a cause. The cheap check that would have
+distinguished them was never run: fix something else in the neighbourhood and see
+whether this moves. It cost nothing here because the fix arrived anyway.

@@ -42194,5 +42194,19 @@ Two details it must get right, both already decided elsewhere in this engine:
   failure mode `stepEnv`'s own comment describes - software that "would otherwise
   choose `/` or fail".
 
-That is a small change in a place that already does this kind of lookup, which
-is a better position than E865 left it in.
+The place is `becomeStepUser` (engine/guest/stepshim_run_linux.go), which
+already calls `resolveUser` and then setgid/setuid - the home directory is one
+more field from the lookup it is already doing.
+
+**And the precedence question splits cleanly between the two ends.** By the time
+the shim runs, the environment is folded and `HOME=/root` from the floor is
+indistinguishable from an image that declared `/root` on purpose. The shim
+cannot decide precedence and should not try. `execRequest` can: it holds the
+three layers separately, so it knows whether anything above the floor said
+`HOME`, and can tell the shim whether to override - one more variable beside
+`EARTH_STEP_USER`, taken back out before the exec the same way.
+
+That keeps each half where its information is: the decision where the layers
+are, the lookup where `/etc/passwd` is. It is a small change in a place that
+already does this kind of lookup, which is a better position than E865 left it
+in.

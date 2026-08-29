@@ -44121,3 +44121,46 @@ mechanism, and a number that can be wrong:
 The Podman claim is the load-bearing one: it says the suite has been measuring
 the wrong engine, and a suite that was genuinely broken will not be fixed by
 telling it which engine to use.
+
+### E904 - with the base image pinned, the inner loop is bounded by the container CLI
+
+E900 pinned the base image and left the sandbox as the largest item. Profiling
+what remains, on a build with one file changed and the VM already up:
+
+```text
+process          0.360s
+  schedule       0.332s
+    sandbox:start  0.134s   waiting on the prewarm's own scan
+    sandbox:dial   0.103s   connecting to the guest
+    boot:scan      0.088s   = boot:list 0.043 + boot:reap 0.044
+```
+
+`sandbox:start` and `sandbox:dial` are **66% of the build**, and neither is
+engine work: both are round trips through Apple's `container` CLI.
+
+Benchmarked properly - seven runs each, timed around `subprocess.run` rather
+than from the shell:
+
+| command                        | median  | min    | max     |
+| ------------------------------ | ------- | ------ | ------- |
+| `container --version`          | 17.2ms  | 14.7ms | 25.4ms  |
+| `container volume list`        | 17.5ms  | 15.7ms | 26.8ms  |
+| `container ls -a` (89 present) | 56.8ms  | 36.9ms | 112.1ms |
+
+`--version` does nothing, so **17ms is the floor under every subprocess a build
+makes**. `volume list` sits on that floor; `ls -a` costs three times it, and the
+difference is the population - this machine has accumulated 89 sandboxes, one
+per distinct cache directory used by an experiment. A developer with one cache
+directory has one or two, and pays the floor.
+
+Two conclusions:
+
+* Further speed work here removes *subprocesses*, it does not optimise code.
+  What is left in the loop is one listing and one dial, and the dial is the
+  listening-guest decision already costed in `decisions-pending.md`.
+* **A shell-timed subprocess measurement is inflated.** The same commands timed
+  by wrapping the shell call read 34-40ms where the real floor is 17ms - the
+  wrapper's own cost lands inside the interval and doubles a small number.
+  Every per-subprocess figure quoted before this entry is high by roughly that
+  much; none of the conclusions turn on it, because they compare phases within
+  one build rather than across methods.

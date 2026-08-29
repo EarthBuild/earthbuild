@@ -41706,3 +41706,37 @@ recovers; the other stops and stays stopped.
 Worth keeping the pair straight when either is fixed: a change that only quiets
 the message leaves the failure, and a change that only fixes the failure leaves
 an author being told their build is not reproducible.
+
+### E863 - the autocompletion diff is down to one line, and it names the next mount
+
+`Native / +test-no-qemu-group1` fails on `tests/autocompletion`, which diffs a
+directory listing. The diff is now one line:
+
+```text
+@@ -4,7 +4,6 @@
+ ../proc/
+ ../root/
+-../run/
+ ../sys/
+ ../usr/
+```
+
+`../sys/` is offered, because the bind fallback (E841) gives a step a populated
+`/sys`. Completion offers a directory only when it has subdirectories, and the
+nit that recorded this failure named two causes - `/sys` and `/run` having none.
+One is gone.
+
+**So the remaining item is precisely scoped:** a step has no `/run` with anything
+in it, and every other runtime provides one. That is the same decision the `/sys`
+mount was, in a smaller form: a tmpfs there is trivial, and what should be *in*
+it is ambient state, which is why it has not simply been done.
+
+**And the four sampled Native failures now carry no assertion failure at all.**
+Zero `did not contain` across group1, group5, group10 and group12, and zero
+`mount /sys` refusals. The message-parity work and the `/sys` fix both hold in
+CI; what remains in those jobs is a nested daemon that will not start (two of
+four), a label expectation, and this listing.
+
+The warning that fires in these jobs is now the cgroup one -
+`mount /sys/fs/cgroup for the step: operation not permitted` - which is E841a's
+standing decision and not a new fault.

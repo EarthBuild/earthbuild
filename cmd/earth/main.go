@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/timing"
+
 	// TODO(jhorsts): this can be removed when earthbuild/buildkit repo is up to date
 	// GRPC_ENFORCE_ALPN_ENABLED is set to "false" via the disable_alpn package import
 	// to ensure it happens before other packages initialize.
@@ -100,6 +102,13 @@ func main() {
 func run() (code int) {
 	// Phase 0 measurement harness; a no-op unless EARTH_ENGINE_TRACE is set.
 	defer enginetrace.Dump(os.Stderr)
+
+	// Registered first, so it ends last: this covers every other defer, and is
+	// the phase to compare the rest against. A build whose phases do not add up
+	// to this one has its cost somewhere nothing is measuring, which is how the
+	// container-frontend probe stayed invisible while costing a third of a
+	// cached build (E871).
+	defer timing.Phase("process", "")()
 
 	// set up OpenTelemetry
 	ctx := context.Background()

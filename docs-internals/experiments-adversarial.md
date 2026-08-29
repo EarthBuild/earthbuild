@@ -42373,3 +42373,46 @@ crashing) - the check E609 said was missing and which was still missing.
 **The lesson is not about greps.** Three diagnostics in a row produced confident,
 wrong readings, and each looked like evidence. A diagnostic that is not itself
 tested is a rumour with a monospace font.
+
+### E871 - a third of a cached build was spent looking for Docker
+
+The phase log accounted for 256ms of a 378ms fully cached native build. The
+missing 109ms was constant across runs - 0.144, 0.144, 0.147 - which is the
+signature of fixed overhead rather than anything proportional to the work.
+
+Bisected by wrapping progressively larger regions, and every guess along the way
+was wrong: the region between the build and the export (0.0ms), the logbus close
+(0.0ms), the deferred funcs (0.0ms), and OpenTelemetry shutdown, which an
+alternated A/B put at -7ms. It was none of them.
+
+It is `parseFrontend`, in the app's `before` hook: the Docker/Podman detection
+that runs the candidate binaries to see which answers.
+
+```text
+frontend:detect   116.0 ms      of a 380ms build
+```
+
+**The native engine cannot use the result.** `engine/` contains no reference to
+a container frontend; all 63 consumers are on the buildkit path. Native is also
+the default engine on this branch, so nearly every build paid it.
+
+Skipped when the invocation cannot use one, which is decided from the raw
+arguments because `before` runs before the build subcommand's flags are parsed.
+The decision is deliberately timid - an unknown engine, another subcommand, or
+no arguments all keep the detection - since guessing wrong that way costs only
+the time that was always being spent.
+
+```text
+before 381.8 ms | after 258.2 ms | saved 123.6 ms | 1.48x | n=7 | discards 0
+```
+
+Alternated, artifact content checked each run, on a 16-core mac **with Docker
+installed**, so this is the cost of successfully finding a daemon rather than of
+failing to. Verified that detection still runs where the result can be used:
+`--engine buildkit` and `EARTH_ENGINE=buildkit` both still pay the 110ms, as do
+`ls` and `doc`; `+build`, `--engine=native` and the bare default all skip it.
+
+**The gap was the whole finding, again** - the fifth time a phase log that did
+not add up held the largest single cost. Nothing in the log was wrong; the cost
+simply sat where no phase was looking, and every hypothesis formed by reading
+the log was about the wrong region.

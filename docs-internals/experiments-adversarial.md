@@ -42876,3 +42876,34 @@ file-path rule excludes an invocation that names a file *which is not there* -
 a fact about the invocation, checkable without running it, and false for every
 invocation that passes. "The recipe did something first" is a fact about the
 recipe, and most recipes do something first.
+
+### E881 - a step is its release, and an average was hiding it
+
+E877 read a step on x86 as 48ms with the command 5.5ms of it, and left ~22ms
+unaccounted after the named phases. The 22ms does not exist. The average was
+taken over 31 `exec` phases, of which one is the `FROM` - an image pull at
+888ms - so it dragged thirty 20ms steps up to 48.
+
+Taking it off:
+
+```text
+exec, RUN steps only   (1498 - 888) / 30 = 20.3 ms
+release                            546 / 30 = 18.2 ms      90%
+```
+
+**A step is its release, near enough.** The command is 5.5ms, everything the
+engine does around it is about 2ms, and the overlay unmount afterwards is 18.
+That is why `EARTH_ASYNC_RELEASE` measures 1.18x over thirty steps and why
+nothing else on the per-step path is worth optimising until it moves.
+
+**An average over a mixed population is not a per-item cost.** The `FROM` and the
+`RUN`s are different work sharing a phase name, and one of them is forty times
+the other; a mean over both describes neither. The phase log makes this easy to
+do by accident because it labels by operation, not by kind.
+
+What this does not settle is whether to default the switch on. The unmount is
+18ms here and 2.55ms in the macOS guest, which is also Linux, so it is the
+filesystem's cost rather than the platform's - and no measurement exists for a
+hosted runner, which is the machine that matters. One CI run with
+`EARTH_TIMINGS=1` would settle it, and until then defaulting it would be
+choosing a number from the wrong machine.

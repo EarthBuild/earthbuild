@@ -25,11 +25,14 @@ func TestAlreadyLocalReadsTheImageCacheMarker(t *testing.T) {
 	}
 
 	marker := filepath.Join(root, "imagecache", ImageCacheKey(ref, platform)+stackSuffix)
-	if err := os.MkdirAll(filepath.Dir(marker), 0o750); err != nil {
+
+	err := os.MkdirAll(filepath.Dir(marker), 0o750)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(marker, []byte("layers"), 0o600); err != nil {
+	err = os.WriteFile(marker, []byte("layers"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
 

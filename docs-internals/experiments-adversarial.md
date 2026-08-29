@@ -44662,8 +44662,8 @@ So the two numbers mean different things and neither is "the" parity figure:
 
 | number    | where           | what it measures                                |
 | --------- | --------------- | ----------------------------------------------- |
-| 198 / 251 | x86, privileged | what the engine can do when nothing stops it     |
-| 156       | CI runner       | what the engine can do inside the CI sandbox     |
+| 198 / 251 | x86, privileged | what the engine can do when nothing stops it    |
+| 156       | CI runner       | what the engine can do inside the CI sandbox    |
 
 Raising the ratchet to 198 would fail CI on the next run, and lowering the sweep
 to match CI would hide the +2. The ratchet stays where it is until the privilege
@@ -44741,3 +44741,43 @@ if Native moves off 3 of 16.
 non-empty path as named and requires it to exist, so passing the flag's own
 default turned every build without a `.arg` into `open .arg: no such file or
 directory`. Caught by running the whole suite rather than the package touched.
+
+### E921 - a right conclusion with a wrong reason, corrected into a regression
+
+E920 wired five dropped flags and added a guard that enumerates `cli.Options`
+and fails on a field nothing can reach unless it is excused with a reason. Two
+of those excuses were then found to be false: `--exec-stats` and
+`--version-flag-overrides` are both declared in `flag/global.go`, so the guard
+had quietly excused two more dropped flags.
+
+Removing both excuses and wiring both fields **broke two Native jobs that had
+been passing**, `+test-misc` and `+test-no-qemu-group9`, neither of them in the
+known thirteen:
+
+```text
+Error: Earthfile: --version-flag-overrides --use-copy-include-patterns is a
+  feature this engine does not implement
+```
+
+CI sets `EARTH_VERSION_FLAG_OVERRIDES=referenced-save-only,use-copy-include-patterns,...`
+and the flag reads that source. Ignored, the overrides did nothing; honoured,
+they refuse the build. Bisected locally on one variable - the same build with
+that variable set is `rc=1` with the wiring and `rc=0` without.
+
+**The excuse was right and its reason was wrong, and I corrected the wrong
+half.** "VersionFlags is environment-only" is false. "This engine does not
+implement the features those overrides name, so carrying them fails builds that
+pass while they are ignored" is true, and reaches the same decision. Finding the
+stated reason false is evidence that the reason needs replacing - not that the
+decision does.
+
+`--exec-stats` was the other half of the same commit and was correct: it wires
+cleanly, prints `total CPU: 7ms`, and broke nothing. Reverting both would have
+lost a real fix; keeping both broke CI. The pair had to be told apart, and only
+a measurement could do it.
+
+**What the guard should have asked for.** An excuse is a claim about the world
+and needs the same evidence as the code it excuses. The map now carries the run
+number that measured this one. A reason that cannot cite something is a guess
+wearing a comment's clothes, and it will be corrected by whoever notices - into
+whatever the guess implied.

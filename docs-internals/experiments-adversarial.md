@@ -44338,3 +44338,36 @@ A prediction that cannot fail visibly is not a prediction.
 What remains is the honest number: **13 Native failures, 9 of them one missing
 privilege** (E596), 4 genuinely open. That is the parity gap, and nothing in
 today's work moved it except `+test-misc`.
+
+### E910 - the parity gap is one blocker, attributed properly this time
+
+E902 said "nine of fourteen wait on the cgroup privilege". That was a count of a
+marker, not an attribution, and the marker does not discriminate: the denial
+appears in the passing jobs too (`+test-misc` twice, `+test-no-qemu-group9`
+three times) and is absent from one that fails. Counting it was the mistake
+`frequent is not fatal` exists to prevent, made after writing that down.
+
+Attributed instead by what each failing job's last error actually was, across
+all thirteen:
+
+| cause                                                  | jobs |
+| ------------------------------------------------------ | ---- |
+| nested `earth`, through the tmpfs script wrapper        | 7    |
+| nested docker: `load`, `inspect`, `run`, the pre-script | 4    |
+| cross-architecture emulation                            | 1    |
+| a network namespace: `ip link add dummy0`               | 1    |
+
+**Eleven of thirteen need a container runtime running inside a step.** That is
+the single thing the cgroup denial prevents, and it is one blocker rather than
+eleven problems. The other two are the documented limitations: `+test-qemu`
+fails with "building one architecture on another needs emulation, and no machine
+in this build offers it", which is E596 saying so in the place it happens, and
+`ip link` needs the private netns already costed in `decisions-pending.md`.
+
+`+test-qemu` also corrects a label. Its error begins `BUILD --pass-args`, which
+is the call chain and not the cause; E902 filed it under `--pass-args` as an
+open question when the message six lines down names emulation.
+
+So the parity gap is **not thirteen unrelated failures**. It is one privilege,
+two known limitations, and nothing else - and no amount of engine work moves the
+eleven until a step can mount a cgroup tree.

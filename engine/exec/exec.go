@@ -1723,12 +1723,52 @@ func (e *Executor) WarmImages(ctx context.Context, refs []string, platform strin
 	}
 
 	for _, ref := range refs {
+		// An image already unpacked here is not pulled again, so its handshake
+		// is a request nobody reads.
+		//
+		// **Not a latency fix, and it was nearly reported as one.** Four
+		// alternating pairs put the warm path 8ms slower with this warming
+		// regardless; a third arm and five samples put all three within each
+		// other's spread. The wall-clock effect is below the noise floor,
+		// because the warm is asynchronous and nothing waits for it.
+		//
+		// It stays because the request is real even when the wait is not:
+		// Docker Hub rates-limits by request, and a build that pulls nothing
+		// should ask it for nothing.
+		if alreadyLocal(imageRoot, ref, platform) {
+			continue
+		}
+
 		go image.Warm(ctx, ref, image.Options{
 			Platform:   platform,
 			Challenges: imageRoot,
 			Mirrors:    image.MirrorsFromEnv(),
 		})
 	}
+}
+
+// alreadyLocal reports whether this image has been unpacked into this store
+// before, which is when the build will not pull it.
+//
+// Reads the same marker `materialiseImageApart` writes, so the two agree by
+// construction rather than by having been written to match.
+//
+// **Wrong in the safe direction, both ways.** A marker left behind by layers
+// that have since gone makes this skip a warm the pull then pays for itself,
+// which is exactly the behaviour before E907. A missing marker makes it warm an
+// image that turns out to be present, which costs one exchange against a cache.
+// Neither can make a build incorrect, which is why a stat is enough and no
+// agreement with the store is sought.
+func alreadyLocal(imageRoot, ref, platform string) bool {
+	if imageRoot == "" {
+		return false
+	}
+
+	marker := filepath.Join(imageRoot, "imagecache", ImageCacheKey(ref, platform)+stackSuffix)
+
+	_, err := os.Stat(marker)
+
+	return err == nil
 }
 
 // Connected reports whether the guest has been greeted.

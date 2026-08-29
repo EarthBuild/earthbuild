@@ -20,9 +20,10 @@ or the harness.
 
 | decision                                                    | gain                                                  | price                                                                                |
 | ----------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| cache the registry token across builds                      | 292ms of a 446ms cached unpinned build on Linux - 65% | a bearer token on disk                                                               |
+| cache the registry token across builds                      | 0.40s of a 0.48s incremental rebuild (E900)           | a bearer token on disk                                                               |
 | layers on tmpfs (`EARTH_IMAGE_CACHE_DIR` splits the store)  | 1.42x on a 30-step build                              | ~1.1GB of RAM for a golang base, and a build that exceeds it fails rather than slows |
 | a guest that listens, instead of `container exec` per build | 165ms of every macOS build                            | a listening service inside the sandbox - a different security posture                |
+| prefetch image blobs on the host while the sandbox boots    | up to 0.58s of a 2.3s cold build                      | blobs kept on disk - 61MB a layer (E659)                                             |
 
 `EARTH_ASYNC_RELEASE` is **no longer on this list**. It defers a cost that belongs
 to the store's filesystem - 19.5ms on ext4, 0.00ms on tmpfs for identical work -

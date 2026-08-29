@@ -42216,3 +42216,42 @@ That keeps each half where its information is: the decision where the layers
 are, the lookup where `/etc/passwd` is. It is a small change in a place that
 already does this kind of lookup, which is a better position than E865 left it
 in.
+
+### E866 - the fix, and what group 9 has left
+
+`USER` now brings its home directory. Four cases, run rather than reasoned:
+
+```text
+USER testuser              HOME=/home/testuser    was /root
+no USER                    HOME=/root
+ENV HOME=/declared + USER  HOME=/declared         declaration still wins
+USER 1000 (numeric)        HOME=/root             no passwd entry, floor kept
+```
+
+`./tests/config+test` exits 0 under both engines; it was `group9`'s first
+failure.
+
+**The split is the design, not an implementation detail.** The caller decides
+whether to override, because it still holds the floor, the image's declaration
+and ε apart and can therefore tell a floor `/root` from an image that meant it.
+The shim looks the home up, because `/etc/passwd` is the step's own only after
+the chroot - and `resolveUser` was already fetching `HomeDir` from `user.Lookup`
+and discarding it. Neither half could do the other's work.
+
+A fourth thing came free: `stepEnviron`'s list of variables to strip before the
+exec had no test, and was about to gain a fourth entry by copying the third. It
+has one now.
+
+**Group 9 is two of three.** `./config+test` and `+arg-redeclare-error` pass;
+`./autoskip+test-group1` does not:
+
+```text
+auto-skip is unable to calculate hash for +all:
+  cache: load key .: No Earthfile nor build.earth file found for target +all
+```
+
+Confirmed a divergence - the same target exits 0 under `--engine=buildkit` - and
+the code that fails is *shared*: `HashTarget` is `inputgraph`'s and the wrapper
+is `internal/synccache`'s. So what differs is what each engine hands that code,
+not the hashing. `WORKDIR` is eliminated as the cause: it applies correctly under
+native, so a relative `.` inside a step is not silently the root.

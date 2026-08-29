@@ -42158,3 +42158,41 @@ rather than reading the error again.
 separately, and the floor it would change is under every non-root step - so it
 wants its own run of the suites. It is the best-understood remaining defect on
 this branch and the cheapest to verify: the reproducer above is the test.
+
+### E865a - and the fix belongs in the shim, which already has what it needs
+
+E865 said `stepEnv` is not told the user, so setting `HOME` from the passwd entry
+would need plumbing. Reading further says the plumbing is already there and
+pointed the right way.
+
+`execRequest` passes the user to the shim rather than applying it itself:
+
+```text
+// **Told to the shim, not to the step.** The shim resolves it after the
+// chroot, where `/etc/passwd` is the step's own, and `stepEnviron` takes it
+// back out before the exec so the step never sees it (E735).
+```
+
+And `lookUpUser` (engine/guest/chownlookup.go) already reads that file for
+`--chown`, parsing the id and primary group out of the step's own `/etc/passwd`.
+The home directory is the sixth field of the same line.
+
+**So the change is: where the shim resolves the user, take the home directory
+too, and put it in the environment before the exec.** It happens after the
+chroot, so it reads the image's passwd rather than the guest's - which is the
+same correctness argument `lookUpUser`'s own comment makes about resolving a
+name against the wrong machine's users.
+
+Two details it must get right, both already decided elsewhere in this engine:
+
+* **Precedence.** `stepEnv` folds floor, then what the image declared, then ε -
+  each more specific than the last. A `HOME` from the passwd entry belongs above
+  the floor and below anything an image or an Earthfile said, so `ENV HOME=/x`
+  keeps winning.
+* **A user with no passwd entry.** `USER 1001` with no matching line is legal and
+  common; `HOME` should stay at the floor rather than become empty, which is the
+  failure mode `stepEnv`'s own comment describes - software that "would otherwise
+  choose `/` or fail".
+
+That is a small change in a place that already does this kind of lookup, which
+is a better position than E865 left it in.

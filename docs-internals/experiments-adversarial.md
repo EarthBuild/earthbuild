@@ -44056,3 +44056,47 @@ policy says otherwise is worse than the bug.
 **A note on reading a comparison.** Before this, "native 2/16 against podman
 1/16" looked like two engines failing similarly. They were the same engine
 twice.
+
+### E902 - what actually fails the Native suite, and why E899's reading was a symptom
+
+E899 read the Native failures as nested `earth` invocations unable to autodetect
+a frontend. That is what the log says, and it is a consequence rather than a
+cause. Two things were wrong with it: the same "auto frontend initialization
+failed" lines appear in jobs that **pass**, including on a pull request based on
+`main`, so they do not discriminate; and the engine had already printed the
+reason, four lines further down:
+
+```text
+warning: a step's filesystem was incomplete - mount /sys/fs/cgroup for the step:
+operation not permitted
+  steps ran, and anything reading only its own files is unaffected
+  what breaks is a nested runtime - docker, podman or buildkit started
+  inside a step - which needs /sys and a cgroup tree to start a container
+```
+
+This is E596's missing privilege, reported by the engine at the point it is
+denied. A nested runtime cannot start, so a nested `earth` finds no frontend -
+which is the message E899 stopped at.
+
+**It is ambient, not fatal.** The denial appears in 13 of the 14 failing Native
+jobs *and* in one of the two that pass. Counting it would have made it look
+decisive; it is not, and `+test-no-qemu-group9` is why - its tests read and
+write config files and start nothing, so a step that cannot host a container
+costs it nothing. The denial only bites a test that nests a runtime.
+
+Grouping the 14 by what they actually do:
+
+| group                                           | jobs | blocked by                    |
+| ----------------------------------------------- | ---- | ----------------------------- |
+| nested `earth` via the tmpfs script wrapper     | 6    | the cgroup denial             |
+| `docker run` / `docker inspect` / `docker load` | 3    | the cgroup denial             |
+| `ip link add dummy0`                            | 1    | private netns, costed already |
+| `+test-misc`, an export of an unscheduled read  | 1    | fixed, E895c, not yet in CI   |
+| `BUILD --pass-args`                             | 1    | open                          |
+| `test -f /the-prescript-was-run`                | 1    | open                          |
+| `RUN --privileged --entrypoint`                 | 1    | open                          |
+
+So nine of fourteen wait on one privilege, one is already fixed and unpushed,
+and four are genuinely open questions. E894 predicted eight would clear from
+`WITH DOCKER --load` storage scoping; the nine it was reaching for cannot clear
+until a step can mount a cgroup tree, whatever the storage does.

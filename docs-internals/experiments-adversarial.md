@@ -44452,3 +44452,47 @@ forty-minute run and a confusing result. That is the whole value of recording a
 prediction: E894 was falsified expensively by CI, this one for nothing.
 
 Not changed: `ci.yml` keeps no `SUDO` on the Native suite.
+
+### E913 - the dockerd pre-script is a semantic mismatch, not a missing feature
+
+`tests/with-docker+pre-script-test` fails under the native engine, and unlike
+the other twelve it reproduces on this machine, where `WITH DOCKER` works
+(E911):
+
+```text
+COPY pre-script.sh /usr/share/earthly/dockerd-wrapper-pre-script
+WITH DOCKER
+    RUN test -f /the-prescript-was-run
+END
+
+rc=1  RUN test -f /the-prescript-was-run failed with exit code 1
+```
+
+The hook is `dockerd-wrapper.sh`, which buildkit runs **inside** the step before
+starting dockerd:
+
+```sh
+docker_wrapper_pre_script="$(earth_env DOCKER_WRAPPER_PRE_SCRIPT /usr/share/earthly/dockerd-wrapper-pre-script)"
+if [ -f "$docker_wrapper_pre_script" ]; then "$docker_wrapper_pre_script"; fi
+```
+
+**Passing the test would be easy and would not implement the feature.** The test
+touches a file and looks for it, so running the script anywhere in the step's
+filesystem satisfies it. What the hook is *for* is configuring the daemon that
+starts next - writing `/etc/docker/daemon.json`, say - and under this engine the
+daemon does not start in the step. It runs beside it (E368), with its own root
+and its own configuration, and a file written in the step's filesystem reaches
+none of it.
+
+So the honest states are:
+
+* implement the observable behaviour, and a user who writes a real pre-script
+  gets a script that runs and changes nothing, which is worse than a failure;
+* implement the intent, which means deciding what a *daemon* hook means when the
+  daemon is not in the step - a new interface, not a port of this one;
+* leave it failing and say why, which is this entry.
+
+Filed as a decision rather than a defect. It is one of thirteen, and the only
+one of the thirteen that is not the cgroup privilege or a documented limitation
+(E910), so the parity gap is now: **one privilege, two limitations, and one
+question about what a hook should mean.**

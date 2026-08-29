@@ -43763,3 +43763,39 @@ picked a case where the mechanism happened to work (E896a).
 Whether it moves anything in CI is a separate question with an answer already
 written down: E895 guessed this defect explained a target whose steps did not
 run, and E896 talked itself out of it. The guess is testable now.
+
+### E895a - the missing artifact reproduces locally, and it is not `--pass-args`
+
+E895 guessed the `--pass-args` defect explained
+`Earthfile:705: the step producing /earthly/build/earthly did not run`. E897
+fixed that defect. The failure is unchanged:
+
+```text
++test-misc under --engine=native, with the fix:
+  Earthfile:705  /earthly/build/earthly -> build/linux/arm64/earthly
+  Error: Earthfile:705: the step producing /earthly/build/earthly did not run
+```
+
+So the guess was wrong, which is what a guess recorded as one is for. What is
+gained is better than the guess: **it now reproduces locally**, on this laptop, in
+about eight minutes, where before it was visible only in CI.
+
+The obvious mechanism is not it either. A target whose artifact is `AS LOCAL` and
+which is merely *referenced* does export it - building `+consumer` below writes
+`thing` as well as `out` - but its steps run, so the stack exists and the export
+succeeds:
+
+```earthfile
+producer:  RUN echo p > /thing   / SAVE ARTIFACT /thing AS LOCAL thing
+consumer:  COPY +producer/thing /c ... SAVE ARTIFACT /out AS LOCAL out
+```
+
+`rc=0`, both files written. So "an artifact is requested from a target nobody
+built" needs a narrower shape than "referenced rather than built".
+
+The line the export is registered under is platform-qualified -
+`build/linux/arm64/earthly` - and `+test-misc` reaches `+earthly` through a chain
+that names platforms. An artifact registered for one platform and a target built
+for another would produce exactly this, and that is the next thing to try. Named
+as the next experiment rather than as the cause, which is the correction E896a
+was about.

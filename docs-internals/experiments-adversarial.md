@@ -42195,8 +42195,14 @@ Two details it must get right, both already decided elsewhere in this engine:
   choose `/` or fail".
 
 The place is `becomeStepUser` (engine/guest/stepshim_run_linux.go), which
-already calls `resolveUser` and then setgid/setuid - the home directory is one
-more field from the lookup it is already doing.
+already calls `resolveUser` and then setgid/setuid - and `resolveUser` already
+holds the answer. It resolves a named user with `user.Lookup(name)`, and
+`*user.User` carries `HomeDir` beside `Uid` and `Gid`. The home directory is not
+parsed and dropped; it is fetched and never read.
+
+The numeric path takes no lookup at all - `USER 1000` needs no passwd file, which
+is what lets a scratch image use it - so it has no home to offer and the floor
+stands, which is exactly the edge case that had to be got right anyway.
 
 **And the precedence question splits cleanly between the two ends.** By the time
 the shim runs, the environment is folded and `HOME=/root` from the floor is

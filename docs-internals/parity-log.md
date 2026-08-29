@@ -76,9 +76,31 @@ Thirteen jobs fail and the causes are varied rather than one thing:
 root cause behind all of it - until a *passing* job turns out to carry it too. It
 is ubiquitous on this runner and discriminates nothing.
 
-So the order is: fix the denominator; take the three decisions; then read the
-remaining causes one at a time, because they are not one thing wearing several
-faces.
+**Grouping those by the first `Error:` line was also wrong**, and the correction
+is worth keeping. `Error: BUILD --pass-args` looked like a defect in an argument
+feature; the message's last clause is `this step is for linux/arm64 and this
+build has linux/amd64`, which is cross-architecture emulation the engine
+documentedly does not do (E596). The first line of an error chain is the
+outermost frame, and this tree wraps almost everything in `RUN_EARTH`, so the
+outer frame is nearly always the harness.
+
+By root cause instead:
+
+| n   | root cause                                                       | area                                                         |
+| --- | ---------------------------------------------------------------- | ------------------------------------------------------------ |
+| 14  | `RUN --privileged --mount=type=tmpfs ... /tmp/earthbuild-script` | still the harness frame; the cause is inside the inner build |
+| 8   | `docker load`, `docker inspect`, `docker images`, prescript      | `WITH DOCKER` - decision                                     |
+| 3   | `this step is for linux/arm64 and this build has linux/amd64`    | cross-arch, not supported by design                          |
+| 3   | `the step producing /earthly/build/earthly did not run`          | unread                                                       |
+| 2   | `ip link add dummy0`; 1 `/run` listing                           | decisions                                                    |
+
+So: a large share is `WITH DOCKER`, three are a limitation the engine states
+plainly, and the largest bucket is still a harness frame that has to be opened
+one build at a time. `+test-qemu` in particular cannot pass and is worth moving
+out of a suite that reports it as a failure.
+
+The order is: fix the denominator; take the decisions; move what cannot pass out
+of the suite; then read what remains.
 
 ## Adding a row
 

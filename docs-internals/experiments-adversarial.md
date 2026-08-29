@@ -43434,3 +43434,33 @@ remote path happened to go through a `WITH DOCKER` and the local one did not.
 A variable that correlates is not a cause. The cheap check that would have
 distinguished them was never run: fix something else in the neighbourhood and see
 whether this moves. It cost nothing here because the fix arrived anyway.
+
+### E889 - warming the backend probe early: sound, and worth nothing
+
+`setup` costs a steady 20ms on a warm cached build, and instrumenting it put all
+of that in one place: `g.sandboxed()`, which calls `Available()` - a package-level
+`sync.Once` over a probe that runs the `container` CLI. It is called while the
+executor is being built, which is *after* planning, so nothing covers it.
+
+The obvious move is the one that worked for the container-frontend probe (E871):
+start it early and let planning pay for it. Written, measured, reverted.
+
+```text
+pinned build     setup 20.0 ms before, 20.0 ms after
+unpinned build   setup  0.0 ms before,  0.0 ms after
+```
+
+Neither case improves, for opposite reasons. A pinned build plans in about a
+millisecond, so the goroutine has no time to finish and `setup` blocks on the same
+`Once` it would have called anyway. An unpinned build never pays the 20ms at all -
+something ahead of `setup` has already warmed it.
+
+**The wall-clock measurements were worse than useless.** The same unpinned
+benchmark gave `+39.1ms` and then `-13.6ms` for the same change, because its time
+is dominated by a registry round trip whose variance is larger than the effect
+being measured. Two runs, opposite signs, and the first one read as a clear win.
+
+Only measuring the phase the change acts on settled it, and it settled it against.
+That is the lesson worth keeping: **when the effect is smaller than the noise,
+measure the mechanism rather than the outcome** - and if the mechanism does not
+move, no amount of wall-clock sampling will honestly say it did.

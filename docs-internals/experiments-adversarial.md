@@ -41957,3 +41957,38 @@ which would make the symptom disappear while the block still ran as two steps.
 Four readings of the symptom, then the mechanism, then the decision behind the
 mechanism, and only here does the thing to change appear. The nits entry now
 carries the first two; this is the third.
+
+### E863h - and the change that would fix it
+
+`dockerLoad` (engine/interp/loop.go) builds the load as its own node:
+
+```text
+load := &ir.Node{Op: ir.Op{Kind: ir.OpExec, Args: shell("docker load -i "+archive),
+                           Docker: true, ...}}
+```
+
+so `WITH DOCKER --load=+x` is an `OpExec` with `Docker: true`, and each such step
+gets a daemon that lives and dies with it. Its storage is
+`{Target: daemonRoot, Ephemeral: true}` - a directory made for that step and
+removed with it, deliberately, so the daemon's images never reach the captured
+layer (E398).
+
+Put together: the load writes into an ephemeral directory scoped to the load's
+own step, that directory is removed, and the next step's daemon starts empty.
+Every piece is correct and the composition is not.
+
+**The change is the scope of one mount.** The ephemeral storage wants to be
+scoped to the `WITH DOCKER` block rather than to each step in it - one directory,
+shared by the load and by every RUN in the block, removed when the block ends.
+That preserves both invariants the current design protects: the storage is still
+outside every step's overlay, so no image reaches a captured layer, and no daemon
+outlives the step it belongs to, because each step still starts and stops its
+own against shared storage.
+
+**Not implemented here**, deliberately: it is a change to what a block means in
+the IR, at five in the morning, on a branch where four readings of this failure
+were already wrong. But it is now a change to name rather than a symptom to
+report, and the two invariants it must not break are written down beside it.
+
+The full chain, for anyone picking this up: CI symptom (E863a-d), mechanism
+(E863f), the decisions behind the mechanism (E863g), the change (here).

@@ -42811,3 +42811,33 @@ invocation rather than the target.
 **One number caught it**, and only because an exclusion has an arithmetic
 signature: the denominator falls and the numerator must not. A change that
 improves a ratio by moving both is worth distrusting on sight.
+
+### E880a - the same exclusion, keyed on the invocation, and this time the arithmetic holds
+
+E880 reverted an exclusion that lowered what builds. Rewritten to key on the
+invocation rather than the target, and expressed as a rule rather than a list:
+
+**an invocation that names a file the tree has not got cannot be staged by this
+gate** - the same case as `--pre_command`, said with a `RUN` instead of a flag.
+The tree writes `.arg`, renames it to `.some-other-arg`, and passes
+`--arg-file-path .some-other-arg`; run on its own that file has never existed.
+
+Three conditions, and the third is the one that matters: the option names a path,
+the path is absent from the tree, **and the tree does not expect the call to
+fail**. `--arg-file-path .this-should-fail` names an absent file deliberately and
+asserts the error - excluding it would delete a test of the very behaviour it
+checks.
+
+```text
+before   196 of 252     77.8%
+after    196 of 249     78.7%
+```
+
+**The numerator held.** That is the whole acceptance test: an exclusion removes
+things from the denominator and must never remove a success. E880's version
+dropped it to 193 and was wrong; this one leaves it at 196 and is not.
+
+Excluded: `--arg-file-path .some-other-arg` three times and
+`--env-file-path .some-other-env` once - which is precisely the group that had
+been read as an engine defect, and reads that way still if the last clause of the
+error is not chased.

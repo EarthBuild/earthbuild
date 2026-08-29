@@ -51,10 +51,64 @@ func readCorpusFile(t *testing.T, rel string) string {
 // option it was given is a different invocation**, and counting its failure
 // against the engine is the harness blaming the subject for its own omission
 // (E455).
+// fileFlags are the options whose value is a path in the build's own directory.
+var fileFlags = map[string]bool{
+	"--arg-file-path": true, "--secret-file-path": true, "--env-file-path": true,
+}
+
+// madeByTheCaller reports an invocation that names a file the tree has not got.
+//
+// **The same case as `--pre_command`, said with a `RUN`.** The tree writes
+// `.arg`, renames it to `.some-other-arg` and then passes
+// `--arg-file-path .some-other-arg`; run on its own the file has never been
+// made, and the engine is asked to answer for it. That is a gate that cannot
+// stage the invocation, not an engine that cannot build it (E879, E880).
+//
+// Keyed on the invocation and not the target, which is what E880 cost: the same
+// target passes and fails in one sweep depending on the arguments it was given,
+// so a list of target names removes the passing ones too.
+//
+// An invocation the tree expects to *fail* is left alone. `--arg-file-path
+// .this-should-fail` names an absent file on purpose and asserts the error, so
+// excluding it would remove a test of exactly the behaviour it is checking.
+func madeByTheCaller(in corpus.Invocation, root string) string {
+	if in.ShouldFail {
+		return ""
+	}
+
+	for i, a := range in.Extra {
+		flag, value := a, ""
+		if eq := strings.IndexByte(a, '='); eq >= 0 {
+			flag, value = a[:eq], a[eq+1:]
+		} else if i+1 < len(in.Extra) {
+			value = in.Extra[i+1]
+		}
+
+		if !fileFlags[flag] || value == "" {
+			continue
+		}
+
+		if _, err := os.Stat(filepath.Join(root, "tests", value)); err != nil {
+			return flag + " " + value + ", which the tree makes before this call"
+		}
+	}
+
+	return ""
+}
+
 func passable(in corpus.Invocation) (opts cli.Options, why string) {
 	if in.Pre != "" {
 		return cli.Options{}, "--pre_command " + strconv.Quote(in.Pre) +
 			", which this gate has no shell to run"
+	}
+
+	corpusRoot := os.Getenv("EARTH_CORPUS_DIR")
+	if corpusRoot == "" {
+		corpusRoot = filepath.Join("..", "..")
+	}
+
+	if made := madeByTheCaller(in, corpusRoot); made != "" {
+		return cli.Options{}, made
 	}
 
 	args, secrets := map[string]string{}, map[string]string{}

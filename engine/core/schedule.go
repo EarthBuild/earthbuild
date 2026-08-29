@@ -1397,7 +1397,8 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		if hit && usableDeclaration(n.Op.Kind, e) {
 			rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = e.Layer, e.Exit, e.Bytes, OutcomeL1Hit
 			s.finish(n, base, Result{
-				Layer: e.Layer, Exit: e.Exit, Bytes: e.Bytes, Declares: e.Declares,
+				Layer: e.Layer, Layers: e.Layers, Exit: e.Exit, Bytes: e.Bytes,
+				Declares: e.Declares,
 			}, rec)
 			s.bump(&s.Stats.Hits)
 
@@ -1414,7 +1415,8 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		if hit && usableDeclaration(n.Op.Kind, e) {
 			rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = e.Layer, e.Exit, e.Bytes, OutcomeL2Hit
 			s.finish(n, base, Result{
-				Layer: e.Layer, Exit: e.Exit, Bytes: e.Bytes, Declares: e.Declares,
+				Layer: e.Layer, Layers: e.Layers, Exit: e.Exit, Bytes: e.Bytes,
+				Declares: e.Declares,
 			}, rec)
 			s.bump(&s.Stats.L2Hits)
 
@@ -1528,7 +1530,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		// four layers of plumbing to a dead end, and the reason the conflict
 		// check was comparing the digest that legitimately changes (E81).
 		e := Entry{
-			Layer: res.Layer, Content: res.Content,
+			Layer: res.Layer, Layers: res.Layers, Content: res.Content,
 			Exit: res.Exit, Bytes: res.Bytes, Writer: s.Writer,
 			// Declared unconditionally: this result came from running the step,
 			// so whether it declares anything is known even when the answer is

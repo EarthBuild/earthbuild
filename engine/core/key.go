@@ -223,6 +223,20 @@ func hashEnvAndPlatform(h *ir.Hasher, n *ir.Node) {
 type Entry struct {
 	// Layer is the result digest 𝑑.
 	Layer ir.NodeID
+
+	// Layers is the stack this result names, when it names more than one.
+	//
+	// **An image is many layers**, and with the store on the guest's device
+	// that is how one arrives - `Result.Layers`, oldest first, with no single
+	// delta to stand for it. An entry that could hold only `Layer` therefore
+	// could not hold an image at all: every `FROM` was dropped by the
+	// zero-layer guard below and missed on every subsequent build, which then
+	// started a sandbox to re-materialise an image the store already held
+	// (E872).
+	//
+	// Empty for almost every step, exactly as it is on Result: a RUN produces
+	// one delta and Layer carries it.
+	Layers []ir.NodeID
 	// Content is the same delta with timestamps excluded, and it is what two
 	// claims are compared on.
 	//
@@ -326,14 +340,38 @@ func Lookup(ac ActionCache, bs BlobStore, allowed map[string]bool, k Key) (Entry
 	}
 
 	// A claim whose result is not present is not usable, however well signed.
-	if bs != nil && !bs.Has(e.Layer) {
+	// **Every layer of a stack**, not just the first: a partial stack
+	// materialises a filesystem missing an element, and nothing downstream
+	// could tell that from a complete one.
+	if bs != nil && !held(bs, e) {
 		return Entry{}, false
 	}
 
 	var zero ir.NodeID
-	if e.Layer == zero {
+	if e.Layer == zero && len(e.Layers) == 0 {
 		return Entry{}, false
 	}
 
 	return e, true
+}
+
+// held reports whether the blob store holds everything this entry names.
+//
+// A stack is all-or-nothing: a hit that materialised some of an image's layers
+// would produce a filesystem missing an element, and the build above it could
+// not tell that from a complete one. Checking the first layer and trusting the
+// rest is the same mistake as checking none.
+func held(bs BlobStore, e Entry) bool {
+	var zero ir.NodeID
+	if e.Layer != zero && !bs.Has(e.Layer) {
+		return false
+	}
+
+	for _, l := range e.Layers {
+		if l != zero && !bs.Has(l) {
+			return false
+		}
+	}
+
+	return true
 }

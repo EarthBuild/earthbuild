@@ -42434,3 +42434,50 @@ that survives moving machine is the absolute one - 52ms of every invocation on a
 Linux runner, 116ms on this laptop - which is the form worth carrying, because
 the suites invoke the binary hundreds of times per run and the ratio depends
 entirely on what else the build was doing.
+
+### E872 - every `FROM` missed for ever, and the cache said so every time
+
+A no-op rebuild reported `2 hit, 1 miss` on every run, for ever, and the miss was
+always `FROM`. Traced by printing the key on both sides: the key is byte-identical
+between runs, the entry is `Put` on every run, and no file ever appears on disk.
+
+`cache.Put` drops it. Its first guard returns when `e.Layer` is zero, and an image
+result has no singular layer:
+
+```go
+return core.Result{Layers: ids, Captured: e.sb.Confines(), ...}   // plural
+```
+
+`Result` has carried `Layers` since images stopped being merged into one delta,
+but `Entry` - the thing that persists - never gained the field. So an image was
+representable in flight and unrepresentable at rest, and the mismatch was silent
+in both directions: `Put` returned without writing, `Get` found nothing, and the
+build re-materialised an image the store already held.
+
+It contradicts the executor's own stated contract: *"FROM is materialised, not
+run: the image is placed in the layer store under this node's identity, and the
+'result' is that layer."*
+
+Confirmed by moving one variable - `EARTH_STORE_IN_VM=0` makes `LayersApart()`
+false, images take the merged path, and the same build reports `3 hit, 0 miss`.
+
+Fixed by giving `Entry` the stack, persisting it, and requiring **every** layer
+to be present before a hit - a partial stack materialises a filesystem missing an
+element and nothing above could tell. `FROM` now reports `L1 hit`.
+
+**And it bought no time at all**:
+
+```text
+before 311.0 ms | after 310.9 ms | saved 0.0 ms | 1.00x | n=7 | discards 0
+```
+
+Because the sandbox is not started by the miss. With the store on the guest's
+device the blob store *is* the guest, so `Lookup`'s presence check dials it -
+`guestBlobs.Has` - and every build boots the VM whatever the cache says. A
+build with no export and every step an L1 hit still pays 273ms for it.
+
+So the 7.8x that separates store-in-VM from store-on-host is the store's
+location, not this defect, and quoting it for this fix would have been wrong.
+This is a correctness fix that makes the cache summary honest; the VM remains
+the cost, and removing it needs the host to answer "is this layer present"
+without asking the guest.

@@ -79,6 +79,10 @@ func (c *Cache) path(k core.Key) string {
 // because a byte array in JSON is neither readable nor stable.
 type stored struct {
 	Layer string `json:"layer"`
+	// Layers is the stack, oldest first, for a result that names more than one
+	// - an image. omitempty because every entry written before it existed has
+	// none, and an absent stack must stay absent rather than becoming empty.
+	Layers []string `json:"layers,omitempty"`
 	// Content is omitempty because entries written before it existed have none,
 	// and an absent field must stay absent rather than becoming a zero digest -
 	// Get distinguishes the two, and the comparison in Put depends on it.
@@ -118,7 +122,23 @@ func (c *Cache) Get(k core.Key) (core.Entry, bool) {
 	}
 
 	var zero ir.NodeID
-	if id == zero {
+
+	// Every layer of the stack, or none of it. A stack with an unreadable or
+	// empty element is not a partial answer: materialising it would build a
+	// filesystem missing a layer, which is the one failure a hit must not be
+	// able to produce.
+	var layers []ir.NodeID
+
+	for _, l := range s.Layers {
+		lid, lerr := parseID(l)
+		if lerr != nil || lid == zero {
+			return core.Entry{}, false
+		}
+
+		layers = append(layers, lid)
+	}
+
+	if id == zero && len(layers) == 0 {
 		// A well-formed digest naming nothing. A build trusting it would
 		// materialise an empty base and cache the result.
 		return core.Entry{}, false
@@ -140,8 +160,8 @@ func (c *Cache) Get(k core.Key) (core.Entry, bool) {
 	}
 
 	return core.Entry{
-		Layer: id, Content: content, Exit: s.Exit, Bytes: s.Bytes, Writer: s.Writer,
-		Declares: declares, Declared: s.Declared,
+		Layer: id, Layers: layers, Content: content, Exit: s.Exit, Bytes: s.Bytes,
+		Writer: s.Writer, Declares: declares, Declared: s.Declared,
 	}, true
 }
 
@@ -205,9 +225,13 @@ func (c *Cache) note(k core.Key, held, given ir.NodeID) {
 // next build repeats work. Silent, but only ever slower.
 func (c *Cache) Put(k core.Key, e core.Entry) {
 	var zero ir.NodeID
-	if e.Layer == zero {
+	if e.Layer == zero && len(e.Layers) == 0 {
 		// Nothing to claim. Storing it would create exactly the entry Get is
 		// written to reject.
+		//
+		// **A stack is a claim.** Testing only the singular layer dropped every
+		// image entry silently - Put returned, no file appeared, and the next
+		// build missed and re-materialised what it already had (E872).
 		return
 	}
 
@@ -225,6 +249,10 @@ func (c *Cache) Put(k core.Key, e core.Entry) {
 	// Declared travels even when there is nothing to declare: it is the record
 	// that somebody looked, which is what tells a later reader that an absent
 	// declaration is the image's answer and not this entry's age.
+	for _, l := range e.Layers {
+		rec.Layers = append(rec.Layers, l.String())
+	}
+
 	rec.Declared = e.Declared
 	if e.Declares != zero {
 		rec.Declares = e.Declares.String()

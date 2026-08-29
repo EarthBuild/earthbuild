@@ -41793,3 +41793,32 @@ the first stopped at the failing command, the second at the warning above it,
 and this one at the image the step actually runs in. The next stop is whether
 `docker` exists in that image's PATH inside a step, which is one probe and not a
 theory.
+
+### E863c - docker is in the image; the probe that would finish this cannot run here
+
+Following E863b's "one probe, not a theory":
+
+```text
+FROM earthbuild/dind:ubuntu-26.04-docker-29.4.0-1
+RUN command -v docker
+  -> /usr/bin/docker, 43MB, PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:...
+```
+
+So `docker` is present and on PATH in a plain step of that image. Whatever makes
+it unfindable happens inside `WITH DOCKER`.
+
+**And the probe stops there on this machine.** The same target with a
+`WITH DOCKER` block fails locally with `Cannot connect to the Docker daemon at
+unix:///var/run/docker.sock`, which is the macOS limitation and not CI's
+`docker: not found`. The question needs a Linux runner, or the x86 box with the
+suite set up on it.
+
+**Where this leaves the failure**, after three wrong readings and one useful one:
+a step in an image that demonstrably contains `docker` reports `docker: not
+found` inside `WITH DOCKER`, in CI only. That is a sharper statement than any of
+the three explanations, and it is as far as this machine can take it.
+
+Recorded rather than guessed a fourth time. The habit that produced the three
+wrong readings was answering with what the log made easy - the failing command,
+then the warning above it, then the image - and each was one question short of
+the probe.

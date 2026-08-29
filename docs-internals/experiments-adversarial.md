@@ -42947,3 +42947,37 @@ exactly the confound this is meant to remove.
 Extended to the remaining 26 distinct failing targets; the ratio is what decides
 whether the denominator is worth changing, and this time on measurement rather
 than on a rule about recipes.
+
+### E882a - thirty-two targets differentially tested, one is a native gap
+
+Extending E882's six to the remaining twenty-six distinct failing targets:
+
+```text
+20 of 26   native=1  buildkit=1     the same failure under both engines
+ 5 of 26   native=0                 native builds it standalone
+ 2 of those 5        buildkit=1     native succeeds where buildkit fails
+ 1 of 26             buildkit=255   buildkit itself errored
+```
+
+Over both samples - thirty-two targets - **one fails under native where buildkit
+succeeds**: `for.earth+all`, on `FOR ... running "ls": deciding it needs the
+LOCALLY step`.
+
+**The caveat is as important as the number.** This runs each target in a bare
+directory with no arguments, while the gate passes the arguments the tree gives
+it. So a `native=0` row does not say the gate's invocation should have passed; it
+says the target builds when nothing else is wrong, which makes the gate's failure
+a property of the arguments or the tree rather than of the target. The comparison
+that *is* sound is the one between engines under identical conditions, and that is
+the column that matters: twenty of twenty-six fail the same way for both.
+
+Two rows are worth their own note. `wildcard-build.earth+wildcard-build-auto-skip`
+and `+wildcard-build-pwd` build under native and fail under buildkit - the native
+engine is ahead there, which no reading of the parity number would ever show,
+because the gate only counts what native fails to do.
+
+So the honest summary of the fifty-three: most are not the engine's, one is
+confirmed to be, and the rest are unmeasured because the differential does not yet
+replicate the gate's arguments. Making it do so is what `cmd/earth-diff` is for,
+and this is the second piece of evidence that the tool would repay its cost -
+twenty minutes of it changed the reading of the headline number twice.

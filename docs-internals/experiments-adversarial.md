@@ -42416,3 +42416,21 @@ failing to. Verified that detection still runs where the result can be used:
 not add up held the largest single cost. Nothing in the log was wrong; the cost
 simply sat where no phase was looking, and every hypothesis formed by reading
 the log was about the wrong region.
+
+### E871a - the same saving on Linux, at less than half the size
+
+Measured on the 32-core x86 box, Docker 29.4.3 native (not a VM):
+
+```text
+frontend:detect   52 ms   (52, 52, 53)      x86 linux
+frontend:detect  116 ms                     macOS, Docker Desktop
+```
+
+Same mechanism, less than half the cost: on macOS the probe crosses into Docker
+Desktop's virtual machine, and on Linux it talks to a socket on the same kernel.
+
+So the **1.48x is a macOS number and should not be quoted alone**. The saving
+that survives moving machine is the absolute one - 52ms of every invocation on a
+Linux runner, 116ms on this laptop - which is the form worth carrying, because
+the suites invoke the binary hundreds of times per run and the ratio depends
+entirely on what else the build was doing.

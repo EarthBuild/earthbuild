@@ -44164,3 +44164,25 @@ Two conclusions:
   Every per-subprocess figure quoted before this entry is high by roughly that
   much; none of the conclusions turn on it, because they compare phases within
   one build rather than across methods.
+
+### E905 - E901 reproduced locally, both halves, without CI
+
+The engine-selection bug does not need a runner to show itself. `sudo` resets
+the environment; `env -u` does the same thing on a laptop. Same binary, same
+fixture, the only difference being the flag:
+
+```text
+env -u EARTH_ENGINE  earth +build                    rc=0   L1 hit x6
+env -u EARTH_ENGINE  earth --engine buildkit +build  rc=1   L1 hit x0
+                                                     "Starting buildkit daemon as a docker container"
+```
+
+The first selects the native engine, which is E901 exactly: the suite believed
+it was measuring buildkit and was measuring this. The second selects buildkit
+and then fails, because this machine has no docker daemon for it to start -
+which is not the mechanism under test and does not weaken the result. `L1 hit`
+is the discriminator either way, being written only by `engine/core/record.go`.
+
+So the fix is confirmed before the run that tests it reports. What CI can still
+falsify is the *scale* claim in E903 - that this was the whole of the Podman
+failure rather than one cause among several.

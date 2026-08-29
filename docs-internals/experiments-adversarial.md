@@ -43705,3 +43705,36 @@ them rather than reading about them: the `FROM DOCKERFILE` refusal that was not
 refusing (E885 territory), the `&&` in a `--entrypoint` line (E890), and this.
 The pattern is worth naming: **a defect recorded from an error message and never
 reproduced is a rumour with a line number.**
+
+### E896a - E896 was wrong: it tested a case that works and concluded about one that does not
+
+E896 declared `--pass-args` sound on the strength of this:
+
+```earthfile
+caller:
+    ARG FROM_DEFAULT=declared-value
+    BUILD --pass-args +callee
+```
+
+Both engines agreed, and the conclusion drawn - "the entry was wrong" - does not
+follow, because E867's case is a different one. Its reproducer passes an argument
+through **two** `FUNCTION` levels where the middle level is *given* the argument
+and never *declares* it. Run again just now:
+
+```text
+native:   target=+default     the argument is lost
+buildkit: target=+mytarget    the argument is forwarded
+```
+
+**E867 stands, exactly as written**, and the defect is real: `--pass-args` copies
+`p.callerArgs`, which comes from `rs.args`, which holds what an `ARG` statement
+declared. An argument supplied to a function that never declares it is used by
+nothing, never enters that map, and is dropped by the next hop.
+
+The one-level case works because the caller declares what it forwards, so
+declared and supplied coincide. **A test built from the mechanism rather than
+from the reproducer will pick the case where the mechanism happens to work.** The
+reproducer existed, in the entry being doubted, and was not run.
+
+Three defects were retired today by testing them. This is the fourth test, and it
+retires the retirement.

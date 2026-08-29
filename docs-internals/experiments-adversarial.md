@@ -44007,3 +44007,52 @@ Two consequences:
 The remaining unpinned cost cannot be removed here: the manifest fetch needs
 the token, so the two round trips are serial by construction, and caching the
 token is the credentials decision E535 deliberately left open.
+
+### E901 - the Podman suite was running the native engine, because sudo resets the environment
+
+Podman reported 1 pass and 14 failures while Docker, on the same commit,
+reported 13 passes and none. The failing step was not a build:
+
+```text
+Run ${INPUTS_SUDO} "${INPUTS_BINARY}" ps -a
+CONTAINER ID  IMAGE  COMMAND  CREATED  STATUS  PORTS  NAMES
+##[error]Process completed with exit code 1.
+```
+
+`ps -a` printed an empty listing, so the `logs earth-buildkitd` line after it
+had no container to ask. There was no buildkitd because **the build had not
+used buildkit**. The job's own output says so, 223 times:
+
+```text
+tests/Earthfile:1817 L1 hit  RUN --privileged --mount=type=tmpfs,...
+```
+
+`L1 hit` is written by `engine/core/record.go`. It is this engine's vocabulary
+and buildkit has no such phase. The successful Docker job of the same run
+contains none, and neither does the same job on a pull request based on `main`.
+
+The cause is one flag's absence. `stage2-setup` writes `EARTH_ENGINE=buildkit`
+into `GITHUB_ENV` for every non-native suite, because the default on this branch
+is native (`cmd/earth/subcmd/build_flags.go`). That reaches the Docker jobs,
+which invoke the binary directly. The Podman jobs invoke it through `sudo`, and
+plain `sudo` resets the environment:
+
+| suite  | `SUDO`   | `L1 hit` in log | engine actually used | result |
+| ------ | -------- | --------------- | -------------------- | ------ |
+| Docker | `""`     | 0               | buildkit             | passes |
+| Podman | `"sudo"` | 223             | native               | fails  |
+
+Two things made this hard to see. The suite that was silently switched is the
+one whose *purpose* is to be the buildkit half of the comparison, so its results
+were being read as buildkit's. And it failed in the step after the one that
+mattered, so the error named a missing container rather than a wrong engine.
+
+Fixed by putting the engine on the command line, where sudo cannot reach it,
+rather than trusting the environment to cross a privilege boundary. Not fixed
+with `sudo -E`: that is one line instead of three, but it depends on a sudoers
+policy permitting environment preservation, and a suite that dies when the
+policy says otherwise is worse than the bug.
+
+**A note on reading a comparison.** Before this, "native 2/16 against podman
+1/16" looked like two engines failing similarly. They were the same engine
+twice.

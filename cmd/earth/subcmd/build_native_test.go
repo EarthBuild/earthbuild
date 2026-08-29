@@ -228,15 +228,18 @@ func TestEveryOptionIsAccountedFor(t *testing.T) {
 	excused := map[string]string{ //nolint:gosec // field names and prose, not credentials
 		"DryRun":                           "earth has no --dry-run; earth-native does, and passes it",
 		"Env":                              "the engine's own environment override, not a command-line flag",
-		"ExecStats":                        "earth has no --exec-stats; earth-native does",
 		"Long":                             "belongs to `earth-native doc`, which this path does not reach",
 		"SecretFile":                       "folded into Secrets by nativeSecrets, deliberately - see its comment",
 		"SecretFiles":                      "folded into Secrets by nativeSecrets, deliberately",
 		"UnsafeAllowUnpinnedRemoteLocally": "earth-native only; this path refuses remote targets",
-		"VersionFlags":                     "set from the environment by the engine, not from a flag",
 	}
 
-	got := nativeOptions(nativeInput{
+	// Every field set, because a field left zero here would read as "this Option
+	// is unreachable" below - the guard failing for the wrong reason, which is
+	// how a guard gets weakened until it passes. reflect cannot fill this for us:
+	// the fields are unexported, and SetString on one panics. So it is written
+	// out, and the loop after it checks nothing was forgotten.
+	in := nativeInput{
 		dir: "d", target: "t", platform: "p",
 		args:            map[string]string{"A": "1"},
 		secrets:         map[string]string{"S": "2"},
@@ -244,8 +247,21 @@ func TestEveryOptionIsAccountedFor(t *testing.T) {
 		noCache:         true,
 		push:            true,
 		noOutput:        true,
+		execStats:       true,
 		argFile:         "f",
-	})
+		versionFlags:    []string{"v"},
+	}
+
+	inv := reflect.ValueOf(in)
+	for i := range inv.NumField() {
+		if inv.Field(i).IsZero() {
+			t.Fatalf("nativeInput.%s was not set by this test, so the check below would"+
+				" report every Option it feeds as unreachable - fill it above",
+				inv.Type().Field(i).Name)
+		}
+	}
+
+	got := nativeOptions(in)
 
 	v := reflect.ValueOf(got)
 	for i := range v.NumField() {

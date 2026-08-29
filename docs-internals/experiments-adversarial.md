@@ -36442,7 +36442,6 @@ $ docker inspect alpine:3.24.1 --format '{{.Created}}'
 2026-06-16T00:01:29.967161902Z
 $ docker inspect cfgtest:img --format '{{.Created}}'
 
-
 ```
 
 **Which turned out to be deliberate**, and the comment saying so was two lines
@@ -42600,11 +42599,11 @@ or a lookup that does not need one - both design questions, not defects.
 
 ### E876 - what the two savings are worth on the machine CI runs on
 
-| machine                  | build              | before | after | saved  | ratio |
-| ------------------------ | ------------------ | ------ | ----- | ------ | ----- |
-| macOS 16-core            | minimal, pinned    | 419.1  | 218.4 | 200.7  | 1.92x |
-| macOS 16-core            | realistic, unpinned| 543.6  | 427.6 | 116.0  | 1.27x |
-| x86 linux 32-core        | realistic, unpinned| 494.1  | 429.8 |  64.3  | 1.15x |
+| machine           | build               | before | after | saved | ratio |
+| ----------------- | ------------------- | ------ | ----- | ----- | ----- |
+| macOS 16-core     | minimal, pinned     | 419.1  | 218.4 | 200.7 | 1.92x |
+| macOS 16-core     | realistic, unpinned | 543.6  | 427.6 | 116.0 | 1.27x |
+| x86 linux 32-core | realistic, unpinned | 494.1  | 429.8 | 64.3  | 1.15x |
 
 All n=9, alternated, artifact content checked, zero discards.
 
@@ -42725,13 +42724,16 @@ grouped by reason, largest first, on the principle that the biggest group is the
 next thing. The three largest all turn out to be targets that cannot be built
 standalone, because their wrapper makes what they need first:
 
-| n | target                                        | what the wrapper does first          |
-| - | --------------------------------------------- | ------------------------------------ |
-| 4 | `dotenv.earth+test`                           | `RUN mv .arg .some-other-arg`        |
-| 3 | `builtin-args.earth+earthly-ci-runner-...`    | `sed -i` to add `--earthly-ci-runner-arg` to the VERSION line |
-| 3 | `star.earth+test`                             | `RUN touch a.txt b.txt c.nottxt`     |
+| n   | target                                     | what the wrapper does first                                   |
+| --- | ------------------------------------------ | ------------------------------------------------------------- |
+| 4   | `dotenv.earth+test`                        | `RUN mv .arg .some-other-arg`                                 |
+| 3   | `builtin-args.earth+earthly-ci-runner-...` | `sed -i` to add `--earthly-ci-runner-arg` to the VERSION line |
+| 3   | `star.earth+test`                          | `RUN touch a.txt b.txt c.nottxt`                              |
 
-Ten of the 56 shortfall, none of them a gap in the engine. The gate already
+A fifth family joins them: `copy-tilde.earth`, six targets, whose wrapper opens
+with `RUN touch in` - and `tests/in` does not exist in the tree. That is
+**nineteen of the 56 shortfall across five families**, every one checked by hand,
+none of them a gap in the engine. The gate already
 excludes 21 invocations "because this gate cannot pass an option the tree gives
 them" - the exclusion covers *options* and not *fixtures*, *renames* or a
 *rewritten dialect*, which are the same thing done a different way.
@@ -42744,3 +42746,21 @@ the list that would achieve nothing.
 **Careful with this list.** `x4 open .some-other-arg: no such file or directory`
 reads like an engine failure and is the string the test greps for. Running the
 wrapper directly - `./+dotenv-test` - exits 0.
+
+**Counting the rest of them automatically was tried three times and failed three
+times**, which is worth recording because the failures were not obvious:
+
+* An `awk` filter using `\s`, which is a GNU extension the system `awk` does not
+  support, so the branch that looked for preparation never ran and every target
+  looked bare.
+* A Python pass that marked a target prepared if *any* recipe invoking it had a
+  preceding step, which over-matched into unrelated recipes.
+* A stricter version requiring *every* invocation to be prepared, which matched
+  `+test` against `+test-no-dotenv` and `+test-with-push` by substring and so
+  found bare invocations that were not invocations of that target at all.
+
+The third was caught only because it contradicted five results already
+established by hand. **A classifier with no oracle is a guess with a total**, and
+the hand-checked nineteen are the number to quote until something better exists.
+Matching a target reference needs the reference parsed, not a substring: `+test`
+is a prefix of a dozen other target names in this tree.

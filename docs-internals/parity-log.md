@@ -47,6 +47,39 @@ previous day.
 | 2026-08-29 | The three largest failure groups are targets whose wrapper makes their fixture first (a rename, a touch, a sed on the VERSION line), so they cannot build standalone. Ten of the 56 shortfall are denominator, not engine (E879). |
 | 2026-08-29 | Rows recomputed as start-of-day; an earlier draft of this file used end-of-day and was one row out.                                                                                                                               |
 
+## What the remaining gap is made of
+
+Measured 2026-08-29, from a sweep on x86 and the Native suite in CI.
+
+| part                                 | size           | nature                                                                                                                                                             |
+| ------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| not standalone-buildable             | 19 of 56       | the target's wrapper makes its fixture first - a touch, a rename, a generated Dockerfile, a `sed` on the VERSION line. Five families, each checked by hand (E879). |
+| awaiting a decision                  | 3 causes       | `/run` listing, `ip link add` in a private netns, `WITH DOCKER --load`. Every Native failure in CI so far is one of these.                                         |
+| refused on purpose                   | 7 targets      | already out of the denominator by the gate's own rule                                                                                                              |
+| needs an option the gate cannot pass | 21 invocations | already excluded by the gate                                                                                                                                       |
+
+**The Native suite is 2 of 16, not the near-miss an early sample suggested.**
+Thirteen jobs fail and the causes are varied rather than one thing:
+
+| n   | cause                                                                                                                       |
+| --- | --------------------------------------------------------------------------------------------------------------------------- |
+| 9   | `cache initialization failed: Operation not permitted` - a *nested* docker daemon inside a step, not the engine's own cache |
+| 5   | `RUN --privileged --mount=type=tmpfs,target=/tmp/earthbuild-tmpfs`                                                          |
+| 3   | `the step producing /earthly/build/earthly did not run`                                                                     |
+| 3   | `BUILD --pass-args`, already specified and unfixed                                                                          |
+| 2   | `ip link add dummy0` (decision)                                                                                             |
+| 2   | buildkit connect timeout                                                                                                    |
+| 1   | `/run` listing (decision); 1 `docker load` (decision)                                                                       |
+
+⚠︎ **The obvious unifying theory is wrong.** Twelve of the thirteen carry
+`mount /sys/fs/cgroup for the step: operation not permitted`, which reads as one
+root cause behind all of it - until a *passing* job turns out to carry it too. It
+is ubiquitous on this runner and discriminates nothing.
+
+So the order is: fix the denominator; take the three decisions; then read the
+remaining causes one at a time, because they are not one thing wearing several
+faces.
+
 ## Adding a row
 
 Read `corpus-ratchet.txt` and append. To know whether `built` is real rather than

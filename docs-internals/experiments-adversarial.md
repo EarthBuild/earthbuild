@@ -43060,3 +43060,41 @@ functions the sub-Earthfiles reference disappear. The environment is not simply
 The three-to-four engineer-week estimate for `cmd/earth-diff` bought, in this
 hand-rolled form, the answer to the question the parity number was being asked to
 answer - and the answer is that it cannot answer it.
+
+### E883 - the release is the filesystem's, and on tmpfs it is free
+
+E877 left `EARTH_ASYNC_RELEASE` as a switch rather than a default because the
+unmount it defers costs 18ms on the x86 box and 2.55ms in the macOS guest, which
+is also Linux - so the cost looked like the filesystem's rather than the
+platform's, without that being shown. It is shown now. Same build, same machine,
+store on two filesystems:
+
+```text
+tmpfs   wall 1.74s   release 0.00s over 30 phases
+ext4    wall 2.15s   release 0.57s over 30 phases
+```
+
+Both report `0 hit, 31 miss`, so every step really ran, and both fired thirty
+release phases - the mechanism is present in each and costs nothing in one of
+them.
+
+**So the per-step cost that dominates a build on this box is the overlay unmount,
+and it belongs to whatever the store sits on.** On tmpfs it rounds to zero and the
+same build is 1.24x faster with nothing else changed.
+
+Two things follow. `EARTH_ASYNC_RELEASE` is worth having exactly where the store's
+filesystem is slow to unmount and worth nothing where it is not, which is why a
+single default was never going to be right - and why measuring it on one machine
+settled nothing. And a store on tmpfs is a real lever for a machine that has the
+memory and does not need the store afterwards, which describes a CI runner
+exactly: the cache is cold at the start of every job and discarded at the end.
+
+The obvious objection is memory, and it is a real one - a build whose layers
+exceed RAM will fail rather than slow down, which is a worse failure. That makes
+this a thing to offer rather than assume, and it wants the ceiling measured
+before anybody turns it on anywhere.
+
+**A void experiment came first**, worth recording because it looked fine: the
+first attempt compared `/tmp` against `$HOME`, which are the same ext4 filesystem
+on that box, and reported 19.2ms against 18.7ms. Comparing a filesystem with
+itself gives a difference of zero and reads as "no effect".

@@ -178,13 +178,26 @@ func handOverTracing() error {
 // use, which is a difference no Earthfile asked for and one that a step reading
 // `env` can see.
 func stepEnviron() []string {
-	all := os.Environ()
+	return withoutShimVars(os.Environ())
+}
+
+// withoutShimVars drops the variables the guest uses to instruct the shim.
+//
+// Separated from reading the process environment so the list can be tested
+// without one: it is a list that grows, and each entry is added by copying the
+// one before it - which is how a fourth would have been added and missed.
+//
+// A step that could see these would be reading this engine's internals as part
+// of its own environment, and would see different ones depending on whether it
+// named a user (I3).
+func withoutShimVars(all []string) []string {
 	out := make([]string, 0, len(all))
 
 	for _, kv := range all {
 		if strings.HasPrefix(kv, EnvStepTraceFD+"=") ||
 			strings.HasPrefix(kv, EnvStepTracePin+"=") ||
-			strings.HasPrefix(kv, EnvStepUser+"=") {
+			strings.HasPrefix(kv, EnvStepUser+"=") ||
+			strings.HasPrefix(kv, EnvStepHome+"=") {
 			continue
 		}
 
@@ -218,9 +231,23 @@ func becomeStepUser() error {
 
 	name, group, numeric := splitUserSpec(spec)
 
-	uid, gid, err := resolveUser(name, group, numeric)
+	uid, gid, home, err := resolveUser(name, group, numeric)
 	if err != nil {
 		return err
+	}
+
+	// **Before the setuid**, because setting an environment variable needs
+	// nothing and losing the privilege is irreversible - and because a step that
+	// fails to become its user should not have had its HOME changed either.
+	//
+	// Only when the host said so: it holds the environment's layers unfolded and
+	// this process does not, so it is the only side that can tell a floor
+	// `/root` from an image that meant it (E865a).
+	if home != "" && os.Getenv(EnvStepHome) != "" {
+		err = os.Setenv("HOME", home)
+		if err != nil {
+			return fmt.Errorf("set HOME for USER %s: %w", spec, err)
+		}
 	}
 
 	// Dropped rather than kept: a step that becomes `testuser` should not still
@@ -242,13 +269,20 @@ func becomeStepUser() error {
 	return nil
 }
 
-// resolveUser turns a USER spec into the numbers the kernel wants.
+// resolveUser turns a USER spec into the numbers the kernel wants, and the home
+// directory that goes with them.
 //
 // A named group is looked up on its own, so `USER 1000:staff` works: the user is
 // a number the step's passwd need not mention and the group is a name it must.
 // Without a group, the user's own primary group is used, which is what every
 // other tool does with `USER name`.
-func resolveUser(name, group string, numeric bool) (int, int, error) {
+//
+// **The home comes free.** `user.Lookup` already returns it beside the ids, and
+// it was being fetched and dropped - which is why a step running as somebody
+// else kept the floor's `HOME=/root` (E865). Empty for a numeric id, which needs
+// no passwd file at all and therefore has no home to offer; the caller keeps the
+// floor rather than setting an empty one.
+func resolveUser(name, group string, numeric bool) (int, int, string, error) {
 	if numeric {
 		uid, _ := strconv.Atoi(name)
 		gid := uid
@@ -257,19 +291,19 @@ func resolveUser(name, group string, numeric bool) (int, int, error) {
 			gid, _ = strconv.Atoi(group)
 		}
 
-		return uid, gid, nil
+		return uid, gid, "", nil
 	}
 
 	u, err := user.Lookup(name)
 	if err != nil {
-		return 0, 0, fmt.Errorf("USER %s: %w"+
+		return 0, 0, "", fmt.Errorf("USER %s: %w"+
 			"\n  the name is looked up in the step's own /etc/passwd"+
 			"\n  a numeric id needs no such file", name, err)
 	}
 
 	uid, err := strconv.Atoi(u.Uid)
 	if err != nil {
-		return 0, 0, fmt.Errorf("USER %s: uid %q is not a number: %w", name, u.Uid, err)
+		return 0, 0, "", fmt.Errorf("USER %s: uid %q is not a number: %w", name, u.Uid, err)
 	}
 
 	gidOf := u.Gid
@@ -277,7 +311,7 @@ func resolveUser(name, group string, numeric bool) (int, int, error) {
 	if group != "" {
 		g, gErr := user.LookupGroup(group)
 		if gErr != nil {
-			return 0, 0, fmt.Errorf("USER %s: group %s: %w", name, group, gErr)
+			return 0, 0, "", fmt.Errorf("USER %s: group %s: %w", name, group, gErr)
 		}
 
 		gidOf = g.Gid
@@ -285,8 +319,8 @@ func resolveUser(name, group string, numeric bool) (int, int, error) {
 
 	gid, err := strconv.Atoi(gidOf)
 	if err != nil {
-		return 0, 0, fmt.Errorf("USER %s: gid %q is not a number: %w", name, gidOf, err)
+		return 0, 0, "", fmt.Errorf("USER %s: gid %q is not a number: %w", name, gidOf, err)
 	}
 
-	return uid, gid, nil
+	return uid, gid, u.HomeDir, nil
 }

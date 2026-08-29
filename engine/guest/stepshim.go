@@ -49,6 +49,20 @@ const EnvStepTracePin = "EARTH_STEP_TRACE_PIN"
 // file without the guest having to parse it or agree with it.
 const EnvStepUser = "EARTH_STEP_USER"
 
+// EnvStepHome asks the shim to set HOME from the step user's passwd entry.
+//
+// **A flag rather than a value, because the two halves know different things.**
+// The home directory is in the step's own `/etc/passwd`, which only exists as
+// the step's after the chroot - so the shim reads it. Whether it *should* be
+// read is a question about precedence: `stepEnv` folds a floor, what the image
+// declared and ε into one environment, and afterwards a `HOME=/root` from the
+// floor cannot be told from an image that meant it. Only the caller still has
+// the layers apart, so only the caller can decide (E865a).
+//
+// Empty means leave HOME alone, which is what a step gets when its image or its
+// Earthfile said something about it.
+const EnvStepHome = "EARTH_STEP_HOME"
+
 // stepShim is what the shim was asked to prepare and become.
 type stepShim struct {
 	// root is the filesystem the step sees, named from outside it: the chroot

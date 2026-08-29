@@ -2507,6 +2507,19 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// recorded and not applied - which is what `EARTH_STEP_SHIM=0` now costs.
 	if shimming && req.User != "" {
 		cmd.Env = append(cmd.Env, EnvStepUser+"="+req.User)
+
+		// **And whether HOME is the shim's to set.** stepEnv floored it at
+		// /root and nothing revised it for a step running as somebody else, so
+		// `USER testuser` wrote to root's home and every program that keeps
+		// state in $HOME met a permission error instead of a wrong HOME (E865).
+		//
+		// Decided here because the layers are still apart here: after the fold
+		// above, a floor /root and an image that declared /root are the same
+		// string. The shim does the lookup, because the passwd entry is the
+		// step's own only after the chroot.
+		if !declaresHome(declared, req.Env) {
+			cmd.Env = append(cmd.Env, EnvStepHome+"=1")
+		}
 	}
 
 	// Registered for exactly as long as it runs, so a cancel arriving in the
@@ -2966,6 +2979,29 @@ func (s *Server) mountStore() string {
 	// up, which is outside the directory shared into this machine and vanishes
 	// with it.
 	return filepath.Join(s.LayerDir, "mounts")
+}
+
+// declaresHome reports whether anything above the floor set HOME.
+//
+// **Asked here because only here are the layers still separate.** stepEnv folds
+// a floor, what the image declared, and ε into one environment, and after that
+// a `HOME=/root` from the floor is indistinguishable from an image that meant
+// it. The shim, which is where the passwd entry can be read, sees only the
+// folded result - so it cannot decide this and is told instead (E865a).
+//
+// Matched on the whole name before `=`, because `HOMEBREW_PREFIX` starts the
+// same way and a prefix test would quietly stop overriding for anyone who has
+// it set. A bare `HOME` with no `=` assigns nothing and is not a declaration.
+func declaresHome(declared, env []string) bool {
+	for _, list := range [][]string{declared, env} {
+		for _, kv := range list {
+			if name, _, ok := strings.Cut(kv, "="); ok && name == "HOME" {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // stepEnv puts ε over the baseline every step is entitled to.

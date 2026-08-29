@@ -44305,3 +44305,36 @@ moving other work alongside it, and the remaining candidates are small
 **Third fence of the session.** Prewarm was working (E898), the scheduler's
 parallelism was correct (E906), and this one is right too. Each looked like a
 defect from the phase log alone and was not.
+
+### E909 - E903's verdict: four for four
+
+Run 33254832027 reported. The predictions of E903, written before it started,
+against what it did:
+
+| prediction                             | outcome            | verdict |
+| -------------------------------------- | ------------------ | ------- |
+| Podman at least 14 of 16                | **16 of 16**       | exceeded |
+| Podman Examples at least 4 of 5         | **5 of 5**         | met     |
+| Native `+test-misc` passes              | passed             | met     |
+| the other thirteen Native jobs unmoved  | **13 failing**     | exact   |
+
+Every failure in a run of 99 jobs is a Native job. Docker 16, Docker
+Integrations 24, Docker Examples 5, Podman 16, Podman Examples 5, Next 16: no
+failures outside the suite that tests this engine.
+
+**Twenty jobs recovered by three lines**, none of which touched an engine: the
+Podman suites were building with the native engine because plain `sudo` reset
+the `EARTH_ENGINE` that `stage2-setup` had set (E901), and their results were
+being read as buildkit's the whole time.
+
+**Why this one held and E894 did not.** E894 predicted eight jobs would clear
+and named a *construct* - `WITH DOCKER --load`. Nothing moved, and the reason
+was that the construct was not what the tests turned on: they needed a nested
+runtime, which needs a cgroup tree, which the runner does not grant (E902).
+E903 named a *mechanism* and a falsifier - any surviving Podman failure had to
+show zero `L1 hit` lines - so it could have been wrong in a way that showed.
+A prediction that cannot fail visibly is not a prediction.
+
+What remains is the honest number: **13 Native failures, 9 of them one missing
+privilege** (E596), 4 genuinely open. That is the parity gap, and nothing in
+today's work moved it except `+test-misc`.

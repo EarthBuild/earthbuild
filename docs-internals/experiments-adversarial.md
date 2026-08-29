@@ -42764,3 +42764,50 @@ established by hand. **A classifier with no oracle is a guess with a total**, an
 the hand-checked nineteen are the number to quote until something better exists.
 Matching a target reference needs the reference parsed, not a substring: `+test`
 is a prefix of a dozen other target names in this tree.
+
+### E880 - the exclusion was wrong, and the sweep said so in one number
+
+E879 established that five families of target cannot build alone because the
+recipe calling them makes their fixture first. The obvious next step was to
+exclude them from the gate's denominator, the way `--pre_command` invocations
+already are: same reason, expressed with a `RUN` instead of a flag.
+
+It was written with an explicit list rather than a rule - nearly every invocation
+has *some* `RUN` before it, and an exclusion that grows by itself is how a gate
+stops measuring - and with a test asserting each claimed-absent fixture really is
+absent, so the list cannot rot into a lie.
+
+Then the sweep was re-run:
+
+```text
+before   196 of 252
+after    193 of 227
+```
+
+**Built fell by three.** An exclusion should never lower what builds: it removes
+things from the denominator, not from the successes. Three of the invocations
+excluded had been passing.
+
+Counting per invocation says why. The same target name passes and fails in the
+same sweep:
+
+```text
+dotenv.earth+test                    passes x7, fails x4
+from-dockerfile-dockerignore+image   passes x5
+star.earth+test                      passes x3, fails x3
+```
+
+The tree invokes one target many times with different arguments. The fixture the
+caller prepares matters to *some* of those invocations and not others, so the
+failure is a property of the invocation, not of the target - and a list keyed on
+target names removes the passing ones with the rest.
+
+Reverted. The finding in E879 stands: those invocations genuinely cannot build
+alone. What is wrong is the key. Whatever excludes them has to name the
+invocation - file, target *and* arguments - which is exactly what the gate
+already does for `--pre_command`, and the reason that mechanism keys on the
+invocation rather than the target.
+
+**One number caught it**, and only because an exclusion has an arithmetic
+signature: the denominator falls and the numerator must not. A change that
+improves a ratio by moving both is worth distrusting on sight.

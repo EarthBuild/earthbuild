@@ -447,6 +447,11 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 	// per invocation cost 620-700ms of `container run` on every build that had
 	// anything to do (E19), for a machine identical to the one just discarded.
 	// One listing, two answers: what to reap, and whether this build's VM is up.
+	//
+	// Timed with the reaping it feeds, because the boot as a whole was a 1.5s
+	// region with no phase in it at all - and on a cold build that is 65% of
+	// the run, two thirds of which planning cannot hide behind.
+	endScan := timing.Phase("boot:scan", "")
 	seen := listContainers()
 
 	// Anything left by a process that has exited goes now, before this build
@@ -457,6 +462,8 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 	// VM has no owning process, so reapOrphans cannot see it; see
 	// stranded_darwin.go for why nothing else could reach it either.
 	reapStranded(seen)
+
+	endScan()
 
 	// **And whether the VM that is there is looking at this store.** A store
 	// deleted and recreated leaves the path in place, so `reapStranded`'s rule
@@ -471,7 +478,10 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 	}
 
 	if seen[a.name] != "running" {
+		endVolume := timing.Phase("boot:volume", "")
 		a.ensureVolume(ctx)
+
+		endVolume()
 
 		// **A VM of this name that is merely stopped is this build's VM asleep.**
 		// Same mounts and same volume - the name is a digest of them - so waking
@@ -490,9 +500,13 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 		//
 		//nolint:staticcheck // see above
 		if !(seen[a.name] == "stopped" && a.resume(ctx)) {
+			endRun := timing.Phase("boot:run", a.Image)
 			run := osexec.CommandContext(ctx, "container", a.runArgs()...) //nolint:gosec // fixed argv
 
 			out, err := run.CombinedOutput()
+
+			endRun()
+
 			if err != nil {
 				// A container of this name that exists but is not running is the
 				// remains of a crash. Removed and retried once rather than
@@ -1012,7 +1026,19 @@ func (a *Apple) GuestFailure() string {
 // and whatever is wrong is reported by the Start that follows, which has the
 // context to say it properly.
 func (a *Apple) Prewarm(ctx context.Context) {
-	if a.Available() != nil {
+	// Timed, because the whole claim of this function is that the boot it
+	// starts is over before the first step asks for it - and nothing in the log
+	// said whether that happened. A cold build showed `plan` and `schedule`
+	// strictly additive with `sandbox:start` at its full cost inside the second,
+	// which is what a prewarm that never ran looks like. Two phases decide it:
+	// this one, and `prewarm:available` below.
+	defer timing.Phase("prewarm", "")()
+
+	endAvailable := timing.Phase("prewarm:available", "")
+	err := a.Available()
+
+	endAvailable()
+	if err != nil {
 		return
 	}
 

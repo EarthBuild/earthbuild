@@ -43875,3 +43875,47 @@ of `+earthly` and not a single unscheduled `SAVE IMAGE` - and the single case is
 the one `buildkitd/Earthfile:97` presents. Graph membership answers both, because
 it asks the question the message was always about: was this node ever going to
 run?
+
+### E898 - the cold build's boot was a 1.5s region with no phase in it
+
+`Prewarm` claims the sandbox boot overlaps planning (E537). A cold build did not
+read that way: `plan` 0.596s and `schedule` 1.690s were strictly additive inside
+`process` 2.291s, with `sandbox:start` charging 0.841s inside the second - which
+is what a prewarm that never ran looks like.
+
+It ran. Timing it settled the question rather than arguing it:
+
+```text
+prewarm:available   0.000s     plan            0.596s
+prewarm             1.413s     sandbox:start   0.841s
+```
+
+The boot starts at t≈0 and takes 1.413s; planning hides the first 0.596s; the
+first step then waits the remaining 0.841s (0.596 + 0.841 ≈ 1.44). The overlap
+works and is already saving what it claims. What the log did not say is that the
+boot is **65% of a cold build** and outlasts the planning it hides behind, so
+two thirds of it is exposed however well the overlap is done.
+
+Three phases inside `ensureRunning` attribute it, and two runs agree to ~5%:
+
+| phase       | run 1  | run 2  | what it is                          |
+| ----------- | ------ | ------ | ----------------------------------- |
+| boot:scan   | 0.080s | 0.066s | `container ls` and the two reaps    |
+| boot:volume | 0.574s | 0.536s | `container volume create`           |
+| boot:run    | 0.758s | 0.786s | `container run` - the VM itself     |
+| prewarm     | 1.413s | 1.388s | their sum (1.412s), fully accounted |
+
+**`ensureVolume` is 39% of the boot**, which is nearly the VM itself for a
+single ignored-error subprocess. It is the creation that costs, not the call:
+`container volume create` on a volume that already exists takes 34ms, and so
+does `container volume list` - that 34ms is the CLI's own startup, so an
+existence check cannot be cheaper than the call it would replace.
+
+So the cost lands only when the sandbox identity changes, the name being a
+digest of image, directories, memory and keep-alive. A developer with a stable
+cache directory pays it once; **CI pays it in every job**, each of which is a
+fresh cache.
+
+Not fixed here, because the run mounts the volume it creates and the two cannot
+overlap. Recorded because it is the largest single item in a cold build after
+the VM boot, and nothing named it before.

@@ -44608,3 +44608,30 @@ one exchange - the second phase is a caller waiting.
 travel: *one registry round trip removed from the critical path*. On a backend
 that boots a VM in front of the pull that is worth 0.6s; on one that does not,
 it is worth nothing and costs nothing. Neither number is "the" speedup.
+
+### E917 - a disk manifest cache would never be read
+
+E916 leaves `registry:manifest` at 0.135s of a cold pull, host-side and
+unavoidable within one build. Persisting it across builds looks like the obvious
+next step, and unlike the token it raises no question: a manifest is public,
+immutable and addressed by its own digest, so a cached body is verifiable and
+is not a credential.
+
+**It would still never be read.** The manifest is fetched by `prepare`, which
+runs only when something is being pulled - and nothing is pulled when the image
+is already in the image cache, because `materialiseImageApart` and
+`intoImageCache` both return before that on a hit. So the manifest is fetched
+exactly when the image is absent, and a disk cache of it would be consulted
+exactly when the image is present. The two conditions never overlap.
+
+For it to pay, the manifest cache would have to outlive the image cache, which
+means evicting them on different schedules on purpose - inventing a lifecycle to
+create a hit rate, rather than finding one.
+
+CI does not rescue it either, which was the other hope: every job starts with a
+fresh cache directory, so a persisted manifest from a previous job is not there
+to read.
+
+Recorded as a dead end before writing any of it. The in-process cache added in
+E907 stays and is where the saving actually is - within one build, between the
+warm and the pull.

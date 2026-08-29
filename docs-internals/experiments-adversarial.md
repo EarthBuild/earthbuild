@@ -43738,3 +43738,28 @@ reproducer existed, in the entry being doubted, and was not run.
 
 Three defects were retired today by testing them. This is the fourth test, and it
 retires the retirement.
+
+### E897 - `--pass-args` forwards what it was given, and the divergence closes
+
+E867's defect, fixed. `p.callerArgs` came from `rs.args`, which holds what an
+`ARG` statement declared; a function handed an argument it never declares - a
+wrapper whose whole job is to forward - dropped it at the next hop.
+
+Now it forwards both, with declared winning where a name is in each: `rs.args`
+holds the value in force after a default and any override have resolved, and
+`rs.supplied` fills the gaps.
+
+```text
+before   native target=+default     buildkit target=+mytarget
+after    native target=+mytarget    buildkit target=+mytarget
+```
+
+The test is E867's own reproducer, written as a unit test rather than
+paraphrased, with the explicitly-named argument kept as a control - a run where
+`--extra` is also missing says the reproducer broke rather than the behaviour.
+That control exists because the version of this test written from the mechanism
+picked a case where the mechanism happened to work (E896a).
+
+Whether it moves anything in CI is a separate question with an answer already
+written down: E895 guessed this defect explained a target whose steps did not
+run, and E896 talked itself out of it. The guess is testable now.

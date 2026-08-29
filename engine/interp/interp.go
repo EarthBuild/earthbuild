@@ -1286,7 +1286,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// the diagnostic for the case it was written for - a function that
 		// establishes nothing still has no filesystem, and still says so.
 
-		p.callerDir, p.callerArgs, p.callerHost = rs.dir, rs.args, rs.host
+		p.callerDir, p.callerArgs, p.callerHost = rs.dir, passable(rs), rs.host
 		p.callerGlobals = rs.globals
 
 		out, doErr := p.do(c, prev, rs)
@@ -3663,4 +3663,31 @@ func referenceShaped(src string, imports map[string]string) bool {
 
 		return imported
 	}
+}
+
+// passable is what `--pass-args` forwards from a recipe: everything it was given
+// and everything it declared.
+//
+// **Given, not only declared.** `rs.args` holds what an `ARG` statement
+// mentioned, and a function may be handed an argument it never declares - a
+// wrapper that exists to forward. `OUTER` below is that shape:
+//
+//	OUTER:  FUNCTION / ARG extra / DO --pass-args +INNER --extra="prefixed $extra"
+//	probe:  DO --pass-args +OUTER --target=+mytarget --extra=given
+//
+// `target` reaches `OUTER`, is used by nothing there, and never enters
+// `rs.args` - so forwarding that map alone dropped it, and `INNER` fell back to
+// its own default while the reference engine passed the caller's value (E867,
+// E896a).
+//
+// Declared wins where both have a name: `rs.args` holds the value in force after
+// an `ARG` has resolved its default and any override, which is what the next
+// recipe should see. `rs.supplied` only fills the gaps.
+func passable(rs *state) map[string]string {
+	out := make(map[string]string, len(rs.supplied)+len(rs.args))
+
+	maps.Copy(out, rs.supplied)
+	maps.Copy(out, rs.args)
+
+	return out
 }

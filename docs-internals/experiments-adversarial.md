@@ -43464,3 +43464,34 @@ Only measuring the phase the change acts on settled it, and it settled it agains
 That is the lesson worth keeping: **when the effect is smaller than the noise,
 measure the mechanism rather than the outcome** - and if the mechanism does not
 move, no amount of wall-clock sampling will honestly say it did.
+
+### E890 - `RUN --entrypoint ... && ls` and where the `&&` goes
+
+`tests+remote-test` fails, and now fails locally, which is what makes it worth
+writing down:
+
+```text
+Error: invalid arguments github.com/EarthBuild/test-remote/privileged:main+locally && ls /tmp/hostname.3d4b...
+```
+
+The whole tail arrives as one argument. The line is
+
+```earthfile
+RUN --privileged --entrypoint --mount=type=tmpfs,target=/tmp/earthbuild \
+    -- --no-output github.com/EarthBuild/test-remote/privileged:main+locally && \
+    ls /tmp/hostname.3d4b...
+```
+
+`--entrypoint` means the image's entrypoint runs with what follows `--`, and an
+entrypoint is not a shell - so `&&` is not an operator there, it is the fifth
+argument. The engine is reading it exactly that way and saying so.
+
+Whether the reference engine agrees is the question, and it is answerable now
+that this reproduces locally: `earth-diff` on this target says which of the two
+is doing something surprising. Left for that rather than guessed at, because the
+plausible story - "buildkit shell-interprets it" - is a guess about a construct
+whose whole point is that it does not.
+
+Two of the thirteen failing Native jobs are this line. It is the first of them
+that can be iterated on without a CI round, which is the practical dividend of
+E888.

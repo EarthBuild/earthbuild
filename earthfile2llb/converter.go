@@ -528,15 +528,13 @@ func (c *Converter) FromDockerfile(
 	bcRawState, done := BuildContextFactory.Construct().RawState()
 	bc.SetBuildContext(&bcRawState, c.mts.FinalTarget().String())
 	state, dfImg, _, err := dockerfile2llb.Dockerfile2LLB(ctx, dfData, dockerfile2llb.ConvertOpt{
-		MetaResolver: c.opt.MetaResolver,
-		LLBCaps:      c.opt.LLBCaps,
-		Config: dockerui.Config{
-			BuildArgs:        overriding.Map(),
-			Target:           dfTarget,
-			ImageResolveMode: c.opt.ImageResolveMode,
-		},
-		TargetPlatform: &plat,
-		Client:         bc,
+		MetaResolver:     c.opt.MetaResolver,
+		LLBCaps:          c.opt.LLBCaps,
+		BuildArgs:        overriding.Map(),
+		Target:           dfTarget,
+		ImageResolveMode: c.opt.ImageResolveMode,
+		TargetPlatform:   &plat,
+		Client:           bc,
 	})
 
 	done()

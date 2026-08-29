@@ -43605,3 +43605,34 @@ recorded deliberately rather than discovered by a red build.
 The cheap half is free: the gate could **say** what it looked at. "197 of 250
 invocations, from 116 files beside tests/Earthfile; 95 Earthfiles in
 subdirectories were not attempted" costs one line and removes the implicit claim.
+
+### E894 - the CI baseline the WITH DOCKER fix should be measured against
+
+Run 33242841512, on `c0ac67d` - the last commit before the `WITH DOCKER` fix -
+finished 64 green and 34 red:
+
+| suite               | ok  | fail   |
+| ------------------- | --- | ------ |
+| Docker              | 16  | 0      |
+| Docker Integrations | 23  | 0      |
+| Docker Examples     | 5   | 0      |
+| Next                | 16  | 0      |
+| Fast Check & Build  | 1   | 0      |
+| **Native**          | 2   | **14** |
+| Podman              | 1   | 15     |
+| Podman Examples     | 0   | 5      |
+
+Every buildkit-driven suite is green, so the branch is not broken; the red is
+Native and Podman. Podman's twenty is the pre-existing regression this branch
+inherited and has nothing to do with today.
+
+**Native is 2 of 16, and eight of those fourteen failures are the construct fixed
+in E886b.** That is the prediction, written down before the run that tests it,
+which is the only way it counts for anything: if a run on this branch's head does
+not move Native, the reasoning behind that fix was wrong somewhere, and this row
+is what says so.
+
+Recorded because nothing from today has been through the gate. Seventeen commits
+have landed since this baseline, verified locally and on the x86 box on both
+architectures, and CI has been saturated for hours - a run on the head is what is
+missing, not a result that has been seen and ignored.

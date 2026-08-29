@@ -43515,3 +43515,29 @@ own. Putting `-P` first prints usage and looks like the tool rejecting the flag.
 
 Two of the thirteen failing Native jobs are this line, and neither is a
 divergence.
+
+### E891 - twenty integration targets, no native-specific failure
+
+Run locally under `--engine=native` now that E888 made that possible, and each
+failure put through `earth-diff`:
+
+| outcome                                       | n  |
+| --------------------------------------------- | -- |
+| pass                                           | 17 |
+| the tree says it does not pass                 | 1  |
+| fail under **both** engines                    | 2  |
+
+`star-test-todo` carries `# TODO: This does not pass.` on the line above it.
+`remote-test` and `dockerfile-test` both return `agree` from the differential -
+this engine and the reference fail them alike.
+
+**So none of the twenty is a place this engine is behind**, which is the same
+answer the 37-invocation differential gave (E882c) reached by a different route
+and on a different set. Two independent measurements agreeing is worth more than
+either alone, particularly after a day in which three classifiers gave three
+wrong answers.
+
+What it does not say is that the suite passes: three targets fail, and a user
+hitting `remote-test` sees a failure whoever wrote the engine. It says the
+failures are not divergences, and that fixing them is work on the tree or on both
+engines rather than on this one.

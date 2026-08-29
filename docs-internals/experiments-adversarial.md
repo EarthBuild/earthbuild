@@ -42525,3 +42525,45 @@ behaviour being changed. Caught only because `git status` showed the file as
 modified rather than added. The test went into its own file in the end, which is
 what it needed anyway: the existing file is `package exec_test` and the memo is
 internal.
+
+### E874 - the two savings measured on a build worth measuring
+
+E871 and E873 were both found and measured on `FROM alpine@sha256:... + two
+trivial RUNs`, which is not a build. Repeated on six steps, a `COPY` of forty
+files and an **unpinned** `FROM`:
+
+```text
+minimal, pinned      419.1 -> 218.4 ms   1.92x   n=9
+realistic, unpinned  543.6 -> 427.6 ms   1.27x   n=9
+```
+
+The same absolute saving buys less, and the phase log says exactly why:
+
+```text
+registry:token   0.277s      plan 0.432s
+pin:manifest     0.153s
+sandbox:start    0.002s   <- the memo working
+sandbox:dial     0.065s   <- overlapped with planning, as E537 intended
+schedule         0.004s   <- every step an L1 hit
+```
+
+Two things follow. The boot memo's 85ms is only worth 85ms when there is nothing
+to overlap with: against an unpinned `FROM` the dial hides behind a registry
+round trip that was happening anyway, and the saving is the frontend probe's
+alone. And **an unpinned cached build is a registry round trip with a build
+attached** - 430ms of a 428ms build, which is to say all of it.
+
+The engine already says so, unprompted:
+
+```text
+note  --pin writes these into the Earthfile, which makes the build reproducible
+      and skips the 0.42s these lookups cost
+```
+
+That note is worth more than either fix here, and it is already written. Pinning
+takes `plan` from 0.432s to 0.001s.
+
+**So quote the pinned number for engine work and the unpinned one for user-facing
+claims**, and do not average them: they measure different things. The minimal
+case is the honest measure of what the engine costs when it is not waiting for a
+registry, and the realistic case is the honest measure of what a developer sees.

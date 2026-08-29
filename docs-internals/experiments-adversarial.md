@@ -43492,6 +43492,26 @@ is doing something surprising. Left for that rather than guessed at, because the
 plausible story - "buildkit shell-interprets it" - is a guess about a construct
 whose whole point is that it does not.
 
-Two of the thirteen failing Native jobs are this line. It is the first of them
-that can be iterated on without a CI round, which is the practical dividend of
-E888.
+**Answered by the differential, and the answer is no.** With and without
+`--allow-privileged`:
+
+```text
+agree   +remote-test   native=1   buildkit=1
+```
+
+Both engines fail it, so the `&&` is not a place this engine diverges. The
+plausible story - "buildkit shell-interprets it" - was wrong, and would have been
+believed if the tool had not been built.
+
+**What the tool cannot say is why.** It compares exit codes, so "both failed"
+covers "failed for the same reason" and "failed for two different ones" without
+distinguishing them. Here that is enough to close the question that was asked; it
+would not be enough to open a new one. Output normalisation is what would tell
+them apart, and it is the rest of the estimate in the test plan.
+
+A usability wart found by using it: build flags go *after* the target
+(`earth-diff -f X +t -P`), because anything before it is parsed as the tool's
+own. Putting `-P` first prints usage and looks like the tool rejecting the flag.
+
+Two of the thirteen failing Native jobs are this line, and neither is a
+divergence.

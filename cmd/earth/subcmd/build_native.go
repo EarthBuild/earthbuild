@@ -35,6 +35,16 @@ const nativeEngine = "native"
 // nativeSecrets is what `--secret`, `--secret-file` and the secrets dotenv file
 // say, in the form the engine takes.
 //
+// **Merged here rather than handed to the engine in pieces, on purpose.**
+// `earth-native` passes `Secrets`, `SecretFiles` and `SecretFile` separately and
+// lets the engine layer them, preferring `--secret` over a named file over
+// `.secret`. `common.ProcessSecrets` instead *refuses* a key that appears in two
+// places. Both are defensible; this path takes the stricter one because it is
+// what `--engine=buildkit` does, and the same command line should not change the
+// precedence of a credential according to which engine runs it. The looser
+// layering stays available through `earth-native`, which is a developer's
+// front-end to the same engine.
+//
 // **A copy of the buildkit path's three lines, on purpose.** The native branch
 // returns before that path prepares anything, deliberately - it brings its own
 // scheduling, store and sandbox, and sharing the preparation would start a

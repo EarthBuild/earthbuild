@@ -388,23 +388,35 @@ engine-race:
             grep -E "^FAIL[[:space:]]" /tmp/t.log | head -20 || echo "(none named)"; \
             echo "--- with context:"; \
             grep -E -B 8 -A 1 "^ *--- FAIL" /tmp/t.log | head -80; \
-            echo "--- and the last of the log, for a run that failed without one:"; \
-            tail -20 /tmp/t.log; \
-            # **The seed, because -shuffle=on makes this run unreproducible
-            # without it.** engine/fleet failed here at 1320s with no test
-            # named - a package timeout, which is an ordering property - and the
-            # seed that produced the ordering went to /tmp/t.log and no further.
-            # `go test` prints it once at the top; without it the only way to
-            # chase an order-dependent hang is to run the suite until it happens
-            # again.
-            echo "--- the shuffle seed, to reproduce this exact ordering:"; \
-            grep -E "^-test.shuffle" /tmp/t.log || echo "(no seed line; -shuffle may be off)"; \
+            # **`tail` shows the wrong package.** `go test` buffers each
+            # package's output and emits it as one block when that package
+            # finishes, so the end of the log belongs to whichever package
+            # finished *last* - not to the one that failed. engine/fleet was
+            # diagnosed three times from twenty lines of a different package's
+            # passing output, which is worse than no diagnostic: it looks like
+            # evidence (E869).
+            #
+            # The same mistake made the seed useless. `-shuffle=on` gives every
+            # package its own seed, and printing them as an unlabelled list of
+            # twenty-two numbers attributes none of them - two were replayed
+            # against the wrong package before anyone noticed (E869).
+            #
+            # Both are fixed by the same move. `go test` emits each package's
+            # output as one block terminated by that package's own `ok`/`FAIL`
+            # line, so the awk keeps only the block that ends in `FAIL` - which
+            # holds that package's seed and the last test it started.
+            awk '{b[n++]=$0} /^ok[[:space:]]/{n=0} /^FAIL[[:space:]]/{for(i=0;i<n;i++)print b[i]; n=0}' \
+                /tmp/t.log > /tmp/failed.log; \
+            echo "--- the seed for the package that failed (not the other twenty-one):"; \
+            grep -E "^-test.shuffle" /tmp/failed.log || echo "(no seed line; -shuffle may be off)"; \
+            echo "--- and the end of that package's own output:"; \
+            tail -120 /tmp/failed.log; \
             # **And what a timeout was doing.** Go prints `panic: test timed out`
             # followed by a goroutine dump naming the running test, which is the
             # only thing that says *which* test hung. None of the greps above
             # match it, so a package that timed out reported a bare package name
             # and nothing else.
-            if grep -q "test timed out" /tmp/t.log; then \
+            if grep -qE "^panic: test timed out" /tmp/t.log; then \
                 echo "--- a test timed out; the goroutine that was running:"; \
                 grep -A 12 "panic: test timed out" /tmp/t.log | head -30; \
             fi; \

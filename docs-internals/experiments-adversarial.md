@@ -42328,3 +42328,48 @@ What would settle it is the same run on a machine with the runner's shape -
 two cores rather than sixteen. The nits entry on `engine/fleet` hanging the gate
 should carry that, because "not the ordering" is the expensive half of the
 answer.
+
+### E869 - E868 is withdrawn: the seeds were the wrong packages'
+
+E868 claimed ordering was eliminated as the cause of the `engine/fleet` timeout,
+on the strength of replaying two captured seeds and having both pass. The claim
+is void.
+
+`-shuffle=on` gives **every package its own seed**, and the diagnostic printed
+them as a bare list of twenty-two numbers with nothing saying which belonged to
+which. The two replayed were simply the first two in the list; nothing connects
+them to `engine/fleet`. Two arbitrary seeds passing against fleet says nothing
+about the seed fleet actually ran under, so ordering is neither eliminated nor
+implicated - it is untested, exactly as it was before.
+
+Three further readings of the same log were also wrong, each because a search
+matched text *describing* the thing rather than the thing:
+
+* `Killed` matched `TestABuildKilledMidFlightLeavesAUsableStore`, briefly
+  supporting an OOM story that has no evidence at all.
+* `panic: test timed out` matched the RUN command's own echoed script, which
+  contains that string twice; all twenty matches are the script quoting itself.
+  No timeout panic occurred - provable, because the script's own
+  `if grep -q "test timed out"` guard never fired.
+
+So what `FAIL engine/fleet 1320.122s` means remains open. What is now certain is
+narrower and worth stating plainly: no test reported `--- FAIL`, no timeout panic
+was printed, and the package exited non-zero after 22 minutes.
+
+**The diagnostic was the defect, for the third time** (E609 records the first
+two). `tail -20 /tmp/t.log` shows whichever package finished *last*, not the one
+that failed - so every reading of this failure was made from a different,
+passing package's output. Fixed by keeping the block that ends in `FAIL`:
+
+```awk
+{b[n++]=$0} /^ok[[:space:]]/{n=0} /^FAIL[[:space:]]/{for(i=0;i<n;i++)print b[i]; n=0}
+```
+
+That block carries the failing package's own seed and the last test it started,
+which is the attribution that was missing. Tested against a shaped log for one
+failure, two failures, and an all-green run (which prints nothing rather than
+crashing) - the check E609 said was missing and which was still missing.
+
+**The lesson is not about greps.** Three diagnostics in a row produced confident,
+wrong readings, and each looked like evidence. A diagnostic that is not itself
+tested is a rumour with a monospace font.

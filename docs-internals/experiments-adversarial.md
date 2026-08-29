@@ -41740,3 +41740,30 @@ four), a label expectation, and this listing.
 The warning that fires in these jobs is now the cgroup one -
 `mount /sys/fs/cgroup for the step: operation not permitted` - which is E841a's
 standing decision and not a new fault.
+
+### E863a - the "label expectation" is the docker client again, and the engine is right
+
+The `group12` failure looked like a labels mismatch:
+
+```text
+RUN docker inspect myimage:test | jq -r '.[].Config.Labels' | grep -q null
+```
+
+It is not. The saved image has no labels at all - checked directly in the OCI
+config this engine writes - so the assertion would pass if it ran. The pipeline
+failed earlier, and the log says `docker: not found`, three times, immediately
+after the engine's own warning that it mounted a daemon and no client.
+
+**And declining to mount one is correct.** `clientMounts` tests whether the
+host's client needs an interpreter and refuses to offer it if so, because the
+host's is linked against the distribution's libc and the step's image is usually
+alpine: execve fails on the *interpreter*, and the kernel's ENOENT reaches the
+author as `docker: not found` about a file that is demonstrably present (E117).
+The engine chose the note over the trap.
+
+So the four sampled Native failures collapse to three causes, and this one joins
+E844's: a nested runtime with a socket and nothing to speak to it with. Two
+answers exist and neither is a defect to fix - ship a statically linked client,
+or have the test image carry its own, which is what the warning already advises.
+Which is a decision, and it is the third on this branch that turns out to be
+about what a step is given rather than about what the engine does with it.

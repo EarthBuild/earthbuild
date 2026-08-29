@@ -44265,3 +44265,43 @@ store directory to find the challenge cache and panicked on a local-only build.
 `TestALocalOnlyBuildNeedsNoSandbox` caught it - a test written for something
 else entirely, which is the argument for running the whole package rather than
 the file you touched.
+
+### E908 - removing `ensureVolume` would be slower, and the boot is now runtime-bound
+
+After E907 the cold build is 2.48s and the boot is 63% of it:
+
+```text
+sandbox:start   1.561s
+  boot:run      0.827s
+  boot:volume   0.646s
+image:fetch     0.715s
+```
+
+`boot:volume` is one `container volume create` and the second-largest item in
+the build, so the obvious question is whether it is needed at all. It is not, in
+the sense that matters to correctness: `container run -v <name>:/x` against a
+volume that does not exist creates it, writes and reads back, and leaves the
+volume behind - verified.
+
+**And doing that is slower.** The allocation has to happen somewhere, and
+`container run` is a worse place for it. Three runs of each, timed around the
+whole create-and-start sequence:
+
+| sequence                       | median   | runs               |
+| ------------------------------ | -------- | ------------------ |
+| `volume create` then `run -v`  | 1350.6ms | 1317, 1351, 1474   |
+| `run -v` alone, implicit       | 1522.7ms | 1548, 1523, 1460   |
+
+172ms *worse* for the version with less code in it. The ranges touch at one
+end, which is why the conclusion is "not faster, do not remove" rather than a
+quoted saving.
+
+So the boot resists this route, and with it the cold build: 1.4s of the 2.5s is
+Apple's `container` runtime creating a disk image and starting a VM, neither of
+which this engine can make quicker. What is left to the engine is what E907 did,
+moving other work alongside it, and the remaining candidates are small
+(`registry:manifest`, 0.135s) or already decisions (`decisions-pending.md`).
+
+**Third fence of the session.** Prewarm was working (E898), the scheduler's
+parallelism was correct (E906), and this one is right too. Each looked like a
+defect from the phase log alone and was not.

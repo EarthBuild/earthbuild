@@ -44100,3 +44100,24 @@ So nine of fourteen wait on one privilege, one is already fixed and unpushed,
 and four are genuinely open questions. E894 predicted eight would clear from
 `WITH DOCKER --load` storage scoping; the nine it was reaching for cannot clear
 until a step can mount a cgroup tree, whatever the storage does.
+
+### E903 - prediction, recorded before the run that decides it
+
+Run 33254832027 on `abbb29c39` carries the E901 engine fix and the E895c export
+fix. Written before it reports, in the form E894 should have taken - naming a
+mechanism, and a number that can be wrong:
+
+* **Podman goes from 1/16 to at least 14/16.** The mechanism is that its jobs
+  now pass `--engine buildkit` on the command line, so `sudo` cannot reset it.
+  A job that still fails must show zero `L1 hit` lines; if it shows any, the
+  flag is not arriving and E901 is wrong about how.
+* **Podman Examples goes from 0/5 to at least 4/5**, same mechanism.
+* **Native `+test-misc` passes**, because E895c fixed the export it died on and
+  `+test-misc` builds clean locally under native.
+* **The other thirteen Native jobs do not move.** Nine wait on the cgroup
+  privilege (E596), which nothing here touches. If they move, E902's grouping is
+  wrong.
+
+The Podman claim is the load-bearing one: it says the suite has been measuring
+the wrong engine, and a suite that was genuinely broken will not be fixed by
+telling it which engine to use.

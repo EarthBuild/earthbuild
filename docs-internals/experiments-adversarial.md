@@ -43363,3 +43363,35 @@ Three things the design did not anticipate, each found by running it:
   the shape of that bug.**
 
 Eight of the thirteen failing Native CI jobs turn on this construct.
+
+### E887 - a private netns for privileged steps is not the cheap fix it looks like
+
+`RUN --privileged ip link add dummy0 type dummy` fails with exit 2 under this
+engine. The cause is stated in the code: a step holds every capability *inside
+its namespace* and the network namespace is not one of the namespaces it gets -
+`CLONE_NEWNET` is deliberately not applied, because "cutting the network would
+break every build that fetches a dependency".
+
+The obvious repair is to give a `--privileged` step its own netns, where
+`NET_ADMIN` is harmless and adding a link affects nothing. Counting what that
+would break says otherwise.
+
+Thirteen `RUN --privileged` in the corpus:
+
+| n | what it does | needs the network |
+| - | ------------ | ----------------- |
+| 10 | `--entrypoint`, which is `RUN_EARTH` running an inner build | **yes** |
+| 1 | `--mount=type=tmpfs` | no |
+| 1 | `cat /proc/self/status \| grep CapEff` | no |
+| 1 | `capsh --has-p=cap_sys_admin` | no |
+
+**Ten of thirteen would break**, and a grep says none of them would. The command
+text of those ten contains no `apk`, `curl` or `go mod` - the fetching happens
+inside the build they start, one level down. Counting network use by looking at
+the command is exactly wrong for a harness whose whole job is to run something
+else.
+
+So the fix is a netns *with* connectivity - a veth pair and NAT, or a userspace
+stack - which is real work rather than a flag. That is the cost this decision
+carries, and it was worth measuring before quoting: the version of this note that
+stopped at the first grep would have said "no build needs it, turn it on".

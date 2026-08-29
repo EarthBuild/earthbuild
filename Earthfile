@@ -18,7 +18,7 @@ go:
     WORKDIR /earthly
 
 node:
-    FROM node:26.8.1-alpine3.24
+    FROM node:26.8.1-alpine3.24@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3
     # renovate: datasource=npm packageName=npm
     LET npm_version=12.0.2
     RUN \

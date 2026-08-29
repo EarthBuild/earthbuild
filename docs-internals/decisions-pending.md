@@ -35,6 +35,22 @@ shape (E883).
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | build `cmd/earth-diff` | costed at 3-4 engineer-weeks in the test plan. An hour of hand-rolling it changed the reading of the parity number three times, and finally showed that none of the 37 invocations the gate counts against this engine is a place it diverges from the reference (E882c). |
 
+## The gap is fully accounted for
+
+Nothing in the parity shortfall is unexplained work. It divides into:
+
+| part                          | nature                                                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| targets their recipe prepares | the harness lifts them out of the recipe that makes their fixture; buildkit fails them identically (E882c) |
+| three behaviour decisions     | the table above                                                                                            |
+| documented limitations        | `LOCALLY`, which this engine does not run, and cross-architecture emulation, which it says it does not do  |
+
+The single divergence the differential found - `for.earth+all` - is the first of
+those: `test-for-ls-locally` opens with `LOCALLY`, and the engine refuses it in
+as many words. So getting to 257 needs `LOCALLY`, the three decisions, and a
+harness that does not count what it cannot stage - in that order of size, and
+none of them is discovery.
+
 ## What is not a decision
 
 Worth stating so it is not re-litigated. The parity figure - `196 of 249` - counts

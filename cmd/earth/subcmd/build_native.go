@@ -134,7 +134,6 @@ func (b *Build) runNative(
 		push:            b.cli.Flags().Push,
 		noOutput:        b.cli.Flags().NoOutput,
 		execStats:       b.cli.Flags().DisplayExecStats,
-		versionFlags:    splitCommaList(b.cli.Flags().FeatureFlagOverrides),
 		argFile:         argFile,
 	}))
 }
@@ -159,7 +158,6 @@ type nativeInput struct {
 	noOutput        bool
 	execStats       bool
 	argFile         string
-	versionFlags    []string
 }
 
 // nativeOptions is the whole of the translation, in one place that can be read.
@@ -179,7 +177,6 @@ func nativeOptions(in nativeInput) enginecli.Options {
 		NoOutput:        in.noOutput,
 		ExecStats:       in.execStats,
 		ArgFile:         in.argFile,
-		VersionFlags:    in.versionFlags,
 		Out:             os.Stdout,
 	}
 }
@@ -228,20 +225,4 @@ func nativeArgs(flagArgs, buildArgs []string) (map[string]string, error) {
 	}
 
 	return args, nil
-}
-
-// splitCommaList turns `--version-flag-overrides` into the list the engine
-// takes, matching earth-native's `splitList`: empty means none, and each entry
-// is trimmed, so `a, b` and `a,b` mean the same thing.
-func splitCommaList(v string) []string {
-	if strings.TrimSpace(v) == "" {
-		return nil
-	}
-
-	out := strings.Split(v, ",")
-	for i := range out {
-		out[i] = strings.TrimSpace(out[i])
-	}
-
-	return out
 }

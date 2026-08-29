@@ -235,6 +235,7 @@ func TestEveryOptionIsAccountedFor(t *testing.T) {
 	excused := map[string]string{ //nolint:gosec // field names and prose, not credentials
 		"DryRun":                           "earth has no --dry-run; earth-native does, and passes it",
 		"Env":                              "the engine's own environment override, not a command-line flag",
+		"VersionFlags":                     "wiring it refuses the build: CI sets EARTH_VERSION_FLAG_OVERRIDES to\n			features this engine does not implement, and honouring them fails two Native jobs\n			that pass while it is ignored - measured, run 33271433455",
 		"Long":                             "belongs to `earth-native doc`, which this path does not reach",
 		"SecretFile":                       "folded into Secrets by nativeSecrets, deliberately - see its comment",
 		"SecretFiles":                      "folded into Secrets by nativeSecrets, deliberately",
@@ -256,7 +257,6 @@ func TestEveryOptionIsAccountedFor(t *testing.T) {
 		noOutput:        true,
 		execStats:       true,
 		argFile:         "f",
-		versionFlags:    []string{"v"},
 	}
 
 	inv := reflect.ValueOf(in)

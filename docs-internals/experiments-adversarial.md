@@ -43636,3 +43636,34 @@ Recorded because nothing from today has been through the gate. Seventeen commits
 have landed since this baseline, verified locally and on the x86 box on both
 architectures, and CI has been saturated for hours - a run on the head is what is
 missing, not a result that has been seen and ignored.
+
+### E895 - "the step producing /earthly/build/earthly did not run", bounded
+
+Three of `+test-misc`'s failures are this, at `Earthfile:705`:
+
+```earthfile
+SAVE ARTIFACT build/$EXECUTABLE_NAME AS LOCAL "build/$GOOS/$GOARCH$VARIANT/..."
+```
+
+The message means `StackFor` found nothing for that artifact - the target was
+planned and its steps did not run.
+
+What it is not:
+
+* **not an empty variable.** `ARG EXECUTABLE_NAME="earthly"` has a default and
+  the path in the error is `/earthly/build/earthly`, which is that default
+  resolved correctly.
+* **not the target.** `+earthly` builds standalone under `--engine=native` here,
+  `rc=0`.
+
+What is left is the chain. `+test-misc` reaches it through
+`BUILD --pass-args`, and `--pass-args` is already a known defect on this branch -
+it forwards the arguments a caller *declared* rather than the ones it was
+*given*. A target whose steps are skipped because it was keyed on the wrong
+arguments would produce exactly this message, and that is a hypothesis rather
+than a finding.
+
+Bounded here rather than chased, because reproducing it needs the whole
+`+test-misc` chain rather than the target, and this branch has a `--pass-args`
+fix already specified and unwritten. If that fix lands, this is the first thing
+to re-check: it costs one CI job to find out and nothing to remember.

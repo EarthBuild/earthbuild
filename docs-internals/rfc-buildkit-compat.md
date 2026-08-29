@@ -65,6 +65,12 @@ hand-rolling it already changed the reading of the parity number three times.
 Worth building, in this order, and not before:
 
 1. `cmd/earth-diff`, because the switch cannot be verified without it.
+   **Built, 2026-08-29** - exit codes only, which is the question a compat switch
+   needs answered and about a tenth of the tool the test plan describes. It
+   reproduces the two results this RFC rests on: `agree` for `star.earth+test`,
+   `native-ahead` for `wildcard-build.earth+wildcard-build-pwd`. Output
+   normalisation - paths, digests, ordering - is the rest of the estimate and is
+   not needed to answer "does this engine refuse what the reference builds".
 2. The behaviour differences - listings, mount scope - which are small and where
    matching costs nothing anyone values.
 3. Privilege, separately, loudly, and only if somebody wants it.

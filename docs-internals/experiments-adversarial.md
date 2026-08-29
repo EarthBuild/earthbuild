@@ -44635,3 +44635,41 @@ to read.
 Recorded as a dead end before writing any of it. The in-process cache added in
 E907 stays and is where the saving actually is - within one build, between the
 warm and the pull.
+
+### E918 - two true numbers for the same sweep, and why the ratchet stays at 156
+
+The `tests/` sweep run on the x86 box at `fa254fb66`:
+
+```text
+198 of 251 invocations answer as the tree says, from 116 files
+```
+
+Against 196 recorded on 2026-08-29 morning, so **+2** from the day's fixes. And
+`corpus-ratchet.txt` says `linux-earthtests-run 156`.
+
+**Both are right, and the ratchet must not be raised to match.** `ratchetRun`
+fails in both directions - a fall is a regression and an unrecorded rise stops
+protecting the level - so CI passing at 156 means CI *measures* 156. It runs the
+gate: `+engine-daemon` compiles `./engine/cli` with `-tags integration` and sets
+`EARTH_TEST_NETWORK`, and that target is invoked from `ci.yml`.
+
+The gap is the environment, not the engine. A GitHub runner cannot mount a
+cgroup tree for a step (E902, E910, E911), so every invocation whose test nests a
+runtime fails there and succeeds on a box that can. That is the same blocker
+holding eleven of the thirteen Native jobs, showing up in a second measurement.
+
+So the two numbers mean different things and neither is "the" parity figure:
+
+| number    | where           | what it measures                                |
+| --------- | --------------- | ----------------------------------------------- |
+| 198 / 251 | x86, privileged | what the engine can do when nothing stops it     |
+| 156       | CI runner       | what the engine can do inside the CI sandbox     |
+
+Raising the ratchet to 198 would fail CI on the next run, and lowering the sweep
+to match CI would hide the +2. The ratchet stays where it is until the privilege
+question is answered, and the sweep number is quoted with its machine attached -
+which is what E915 concluded about a performance number, arriving here by a
+different route.
+
+Recorded because raising the ratchet after a green sweep is the obvious next
+move and would have broken CI within one push.

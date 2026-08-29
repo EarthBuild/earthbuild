@@ -41822,3 +41822,41 @@ Recorded rather than guessed a fourth time. The habit that produced the three
 wrong readings was answering with what the log made easy - the failing command,
 then the warning above it, then the image - and each was one question short of
 the probe.
+
+### E863d - the symptom was quoted by the message explaining it
+
+The three `docker: not found` occurrences in `group12`'s log are all one line,
+printed three times:
+
+```text
+  a step whose image has none will say `docker: not found` about a file that
+```
+
+That is this engine's own warning, explaining what the reader would see *if*
+their image had no client. The step never said it. Two readings of this failure
+were built on grep finding the explanation of a symptom and taking it for the
+symptom.
+
+**The probe settles what is left.** On Linux, in a `WITH DOCKER` block in the
+dind image:
+
+```text
+command -v docker   ->  /usr/bin/docker        found
+docker inspect ...  ->  no INSPECT-OK, rc=1    failed
+```
+
+So docker is present, is found, and `docker inspect` fails - which is exactly
+what the CI assertion reports and nothing more. Why `inspect` fails, with the
+daemon reachable enough for the surrounding machinery, is the open question and
+is now the only one.
+
+**The trap, which is new and general.** A good diagnostic quotes the symptom it
+explains: "will say `docker: not found`", "`no cgroup mount found in mountinfo`",
+"reports `exit status 1`". Grepping a log for a symptom therefore finds every
+message *about* that symptom as well as any instance of it - and the messages are
+the more numerous, because they are printed per step whether or not the thing
+happens. Four wrong readings of one failure this session, and the last two were
+this.
+
+Distinguish by printing the matched line, not the count. `grep -c` was what made
+three copies of a paragraph look like three failures.

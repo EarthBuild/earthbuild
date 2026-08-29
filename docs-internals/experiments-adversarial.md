@@ -41990,5 +41990,14 @@ the IR, at five in the morning, on a branch where four readings of this failure
 were already wrong. But it is now a change to name rather than a symptom to
 report, and the two invariants it must not break are written down beside it.
 
+**And the mechanism for it already exists.** `Mount`'s own documentation says an
+ephemeral mount and a named cache are "a hole in the step's filesystem" and
+differ "only in the second" property - whether the directory outlives the step.
+A named cache is shared across steps because it has an `ID` resolved against the
+cache store; an ephemeral one makes a fresh directory per step because it has
+none. So the addition is a scope key on the ephemeral mount, not a new kind of
+mount: two steps asking for the same key get the same directory, and it is
+removed when the block that named it ends.
+
 The full chain, for anyone picking this up: CI symptom (E863a-d), mechanism
 (E863f), the decisions behind the mechanism (E863g), the change (here).

@@ -43386,12 +43386,12 @@ would break says otherwise.
 
 Thirteen `RUN --privileged` in the corpus:
 
-| n | what it does | needs the network |
-| - | ------------ | ----------------- |
-| 10 | `--entrypoint`, which is `RUN_EARTH` running an inner build | **yes** |
-| 1 | `--mount=type=tmpfs` | no |
-| 1 | `cat /proc/self/status \| grep CapEff` | no |
-| 1 | `capsh --has-p=cap_sys_admin` | no |
+| n   | what it does                                                | needs the network |     |
+| --- | ----------------------------------------------------------- | ----------------- | --- |
+| 10  | `--entrypoint`, which is `RUN_EARTH` running an inner build | **yes**           |     |
+| 1   | `--mount=type=tmpfs`                                        | no                |     |
+| 1   | `cat /proc/self/status \                                    | grep CapEff`      | no  |
+| 1   | `capsh --has-p=cap_sys_admin`                               | no                |     |
 
 **Ten of thirteen would break**, and a grep says none of them would. The command
 text of those ten contains no `apk`, `curl` or `go mod` - the fetching happens
@@ -43521,11 +43521,11 @@ divergence.
 Run locally under `--engine=native` now that E888 made that possible, and each
 failure put through `earth-diff`:
 
-| outcome                                       | n  |
-| --------------------------------------------- | -- |
-| pass                                           | 17 |
-| the tree says it does not pass                 | 1  |
-| fail under **both** engines                    | 2  |
+| outcome                        | n   |
+| ------------------------------ | --- |
+| pass                           | 17  |
+| the tree says it does not pass | 1   |
+| fail under **both** engines    | 2   |
 
 `star-test-todo` carries `# TODO: This does not pass.` on the line above it.
 `remote-test` and `dockerfile-test` both return `agree` from the differential -

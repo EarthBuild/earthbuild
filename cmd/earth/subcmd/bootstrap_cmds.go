@@ -91,23 +91,25 @@ func (b *Bootstrap) Action(ctx context.Context, cmd *cli.Command) error {
 
 	switch b.homebrewSource {
 	case "bash":
-		compEntry, err := bashCompleteEntry()
+		target, err := newCompletionTarget()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to enable bash-completion: %s\n", err)
-			return nil // zsh-completion isn't available, silently fail.
+			return nil // bash-completion isn't available, silently fail.
 		}
 
-		fmt.Print(compEntry)
+		// The formula writes this output to a single file, so only the primary
+		// command name can be registered here.
+		fmt.Print(bashCompleteEntry(target.earthPath, target.cmdNames[0]))
 
 		return nil
 	case "zsh":
-		compEntry, err := zshCompleteEntry()
+		target, err := newCompletionTarget()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to bootstrap zsh-completion: %s\n", err)
 			return nil // zsh-completion isn't available, silently fail.
 		}
 
-		fmt.Print(compEntry)
+		fmt.Print(zshCompleteEntry(target.earthPath, target.cmdNames[0]))
 
 		return nil
 	case "":
@@ -139,20 +141,30 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 	}()
 
 	if b.withAutocomplete {
-		// Because this requires sudo, it should warn and not fail the rest of it.
-		err := b.insertBashCompleteEntry()
+		target, err := newCompletionTarget()
 		if err != nil {
 			console.Warnf("Warning: %s\n", err.Error())
 			// Keep going.
 		}
 
-		err = b.insertZSHCompleteEntry()
-		if err != nil {
-			console.Warnf("Warning: %s\n", err.Error())
-			// Keep going.
+		for _, cmdName := range target.cmdNames {
+			// Because this requires sudo, it should warn and not fail the rest of it.
+			err := b.insertBashCompleteEntry(target.earthPath, cmdName)
+			if err != nil {
+				console.Warnf("Warning: %s\n", err.Error())
+				// Keep going.
+			}
+
+			err = b.insertZSHCompleteEntry(target.earthPath, cmdName)
+			if err != nil {
+				console.Warnf("Warning: %s\n", err.Error())
+				// Keep going.
+			}
 		}
 
-		console.Printf("You may have to restart your shell for autocomplete to get initialized (e.g. run \"exec $SHELL\")\n")
+		if len(target.cmdNames) > 0 {
+			console.Printf("You may have to restart your shell for autocomplete to get initialized (e.g. run \"exec $SHELL\")\n")
+		}
 	}
 
 	err := symlinkEarthlyToEarth()
@@ -195,7 +207,7 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-func (b *Bootstrap) insertBashCompleteEntry() error {
+func (b *Bootstrap) insertBashCompleteEntry(earthPath, cmdName string) error {
 	u, err := user.Current()
 	if err != nil {
 		return fmt.Errorf("could not get current user: %w", err)
@@ -210,9 +222,9 @@ func (b *Bootstrap) insertBashCompleteEntry() error {
 	// manually in that case.
 	if isRootUser {
 		if runtime.GOOS == "darwin" {
-			path = "/usr/local/etc/bash_completion.d/earthly"
+			path = filepath.Join("/usr/local/etc/bash_completion.d", cmdName)
 		} else {
-			path = "/usr/share/bash-completion/completions/earthly"
+			path = filepath.Join("/usr/share/bash-completion/completions", cmdName)
 		}
 	} else {
 		// https://github.com/scop/bash-completion/blob/master/README.md#faq
@@ -222,10 +234,10 @@ func (b *Bootstrap) insertBashCompleteEntry() error {
 			userPath = xdg.DataHome
 		}
 
-		path = filepath.Join(userPath, "bash-completion/completions/earthly")
+		path = filepath.Join(userPath, "bash-completion/completions", cmdName)
 	}
 
-	ok, err := b.insertBashCompleteEntryAt(path)
+	ok, err := b.insertBashCompleteEntryAt(path, earthPath, cmdName)
 	if err != nil {
 		return err
 	}
@@ -239,7 +251,7 @@ func (b *Bootstrap) insertBashCompleteEntry() error {
 	return nil
 }
 
-func (b *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
+func (b *Bootstrap) insertBashCompleteEntryAt(path, earthPath, cmdName string) (bool, error) {
 	dirPath := filepath.Dir(path)
 
 	dirPathExists, err := fileutil.DirExists(dirPath)
@@ -267,12 +279,7 @@ func (b *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 	}
 	defer f.Close()
 
-	bashEntry, err := bashCompleteEntry()
-	if err != nil {
-		return false, fmt.Errorf("failed to add entry: %w", err)
-	}
-
-	_, err = f.WriteString(bashEntry)
+	_, err = f.WriteString(bashCompleteEntry(earthPath, cmdName))
 	if err != nil {
 		return false, fmt.Errorf("failed writing to %s: %w", path, err)
 	}
@@ -281,7 +288,7 @@ func (b *Bootstrap) insertBashCompleteEntryAt(path string) (bool, error) {
 }
 
 // If debugging this, it might be required to run `rm ~/.zcompdump*` to remove the cache.
-func (b *Bootstrap) insertZSHCompleteEntry() error {
+func (b *Bootstrap) insertZSHCompleteEntry(earthPath, cmdName string) error {
 	potentialPaths := []string{
 		"/usr/local/share/zsh/site-functions",
 		"/usr/share/zsh/site-functions",
@@ -293,7 +300,7 @@ func (b *Bootstrap) insertZSHCompleteEntry() error {
 		}
 
 		if dirPathExists {
-			return b.insertZSHCompleteEntryUnderPath(dirPath)
+			return b.insertZSHCompleteEntryUnderPath(dirPath, earthPath, cmdName)
 		}
 	}
 
@@ -303,8 +310,8 @@ func (b *Bootstrap) insertZSHCompleteEntry() error {
 	return nil // zsh-completion isn't available, silently fail.
 }
 
-func (b *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
-	path := filepath.Join(dirPath, "_earthly")
+func (b *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath, earthPath, cmdName string) error {
+	path := filepath.Join(dirPath, "_"+cmdName)
 
 	pathExists, err := fileutil.FileExists(path)
 	if err != nil {
@@ -322,13 +329,7 @@ func (b *Bootstrap) insertZSHCompleteEntryUnderPath(dirPath string) error {
 	}
 	defer f.Close()
 
-	compEntry, err := zshCompleteEntry()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: unable to enable zsh-completion: %s\n", err)
-		return nil // zsh-completion isn't available, silently fail.
-	}
-
-	_, err = f.WriteString(compEntry)
+	_, err = f.WriteString(zshCompleteEntry(earthPath, cmdName))
 	if err != nil {
 		return fmt.Errorf("failed writing to %s: %w", path, err)
 	}
@@ -416,29 +417,51 @@ func symlinkEarthlyToEarth() error {
 	return nil
 }
 
-func bashCompleteEntry() (string, error) {
-	template := "complete -o nospace -C '__earthly__' earthly\n"
-	return renderEntryTemplate(template)
+// completionTarget describes how shell completion should be registered for
+// this binary.
+type completionTarget struct {
+	// earthPath is the binary shells invoke to compute completions.
+	earthPath string
+	// cmdNames are the command words to register, primary name first.
+	cmdNames []string
 }
 
-func zshCompleteEntry() (string, error) {
-	template := `#compdef _earthly earthly
-
-function _earthly {
-    autoload -Uz bashcompinit
-    bashcompinit
-    complete -o nospace -C '__earthly__' earthly
-}
-`
-
-	return renderEntryTemplate(template)
-}
-
-func renderEntryTemplate(template string) (string, error) {
-	earthPath, err := os.Executable()
+func newCompletionTarget() (completionTarget, error) {
+	binPath, err := os.Executable()
 	if err != nil {
-		return "", fmt.Errorf("failed to determine earth path: %w", err)
+		return completionTarget{}, fmt.Errorf("failed to get current executable path: %w", err)
 	}
 
-	return strings.ReplaceAll(template, "__earthly__", earthPath), nil
+	return completionTarget{
+		earthPath: binPath,
+		cmdNames:  completionCommandNames(filepath.Base(binPath)),
+	}, nil
+}
+
+// completionCommandNames returns the command words to register completion for,
+// primary name first. Shells look completion up by the name the user types,
+// which is the name this binary is installed under -- not the installation
+// name, which names on-disk resources and can be overridden independently.
+func completionCommandNames(baseName string) []string {
+	if baseName == "earthly" {
+		// symlinkEarthlyToEarth also exposes this binary as earth.
+		return []string{baseName, "earth"}
+	}
+
+	return []string{baseName}
+}
+
+func bashCompleteEntry(earthPath, cmdName string) string {
+	return fmt.Sprintf("complete -o nospace -C '%s' %s\n", earthPath, cmdName)
+}
+
+func zshCompleteEntry(earthPath, cmdName string) string {
+	return fmt.Sprintf(`#compdef _%[1]s %[1]s
+
+function _%[1]s {
+    autoload -Uz bashcompinit
+    bashcompinit
+    complete -o nospace -C '%[2]s' %[1]s
+}
+`, cmdName, earthPath)
 }

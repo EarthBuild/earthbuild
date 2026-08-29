@@ -95,9 +95,14 @@ rm -rf "$HOME/.${default_install_name}" "$HOME/.earthly-test"
 
 echo "=== Test 4: With Autocomplete ==="
 
+# Completion is registered under the name the binary is installed as, so that
+# `earth <TAB>` works for the official binary. See #804.
+completion_name=$(basename "$earthly")
+completion_file="/usr/share/bash-completion/completions/$completion_name"
+
 "$earthly" bootstrap
 
-if [[ -f "/usr/share/bash-completion/completions/earthly" ]]; then
+if [[ -f "$completion_file" ]]; then
   echo "autocompletions were present when they should not have been"
   exit 1
 fi
@@ -105,13 +110,19 @@ fi
 echo "----"
 sudo "$earthly" bootstrap --with-autocomplete
 
-if [[ ! -f "/usr/share/bash-completion/completions/earthly" ]]; then
+if [[ ! -f "$completion_file" ]]; then
   echo "autocompletions were missing when they should have been present"
   exit 1
 fi
 
+if ! grep -q " $completion_name\$" "$completion_file"; then
+  echo "autocompletions were not registered for the $completion_name command"
+  cat "$completion_file"
+  exit 1
+fi
+
 rm -rf "$HOME/.${default_install_name}"
-sudo rm -rf "/usr/share/bash-completion/completions/earthly"
+sudo rm -rf "$completion_file" "/usr/share/bash-completion/completions/earth"
 
 echo "=== Test 5: Permissions ==="
 

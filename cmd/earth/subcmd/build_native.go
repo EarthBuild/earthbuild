@@ -2,13 +2,19 @@ package subcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"slices"
 	"strings"
 
+	"github.com/joho/godotenv"
+	"github.com/urfave/cli/v3"
+
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/EarthBuild/earthbuild/engine/cli"
+	enginecli "github.com/EarthBuild/earthbuild/engine/cli"
 )
 
 // nativeEngine is what --engine=native names.
@@ -26,7 +32,43 @@ const nativeEngine = "native"
 // remote target or an artifact reference means the caller asked for something
 // this path does not carry across, and quietly building something else is how a
 // comparison stops comparing.
-func (b *Build) runNative(ctx context.Context, target domain.Target, flagArgs []string) error {
+// nativeSecrets is what `--secret`, `--secret-file` and the secrets dotenv file
+// say, in the form the engine takes.
+//
+// **A copy of the buildkit path's three lines, on purpose.** The native branch
+// returns before that path prepares anything, deliberately - it brings its own
+// scheduling, store and sandbox, and sharing the preparation would start a
+// daemon neither engine uses. Moving the shared preparation earlier to reach it
+// would change which error a bad invocation reports first for buildkit builds,
+// for the benefit of a branch that returns immediately afterwards.
+func (b *Build) nativeSecrets(cmd *cli.Command) (map[string]string, error) {
+	fromFile, err := godotenv.Read(b.cli.Flags().SecretFile)
+	if err != nil && (cmd.IsSet(flag.SecretFileFlag) || !errors.Is(err, os.ErrNotExist)) {
+		// A default `.secret` that is not there is not an error; one that was
+		// asked for by name is.
+		return nil, fmt.Errorf("read %s: %w", b.cli.Flags().SecretFile, err)
+	}
+
+	raw, err := common.ProcessSecrets(
+		b.secrets, b.secretFiles, fromFile, b.cli.Flags().SecretFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// The engine holds secrets as strings; `ProcessSecrets` returns bytes.
+	// Ranged rather than length-checked, so `--secret FOO=` - a secret that
+	// exists and is empty - arrives as a key rather than being dropped.
+	out := make(map[string]string, len(raw))
+	for k, v := range raw {
+		out[k] = string(v)
+	}
+
+	return out, nil
+}
+
+func (b *Build) runNative(
+	ctx context.Context, target domain.Target, flagArgs []string, secrets map[string]string,
+) error {
 	if target.IsRemote() {
 		return fmt.Errorf(
 			"--engine=%s cannot build %s: it is a remote target, and this engine"+
@@ -56,11 +98,12 @@ func (b *Build) runNative(ctx context.Context, target domain.Target, flagArgs []
 		return err
 	}
 
-	return cli.Run(ctx, nativeOptions(nativeInput{
+	return enginecli.Run(ctx, nativeOptions(nativeInput{
 		dir:             dir,
 		target:          target.Target,
 		platform:        platform,
 		args:            args,
+		secrets:         secrets,
 		allowPrivileged: b.cli.Flags().AllowPrivileged,
 	}))
 }
@@ -78,12 +121,13 @@ type nativeInput struct {
 	target          string
 	platform        string
 	args            map[string]string
+	secrets         map[string]string
 	allowPrivileged bool
 }
 
 // nativeOptions is the whole of the translation, in one place that can be read.
-func nativeOptions(in nativeInput) cli.Options {
-	return cli.Options{
+func nativeOptions(in nativeInput) enginecli.Options {
+	return enginecli.Options{
 		Dir:    in.dir,
 		Target: "+" + in.target,
 		// One platform, because this engine builds for one at a time: the
@@ -91,6 +135,7 @@ func nativeOptions(in nativeInput) cli.Options {
 		// silently would build something the caller did not ask for.
 		Platform:        in.platform,
 		Args:            in.args,
+		Secrets:         in.secrets,
 		AllowPrivileged: in.allowPrivileged,
 		Out:             os.Stdout,
 	}

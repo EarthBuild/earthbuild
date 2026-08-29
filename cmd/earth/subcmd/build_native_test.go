@@ -126,3 +126,32 @@ func TestAllowPrivilegedReachesTheNativeEngine(t *testing.T) {
 		}
 	}
 }
+
+// Secrets reach the native engine.
+//
+// **The third flag to be parsed and then dropped**, after `--build-arg` and
+// `--allow-privileged`, which is why this file exists. `--secret` was worse than
+// the other two: the buildkit path processes secrets at a point the native
+// dispatch returns before, so `earth --engine=native --secret TOK=v` reported
+// `RUN at Earthfile:5 needs the secret "TOK", which was not supplied` about a
+// secret that had been supplied on the same command line.
+func TestSecretsReachTheNativeEngine(t *testing.T) {
+	t.Parallel()
+
+	got := nativeOptions(nativeInput{
+		dir: ".", target: "+x",
+		secrets: map[string]string{"TOK": "s3cr3t", "OTHER": ""},
+	})
+
+	if got.Secrets["TOK"] != "s3cr3t" {
+		t.Errorf("--secret TOK=s3cr3t arrived as %q; the whole map was %v",
+			got.Secrets["TOK"], got.Secrets)
+	}
+
+	// An empty value is a secret too - `--secret FOO=` is how a caller says
+	// "this exists and is blank", and dropping it turns a supplied secret into
+	// a missing one.
+	if _, ok := got.Secrets["OTHER"]; !ok {
+		t.Errorf("--secret OTHER= did not arrive at all; the whole map was %v", got.Secrets)
+	}
+}

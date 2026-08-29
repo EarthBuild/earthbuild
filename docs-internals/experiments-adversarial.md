@@ -43098,3 +43098,41 @@ before anybody turns it on anywhere.
 first attempt compared `/tmp` against `$HOME`, which are the same ext4 filesystem
 on that box, and reported 19.2ms against 18.7ms. Comparing a filesystem with
 itself gives a difference of zero and reads as "no effect".
+
+### E883a - the expensive part of the store is 13MB of it
+
+E883 showed a store on tmpfs is 1.24x because the overlay unmount costs nothing
+there, and left the objection that a build whose layers exceed RAM fails rather
+than slows. Measuring what a store actually holds answers it:
+
+```text
+912M   a golang build's whole store
+898M     imagecache        blobs, fetched and read, never mounted
+ 14M     layers            what the overlay mounts and unmounts
+ 32K     scratch, actions, records
+```
+
+**The part that is slow to unmount is the small part.** The image cache is the
+big one and it is separable - `EARTH_IMAGE_CACHE_DIR` already exists for it - so
+the two can live on different filesystems:
+
+```text
+store on disk      2216.0 ms
+layers on tmpfs    1558.9 ms   images still on disk
+saved               657.2 ms   1.42x   n=5
+tmpfs held           13.3 MB
+```
+
+Every run reported `0 hit, 31 miss`, so all thirty-one steps really ran in each.
+
+**1.42x for thirteen megabytes of RAM**, and the 898MB stays on disk where its
+size does not matter. That is a different proposition from putting the whole
+store in memory: the failure mode E883 worried about needs a build whose *layer
+deltas* exceed RAM, not one whose images do, and those are three orders of
+magnitude apart here.
+
+It is still a configuration rather than a default. Thirteen megabytes is this
+build's number, not every build's, and a step that writes a large file writes it
+into `layers`. What the measurement changes is the shape of the question: the
+ceiling to establish is the largest layer delta a build produces, which is a much
+smaller and more predictable quantity than the images it pulls.

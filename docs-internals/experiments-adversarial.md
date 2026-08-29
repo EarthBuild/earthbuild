@@ -44417,3 +44417,38 @@ It is "the engine nests a runtime, and one of the two environments it is tested
 in forbids it". That is a question about how the Native suite is run, and it
 belongs beside the other environment decisions rather than in the engine's
 backlog.
+
+### E912 - the sudo hypothesis, refuted before it cost a CI run
+
+E911 guessed that the Native suite fails to mount a cgroup tree because it runs
+unprivileged: the Podman suites pass `SUDO: "sudo"` and the Native suite passes
+nothing, and `isolateWith` opens with
+
+```go
+if os.Geteuid() != 0 {
+    return ErrCannotIsolate
+}
+```
+
+so an unprivileged run gets no `CLONE_NEWCGROUP`, and mounting cgroup2 in the
+initial cgroup namespace is exactly `operation not permitted`. One line in
+`ci.yml` would have tested it.
+
+**The evidence was already in the logs.** `ErrCannotIsolate` is refused rather
+than degraded - a step that cannot be confined does not run - and the failing
+jobs' steps ran, producing output, warning only about the mount. Grepping
+confirms it: no `cannot isolate` anywhere, and the job reports `unprivileged
+userns: ok`. The process is already root and already has the cgroup namespace.
+
+So the mount fails *with* the namespace and *as* root, which is a different
+question from the one E911 asked and not one this machine can answer: the macOS
+guest is root in a VM with none of the restrictions, which is why nested docker
+works here (E911) and why the failure cannot be reproduced locally to be worked
+on.
+
+**Cheap to have been wrong.** The guess was written down before being tested,
+with the mechanism it rested on, so refuting it took a grep rather than a
+forty-minute run and a confusing result. That is the whole value of recording a
+prediction: E894 was falsified expensively by CI, this one for nothing.
+
+Not changed: `ci.yml` keeps no `SUDO` on the Native suite.

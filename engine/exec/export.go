@@ -221,29 +221,45 @@ func stagingFor(path, localDest string) string {
 }
 
 func copyOut(src, dst string) error {
-	// Lstat, not Stat. `copyDir` walks with `filepath.Walk`, which lstats: a
-	// symlink is not a directory to it, so the entry arrives here - and stat
-	// followed the link, saw a directory, and walked it. A link to its own
-	// parent then closed the circle and the engine died with `fatal error: stack
-	// overflow` on a `GIT CLONE` checkout that had one (E452).
-	//
-	// **Two functions disagreeing about what a symlink is.** Answering the same
-	// way as the walk that called us is what makes the pair terminate.
 	fi, err := os.Lstat(src)
 	if err != nil {
 		return fmt.Errorf("the guest did not stage %s: %w", dst, err)
 	}
 
+	err = os.MkdirAll(filepath.Dir(dst), 0o750)
+	if err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Dir(dst), err)
+	}
+
+	return copyOutKnown(src, dst, fi)
+}
+
+// copyOutKnown is copyOut for a caller that has already lstatted the source and
+// created the destination's parent.
+//
+// **Both were being done twice per file.** `filepath.Walk` lstats every entry
+// and hands the result to its callback, which threw it away; and the walk
+// creates each directory as it descends, so the `MkdirAll` before every file was
+// asking about a directory it had just made. Two syscalls of about six, on a
+// path a large context pays once per file: staging measured 78.5us a file
+// against 31.7 for `cp -r` (E878).
+func copyOutKnown(src, dst string, fi os.FileInfo) error {
+	// The caller's lstat is used, not a fresh stat. `copyDir` walks with
+	// `filepath.Walk`, which lstats: a symlink is not a directory to it, so the
+	// entry arrives here - and stat followed the link, saw a directory, and
+	// walked it. A link to its own parent then closed the circle and the engine
+	// died with `fatal error: stack overflow` on a `GIT CLONE` checkout that had
+	// one (E452).
+	//
+	// **Two functions disagreeing about what a symlink is.** Answering the same
+	// way as the walk that called us is what makes the pair terminate, which is
+	// why this takes the walk's own answer rather than asking again.
+	//
 	// A link arrives as a link, which is also what a layer holds (the rule
 	// `SAVE ARTIFACT --symlink-no-follow` is a no-op against) - so an export and
 	// a capture describe the same tree.
 	if fi.Mode()&os.ModeSymlink != 0 {
 		return copyLink(src, dst)
-	}
-
-	err = os.MkdirAll(filepath.Dir(dst), 0o750)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", filepath.Dir(dst), err)
 	}
 
 	if fi.IsDir() {
@@ -428,7 +444,7 @@ func copyDirExcluding(src, dst string, ex excluder) error {
 			return nil
 		}
 
-		return copyOut(p, target)
+		return copyOutKnown(p, target, fi)
 	})
 	if walked != nil {
 		return walked

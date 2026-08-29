@@ -42662,3 +42662,44 @@ not a duration, and a parser that took field three as seconds reported 60
 seconds of tracing inside a 2.2 second build. Assuming the format of a log this
 engine prints in more than one shape is the same error as [[phase-log-nests]] in
 a different coat: check that what you parsed is what you think it is.
+
+### E878 - Linux had no copy-on-write path at all
+
+E566 gave darwin `clonefile` after measuring `copyOut` reading a 45MB artifact
+into memory and writing it back. `cloneOneFile` returns false on every other
+platform, so Linux - where CI runs, and where a context is staged file by file -
+kept doing exactly what E566 fixed.
+
+Two things were tried. The first was a guess and was wrong:
+
+```text
+removing two redundant syscalls per file   147 -> 140 ms   1.05x
+```
+
+`filepath.Walk` lstats every entry and hands the result to its callback, which
+threw it away so `copyOut` lstatted again; and the walk creates each directory as
+it descends, so the `MkdirAll` before every file asked about one just made. Two
+syscalls of about six, and worth 3.5us a file - against a gap of 39us a file
+between this and `cp -r`. Kept, because redundant work is still redundant, but it
+was not the cost.
+
+The cost is that the bytes travel through this process. `copy_file_range` moves
+them in the kernel, and on btrfs and XFS shares extents exactly as APFS does:
+
+```text
+2000 small files (200B)   147 -> 138 ms   1.07x
+86MB in 21 files           88 ->  53 ms   1.66x
+```
+
+Both n=5, alternated, cold cache each run. Small files barely move, which is
+right: the syscall count dominates when there is nothing to copy. The saving is
+in the bytes, and grows with them - which is the shape a real context has.
+
+**The characterisation test earned its place before the change was written.** It
+caught the first version leaving every file at `CreateTemp`'s 0600: `stampOut`
+sets times alone, and darwin was relying on `clonefile` carrying the mode. A
+read-only file arriving writable is the kind of difference that surfaces much
+later wearing somebody else's name.
+
+Written before the refactor and passing against the old behaviour, which is the
+only order in which it could have caught that.

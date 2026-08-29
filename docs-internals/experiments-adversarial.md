@@ -42567,3 +42567,33 @@ takes `plan` from 0.432s to 0.001s.
 claims**, and do not average them: they measure different things. The minimal
 case is the honest measure of what the engine costs when it is not waiting for a
 registry, and the realistic case is the honest measure of what a developer sees.
+
+### E875 - one COPY is two steps, and the phase log named them the same
+
+A change-one-file rebuild showed `exec 0.174s Earthfile:8` with its instrumented
+children summing to 10ms, which read as 164ms of unaccounted cost inside the
+context staging. It is not: `exec` appears **twice** for that line, because one
+`COPY` is two nodes - the context staged (`local`), then the file copied
+(`file`) - and the log keyed both on the source alone.
+
+Labelling the phase by operation as well as source says it immediately:
+
+```text
+exec  0.182s  local Earthfile:8
+exec  0.012s  file  Earthfile:8
+```
+
+And the 163ms inside the `local` step is not a new cost at all - it is
+`sandbox:start` 0.087 plus `sandbox:dial` 0.076, because `stageContextInGuest`
+calls `client()` first and is simply whichever step reached the guest first. The
+concurrent `lookup Earthfile:2` reports the same 163ms for the same reason: it is
+blocked on the same `sync.Once`.
+
+**A nested phase read as a sibling is a cost invented from nothing**, which is
+the same error as summing them ([[phase-log-nests]]). The label stays because
+without it the log shows two very different numbers under one name and offers no
+way to tell which is which.
+
+Nothing to fix here beyond the label. On a pinned build the 163ms cannot hide
+behind planning, and removing it needs either a guest that is already connected
+or a lookup that does not need one - both design questions, not defects.

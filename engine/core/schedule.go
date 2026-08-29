@@ -985,7 +985,12 @@ func (s *Scheduler) runStepOnce(
 	ctx context.Context, n *ir.Node, w Worker, base []ir.NodeID, sources [][]ir.NodeID,
 ) (Result, error) {
 	if s.Materialiser == nil {
-		endExec := timing.Phase("exec", n.Meta.Source)
+		// **Named by operation as well as source.** One `COPY` line is two
+		// nodes - the context staged, then the file copied - so a log keyed on
+		// the source alone shows `exec Earthfile:8` twice with very different
+		// costs and no way to tell which is which. Half an hour went into
+		// attributing a sandbox dial to the wrong one (E875).
+		endExec := timing.Phase("exec", fmt.Sprintf("%v %s", n.Op.Kind, n.Meta.Source))
 		defer endExec()
 
 		return s.Executor.Run(ctx, n, w, base, sources)
@@ -1012,7 +1017,7 @@ func (s *Scheduler) runStepOnce(
 		}
 	}()
 
-	endExec := timing.Phase("exec", n.Meta.Source)
+	endExec := timing.Phase("exec", fmt.Sprintf("%v %s", n.Op.Kind, n.Meta.Source))
 	defer endExec()
 
 	return s.Executor.Run(ctx, n, w, base, sources)

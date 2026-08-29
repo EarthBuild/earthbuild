@@ -341,12 +341,23 @@ func prepare(ctx context.Context, ref string, opt Options) (prepared, error) {
 			continue
 		}
 
+		// A manifest a warm already read, when the target is a digest and so
+		// cannot have changed since. The token above is still needed: it
+		// authenticates the blobs, which are the part nothing remembers.
+		if cached := manifests.get(base+"/manifests/"+target, target); cached != nil {
+			body, err = cached, nil
+
+			break
+		}
+
 		endManifest := timing.Phase("registry:manifest", target)
 		body, err = get(ctx, client, tok, base+"/manifests/"+target, maxManifest)
 
 		endManifest()
 
 		if err == nil {
+			manifests.put(base+"/manifests/"+target, target, body)
+
 			break
 		}
 

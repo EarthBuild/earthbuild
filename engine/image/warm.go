@@ -58,5 +58,26 @@ func Warm(ctx context.Context, ref string, opt Options) {
 	// The token lands in the process-wide cache the pull reads
 	// (`tokencache.go`), which is what makes this a move rather than an extra
 	// exchange - the property TestWarmingDoesNotAddATokenExchange pins.
-	_, _ = token(ctx, client, base+"/manifests/"+what, opt.Challenges, challengeKey(r))
+	tok, err := token(ctx, client, base+"/manifests/"+what, opt.Challenges, challengeKey(r))
+	if err != nil {
+		return
+	}
+
+	// **And the manifest, but only for a digest.** It is another 0.135s of
+	// host-side work inside the pull, and the bytes behind a digest cannot
+	// change - so reading them early is the same answer, not a stale one. A
+	// tag is left alone: what a tag means today is a question only the registry
+	// can answer, and `manifestcache.go` refuses to remember one.
+	if r.Digest == "" {
+		return
+	}
+
+	url := base + "/manifests/" + r.Digest
+
+	body, err := get(ctx, client, tok, url, maxManifest)
+	if err != nil {
+		return
+	}
+
+	manifests.put(url, r.Digest, body)
 }

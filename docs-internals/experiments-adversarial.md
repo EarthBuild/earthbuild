@@ -43136,3 +43136,40 @@ build's number, not every build's, and a step that writes a large file writes it
 into `layers`. What the measurement changes is the shape of the question: the
 ceiling to establish is the largest layer delta a build produces, which is a much
 smaller and more predictable quantity than the images it pulls.
+
+### E883b - E883a's thirteen megabytes was an alpine build's number, and it does not generalise
+
+E883a said the expensive part of the store is 13MB and offered layers-on-tmpfs as
+1.42x for that price. The 13MB is real and it is the wrong number: it came from
+thirty `RUN echo` steps on an alpine base, where the unpacked base is a few
+megabytes and each step's delta is a file containing a number.
+
+The same configuration on a golang build:
+
+```text
+tmpfs held        1.1G
+disk (images)     898M
+```
+
+**The layers directory holds the unpacked base image**, not only the deltas a
+build produces. `du` on the directory says 249M while `du` on its largest single
+entry says 898M, which is the giveaway: the entries share blocks with the image
+cache through hardlinks, so the directory total counts them once. Move the layers
+to a different filesystem and the sharing is impossible - a hardlink cannot cross
+a mount - so what was 249M of disk becomes 1.1G of RAM.
+
+So the split configuration does not bound memory at anything small. It needs
+roughly the unpacked base image plus the build's deltas, which is gigabytes for
+any realistic base and was megabytes only because the fixture was trivial.
+
+**Same error as the speed benchmarks earlier today**, and worth naming for that
+reason: a minimal Earthfile made `sandbox:start` look like a third of a build,
+and a minimal Earthfile has now made the store look like 13MB. A fixture chosen
+to isolate one variable is not a sample of anything, and any number taken from it
+that will be quoted about real builds has to be re-taken on one.
+
+What survives: the timing result of E883 - the unmount is the store filesystem's
+cost, and tmpfs makes it free - which was measured on identical work either way
+and does not depend on the size. What does not survive is the price. It is
+gigabytes, and whether that is worth 1.42x is a judgement about a particular
+machine rather than a recommendation.

@@ -42841,3 +42841,38 @@ Excluded: `--arg-file-path .some-other-arg` three times and
 `--env-file-path .some-other-env` once - which is precisely the group that had
 been read as an engine defect, and reads that way still if the last clause of the
 error is not chased.
+
+### E880b - the second exclusion over-reached too, and the same number caught it
+
+After E880a landed the file-path rule, the next group was the three
+`builtin-args` invocations the tree prepares with
+
+```earthfile
+RUN sed -i "1s/VERSION \(.*\)/VERSION --earthly-ci-runner-arg \1/" Earthfile
+```
+
+The dialect the call runs under is then not the one on disk, so the target asks
+for a builtin the file did not enable and the engine's correct refusal reads as a
+defect. The parser was taught to notice a `RUN sed|mv|cp ... Earthfile` since the
+last target header and the gate to skip what follows it.
+
+```text
+before   196 of 249
+after    192 of 238
+```
+
+**The numerator fell by four**, so four invocations that had been passing were
+excluded. Rewriting the Earthfile does not, by itself, make the invocations after
+it unbuildable: the tree also seds in `--arg-scope-and-set`, and the targets
+after *that* build either way. Reverted.
+
+Two exclusions written, two reverted, and both caught by the same check in one
+line of output: **an exclusion moves the denominator and must leave the numerator
+alone.** Neither was caught by reading the code, and both looked right while
+being written.
+
+What survives is the narrow rule, and the difference is worth stating. The
+file-path rule excludes an invocation that names a file *which is not there* -
+a fact about the invocation, checkable without running it, and false for every
+invocation that passes. "The recipe did something first" is a fact about the
+recipe, and most recipes do something first.

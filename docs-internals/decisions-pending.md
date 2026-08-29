@@ -6,11 +6,11 @@ sources are the `E8xx` entries in `experiments-adversarial.md`.
 
 ## Correctness and behaviour
 
-| decision                         | what it costs now                  | evidence |
-| -------------------------------- | ---------------------------------- | -------- |
-| `WITH DOCKER --load` mount scope | 8 of the 13 failing Native CI jobs | E882     |
-| `ip link add` in a private netns | 2 failing Native jobs              | E882     |
-| `/run` listing expectation       | 1 failing Native job               | E882     |
+| decision                         | what it costs now                                                                                                                                                                                                                                                                                        | evidence   |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `WITH DOCKER --load` mount scope | 8 of the 13 failing Native CI jobs                                                                                                                                                                                                                                                                       | E882       |
+| `ip link add` in a private netns | 2 failing Native jobs                                                                                                                                                                                                                                                                                    | E882       |
+| `/run` listing expectation       | 1 failing Native job. **Narrower than it looks**: a step's root is identical under both engines - `ls -1 /` on alpine gives the same list - so this is not "native omits /run". It is `test-no-parent-at-root-from-home` completing `../` from `/home` inside the test image, under an inner invocation. | E882, E885 |
 
 These are the only Native CI failures traceable to a decision. The rest of that
 suite's failures are cross-architecture work the engine states it does not do,

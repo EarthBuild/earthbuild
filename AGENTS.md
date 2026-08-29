@@ -86,6 +86,12 @@ privilege this engine declines by design. Run those under `--engine=buildkit`.
 And a single red run is not a result - a cold cache produced one false failure
 in this suite; re-run before believing it.
 
+And a green group locally does not predict a green job in CI. An inner `earth`
+picks its engine from its environment: here it may find no container frontend
+and fall back to native, which needs no daemon, where a runner reaches for
+buildkit and finds none. Comparing two engines on one machine is sound; claiming
+a CI job will pass because the group passed here is not (E861).
+
 Four symptoms that each cost an hour before being understood:
 
 | Symptom                                       | Cause                                                     |

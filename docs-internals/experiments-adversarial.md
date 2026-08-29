@@ -41613,3 +41613,40 @@ or an L2 entry - and that is the question a fix has to answer first.
 Recorded rather than chased because the three candidates are distinguishable in
 about twenty minutes with a fresh cache and one instrumented run, and guessing
 between them at this hour is how the wrong one gets fixed.
+
+### E861 - the prediction failed, and the reason qualifies every local result here
+
+E853 predicted Native 2 of 16 on the strength of `./tests+ga-no-qemu-group2`
+exiting 0 locally. It is 1 of 16: group 2 failed in CI.
+
+**Not on any assertion.** The log carries none of the `did not contain` failures
+the widenings address. It carries:
+
+```text
+Error: connect provided buildkit: timeout 1m0s: could not connect to buildkit
+```
+
+which is E851's nested daemon, arriving in a group that passed here.
+
+**Why it passed here and not there.** An inner `earth` inside a step picks its
+engine from the environment. On this machine the local runs printed
+`auto frontend initialization failed ... podman: not found` and the inner build
+then ran *native*, which needs no daemon. On a runner the inner build reaches for
+buildkit and there is no daemon to reach. The two machines run different inner
+engines for the same target.
+
+**So the local method has a false-positive mode**, and it is exactly the shape
+that matters: an earth-in-earth target can pass locally because the inner build
+quietly took an easier path than CI gives it. Everything measured this session
+against a *single* build - the escaping differential, the EXPOSE range, the COPY
+tilde, the six targets verified under both engines - is unaffected, because those
+compare two engines on the same machine. What is affected is any claim that a
+group will pass in CI.
+
+**The honest form of the earlier claim:** group 2's eleven targets pass locally,
+and the group's CI job additionally requires a nested buildkitd that this engine
+will not start. The first half is a measurement, the second was an assumption
+that the two environments agree, and they do not.
+
+Added to AGENTS.md beside the recommendation, because a method that can pass for
+the wrong reason has to say so where it is recommended.

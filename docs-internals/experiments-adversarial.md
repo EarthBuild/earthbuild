@@ -42981,3 +42981,44 @@ confirmed to be, and the rest are unmeasured because the differential does not y
 replicate the gate's arguments. Making it do so is what `cmd/earth-diff` is for,
 and this is the second piece of evidence that the tool would repay its cost -
 twenty minutes of it changed the reading of the headline number twice.
+
+### E882b - replayed with the tree's own arguments, the engines agree on every one
+
+E882a's differential ran each target bare, without the arguments the tree gives
+it, which left every `native=0` row unusable for the question being asked. The
+arguments were recovered from `corpus.Invocations` - the same parser the gate
+uses - and all thirty-seven failing invocations replayed:
+
+```text
+34 of 37   fail identically under both engines
+ 3 of 37   succeed under native
+ 0 of 37   fail under native while buildkit succeeds
+```
+
+**Not one native-only failure.** Whatever the gate is counting, it is not a place
+where this engine diverges from the reference.
+
+The three that build under native are all `wildcard-build.earth`, and two of them
+**fail under buildkit**:
+
+```text
+wildcard-build.earth+wildcard-build-pwd         native=0  buildkit=1
+wildcard-build.earth+wildcard-build-auto-skip   native=0  buildkit=1
+wildcard-build.earth+wildcard-remote-glob       native=0  buildkit=0
+```
+
+So the gate reports as native failures three invocations native builds, two of
+which the reference cannot.
+
+**What this does not say.** Each replay runs in a directory holding only the
+Earthfile, while the gate runs in a copy of the whole `tests/` tree, so the
+thirty-four are failing in a harsher environment than the gate's. That makes
+"both fail" a statement about the two engines agreeing, not proof that the gate's
+own failure is engine-neutral. The comparison is sound because both engines face
+the identical directory; extending it to a full `tests/` copy is what would close
+the gap, and is the obvious next refinement.
+
+Also worth noting: `for.earth+all` - the one native-only failure E882 found - is
+absent from this set, because its invocation is filtered out before the gate
+attempts it. The single confirmed divergence is therefore still single, and still
+unexplained by this run.

@@ -44531,3 +44531,45 @@ repository - the Native suite is Linux - so a regression in sandbox reuse would
 be found by a person on a laptop rather than by a job. That is a poor trade for
 0.11s without someone deciding they want it, so it is in
 `decisions-pending.md` with the number attached.
+
+### E915 - the macOS speed win did not reproduce on Linux, and the reason was a race
+
+E907 and the manifest cache measured 0.32s and 0.10s off a cold build on the
+Mac. Re-run on the x86 box, against the same fixture pinned to its own digest,
+four alternating pairs:
+
+| build  | median | runs                         |
+| ------ | ------ | ---------------------------- |
+| before | 1.105s | 1.103, 1.109, 1.086, 1.106   |
+| after  | 1.124s | 1.131, 1.099, 1.439, 1.116   |
+
+Nothing, or slightly worse. The phase log says why in one line: **there is no
+`sandbox:start` on Linux at all.** The macOS backend boots a VM for 1.4s and the
+warm hides behind it; the Linux backend has no VM, so `image:fetch` is 95% of a
+1.1s build and there is nothing to overlap.
+
+Worse than nothing, on inspection. The `before` binary opened one
+`registry:token` phase and the `after` binary opened two: with no VM to delay
+it, the pull starts beside the warm, both miss the cache, and both fetch. The
+change I had measured as a saving was, on this machine, an extra request against
+a rate limit for no gain - and it did not show as a slowdown precisely because
+nothing waits for the warm.
+
+**Fixed at the source rather than by not warming.** The token cache had no
+single-flight, so "fetch it early so the pull finds it cached" only ever worked
+when something else happened to be slower. `singleflight` keyed by the token
+endpoint collapses them: one exchange however many callers want it, on either
+platform, and the pull now waits for the warm's rather than starting its own.
+
+**The phase log cannot confirm this and should not be asked to.** After the fix
+the log still shows two `registry:token` phases, both 0.446s - which is what
+waiting looks like, the second caller's phase spanning the same interval as the
+exchange it is blocked on. Counting phases here would repeat E733, where eleven
+phases were at most six round trips. What proves it is a test against a fake
+registry that counts requests: eight concurrent resolutions, one exchange.
+
+**Four for four.** Every time a performance result has been re-run on the second
+machine in this project it has changed the reading - `EARTH_ASYNC_RELEASE`
+demoted, `EARTH_PARALLEL_EXPORT` rescued, pinning's ratio corrected, and now a
+saving that was a regression somewhere else. The absolute claim survives moving
+machine and the ratio does not; this time not even the sign did.

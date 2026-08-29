@@ -41650,3 +41650,27 @@ that the two environments agree, and they do not.
 
 Added to AGENTS.md beside the recommendation, because a method that can pass for
 the wrong reason has to say so where it is recommended.
+
+### E862 - the mid-transfer blob failure is not the local registry's
+
+E833 recorded a blob transfer dying part-way from buildkit's own session
+registry at `127.0.0.1`, twice, and treated it as a property of that registry.
+A third occurrence, in `Docker Integrations / Race Tests (Slow)`, is the same
+shape from a different host:
+
+```text
+failed to copy: httpReadSeeker: failed open: failed to do request:
+  Get "https://pkg-containers.githubusercontent.com/ghcrblobs17/blobs/sha256:..."
+```
+
+Same message, same layer-fetch path, ghcr rather than localhost. So the fault is
+not in the session registry: it is that a blob fetch which dies mid-body fails
+the build outright, wherever the bytes were coming from. The retry that E833's
+nit proposed is worth more than that nit thought, because it covers a real
+network as well as a loopback one.
+
+**And not this session's doing.** The failing job carries no assertion failure -
+none of the twelve widened assertions appear - so the shared `tests/Earthfile`
+edits are not implicated. Checked because they are shared, and a Docker suite
+failing after they landed is exactly what a regression from them would look
+like.

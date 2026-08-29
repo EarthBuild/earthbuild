@@ -43239,3 +43239,48 @@ carried through three documents on that basis. One `ls` disproved it. A
 divergence should be named after what was measured, not after what the first
 error line suggested - the same lesson as reading the outermost frame of an error
 chain (E882) in a different place.
+
+### E886 - `WITH DOCKER --load` needs block-scoped storage, and the sharing that exists is the wrong shape
+
+Reproduced smallest:
+
+```earthfile
+load:
+    FROM docker:29.7.2-dind
+    WITH DOCKER --load test:img=+img
+        RUN docker images | grep test
+    END
+```
+
+```text
+Error: RUN docker images | grep test failed with exit code 1
+```
+
+The image loads and the body cannot see it, which is the two-steps defect: the
+`--load` is a generated step with its own daemon, and the body is another step
+with another one. Both halves of that are deliberate - a daemon per step, and
+storage that dies with it - and neither is the bug.
+
+**The sharing already exists and is scoped to the wrong lifetime.** A generated
+step is given `DockerCache: p.dockerCache` precisely so it "writes into the same
+daemon storage the body reads" (E354), so the wiring is there. It is empty unless
+the block was written with `--cache-id`, and when it is set,
+`dockerCacheDir` composes a path in the store from the name - storage that
+outlives the build on purpose.
+
+So the fix is not to generate a cache id. That would give every `WITH DOCKER` a
+persistent directory nobody asked for and nothing removes, trading a wrong answer
+for a leak.
+
+What it needs is a third thing beside "no sharing" and "a named cache": storage
+shared by every step of one block and removed when the block ends. The
+interpreter already knows the block's extent - it saves and restores
+`dockerCache` and `isolateDocker` around it - so the scope is available where the
+steps are generated. What is missing is a way to say "ephemeral, but shared" to
+the guest, which is a field on the step and a lifetime the guest honours rather
+than a change to how any of it works.
+
+**Not attempted here.** It crosses the interpreter, the IR, the executor and the
+guest protocol, and the last of those is the one a peer sends over a wire (A5),
+so the name has to be treated as a claim rather than a path. That is a design
+worth writing down before it is written.

@@ -42081,3 +42081,36 @@ against `tests/autocompletion`'s own image.
 What changes regardless is the framing: the question is not "should a step get a
 `/run`" but "should this engine reproduce another engine's scratch layout in a
 directory the capture reads". Those have different answers.
+
+### E864b - and the caveat closes: the test base ships an empty /run
+
+E864a measured `/run` on `alpine:3` and could not explain why CI reports
+`../run/` absent when alpine's own `/run/lock` would make completion offer it.
+Probed against the image the test actually uses -
+`tests/integration-base+test-base`:
+
+```text
+RUN-ENTRIES: . ..
+RUN-SUBDIRS: 0
+```
+
+The base ships `/run` empty. So the chain is complete and has no gap in it:
+
+* the image gives a step an empty `/run`;
+* buildkit creates `earthly_save`, `secrets` and `earthly_interactive` there, so
+  it has subdirectories and completion offers `../run/`;
+* this engine creates nothing there, so it has none and completion does not;
+* the test compares against a listing recorded under buildkit.
+
+**The expected file encodes the other engine's scratch layout.** Not a hole in
+what a step is given, not a missing mount, and not something to fix by creating
+directories - this engine keeps a step's own filesystem clean on purpose, because
+what a step writes there is captured into the layer (E398). Populating `/run` to
+match would ship those directories in every image the engine builds, which is
+the defect E398 was written about.
+
+So the item is: the assertion is engine-specific and needs either a native
+expectation of its own or a listing that excludes what the engine puts there.
+That is the same reconciliation as the twelve widened assertions (E846), reached
+from the other end - and it is the last of the Native causes to resolve into a
+decision rather than a defect.

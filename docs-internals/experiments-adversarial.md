@@ -43963,3 +43963,47 @@ is this branch's long-standing state rather than anything today's commits did -
 but `refactor-std-uuid`, based on a `main` this branch is zero commits behind,
 reports 15/16 and 5/5. The gap is this branch's 1022 commits, and it is
 unexplained.
+
+### E900 - the developer's inner loop is mostly a registry round trip
+
+An incremental rebuild - one source file changed, everything else cached - on a
+sandbox that is already up:
+
+```text
+process   0.481s
+  plan    0.402s     registry:token 0.257s + pin:manifest 0.141s
+  schedule  0.072s   the rebuild itself
+```
+
+**84% of the loop asks Docker Hub what an unchanged tag means; 15% builds.**
+The engine is not slow here; it is waiting for two round trips that resolve
+`alpine:3.24.1` to the same digest it resolved last time.
+
+`Resolve` returns immediately when the reference already carries a digest, so
+this is testable without changing the engine. Three changed-file rebuilds of
+each form, same fixture, same sandbox, all `rc=0`:
+
+| form                   | process (s)         | median  | plan    |
+| ---------------------- | ------------------- | ------- | ------- |
+| `alpine:3.24.1`        | 0.482, 0.455, 0.430 | 0.455s  | ~0.439s |
+| the same, `@sha256:e7` | 0.288, 0.304, 0.322 | 0.304s  | ~0.004s |
+
+**1.5x, and the arithmetic is the point.** `plan` fell by 0.435s while
+`process` fell by 0.151s. The other 0.28s is the sandbox boot that planning had
+been hiding behind itself (E537, E898): remove the wait and the boot it
+overlapped stops being free. Reading the `plan` line as the saving would have
+claimed 3x. Phases nest; the only honest measurement of a cost is removing it
+and timing what happens.
+
+Two consequences:
+
+* Pinning a base image digest is worth ~0.15s on every incremental build here,
+  needs no engine change, and is the determinism the engine wants anyway. The
+  magnitude is a function of the link to the registry, so it travels as "two
+  round trips saved" rather than as "1.5x".
+* Once pinned, the boot is the inner loop's largest item. E898's `boot:volume`
+  and `boot:run` stop being a cold-start curiosity and become the thing to fix.
+
+The remaining unpinned cost cannot be removed here: the manifest fetch needs
+the token, so the two round trips are serial by construction, and caching the
+token is the credentials decision E535 deliberately left open.

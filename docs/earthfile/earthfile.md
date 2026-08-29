@@ -1244,7 +1244,7 @@ This does not apply to Dockerfile's [RUN --security](https://docs.docker.com/ref
 
 ```Dockerfile
 WITH DOCKER [--pull <image-name>] [--load [<image-name>=]<target-ref>] [--compose <compose-file>]
-            [--service <compose-service>] [--allow-privileged]
+            [--service <compose-service>] [--platform <platform>] [--allow-privileged]
   <commands>
   ...
 END

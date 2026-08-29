@@ -292,12 +292,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		// below, which this branch returns before reaching. See nativeSecrets:
 		// `--secret` was parsed, stored, and never looked at, so a build that
 		// was given its secret reported that it was missing.
-		secrets, secretsErr := b.nativeSecrets(cmd)
-		if secretsErr != nil {
-			return secretsErr
-		}
-
-		return b.runNative(ctx, target, flagArgs, secrets)
+		return b.runNative(ctx, cmd, target, flagArgs)
 	}
 
 	cleanCollection := cleanup.NewCollection()

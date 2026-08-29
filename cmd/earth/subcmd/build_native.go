@@ -67,7 +67,7 @@ func (b *Build) nativeSecrets(cmd *cli.Command) (map[string]string, error) {
 }
 
 func (b *Build) runNative(
-	ctx context.Context, target domain.Target, flagArgs []string, secrets map[string]string,
+	ctx context.Context, cmd *cli.Command, target domain.Target, flagArgs []string,
 ) error {
 	if target.IsRemote() {
 		return fmt.Errorf(
@@ -98,6 +98,21 @@ func (b *Build) runNative(
 		return err
 	}
 
+	secrets, err := b.nativeSecrets(cmd)
+	if err != nil {
+		return err
+	}
+
+	// **Only when the caller named one.** `namedFile` treats any non-empty path
+	// as named and insists it exists, so handing it the flag's own default
+	// turned every build without a `.arg` into `open .arg: no such file or
+	// directory`. The buildkit path never hits this because it reads the file
+	// itself and tolerates a missing default.
+	argFile := ""
+	if cmd.IsSet(flag.ArgFileFlag) {
+		argFile = b.cli.Flags().ArgFile
+	}
+
 	return enginecli.Run(ctx, nativeOptions(nativeInput{
 		dir:             dir,
 		target:          target.Target,
@@ -106,6 +121,9 @@ func (b *Build) runNative(
 		secrets:         secrets,
 		allowPrivileged: b.cli.Flags().AllowPrivileged,
 		noCache:         b.cli.Flags().NoCache,
+		push:            b.cli.Flags().Push,
+		noOutput:        b.cli.Flags().NoOutput,
+		argFile:         argFile,
 	}))
 }
 
@@ -125,6 +143,9 @@ type nativeInput struct {
 	secrets         map[string]string
 	allowPrivileged bool
 	noCache         bool
+	push            bool
+	noOutput        bool
+	argFile         string
 }
 
 // nativeOptions is the whole of the translation, in one place that can be read.
@@ -140,6 +161,9 @@ func nativeOptions(in nativeInput) enginecli.Options {
 		Secrets:         in.secrets,
 		AllowPrivileged: in.allowPrivileged,
 		NoCache:         in.noCache,
+		Push:            in.push,
+		NoOutput:        in.noOutput,
+		ArgFile:         in.argFile,
 		Out:             os.Stdout,
 	}
 }

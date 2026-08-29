@@ -174,3 +174,32 @@ func TestNoCacheReachesTheNativeEngine(t *testing.T) {
 		}
 	}
 }
+
+// The rest of the flags this path was dropping.
+//
+// Found by counting rather than by a bug report: `cli.Options` has nineteen
+// fields and `nativeOptions` set seven. `--no-output` was measured writing the
+// artifact it was told not to; `--push` decides whether `RUN --push` steps run
+// at all; `--arg-file` is read by the engine and was never handed over.
+func TestTheRemainingFlagsReachTheNativeEngine(t *testing.T) {
+	t.Parallel()
+
+	for _, on := range []bool{false, true} {
+		got := nativeOptions(nativeInput{
+			dir: ".", target: "+x", push: on, noOutput: on,
+		})
+
+		if got.Push != on {
+			t.Errorf("--push %v arrived as %v", on, got.Push)
+		}
+
+		if got.NoOutput != on {
+			t.Errorf("--no-output %v arrived as %v", on, got.NoOutput)
+		}
+	}
+
+	got := nativeOptions(nativeInput{dir: ".", target: "+x", argFile: "/tmp/args.env"})
+	if got.ArgFile != "/tmp/args.env" {
+		t.Errorf("--arg-file arrived as %q", got.ArgFile)
+	}
+}

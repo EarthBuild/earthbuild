@@ -89,7 +89,15 @@ type Apple struct {
 	resumes atomic.Int64
 	// bootMu serialises making the VM exist, so a prewarm and a start cannot
 	// both run `container run` for one name.
-	bootMu  sync.Mutex
+	bootMu sync.Mutex
+	// booted remembers that the VM is up and looking at this store, so the
+	// second caller does not re-derive it. Prewarm and Start both ask, by
+	// design, and when the VM is already running the answer costs two container
+	// listings and two store checks for something already known (E873).
+	//
+	// Guarded by bootMu, and cleared by whatever takes the VM away - see
+	// markBooted.
+	booted  bool
 	mu      sync.Mutex
 	stopped bool
 }
@@ -391,6 +399,20 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 	a.bootMu.Lock()
 	defer a.bootMu.Unlock()
 
+	// **Asked twice per build, by design.** Prewarm runs this alongside planning
+	// because the sandbox image is the engine's own and needs nothing the
+	// Earthfile says (E537), and Start then asks again. When the VM is already
+	// up the second answer is the first one, re-derived from two container
+	// listings and a store check - about 55ms of subprocess work on every build
+	// that has one running, which is every build after the first (E873).
+	//
+	// Only the affirmative is remembered. A VM that was absent may have been
+	// started since, so a negative result is worth re-deriving; one that was
+	// present is taken away only by Stop or Remove, and both clear this.
+	if a.booted {
+		return nil
+	}
+
 	err := a.Available()
 	if err != nil {
 		return err
@@ -490,6 +512,10 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 			a.boots.Add(1)
 		}
 	}
+
+	// The VM is up and looking at this store. bootMu is held, so this is the
+	// same critical section the check at the top reads.
+	a.booted = true
 
 	return nil
 }
@@ -700,6 +726,7 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 // Remove takes it away, and something has to, or a developer accumulates a VM
 // per project and attributes the memory to anything but the build tool.
 func (a *Apple) Stop() error {
+	a.forgetBooted()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -721,6 +748,7 @@ func (a *Apple) Stop() error {
 
 // Remove takes the VM away, whether or not this process started it.
 func (a *Apple) Remove() error {
+	a.forgetBooted()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -1206,4 +1234,34 @@ func shimSetting() string {
 	}
 
 	return "noshim"
+}
+
+// markBooted records that the VM is up and serving this store.
+//
+// Cleared by Stop and Remove, which is the whole safety argument: the
+// dial-failure path in Executor.client stops the sandbox, removes it and starts
+// again, and a memo that survived that would skip the reboot and leave the retry
+// connecting to a VM that is no longer there.
+func (a *Apple) markBooted() {
+	a.bootMu.Lock()
+	defer a.bootMu.Unlock()
+
+	a.booted = true
+}
+
+// alreadyBooted reports whether this process has already established that the VM
+// is up and looking at this store.
+func (a *Apple) alreadyBooted() bool {
+	a.bootMu.Lock()
+	defer a.bootMu.Unlock()
+
+	return a.booted
+}
+
+// forgetBooted is what Stop and Remove call: the VM this memo described is gone.
+func (a *Apple) forgetBooted() {
+	a.bootMu.Lock()
+	defer a.bootMu.Unlock()
+
+	a.booted = false
 }

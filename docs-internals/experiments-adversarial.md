@@ -42481,3 +42481,47 @@ location, not this defect, and quoting it for this fix would have been wrong.
 This is a correctness fix that makes the cache summary honest; the VM remains
 the cost, and removing it needs the host to answer "is this layer present"
 without asking the guest.
+
+### E873 - the sandbox check ran twice on every build
+
+With the container-frontend probe gone (E871), the phase log put 250ms of a
+300ms cached build in `sandbox:start` and `sandbox:dial` - against a VM that was
+already running, left there by the previous build on purpose.
+
+Breaking `Start` down showed the check happening **twice**:
+
+```text
+sandbox:available 0.000  sandbox:list 0.031  sandbox:seesstore 0.024
+sandbox:available 0.000  sandbox:list 0.029  sandbox:seesstore 0.026
+sandbox:ensure    0.169
+```
+
+Both are `ensureRunning`: `Prewarm` calls it alongside planning, deliberately,
+because the sandbox image is the engine's own and needs nothing the Earthfile
+says (E537); `Start` then calls it again. When the VM is already up the second
+answer is the first one, re-derived from a container listing and a store check -
+and `bootMu` serialises the two, so it is 55ms of subprocess work in series on
+every build after the first.
+
+Only the affirmative is remembered. A VM that was absent may have been started
+since, so a negative is worth re-deriving; one that was present is taken away
+only by `Stop` or `Remove`, and both clear the memo. That clearing is the whole
+safety argument, because `Executor.client` recovers from a failed dial by
+stopping, removing and starting again - a memo surviving that would skip the
+reboot and leave the retry connecting to a VM that is no longer there. It is
+what the new test asserts.
+
+```text
+before 306.0 ms | after 220.8 ms | saved 85.2 ms | 1.39x | n=7 | discards 0
+```
+
+The three existing prewarm tests still pass, and they matter more than the new
+one: they boot a real VM and exercise exactly the prewarm-then-start path this
+changes.
+
+**Near-miss worth recording.** Writing the new test with `cat >` truncated
+`prewarm_darwin_test.go` and destroyed those three tests - the ones covering the
+behaviour being changed. Caught only because `git status` showed the file as
+modified rather than added. The test went into its own file in the end, which is
+what it needed anyway: the existing file is `package exec_test` and the memo is
+internal.

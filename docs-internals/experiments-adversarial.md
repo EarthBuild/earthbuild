@@ -42907,3 +42907,43 @@ filesystem's cost rather than the platform's - and no measurement exists for a
 hosted runner, which is the machine that matters. One CI run with
 `EARTH_TIMINGS=1` would settle it, and until then defaulting it would be
 choosing a number from the wrong machine.
+
+### E882 - the differential settles in one run what three classifiers got wrong
+
+Three attempts to separate "the engine cannot build this" from "nothing could
+build this alone" produced three wrong answers (E879, E880, E880b). All three
+were inference. Building the same target under the other engine is not:
+
+```text
+star.earth+test              native=1   buildkit=1
+copy.earth+all               native=1   buildkit=1
+escape.earth+all             native=1   buildkit=1
+for.earth+all                native=1   buildkit=0     <- a real divergence
+chown.earth+test             native=1   buildkit=1
+command.earth+all-positive   native=1   buildkit=1
+```
+
+**Five of six fail under buildkit too**, so they are not native gaps: the fixture
+their caller makes is missing for whichever engine is asked. `star.earth+test`
+says so plainly - buildkit's own message is `/*.txt not found`, which is the same
+complaint the native engine makes in different words.
+
+The sixth is the find. `for.earth+all` builds under buildkit and fails under
+native with `FOR at Earthfile:106: running "ls": deciding it needs the LOCALLY
+step` - a genuine divergence, and one worth its own entry.
+
+**This is what `cmd/earth-diff` was for**, costed in the test plan at 3-4
+engineer-weeks and never built. Six targets by hand took twenty minutes and
+already changed the reading of the parity number: if the ratio holds, most of the
+53 remaining failures are not the engine's.
+
+Two things it needs, both learned the hard way. Buildkit will not start on this
+branch without `EARTH_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1`,
+because the branch's own tag 404s with `manifest unknown`, which reads as a
+broken build rather than as a missing image. And each target has to be copied to a bare
+directory, because a `tests/` tree that another invocation has written into is
+exactly the confound this is meant to remove.
+
+Extended to the remaining 26 distinct failing targets; the ratio is what decides
+whether the denominator is worth changing, and this time on measurement rather
+than on a rule about recipes.

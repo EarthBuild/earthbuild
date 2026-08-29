@@ -42293,3 +42293,38 @@ rather than where it went wrong.
 `--pass-args` forwards, and `tests/` uses the construct throughout. It wants a
 corpus run and a fresh head rather than a decision at four in the morning, which
 is the same call made for the WITH DOCKER mount scope (E863h).
+
+### E868 - the seed diagnostic earned its keep by eliminating the seed
+
+`engine/fleet` failed the gate again at 1320s with no test named, and this time
+the run said which ordering it used - the diagnostic added for exactly this
+(E855):
+
+```text
+-test.shuffle 1787977586458400557
+-test.shuffle 1787977587054875860
+```
+
+Replayed here, both pass:
+
+```text
+go test -race -shuffle=1787977586458400557 ./engine/fleet/   ok  12.220s
+go test -race -shuffle=1787977587054875860 ./engine/fleet/   ok  12.129s
+```
+
+**So it is not the ordering**, which is what `-shuffle=on` made everyone suspect
+and what the seed was added to test. That hypothesis is now dead rather than
+merely unproven, and the remaining candidates are all environmental: a hosted
+runner's cores, its memory, or whatever else is running beside it. `engine/fleet`
+also passes on this machine at 12.8s, in a privileged Linux container at 5.8s,
+and across six random seeds.
+
+**The instrument worked exactly as intended and gave an unwelcome answer**, which
+is the more useful kind. Three occurrences of this failure had produced no
+information at all; the fourth produced a reproducer that does not reproduce,
+which is a fact about the runner rather than about the tests.
+
+What would settle it is the same run on a machine with the runner's shape -
+two cores rather than sixteen. The nits entry on `engine/fleet` hanging the gate
+should carry that, because "not the ordering" is the expensive half of the
+answer.

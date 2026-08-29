@@ -43173,3 +43173,44 @@ cost, and tmpfs makes it free - which was measured on identical work either way
 and does not depend on the size. What does not survive is the price. It is
 gigabytes, and whether that is worth 1.42x is a judgement about a particular
 machine rather than a recommendation.
+
+### E884 - seventy milliseconds of the macOS floor belongs to the container CLI
+
+With the frontend probe gone (E871) and the boot check memoised (E873), a fully
+cached build on a warm VM is about 200ms, and 165 of them are spent reaching the
+guest:
+
+```text
+sandbox:start   85 ms
+sandbox:dial    85 ms
+process        200 ms
+```
+
+`Dial` is a synchronous handshake with no sleeps and no retries, so neither
+number is waste in the engine. Timing the backend directly says where they go:
+
+```text
+container exec <vm> /bin/true      71.5 ms
+container exec <vm> /bin/echo x    67.4 ms
+```
+
+**Seventy milliseconds to run `true` in a VM that is already booted.** That is the
+CLI's own cost, independent of what is asked of it, and it accounts for most of
+`sandbox:start`. What is left - the other 85ms, `dial` - is `earth-guestd`
+starting inside the VM and answering the greeting, because each build spawns a
+fresh one through a fresh `container exec`.
+
+So the floor for this backend is about 165ms per build, and no amount of care
+inside the engine moves it. Both halves are the same architectural fact: the host
+talks to the guest by spawning a process through a CLI, once per build.
+
+The alternative is a guest that is already running and a host that connects to
+it. The VM has an address - `container list` prints `192.168.64.3` - so the
+transport exists. That is a design decision rather than an optimisation: a
+listening service inside the sandbox is a different security posture from a pipe
+opened per build, and it needs someone to decide the sandbox may listen at all.
+
+**This is the number that decision needs**, which is why it is recorded rather
+than acted on: 165ms of every macOS build, against the cost of a socket that
+stays open. On Linux the same phases are 4ms and 22ms, so none of this applies
+there - the namespace backend has no CLI to pay for.

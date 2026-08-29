@@ -43541,3 +43541,35 @@ What it does not say is that the suite passes: three targets fail, and a user
 hitting `remote-test` sees a failure whoever wrote the engine. It says the
 failures are not divergences, and that fixing them is work on the tree or on both
 engines rather than on this one.
+
+### E892 - the parity gate cannot see the WITH DOCKER fix
+
+Measured on clean trees either side of it, on the same machine:
+
+```text
+parent  9042fc2d8   198 of 252   78.6%
+head    4ffc36194   197 of 250   78.8%
+```
+
+Unchanged, and the reason is not that the fix does nothing - the reproduction in
+E886b goes from failure to `rc=0`, and `tests/with-docker+all` moves on to a
+different cause. The gate globs `tests/*.earth`, and every `WITH DOCKER` test
+lives in `tests/with-docker/Earthfile`, which is a directory. **The gate has never
+measured this construct.**
+
+Worth knowing before quoting the parity figure as coverage: it counts the
+`.earth` files beside the tree's own Earthfile and nothing in the subdirectories,
+so a whole construct can be broken or fixed without it moving.
+
+**And the number is not stable to one place.** The same gate on trees that differ
+by one commit gave 252 and 250 for its denominator, and 198 and 197 for its
+numerator - the ratchet's own comment says why, since it "pulls base images and
+reaches the network". A parity figure that moved by one is not evidence of
+anything; the built list is what to diff, as the nit on the per-worker tree
+already said for a different reason.
+
+**A measurement taken on the wrong tree came first.** The x86 checkout had been
+carrying twenty-one files copied onto an old commit, so the first comparison -
+196/249 against 198/254 - was between two trees that differed in more than the
+fix. Checking `git status` before trusting a number is cheap; the number was
+already written down before it occurred to me.

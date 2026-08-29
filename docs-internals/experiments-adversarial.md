@@ -44573,3 +44573,38 @@ machine in this project it has changed the reading - `EARTH_ASYNC_RELEASE`
 demoted, `EARTH_PARALLEL_EXPORT` rescued, pinning's ratio corrected, and now a
 saving that was a regression somewhere else. The absolute claim survives moving
 machine and the ratio does not; this time not even the sign did.
+
+### E916 - the same change, measured on both machines, after the fix
+
+E915 fixed the race that made E907 a regression on Linux. Both machines, same
+work, cold builds with the base image pinned to that machine's own digest.
+
+macOS, four alternating pairs, every run of the second beating every run of the
+first:
+
+| build     | median | runs                        |
+| --------- | ------ | --------------------------- |
+| pre-E907  | 2.468s | 2.305, 2.412, 2.523, 2.790  |
+| with fix  | 1.853s | 1.814, 1.843, 1.862, 2.035  |
+
+**0.615s**, which is larger than the 0.32s and 0.10s measured separately - those
+were taken on a busier machine, and the point of re-measuring the whole change
+against one baseline in one sitting is that the parts do not add up otherwise.
+
+x86, request counts rather than a stopwatch, because the wall clock says nothing
+here:
+
+| build     | token exchanges | manifest fetches |
+| --------- | --------------- | ---------------- |
+| before    | 1               | 1                |
+| with fix  | 1               | 1                |
+
+Neutral, which is the goal: Linux has no VM boot to hide a handshake behind, so
+there is nothing to win, and the single-flight makes sure there is nothing to
+lose either. The log shows two `registry:token` phases in the second case and
+one exchange - the second phase is a caller waiting.
+
+**So the honest claim is machine-shaped**, and it is the one E915 says survives
+travel: *one registry round trip removed from the critical path*. On a backend
+that boots a VM in front of the pull that is worth 0.6s; on one that does not,
+it is worth nothing and costs nothing. Neither number is "the" speedup.

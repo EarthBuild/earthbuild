@@ -43573,3 +43573,35 @@ carrying twenty-one files copied onto an old commit, so the first comparison -
 196/249 against 198/254 - was between two trees that differed in more than the
 fix. Checking `git status` before trusting a number is cheap; the number was
 already written down before it occurred to me.
+
+### E893 - the parity gate looks at a fifth of the tree
+
+E892 found the gate cannot see `WITH DOCKER` because those tests live in a
+subdirectory. Counting how much else is in the same position:
+
+```text
+.earth files beside tests/Earthfile   116     what the gate globs
+Earthfiles in subdirectories           95     414 targets
+```
+
+The gate reports on about 250 invocations. The subdirectories hold four hundred
+more targets it never attempts - `with-docker`, `autocompletion`, `local`,
+`push-images`, `pass-args-global` among them, which is to say several whole
+constructs.
+
+**So the parity figure is a percentage of a fifth.** `197 of 250` is a true
+statement about the files beside `tests/Earthfile` and not about the suite, and
+nothing in the gate's output says so. Every use of that number today - including
+the one that opened this thread - carried an implicit claim of coverage it does
+not have.
+
+Extending it is a decision rather than a fix, and not a small one. The number
+would fall, probably a long way, because the subdirectories hold the constructs
+that are hardest: a nested runtime, a shell completion harness, `LOCALLY`. A
+lower number that describes the suite is worth more than a higher one that
+describes a fifth of it, but the ratchet is a build gate, so the fall has to be
+recorded deliberately rather than discovered by a red build.
+
+The cheap half is free: the gate could **say** what it looked at. "197 of 250
+invocations, from 116 files beside tests/Earthfile; 95 Earthfiles in
+subdirectories were not attempted" costs one line and removes the implicit claim.

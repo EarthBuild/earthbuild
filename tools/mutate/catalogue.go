@@ -279,10 +279,15 @@ var Mutants = []Mutant{
 		Package:     "./engine/exec/",
 	},
 	{
-		Name:        "interp: a generated docker step carrying the block's cache (E354)",
-		File:        "engine/interp/loop.go",
-		Anchor:      "\t\t\tDockerCache: p.dockerCache,",
-		Replacement: "",
+		Name: "interp: a generated docker step carrying the block's cache (E354)",
+		File: "engine/interp/loop.go",
+		// Anchored on the comment as well as the line, because a second
+		// generated step now carries the same field - the `docker pull` one,
+		// which needs the block's storage for the same reason (E886). The
+		// anchor has to match once, and the line alone matches twice.
+		Anchor: "// into the same daemon storage the body reads (E354).\n" +
+			"\t\t\tDockerCache: p.dockerCache,",
+		Replacement: "// into the same daemon storage the body reads (E354).",
 		Package:     "./engine/interp/",
 	},
 	{

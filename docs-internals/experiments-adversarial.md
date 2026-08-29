@@ -43362,6 +43362,14 @@ Three things the design did not anticipate, each found by running it:
   cache hits and the previous output. **An argument that a field cannot matter is
   the shape of that bug.**
 
+**Linux only, and correctly so.** The darwin backend answers `WITH DOCKER` with
+`Inherit: true` - the step is given the sandbox VM's own daemon through a socket
+mount, so every step of every block already shares one and there is nothing to
+scope. Its `dockerFor` ignores both the cache and the scope for that reason. The
+same reproduction returns 0 there before and after this change, which is the
+check that says the fix is aimed at the right backend rather than that it is
+missing from one.
+
 Eight of the thirteen failing Native CI jobs turn on this construct.
 
 ### E887 - a private netns for privileged steps is not the cheap fix it looks like

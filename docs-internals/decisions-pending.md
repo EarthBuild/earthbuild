@@ -6,11 +6,11 @@ sources are the `E8xx` entries in `experiments-adversarial.md`.
 
 ## Correctness and behaviour
 
-| decision                         | what it costs now                                                                                                                                                                                                                                                                                        | evidence   |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `WITH DOCKER --load` mount scope | 8 of the 13 failing Native CI jobs                                                                                                                                                                                                                                                                       | E882       |
-| `ip link add` in a private netns | 2 failing Native jobs. **Costed**: a bare private netns for privileged steps would break ten of the thirteen `RUN --privileged` in the corpus, because ten are `RUN_EARTH` running an inner build that fetches. It needs a netns with connectivity - veth and NAT - which is work, not a flag.           | E882, E887 |
-| `/run` listing expectation       | 1 failing Native job. **Narrower than it looks**: a step's root is identical under both engines - `ls -1 /` on alpine gives the same list - so this is not "native omits /run". It is `test-no-parent-at-root-from-home` completing `../` from `/home` inside the test image, under an inner invocation. | E882, E885 |
+| decision                         | what it costs now                                                                                                                                                                                                                                                                                                                                                                        | evidence   |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `WITH DOCKER --load` mount scope | 8 of the 13 failing Native CI jobs                                                                                                                                                                                                                                                                                                                                                       | E882       |
+| `ip link add` in a private netns | 2 failing Native jobs. **Costed**: a bare private netns for privileged steps would break ten of the thirteen `RUN --privileged` in the corpus, because ten are `RUN_EARTH` running an inner build that fetches. It needs a netns with connectivity - veth and NAT - which is work, not a flag.                                                                                           | E882, E887 |
+| `/run` listing expectation       | 1 failing Native job. **Not what its name says** (E885): a step's root is identical under both engines and lists `run/` from `/home`, so it is not "native omits /run". The failing case is inside the integration test image under an inner invocation, which cannot be built locally - blocked by the remote `FROM DOCKERFILE` failure in the nits file. Unscoped until that is fixed. | E882, E885 |
 
 These are the only Native CI failures traceable to a decision. The rest of that
 suite's failures are cross-architecture work the engine states it does not do,
@@ -34,6 +34,17 @@ shape (E883).
 | decision               | what it would settle                                                                                                                                                                                                                                                      |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | build `cmd/earth-diff` | costed at 3-4 engineer-weeks in the test plan. An hour of hand-rolling it changed the reading of the parity number three times, and finally showed that none of the 37 invocations the gate counts against this engine is a place it diverges from the reference (E882c). |
+
+## One blocker sits under two of these
+
+The remote `FROM DOCKERFILE` failure - recorded in the nits file, and bisected to
+remoteness rather than to anything in the Dockerfile - stops any `./tests+<name>`
+target building locally under `--engine=native`. That blocks the `/run` item,
+which can only be reproduced inside the integration test image, and it blocks
+diagnosing anything else in that suite without a CI round.
+
+It is the cheapest thing on this page to be wrong about: everything else here is
+a judgement, and that one is a defect with a known bisect and no owner.
 
 ## The gap is fully accounted for
 

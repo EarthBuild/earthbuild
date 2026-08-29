@@ -41767,3 +41767,29 @@ answers exist and neither is a defect to fix - ship a statically linked client,
 or have the test image carry its own, which is what the warning already advises.
 Which is a decision, and it is the third on this branch that turns out to be
 about what a step is given rather than about what the engine does with it.
+
+### E863b - and the docker client explanation does not fit this test either
+
+E863a said `group12`'s failure is E844's missing client. The lines are adjacent -
+`docker: not found` at 1846, the fatal `docker inspect` at 1848 - so they are
+certainly related. The explanation still does not fit.
+
+`tests/with-docker-validate-labels` runs its steps `FROM $DIND_IMAGE`, which is
+`earthbuild/dind:ubuntu-26.04-docker-29.4.0-1`. A docker-in-docker image ships a
+docker client. The engine declining to mount the *host's* client should not
+matter to a step whose own image has one, which is precisely what the warning
+says: "a step whose image carries its own client works".
+
+**So what is established** is narrower than either previous reading: the step
+cannot find a docker client, in an image that has one, and the failure that
+follows reads as a labels mismatch while the assertion never runs. Why the
+image's own client is not found - PATH, a mount landing over it, an
+architecture mismatch in the pulled image - is not established, and three
+plausible causes is not a diagnosis.
+
+**Third reading of the same failure in one session.** Labels, then the host
+client, now neither. Each was arrived at from evidence and each was too quick:
+the first stopped at the failing command, the second at the warning above it,
+and this one at the image the step actually runs in. The next stop is whether
+`docker` exists in that image's PATH inside a step, which is one probe and not a
+theory.

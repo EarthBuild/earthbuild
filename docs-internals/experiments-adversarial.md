@@ -42114,3 +42114,47 @@ expectation of its own or a listing that excludes what the engine puts there.
 That is the same reconciliation as the twelve widened assertions (E846), reached
 from the other end - and it is the last of the Native causes to resolve into a
 decision rather than a defect.
+
+### E865 - USER changes the user and not the home directory
+
+Covering the Native failures not yet characterised found one that is a defect
+rather than a decision, and its reach is wider than the test that surfaced it.
+
+`Native / +test-no-qemu-group9` fails at `tests/config/Earthfile`, on a step that
+runs `USER testuser` and writes a config:
+
+```text
+Error: read config: failed to read from /root/.earth/config.yml
+```
+
+The step is `USER testuser` in `/home/testuser`, and the test asserts the file
+lands at `/home/testuser/.earth/config.yml`. Five lines separate the engines:
+
+```text
+FROM alpine:3
+RUN adduser -D testuser
+USER testuser
+RUN echo "whoami=$(whoami) HOME=$HOME"
+
+native    whoami=testuser HOME=/root
+buildkit  whoami=testuser HOME=/home/testuser
+```
+
+`stepEnv` sets a floor of `PATH` and `HOME=/root`, and nothing revises `HOME`
+when the step runs as somebody else. The config code is correct and is resolving
+a path from an environment that is not.
+
+**The reach.** Every program that writes to `$HOME` in a `USER` step is affected -
+`pip --user`, `npm`, `cargo`, `git config --global`, anything that caches
+credentials - and each fails as a permission error against `/root` rather than as
+a missing `HOME`. One test found it; it is not a one-test defect.
+
+**Four readings, each narrowing.** `earth config` is broken; no, it works
+locally; the paths differ (`.earth` against `.earthly`); no, `USER` does not set
+`HOME`. The one that mattered was reading the *test* to see what it expected
+rather than reading the error again.
+
+**Not fixed here.** `stepEnv` is not told the user, `execRequest` resolves it
+separately, and the floor it would change is under every non-root step - so it
+wants its own run of the suites. It is the best-understood remaining defect on
+this branch and the cheapest to verify: the reproducer above is the test.

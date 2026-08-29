@@ -41923,3 +41923,37 @@ four readings of the CI symptom never reached this.
 
 The nits entry has been updated with the mechanism. It is the same defect it
 always was, with the middle of it filled in.
+
+### E863g - the load and the block's RUN are separate steps, and the isolation is working as designed
+
+Following the daemon lifetime to its decision. `ownDaemonMounts` with no
+`--cache-id`:
+
+```text
+return []guest.Mount{{Target: daemonRoot, Ephemeral: true}}, daemonRoot
+```
+
+and its own comment: "**unnamed**: nothing is mounted, and the daemon writes into
+the step's own filesystem, which goes away with the step. That is the isolation
+E354 promised - not a flag, the absence of one."
+
+So a step's daemon storage is deliberately ephemeral, and `proto.go` states the
+lifetime is deliberate too: a daemon outliving its step holds the step's overlay
+open and the capture would take a layer of a filesystem still being written.
+
+**Neither is the defect. The defect is that there are two steps.**
+`WITH DOCKER --load=+tiny` and the `RUN` inside the same block ran as separate
+steps - two daemons, two sockets, `terminated` between them - and every piece of
+machinery then behaved exactly as documented. `WITH DOCKER ... RUN ... END`
+means those commands share a docker; splitting them gives each a private one and
+the isolation that is correct *between* blocks becomes wrong *within* one.
+
+**So the fix is not in the daemon, the mounts, or the lookup**, all three of
+which are working to their stated contracts. It is that the load belongs in the
+same step as the RUNs it is loading for. That is also why `--cache-id` would
+paper over it: a named cache outlives the step and both daemons would see it,
+which would make the symptom disappear while the block still ran as two steps.
+
+Four readings of the symptom, then the mechanism, then the decision behind the
+mechanism, and only here does the thing to change appear. The nits entry now
+carries the first two; this is the third.

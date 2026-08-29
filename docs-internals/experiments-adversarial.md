@@ -42622,3 +42622,43 @@ So CI gets the frontend probe's 52ms and nothing else, which is what 1.15x is.
 before. Pinning removes it entirely, and the engine already says so unprompted.
 For CI, which builds unpinned and often, that is the lever; the two fixes here
 are worth about a tenth of it.
+
+### E877 - what a step costs on Linux, and what deferring the release buys now
+
+Thirty steps that each write one file, every one executed, on the 32-core x86
+box:
+
+```text
+exec      48.32 ms each      release   18.20 ms each
+run        5.47 ms each      guest:request 5.43 ms each
+```
+
+The command itself is 5.5ms of a 48ms step. **These nest**, so the arithmetic
+that suggests itself - 48.3 - 5.5 - 18.2 - is not available: summing them gives
+183ms against an `exec` of 48ms. Sizing has to be done by removing, which is
+what the switch is for:
+
+```text
+release inline    2136.7 ms
+release deferred  1811.9 ms
+saved              324.8 ms   1.18x   n=5   discards 0
+```
+
+Cold cache each run, and each run asserted to report `31 miss` before being
+counted - a build that skipped its steps would finish faster and look like the
+result.
+
+So `EARTH_ASYNC_RELEASE` is still worth having on this machine, at 1.18x against
+the 1.50x recorded when it was first measured. **It remains a switch and not a
+default for the reason it always did**: the unmount it defers costs 18ms on this
+box and 2.55ms in the macOS guest, which is also Linux. The cost is the
+filesystem's, not the platform's, and no measurement exists for the machine that
+matters most - a hosted runner. One CI run with `EARTH_TIMINGS=1` would settle
+it, and until it does, defaulting this on would be choosing a number from the
+wrong machine.
+
+**Wrong reading corrected on the way.** `earth: traced 2 path calls` is a count,
+not a duration, and a parser that took field three as seconds reported 60
+seconds of tracing inside a 2.2 second build. Assuming the format of a log this
+engine prints in more than one shape is the same error as [[phase-log-nests]] in
+a different coat: check that what you parsed is what you think it is.

@@ -42048,3 +42048,36 @@ not known, and cannot be until the flag stops poisoning the cache it shares.
 **The one number to quote** is the floor: 15ms for a pinned warm no-op. Everything
 above it on a small build is a registry round trip, and the decision that would
 remove most of them is whether an anonymous token may be cached.
+
+### E864a - /run differs because the other engine puts its scratch there
+
+E863 left the autocompletion failure at one line, `-../run/`, and read it as a
+missing mount. Measuring both engines on the same Earthfile says otherwise:
+
+```text
+native    /run:  . .. lock                                           subdirs 1
+buildkit  /run:  . .. earthly_interactive earthly_save lock secrets  subdirs 2
+```
+
+Neither mounts anything there - both report `(not a mount)`. The difference is
+that buildkit creates its own working directories inside the step's `/run`:
+`earthly_save`, `secrets`, `earthly_interactive`. `lock` is alpine's own and
+both have it.
+
+**So this is not a hole in what a step is given.** It is the other engine
+leaving its scratch in a place the capture can see, which is exactly what this
+engine declines to do: a mount is "a hole in the step's filesystem and is
+therefore invisible to the capture", and E398 exists because storage left in the
+overlay ships in the image. Native keeping `/run` clean is the deliberate
+behaviour, and the completion listing differs as a consequence of it.
+
+**A caveat that matters and is not resolved.** This was measured on `alpine:3`,
+where native's `/run` already has `lock` and would therefore be offered by
+completion - yet CI reports `../run/` absent under native. The autocompletion
+test uses a different base, so the measurement above explains the *shape* of the
+difference and not that particular listing. Resolving it needs the same probe
+against `tests/autocompletion`'s own image.
+
+What changes regardless is the framing: the question is not "should a step get a
+`/run`" but "should this engine reproduce another engine's scratch layout in a
+directory the capture reads". Those have different answers.

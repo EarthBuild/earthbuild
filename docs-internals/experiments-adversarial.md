@@ -43919,3 +43919,47 @@ fresh cache.
 Not fixed here, because the run mounts the volume it creates and the two cannot
 overlap. Recorded because it is the largest single item in a cold build after
 the VM boot, and nothing named it before.
+
+### E899 - E894's prediction was wrong, and the reason is not the one it guessed
+
+E894 predicted, before the fact, that eight of the Native suite's fourteen
+failures would clear once `WITH DOCKER --load` scoped its storage to the block
+(E886b). The fix is in the commit CI tested. **Native reported 2 ok / 14 fail -
+identical to the baseline.** Not one job moved.
+
+The prediction was not merely unlucky; it was about the wrong mechanism. The
+inner failure reads:
+
+```text
+failed due to failed to autodetect a supported frontend: docker-shell frontend not available
+failed to initialize: command failed: podman info --format={{.Host.Security.Rootless}}
+```
+
+That is a **nested** `earth` invocation inside a test step, failing to find any
+container frontend at all. The buildkitd image sets `ENV EARTH_ENGINE=buildkit`
+deliberately, so a Native job runs its outer build natively and its nested
+builds on buildkit (Earthfile, `+earthbuild-buildkitd`). Those nested builds
+then need a frontend inside the step, and under the native engine there is not
+one.
+
+So the failing tests turn on whether a daemon is *reachable* from inside a
+step, not on where a reachable daemon's state is *stored*. E886b fixed the
+second and could not have touched the first. A prediction naming a construct
+(`WITH DOCKER`) rather than a mechanism (frontend availability inside a step)
+was not falsifiable by the run it was made about.
+
+Two corrections to what was said while reading this run:
+
+* The suites first reported as "60 green, Podman recovered to 15/16" belong to
+  `refactor-std-uuid`, a different pull request. This branch's own run is a
+  different number and was still queued at the time.
+* "The Podman failures are the export bug" was drawn from one job. Only
+  `Podman / +test-misc` shows it; the other fifteen have distinct causes
+  (`RUN diff`, a config read, `BUILD --pass-args`, `run <sha>`). The export fix
+  is expected to move one job, not sixteen.
+
+Podman at 1/16 with Examples at 0/5 matches the pre-fix baseline exactly, so it
+is this branch's long-standing state rather than anything today's commits did -
+but `refactor-std-uuid`, based on a `main` this branch is zero commits behind,
+reports 15/16 and 5/5. The gap is this branch's 1022 commits, and it is
+unexplained.

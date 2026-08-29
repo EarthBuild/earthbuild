@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -355,9 +356,30 @@ func TestHowManyEarthTestsBuild(t *testing.T) {
 	// Two runs of this gate gave 19 and 18, and a count alone cannot say which
 	// target moved - so a ratchet on it is a number that flakes with no way to
 	// diagnose the flake. The list makes two runs diffable (E442).
+	// **And what was not looked at.** The glob above takes `tests/*.earth` and
+	// nothing else, so every Earthfile in a subdirectory is outside this number
+	// - `with-docker`, `autocompletion`, `local` and ninety-odd others, several
+	// hundred targets between them. The figure is true of the files beside
+	// `tests/Earthfile` and reads as though it were true of the suite, which is
+	// a claim it cannot make and did not used to mention (E893).
+	// Walked rather than globbed: `tests/*/Earthfile` finds one level and the
+	// tree nests deeper, so a glob reports half of what is being skipped - which
+	// is a worse claim than making none.
+	nested := 0
+
+	_ = filepath.WalkDir(filepath.Join(root, "tests"), func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && d.Name() == "Earthfile" &&
+			filepath.Dir(p) != filepath.Join(root, "tests") {
+			nested++
+		}
+
+		return nil
+	})
+
 	t.Logf("%d of %d invocations answer as the tree says, from %d files"+
+		"\n  not looked at: %d Earthfile(s) in subdirectories of tests/"+
 		"\n  built: %s",
-		built, judged, len(found), strings.Join(names["built"], " "))
+		built, judged, len(found), nested, strings.Join(names["built"], " "))
 
 	// Ordered by how many targets each reason accounts for, because the work
 	// list is what this gate is for now: the biggest group is the next thing

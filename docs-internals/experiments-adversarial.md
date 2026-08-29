@@ -42001,3 +42001,50 @@ removed when the block that named it ends.
 
 The full chain, for anyone picking this up: CI symptom (E863a-d), mechanism
 (E863f), the decisions behind the mechanism (E863g), the change (here).
+
+### E864 - where the time goes, after the retractions
+
+The speed findings of 2026-08-28/29 are spread over E836-E858 and three of them
+were withdrawn. This is what survives, in one place, so nobody reconstructs it
+from the corrections.
+
+**Won.**
+
+| Change                              | Effect                                   |
+| ----------------------------------- | ---------------------------------------- |
+| config blob fetched beside layers   | 0.12s off every cold pull (E836a)        |
+| unmounted reason off the step mutex | below the noise floor, declined not paid |
+
+**Measured and standing.**
+
+```text
+pinned, warm, no-op build       0.015s     the engine's own floor
+unpinned, warm, no-op build     0.426s     28x, and all of it two registry round trips
+unpinned, cold                  1.203s     41% of it the anonymous token exchange
+--pin on a warm build           10.2x      because it asks nothing
+```
+
+Resolution is already concurrent across images: four base images cost 0.486s
+against one image's 0.410s (E838a). The token machinery already caches within a
+build; the second `registry:token` phase is a connection warm-up the next request
+uses, not a second exchange (E838).
+
+**Withdrawn.**
+
+* "native is 5.9x slower than buildkit warm" - that is the macOS path, not the
+  engine. On Linux the same comparison is 1.62x, and that figure *overstates* the
+  gap because the x86 native runs were not fully warm (E857a, E857b).
+* "store-in-VM costs 26% of a warm build" - the arms were measured in order, not
+  alternated, and they cannot be alternated because switching the flag poisons
+  the shared action cache (E858a).
+* "168 hits times 0.23s is the build" - a per-item cost times an item count is
+  not a duration.
+
+**Standing, unexplained.** With the store in the VM a two-step warm build spends
+`lookup 0.234s` against `0.000s` without it - a cache lookup crossing a machine
+boundary, measured directly and needing no A/B. What that costs a real build is
+not known, and cannot be until the flag stops poisoning the cache it shares.
+
+**The one number to quote** is the floor: 15ms for a pinned warm no-op. Everything
+above it on a small build is a registry round trip, and the decision that would
+remove most of them is whether an anonymous token may be cached.

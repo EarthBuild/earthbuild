@@ -33,6 +33,25 @@ than for what it fixes: with the switch on, any remaining difference is a defect
 rather than a policy, which is a much sharper thing to test than "these two
 engines disagree somewhere".
 
+## A found example: the dockerd wrapper's pre-script
+
+`tests/with-docker+pre-script-test` copies a file to
+`/usr/share/earthly/dockerd-wrapper-pre-script` and asserts the daemon ran it.
+This engine does not, and the reason is structural rather than an oversight: the
+reference starts `dockerd` through a wrapper script that sources that hook, and
+this engine starts the daemon **beside** the step (E368), so there is no wrapper
+for a hook to hang on.
+
+That makes it a good test of what the switch is for. Under compat it would have
+to run the file from the step's filesystem before launching the daemon - which
+is *emulating* a hook rather than having one, and the emulation is not exact:
+the script would see the step's filesystem and the daemon does not share it.
+
+Whether that is worth doing is the judgement the switch exists to make explicit.
+It is three of the thirteen failing Native jobs, and the honest description is
+"we can make the assertion pass, and the thing it asserts about does not exist
+here".
+
 ## Privilege belongs in its own switch
 
 `RUN --privileged` is refused by name wherever it appears, and that refusal is

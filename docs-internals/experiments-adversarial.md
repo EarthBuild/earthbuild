@@ -42703,3 +42703,44 @@ later wearing somebody else's name.
 
 Written before the refactor and passing against the old behaviour, which is the
 only order in which it could have caught that.
+
+### E879 - the parity figure was 17 points low, and part of the rest is the denominator
+
+Two findings, and the first makes the second worth having.
+
+**The floor was stale by forty targets.** `corpus-ratchet.txt` has said
+`linux-earthtests-run 156` since 2026-08-20. A sweep says **196 of 252**:
+
+```text
+196 of 252 invocations answer as the tree says, from 116 files
+```
+
+So parity is 77.8%, not the 60.7% the file implies. The ratchet stores one below
+the best seen and only moves when somebody records a rise, so a flat column means
+"nobody bumped it" - which is not the same as "nothing improved", and every
+figure quoted from that file since the 20th was 17 points low.
+
+**And the top of the work list is not engine work.** The gate prints its failures
+grouped by reason, largest first, on the principle that the biggest group is the
+next thing. The three largest all turn out to be targets that cannot be built
+standalone, because their wrapper makes what they need first:
+
+| n | target                                        | what the wrapper does first          |
+| - | --------------------------------------------- | ------------------------------------ |
+| 4 | `dotenv.earth+test`                           | `RUN mv .arg .some-other-arg`        |
+| 3 | `builtin-args.earth+earthly-ci-runner-...`    | `sed -i` to add `--earthly-ci-runner-arg` to the VERSION line |
+| 3 | `star.earth+test`                             | `RUN touch a.txt b.txt c.nottxt`     |
+
+Ten of the 56 shortfall, none of them a gap in the engine. The gate already
+excludes 21 invocations "because this gate cannot pass an option the tree gives
+them" - the exclusion covers *options* and not *fixtures*, *renames* or a
+*rewritten dialect*, which are the same thing done a different way.
+
+So raising parity means fixing the denominator as much as the engine, and the two
+are worth keeping apart: a target counted as unbuilt when it was never buildable
+alone makes the engine look worse and, worse than that, puts work at the top of
+the list that would achieve nothing.
+
+**Careful with this list.** `x4 open .some-other-arg: no such file or directory`
+reads like an engine failure and is the string the test greps for. Running the
+wrapper directly - `./+dotenv-test` - exits 0.

@@ -24,25 +24,28 @@ has bumped it", which is not the same as "nothing improved". A row whose figure
 came from a real sweep says so in Notes; anything else is inherited from the
 previous day.
 
-| date       | plan linux | plan darwin | built / plan | parity |
-| ---------- | ---------- | ----------- | ------------ | ------ |
-| 2026-08-20 | 476        | 484         | 156 / 251    | 62.2%  |
-| 2026-08-21 | 476        | 484         | 156 / 251    | 62.2%  |
-| 2026-08-22 | 476        | 490         | 156 / 251    | 62.2%  |
-| 2026-08-24 | 476        | 491         | 156 / 251    | 62.2%  |
-| 2026-08-26 | 483        | 491         | 156 / 252    | 61.9%  |
-| 2026-08-27 | 483        | 493         | 156 / 252    | 61.9%  |
-| 2026-08-28 | 486        | 494         | 156 / 257    | 60.7%  |
-| 2026-08-29 | 486        | 494         | 156 / 257    | 60.7%  |
+| date       | plan linux | plan darwin | built / plan  | parity    |
+| ---------- | ---------- | ----------- | ------------- | --------- |
+| 2026-08-20 | 476        | 484         | 156 / 251     | 62.2%     |
+| 2026-08-21 | 476        | 484         | 156 / 251     | 62.2%     |
+| 2026-08-22 | 476        | 490         | 156 / 251     | 62.2%     |
+| 2026-08-24 | 476        | 491         | 156 / 251     | 62.2%     |
+| 2026-08-26 | 483        | 491         | 156 / 252     | 61.9%     |
+| 2026-08-27 | 483        | 493         | 156 / 252     | 61.9%     |
+| 2026-08-28 | 486        | 494         | 156 / 257     | 60.7%     |
+| 2026-08-29 | 486        | 494         | 156 / 257     | 60.7%     |
+| 2026-08-29 | 486        | 494         | **196 / 252** | **77.8%** |
 
 ## Notes
 
-| date       | note                                                                                                              |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- |
-| 2026-08-20 | First row. `built` 156 recorded here and unchanged since.                                                         |
-| 2026-08-27 | Parity falls to 60.7% without execution regressing: the denominator grew from 251 to 257 as more targets planned. |
-| 2026-08-29 | Nine days at 156. Sweep run to find whether the floor understates it.                                             |
-| 2026-08-29 | Rows recomputed as start-of-day; an earlier draft of this file used end-of-day and was one row out.               |
+| date       | note                                                                                                                                                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-20 | First row. `built` 156 recorded here and unchanged since.                                                                                                                                                                         |
+| 2026-08-27 | Parity falls to 60.7% without execution regressing: the denominator grew from 251 to 257 as more targets planned.                                                                                                                 |
+| 2026-08-29 | Nine days at 156. Sweep run to find whether the floor understates it.                                                                                                                                                             |
+| 2026-08-29 | It did, by forty. A sweep on the x86 box reports **196 of 252**; the 156 floor had not been raised since 2026-08-20, so every parity figure quoted from this file before today was 17 points low.                                 |
+| 2026-08-29 | The three largest failure groups are targets whose wrapper makes their fixture first (a rename, a touch, a sed on the VERSION line), so they cannot build standalone. Ten of the 56 shortfall are denominator, not engine (E879). |
+| 2026-08-29 | Rows recomputed as start-of-day; an earlier draft of this file used end-of-day and was one row out.                                                                                                                               |
 
 ## Adding a row
 

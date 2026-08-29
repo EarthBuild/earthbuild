@@ -41891,3 +41891,35 @@ reading the log. Two seconds, and it would have returned the answer here.
 Nothing about the defect changes. What changes is the estimate of how much of
 this branch's remaining CI failure list is already diagnosed somewhere - and on
 tonight's sample, more of it than assumed.
+
+### E863f - the load and the RUN talk to two different daemons
+
+The nits entry says `WITH DOCKER --load` loads an image the next step cannot
+see. The daemon log says why, and it is not a lookup problem:
+
+```text
+01:52:02  API listen on /tmp/eb450354310/d.sock      daemon #1
+01:52:02  Loaded image: tiny:probe                   into daemon #1
+01:52:02  Processing signal 'terminated'             daemon #1 stops
+01:52:04  Starting up
+01:52:05  API listen on /tmp/eb3997388327/d.sock     daemon #2, a different socket
+01:52:05  error: no such object: tiny:probe          inspect against daemon #2
+```
+
+**A daemon per step, not per block.** The load runs in one step and gets its own
+dockerd; the `RUN` inside the same `WITH DOCKER` block runs in the next step and
+gets another. The first is terminated in between, and a dockerd's image store
+goes with it. So the image is loaded correctly, into a daemon that no longer
+exists by the time anything looks.
+
+That makes the defect a lifetime question rather than a visibility one: either
+the daemon outlives the block, or what is loaded is written somewhere that
+outlives the daemon. `WITH DOCKER` means "these commands share a docker", and
+this arrangement gives each of them a private one.
+
+**Measured on Linux**, where the block gets far enough to show it; on macOS the
+same target stops earlier at `Cannot connect to the Docker daemon`, which is why
+four readings of the CI symptom never reached this.
+
+The nits entry has been updated with the mechanism. It is the same defect it
+always was, with the middle of it filled in.

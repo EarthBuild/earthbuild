@@ -43284,3 +43284,46 @@ than a change to how any of it works.
 guest protocol, and the last of those is the one a peer sends over a wire (A5),
 so the name has to be treated as a claim rather than a path. That is a design
 worth writing down before it is written.
+
+### E886a - the design for block-scoped daemon storage, in one field
+
+Following E886 down to the mount says the change is smaller than "a protocol
+change" suggests. `ownDaemonMounts` has exactly two cases:
+
+```go
+if cache == "" {
+    return []guest.Mount{{Target: daemonRoot, Ephemeral: true}}, daemonRoot
+}
+return []guest.Mount{{ID: filepath.Join("docker-cache", cache), Target: daemonRoot, ...}}
+```
+
+Per-step and gone, or named and kept. The missing case is the diagonal: **named
+and gone** - shared by everything in one block, surviving nothing.
+
+The guest already has both halves and does not join them. Its ephemeral branch
+makes a fresh `MkdirTemp` per step and ignores `ID`; its keyed branch composes a
+path under the store. What is missing is: when a mount is `Ephemeral` *and*
+carries an `ID`, key a directory by that ID under the guest's own scratch -
+`/var/lib/earthbuild/scratch`, which is on the VM's filesystem and dies with the
+sandbox - instead of making a new one per step.
+
+That gives the right lifetime for free. Nothing has to be removed when a block
+ends, because the storage never reaches the store and the sandbox takes it.
+
+Three things it needs, and the third is the one to be careful about:
+
+1. The interpreter generates an id per `WITH DOCKER` block that has no
+   `--cache-id`, alongside where it already saves and restores `dockerCache`.
+2. `ownDaemonMounts` returns `{ID: scope, Target: daemonRoot, Ephemeral: true}`
+   for that case.
+3. **The guest validates the id as a name, not a path.** A step assignment
+   arrives from a peer this worker did not write (A5), and the keyed branch
+   already treats `DockerCache` that way for exactly this reason - the same check
+   has to cover the new field, or the diagonal case becomes a way to point daemon
+   storage at an arbitrary directory.
+
+Sizing it honestly: one field on the mount, one branch in the guest, one
+generated id in the interpreter, and the test is the reproduction in E886 -
+`WITH DOCKER --load` followed by `docker images`, which fails today and must
+pass. It is a morning's work with the design settled, and eight of the thirteen
+failing Native jobs turn on it.

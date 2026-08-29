@@ -44209,3 +44209,59 @@ whatever the graph does, and 4.73s is 2s of sleep behind it. **One point cannot
 separate a slope from an intercept.** The second point settled it - 12 targets
 cost the same 4.7s as 6, which no partial-width theory permits - and the third
 confirmed the slope by adding exactly one round.
+
+### E907 - the registry handshake was the third thing waiting for a machine it does not use
+
+E904 left the cold build as boot then pull, strictly in that order. Profiling
+the pull showed most of its front half needs nothing the VM provides:
+
+```text
+exec              2.683s
+  sandbox:start   1.477s
+  image:fetch     1.109s
+    registry:token      0.457s   host-side HTTP
+    registry:manifest   0.148s   host-side HTTP
+    layer:stream:guest  0.384s   needs the guest
+    layer:unpack:guest  0.091s   needs the guest
+```
+
+**Paid even when the reference is pinned**, which is the part worth stating:
+E900 pinned the digest and removed `plan` entirely, and this 0.457s stayed.
+Pinning removes the *resolution*; the *pull* still authenticates.
+
+Prewarm took the boot off the critical path (E537) and then the guest handshake.
+This is the same argument one layer out: `image.Warm` performs the exchange
+beside the boot, and the token lands in the process-wide cache
+(`tokencache.go`) that the pull already reads.
+
+**Moving a cost, not adding one.** The risk of doing it early is doing it
+twice, which would make a cold build slower; `TestWarmingDoesNotAddATokenExchange`
+counts exchanges against a fake registry and requires exactly one.
+
+Alternating A/B, four pairs, fresh cache each, all `rc=0`:
+
+| build  | median | runs                         |
+| ------ | ------ | ---------------------------- |
+| before | 2.276s | 2.209, 2.221, 2.330, 2.753   |
+| after  | 1.960s | 1.886, 1.956, 1.963, 2.135   |
+
+0.32s, and **the ranges do not overlap** - every run of the second beat every
+run of the first. The claim travels as "one round trip moved off the critical
+path" rather than as 1.16x, because the size of it is the latency to the
+registry and the ratio is this machine's.
+
+Two things left on the table, both visible in the numbers above:
+
+* `registry:manifest`, 0.148s, is host-side too and is not warmed. It needs the
+  token, so warming it means doing the manifest fetch in `Warm` as well and
+  handing the body to the pull - a cache with a lifetime, rather than a
+  credential with one.
+* The pull's own `registry:token` still reads 0.090s rather than nothing. Some
+  of that is the challenge probe; whether the remainder is a second scope was
+  not chased.
+
+**A build can have no sandbox at all.** The first version asked one for its
+store directory to find the challenge cache and panicked on a local-only build.
+`TestALocalOnlyBuildNeedsNoSandbox` caught it - a test written for something
+else entirely, which is the argument for running the whole package rather than
+the file you touched.

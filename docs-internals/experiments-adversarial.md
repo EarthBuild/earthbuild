@@ -44673,3 +44673,25 @@ different route.
 
 Recorded because raising the ratchet after a green sweep is the obvious next
 move and would have broken CI within one push.
+
+### E919 - the remaining Native failures are deterministic
+
+Two consecutive runs, `33256647090` and `33260291632`, on different commits:
+
+```text
+13 Native failures each, and diff reports no difference in the set
+```
+
+Not thirteen out of a shifting pool - the same thirteen jobs, by name, twice.
+Every other suite was green in both.
+
+This is worth knowing before anyone spends time on the privilege question
+(E910, E911). A deterministic failure set means the attribution can be trusted
+to predict a result: clearing the cgroup restriction should clear the eleven
+attributed to it and leave the emulation case and the hook, rather than moving
+an unpredictable subset. If it clears a different number, the grouping is wrong
+and that is worth learning from a single run.
+
+It also rules out the reading that these are flaky infrastructure failures that
+happen to number thirteen, which is what a count alone permits and a set
+comparison does not.

@@ -44496,3 +44496,38 @@ Filed as a decision rather than a defect. It is one of thirteen, and the only
 one of the thirteen that is not the cgroup privilege or a documented limitation
 (E910), so the parity gap is now: **one privilege, two limitations, and one
 question about what a hook should mean.**
+
+### E914 - what is left of the warm loop is waiting for the sandbox
+
+The developer's case, on a quiet machine: one file changed, base image pinned,
+VM already up. Four runs, the first excluded because every sandbox had just
+been stopped and it had to boot:
+
+```text
+process 0.433s  0.405s  0.332s
+  boot:scan     0.112   0.118   0.090
+  sandbox:dial  0.111   0.097   0.110
+```
+
+**Scan plus dial is 56% of the build.** Neither is engine work: the scan is one
+`container ls -a`, and the dial is a `container exec` that starts the guest.
+`schedule` covers both, so the rebuild itself is what is left over - around
+0.15s.
+
+Prewarm already runs both beside the plan (E537, and the guest handshake was
+added later), but a *pinned* build has no plan to hide them behind: `plan` is
+0.004s, so the first step arrives while prewarm is still scanning and waits.
+Pinning the digest is what exposed this - E900 removed the thing that was
+covering it.
+
+**The available move, costed rather than taken.** The scan decides whether the
+VM is up, and the dial then proves it: a dial that succeeds has answered the
+scan's question, so the two need not be sequential. Dialling optimistically and
+scanning beside it would take ~0.11s off, about 28% of the loop, and the reaping
+the scan feeds is best-effort and could follow.
+
+Not done here. It is `apple_darwin.go`, which runs on no CI machine in this
+repository - the Native suite is Linux - so a regression in sandbox reuse would
+be found by a person on a laptop rather than by a job. That is a poor trade for
+0.11s without someone deciding they want it, so it is in
+`decisions-pending.md` with the number attached.

@@ -43022,3 +43022,41 @@ Also worth noting: `for.earth+all` - the one native-only failure E882 found - is
 absent from this set, because its invocation is filtered out before the gate
 attempts it. The single confirmed divergence is therefore still single, and still
 unexplained by this run.
+
+### E882c - in the gate's own environment, none of the failures is a native gap
+
+The last objection to E882b was that each replay ran in a bare directory while
+the gate runs in a copy of the whole `tests/` tree. Repeated with a fresh copy of
+the tree per engine per invocation, the `.earth` file written over `Earthfile`
+exactly as the gate does it:
+
+```text
+36 of 37   fail identically under both engines
+ 1 of 37   succeeds under both
+ 0 of 37   fail under native while buildkit succeeds
+```
+
+**Zero.** With the gate's environment and the gate's arguments, not one of the
+thirty-seven invocations it counts against this engine is a place the engine
+diverges from the reference. Buildkit fails thirty-six of them too, with the same
+exit code.
+
+The one that builds - `wildcard-build.earth+wildcard-remote-glob` - builds under
+both.
+
+**So the parity figure is measuring the harness.** `196 of 249` says how many of
+the tree's invocations survive being lifted out of the recipe that sets them up
+and run alone; it does not say how much of the language this engine implements.
+Those are different questions and only the second one is about the engine.
+
+Worth noting what changed between the two runs: the bare directory had thirty-four
+failing under both and three building under native, the full tree has thirty-six
+and one. A *richer* environment made *more* fail, which is the opposite of the
+expected direction and is worth remembering - copying the tree also copies
+`tests/Earthfile`, which the gate then overwrites with the file under test, so the
+functions the sub-Earthfiles reference disappear. The environment is not simply
+"more complete"; it is differently broken, in the same way the gate's is.
+
+The three-to-four engineer-week estimate for `cmd/earth-diff` bought, in this
+hand-rolled form, the answer to the question the parity number was being asked to
+answer - and the answer is that it cannot answer it.

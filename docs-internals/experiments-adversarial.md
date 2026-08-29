@@ -42597,3 +42597,28 @@ way to tell which is which.
 Nothing to fix here beyond the label. On a pinned build the 163ms cannot hide
 behind planning, and removing it needs either a guest that is already connected
 or a lookup that does not need one - both design questions, not defects.
+
+### E876 - what the two savings are worth on the machine CI runs on
+
+| machine                  | build              | before | after | saved  | ratio |
+| ------------------------ | ------------------ | ------ | ----- | ------ | ----- |
+| macOS 16-core            | minimal, pinned    | 419.1  | 218.4 | 200.7  | 1.92x |
+| macOS 16-core            | realistic, unpinned| 543.6  | 427.6 | 116.0  | 1.27x |
+| x86 linux 32-core        | realistic, unpinned| 494.1  | 429.8 |  64.3  | 1.15x |
+
+All n=9, alternated, artifact content checked, zero discards.
+
+**The boot memo is worth nothing on Linux**, and that is not a disappointment but
+the expected result: it lives in `apple_darwin.go`. The Linux backend has no
+`Prewarm` at all - `Executor.Prewarm`'s type assertion simply fails - and it
+starts a process rather than a VM, so there is no listing to repeat and nothing
+to remember. Its sandbox costs 4ms to start and 22ms to dial, against 87ms and
+76ms for a VM.
+
+So CI gets the frontend probe's 52ms and nothing else, which is what 1.15x is.
+
+**And the same thing dominates on both machines.** On x86 a cached build spends
+`registry:token` 0.266s of 0.430s - 62% - resolving a tag it has resolved
+before. Pinning removes it entirely, and the engine already says so unprompted.
+For CI, which builds unpinned and often, that is the lever; the two fixes here
+are worth about a tenth of it.

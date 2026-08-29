@@ -41860,3 +41860,34 @@ this.
 
 Distinguish by printing the matched line, not the count. `grep -c` was what made
 three copies of a paragraph look like three failures.
+
+### E863e - the cause was already written down, naming this test
+
+The probe finishes it:
+
+```text
+Earthfile:8   Loaded image: tiny:probe        the load succeeds
+Earthfile:9   error: no such object: tiny:probe   the next command cannot see it
+```
+
+`WITH DOCKER --load` puts the image somewhere the step's own `docker` does not
+look. That is a recorded defect - the nits file has carried it for days, with a
+deterministic reproducer and this sentence: "`tests/with-docker-validate-labels`
+fails on exactly this".
+
+**So `group12` had a known cause and four readings were spent finding it.**
+Labels, then the host client, then the client again, then a phantom built from
+grep matching a warning's prose. The written answer named the failing test.
+
+**The rule that would have skipped all of it** is one already in force: read the
+nits file before debugging, because a nit may be the cause of what is about to be
+debugged. It was not read, because the failure arrived through a CI log rather
+than through the repository, and a log does not suggest consulting anything.
+
+That is the practical lesson, and it is cheaper than any of the four: when a CI
+failure is picked up, grep the nits file for the failing test's name before
+reading the log. Two seconds, and it would have returned the answer here.
+
+Nothing about the defect changes. What changes is the estimate of how much of
+this branch's remaining CI failure list is already diagnosed somewhere - and on
+tonight's sample, more of it than assumed.

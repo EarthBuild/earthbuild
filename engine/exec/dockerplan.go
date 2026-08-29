@@ -82,14 +82,14 @@ type dockerPlan struct {
 // of its own instead, which is strictly better than E354's refusal and needs
 // nobody's permission. An error return here could never fire, and one that
 // cannot fire is a claim the code does not support (E368).
-func dockerPlanFor(isolate bool, cache string, inside, socket, allowed bool) dockerPlan {
+func dockerPlanFor(isolate bool, cache, scope string, inside, socket, allowed bool) dockerPlan {
 	if share, _ := outerDaemonUsable(inside, socket, allowed); share && !isolate && cache == "" {
 		return dockerPlan{
 			Inherit: true,
 		}
 	}
 
-	mounts, _ := ownDaemonMounts(cache)
+	mounts, _ := ownDaemonMounts(cache, scope)
 
 	return dockerPlan{Own: true, Mounts: mounts}
 }

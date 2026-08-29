@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -234,11 +235,11 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 		// (E398). It differs from a secret only in being a directory and in
 		// having nothing put in it.
 		if m.Ephemeral {
-			dir, err := os.MkdirTemp("", "earthbuild-step-*")
+			dir, err := ephemeralDir(m.ID)
 			if err != nil {
 				unmount()
 
-				return nil, fmt.Errorf("make a directory for this step: %w", err)
+				return nil, err
 			}
 
 			// **`--mount=type=tmpfs` is memory, and the difference is the
@@ -265,7 +266,14 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 			}
 
 			source = dir
-			staged = append(staged, dir)
+			// **A shared one is not this step's to remove.** An ephemeral mount
+			// without an id belongs to the step and goes with it; one with an id
+			// is the block's, and the next step in that block has to find what
+			// this one left. It goes when the sandbox does, which is the
+			// lifetime a block actually has (E886).
+			if m.ID == "" {
+				staged = append(staged, dir)
+			}
 		}
 
 		// A secret is written outside the step's filesystem and bound in, for
@@ -1007,3 +1015,89 @@ func hostnameMount() []Mount {
 
 // hostsMountFor is the `/etc/hosts` mount, on the platform that has mounts.
 func hostsMountFor(entries []string) []Mount { return hostsMount(entries) }
+
+// ephemeralScratch is where storage shared by one block lives.
+//
+// The guest's own filesystem rather than the store: what goes here must not be
+// captured into a layer and must not outlive the sandbox, and this directory
+// satisfies both by being neither.
+//
+// **Asked for, not assumed.** The two backends put it in different places -
+// `/var/lib/earthbuild/scratch` inside the VM, `<root>/scratch` for a namespace
+// - and hardcoding either gives the other `make the shared directory: no such
+// file or directory` at the first `WITH DOCKER`. The temporary directory is the
+// fallback rather than an error, because a block that shares within one process
+// is still better than one that shares nothing.
+func ephemeralScratch() string {
+	if root := os.Getenv("EARTH_GUEST_SCRATCH"); root != "" {
+		return filepath.Join(root, "scope")
+	}
+
+	return filepath.Join(os.TempDir(), "earthbuild-scope")
+}
+
+// ephemeralDir is the directory an ephemeral mount uses.
+//
+// **Named or not, and the difference is a lifetime.** Without an id it is this
+// step's alone and goes when the step does, which is what `--mount=type=tmpfs`
+// and a lone `WITH DOCKER` want. With one it is shared by every step carrying
+// the same id and goes when the sandbox does, which is what a `WITH DOCKER`
+// block wants: `--load` runs as one step and the body as another, and an image
+// loaded by the first has to be there for the second (E886).
+//
+// **The id is a name, not a path.** It arrives in a step assignment from a peer
+// this guest did not write (A5), so `../../..` in it would put daemon storage
+// somewhere of the sender's choosing. Rejected rather than cleaned: a name that
+// needed cleaning was not a name.
+func ephemeralDir(id string) (string, error) {
+	if id == "" {
+		dir, err := os.MkdirTemp("", "earthbuild-step-*")
+		if err != nil {
+			return "", fmt.Errorf("make a directory for this step: %w", err)
+		}
+
+		return dir, nil
+	}
+
+	if !plainName(id) {
+		return "", fmt.Errorf(
+			"a shared ephemeral mount is named %q, which is not a name"+
+				"\n  it becomes a directory inside this sandbox, so it may hold"+
+				" letters, digits, dashes, underscores and one separator", id)
+	}
+
+	dir := filepath.Join(ephemeralScratch(), id)
+
+	err := os.MkdirAll(dir, 0o750)
+	if err != nil {
+		return "", fmt.Errorf("make the shared directory %s: %w", dir, err)
+	}
+
+	return dir, nil
+}
+
+// plainName reports whether an id is safe to join onto a path.
+//
+// One separator is allowed because the callers compose `docker-scope/<id>`, and
+// a rule that forbade it would push the check somewhere it is easier to forget.
+func plainName(id string) bool {
+	if id == "" || strings.HasPrefix(id, "/") || strings.HasSuffix(id, "/") {
+		return false
+	}
+
+	if strings.Count(id, "/") > 1 {
+		return false
+	}
+
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case r == '-', r == '_', r == '.', r == '/':
+		default:
+			return false
+		}
+	}
+
+	// A dot is allowed in a name and `..` is not a name.
+	return !strings.Contains(id, "..")
+}

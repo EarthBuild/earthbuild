@@ -326,6 +326,19 @@ type Op struct {
 	// In the key for the reason `Docker` is: a daemon holding one project's
 	// images and a daemon holding another's answer `docker images` differently.
 	DockerCache string
+
+	// DockerScope names storage every step of one `WITH DOCKER` block shares and
+	// nothing outlives it.
+	//
+	// **`--load` and the body are different steps.** Each gets its own daemon,
+	// which is deliberate, and its own storage, which is also deliberate - so an
+	// image loaded by the first is not there for the second, and the construct
+	// does not work at all (E886). A named `DockerCache` fixes that and leaves a
+	// directory in the store the author never asked for; this is the same
+	// sharing scoped to the block that actually asked for it.
+	//
+	// Empty when the block names a cache, because the author's own answer wins.
+	DockerScope string
 	// Hosts are name-to-address entries a step resolves by, as "name address".
 	//
 	// `HOST api.test 10.0.0.1`. Part of the operation rather than of the base,
@@ -699,6 +712,10 @@ func (n *Node) ID() NodeID {
 	h.Bool(n.Op.Interactive)
 	h.Bool(n.Op.Docker)
 	h.Str(n.Op.DockerCache)
+	// Beside the cache name, and for the reason the key guard gives: identity and
+	// the chain key are two functions over one struct, and a field reaching only
+	// one of them is the bug that guard was written after.
+	h.Str(n.Op.DockerScope)
 	h.Bool(n.Op.IsolateDocker)
 	// Counted before they are written, like every other list here: without a
 	// count, one entry "a b" and two entries "a" and "b" hash the same.

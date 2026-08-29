@@ -62,7 +62,7 @@ func TestWhatAWithDockerStepIsGiven(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := dockerPlanFor(tc.isolate, tc.cache, tc.inside, tc.socket, tc.allowed)
+			got := dockerPlanFor(tc.isolate, tc.cache, "", tc.inside, tc.socket, tc.allowed)
 
 			if got.Own != tc.ownIt {
 				t.Errorf("own daemon = %v, want %v", got.Own, tc.ownIt)
@@ -91,7 +91,7 @@ func TestWhatAWithDockerStepIsGiven(t *testing.T) {
 func TestABareBlockWithNothingAroundItIsNotRefused(t *testing.T) {
 	t.Parallel()
 
-	got := dockerPlanFor(false, "", false, false, false)
+	got := dockerPlanFor(false, "", "", false, false, false)
 
 	if !got.Own {
 		t.Error("nothing was arranged for a block that has no daemon to share")

@@ -26,7 +26,7 @@ func TestABuildInsideAContainerSharesItsDaemon(t *testing.T) {
 			hostDockerSocket, hostDockerSocket, hostDockerSocket)
 	}
 
-	plan, err := dockerFor(false, "")
+	plan, err := dockerFor(false, "", "")
 	if err != nil {
 		t.Fatalf("a bare block inside a container was refused: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestIsolateInsideAContainerStillGetsItsOwn(t *testing.T) {
 		t.Skip("not running inside a container")
 	}
 
-	plan, err := dockerFor(true, "")
+	plan, err := dockerFor(true, "", "")
 	if err != nil {
 		t.Fatalf("--isolate was refused inside a container: %v", err)
 	}

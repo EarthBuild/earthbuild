@@ -26,7 +26,7 @@ import (
 func TestThisBackendRefusesIsolateRatherThanPretending(t *testing.T) {
 	t.Parallel()
 
-	_, err := dockerFor(true, "")
+	_, err := dockerFor(true, "", "")
 	if err == nil {
 		t.Fatal("a block asking for a daemon of its own was quietly given the" +
 			" build's shared one, and will be cached as though it had been empty")
@@ -40,7 +40,7 @@ func TestThisBackendRefusesIsolateRatherThanPretending(t *testing.T) {
 
 	// And a block that asked for nothing still works: the refusal is about the
 	// promise this backend cannot keep, not about WITH DOCKER.
-	_, err = dockerFor(false, "")
+	_, err = dockerFor(false, "", "")
 	if err != nil {
 		t.Errorf("an ordinary block was refused too: %v", err)
 	}

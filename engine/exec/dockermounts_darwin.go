@@ -31,7 +31,7 @@ import (
 // gets one of its own, and here every block shares the VM's, so there is
 // nothing to point at a directory. Named rather than dropped because the two
 // backends implement one signature (revive unused-parameter).
-func dockerFor(isolate bool, _ string) (dockerPlan, error) {
+func dockerFor(isolate bool, _, _ string) (dockerPlan, error) {
 	if isolate {
 		return dockerPlan{}, errors.New(
 			"WITH DOCKER --isolate asks for a daemon of this step's own, and this" +

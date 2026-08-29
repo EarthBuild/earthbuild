@@ -136,6 +136,13 @@ type Plan struct {
 	// dockerCache is the shared daemon storage the WITH DOCKER block being
 	// planned right now asked for, and empty outside one. See withStatement.
 	dockerCache string
+	// dockerScope names storage every step of the `WITH DOCKER` block being
+	// planned shares, and nothing outlives it. Empty outside a block and when
+	// the block named a cache, because the author's own answer wins.
+	dockerScope string
+	// blocks counts `WITH DOCKER` blocks planned so far, which is what makes one
+	// block's scope distinct from another's in the same build.
+	blocks int
 	// isolateDocker is whether the WITH DOCKER block being interpreted asked for
 	// a daemon of its own.
 	//

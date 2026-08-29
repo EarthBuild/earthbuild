@@ -118,6 +118,15 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 	h.Bool(n.Op.Interactive)
 	h.Bool(n.Op.Docker)
 	h.Str(n.Op.DockerCache)
+
+	// **Keyed, though every step that has one is already uncacheable.** A scope
+	// is given only to a block that named no cache and did not isolate, and such
+	// a block sets `NoCache`, so the argument for leaving it out is available and
+	// was tried. `TestEveryOperationFieldReachesTheKey` refused it, and rightly:
+	// that guard exists because `Op.Content` reached identity and not the key,
+	// which produced four cache hits and the previous output. An argument that a
+	// field cannot matter is the shape of that bug.
+	h.Str(n.Op.DockerScope)
 	h.Bool(n.Op.IsolateDocker)
 	// Counted before they are written, like every other list here: without a
 	// count, one entry "a b" and two entries "a" and "b" hash the same.

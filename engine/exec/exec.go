@@ -483,7 +483,7 @@ func (e *Executor) Run(
 		// Which daemon a step reaches is a property of the backend *and* of the
 		// block: a VM's is disposable and this machine's is not (E117), and the
 		// block says whether it wants one of its own (E381).
-		plan, dockerErr := dockerFor(n.Op.IsolateDocker, n.Op.DockerCache)
+		plan, dockerErr := dockerFor(n.Op.IsolateDocker, n.Op.DockerCache, n.Op.DockerScope)
 		if dockerErr != nil {
 			return core.Result{}, dockerErr
 		}

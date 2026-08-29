@@ -39,7 +39,7 @@ const daemonSocket = "/var/run/docker.sock"
 //   - **unnamed**: nothing is mounted, and the daemon writes into the step's own
 //     filesystem, which goes away with the step. That is the isolation E354
 //     promised - not a flag, the absence of one.
-func ownDaemonMounts(cache string) ([]guest.Mount, string) {
+func ownDaemonMounts(cache, scope string) ([]guest.Mount, string) {
 	// Mounted either way, because a mount is what keeps the daemon's storage out
 	// of the image: a step's overlay is what the capture turns into a layer, so
 	// leaving the storage there ships it - every image the daemon held, and a
@@ -47,6 +47,20 @@ func ownDaemonMounts(cache string) ([]guest.Mount, string) {
 	//
 	// What the name changes is only whether the directory outlives the step.
 	if cache == "" {
+		// **A block's steps share, and the sharing dies with the sandbox.**
+		// `WITH DOCKER --load` loads in one step and the body looks in another,
+		// so per-step storage loses the image between them - which is the whole
+		// of that construct not working (E886). A named cache would fix it and
+		// leave a directory in the store nobody asked for; this is the same
+		// sharing with the lifetime the block actually has.
+		if scope != "" {
+			return []guest.Mount{{
+				ID:        filepath.Join("docker-scope", scope),
+				Target:    daemonRoot,
+				Ephemeral: true,
+			}}, daemonRoot
+		}
+
 		return []guest.Mount{{Target: daemonRoot, Ephemeral: true}}, daemonRoot
 	}
 

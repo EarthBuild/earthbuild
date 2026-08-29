@@ -33,7 +33,7 @@ func TestTheDecisionContributesNoNote(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := dockerPlanFor(tc.isolate, tc.cache, tc.inside, tc.socket, false)
+			got := dockerPlanFor(tc.isolate, tc.cache, "", tc.inside, tc.socket, false)
 
 			if got.Note != "" {
 				t.Errorf("deciding which daemon a block gets produced a warning"+

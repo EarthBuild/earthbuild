@@ -3,6 +3,7 @@ package interp
 import (
 	"fmt"
 	"maps"
+	"strconv"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
@@ -334,6 +335,24 @@ func (p *Plan) withStatement(st *earthfile.WithStatement, prev *ir.Node, rs *sta
 
 	defer func() { p.dockerCache = outer }()
 
+	// **A block with no cache still shares, within itself.** `--load` is a step
+	// and the body is another; each gets its own daemon, deliberately, and would
+	// get its own storage too - so the image the first loads is not there for the
+	// second, and the construct does not work at all (E886).
+	//
+	// Numbered rather than named after the target, because one target may open
+	// several blocks and two of them must not share. Saved and restored like the
+	// cache name, since a `--load` opens another target's blocks inside this one.
+	outerScope := p.dockerScope
+	p.dockerScope = ""
+
+	if opts.CacheID == "" && !opts.Isolate {
+		p.blocks++
+		p.dockerScope = "block-" + strconv.Itoa(p.blocks)
+	}
+
+	defer func() { p.dockerScope = outerScope }()
+
 	// Saved and restored for the same reason the cache name is: a `--load`
 	// builds another target while this block is open, and that target may have a
 	// `WITH DOCKER` of its own, so blocks nest even though the syntax does not.
@@ -509,6 +528,17 @@ func (p *Plan) withStatement(st *earthfile.WithStatement, prev *ir.Node, rs *sta
 			n.Op.DockerCache = opts.CacheID
 		}
 
+		// **And the block's own storage when it named no cache.** `--load` is a
+		// generated step and the body is another; both get their own daemon,
+		// deliberately, and without this their own storage too - so the image
+		// the first loads is not there for the second (E886).
+		//
+		// Only where a step has none already: a `--load` builds another target,
+		// which may open a block of its own, and that block's answer is its own.
+		if n.Op.DockerScope == "" {
+			n.Op.DockerScope = p.dockerScope
+		}
+
 		// **Sharing is the default, so not-isolated is the uncacheable case.**
 		//
 		// This also covers `--cache-id`, which used to set `NoCache` itself: the
@@ -555,6 +585,10 @@ func (p *Plan) dockerPull(ref string, prev *ir.Node, rs *state, where string) *i
 			User:   rs.user,
 			Env:    rs.env,
 			Docker: true,
+			// The pulled image has to be there for the body, which is another
+			// step with another daemon: same storage, same block (E886).
+			DockerCache: p.dockerCache,
+			DockerScope: p.dockerScope,
 		},
 		Inputs: []*ir.Node{prev},
 		Meta:   ir.Meta{Source: where, Description: "docker pull " + ref},
@@ -866,6 +900,9 @@ func (p *Plan) dockerStep(cmd, desc string, prev *ir.Node, rs *state, where stri
 			// The block's shared cache, if it has one: a generated step writes
 			// into the same daemon storage the body reads (E354).
 			DockerCache: p.dockerCache,
+			// And the block's own storage when it has no named cache, so a
+			// generated `--load` step writes where the body reads.
+			DockerScope: p.dockerScope,
 			// And the block's isolation, for the same reason: a `--pull` puts an
 			// image into the daemon the body will use, so it is the same daemon
 			// and the same question about whether anything else has been in it.

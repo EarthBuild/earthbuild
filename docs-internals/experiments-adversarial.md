@@ -43327,3 +43327,39 @@ generated id in the interpreter, and the test is the reproduction in E886 -
 `WITH DOCKER --load` followed by `docker images`, which fails today and must
 pass. It is a morning's work with the design settled, and eight of the thirteen
 failing Native jobs turn on it.
+
+### E886b - `WITH DOCKER --load` works, and the last piece was a cleanup
+
+Implemented as E886a described: a third case in `ownDaemonMounts` - named and
+gone - carried on a new `DockerScope`, and honoured by the guest as a directory
+keyed by id under its own scratch.
+
+```text
+before   Error: RUN docker images | grep test failed with exit code 1
+after    rc=0, and 16M in scratch/scope/docker-scope/block-1
+```
+
+The assertion is the exit code: `docker images | grep test` returns 0 only if the
+image is listed, so a passing run *is* the image surviving from the `--load` step
+into the body.
+
+Three things the design did not anticipate, each found by running it:
+
+* **The scratch path is per backend.** `/var/lib/earthbuild/scratch` inside the
+  VM, `<root>/scratch` for a namespace. Hardcoding the first gave
+  `make the shared directory: no such file or directory` on Linux at the first
+  block. It is read from `EARTH_GUEST_SCRATCH` now, with the temporary directory
+  as a fallback rather than an error.
+* **The cleanup removed it.** An ephemeral mount is added to `staged` and deleted
+  after the unmount, which is right for a step's own directory and wrong for a
+  block's. The symptom was the directory existing and being empty, which reads as
+  "the daemon wrote nothing" rather than "something deleted it".
+* **Both key guards had to be satisfied.** `TestEveryOperationFieldReachesTheKey`
+  and `TestEveryOperationFieldReachesNodeIdentity` refused a field that reached
+  neither. The argument for leaving it out was real - every step with a scope is
+  already `NoCache` - and the guard was right to refuse it anyway: it exists
+  because `Op.Content` reached identity and not the key, which produced four
+  cache hits and the previous output. **An argument that a field cannot matter is
+  the shape of that bug.**
+
+Eight of the thirteen failing Native CI jobs turn on this construct.

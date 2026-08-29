@@ -20,7 +20,7 @@ import (
 func TestAStepsOwnDaemonIsGivenItsCacheAndNothingElse(t *testing.T) {
 	t.Parallel()
 
-	shared, root := ownDaemonMounts("layers")
+	shared, root := ownDaemonMounts("layers", "")
 
 	if len(shared) != 1 {
 		t.Fatalf("a block naming a cache got %d mount(s), want 1: %v",
@@ -59,7 +59,7 @@ func TestAStepsOwnDaemonIsGivenItsCacheAndNothingElse(t *testing.T) {
 func TestAnIsolatedDaemonGetsAMountThatIsThrownAway(t *testing.T) {
 	t.Parallel()
 
-	got, root := ownDaemonMounts("")
+	got, root := ownDaemonMounts("", "")
 
 	if len(got) != 1 {
 		t.Fatalf("a block sharing nothing got %d mount(s), want 1: %v", len(got), got)
@@ -84,7 +84,7 @@ func TestAnIsolatedDaemonGetsAMountThatIsThrownAway(t *testing.T) {
 func TestANamedCacheIsNotThrownAway(t *testing.T) {
 	t.Parallel()
 
-	got, _ := ownDaemonMounts("layers")
+	got, _ := ownDaemonMounts("layers", "")
 
 	if len(got) != 1 {
 		t.Fatalf("%d mount(s), want 1", len(got))
@@ -104,8 +104,8 @@ func TestANamedCacheIsNotThrownAway(t *testing.T) {
 func TestTwoNamesGiveTwoDaemonRoots(t *testing.T) {
 	t.Parallel()
 
-	one, _ := ownDaemonMounts("a")
-	two, _ := ownDaemonMounts("b")
+	one, _ := ownDaemonMounts("a", "")
+	two, _ := ownDaemonMounts("b", "")
 
 	if one[0].ID == two[0].ID {
 		t.Errorf("two named caches mount the same directory: %q", one[0].ID)

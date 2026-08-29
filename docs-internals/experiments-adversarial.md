@@ -43667,3 +43667,41 @@ Bounded here rather than chased, because reproducing it needs the whole
 `+test-misc` chain rather than the target, and this branch has a `--pass-args`
 fix already specified and unwritten. If that fix lands, this is the first thing
 to re-check: it costs one CI job to find out and nothing to remember.
+
+### E896 - `--pass-args` is not defective, at least not in the way recorded
+
+Carried on this branch's list as "forwards declared rather than supplied
+arguments". Tested against the reference:
+
+```earthfile
+caller:
+    ARG FROM_DEFAULT=declared-value
+    ARG FROM_SUPPLIED=declared-value
+    BUILD --pass-args +callee
+```
+
+built with `--build-arg FROM_SUPPLIED=given`:
+
+```text
+native:   default=declared-value supplied=given
+buildkit: default=declared-value supplied=given
+```
+
+Identical. Both a declared default and a supplied override cross the call, which
+is what the construct means, and the two engines agree exactly.
+
+So the entry was wrong. `rs.args` holds the values in scope - defaults resolved,
+overrides applied - and passing it is right rather than a confusion with
+`rs.supplied`, which holds only what was handed in.
+
+**This weakens E895's hypothesis**, which reached for `--pass-args` to explain a
+target whose steps did not run. That explanation now needs the defect it was
+resting on, and the defect is not there. The missing-artifact failure is still
+unexplained and the note should say so rather than keep a story that has lost its
+mechanism.
+
+Three supposed defects have now been removed from this branch's list by testing
+them rather than reading about them: the `FROM DOCKERFILE` refusal that was not
+refusing (E885 territory), the `&&` in a `--entrypoint` line (E890), and this.
+The pattern is worth naming: **a defect recorded from an error message and never
+reproduced is a rumour with a line number.**

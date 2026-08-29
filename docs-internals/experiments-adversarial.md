@@ -44186,3 +44186,26 @@ is the discriminator either way, being written only by `engine/core/record.go`.
 So the fix is confirmed before the run that tests it reports. What CI can still
 falsify is the *scale* claim in E903 - that this was the whole of the Podman
 failure rather than one cause among several.
+
+### E906 - the scheduler's parallelism is correct, and the first reading of it was not
+
+Independent targets, each `RUN sleep 2`, built cold. `sleep` consumes no CPU, so
+anything short of full width is the scheduler rather than the machine:
+
+| targets | wall  | rounds at width 16 | predicted |
+| ------- | ----- | ------------------ | --------- |
+| 6       | 4.73s | 1 x 2s + overhead  | 4.7s      |
+| 12      | 4.77s | 1 x 2s + overhead  | 4.7s      |
+| 24      | 6.80s | 2 x 2s + overhead  | 6.7s      |
+
+Width is `runtime.NumCPU()` - 16 here - exactly as `schedule.go` says it is.
+Nothing to fix.
+
+**The first reading was wrong, and worth recording as a method note.** Six
+targets at 4.73s against a 12s serial expectation looked like an effective width
+of 2.6, and the search for what was capping it at three had already started. It
+was fixed overhead: a cold build pays ~2.7s of boot and image fetch (E898)
+whatever the graph does, and 4.73s is 2s of sleep behind it. **One point cannot
+separate a slope from an intercept.** The second point settled it - 12 targets
+cost the same 4.7s as 6, which no partial-width theory permits - and the third
+confirmed the slope by adding exactly one round.

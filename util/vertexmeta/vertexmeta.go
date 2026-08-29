@@ -30,10 +30,10 @@ type VertexMeta struct {
 	Runner              string                    `json:"runner,omitempty"`
 	RepoFileRelToRepo   string                    `json:"rfr,omitempty"`
 	Secrets             []string                  `json:"secrets,omitempty"`
-	Interactive         bool                      `json:"itrctv,omitempty"`
-	Local               bool                      `json:"lcl,omitempty"`
-	Internal            bool                      `json:"itrnl,omitempty"`
-	NonDefaultPlatform  bool                      `json:"defplt,omitempty"`
+	Interactive         bool                      `json:"itrctv,omitzero"`
+	Local               bool                      `json:"lcl,omitzero"`
+	Internal            bool                      `json:"itrnl,omitzero"`
+	NonDefaultPlatform  bool                      `json:"defplt,omitzero"`
 }
 
 var vertexRegexp = regexp.MustCompile(`(?s)^\[([^\]]*)\] (.*)$`)

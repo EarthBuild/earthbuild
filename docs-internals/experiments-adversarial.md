@@ -43214,3 +43214,28 @@ opened per build, and it needs someone to decide the sandbox may listen at all.
 than acted on: 165ms of every macOS build, against the cost of a socket that
 stays open. On Linux the same phases are 4ms and 22ms, so none of this applies
 there - the namespace backend has no CLI to pay for.
+
+### E885 - the `/run` divergence is not what its name suggests
+
+Listed as a decision since E882 on the strength of a CI diff showing a completion
+missing `../run/`. The obvious reading is that a step's filesystem lacks `/run`
+under this engine. It does not:
+
+```text
+native:   bin dev etc home lib media mnt opt out proc root run sbin srv sys tmp usr var
+buildkit: bin dev etc home lib media mnt opt out proc root run sbin srv sys tmp usr var
+```
+
+Identical, `run` included, from `RUN ls -1 /` on alpine under both engines.
+
+So the difference is somewhere narrower. The failing case is
+`test-no-parent-at-root-from-home`, which sets `WORKDIR /home` and completes
+`../` inside the *test image*, under an inner `earth` invocation - three
+conditions the simple reading has none of.
+
+**Worth recording because the name did the damage.** "the `/run` listing
+expectation" reads as a settled description of a known difference, and it was
+carried through three documents on that basis. One `ls` disproved it. A
+divergence should be named after what was measured, not after what the first
+error line suggested - the same lesson as reading the outermost frame of an error
+chain (E882) in a different place.

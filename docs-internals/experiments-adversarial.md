@@ -41674,3 +41674,35 @@ none of the twelve widened assertions appear - so the shared `tests/Earthfile`
 edits are not implicated. Checked because they are shared, and a Docker suite
 failing after they landed is exactly what a regression from them would look
 like.
+
+### E859b - the false non-determinism is transient, and here is the reproducer
+
+Three commands, deterministic, on a five-line Earthfile:
+
+```text
+earth --engine=native +probe                        rc=0
+EARTH_STORE_IN_VM=0 earth --engine=native +probe    rc=0
+earth --engine=native +probe                        rc=0, and:
+    RUN ...  NON-DETERMINISM: nothing in the key changed and the output did
+```
+
+**And the fourth run is clean.** `1 hit, 1 miss`, no message. The record is
+rewritten by the build that was wrongly accused, so the report appears once after
+the store changes and never again.
+
+So E859 overstated it in one direction and understated it in another. It is
+**not** a break - every run above exits 0, and the build is correct throughout.
+It is a wrong sentence, printed once, telling an author their step is not
+reproducible when the engine has changed where it keeps layers. An author who
+sees it and goes looking will find nothing, and the evidence will have erased
+itself before they look.
+
+**Distinct from E858b**, which is a real failure and was persistent: there a
+target that had built could not build until the whole action cache was deleted.
+The two share a cause - layers and the records describing them living in
+different places - and differ in what they do about it. One misreports and
+recovers; the other stops and stays stopped.
+
+Worth keeping the pair straight when either is fixed: a change that only quiets
+the message leaves the failure, and a change that only fixes the failure leaves
+an author being told their build is not reproducible.

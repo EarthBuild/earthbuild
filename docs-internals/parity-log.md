@@ -47,6 +47,7 @@ previous day.
 | 2026-08-29 | The three largest failure groups are targets whose wrapper makes their fixture first (a rename, a touch, a sed on the VERSION line), so they cannot build standalone. Ten of the 56 shortfall are denominator, not engine (E879).                                                                      |
 | 2026-08-29 | `WITH DOCKER --load` fixed (E886b): storage is now scoped to the block rather than the step. Eight of the thirteen failing Native CI jobs turn on it, and it also unblocked local integration testing, which had been failing on a remote `FROM DOCKERFILE` that turned out to be the same bug (E888). |
 | 2026-08-29 | Rows recomputed as start-of-day; an earlier draft of this file used end-of-day and was one row out.                                                                                                                                                                                                    |
+| 2026-08-29 | Sweep re-run at `fa254fb66`: **198 of 251**, up 2 on the morning's 196 - first movement since 2026-08-20, from the export fix (E895c) and `--pass-args` (E897). The ratchet stays at 156: it fails on a rise too, and CI passes at 156 because a runner cannot nest a runtime (E918).                  |
 
 ## What the remaining gap is made of
 

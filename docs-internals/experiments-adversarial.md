@@ -44695,3 +44695,49 @@ and that is worth learning from a single run.
 It also rules out the reading that these are flaky infrastructure failures that
 happen to number thirteen, which is what a count alone permits and a set
 comparison does not.
+
+### E920 - five flags were parsed and never handed to the native engine
+
+Triaging the nits file for stale entries turned up a security nit whose console
+could not be reproduced: `earth --engine=native --secret TOK=v` answered
+
+```text
+RUN at Earthfile:5 needs the secret "TOK", which was not supplied
+```
+
+about a secret supplied on that same command line. `--secret` was parsed into
+`b.secrets` and never read: the native branch of `ActionBuildImp` returns before
+the buildkit path processes secrets, and `nativeOptions` had no field for them.
+
+**That is the third time this bug has shipped**, which is what made it worth
+counting rather than fixing. `nativeInput` exists because `--build-arg` was
+parsed and dropped; `--allow-privileged` then repeated it and failed eleven of
+fifteen Native jobs, "read as a policy decision rather than a dropped field".
+`cli.Options` has nineteen fields; `nativeOptions` set seven.
+
+Measured, on darwin, before and after:
+
+| flag                 | before                                    | after       |
+| -------------------- | ----------------------------------------- | ----------- |
+| `--secret`           | refused the build as though unsupplied     | works       |
+| `--no-cache`         | `3 hit, 0 miss` - read the cache anyway    | forces work |
+| `--no-output`        | wrote the artifact it was told not to      | suppressed  |
+| `--push`             | `RUN --push` steps did not run             | they run    |
+| `--arg-file`         | never reached the engine                   | reaches it  |
+
+`--no-cache` is the one worth staring at: it returned success having done the
+opposite of what it was asked, so anyone reproducing a cache bug under it was
+reading the cache. The other four fail loudly or visibly; that one lies.
+
+**Two consequences to watch rather than assert.**
+
+`--ci` sets `NoOutput`, and CI invokes `earth --ci -P +target`, so every Native
+job's output behaviour changes with this. It should be right - buildkit does the
+same and its suites pass 16/16 with it set - but it is a change to the suite
+every parity number in this log was taken from, and the first thing to suspect
+if Native moves off 3 of 16.
+
+`--arg-file` broke the default case before it worked: `namedFile` treats a
+non-empty path as named and requires it to exist, so passing the flag's own
+default turned every build without a `.arg` into `open .arg: no such file or
+directory`. Caught by running the whole suite rather than the package touched.

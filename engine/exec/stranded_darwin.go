@@ -115,35 +115,50 @@ func SandboxIsStranded(out []byte) bool {
 	return len(StrandedSandboxes(out)) > 0
 }
 
-// reapStranded removes content-named VMs whose directories have gone.
+// strandedCandidates picks the VMs worth inspecting, in a stable order.
 //
-// Best effort, like reapOrphans: a build must not fail because tidying did not
-// work, and the cost of missing one is that it is found next time.
-func reapStranded(seen map[string]string) {
+// **`mine` - this build's own sandbox - is never one.** It is in the listing
+// like any other `earthbuild-` VM, so it went to `container inspect` on every
+// build: ~40ms measured, against an incremental loop of ~300ms. Nothing was
+// learned by it. Whether *this* VM still sees its store is a different
+// question, asked directly by `seesStore` a few lines after the call and
+// answered without a subprocess.
+//
+// Sorted before it is truncated, not after. The limit used to be applied while
+// iterating the map, so "the same subset every run" - which is what the limit
+// is for - was whichever subset the map happened to yield first, sorted
+// afterwards for the look of the thing.
+func strandedCandidates(seen map[string]string, mine string) []string {
 	names := make([]string, 0, len(seen))
 
 	for name := range seen {
 		// The old pid-named VMs are reapOrphans' business. This engine's own
-		// sandbox is named later in Start, and a name it is about to choose
-		// still mounts directories that exist - so it is never stranded.
-		if !strings.HasPrefix(name, "earthbuild-") || IsOrphanedSandbox(name) {
+		// sandbox still mounts directories that exist, so it is never stranded.
+		if name == mine || !strings.HasPrefix(name, "earthbuild-") || IsOrphanedSandbox(name) {
 			continue
 		}
 
 		names = append(names, name)
-
-		if len(names) == strandedLimit {
-			break
-		}
 	}
 
+	slices.Sort(names)
+
+	if len(names) > strandedLimit {
+		names = names[:strandedLimit]
+	}
+
+	return names
+}
+
+// reapStranded removes content-named VMs whose directories have gone.
+//
+// Best effort, like reapOrphans: a build must not fail because tidying did not
+// work, and the cost of missing one is that it is found next time.
+func reapStranded(seen map[string]string, mine string) {
+	names := strandedCandidates(seen, mine)
 	if len(names) == 0 {
 		return
 	}
-
-	// Sorted, so the subset a machine over the limit tidies this run is the
-	// same subset every run rather than whichever the map iterated first.
-	slices.Sort(names)
 
 	// One call for all of them, and deliberately on the critical path. The
 	// inspection costs 10ms whatever the population - measured, the same as the

@@ -452,16 +452,28 @@ func (a *Apple) ensureRunning(ctx context.Context) error {
 	// region with no phase in it at all - and on a cold build that is 65% of
 	// the run, two thirds of which planning cannot hide behind.
 	endScan := timing.Phase("boot:scan", "")
+
+	endList := timing.Phase("boot:list", "")
 	seen := listContainers()
+
+	endList()
 
 	// Anything left by a process that has exited goes now, before this build
 	// adds to the pile.
+	//
+	// Timed apart from the listing that feeds it: the pair costs ~88ms on every
+	// build, a fresh process cannot use the `booted` short-circuit, and which
+	// half to attack is a different answer depending on whether the reaps are
+	// free when there is nothing to reap.
+	endReap := timing.Phase("boot:reap", "")
 	reapOrphans(seen)
 
 	// And anything named for a directory that has since gone. A content-named
 	// VM has no owning process, so reapOrphans cannot see it; see
 	// stranded_darwin.go for why nothing else could reach it either.
-	reapStranded(seen)
+	reapStranded(seen, a.name)
+
+	endReap()
 
 	endScan()
 

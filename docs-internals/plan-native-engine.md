@@ -9401,3 +9401,46 @@ inside a VM, as the reviewer asked. The number matching showed nothing. What hol
 observation rather than the inference: a twelve-line Earthfile with two targets binding one port
 reports `COLLIDED rc=1` under `--engine native` and passes under Docker and Podman, and CI reports
 the bind failure directly. An inode is not an identity across kernels; a failed bind is a fact.
+
+## Encapsulation on Linux: what it is for, and the shape it takes, 2026-08-30
+
+**First, a justification retracted.** This plan recorded encapsulation as answering the secrets
+listed above being readable during a CI job. A survey of the alternatives refuted that, and refuted
+it for encapsulation too: changing the runner does not stop a hostile step reading its own
+environment, because the secret is inside the boundary by the time the step runs. We put it there. A
+perfect VM around a step that has been handed `GPG_PRIVATE` protects nothing about `GPG_PRIVATE`.
+
+That threat is answered by not putting secrets where untrusted code runs - OIDC tokens minted per
+job, a credential proxy that holds the secret outside the sandbox, signing performed by something
+the build can ask but cannot read. That is separate work and it is not this section.
+
+**What encapsulation is actually for**, stated so the next reader does not inherit the wrong reason:
+a build that outlives the machine that ran it. Persistence across builds, escalation to the host,
+one build contaminating the next, and a workstation where the interesting material is on the disk
+rather than in the environment. A hosted runner is thrown away and mostly does not care; a developer
+machine and a long-lived worker are the case, and they are the case whether or not CI ever benefits.
+
+**The shape is already written, on the other platform.** `engine/exec/apple_darwin.go` runs steps
+inside a Linux VM via Apple's `container` CLI: one VM per run rather than per step, ~650ms to boot
+(E1b), carrying a Linux `earth-guestd` built for the VM's architecture and talking to it over a unix
+socket. Firecracker on Linux is that same design with a different VMM underneath, so what it needs
+mostly exists:
+
+| Piece                                   | Status                                   |
+| --------------------------------------- | ---------------------------------------- |
+| guest daemon and its protocol           | `engine/guest`, `engine/guestd` - done   |
+| a Linux guest binary shipped into a VM  | `GuestBinary` - done                     |
+| host/guest transport over a unix socket | `fillsocket`, `applefill` - done         |
+| one VM per run, named, reaped           | `stranded_darwin.go` - done, darwin-only |
+| the VMM, rootfs supply and networking   | new                                      |
+
+The seam is four methods - `Start`, `Stop`, `StoreDir`, `Confines` - so this is a sibling of `Apple`
+in `engine/exec/`, not a new architecture. `Native` stays as the fallback where `/dev/kvm` is absent,
+which is the warn-and-continue case decided above, and is what every CI job here will take.
+
+**A trap in `Confines()`, worth naming before it is reused.** It currently means "holds a step's
+writes to its own layer", which is a *cache-correctness* predicate: a sandbox that cannot promise it
+must not write cache entries (green paper A3). `Native.Confines()` is therefore `true`, and after
+today that reads like a security claim it is not making. Encapsulation strength is orthogonal and
+wants its own answer rather than overloading this one - otherwise `Confines() == true` silently
+comes to mean two different things, one of which is false for namespaces.

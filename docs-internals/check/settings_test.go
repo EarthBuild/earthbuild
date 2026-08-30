@@ -57,6 +57,7 @@ var internalSettings = map[string]string{
 	"EARTH_STEP_TRACE_PIN":      "passed to the step shim by the guest",
 	"EARTH_STEP_USER":           "passed to the step shim by the guest",
 	"EARTH_STEP_HOME":           "passed to the step shim by the guest",
+	"EARTH_STEP_NETNS":          "passed to the step shim by the guest",
 	// Three that arrived with main's EARTHLY_ to EARTH_ migration (#800). All
 	// three are buildkit-side plumbing: the operator-facing knob for the first
 	// is `global.buildkit_additional_config` in the config file, and the other

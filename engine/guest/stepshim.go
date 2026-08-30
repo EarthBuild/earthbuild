@@ -63,6 +63,18 @@ const EnvStepUser = "EARTH_STEP_USER"
 // Earthfile said something about it.
 const EnvStepHome = "EARTH_STEP_HOME"
 
+// EnvStepNetNS is the network namespace the step joins, as a path.
+//
+// Set by the guest under `EARTH_STEP_NET=private` and empty otherwise, so the
+// shim's behaviour follows the guest's decision rather than reading the setting
+// a second time and risking a different answer to the same question.
+//
+// A path rather than a name: the shim opens it and calls `setns`, and
+// /var/run/netns/<name> is the bind mount that holds the namespace open in the
+// first place. Joining rather than unsharing is the whole point - an unshared
+// namespace would be empty and the step would have no way out.
+const EnvStepNetNS = "EARTH_STEP_NETNS"
+
 // stepShim is what the shim was asked to prepare and become.
 type stepShim struct {
 	// root is the filesystem the step sees, named from outside it: the chroot

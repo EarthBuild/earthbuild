@@ -124,6 +124,13 @@ type Server struct {
 	// on the hot path this engine is trying to make narrower, to carry a string
 	// that is empty on every healthy build.
 	unmounted atomic.Pointer[string]
+	// sharedNet is why steps ran in the guest's network namespace after being
+	// asked to have their own, or nil if they were not asked or did get them.
+	//
+	// The first reason, like unmounted and for the same argument: forty steps
+	// find the same `ip` missing, and a later unrelated failure must not
+	// replace the cause the reader still needs.
+	sharedNet atomic.Pointer[string]
 	// running is how to abandon each exec in flight, by request id.
 	//
 	// A function rather than the *exec.Cmd it came from. Holding the command
@@ -1316,6 +1323,30 @@ func whyMount(err error) string {
 // The first rather than the last: forty steps fail the same mount for the same
 // reason, and a later unrelated failure must not replace the cause the reader
 // still needs.
+// noteSharedNet records why a step did not get a network namespace of its own.
+//
+// Not an error, which is the point of recording it: `EARTH_STEP_NET=private` on
+// a guest without `ip` means every step runs the way it always has, and a build
+// that refused would be a build broken by asking for something better.
+func (s *Server) noteSharedNet(reason string) {
+	if reason == "" {
+		return
+	}
+
+	s.sharedNet.CompareAndSwap(nil, &reason)
+}
+
+// SharedNet reports why steps shared the guest's network, if they were meant not
+// to and did.
+func (s *Server) SharedNet() string {
+	reason := s.sharedNet.Load()
+	if reason == nil {
+		return ""
+	}
+
+	return *reason
+}
+
 func (s *Server) noteUnmounted(reason string) {
 	if reason == "" {
 		return
@@ -2497,6 +2528,28 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// machine and in every build: constant, not observed, and therefore not
 	// something I3 has anything to say about.
 	cmd.Env = stepEnv(declared, req.Env)
+
+	// **A network of the step's own, where the guest can give one.**
+	// Parallel steps share the guest's network namespace, so two of them
+	// binding one fixed port collide - an inner buildkitd wants 8371 and 8372
+	// and the second dies with `bind: address already in use`, a minute before
+	// the step reports it as a buildkit that would not answer (E923).
+	//
+	// Told to the shim rather than acted on here, for the reason USER is: there
+	// is no moment between the clone and the exec that the guest can run code
+	// in, and `setns` has to happen in the process that becomes the step.
+	// Without a shim there is nobody to tell, and the step runs shared.
+	netAt, closeNet, whyNoNet := openStepNet()
+
+	defer closeNet()
+
+	if whyNoNet != "" {
+		s.noteSharedNet(whyNoNet)
+	}
+
+	if shimming && netAt != "" {
+		cmd.Env = append(cmd.Env, EnvStepNetNS+"="+netAt)
+	}
 
 	// **Told to the shim, not to the step.** The shim resolves it after the
 	// chroot, where `/etc/passwd` is the step's own, and `stepEnviron` takes it

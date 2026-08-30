@@ -43,7 +43,16 @@ func RunStepShimIfAsked() {
 		os.Exit(1)
 	}
 
-	err := prepareStep(sh)
+	// Before prepareStep: a network namespace is joined, not built, so the
+	// earlier it happens the fewer things have been set up against the wrong
+	// one. Nothing below here depends on it, which is what makes the order free
+	// to choose rather than forced.
+	err := joinStepNet()
+	if err != nil {
+		fail(err)
+	}
+
+	err = prepareStep(sh)
 	if err != nil {
 		fail(err)
 	}
@@ -197,6 +206,7 @@ func withoutShimVars(all []string) []string {
 		if strings.HasPrefix(kv, EnvStepTraceFD+"=") ||
 			strings.HasPrefix(kv, EnvStepTracePin+"=") ||
 			strings.HasPrefix(kv, EnvStepUser+"=") ||
+			strings.HasPrefix(kv, EnvStepNetNS+"=") ||
 			strings.HasPrefix(kv, EnvStepHome+"=") {
 			continue
 		}

@@ -5543,14 +5543,54 @@ one.
 
 **Two things must be decided before this is scheduled**, and neither is technical:
 
-* **The default.** Off, and the security-conscious opt in? Or on, and the fast path opt out? E1
-  measured ~650ms per VM on macOS against ~65ms to exec into a running one, and a VM is per *worker*
-  rather than per step - so the cost is small but not nothing, and it is paid by everyone.
+* **The default: on, decided 2026-08-30.** The fast path opts out, not the other way round. A
+  default that has to be found is not a security property: the person running an untrusted Earthfile
+  on a shared machine is exactly the person who does not know to look for a flag, and an opt-in
+  boundary protects the people who already knew. E1 measured ~650ms per VM on macOS against ~65ms to
+  exec into a running one, and a VM is per *worker* rather than per step, so the cost is amortised
+  across a build rather than paid per step.
 
-* **What happens where nested virtualisation is unavailable.** Many CI runners cannot start a VM at
-  all. A flag that silently falls back to namespaces gives a false assurance, which is worse than
-  refusing; a flag that refuses makes builds fail on machines that were working. This wants the same
-  treatment as `Confines()`: say what was actually used, and let the cache rule follow from it.
+  A consequence worth having: with this on, Linux and macOS run the same shape - a Linux guest
+  inside a VM - where today macOS boots a VM and Linux confines a child process. One model rather
+  than two, and the platform difference stops being a thing every mechanism has to answer for
+  separately.
+
+* **Where nested virtualisation is unavailable: warn and continue, decided 2026-08-30.** Refusing
+  would break machines that work today, so the build proceeds and says what it actually got. This is
+  I11 - degrade and say so - which is the pattern `Confines()` and the two mount warnings already
+  follow.
+
+  **This repository's own CI is that case.** Firecracker requires `/dev/kvm` and has no software
+  fallback. GitHub's standard hosted runners do not offer reliable nested virtualisation; `/dev/kvm`
+  is reported present on some free runners and absent on others, apparently accidentally rather than
+  by policy. Hardware-accelerated nested virtualisation exists on *larger* runners. Every workflow
+  here says `ubuntu-26.04`, which is a standard one. So with the default on, every CI job takes the
+  degraded path.
+
+  **Which makes the untested default the real problem, not the ignored warning.** A configuration
+  that never runs in CI is a configuration that rots, and this one is the security boundary. Two
+  things follow, and they are cheap:
+
+  1. **One job that must encapsulate**, on a larger runner or the self-hosted x86 box, failing if it
+     cannot. Without it the encapsulated path has no coverage at all, and the first person to
+     exercise it is a user.
+  2. **The level belongs in the build record, not only in a warning.** `Confines()` already exists
+     for this: what a sandbox actually provided decides whether a cache entry may be written, so an
+     unencapsulated build cannot be mistaken later for an encapsulated one. A log line cannot carry
+     that and a cache key can.
+
+  Said plainly because the evidence is a day old: the cgroup permission warning printed on every
+  Native job for weeks and changed nobody's behaviour, including mine (E922). "Warn and continue" is
+  the right call for a build that would otherwise fail, and warning is not a control.
+
+  **Firecracker's own project reached this conclusion and acted on it.** Its repository splits CI in
+  two: `.github/workflows/` holds only work that never boots a VM - the DCO check, a dirty-lockfile
+  check, a dependency-modification check, a libseccomp release monitor, notifications - while every
+  pipeline that actually runs a microVM lives in `.buildkite/` and targets AWS bare metal.
+  `common.py` lists eleven instance types, all `.metal`, across Intel, AMD and Graviton. The people
+  who write Firecracker do not test Firecracker on hosted runners, which is about as direct an
+  answer to "can this work on a GitHub runner" as the question admits. Plan for hardware: the
+  self-hosted x86 box is the nearest thing available here, and item 1 above is where it goes.
 
 **Scheduled, and not optional, 2026-08-30.** The heading is now wrong and is kept only so the
 citations to it still resolve: encapsulation is required, on the grounds that namespaces and cgroups

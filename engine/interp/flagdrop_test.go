@@ -251,17 +251,16 @@ var knownDropped = []string{
 	"FROM --allow-privileged",
 	// harness: no arguments in scope to pass, as for COPY and FROM.
 	"BUILD --pass-args",
-	"COPY --keep-ts",                      // deliberate: interp.go, a capture keeps them
-	"COPY --pass-args",                    // harness: no arguments in scope to pass
-	"FROM --pass-args",                    // harness: as above
-	"RUN --raw-output",                    // deliberate: how output is printed
-	"SAVE ARTIFACT --keep-own",            // deliberate: a layer records uid and gid
-	"SAVE ARTIFACT --keep-ts",             // deliberate: a capture keeps timestamps
-	"SAVE ARTIFACT --symlink-no-follow",   // deliberate: a layer holds a symlink as one
-	"SAVE IMAGE --cache-from",             // deliberate: a hint may not change results (I5)
-	"SAVE IMAGE --cache-hint",             // deliberate: as above
-	"SAVE IMAGE --insecure",               // deliberate: governs a push, and this engine does not push
-	"SAVE IMAGE --without-earthly-labels", // deliberate: this engine adds no such labels
+	"COPY --keep-ts",                    // deliberate: interp.go, a capture keeps them
+	"COPY --pass-args",                  // harness: no arguments in scope to pass
+	"FROM --pass-args",                  // harness: as above
+	"RUN --raw-output",                  // deliberate: how output is printed
+	"SAVE ARTIFACT --keep-own",          // deliberate: a layer records uid and gid
+	"SAVE ARTIFACT --keep-ts",           // deliberate: a capture keeps timestamps
+	"SAVE ARTIFACT --symlink-no-follow", // deliberate: a layer holds a symlink as one
+	"SAVE IMAGE --cache-from",           // deliberate: a hint may not change results (I5)
+	"SAVE IMAGE --cache-hint",           // deliberate: as above
+	"SAVE IMAGE --insecure",             // deliberate: governs a push, and this engine does not push
 }
 
 // writtenAs is the flag as it appears on a command line.

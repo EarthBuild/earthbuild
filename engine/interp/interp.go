@@ -28,6 +28,7 @@ import (
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/version"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/containerd/platforms"
 )
@@ -1748,6 +1749,26 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 
 		for _, a := range refs {
 			cfg := rs.imageConfig()
+
+			// **The engine's own statement about the image.**
+			// `refuseReservedLabel` stops an author writing under
+			// `dev.earthly.`, which only makes sense if the engine writes there
+			// itself - and this did not, so every image it produced carried
+			// `"Labels": null` where the other engine's carried three (E924).
+			//
+			// Off under `--without-earthly-labels`, which exists so an image
+			// can be identical across engine versions: a stamped version and
+			// git sha change whenever the engine does, so a build asking for
+			// reproducibility must get no labels rather than empty ones.
+			if !img.WithoutEarthLabels {
+				if cfg.Labels == nil {
+					cfg.Labels = map[string]string{}
+				}
+
+				cfg.Labels["dev.earthly.version"] = version.Version
+				cfg.Labels["dev.earthly.git-sha"] = version.GitSha
+				cfg.Labels["dev.earthly.built-by"] = version.BuiltBy
+			}
 
 			p.Images = append(p.Images, Image{
 				Ref: a, Push: img.Push, Config: cfg,

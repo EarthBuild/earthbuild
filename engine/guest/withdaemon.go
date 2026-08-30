@@ -2,9 +2,13 @@ package guest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"time"
+
+	"github.com/EarthBuild/earthbuild/internal/retry"
 )
 
 // daemonProcess is a daemon that has been launched but is not yet known to be
@@ -57,6 +61,25 @@ const howOftenToAsk = 100 * time.Millisecond
 // publishDaemon makes a running daemon's socket appear inside the step.
 type publishDaemon func(from, to string) (func(), error)
 
+// daemonPolicy is how a daemon that does not come up is retried.
+//
+// Two attempts, because each costs a full `waitAtMost` and the point is to
+// relaunch once rather than to keep trying. A missing `dockerd` is declined:
+// re-reading PATH cannot find a binary that is not installed, and reporting
+// "failed after 2 attempts" about it would bury the one sentence that helps.
+func daemonPolicy() retry.Policy {
+	return retry.Policy{
+		Attempts: 2,
+		// Immediately, near enough: the wait already spent 45 seconds and the
+		// interesting work is the relaunch, not the pause before it.
+		Base:     100 * time.Millisecond,
+		Strategy: retry.Fixed,
+		Retryable: func(err error) bool {
+			return !errors.Is(err, exec.ErrNotFound)
+		},
+	}
+}
+
 func withDaemon(
 	ctx context.Context, stepRoot string, d *Daemon,
 	launch launchDaemon, publish publishDaemon, body func() error,
@@ -91,9 +114,36 @@ func withDaemon(
 	//
 	// The two sets name the same files, which is exactly the condition under
 	// which a mix-up survives review.
-	proc, err := launch(ctx, daemonArgs(root, listen), listen)
+	// **Launched and waited for together, so a failure can be retried as one.**
+	// A daemon that dies at startup used to fail the step: the wait timed out
+	// and nothing relaunched it. `container run` has worked this way for the
+	// sandbox VM for a long time - run, fail, remove, run - and this is the same
+	// shape for the step's own daemon.
+	//
+	// The stop inside the attempt is load-bearing. The deferred one below
+	// belongs to the daemon that answered; a daemon that never did still holds
+	// the socket the next launch binds, so it has to go before the retry.
+	var proc daemonProcess
+
+	err = retry.Do(ctx, daemonPolicy(), func() error {
+		started, launchErr := launch(ctx, daemonArgs(root, listen), listen)
+		if launchErr != nil {
+			return fmt.Errorf("start a daemon for this step: %w", launchErr)
+		}
+
+		_, awaitErr := awaitDaemon(ctx, started.Ask, howOftenToAsk)
+		if awaitErr != nil {
+			_ = started.Stop()
+
+			return awaitErr
+		}
+
+		proc = started
+
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("start a daemon for this step: %w", err)
+		return fmt.Errorf("this step asked for a daemon and did not get one: %w", err)
 	}
 
 	// Deferred before the wait, not after it: everything below here has to stop
@@ -114,11 +164,6 @@ func withDaemon(
 			out = fmt.Errorf("the step finished but its daemon would not stop: %w", stopErr)
 		}
 	}()
-
-	_, err = awaitDaemon(ctx, proc.Ask, howOftenToAsk)
-	if err != nil {
-		return fmt.Errorf("this step asked for a daemon and did not get one: %w", err)
-	}
 
 	// After the wait, because the socket does not exist until the daemon has
 	// bound it - which is why this is not one of the mounts set up before the

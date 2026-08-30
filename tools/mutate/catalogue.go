@@ -2114,7 +2114,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: the body waiting for the daemon to answer (E369)",
 		File:        "engine/guest/withdaemon.go",
-		Anchor:      "\t_, err = awaitDaemon(ctx, proc.Ask, howOftenToAsk)\n\tif err != nil {\n\t\treturn fmt.Errorf(\"this step asked for a daemon and did not get one: %w\", err)\n\t}",
+		Anchor:      "\t\t_, awaitErr := awaitDaemon(ctx, started.Ask, howOftenToAsk)\n\t\tif awaitErr != nil {",
 		Replacement: "",
 		Package:     "./engine/guest/",
 	},
@@ -2128,7 +2128,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: a daemon told the guest's paths, not the step's (E370)",
 		File:        "engine/guest/withdaemon.go",
-		Anchor:      "\tproc, err := launch(ctx, daemonArgs(root, listen), listen)",
+		Anchor:      "\t\tstarted, launchErr := launch(ctx, daemonArgs(root, listen), listen)",
 		Replacement: "\tproc, err := launch(ctx, daemonArgs(d.Root, listen), listen)",
 		Package:     "./engine/guest/",
 	},
@@ -2676,8 +2676,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: the daemon wait bounded (E395)",
 		File:        "engine/guest/awaitdaemon.go",
-		Anchor:      "const waitAtMost = 90 * time.Second",
-		Replacement: "const waitAtMost = 100 * time.Hour",
+		Anchor:      "var waitAtMost = 45 * time.Second",
+		Replacement: "var waitAtMost = 100 * time.Hour",
 		Package:     "./engine/guest/",
 	},
 	{

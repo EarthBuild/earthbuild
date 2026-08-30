@@ -13,7 +13,16 @@ import (
 // machine this was built on (E375), and this is sixty times that. It is not a
 // performance budget - it is the difference between a build that fails with a
 // reason and a build that hangs (E395).
-const waitAtMost = 90 * time.Second
+// waitAtMost is how long one attempt waits for a daemon to answer.
+//
+// **45s and two attempts, not 90s and one.** A dockerd that has not answered in
+// 45 seconds is usually dead rather than slow, and the second attempt relaunches
+// it - which rescues a build that a single long wait only delays. The worst case
+// is unchanged at 90 seconds; what changed is that half of it is spent on a
+// fresh daemon rather than on the same one.
+//
+// A var rather than a const so a test can shorten it. Nothing else writes it.
+var waitAtMost = 45 * time.Second
 
 // awaitDaemon waits for a daemon to answer, and returns what it said.
 //

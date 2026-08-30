@@ -5567,9 +5567,15 @@ one.
   here says `ubuntu-26.04`, which is a standard one. So with the default on, every CI job takes the
   degraded path.
 
-  **Which makes the untested default the real problem, not the ignored warning.** A configuration
-  that never runs in CI is a configuration that rots, and this one is the security boundary. Two
-  things follow, and they are cheap:
+  **The CI exposure itself is moot**, and it is worth saying why rather than leaving the paragraph
+  below to imply otherwise. A hosted runner is already a single-use VM torn down after one job, so
+  encapsulating a step inside it protects nothing that is not already protected; the boundary is
+  being paid for twice. What encapsulation is *for* is the case a runner is not - a developer
+  machine, a shared or long-lived worker, anything where a build outlives the thing that ran it.
+
+  **What survives is coverage, not exposure.** A configuration that never runs in CI is a
+  configuration that rots, and this one is the security boundary. Two things follow, and they are
+  cheap:
 
   1. **One job that must encapsulate**, on a larger runner or the self-hosted x86 box, failing if it
      cannot. Without it the encapsulated path has no coverage at all, and the first person to

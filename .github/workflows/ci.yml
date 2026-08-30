@@ -314,6 +314,20 @@ jobs:
     uses: ./.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: "native"
+      # **Root, because Podman is root and the suites must differ in engine
+      # only.** Mounting a cgroup tree for a step needs CAP_SYS_ADMIN, so as
+      # the `runner` user the sandbox reports `mount /sys/fs/cgroup for the
+      # step: operation not permitted` and any test that nests a runtime
+      # cannot start one. That hit 12 of the 13 failing Native jobs, and it
+      # was read for weeks as a GitHub restriction because the Podman suite -
+      # the one it was being compared against - had been passing `sudo` all
+      # along. Bisected inside one privileged container, changing only the
+      # uid: root mounts it, uid 1001 does not (E922).
+      #
+      # Note this does NOT fix the second defect found alongside it: every
+      # step shares one network namespace whatever the uid, so parallel steps
+      # collide on the fixed buildkitd ports 8371/8372 (E923).
+      SUDO: "sudo"
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}

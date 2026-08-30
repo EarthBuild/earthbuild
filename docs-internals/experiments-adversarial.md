@@ -44781,3 +44781,77 @@ and needs the same evidence as the code it excuses. The map now carries the run
 number that measured this one. A reason that cannot cite something is a guess
 wearing a comment's clothes, and it will be corrected by whoever notices - into
 whatever the guess implied.
+
+### E922 - the two suites differed in privilege, not only in engine
+
+Twelve of the thirteen failing Native jobs carry the same line, and it had been
+read for weeks as a restriction imposed by the runner:
+
+```text
+warning: a step's filesystem was incomplete - mount /sys/fs/cgroup for the
+  step: operation not permitted
+  what breaks is a nested runtime - docker, podman or buildkit started
+  inside a step - which needs /sys and a cgroup tree to start a container
+```
+
+It is a privilege failure, and the privilege was ours to grant. `ci.yml` passes
+`SUDO: "sudo"` to the Podman suite and passes nothing to the Native one, so
+`ci-test-suite.yml` defaults it to `""` and the native jobs run as `runner`
+while the suite they are compared against runs as root. **The comparison the
+branch exists to make had a second variable in it the whole time.**
+
+Bisected inside a single privileged container, changing only the uid, so kernel,
+image, mounts and engine are held fixed:
+
+| uid  | `/sys/fs/cgroup` mount      |
+| ---- | --------------------------- |
+| 0    | succeeds, no warning        |
+| 1001 | `operation not permitted`   |
+
+Mounting a cgroup tree needs `CAP_SYS_ADMIN`; an unprivileged process cannot do
+it, on a GitHub runner or anywhere else. Nothing about GitHub was involved.
+
+What kept it hidden is that the line says `warning` and the build continues past
+it. The job dies a minute later and somewhere else (E923), so the message that
+names the cause is not adjacent to the failure that reports it.
+
+**Method note.** The wrong attribution survived one round of checking because
+the check counted occurrences - 170 of the word `cgroup` in a failing log - and a
+count cannot distinguish a cause from a repeated warning. Reading one line
+settled it. This is the second time in one session that a count stood in for a
+line and produced a wrong answer.
+
+### E923 - every step shares one network namespace
+
+The job-killer in four of the thirteen is not the cgroup warning at all:
+
+```text
+buildkitd: listen tcp 0.0.0.0:8372: bind: address already in use
+Error: build new buildkitd client: connect provided buildkit: timeout 1m0s
+```
+
+`tests/+ga-no-qemu-group2` BUILDs many targets, so their inner `earth`
+invocations run as parallel steps, each starting a buildkitd on the fixed ports
+8371 and 8372. Under Docker and Podman they never collide. Under native they do,
+because **every step runs in the same network namespace**:
+
+```text
+host:      net:[4026531840]
+step ONE:  net:[4026531840]
+step TWO:  net:[4026531840]
+```
+
+Independent of the uid in E922: root and 1001 both share a namespace, so
+granting privilege does not fix this and the two defects must be counted apart.
+
+Reproducing it needs no runner and no mimicry - a twelve-line Earthfile with two
+targets binding one port, built with `BUILD` so they run together, reports
+`COLLIDED rc=1` under `--engine native` and passes under the others. The
+equivalent CI job is green under Docker, Podman and Next on the identical
+target, which is the control.
+
+Worth separating from the fix: the one-minute connect timeout converts a legible
+`bind: address already in use` into a silent minute of waiting, and then reports
+a frontend-detection failure that is a symptom three steps removed from the
+cause. The port collision is the defect; the timeout is what made it look
+environmental.

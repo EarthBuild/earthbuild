@@ -44877,3 +44877,45 @@ Worth separating from the fix: the one-minute connect timeout converts a legible
 a frontend-detection failure that is a symptom three steps removed from the
 cause. The port collision is the defect; the timeout is what made it look
 environmental.
+
+### E924 - the thirteen, sorted by what they actually say
+
+With the privilege confound removed (E922) the Native failures can be read for the first time
+without a warning on every one of them. Thirteen jobs, and the first error each reports that is not
+daemon shutdown chatter or an Earthfile comment being echoed:
+
+| Job     | First real error                                                       | Family        |
+| ------- | ---------------------------------------------------------------------- | ------------- |
+| group2  | `connect provided buildkit: timeout 1m0s` (4 port clashes, 8 × exit 6) | port clash    |
+| group3  | `connect provided buildkit: timeout 1m0s` (2 port clashes, 4 × exit 6) | port clash    |
+| group5  | `connect provided buildkit: timeout 1m0s` (2 port clashes, 4 × exit 6) | port clash    |
+| group11 | `docker load test:img failed with exit code 1`                         | WITH DOCKER   |
+| slow    | `RUN docker run a:latest failed with exit code 125`                    | WITH DOCKER   |
+| group12 | `jq -e '.[].Config.Labels' failed with exit code 1`                    | WITH DOCKER   |
+| group6  | `RUN --privileged --mount=type=tmpfs ... earth-entrypoint`             | WITH DOCKER   |
+| group5  | `ARG values cannot be reassigned`                                      | ARG semantics |
+| group7  | `ARG at Earthfile:57: "whoami" exited 1`                               | ARG semantics |
+| group8  | `VERSION --raw-output is a feature this engine does not know`          | missing flag  |
+| group10 | `invalid arguments .../privileged:main+locally && ls`                  | remote target |
+| group4  | `cannot save artifact +test/foo, since it does not exist`              | artifacts     |
+| group1  | `RUN diff "expected" "actual" failed with exit code 1`                 | output diff   |
+| qemu    | `BUILD --pass-args (Earthfile:1304)`                                   | pass-args     |
+
+Four families account for nine of them, and `WITH DOCKER` is the largest at four. None of it is
+environmental: these are engine gaps, which is a better position than the runner restriction the
+same thirteen were attributed to for weeks.
+
+**These are candidates, not causes**, and the distinction is the whole subject of E922. A first
+error is where a reader starts, not what failed the job - these suites run dozens of inner builds
+and several are *expected* to fail, which is why `should_fail` exists in the harness. Each family is
+promoted to a cause the same way: remove it and watch the outcome move. The port clash is the only
+one already at that standard, having been reproduced and refuted independently of CI.
+
+Two pieces of noise worth naming, because both cost time here and will again:
+
+* `level=info msg="Deleting nftables IPv6 rules" ... Error: Could not process rule` is a daemon
+  tearing itself down, and it is the *last* error in four logs.
+* `# Error: no container with name or ID "x" found` is an Earthfile comment being echoed. The repo
+  already knows: a comment beside it says the line "became the final line of a failed job's log -
+  where anyone reading the tail, or grepping for `Error`, finds it". Written by somebody who lost
+  the same afternoon to it.

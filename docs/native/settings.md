@@ -112,6 +112,26 @@ resolves.
 
 Pins are kept beside the images, per machine, not per project.
 
+### `EARTH_STEP_NET`
+
+How a step reaches the network. `shared` is the default and gives every step the
+guest's own namespace; `private` gives each step one of its own with a veth, an
+address and NAT out.
+
+Default: `shared`.
+
+Parallel steps share a network namespace, so two of them binding one fixed port
+collide: an inner buildkitd wants 8371 and 8372, and the second dies with
+`bind: address already in use`, which the step reports a minute later as a
+buildkit that would not answer. `private` gives each step a `/30` out of
+`10.201.0.0/16` - deliberately not buildkit's `172.30.0.0/16`, since both
+engines run on one machine while they are being compared.
+
+Behind a setting rather than on, because it needs `ip` and `iptables` on the
+guest and has not yet run against the corpus. Where either is missing the build
+says so and carries on shared, which is the same degrade-and-say-so rule the
+mount warnings follow.
+
 ### `EARTH_STEP_SHIM`
 
 Launch each step through a shim that mounts `/proc` inside the step's own PID

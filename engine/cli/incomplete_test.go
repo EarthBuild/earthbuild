@@ -52,6 +52,71 @@ func TestAnIncompleteStepFilesystemSaysSo(t *testing.T) {
 		}
 	})
 
+	// **What to do about it**, which the warning said everything except.
+	//
+	// It named the failure and what it costs and then stopped, so a reader who
+	// believed it still had to find out for themselves that the fix is to run
+	// as root. Twelve of thirteen Native CI jobs failed this way for weeks
+	// while the message that explained them scrolled past every run (E922).
+	//
+	// Labelled `unprivileged:` rather than printed flat, as warnUnbounded
+	// labels its `rootless:` line: the same warning covers a cgroups v1
+	// machine, where the advice does not apply and an unlabelled imperative
+	// would be wrong.
+	t.Run("says how to fix it", func(t *testing.T) {
+		t.Parallel()
+
+		var b bytes.Buffer
+
+		warnIncomplete(&b, "mount /sys/fs/cgroup for the step: operation not permitted")
+
+		out := b.String()
+
+		if !strings.Contains(out, "CAP_SYS_ADMIN") {
+			t.Errorf("the warning does not name the capability that is missing: %q", out)
+		}
+
+		if !strings.Contains(out, "root") {
+			t.Errorf("the warning does not say how to get it: %q", out)
+		}
+
+		// `-P` is `--allow-privileged`, which permits `RUN --privileged` in an
+		// Earthfile. It does not give this process a capability it has not got,
+		// so sending a reader to it would cost them a run to find out.
+		if strings.Contains(out, "-P") || strings.Contains(out, "allow-privileged") {
+			t.Errorf("the warning sends the reader to a flag that cannot help: %q", out)
+		}
+	})
+
+	// **Only where root is the answer.** This one warning carries every reason
+	// a step's filesystem came up short - a cgroups v1 machine, a /dev/pts that
+	// would not mount, a sandbox missing a feature - and root fixes exactly one
+	// of them. Advice printed beside a failure it cannot fix is worse than
+	// none: the reader spends a build on it and trusts the next line less.
+	t.Run("no root advice where root cannot help", func(t *testing.T) {
+		t.Parallel()
+
+		for _, reason := range []string{
+			"this machine is not on cgroups v2: stat /sys/fs/cgroup/cgroup.controllers: no such file or directory",
+			"this sandbox has no /proc, /sys",
+			"make room for /dev/pts: file exists",
+		} {
+			var b bytes.Buffer
+
+			warnIncomplete(&b, reason)
+
+			out := b.String()
+
+			if !strings.Contains(out, reason) {
+				t.Errorf("the warning dropped its reason %q: %q", reason, out)
+			}
+
+			if strings.Contains(out, "CAP_SYS_ADMIN") || strings.Contains(out, "as root") {
+				t.Errorf("root advice printed for %q, which root does not fix: %q", reason, out)
+			}
+		}
+	})
+
 	t.Run("nil writer is not a crash", func(t *testing.T) {
 		t.Parallel()
 

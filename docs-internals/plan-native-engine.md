@@ -5552,8 +5552,18 @@ one.
   refusing; a flag that refuses makes builds fail on machines that were working. This wants the same
   treatment as `Confines()`: say what was actually used, and let the cache rule follow from it.
 
-**Not scheduled.** Recorded here with its shape so that the next person to want it - or the first
-person to run an untrusted Earthfile on a shared machine - does not start from nothing.
+**Scheduled, and not optional, 2026-08-30.** The heading is now wrong and is kept only so the
+citations to it still resolve: encapsulation is required, on the grounds that namespaces and cgroups
+are an *isolation* boundary and not a *security* one. A build step runs code from an Earthfile, and
+the threat model for that is closer to a CI runner's than to a container's - the kernel is shared,
+so a kernel bug is an escape, and `RUN --privileged` hands over most of what is left. The two
+questions above still need answering; what is no longer open is whether to do it.
+
+Sequenced **after** per-chain step networking, and the order is load-bearing in a way that is easy
+to get backwards: a VM is per *worker*, so parallel chains inside one VM share its network stack and
+collide on a fixed port exactly as they do today. Encapsulation does not subsume the networking
+work, it inherits it. Doing the networking first also means the veth-and-bridge arrangement is
+already the thing that has to exist inside the guest.
 
 **A WITH DOCKER block leaves its containers running, and the next build inherits them, 2026-08-15.**
 
@@ -9275,3 +9285,62 @@ tar listings, `docker inspect`, `/run` - rather than from reading either
 implementation. Where the two engines disagree, the disagreement is a fact and
 which side is right is a decision; conflating those two is what makes a
 comparison feel like a bug report.
+
+## Step networking: one namespace per chain, 2026-08-30
+
+Parallel chains share a network stack, so two of them cannot both bind a port. Observed as four of
+the thirteen failing Native CI jobs, where `tests/+ga-no-qemu-group2` builds many targets at once
+and each starts an inner buildkitd on the fixed ports 8371 and 8372:
+
+```text
+buildkitd: listen tcp 0.0.0.0:8372: bind: address already in use
+Error: build new buildkitd client: connect provided buildkit: timeout 1m0s
+```
+
+`isolate` applies `CLONE_NEWNS`, `CLONE_NEWPID`, `CLONE_NEWIPC`, `CLONE_NEWUTS` and
+`CLONE_NEWCGROUP` per step, and deliberately not `CLONE_NEWNET`, on the stated grounds that "cutting
+the network would break every build that fetches a dependency, which is most of them". That is true
+of the choice as posed and the choice was posed as a pair: share the machine's network, or have
+none. There is a third option and buildkit has been taking it all along - `buildkitd/cni-conf.json`
+gives each step its own namespace, a veth into the `cni0` bridge and an address out of
+`172.30.0.0/16`, with `isGateway` for a route and `ipMasq` for the way out. Isolated *and*
+connected. `dockerd-wrapper.sh` reaching the registry at `172.30.0.1:8371` rather than `127.0.0.1`
+is that arrangement showing through.
+
+**Per chain, not per step**, which is both cheaper and the only correct one of the two. Steps in a
+chain run in sequence and cannot collide with each other; every collision seen has been between
+parallel targets. And a daemon has to outlive the step that started it: `WITH DOCKER` starts a
+dockerd that later steps in the block talk to, so giving each step a fresh namespace would leave
+that daemon unreachable one step after it came up. The cheap unit is the correct unit.
+
+Shape:
+
+1. One namespace per chain, with veth, address and NAT - the `isGateway` and `ipMasq` pair, not
+   isolation alone.
+2. Steps **join** it rather than unshare their own: `setns` on a held descriptor, not `CLONE_NEWNET`
+   in `SysProcAttr`.
+3. Something holds it open for the chain's lifetime. A namespace with no process in it and no bind
+   mount is collected, and this is the fiddly part rather than the interesting one.
+
+`DropNet` already puts a step in an empty namespace for `RUN --network=none`, so the plumbing for a
+private namespace exists and what is missing is a populated one.
+
+**Not `172.30.0.0/16`.** That is buildkit's, and both engines can run on one machine - taking its
+subnet would collide with the thing being replaced, on the machine where the comparison is being
+made.
+
+**A note on the evidence, because one leg of it was rotten.** This was first reported as proved by
+three namespace inodes matching:
+
+```text
+host:      net:[4026531840]
+step ONE:  net:[4026531840]
+step TWO:  net:[4026531840]
+```
+
+`4026531840` is the initial network namespace's inode in *any* Linux kernel, so three processes in
+three different kernels would print it too - which is exactly what would have happened had steps run
+inside a VM, as the reviewer asked. The number matching showed nothing. What holds is the
+observation rather than the inference: a twelve-line Earthfile with two targets binding one port
+reports `COLLIDED rc=1` under `--engine native` and passes under Docker and Podman, and CI reports
+the bind failure directly. An inode is not an identity across kernels; a failed bind is a fact.

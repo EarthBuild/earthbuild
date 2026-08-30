@@ -44821,6 +44821,28 @@ count cannot distinguish a cause from a repeated warning. Reading one line
 settled it. This is the second time in one session that a count stood in for a
 line and produced a wrong answer.
 
+**Corrected the same day, by the fix landing.** With `SUDO: "sudo"` in CI the mount succeeds -
+`mount /sys/fs/cgroup` failures go from three per job to none, across every Native job. The job
+outcomes do not move at all: 86 pass and 14 fail before and after, the same thirteen jobs and the
+aggregator.
+
+So "that hit twelve of the thirteen failing Native jobs" was wrong, and wrong in the way this entry
+had just finished warning about. The line was *present* in twelve logs; it caused failure in none of
+them, because it is a warning and the build continues past it - which the entry says two paragraphs
+earlier and then does not apply to its own arithmetic. Presence was counted as cause for the third
+time in one session, having twice been named as the error to avoid.
+
+What the fix is worth: it removes a real defect on its own terms, and it removes a confound from the
+comparison, which is why the suites should have matched in privilege whatever the outcome. What it
+is not worth is a job. The thirteen fail for other reasons, and after the fix they sort as three on
+the port collision of E923, one on `RUN diff "expected" "actual"` - a genuine behavioural difference
+between the engines - and nine carrying none of these signatures and not yet examined.
+
+The rule that keeps being relearned: a message in a failing log is a candidate, and the only thing
+that promotes it to a cause is removing it and watching the outcome change. Both halves are needed.
+Here the removal was clean and the outcome did not move, which is the cheapest possible refutation
+and would have been available on day one.
+
 ### E923 - every step shares one network namespace
 
 The job-killer in four of the thirteen is not the cgroup warning at all:

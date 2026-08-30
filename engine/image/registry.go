@@ -19,6 +19,7 @@ import (
 	"github.com/distribution/reference"
 
 	"github.com/EarthBuild/earthbuild/engine/timing"
+	"github.com/EarthBuild/earthbuild/internal/retry"
 )
 
 // Ref is a parsed image reference.
@@ -887,7 +888,52 @@ var accepts = []string{
 	"application/vnd.docker.distribution.manifest.list.v2+json",
 }
 
+// registryPolicy is how a registry read is retried, read once per process.
+//
+// Memoised because `get` is called per manifest, per config and per layer, and
+// re-parsing three environment variables on each is work for nothing. The error
+// is memoised with it: a mistyped setting must fail every read the same way,
+// not the first one only.
+var registryPolicy = sync.OnceValues(func() (retry.Policy, error) {
+	p, err := retry.FromEnv(os.Getenv)
+	if err != nil {
+		return retry.Policy{}, err
+	}
+
+	p.Retryable = retryableRegistryError
+
+	return p, nil
+})
+
+// get reads a URL from a registry, trying again when the answer says to.
+//
+// **Registry reads are idempotent, and this one had no retry at all.** A
+// manifest, a config and every layer descriptor come through here, so a single
+// closed connection anywhere in a pull failed the build. What is retried is
+// decided by `retryableRegistryError`: a 429 or a 5xx is about this moment, a
+// 404 is about the request.
 func get(ctx context.Context, client *http.Client, tok, url string, limit int64) ([]byte, error) {
+	policy, err := registryPolicy()
+	if err != nil {
+		return nil, err
+	}
+
+	var body []byte
+
+	err = retry.Do(ctx, policy, func() error {
+		var attemptErr error
+		body, attemptErr = getOnce(ctx, client, tok, url, limit)
+
+		return attemptErr
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+func getOnce(ctx context.Context, client *http.Client, tok, url string, limit int64) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
@@ -915,14 +961,13 @@ func get(ctx context.Context, client *http.Client, tok, url string, limit int64)
 		// has several causes and inventing one would be guessing dressed as
 		// help.
 		if resp.StatusCode == http.StatusNotAcceptable {
-			return nil, fmt.Errorf(
-				"%s returned %s\n  it has none of the formats this engine"+
-					" reads: %s\n  the image may be in a format this engine"+
-					" does not support yet",
-				url, resp.Status, strings.Join(accepts, ", "))
+			return nil, &statusError{
+				URL: url, Code: resp.StatusCode, Status: resp.Status,
+				Detail: unsupportedFormats(),
+			}
 		}
 
-		return nil, fmt.Errorf("%s returned %s", url, resp.Status)
+		return nil, &statusError{URL: url, Code: resp.StatusCode, Status: resp.Status}
 	}
 
 	// Bounded by the declared size, so a descriptor claiming a kilobyte cannot

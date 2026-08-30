@@ -860,3 +860,27 @@ store is in the VM, so on Linux the setting does nothing: 1138ms against 1118ms,
 changed my cache" without rebuilding the engine.
 
 Default: on.
+
+## `EARTH_RETRY_ATTEMPTS`
+
+How many times an operation that can be retried is tried in total, not how many extra tries it
+gets. Defaults to 4. Setting it to 1 turns retrying off, which is a policy rather than a mistake
+and is the right setting when you are trying to see a failure rather than survive one.
+
+## `EARTH_RETRY_BASE`
+
+How long to wait after the first failure, as a duration - `150ms`, `2s`. Defaults to 150ms. Later
+waits grow from this according to `EARTH_RETRY_STRATEGY`, up to an internal cap of two seconds.
+
+## `EARTH_RETRY_STRATEGY`
+
+How the wait grows between attempts: `exponential` (the default) or `fixed`.
+
+**They suit different faults.** Exponential is right where failure means contention or a resource
+still coming back, because the longer it has been failing the less an immediate retry helps. Fixed
+is right where failure is a race that the next attempt either wins or does not - a keep-alive
+connection closed under a client about to reuse it does not care how long you wait.
+
+Waits are jittered, so concurrent operations that fail together do not retry together. That matters
+here because images are pulled in parallel: without it, every failed pull in a batch would retry at
+the same instant, against the same registry that had just closed on all of them.

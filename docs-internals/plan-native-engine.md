@@ -5567,15 +5567,26 @@ one.
   here says `ubuntu-26.04`, which is a standard one. So with the default on, every CI job takes the
   degraded path.
 
-  **The CI exposure itself is moot**, and it is worth saying why rather than leaving the paragraph
-  below to imply otherwise. A hosted runner is already a single-use VM torn down after one job, so
-  encapsulating a step inside it protects nothing that is not already protected; the boundary is
-  being paid for twice. What encapsulation is *for* is the case a runner is not - a developer
-  machine, a shared or long-lived worker, anything where a build outlives the thing that ran it.
+  **Written here first as "the CI exposure is moot" and that was wrong**, on the reasoning that a
+  hosted runner is a single-use VM torn down after one job so the boundary is already paid for.
+  Ephemerality protects the *next* job. It does nothing for the one that is running, and the one
+  that is running is where the secrets are:
 
-  **What survives is coverage, not exposure.** A configuration that never runs in CI is a
-  configuration that rots, and this one is the security boundary. Two things follow, and they are
-  cheap:
+  ```text
+  DOCKERHUB_MIRROR_PASSWORD  DOCKERHUB_MIRROR_USERNAME  DOCKERHUB_TOKEN
+  FLEET_SECRET  GITHUB_TOKEN  GPG_PRIVATE  OTEL_EXPORTER_OTLP_HEADERS
+  ```
+
+  Seven, several handed to steps as plain environment variables, one of them a signing key. A
+  hostile step does not need to survive the job - it reads the environment and sends it somewhere
+  before the runner is destroyed. Destroying the machine afterwards does not recall the packet.
+
+  So a runner needs this as much as a workstation does, for a different reason: the workstation has
+  more to lose and lasts longer, while the runner has credentials in reach that the workstation's
+  owner would not hand to a build. **Both want the boundary, neither gets it from ephemerality.**
+
+  **And coverage on top of exposure.** A configuration that never runs in CI is a configuration that
+  rots, and this one is the security boundary. Two things follow, and they are cheap:
 
   1. **One job that must encapsulate**, on a larger runner or the self-hosted x86 box, failing if it
      cannot. Without it the encapsulated path has no coverage at all, and the first person to

@@ -44919,3 +44919,47 @@ Two pieces of noise worth naming, because both cost time here and will again:
   already knows: a comment beside it says the line "became the final line of a failed job's log -
   where anyone reading the tail, or grepping for `Error`, finds it". Written by somebody who lost
   the same afternoon to it.
+
+### E925 - two more of the WITH DOCKER four, one fixed and one only half-understood
+
+**`EXPOSE 1234:2345` and the missing labels are done** (see the commits): both were image-config
+fidelity, both reproduced outside CI, both verified by the outcome moving rather than by the message
+going away. The harness that made it possible is worth recording, because the first attempt at it
+measured the wrong thing:
+
+```bash
+docker run --rm --privileged -v $HOME/earth-static:/usr/local/bin/earth-static:ro \
+  -v $HOME/git/EarthBuild/earthbuild:/w -w /w --entrypoint sh docker:dind \
+  -c 'apk add --no-cache git jq; earth-static --engine native -P --no-cache ./tests/...'
+```
+
+Root without a password, and a *real* dockerd. An `ubuntu:24.04` base has none, so the first run
+reproduced a different failure entirely - "this step asked for a daemon and the guest has no dockerd
+on its PATH" - which is a true statement about my container and nothing about CI. The binary also
+has to be built `CGO_ENABLED=0`: a NixOS-linked one reports `not found` inside another distribution,
+which is the missing ELF interpreter and not a missing file.
+
+**The pre-script hook is not implemented, and that is a clean gap.** `buildkitd/dockerd-wrapper.sh`
+runs `/usr/share/earthly/dockerd-wrapper-pre-script` before starting the daemon, overridable by
+`DOCKER_WRAPPER_PRE_SCRIPT`; `tests/with-docker+pre-script-test` copies one in and asserts the file
+it creates exists. Nothing in `engine/` mentions it, so the native engine never runs it.
+
+The seam is known rather than guessed: `withDaemon` already takes `launch` and `publish` as
+parameters, so a `preScript` beside them fits the design. What makes it more than a stanza is where
+it must run - the script is in the *step's* filesystem while the daemon runs beside the step and is
+deliberately not chrooted (E368), so it wants the step shim, which the guest reaches by re-execing
+itself. Left unwritten rather than half-written.
+
+**And one that did not reproduce.** `+if-after` fails in CI with
+
+```text
+Unable to find image 'a:latest' locally
+docker: Error response from daemon: pull access denied
+```
+
+so `WITH DOCKER --load a:latest=+multi-from-one` did not put the image in the daemon the step then
+asked. It passes on the box, single-target and in a full parallel `+all` run. The engine's own cache
+note names the suspect: a step gets "a docker daemon it may share, whose contents no key
+describes", which would make this E923's family, being state shared between parallel steps that
+each assume it is theirs. Suspect, not cause. It is not reproduced, and saying more than that is what E922 is
+about.

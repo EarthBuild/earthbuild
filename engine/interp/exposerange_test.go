@@ -53,3 +53,46 @@ func TestAnExposedPortRangeBecomesOnePortEach(t *testing.T) {
 		})
 	}
 }
+
+// `EXPOSE 1234:2345` declares the container port and discards the host one.
+//
+// The same failure as the range above and from the same cause: docker resolves
+// the form at parse time and stores `{"2345/tcp":{}}`, while this engine
+// appended a protocol to the pair and stored `1234:2345/tcp`, which the daemon
+// refuses on load with `invalid port '1234:2345': invalid syntax`. Four of the
+// thirteen failing Native jobs are WITH DOCKER, and this is the first of them
+// taken apart (E924).
+//
+// The colon binds tighter than the dash: `1234:2340-2345` publishes a range on
+// the container side, so the host part comes off first and what remains is a
+// range like any other.
+func TestAnExposedHostPortIsDiscarded(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		in   string
+		want []string
+	}{
+		{"1234:2345", []string{"2345/tcp"}},
+		{"1234:2345/udp", []string{"2345/udp"}},
+		{"1234:2340-2342", []string{"2340/tcp", "2341/tcp", "2342/tcp"}},
+
+		// An address may precede the pair, and only the last field is the
+		// container's: `127.0.0.1:1234:2345` is still port 2345.
+		{"127.0.0.1:1234:2345", []string{"2345/tcp"}},
+
+		// Left alone on the same rule as a reversed range: a trailing colon
+		// names no container port, so the daemon says so in its own words
+		// rather than this inventing a second opinion that arrives first.
+		{"1234:", []string{"1234:/tcp"}},
+		{":2345", []string{"2345/tcp"}},
+	} {
+		t.Run(c.in, func(t *testing.T) {
+			t.Parallel()
+
+			if got := expandPorts(c.in); !reflect.DeepEqual(got, c.want) {
+				t.Errorf("expandPorts(%q) = %v, want %v", c.in, got, c.want)
+			}
+		})
+	}
+}

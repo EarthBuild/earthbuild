@@ -702,6 +702,26 @@ func tildeInDestination(dest string) bool {
 func expandPorts(port string) []string {
 	spec, proto, hasProto := strings.Cut(port, "/")
 
+	// **The container's port is the last colon-separated field.** `EXPOSE
+	// 1234:2345` names a host port and a container port, and an image
+	// configuration has nowhere to put the host one - docker resolves this when
+	// it parses and stores `2345/tcp` alone. Storing the pair earns the same
+	// refusal the range did: `invalid port '1234:2345': invalid syntax`
+	// (E924). `127.0.0.1:1234:2345` is the same shape with an address in front,
+	// which is why this takes the last field rather than splitting on two.
+	//
+	// A trailing colon names no container port and is left whole, on the rule
+	// the reversed range follows: the daemon's message knows more than a second
+	// opinion invented here, and arrives at the point it matters.
+	if at := strings.LastIndex(spec, ":"); at >= 0 && at+1 < len(spec) {
+		spec = spec[at+1:]
+
+		port = spec
+		if hasProto {
+			port = spec + "/" + proto
+		}
+	}
+
 	lo, hi, isRange := strings.Cut(spec, "-")
 	if !isRange {
 		return []string{withProtocol(port)}

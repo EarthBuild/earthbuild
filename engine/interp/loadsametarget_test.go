@@ -1,6 +1,7 @@
 package interp_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/interp"
@@ -88,5 +89,67 @@ main:
 	// took the other's configuration.
 	if withLabels != 1 {
 		t.Errorf("expected exactly one packed image to carry the engine labels, got %d", withLabels)
+	}
+}
+
+// Two blocks loading one image each load it, because each has its own daemon.
+//
+// A `--load` is two steps: packing an archive into the store, and running
+// `docker load` against the block's daemon. The archive is content-addressed and
+// daemon-independent, so two blocks wanting the same image should share the pack
+// - that is the graph doing its job. The load is not: it mutates one daemon, and
+// `dockerScope` names which. Without the scope on that node the two loads hash
+// alike, deduplicate to one, and run against whichever daemon got there first -
+// leaving the other block's empty and its step reporting `Unable to find image
+// 'a:latest' locally` about an image the build had just made (E927).
+func TestTwoBlocksEachLoadTheImage(t *testing.T) {
+	t.Parallel()
+
+	p, err := interp.Build(versioned+`
+img:
+    FROM alpine:3.22
+    SAVE IMAGE a:latest
+
+first:
+    FROM alpine:3.22
+    WITH DOCKER --load=+img
+        RUN docker run a:latest
+    END
+
+second:
+    FROM alpine:3.22
+    WITH DOCKER --load=+img
+        RUN docker run a:latest
+    END
+
+main:
+    BUILD +first
+    BUILD +second
+`, testMain)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	loads := 0
+	packs := 0
+
+	for _, n := range p.Graph.Nodes() {
+		switch {
+		case n.Op.Kind == ir.OpPackImage:
+			packs++
+		case n.Op.Kind == ir.OpExec && len(n.Op.Args) > 0 &&
+			strings.Contains(strings.Join(n.Op.Args, " "), "docker load -i"):
+			loads++
+		}
+	}
+
+	if loads != 2 {
+		t.Errorf("each block must load into its own daemon: got %d load steps, want 2", loads)
+	}
+
+	// The archive is the same file for both, and packing it twice would be
+	// work for nothing. Sharing it is the graph being right, not the bug.
+	if packs != 1 {
+		t.Errorf("one archive serves both blocks: got %d pack steps, want 1", packs)
 	}
 }

@@ -45058,3 +45058,38 @@ The inner container has no `CAP_SYS_ADMIN` despite `RUN --privileged`, and its
 working directory is not writable. Same signature before these changes as after,
 so it is not a regression from running the suite as root - but it is the same
 *shape* as E922, one layer further in.
+
+### E928 - +if-after, reduced but not solved
+
+Reproduces on a Linux box now that the pre-script gap no longer aborts the run
+first. `tests/with-docker+all` fails at Earthfile:156:
+
+```text
+Unable to find image 'a:latest' locally
+docker: Error response from daemon: pull access denied for a
+```
+
+`+if-after` alone passes, so it is an interaction. Two targets load the same
+image from the same target - `+one-target-many-names` at line 143 and
+`+if-after` at line 155, both `a:latest=+multi-from-one` - and in the combined
+build **no `docker load` runs at all**, where the solo run prints one.
+
+**Graph deduplication is not the mechanism**, which is worth recording because it
+was the obvious suspect and is wrong. A `--load` is two steps: packing an
+archive into the store, and running `docker load` against the block's daemon.
+Neither node carries `DockerScope`, so two blocks loading one image looked
+certain to hash alike - but a test asserting the property finds two load steps
+and one shared pack, which is exactly right. The archive is content-addressed and
+daemon-independent, so sharing it is the graph doing its job; the loads are
+already distinct.
+
+Kept as a guard rather than deleted for passing. It states a property the engine
+must not lose - one archive, one load per daemon - and the next change to
+`dockerLoad` is the one that would lose it.
+
+What is not explained: why the second block's load produces no output and no
+image. Not a cache hit as far as the log shows, since the summary never prints -
+the build fails first. The next step is a two-target reduction, which needs a
+build that names both and is why it has not been done yet: `earth` takes one
+target per invocation, so the pair has to be driven from an Earthfile written
+for the purpose.

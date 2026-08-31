@@ -324,23 +324,14 @@ jobs:
       # along. Bisected inside one privileged container, changing only the
       # uid: root mounts it, uid 1001 does not (E922).
       #
-      # **And a network namespace per step**, which is the second defect found
-      # alongside the first: every step shares the guest's, so parallel steps
-      # collide on the fixed buildkitd ports 8371/8372 and the loser waits out a
-      # one-minute connect timeout before reporting a buildkit that would not
-      # answer (E923). `+test-no-qemu-group3` is still failing exactly that way.
-      #
-      # **Written into SUDO rather than the job's env, because plain `sudo` does
-      # not carry one.** That is E901 again - the lesson that cost the Podman
-      # suite months of running the wrong engine - so a variable set in
-      # `GITHUB_ENV` would be dropped at the very step it is meant to govern.
-      # `sudo VAR=value cmd` passes it as an assignment, which is narrower than
-      # `sudo -E`: that would also carry `EARTH_VERSION_FLAG_OVERRIDES`, and
-      # honouring those overrides is what broke two green jobs in E921.
-      #
-      # This is the corpus run the flag was waiting for. If it costs more than
-      # the group3 timeout it saves, the revert is this one line.
-      SUDO: "sudo EARTH_STEP_NET=private"
+      # Note this does NOT fix the second defect found alongside it: parallel
+      # steps used to share one network namespace and collide on the fixed
+      # buildkitd ports 8371/8372 (E923). That is fixed in the engine now - a
+      # step gets a namespace of its own by default - so nothing is passed here
+      # for it. It was briefly set through `sudo EARTH_STEP_NET=private`, which
+      # plain `sudo` needs because it carries no environment (E901); the default
+      # makes that unnecessary rather than wrong.
+      SUDO: "sudo"
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}

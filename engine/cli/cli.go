@@ -609,6 +609,11 @@ func runPlan(
 	// mount found in mountinfo` from a nested runtime (E834a).
 	warnIncomplete(o.Out, e.Unmounted())
 
+	// And why steps shared one network, on the same rule. Sharing is no longer
+	// what was asked for, so a build that did it silently would leave two steps
+	// colliding on a port with nothing saying why (E923).
+	warnSharedNet(o.Out, e.SharedNet())
+
 	// Said before the reader meets `docker: not found` from a step, rather than
 	// after (E146).
 	warnNoDockerClient(o.Out, e.DockerNote())

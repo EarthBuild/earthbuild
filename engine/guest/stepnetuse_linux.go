@@ -21,7 +21,7 @@ const netnsDir = "/var/run/netns/"
 // where some steps could reach each other's ports and some could not, which is
 // worse than either answer.
 var privateStepNet = sync.OnceValue(func() bool {
-	return os.Getenv(EnvStepNet) == NetPrivate
+	return os.Getenv(EnvStepNet) != NetShared
 })
 
 // nextStepNet numbers the namespaces, so two live steps never share addresses.

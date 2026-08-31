@@ -1435,6 +1435,8 @@ type Client struct {
 	// from the guest. The guest and the host are different machines on macOS,
 	// so a reason that stays on the guest is a reason nobody reads.
 	unmounted string
+	// sharedNet is why steps shared one network namespace, if they did.
+	sharedNet string
 }
 
 // Degraded reports why steps ran without the resource limits they were given,
@@ -1474,6 +1476,30 @@ func (c *Client) Unmounted() string {
 	defer c.mu.Unlock()
 
 	return c.unmounted
+}
+
+// SharedNet reports why steps shared one network namespace, if they did.
+//
+// Asked of the client rather than announced, exactly as Unmounted above is: the
+// caller decides when a build-level warning belongs in its output.
+func (c *Client) SharedNet() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.sharedNet
+}
+
+// noteSharedNet records the first reason steps shared a network.
+//
+// The first, on the argument the other two follow: every step of a build finds
+// the same tool missing, and a later unrelated reason must not replace the one
+// the reader can act on.
+func (c *Client) noteSharedNet(reason string) {
+	if reason == "" || c.sharedNet != "" {
+		return
+	}
+
+	c.sharedNet = reason
 }
 
 // noteUnmounted records the first reason a step's filesystem was incomplete.
@@ -2653,6 +2679,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		return Response{
 			Exit: exitErr.ExitCode(), Output: outputFor(req, out), Degraded: degradedNow,
 			Unmounted: s.Unmounted(),
+			SharedNet: s.SharedNet(),
 			CPUNanos:  cpu.Nanoseconds(), MaxRSS: rss,
 		}
 	}
@@ -2690,6 +2717,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	return Response{
 		Exit: 0, Output: outputFor(req, out), Degraded: degradedNow,
 		Unmounted: s.Unmounted(),
+		SharedNet: s.SharedNet(),
 		CPUNanos:  cpu.Nanoseconds(), MaxRSS: rss,
 	}
 }
@@ -2989,6 +3017,7 @@ func (c *Client) RunStep(
 	// And why its filesystem was not fully built, on the same rule and for the
 	// same reason: reported as the step reports it, not when the guest exits.
 	c.noteUnmounted(resp.Unmounted)
+	c.noteSharedNet(resp.SharedNet)
 
 	return StepOutcome{
 		Exit: resp.Exit, Output: resp.Output,

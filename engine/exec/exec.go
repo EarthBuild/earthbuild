@@ -1046,6 +1046,28 @@ func (e *Executor) Degraded() string {
 	return c.Degraded()
 }
 
+// SharedNet reports why steps shared one network namespace rather than each
+// getting its own.
+//
+// Passed through from the guest for the reason Degraded is: the host asks for
+// isolation and the guest is where `ip` either exists or does not. Empty when
+// nothing shared, so a caller can print it unconditionally.
+//
+// Never starts a sandbox, on the rule Degraded states above: a query with a side
+// effect is not a query, and a build whose every step was cached is entitled
+// never to boot one.
+func (e *Executor) SharedNet() string {
+	e.mu.Lock()
+	c := e.c
+	e.mu.Unlock()
+
+	if c == nil {
+		return ""
+	}
+
+	return c.SharedNet()
+}
+
 // Unmounted reports why a step's filesystem was not fully built.
 //
 // Passed through from the guest for the reason Degraded is: mounting /sys is

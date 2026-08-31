@@ -636,6 +636,9 @@ type Response struct {
 	// about resource limits: a reader who sees one and acts on the other is
 	// chasing the wrong machine (E834a).
 	Unmounted string `json:"unmounted,omitempty"`
+	// SharedNet is why steps shared one network namespace rather than each
+	// getting its own, or empty when they got their own.
+	SharedNet string `json:"sharednet,omitempty"`
 
 	// Layer and Content are a capture's two digests, hex. Layer is the identity
 	// (timestamps included); Content excludes them, so determinism screening

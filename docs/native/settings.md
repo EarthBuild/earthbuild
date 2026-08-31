@@ -114,11 +114,11 @@ Pins are kept beside the images, per machine, not per project.
 
 ### `EARTH_STEP_NET`
 
-How a step reaches the network. `shared` is the default and gives every step the
-guest's own namespace; `private` gives each step one of its own with a veth, an
-address and NAT out.
+How a step reaches the network. `private` is the default and gives each step a
+namespace of its own with a veth, an address and NAT out; `shared` gives every
+step the guest's own namespace, which is what every build did before this.
 
-Default: `shared`.
+Default: `private`.
 
 Parallel steps share a network namespace, so two of them binding one fixed port
 collide: an inner buildkitd wants 8371 and 8372, and the second dies with
@@ -127,10 +127,13 @@ buildkit that would not answer. `private` gives each step a `/30` out of
 `10.201.0.0/16` - deliberately not buildkit's `172.30.0.0/16`, since both
 engines run on one machine while they are being compared.
 
-Behind a setting rather than on, because it needs `ip` and `iptables` on the
-guest and has not yet run against the corpus. Where either is missing the build
-says so and carries on shared, which is the same degrade-and-say-so rule the
-mount warnings follow.
+Needs `ip` and `iptables` on the guest. Where either is missing the build says
+so and carries on shared, which is the same degrade-and-say-so rule the mount
+warnings follow - and it is said rather than merely recorded, because a default
+that degrades quietly is a default nobody knows they lost.
+
+`shared` is the escape hatch, and setting it also stops the warning: a machine
+that shares deliberately should not be nagged about it.
 
 ### `EARTH_STEP_SHIM`
 

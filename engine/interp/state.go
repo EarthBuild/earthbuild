@@ -50,6 +50,16 @@ type state struct {
 	// hosts are name-to-address entries declared by HOST, carried the same way
 	// and for the same reason: they change what a later step resolves.
 	hosts []string
+	// saved is what this target's SAVE IMAGE declared, if it declared one.
+	//
+	// **Recorded because a node cannot answer for it.** A graph deduplicates,
+	// so two targets that build one filesystem are one node - and the image a
+	// target saves is not a property of that node: `SAVE IMAGE` and `SAVE IMAGE
+	// --without-earthly-labels` produce the same layers with different
+	// configurations. Resolving "the image this node saves" returns whichever
+	// was declared first, so `--load` on the second target packed the first
+	// target's image, under an archive named from a hash the two shared (E926).
+	saved *Config
 	// host says the recipe has passed a LOCALLY, so its steps run on the
 	// invoking machine.
 	host bool

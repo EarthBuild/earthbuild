@@ -1774,6 +1774,14 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				Ref: a, Push: img.Push, Config: cfg,
 				From: prev, Source: loc(c.SourceLocation),
 			})
+
+			// **On the state as well as the plan**, because a `--load` of this
+			// target has to find *this* image and the node cannot tell it
+			// apart from another target's (E926). The last ref wins, which is
+			// the same answer for every case that has one: `SAVE IMAGE a b`
+			// declares one configuration under two names.
+			saved := cfg
+			rs.saved = &saved
 		}
 
 		// Naming an output does not produce one.

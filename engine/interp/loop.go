@@ -678,6 +678,14 @@ func (p *Plan) dockerLoad(spec string, prev *ir.Node, rs *state, where string) (
 // the rest are declarations it made, and dropping them because it did not also
 // name the image is losing something that was said (E779).
 func (p *Plan) loadedConfig(from *ir.Node, loaded *state) *ir.ImageConfig {
+	// **The target's own answer first.** `configOf` asks the node, and a node
+	// deduplicated between two targets answers for whichever declared an image
+	// against it first - which is how `--load=+second` came to pack the first
+	// target's configuration, under an archive both loads then read (E926).
+	if loaded != nil && loaded.saved != nil {
+		return loaded.saved.ToIR()
+	}
+
 	if cfg := p.configOf(from); cfg != nil {
 		return cfg
 	}

@@ -45402,3 +45402,31 @@ not, and set each one deliberately.
 Now set deliberately in the harness: a loopback-only resolver, a DROP forward
 policy, and the nftables iptables backend. All three, and the collision fix,
 hold together.
+
+### E931c - the third attempt was not tested, and that is the finding
+
+The run carrying the FORWARD fix reported two failures and neither was a Native
+job: `Fast Check & Build`, and `CI Success` behind it. Nine jobs completed. The
+Native suite never started, because it gates on the first.
+
+```text
+worthit_test.go:312: 2 of 6 steps were offered to the fleet, want 1
+```
+
+`engine/fleet` is a package none of this touched, and the test passes five times
+out of five locally under `-race -shuffle=on`. It is flaky, and it is flaky in a
+gating job: one assertion cost a hundred jobs and a measurement of something
+else.
+
+**Not fixed here, deliberately.** The test asserts that a wave of six steps waits
+for the first fleet measurement before deciding - which is a property of the
+*engine*, not of the test's timing. Two getting through may well be a real race
+in `Delegating`. Relaxing the assertion until it passes would be weakening a test
+to fit the code it is meant to check, and would delete the only evidence that
+race exists. Filed in the repository's nits.
+
+**What this says about the network work: nothing.** The third attempt at the
+default has not been tested. Two environment differences are now handled and
+locally verified - a loopback-only resolver and a DROP forward policy, on the
+nftables backend - and whether that is sufficient is unmeasured. It has been
+insufficient twice.

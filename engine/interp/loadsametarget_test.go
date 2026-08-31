@@ -130,8 +130,11 @@ main:
 		t.Fatal(err)
 	}
 
-	loads := 0
 	packs := 0
+
+	ids := map[ir.NodeID]bool{}
+
+	var loads []string
 
 	for _, n := range p.Graph.Nodes() {
 		switch {
@@ -139,12 +142,34 @@ main:
 			packs++
 		case n.Op.Kind == ir.OpExec && len(n.Op.Args) > 0 &&
 			strings.Contains(strings.Join(n.Op.Args, " "), "docker load -i"):
-			loads++
+			loads = append(loads, n.Op.DockerScope)
+			ids[n.ID()] = true
 		}
 	}
 
-	if loads != 2 {
-		t.Errorf("each block must load into its own daemon: got %d load steps, want 2", loads)
+	if len(loads) != 2 {
+		t.Errorf("each block must load into its own daemon: got %d load steps, want 2", len(loads))
+	}
+
+	// **Different steps, not merely two nodes.** Two loads that hash alike are
+	// one step to the cache, so the second is served from the first and its
+	// daemon never receives the image.
+	//
+	// Honest about its reach: this does *not* catch E928, which was an ordering
+	// bug rather than a missing field. The scope was back-filled after the
+	// node's ID had been computed and memoised, so the identity kept the empty
+	// value while the field read correctly - which is exactly what a test
+	// reading the field cannot see. It took a build to find and a build to
+	// confirm. What this holds is the weaker property that the loads are
+	// distinct at all.
+	if len(ids) != len(loads) {
+		t.Errorf("two loads share one identity, so one will be served from the other: scopes %v", loads)
+	}
+
+	for _, scope := range loads {
+		if scope == "" {
+			t.Errorf("a load names no daemon, so nothing in its key says which: scopes %v", loads)
+		}
 	}
 
 	// The archive is the same file for both, and packing it twice would be

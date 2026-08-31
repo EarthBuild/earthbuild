@@ -45093,3 +45093,44 @@ the build fails first. The next step is a two-target reduction, which needs a
 build that names both and is why it has not been done yet: `earth` takes one
 target per invocation, so the pair has to be driven from an Earthfile written
 for the purpose.
+
+### E928a - a field set after `ID()` is a field the identity never had
+
+`+if-after` is fixed, and the cause is not where the reduction pointed.
+
+**The reduction.** Two targets pass; three fail. `+load-parallel-test` builds
+`+docker-load-test` five times, and adding it to `{one-target-many-names,
+if-after}` fails the build - at `EARTH_PARALLELISM=1` as reliably as in
+parallel, which rules out a race and makes it a planning effect. Serially, three
+loads run for one block and **none for the other**, and the second block's step
+then reports `Unable to find image 'a:latest' locally` about an image the build
+had just made.
+
+**The cause.** `dockerLoad` builds its load node without `DockerScope`, and
+`loop.go` back-fills it afterwards "only where a step has none already" - a line
+written for exactly this hazard (E886). It is too late. `ir.Node.ID()` memoises:
+
+```go
+func (n *Node) ID() NodeID {
+    if id := n.id.Load(); id != nil { return *id }
+```
+
+The archive's path is `PackedImagePath(pack.ID())`, so an ID is taken while the
+node still has no scope, and the back-fill then writes a field the identity will
+never include. Two blocks' loads keep one ID, the cache serves the second from
+the first, and the daemon that needed the image never gets it. Setting the scope
+in the literal, before anything asks for an ID, fixes it: `with-docker+all` goes
+from failing to `rc=0`, serially and in parallel.
+
+**The general shape, which is worth more than the fix.** Any mutation of `Op`
+after `ID()` has been called is invisible to identity while remaining visible to
+every reader of the field. The two disagree silently and the code looks right
+from either side - the back-fill sets it, a test reads it back, and the cache
+keys on a value neither of them saw.
+
+**The test does not catch it**, and pretending otherwise would be worse than
+having no test. `TestTwoBlocksEachLoadTheImage` reads `DockerScope` off the
+nodes, which is the field that *was* correct; removing the fix leaves it passing.
+It holds the weaker property that two loads are distinct. Catching the real
+thing needs an assertion about when `ID()` is first called relative to the last
+write to `Op`, which is a different kind of test and is not written.

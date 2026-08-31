@@ -649,6 +649,18 @@ func (p *Plan) dockerLoad(spec string, prev *ir.Node, rs *state, where string) (
 			User:   rs.user,
 			Env:    rs.env,
 			Docker: true,
+			// **Which daemon this loads into.** A load mutates one block's
+			// daemon, and without the scope in its key a load into block-1 and
+			// a load into block-2 are the same step: the second is served from
+			// the first, its daemon never receives the image, and the step
+			// after it reports `Unable to find image 'a:latest' locally` about
+			// an image the build had just made (E928).
+			//
+			// The archive above is deliberately *not* scoped. It is a file in
+			// the store, content-addressed and the same for every block that
+			// wants it, so packing it once and reading it many times is the
+			// graph doing its job.
+			DockerScope: p.dockerScope,
 			// The step runs chrooted into its own overlay, so the archive has
 			// to be *in* it. Visible to the sandbox is not the same as
 			// reachable from the step, and the difference showed up as a

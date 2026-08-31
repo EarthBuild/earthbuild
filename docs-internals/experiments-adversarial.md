@@ -45011,3 +45011,50 @@ takes to see one image standing in for another.
 Not yet located. `dockerScope` numbers a block's daemon storage per block, so
 two blocks should not share one, and the reduced case says they do share
 *something*. Suspect, not cause.
+
+### E927 - thirteen Native failures to nine, and what each fix was worth
+
+CI at `51cbc7311`, against the run that established thirteen:
+
+| Job     | Then | Now  | What moved it                          |
+| ------- | ---- | ---- | -------------------------------------- |
+| group11 | fail | pass | `EXPOSE host:container` (E924)          |
+| group12 | fail | pass | `SAVE IMAGE` labels, then the load fix |
+| group4  | fail | pass | one of the two image fixes             |
+| slow    | fail | pass | the `--load` fix (E926)                |
+| group6  | fail | fail | inner container is unprivileged        |
+| the other eight | fail | fail | unexamined or known           |
+
+**No job that passed now fails**, which is the half of a change worth checking
+before the half that improved.
+
+Two readings corrected in the process, both of them mine:
+
+* A run's top-level `status` stays `queued` until every job has been scheduled,
+  so it says nothing about whether jobs are running. Reported twice as "CI has
+  not started" while fifty-two jobs had finished. Ask the jobs, not the run.
+* `CI Success` appears "cleared" in a set difference against this run only
+  because it has not been created yet - the aggregator waits on the others. A
+  job absent from an unfinished run is not a job that passed, and comparing a
+  complete run to an incomplete one manufactures exactly that.
+
+`Docker Integrations / EarthBuild Image Test` failed the previous round with a
+`pull ping error` from buildkit's local registry proxy and passes here, so it
+was a flake. Worth recording because the temptation was to re-run it to find
+out: waiting cost nothing and re-running a shared job would have been a write to
+somebody else's CI to answer a question the next round answered for free.
+
+**group6 is now legible**, which it was not when it was filed under WITH DOCKER
+on its wrapper's error:
+
+```text
+tee: earthly.output: Permission denied
+earth-entrypoint.sh: line 53: can't create /dev/null...
+Container appears to be running unprivileged. Currently, privileged mode is
+  required when buildkit runs inside a container
+```
+
+The inner container has no `CAP_SYS_ADMIN` despite `RUN --privileged`, and its
+working directory is not writable. Same signature before these changes as after,
+so it is not a regression from running the suite as root - but it is the same
+*shape* as E922, one layer further in.

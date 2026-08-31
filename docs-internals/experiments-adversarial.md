@@ -45537,3 +45537,51 @@ the next attempt does not repeat it.
 **The standing cost, stated plainly.** The default trades `group3` for five
 jobs. It was asked for as a default rather than an opt-in and is being pursued
 as one; this entry exists so the price is on the record while that continues.
+
+### E934 - the blamed step is chosen by hash, not by the Earthfile
+
+A gating `Unit tests` job failed on a docs-only commit:
+
+```text
+parallel_test.go:240: two runs blamed different steps:
+    step failed with exit code 1 (Earthfile:4)
+    step failed with exit code 1 (Earthfile:5)
+```
+
+`TestTheReportedFailureIsDeterministic` is not a flaky test. It exists to hold
+that property and it is holding it: the flakiness is in the thing under test, and
+a build that blames a different line on a different machine is one an author
+cannot act on - fix line 4, rerun, be told about line 5.
+
+**Three layers, found in this order.**
+
+*The fixture never built the case it documents.* `flakyOrder` slept
+`20-len(n.Op.Args[1])*3` ms and that argument is one character, so every leaf
+slept 17ms and completion order was a race. Its comment says "later leaves finish
+sooner, so completion order is the reverse of graph order" - the case the test
+exists for, never constructed. Fixed.
+
+*Two real behaviours that are not the cause.* A failure stops every step not yet
+started, including earlier ones that would displace it; and the eager `cancel()`
+means any that do start return a cancellation, which `worseFailure` rightly
+demotes. Both were implemented, measured, and reverted: with the fixture ordering
+completion and a probe printing what ran, `Earthfile:2` **ran** and was still not
+blamed.
+
+*The cause.* `g.Nodes()` is post-order with ties broken by identity. Sibling
+leaves are ordered by node-ID hash, so "earliest in graph order" - which
+`worseFailure` implements correctly and documents carefully - is arbitrary with
+respect to the Earthfile. The reader is told about whichever of four
+equally-failing lines the hash preferred.
+
+**Deterministic and useless are not exclusive**, which is the general point. The
+scheduler's determinism argument is sound: any legal schedule yields the same
+artefacts, and the failure is chosen by position rather than by which goroutine
+won. All true, and the position it chooses by is a hash of node identity. A
+diagnosis has to be stable *and* mean something to whoever reads it.
+
+Not fixed here: blaming the earliest source position is a policy change, needs
+the position parsed rather than string-compared - `Earthfile:10` sorts before
+`Earthfile:4` - and changes which line every failing parallel build reports.
+Recorded in the repository's nits, and now blocking the keep-going work, which
+would list failures in that same arbitrary order.

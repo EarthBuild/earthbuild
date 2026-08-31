@@ -9444,3 +9444,46 @@ must not write cache entries (green paper A3). `Native.Confines()` is therefore 
 today that reads like a security claim it is not making. Encapsulation strength is orthogonal and
 wants its own answer rather than overloading this one - otherwise `Confines() == true` silently
 comes to mean two different things, one of which is false for namespaces.
+
+## Keep going, or stop after n errors, 2026-08-31
+
+A build that stops at the first failure tells an author one thing per round
+trip. For a wide graph - a test suite fanned across twenty targets - that is
+twenty rounds to learn what one round could have said. Asked for as: try to do
+as much as possible, or fail once there have been more than n errors.
+
+**Most of it exists.** `tolerated []*StepError` already collects failures that
+did not stop the build where they happened, because `TRY`/`FINALLY` needs the
+build to continue past a failing step and fail at the end. What is missing is a
+way to put every step on that path, a threshold, and an order.
+
+Shape:
+
+| Setting   | Meaning                                            |
+| --------- | -------------------------------------------------- |
+| unset     | stop at the first failure, as now                  |
+| `n`       | keep going until `n` steps have failed, then stop  |
+| unlimited | run everything that can still run, fail at the end |
+
+`n = 1` is today's behaviour written down, which is the sign the axis is the
+right one: the default becomes a value on a scale rather than a special case.
+
+**What "can still run" means, and it is not everything.** A step whose input
+failed cannot run, and reporting it as a second failure would be reporting a
+consequence as a cause. The scheduler already distinguishes these - `failed` and
+`skipped` are separate sets, for `CATCH` - so the rule is: a step is attempted
+when everything it stands on succeeded, and the count is of steps that failed
+*themselves*.
+
+**Ordering is the part to get right, and it is already wrong.** With one failure
+the question is which to blame; with `n` it is what order to list them in, and
+both have the same answer: source position. Two things stand in the way, both
+recorded in the repository's nits. `g.Nodes()` breaks ties by node identity, so
+graph order is arbitrary with respect to the Earthfile. And `tolerated` is
+appended in completion order and read as `tolerated[0]`, so which tolerated
+failure gets reported today already depends on a race - the same defect as the
+one E934 found in the hard-failure path, in the path nobody has looked at.
+
+Sequenced after that ordering fix rather than before it. Listing five failures in
+an arbitrary order is worse than reporting one: it looks like a report and reads
+like noise.

@@ -2111,8 +2111,22 @@ const maxOutput = 64 << 10
 // into the step's root, because what a step writes into its own filesystem is
 // captured and a resolver file is this engine's doing rather than the step's
 // output.
-func stepMounts(req Request, env []string) []Mount {
-	out := append(deviceMounts(), resolverMount()...)
+func stepMounts(req Request, env []string, ownNet bool) []Mount {
+	// **A step with its own network needs its own resolver file.** The bound
+	// one is the guest's, and on a systemd machine it names 127.0.0.53 - a
+	// listener in the *guest's* namespace, which a step with one of its own
+	// cannot reach. Every lookup then fails and the build says `apk add ...
+	// exited 1, and printed nothing` (E931).
+	//
+	// Written rather than bound only in that case: a step sharing the guest's
+	// network can use whatever the guest uses, loopback included, and replacing
+	// a file that works would be a change for its own sake.
+	resolver := resolverMount()
+	if ownNet {
+		resolver = resolvMount(hostNameservers())
+	}
+
+	out := append(deviceMounts(), resolver...)
 	out = append(out, hostnameMount()...)
 
 	// **Against the step's environment**, because a target may name one of its
@@ -2325,7 +2339,25 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 	defer undoCgroupFS()
 
-	mounts := stepMounts(req, stepEnv(declaredBy(h, req), req.Env))
+	// **A network of the step's own, where the guest can give one.**
+	// Parallel steps share the guest's network namespace, so two of them
+	// binding one fixed port collide - an inner buildkitd wants 8371 and 8372
+	// and the second dies with `bind: address already in use`, a minute before
+	// the step reports it as a buildkit that would not answer (E923).
+	//
+	// Told to the shim rather than acted on here, for the reason USER is: there
+	// is no moment between the clone and the exec that the guest can run code
+	// in, and `setns` has to happen in the process that becomes the step.
+	// Without a shim there is nobody to tell, and the step runs shared.
+	netAt, closeNet, whyNoNet := openStepNet()
+
+	defer closeNet()
+
+	if whyNoNet != "" {
+		s.noteSharedNet(whyNoNet)
+	}
+
+	mounts := stepMounts(req, stepEnv(declaredBy(h, req), req.Env), netAt != "")
 
 	// A view of an earlier result is a stack and has to be assembled before
 	// anything can be bound to it (§3.3d, ν ∈ 𝕂). Released after the step, not
@@ -2554,24 +2586,6 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// machine and in every build: constant, not observed, and therefore not
 	// something I3 has anything to say about.
 	cmd.Env = stepEnv(declared, req.Env)
-
-	// **A network of the step's own, where the guest can give one.**
-	// Parallel steps share the guest's network namespace, so two of them
-	// binding one fixed port collide - an inner buildkitd wants 8371 and 8372
-	// and the second dies with `bind: address already in use`, a minute before
-	// the step reports it as a buildkit that would not answer (E923).
-	//
-	// Told to the shim rather than acted on here, for the reason USER is: there
-	// is no moment between the clone and the exec that the guest can run code
-	// in, and `setns` has to happen in the process that becomes the step.
-	// Without a shim there is nobody to tell, and the step runs shared.
-	netAt, closeNet, whyNoNet := openStepNet()
-
-	defer closeNet()
-
-	if whyNoNet != "" {
-		s.noteSharedNet(whyNoNet)
-	}
 
 	if shimming && netAt != "" {
 		cmd.Env = append(cmd.Env, EnvStepNetNS+"="+netAt)

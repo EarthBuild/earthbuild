@@ -114,11 +114,12 @@ Pins are kept beside the images, per machine, not per project.
 
 ### `EARTH_STEP_NET`
 
-How a step reaches the network. `shared` is the default and gives every step the
-guest's own namespace; `private` gives each step one of its own with a veth, an
-address and NAT out.
+How a step reaches the network. `private` is the default and gives each step a
+namespace of its own with a veth, an address, NAT out and a resolver file of its
+own; `shared` gives every step the guest's namespace, which is what builds did
+before this.
 
-Default: `shared`.
+Default: `private`.
 
 Parallel steps share a network namespace, so two of them binding one fixed port
 collide: an inner buildkitd wants 8371 and 8372, and the second dies with
@@ -131,18 +132,21 @@ Needs `ip` and `iptables` on the guest. Where either is missing the build says
 so and carries on shared, which is the same degrade-and-say-so rule the mount
 warnings follow.
 
-**Was briefly the default and is not, 2026-08-31.** On a GitHub runner a step in
-its own namespace could not reach the network at all - `RUN apk add --no-cache
-git exited 1, and printed nothing` - and fifteen of sixteen Native jobs failed,
-against three before. The veth, the address and the NAT are all made, and a
-container on a development box resolves and fetches through them, so what the
-runner does differently is not yet known. A resolver reachable only from the
-guest's namespace is the first suspect: Ubuntu points `/etc/resolv.conf` at
-`127.0.0.53`, which inside a fresh namespace is the step's own loopback and has
-nothing listening on it.
+**The resolver is part of the namespace, and missing it cost a round.** A step
+given its own namespace inherits the guest's `/etc/resolv.conf`, which on Ubuntu
+names `127.0.0.53` - systemd-resolved listening in the *guest's* namespace. From
+a namespace of its own that address is the step's own empty loopback, so every
+lookup fails and the build says `apk add --no-cache git exited 1, and printed
+nothing`. Fifteen of sixteen Native jobs failed that way.
 
-Until that is understood the setting stays opt-in, and the collision it fixes
-(E923) stays.
+A private step now gets a resolver file written for it, from
+`/run/systemd/resolve/resolv.conf` where that exists and from the non-loopback
+entries of `/etc/resolv.conf` otherwise. Docker and buildkit rewrite the file in
+the same situation for the same reason.
+
+Where neither yields a reachable server the step runs shared and says so, rather
+than isolated and unable to name anything. Deliberately no public fallback:
+inventing `8.8.8.8` would send a build's lookups to a third party nobody named.
 
 ### `EARTH_STEP_SHIM`
 

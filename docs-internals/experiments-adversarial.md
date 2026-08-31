@@ -45248,3 +45248,41 @@ happen if it cost more than it saved. It cost twelve jobs to save one.
 The general lesson is duller and more useful than the DNS detail: a mechanism
 proved in a container has been proved in a container. The environment is part of
 the claim, and "it works on my box" is a statement about the box.
+
+### E931a - the resolver is part of the namespace
+
+E931 reverted the network default after fifteen of sixteen Native jobs failed on
+`RUN apk add --no-cache git exited 1, and printed nothing`. The cause is now
+measured rather than suspected, and it is the first suspect that entry named.
+
+**Reproduced on a development box** by giving a container the runner's DNS
+topology - a resolver listening on 127.0.0.53 and an `/etc/resolv.conf` naming
+only that:
+
+| mode    | DNS      | apk      |
+| ------- | -------- | -------- |
+| shared  | OK       | OK       |
+| private | **FAIL** | **FAIL** |
+
+A step inherits the guest's `/etc/resolv.conf`, bound read-only by
+`resolverMount`. On Ubuntu that names `127.0.0.53`, where systemd-resolved
+listens *in the guest's namespace*. From a namespace of its own that address is
+the step's own empty loopback, and every lookup fails.
+
+**Why the first measurement missed it, exactly.** The container test that
+"proved" the mechanism ran under Docker, and Docker had already written
+`nameserver 9.9.9.9` into the container's `resolv.conf` - the very rewrite the
+runner does not do. The test passed *because of* a fix supplied by the
+environment, which is the most misleading way for a test to pass: it exercised
+the mechanism and silently supplied the missing piece.
+
+**The fix is what Docker and buildkit both do.** A step with its own namespace
+gets a resolver file written for it, from `/run/systemd/resolve/resolv.conf`
+where that exists - which is where systemd keeps the real upstreams - and from
+the non-loopback entries of `/etc/resolv.conf` otherwise. With the runner's
+topology simulated, a private step now reads `nameserver 1.1.1.1` and resolves,
+while a shared step still reads `127.0.0.53` and resolves through the guest.
+
+Where neither file yields a reachable server the step runs shared and says so.
+No public fallback: inventing `8.8.8.8` would send a build's lookups to a third
+party nobody named, which is not a decision to make quietly on somebody's behalf.

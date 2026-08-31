@@ -21,7 +21,7 @@ const netnsDir = "/var/run/netns/"
 // where some steps could reach each other's ports and some could not, which is
 // worse than either answer.
 var privateStepNet = sync.OnceValue(func() bool {
-	return os.Getenv(EnvStepNet) == NetPrivate
+	return os.Getenv(EnvStepNet) != NetShared
 })
 
 // nextStepNet numbers the namespaces, so two live steps never share addresses.
@@ -49,6 +49,20 @@ func openStepNet() (path string, done func(), why string) {
 			return "", nothing, prog + " is not on the guest's PATH, so a step" +
 				" cannot be given a network of its own"
 		}
+	}
+
+	// **No reachable resolver, no private namespace.** A step in its own
+	// namespace cannot use a loopback nameserver, and every name it looks up is
+	// a name it fails to find - which is E931, and which cost twelve CI jobs.
+	// Sharing resolves; isolating without a resolver does not, so the honest
+	// answer is to share and say why.
+	//
+	// Not a public fallback. Inventing 8.8.8.8 here would send a build's lookups
+	// to a third party nobody named, which is not this engine's decision to
+	// make quietly.
+	if len(hostNameservers()) == 0 {
+		return "", nothing, "this machine resolves through a loopback address" +
+			" only, which a step in its own network namespace cannot reach"
 	}
 
 	plan := stepNetPlan(int(nextStepNet.Add(1)))

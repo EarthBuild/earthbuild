@@ -112,7 +112,7 @@ func TestAStepsMountsIncludeItsDeclaredHosts(t *testing.T) {
 
 	var found bool
 
-	for _, m := range stepMounts(Request{Hosts: []string{"api.test 10.0.0.1"}}, nil) {
+	for _, m := range stepMounts(Request{Hosts: []string{"api.test 10.0.0.1"}}, nil, false) {
 		if m.Target == "/etc/hosts" {
 			found = true
 		}
@@ -129,7 +129,7 @@ func TestAStepsMountsIncludeItsDeclaredHosts(t *testing.T) {
 	if runtime.GOOS == "linux" {
 		var bare bool
 
-		for _, m := range stepMounts(Request{}, nil) {
+		for _, m := range stepMounts(Request{}, nil, false) {
 			if m.Target == "/etc/hosts" {
 				bare = true
 			}

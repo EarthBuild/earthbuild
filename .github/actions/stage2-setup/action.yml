@@ -231,6 +231,7 @@ runs:
       # honestly: `no eligible worker: this step is for linux/arm64 and this
       # build has linux/amd64` (E932). The support was there and the
       # registrations were not.
+      run: ${INPUTS_SUDO} apt-get update && ${INPUTS_SUDO} apt-get install -y qemu-user-binfmt
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}

@@ -140,3 +140,39 @@ func TestAStepsTrafficIsAllowedThrough(t *testing.T) {
 		t.Errorf("%d iptables rules added and %d removed", added, removed)
 	}
 }
+
+// A failed attempt is followed by a different one, which is what retrying needs.
+//
+// **`/run/netns` is shared and the counter is not.** `nextStepNet` numbers from
+// zero in each process, and a build runs many: the outer `earth`, and a nested
+// one inside every step that starts one. They all asked for `earth-s1`; the
+// second got `Cannot create namespace file "/run/netns/earth-s1": File exists`,
+// degraded to shared, and printed a warning into output that tests compare -
+// five Native jobs broken to fix one (E933).
+//
+// `openStepNet` now takes the next name when one is taken. This holds the
+// property that makes that work: consecutive counter values name nothing in
+// common, so a retry is a genuinely different attempt rather than the same one.
+//
+// It does not test the retry itself, which shells out to `ip` and would need a
+// runner injected to observe. What it guards is the assumption underneath it.
+func TestConsecutiveAttemptsShareNothing(t *testing.T) {
+	t.Parallel()
+
+	for i := range 32 {
+		a, b := stepNetPlan(i), stepNetPlan(i+1)
+
+		for _, pair := range [][2]string{
+			{a.Name, b.Name},
+			{a.HostLink, b.HostLink},
+			{a.StepLink, b.StepLink},
+			{a.Subnet, b.Subnet},
+			{a.HostAddr, b.HostAddr},
+		} {
+			if pair[0] == pair[1] {
+				t.Fatalf("attempt %d and %d both use %q, so a retry retries nothing",
+					i, i+1, pair[0])
+			}
+		}
+	}
+}

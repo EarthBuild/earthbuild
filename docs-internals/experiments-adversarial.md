@@ -45461,3 +45461,49 @@ own, and splitting the package - and none of those is this branch's to make.
 
 **What this says about the network default: still nothing.** Four rounds and it
 has never run.
+
+### E933 - the network default measured at last, and the counter was per process
+
+Five rounds after it was written, the default ran. It is worse than sharing:
+
+| Native            | failures |
+| ----------------- | -------- |
+| shared (baseline) | 3 of 16  |
+| private           | 7 of 16  |
+
+It fixes `group3` - the port collision it exists for, gone - and breaks
+`group1`, `group6`, `group7`, `group8` and `slow`. One for five.
+
+**And not by failing to build a network.** Every broken job carries the
+degradation warning, so the namespace was never made:
+
+```text
+Cannot create namespace file "/run/netns/earth-s47": File exists
+```
+
+`nextStepNet` counts from zero *per process*, and a build runs many `earth`
+processes - the outer one, and a nested `earth` inside every step that starts
+one - all numbering into a `/run/netns` they share. The second asks for a name
+the first has, degrades to shared, and prints the warning.
+
+**Then the warning broke the tests, not the networking.** `group1` fails on `RUN
+diff "expected" "actual"`: the harness compares an inner build's output, and the
+warning is a new line in it. The isolation was never the problem; a message
+about not having isolation was.
+
+The plan reasoned carefully about how many steps one process could have in
+flight - "16384 blocks, wrapping" - and never once about how many processes
+there are. Concurrency was modelled inside the boundary that was drawn and not
+across it.
+
+**Fixed by taking the next free name**, up to sixteen tries, rather than by
+salting. A salt must be unique among live processes *and* fit the addresses, and
+10.201.0.0/16 holds 16384 blocks - a pid does not fit beside a counter in that.
+The salted version was written first and discarded when its own arithmetic
+turned out to mask the salt straight back off, so subnets would have collided
+anyway. Retrying is correct however the collision arose, including against a
+namespace an earlier build left behind.
+
+Verified with two concurrent `earth` processes on one machine, which is the
+shape that failed: both got a private namespace, both resolved, neither printed
+the warning, and no name collided.

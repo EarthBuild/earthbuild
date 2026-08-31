@@ -65,8 +65,43 @@ func openStepNet() (path string, done func(), why string) {
 			" only, which a step in its own network namespace cannot reach"
 	}
 
-	plan := stepNetPlan(int(nextStepNet.Add(1)))
+	// **Retried, because the counter is per process and the register is not.**
+	// A build runs many `earth` processes - the outer one, and a nested `earth`
+	// inside every step that starts one - each numbering from zero into a
+	// `/run/netns` they share. They all asked for `earth-s1`, the second got
+	// `Cannot create namespace file: File exists`, degraded to shared, and
+	// printed a warning into output that tests compare: five Native jobs broken
+	// to fix one (E933).
+	//
+	// Retrying rather than salting the name. A salt has to be unique among live
+	// processes *and* fit the addresses - 10.201.0.0/16 holds 16384 blocks and a
+	// pid does not fit beside a counter in that - so a constructed name is a
+	// second thing to get right. Taking the next free one is correct however the
+	// collision arose, including against a namespace some earlier build left
+	// behind.
+	var last string
 
+	for range stepNetTries {
+		plan := stepNetPlan(int(nextStepNet.Add(1)))
+
+		last = raiseStepNet(plan)
+		if last == "" {
+			return netnsDir + plan.Name, func() { closeStepNet(plan) }, ""
+		}
+	}
+
+	return "", nothing, last
+}
+
+// stepNetTries bounds the search for a free name.
+//
+// Small, because a machine with sixteen consecutive namespaces taken has
+// something wrong with it that another attempt will not fix - and each try costs
+// an `ip` invocation whether it succeeds or not.
+const stepNetTries = 16
+
+// raiseStepNet builds one namespace, or says why it could not.
+func raiseStepNet(plan netPlan) string {
 	for _, argv := range stepNetUp(plan) {
 		out, err := osexec.Command(argv[0], argv[1:]...).CombinedOutput() //nolint:gosec // a fixed vocabulary, built from a plan
 		if err != nil {
@@ -75,12 +110,12 @@ func openStepNet() (path string, done func(), why string) {
 			// isolated and fail on its first fetch rather than here.
 			closeStepNet(plan)
 
-			return "", nothing, fmt.Sprintf("%s: %v: %s",
+			return fmt.Sprintf("%s: %v: %s",
 				strings.Join(argv, " "), err, bytes.TrimSpace(out))
 		}
 	}
 
-	return netnsDir + plan.Name, func() { closeStepNet(plan) }, ""
+	return ""
 }
 
 // closeStepNet undoes what it can and reports nothing.

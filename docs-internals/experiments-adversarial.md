@@ -45354,3 +45354,51 @@ it segfaulted. It was `--rm` and the host mounts no `binfmt_misc`, so nothing
 escaped - but a privileged container shares the kernel's register, and on a host
 that *does* mount it the same mistake would have been the machine's, not the
 container's. Check what a privileged mount is attached to before writing to it.
+
+### E931b - MASQUERADE is not permission
+
+The resolver fix (E931a) was necessary and not sufficient: with it, Native
+failures stayed at fifteen of sixteen. The step now had an address, a route and
+a resolver it could reach, and still:
+
+```text
+RUN apk add --no-cache file bash clang lld musl-dev pkgconfig git make
+  exited 8, and printed nothing
+```
+
+Two things in that run said the fix had worked as far as it went - no `steps
+shared one network` warning, so the namespace was made rather than degraded - and
+that the remaining fault was elsewhere.
+
+**A rule in `nat/POSTROUTING` rewrites a packet's source. It does not decide
+whether the packet is forwarded at all; `filter/FORWARD` does, and Docker sets
+that chain's policy to DROP on every machine it is installed on.** A GitHub
+runner has Docker. A `docker:dind` container does not set it, so every local test
+ran with the policy at ACCEPT and every packet went through on a default that
+the target machine does not have.
+
+Reproduced by setting the policy and changing nothing else:
+
+| FORWARD policy | DNS      | apk      |
+| -------------- | -------- | -------- |
+| ACCEPT         | OK       | OK       |
+| DROP           | **FAIL** | **FAIL** |
+
+Fixed by inserting an ACCEPT for the step's subnet in each direction, at the head
+of the chain rather than the tail - Docker's rules are in there too, and a rule
+after a DROP is a rule that never runs. Both directions, because a reply is a
+separate packet. Removed on teardown, with a test that counts rules added against
+rules removed: a step is transient and the guest's tables are not.
+
+**The pattern, now twice in two rounds.** Each time the mechanism was verified in
+a container, and each time the container supplied something the runner does not -
+first a `resolv.conf` Docker had already rewritten, then a FORWARD policy Docker
+had not yet tightened. Both times the test passed *because of* the environment,
+which is the failure mode a green test cannot report. The lesson is not "test
+harder"; it is that a difference between environments is a hypothesis, and the
+only way to close it is to enumerate what the target does that the harness does
+not, and set each one deliberately.
+
+Now set deliberately in the harness: a loopback-only resolver, a DROP forward
+policy, and the nftables iptables backend. All three, and the collision fix,
+hold together.

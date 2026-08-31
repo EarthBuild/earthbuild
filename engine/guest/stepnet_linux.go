@@ -117,6 +117,21 @@ func stepNetUp(p netPlan) [][]string {
 		// weighs against sharing - and rejects, correctly, because a build that
 		// cannot fetch a dependency is no use.
 		{"iptables", "-t", "nat", "-A", "POSTROUTING", "-s", p.Subnet, "-j", "MASQUERADE"},
+
+		// **And permission to be forwarded at all, which MASQUERADE is not.**
+		// That rule rewrites a packet's source; whether it is forwarded is
+		// filter/FORWARD's decision, and Docker sets that chain's policy to
+		// DROP on every machine it is installed on. A GitHub runner has Docker,
+		// so a step got an address, a route, a resolver and no connectivity -
+		// `apk add ... exited 8, and printed nothing` - while the same setup
+		// worked in a container whose policy was ACCEPT (E931b).
+		//
+		// Both directions, because the reply is a separate packet and the chain
+		// sees it too. Inserted at the head rather than appended: Docker's own
+		// rules are in this chain, and a rule after a DROP is a rule that never
+		// runs.
+		{"iptables", "-I", "FORWARD", "1", "-s", p.Subnet, "-j", "ACCEPT"},
+		{"iptables", "-I", "FORWARD", "1", "-d", p.Subnet, "-j", "ACCEPT"},
 	}
 }
 
@@ -128,6 +143,8 @@ func stepNetUp(p netPlan) [][]string {
 func stepNetDown(p netPlan) [][]string {
 	return [][]string{
 		{"iptables", "-t", "nat", "-D", "POSTROUTING", "-s", p.Subnet, "-j", "MASQUERADE"},
+		{"iptables", "-D", "FORWARD", "-s", p.Subnet, "-j", "ACCEPT"},
+		{"iptables", "-D", "FORWARD", "-d", p.Subnet, "-j", "ACCEPT"},
 		{"ip", "netns", "del", p.Name},
 	}
 }

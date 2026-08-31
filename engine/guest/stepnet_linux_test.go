@@ -78,3 +78,65 @@ func TestStepNetNamesFitTheKernelsLimit(t *testing.T) {
 		}
 	}
 }
+
+// A step's traffic is allowed through the guest's filter, not merely translated.
+//
+// **MASQUERADE is not permission.** A rule in nat/POSTROUTING rewrites a packet's
+// source; whether the packet is forwarded at all is filter/FORWARD's decision,
+// and Docker sets that chain's policy to DROP on every machine it is installed
+// on. A GitHub runner has Docker, so a step got an address, a route, a resolver
+// and no connectivity - `apk add ... exited 8, and printed nothing` - while the
+// same setup worked in a container whose FORWARD policy was ACCEPT (E931b).
+//
+// Both directions: the reply is a separate packet and the chain sees it too.
+func TestAStepsTrafficIsAllowedThrough(t *testing.T) {
+	t.Parallel()
+
+	plan := stepNetPlan(0)
+
+	var out, back bool
+
+	for _, argv := range stepNetUp(plan) {
+		line := strings.Join(argv, " ")
+		if !strings.Contains(line, "FORWARD") {
+			continue
+		}
+
+		if strings.Contains(line, "-s "+plan.Subnet) {
+			out = true
+		}
+
+		if strings.Contains(line, "-d "+plan.Subnet) {
+			back = true
+		}
+	}
+
+	if !out {
+		t.Error("nothing lets the step's packets out through FORWARD")
+	}
+
+	if !back {
+		t.Error("nothing lets the replies back in through FORWARD")
+	}
+
+	// And every rule added to the guest's tables is taken out again. A step is
+	// transient and the tables are not: rules that accumulated would outlive
+	// every build that made them.
+	added, removed := 0, 0
+
+	for _, argv := range stepNetUp(plan) {
+		if strings.Contains(strings.Join(argv, " "), "iptables") {
+			added++
+		}
+	}
+
+	for _, argv := range stepNetDown(plan) {
+		if strings.Contains(strings.Join(argv, " "), "iptables") {
+			removed++
+		}
+	}
+
+	if added != removed {
+		t.Errorf("%d iptables rules added and %d removed", added, removed)
+	}
+}

@@ -45206,3 +45206,45 @@ executes, and the argv is in the step's key - so the change moves cache keys for
 a construct the corpus uses. That wants its own measurement rather than a
 follow-on to a CI reading, particularly while the run that proves the network
 default is still going.
+
+### E931 - the network default, on for one CI round and reverted
+
+`EARTH_STEP_NET=private` became the default and was reverted the same round.
+
+| Run                        | Native failures |
+| -------------------------- | --------------- |
+| before, shared by default  | 3 of 16         |
+| with private by default    | **15 of 16**    |
+
+And not only Native: `+test-misc`, `group9` and `Docker Integrations` had been
+green and were not. The step's own message says what happened:
+
+```text
+RUN apk add --no-cache git exited 1, and printed nothing
+```
+
+A step in its own namespace could not reach the network on a GitHub runner.
+
+**The measurement that missed it.** The mechanism was verified on a development
+box, in a `docker:dind` container, where a step got `10.201.0.6/30`, loopback up,
+`DNS-OK` and `HTTP-OK`. That was a real test and it was not the environment the
+default would run in. Two things differ and either is enough: a container's
+`/etc/resolv.conf` names a resolver reachable from anywhere, while Ubuntu's names
+`127.0.0.53` - which in a fresh namespace is the *step's own* loopback, with
+nothing listening - and the runner's `iptables` is an nftables shim whose
+MASQUERADE may not apply to a chain built this way.
+
+**The suspicion is not the finding.** What is established is that connectivity
+fails on a runner and works in a container. Which of the two causes it is
+unmeasured, and the next step is to ask a step in a private namespace on a runner
+what its resolver is and whether the gateway answers, rather than to guess and
+patch.
+
+**What the revert kept.** The mechanism, the setting, the degrade-and-say-so
+warning, and the measured fix for E923 - all still there, opt-in. The one line
+changed back is the default, which is what the commit that flipped it said would
+happen if it cost more than it saved. It cost twelve jobs to save one.
+
+The general lesson is duller and more useful than the DNS detail: a mechanism
+proved in a container has been proved in a container. The environment is part of
+the claim, and "it works on my box" is a statement about the box.

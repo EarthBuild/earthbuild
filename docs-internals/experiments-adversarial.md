@@ -45173,3 +45173,36 @@ group3 is the port collision, which `EARTH_STEP_NET=private` is measured to fix
 and which has been waiting for a corpus run. The Native suite now sets it, which
 is that run - passed through `sudo VAR=value` rather than the job environment,
 because plain `sudo` carries neither and that is E901 for the third time.
+
+### E930 - `RUN --entrypoint` is shell-wrapped in one engine and exec-form in the other
+
+`+test-no-qemu-group10` fails on `tests/Earthfile:484`:
+
+```text
+Error: invalid arguments github.com/EarthBuild/test-remote/privileged:main+locally && ls /tmp/hostname...
+```
+
+The Earthfile writes an entrypoint run whose tail is a shell operator:
+
+```text
+RUN --privileged --entrypoint --mount=type=tmpfs,target=/tmp/earthbuild \
+    -- --no-output github.com/EarthBuild/test-remote/privileged:main+locally && \
+    ls /tmp/hostname.3d4b1831-...
+```
+
+That only means anything through a shell, and buildkit gives it one -
+`converter.go` sets `opts.WithShell = true` with the comment "force shell
+wrapping". The native engine builds `argv` as the image's entrypoint followed by
+the arguments, which is exec form: `&&`, `ls` and the filename arrive at `earth`
+as three more arguments, and `earth` takes one target.
+
+So the message is right and the engine is wrong, which is the useful shape:
+nothing here is a mystery about what happened, only a decision about which
+behaviour is correct. Buildkit's is, because the Earthfile is the contract and it
+was written against buildkit.
+
+**Not fixed here.** Shell-wrapping an entrypoint run changes what every such step
+executes, and the argv is in the step's key - so the change moves cache keys for
+a construct the corpus uses. That wants its own measurement rather than a
+follow-on to a CI reading, particularly while the run that proves the network
+default is still going.

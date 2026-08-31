@@ -45286,3 +45286,26 @@ while a shared step still reads `127.0.0.53` and resolves through the guest.
 Where neither file yields a reachable server the step runs shared and says so.
 No public fallback: inventing `8.8.8.8` would send a build's lookups to a third
 party nobody named, which is not a decision to make quietly on somebody's behalf.
+
+### E932 - `+test-qemu` wants a worker that does not exist
+
+The last of the three, and it is a gap rather than a defect:
+
+```text
+schedule tests/platform/Earthfile:110 (image): no eligible worker:
+  this step is for linux/arm64 and this build has linux/amd64
+```
+
+`tests/platform` builds steps for a foreign architecture. Buildkit runs them
+through `binfmt_misc` and QEMU - which is what the suite is named for, and what
+the `USE_QEMU` workflow input installs. The native engine schedules a step onto a
+worker whose platform matches, has only the machine's own, and correctly refuses.
+
+The message is right and says exactly what is missing, which is the difference
+between this and the other two: nothing here is mysterious, and nothing is a
+one-line fix. An emulated worker means declaring the platforms a machine can run
+through its registered binfmt handlers, and then trusting that declaration in the
+scheduler - which is a change to what a worker *is*, not to how a step runs.
+
+Filed rather than started. The other two of the three are engine defects with
+reproductions; this one is a feature with a design.

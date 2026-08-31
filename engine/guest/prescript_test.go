@@ -25,12 +25,12 @@ func TestThePreScriptIsFoundWhereTheStepPutIt(t *testing.T) {
 
 	at := filepath.Join(root, defaultPreScript)
 
-	err := os.MkdirAll(filepath.Dir(at), 0o755)
+	err := os.MkdirAll(filepath.Dir(at), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile(at, []byte("#!/bin/sh\ntrue\n"), 0o755)
+	err = os.WriteFile(at, []byte("#!/bin/sh\ntrue\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,12 +59,12 @@ func TestThePreScriptCanBeMoved(t *testing.T) {
 		t.Errorf("an absent named script resolved to %q", at)
 	}
 
-	err := os.MkdirAll(filepath.Join(root, "opt"), 0o755)
+	err := os.MkdirAll(filepath.Join(root, "opt"), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile(filepath.Join(root, where), []byte("#!/bin/sh\ntrue\n"), 0o755)
+	err = os.WriteFile(filepath.Join(root, where), []byte("#!/bin/sh\ntrue\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

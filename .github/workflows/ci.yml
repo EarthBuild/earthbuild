@@ -30,12 +30,23 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
-  fast-check-and-build:
-    name: Fast Check & Build
+  # **Split so a flake costs one job, not thirty minutes.** These four ran as one
+  # `fast-check-and-build`, which every other job gates on - so a single slow or
+  # flaky check blocked a hundred jobs and had to be re-run whole. Two CI rounds
+  # were lost that way to `engine/fleet` alone (E931d).
+  #
+  # Each repeats the same three setup steps, which is the price of the split and
+  # a minute a job. They join at `fast-check-and-build`, which now waits and
+  # nothing else: the eight jobs downstream still say
+  # `needs: fast-check-and-build` and did not change. The artifacts they
+  # download are uploaded by `build` under the same names, and an artifact is
+  # fetched by name rather than by the job that made it.
+  check-lint:
+    name: Lint
     runs-on: ubuntu-26.04
     permissions:
       contents: read
-      packages: write
+      packages: read
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       EARTH_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
@@ -79,6 +90,47 @@ jobs:
       - name: Go lint (report only)
         run: earth --ci +lint
         continue-on-error: true
+
+  check-unit:
+    name: Unit tests
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EARTH_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+    steps:
+      - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
+        with:
+          # Authenticate the release-list API call so it isn't rate-limited on
+          # shared runner IPs (unauthenticated is 60 req/hr/IP).
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Let unprivileged user namespaces work
+        # The same sysctl `stage2-setup` sets, for the same reason, and this job
+        # needs it for a reason of its own. The engine's sandbox is an
+        # unprivileged user namespace; ubuntu-24.04 ships
+        # `kernel.apparmor_restrict_unprivileged_userns=1`, which refuses one to
+        # any binary without an AppArmor profile.
+        #
+        # The suites got this and this job did not, because when it was written
+        # the only thing here running the native engine was the test suite, and
+        # that runs inside containers. It is this job that invokes `earthly`
+        # *directly on the runner* - `+ci-release` and the artifact builds - so
+        # since native became the default those are the first commands in the
+        # whole workflow to need it, and the first to fail: the guest started,
+        # could not mount its scratch, and the build reported only "the guest
+        # did not answer the handshake: EOF".
+        #
+        # A sysctl on a throwaway runner rather than a profile, and it stops
+        # mattering the moment the default goes back to buildkit.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          unshare -Urm true && echo "unprivileged userns: ok" || echo "unprivileged userns: still refused"
+        shell: bash
       - name: Unit tests
         run: earth --ci +unit-test
       # The engine's own tests again, under the race detector and shuffled.
@@ -89,6 +141,47 @@ jobs:
       # they claim. It also refuses to be green if more of the suite skipped in
       # the container than it should - a run that verified less is the failure
       # that ceiling exists to catch.
+
+  check-engine:
+    name: Engine tests
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EARTH_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+    steps:
+      - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
+        with:
+          # Authenticate the release-list API call so it isn't rate-limited on
+          # shared runner IPs (unauthenticated is 60 req/hr/IP).
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Let unprivileged user namespaces work
+        # The same sysctl `stage2-setup` sets, for the same reason, and this job
+        # needs it for a reason of its own. The engine's sandbox is an
+        # unprivileged user namespace; ubuntu-24.04 ships
+        # `kernel.apparmor_restrict_unprivileged_userns=1`, which refuses one to
+        # any binary without an AppArmor profile.
+        #
+        # The suites got this and this job did not, because when it was written
+        # the only thing here running the native engine was the test suite, and
+        # that runs inside containers. It is this job that invokes `earthly`
+        # *directly on the runner* - `+ci-release` and the artifact builds - so
+        # since native became the default those are the first commands in the
+        # whole workflow to need it, and the first to fail: the guest started,
+        # could not mount its scratch, and the build reported only "the guest
+        # did not answer the handshake: EOF".
+        #
+        # A sysctl on a throwaway runner rather than a profile, and it stops
+        # mattering the moment the default goes back to buildkit.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          unshare -Urm true && echo "unprivileged userns: ok" || echo "unprivileged userns: still refused"
+        shell: bash
       - name: Engine race and shuffle
         run: earth --ci +engine-race
       # The tests that need a real docker daemon.
@@ -107,6 +200,46 @@ jobs:
       - name: Fuzz tests
         run: earth --ci +fuzz-test
 
+  build:
+    name: Build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EARTH_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+    steps:
+      - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
+        with:
+          # Authenticate the release-list API call so it isn't rate-limited on
+          # shared runner IPs (unauthenticated is 60 req/hr/IP).
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Let unprivileged user namespaces work
+        # The same sysctl `stage2-setup` sets, for the same reason, and this job
+        # needs it for a reason of its own. The engine's sandbox is an
+        # unprivileged user namespace; ubuntu-24.04 ships
+        # `kernel.apparmor_restrict_unprivileged_userns=1`, which refuses one to
+        # any binary without an AppArmor profile.
+        #
+        # The suites got this and this job did not, because when it was written
+        # the only thing here running the native engine was the test suite, and
+        # that runs inside containers. It is this job that invokes `earthly`
+        # *directly on the runner* - `+ci-release` and the artifact builds - so
+        # since native became the default those are the first commands in the
+        # whole workflow to need it, and the first to fail: the guest started,
+        # could not mount its scratch, and the build reported only "the guest
+        # did not answer the handshake: EOF".
+        #
+        # A sysctl on a throwaway runner rather than a profile, and it stops
+        # mattering the moment the default goes back to buildkit.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          unshare -Urm true && echo "unprivileged userns: ok" || echo "unprivileged userns: still refused"
+        shell: bash
       # --- Build Standard EarthBuild ---
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
@@ -305,6 +438,20 @@ jobs:
   # What this branch is for is the difference between the two engines on a suite
   # that has been run against buildkit for years, and a difference is only
   # visible while both are running.
+
+  # The join. A no-op by design: it exists so the eight jobs that gate on it
+  # need not each list four names, and so that adding a fifth check is one line
+  # here rather than eight edits there.
+  fast-check-and-build:
+    name: Fast Check & Build
+    runs-on: ubuntu-26.04
+    needs: [check-lint, check-unit, check-engine, build]
+    permissions:
+      contents: read
+    steps:
+      - name: All checks and the build passed
+        run: echo "checks and build complete"
+        shell: bash
   native-tests:
     name: Native
     needs: fast-check-and-build

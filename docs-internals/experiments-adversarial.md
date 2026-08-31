@@ -45430,3 +45430,34 @@ default has not been tested. Two environment differences are now handled and
 locally verified - a loopback-only resolver and a DROP forward policy, on the
 nftables backend - and whether that is sufficient is unmeasured. It has been
 insufficient twice.
+
+### E931d - four rounds, four obstacles, none of them the change
+
+The step network namespace has now failed to be measured four times, each for a
+different reason and none of them the change:
+
+| Round | Lost to                                                        |
+| ----- | -------------------------------------------------------------- |
+| 1     | the runner's loopback resolver (E931a)                          |
+| 2     | Docker's DROP forward policy (E931b)                            |
+| 3     | a `run:` line my own scripted edit dropped from a composite action |
+| 4     | `engine/fleet` reaching the 5-minute per-package test timeout   |
+
+Rounds 1 and 2 were the change's fault and are fixed. Round 3 was mine. Round 4
+is a gating job failing on a package this work does not touch, for the second
+time running.
+
+**The gate is now the bottleneck, and it is measurable.** `-timeout 5m` applies
+per package, and `go test ./...` runs package binaries concurrently on a runner's
+four cores. `engine/fleet` takes 25s at `GOMAXPROCS=1` on a fast core; contended
+on a fraction of a slower one, five minutes is reachable. Fourteen local runs
+across two machines never hung, which is what a slow package looks like and not
+what a deadlock looks like.
+
+The cost is five tests, two of which are real computation rather than sleeps, so
+there is nothing cheap to cut. Recorded in the repository's nits with the
+numbers, because the fix is a choice between a short-mode skip, a timeout of its
+own, and splitting the package - and none of those is this branch's to make.
+
+**What this says about the network default: still nothing.** Four rounds and it
+has never run.

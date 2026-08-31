@@ -45585,3 +45585,37 @@ the position parsed rather than string-compared - `Earthfile:10` sorts before
 `Earthfile:4` - and changes which line every failing parallel build reports.
 Recorded in the repository's nits, and now blocking the keep-going work, which
 would list failures in that same arbitrary order.
+
+### E934a - ranking is free, observing is not
+
+E934 found that the blamed step is chosen by node-ID hash. Fixing the *ranking*
+is free and is done: `worseFailure` now prefers the earlier source position
+within one file, parsed rather than string-compared, falling back to graph order
+across files and for steps with no position.
+
+**Making the earliest failure actually happen is not free**, and the number is
+worth having:
+
+| `go test -race ./engine/core/`                           | Seconds            |
+| -------------------------------------------------------- | ------------------ |
+| ranking only                                             | 13.2               |
+| ranking, plus running any step that could beat the blame | **602, timed out** |
+
+Fifty times, and the reason is arithmetic rather than bad luck. Ranking well
+tells you which of the failures you *saw* to report; it cannot rank one that
+never ran. To guarantee the earliest, every step earlier in the file has to run
+and not be cancelled - and "every step earlier in the file" is most of a build,
+not a handful. The estimate given when that change was written, "bounded, at most
+`limit` in flight plus earlier lines", was wrong in exactly the way estimates
+are: the second term was the whole cost and was written as an afterthought.
+
+Reverted, and the measurement is the useful part. It rules out the obvious design
+and points at the cheap one: **dispatch in source order** rather than run extra
+steps. Steps are launched in graph order and then block on a semaphore, which
+decides nothing about who wakes first; a queue ordered by source position would
+make the first failure encountered the earliest one, at no extra work. That is a
+change to the scheduling loop rather than to the failure path, and it is not
+attempted here.
+
+So a build still blames whichever failure it happened to see - but among the ones
+it saw, it now names the earliest line rather than the luckiest hash.

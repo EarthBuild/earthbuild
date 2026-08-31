@@ -45134,3 +45134,42 @@ nodes, which is the field that *was* correct; removing the fix leaves it passing
 It holds the weaker property that two loads are distinct. Catching the real
 thing needs an assertion about when `ID()` is first called relative to the last
 write to `Op`, which is a different kind of test and is not written.
+
+### E929 - thirteen to three, and six masks on one face
+
+CI at `3f28d9f38`: **three Native failures**, from thirteen. Nothing that passed
+before fails now. The step from nine to three is a single commit, E928a's
+one-line scope fix, and what it cleared is the point of this entry:
+
+| Job     | Filed in E924 as        |
+| ------- | ----------------------- |
+| group1  | output diff             |
+| group2  | port clash              |
+| group5  | port clash              |
+| group6  | missing `CAP_SYS_ADMIN` |
+| group7  | ARG semantics           |
+| group8  | missing `VERSION` flag  |
+
+Six families, one bug. A block served another block's `docker load` from cache
+gets an image it did not ask for, and a build holding the wrong image fails
+wherever it next touches it - as a diff, as a missing capability, as an argument
+it cannot parse. Each of those was a true description of a symptom and none was
+a cause.
+
+E924 filed them as **candidates, not causes**, and said so at the time on the
+grounds that a first error is where a reader starts. That was the single most
+useful sentence in this whole sequence: it left six wrong diagnoses labelled as
+provisional instead of six wrong repairs in the tree.
+
+**What is left, and it is now legible:**
+
+| Job     | Failure                                              |
+| ------- | ---------------------------------------------------- |
+| group3  | `connect provided buildkit: timeout 1m0s` - E923      |
+| group10 | `invalid arguments .../privileged:main+locally && ls` |
+| qemu    | `BUILD --pass-args (Earthfile:1304)`                  |
+
+group3 is the port collision, which `EARTH_STEP_NET=private` is measured to fix
+and which has been waiting for a corpus run. The Native suite now sets it, which
+is that run - passed through `sudo VAR=value` rather than the job environment,
+because plain `sudo` carries neither and that is E901 for the third time.

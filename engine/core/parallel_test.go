@@ -255,7 +255,16 @@ func (flakyOrder) Run(
 	// Later leaves finish sooner, so completion order is the reverse of graph
 	// order - the case where "first to fail" and "first in the Earthfile"
 	// disagree.
-	time.Sleep(time.Duration(20-len(n.Op.Args[1])*3) * time.Millisecond)
+	//
+	// **From the leaf's position, not the length of its name.** This read
+	// `len(n.Op.Args[1])`, and that argument is one character - `a`, `b`, `c` -
+	// so every leaf slept the same 17ms and completion order was a race. The
+	// test was flaky where it meant to be adversarial: it failed when the race
+	// happened to expose the engine and passed when it did not, which is the
+	// worst of both, because a green run said nothing.
+	nth := int(n.Op.Args[1][0] - 'a')
+
+	time.Sleep(time.Duration(20-nth*5) * time.Millisecond)
 
 	return core.Result{Layer: n.ID(), Captured: true, Exit: 1, Output: "failed: " + n.Meta.Source}, nil
 }

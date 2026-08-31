@@ -2626,6 +2626,17 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	if req.Daemon == nil {
 		err = body()
 	} else {
+		// **Before the daemon, because that is what the hook is for.** A step
+		// may ship /usr/share/earthly/dockerd-wrapper-pre-script to prepare
+		// what the daemon will find, and buildkitd/dockerd-wrapper.sh runs it
+		// in the same place. This engine ran nothing, so a target that relied
+		// on it failed on the absence of a file with nothing naming the
+		// feature (E925).
+		err = runPreScript(ctx, h.Root(), cmd.Env, shimming)
+		if err != nil {
+			return Response{Err: err.Error()}
+		}
+
 		err = withDaemon(ctx, h.Root(), req.Daemon, launchDockerd, publishSocket, body)
 	}
 

@@ -1503,6 +1503,19 @@ func (p *pipeConn) Close() error {
 //
 // The variant is not the architecture: arm64/v8 runs arm64 code.
 func CheckRunnable(sandbox, want, where string) error {
+	return checkRunnableWith(sandbox, want, where, EmulatedPlatforms())
+}
+
+// checkRunnableWith is CheckRunnable against a stated set of emulated
+// platforms, so the decision can be tested without a kernel register.
+//
+// **The sandbox is the second gate and used not to know.** `core.Worker`
+// carries `Emulates`, filled from the same register, and the scheduler already
+// places a foreign-platform step on a machine that names it. This refused the
+// step anyway, on a plain comparison - so a build with qemu registered got past
+// placement and failed here, told that "nothing emulates one on the other" by
+// the one part of the engine that had not looked (E932).
+func checkRunnableWith(sandbox, want, where string, emulates []ir.Platform) error {
 	if sandbox == "" || want == "" {
 		return nil
 	}
@@ -1520,6 +1533,15 @@ func CheckRunnable(sandbox, want, where string) error {
 
 	if arch(sandbox) == arch(want) {
 		return nil
+	}
+
+	// Emulation makes it runnable, which is the whole point of registering an
+	// interpreter. Compared on OS and architecture rather than the whole string,
+	// for the reason stated above: a variant is not an architecture.
+	for _, e := range emulates {
+		if arch(want) == e.OS+"/"+e.Arch {
+			return nil
+		}
 	}
 
 	return fmt.Errorf(

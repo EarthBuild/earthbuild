@@ -45309,3 +45309,48 @@ scheduler - which is a change to what a worker *is*, not to how a step runs.
 
 Filed rather than started. The other two of the three are engine defects with
 reproductions; this one is a feature with a design.
+
+### E932a - the emulation was built; two things were missing and neither was the feature
+
+E932 filed `+test-qemu` as a feature nobody had written. Wrong on both counts:
+`engine/exec/binfmt.go` reads the kernel's register, `core.Worker.Emulates` is
+filled from it, and `engine/cli/conditions.go` already sets it on the local
+worker. What was missing was the registrations and one of the two gates.
+
+**Bisected on the box**, by presenting the engine with a register and watching
+which message it gave:
+
+| register | message                                                      |
+| -------- | ------------------------------------------------------------ |
+| absent   | `no eligible worker: this step is for linux/arm64`             |
+| present  | `is for linux/arm64 and this sandbox runs linux/amd64`         |
+| present, with the fix | `exec /bin/sh: exec format error`               |
+
+Each is a different gate and the third is honest: the fake register names an
+interpreter that is not there, so the kernel is right to refuse. The first two
+were ours.
+
+**The registrations.** `stage2-setup` installs `qemu-user-binfmt` only for
+podman. Docker does not need it because buildkitd's container carries its own
+qemu; native has no such container and needs the machine's, exactly as podman
+does. One condition.
+
+**The second gate.** `CheckRunnable` compared platforms and refused a mismatch,
+telling the reader that "nothing emulates one on the other" - a sentence that had
+stopped being true the moment the scheduler learned otherwise. It now consults
+the same set the scheduler does.
+
+**And the advice now fits more than one machine.** The refusal said "register
+binfmt", which is the right instruction and no help to anybody who does not
+already know how. It names all three routes - a privileged container anywhere
+with docker, `boot.binfmt.emulatedSystems` on NixOS, `qemu-user-binfmt` on
+Debian - because the engine reads a kernel interface every distribution fills
+differently, and naming one sends everyone else looking for a package they have
+not got.
+
+**A note on the harness.** An intermediate attempt registered a handler with a
+mask matching every binary, and the container ran `ls` through qemu-aarch64 until
+it segfaulted. It was `--rm` and the host mounts no `binfmt_misc`, so nothing
+escaped - but a privileged container shares the kernel's register, and on a host
+that *does* mount it the same mistake would have been the machine's, not the
+container's. Check what a privileged mount is attached to before writing to it.

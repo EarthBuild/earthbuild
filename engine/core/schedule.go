@@ -185,12 +185,21 @@ func noWorkerFor(n *ir.Node, workers []Worker) error {
 			ErrNoEligibleWorker, len(workers), strings.Join(have, ", "))
 	}
 
+	// **Both ways of registering, because neither is universal.** The engine
+	// reads /proc/sys/fs/binfmt_misc, which every distribution fills the same
+	// way and each provides differently: an apt package on Debian and Ubuntu, a
+	// declaration on NixOS, a privileged container anywhere with docker. Naming
+	// only one of them sends everybody else looking for a package they do not
+	// have.
 	return fmt.Errorf(
 		"%w: this step is for %s and this build has %s"+
 			"\n  building one architecture on another needs emulation, and no machine"+
-			"\n  in this build offers it - register binfmt for %s, build the target"+
-			"\n  for %s, or use --engine=buildkit",
-		ErrNoEligibleWorker, want, strings.Join(have, ", "), want, have[0])
+			"\n  in this build offers it"+
+			"\n  register an interpreter for %s - `docker run --privileged --rm"+
+			" tonistiigi/binfmt --install %s` anywhere with docker,"+
+			" `boot.binfmt.emulatedSystems` on NixOS, `qemu-user-binfmt` on Debian"+
+			"\n  or build the target for %s, or use --engine=buildkit",
+		ErrNoEligibleWorker, want, strings.Join(have, ", "), want, archOf(want), have[0])
 }
 
 // Scheduler is Sched-1 from docs-internals/scheduling.md: correct,
@@ -1655,4 +1664,19 @@ func (s *Scheduler) cacheToRead() ActionCache {
 	}
 
 	return s.Cache
+}
+
+// archOf is the architecture half of a platform, which is what an interpreter is
+// registered for: `tonistiigi/binfmt --install arm64` takes the architecture and
+// not `linux/arm64`, and a message that pasted the whole platform into the
+// command would hand the reader something that does not run.
+func archOf(platform string) string {
+	_, rest, ok := strings.Cut(platform, "/")
+	if !ok {
+		return platform
+	}
+
+	arch, _, _ := strings.Cut(rest, "/")
+
+	return arch
 }

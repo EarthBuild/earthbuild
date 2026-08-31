@@ -219,9 +219,18 @@ runs:
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}
-    - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU == 'true' }}
-      # qemu-user-binfmt needed for cross-compilation (--platform) targets
-      run: ${INPUTS_SUDO} apt-get update && ${INPUTS_SUDO} apt-get install -y qemu-user-binfmt
+    - if: ${{ (inputs.BINARY == 'podman' || inputs.BINARY == 'native') && inputs.USE_QEMU == 'true' }}
+      # qemu-user-binfmt needed for cross-compilation (--platform) targets.
+      #
+      # **And for native, for the same reason podman needs it.** Docker does not
+      # because buildkitd's own container carries qemu; podman and native have no
+      # such container, so the interpreters have to be on the machine. The native
+      # engine already reads them - `exec.EmulatedPlatforms` walks
+      # /proc/sys/fs/binfmt_misc and `core.Worker.Emulates` is filled from it -
+      # so with none registered it finds none, and the scheduler refuses a step
+      # honestly: `no eligible worker: this step is for linux/arm64 and this
+      # build has linux/amd64` (E932). The support was there and the
+      # registrations were not.
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}

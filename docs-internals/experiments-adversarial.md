@@ -45507,3 +45507,33 @@ namespace an earlier build left behind.
 Verified with two concurrent `earth` processes on one machine, which is the
 shape that failed: both got a private namespace, both resolved, neither printed
 the warning, and no name collided.
+
+### E933a - the collision is fixed and the cost is unchanged
+
+The retry landed and did what it claimed: `File exists` gone, degradation
+warnings gone, namespaces created. Native is still 7 of 16 against a shared
+baseline of 3, and the failing set is *identical* - `group1`, `group6`,
+`group7`, `group8`, `slow`, plus the two that were already red.
+
+So the warning was one cause and not the only one, and the same jobs fail for
+something else. The new symptom is precise and is not about the network working:
+
+```text
+  ../root/
+- ../run/
+  ../sys/
+```
+
+`tests/autocompletion` compares shell-completion candidates for a path, and
+`/run` is absent from them under a private namespace. A plain alpine step still
+has `/run` - measured, both modes, same listing - so whatever removes it is
+narrower than "a step gets a namespace".
+
+`ip netns add` makes `/run/netns` a shared bind mount on the guest, which is the
+obvious suspect and is not yet evidence. An attempt to run the suite directly
+mis-resolved its `FROM --pass-args` and measured nothing, which is recorded so
+the next attempt does not repeat it.
+
+**The standing cost, stated plainly.** The default trades `group3` for five
+jobs. It was asked for as a default rather than an opt-in and is being pursued
+as one; this entry exists so the price is on the record while that continues.

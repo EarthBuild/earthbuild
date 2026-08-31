@@ -44963,3 +44963,51 @@ note names the suspect: a step gets "a docker daemon it may share, whose content
 describes", which would make this E923's family, being state shared between parallel steps that
 each assume it is theirs. Suspect, not cause. It is not reproduced, and saying more than that is what E922 is
 about.
+
+### E926 - the step network namespace works, and finds the next bug by not fixing it
+
+`EARTH_STEP_NET=private` is in, and the A/B is unambiguous - same binary, same
+Earthfile, one variable:
+
+```text
+shared    BINDER: COLLIDED rc=1 / nc: bind: Address in use
+private   BINDER: BOUND (isolated namespaces)
+```
+
+Connected as well as isolated, which is the half that would have been easy to
+miss: a step gets `10.201.0.6/30` on `es1`, loopback up, DNS and HTTPS out.
+Isolation alone would pass a port test and break every build that fetches
+anything, which is exactly why `CLONE_NEWNET` was rejected before.
+
+**And it does not fix `with-docker-validate-labels`**, which is the useful part.
+That suite fails `rc=1` under both modes, so whatever it collides on is not the
+network:
+
+| run                     | shared | private |
+| ----------------------- | ------ | ------- |
+| `with-docker-expose+all` | rc=0   | rc=0    |
+| `with-docker-validate-labels+all` | rc=1 | rc=1 |
+| `+test-with-labels` alone | rc=0  | rc=0    |
+
+Alone it passes; together it fails. Both its targets `SAVE IMAGE myimage:test` -
+**the same tag** - and a reduced case says what happens:
+
+```text
+WITHOUT saw: null
+WITH saw: null
+```
+
+The second is wrong. Built alone, that target's image carries the three
+`dev.earthly.*` labels. Built beside its sibling, it sees the sibling's image.
+Two parallel targets writing one tag clobber each other.
+
+**Which the labels fix exposed rather than caused.** Before it, neither target
+stamped anything, so the two images were byte-identical and the collision could
+not be observed: `test-without-labels` passed because null was what it wanted,
+and `test-with-labels` failed for a reason that looked like the labels and was
+not. Fixing the labels made the two images differ, and a difference is what it
+takes to see one image standing in for another.
+
+Not yet located. `dockerScope` numbers a block's daemon storage per block, so
+two blocks should not share one, and the reduced case says they do share
+*something*. Suspect, not cause.

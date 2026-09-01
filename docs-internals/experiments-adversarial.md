@@ -46397,3 +46397,50 @@ note: alpine:3.24.1 was not pinned: alpine:3.24.1: no manifest for native
 passes the word through where every other path resolves it to the machine's
 platform first, so the note reports a missing manifest for a name that cannot
 exist - and the reader is told the image is at fault.
+
+### E956 - a function inherits its caller's globals, and should inherit its file's
+
+With E950 clearing the argument that was being dropped,
+`+test-no-qemu-group8` reaches the assertion behind it:
+
+```text
+RUN test -z "this-should-be-ignored" failed        (/sub/Earthfile:8)
+RUN test "this-should-be-ignored" = "defaultvalue" failed
+```
+
+`this-should-be-ignored` is the value `ARG --global MY_ARG=...` gives in
+`tests/pass-args-via-function-with-override`'s **root** file, and the name says
+what the test thinks of it. The function that reads it is in `sub.earth`, a
+different file, which declares no globals at all - and asserts it sees nothing.
+
+**Not caused by E950, and the reasoning that said it was is worth recording.**
+It fails *earlier in the file* than the round before, which reads as a
+regression; the two assertions are in different files, so the order of the source
+is not the order of evaluation. The A/B settles it: with E950 reverted and the
+`BUILD` line removed so both variants plan, the leaked value is identical. Newly
+exposed, like everything else this session - the second time today that
+"fails earlier now" was the wrong inference.
+
+The line is `interp.go`'s function-call scope construction:
+
+```go
+for name, value := range p.callerGlobals {
+    ...
+    rs.args[name] = value
+}
+```
+
+Every one of the caller's globals is written into the function's arguments. The
+reference takes the *callee's* file's globals - `baseMts.Final.VarCollection.
+Globals()` - so a global travels with the file that declared it and not with the
+call. `FUNC1` is in the root file and correctly sees `MY_ARG`; `FUNC2` is in
+`sub.earth` and should not.
+
+It explains the second failure too: the global overwrote the passed
+`defaultvalue` in the function's scope, so `--pass-args` forwarded the global on
+to the target below.
+
+Not fixed here. It is precedence in argument resolution, which is the highest
+blast radius in the interpreter and the one place this session has already paid
+for a change tested too narrowly (E947); the corpus is the check and the corpus
+needs a machine.

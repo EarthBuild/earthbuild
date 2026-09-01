@@ -46288,10 +46288,10 @@ Each was reached only by fixing the one in front of it, one CI round apiece.
 The rule is short enough to grep for and the symptom is not: `no eligible
 worker`, `no manifest for`, and `this image is linux/arm` share no text at all.
 
-### E953 - a LOCALLY function stopped leaving its file where the caller reads it
+### E953 - the target that "started failing" had never run
 
-`tests/locally-in-function` passed in the first two CI rounds of this session and
-has failed in both since:
+`tests/locally-in-function` fails in the two most recent CI rounds and appears in
+neither of the two before them:
 
 ```text
 Earthfile:7 | cat: can't open 'data': No such file or directory
@@ -46302,15 +46302,24 @@ The recipe is `FROM alpine`, `DO submarine+FUNCTION_THAT_CALLS_OTHER_FUNCTION` -
 two imports deep, ending in a `LOCALLY` function that writes `data` at `$(pwd)` -
 and then a `RUN` that reads it.
 
-**It is not the interpreter.** The planned graph for that shape is byte-identical
-between this session's starting commit and its head: same three nodes, same
-kinds, same argv, same `Dir`. So whatever changed is in execution, and the batch
-it changed in is the one between the second and third rounds - the `/dev` mode,
-`/run/secrets`, the capability carry, the entrypoint join, or the emulation
-variant.
+**The first reading was that a change had broken it, and it was wrong.** A build
+stops at its first failing target, so `group1` in the earlier rounds died on the
+autocompletion diff and never reached this one: the target is mentioned zero
+times in those two job logs and four times in each of the later two. Absent from
+a log is not the same as passing, and on a fail-fast build it usually is not.
 
-Recorded rather than diagnosed, because the discriminator wants a machine that
-can run the case and this one cannot: the x86 box went off the network mid-session
-and a `LOCALLY` step followed by a container step is exactly what a plan dump
-cannot answer. The graph comparison is the finding - it removes a whole package
-from the search before anybody boots anything.
+The count is the check, and it is one grep: `grep -c '<target>' <job log>` over
+the round that supposedly passed. Every other failure this session was newly
+*exposed* the same way, so the prior should have been exposure rather than
+regression - and the sentence "passed in the first two rounds" was written
+without looking.
+
+What the investigation did establish stands, and is worth keeping: the planned
+graph for this shape is byte-identical between this session's starting commit and
+its head - same three nodes, same kinds, same argv, same `Dir` - so whatever is
+wrong is in execution rather than interpretation. That removes a whole package
+from the search before anybody boots a machine.
+
+Not diagnosed further here, because the discriminator wants a machine that can
+run a `LOCALLY` step followed by a container step, and the x86 box went off the
+network mid-session.

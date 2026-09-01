@@ -774,6 +774,30 @@ func resolverMount() []Mount {
 	return []Mount{{Sandbox: path, Target: path, ReadOnly: true, Mode: 0o644}}
 }
 
+// secretsRoomMount is the `/run/secrets` every step gets.
+//
+// **Because every other engine provides it and tools look for it.** BuildKit
+// creates the directory for each step unconditionally - measured on a bare
+// `alpine:3.19` with no secret anywhere in the build - and docker's own
+// `--mount=type=secret` names the same path, so a step arriving without one is
+// this engine differing from the convention rather than from a competitor.
+//
+// The symptom was two removes from any secret. `tests/autocompletion` offers a
+// directory only when it has a subdirectory; `/run/secrets` was the only
+// subdirectory `/run` had; without it the completion omitted `../run/`, and a
+// test about tab completion failed on a one-line diff caused by a mount (E939).
+//
+// Ephemeral and a tmpfs for the reason `/dev/shm` is both: what a step writes
+// into its own root is captured, and a directory named secrets is the last one
+// whose contents should reach a layer or a disk.
+//
+// It costs a mount - about 115us and the kernel's mount lock (E814) - and one
+// copy-up of `/run` into the step's upper layer, which is a directory with
+// nothing in it on every image this corpus builds.
+func secretsRoomMount() []Mount {
+	return []Mount{{Ephemeral: true, Tmpfs: true, Target: "/run/secrets", Mode: 0o755}}
+}
+
 // stepDevices are the device files every step is entitled to, named once so
 // that what is bound and what is reported missing cannot drift apart.
 var stepDevices = []string{

@@ -45804,3 +45804,49 @@ Earthfile line they reported put groups 6, 7 and 8 together under
 through. One line further along they are three unrelated defects, and two of
 them were a morning's work each. The shared line number was the reason the
 cluster looked like one problem and the reason it was not.
+
+### E939 - `../run/` was missing because buildkit makes a directory this engine did not
+
+`+test-no-qemu-group1` failed on a one-line diff in a test about tab completion:
+
+```text
+@@ -4,7 +4,6 @@
+  ../root/
+ -../run/
+  ../sys/
+```
+
+E935 read the sign correctly and stopped one step short: `hasSubDirs` offers a
+directory only when it *has* a subdirectory, so `-../run/` says `/run` was empty
+and not that it was missing. What E935 could not do was reproduce it - the
+smaller Earthfile it tried has no `/run` problem, because the answer is not in
+the engine's step setup at all.
+
+**The A/B, on the real base image, on one machine:**
+
+| Probe                          | native   | buildkit          |
+| ------------------------------ | -------- | ----------------- |
+| `/run` in the integration base | empty    | holds `secrets`   |
+| `../run/` offered              | no       | yes               |
+
+And on a bare `alpine:3.19`, with no secret anywhere in the build, buildkit still
+makes `/run/secrets`. So it is unconditional runtime behaviour rather than
+something the repository's own image happened to carry - which was the reading
+that had to be excluded, since a base image built by buildkit could have captured
+the directory into a layer and made this a difference in image, not in engine.
+
+Two earlier readings were wrong and both were about the mechanism rather than the
+image. The `/run` tmpfs in `prepareShim` is real and is confined to the daemon
+shim's own mount namespace; the private network namespace was measured in E935
+and does nothing to `/run`. Neither could have been it, because the *image's*
+`/run` was empty on both engines and only the step's differed.
+
+Fixed by giving every step a `/run/secrets`, ephemeral and a tmpfs for the reason
+`/dev/shm` is both. Docker's `--mount=type=secret` names the same path, so this
+is the convention a tool reaches for and not one competitor's detail; the cost is
+one mount, about 115us and the kernel's mount lock (E814), plus a copy-up of a
+`/run` that is empty on every image this corpus builds.
+
+**Four of the six Native failures were single-cause, and none of the causes was
+the one the grouping suggested.** Two of them were found by reading one line
+further than the line the job reported.

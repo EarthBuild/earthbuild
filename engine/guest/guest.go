@@ -2126,7 +2126,8 @@ func stepMounts(req Request, env []string, ownNet bool) []Mount {
 		resolver = resolvMount(hostNameservers())
 	}
 
-	out := append(deviceMounts(), resolver...)
+	out := append(deviceMounts(), secretsRoomMount()...)
+	out = append(out, resolver...)
 	out = append(out, hostnameMount()...)
 
 	// **Against the step's environment**, because a target may name one of its

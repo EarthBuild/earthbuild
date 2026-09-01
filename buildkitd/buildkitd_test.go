@@ -235,6 +235,28 @@ func TestStart_ContainerLocalRegistryAddr(t *testing.T) {
 	}
 }
 
+func TestStart_AppleContainerAddr(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
+	eng := engine.NewTestClient(engine.Metadata{
+		Name:   appleContainerName,
+		Scheme: engine.SchemeApple,
+	})
+
+	settings := Settings{
+		BuildkitAddr: "apple-container://earth-buildkitd",
+		UseTCP:       true,
+	}
+
+	// Should not fail with port parsing error when UseTCP is true with apple-container scheme without explicit port.
+	err := Start(ctx, log, "test-image", "test-container", eng, settings, false)
+	if err != nil {
+		assert.NotContains(t, err.Error(), "invalid port in buildkit address")
+	}
+}
+
 func TestPrintBuildkitInfo(t *testing.T) {
 	t.Parallel()
 

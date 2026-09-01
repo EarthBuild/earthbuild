@@ -178,7 +178,7 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 			return fmt.Errorf("invalid buildkit_host: %s: %w", b.cli.Flags().BuildkitHost, err)
 		}
 
-		if bkURL.Scheme == "tcp" && b.cli.Cfg().Global.TLSEnabled {
+		if (bkURL.Scheme == "tcp" || bkURL.Scheme == "apple-container") && b.cli.Cfg().Global.TLSEnabled {
 			err := buildkitd.GenCerts(*b.cli.Cfg(), b.certsHostName)
 			if err != nil {
 				return hint.Wrapf(

@@ -190,12 +190,17 @@ func createTLSCert(ca *certData, key *rsa.PrivateKey, role, path, hostname strin
 		return nil, fmt.Errorf("could not generate serial for role %q: %w", role, err)
 	}
 
+	dnsNames := []string{"localhost"}
+	if hostname != "" && hostname != "localhost" {
+		dnsNames = append(dnsNames, hostname)
+	}
+
 	cert := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
 			Organization: []string{fmt.Sprintf("EarthBuild GRPC: %v side", role)},
 		},
-		DNSNames:     []string{hostname},
+		DNSNames:     dnsNames,
 		IPAddresses:  []net.IP{net.IPv6loopback, net.ParseIP("127.0.0.1")},
 		NotBefore:    time.Now(),
 		NotAfter:     time.Now().AddDate(10, 0, 0),

@@ -359,7 +359,6 @@ type Container struct {
 	Status   string
 	Image    string
 	ImageID  string
-	Ports    []string
 }
 
 const (

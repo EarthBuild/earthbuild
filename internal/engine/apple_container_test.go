@@ -11,21 +11,30 @@ import (
 func TestAppleContainerInspectUnmarshal(t *testing.T) {
 	t.Parallel()
 
+	const expectedDigest = "sha256:72f31b547d4dbca1a2084a95c590f3932977facedaad8c3828c22faa87617ff8"
+
 	data := `[
 		{
+			"id": "test-container-id",
 			"status": {
 				"state": "running",
 				"networks": [
-					{"address": "192.168.64.2"}
+					{"ipv4Address": "192.168.64.2/24"}
 				]
 			},
 			"configuration": {
-				"id": "test-container-id",
 				"image": {
+					"descriptor": {
+						"digest": "sha256:72f31b547d4dbca1a2084a95c590f3932977facedaad8c3828c22faa87617ff8"
+					},
 					"reference": "docker.io/library/ubuntu:latest"
 				},
 				"labels": {
 					"key": "value"
+				},
+				"platform": {
+					"architecture": "arm64",
+					"os": "linux"
 				}
 			}
 		}
@@ -38,12 +47,67 @@ func TestAppleContainerInspectUnmarshal(t *testing.T) {
 	require.Len(t, inspects, 1)
 
 	c := inspects[0]
+	assert.Equal(t, "test-container-id", c.ID)
 	assert.Equal(t, "running", c.Status.State)
 	require.Len(t, c.Status.Networks, 1)
-	assert.Equal(t, "192.168.64.2", c.Status.Networks[0].Address)
-	assert.Equal(t, "test-container-id", c.Configuration.ID)
-	assert.Equal(t, "docker.io/library/ubuntu:latest", c.Configuration.Image.Reference)
+	assert.Equal(t, "192.168.64.2/24", c.Status.Networks[0].IPv4Address)
+	assert.Equal(t, expectedDigest, c.Configuration.Image.Descriptor.Digest)
 	assert.Equal(t, "value", c.Configuration.Labels["key"])
+	assert.Equal(t, "arm64", c.Configuration.Platform.Architecture)
+	assert.Equal(t, "linux", c.Configuration.Platform.OS)
+}
+
+func TestConvertAppleContainer(t *testing.T) {
+	t.Parallel()
+
+	data := `[
+		{
+			"id": "test-container-id",
+			"status": {
+				"state": "running",
+				"startedDate": "2026-08-28T10:35:29Z",
+				"networks": [
+					{
+						"network": "default",
+						"ipv4Address": "192.168.64.2/24"
+					}
+				]
+			},
+			"configuration": {
+				"creationDate": "2026-08-28T10:35:28Z",
+				"image": {
+					"descriptor": {
+						"digest": "sha256:72f31b547d4dbca1a2084a95c590f3932977facedaad8c3828c22faa87617ff8"
+					},
+					"reference": "docker.io/library/ubuntu:latest"
+				},
+				"labels": {
+					"key": "value"
+				},
+				"platform": {
+					"architecture": "arm64",
+					"os": "linux"
+				}
+			}
+		}
+	]`
+
+	var inspects []appleContainerInspect
+
+	err := json.Unmarshal([]byte(data), &inspects)
+	require.NoError(t, err)
+	require.Len(t, inspects, 1)
+
+	container := convertAppleContainer(inspects[0])
+	assert.Equal(t, "test-container-id", container.ID)
+	assert.Equal(t, "test-container-id", container.Name)
+	assert.Equal(t, "running", container.Status)
+	assert.Equal(t, "docker.io/library/ubuntu:latest", container.Image)
+	assert.Equal(t, "72f31b547d4dbca1a2084a95c590f3932977facedaad8c3828c22faa87617ff8", container.ImageID)
+	assert.Equal(t, "arm64", container.Platform)
+	assert.Equal(t, "192.168.64.2", container.IPs["default"])
+	assert.Equal(t, "value", container.Labels["key"])
+	assert.False(t, container.Created.IsZero())
 }
 
 func TestAppleImageInspectUnmarshal(t *testing.T) {
@@ -51,11 +115,20 @@ func TestAppleImageInspectUnmarshal(t *testing.T) {
 
 	data := `[
 		{
-			"id": "sha256:abcd1234",
+			"id": "abcd1234",
 			"configuration": {
-				"name": "docker.io/library/ubuntu:latest"
+				"name": "docker.io/library/ubuntu:latest",
+				"descriptor": {
+					"digest": "sha256:abcd1234"
+				}
 			},
 			"variants": [
+				{
+					"platform": {
+						"os": "linux",
+						"architecture": "amd64"
+					}
+				},
 				{
 					"platform": {
 						"os": "linux",
@@ -74,10 +147,13 @@ func TestAppleImageInspectUnmarshal(t *testing.T) {
 
 	img := inspects[0]
 	assert.Equal(t, "docker.io/library/ubuntu:latest", img.Configuration.Name)
-	assert.Equal(t, "sha256:abcd1234", img.ID)
-	require.Len(t, img.Variants, 1)
+	assert.Equal(t, "abcd1234", img.ID)
+	assert.Equal(t, "sha256:abcd1234", img.Configuration.Descriptor.Digest)
+	require.Len(t, img.Variants, 2)
 	assert.Equal(t, "linux", img.Variants[0].Platform.OS)
-	assert.Equal(t, "arm64", img.Variants[0].Platform.Architecture)
+	assert.Equal(t, "amd64", img.Variants[0].Platform.Architecture)
+	assert.Equal(t, "linux", img.Variants[1].Platform.OS)
+	assert.Equal(t, "arm64", img.Variants[1].Platform.Architecture)
 }
 
 func TestAppleVolumeInspectUnmarshal(t *testing.T) {

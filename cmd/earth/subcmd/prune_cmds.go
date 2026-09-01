@@ -96,6 +96,8 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 			return fmt.Errorf("reset cache: %w", err)
 		}
 
+		a.cli.StopBuildkitOnExit(ctx)
+
 		return nil
 	}
 

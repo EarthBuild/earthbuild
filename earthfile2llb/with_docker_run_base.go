@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
@@ -163,23 +164,24 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 
 func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDockerOpt) ([]byte, error) {
 	// Add the right run to fetch the docker compose config.
-	args := shellCmd(
-		fmt.Sprintf(
-			"%s get-compose-config %s",
-			dockerdWrapperPath,
-			strings.Join(composeArgs(opt), " "),
-		),
-	)
+	args := shellCmd(dockerdWrapperPath + " get-compose-config")
 
 	prefix, _, err := w.c.newVertexMeta(ctx, false, false, false, opt.Secrets)
 	if err != nil {
 		return nil, err
 	}
 
+	hasComposeFiles := len(opt.ComposeFiles) > 0
 	runOpts := []llb.RunOption{
 		llb.AddMount(
 			dockerdWrapperPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath),
 		),
+		llb.AddEnv("EARTHLY_START_COMPOSE", strconv.FormatBool(hasComposeFiles)),
+		llb.AddEnv("EARTHLY_COMPOSE_FILES", strings.Join(opt.ComposeFiles, " ")),
+		llb.AddEnv("EARTHLY_COMPOSE_SERVICES", strings.Join(opt.ComposeServices, " ")),
+		llb.AddEnv("EARTH_START_COMPOSE", strconv.FormatBool(hasComposeFiles)),
+		llb.AddEnv("EARTH_COMPOSE_FILES", strings.Join(opt.ComposeFiles, " ")),
+		llb.AddEnv("EARTH_COMPOSE_SERVICES", strings.Join(opt.ComposeServices, " ")),
 		llb.Args(args),
 		llb.WithCustomNamef("%sWITH DOCKER (docker-compose config)", prefix),
 	}
@@ -207,53 +209,33 @@ func makeWithDockerdWrapFun(dindID string, tarPaths, imgsWithDigests []string, o
 	cacheDataRoot := strings.HasPrefix(dindID, "cache_")
 	dockerRoot := path.Join("/var/earthbuild/dind", dindID)
 
-	dockerdArgs := []string{dockerdFlag("--data-root", dockerRoot)}
-	if cacheDataRoot {
-		dockerdArgs = append(dockerdArgs, "--cache-data")
+	// Environment variables for dockerd-wrapper.sh.
+	dockerEnv := []string{
+		fmt.Sprintf("EARTHLY_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
+		fmt.Sprintf("EARTHLY_DOCKERD_CACHE_DATA=\"%s\"", strconv.FormatBool(cacheDataRoot)),
+		fmt.Sprintf("EARTHLY_DOCKER_LOAD_FILES=\"%s\"", strings.Join(tarPaths, " ")),
+		fmt.Sprintf("EARTHLY_START_COMPOSE=\"%s\"", strconv.FormatBool(len(opt.ComposeFiles) > 0)),
+		fmt.Sprintf("EARTHLY_COMPOSE_FILES=\"%s\"", strings.Join(opt.ComposeFiles, " ")),
+		fmt.Sprintf("EARTHLY_COMPOSE_SERVICES=\"%s\"", strings.Join(opt.ComposeServices, " ")),
+		fmt.Sprintf("EARTHLY_IMAGES_WITH_DIGESTS=\"%s\"", strings.Join(imgsWithDigests, " ")),
+		fmt.Sprintf("EARTH_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
+		fmt.Sprintf("EARTH_DOCKERD_CACHE_DATA=\"%s\"", strconv.FormatBool(cacheDataRoot)),
+		fmt.Sprintf("EARTH_DOCKER_LOAD_FILES=\"%s\"", strings.Join(tarPaths, " ")),
+		fmt.Sprintf("EARTH_START_COMPOSE=\"%s\"", strconv.FormatBool(len(opt.ComposeFiles) > 0)),
+		fmt.Sprintf("EARTH_COMPOSE_FILES=\"%s\"", strings.Join(opt.ComposeFiles, " ")),
+		fmt.Sprintf("EARTH_COMPOSE_SERVICES=\"%s\"", strings.Join(opt.ComposeServices, " ")),
+		fmt.Sprintf("EARTH_IMAGES_WITH_DIGESTS=\"%s\"", strings.Join(imgsWithDigests, " ")),
 	}
-
-	for _, tarPath := range tarPaths {
-		dockerdArgs = append(dockerdArgs, dockerdFlag("--load-file", tarPath))
-	}
-
-	// The digests are not actually used by the wrapper, but they are needed in
-	// order to bust the cache in case an image is updated.
-	for _, imgWithDigest := range imgsWithDigests {
-		dockerdArgs = append(dockerdArgs, dockerdFlag("--image-digest", imgWithDigest))
-	}
-
-	dockerdArgs = append(dockerdArgs, composeArgs(opt)...)
 
 	return func(args []string, envVars []string, isWithShell, withDebugger, forceDebugger bool) []string {
+		allEnv := append(dockerEnv, envVars...) //nolint:gocritic
+
 		return shellCmd(
 			strWithEnvVarsAndDocker(
-				args, envVars, dockerdArgs, isWithShell, withDebugger, forceDebugger, false, "", "",
+				args, allEnv, isWithShell, withDebugger, forceDebugger, true, false, "", "",
 			),
 		)
 	}
-}
-
-func composeArgs(opt WithDockerOpt) []string {
-	var args []string
-	if len(opt.ComposeFiles) > 0 {
-		args = append(args, startComposeFlag)
-	}
-
-	for _, composeFile := range opt.ComposeFiles {
-		args = append(args, dockerdFlag("--compose-file", composeFile))
-	}
-
-	for _, composeService := range opt.ComposeServices {
-		args = append(args, dockerdFlag("--compose-service", composeService))
-	}
-
-	return args
-}
-
-// dockerdFlag renders a --name=value flag for dockerd-wrapper.sh. The result is
-// spliced into a /bin/sh -c command line, so the value has to be quoted.
-func dockerdFlag(name, value string) string {
-	return fmt.Sprintf("%s='%s'", name, escapeShellSingleQuotes(value))
 }
 
 func platformIncompatMsg(platr *platutil.Resolver) string {

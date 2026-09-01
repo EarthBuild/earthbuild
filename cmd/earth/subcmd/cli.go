@@ -33,4 +33,5 @@ type CLI interface {
 	Logbus() *logbus.Bus
 
 	AddDeferredFunc(f func())
+	StopBuildkitOnExit(context.Context)
 }

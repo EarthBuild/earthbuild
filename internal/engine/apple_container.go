@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,27 +8,45 @@ import (
 	"io"
 	"net"
 	"os"
+	"runtime"
+	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"al.essio.dev/pkg/shellescape"
 )
 
 type appleContainerInspect struct {
+	ID            string `json:"id"`
 	Configuration struct {
 		Labels map[string]string `json:"labels"`
-		ID     string            `json:"id"`
 		Image  struct {
+			Descriptor struct {
+				Digest string `json:"digest"`
+			} `json:"descriptor"`
 			Reference string `json:"reference"`
 		} `json:"image"`
+		Platform struct {
+			OS           string `json:"os"`
+			Architecture string `json:"architecture"`
+		} `json:"platform"`
+		CreationDate string `json:"creationDate"`
 	} `json:"configuration"`
 	Status struct {
 		State    string `json:"state"`
 		Networks []struct {
+			Network     string `json:"network"`
 			IPv4Address string `json:"ipv4Address"`
-			Address     string `json:"address"`
 		} `json:"networks"`
 	} `json:"status"`
+}
+
+type appleImageVariant struct {
+	Platform struct {
+		OS           string `json:"os"`
+		Architecture string `json:"architecture"`
+	} `json:"platform"`
 }
 
 type appleImageInspect struct {
@@ -39,13 +56,8 @@ type appleImageInspect struct {
 			Digest string `json:"digest"`
 		} `json:"descriptor"`
 	} `json:"configuration"`
-	ID       string `json:"id"`
-	Variants []struct {
-		Platform struct {
-			OS           string `json:"os"`
-			Architecture string `json:"architecture"`
-		} `json:"platform"`
-	} `json:"variants"`
+	ID       string              `json:"id"`
+	Variants []appleImageVariant `json:"variants"`
 }
 
 type appleVolumeInspect struct {
@@ -169,21 +181,7 @@ func (e *appleEngine) ListContainers(ctx context.Context) ([]Container, error) {
 
 	ret := make([]Container, len(inspects))
 	for i, v := range inspects {
-		ipAddresses := map[string]string{}
-
-		if len(v.Status.Networks) > 0 {
-			addr := cmp.Or(v.Status.Networks[0].IPv4Address, v.Status.Networks[0].Address)
-			ip, _, _ := strings.Cut(addr, "/")
-			ipAddresses["bridge"] = ip
-		}
-
-		ret[i] = Container{
-			ID:     v.Configuration.ID,
-			Name:   v.Configuration.ID,
-			Status: v.Status.State,
-			Image:  v.Configuration.Image.Reference,
-			IPs:    ipAddresses,
-		}
+		ret[i] = convertAppleContainer(v)
 	}
 
 	return ret, nil
@@ -209,27 +207,38 @@ func (e *appleEngine) InspectContainers(
 		return nil, fmt.Errorf("decode apple container inspect output (%s): %w", stdout, err)
 	}
 
-	containers := make([]Container, 0, len(inspects))
-	for _, v := range inspects {
-		ipAddresses := map[string]string{}
-
-		if len(v.Status.Networks) > 0 {
-			addr := cmp.Or(v.Status.Networks[0].IPv4Address, v.Status.Networks[0].Address)
-			ip, _, _ := strings.Cut(addr, "/")
-			ipAddresses["bridge"] = ip
-		}
-
-		containers = append(containers, Container{
-			ID:     v.Configuration.ID,
-			Name:   v.Configuration.ID,
-			Status: v.Status.State,
-			Image:  v.Configuration.Image.Reference,
-			IPs:    ipAddresses,
-			Labels: v.Configuration.Labels,
-		})
+	containers := make([]Container, len(inspects))
+	for i, v := range inspects {
+		containers[i] = convertAppleContainer(v)
 	}
 
 	return containers, nil
+}
+
+func convertAppleContainer(v appleContainerInspect) Container {
+	ipAddresses := make(map[string]string, len(v.Status.Networks))
+
+	for _, net := range v.Status.Networks {
+		if net.IPv4Address != "" {
+			ip, _, _ := strings.Cut(net.IPv4Address, "/")
+			ipAddresses[net.Network] = ip
+		}
+	}
+
+	imageID := strings.TrimPrefix(v.Configuration.Image.Descriptor.Digest, "sha256:")
+	created, _ := time.Parse(time.RFC3339Nano, v.Configuration.CreationDate)
+
+	return Container{
+		ID:       v.ID,
+		Name:     v.ID,
+		Created:  created,
+		Status:   v.Status.State,
+		Image:    v.Configuration.Image.Reference,
+		ImageID:  imageID,
+		Platform: v.Configuration.Platform.Architecture,
+		IPs:      ipAddresses,
+		Labels:   v.Configuration.Labels,
+	}
 }
 
 // RemoveContainer deletes the specified containers.
@@ -291,21 +300,6 @@ func (e *appleEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 
 		args = append(args, buildAppleMountArgs(spec.Mounts)...)
 
-		for _, port := range spec.Ports {
-			hostPort := strconv.Itoa(port.HostPort)
-			if port.HostPort <= 0 {
-				hostPort = ""
-			}
-
-			portStr := fmt.Sprintf("%s:%s:%d", port.IP, hostPort, port.ContainerPort)
-
-			if port.Protocol != "" {
-				portStr = fmt.Sprintf("%s/%s", portStr, port.Protocol)
-			}
-
-			args = append(args, "--publish", portStr)
-		}
-
 		args = append(args, "-d")
 		args = append(args, "--name", spec.NameOrID)
 		args = append(args, spec.AdditionalArgs...)
@@ -348,8 +342,12 @@ func (e *appleEngine) InspectImages(ctx context.Context, refs ...string) ([]Imag
 		}
 
 		if len(v.Variants) > 0 {
-			info.OS = v.Variants[0].Platform.OS
-			info.Architecture = v.Variants[0].Platform.Architecture
+			i := max(0, slices.IndexFunc(v.Variants, func(variant appleImageVariant) bool {
+				return variant.Platform.Architecture == runtime.GOARCH
+			}))
+
+			info.OS = v.Variants[i].Platform.OS
+			info.Architecture = v.Variants[i].Platform.Architecture
 		}
 
 		images = append(images, info)
@@ -515,7 +513,7 @@ func buildAppleMountArgs(mounts []Mount) []string {
 }
 
 // DefaultAddr returns the default address for the Apple Container engine.
-// The actual reachable bridge IP address is determined dynamically later
+// The actual reachable IP address is determined dynamically later
 // via [appleEngine.ContainerAddr] once the container is running.
 func (e *appleEngine) DefaultAddr(cfg *Config) (string, error) {
 	return AppleSchemePrefix + cfg.LocalContainerName, nil
@@ -532,10 +530,11 @@ func (e *appleEngine) ContainerAddr(ctx context.Context, containerName string, p
 		return "", fmt.Errorf("container %s not found", containerName)
 	}
 
-	bridgeIP, ok := containers[0].IPs["bridge"]
-	if !ok || bridgeIP == "" {
-		return "", fmt.Errorf("container %s has no bridge IP", containerName)
+	for _, ip := range containers[0].IPs {
+		if ip != "" {
+			return "tcp://" + net.JoinHostPort(ip, strconv.Itoa(port)), nil
+		}
 	}
 
-	return "tcp://" + net.JoinHostPort(bridgeIP, strconv.Itoa(port)), nil
+	return "", fmt.Errorf("container %s has no IP address", containerName)
 }

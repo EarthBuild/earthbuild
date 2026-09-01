@@ -126,7 +126,7 @@ func NewClient(
 
 		remoteConsole.Printf("Connecting to %s...", settings.BuildkitAddr)
 
-		info, workerInfo, err = waitForConnection(ctx, containerName, settings, eng, opts...)
+		info, workerInfo, err = waitForConnection(ctx, remoteConsole, containerName, settings, eng, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("connect provided buildkit: %w", err)
 		}
@@ -426,25 +426,20 @@ func maybeRestart(
 		}
 
 		if useExistingContainer {
-			updateContainerAddrs(ctx, eng, containerName, &settings)
-
-			var reqOpts []client.ClientOpt
-
-			reqOpts, err = requiredOpts(settings)
-			if err != nil {
-				return nil, nil, fmt.Errorf("required client opts: %w", err)
-			}
-
-			opts = append(opts, reqOpts...)
-
 			var (
 				info       *client.Info
 				workerInfo *client.WorkerInfo
 			)
 
-			info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddr, 5*time.Second, opts...)
+			info, workerInfo, err = connectExistingDaemon(ctx, bkLog, containerName, settings, eng, opts)
 			if err != nil {
-				return nil, nil, fmt.Errorf("could not connect to buildkitd: %w", err)
+				if settings.NoUpdate {
+					return nil, nil, fmt.Errorf("could not connect to buildkitd: %w", err)
+				}
+
+				bkLog.Printf("Existing buildkit daemon is unresponsive (%v). Restarting...\n", err)
+
+				break
 			}
 
 			return info, workerInfo, nil
@@ -454,23 +449,12 @@ func maybeRestart(
 	case settings.NoUpdate:
 		bkLog.Printf("Updated image available; however update was inhibited.\n")
 
-		updateContainerAddrs(ctx, eng, containerName, &settings)
-
-		var reqOpts []client.ClientOpt
-
-		reqOpts, err = requiredOpts(settings)
-		if err != nil {
-			return nil, nil, fmt.Errorf("required client opts: %w", err)
-		}
-
-		opts = append(opts, reqOpts...)
-
 		var (
 			info       *client.Info
 			workerInfo *client.WorkerInfo
 		)
 
-		info, workerInfo, err = checkConnection(ctx, settings.BuildkitAddr, 5*time.Second, opts...)
+		info, workerInfo, err = connectExistingDaemon(ctx, bkLog, containerName, settings, eng, opts)
 		if err != nil {
 			return nil, nil, fmt.Errorf("could not verify connection to buildkitd container: %w", err)
 		}
@@ -504,6 +488,33 @@ func maybeRestart(
 	bkLog.Printf("...Done\n")
 
 	return info, workerInfo, nil
+}
+
+func connectExistingDaemon(
+	ctx context.Context,
+	bkLog *conslogging.ConsoleLogger,
+	containerName string,
+	settings Settings,
+	eng *engine.Client,
+	opts []client.ClientOpt,
+) (*client.Info, *client.WorkerInfo, error) {
+	updateContainerAddrs(ctx, eng, containerName, &settings)
+
+	reqOpts, err := requiredOpts(settings)
+	if err != nil {
+		return nil, nil, fmt.Errorf("required client opts: %w", err)
+	}
+
+	opts = append(opts, reqOpts...)
+
+	info, workerInfo, err := checkConnection(ctx, settings.BuildkitAddr, 5*time.Second, opts...)
+	if err == nil {
+		return info, workerInfo, nil
+	}
+
+	bkLog.VerbosePrintf("Initial connection check failed (%v), waiting for buildkitd to be ready...\n", err)
+
+	return waitForConnection(ctx, bkLog, containerName, settings, eng, opts...)
 }
 
 // RemoveExited removes any stopped or exited buildkitd containers.
@@ -647,19 +658,22 @@ func Start(
 		}
 
 		if settings.UseTCP {
-			var hostPort int
+			if bkURL.Scheme == "tcp" || bkURL.Port() != "" {
+				var hostPort int
 
-			hostPort, err = strconv.Atoi(bkURL.Port())
-			if err != nil {
-				return fmt.Errorf("invalid port in buildkit address %q: %w", settings.BuildkitAddr, err)
+				hostPort, err = strconv.Atoi(bkURL.Port())
+				if err != nil {
+					return fmt.Errorf("invalid port in buildkit address %q: %w", settings.BuildkitAddr, err)
+				}
+
+				ports = append(ports, engine.Port{
+					IP:            localhost,
+					HostPort:      hostPort,
+					ContainerPort: 8372,
+					Protocol:      engine.ProtocolTCP,
+				})
 			}
 
-			ports = append(ports, engine.Port{
-				IP:            localhost,
-				HostPort:      hostPort,
-				ContainerPort: 8372,
-				Protocol:      engine.ProtocolTCP,
-			})
 			if settings.EnableProfiler {
 				ports = append(ports, engine.Port{
 					IP:            localhost,
@@ -704,6 +718,23 @@ func Start(
 						Dest:     "/etc/earth-certs",
 						ReadOnly: true,
 					})
+
+					// Disable the built-in TLS template which hardcodes /etc/cert.pem in older images (e.g. v0.8.18),
+					// and supply the TLS config pointing to /etc/earth-certs via additional config instead.
+					envs["BUILDKIT_TLS_ENABLED"] = "false"
+
+					appleTLSConfig := "[grpc.tls]\n" +
+						"  cert = \"/etc/earth-certs/buildkit_cert.pem\"\n" +
+						"  key = \"/etc/earth-certs/buildkit_key.pem\"\n" +
+						"  ca = \"/etc/earth-certs/ca_cert.pem\"\n"
+
+					if additional, ok := envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"]; ok && additional != "" {
+						envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"] = additional + "\n" + appleTLSConfig
+					} else {
+						envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"] = appleTLSConfig
+					}
+
+					envs["EARTHLY_ADDITIONAL_BUILDKIT_CONFIG"] = envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"]
 				} else {
 					if settings.TLSCA != "" {
 						mounts = append(mounts, engine.Mount{
@@ -844,7 +875,7 @@ ContainerRunningLoop:
 		}
 	}
 
-	updateContainerAddrs(ctxTimeout, eng, containerName, &settings)
+	updateContainerAddrs(ctx, eng, containerName, &settings)
 
 	reqOpts, err := requiredOpts(settings)
 	if err != nil {
@@ -853,8 +884,14 @@ ContainerRunningLoop:
 
 	opts = append(opts, reqOpts...)
 
+	if log != nil {
+		log.WithPrefix("buildkitd").
+			VerbosePrintf("Configuring client opts (TLS=%v, TCP=%v, addr=%s, CA=%s, cert=%s)\n",
+				settings.UseTLS, settings.UseTCP, settings.BuildkitAddr, settings.TLSCA, settings.ClientTLSCert)
+	}
+
 	// Wait for the connection to be available.
-	info, workerInfo, err := waitForConnection(ctx, containerName, settings, eng, opts...)
+	info, workerInfo, err := waitForConnection(ctx, log, containerName, settings, eng, opts...)
 
 	switch {
 	case err != nil && !errors.Is(err, ErrBuildkitConnectionFailure):
@@ -880,12 +917,12 @@ ContainerRunningLoop:
 			log.
 				WithPrefix("buildkitd").
 				Printf("To reduce the size of the cache, you can run one of\n" +
-					"\t\tearth config 'global.cache_size_mb' <new-size>\n" +
-					"\t\tearth config 'global.cache_size_pct' <new-percent>\n" +
+					"\tearth config 'global.cache_size_mb' <new-size>\n" +
+					"\tearth config 'global.cache_size_pct' <new-percent>\n" +
 					"These set the BuildKit GC target to a specific value. For more information see " +
 					"the earth config reference page: https://docs.earthbuild.dev/docs/earthly-config\n")
 
-			info, workerInfo, err = waitForConnection(ctx, containerName, settings, eng, opts...)
+			info, workerInfo, err = waitForConnection(ctx, log, containerName, settings, eng, opts...)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -901,6 +938,7 @@ ContainerRunningLoop:
 
 func waitForConnection(
 	ctx context.Context,
+	log *conslogging.ConsoleLogger,
 	containerName string,
 	settings Settings,
 	eng *engine.Client,
@@ -923,33 +961,53 @@ func waitForConnection(
 		attemptTimeout = 1 * time.Second
 	}
 
+	startTime := time.Now()
+	lastLogTime := startTime
+	attemptCount := 0
+
+	var lastErr error
+
+	if log != nil {
+		log.WithPrefix("buildkitd").
+			VerbosePrintf("Waiting for buildkit daemon connection at %s (timeout %s)...\n", addr, opTimeout)
+	}
+
 	for {
 		select {
 		case <-time.After(retryInterval):
+			attemptCount++
+
 			if isLocal {
-				// Make sure that our managed buildkit has not crashed on startup.
-				info, inspectErr := eng.InspectContainer(ctxTimeout, containerName)
-				if inspectErr == nil && (info.Status == engine.StatusExited || info.Status == engine.StatusDead) {
-					return nil, nil, ErrBuildkitCrashed
+				crashErr := checkContainerCrashed(ctxTimeout, log, eng, containerName)
+				if crashErr != nil {
+					return nil, nil, crashErr
 				}
 			}
 
 			info, workerInfo, err := checkConnection(ctxTimeout, addr, attemptTimeout, opts...)
 			if err != nil {
-				// Try again.
-				attemptTimeout *= 2
-				// keep timeout reasonable
-				if attemptTimeout > opTimeout {
-					attemptTimeout = opTimeout
-				}
+				lastErr = err
+				logConnectionFailure(log, addr, err, attemptCount, &startTime, &lastLogTime)
+
+				attemptTimeout = nextAttemptTimeout(attemptTimeout, isLocal)
 
 				continue
 			}
 
+			if log != nil && time.Since(startTime) > 2*time.Second {
+				log.WithPrefix("buildkitd").VerbosePrintf("Connected to buildkit daemon at %s after %s (attempt #%d)\n",
+					addr, time.Since(startTime).Round(time.Millisecond), attemptCount)
+			}
+
 			return info, workerInfo, nil
+
 		case <-ctxTimeout.Done():
 			info, workerInfo, err := checkConnection(ctx, addr, attemptTimeout, opts...)
 			if err != nil {
+				if lastErr != nil && !errors.Is(lastErr, err) {
+					err = fmt.Errorf("%w (last error: %w)", err, lastErr)
+				}
+
 				// We give up.
 				return nil, nil, fmt.Errorf("timeout %s: could not connect to buildkit: %w: %w",
 					opTimeout, err, ErrBuildkitConnectionFailure)
@@ -958,6 +1016,64 @@ func waitForConnection(
 			return info, workerInfo, nil
 		}
 	}
+}
+
+func nextAttemptTimeout(current time.Duration, isLocal bool) time.Duration {
+	maxTimeout := 2 * time.Second
+	if !isLocal {
+		maxTimeout = 5 * time.Second
+	}
+
+	return min(current*2, maxTimeout)
+}
+
+func logConnectionFailure(
+	log *conslogging.ConsoleLogger,
+	addr string,
+	err error,
+	attempt int,
+	startTime, lastLogTime *time.Time,
+) {
+	if log == nil {
+		return
+	}
+
+	log.WithPrefix("buildkitd").VerbosePrintf("Connection attempt #%d to %s failed: %v\n", attempt, addr, err)
+
+	if time.Since(*lastLogTime) >= 10*time.Second {
+		*lastLogTime = time.Now()
+
+		log.WithPrefix("buildkitd").Printf("Waiting for buildkit daemon (%s) to respond (last error: %v, elapsed: %s)...\n",
+			addr, err, time.Since(*startTime).Round(time.Second))
+	}
+}
+
+func checkContainerCrashed(
+	ctx context.Context,
+	log *conslogging.ConsoleLogger,
+	eng *engine.Client,
+	containerName string,
+) error {
+	info, err := eng.InspectContainer(ctx, containerName)
+	if err != nil {
+		if log != nil {
+			log.WithPrefix("buildkitd").
+				VerbosePrintf("Container inspection of %s failed: %v\n", containerName, err)
+		}
+
+		return nil
+	}
+
+	if info.Status == engine.StatusExited || info.Status == engine.StatusDead {
+		if log != nil {
+			log.WithPrefix("buildkitd").
+				Printf("Container %s terminated unexpectedly with status %s\n", containerName, info.Status)
+		}
+
+		return ErrBuildkitCrashed
+	}
+
+	return nil
 }
 
 const unknown = "unknown"
@@ -1363,7 +1479,7 @@ func requiredOpts(settings Settings) ([]client.ClientOpt, error) {
 
 	serverName := server.Hostname()
 	if engine.IsLocal(settings.BuildkitAddr) {
-		serverName = "localhost"
+		serverName = "127.0.0.1"
 	}
 
 	return []client.ClientOpt{

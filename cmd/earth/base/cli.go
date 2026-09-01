@@ -1,10 +1,15 @@
 package base
 
 import (
+	"context"
+	"sync"
+	"time"
+
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/setup"
 	"github.com/urfave/cli/v3"
@@ -12,6 +17,12 @@ import (
 
 // CLI contains the common "earth" command line interface.
 type CLI struct {
+	stopBuildkitOnce        *sync.Once
+	cfg                     *config.Config
+	logbusSetup             *setup.BusSetup
+	logbus                  *logbus.Bus
+	log                     *conslogging.ConsoleLogger
+	app                     *cli.Command
 	commandName             string
 	version                 string
 	gitSHA                  string
@@ -19,11 +30,6 @@ type CLI struct {
 	defaultBuildkitdImage   string
 	defaultInstallationName string
 	deferredFuncs           []func()
-	app                     *cli.Command
-	cfg                     *config.Config
-	logbusSetup             *setup.BusSetup
-	logbus                  *logbus.Bus
-	log                     *conslogging.ConsoleLogger
 	flags                   flag.Global
 }
 
@@ -73,9 +79,10 @@ func WithDefaultInstallationName(name string) CLIOpt {
 // NewCLI creates a new [CLI].
 func NewCLI(log *conslogging.ConsoleLogger, opts ...CLIOpt) *CLI {
 	cli := CLI{
-		app:    new(cli.Command),
-		log:    log,
-		logbus: logbus.New(),
+		app:              new(cli.Command),
+		log:              log,
+		logbus:           logbus.New(),
+		stopBuildkitOnce: new(sync.Once),
 		flags: flag.Global{
 			BuildkitdSettings: buildkitd.Settings{},
 		},
@@ -228,4 +235,26 @@ func (c *CLI) ExecuteDeferredFuncs() {
 	for _, f := range c.deferredFuncs {
 		f()
 	}
+}
+
+// StopBuildkitOnExit registers a deferred cleanup function to stop the buildkitd container
+// when using the Apple Container engine, releasing VM CPU and memory host resources.
+func (c *CLI) StopBuildkitOnExit(ctx context.Context) {
+	if c.flags.Engine.Metadata().Scheme != engine.SchemeApple {
+		return
+	}
+
+	c.stopBuildkitOnce.Do(func() {
+		c.AddDeferredFunc(func() {
+			stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+			defer cancel()
+
+			err := buildkitd.Stop(stopCtx, c.flags.ContainerName, c.flags.Engine)
+			if err != nil {
+				c.Log().WithPrefix("buildkitd").VerbosePrintf(
+					"Failed to stop buildkit container %s: %v\n", c.flags.ContainerName, err,
+				)
+			}
+		})
+	})
 }

@@ -15,9 +15,9 @@ func defaultContainerResources() (cpus, memoryMB int) {
 
 	memBytes, err := unix.SysctlUint64("hw.memsize")
 	if err == nil && memBytes > 0 {
-		// Allocate 75% of total system RAM by default.
+		// Allocate 25% of total system RAM by default.
 		//nolint:gosec // memory size in MB will not realistically overflow int
-		memoryMB = int((memBytes * 3 / 4) / (1024 * 1024))
+		memoryMB = int((memBytes / 4) / (1024 * 1024))
 	}
 
 	memoryMB = max(memoryMB, 4096)

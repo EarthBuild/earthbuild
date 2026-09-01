@@ -46287,3 +46287,30 @@ same constraint `digest.go` already records - and says so.
 Each was reached only by fixing the one in front of it, one CI round apiece.
 The rule is short enough to grep for and the symptom is not: `no eligible
 worker`, `no manifest for`, and `this image is linux/arm` share no text at all.
+
+### E953 - a LOCALLY function stopped leaving its file where the caller reads it
+
+`tests/locally-in-function` passed in the first two CI rounds of this session and
+has failed in both since:
+
+```text
+Earthfile:7 | cat: can't open 'data': No such file or directory
+Error: RUN test "$(cat data)" = "I am running in /my/test" failed
+```
+
+The recipe is `FROM alpine`, `DO submarine+FUNCTION_THAT_CALLS_OTHER_FUNCTION` -
+two imports deep, ending in a `LOCALLY` function that writes `data` at `$(pwd)` -
+and then a `RUN` that reads it.
+
+**It is not the interpreter.** The planned graph for that shape is byte-identical
+between this session's starting commit and its head: same three nodes, same
+kinds, same argv, same `Dir`. So whatever changed is in execution, and the batch
+it changed in is the one between the second and third rounds - the `/dev` mode,
+`/run/secrets`, the capability carry, the entrypoint join, or the emulation
+variant.
+
+Recorded rather than diagnosed, because the discriminator wants a machine that
+can run the case and this one cannot: the x86 box went off the network mid-session
+and a `LOCALLY` step followed by a container step is exactly what a plan dump
+cannot answer. The graph comparison is the finding - it removes a whole package
+from the search before anybody boots anything.

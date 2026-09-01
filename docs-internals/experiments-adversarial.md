@@ -45655,6 +45655,21 @@ something during the build, and under a private namespace that something failed 
 which would make the completion diff a downstream symptom of an earlier failure,
 the same shape as six other findings this session. Unverified.
 
+**A lead the tree already holds, and it is not confirmed.** `prepareShim` mounts
+a tmpfs over `/run` for a step that gets a daemon, and the comment beside it
+already warns what that costs: on a systemd machine `/etc/resolv.conf` is a
+symlink into `/run/systemd/resolve/`, which the tmpfs covers. A step with that
+tmpfs has an empty `/run` - no subdirectories - which is exactly the shape
+`hasSubDirs` reports as `-../run/`.
+
+Two reasons it is a lead and not the answer. The shim unshares `CLONE_NEWNS`, so
+the tmpfs is confined to the daemon's own mount namespace and should not reach a
+completion step, which is not in a `WITH DOCKER` block anyway. And
+`hostNameservers` - added by the resolver fix, reading that same
+`/run/systemd/resolve/resolv.conf` - runs in the guest's namespace rather than
+the shim's. Both want checking on a machine that reproduces; neither is
+established here.
+
 **What blocked the reproduction**, so the next attempt starts further along: the
 group target cannot be invoked directly - `FROM --pass-args` needs a parent - and
 the root target builds the repository's own integration base, which fails in an

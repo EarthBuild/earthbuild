@@ -290,6 +290,8 @@ func maybeStart(
 		}
 	}
 
+	stopInactiveBuildkitContainers(ctx, log, eng, containerName, settings)
+
 	isStarted, err := IsStarted(ctx, containerName, eng)
 	if err != nil {
 		return nil, nil, fmt.Errorf("check is started buildkitd: %w", err)
@@ -1612,4 +1614,150 @@ func prepareServerCertsDir(settings Settings) (string, error) {
 	}
 
 	return serverCertsDir, nil
+}
+
+func stopInactiveBuildkitContainers(
+	ctx context.Context,
+	log *conslogging.ConsoleLogger,
+	eng *engine.Client,
+	currentContainerName string,
+	settings Settings,
+) {
+	if eng == nil {
+		return
+	}
+
+	// Only clean up when the host is experiencing memory pressure.
+	if !engine.IsMemoryPressured() {
+		return
+	}
+
+	containers, err := eng.ListContainers(ctx)
+	if err != nil {
+		return
+	}
+
+	var inactiveContainers []string
+
+	for _, c := range containers {
+		if c.Status != engine.StatusRunning {
+			continue
+		}
+
+		containerName := strings.TrimPrefix(c.Name, "/")
+		if containerName == currentContainerName {
+			continue
+		}
+
+		// Match any buildkit container instance
+		isBuildkit := strings.Contains(c.Image, "buildkitd") ||
+			strings.HasSuffix(containerName, "-buildkitd") ||
+			c.Labels["dev.earthly.settingshash"] != ""
+
+		if !isBuildkit {
+			continue
+		}
+
+		if isBuildkitActive(ctx, log, eng, containerName, settings) {
+			continue
+		}
+
+		inactiveContainers = append(inactiveContainers, containerName)
+	}
+
+	if len(inactiveContainers) == 0 {
+		return
+	}
+
+	for _, name := range inactiveContainers {
+		log.WithPrefix("buildkitd").
+			Warnf("Warning: Stopping inactive buildkit container %s due to host memory pressure\n", name)
+	}
+
+	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+
+	err = eng.StopContainer(stopCtx, 5*time.Second, inactiveContainers...)
+	if err != nil {
+		log.WithPrefix("buildkitd").Warnf("Warning: Failed to stop inactive buildkit containers: %v\n", err)
+	}
+}
+
+func fileExists(p string) bool {
+	info, err := os.Stat(p)
+	return err == nil && !info.IsDir()
+}
+
+func instanceSettings(containerName string, baseSettings Settings) Settings {
+	s := baseSettings
+
+	if instName, found := strings.CutSuffix(containerName, "-buildkitd"); found {
+		homeDir, _ := fileutil.HomeDir()
+		earthDir := filepath.Join(homeDir, "."+instName)
+
+		caCert := filepath.Join(earthDir, "certs", "ca_cert.pem")
+		clientCert := filepath.Join(earthDir, "certs", "earthly_cert.pem")
+		clientKey := filepath.Join(earthDir, "certs", "earthly_key.pem")
+
+		if fileExists(caCert) && fileExists(clientCert) && fileExists(clientKey) {
+			s.TLSCA = caCert
+			s.ClientTLSCert = clientCert
+			s.ClientTLSKey = clientKey
+		}
+	}
+
+	return s
+}
+
+func isBuildkitActive(
+	ctx context.Context,
+	log *conslogging.ConsoleLogger,
+	eng *engine.Client,
+	containerName string,
+	settings Settings,
+) bool {
+	probeSettings := instanceSettings(containerName, settings)
+	probeSettings.BuildkitAddr = ""
+	updateContainerAddrs(ctx, eng, containerName, &probeSettings)
+
+	if probeSettings.BuildkitAddr == "" {
+		if log != nil {
+			log.WithPrefix("buildkitd").DebugPrintf("Could not resolve address for buildkit container %s\n", containerName)
+		}
+
+		return false
+	}
+
+	probeOpts, err := requiredOpts(probeSettings)
+	if err != nil {
+		log.WithPrefix("buildkitd").
+			DebugPrintf("Failed to configure probe options for container %s: %v\n", containerName, err)
+
+		return false
+	}
+
+	probeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
+
+	bkClient, err := client.New(probeCtx, probeSettings.BuildkitAddr, probeOpts...)
+	if err != nil {
+		log.WithPrefix("buildkitd").
+			DebugPrintf("Failed to connect to buildkit container %s (%s): %v\n", containerName, probeSettings.BuildkitAddr, err)
+
+		return false
+	}
+	defer bkClient.Close()
+
+	info, err := bkClient.Info(probeCtx)
+	if err != nil {
+		log.WithPrefix("buildkitd").
+			DebugPrintf("Failed to query Info from buildkit container %s: %v\n", containerName, err)
+
+		return false
+	}
+
+	log.WithPrefix("buildkitd").
+		DebugPrintf("Probed buildkit container %s: %d active session(s)\n", containerName, info.NumSessions)
+
+	return info.NumSessions > 0
 }

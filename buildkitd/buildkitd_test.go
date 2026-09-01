@@ -1,10 +1,12 @@
 package buildkitd
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
 
+	_ "github.com/EarthBuild/earthbuild/cmd/earth/disable_alpn"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/engine"
 	client "github.com/moby/buildkit/client"
@@ -366,4 +368,86 @@ func TestPrepareServerCertsDir(t *testing.T) {
 	_, err = prepareServerCertsDir(settings)
 	require.NoError(t, err)
 	assert.NoFileExists(t, strayFile)
+}
+
+func TestInstanceSettings(t *testing.T) {
+	tmpHome := t.TempDir()
+	instDir := filepath.Join(tmpHome, ".testinst", "certs")
+	require.NoError(t, os.MkdirAll(instDir, 0o700))
+
+	caFile := filepath.Join(instDir, "ca_cert.pem")
+	certFile := filepath.Join(instDir, "earthly_cert.pem")
+	keyFile := filepath.Join(instDir, "earthly_key.pem")
+
+	require.NoError(t, os.WriteFile(caFile, []byte("CA"), 0o600))
+	require.NoError(t, os.WriteFile(certFile, []byte("CERT"), 0o600))
+	require.NoError(t, os.WriteFile(keyFile, []byte("KEY"), 0o600))
+
+	t.Setenv("HOME", tmpHome)
+
+	base := Settings{
+		TLSCA:         "/default/ca.pem",
+		ClientTLSCert: "/default/cert.pem",
+		ClientTLSKey:  "/default/key.pem",
+	}
+
+	res := instanceSettings("testinst-buildkitd", base)
+	assert.Equal(t, caFile, res.TLSCA)
+	assert.Equal(t, certFile, res.ClientTLSCert)
+	assert.Equal(t, keyFile, res.ClientTLSKey)
+
+	// Non-matching container name falls back to base settings
+	resFallback := instanceSettings("unknown-container", base)
+	assert.Equal(t, base.TLSCA, resFallback.TLSCA)
+}
+
+func TestIsBuildkitActive_DebugOutput(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	ctx := t.Context()
+	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Debug, false).WithWriter(&buf)
+
+	eng := engine.NewTestClient(engine.Metadata{
+		Name:   appleContainerName,
+		Scheme: engine.SchemeApple,
+	})
+
+	settings := Settings{}
+
+	// When connection fails, a debug log is produced
+	isActive := isBuildkitActive(ctx, log, eng, "non-existent-container", settings)
+	assert.False(t, isActive)
+	assert.Contains(t, buf.String(), "Failed to query Info from buildkit container non-existent-container")
+}
+
+func TestIsBuildkitActive_RealContainer(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	ctx := t.Context()
+	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Debug, false).WithWriter(&buf)
+
+	eng, err := engine.New(ctx, engine.AppleContainer, &engine.Config{
+		Log: log,
+	})
+	if err != nil {
+		t.Skip("Apple container not available")
+	}
+
+	containers, err := eng.InspectContainers(ctx, "inst2-buildkitd")
+	if err != nil || len(containers) == 0 || containers[0].Status != engine.StatusRunning {
+		t.Skip("inst2-buildkitd is not running, skipping live container test")
+	}
+
+	settings := Settings{
+		UseTCP: true,
+		UseTLS: true,
+	}
+	isActive := isBuildkitActive(ctx, log, eng, "inst2-buildkitd", settings)
+	assert.False(t, isActive)
+	assert.Contains(t, buf.String(), "Probed buildkit container inst2-buildkitd: 0 active session(s)")
+	t.Logf("Captured probe log output:\n%s", buf.String())
 }

@@ -321,3 +321,10 @@ func TestBuildAppleMountArgs(t *testing.T) {
 		})
 	}
 }
+
+func TestIsMemoryPressured(t *testing.T) {
+	t.Parallel()
+
+	// Ensure IsMemoryPressured executes safely without panicking.
+	_ = IsMemoryPressured()
+}

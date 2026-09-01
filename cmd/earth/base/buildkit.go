@@ -31,7 +31,5 @@ func (cli *CLI) GetBuildkitClient(ctx context.Context, cmd *cli.Command) (*clien
 		return nil, fmt.Errorf("new buildkit client: %w", err)
 	}
 
-	cli.StopBuildkitOnExit(ctx)
-
 	return c, nil
 }

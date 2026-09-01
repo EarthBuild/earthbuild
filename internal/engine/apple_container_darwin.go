@@ -24,3 +24,10 @@ func defaultContainerResources() (cpus, memoryMB int) {
 
 	return cpus, memoryMB
 }
+
+// IsMemoryPressured returns true if the host is experiencing elevated memory pressure (Warning or Critical).
+func IsMemoryPressured() bool {
+	// Check macOS memory pressure level (1 = normal, 2 = warning, 4 = critical)
+	level, err := unix.SysctlUint32("kern.memorystatus_vm_pressure_level")
+	return err == nil && level >= 2
+}

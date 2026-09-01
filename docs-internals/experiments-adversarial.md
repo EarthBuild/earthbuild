@@ -45619,3 +45619,45 @@ attempted here.
 
 So a build still blames whichever failure it happened to see - but among the ones
 it saw, it now names the earliest line rather than the luckiest hash.
+
+### E935 - `-../run/` means "/run has no subdirectories", not "/run is missing"
+
+The Native failure blamed on the network default shows one line of diff:
+
+```text
+  ../root/
+- ../run/
+  ../sys/
+```
+
+`autocomplete/complete.go` offers a directory as a candidate only when
+`hasSubDirs(s)`. So the assertion is not that `/run` exists - it is that `/run`
+*contains a directory*. A step whose `/run` is present and empty produces exactly
+this diff, and reads as though the filesystem lost a top-level entry.
+
+**Not reproduced, and the negative results are the point.** Run in a Linux
+container on a development machine, both modes:
+
+| Probe                                        | shared | private |
+| -------------------------------------------- | ------ | ------- |
+| `/run` present in a step                     | yes    | yes     |
+| `/run` keeps a subdirectory made by the step | yes    | yes     |
+| `/run` mounted over                          | no     | no      |
+| completion lists `../run/`                   | yes    | yes     |
+
+The namespace does not remove `/run`, does not shadow it, and does not cost it
+its contents. Architecture is not the variable either - this is the same Linux
+kernel path on arm64 as on amd64, and nothing here touches an instruction set.
+
+So the difference is the CI environment or the image, not the mechanism. The
+reading that fits: `/run`'s subdirectory in the real base image is made by
+something during the build, and under a private namespace that something failed -
+which would make the completion diff a downstream symptom of an earlier failure,
+the same shape as six other findings this session. Unverified.
+
+**What blocked the reproduction**, so the next attempt starts further along: the
+group target cannot be invoked directly - `FROM --pass-args` needs a parent - and
+the root target builds the repository's own integration base, which fails in an
+arm64 container on `go build ... exited 1, and printed nothing`, a fetch failure
+rather than a defect. Reproducing the real case needs that base image, not a
+smaller Earthfile.

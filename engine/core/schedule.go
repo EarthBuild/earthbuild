@@ -43,8 +43,23 @@ type Worker struct {
 }
 
 // canEmulate reports whether this machine can run that platform under emulation.
+//
+// **On OS and architecture, because a variant is not an architecture.** The
+// kernel registers `qemu-arm` and there is no variant to read from it - one
+// interpreter runs v5, v6 and v7 alike - while a step's platform does carry one:
+// `tests/platform` builds for `linux/arm/v7`. Compared whole, a machine with
+// qemu registered for arm was not eligible to emulate arm, and the refusal was
+// word for word the one a machine with no emulation gives (E942).
+//
+// The same rule `checkRunnableWith` makes, in the other place that makes it.
 func (w Worker) canEmulate(p ir.Platform) bool {
-	return slices.Contains(w.Emulates, p)
+	for _, e := range w.Emulates {
+		if e.OS == p.OS && e.Arch == p.Arch {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Executor runs one step against a base stack, reading from zero or more

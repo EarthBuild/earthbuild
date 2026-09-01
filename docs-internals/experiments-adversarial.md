@@ -45945,3 +45945,34 @@ unchanged and still asserted; only the shape of the argv beside it moved.
 `./tests+remote-test` and `./tests+gen-dockerfile-test` both pass under
 `--engine=native`. That is five of the seven Native failures fixed, each with a
 single cause, and none of them shared with another.
+
+### E942 - a machine that emulates arm was not eligible to emulate arm/v7
+
+`+test-qemu` failed with
+
+```text
+no eligible worker: this step is for linux/arm/v7 and this build has linux/amd64
+```
+
+which is word for word what a machine with no emulation registered says. So the
+message could not distinguish the two states it stands between - an interpreter
+that was never installed, and one that was installed and not used - and the
+first reading was the CI action's `qemu-user-binfmt` step, which is the wrong
+one.
+
+**A variant is not an architecture.** The kernel registers `qemu-arm` and there
+is no variant to read from it, because one interpreter runs v5, v6 and v7 alike;
+`emulatedPlatforms` therefore yields `linux/arm`. A step's platform does carry
+one - `tests/platform` builds for `linux/arm/v7` - and `canEmulate` compared the
+two structs whole, so the machine that could run the step was not offered it.
+
+`checkRunnableWith` already had the rule and states it in as many words: "a
+variant is not an architecture". Placement makes the same comparison in a
+different place and made it differently, which is the shape of the defect rather
+than an incidental detail - one rule, two implementations, and only one of them
+written down.
+
+Unverified end to end: this box has an empty `binfmt_misc` and registering an
+interpreter needs root, so the fix is asserted by unit test and by the rule it
+now shares with `checkRunnableWith`. Whether `+test-qemu` also needs the CI
+action's install to work is a separate question and still open.

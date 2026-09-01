@@ -9487,3 +9487,41 @@ one E934 found in the hard-failure path, in the path nobody has looked at.
 Sequenced after that ordering fix rather than before it. Listing five failures in
 an arbitrary order is worse than reporting one: it looks like a report and reads
 like noise.
+
+## Where the Native suite stands, 2026-09-01
+
+Sixteen Native jobs, six red, and every other suite in CI green - Docker,
+Podman, Next, Docker Integrations, Examples, unit, lint, engine. The branch is
+red only on this engine.
+
+Eleven causes were fixed in the day and each job's failure moved to the next one
+behind it, so the count moved from seven to six while the work moved a great deal
+further. `group10` and `group3` went green.
+
+| job       | current cause                                         | recorded | needs         |
+| --------- | ----------------------------------------------------- | -------- | ------------- |
+| group1    | a `LOCALLY` function's file does not reach its caller | E953     | a machine     |
+| group6    | a symlink artifact is followed inside one layer       | E954     | a machine     |
+| group7    | shell-out before 0.7 is whole-value only              | E957     | corpus run    |
+| group8    | a function inherits its caller's globals              | E956     | corpus run    |
+| slow      | `docker` exits 127 inside `WITH DOCKER`               | E933-era | root on a box |
+| test-qemu | arm/v7 artifacts absent, wildcard and variant cleared | E955     | a machine     |
+
+**The order to take them in is by what they need, not by how they look.** E956
+and E957 are both argument-resolution semantics with a diagnosis down to the
+line, and both are one corpus run from being either fixed or disproved. E953 and
+E954 are execution and want a build. `slow` wants a root shell and has resisted
+three harnesses, including a privileged container running the real DIND image.
+
+**Two of them are one question.** E956 and E957 are both about which scope a
+value comes from and when, and both have four call sites where the corpus states
+the rule at only two. Doing them together against the corpus is cheaper than
+doing either alone, and the risk they share - changing a message two
+`--should_fail` cases match on - is a risk only a corpus run can retire.
+
+**What this session did not do, deliberately.** Neither was attempted from the
+Mac. The one change made this session without a machine to run the corpus on -
+teaching the substitution scanner about single quotes - shipped a regression that
+suppressed expansion after any apostrophe and broke eight assertions in the test
+harness (E947). The rule that came out of it: a change to argument resolution
+gets the corpus before it gets pushed.

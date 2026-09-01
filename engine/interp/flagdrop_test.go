@@ -254,7 +254,6 @@ var knownDropped = []string{
 	"COPY --keep-ts",                    // deliberate: interp.go, a capture keeps them
 	"COPY --pass-args",                  // harness: no arguments in scope to pass
 	"FROM --pass-args",                  // harness: as above
-	"RUN --raw-output",                  // deliberate: how output is printed
 	"SAVE ARTIFACT --keep-own",          // deliberate: a layer records uid and gid
 	"SAVE ARTIFACT --keep-ts",           // deliberate: a capture keeps timestamps
 	"SAVE ARTIFACT --symlink-no-follow", // deliberate: a layer holds a symlink as one

@@ -50,6 +50,11 @@ type features struct {
 	// so a builtin supplied regardless would answer a question the file never
 	// asked (E472).
 	ciRunner bool
+	// rawOutput is `--raw-output`, which RUN --raw-output needs. Gated rather
+	// than ignored because the flag changes what the *build prints*, and a file
+	// whose fold markers land at the start of a line here and mid-line
+	// elsewhere is written for one engine (E937).
+	rawOutput bool
 }
 
 // knownFeatures maps a VERSION flag to the field it sets.
@@ -74,6 +79,10 @@ var knownFeatures = map[string]func(*features){
 	// `RUN --aws`, which hands the invoking user's AWS credentials to a step.
 	// A capability rather than a spelling, so a file that uses it says so.
 	"--run-with-aws": func(f *features) { f.runWithAWS = true },
+	// `RUN --raw-output`, which drops the prefix naming the step a line came
+	// from. Gated at the construct as well as named here, which is what the
+	// reference does.
+	"--raw-output": func(f *features) { f.rawOutput = true },
 }
 
 // ignoredFeatures are flags this engine understands to exist and does not gate.

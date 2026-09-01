@@ -1114,6 +1114,17 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			}
 		}
 
+		// **A dialect, so the file has to ask.** `RUN --raw-output` changes what
+		// the build prints, and a file whose fold markers start a line here and
+		// sit mid-line under the reference is written for one engine.
+		if rf.rawOutput {
+			err := p.here.features.needs(p.here.features.rawOutput,
+				"RUN --raw-output", "--raw-output", loc(c.SourceLocation))
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		for _, m := range rf.mounts {
 			// The same two names for one secret, reaching the other line that
 			// looks one up.
@@ -1236,7 +1247,11 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			// What the step reads without standing on: exactly what a source is
 			// for, and what puts the object in the key and builds it first.
 			Sources: views,
-			Meta:    ir.Meta{Source: loc(c.SourceLocation), Description: "RUN " + strings.Join(c.Args, " ")},
+			Meta: ir.Meta{
+				Source:      loc(c.SourceLocation),
+				Description: "RUN " + strings.Join(c.Args, " "),
+				RawOutput:   rf.rawOutput,
+			},
 		}, nil
 
 	case earthfile.CmdCopy:

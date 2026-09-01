@@ -460,8 +460,8 @@ func runPlan(
 
 	// Printed as it happens. A build that goes quiet for four minutes and then
 	// prints everything is indistinguishable from one that has hung.
-	e.Progress = func(step, line string) {
-		fmt.Fprintf(o.Out, "  %-14s | %s\n", step, line)
+	e.Progress = func(step, line string, raw bool) {
+		fmt.Fprint(o.Out, progressLine(step, line, raw))
 	}
 
 	sb := e.Sandbox()

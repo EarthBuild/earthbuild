@@ -641,6 +641,14 @@ type Meta struct {
 	// Last, so the string fields above keep their pointers together and the
 	// collector stops scanning sooner (govet fieldalignment).
 	ReadsPredicted []string
+	// RawOutput asks that this step's lines be printed without the prefix
+	// naming which step they came from: `RUN --raw-output`.
+	//
+	// Display and not computation, which is why it is here. Two steps differing
+	// only in how their output is shown produce the same layer and must share a
+	// cache entry - and `Meta` is not hashed, so writing it here is the whole
+	// statement that it does not reach the key.
+	RawOutput bool
 }
 
 // NodeID is a node's content-derived identity.

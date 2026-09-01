@@ -146,7 +146,11 @@ type Executor struct {
 	// Progress receives each line a step prints, with the step it came from.
 	// Nil discards output, which is what tests want and what a machine-readable
 	// front end would do differently.
-	Progress func(step, line string)
+	//
+	// `raw` says the step asked for its output unprefixed - `RUN --raw-output`.
+	// Passed rather than looked up because only the sink holds the node and
+	// only the display holds the format, and the decision needs both.
+	Progress func(step, line string, raw bool)
 
 	// Capture receives each line a step prints, with the node that printed it.
 	//
@@ -1180,7 +1184,7 @@ func (e *Executor) sinkFor(n *ir.Node) (write func(string, bool), done func()) {
 
 	emit := func(line string, isErr bool) {
 		if e.Progress != nil {
-			e.Progress(where, line)
+			e.Progress(where, line, n.Meta.RawOutput)
 		}
 
 		if e.Capture != nil {

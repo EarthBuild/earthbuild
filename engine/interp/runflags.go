@@ -63,9 +63,12 @@ type runOpts struct {
 	interactive bool
 	// aws is `RUN --aws`: the step is given the invoking user's AWS
 	// credentials. Gated by `VERSION --run-with-aws`.
-	aws     bool
-	mounts  []ir.Mount
-	secrets []string
+	aws bool
+	// rawOutput is `RUN --raw-output`: the step's lines are printed without the
+	// prefix naming which step they came from. Gated by `VERSION --raw-output`.
+	rawOutput bool
+	mounts    []ir.Mount
+	secrets   []string
 }
 
 func runFlags(
@@ -153,7 +156,7 @@ func runFlags(
 	// answer, and the one that keeps the Earthfiles building.
 
 	// `--raw-output` is about how output is printed and not about what the step
-	// produces, so it is accepted and has no effect on the plan by design.
+	// produces, so it travels in `Meta` and reaches no cache key.
 	out := runOpts{
 		// An interactive step is never cached: what a person typed is not a
 		// function of the inputs, so neither is the result. The same reasoning
@@ -165,9 +168,10 @@ func runFlags(
 		secrets:     opts.Secrets,
 		// The invoking user's ssh agent, which is how a build reaches a private
 		// dependency without a key ever being written into an image (E466).
-		ssh:      opts.WithSSH,
-		aws:      opts.WithAWS,
-		pushOnly: opts.Push,
+		ssh:       opts.WithSSH,
+		aws:       opts.WithAWS,
+		rawOutput: opts.RawOutput,
+		pushOnly:  opts.Push,
 	}
 
 	if len(rest) == 0 {

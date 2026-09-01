@@ -46146,3 +46146,57 @@ test9. It is new to this CI round because test5, three targets earlier in the
 same file, was the `whoami` failure E938 fixed: the file never reached test9
 before. `commandSpan` counts parentheses without skipping escaped ones, which is
 the standing candidate. Unfixed and unverified.
+
+### E948 - two pushes with no CI, because the PR could not be merged
+
+`552ec3231` and `fe54c0bde` produced a `fleet-e2e` run each and no CI run at all.
+The CI workflow is `pull_request`-triggered, the pull request was `CONFLICTING`,
+and a pull request with no merge ref never fires one - so two rounds of fixes sat
+untested and looked, from the run list, exactly like a queue that had not got to
+them yet.
+
+The conflict was `go.mod`: `main` bumped `aws-sdk-go-v2/config` on the line
+immediately above the one this branch added for `cenkalti/backoff`. Adjacent
+lines in one require block, which git cannot merge and which took thirty seconds
+to resolve once anybody looked.
+
+**Check the pull request before reading the run list.** `gh pr view --json
+mergeable,mergeStateStatus` answers it in one call, and the run list cannot: an
+absent run and a queued run are the same absence there.
+
+`go.sum` was taken from `main` and rebuilt with `go mod tidy` rather than merged
+by hand, which is the only way a lock file has a defensible content.
+
+### E949 - a `$( )` region keeps escapes the shell should never see
+
+`+test-no-qemu-group7` reports, on a target that had not run before:
+
+```text
+ARG at Earthfile:79: "echo \\(\\)" exited 2
+```
+
+The Earthfile writes `ARG foo = "$(echo \\(\\))"` and expects `foo=()`. Exit 2 is
+a shell syntax error: it was handed `echo \\(\\)`, where `\\` is a literal
+backslash and the `(` that follows is unquoted.
+
+**The reference resolves one level of escaping as it reads the region**, in
+`util/shell/lex.go`'s `processDollarShellOut`: a backslash is dropped and the
+next character is written literally, and an escaped parenthesis does not count
+towards the nesting either. So `echo \\(\\)` becomes `echo \(\)`, which prints
+`()`.
+
+This engine slices the region out verbatim and counts every parenthesis. Two
+consequences, and the second is the one nobody has hit yet: the command carries
+escaping meant for the Earthfile parser, and `$(echo \))` ends at the escaped
+bracket.
+
+Not fixed here, and not because it is hard. The unescaping has to agree with what
+`expandByRegion` puts *back* - the raw text is re-inserted and re-scanned - and
+with the comment in `args.go` arguing that a `$( )` keeps its quoting because a
+shell re-parses it. That comment is right about quotes and wrong about
+backslashes, and separating the two needs the nested case
+(`$( echo $(echo "\""))`, which is in this repository) to be checked against the
+reference rather than reasoned about.
+
+New to this round because `tests/shell-out`'s test5, three targets earlier in the
+file, was the `whoami` failure E938 fixed. The file never reached test9 before.

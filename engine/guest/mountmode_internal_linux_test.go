@@ -49,6 +49,18 @@ func TestAMountIsStagedWithTheModeAsked(t *testing.T) {
 		name:  "a private cache takes the mode written",
 		mount: Mount{Target: "/c", Ephemeral: true, Mode: 0o777},
 		want:  0o777,
+	}, {
+		// **The mode a caller asks for is not evidence the file has it.**
+		// An ephemeral directory is made by MkdirTemp, which makes it 0700,
+		// and the mode was applied only when it differed from the default
+		// the call passed - so 0755, the one value that default names, was
+		// the one value never written. /dev asks for exactly that, and a
+		// step running as a non-root USER could not traverse it: `ls:
+		// /dev/null: Permission denied`, and an entrypoint reading the
+		// failed `> /dev/null` as proof it was unprivileged (E936).
+		name:  "an ephemeral directory takes 0755, which is also the default",
+		mount: Mount{Target: "/c", Ephemeral: true, Mode: 0o755},
+		want:  0o755,
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			root, store := t.TempDir(), t.TempDir()

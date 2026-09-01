@@ -258,7 +258,16 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 
 			// MkdirTemp makes it 0700, which is right for a directory nobody
 			// else may enter and wrong for one the step asked to be 0777.
-			err = applyMode(dir, m, 0o755)
+			//
+			// No default, because there is none to skip. `applyMode` elides
+			// the chmod when the mode asked for is the one the file is taken
+			// to already have, and this one is 0700 whatever was passed -
+			// so naming 0755 there made 0755 the single mode that could not
+			// be set. /dev asks for exactly that, and a step running under a
+			// non-root USER could not traverse it: `ls: /dev/null:
+			// Permission denied`, and an entrypoint reading the failed
+			// `> /dev/null` as proof it was unprivileged (E936).
+			err = applyMode(dir, m, 0)
 			if err != nil {
 				unmount()
 

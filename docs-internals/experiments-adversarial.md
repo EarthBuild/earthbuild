@@ -45676,3 +45676,59 @@ the root target builds the repository's own integration base, which fails in an
 arm64 container on `go build ... exited 1, and printed nothing`, a fetch failure
 rather than a defect. Reproducing the real case needs that base image, not a
 smaller Earthfile.
+
+### E936 - `/dev` was 0700, and the default that was meant to save a chmod prevented it
+
+Six Native jobs failed on the branch. Grouping them by the Earthfile line they
+reported put three under `tests/Earthfile:1817`, which is not a cause but the
+generic run-earth-and-check-output harness every test goes through. Read one
+line further and they are three unrelated failures. The count of shared line
+numbers is not evidence; the quoted symptom is.
+
+Only `group6` carried this pair, and both lines reproduced on an x86 box at the
+first attempt:
+
+```text
+tee: earthly.output: Permission denied
+/usr/bin/earth-entrypoint.sh: line 53: can't create /dev/null: Permission denied
+Container appears to be running unprivileged.
+```
+
+The third line is the entrypoint's own inference from the second, and it is
+wrong - the step is privileged. The tests that reach here are the only ones in
+the suite that set a non-root `USER`.
+
+**The measurement.** Same probe, same machine, both engines: a root-owned 0755
+working directory, `adduser bambi`, `USER bambi`, then a write to `/dev/null`
+and a write to the working directory.
+
+| Probe                         | native (before) | buildkit     | native (after) |
+| ----------------------------- | --------------- | ------------ | -------------- |
+| `/dev` mode                   | `drwx------`    | `drwxr-xr-x` | `drwxr-xr-x`   |
+| write `/dev/null` as non-root | fails           | succeeds     | succeeds       |
+| write to cwd as non-root      | fails           | fails        | fails          |
+
+The third row is the control: both engines refuse it, so it is Unix and not a
+defect. The first two rows are the finding.
+
+**The cause is an early-out whose premise does not hold.** `applyMode` skips the
+`chmod` when the mode asked for equals the default the caller names, on the
+reasoning that the file already has it. An ephemeral mount's directory comes
+from `MkdirTemp`, which makes it 0700 whatever was passed - so naming 0755 as
+that default made 0755 the single mode that could never be set. `/dev` asks for
+exactly 0755. Every other mode in the table above was applied correctly, which
+is why the table's own tests passed: the one untested value was the one the
+parameter named.
+
+The devices inside `/dev` were 0666 throughout and correct. Nothing was missing;
+the directory holding them could not be entered.
+
+Fix: pass no default for an ephemeral directory, because there is none to skip.
+The regression test is the case the table lacked - an ephemeral mount asking for
+0755 - and it fails 0700 before the change.
+
+**What it did not fix.** `tee: earthly.output: Permission denied` survives, and
+the A/B says why: with the same uid 1000 and the same root-owned 0755 directory,
+`RUN --privileged` writes it under buildkit and not here. Privilege for a
+non-root `USER` is capabilities, not uid, and this engine grants none - a
+separate gap, not a variant of this one.

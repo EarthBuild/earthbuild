@@ -46361,3 +46361,39 @@ knowing when reading the message, and worth fixing in the message.
 Recorded rather than fixed. It is layer resolution rather than interpretation, so
 the discriminator is a build and not a plan - and this session already shipped one
 regression from reasoning about execution without a machine to run it on (E947).
+
+### E955 - the arm/v7 artifacts are absent, and the wildcard is not why
+
+`+test-qemu` now reaches `tests/platform`'s own assertions, which is two layers
+further than it got this morning:
+
+```text
++ test -d ./out/regular/linux/arm/v7      # succeeds
++ cat ./out/regular/linux/arm/v7/uname-m  # No such file or directory
+```
+
+`COPY --platform=linux/arm/v7 +run/* ./out/regular/linux/arm/v7/` made the
+directory and put nothing in it, so the wildcard matched no artifacts for that
+platform.
+
+**Two candidates excluded before booting anything.** Wildcard artifact copy is
+implemented and expands at plan time - `COPY +run/*` of a target saving one
+artifact plans a file operation with the resolved name, checked directly. And the
+variant handling is visibly right now: the same job's manifest note lists
+`linux/amd64, linux/arm/v6, linux/arm/v7, linux/arm64/v8` where this morning it
+printed `linux/arm, linux/arm` and could not tell them apart (E946).
+
+So the remaining question is why `+run` built for `linux/arm/v7` yields no
+artifacts when the same wildcard yields them for the platforms beside it, and
+that is a build rather than a plan.
+
+**One thing worth fixing on its way past**, visible in the same note:
+
+```text
+note: alpine:3.24.1 was not pinned: alpine:3.24.1: no manifest for native
+```
+
+`native` is not a platform and no index will ever carry it. The pinning path
+passes the word through where every other path resolves it to the machine's
+platform first, so the note reports a missing manifest for a name that cannot
+exist - and the reader is told the image is at fault.

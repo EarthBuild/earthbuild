@@ -143,7 +143,12 @@ func recordPinning(w io.Writer, pinned map[string]string, cost time.Duration) {
 // A platform the plan does name is honoured: a cross build asking for
 // `linux/amd64` means it.
 func resolveFor(platform string) string {
-	if platform == "" {
+	// **`native` is a word, not a platform.** The Earthfile writes
+	// `COPY --platform=native` to mean this machine and the interpreter resolves
+	// it (`resolveNative`); passing it through asked a registry for a manifest
+	// matching the literal string, and the note said the image provides no
+	// `native` - naming the image for a platform that cannot exist (E955).
+	if platform == "" || platform == "native" {
 		return exec.DefaultPlatform()
 	}
 

@@ -46444,3 +46444,42 @@ Not fixed here. It is precedence in argument resolution, which is the highest
 blast radius in the interpreter and the one place this session has already paid
 for a change tested too narrowly (E947); the corpus is the check and the corpus
 needs a machine.
+
+### E957 - shell-out before 0.7 happens only when it is the whole value
+
+E949's fix landed and the error it named is gone from the CI logs. Behind it, in
+the same job:
+
+```text
+BUILD +test1 (Earthfile:23): ARG at Earthfile:5: "cat /data" exited 1
+```
+
+The file is `tests/shell-out/old-no-middle-shell-out.earth`, whose name is the
+specification and whose first line is
+`VERSION 0.6 # do not change to 0.7; this test is for old functionality`. It
+writes `ARG key="hello$(cat /data)"` and asserts on the next line that the value
+is the *literal* `hello$(cat /data)`. This engine ran the command.
+
+**The boundary is 0.7 and the corpus states it four times** - every `old*.earth`
+in that directory carries the same do-not-change comment, and `new.earth` is 0.8.
+What `old.earth` still expands at 0.6 says where the line falls:
+
+| written at 0.6                      | expanded |
+| ----------------------------------- | -------- |
+| `ARG k = $( echo "yummy ${x}s" )`   | yes      |
+| `ARG k = "$( echo "tasty ${x}s" )"` | yes      |
+| `ARG k = "hello$(cat /data)"`       | no       |
+| `ARG abc = "foo=$(whoami)"`         | no       |
+
+So: the whole value, optionally wrapped in one layer of quotes, and nothing else.
+`--shell-out-anywhere` is the flag that lifts it, and this engine has it in
+`ignoredFeatures` - accepted and not acted on - which is why every version
+expands everywhere.
+
+Not fixed here, and the reason is the same one that stopped E956. The gate has
+four call sites - `ARG`, a command's arguments, an assignment, and `FOR` - and
+what 0.6 does at the other three is stated only by `old-fail1.earth` and
+`old-fail2.earth`, which are `--should_fail` cases matched on their *message
+text*. Changing expansion to fix two assertions while silently changing what two
+others print is exactly the shape of E947, and the corpus is the only instrument
+that would catch it.

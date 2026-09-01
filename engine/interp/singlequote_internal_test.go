@@ -25,6 +25,15 @@ func TestASubstitutionInSingleQuotesIsNotACommand(t *testing.T) {
 		{"quoted, then real", `'$(one)' and $(two)`, true},
 		{"a closed quote does not reach past itself", `'a' $(ls)`, true},
 		{"a backslash inside single quotes is literal", `'\' $(ls)`, true},
+		// **An apostrophe inside double quotes is an apostrophe.** Tracking
+		// single quotes without tracking double ones made `"don't touch $(ls)"`
+		// a quoted region that never closes, so every substitution after the
+		// first apostrophe was suppressed - which is most of `tests/Earthfile`'s
+		// harness script, and eight of its assertions stopped running (E947).
+		{"an apostrophe inside double quotes", `"don't touch $(ls)"`, true},
+		{"a closed double-quoted apostrophe", `"it's fine" and $(ls)`, true},
+		{"a double quote inside single quotes is literal", `'a"b' $(ls)`, true},
+		{"single quotes still suppress what is inside them", `'a"b $(ls)'`, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -66,13 +75,16 @@ func TestADollarInSingleQuotesIsStoodAside(t *testing.T) {
 	mark := string(escapedDollar)
 
 	for _, tc := range []struct{ in, want string }{
-		{`$(echo run)`, `$(echo run)`},                // written: untouched
-		{`'$(echo run)'`, `'` + mark + `(echo run)'`}, // quoted: stood aside
-		{`'$HOME'`, `'` + mark + `HOME'`},             // a name, suppressed the same way
-		{`"$HOME"`, `"$HOME"`},                        // double quotes expand
-		{`'a' $HOME`, `'a' $HOME`},                    // the quote closed before it
-		{`'\$(x)'`, `'\` + mark + `(x)'`},             // no escapes inside: the backslash stays
-		{`\$(echo run)`, mark + `(echo run)`},         // still escaped-aware
+		{`$(echo run)`, `$(echo run)`},                 // written: untouched
+		{`'$(echo run)'`, `'` + mark + `(echo run)'`},  // quoted: stood aside
+		{`'$HOME'`, `'` + mark + `HOME'`},              // a name, suppressed the same way
+		{`"$HOME"`, `"$HOME"`},                         // double quotes expand
+		{`'a' $HOME`, `'a' $HOME`},                     // the quote closed before it
+		{`'\$(x)'`, `'\` + mark + `(x)'`},              // no escapes inside: the backslash stays
+		{`\$(echo run)`, mark + `(echo run)`},          // still escaped-aware
+		{`"don't touch $HOME"`, `"don't touch $HOME"`}, // an apostrophe in double quotes
+		{`"it's" $HOME`, `"it's" $HOME`},               // and after it closes
+		{`'a"b $HOME'`, `'a"b ` + mark + `HOME'`},      // a double quote inside single ones
 	} {
 		if got := standAsideEscapedDollar(tc.in); got != tc.want {
 			t.Errorf("%q became %q, want %q", tc.in, got, tc.want)

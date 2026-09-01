@@ -175,7 +175,7 @@ func (p *Plan) substitute(cmd []string, base *ir.Node, dir, what, where string) 
 func unescapedIndex(s string) int {
 	var (
 		slashes int
-		single  bool
+		q       quoting
 	)
 
 	for i := range len(s) {
@@ -183,20 +183,15 @@ func unescapedIndex(s string) int {
 		case '\\':
 			// Inside single quotes a backslash is a backslash, so it neither
 			// escapes the closing quote nor counts towards escaping a dollar.
-			if !single {
+			if !q.inSingle {
 				slashes++
 
 				continue
 			}
-		case '\'':
-			switch {
-			case single:
-				single = false
-			case slashes%2 == 0:
-				single = true
-			}
+		case '\'', '"':
+			q.saw(s[i], slashes)
 		case '$':
-			if !single && slashes%2 == 0 && i+1 < len(s) && s[i+1] == '(' {
+			if !q.inSingle && slashes%2 == 0 && i+1 < len(s) && s[i+1] == '(' {
 				return i
 			}
 		}
@@ -205,6 +200,38 @@ func unescapedIndex(s string) int {
 	}
 
 	return -1
+}
+
+// quoting is where in a shell word the scan has got to.
+//
+// **Both kinds, because only the pair is a rule.** Single quotes suppress
+// expansion and double quotes do not, but an apostrophe *inside* double quotes
+// is an apostrophe - so a scanner that tracked single quotes alone read
+// `"don't touch $(ls)"` as a quoted region that never closes, and suppressed
+// every substitution after it. That is most of `tests/Earthfile`'s harness
+// script, and eight of its assertions stopped running (E947).
+type quoting struct {
+	inSingle bool
+	inDouble bool
+}
+
+// saw advances the state past a quote character, which `slashes` says may have
+// been escaped. A quote of the other kind, inside either, is ordinary text.
+func (q *quoting) saw(c byte, slashes int) {
+	if slashes%2 == 1 {
+		return // escaped: this is a quote character and not a quote
+	}
+
+	switch {
+	case q.inSingle:
+		q.inSingle = c != '\''
+	case q.inDouble:
+		q.inDouble = c != '"'
+	case c == '\'':
+		q.inSingle = true
+	default:
+		q.inDouble = true
+	}
 }
 
 func commandSpan(s string) (start, end int, found bool) {
@@ -282,7 +309,7 @@ func standAsideEscapedDollar(s string) string {
 
 	var (
 		slashes int
-		single  bool
+		q       quoting
 	)
 
 	for i := range len(s) {
@@ -290,7 +317,7 @@ func standAsideEscapedDollar(s string) string {
 		case '\\':
 			// A backslash inside single quotes escapes nothing - not the
 			// closing quote, not a dollar - so it is written as it stands.
-			if single {
+			if q.inSingle {
 				b.WriteByte('\\')
 
 				continue
@@ -299,19 +326,12 @@ func standAsideEscapedDollar(s string) string {
 			slashes++
 
 			continue
-		case '\'':
+		case '\'', '"':
 			b.WriteString(strings.Repeat("\\", slashes))
-
-			switch {
-			case single:
-				single = false
-			case slashes%2 == 0:
-				single = true
-			}
-
-			b.WriteByte('\'')
+			q.saw(s[i], slashes)
+			b.WriteByte(s[i])
 		case '$':
-			if single || slashes%2 == 1 {
+			if q.inSingle || slashes%2 == 1 {
 				// The escaping backslash is consumed here; the rest stay for
 				// the unquoting that follows. A quoted dollar had none to
 				// consume - the quotes are what suppressed it, and they are

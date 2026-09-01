@@ -46111,3 +46111,38 @@ shows up as `exec format error` somewhere far away.
 Exact first rather than folded into one pass, so an index carrying both a bare
 `linux/arm64` and a `v8` one gives the bare entry to a caller who asked for the
 bare name, whichever is listed first.
+
+### E947 - the single-quote fix suppressed expansion inside double quotes
+
+E938 taught the substitution scanner that single quotes suppress a `$`. It was
+not taught that double quotes exist, and the pair is the rule rather than either
+half:
+
+```text
+"don't touch $(ls)"     → the substitution was suppressed
+"it's fine" and $(ls)   → so was this one, outside every quote
+```
+
+An apostrophe inside double quotes is an apostrophe. A scanner tracking single
+quotes alone reads the first one as opening a region that never closes, and
+everything after it in the argument is treated as quoted - which is most of
+`tests/Earthfile`'s harness script. Eight of its assertions stopped running and
+`+test-no-qemu-group1` went from failing on one thing to failing on eight.
+
+**It shipped because the tests asserted the new rule and not the old one.** Every
+case in E938's table was a single-quote case or a bare one; `"$HOME"` was there
+as the control for *double quotes expanding*, and passed, because no apostrophe
+preceded it. The control was correct and too small: one character earlier in the
+string would have caught this.
+
+The state is now a two-field `quoting` with one `saw` method, because the two
+kinds interact and a rule that mentions one of them is not a rule. Inside single
+quotes a double quote is text; inside double quotes an apostrophe is text; an
+escaped quote of either kind is text anywhere.
+
+**A separate finding from the same round, and not this one.** `+test-no-qemu-group7`
+now reports `ARG at Earthfile:79: "echo \\(\\)" exited 2` - `tests/shell-out`'s
+test9. It is new to this CI round because test5, three targets earlier in the
+same file, was the `whoami` failure E938 fixed: the file never reached test9
+before. `commandSpan` counts parentheses without skipping escaped ones, which is
+the standing candidate. Unfixed and unverified.

@@ -46009,3 +46009,39 @@ the second list is the one that stops matching the first - with
 `addCIRunner`'s two names added explicitly, because it is called conditionally
 and a name whose presence depended on a VERSION flag would make the set depend
 on the file being built.
+
+### E944 - sixteen forks per step to discover a thing one question answers
+
+The private-network default put this into every nested build's log, once per
+step:
+
+```text
+ip addr add|del IFADDR dev IFACE | show|flush [dev IFACE] [to PREFIX]
+ip route list|flush|add|del|change|append|replace|test ROUTE
+...
+warning: steps shared one network - ip netns add earth-s16: ...
+```
+
+Alpine's `ip` is busybox and busybox has no `netns` command, so `ip netns add`
+prints its usage screen and fails. Every image a nested `earth` runs on in this
+corpus is such an image.
+
+**Two defects, and the first hid the second.** The retry loop exists for one
+cause - a build runs many `earth` processes numbering namespaces from zero into
+a shared `/run/netns`, so the second to ask for `earth-s1` is told the file
+exists (E933) - and it retried *every* failure sixteen times. A busybox `ip` and
+an unprivileged `/run` both fail identically on the sixteenth try as on the
+first, so the cost was sixteen `ip` invocations per step and a message reporting
+the first attempt's cause sixteen forks late. The `earth-s16` in the warning is
+the tell: the name it failed on was the last one tried, not the first.
+
+Both are now asked directly. `ip netns list` is the cheapest question that
+separates an `ip` without the command from one that has it, and it is asked once
+before the loop; and only a taken name is worth another number. The
+unprivileged case on a development machine now reports `earth-s1`, which is the
+namespace it actually wanted.
+
+The message for busybox names busybox in one sentence instead of quoting the
+usage screen. Verified by unit test with an injected runner rather than end to
+end: a nested `earth` on this machine chose the reference engine, which does not
+take this path at all, so the CI round is where the wording will first be seen.

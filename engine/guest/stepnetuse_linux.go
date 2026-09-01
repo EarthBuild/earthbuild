@@ -79,6 +79,14 @@ func openStepNet() (path string, done func(), why string) {
 	// second thing to get right. Taking the next free one is correct however the
 	// collision arose, including against a namespace some earlier build left
 	// behind.
+	// **Asked once, before sixteen attempts discover it.** See netnsSupported:
+	// an `ip` with no `netns` command fails every try identically, and the
+	// image every nested `earth` in this corpus runs on has exactly that.
+	unsupported := netnsSupported(runProgram)
+	if unsupported != "" {
+		return "", nothing, unsupported
+	}
+
 	var last string
 
 	for range stepNetTries {
@@ -87,6 +95,11 @@ func openStepNet() (path string, done func(), why string) {
 		last = raiseStepNet(plan)
 		if last == "" {
 			return netnsDir + plan.Name, func() { closeStepNet(plan) }, ""
+		}
+
+		// Only the taken name is worth another number. See collidedOnName.
+		if !collidedOnName(last) {
+			break
 		}
 	}
 
@@ -129,4 +142,54 @@ func closeStepNet(plan netPlan) {
 	for _, argv := range stepNetDown(plan) {
 		_ = osexec.Command(argv[0], argv[1:]...).Run() //nolint:gosec // a fixed vocabulary, built from a plan
 	}
+}
+
+// collidedOnName reports whether a namespace failed because the name was taken.
+//
+// **The one failure another attempt can fix.** A build runs many `earth`
+// processes - the outer one and a nested `earth` inside every step that starts
+// one - each numbering from zero into a `/run/netns` they share, so the second
+// to ask for `earth-s1` is told the file exists and the next number is free
+// (E933). Every other cause is the same on the sixteenth attempt as on the
+// first, and the retry then costs sixteen `ip` invocations per step and reports
+// the first message sixteen forks late (E944).
+func collidedOnName(out string) bool {
+	return strings.Contains(out, "File exists")
+}
+
+// netnsSupported reports why this machine's `ip` cannot make a namespace, or
+// "" when it can.
+//
+// **Asked once rather than discovered sixteen times.** Alpine's `ip` is busybox,
+// which has no `netns` command at all, and every nested `earth` in this corpus
+// runs on such an image - so the common case was the retry loop failing its way
+// to the bottom and printing a usage screen. `ip netns list` is the cheapest
+// question that distinguishes the two, and it changes nothing.
+//
+// The runner is a parameter so a test can supply an `ip` this machine has not
+// got; `openStepNet` passes the real one.
+func netnsSupported(run func(string, ...string) ([]byte, error)) string {
+	out, err := run("ip", "netns", "list")
+	if err == nil {
+		return ""
+	}
+
+	const cannot = ", so a step cannot be given a network of its own"
+
+	text := string(bytes.TrimSpace(out))
+	if strings.Contains(text, "BusyBox") || strings.Contains(text, "Usage: ip") {
+		return "the guest's `ip` is busybox, which has no `netns` command" + cannot
+	}
+
+	first, _, _ := strings.Cut(text, "\n")
+	if first == "" {
+		first = err.Error()
+	}
+
+	return "the guest's `ip` cannot list namespaces (" + first + ")" + cannot
+}
+
+// runProgram is netnsSupported's runner, reading a program's combined output.
+func runProgram(name string, arg ...string) ([]byte, error) {
+	return osexec.Command(name, arg...).CombinedOutput() //nolint:gosec // a fixed vocabulary
 }

@@ -46190,13 +46190,21 @@ consequences, and the second is the one nobody has hit yet: the command carries
 escaping meant for the Earthfile parser, and `$(echo \))` ends at the escaped
 bracket.
 
-Not fixed here, and not because it is hard. The unescaping has to agree with what
-`expandByRegion` puts *back* - the raw text is re-inserted and re-scanned - and
-with the comment in `args.go` arguing that a `$( )` keeps its quoting because a
-shell re-parses it. That comment is right about quotes and wrong about
-backslashes, and separating the two needs the nested case
-(`$( echo $(echo "\""))`, which is in this repository) to be checked against the
-reference rather than reasoned about.
+**Fixed by reading the region rather than slicing it**, which is what the
+reference does and what makes the two halves separable. The comment in `args.go`
+arguing that a `$( )` keeps its quoting is right about quotes and was wrong about
+backslashes: the quotes are the shell's and the backslash was the Earthfile's.
+`expandByRegion` still stands the *raw* text aside and puts it back untouched -
+the resolution happens once, where the command is handed over.
+
+Three more rules came with it, all from the same reference function and its two
+quote readers, and none of them guessable: inside single quotes nothing is an
+escape at all; inside double quotes the backslash is *kept*, because the shell
+will read those quotes again and `\"` there is an escaped quote rather than the
+end of the string; and a bracket inside quotes of either kind is text, so
+`$(echo '(')` does not end where it looks like it ends. The nested case
+`$(cat $(ls -1))` is counted and copied rather than read again - the shell does
+that part.
 
 New to this round because `tests/shell-out`'s test5, three targets earlier in the
 file, was the `whoami` failure E938 fixed. The file never reached test9 before.

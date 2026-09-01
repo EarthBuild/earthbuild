@@ -240,22 +240,90 @@ func commandSpan(s string) (start, end int, found bool) {
 		return -1, -1, false
 	}
 
-	depth := 1
+	_, at, ok := commandRegion(s, i)
+	if !ok {
+		return i, -1, false
+	}
 
-	for j := i + 2; j < len(s); j++ {
-		switch s[j] {
-		case '(':
+	return i, at, true
+}
+
+// commandRegion reads the `$( )` beginning at `dollar`, returning the command as
+// a shell should receive it and the index of the bracket that closed it.
+//
+// **One level of escaping is resolved and the quoting is not.** The backslash in
+// `ARG foo = "$(echo \\(\\))"` is the Earthfile's: it means the command
+// `echo \(\)`, which prints `()`. Handing the text over verbatim gave a shell
+// `echo \\(\\)` - a literal backslash and then an unquoted bracket - and it
+// exited 2 on a syntax error nobody wrote (E949). Quotes stay because the shell
+// re-parses them, and what is inside them stays exactly as written.
+//
+// The rules are the reference's, in `util/shell/lex.go`'s
+// `processDollarShellOut` and the two quote readers it calls:
+//
+//   - outside quotes, a backslash is dropped and the next character taken
+//     literally, and does not count towards the nesting;
+//   - inside quotes of either kind everything is verbatim, backslashes included,
+//     and a bracket there is text;
+//   - a nested `$(` is not read again here - it is counted and copied, and the
+//     shell does the rest.
+func commandRegion(s string, dollar int) (cmd string, end int, ok bool) {
+	var (
+		b       strings.Builder
+		q       quoting
+		escaped bool
+		depth   = 1
+	)
+
+	for i := dollar + 2; i < len(s); i++ {
+		c := s[i]
+
+		if escaped {
+			escaped = false
+
+			b.WriteByte(c)
+
+			continue
+		}
+
+		switch {
+		case c == '\\' && q.inSingle:
+			// No escapes at all inside single quotes: a backslash is a
+			// backslash and the quote cannot be escaped shut.
+			b.WriteByte(c)
+		case c == '\\' && q.inDouble:
+			// Kept, because the shell will read these quotes again and `\"`
+			// there is an escaped quote rather than the end of the string.
+			b.WriteByte(c)
+
+			escaped = true
+		case c == '\\':
+			// Dropped, and the next character is written whatever it is - the
+			// one level of escaping that was the Earthfile's to resolve.
+			escaped = true
+		case c == '\'' || c == '"':
+			q.saw(c, 0)
+			b.WriteByte(c)
+		case q.inSingle || q.inDouble:
+			b.WriteByte(c)
+		case c == '(':
 			depth++
-		case ')':
+
+			b.WriteByte(c)
+		case c == ')':
 			depth--
 
 			if depth == 0 {
-				return i, j, true
+				return b.String(), i, true
 			}
+
+			b.WriteByte(c)
+		default:
+			b.WriteByte(c)
 		}
 	}
 
-	return i, -1, false
+	return "", -1, false
 }
 
 // regionMark brackets a command that has been stood aside.
@@ -444,7 +512,17 @@ func (p *Plan) expandCommands(value string, base *ir.Node, dir, what, where stri
 		// and splitting on whitespace is that shell's job - done here it turns
 		// `cut -d' ' -f 1` into `cut -d -f 1`, which is cut being told the
 		// delimiter is `-f` (E65).
-		out, err := p.substitute([]string{value[i+2 : end]}, base, dir, what, where)
+		//
+		// **Read rather than sliced**, because the Earthfile's own escaping is
+		// this engine's to resolve and the shell must not see it: `$(echo
+		// \\(\\))` means `echo \(\)` and printed a syntax error as the raw
+		// text (E949). See commandRegion.
+		cmd, _, ok := commandRegion(value, i)
+		if !ok {
+			return "", fmt.Errorf("%s at %s: %q has no closing bracket", what, where, value[i:])
+		}
+
+		out, err := p.substitute([]string{cmd}, base, dir, what, where)
 		if err != nil {
 			return "", err
 		}

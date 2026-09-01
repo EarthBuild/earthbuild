@@ -2100,7 +2100,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: a daemon request reaching the wire (E367)",
 		File:        "engine/guest/guest.go",
-		Anchor:      "\t\tDaemon:    step.Daemon,",
+		Anchor:      "\t\tDaemon:     step.Daemon,",
 		Replacement: "",
 		Package:     "./engine/guest/",
 	},
@@ -3421,7 +3421,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: RUN --ssh reaching the operation (E466)",
 		File:        "engine/interp/interp.go",
-		Anchor:      "\t\t\t\tSSH:         rf.ssh,",
+		Anchor:      "\t\t\t\tSSH:             rf.ssh,",
 		Replacement: "",
 		Package:     "./engine/interp/",
 	},

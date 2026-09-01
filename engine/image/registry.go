@@ -593,9 +593,13 @@ func pullConfig(
 	}
 
 	var img struct {
-		Architecture string              `json:"architecture"`
-		OS           string              `json:"os"`
-		Config       ocispec.ImageConfig `json:"config"`
+		Architecture string `json:"architecture"`
+		OS           string `json:"os"`
+		// Optional in the specification and absent from most images, which is
+		// why the check below is loose about it: `linux/arm` here is an image
+		// declining to say which ARM, not one claiming to be none of them.
+		Variant string              `json:"variant"`
+		Config  ocispec.ImageConfig `json:"config"`
 	}
 
 	err = json.Unmarshal(blob, &img)
@@ -603,7 +607,7 @@ func pullConfig(
 		return ocispec.ImageConfig{}, fmt.Errorf("parse the configuration: %w", err)
 	}
 
-	return img.Config, checkArchitecture(img.OS, img.Architecture, want)
+	return img.Config, checkArchitecture(img.OS, img.Architecture, img.Variant, want)
 }
 
 // layerBlob is a fetched layer, or the reason it could not be.
@@ -1043,13 +1047,23 @@ func getOnce(ctx context.Context, client *http.Client, tok, url string, limit in
 //
 // An image that says nothing about itself is trusted: that is old or unusual
 // rather than wrong, and refusing it would refuse something that works.
-func checkArchitecture(os, arch, want string) error {
+// **Loose about the variant, for the reason selectPlatform is.** A
+// configuration states `os` and `architecture` and need not state a variant, so
+// `linux/arm` is an image declining to say which ARM rather than one claiming to
+// be none of them - and comparing it whole refused a `linux/arm/v7` build over a
+// field the image never filled in (E951). An image that *does* state one is held
+// to it.
+func checkArchitecture(os, arch, variant, want string) error {
 	if os == "" || arch == "" || want == "" {
 		return nil
 	}
 
 	has := os + "/" + arch
-	if has == want {
+	if variant != "" {
+		has += "/" + variant
+	}
+
+	if has == want || looselyMatches(has, want) {
 		return nil
 	}
 

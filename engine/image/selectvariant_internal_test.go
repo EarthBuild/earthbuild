@@ -66,3 +66,54 @@ func TestAnIndexEntryIsChosenByItsVariant(t *testing.T) {
 		t.Errorf("the refusal does not say which variants exist:\n%v", err)
 	}
 }
+
+// A single-manifest image is checked by its variant too, or not at all.
+//
+// `checkArchitecture` compared `os/arch` against a platform that carries a
+// variant, so a `linux/arm` configuration refused a `linux/arm/v7` build - the
+// same mistake as the index selection above, one layer further down and reached
+// only once that one was fixed (E951).
+//
+// An image that states a variant is still held to it: `linux/arm/v6` is not
+// `linux/arm/v7`, and the whole reason this function exists is that running the
+// wrong one fails as `exec format error` with nothing to connect it to an image.
+func TestASingleManifestImageIsCheckedLooselyOnItsVariant(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name              string
+		os, arch, variant string
+		want              string
+		refused           bool
+	}{{
+		name: "a configuration with no variant serves a build that wants one",
+		os:   "linux", arch: "arm", want: "linux/arm/v7",
+	}, {
+		name: "a configuration with a variant serves a build that asks for none",
+		os:   "linux", arch: "arm64", variant: "v8", want: "linux/arm64",
+	}, {
+		name: "the same variant on both sides",
+		os:   "linux", arch: "arm", variant: "v7", want: "linux/arm/v7",
+	}, {
+		name: "a different variant is still refused",
+		os:   "linux", arch: "arm", variant: "v6", want: "linux/arm/v7",
+		refused: true,
+	}, {
+		name: "a different architecture is still refused",
+		os:   "linux", arch: "amd64", want: "linux/arm64",
+		refused: true,
+	}, {
+		name: "an image that says nothing is trusted",
+		want: "linux/arm/v7",
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := checkArchitecture(tc.os, tc.arch, tc.variant, tc.want)
+			if (err != nil) != tc.refused {
+				t.Errorf("%s/%s/%s against %s gave %v, refused=%v",
+					tc.os, tc.arch, tc.variant, tc.want, err, tc.refused)
+			}
+		})
+	}
+}

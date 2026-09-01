@@ -363,6 +363,10 @@ func builtinNameSet() map[string]bool {
 //
 // The reference does this in `RemoveReservedArgsFromScope`, on the same scope
 // and for the same reason; `tests/pass-args-no-builtins` is named for it.
+// Given `passable(rs)` rather than `rs.args` at every call site, because what a
+// recipe was *given* is part of what it passes on: a function that declares
+// nothing still forwards what reached it, which is what the corpus's own
+// three-deep chain is for (E950).
 func withoutBuiltins(args map[string]string) map[string]string {
 	out := make(map[string]string, len(args))
 

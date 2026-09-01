@@ -46200,3 +46200,59 @@ reference rather than reasoned about.
 
 New to this round because `tests/shell-out`'s test5, three targets earlier in the
 file, was the `whoami` failure E938 fixed. The file never reached test9 before.
+
+### E950 - `--pass-args` forwarded what a recipe declared, not what it was given
+
+`+test-no-qemu-group8`, once E945 cleared the target-reference failure ahead of
+it:
+
+```text
+BUILD --pass-args (/sub/Earthfile:10): ARG at /sub/submarine/Earthfile:6:
+  "EXTRA_ARG" is --required and no value was given
+```
+
+`tests/pass-args-via-function-with-override` is three files deep on purpose and
+the middle one says why in a comment: *"This file doesn't define any ARGs, and is
+here to ensure all ARGs passed from the caller get re-passed to the final build
+target"*. Inside that function the values are correctly invisible - a function's
+scope holds what it declared - and passing them on is a different question.
+`rs.args` cannot answer it, because the argument never entered it.
+
+**The fix was already written and not used here.** `passable(rs)` is `supplied`
+overlaid with `args`, and its comment describes this exact shape: an argument
+reaching a forwarding wrapper, used by nothing there, dropped because that map
+was the one forwarded (E867, E896a). It was added for `DO` and the four
+`--pass-args` sites went on reading `rs.args`.
+
+Two things worth keeping from how it was found. It is **not** a regression -
+verified by running the same case against a worktree at this session's starting
+commit, where it fails identically - and it was newly *exposed* because
+`pass-args-no-builtins`, earlier in the same job, used to fail first. Three
+failures in group8 in three rounds, each one revealed by fixing the last.
+
+### E951 - the variant mistake had a second copy one layer down
+
+`+test-qemu`, after E946 let the right manifest be selected:
+
+```text
+configuration of alpine@sha256:48bf25...: this image is linux/arm and the build
+is for linux/arm/v7
+```
+
+`checkArchitecture` builds `os/arch` from the image configuration and compared it
+whole. An OCI configuration's `variant` is optional and alpine's does not state
+one, so `linux/arm` there is an image declining to say which ARM - not one
+claiming to be none of them.
+
+Same rule as `selectPlatform`, same reason, and now the same code: the
+configuration's variant is read when it is there and the comparison is loose only
+where one side is silent. An image that states `v6` is still refused a `v7`
+build, which is the whole point of the function - the alternative is
+`exec format error` inside the sandbox with nothing connecting it to an image.
+
+**Three layers, one mistake, found one at a time.** Placement (E942), manifest
+selection (E946), configuration check (E951): each was reached only by fixing the
+one before it, and each compared a triple against a pair. A grep for the
+comparison rather than for the symptom would have found all three at once - which
+is the lesson, and it is the same one E946 recorded about reading one line
+further.

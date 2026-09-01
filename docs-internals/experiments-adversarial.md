@@ -46331,3 +46331,33 @@ from the search before anybody boots a machine.
 Not diagnosed further here, because the discriminator wants a machine that can
 run a `LOCALLY` step followed by a container step, and the x86 box went off the
 network mid-session.
+
+### E954 - a symlink saved as an artifact is followed inside one layer
+
+`+test-no-qemu-group6`, on a target reached for the first time:
+
+```text
+COPY /etc/ssl/certs/ca-cert-SelfSigned_Root_CA.pem: stat
+  <layers>/1b08875c.../usr/local/share/ca-certificates/SelfSigned_Root_CA.crt:
+  no such file or directory
+```
+
+`tests/git-webserver+certs` runs `update-ca-certificates`, which creates
+`/etc/ssl/certs/ca-cert-SelfSigned_Root_CA.pem` as a **symlink** to
+`/usr/local/share/ca-certificates/SelfSigned_Root_CA.crt`, and then saves that
+path as an artifact. The link's target was put there by an earlier `COPY`, so it
+lives in a different layer of the same stack.
+
+The diagnosis is in the path the message quotes: one layer directory, and the
+link resolved inside it. A symlink in a layered filesystem points into the
+*merged* view, and following it within the layer that happens to contain the link
+finds whatever that one layer holds - which for an absolute link is almost never
+the answer.
+
+Reported at `Earthfile:52`, the line that consumes the artifact, because that is
+where it is materialised; the line that produced it is `Earthfile:40`. Worth
+knowing when reading the message, and worth fixing in the message.
+
+Recorded rather than fixed. It is layer resolution rather than interpretation, so
+the discriminator is a build and not a plan - and this session already shipped one
+regression from reasoning about execution without a machine to run it on (E947).

@@ -164,6 +164,12 @@ type Plan struct {
 	pending []*ir.Node
 	// here is the Earthfile being built.
 	here *unit
+	// rootDir is the directory the build was invoked in, absolute and with its
+	// symlinks resolved - the same form `here.dir` takes, which is what makes
+	// the two comparable. A local target's reference is written relative to it
+	// (see localRef), and comparing an unresolved context against a resolved
+	// file directory produced a path out of `/private/var` on a Mac.
+	rootDir string
 	// viewed memoises a bound view's object by directory and subtree.
 	//
 	// **A view of the whole context digests the whole context**, and a
@@ -268,6 +274,7 @@ func Build(src, target string, opts ...Option) (*Plan, error) {
 	}
 
 	p.here = here
+	p.rootDir = dir
 	p.units[dir] = p.here
 
 	root, err := p.target(target)
@@ -815,7 +822,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// undeclared `$TARGETARCH` expands to nothing in the reference, and an
 		// engine that filled it in would change what an Earthfile means.
 		builtin := builtinArgs(p.targetPlatform(rs), p.opt.nativePlatform(),
-			rs.target, p.here.dir, rs.host, p.opt.push)
+			rs.target, p.here.dir, p.rootDir, rs.host, p.opt.push)
 
 		// One builtin is gated on the dialect rather than always present, and is
 		// added here rather than inside builtinArgs: the file this comes from

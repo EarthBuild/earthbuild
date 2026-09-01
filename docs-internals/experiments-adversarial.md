@@ -46045,3 +46045,38 @@ The message for busybox names busybox in one sentence instead of quoting the
 usage screen. Verified by unit test with an injected runner rather than end to
 end: a nested `earth` on this machine chose the reference engine, which does not
 take this path at all, so the CI round is where the wording will first be seen.
+
+### E945 - the sub-target's own name was still the wrong name
+
+E943 stopped `--pass-args` handing the caller's `EARTHLY_TARGET` to the callee.
+The next CI round showed what had been underneath it:
+
+```text
+Error: RUN test "+subtest" = "./sub+subtest" failed with exit code 1
+```
+
+Before: the callee was told `+test`, its caller's name. After: `+subtest`, its
+own name in a form that names a different target - one in the invoked directory
+rather than in `sub/`. Both wrong, and the first hid the second completely,
+because from inside `tests/pass-args-no-builtins` the two are the same failed
+comparison.
+
+The reference prints the local path verbatim: `referenceString` gives
+`<localPath>+<name>` and reserves the bare `+name` for a target in the current
+directory. This engine gave every local target the bare form, with a comment
+arguing that a step can only act on the unqualified one - true of what a step
+*runs*, and beside the point for a value the Earthfile compares against.
+
+**Two things had to be true for the relative path to be computable at all.** The
+root has to be the same kind of path as the file's directory: `p.opt.context` is
+what the caller passed and `here.dir` is absolute with its symlinks resolved, so
+on a Mac the first attempt produced seven levels of `..` out of `/private/var`.
+The resolved root is computed already, three lines above where the units are
+built, and is now kept.
+
+And the relative path is only the reference while the file is inside the invoked
+tree. A remote target's checkout lives in the cache, where a computed path is a
+`..` chain naming nothing - so anything outside keeps the bare form, and is
+qualified by its origin in the branch below. `../js+build` is left as a **[GAP]**
+rather than guessed: getting it right means carrying the form the BUILD line
+wrote, which nothing does yet.

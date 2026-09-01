@@ -20,7 +20,9 @@ func TestATargetNameIsStrippedOfItsPlusExactlyOnce(t *testing.T) {
 	t.Parallel()
 
 	for _, given := range []string{"build", "+build"} {
-		got := builtinArgs("linux/arm64", "linux/arm64", given, "/somewhere", false, false)
+		// The same directory as the root, so the reference is the bare `+name`
+		// form and this test says nothing about the path half. See localRef.
+		got := builtinArgs("linux/arm64", "linux/arm64", given, "/somewhere", "/somewhere", false, false)
 
 		if got["EARTH_TARGET_NAME"] != "build" {
 			t.Errorf("given %q, EARTH_TARGET_NAME is %q, want %q - a name with"+

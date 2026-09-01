@@ -2,6 +2,7 @@ package interp
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -33,7 +34,7 @@ func UserPlatform() string { return runtime.GOOS + "/" + runtime.GOARCH }
 // expands to nothing in the engine that ships - checked against it directly -
 // and filling it in would change what an Earthfile means. A compatible engine
 // does not get to be helpful about that.
-func builtinArgs(target, native, name, dir string, locally, push bool) map[string]string {
+func builtinArgs(target, native, name, dir, root string, locally, push bool) map[string]string {
 	// The name arrives with its `+` when the caller wrote one - `earth +build`
 	// and `interp.Build(src, "build")` both reach here - so it is stripped once
 	// and added back where the reference wants it. Without this,
@@ -53,10 +54,9 @@ func builtinArgs(target, native, name, dir string, locally, push bool) map[strin
 		// by failing at execution on `test "" == "+test-empty"` - a gap the
 		// planning sweep could not see, because the plan was correct (E423).
 		"EARTH_TARGET_NAME": name,
-		// The reference as this file would write it. A target elsewhere is
-		// reached by a path, and this engine plans one file at a time, so the
-		// unqualified form is the one a step can act on.
-		"EARTH_TARGET": "+" + name,
+		// The reference as this build would write it: `+name` in the invoked
+		// directory and `./sub+name` below it. See localRef.
+		"EARTH_TARGET": localRef(root, dir, name),
 		// Filled in below where a git origin qualifies it.
 		"EARTH_TARGET_PROJECT": "",
 		"EARTH_LOCALLY":        boolArg(locally),
@@ -336,7 +336,7 @@ var builtinNames = builtinNameSet()
 func builtinNameSet() map[string]bool {
 	out := map[string]bool{}
 
-	for name := range builtinArgs("", "", "", "", false, false) {
+	for name := range builtinArgs("", "", "", "", "", false, false) {
 		out[name] = true
 	}
 
@@ -375,4 +375,42 @@ func withoutBuiltins(args map[string]string) map[string]string {
 	}
 
 	return out
+}
+
+// localRef is a local target's reference as this build would write it.
+//
+// `+name` for a target in the invoked directory and `./sub+name` for one below
+// it, which is both how the caller reached it and what the reference reports:
+// `referenceString` prints the local path verbatim, and only a target in the
+// current directory gets the bare form.
+//
+// The bare form for every local target was this engine's, and it made a
+// sub-target answer with a name that names something else - a target in the
+// invoked directory. `tests/pass-args-no-builtins` asserts `./sub+subtest` and
+// got `+subtest`; the defect was hidden for as long as `--pass-args` was handing
+// down the caller's answer instead, which is wrong the same way from inside the
+// callee (E945).
+//
+// **Only below the invocation, and the bare form otherwise.** The reference
+// prints the path the *caller wrote*; this has the file's directory instead, and
+// the two agree only while the file is inside the invoked tree. A remote
+// checkout lives in the cache, so a computed relative path there is seven levels
+// of `..` and names nothing - which is worse than the answer it replaced. Such a
+// target is qualified by its origin below in any case.
+//
+// **[GAP]** `../js+build` is a reference people write and this returns `+build`
+// for it, as it always did. Getting it right means carrying the written form
+// from the BUILD line, which nothing does yet.
+//
+// **[GAP]** a target below the invocation *inside a repository with an origin*
+// still reports `<origin>+name`, because the qualified branch below rewrites it
+// whole. `tests/empty-git.earth` asserts only the root case in either form, so
+// what the reference does with the pair is not established here.
+func localRef(root, dir, name string) string {
+	rel, err := filepath.Rel(root, dir)
+	if err != nil || rel == "." || rel == "" || strings.HasPrefix(rel, "..") {
+		return "+" + name
+	}
+
+	return "./" + filepath.ToSlash(rel) + "+" + name
 }

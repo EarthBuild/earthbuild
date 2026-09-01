@@ -281,6 +281,19 @@ type Op struct {
 	// safe and honouring it wrongly is not: a step that asked to be cut off and
 	// was not may reach the network and produce a result nobody can reproduce.
 	NoNetwork bool
+	// Privileged is `RUN --privileged`.
+	//
+	// Every step this engine runs is root in a user namespace and already holds
+	// every capability, so the flag changes nothing for a step that stays root -
+	// which is what the refusal in runFlags says. It changes one thing for a
+	// step that does not: `setuid` clears capabilities, and a privileged step
+	// carries them across where an ordinary one drops them, as buildkit does
+	// (E940).
+	//
+	// In the key for the reason NoNetwork is: a step that keeps CAP_DAC_OVERRIDE
+	// across its USER can write files one that dropped it cannot, so the two
+	// produce different filesystems and must not share an entry.
+	Privileged bool
 	// AWS says the step asked for the invoking user's AWS credentials:
 	// `RUN --aws`.
 	//
@@ -717,6 +730,7 @@ func (n *Node) ID() NodeID {
 	h.Str(n.Op.As)
 	h.Str(n.Op.Chmod)
 	h.Bool(n.Op.NoNetwork)
+	h.Bool(n.Op.Privileged)
 	h.Bool(n.Op.Interactive)
 	h.Bool(n.Op.Docker)
 	h.Str(n.Op.DockerCache)

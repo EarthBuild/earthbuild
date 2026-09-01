@@ -642,6 +642,7 @@ func (e *Executor) Run(
 		Dir: n.Op.Dir, User: n.Op.User, Argv: argv, Env: env, Mounts: mounts,
 		SecretEnv: secretNames,
 		NoNet:     n.Op.NoNetwork, Daemon: daemon, Hosts: n.Op.Hosts,
+		Privileged: n.Op.Privileged,
 		// Observed, so the step can be reused against a base it did not run on.
 		//
 		// The only source a RUN has, and it costs: measured at **8x on a path

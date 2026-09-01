@@ -1201,6 +1201,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			Op: ir.Op{
 				Kind: ir.OpExec, Args: argv, Entrypoint: fromImage,
 				NoNetwork:   rf.noNet,
+				Privileged:  rf.privileged,
 				Interactive: rf.interactive,
 				SSH:         rf.ssh,
 				// **A cache mount is an accelerator, and is cached.**

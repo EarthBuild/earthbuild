@@ -2614,6 +2614,8 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		if !declaresHome(declared, req.Env) {
 			cmd.Env = append(cmd.Env, EnvStepHome+"=1")
 		}
+
+		cmd.Env = append(cmd.Env, keepCapsEnv(req)...)
 	}
 
 	// Registered for exactly as long as it runs, so a cancel arriving in the
@@ -2945,6 +2947,8 @@ type Step struct {
 	// Trace asks for this step's reads to be observed. See Request.Trace.
 	Trace bool
 	NoNet bool
+	// Privileged is `RUN --privileged`. See Request.Privileged.
+	Privileged bool
 }
 
 // ExecIn runs a step in a working directory.
@@ -2990,19 +2994,20 @@ func (c *Client) RunStep(
 	}
 
 	req := Request{
-		Kind:      KindExec,
-		Handle:    rh.id,
-		Argv:      step.Argv,
-		Env:       step.Env,
-		BaseEnv:   step.BaseEnv,
-		SecretEnv: step.SecretEnv,
-		Dir:       step.Dir,
-		User:      step.User,
-		Mounts:    step.Mounts,
-		NoNet:     step.NoNet,
-		Trace:     step.Trace,
-		Daemon:    step.Daemon,
-		Hosts:     step.Hosts,
+		Kind:       KindExec,
+		Handle:     rh.id,
+		Argv:       step.Argv,
+		Env:        step.Env,
+		BaseEnv:    step.BaseEnv,
+		SecretEnv:  step.SecretEnv,
+		Dir:        step.Dir,
+		User:       step.User,
+		Mounts:     step.Mounts,
+		NoNet:      step.NoNet,
+		Privileged: step.Privileged,
+		Trace:      step.Trace,
+		Daemon:     step.Daemon,
+		Hosts:      step.Hosts,
 	}
 
 	if step.Terminal != nil {
@@ -3988,4 +3993,25 @@ func statInRoot(root, path string) (os.FileInfo, error) {
 	}
 
 	return nil, syscall.ELOOP
+}
+
+// keepCapsEnv is what the shim is told about carrying capabilities across the
+// change of user.
+//
+// **Both halves, and neither alone.** A step that changes user without asking
+// for privilege drops its capabilities, which is what every other engine does
+// and what a `USER nobody` step is for; a privileged step that stays root has
+// nothing to carry, because it never loses them. Only the pair is the case
+// buildkit treats specially, and only the pair is treated specially here.
+//
+// Gated rather than unconditional because every step in this engine is
+// namespace-root and holds every capability already. Keeping them across every
+// USER would give a plain step powers buildkit withholds - accepting something
+// not implemented, which is the expensive half of E34's asymmetry.
+func keepCapsEnv(req Request) []string {
+	if req.User == "" || !req.Privileged {
+		return nil
+	}
+
+	return []string{EnvStepKeepCaps + "=1"}
 }

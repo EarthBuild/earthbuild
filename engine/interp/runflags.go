@@ -64,6 +64,10 @@ type runOpts struct {
 	// aws is `RUN --aws`: the step is given the invoking user's AWS
 	// credentials. Gated by `VERSION --run-with-aws`.
 	aws bool
+	// privileged is `RUN --privileged`. It changes nothing for a step that
+	// stays root - every step here already holds every capability - and one
+	// thing for a step with a USER: the capabilities survive the setuid.
+	privileged bool
 	// rawOutput is `RUN --raw-output`: the step's lines are printed without the
 	// prefix naming which step they came from. Gated by `VERSION --raw-output`.
 	rawOutput bool
@@ -168,10 +172,11 @@ func runFlags(
 		secrets:     opts.Secrets,
 		// The invoking user's ssh agent, which is how a build reaches a private
 		// dependency without a key ever being written into an image (E466).
-		ssh:       opts.WithSSH,
-		aws:       opts.WithAWS,
-		rawOutput: opts.RawOutput,
-		pushOnly:  opts.Push,
+		ssh:        opts.WithSSH,
+		aws:        opts.WithAWS,
+		privileged: opts.Privileged,
+		rawOutput:  opts.RawOutput,
+		pushOnly:   opts.Push,
 	}
 
 	if len(rest) == 0 {

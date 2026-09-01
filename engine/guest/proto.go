@@ -334,6 +334,14 @@ type Request struct {
 	// NoNet is `RUN --network=none`: run this step in an empty network
 	// namespace. Exec only.
 	NoNet bool `json:"noNet,omitempty"`
+	// Privileged is `RUN --privileged`.
+	//
+	// Every step here is root in a user namespace and holds every capability
+	// already, so this changes nothing for a step that stays root. It decides
+	// one thing for a step with a `User`: whether those capabilities survive the
+	// `setuid`, which is what privilege means for a non-root uid and what
+	// buildkit gives such a step (E940).
+	Privileged bool `json:"privileged,omitempty"`
 	// DirCopy is `COPY --dir`: the directory itself rather than its contents.
 	// Without it a directory source contributes what is in it, which is the rule
 	// everywhere else and one a trailing separator cannot express.

@@ -260,6 +260,18 @@ func becomeStepUser() error {
 		}
 	}
 
+	// **Before the setuid, because after it there is nothing left to keep.**
+	// Only for a step that asked for privilege - see keepCapsEnv, which decides
+	// - and the whole of the flag's meaning here, since a step that stays root
+	// holds every capability already.
+	keepCaps := keepCapsWanted()
+	if keepCaps {
+		err = holdCapsAcrossSetuid()
+		if err != nil {
+			return err
+		}
+	}
+
 	// Dropped rather than kept: a step that becomes `testuser` should not still
 	// carry root's groups. Best effort on the setgroups, because a kernel that
 	// refuses it leaves the step no *more* privileged than the group change
@@ -274,6 +286,13 @@ func becomeStepUser() error {
 	err = syscall.Setuid(uid)
 	if err != nil {
 		return fmt.Errorf("become user %q for USER %s: %w", name, spec, err)
+	}
+
+	// The other half. PR_SET_KEEPCAPS held the permitted set through the
+	// setuid; effective and ambient are written here, and ambient is the one
+	// that survives the exec this shim ends in.
+	if keepCaps {
+		return restoreCaps()
 	}
 
 	return nil

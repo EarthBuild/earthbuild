@@ -75,6 +75,14 @@ const EnvStepHome = "EARTH_STEP_HOME"
 // namespace would be empty and the step would have no way out.
 const EnvStepNetNS = "EARTH_STEP_NETNS"
 
+// EnvStepKeepCaps tells the shim to carry this step's capabilities across the
+// change of user: `RUN --privileged` with a `USER`.
+//
+// Told to the shim rather than decided by it, for the reason EnvStepUser is:
+// the shim knows it is changing user and nothing else, and whether the step
+// asked for privilege is a fact about the Earthfile that only the host holds.
+const EnvStepKeepCaps = "EARTH_STEP_KEEPCAPS"
+
 // stepShim is what the shim was asked to prepare and become.
 type stepShim struct {
 	// root is the filesystem the step sees, named from outside it: the chroot

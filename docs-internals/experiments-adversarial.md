@@ -45850,3 +45850,53 @@ one mount, about 115us and the kernel's mount lock (E814), plus a copy-up of a
 **Four of the six Native failures were single-cause, and none of the causes was
 the one the grouping suggested.** Two of them were found by reading one line
 further than the line the job reported.
+
+### E940 - privilege for a non-root user is capabilities, and this engine gave a uid
+
+E936 fixed half of `+test-no-qemu-group6`. The other half survived and said so:
+
+```text
+tee: earthly.output: Permission denied
+```
+
+The working directory is root-owned and 0755, the step is `USER bambi`, and the
+harness writes into it. The same probe on one machine, both engines:
+
+| Probe                                     | native (before) | buildkit | native (after) |
+| ----------------------------------------- | --------------- | -------- | -------------- |
+| `USER bambi`, plain RUN, write to cwd     | fails           | fails    | fails          |
+| `USER bambi`, `RUN --privileged`, same    | fails           | succeeds | succeeds       |
+| uid in the privileged step                | 1000            | 1000     | 1000           |
+
+The third row is what makes the second one legible. Both engines run the
+privileged step as uid 1000 - `--privileged` is not a uid switch - so the
+difference is capabilities: buildkit's step keeps `CAP_DAC_OVERRIDE` across the
+change of user and this one did not. `setuid` away from root clears every
+capability set, which is the kernel doing exactly the right thing for an
+ordinary process.
+
+**Three sets, and two of them are invisible if you stop early.**
+`PR_SET_KEEPCAPS` holds the *permitted* set through the `setuid` and nothing
+else; **effective** is what the kernel checks and is empty until written; and
+**ambient** is what survives the `execve` that every step ends in, since a file
+with no capability bits grants none to a non-root uid however privileged its
+parent. Restoring the first two and stopping would have passed a unit test on the
+shim and changed nothing about any step.
+
+**Gated on the flag rather than kept always**, and that is a judgement rather than
+an implementation detail. Every step in this engine is root in a user namespace
+holding `CapEff 000001ffffffffff` already, so keeping capabilities across every
+`USER` would be one line shorter and would hand a plain `USER nobody` step powers
+buildkit withholds. Accepting something not implemented is the expensive half of
+E34's asymmetry, so the flag now reaches `ir.Op` and the key: a step that keeps
+`CAP_DAC_OVERRIDE` across its USER can write files one that dropped it cannot,
+which makes them different steps.
+
+It also makes the refusal in `runFlags` half-false and it has been left alone
+deliberately - "a step here already has every capability" is still true of the
+root steps it is written for, and `--privileged` is still refused without
+`--allow-privileged`.
+
+With this, four of the six Native failures are fixed and each had exactly one
+cause: group1 a missing `/run/secrets`, group6 a directory mode and this,
+group7 a quoting rule, group8 an unimplemented flag.

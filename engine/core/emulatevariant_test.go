@@ -65,3 +65,47 @@ func TestEmulationIgnoresTheVariant(t *testing.T) {
 		t.Error("a machine with no interpreter registered claims to emulate one")
 	}
 }
+
+// A worker of the right architecture is not refused over a variant either.
+//
+// `platformFits` compared two `ir.Platform` structs whole, so a worker reporting
+// `linux/arm64` - which is what `runtime.GOOS/GOARCH` gives, there being no
+// variant to report - was not eligible for a step written
+// `--platform=linux/arm64/v8`. The step then fell to the emulation pass on the
+// machine that could have run it natively, which is a hundred times slower where
+// it works at all.
+//
+// The fourth site of one rule, found by grepping for the comparison rather than
+// for the symptom - which is what the three before it cost (E952).
+func TestAWorkerIsNotRefusedOverAVariant(t *testing.T) {
+	t.Parallel()
+
+	arm64 := Worker{Platform: ir.Platform{OS: "linux", Arch: "arm64"}}
+
+	for _, tc := range []struct {
+		name string
+		want ir.Platform
+		ok   bool
+	}{{
+		name: "a step that states the variant the worker does not",
+		want: ir.Platform{OS: "linux", Arch: "arm64", Variant: "v8"},
+		ok:   true,
+	}, {
+		name: "a step that states none",
+		want: ir.Platform{OS: "linux", Arch: "arm64"},
+		ok:   true,
+	}, {
+		name: "a step for another architecture",
+		want: ir.Platform{OS: "linux", Arch: "amd64"},
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			n := &ir.Node{Op: ir.Op{Kind: ir.OpExec}, Platform: tc.want}
+
+			if got := platformFits(n, arm64, ir.Platform{}); got != tc.ok {
+				t.Errorf("a linux/arm64 worker for %s = %v, want %v", tc.want, got, tc.ok)
+			}
+		})
+	}
+}

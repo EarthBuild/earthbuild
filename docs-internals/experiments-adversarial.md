@@ -46256,3 +46256,34 @@ one before it, and each compared a triple against a pair. A grep for the
 comparison rather than for the symptom would have found all three at once - which
 is the lesson, and it is the same one E946 recorded about reading one line
 further.
+
+### E952 - the comparison written five times, found by grepping for the rule
+
+E951 ended by saying a grep for the comparison rather than for the symptom would
+have found all three copies at once. Doing that found two more:
+
+| site                      | compared                 | wrong       |
+| ------------------------- | ------------------------ | ----------- |
+| `core.canEmulate`         | struct, whole            | yes (E942)  |
+| `image.selectPlatform`    | string, no variant read  | yes (E946)  |
+| `image.checkArchitecture` | string, no variant read  | yes (E951)  |
+| `core.platformFits`       | struct, whole            | yes, latent |
+| `fleet` worker refusal    | two names as strings     | yes, latent |
+| `exec.checkRunnableWith`  | string, variant stripped | no          |
+
+The two latent ones bite the same way and neither had been reached: a worker
+reports `runtime.GOOS/GOARCH` and therefore never carries a variant, so a
+`linux/arm64` machine was ineligible for a step written `--platform=linux/arm64/v8`
+and would have been *refused by the worker* if placement had sent it anyway. The
+step falls to the emulation pass on the machine that could run it natively, which
+is around a hundred times slower where it works at all.
+
+Six sites, one rule, and it is now written once: `ir.Platform.Matches`, with the
+reason stated where the rule is rather than at each use. `engine/image` keeps a
+copy over strings because this package imports it and cannot import back - the
+same constraint `digest.go` already records - and says so.
+
+**The lesson is about how the first three were found, not about platforms.**
+Each was reached only by fixing the one in front of it, one CI round apiece.
+The rule is short enough to grep for and the symptom is not: `no eligible
+worker`, `no manifest for`, and `this image is linux/arm` share no text at all.

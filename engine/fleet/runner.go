@@ -52,8 +52,9 @@ func Runner(
 		//
 		// Building it anyway would succeed and produce binaries for the wrong
 		// machine, which is the failure with no symptom until somebody runs them.
-		if mine := platformName(as.Platform); a.Platform != "" && mine != "" &&
-			a.Platform != mine {
+		if wrongMachine(as.Platform, a.Platform) {
+			mine := platformName(as.Platform)
+
 			return Reply{
 				Version:  Version,
 				Platform: mine,
@@ -792,4 +793,25 @@ func (c *runnerCfg) prime(ctx context.Context, as core.Worker, a Assignment) Rep
 		FetchedBytes: moved.Bytes,
 		FetchMillis:  moved.Took.Milliseconds(),
 	}
+}
+
+// wrongMachine reports whether an assignment names a platform this worker is
+// not.
+//
+// **Either side silent is not a mismatch.** An assignment with no platform is
+// the single-machine case and every test's case; a worker that has not said what
+// it is has nothing to compare, and refusing on a guess costs a build that would
+// have worked.
+//
+// Compared through `ir.Platform.Matches` rather than as two names, which is what
+// it was: a worker reports `runtime.GOOS/GOARCH` and so never carries a variant,
+// so a `linux/arm64` machine refused a step written `linux/arm64/v8` - the fifth
+// place one comparison rule was written out, and the third that got it wrong
+// (E952).
+func wrongMachine(worker ir.Platform, step string) bool {
+	if step == "" || worker == (ir.Platform{}) {
+		return false
+	}
+
+	return !worker.Matches(platformOf(step))
 }

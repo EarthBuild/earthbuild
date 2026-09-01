@@ -116,6 +116,32 @@ func (p Platform) String() string {
 	return p.OS + "/" + p.Arch + "/" + p.Variant
 }
 
+// Matches reports whether a machine or image on this platform serves that one.
+//
+// **The OS and the architecture must be equal; the variant is compared only
+// when both sides state one.** A variant is optional almost everywhere it
+// appears - an OCI image configuration need not carry it, a worker reports
+// `runtime.GOOS/GOARCH` and so never has one, and the kernel registers
+// `qemu-arm` for every 32-bit ARM there is - so a silent side is declining to
+// say rather than claiming to be none of them.
+//
+// Symmetric, because neither side is privileged: an image serving a build and a
+// build served by an image are the same question.
+//
+// **Here because it was implemented four times and differently.** In one
+// session `linux/arm/v7` was refused by scheduling (E942), by manifest
+// selection (E946) and by the image-configuration check (E951), each reached
+// only by fixing the one before it and each comparing a triple against a pair.
+// `engine/image` keeps a copy over strings for the reason `digest.go` does -
+// this package imports it, so it cannot import this one.
+func (p Platform) Matches(want Platform) bool {
+	if p.OS != want.OS || p.Arch != want.Arch {
+		return false
+	}
+
+	return p.Variant == "" || want.Variant == "" || p.Variant == want.Variant
+}
+
 // Mount is a directory bound into a step's filesystem.
 //
 // Not a layer: a layer is stacked and becomes part of what the step produces,

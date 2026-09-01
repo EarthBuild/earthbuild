@@ -745,8 +745,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "core: refusing a worker whose platform is unknown (E267)",
 		File:        "engine/core/schedule.go",
-		Anchor:      "\treturn want == w.Platform\n}",
-		Replacement: "\treturn want == w.Platform || w.Platform == (ir.Platform{})\n}",
+		Anchor:      "\treturn w.Platform.Matches(want)\n}",
+		Replacement: "\treturn w.Platform.Matches(want) || w.Platform == (ir.Platform{})\n}",
 		Package:     "./engine/core/",
 	},
 	{
@@ -766,8 +766,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: a worker refusing a step for a machine it is not (I10, E267)",
 		File:        "engine/fleet/runner.go",
-		Anchor:      "\t\tif mine := platformName(as.Platform); a.Platform != \"\" \u0026\u0026 mine != \"\" \u0026\u0026\n\t\t\ta.Platform != mine {",
-		Replacement: "\t\tif mine := platformName(as.Platform); false \u0026\u0026 mine != \"\" {",
+		Anchor:      "\t\tif wrongMachine(as.Platform, a.Platform) {",
+		Replacement: "\t\tif false {",
 		Package:     "./engine/fleet/",
 	},
 	{

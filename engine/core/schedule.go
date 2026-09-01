@@ -54,7 +54,7 @@ type Worker struct {
 // The same rule `checkRunnableWith` makes, in the other place that makes it.
 func (w Worker) canEmulate(p ir.Platform) bool {
 	for _, e := range w.Emulates {
-		if e.OS == p.OS && e.Arch == p.Arch {
+		if e.Matches(p) {
 			return true
 		}
 	}
@@ -1229,7 +1229,13 @@ func platformFits(n *ir.Node, w Worker, native ir.Platform) bool {
 
 	// A worker that has not said what it is gets nothing. Refusing to guess
 	// costs a slower build; guessing costs a wrong one.
-	return want == w.Platform
+	//
+	// **Loose about the variant**, which is `ir.Platform.Matches` and is the same
+	// rule three other places make: a worker reports `runtime.GOOS/GOARCH` and so
+	// has no variant to report, and comparing the structs whole made a
+	// `linux/arm64` machine ineligible for a step written `linux/arm64/v8` -
+	// sending it to the emulation pass on the machine that could run it (E952).
+	return w.Platform.Matches(want)
 }
 
 // evalNode evaluates one step: lookup, execute if needed, record, publish.

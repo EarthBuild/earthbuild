@@ -226,10 +226,22 @@ type indexEntry struct {
 	Platform struct {
 		OS           string `json:"os"`
 		Architecture string `json:"architecture"`
+		// Variant is what separates the two entries an index carries for
+		// 32-bit ARM. Dropped, both read as `linux/arm`, so neither matched a
+		// step wanting `linux/arm/v7` and the refusal listed the same platform
+		// twice (E946).
+		Variant string `json:"variant"`
 	} `json:"platform"`
 }
 
-func (e indexEntry) platform() string { return e.Platform.OS + "/" + e.Platform.Architecture }
+func (e indexEntry) platform() string {
+	out := e.Platform.OS + "/" + e.Platform.Architecture
+	if e.Platform.Variant != "" {
+		out += "/" + e.Platform.Variant
+	}
+
+	return out
+}
 
 // selectPlatform resolves an index to the manifest for one platform.
 //
@@ -248,8 +260,48 @@ func selectPlatform(m manifest, want string) (string, error) {
 		available = append(available, e.platform())
 	}
 
+	// **A second pass, and only for a variant one side does not state.**
+	// `linux/arm64` is how every Earthfile in this corpus spells the platform an
+	// index calls `linux/arm64/v8`, and an index that lists a bare `linux/amd64`
+	// has no variant to compare against - so an absent variant on either side
+	// matches anything. Both stated and different is a refusal: `linux/arm/v6`
+	// is not `linux/arm/v7`, and serving one for the other is the wrong-manifest
+	// failure this function exists to prevent.
+	//
+	// Second rather than folded into the first, so an exact match always wins:
+	// asked for `linux/arm64`, an index carrying both a bare entry and a `v8`
+	// one must give the bare one, whichever is listed first.
+	for _, e := range m.Manifests {
+		if looselyMatches(e.platform(), want) {
+			return e.Digest, nil
+		}
+	}
+
 	return "", fmt.Errorf("no manifest for %s\n  this image provides: %s",
 		want, strings.Join(available, ", "))
+}
+
+// looselyMatches compares two platforms where one states no variant.
+//
+// The OS and the architecture must be equal whatever happens; the variant is
+// compared only when both sides have one to compare.
+func looselyMatches(have, want string) bool {
+	haveOS, haveArch, haveVar := splitTriple(have)
+	wantOS, wantArch, wantVar := splitTriple(want)
+
+	if haveOS != wantOS || haveArch != wantArch {
+		return false
+	}
+
+	return haveVar == "" || wantVar == ""
+}
+
+// splitTriple reads `os/arch` or `os/arch/variant`.
+func splitTriple(p string) (os, arch, variant string) {
+	os, rest, _ := strings.Cut(p, "/")
+	arch, variant, _ = strings.Cut(rest, "/")
+
+	return os, arch, variant
 }
 
 // Pull fetches an image and unpacks its layers into dir, in order.

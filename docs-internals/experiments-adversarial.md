@@ -46080,3 +46080,34 @@ tree. A remote target's checkout lives in the cache, where a computed path is a
 qualified by its origin in the branch below. `../js+build` is left as a **[GAP]**
 rather than guessed: getting it right means carrying the form the BUILD line
 wrote, which nothing does yet.
+
+### E946 - an index lists 32-bit ARM twice and this engine read it as one platform
+
+With placement fixed (E942), `+test-qemu` reached the pull and failed there:
+
+```text
+alpine:3.24.1: no manifest for linux/arm/v7
+  this image provides: linux/amd64, linux/arm, linux/arm, linux/arm64
+```
+
+`linux/arm` twice is the whole diagnosis. `indexEntry.Platform` read `os` and
+`architecture` and had no field for `variant`, so alpine's `arm/v6` and `arm/v7`
+entries both rendered as `linux/arm` - neither equal to what was wanted, and the
+refusal listing the same platform twice without being able to say why.
+
+The error was in run 1's log, underneath the placement refusal, and was read past
+on the way to the first line. Two errors in one job, and only the first was
+looked at (E942 says the same about itself from the other side).
+
+**Matching is two passes, and the second is the interesting one.** An exact
+`os/arch/variant` match wins. Failing that, a variant that only one side states
+matches anything: `linux/arm64` is how every Earthfile in this corpus spells the
+platform an index calls `linux/arm64/v8`, and an index listing a bare
+`linux/amd64` has no variant to compare against. Both stated and different stays
+a refusal - `linux/arm/v6` is not `linux/arm/v7`, and serving one for the other
+is precisely the wrong-manifest failure `selectPlatform` exists to prevent, which
+shows up as `exec format error` somewhere far away.
+
+Exact first rather than folded into one pass, so an index carrying both a bare
+`linux/arm64` and a `v8` one gives the bare entry to a caller who asked for the
+bare name, whichever is listed first.

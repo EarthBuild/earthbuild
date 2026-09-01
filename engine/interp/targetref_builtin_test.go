@@ -52,8 +52,8 @@ test:
 		}
 
 		for _, a := range n.Op.Args {
-			if i := strings.Index(a, "target="); i >= 0 {
-				got = append(got, strings.Trim(a[i+len("target="):], `"`))
+			if _, after, found := strings.Cut(a, "target="); found {
+				got = append(got, strings.Trim(after, `"`))
 			}
 		}
 	}

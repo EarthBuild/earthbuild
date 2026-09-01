@@ -64,6 +64,9 @@ type runOpts struct {
 	// aws is `RUN --aws`: the step is given the invoking user's AWS
 	// credentials. Gated by `VERSION --run-with-aws`.
 	aws bool
+	// entrypointShell is `RUN --entrypoint` written in shell form: the image's
+	// entrypoint and these arguments are one command line rather than an argv.
+	entrypointShell bool
 	// privileged is `RUN --privileged`. It changes nothing for a step that
 	// stays root - every step here already holds every capability - and one
 	// thing for a step with a USER: the capabilities survive the setuid.
@@ -175,8 +178,14 @@ func runFlags(
 		ssh:        opts.WithSSH,
 		aws:        opts.WithAWS,
 		privileged: opts.Privileged,
-		rawOutput:  opts.RawOutput,
-		pushOnly:   opts.Push,
+		// **Shell form, and the reference agrees.** `withShell` there is
+		// `!ExecMode` and is not overridden by `--entrypoint`, so the image's
+		// entrypoint is prepended and the whole line goes to a shell. Written
+		// out as a separate field because the joining cannot happen here: the
+		// entrypoint is not known until the image is fetched (E941).
+		entrypointShell: opts.WithEntrypoint && !c.ExecMode,
+		rawOutput:       opts.RawOutput,
+		pushOnly:        opts.Push,
 	}
 
 	if len(rest) == 0 {

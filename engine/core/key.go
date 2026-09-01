@@ -138,6 +138,7 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 	}
 	h.Bool(n.Op.SSH)
 	h.Bool(n.Op.Entrypoint)
+	h.Bool(n.Op.EntrypointShell)
 	h.Bool(n.Op.DirCopy)
 	h.Bool(n.Op.NoFollow)
 	h.Bool(n.Op.KeepOwn)

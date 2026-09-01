@@ -629,7 +629,7 @@ func (e *Executor) Run(
 				n.Meta.Source, baseImageOf(n))
 		}
 
-		argv = append(append([]string{}, baseCfg.Entrypoint...), argv...)
+		argv = entrypointArgv(baseCfg.Entrypoint, argv, n.Op.EntrypointShell)
 	}
 
 	write, flush := e.sinkFor(n)

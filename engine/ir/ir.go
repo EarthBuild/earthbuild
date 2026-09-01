@@ -389,6 +389,18 @@ type Op struct {
 	// entrypoint itself is in the key already, through the image the step
 	// stands on.
 	Entrypoint bool
+	// EntrypointShell says the `RUN --entrypoint` was written in shell form, so
+	// the image's entrypoint and these arguments are one command line for a
+	// shell rather than an argv.
+	//
+	// Two halves of one decision, held apart because neither side has both: the
+	// form is the interpreter's to know and the entrypoint is the executor's, so
+	// the form travels and the joining happens where the entrypoint arrives.
+	//
+	// In the key because it decides what runs. `-- --no-output +t && ls /tmp/x`
+	// is one command and a second command as a shell reads it, and two arguments
+	// to a program as an argv does (E941).
+	EntrypointShell bool
 	// DirCopy is `COPY --dir`: the directory itself rather than its contents.
 	//
 	// In the key, because the two put different trees in the image from the
@@ -748,6 +760,7 @@ func (n *Node) ID() NodeID {
 	}
 	h.Bool(n.Op.SSH)
 	h.Bool(n.Op.Entrypoint)
+	h.Bool(n.Op.EntrypointShell)
 	h.Bool(n.Op.DirCopy)
 	h.Bool(n.Op.NoFollow)
 	h.Bool(n.Op.KeepOwn)

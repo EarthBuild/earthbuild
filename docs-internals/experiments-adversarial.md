@@ -45900,3 +45900,48 @@ root steps it is written for, and `--privileged` is still refused without
 With this, four of the six Native failures are fixed and each had exactly one
 cause: group1 a missing `/run/secrets`, group6 a directory mode and this,
 group7 a quoting rule, group8 an unimplemented flag.
+
+### E941 - `RUN --entrypoint` in shell form is a command line, and this engine made it an argv
+
+`+test-no-qemu-group10` failed on one line, three times:
+
+```text
+Error: invalid arguments github.com/EarthBuild/test-remote/privileged:main+locally && ls /tmp/hostname....
+```
+
+The Earthfile writes
+
+```text
+RUN --privileged --entrypoint --mount=type=tmpfs,target=/tmp/earthbuild \
+    -- --no-output <remote-target> && ls /tmp/hostname.<uuid>
+```
+
+and the entrypoint of that image is `earth` itself, so the diagnosis is `earth`
+reporting the arguments it was handed. It was handed `&&`, `ls` and a path,
+because this engine gave the entrypoint an argv where the reference gives a
+shell a command line.
+
+**The engine's own comment said why, and it was a decision rather than an
+oversight**: "an entrypoint is a program and not a shell - so they must not be
+re-split, exactly as in exec form", with `RUN --entrypoint -- -f api.proto` as
+the case it protects. The reasoning is sound and the reference does not do it:
+`withShell` there is `!ExecMode`, `--entrypoint` does not override it, and
+`converter.go` prepends the entrypoint and then hands the whole list to
+`/bin/sh -c`. Parity decides this one, because the corpus is written against the
+reference; exec form still keeps its boundaries, which is what exec form is for.
+
+**Two places, because neither side has both halves.** The form is the
+interpreter's to know and the image's entrypoint is not: when an `ENTRYPOINT` in
+the same build declares it, the interpreter already resolves it and now joins
+there; when only the fetched image knows it, the flag travels in `ir.Op` and the
+executor joins. Doing one and not the other would have fixed the corpus case and
+left `tests/gen-dockerfile.earth` wrapped differently from every other build.
+
+One existing unit test asserted the argv form directly and has been corrected
+rather than deleted: what it exists to check - that a declared entrypoint is
+resolved in the interpreter and not asked of the executor a second time - is
+unchanged and still asserted; only the shape of the argv beside it moved.
+
+`./tests+remote-test` and `./tests+gen-dockerfile-test` both pass under
+`--engine=native`. That is five of the seven Native failures fixed, each with a
+single cause, and none of them shared with another.

@@ -1191,6 +1191,15 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		argv, fromImage := runArgv(c, rf.rest, rf.entrypoint), rf.entrypoint
 		if rf.entrypoint && len(rs.cfg.Entrypoint) > 0 {
 			argv, fromImage = append(append([]string{}, rs.cfg.Entrypoint...), argv...), false
+
+			// **Joined here because here the line is complete.** A shell-form
+			// `--entrypoint` is one command line for a shell, and it can only
+			// be written once the entrypoint is in front of it. The other case
+			// - an entrypoint only the fetched image knows - is joined by the
+			// executor for the same reason. See ir.Op.EntrypointShell.
+			if rf.entrypointShell {
+				argv = shell(strings.Join(argv, " "))
+			}
 		}
 
 		// Computed once, and only from names the caller already resolved: this
@@ -1200,10 +1209,11 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		return &ir.Node{
 			Op: ir.Op{
 				Kind: ir.OpExec, Args: argv, Entrypoint: fromImage,
-				NoNetwork:   rf.noNet,
-				Privileged:  rf.privileged,
-				Interactive: rf.interactive,
-				SSH:         rf.ssh,
+				EntrypointShell: rf.entrypointShell && fromImage,
+				NoNetwork:       rf.noNet,
+				Privileged:      rf.privileged,
+				Interactive:     rf.interactive,
+				SSH:             rf.ssh,
 				// **A cache mount is an accelerator, and is cached.**
 				//
 				// It was not, on the grounds that what a step produces may

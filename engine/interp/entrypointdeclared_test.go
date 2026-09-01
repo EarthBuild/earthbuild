@@ -46,8 +46,16 @@ main:
 
 		found = true
 
-		if got := strings.Join(n.Op.Args, " "); got != "echo hello world" {
-			t.Errorf("the step runs %q, want `echo hello world`", got)
+		// Shell-wrapped, because `RUN --entrypoint` here is shell form and the
+		// reference wraps it: its `withShell` is `!ExecMode` and --entrypoint
+		// does not override it, so the entrypoint is prepended and the whole
+		// line is given to a shell. This assertion read `echo hello world`
+		// while this engine handed the entrypoint an argv instead, which is
+		// what E941 corrects; what it is *for* - that the entrypoint is
+		// resolved here and not asked of the executor again - is unchanged and
+		// is the check below.
+		if got := strings.Join(n.Op.Args, " "); got != "/bin/sh -c echo hello world" {
+			t.Errorf("the step runs %q, want `/bin/sh -c echo hello world`", got)
 		}
 
 		if n.Op.Entrypoint {

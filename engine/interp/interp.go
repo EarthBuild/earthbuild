@@ -933,7 +933,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 					return nil, err
 				}
 
-				maps.Copy(pass, rs.args)
+				maps.Copy(pass, withoutBuiltins(rs.args))
 			}
 
 			maps.Copy(pass, from.args)
@@ -1670,7 +1670,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				return nil, needsErr
 			}
 
-			maps.Copy(pass, rs.args)
+			maps.Copy(pass, withoutBuiltins(rs.args))
 		}
 
 		maps.Copy(pass, buildArgs)
@@ -2265,7 +2265,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 			pass := map[string]string{}
 
 			if passArgs {
-				maps.Copy(pass, rs.args)
+				maps.Copy(pass, withoutBuiltins(rs.args))
 			}
 
 			maps.Copy(pass, buildArgs)

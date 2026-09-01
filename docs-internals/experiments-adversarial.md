@@ -45976,3 +45976,36 @@ Unverified end to end: this box has an empty `binfmt_misc` and registering an
 interpreter needs root, so the fix is asserted by unit test and by the rule it
 now shares with `checkRunnableWith`. Whether `+test-qemu` also needs the CI
 action's install to work is a separate question and still open.
+
+### E943 - `--pass-args` passed the engine's answers as well as the caller's
+
+With the raw-output flag implemented, `+test-no-qemu-group8` failed on what had
+been behind it:
+
+```text
+Error: RUN test "+test" = "./sub+subtest" failed with exit code 1 (/sub/Earthfile:7)
+```
+
+`tests/pass-args-no-builtins` is named for the rule it asserts. `ARG
+EARTHLY_TARGET` in the caller puts that target's own name into scope;
+`--pass-args` copied the whole scope; the callee's own `ARG EARTHLY_TARGET`
+then found a supplied value and kept it. A target asked its own name and was
+told its caller's.
+
+The reference removes them, in `RemoveReservedArgsFromScope`, on the same scope
+and at the same point. A builtin is an answer *about the target that declared
+it*, so handing one down makes it an answer about somebody else - which is the
+one kind of argument `--pass-args` must not pass.
+
+**The unit test found it as a missing step, not a wrong value.** Two steps whose
+commands differ only in that argument became the same text, so the graph
+deduplicated them into one node and the plan had one step where the recipe had
+two. That is a sharper assertion than comparing the value would have been, and
+it is why the test asserts the count first: a build can lose a step to a wrong
+argument and report nothing at all.
+
+The set of names is derived from `builtinArgs` rather than written out again -
+the second list is the one that stops matching the first - with
+`addCIRunner`'s two names added explicitly, because it is called conditionally
+and a name whose presence depended on a VERSION flag would make the set depend
+on the file being built.

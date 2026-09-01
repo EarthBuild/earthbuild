@@ -390,7 +390,7 @@ func (p *Plan) withStatement(st *earthfile.WithStatement, prev *ir.Node, rs *sta
 		// `--build-arg` overrides then win, which is the order FROM and BUILD
 		// use and the only order that lets a caller override one of them.
 		if opts.PassArgs {
-			maps.Copy(pass, rs.args)
+			maps.Copy(pass, withoutBuiltins(rs.args))
 		}
 
 		// `--build-arg NAME=VALUE`, which is a different spelling from the

@@ -319,3 +319,60 @@ func dockerTag(tag string) string {
 	// A docker tag may not begin with a separator, and a branch may.
 	return strings.TrimLeft(safe, "._-")
 }
+
+// builtinNames are the argument names this engine answers for itself.
+//
+// **Derived from the constructor rather than listed again.** A builtin added to
+// `builtinArgs` is one this must know about, and a second list is one that
+// stops matching the first - which is the whole reason this file names each
+// family once and mirrors it.
+//
+// Computed with empty inputs because only the keys are wanted; the values are
+// per-target and per-machine and nothing here reads them. `addCIRunner`'s two
+// names are added because it is called conditionally, and a name whose presence
+// depends on a VERSION flag would make this set depend on the file being built.
+var builtinNames = builtinNameSet()
+
+func builtinNameSet() map[string]bool {
+	out := map[string]bool{}
+
+	for name := range builtinArgs("", "", "", "", false, false) {
+		out[name] = true
+	}
+
+	addCIRunner(map[string]string{})
+
+	for _, name := range []string{"EARTH_CI_RUNNER", "EARTHLY_CI_RUNNER"} {
+		out[name] = true
+	}
+
+	return out
+}
+
+// withoutBuiltins is a scope as `--pass-args` hands it down.
+//
+// **A builtin is an answer about the target that declared it**, so passing one
+// on makes it an answer about somebody else: `ARG EARTHLY_TARGET` in the caller
+// put its own name into scope, the whole scope was copied, and the callee's own
+// `ARG EARTHLY_TARGET` found a supplied value and kept it. A target asked its
+// own name and was told its caller's.
+//
+// The failure did not look like a wrong value. Two steps whose commands differ
+// only in that argument became the same text, so the graph deduplicated them
+// into one node and the plan had one step where the recipe had two (E943).
+//
+// The reference does this in `RemoveReservedArgsFromScope`, on the same scope
+// and for the same reason; `tests/pass-args-no-builtins` is named for it.
+func withoutBuiltins(args map[string]string) map[string]string {
+	out := make(map[string]string, len(args))
+
+	for name, value := range args {
+		if builtinNames[name] {
+			continue
+		}
+
+		out[name] = value
+	}
+
+	return out
+}

@@ -45732,3 +45732,75 @@ the A/B says why: with the same uid 1000 and the same root-owned 0755 directory,
 `RUN --privileged` writes it under buildkit and not here. Privilege for a
 non-root `USER` is capabilities, not uid, and this engine grants none - a
 separate gap, not a variant of this one.
+
+### E937 - `VERSION --raw-output` was one error, and a whole CI job
+
+`+test-no-qemu-group8` failed three times on one line and nothing else:
+
+```text
+Error: /test/Earthfile: VERSION --raw-output is a feature this engine does not know
+```
+
+Three retries of one target, one cause, one job. Refusing a flag at the VERSION
+line takes the whole file down, so a cosmetic option costs every target in it -
+the asymmetry E34 names, paying out in the expensive direction.
+
+The flag drops the prefix naming which step a line came from. That prefix is
+load-bearing: steps run concurrently, and an unattributed line sends a reader to
+debug the wrong command. It is also exactly wrong for a step writing for a
+parser rather than a reader - a GitHub Actions fold marker is `::group::` at the
+start of a line and nothing anywhere else, so a prefixed one is a sentence about
+a directive instead of a directive.
+
+Which is why accepting-and-ignoring was not open here. `ignoredFeatures` takes a
+flag whose behaviour this engine already has unconditionally; this one changes
+what the build prints, and `tests/raw-output` asserts all three halves - the
+marker at column one, the ordinary line *not* at column one, and the closing
+marker. Ignoring the flag would have moved the failure from the VERSION line to
+the assertion.
+
+Implemented rather than ignored: the request travels in `ir.Meta`, which is not
+hashed, so two steps differing only in how their output is shown share a cache
+entry. `./tests/raw-output+test-all` passes under `--engine=native`.
+
+**The ratchet of dropped flags is what made this cheap.** `RUN --raw-output` was
+on a committed list of flags the engine accepts and discards, with a one-line
+reason beside it; the test fails when an entry stops being true. So the fix was
+a list entry to delete rather than a search, and the list said in advance what
+the work was.
+
+### E938 - single quotes suppress a substitution, and this engine ran it anyway
+
+`+test-no-qemu-group7` failed three times on one line, as group8 did:
+
+```text
+Error: BUILD +test5 (Earthfile:9): ARG at Earthfile:57: "whoami" exited 1
+```
+
+The line is `ARG VAR1='literal$(whoami)string'` in `tests/shell-out/new.earth`,
+and the target beneath it asserts the value is those characters. Single quotes
+suppress every expansion - that is the one thing they are for - and this engine
+expanded through them. The command then ran against a `FROM scratch`
+filesystem, which has no `whoami`, so the diagnosis named a command the author
+had written specifically to say should not run.
+
+**Two passes, and the fix needed both.** `commandSpan` finds the substitution
+and `standAsideEscapedDollar` protects what is not one from the unquoting that
+follows. Teaching only the first would have been worse than nothing: the quoted
+`$(whoami)` would fall into the text region, the text region is unquoted next,
+and the later command scan re-reads unquoted text where a suppressed command and
+a written one are the same characters. That is the trap `escapedDollar` already
+exists to close, entered from the other side - so the fix is the same mechanism,
+extended to the other way a shell suppresses a dollar.
+
+It covers `$NAME` as well as `$(cmd)`, because single quotes suppress both and
+the pass that expands names also runs after the unquoting. Double quotes are the
+control and must keep expanding: `LET n=$(echo "$files" | wc -l)` is the corpus
+relying on it.
+
+**Three jobs, three single causes.** Grouping the six Native failures by the
+Earthfile line they reported put groups 6, 7 and 8 together under
+`tests/Earthfile:1817`, which is not a cause but the harness every test runs
+through. One line further along they are three unrelated defects, and two of
+them were a morning's work each. The shared line number was the reason the
+cluster looked like one problem and the reason it was not.

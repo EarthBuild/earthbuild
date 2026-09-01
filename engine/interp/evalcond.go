@@ -159,6 +159,11 @@ func (p *Plan) substitute(cmd []string, base *ir.Node, dir, what, where string) 
 // bracket-matcher drift.
 // unescapedIndex is where the first substitution that is one begins.
 //
+// **Single quotes suppress it too.** `'literal$(whoami)string'` holds those
+// characters and no command - suppressing every expansion is the one thing
+// single quotes are for - and double quotes, which do not suppress, are what
+// keeps `LET n=$(echo "$files" | wc -l)` working (E938).
+//
 // **`\$(` is text.** The grammar has `escaped-char = "\" %x21-7E` and
 // `unescape` resolves it, but the scan for `$(` runs first - so
 // `ARG VAR1="literal\$(string)"` had `string` run as a command and the build
@@ -168,19 +173,35 @@ func (p *Plan) substitute(cmd []string, base *ir.Node, dir, what, where string) 
 // literal backslash followed by a real substitution, so the count has to be
 // odd rather than merely non-zero.
 func unescapedIndex(s string) int {
-	for i := 0; i+1 < len(s); i++ {
-		if s[i] != '$' || s[i+1] != '(' {
-			continue
+	var (
+		slashes int
+		single  bool
+	)
+
+	for i := range len(s) {
+		switch s[i] {
+		case '\\':
+			// Inside single quotes a backslash is a backslash, so it neither
+			// escapes the closing quote nor counts towards escaping a dollar.
+			if !single {
+				slashes++
+
+				continue
+			}
+		case '\'':
+			switch {
+			case single:
+				single = false
+			case slashes%2 == 0:
+				single = true
+			}
+		case '$':
+			if !single && slashes%2 == 0 && i+1 < len(s) && s[i+1] == '(' {
+				return i
+			}
 		}
 
-		slashes := 0
-		for j := i - 1; j >= 0 && s[j] == '\\'; j-- {
-			slashes++
-		}
-
-		if slashes%2 == 0 {
-			return i
-		}
+		slashes = 0
 	}
 
 	return -1
@@ -244,8 +265,14 @@ const regionMark = '\uE000'
 // cannot be chosen independently.
 const escapedDollar = '\uE001'
 
-// standAsideEscapedDollar replaces an escaped `$` with escapedDollar, consuming
-// the backslash that escaped it exactly as unquoting would have.
+// standAsideEscapedDollar replaces a suppressed `$` with escapedDollar,
+// consuming the backslash that escaped it exactly as unquoting would have.
+//
+// Two ways a shell suppresses a dollar and this must know both, because the
+// unquoting that follows removes the evidence of either. A backslash escapes
+// it; single quotes suppress everything inside them, `$(cmd)` and `$NAME`
+// alike. `ARG VAR1='literal$(whoami)string'` is a value and not a command, and
+// running it failed a build with `"whoami" exited 1` (E938).
 //
 // Counted rather than matched: `\\$(` is an escaped *backslash* followed by a
 // command, and a rule that looked only at the preceding byte would stand aside
@@ -253,30 +280,59 @@ const escapedDollar = '\uE001'
 func standAsideEscapedDollar(s string) string {
 	var b strings.Builder
 
-	slashes := 0
+	var (
+		slashes int
+		single  bool
+	)
 
 	for i := range len(s) {
 		switch s[i] {
 		case '\\':
+			// A backslash inside single quotes escapes nothing - not the
+			// closing quote, not a dollar - so it is written as it stands.
+			if single {
+				b.WriteByte('\\')
+
+				continue
+			}
+
 			slashes++
+
+			continue
+		case '\'':
+			b.WriteString(strings.Repeat("\\", slashes))
+
+			switch {
+			case single:
+				single = false
+			case slashes%2 == 0:
+				single = true
+			}
+
+			b.WriteByte('\'')
 		case '$':
-			if slashes%2 == 1 {
+			if single || slashes%2 == 1 {
 				// The escaping backslash is consumed here; the rest stay for
-				// the unquoting that follows.
-				b.WriteString(strings.Repeat("\\", slashes-1))
+				// the unquoting that follows. A quoted dollar had none to
+				// consume - the quotes are what suppressed it, and they are
+				// still there for the unquoting to remove.
+				kept := slashes
+				if kept > 0 {
+					kept--
+				}
+
+				b.WriteString(strings.Repeat("\\", kept))
 				b.WriteRune(escapedDollar)
 			} else {
 				b.WriteString(strings.Repeat("\\", slashes))
 				b.WriteByte('$')
 			}
-
-			slashes = 0
 		default:
 			b.WriteString(strings.Repeat("\\", slashes))
-			slashes = 0
-
 			b.WriteByte(s[i])
 		}
+
+		slashes = 0
 	}
 
 	b.WriteString(strings.Repeat("\\", slashes))

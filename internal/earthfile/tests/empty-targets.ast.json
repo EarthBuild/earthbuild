@@ -11,8 +11,7 @@
   ],
   "targets": [
     {
-      "name": "empty",
-      "recipe": null
+      "name": "empty"
     },
     {
       "name": "test",
@@ -28,8 +27,7 @@
       ]
     },
     {
-      "name": "empty-with-comment",
-      "recipe": null
+      "name": "empty-with-comment"
     },
     {
       "name": "test2",
@@ -45,8 +43,7 @@
       ]
     },
     {
-      "name": "empty-tight",
-      "recipe": null
+      "name": "empty-tight"
     },
     {
       "name": "test3",
@@ -62,8 +59,7 @@
       ]
     },
     {
-      "name": "eof",
-      "recipe": null
+      "name": "eof"
     }
   ],
   "version": {

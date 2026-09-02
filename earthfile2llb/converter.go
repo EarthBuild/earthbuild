@@ -7,7 +7,7 @@ import (
 	"crypto/sha1" // #nosec G505
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io/fs"

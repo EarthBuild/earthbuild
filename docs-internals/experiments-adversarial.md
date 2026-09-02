@@ -46620,3 +46620,42 @@ everywhere it is written plainly, and absent everywhere the author deliberately
 deferred it to the shell. `FOR` declares its name for the body exactly as `ARG`
 declares one for the recipe, and now says so - scoped to the loop, as the restore
 already intended.
+
+### E962 - a supplied value stops at the target it was given to
+
+The last of `tests/platform`'s sixteen assertions to fall was
+`copy_override/linux/arm64`, holding `x86_64`. The chain that produces it passes
+`--copy_override_platform=linux/arm64` to `+run-copy`, which **neither declares
+it nor passes it on**, and the target `+run-copy` copies from reads it.
+
+That is not an oversight in the corpus - it is the rule. The reference
+propagates the *overriding* scope to any target in the same project without
+`--pass-args`, and stops it at a project boundary:
+
+```go
+propagateBuildArgs := !relTarget.IsExternal()
+if passArgs { ... } else if propagateBuildArgs {
+    overriding = CombineScopes(overriding, c.varCollection.Overriding())
+}
+```
+
+So `--pass-args` is not "pass things down" - passing down already happens. It is
+"pass down *what I declared*, and across a project boundary". This engine had
+only the flag, so a value supplied at one call site reached exactly one target.
+
+**The ratchet caught a fall of two and the fall was correct.** The whole-corpus
+count went 494 to 492 on darwin and 486 to 484 on linux, and both targets are in
+`tests/cli/testdata/infinite-recursion/Earthfile` - a fixture whose every target
+exists to be refused, with `# this causes inf recursion` written beside the line
+that does it. `+build7` never saw `hello=recursion`, so its `IF` was false and
+the engine planned a recursion the fixture was written to demonstrate. Planning
+it was the defect; refusing it is the fix, and the number going down is what that
+looks like.
+
+**Both numbers were measured rather than one guessed.** The linux figure has been
+the reason every ratchet move this month waited for CI; a `golang` container with
+the repository mounted answers it here in twenty seconds, and it agreed with the
+darwin fall exactly.
+
+With this, `./tests/platform+test` passes all sixteen platform assertions under
+`--engine=native`.

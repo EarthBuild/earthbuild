@@ -471,3 +471,32 @@ func globalArgName(args []string) (string, bool) {
 
 	return "", false
 }
+
+// overriding is what a caller's own supplied values contribute to a reference
+// it is about to build.
+//
+// **A value supplied from outside travels with a *local* reference.** The
+// reference calls this the overriding scope and propagates it to any target in
+// the same project without `--pass-args`; only a reference that leaves the
+// project needs the flag, which is what the flag is for
+// (`prepOverridingVars`: `propagateBuildArgs := !relTarget.IsExternal()`).
+//
+// `tests/platform` is built on it and cannot be read without it: `+run-copy`
+// never declares `copy_override_platform` and never passes it on, and the target
+// it copies from reads it - so seven of that file's sixteen assertions turn on a
+// value crossing two references nobody wrote a flag for (E962).
+//
+// Distinct from `--pass-args`, which adds what this recipe *declared* and its
+// file's globals. This is only what somebody outside supplied, which is why it
+// needs no builtin filtering: a builtin is this engine's answer and never
+// arrives that way.
+func (p *Plan) overriding(rs *state, ref, where string) map[string]string {
+	parsed, err := parseRef(ref, where, p.here.imports)
+	if err != nil || parsed.remote != nil {
+		// A malformed reference is reported by the resolution that follows, and
+		// a remote one keeps the boundary the flag exists to cross.
+		return nil
+	}
+
+	return rs.supplied
+}

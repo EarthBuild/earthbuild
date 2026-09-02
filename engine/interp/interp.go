@@ -947,6 +947,8 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 
 			pass := map[string]string{}
 
+			maps.Copy(pass, p.overriding(rs, from.ref, loc(c.SourceLocation)))
+
 			if from.passArgs {
 				err := p.here.features.needs(
 					p.here.features.passArgs, "FROM --pass-args", "--pass-args",
@@ -1685,6 +1687,8 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// values travel with the resolution rather than being ignored.
 		pass := map[string]string{}
 
+		maps.Copy(pass, p.overriding(rs, ref, loc(c.SourceLocation)))
+
 		if buildPass {
 			needsErr := p.here.features.needs(
 				p.here.features.passArgs, "BUILD --pass-args", "--pass-args", loc(c.SourceLocation))
@@ -2283,8 +2287,12 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 			}
 		}
 
-		if passArgs || len(buildArgs) > 0 {
+		over := p.overriding(rs, src, loc(c.SourceLocation))
+
+		if passArgs || len(buildArgs) > 0 || len(over) > 0 {
 			pass := map[string]string{}
+
+			maps.Copy(pass, over)
 
 			if passArgs {
 				maps.Copy(pass, withoutBuiltins(passable(rs)))

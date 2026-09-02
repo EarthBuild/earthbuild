@@ -411,3 +411,63 @@ func (p *Plan) resolve(from *unit, ref reference) (*unit, error) {
 
 	return u, nil
 }
+
+// globalsFor is the globals a function called in this unit inherits.
+//
+// **The names come from the callee's file and the values from the call site.**
+// `ARG --global` is a statement about one file, so a function written elsewhere
+// is not covered by it - `tests/pass-args-via-function-with-override/sub.earth`
+// declares none and asserts its function sees nothing while the file above it
+// declares one (E956). A name both files declare keeps the value in force where
+// the call was made, which is what the same-file case needs and what
+// `tests/function-nested-global.earth` asserts: a function reads `$foo` before
+// declaring it and expects the *overridden* value, not the file's default.
+//
+// Read from the base recipe's text rather than from an evaluated state. A
+// function is inlined into its caller and its own file's base recipe never runs,
+// so asking for values would either run it or make the answer depend on whether
+// something else already had.
+func globalsFor(inForce map[string]string, callee *unit) map[string]string {
+	out := map[string]string{}
+
+	for _, c := range callee.tree.BaseRecipe {
+		if c.Command == nil || c.Command.Name != earthfile.CmdArg {
+			continue
+		}
+
+		name, global := globalArgName(c.Command.Args)
+		if !global {
+			continue
+		}
+
+		if v, ok := inForce[name]; ok {
+			out[name] = v
+		}
+	}
+
+	return out
+}
+
+// globalArgName reads an `ARG --global NAME[=default]`, and says whether it was
+// one.
+//
+// Only the name is wanted: the default is the file's own answer and is reached
+// through the base recipe when that file is built as a target. Flags are skipped
+// rather than matched exactly, so `ARG --global --required X` reads the same.
+func globalArgName(args []string) (string, bool) {
+	var global bool
+
+	for _, a := range args {
+		if strings.HasPrefix(a, "--") {
+			global = global || a == "--global"
+
+			continue
+		}
+
+		name, _, _ := strings.Cut(a, "=")
+
+		return strings.TrimSpace(name), global
+	}
+
+	return "", false
+}

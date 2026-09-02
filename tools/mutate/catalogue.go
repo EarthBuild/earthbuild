@@ -2391,8 +2391,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "interp: a global argument reaching inside a function (E425)",
 		File:        "engine/interp/interp.go",
-		Anchor:      "\trs.globals = p.callerGlobals",
-		Replacement: "\trs.globals = map[string]string{}",
+		Anchor:      "\tglobals := globalsFor(p.callerGlobals, u)",
+		Replacement: "\tglobals := map[string]string{}",
 		Package:     "./engine/interp/",
 	},
 	{

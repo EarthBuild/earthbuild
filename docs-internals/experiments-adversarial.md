@@ -46440,10 +46440,31 @@ It explains the second failure too: the global overwrote the passed
 `defaultvalue` in the function's scope, so `--pass-args` forwarded the global on
 to the target below.
 
-Not fixed here. It is precedence in argument resolution, which is the highest
-blast radius in the interpreter and the one place this session has already paid
-for a change tested too narrowly (E947); the corpus is the check and the corpus
-needs a machine.
+**Fixed the next morning, and the corpus turned out to state both halves.** The
+instrument I said I needed was not a machine after all - it was reading the two
+files that disagree:
+
+* `tests/function-nested-global.earth` is the same-file half and says so in a
+  comment: a function reads `$foo` *before* declaring it and asserts the value in
+  force, so a global does travel into a function in its own file and carries
+  whatever overrode it.
+* `pass-args-via-function-with-override/sub.earth` is the other half: no globals
+  declared, and its function asserts it sees nothing.
+
+So "everywhere" means the file that said it. The names now come from the callee's
+own base recipe and the values from the call site, which gives the same-file case
+exactly what it had and the cross-file case nothing.
+
+Read from the base recipe's *text* rather than from an evaluated state, because a
+function is inlined and its own file's base recipe never runs: asking for the
+values would either run it or make the answer depend on whether something else
+already had - a result that changes with build order is worse than the defect.
+
+One thing the fix exposed and did not change: a name with no value is left for
+the shell rather than substituted empty, so the step reads `[$MY_ARG]` in the
+plan and empty in the container. That is this engine's rule everywhere and the
+corpus assertion is `test -z`, which holds either way; the test says so rather
+than asserting the tidier-looking thing.
 
 ### E957 - shell-out before 0.7 happens only when it is the whole value
 

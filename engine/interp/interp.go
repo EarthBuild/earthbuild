@@ -3022,9 +3022,24 @@ func (p *Plan) do(c earthfile.Command, prev *ir.Node, caller *state) (*ir.Node, 
 	// different statement from the caller's locals - those stay outside, because
 	// a function that silently saw them would do different things depending on
 	// where it was called from (E425).
-	rs.globals = p.callerGlobals
+	//
+	// **"Everywhere" is the file that said it.** A function in another file gets
+	// only the globals *its own* file declares:
+	// `tests/pass-args-via-function-with-override/sub.earth` declares none and
+	// asserts its function sees nothing, while the root file above it declares
+	// `ARG --global MY_ARG=this-should-be-ignored`. Passing them all made a
+	// function read a value its file never mentions, and `--pass-args` forwarded
+	// it over the caller's declared one two targets further down (E956).
+	//
+	// The names are read from the callee's own base recipe rather than from its
+	// evaluated state, because a function is inlined and its file's base recipe
+	// is not run: asking for the values would either run it or make the answer
+	// depend on whether something else already had.
+	globals := globalsFor(p.callerGlobals, u)
 
-	for name, value := range p.callerGlobals {
+	rs.globals = globals
+
+	for name, value := range globals {
 		if given, ok := rs.supplied[name]; ok {
 			// `DO +FN --name=value` beats the global, and does so without the
 			// function declaring anything: a global is already declared, so the

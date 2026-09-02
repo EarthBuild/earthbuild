@@ -46358,9 +46358,22 @@ Reported at `Earthfile:52`, the line that consumes the artifact, because that is
 where it is materialised; the line that produced it is `Earthfile:40`. Worth
 knowing when reading the message, and worth fixing in the message.
 
-Recorded rather than fixed. It is layer resolution rather than interpretation, so
-the discriminator is a build and not a plan - and this session already shipped one
-regression from reasoning about execution without a machine to run it on (E947).
+**Fixed, and the machine turned out to be this one.** The native engine runs on
+macOS through a VM, so a six-line Earthfile - write a file, symlink to it from
+another `RUN`, save the link as an artifact - reproduces it here in about a
+minute and confirms the fix the same way. Two days of "this needs the x86 box"
+were two days of not trying the obvious thing.
+
+Each hop of the link now goes back through `findInStack`, so the newest layer
+holding the *target* wins - the same rule the caller already applies to the named
+path and the same rule a mount applies.
+
+**The half that would have been a regression**: what the copy lands *as* comes
+from the link and what it lands *is* comes from the target. `COPY --dir link
+/placed` gives `/placed/link` holding the target's tree, and the function says so
+in a comment that predates this fix by months. So the resolved location replaces
+the *source* paths and not the *name*, which are now two variables where they
+were one.
 
 ### E955 - the arm/v7 artifacts are absent, and the wildcard is not why
 

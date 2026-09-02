@@ -907,15 +907,40 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 	// it lands under still comes from the link: `COPY --dir link /placed` gives
 	// /placed/link holding the tree, not /placed/real. Resolving one line
 	// earlier would have been correct and unfindable.
+	//
+	// **What it is comes from the target and what it is called comes from the
+	// link**, which is why the two are kept apart from here on: `named` is what
+	// the Earthfile pointed at and decides the landing name below, and
+	// `srcPaths` becomes the target's occurrences so the copy reads the right
+	// bytes.
+	named := srcPath
 	resolved := srcPath.path
 
 	if !opts.NoFollow {
-		followed, followErr := resolveLast(srcPath.root, srcPath.path)
+		// **Across the stack, not inside one layer.** The layer holding a link
+		// and the layer holding its target are routinely different, and
+		// following it within the link's own layer finds nothing (E954). See
+		// resolveLastInStack.
+		followed, followErr := s.resolveLastInStack(from, srcPath)
 		if followErr != nil {
 			return fmt.Errorf("COPY %s: %w", src, followErr)
 		}
 
-		resolved = followed
+		if followed.path != named.path {
+			rel, relErr := filepath.Rel(followed.root, followed.path)
+			if relErr != nil {
+				return fmt.Errorf("COPY %s: %w", src, relErr)
+			}
+
+			// The target's own occurrences, oldest first, so a directory target
+			// merges across layers exactly as a named one does.
+			srcPaths, err = s.findInStack(from, "/"+rel)
+			if err != nil {
+				return fmt.Errorf("COPY %s: %w", src, err)
+			}
+		}
+
+		resolved = followed.path
 	}
 
 	fi, err := os.Lstat(resolved)
@@ -961,7 +986,7 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 
 	intoDir := strings.HasSuffix(dest, "/") || isDir(dstPath)
 	if intoDir && (opts.AsDir || !fi.IsDir()) {
-		dstPath = filepath.Join(dstPath, placedAs(srcPath.path, opts.LandsAs))
+		dstPath = filepath.Join(dstPath, placedAs(named.path, opts.LandsAs))
 	}
 
 	// 0755 deliberately: this becomes part of the image, and a directory a
@@ -4014,4 +4039,65 @@ func keepCapsEnv(req Request) []string {
 	}
 
 	return []string{EnvStepKeepCaps + "=1"}
+}
+
+// resolveLastInStack follows a symlink at the end of a path across the whole
+// layer stack, and returns where it lands.
+//
+// **A layer stack is a filesystem, and a link in it points into the merged
+// view.** `resolveLast` follows a link within one root, which is right for a
+// step's own filesystem and wrong here: the layer holding the link and the layer
+// holding its target are routinely different. `update-ca-certificates` makes
+// `/etc/ssl/certs/ca-cert-...pem` a link into `/usr/local/share/ca-certificates`,
+// an earlier `COPY` put the target there, and saving that path as an artifact
+// stat'd the target inside the link's own layer and found nothing (E954).
+//
+// Each hop goes back through `findInStack`, so the *newest* layer holding the
+// target wins - the same rule the caller applies to the named path itself, and
+// the same rule a mount applies.
+//
+// Returns the path unchanged when it is not a link, so callers need no condition
+// of their own.
+func (s *Server) resolveLastInStack(from []string, at layerPath) (layerPath, error) {
+	for hop := 0; ; hop++ {
+		fi, err := os.Lstat(at.path)
+		if err != nil {
+			return layerPath{}, fmt.Errorf("stat %s: %w", at.path, err)
+		}
+
+		if fi.Mode()&os.ModeSymlink == 0 {
+			return at, nil
+		}
+
+		if hop == maxLinkHops {
+			return layerPath{}, fmt.Errorf(
+				"%s is a chain of more than %d symlinks, so it is a loop", at.path, maxLinkHops)
+		}
+
+		target, err := os.Readlink(at.path)
+		if err != nil {
+			return layerPath{}, fmt.Errorf("read symlink %s: %w", at.path, err)
+		}
+
+		// The link's text is read against the layer's root for the reason
+		// `resolveLast` reads it against the step's: a path written by a step
+		// means that step's filesystem, and a relative one is relative to the
+		// directory the link sits in.
+		next := target
+		if !filepath.IsAbs(next) {
+			here, relErr := filepath.Rel(at.root, filepath.Dir(at.path))
+			if relErr != nil {
+				return layerPath{}, fmt.Errorf("resolve %s -> %s: %w", at.path, target, relErr)
+			}
+
+			next = "/" + filepath.Join(here, next)
+		}
+
+		found, err := s.findInStack(from, next)
+		if err != nil {
+			return layerPath{}, fmt.Errorf("%s names %s: %w", at.path, target, err)
+		}
+
+		at = found[len(found)-1]
+	}
 }

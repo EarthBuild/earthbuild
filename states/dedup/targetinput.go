@@ -3,7 +3,7 @@ package dedup
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 
 	"github.com/EarthBuild/earthbuild/domain"
@@ -96,7 +96,7 @@ func (ti TargetInput) cloneNoTag() (TargetInput, error) {
 
 // Hash returns a hash of the target input.
 func (ti TargetInput) Hash() (string, error) {
-	tiBytes, err := json.Marshal(&ti)
+	tiBytes, err := json.Marshal(&ti, json.Deterministic(true))
 	if err != nil {
 		return "", fmt.Errorf("serialize TargetInput when creating hash: %w", err)
 	}
@@ -113,7 +113,7 @@ func (ti TargetInput) HashNoTag() (string, error) {
 		return "", err
 	}
 
-	tiBytes, err := json.Marshal(&tiNoTag)
+	tiBytes, err := json.Marshal(&tiNoTag, json.Deterministic(true))
 	if err != nil {
 		return "", fmt.Errorf("serialize TargetInput when creating hash no tag: %w", err)
 	}

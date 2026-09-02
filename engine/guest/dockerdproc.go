@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	osexec "os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -82,6 +83,8 @@ func launchWith(
 	// only thing that ends this process, and withDaemon calls it on every path.
 	//nolint:gosec,noctx // argv is this package's; the context reason is above
 	cmd := osexec.Command(self, shimArgv(bin, argv)...)
+	// See daemonEnv: the invoker's runtime directory is not the daemon's.
+	cmd.Env = daemonEnv(os.Environ())
 	// Kept as well as forwarded. A daemon that will not start says why, and every
 	// such message in this project has been the answer - `needs to be started
 	// with root privileges`, `mkdir /run/docker/plugins`, `unix socket path too
@@ -201,4 +204,45 @@ func (d *dockerd) Stop() error {
 	})
 
 	return d.after
+}
+
+// runtimeDirVar names the invoking machine's per-user runtime directory.
+//
+// It is the one variable observed to name a path that exists where the engine
+// was started and nowhere beside a step. See daemonEnv.
+const runtimeDirVar = "XDG_RUNTIME_DIR"
+
+// daemonEnv is the environment the guest's dockerd is started with.
+//
+// **The invoker's runtime directory is not the daemon's.** A `WITH DOCKER`
+// daemon inherited whatever started the engine, and on a GitHub runner that
+// carries `XDG_RUNTIME_DIR=/run/user/1001`: a path on the runner, absent beside
+// a step. `docker run -t` then asks runc for a console socket, runc puts it
+// there, and the daemon answers `stat /run/user/1001: no such file or
+// directory`. The step reports exit 127 with no output of its own, which reads
+// as a missing `docker` binary (E963).
+//
+// One named variable rather than a clean environment. A proxy setting is how a
+// build reaches a registry from a corporate network, and a daemon started
+// without one fails in a way this engine cannot explain; the rule has to be
+// something evidence can add to, not a policy that silently drops the next
+// thing somebody needs.
+func daemonEnv(environ []string) []string {
+	out := environ
+
+	for i, kv := range environ {
+		if !strings.HasPrefix(kv, runtimeDirVar+"=") {
+			continue
+		}
+
+		if len(out) == len(environ) {
+			out = slices.Clone(environ)
+		}
+
+		out = slices.Delete(out, i, i+1)
+
+		break
+	}
+
+	return out
 }

@@ -46659,3 +46659,42 @@ darwin fall exactly.
 
 With this, `./tests/platform+test` passes all sixteen platform assertions under
 `--engine=native`.
+
+### E963 - the daemon inherited a runtime directory that only the runner has
+
+`+test-no-qemu-slow` reported `RUN ./test-cgroup-v2.sh failed with exit code 127`
+and no output of its own, three CI rounds running. 127 is "not found", the
+engine's own warning above it said `WITH DOCKER got a daemon and no client`, and
+between them they made a convincing case for a missing `docker` binary. The
+image has one. Three harnesses on two machines all passed.
+
+The step's real output was in the log, twelve lines above the error and attributed
+to the same line:
+
+```text
+docker: Error response from daemon: failed to create task for container:
+  failed to create shim task: failed to create OCI runtime console socket:
+  stat /run/user/1001: no such file or directory
+```
+
+The script runs `docker run --privileged -t`, and `-t` makes runc create a
+console socket under `$XDG_RUNTIME_DIR`. The guest's dockerd is started with
+`osexec.Command` and no `Env`, so it inherits whatever invoked the engine - on a
+GitHub runner, `XDG_RUNTIME_DIR=/run/user/1001`, a path on the runner and nowhere
+beside a step.
+
+**It reproduces anywhere by exporting that one variable, and nowhere without
+it.** That is the whole reason it survived: every harness anybody built was a
+harness without it.
+
+Fixed by dropping that variable from the daemon's environment, and by naming it
+rather than starting the daemon clean - a proxy setting is how a build reaches a
+registry from a corporate network, and a daemon started without one fails in a
+way this engine cannot explain.
+
+**Two diagnoses stood between the message and the cause, and both were the
+engine's own words.** `exit code 127` is the shell's summary of a command that
+failed to start, and the container's failure to start reads identically to the
+client's absence; the "no client" warning is true, unrelated, and printed
+immediately above. Neither is wrong. Together they describe a build that was
+never happening.

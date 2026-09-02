@@ -4,7 +4,7 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"log"
 	"os"

@@ -6,6 +6,7 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"uuid"
 
 	"github.com/moby/buildkit/client/llb"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/variables"
-	"github.com/google/uuid"
 )
 
 // MultiTarget holds LLB states representing multiple earth targets,

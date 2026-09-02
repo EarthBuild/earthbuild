@@ -46729,6 +46729,13 @@ less - parentheses, semicolons, pipes - while whitespace and globs are left
 alone, because an unquoted expansion is still split and still globbed by the
 shell that performs it.
 
+**What splicing still cannot reproduce is a newline.** Between the author's double
+quotes it is literal and safe; outside them a shell splits an expansion on it,
+and neither leaving it (which ends the command) nor escaping it (which deletes
+it, as a line continuation) is that. The escape set therefore stops short of it,
+which is where it stood before this and is stated rather than fixed - the only
+faithful answer is not to splice, and that is the 88-test change above.
+
 Three further defects were behind it, each newly reachable once the file got
 further:
 

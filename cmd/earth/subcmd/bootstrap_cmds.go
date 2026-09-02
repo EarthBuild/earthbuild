@@ -14,6 +14,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
 	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -178,7 +179,7 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 			return fmt.Errorf("invalid buildkit_host: %s: %w", b.cli.Flags().BuildkitHost, err)
 		}
 
-		if (bkURL.Scheme == "tcp" || bkURL.Scheme == "apple-container") && b.cli.Cfg().Global.TLSEnabled {
+		if engine.UsesTCP(bkURL.Scheme) && b.cli.Cfg().Global.TLSEnabled {
 			err := buildkitd.GenCerts(*b.cli.Cfg(), b.certsHostName)
 			if err != nil {
 				return hint.Wrapf(

@@ -469,6 +469,30 @@ func TestImageLoadCommand(t *testing.T) {
 	})
 }
 
+func TestUsesTCP(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		scheme string
+		want   bool
+	}{
+		{"tcp", true},
+		{"apple-container", true},
+		{"docker-container", false},
+		{"podman-container", false},
+		{"invalid", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.scheme, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, UsesTCP(tt.scheme))
+		})
+	}
+}
+
 func BenchmarkIsLocal(b *testing.B) {
 	addrs := []string{
 		"docker-container://earthly-buildkitd",

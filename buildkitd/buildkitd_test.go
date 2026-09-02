@@ -140,18 +140,6 @@ func TestUpdateContainerAddrs(t *testing.T) {
 
 	ctx := t.Context()
 
-	t.Run("nil engine does nothing", func(t *testing.T) {
-		t.Parallel()
-
-		settings := Settings{
-			BuildkitAddr:      defaultBuildkitTCP,
-			LocalRegistryAddr: "http://127.0.0.1:8371",
-		}
-		updateContainerAddrs(ctx, nil, "test-container", &settings)
-		assert.Equal(t, defaultBuildkitTCP, settings.BuildkitAddr)
-		assert.Equal(t, "http://127.0.0.1:8371", settings.LocalRegistryAddr)
-	})
-
 	t.Run("docker engine uses container name", func(t *testing.T) {
 		t.Parallel()
 

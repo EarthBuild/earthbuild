@@ -593,6 +593,22 @@ func (s Scheme) String() string {
 	}
 }
 
+// UsesTCP returns true if the scheme uses a TCP network transport.
+func (s Scheme) UsesTCP() bool {
+	return s == SchemeTCP || s == SchemeApple
+}
+
+// UsesTCP returns true if the given URL scheme communicates with BuildKit over TCP
+// (e.g. "tcp", "apple-container").
+func UsesTCP(scheme string) bool {
+	s, err := parseScheme(scheme)
+	if err != nil {
+		return false
+	}
+
+	return s.UsesTCP()
+}
+
 // parseScheme parses and validates a raw scheme string.
 func parseScheme(s string) (Scheme, error) {
 	switch s {
@@ -620,6 +636,9 @@ const (
 
 	// AppleSchemePrefix is used to construct the buildkit address for local apple-container-based connections.
 	AppleSchemePrefix = "apple-container://"
+
+	// PodmanSchemePrefix is used to construct the buildkit address for local podman-container-based connections.
+	PodmanSchemePrefix = "podman-container://"
 )
 
 // defaultTCPAddr returns the default localhost TCP address for a given port.
@@ -726,8 +745,8 @@ func parseAddr(addr string) (*url.URL, error) {
 // need to manage ourselves.
 func IsLocal(addr string) bool {
 	if strings.HasPrefix(addr, DockerSchemePrefix) ||
-		strings.HasPrefix(addr, "podman-container://") ||
-		strings.HasPrefix(addr, "apple-container://") {
+		strings.HasPrefix(addr, PodmanSchemePrefix) ||
+		strings.HasPrefix(addr, AppleSchemePrefix) {
 		return true
 	}
 

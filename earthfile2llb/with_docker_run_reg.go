@@ -248,6 +248,11 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 			llb.SecretID(dockerLoadRegistrySecretID),
 			llb.SecretAsEnv(true),
 		),
+		llb.AddSecret(
+			"EARTHLY_DOCKER_LOAD_REGISTRY",
+			llb.SecretID(dockerLoadRegistrySecretID),
+			llb.SecretAsEnv(true),
+		),
 	)
 
 	err = w.c.opt.InternalSecretStore.SetSecret(

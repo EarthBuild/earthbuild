@@ -22,5 +22,5 @@ test-allow-privileged-with-privileged-context:
 
 test-allow-privileged-with-privileged-run-command:
     FROM DOCKERFILE --allow-privileged -f ./Dockerfile +privileged-context/*
-    RUN --privileged ip link add dummy0 type dummy && ip link delete dummy0
+    RUN --privileged (ip link add dummy0 type dummy 2>/dev/null || ip link add br0 type bridge) && (ip link delete dummy0 2>/dev/null || ip link delete br0)
     SAVE IMAGE test-allow-privileged-with-privileged-run-command:latest

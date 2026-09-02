@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
       - 'docs/**'
       - '**.md'
@@ -10,9 +10,8 @@ on:
       - '.github/CODEOWNERS'
       - 'LICENSE'
   pull_request:
-    branches: [ main, get-ci-working ]
+    branches: [main, get-ci-working]
   merge_group:
-
 
 # Workflow-wide floor only; every job narrows or widens this for itself.
 permissions:
@@ -58,8 +57,10 @@ jobs:
       # --- Build Standard EarthBuild ---
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
-      - name: "Put back the git branch into git (EarthBuild uses it for tagging)"
+        env:
+          GHCR_USER: ${{ github.actor }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+      - name: 'Put back the git branch into git (EarthBuild uses it for tagging)'
         run: |
           branch=""
           if [ -n "$GITHUB_HEAD_REF" ]; then
@@ -133,8 +134,20 @@ jobs:
             --VERSION="0.8.18" \
             --DEFAULT_INSTALLATION_NAME=earth \
             ./artifacts-standard/earthly
+      - name: Build earth darwin binary artifact (all runs)
+        run: |-
+          set -euo pipefail
+          export TAG_SUFFIX="latest"
+
+          # Build earth darwin/arm64 CLI binary for macOS / Apple Container jobs
+          ./build/linux/amd64/earthly --ci --artifact \
+            +earthly-darwin-arm64/earthly \
+            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
+            --VERSION="0.8.18" \
+            --DEFAULT_INSTALLATION_NAME=earthly \
+            ./artifacts-standard/earthly-darwin-arm64
       - name: Upload artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: earth-build-latest
           path: ./artifacts-standard/
@@ -187,10 +200,83 @@ jobs:
             --DEFAULT_INSTALLATION_NAME=earth \
             ./artifacts-next/earthly
       - name: Upload artifacts (next)
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: earth-build-latest-ticktock
           path: ./artifacts-next/
+          retention-days: 1
+
+  # --- ARM64 BuildKit Build Stage ---
+  build-buildkit-arm64:
+    name: Build ARM64 Buildkit
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    env:
+      EARTHLY_INSTALL_ID: 'earthly-githubactions'
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+    steps:
+      - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
+        with:
+          # Authenticate the release-list API call so it isn't rate-limited on
+          # shared runner IPs (unauthenticated is 60 req/hr/IP).
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GHCR_USER: ${{ github.actor }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+      - name: 'Put back the git branch into git (EarthBuild uses it for tagging)'
+        run: |
+          branch=""
+          if [ -n "$GITHUB_HEAD_REF" ]; then
+            branch="$GITHUB_HEAD_REF"
+          else
+            branch="${GITHUB_REF##*/}"
+          fi
+          git checkout -b "$branch" || true
+      - name: Configure EarthBuild to use GCR mirror
+        run: |-
+          earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Build and push buildkitd-staging arm64 (push / branch)
+        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
+        run: |-
+          export TAG_SUFFIX="latest"
+          earth --ci --push ./buildkitd+buildkitd --TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
+      - name: Build buildkitd-staging arm64 (fork - no push)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |-
+          export TAG_SUFFIX="latest"
+          # Explicitly output the buildkitd image to local docker daemon
+          earth --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+      - name: Save buildkitd image tarball (all runs)
+        run: |-
+          set -euo pipefail
+          export TAG_SUFFIX="latest"
+          IMG="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
+
+          mkdir -p ./artifacts-arm64
+          echo "${TAG_SUFFIX}" > ./artifacts-arm64/tag-suffix.txt
+          if ! docker image inspect "$IMG" >/dev/null 2>&1; then
+            docker pull "$IMG"
+          fi
+          docker save "$IMG" -o ./artifacts-arm64/buildkitd-image.tar
+      - name: Upload ARM64 buildkitd image artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: buildkitd-image-arm64-latest
+          path: ./artifacts-arm64/
           retention-days: 1
 
   # --- Docker Suite ---
@@ -202,7 +288,7 @@ jobs:
       packages: read
     uses: ./.github/workflows/ci-test-suite.yml
     with:
-      FRONTEND: "docker"
+      FRONTEND: 'docker'
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
@@ -215,7 +301,7 @@ jobs:
       packages: read
     uses: ./.github/workflows/ci-examples-suite.yml
     with:
-      FRONTEND: "docker"
+      FRONTEND: 'docker'
     secrets:
       DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
       DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
@@ -230,7 +316,7 @@ jobs:
       packages: read
     uses: ./.github/workflows/ci-integration-suite.yml
     with:
-      FRONTEND: "docker"
+      FRONTEND: 'docker'
     secrets:
       DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
       DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
@@ -246,8 +332,8 @@ jobs:
       packages: read
     uses: ./.github/workflows/ci-test-suite.yml
     with:
-      FRONTEND: "podman"
-      SUDO: "sudo"
+      FRONTEND: 'podman'
+      SUDO: 'sudo'
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
@@ -260,8 +346,8 @@ jobs:
       packages: read
     uses: ./.github/workflows/ci-examples-suite.yml
     with:
-      FRONTEND: "podman"
-      SUDO: "sudo"
+      FRONTEND: 'podman'
+      SUDO: 'sudo'
     secrets:
       DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
       DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
@@ -277,10 +363,24 @@ jobs:
       packages: read
     uses: ./.github/workflows/ci-test-suite.yml
     with:
-      FRONTEND: "docker"
+      FRONTEND: 'docker'
       USE_NEXT: true
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+  # --- Apple Container Suite ---
+  apple-container-tests:
+    name: Apple Container
+    needs:
+      - fast-check-and-build
+      - build-buildkit-arm64
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/ci-apple-container-mac.yml
+    secrets:
+      GH_RUNNER_READ_TOKEN: ${{ secrets.GH_RUNNER_READ_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   # --- Merge Gate ---
@@ -294,12 +394,14 @@ jobs:
     if: always()
     needs:
       - fast-check-and-build
+      - build-buildkit-arm64
       - docker-tests
       - docker-examples
       - docker-integrations
       - podman-tests
       - podman-examples
       - next-tests
+      - apple-container-tests
     runs-on: ubuntu-26.04
     permissions: {}
     steps:

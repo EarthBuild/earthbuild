@@ -1,0 +1,205 @@
+name: Apple Container CI macOs
+
+on:
+  workflow_call:
+    secrets:
+      GH_RUNNER_READ_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}${{ github.event.pull_request != null && format('vcs.repository.change.id={0},vcs.repository.change.title={1},', github.event.pull_request.number, github.event.pull_request.title) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  check-runner:
+    name: Check for macOS ARM64 runner
+    runs-on: ubuntu-26.04-arm
+    outputs:
+      has-runner: ${{ steps.check.outputs.has-runner }}
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Check runner availability
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GH_RUNNER_READ_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          REPO_IS_FORK: ${{ github.event.repository.fork }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |-
+          set -euo pipefail
+
+          # Skip in forked repositories or fork pull requests
+          GITHUB_REPO_LOWER="$(echo "$GITHUB_REPO" | tr '[:upper:]' '[:lower:]')"
+          HEAD_REPO_LOWER="$(echo "$HEAD_REPO" | tr '[:upper:]' '[:lower:]')"
+
+          if [ "$REPO_IS_FORK" = "true" ] || { [ "$EVENT_NAME" = "pull_request" ] && [ -n "$HEAD_REPO" ] && [ "$HEAD_REPO_LOWER" != "$GITHUB_REPO_LOWER" ]; }; then
+            echo "Skipping Apple Container tests: running in a forked repository or fork pull request."
+            echo "has-runner=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          RUNNER_FOUND="false"
+
+          echo "Checking for self-hosted macOS ARM64 runner..."
+
+          # 1. Query repository-level runners
+          REPO_RUNNERS=$(gh api "repos/$GITHUB_REPO/actions/runners" 2>/dev/null || true)
+          if [ -n "$REPO_RUNNERS" ]; then
+            echo "Repository runners:"
+            echo "$REPO_RUNNERS" | jq -r '(.runners // [])[]? | "  - \(.name) (OS: \(.os), Status: \(.status), Labels: \([(.labels // [])[].name] | join(", "))"' || true
+
+            ONLINE_COUNT=$(echo "$REPO_RUNNERS" | jq '[
+              (.runners // [])[] |
+              select(type == "object" and .status == "online") |
+              ( [ (.labels // [])[] | (.name // "") | ascii_downcase ] ) as $labels |
+              select(
+                ((.os // "") | ascii_downcase == "macos" or ($labels | index("macos") != null)) and
+                ($labels | index("arm64") != null) and
+                ($labels | index("self-hosted") != null)
+              )
+            ] | length')
+
+            if [ "$ONLINE_COUNT" -gt 0 ]; then
+              echo "Found $ONLINE_COUNT online macOS ARM64 self-hosted runner(s) at repository level."
+              RUNNER_FOUND="true"
+            fi
+          fi
+
+          # 2. Query organization-level runners if not found at repository level
+          if [ "$RUNNER_FOUND" = "false" ]; then
+            ORG_RUNNERS=$(gh api "orgs/$REPO_OWNER/actions/runners" 2>/dev/null || true)
+            if [ -n "$ORG_RUNNERS" ]; then
+              echo "Organization runners:"
+              echo "$ORG_RUNNERS" | jq -r '(.runners // [])[]? | "  - \(.name) (OS: \(.os), Status: \(.status), Labels: \([(.labels // [])[].name] | join(", "))"' || true
+
+              ONLINE_COUNT=$(echo "$ORG_RUNNERS" | jq '[
+                (.runners // [])[] |
+                select(type == "object" and .status == "online") |
+                ( [ (.labels // [])[] | (.name // "") | ascii_downcase ] ) as $labels |
+                select(
+                  ((.os // "") | ascii_downcase == "macos" or ($labels | index("macos") != null)) and
+                  ($labels | index("arm64") != null) and
+                  ($labels | index("self-hosted") != null)
+                )
+              ] | length')
+
+              if [ "$ONLINE_COUNT" -gt 0 ]; then
+                echo "Found $ONLINE_COUNT online macOS ARM64 self-hosted runner(s) at organization level."
+                RUNNER_FOUND="true"
+              fi
+            fi
+          fi
+
+          if [ "$RUNNER_FOUND" = "true" ]; then
+            echo "has-runner=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No online macOS ARM64 self-hosted runner found. Skipping Apple Container tests."
+            echo "has-runner=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  tests:
+    name: ${{ matrix.target }}
+    needs: check-runner
+    if: needs.check-runner.outputs.has-runner == 'true'
+    runs-on: [self-hosted, macOS, ARM64]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: '+test-misc'
+            name: 'Misc (AST & Parser)'
+          - target: '+test-no-qemu-group1'
+            name: 'Group 1 (Autocompletion, Dockerfile & Imports)'
+          - target: '+test-no-qemu-group2'
+            name: 'Group 2 (COPY & Git Clone Operations)'
+          - target: '+test-no-qemu-group3'
+            name: 'Group 3 (Secrets, Build ARGs & Host Bind)'
+          - target: '+test-no-qemu-group4'
+            name: 'Group 4 (Dockerfile, Artifact Saves & Env)'
+          - target: '+test-no-qemu-group5'
+            name: 'Group 5 (Control Flow, Cache Mounts & AWS)'
+          - target: '+test-no-qemu-group6'
+            name: 'Group 6 (Cache & Credential Scrubbing)'
+          - target: '+test-no-qemu-group7'
+            name: 'Group 7 (Selective Save, Compose & Dotenv)'
+          - target: '+test-no-qemu-group8'
+            name: 'Group 8 (Docker Registry & SSH Config)'
+          - target: '+test-no-qemu-group9'
+            name: 'Group 9 (Config & ARG Redeclare Validation)'
+          - target: '+test-no-qemu-group10'
+            name: 'Group 10 (SSH & Remote Resolution)'
+          - target: '+test-no-qemu-group11'
+            name: 'Group 11 (Expose, Artifacts & Logbus)'
+          - target: '+test-no-qemu-group12'
+            name: 'Group 12 (Label Validation & Run Cache)'
+          - target: '+test-no-qemu-slow'
+            name: 'Slow (Server Daemon & WITH DOCKER)'
+    env:
+      EARTHLY_INSTALL_ID: 'earthly-githubactions'
+      BUILT_EARTH_PATH: ./build/darwin/arm64/earthly
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
+      - name: Download build-earth artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: earth-build-latest
+          path: ./build-artifacts
+      - name: Download buildkitd ARM64 image artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        continue-on-error: true
+        with:
+          name: buildkitd-image-arm64-latest
+          path: ./build-artifacts-arm64
+      - name: Setup earth binary from artifact
+        run: |
+          mkdir -p "$(dirname "${{ env.BUILT_EARTH_PATH }}")"
+          cp ./build-artifacts/earthly-darwin-arm64 "${{ env.BUILT_EARTH_PATH }}"
+          chmod +x "${{ env.BUILT_EARTH_PATH }}"
+      - name: Start apple/container service
+        run: container system start --enable-kernel-install || true
+      - name: Load ARM64 buildkit image into Apple Container
+        run: |-
+          if [ -f "./build-artifacts-arm64/buildkitd-image.tar" ]; then
+            container image load -i ./build-artifacts-arm64/buildkitd-image.tar || true
+          fi
+      - name: Verify apple/container status
+        run: |
+          container --version
+          container system status
+      - name: Configure earth to use GCR mirror and apple-container
+        run: |-
+          ${{ env.BUILT_EARTH_PATH }} config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+          ${{ env.BUILT_EARTH_PATH }} config global.container_frontend apple-container
+      - name: Bootstrap earth
+        run: ${{ env.BUILT_EARTH_PATH }} bootstrap
+      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Execute ${{ matrix.target }}
+        run: ${{ env.BUILT_EARTH_PATH }} --ci -P ${{ matrix.target }}
+      - name: Execute fail test
+        run: '! ${{ env.BUILT_EARTH_PATH }} --ci ./tests/fail+test-fail'
+      - name: Buildkit logs (runs on failure)
+        run: container logs earthly-buildkitd || true
+        if: ${{ failure() }}

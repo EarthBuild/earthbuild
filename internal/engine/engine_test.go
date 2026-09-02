@@ -1,4 +1,4 @@
-package containerutil
+package engine
 
 import (
 	"strings"
@@ -125,15 +125,7 @@ func TestBuildArgMatrix(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		frontend, err := NewStubFrontend(&FrontendConfig{
-			LocalContainerName: "test-stub", //nolint:goconst
-		})
-		r.NoError(err)
-
-		stub, ok := frontend.(*stubFrontend)
-		assert.True(t, ok)
-
-		urls, err := stub.setupAndValidateAddresses(FrontendDockerShell, &FrontendConfig{
+		urls, err := ResolveAddrs(DockerShell, &Config{
 			BuildkitHostCLIValue:       tt.args.buildkit,
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
@@ -143,8 +135,8 @@ func TestBuildArgMatrix(t *testing.T) {
 		})
 		r.NoError(err)
 		assert.Equal(t, tt.expected, results{
-			buildkit:      urls.BuildkitHost.String(),
-			localRegistry: urls.LocalRegistryHost.String(),
+			buildkit:      urls.Buildkit.String(),
+			localRegistry: urls.LocalRegistry.String(),
 		})
 	}
 }
@@ -167,7 +159,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 				BuildkitHost:      "http\r://foo.com/",
 				LocalRegistryHost: "",
 			},
-			expected: errURLParseFailure,
+			expected: errInvalidURL,
 			log:      "",
 		},
 		{
@@ -176,7 +168,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 				BuildkitHost:      "",
 				LocalRegistryHost: "http\r://foo.com/",
 			},
-			expected: errURLParseFailure,
+			expected: errInvalidURL,
 			log:      "",
 		},
 		{
@@ -185,7 +177,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 				BuildkitHost:      "127.0.0.1",
 				LocalRegistryHost: "",
 			},
-			expected: errURLValidationFailure,
+			expected: errInvalidScheme,
 			log:      "",
 		},
 	}
@@ -196,15 +188,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		frontend, err := NewStubFrontend(&FrontendConfig{
-			LocalContainerName: "test-stub",
-		})
-		r.NoError(err)
-
-		stub, ok := frontend.(*stubFrontend)
-		assert.True(t, ok)
-
-		_, err = stub.setupAndValidateAddresses(FrontendDockerShell, &FrontendConfig{
+		_, err := ResolveAddrs(DockerShell, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Log:                        logger,
@@ -216,7 +200,7 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 	}
 }
 
-func TestParseAndValidateURLFailures(t *testing.T) {
+func TestParseURLFailures(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -227,27 +211,27 @@ func TestParseAndValidateURLFailures(t *testing.T) {
 		{
 			testName: "Invalid URL",
 			url:      "http\r://foo.com/",
-			expected: errURLParseFailure,
+			expected: errInvalidURL,
 		},
 		{
 			testName: "Invalid Scheme",
 			url:      "gopher://my-hole",
-			expected: errURLValidationFailure,
+			expected: errInvalidScheme,
 		},
 		{
 			testName: "Missing Port",
 			url:      "tcp://my-server",
-			expected: errURLValidationFailure,
+			expected: errMissingPort,
 		},
 	}
 
 	for _, tt := range tests {
-		_, err := parseAndValidateURL(tt.url)
+		_, err := parseAddr(tt.url)
 		assert.ErrorIs(t, err, tt.expected)
 	}
 }
 
-func TestParseAndValidateURL(t *testing.T) {
+func TestParseAddr(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -265,12 +249,50 @@ func TestParseAndValidateURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := parseAndValidateURL(tt.url)
+		_, err := parseAddr(tt.url)
 		assert.NoError(t, err)
 	}
 }
 
-func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
+func TestResolveAddrsLogging(t *testing.T) {
+	t.Parallel()
+
+	r := require.New(t)
+
+	tests := []struct {
+		testName string
+		log      string
+		config   config.GlobalConfig
+	}{
+		{
+			testName: "Buildkit/Local Registry host mismatch, schemes match",
+			config: config.GlobalConfig{
+				BuildkitHost:      "tcp://localhost:8372",
+				LocalRegistryHost: "tcp://remotehost:8371",
+			},
+			log: "Buildkit and local registry URLs are pointed at different hosts",
+		},
+	}
+
+	for _, tt := range tests {
+		var logs strings.Builder
+
+		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
+		logger = logger.WithWriter(&logs)
+
+		_, err := ResolveAddrs(DockerShell, &Config{
+			BuildkitHostFileValue:      tt.config.BuildkitHost,
+			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
+			Log:                        logger,
+			LocalContainerName:         "test",
+			DefaultPort:                8372,
+		})
+		r.NoError(err)
+		assert.Contains(t, logs.String(), tt.log)
+	}
+}
+
+func TestResolveAddrsLoggingNonIssues(t *testing.T) {
 	t.Parallel()
 
 	r := require.New(t)
@@ -304,15 +326,7 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		frontend, err := NewStubFrontend(&FrontendConfig{
-			LocalContainerName: "test-stub",
-		})
-		r.NoError(err)
-
-		stub, ok := frontend.(*stubFrontend)
-		assert.True(t, ok)
-
-		_, err = stub.setupAndValidateAddresses(FrontendDockerShell, &FrontendConfig{
+		_, err := ResolveAddrs(DockerShell, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Log:                        logger,
@@ -321,5 +335,156 @@ func TestBuildArgMatrixValidationNonIssues(t *testing.T) {
 		})
 		r.NoError(err)
 		assert.NotContains(t, logs.String(), tt.log)
+	}
+}
+
+func TestDriverDefaultAddr(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		LocalContainerName: "custom-buildkitd",
+		DefaultPort:        9999,
+	}
+
+	tests := []struct {
+		driver   engineDriver
+		expected string
+	}{
+		{
+			driver:   &dockerEngine{},
+			expected: "docker-container://custom-buildkitd",
+		},
+		{
+			driver:   &podmanEngine{},
+			expected: "tcp://127.0.0.1:9999",
+		},
+		{
+			driver:   &appleEngine{},
+			expected: "apple-container://custom-buildkitd",
+		},
+		{
+			driver:   &stubEngine{},
+			expected: "docker-container://custom-buildkitd",
+		},
+	}
+
+	r := require.New(t)
+
+	for _, tt := range tests {
+		addr, err := tt.driver.DefaultAddr(cfg)
+		r.NoError(err)
+		assert.Equal(t, tt.expected, addr)
+	}
+}
+
+func TestContainerAddr(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	r := require.New(t)
+
+	t.Run("docker", func(t *testing.T) {
+		t.Parallel()
+
+		e := &dockerEngine{}
+		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
+		r.NoError(err)
+		assert.Equal(t, "docker-container://my-container", addr)
+	})
+
+	t.Run("podman", func(t *testing.T) {
+		t.Parallel()
+
+		e := &podmanEngine{}
+		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
+		r.NoError(err)
+		assert.Equal(t, "tcp://127.0.0.1:8372", addr)
+	})
+
+	t.Run("stub", func(t *testing.T) {
+		t.Parallel()
+
+		e := &stubEngine{}
+		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
+		r.NoError(err)
+		assert.Equal(t, "docker-container://my-container", addr)
+	})
+}
+
+func TestImageLoadCommand(t *testing.T) {
+	t.Parallel()
+
+	filenameWithSpaces := "/tmp/path with spaces/my image.tar"
+	filenameWithInjection := "/tmp/image.tar; rm -rf /"
+
+	t.Run("docker quotes filename", func(t *testing.T) {
+		t.Parallel()
+
+		e := &dockerEngine{shellEngine: &shellEngine{BinaryName: "docker"}}
+		cmd := e.ImageLoadCommand(filenameWithSpaces)
+		assert.Equal(t, "cat '/tmp/path with spaces/my image.tar' | docker load", cmd)
+
+		cmdInj := e.ImageLoadCommand(filenameWithInjection)
+		assert.Equal(t, "cat '/tmp/image.tar; rm -rf /' | docker load", cmdInj)
+	})
+
+	t.Run("apple container quotes filename", func(t *testing.T) {
+		t.Parallel()
+
+		e := &appleEngine{shellEngine: &shellEngine{BinaryName: "container"}}
+		cmd := e.ImageLoadCommand(filenameWithSpaces)
+		assert.Equal(t, "container image load --input '/tmp/path with spaces/my image.tar'", cmd)
+
+		cmdInj := e.ImageLoadCommand(filenameWithInjection)
+		assert.Equal(t, "container image load --input '/tmp/image.tar; rm -rf /'", cmdInj)
+	})
+
+	t.Run("podman quotes filename", func(t *testing.T) {
+		t.Parallel()
+
+		e := &podmanEngine{shellEngine: &shellEngine{BinaryName: "podman"}}
+		cmd := e.ImageLoadCommand(filenameWithSpaces)
+		assert.Equal(t, "podman pull 'docker-archive:/tmp/path with spaces/my image.tar'", cmd)
+
+		cmdInj := e.ImageLoadCommand(filenameWithInjection)
+		assert.Equal(t, "podman pull 'docker-archive:/tmp/image.tar; rm -rf /'", cmdInj)
+	})
+
+	t.Run("shell engine quotes filename", func(t *testing.T) {
+		t.Parallel()
+
+		e := &shellEngine{BinaryName: "nerdctl"}
+		cmd := e.ImageLoadCommand(filenameWithSpaces)
+		assert.Equal(t, "nerdctl load -i '/tmp/path with spaces/my image.tar'", cmd)
+
+		cmdInj := e.ImageLoadCommand(filenameWithInjection)
+		assert.Equal(t, "nerdctl load -i '/tmp/image.tar; rm -rf /'", cmdInj)
+	})
+
+	t.Run("stub engine returns empty string", func(t *testing.T) {
+		t.Parallel()
+
+		e := &stubEngine{}
+		assert.Empty(t, e.ImageLoadCommand(filenameWithSpaces))
+	})
+}
+
+func BenchmarkIsLocal(b *testing.B) {
+	addrs := []string{
+		"docker-container://earthly-buildkitd",
+		"podman-container://earthly-buildkitd",
+		"apple-container://earthly-buildkitd",
+		"tcp://127.0.0.1:8372",
+		"tcp://localhost:8372",
+		"tcp://[::1]:8372",
+		"tcp://192.168.1.100:8372",
+	}
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		for _, addr := range addrs {
+			_ = IsLocal(addr)
+		}
 	}
 }

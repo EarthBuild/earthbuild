@@ -1,14 +1,13 @@
 package earthfile2llb
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// The flags built here are consumed by buildkitd/dockerd-wrapper.sh, which is
+// The environment variables built here are consumed by buildkitd/dockerd-wrapper.sh, which is
 // baked into the buildkitd image. Keep the two in sync.
 func TestMakeWithDockerdWrapFun(t *testing.T) {
 	t.Parallel()
@@ -27,25 +26,27 @@ func TestMakeWithDockerdWrapFun(t *testing.T) {
 		{
 			name:     "minimal",
 			dindID:   dindID,
-			expected: []string{"--data-root='/var/earthbuild/dind/" + dindID + "'"},
+			expected: []string{`EARTHLY_DOCKERD_DATA_ROOT="/var/earthbuild/dind/` + dindID + `"`},
 			notExpected: []string{
-				"--cache-data", startComposeFlag, "--load-file", "--compose-file",
+				`EARTHLY_DOCKERD_CACHE_DATA="true"`, `EARTHLY_START_COMPOSE="true"`,
 			},
 		},
 		{
-			name:     "cache id implies --cache-data",
-			dindID:   "cache_mycache",
-			expected: []string{"--data-root='/var/earthbuild/dind/cache_mycache'", "--cache-data"},
+			name:   "cache id implies cache data",
+			dindID: "cache_mycache",
+			expected: []string{
+				`EARTHLY_DOCKERD_DATA_ROOT="/var/earthbuild/dind/cache_mycache"`,
+				`EARTHLY_DOCKERD_CACHE_DATA="true"`,
+			},
 		},
 		{
-			name:            "one flag per tar path and digest",
+			name:            "tar paths and digests",
 			dindID:          dindID,
 			tarPaths:        []string{"/tmp/a.tar", "/tmp/b.tar"},
 			imgsWithDigests: []string{"alpine@sha256:aaa"},
 			expected: []string{
-				"--load-file='/tmp/a.tar'",
-				"--load-file='/tmp/b.tar'",
-				"--image-digest='alpine@sha256:aaa'",
+				`EARTHLY_DOCKER_LOAD_FILES="/tmp/a.tar /tmp/b.tar"`,
+				`EARTHLY_IMAGES_WITH_DIGESTS="alpine@sha256:aaa"`,
 			},
 		},
 		{
@@ -56,18 +57,10 @@ func TestMakeWithDockerdWrapFun(t *testing.T) {
 				ComposeServices: []string{"db", "cache"},
 			},
 			expected: []string{
-				startComposeFlag,
-				"--compose-file='docker-compose.yml'",
-				"--compose-file='override.yml'",
-				"--compose-service='db'",
-				"--compose-service='cache'",
+				`EARTHLY_START_COMPOSE="true"`,
+				`EARTHLY_COMPOSE_FILES="docker-compose.yml override.yml"`,
+				`EARTHLY_COMPOSE_SERVICES="db cache"`,
 			},
-		},
-		{
-			name:     "values with single quotes are escaped",
-			dindID:   dindID,
-			tarPaths: []string{"/tmp/it's.tar"},
-			expected: []string{`--load-file='/tmp/it'"'"'s.tar'`},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -80,34 +73,16 @@ func TestMakeWithDockerdWrapFun(t *testing.T) {
 			assert.Equal(t, []string{shellPath, "-c"}, got[:2])
 
 			cmd := got[2]
-
-			// The wrapper's flags have to come before the "--" that separates
-			// them from the user's command.
-			flags, userCmd, found := strings.Cut(cmd, " -- ")
-			require.True(t, found, "expected a -- separator in %q", cmd)
-			assert.Contains(t, flags, dockerdWrapperPath+" execute")
-			assert.Contains(t, userCmd, "echo hello")
+			assert.Contains(t, cmd, dockerdWrapperPath+" execute")
+			assert.Contains(t, cmd, "echo hello")
 
 			for _, want := range tc.expected {
-				assert.Contains(t, flags, want)
+				assert.Contains(t, cmd, want)
 			}
 
 			for _, notWant := range tc.notExpected {
-				assert.NotContains(t, flags, notWant)
+				assert.NotContains(t, cmd, notWant)
 			}
 		})
 	}
-}
-
-func TestComposeArgsNoComposeFiles(t *testing.T) {
-	t.Parallel()
-
-	// Without compose files there is nothing for the wrapper to start, so it
-	// must not receive --start-compose. Services alone do not enable compose.
-	assert.Empty(t, composeArgs(WithDockerOpt{}))
-	assert.NotContains(
-		t,
-		composeArgs(WithDockerOpt{ComposeServices: []string{"db"}}),
-		startComposeFlag,
-	)
 }

@@ -1,19 +1,20 @@
 package base
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/urfave/cli/v3"
 )
 
-// InitFrontend initializes the frontend for the given command.
-func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
+// InitContainer initializes the container engine settings for the given command.
+func (cli *CLI) InitContainer(cmd *cli.Command) error {
 	// command line option overrides the config which overrides the default value
 	if !cmd.IsSet("buildkit-image") && cli.Cfg().Global.BuildkitImage != "" {
 		cli.Flags().BuildkitdImage = cli.Cfg().Global.BuildkitImage
@@ -40,7 +41,14 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("failed to parse generated buildkit URL: %w", err)
 	}
 
-	if bkURL.Scheme == "tcp" && cli.Cfg().Global.TLSEnabled {
+	if (bkURL.Scheme == "tcp" || bkURL.Scheme == "apple-container") && cli.Cfg().Global.TLSEnabled {
+		if exists, _ := fileutil.FileExists(cli.Cfg().Global.TLSCACert); !exists {
+			err = buildkitd.GenCerts(*cli.Cfg(), "127.0.0.1")
+			if err != nil {
+				return fmt.Errorf("auto-generate TLS certs: %w", err)
+			}
+		}
+
 		cli.Flags().BuildkitdSettings.ClientTLSCert = cli.Cfg().Global.ClientTLSCert
 		cli.Flags().BuildkitdSettings.ClientTLSKey = cli.Cfg().Global.ClientTLSKey
 		cli.Flags().BuildkitdSettings.TLSCA = cli.Cfg().Global.TLSCACert
@@ -52,9 +60,9 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 	cli.Flags().BuildkitdSettings.AdditionalConfig = cli.Cfg().Global.BuildkitAdditionalConfig
 	cli.Flags().BuildkitdSettings.Timeout = time.Duration(cli.Cfg().Global.BuildkitRestartTimeoutS) * time.Second
 	cli.Flags().BuildkitdSettings.Debug = cli.Flags().Debug
-	cli.Flags().BuildkitdSettings.BuildkitAddress = cli.Flags().BuildkitHost
-	cli.Flags().BuildkitdSettings.LocalRegistryAddress = cli.Flags().LocalRegistryHost
-	cli.Flags().BuildkitdSettings.UseTCP = bkURL.Scheme == "tcp"
+	cli.Flags().BuildkitdSettings.BuildkitAddr = cli.Flags().BuildkitHost
+	cli.Flags().BuildkitdSettings.LocalRegistryAddr = cli.Flags().LocalRegistryHost
+	cli.Flags().BuildkitdSettings.UseTCP = bkURL.Scheme == "tcp" || bkURL.Scheme == "apple-container"
 	cli.Flags().BuildkitdSettings.UseTLS = cli.Cfg().Global.TLSEnabled
 	cli.Flags().BuildkitdSettings.MaxParallelism = cli.Cfg().Global.BuildkitMaxParallelism
 	cli.Flags().BuildkitdSettings.CacheSizeMb = cli.Cfg().Global.BuildkitCacheSizeMb

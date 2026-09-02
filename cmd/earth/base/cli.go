@@ -12,6 +12,11 @@ import (
 
 // CLI contains the common "earth" command line interface.
 type CLI struct {
+	cfg                     *config.Config
+	logbusSetup             *setup.BusSetup
+	logbus                  *logbus.Bus
+	log                     *conslogging.ConsoleLogger
+	app                     *cli.Command
 	commandName             string
 	version                 string
 	gitSHA                  string
@@ -19,11 +24,6 @@ type CLI struct {
 	defaultBuildkitdImage   string
 	defaultInstallationName string
 	deferredFuncs           []func()
-	app                     *cli.Command
-	cfg                     *config.Config
-	logbusSetup             *setup.BusSetup
-	logbus                  *logbus.Bus
-	log                     *conslogging.ConsoleLogger
 	flags                   flag.Global
 }
 

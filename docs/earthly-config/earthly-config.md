@@ -194,29 +194,38 @@ The default organization to use when performing Earthly operations that require 
 
 ### Frontend configuration
 
-This option allows you to specify what supported frontend you are using (Docker / Podman).
-By default, Earthly will attempt to discover the frontend in this order: Docker -> Podman -> None
+This option allows you to specify what supported container engine you are using (`docker` / `podman` / `apple-container`).
+By default, EarthBuild will attempt to automatically discover the container engine in this order: Docker -> Podman -> Apple Container -> None (Stub).
 
 For Docker:
 ```yaml
 global:
-  container_frontend: docker-shell
+  container_frontend: docker
 ```
 
 For Podman:
 ```yaml
 global:
-  container_frontend: podman-shell
+  container_frontend: podman
 ```
 
-You can use the following command to set the configuration option using the earthly CLI:
+For Apple Container (macOS):
+```yaml
+global:
+  container_frontend: apple-container
+```
+
+You can use the following command to set the configuration option using the `earth` CLI:
 
 ```bash
 # Docker
-earthly config 'global.container_frontend' 'docker-shell'
+earth config 'global.container_frontend' 'docker'
 
 # Podman
-earthly config 'global.container_frontend' 'podman-shell'
+earth config 'global.container_frontend' 'podman'
+
+# Apple Container (macOS)
+earth config 'global.container_frontend' 'apple-container'
 ```
 
 ## Git configuration reference

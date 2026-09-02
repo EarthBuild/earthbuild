@@ -4,7 +4,7 @@ This page outlines alternative installation instructions for the `earth` build t
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/install/) or [Podman](https://docs.podman.io/en/latest/)
+- [Docker](https://docs.docker.com/install/), [Podman](https://docs.podman.io/en/latest/), or [Apple Container](https://github.com/apple/container) (macOS)
 - [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
 - (*Windows only*) [Docker WSL 2 backend](https://docs.docker.com/docker-for-windows/wsl/) or [Podman WSL2 backend](https://github.com/containers/podman/blob/main/docs/tutorials/podman-for-windows.md)
 
@@ -192,8 +192,18 @@ To remove earth, run the following commands:
 ```bash
 brew uninstall earthbuild/tap/earth
 rm -rf ~/.earth
-docker rm --force earth-buildkitd
-docker volume rm --force earth-cache
+
+# Docker:
+docker rm --force earth-buildkitd 2>/dev/null || true
+docker volume rm --force earth-cache 2>/dev/null || true
+
+# Podman:
+podman rm --force earth-buildkitd 2>/dev/null || true
+podman volume rm --force earth-cache 2>/dev/null || true
+
+# Apple Container:
+container delete -f earth-buildkitd 2>/dev/null || true
+container volume delete -f earth-cache 2>/dev/null || true
 ```
 
 ## Linux and WSL2 users

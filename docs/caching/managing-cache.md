@@ -6,7 +6,7 @@ This page describes how to manage the Earthly cache locally or on a remote runne
 
 ### Local cache location
 
-Earthly cache is persisted in a docker (or podman) volume called `earthly-cache` on your system. When Earthly starts for the first time, it brings up a BuildKit daemon in a Docker container, which initializes the `earthly-cache` volume. The volume is managed by Earthly's BuildKit daemon and there is a regular garbage-collection for old cache.
+Earth cache is persisted in a Docker, Podman, or Apple Container volume called `earth-cache` on your system. When earth starts for the first time, it brings up a BuildKit daemon in a container, which initializes the `earth-cache` volume. The volume is managed by Earth's BuildKit daemon and there is a regular garbage-collection for old cache.
 
 ### Specifying the local cache size limit
 

@@ -43,22 +43,17 @@ func withShell(args []string, withShell bool) []string {
 	return args
 }
 
-// strWithEnvVarsAndDocker builds the shell command for a RUN. A non-nil
-// dockerdArgs wraps the command in the WITH DOCKER wrapper, passing the given
-// (already shell-escaped) flags to it; the flags are terminated by "--" so the
-// wrapper can tell them apart from the user's command.
+// strWithEnvVarsAndDocker builds the shell command for a RUN.
 func strWithEnvVarsAndDocker(
-	args, envVars, dockerdArgs []string,
-	withShell, withDebugger, forceDebugger, isExpression bool,
+	args, envVars []string,
+	withShell, withDebugger, forceDebugger, withDocker, isExpression bool,
 	exitCodeFile, outputFile string,
 ) string {
 	var cmdParts []string
 
 	cmdParts = append(cmdParts, strings.Join(envVars, " "))
-	if dockerdArgs != nil {
+	if withDocker {
 		cmdParts = append(cmdParts, dockerdWrapperPath, "execute")
-		cmdParts = append(cmdParts, dockerdArgs...)
-		cmdParts = append(cmdParts, "--")
 	}
 
 	if withDebugger {
@@ -104,7 +99,7 @@ func shellCmd(cmd string) []string {
 }
 
 func withShellAndEnvVars(args []string, envVars []string, withShell, withDebugger, forceDebugger bool) []string {
-	return shellCmd(strWithEnvVarsAndDocker(args, envVars, nil, withShell, withDebugger, forceDebugger, false, "", ""))
+	return shellCmd(strWithEnvVarsAndDocker(args, envVars, withShell, withDebugger, forceDebugger, false, false, "", ""))
 }
 
 func withShellAndEnvVarsExitCode(exitCodeFile string) shellWrapFun {
@@ -114,7 +109,7 @@ func withShellAndEnvVarsExitCode(exitCodeFile string) shellWrapFun {
 		}
 
 		return shellCmd(
-			strWithEnvVarsAndDocker(args, envVars, nil, true, withDebugger, false, false, exitCodeFile, ""),
+			strWithEnvVarsAndDocker(args, envVars, true, withDebugger, false, false, false, exitCodeFile, ""),
 		)
 	}
 }
@@ -126,7 +121,7 @@ func withShellAndEnvVarsOutput(outputFile string) shellWrapFun {
 		}
 
 		return shellCmd(
-			strWithEnvVarsAndDocker(args, envVars, nil, true, withDebugger, false, false, "", outputFile),
+			strWithEnvVarsAndDocker(args, envVars, true, withDebugger, false, false, false, "", outputFile),
 		)
 	}
 }
@@ -138,7 +133,7 @@ func expressionWithShellAndEnvVarsOutput(outputFile string) shellWrapFun {
 		}
 
 		return shellCmd(
-			strWithEnvVarsAndDocker(args, envVars, nil, true, withDebugger, false, true, "", outputFile),
+			strWithEnvVarsAndDocker(args, envVars, true, withDebugger, false, false, true, "", outputFile),
 		)
 	}
 }

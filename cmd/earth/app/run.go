@@ -16,9 +16,9 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earth/helper"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/logstream"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/errutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/params"
@@ -344,7 +344,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
 		)
 
-		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) {
 			app.printCrashLogs(ctx)
 		}
 
@@ -361,7 +361,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
 		)
 
-		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) {
 			app.printCrashLogs(ctx)
 		}
 
@@ -374,7 +374,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			err.Error(),
 		)
 
-		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) {
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) {
 			app.BaseCLI.Log().Warn(
 				"Error: It seems that buildkitd had an issue. " +
 					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
@@ -392,7 +392,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			app.BaseCLI.Log().Warn("Canceled\n")
 		}
 
-		if containerutil.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddress) && lastSignal.Get() == nil {
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) && lastSignal.Get() == nil {
 			app.printCrashLogs(ctx)
 		}
 
@@ -437,7 +437,7 @@ func (app *EarthApp) printCrashLogs(ctx context.Context) {
 	fmt.Fprintf(os.Stderr, "build-sha: %s\n", app.BaseCLI.GitSHA()) // #nosec G705
 	fmt.Fprintf(os.Stderr, "platform: %s\n", common.GetPlatform())  // #nosec G705
 
-	dockerVersion, err := buildkitd.GetDockerVersion(ctx, app.BaseCLI.Flags().ContainerFrontend)
+	dockerVersion, err := buildkitd.GetDockerVersion(ctx, app.BaseCLI.Flags().Engine)
 	if err != nil {
 		app.BaseCLI.Log().Warnf("failed querying docker version: %s\n", err.Error())
 	} else {
@@ -446,7 +446,7 @@ func (app *EarthApp) printCrashLogs(ctx context.Context) {
 	}
 
 	logs, err := buildkitd.GetLogs(ctx,
-		app.BaseCLI.Flags().ContainerName, app.BaseCLI.Flags().ContainerFrontend, app.BaseCLI.Flags().BuildkitdSettings)
+		app.BaseCLI.Flags().ContainerName, app.BaseCLI.Flags().Engine, app.BaseCLI.Flags().BuildkitdSettings)
 	if err != nil {
 		app.BaseCLI.Log().Warnf("failed fetching %s logs: %s\n", app.BaseCLI.Flags().ContainerName, err.Error())
 	} else {

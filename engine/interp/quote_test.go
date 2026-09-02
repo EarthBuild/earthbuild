@@ -74,6 +74,11 @@ build:
 }
 
 // Quotes inside a value survive: only the delimiters are syntax.
+//
+// They survive escaped, because the value is spliced into text a shell reads
+// again and an unescaped quote there would be that shell's delimiter rather
+// than a character of the value. `echo say \"hello\"` prints `say "hello"`,
+// which is what the reference's step prints from the environment (E964).
 func TestInnerQuotesSurvive(t *testing.T) {
 	t.Parallel()
 
@@ -87,7 +92,7 @@ build:
 		t.Fatal(err)
 	}
 
-	if got := describe(p.Graph.Nodes()); !strings.Contains(got, `say "hello"`) {
+	if got := describe(p.Graph.Nodes()); !strings.Contains(got, `say \"hello\"`) {
 		t.Errorf("inner quotes were lost:\n%s", got)
 	}
 }

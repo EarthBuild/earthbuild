@@ -3246,10 +3246,17 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
-		Name:        "interp: the dollar left for the step's shell (E450)",
+		Name:        "interp: the dollar escaped inside the author's quotes (E964)",
 		File:        "engine/interp/args.go",
-		Anchor:      "\t\tcase '\\\\', '\"', '`':",
-		Replacement: "\t\tcase '\\\\', '\"', '`', '$':",
+		Anchor:      "\t\tcase '\\\\', '\"', '`', '$':",
+		Replacement: "\t\tcase '\\\\', '\"', '`':",
+		Package:     "./engine/interp/",
+	},
+	{
+		Name:        "interp: a value escaped for the bare word it landed in (E964)",
+		File:        "engine/interp/args.go",
+		Anchor:      "\t\t\t\tv = escapeOutsideQuotes(v)",
+		Replacement: "",
 		Package:     "./engine/interp/",
 	},
 	{
@@ -3501,6 +3508,27 @@ var Mutants = []Mutant{
 		File:        "engine/interp/interp.go",
 		Anchor:      "\t\tif workdir == \"\" {",
 		Replacement: "\t\tif false {",
+		Package:     "./engine/interp/",
+	},
+	{
+		Name:        "interp: a host step starting beside its Earthfile (E964)",
+		File:        "engine/interp/interp.go",
+		Anchor:      "\t\trs.dir = p.hereRelative()",
+		Replacement: "\t\trs.dir = \"\"",
+		Package:     "./engine/interp/",
+	},
+	{
+		Name:        "interp: an argument default reading the environment (E964)",
+		File:        "engine/interp/interp.go",
+		Anchor:      "\t\tdeclScope := rs.args.withEnv(rs.env)",
+		Replacement: "\t\tdeclScope := rs.args",
+		Package:     "./engine/interp/",
+	},
+	{
+		Name:        "interp: a build argument substituted before 0.7 (E964)",
+		File:        "engine/interp/interp.go",
+		Anchor:      "\tif !p.here.features.shellOutAnywhere && takesBuildArgs(c.Name) {",
+		Replacement: "\tif false {",
 		Package:     "./engine/interp/",
 	},
 }

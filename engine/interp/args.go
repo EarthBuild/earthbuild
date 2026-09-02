@@ -2,6 +2,7 @@ package interp
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
@@ -101,18 +102,19 @@ func (s scope) expandWord(in string) string {
 		}
 
 		if v, declared := s[name]; declared {
+			// The value's own characters, escaped for the context they landed
+			// in. Unescaped, a value containing a quote closed the author's and
+			// the word split - which is `sh: with: unknown operand` from a
+			// comparison that should have passed.
+			//
+			// This is what passing the argument as environment would do: the
+			// shell expands it and no character of the result is syntax. The
+			// context decides how much has to be escaped, not whether - outside
+			// the author's quotes more of the value is syntax, not less (E964).
 			if inDouble {
-				// The value's own characters, escaped for the context they
-				// landed in. Unescaped, a value containing a quote closed the
-				// author's and the word split - which is `sh: with: unknown
-				// operand` from a comparison that should have passed.
-				//
-				// This is what passing the argument as environment would do:
-				// the shell expands it inside the quotes and no character of it
-				// is syntax. Outside quotes nothing is escaped, because a bare
-				// expansion is the shell's to split and `RUN cmd $FLAGS`
-				// depends on it.
 				v = escapeInDoubleQuotes(v)
+			} else {
+				v = escapeOutsideQuotes(v)
 			}
 
 			b.WriteString(v)
@@ -171,8 +173,13 @@ func (s scope) expandDest(in string) string {
 }
 
 // declare parses `ARG name[=default]` into the scope.
+// vars is what a default's names are looked up in, and is the scope with the
+// step's environment overlaid: `ENV d delta` then `ARG VAR="d is $d"` computes
+// `d is delta`, as the reference's single collection of both does. Separate from
+// s, which is what the declaration writes to - an environment variable must not
+// become an argument by being read (E964).
 func (s scope) declare(
-	args []string, supplied map[string]string, where string,
+	vars scope, args []string, supplied map[string]string, where string,
 	expand func(string) (string, error), builtin map[string]string,
 	global map[string]string, declared map[string]bool, inTarget bool,
 ) error {
@@ -343,14 +350,14 @@ func (s scope) declare(
 	// unexpanded, the default is the *text* `$TARGETOS`, which then travels
 	// into a path and makes a directory with a dollar sign in its name.
 	//
-	// Undeclared names survive, as they do everywhere else here: `ARG
-	// WHERE=$HOME/x` is the author asking for the shell's HOME.
+	// Undeclared names survive, as they do everywhere else here: a name nothing
+	// in scope answers is left as the text the author wrote.
 	//
 	// expandWord rather than expandValue, because a default's quoting is not
 	// this engine's to resolve: the value may be a command line that a shell
 	// will parse again, and `ARG greeting="say \"hello\""` loses its inner
 	// quotes to an expansion that helpfully unquotes on the way past.
-	def = s.expandWord(def)
+	def = vars.expandWord(def)
 
 	// Back to an ordinary dollar, now that nothing downstream will read it as
 	// the start of a command or of a name. See escapedDollar.
@@ -396,22 +403,22 @@ func remember(global map[string]string, isGlobal bool, name, value string) {
 // Everything else - spaces, brackets, asterisks - is already literal between
 // double quotes, and escaping it would put backslashes into the value.
 //
-// **`$` is deliberately not escaped**, and that is a decision rather than an
-// oversight. This engine leaves undeclared names for the step's shell - `ARG
-// WHERE=$HOME/x` is the author asking for the shell's HOME, which is written
-// down where expansion is defined and asserted by its own test - so a `$` that
-// survived expansion is syntax the author meant. Escaping it here would take
-// that back at the point of use.
+// **`$` is escaped too**, which it was not, on the grounds that a dollar
+// surviving expansion is syntax the author meant - `ARG WHERE=$HOME/x` asking
+// for the step shell's HOME. The reference settles it the other way and settles
+// it completely: it never splices, so the value arrives as environment,
+// `shellescape.Quote`d, and a shell does not re-scan what an expansion produced.
+// A `$HOME` written into a value stays five characters (E964).
 //
-// The cost is stated rather than hidden: a value that genuinely contains a
-// dollar, from a `$(...)` that printed one, is expanded by the step's shell. The
-// same trade-off the undeclared-name rule already makes, in the same direction.
+// Leaving it live also let a value execute: `ARG VAR="literal\$(string)"`
+// spliced into `RUN test "$VAR" == ...` ran `string` and compared against its
+// output.
 func escapeInDoubleQuotes(v string) string {
 	var b strings.Builder
 
 	for i := range len(v) {
 		switch v[i] {
-		case '\\', '"', '`':
+		case '\\', '"', '`', '$':
 			b.WriteByte('\\')
 		}
 
@@ -419,4 +426,47 @@ func escapeInDoubleQuotes(v string) string {
 	}
 
 	return b.String()
+}
+
+// escapeOutsideQuotes is the same idea where the author wrote no quotes.
+//
+// More characters are syntax here - a parenthesis, a semicolon, a pipe - but
+// fewer than a general shell quoting would escape: an unquoted expansion is
+// still split on whitespace and still globbed by the shell that performs it, so
+// `RUN ls $FLAGS` and `RUN echo $PATTERN` must keep doing both. What is escaped
+// is what would end the word or start a new construct; what is left is what the
+// reference's inner shell does to an expanded value anyway.
+func escapeOutsideQuotes(v string) string {
+	var b strings.Builder
+
+	for i := range len(v) {
+		switch v[i] {
+		case '\\', '"', '\'', '`', '$', '(', ')', ';', '&', '|', '<', '>':
+			b.WriteByte('\\')
+		}
+
+		b.WriteByte(v[i])
+	}
+
+	return b.String()
+}
+
+// withEnv overlays the step's environment on the argument scope.
+//
+// ENV last, for the reason envFor puts it last: an ARG declares an input and an
+// ENV sets what the image itself carries, so where both name one thing the
+// image's is what a value computed at that point should see.
+//
+// A copy, because the scope is the recipe's and a declaration must not leak an
+// environment variable into it under the name of an argument.
+func (s scope) withEnv(env map[string]string) scope {
+	if len(env) == 0 {
+		return s
+	}
+
+	out := make(scope, len(s)+len(env))
+	maps.Copy(out, s)
+	maps.Copy(out, scope(env))
+
+	return out
 }

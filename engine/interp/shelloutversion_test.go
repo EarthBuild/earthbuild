@@ -22,7 +22,14 @@ import (
 //     asserts the value is that text, so a substitution anywhere else is not one;
 //   - `old-fail1.earth` writes `SAVE ARTIFACT "valid-$(echo file)"` and expects
 //     the build to fail on a *missing file of that name*, so the rule is about
-//     `ARG` and not about values in general.
+//     values a build argument carries and not about values in general.
+//
+// A value passed to another target counts, and `old.earth` says so four times:
+// `BUILD +b64decoder --mydata=$(cat variety)` at 0.6 decodes to `Le Borgeot`.
+// The reference draws the line in one place - `prepOverridingVars` gives the
+// parser a `ProcessNonConstantVariableFunc` exactly when the feature is off - so
+// a build argument beginning `$(` is evaluated in the caller's environment, and
+// nothing else is (E964).
 //
 // `--shell-out-anywhere` is the flag that lifts it and 0.7 turns it on. This
 // engine had the flag in `ignoredFeatures` - accepted and not acted on - so
@@ -62,6 +69,18 @@ func TestShellOutBeforeSevenIsTheWholeArgValueOnly(t *testing.T) {
 		name:    "a substitution in a value the engine consumes is text",
 		version: "VERSION 0.6",
 		body:    "    RUN touch valid-file\n    SAVE ARTIFACT \"valid-$(echo hi)\"\n",
+		wantRun: nil,
+	}, {
+		name:    "a build argument whose whole value is a substitution",
+		version: "VERSION 0.6",
+		body: "    BUILD +other --k=$(echo hi)\n\nother:\n    FROM alpine:3.22\n" +
+			"    ARG k\n    RUN echo $k\n",
+		wantRun: []string{"echo hi"},
+	}, {
+		name:    "a substitution in the middle of a build argument is text",
+		version: "VERSION 0.6",
+		body: "    BUILD +other --k=mid$(echo hi)\n\nother:\n    FROM alpine:3.22\n" +
+			"    ARG k\n    RUN echo $k\n",
 		wantRun: nil,
 	}, {
 		name:    "the same value from 0.7 is a substitution",

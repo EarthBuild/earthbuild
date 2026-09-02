@@ -100,3 +100,38 @@ func TestFromAfterLocallyIsRefused(t *testing.T) {
 		t.Fatal("FROM after LOCALLY was accepted")
 	}
 }
+
+// A host step starts in the directory holding its own Earthfile.
+//
+// Which is what the LOCALLY branch says it does, and it did not: the working
+// directory was cleared to nothing and the executor reads nothing as the build
+// root. That is the same answer only for an Earthfile at the root, so a function
+// called from `other/path+test` wrote its file two directories up
+// (tests/locally-in-function, E964).
+//
+// The dir travels as an absolute path because a host step's is joined onto the
+// context root, the same way a container step's is joined onto its filesystem.
+func TestAHostStepStartsBesideItsEarthfile(t *testing.T) {
+	t.Parallel()
+
+	dir := ctxWith(t, map[string]string{
+		"Earthfile":     versioned + "\nmain:\n    BUILD ./sub+t\n",
+		"sub/Earthfile": versioned + "\nt:\n    LOCALLY\n    RUN pwd\n",
+	})
+
+	p, err := interp.Build(versioned+"\nmain:\n    BUILD ./sub+t\n", "main",
+		interp.WithContext(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nodes := p.Graph.Nodes()
+	if len(nodes) != 1 {
+		t.Fatalf("got %d nodes, want 1:\n%s", len(nodes), describe(nodes))
+	}
+
+	if got := nodes[0].Op.Dir; got != "/sub" {
+		t.Errorf("the host step runs in %q, want %q - the directory holding the"+
+			" Earthfile that wrote the command", got, "/sub")
+	}
+}

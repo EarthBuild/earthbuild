@@ -129,3 +129,35 @@ func contains(s, sub string) bool {
 		return false
 	}()
 }
+
+// An ARG default naming an ENV variable takes its value.
+//
+// The two live in one collection in the reference, so `ENV d delta` then
+// `ARG VAR="d is $d"` computes `d is delta` at declaration - which is plan time,
+// where the step's environment does not exist yet. Leaving `$d` in the value for
+// the step's shell to expand only worked while a spliced dollar stayed live, and
+// it never worked for a value the engine consumes rather than runs
+// (tests/shell-out/new.earth +test2, E964).
+func TestAnArgDefaultReadsTheEnvironment(t *testing.T) {
+	t.Parallel()
+
+	p, err := interp.Build(versioned+`
+build:
+    FROM alpine:3.22
+    ENV d "delta"
+    ARG VAR1="d is $d."
+    RUN test "$VAR1" == "d is delta."
+`, "build")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	steps := execNodes(p)
+	if len(steps) != 1 {
+		t.Fatalf("got %d steps, want 1", len(steps))
+	}
+
+	if got := steps[0].Meta.Description; contains(got, `\$d`) {
+		t.Errorf("the environment was not read at declaration: %s", got)
+	}
+}

@@ -192,8 +192,11 @@ probe:
 
 // A default naming nothing is left alone, like every other undeclared name.
 //
-// `ARG MESSAGE=$HOME` is the author asking for the shell's HOME, not for the
-// engine's opinion about it - the same rule that keeps `$i` intact in a RUN.
+// `ARG MESSAGE=$HOME` is not the author asking for the shell's HOME, which is
+// what this said and what the reference disagrees with: the value reaches the
+// step as environment, quoted, so the step prints five characters. Left alone
+// means left as text - the dollar is escaped where it is spliced, so nothing
+// expands it a second time (E964).
 func TestADefaultNamingAnUndeclaredArgumentIsLeftAlone(t *testing.T) {
 	t.Parallel()
 
@@ -209,7 +212,7 @@ probe:
 		t.Fatal(err)
 	}
 
-	if got := lastRun(t, p.Graph.Nodes()); !strings.Contains(got, "at $HOME/somewhere") {
+	if got := lastRun(t, p.Graph.Nodes()); !strings.Contains(got, `at \$HOME/somewhere`) {
 		t.Errorf("an undeclared name in a default was substituted: %s", got)
 	}
 }

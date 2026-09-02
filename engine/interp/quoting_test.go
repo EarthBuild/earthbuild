@@ -76,16 +76,17 @@ func TestOutsideQuotesTheValueIsSplicedAsWritten(t *testing.T) {
 	}
 }
 
-// A dollar that survived expansion is left for the step's shell.
+// A dollar that survived expansion is left as text, escaped.
 //
-// This engine's rule, written where expansion is defined: `ARG WHERE=$HOME/x` is
-// the author asking for the shell's HOME. Escaping `$` inside the author's
-// quotes would take that back at the point of use, so the escaping stops at the
-// characters that would end the string (E450).
+// It used to be left live, on this engine's own rule that `ARG WHERE=$HOME/x` is
+// the author asking for the step shell's HOME (E450). The reference has no such
+// rule and cannot have one: the value goes to the step as environment, quoted,
+// and a shell does not re-scan what an expansion produced. So the dollar
+// survives as a character rather than as syntax (E964).
 //
-// Asserted beside the escaping, because the two are one decision: what is
-// escaped is what would break the *author's* syntax, and what is not is what the
-// author's own rule says belongs to the shell.
+// Asserted beside the escaping, because the two are one decision: what reaches
+// the step is the value the Earthfile computed, and nothing the step's shell
+// does to it afterwards.
 func TestADollarThatSurvivedIsLeftForTheShell(t *testing.T) {
 	t.Parallel()
 
@@ -93,7 +94,49 @@ func TestADollarThatSurvivedIsLeftForTheShell(t *testing.T) {
 		"\nmain:\n    FROM alpine:3.22\n    ARG WHERE=$HOME/somewhere\n"+
 		"    RUN echo \"at $WHERE\"\n")
 
-	if !strings.Contains(got, "$HOME/somewhere") {
-		t.Errorf("the step runs %q, and an undeclared name is the shell's", got)
+	if !strings.Contains(got, `\$HOME/somewhere`) {
+		t.Errorf("the step runs %q, and the value's own dollar is not syntax", got)
+	}
+}
+
+// A substituted value is not re-read as syntax by the step's shell.
+//
+// The reference never splices at all: build arguments reach the step as
+// environment, shell-escaped, and the command text is handed to an inner shell
+// unexpanded (`earthfile2llb/shell.go`, strWithEnvVarsAndDocker). A shell does
+// not re-scan the result of an expansion, so no character of the value is
+// syntax. Splicing the value in reproduces that only if the splice escapes what
+// the shell would otherwise act on - and `$` was not escaped, so
+// `ARG VAR="literal\$(string)"` ran `string` and compared against its output
+// (tests/shell-out/new.earth +test4, E964).
+func TestASubstitutedValueIsNotReParsed(t *testing.T) {
+	t.Parallel()
+
+	got := commandOfFirstExec(t, versioned+
+		"\nmain:\n    FROM alpine:3.22\n    ARG VAR1=\"literal\\$(string)\"\n"+
+		"    RUN test \"$VAR1\" == \"literal\\$(string)\"\n")
+
+	if strings.Contains(got, `"literal$(string)"`) {
+		t.Errorf("the step runs %q, where the value's $( is the shell's to"+
+			" execute", got)
+	}
+}
+
+// The same value outside the author's quotes, where the shell would read a
+// parenthesis as syntax rather than run a subshell's worth of it.
+//
+// Escaping stops short of what an unquoted expansion legitimately does - it
+// still splits on whitespace and still globs - because the reference's inner
+// shell does both to an expanded value. Only what would end or re-open the word
+// is escaped.
+func TestASubstitutedValueOutsideQuotesIsNotReParsed(t *testing.T) {
+	t.Parallel()
+
+	got := commandOfFirstExec(t, versioned+
+		"\nmain:\n    FROM alpine:3.22\n    ARG VAR1=\"literal\\$(string)\"\n"+
+		"    RUN echo -n $VAR1\n")
+
+	if strings.Contains(got, "literal$(string)") {
+		t.Errorf("the step runs %q, where $( and the parentheses are syntax", got)
 	}
 }

@@ -803,6 +803,46 @@ func (p *Plan) secretDigestFor(specs []string) map[string]string {
 	return out
 }
 
+// takesBuildArgs says whether a command can carry `name=value` pairs bound for
+// another target's ARGs, which is where the pre-0.7 dialect substitutes and the
+// only place outside an ARG's own default that it does.
+func takesBuildArgs(name earthfile.Cmd) bool {
+	switch name {
+	case earthfile.CmdBuild, earthfile.CmdFrom, earthfile.CmdCopy,
+		earthfile.CmdDo, earthfile.CmdFromDockerfile:
+		return true
+	default:
+		return false
+	}
+}
+
+// hereRelative is where the Earthfile that wrote the command sits under the
+// build root, as an absolute path so a host step can join it onto the context
+// the same way a container step joins its dir onto a filesystem.
+//
+// callerContext, not here.dir: a function inherits the caller's context, so a
+// LOCALLY inside one runs where the *call* was written. Taking the function's
+// own directory put the file in `some/subdir` while the target asserting it read
+// `other/path` - the same distinction callerContext exists for, one command
+// further on.
+//
+// Empty for the root Earthfile, and empty for one outside the root - a fetched
+// unit has no place under this build's context, and a host step there is
+// refused before it is planned.
+func (p *Plan) hereRelative() string {
+	dir := p.callerContext()
+	if p.rootDir == "" || dir == "" || dir == p.rootDir {
+		return ""
+	}
+
+	rel, err := filepath.Rel(p.rootDir, dir)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
+		return ""
+	}
+
+	return "/" + filepath.ToSlash(rel)
+}
+
 func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, error) {
 	// ARG declares; everything after it sees the value. Expansion happens here,
 	// before the node exists, so an argument's value is part of the operation
@@ -811,10 +851,18 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 	if c.Name == earthfile.CmdArg {
 		where := loc(c.SourceLocation)
 
+		// **A default reads the environment as well as the arguments.** The
+		// reference keeps both in one collection, so `ENV d delta` then
+		// `ARG VAR="d is $d"` computes `d is delta` here. This is the only place
+		// the two are read together: a RUN's text is left for the step's shell,
+		// which has the real environment, and merging there would expand a name
+		// twice (TestEnvIsNotExpandedIntoTheCommand).
+		declScope := rs.args.withEnv(rs.env)
+
 		expand := func(v string) (string, error) {
 			// expandWord, not expandValue: what is inside a `$(...)` is read by a
 			// shell, so its quoting is not this engine's to resolve (E65).
-			word := rs.args.expandWord(v)
+			word := declScope.expandWord(v)
 
 			// **Before 0.7 a substitution has to be the whole value.** See
 			// expandWholeValue and features.shellOutAnywhere.
@@ -840,7 +888,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			addCIRunner(builtin)
 		}
 
-		err := rs.args.declare(c.Args, rs.supplied, where, expand,
+		err := rs.args.declare(declScope, c.Args, rs.supplied, where, expand,
 			builtin, rs.globals, rs.declared, rs.target != "")
 		if err != nil {
 			return nil, err
@@ -897,6 +945,33 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			}
 
 			c.Args[i] = out
+		}
+	}
+
+	// **A build argument is the other place the old dialect substitutes.** The
+	// reference hands its argument parser a ProcessNonConstantVariableFunc
+	// exactly when `--shell-out-anywhere` is off (prepOverridingVars), and that
+	// function evaluates a value beginning `$(` in the caller's environment. So
+	// `BUILD +b64decoder --mydata=$(cat variety)` decodes at 0.6, while
+	// `--abc="bar=$(hostname)"` beside it does not - the substitution has to be
+	// the whole value, exactly as for an ARG.
+	//
+	// Restricted to the commands that take build arguments: `ENV k=$(...)` at
+	// 0.6 is text, because the reference expands an ENV through ExpandOld, which
+	// has no shell to hand it to (E964).
+	if !p.here.features.shellOutAnywhere && takesBuildArgs(c.Name) {
+		for i, a := range c.Args {
+			name, value, ok := strings.Cut(a, "=")
+			if !ok || !strings.Contains(value, "$(") {
+				continue
+			}
+
+			out, err := p.expandWholeValue(value, prev, rs.dir, string(c.Name), loc(c.SourceLocation))
+			if err != nil {
+				return nil, err
+			}
+
+			c.Args[i] = name + "=" + out
 		}
 	}
 
@@ -1531,7 +1606,13 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// (tests/if.earth+test-switch-locally). The machine's build starts in
 		// the directory holding the Earthfile, which is what makes a WORKDIR
 		// written *after* LOCALLY relative to it.
-		rs.dir = ""
+		//
+		// That directory, and not the build root. Clearing it to nothing left
+		// the executor joining nothing onto the context, which is the same
+		// answer only for an Earthfile at the root: `other/path+test` calling a
+		// LOCALLY function wrote its file two directories up, and the assertion
+		// beside it read a file nobody had written (E964).
+		rs.dir = p.hereRelative()
 
 		return prev, nil
 

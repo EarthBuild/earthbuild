@@ -814,7 +814,15 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		expand := func(v string) (string, error) {
 			// expandWord, not expandValue: what is inside a `$(...)` is read by a
 			// shell, so its quoting is not this engine's to resolve (E65).
-			return p.expandCommands(rs.args.expandWord(v), prev, rs.dir, string(c.Name), where)
+			word := rs.args.expandWord(v)
+
+			// **Before 0.7 a substitution has to be the whole value.** See
+			// expandWholeValue and features.shellOutAnywhere.
+			if !p.here.features.shellOutAnywhere {
+				return p.expandWholeValue(word, prev, rs.dir, string(c.Name), where)
+			}
+
+			return p.expandCommands(word, prev, rs.dir, string(c.Name), where)
 		}
 
 		// The platform arguments are computed here rather than seeded into the
@@ -870,7 +878,14 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 	// rather than despite it - it is handed to a shell, whose job this is, and
 	// running it here would evaluate it once at plan time and bake the answer
 	// in, so a step reading the clock would see the wrong moment.
-	if c.Name != earthfile.CmdRun && c.Name != earthfile.CmdEntrypoint && c.Name != earthfile.CmdCmd {
+	//
+	// **And only from 0.7.** Before that a `$(...)` is a substitution solely as
+	// the whole value of an `ARG`; everywhere else it is text.
+	// `tests/shell-out/old-fail1.earth` is the case that says so, and says it by
+	// expecting a build to fail: `SAVE ARTIFACT "valid-$(echo file)"` at 0.6
+	// must look for a file of that literal name and not find one (E957).
+	if p.here.features.shellOutAnywhere &&
+		c.Name != earthfile.CmdRun && c.Name != earthfile.CmdEntrypoint && c.Name != earthfile.CmdCmd {
 		for i, a := range c.Args {
 			if !strings.Contains(a, "$(") {
 				continue

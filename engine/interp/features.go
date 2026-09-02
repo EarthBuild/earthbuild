@@ -55,6 +55,10 @@ type features struct {
 	// whose fold markers land at the start of a line here and mid-line
 	// elsewhere is written for one engine (E937).
 	rawOutput bool
+	// shellOutAnywhere is `--shell-out-anywhere`, on by default from 0.7. Before
+	// it, a `$(...)` is expanded only as the whole value of an `ARG`, and a
+	// failing one leaves the argument empty rather than stopping the build.
+	shellOutAnywhere bool
 }
 
 // knownFeatures maps a VERSION flag to the field it sets.
@@ -83,6 +87,10 @@ var knownFeatures = map[string]func(*features){
 	// from. Gated at the construct as well as named here, which is what the
 	// reference does.
 	"--raw-output": func(f *features) { f.rawOutput = true },
+	// A `$(...)` anywhere rather than only as a whole `ARG` value, and a failing
+	// one reported rather than swallowed. See defaultsFor for the 0.7 boundary
+	// and `tests/shell-out` for the four files that state it.
+	"--shell-out-anywhere": func(f *features) { f.shellOutAnywhere = true },
 }
 
 // ignoredFeatures are flags this engine understands to exist and does not gate.
@@ -120,7 +128,6 @@ var ignoredFeatures = map[string]bool{
 	"--referenced-save-only":                true,
 	"--for-in":                              true,
 	"--no-network":                          true,
-	"--shell-out-anywhere":                  true,
 	"--check-duplicate-images":              true,
 	"--earthly-version-arg":                 true,
 	"--wait-block":                          true,
@@ -168,6 +175,16 @@ var ignoredFeatures = map[string]bool{
 // changelog, and it is written down here rather than inferred at each site.
 func defaultsFor(version string) features {
 	var f features
+
+	// **0.7, and the corpus says so in six comments.** Every `old*.earth` in
+	// `tests/shell-out` opens `VERSION 0.6 # do not change to 0.7; this test is
+	// for old functionality`, and between them they state all of what changes:
+	// a `$(...)` becomes expandable anywhere rather than only as a whole `ARG`
+	// value, and a failing one stops the build rather than leaving the argument
+	// empty. `new.earth` is 0.8 and asserts the other side (E957).
+	if version >= "0.7" {
+		f.shellOutAnywhere = true
+	}
 
 	// Only what is evidenced. `--try` is *not* here: five files in this
 	// repository declare `VERSION --try 0.8`, so it is still opt-in at 0.8 and

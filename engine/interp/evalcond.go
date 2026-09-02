@@ -530,3 +530,64 @@ func (p *Plan) expandCommands(value string, base *ir.Node, dir, what, where stri
 		value = value[:i] + out + value[end+1:]
 	}
 }
+
+// expandWholeValue is `expandCommands` under the dialect before 0.7, where a
+// `$(...)` is a substitution only when it is the entire value.
+//
+// **Two rules, and the corpus states both.** `tests/shell-out/old.earth`
+// expands `ARG k = $( echo ... )` and `ARG k = "$( echo ... )"`, so one layer of
+// quotes still counts as the whole value;
+// `old-no-middle-shell-out.earth` writes `ARG key="hello$(cat /data)"` and
+// asserts the value is that text. And `old-ignore-shellout-errors.earth` is
+// named for the second rule: a command that fails leaves the argument empty
+// rather than stopping the build, which is what `--shell-out-anywhere` changes
+// and what the file's own comment says it changes (E957).
+//
+// A missing runner is still reported. That is not the command failing - it is
+// nobody having asked to run anything - and swallowing it would make
+// `earthbuild plan` produce a graph with an argument silently empty.
+func (p *Plan) expandWholeValue(value string, base *ir.Node, dir, what, where string) (string, error) {
+	inner, ok := wholeValueCommand(value)
+	if !ok {
+		return value, nil
+	}
+
+	out, err := p.substitute([]string{inner}, base, dir, what, where)
+	if err != nil {
+		if errors.Is(err, ErrNoRunner) {
+			return "", err
+		}
+
+		return "", nil
+	}
+
+	return out, nil
+}
+
+// wholeValueCommand reads a value that is one `$(...)` and nothing else,
+// allowing one layer of surrounding quotes.
+//
+// Surrounding quotes count because the corpus writes both forms and expects the
+// same answer, and one layer because that is as far as the evidence goes: a
+// value wrapped twice is not written anywhere and guessing at it would be this
+// engine inventing a dialect.
+func wholeValueCommand(value string) (string, bool) {
+	v := strings.TrimSpace(value)
+
+	for _, q := range []byte{'"', '\''} {
+		if len(v) >= 2 && v[0] == q && v[len(v)-1] == q {
+			v = strings.TrimSpace(v[1 : len(v)-1])
+
+			break
+		}
+	}
+
+	start, end, found := commandSpan(v)
+	if !found || start != 0 || end != len(v)-1 {
+		return "", false
+	}
+
+	cmd, _, ok := commandRegion(v, 0)
+
+	return cmd, ok
+}

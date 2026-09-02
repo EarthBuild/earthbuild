@@ -46476,10 +46476,34 @@ So: the whole value, optionally wrapped in one layer of quotes, and nothing else
 `ignoredFeatures` - accepted and not acted on - which is why every version
 expands everywhere.
 
-Not fixed here, and the reason is the same one that stopped E956. The gate has
-four call sites - `ARG`, a command's arguments, an assignment, and `FOR` - and
-what 0.6 does at the other three is stated only by `old-fail1.earth` and
-`old-fail2.earth`, which are `--should_fail` cases matched on their *message
-text*. Changing expansion to fix two assertions while silently changing what two
-others print is exactly the shape of E947, and the corpus is the only instrument
-that would catch it.
+**Fixed the next morning, and the two `--should_fail` cases are why it took a
+second look.** They are matched on their *message text*, so a change that fixes
+two assertions can silently invert two others - the shape of E947. Reading them
+turned out to state the rest of the rule rather than merely constrain it:
+
+* `old-fail1.earth` writes `SAVE ARTIFACT "valid-$(echo file)"` and expects the
+  build to fail *on a missing file of that literal name*. So the rule is about
+  `ARG` and not about values in general - and this engine ran the command, which
+  made the artifact exist and the build succeed. The assertion was not at risk
+  from the change; it was already inverted.
+* `old-fail2.earth` writes `ARG $key="Duchess of Oldenburg"` and expects
+  `invalid ARG key definition $key`. That is the argument's *name*, which the
+  parser refuses in those words already. Unaffected, and checked rather than
+  assumed.
+* `old-ignore-shellout-errors.earth` gives the second half of what the flag
+  changes: `ARG key2 = $(invalid-command)` followed by `RUN env | grep '^key2=$'`.
+  Before 0.7 a failing substitution leaves the argument empty; from 0.7 it stops
+  the build.
+
+So the implemented rule is: a `$(...)` is a substitution only as the whole value
+of an `ARG`, with one optional layer of surrounding quotes, and a failure there
+is swallowed. A missing *runner* is still reported - that is nobody having asked
+to run anything rather than a command failing, and swallowing it would make
+`earthbuild plan` emit a graph with an argument silently empty.
+
+`FOR` and the `LET`/`SET` assignment path are left alone: both are constructs
+this corpus only writes at 0.7 and above, so there is no evidence about what 0.6
+does with them and inventing some would be this engine writing the dialect.
+
+The whole-corpus counts are unmoved on darwin at 494 and 259, which is the
+check that the change refuses nothing it used to plan.

@@ -3136,8 +3136,16 @@ func (p *Plan) do(c earthfile.Command, prev *ir.Node, caller *state) (*ir.Node, 
 	// expanded to nothing and the engine reported `--mount type=(none) is not
 	// supported` - naming something the author never wrote, about a construct
 	// that is supported (E101).
+	//
+	// **`LOCALLY` is one of the things it sets**, and the one that did not
+	// travel. It says where the build environment *is*, exactly as WORKDIR says
+	// where in it - and the reference has nothing to restore, because it runs a
+	// function's recipe on the interpreter it was called from and `i.local`
+	// simply stays true. Here the caller went back to a container, so a function
+	// that wrote a file on the machine was followed by a step that looked for it
+	// in an image: `cat: can't open 'data'`, three hops from the cause (E958).
 	maps.Copy(caller.env, rs.env)
-	caller.dir, caller.user = rs.dir, rs.user
+	caller.dir, caller.user, caller.host = rs.dir, rs.user, rs.host
 
 	return out, nil
 }

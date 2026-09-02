@@ -46328,9 +46328,23 @@ its head - same three nodes, same kinds, same argv, same `Dir` - so whatever is
 wrong is in execution rather than interpretation. That removes a whole package
 from the search before anybody boots a machine.
 
-Not diagnosed further here, because the discriminator wants a machine that can
-run a `LOCALLY` step followed by a container step, and the x86 box went off the
-network mid-session.
+**Diagnosed and fixed the next morning, on this machine.** The native engine runs
+on macOS through a VM, so the case reproduces here in a minute - which is what
+"the discriminator wants a machine" should have prompted somebody to try.
+
+`LOCALLY` inside a function did not travel back out of it. `do` already copies
+ENV, WORKDIR and USER into the caller and says why in a comment: a function is
+inlined, so "what the function *set* stays set ... exactly as if the lines had
+been written there". `LOCALLY` is the same kind of statement - it says where the
+build environment *is*, as WORKDIR says where in it - and was the one omitted.
+
+The reference has nothing to restore: it runs a function's recipe on the
+interpreter that called it, so `i.local = true` simply persists. Every restoring
+implementation has to remember this case, and this one did not.
+
+Three hops from cause to symptom, which is why the plan comparison mattered: the
+function writes `data` on the machine, the caller's next line reads `data` in a
+container, and the message is `cat: can't open 'data'`.
 
 ### E954 - a symlink saved as an artifact is followed inside one layer
 

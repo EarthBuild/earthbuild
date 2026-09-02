@@ -2392,7 +2392,18 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 				// lines later names the artifact.
 				to := dest
 				if strings.HasSuffix(to, "/") || to == "." {
-					to = filepath.Join(strings.TrimSuffix(dest, "/"), a.Name)
+					// **A name that is still a pattern is not a name.**
+					// `SAVE ARTIFACT ./*` declares one whose matches are known
+					// only once the producing target's filesystem exists, so
+					// joining it made `out/*` - a file name with a star in it -
+					// and the copy landed one file called `*`. The directory
+					// travels instead and the guest places each match under its
+					// own name (E960).
+					if strings.ContainsAny(path.Base(a.Name), "*?[") {
+						to = filepath.Clean(dest) + "/"
+					} else {
+						to = filepath.Join(strings.TrimSuffix(dest, "/"), a.Name)
+					}
 				}
 
 				prev = &ir.Node{

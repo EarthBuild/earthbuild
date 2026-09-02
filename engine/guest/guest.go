@@ -880,6 +880,34 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 		opts.chownUID, opts.chownGID = uid, gid
 	}
 
+	// **A pattern with several matches is several copies.** The producing side
+	// declares `SAVE ARTIFACT ./*`, whose matches are known only once that
+	// target's filesystem exists - so the plan carries the pattern and this is
+	// where it becomes files. `tests/platform` is built on it: `+run` saves
+	// `./*` and the target above copies `+run/*` into a directory per platform,
+	// fifteen times. The pattern used to arrive here intact and land as a single
+	// file *named* `*` (E960).
+	//
+	// Only into a directory, because each match keeps its own name and needs
+	// somewhere to keep it. With a single-file destination `matchOne` refuses
+	// below and lists what it found, which is the right answer to
+	// `COPY +t/*.go one.go`.
+	expanded, err := s.expandPattern(h, from, src, dest)
+	if err != nil {
+		return err
+	}
+
+	if len(expanded) > 1 {
+		for _, one := range expanded {
+			err = s.copyIn(h, from, one, dest, opts)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
 	srcPaths, err := s.findInStack(from, src)
 	if err != nil {
 		// **Absent is an answer when the author said it might be.** Only this
@@ -4100,4 +4128,65 @@ func (s *Server) resolveLastInStack(from []string, at layerPath) (layerPath, err
 
 		at = found[len(found)-1]
 	}
+}
+
+// expandPattern turns a source pattern into the paths it matches across the
+// stack, when the destination can hold more than one of them.
+//
+// Empty for a source with no metacharacter, for a destination that is not a
+// directory, and for a pattern matching one file - all three are the single-copy
+// case the rest of `copyIn` already handles, and the last one deliberately: a
+// pattern matching exactly one file keeps working as it always has, including
+// its landing name.
+//
+// Distinct names across layers, sorted, so a file present in two layers is
+// copied once - the merge below handles which version wins - and two runs of one
+// build copy in the same order (I12).
+func (s *Server) expandPattern(h core.Handle, from []string, src, dest string) ([]string, error) {
+	if !strings.ContainsAny(filepath.Base(src), "*?[") {
+		return nil, nil
+	}
+
+	at, err := within(h.Root(), dest)
+	if err != nil {
+		return nil, err
+	}
+
+	if !strings.HasSuffix(dest, "/") && !isDir(at) {
+		return nil, nil
+	}
+
+	seen := map[string]bool{}
+
+	for _, v := range from {
+		root := filepath.Join(s.LayerDir, "layers", v)
+
+		path, withinErr := within(root, src)
+		if withinErr != nil {
+			return nil, withinErr
+		}
+
+		matches, globErr := filepath.Glob(path)
+		if globErr != nil {
+			return nil, fmt.Errorf("COPY %s: %q is not a usable pattern: %w", src, src, globErr)
+		}
+
+		for _, m := range matches {
+			rel, relErr := filepath.Rel(root, m)
+			if relErr != nil {
+				return nil, fmt.Errorf("COPY %s: %w", src, relErr)
+			}
+
+			seen["/"+rel] = true
+		}
+	}
+
+	out := make([]string, 0, len(seen))
+	for name := range seen {
+		out = append(out, name)
+	}
+
+	sort.Strings(out)
+
+	return out, nil
 }

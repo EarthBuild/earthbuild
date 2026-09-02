@@ -36,7 +36,26 @@ func (p *Plan) forStatement(st *earthfile.ForStatement, prev *ir.Node, rs *state
 	// meaning of every line after END.
 	outer, had := rs.args[name]
 
+	// **Declared, because a loop variable is a build argument.** `envFor`
+	// exports the names a recipe declared and nothing else, which is what keeps
+	// a caller's vocabulary out of a step - so a name only written into `args`
+	// is substituted into commands and absent from the environment. The
+	// difference shows wherever the *shell* does the reading:
+	// `tests/platform` writes `case \$plat in` with the dollar escaped on
+	// purpose, and every arm fell through to `*) exit 1` (E961).
+	//
+	// `local:` is the scope an ARG inside a target gets, which is what this is.
+	const scope = "local:"
+
+	wasDeclared := rs.declared[scope+name]
+
+	rs.declared[scope+name] = true
+
 	defer func() {
+		if !wasDeclared {
+			delete(rs.declared, scope+name)
+		}
+
 		if had {
 			rs.args[name] = outer
 

@@ -46555,3 +46555,68 @@ does with them and inventing some would be this engine writing the dialect.
 
 The whole-corpus counts are unmoved on darwin at 494 and 259, which is the
 check that the change refuses nothing it used to plan.
+
+### E959 - the engine recommended a tool whose output it could not read
+
+`+test-qemu` could not be reproduced anywhere but CI, and the reason was in the
+engine's own refusal:
+
+```text
+register an interpreter for linux/amd64 - `docker run --privileged --rm
+  tonistiigi/binfmt --install all` anywhere with docker
+```
+
+Running exactly that, then asking again, gave the same sentence. The tool
+registers entries named for the *architecture* - `x86_64`, `arm`, `riscv64` -
+and `qemuArch` knew only the `qemu-`-prefixed interpreter names that Debian's
+`qemu-user-binfmt` writes. Both spellings are read now, the prefix optional.
+
+**The advice was tested by following it, which is the only test advice has.** A
+message naming a command is a claim about that command's effect, and this one had
+never been run by anybody who then re-ran the build.
+
+### E960 - a saved pattern arrived at the copy as a file called `*`
+
+With emulation recognised, `+test-qemu` reproduced locally and the directory
+listing gave it away in one line:
+
+```text
+./out/copy/linux/amd64/*
+./out/copy_native1/*
+./out/default/*
+```
+
+`tests/platform+run` saves `SAVE ARTIFACT ./*` and the target above copies
+`+run/*` into a directory per platform, fifteen times. A pattern's matches are
+known only once the producing target's filesystem exists, so the plan cannot name
+them - and joining the pattern to the destination made `out/*`, a file name with
+a star in it, which the guest then created.
+
+Two halves, because the plan and the guest each held one:
+
+* the interpreter keeps the *directory* as the destination when the saved name is
+  still a pattern, rather than joining a name it does not have;
+* the guest expands the pattern across the layer stack and copies each match
+  under its own name - which is what the export side has done since
+  `SAVE ARTIFACT ./out-* AS LOCAL` needed it, and says so in its own test's
+  comment: "one rule written out twice and maintained once".
+
+A pattern matching several files with a *single-file* destination is still
+refused, and the refusal lists them. `COPY +t/*.go one.go` cannot mean anything.
+
+### E961 - the loop variable was substituted and never exported
+
+Behind that, in the same script: three lines printed the right answers and the
+`case` that read them fell through to `*) exit 1`.
+
+`tests/platform` writes `case \$plat in` with the dollar escaped on purpose, so
+the *shell* reads it at run time - while `outdir=./out/$plat` on the line above is
+unescaped and this engine substitutes it. `FOR` put its variable in `args`, which
+is what substitution reads, and not in `declared`, which is what `envFor`
+exports. So most of the script worked.
+
+That asymmetry is what made it invisible: a variable that is substituted
+everywhere it is written plainly, and absent everywhere the author deliberately
+deferred it to the shell. `FOR` declares its name for the body exactly as `ARG`
+declares one for the recipe, and now says so - scoped to the loop, as the restore
+already intended.

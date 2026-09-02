@@ -90,3 +90,50 @@ func TestTheListIsSorted(t *testing.T) {
 		}
 	}
 }
+
+// The names `tonistiigi/binfmt` registers are read too.
+//
+// **The engine's own message recommends that tool**, and the tool registers by
+// architecture name - `x86_64`, `arm`, `riscv64` - rather than by the
+// `qemu-`-prefixed interpreter name the map knew. So following this engine's
+// advice installed emulation it then reported as absent, and the second refusal
+// said the same words as the first (E959).
+//
+// Observed on Docker Desktop's VM after `--install all`: `arm`, `i386`,
+// `mips64`, `mips64le`, `ppc64le`, `riscv64`, `s390x`, `x86_64`, alongside
+// `qemu-arm` and a few other prefixed duplicates.
+func TestBothSpellingsOfAnInterpreterAreRead(t *testing.T) {
+	t.Parallel()
+
+	dir := binfmtDir(t, map[string]string{
+		"x86_64":       "enabled\ninterpreter /usr/bin/qemu-x86_64\n",
+		"qemu-aarch64": "enabled\ninterpreter /usr/bin/qemu-aarch64\n",
+		"arm":          "enabled\ninterpreter /usr/bin/qemu-arm\n",
+		"i386":         "enabled\ninterpreter /usr/bin/qemu-i386\n",
+		// Registered and off: still not available, whichever way it is spelled.
+		"riscv64": "disabled\ninterpreter /usr/bin/qemu-riscv64\n",
+		// Not an interpreter this engine knows, and not a reason to guess.
+		"jarwrapper": "enabled\ninterpreter /usr/bin/jexec\n",
+	})
+
+	offered := emulatedPlatforms(dir)
+
+	got := make([]string, 0, len(offered))
+	for _, p := range offered {
+		got = append(got, p.String())
+	}
+
+	want := map[string]bool{"linux/amd64": true, "linux/arm64": true, "linux/arm": true, "linux/386": true}
+
+	for _, g := range got {
+		if !want[g] {
+			t.Errorf("offered %s, which nothing here registers", g)
+		}
+
+		delete(want, g)
+	}
+
+	for missing := range want {
+		t.Errorf("%s is registered and enabled and was not offered", missing)
+	}
+}

@@ -22,20 +22,53 @@ const binfmtRegister = "/proc/sys/fs/binfmt_misc"
 // architecture differ and the pair is easy to transpose.
 const archARM64 = "arm64"
 
-// qemuArch maps an interpreter's registered name to the architecture it runs.
+// qemuAlias maps an interpreter's registered name to the architecture it runs,
+// where the two differ.
 //
 // **Named rather than derived.** The kernel's entry is called `qemu-aarch64`
 // and the platform is `arm64`; the two vocabularies differ for most of these,
 // and guessing between them would report an architecture the engine cannot name
 // and place a step nothing can run.
-var qemuArch = map[string]string{
-	"qemu-aarch64": archARM64,
-	"qemu-arm":     "arm",
-	"qemu-mips64":  "mips64",
-	"qemu-ppc64le": "ppc64le",
-	"qemu-riscv64": "riscv64",
-	"qemu-s390x":   "s390x",
-	"qemu-x86_64":  "amd64",
+//
+// Keyed on the name with any `qemu-` prefix removed, because the two tools that
+// register these disagree about it. Debian's `qemu-user-binfmt` writes
+// `qemu-x86_64`; `tonistiigi/binfmt` - which this engine's own refusal tells the
+// reader to run - writes `x86_64`. Reading only the first spelling meant
+// following that advice installed emulation the engine then reported as absent,
+// twice in the same words (E959).
+var qemuAlias = map[string]string{
+	"aarch64":  archARM64,
+	"x86_64":   "amd64",
+	"i386":     "386",
+	"mips64el": "mips64le",
+}
+
+// qemuSame are the interpreters whose registered name is already the
+// architecture, listed rather than assumed: an entry this engine does not know
+// names no platform it can place a step on, and `jarwrapper` is a real one.
+var qemuSame = map[string]bool{
+	"arm":      true,
+	"mips64":   true,
+	"mips64le": true,
+	"ppc64le":  true,
+	"riscv64":  true,
+	"s390x":    true,
+}
+
+// archOf reads the architecture a binfmt entry runs, or says it is not one this
+// engine knows.
+//
+// The `qemu-` prefix is optional for the reason qemuArch states. Anything else
+// is left alone rather than guessed at: `jarwrapper` is a real entry on a
+// machine with a JVM and names no architecture at all.
+func archOf(entry string) (string, bool) {
+	name := strings.TrimPrefix(entry, "qemu-")
+
+	if arch, aliased := qemuAlias[name]; aliased {
+		return arch, true
+	}
+
+	return name, qemuSame[name]
 }
 
 // emulatedPlatforms is what this machine can run through emulation.
@@ -53,7 +86,7 @@ func emulatedPlatforms(dir string) []ir.Platform {
 	var out []ir.Platform
 
 	for _, e := range entries {
-		arch, known := qemuArch[e.Name()]
+		arch, known := archOf(e.Name())
 		if !known {
 			continue
 		}

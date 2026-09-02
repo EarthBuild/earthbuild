@@ -140,3 +140,21 @@ func TestASubstitutedValueOutsideQuotesIsNotReParsed(t *testing.T) {
 		t.Errorf("the step runs %q, where $( and the parentheses are syntax", got)
 	}
 }
+
+// Exec form is not re-parsed, so nothing in it is escaped.
+//
+// `RUN ["echo", "$VAR"]` hands the kernel an argv: there is no shell between the
+// plan and the process, so a character of the value that would be syntax to one
+// is simply a character. Escaping it there puts a backslash into the argument
+// the program receives (E964).
+func TestExecFormIsNotEscaped(t *testing.T) {
+	t.Parallel()
+
+	got := commandOfFirstExec(t, versioned+
+		"\nmain:\n    FROM alpine:3.22\n    ARG VAR1=\"a\\$b\"\n"+
+		"    RUN [\"echo\", \"$VAR1\"]\n")
+
+	if strings.Contains(got, `\$b`) {
+		t.Errorf("the step runs %q, and an argv element reaches no shell", got)
+	}
+}

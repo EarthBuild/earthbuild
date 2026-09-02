@@ -3525,6 +3525,13 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
+		Name:        "interp: exec form left unescaped (E964)",
+		File:        "engine/interp/interp.go",
+		Anchor:      "\t\t\texpand = seen.expandExec",
+		Replacement: "\t\t\texpand = seen.expandWord",
+		Package:     "./engine/interp/",
+	},
+	{
 		Name:        "interp: a build argument substituted before 0.7 (E964)",
 		File:        "engine/interp/interp.go",
 		Anchor:      "\tif !p.here.features.shellOutAnywhere && takesBuildArgs(c.Name) {",

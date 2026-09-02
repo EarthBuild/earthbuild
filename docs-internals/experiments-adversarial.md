@@ -46698,3 +46698,60 @@ failed to start, and the container's failure to start reads identically to the
 client's absence; the "no client" warning is true, unrelated, and printed
 immediately above. Neither is wrong. Together they describe a build that was
 never happening.
+
+### E964 - the value a step ran was read twice
+
+Four Native failures behind one idea. `+test-no-qemu-group7` reported
+`RUN test "literal$(string)" == "literal\$(string)" failed with exit code 1`,
+with `/bin/sh: string: not found` above it. `tests/shell-out/new.earth+test4`
+declares `ARG VAR1="literal\$(string)"` and asserts the argument holds those
+characters; the step ran `string` instead and compared against its output.
+
+The engine splices an argument's value into the command text. The reference does
+not splice at all - `earthfile2llb/interpreter.go` says so in a comment on the
+line that would have done it - and instead passes each build argument as
+environment, `shellescape.Quote`d, in front of a command the inner shell reads
+unexpanded (`strWithEnvVarsAndDocker`). A shell does not re-scan what an
+expansion produced, so **no character of a value is syntax**.
+
+Splicing reproduces that only if the splice escapes what the shell would
+otherwise act on. It escaped `\`, `"` and `` ` `` and deliberately not `$`, on a
+rule this engine wrote for itself: a dollar surviving expansion is the author
+asking for the step shell's `$HOME`. The reference has no such rule and cannot
+have one.
+
+**Removing the splice entirely fails 88 interpreter tests**, because the scope
+model differs - the reference exports every active variable and this engine
+exports what a recipe declared. So the fix is the reference's *effect* and not
+its mechanism: escape at the splice, by context. Inside the author's double
+quotes, `$` joins the set. Outside them more of the value is syntax rather than
+less - parentheses, semicolons, pipes - while whitespace and globs are left
+alone, because an unquoted expansion is still split and still globbed by the
+shell that performs it.
+
+Three further defects were behind it, each newly reachable once the file got
+further:
+
+* `ENV d delta` then `ARG VAR="d is $d"` computed `d is $d`. The reference keeps
+  arguments and environment in one collection and resolves the default at
+  declaration; this engine left the name for the step's shell, which worked only
+  while a spliced dollar stayed live.
+* `BUILD +t --mydata=$(cat variety)` at `VERSION 0.6` passed the text. E957 had
+  restricted pre-0.7 shell-out to an ARG's own default; `prepOverridingVars`
+  shows the line is drawn one place wider - the parser is given a
+  `ProcessNonConstantVariableFunc` exactly when `--shell-out-anywhere` is off, so
+  a build argument whose whole value is a substitution is evaluated in the
+  caller's environment. `--abc="bar=$(hostname)"` beside it still is not.
+* `LOCALLY` cleared the working directory, and the executor reads an empty one as
+  the build root. That is the right answer only for an Earthfile at the root:
+  `other/path+test` calling a LOCALLY function wrote its file two directories up
+  and the assertion beside it read a file nobody had written. It takes the
+  *caller's* context - the distinction `callerContext` already exists for, one
+  command further on.
+
+**The corpus reached none of these until the one in front of it was fixed.**
+`tests/shell-out/old-fail1.earth` had never run under this engine at all: the
+chain before it fail-fasts, so its `--output_contains` was being asserted about a
+build that never happened. It needs the native wording, because this engine
+discovers a `SAVE ARTIFACT` naming nothing when a `COPY` asks for it and quotes
+the copy's literal `$(...)` rather than the save's.

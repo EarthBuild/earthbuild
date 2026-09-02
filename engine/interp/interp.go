@@ -903,6 +903,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 	// everything else is a value this engine consumes, so its quoting is
 	// resolved. Using one rule for both silently changed what RUN executed.
 	expand := rs.args.expandValue
+
 	if c.Name == earthfile.CmdRun || c.Name == earthfile.CmdEntrypoint || c.Name == earthfile.CmdCmd {
 		// **A secret shadows a build argument of the same name**, for the
 		// length of the command that asked for it. `ARG foo = bacon` then
@@ -910,7 +911,15 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// unexpanded, because the shell is the only thing holding the secret;
 		// expanded here it ran `test "bacon" == "eggs"` and the secret it was
 		// given was never read.
-		expand = rs.args.withoutSecrets(secretNamesIn(c.Args)).expandWord
+		seen := rs.args.withoutSecrets(secretNamesIn(c.Args))
+
+		// Exec form is an argv: there is no shell between the plan and the
+		// process, so nothing in a value is syntax and nothing is escaped
+		// against it. See expandExec.
+		expand = seen.expandWord
+		if c.ExecMode {
+			expand = seen.expandExec
+		}
 	}
 
 	// **By region, not by command.** An argument may be a value that *contains*

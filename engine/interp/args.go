@@ -50,7 +50,17 @@ func (s scope) expand(in string) string {
 //
 // Only declared arguments are substituted; anything else is the shell's and is
 // left exactly as written.
-func (s scope) expandWord(in string) string {
+func (s scope) expandWord(in string) string { return s.substitute(in, true) }
+
+// expandExec substitutes arguments into an argv, which reaches no shell.
+//
+// `RUN ["echo", "$VAR"]` is exec form: the plan hands the kernel an argument
+// vector, so a character of the value that would be syntax to a shell is simply
+// a character and escaping it puts a backslash into what the program receives.
+func (s scope) expandExec(in string) string { return s.substitute(in, false) }
+
+// substitute is both, and escaping is the only difference between them.
+func (s scope) substitute(in string, escaping bool) string {
 	var b strings.Builder
 
 	// Which quotes the scan is inside, because the answer differs in all three
@@ -111,9 +121,11 @@ func (s scope) expandWord(in string) string {
 			// shell expands it and no character of the result is syntax. The
 			// context decides how much has to be escaped, not whether - outside
 			// the author's quotes more of the value is syntax, not less (E964).
-			if inDouble {
+			switch {
+			case !escaping:
+			case inDouble:
 				v = escapeInDoubleQuotes(v)
-			} else {
+			default:
 				v = escapeOutsideQuotes(v)
 			}
 

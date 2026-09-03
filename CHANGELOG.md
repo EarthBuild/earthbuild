@@ -4,6 +4,10 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ## Unreleased
 
+### Added
+
+- `--no-image-output` (`EARTH_NO_IMAGE_OUTPUT`) suppresses loading `SAVE IMAGE` images into the local container engine (Docker, Podman, etc.) while still writing `SAVE ARTIFACT ... AS LOCAL` artifacts. Combined with `--push`, images are pushed to their registries without being streamed back to the local daemon [#855](https://github.com/earthbuild/earthbuild/issues/855)
+
 ### Changed
 
 - Completed the `EARTHLY_*` -> `EARTH_*` environment variable rename for the variables EarthBuild

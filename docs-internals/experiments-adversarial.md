@@ -46762,3 +46762,47 @@ chain before it fail-fasts, so its `--output_contains` was being asserted about 
 build that never happened. It needs the native wording, because this engine
 discovers a `SAVE ARTIFACT` naming nothing when a `COPY` asks for it and quotes
 the copy's literal `$(...)` rather than the save's.
+
+### E965 - a base recipe kept its state only for whoever asked first
+
+`+test-no-qemu-group6` failed with a message the harness had never printed
+before, because the fixture had been swallowing it (E964):
+
+```text
+Error: GIT CLONE https://selfsigned.example.com/repo:
+  fatal: could not read Username for 'https://selfsigned.example.com':
+  terminal prompts disabled
+Error: --engine=native cannot build selfsigned.example.com/repo:main+hello
+```
+
+The second line is the tell. The test image sets `ENV EARTH_ENGINE=buildkit`
+precisely so a build nested inside a step uses the reference engine - the CLI's
+default on this branch is native - and the CLI was reading no such variable.
+
+**`ENV` survived every synthetic shape.** A plain chain, a cross-file `FROM`, a
+`DO`, a `DO --pass-args`, two hops, either side of an `IF`: all carried it. A
+plain `RUN` off `git-webserver+server` printed `buildkit`. The same target
+reached from a *different* Earthfile printed nothing.
+
+The difference is not the boundary, it is being **second**. `targetIn` memoises
+on name, platform, arguments and grant, and a hit returns `u.ended[memo]` - the
+state the recipe finished in, which `FROM` continues from (E32). The ordinary
+target path writes both halves of that memo. The `+base` branch wrote only
+`u.resolved[memo]` and returned its state directly, so the first referrer got a
+state and every later one got `nil` - and `FROM`'s `if ended != nil` then skipped
+the environment, the working directory, the user and the image configuration in
+one go.
+
+Two sibling Earthfiles under `tests/` are enough, and this repository has
+seventy: each opens `FROM --pass-args ..+base`. Whichever was planned first
+worked. That is also why the Native failures moved around between rounds rather
+than staying put - the order changes, so which file loses its environment
+changes with it.
+
+**Not reproducible end to end on this Mac**, for a second reason on top of the
+one E964 recorded: the integration image chain reaches
+`github.com/EarthBuild/buildkit+code`, whose `FROM DOCKERFILE` this engine cannot
+yet satisfy (`COPY /: nothing in that target has it`). So the evidence is a unit
+test that reproduces the defect directly - two targets in two files, both
+`FROM ..+base`, the second losing `MARKER` and `/w` - plus a mutation anchor, and
+CI for the end-to-end.

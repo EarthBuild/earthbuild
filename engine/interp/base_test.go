@@ -208,3 +208,50 @@ run:
 		t.Errorf("the parent's base recipe was not used:\n%s", got)
 	}
 }
+
+// A base recipe referred to twice carries its state both times.
+//
+// `FROM +base` continues from the recipe's *state* - its ENV, WORKDIR, USER and
+// image configuration - and not only its layers (E32). The second reference got
+// none of it: `targetIn` returns `u.ended[memo]` on a memo hit, and the `+base`
+// branch stored `u.resolved[memo]` without ever writing `u.ended[memo]`, so the
+// hit handed back a nil state and FROM skipped the block that inherits any of
+// it.
+//
+// Silent, and it needs two referrers to show at all - which in this repository
+// means two sibling Earthfiles under `tests/`, each opening `FROM ..+base`. The
+// first to be planned got the environment and the rest got none, so a test image
+// declaring `ENV EARTH_ENGINE=buildkit` ran its nested builds on whichever
+// engine the CLI defaults to (E965).
+func TestABaseRecipeReferredToTwiceKeepsItsState(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{
+		testEarthfile: versioned +
+			"\nFROM alpine:3.22\nENV MARKER=alpha\nWORKDIR /w\n\nplaceholder:\n    RUN x\n",
+		"one/Earthfile": versioned + "\nfirst:\n    FROM ..+base\n    RUN one-step\n",
+		"two/Earthfile": versioned + "\nsecond:\n    FROM ..+base\n    RUN two-step\n",
+		"tests/Earthfile": versioned + `
+run:
+    BUILD ../one+first
+    BUILD ../two+second
+`,
+	})
+
+	p, err := buildIn(t, root+"/tests", "run")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, n := range execNodes(p) {
+		if n.Op.Env["MARKER"] != "alpha" {
+			t.Errorf("%s runs with MARKER=%q, want alpha - the base recipe's"+
+				" environment did not reach it", n.Meta.Description, n.Op.Env["MARKER"])
+		}
+
+		if n.Op.Dir != "/w" {
+			t.Errorf("%s runs in %q, want /w - the base recipe's working"+
+				" directory did not reach it", n.Meta.Description, n.Op.Dir)
+		}
+	}
+}

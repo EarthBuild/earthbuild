@@ -388,6 +388,18 @@ func (p *Plan) targetIn(u *unit, name string) (*ir.Node, *state, error) {
 
 		u.resolved[memo] = n
 
+		// **And the state, which the memo hit above returns.** Stored like the
+		// ordinary path's, because the read is the same read: a second
+		// `FROM ..+base` hits `u.resolved` and takes `u.ended[memo]` with it, so
+		// a branch that fills one and not the other hands the second referrer a
+		// nil state - and FROM then silently inherits no ENV, no WORKDIR, no
+		// USER and no image configuration (E965).
+		if u.ended == nil {
+			u.ended = map[string]*state{}
+		}
+
+		u.ended[memo] = baseState
+
 		return n, baseState, nil
 	}
 

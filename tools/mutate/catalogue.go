@@ -3511,6 +3511,13 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
+		Name:        "interp: the base recipe's state kept for a second referrer (E965)",
+		File:        "engine/interp/interp.go",
+		Anchor:      "\t\tu.ended[memo] = baseState",
+		Replacement: "",
+		Package:     "./engine/interp/",
+	},
+	{
 		Name:        "interp: a host step starting beside its Earthfile (E964)",
 		File:        "engine/interp/interp.go",
 		Anchor:      "\t\trs.dir = p.hereRelative()",

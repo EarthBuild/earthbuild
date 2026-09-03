@@ -249,7 +249,7 @@ Instructs Earthly not to output any images or artifacts. This option cannot be u
 
 Also available as an env var setting: `EARTH_NO_IMAGE_OUTPUT=true`.
 
-Instructs EarthBuild not to load `SAVE IMAGE` images into the local Docker daemon, while still writing
+Instructs EarthBuild not to load `SAVE IMAGE` images into the local container engine (Docker, Podman, etc.), while still writing
 `SAVE ARTIFACT ... AS LOCAL` artifacts to the local filesystem. Where `--no-output` suppresses both kinds of
 output, this suppresses only the image half.
 

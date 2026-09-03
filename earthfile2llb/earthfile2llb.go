@@ -146,7 +146,7 @@ type ConvertOpt struct {
 	// executed When a SAVE IMAGE --push is encountered, the image may still be pushed to the remote registry
 	// (as long as DoPushes=true), but is not exported to the local docker instance.
 	DoSaves bool
-	// NoLocalImageExport suppresses exporting SAVE IMAGE images to the local docker instance, while leaving
+	// NoLocalImageExport suppresses exporting SAVE IMAGE images to the local container engine (Docker, Podman, etc.), while leaving
 	// SAVE ARTIFACT AS LOCAL alone. Where DoSaves gates both, this gates only the image half, so a build can
 	// push images and still write artifacts locally. Pushes are unaffected; see DoPushes.
 	NoLocalImageExport bool

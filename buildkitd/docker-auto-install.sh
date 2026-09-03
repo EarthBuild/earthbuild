@@ -187,7 +187,7 @@ install_dockerd_debian_like() {
 install_dockerd_amazon() {
     version=$(. /etc/os-release && echo "$VERSION")
     case "$version" in
-        2023)
+        2023|2027)
             dnf update -y
             dnf install -y docker libxcrypt-compat
         ;;

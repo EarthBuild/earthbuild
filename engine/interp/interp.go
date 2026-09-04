@@ -2263,6 +2263,17 @@ func (p *Plan) branch(expr []string, prev *ir.Node, rs *state, where string) (bo
 // The trailing separator survives the join, because it is not decoration - it
 // is the difference between placing a file inside a directory and renaming it.
 func resolveDest(dest, workdir string) string {
+	// **`dir/.` is `dir/`.** Both name a directory to copy *into*, and the
+	// trailing slash is what every later reader keys on - the check below, and
+	// the guest's own into-a-directory test. Normalised before the shortcut
+	// under it, because an absolute destination returns there and would keep the
+	// dot: `COPY prov /weird/path/.` wrote a regular file at `/weird/path`, so
+	// `PATH=/weird/path` resolved nothing and a step failed two commands later
+	// with `prov: not found`, naming the wrong thing entirely (E966).
+	if strings.HasSuffix(dest, "/.") {
+		dest = dest[:len(dest)-1]
+	}
+
 	if workdir == "" || workdir == "/" || filepath.IsAbs(dest) {
 		return dest
 	}

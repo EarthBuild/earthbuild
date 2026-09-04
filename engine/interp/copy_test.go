@@ -194,3 +194,47 @@ func TestRelativeContextsAreResolved(t *testing.T) {
 		t.Errorf("a relative build context was refused: %v", err)
 	}
 }
+
+// A destination ending `/.` means into that directory, as `/` does.
+//
+// `COPY prov /weird/path/.` must put `prov` inside `/weird/path`. The into-a-
+// directory decision is taken on a trailing slash - here, and again in the guest
+// - and `/.` does not have one, so the copy created a regular file at
+// `/weird/path` instead. `PATH=/weird/path` then resolved nothing and the step
+// failed with `prov: not found`, two commands away from the line that caused it
+// and naming the wrong thing (tests/secret-provider-config, E966).
+//
+// `resolveDest` already knew a bare `.` means this, and an absolute destination
+// returns before that check ever runs.
+func TestACopyIntoADotDirectoryLandsInside(t *testing.T) {
+	t.Parallel()
+
+	for _, dest := range []string{"/weird/path/.", "/weird/path/", "relative/path/."} {
+		t.Run(dest, func(t *testing.T) {
+			t.Parallel()
+
+			p, err := interp.Build(versioned+`
+build:
+    FROM alpine:3.22
+    WORKDIR /w
+    COPY prov `+dest+`
+    RUN /bin/true
+`, "build", interp.WithContext(ctxWith(t, map[string]string{"prov": "#!/bin/sh\n"})))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, n := range p.Graph.Nodes() {
+				if n.Op.Kind != ir.OpFile {
+					continue
+				}
+
+				to := n.Op.Args[len(n.Op.Args)-1]
+				if !strings.HasSuffix(to, "/") {
+					t.Errorf("COPY %s lands at %q, which names a file - the"+
+						" destination is a directory to copy into", dest, to)
+				}
+			}
+		})
+	}
+}

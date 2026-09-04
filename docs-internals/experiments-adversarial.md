@@ -46817,3 +46817,46 @@ failing chain uses. A build failed *somewhere inside* a chain containing an
 unfamiliar construct, and the construct was named as the cause on adjacency
 alone. Two symptoms from one input is a flake to be isolated, not a missing
 feature; the real cause is still unidentified.
+
+### E966 - a copy destination ending in a dot named a file
+
+The last Native failure, and the first round where it was the only one:
+`+test-no-qemu-group7` reported
+
+```text
+/bin/sh: test-secret-provider: not found
+... exit status 127
+```
+
+The provider is `tests/secret-provider-config/test-secret-provider`, a `/bin/sh`
+script with its executable bit set, copied in by the base recipe as
+`COPY test-secret-provider /weird/path/.` and reached through
+`export PATH=/weird/path:$PATH`.
+
+**"not found" for a file that exists is usually the interpreter, and this time
+it was the directory.** `/weird/path` was not a directory at all:
+
+```text
+-rwxr-xr-x 1 root root 28 /weird/path
+```
+
+The copy wrote the script *as* `/weird/path`. A destination ending `/.` means
+"into that directory" exactly as `/` does, and the into-a-directory decision is
+taken on the trailing slash - in `resolveDest`, and again in the guest's own
+`intoDir`. `/.` has no trailing slash, so both read it as a filename. Worse,
+`resolveDest` returns early for an absolute destination, so its existing
+knowledge that a bare `.` means this never applied here.
+
+One line: normalise a trailing `/.` to `/`, above the absolute-path shortcut so
+both paths get it.
+
+**Pre-existing, and the log says so.** The previous round's group7 log already
+carries `test-secret-provider: not found` three times; it was one failure among
+several and became visible only once the causes in front of it were gone. Worth
+recording because the temptation on seeing a new-looking failure in the run after
+a fix is to assume the fix caused it - the parent's log answers that in one grep
+and answered it here.
+
+**The message names the wrong thing**, which is why it survived so long. Nothing
+in `prov: not found` points at a COPY destination two commands earlier; it points
+at PATH, at the script, and at its shebang, in that order. All three are fine.

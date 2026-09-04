@@ -3511,6 +3511,13 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
+		Name:        "interp: a copy destination ending /. read as a directory (E966)",
+		File:        "engine/interp/interp.go",
+		Anchor:      "\tif strings.HasSuffix(dest, \"/.\") {",
+		Replacement: "\tif false {",
+		Package:     "./engine/interp/",
+	},
+	{
 		Name:        "interp: the base recipe's state kept for a second referrer (E965)",
 		File:        "engine/interp/interp.go",
 		Anchor:      "\t\tu.ended[memo] = baseState",

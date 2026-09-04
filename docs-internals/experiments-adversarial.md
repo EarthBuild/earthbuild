@@ -46799,10 +46799,21 @@ worked. That is also why the Native failures moved around between rounds rather
 than staying put - the order changes, so which file loses its environment
 changes with it.
 
-**Not reproducible end to end on this Mac**, for a second reason on top of the
-one E964 recorded: the integration image chain reaches
-`github.com/EarthBuild/buildkit+code`, whose `FROM DOCKERFILE` this engine cannot
-yet satisfy (`COPY /: nothing in that target has it`). So the evidence is a unit
-test that reproduces the defect directly - two targets in two files, both
+**Not reproducible end to end on this Mac**, on top of the limit E964 recorded:
+the integration image chain fails at `Earthfile:1008`, an `ENV` that shells out,
+and it fails differently on consecutive runs - `guest connection lost: EOF` once,
+`COPY /: nothing in that target has it` the next. So the evidence is a unit test
+that reproduces the defect directly - two targets in two files, both
 `FROM ..+base`, the second losing `MARKER` and `/w` - plus a mutation anchor, and
 CI for the end-to-end.
+
+**That second failure was first written down as "a `FROM DOCKERFILE` this engine
+cannot satisfy", which is false**, and the correction is kept here because the
+mistake is the reusable part. The construct was never tested before being blamed;
+tested afterwards it passes four ways - plain, with `--target` and
+`--build-arg`, with the context `.` inside a referenced unit, and through the
+exact remote reference `github.com/EarthBuild/buildkit:51fe8fb…+build` that the
+failing chain uses. A build failed *somewhere inside* a chain containing an
+unfamiliar construct, and the construct was named as the cause on adjacency
+alone. Two symptoms from one input is a flake to be isolated, not a missing
+feature; the real cause is still unidentified.

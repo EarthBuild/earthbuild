@@ -279,11 +279,19 @@ jobs:
       # `earth` itself needs no flag: that is the released binary from
       # actions-setup, which predates the native engine and has no such
       # default.
+      #
+      # **Retried, because this step gates sixteen Native jobs.** It pushes
+      # layers to ghcr.io, and one `net/http: timeout awaiting response headers`
+      # failed the whole run with the downstream suites never scheduled - so a
+      # registry hiccup costs a full CI round and tests nothing (run
+      # 33736445593). `build-earthly.yml` already wraps the same command; this
+      # copy did not, which was an oversight rather than a decision.
       - name: Build and push +ci-release using latest earth build
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="latest"
-          ./build/linux/amd64/earthly --ci --engine=buildkit --push --build-arg TAG_SUFFIX +ci-release
+          scripts/ci/earth-retry.sh --sleep 3 -- \
+            ./build/linux/amd64/earthly --ci --engine=buildkit --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
@@ -370,7 +378,8 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="latest-ticktock"
-          ./build/linux/amd64/earthly --ci --engine=buildkit --push --build-arg TAG_SUFFIX +ci-release
+          scripts/ci/earth-retry.sh --sleep 3 -- \
+            ./build/linux/amd64/earthly --ci --engine=buildkit --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release (next) using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-

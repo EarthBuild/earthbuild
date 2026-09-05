@@ -2733,7 +2733,11 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 			return Response{Err: err.Error()}
 		}
 
-		err = withDaemon(ctx, h.Root(), req.Daemon, launchDockerd, publishSocket, body)
+		// **In the step's network namespace, when it has one.** The daemon runs
+		// beside the step and publishes ports onto its own loopback, which is a
+		// different interface once the step has a namespace of its own - see
+		// daemonEnvIn (E967).
+		err = withDaemon(ctx, h.Root(), req.Daemon, launchDockerdIn(netAt), publishSocket, body)
 	}
 
 	if len(out) > maxOutput {

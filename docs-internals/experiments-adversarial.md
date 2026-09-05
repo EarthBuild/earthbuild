@@ -46860,3 +46860,46 @@ and answered it here.
 **The message names the wrong thing**, which is why it survived so long. Nothing
 in `prov: not found` points at a COPY destination two commands earlier; it points
 at PATH, at the script, and at its shebang, in that order. All three are fine.
+
+### E967 - the daemon published its ports into a different loopback
+
+`+test-no-qemu-group7` stopped failing and started *hanging*: it ran the full 360
+minutes GitHub allows a job and was cancelled, having written
+`localhost:5432 - no response` 21,204 times.
+
+`tests/with-docker-compose` brings up postgres under `WITH DOCKER --compose` and
+waits for it:
+
+```text
+RUN while ! pg_isready --host=localhost --port=5432 ...; do sleep 1; done
+```
+
+The compose file publishes `127.0.0.1:5432:5432`, and the log says the container
+started and went `Healthy`. So the daemon was fine and the port was published -
+onto the wrong interface. **The daemon runs beside the step, not in it**
+(daemonPaths), and once a step has a network namespace of its own the two
+loopbacks are different devices. The step shim joins that namespace; the daemon
+was launched with the guest's environment and never did.
+
+**One variable, bisected against a machine that works.** This Mac's guest has no
+`iptables`, so it gives steps no namespace of their own - the engine says so in a
+warning - and the same target reaches the port first time. The hung CI log
+carries that warning zero times, so there the namespace exists. Shared network:
+reachable. Private network: not. That is the whole difference, and it is why the
+construct passed every local attempt.
+
+Fixed by naming the namespace to the daemon shim, which already had
+`joinStepNet` for the step - and calling it *before* the shim's tmpfs over
+`/run`, because `/var/run/netns/<name>` lives under it. The resolver comment four
+lines below describes the same trap for `/etc/resolv.conf`.
+
+**Never exercised before, rather than newly broken.** Earlier rounds reached
+`with-docker-compose/Earthfile:21` and no further - they fail-fasted at the
+secret provider - so the first round to get past E966 was the first ever to run
+this construct under the native engine.
+
+**The six hours are a second defect.** The corpus writes an unbounded wait, which
+is reasonable of it; CI had no `timeout-minutes` on the step, so a hang cost a
+whole runner-day and produced nothing. A *job* timeout would not have helped: it
+cancels, and the diagnostics step is `if: failure()`. A step timeout fails, so
+the diagnostics run and say where it stopped.

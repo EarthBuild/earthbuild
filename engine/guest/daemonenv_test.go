@@ -47,3 +47,36 @@ func TestTheDaemonDropsTheInvokersRuntimeDirectory(t *testing.T) {
 		t.Errorf("an environment with no runtime directory was changed: %q", daemonEnv(plain))
 	}
 }
+
+// The daemon joins the step's network namespace, so a published port is on the
+// localhost the step will look at.
+//
+// `WITH DOCKER --compose` publishes `127.0.0.1:5432:5432` and the step then
+// waits for `localhost:5432`. The daemon runs *beside* the step (see
+// daemonPaths), so when the step has a network namespace of its own the two
+// loopbacks are different interfaces and the port is on the wrong one. The
+// corpus writes that wait as `while ! pg_isready; do sleep 1; done` - unbounded
+// - so the step did not fail, it span for the six hours GitHub allows a job
+// (tests/with-docker-compose, E967).
+//
+// Only when there is one. Where `ip netns` is unavailable the guest gives the
+// step no namespace of its own, the step shares the guest's, and the port was
+// always reachable - which is why this passes on a Mac and hangs in CI.
+func TestTheDaemonJoinsTheStepsNetworkNamespace(t *testing.T) {
+	t.Parallel()
+
+	got := daemonEnvIn([]string{"PATH=/usr/bin"}, "/var/run/netns/earth-s1")
+
+	want := []string{"PATH=/usr/bin", EnvStepNetNS + "=/var/run/netns/earth-s1"}
+	if !slices.Equal(got, want) {
+		t.Errorf("the daemon is given %q, want %q", got, want)
+	}
+
+	// No namespace, nothing added: the daemon must not be told to join one that
+	// does not exist, and the shim reads the variable's absence as "stay here".
+	plain := []string{"PATH=/usr/bin"}
+	if !slices.Equal(daemonEnvIn(plain, ""), plain) {
+		t.Errorf("a step with no namespace changed the daemon's environment: %q",
+			daemonEnvIn(plain, ""))
+	}
+}

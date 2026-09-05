@@ -80,6 +80,17 @@ jobs:
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute ${{ inputs.TEST_TARGET }} (Earthly Only)
         if: ${{ !inputs.SKIP_JOB }}
+        # **On the step, not the job, because only a step timeout is a
+        # failure.** A job that exceeds its own limit is *cancelled*, and the
+        # diagnostics below are `if: failure()`, so they would not run - which is
+        # exactly what happened: `+test-no-qemu-group7` waited on a port that was
+        # never coming, ran the full 360 minutes GitHub allows, and produced no
+        # diagnosis at all (E967).
+        #
+        # 45 minutes because the retry wrapper may legitimately make three
+        # attempts inside this one step and a suite takes 4-10 minutes; anything
+        # past that is a hang, not a slow run.
+        timeout-minutes: 45
         run: |
           # **The engine goes on the command line, not through the environment.**
           # `stage2-setup` sets EARTH_ENGINE=buildkit for every non-native suite,

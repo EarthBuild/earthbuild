@@ -47,3 +47,72 @@ func TestTheDaemonDropsTheInvokersRuntimeDirectory(t *testing.T) {
 		t.Errorf("an environment with no runtime directory was changed: %q", daemonEnv(plain))
 	}
 }
+
+// The daemon joins the step's network namespace, so a published port is on the
+// localhost the step will look at.
+//
+// `WITH DOCKER --compose` publishes `127.0.0.1:5432:5432` and the step then
+// waits for `localhost:5432`. The daemon runs *beside* the step (daemonPaths),
+// so when the step has a namespace of its own the two loopbacks are different
+// interfaces and the port is on the wrong one. The corpus writes that wait
+// unbounded, so the step did not fail - it span for the six hours GitHub allows
+// a job (tests/with-docker-compose, E967).
+//
+// Only when there is one: where `ip netns` is unavailable the guest gives the
+// step no namespace of its own and the daemon must stay where it is.
+func TestTheDaemonJoinsTheStepsNetworkNamespace(t *testing.T) {
+	t.Parallel()
+
+	got := daemonEnvIn([]string{"PATH=/usr/bin"}, "/var/run/netns/earth-s1")
+
+	want := []string{"PATH=/usr/bin", EnvStepNetNS + "=/var/run/netns/earth-s1"}
+	if !slices.Equal(got, want) {
+		t.Errorf("the daemon is given %q, want %q", got, want)
+	}
+
+	plain := []string{"PATH=/usr/bin"}
+	if !slices.Equal(daemonEnvIn(plain, ""), plain) {
+		t.Errorf("a step with no namespace changed the daemon's environment: %q",
+			daemonEnvIn(plain, ""))
+	}
+}
+
+// A daemon in the step's namespace needs a resolver reachable from inside it.
+//
+// `savedResolver` follows `/etc/resolv.conf`, which on a machine running
+// systemd-resolved - every GitHub runner - is the *stub*: `nameserver
+// 127.0.0.53`. That answers in the guest's namespace, where systemd-resolved is
+// listening, and nowhere else. So a daemon moved into the step's namespace kept
+// a resolver pointing at a loopback with nothing behind it, and every pull died
+// as `dial tcp: lookup registry-1.docker.io` - which reads as a network outage
+// and is a nameserver (E967).
+//
+// The reachable ones are what `hostNameservers` already finds for the step, and
+// `resolvMount` already writes there. This is the same answer for the daemon.
+//
+// **Only when it has a namespace of its own.** A daemon sharing the guest's can
+// reach whatever the guest reaches, loopback stub included, so rewriting it
+// there would replace something that works with something else that does - the
+// rule resolvMount states for steps, and the same one here.
+func TestTheDaemonGetsAResolverItCanReach(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, netns string
+		ns          []string
+		want        string
+	}{
+		{"own namespace, reachable nameservers", "/var/run/netns/earth-s1",
+			[]string{"10.0.0.2", "10.0.0.3"}, "nameserver 10.0.0.2\nnameserver 10.0.0.3\n"},
+		{"sharing the guest's namespace", "", []string{"10.0.0.2"}, ""},
+		{"own namespace, nothing reachable", "/var/run/netns/earth-s1", nil, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := string(daemonResolver(tc.netns, tc.ns)); got != tc.want {
+				t.Errorf("the daemon is given %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

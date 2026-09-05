@@ -88,3 +88,30 @@ func resolvMount(nameservers []string) []Mount {
 
 	return []Mount{{Target: "/etc/resolv.conf", Secret: b.String()}}
 }
+
+// daemonResolver is the `/etc/resolv.conf` a daemon in the step's own network
+// namespace gets, or nothing when it needs none.
+//
+// The daemon runs beside the step and is not chrooted, so it reads the *guest's*
+// resolver. On a machine running systemd-resolved that is the stub -
+// `nameserver 127.0.0.53` - which answers in the guest's namespace, where
+// systemd-resolved is listening, and nowhere else. Moved into the step's
+// namespace with that file, the daemon resolves nothing (E967).
+//
+// The same nameservers `resolvMount` gives the step, for the same reason, and
+// under the same condition: only where the namespace is the step's own. A daemon
+// sharing the guest's reaches whatever the guest reaches, loopback stub
+// included, and rewriting it there would replace something that works.
+func daemonResolver(netns string, nameservers []string) []byte {
+	if netns == "" || len(nameservers) == 0 {
+		return nil
+	}
+
+	var b strings.Builder
+
+	for _, ns := range nameservers {
+		b.WriteString("nameserver " + ns + "\n")
+	}
+
+	return []byte(b.String())
+}

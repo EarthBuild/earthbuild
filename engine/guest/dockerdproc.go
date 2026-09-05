@@ -49,7 +49,16 @@ type lookFn func(string) (string, error)
 
 // launchDockerd starts the guest's own dockerd with the given arguments.
 func launchDockerd(ctx context.Context, argv []string, sock string) (daemonProcess, error) {
-	return launchWith(ctx, osexec.LookPath, argv, sock)
+	return launchWith(ctx, osexec.LookPath, argv, sock, "")
+}
+
+// launchDockerdIn is launchDockerd for a step that has a network namespace of
+// its own, which the daemon joins so its published ports are on the loopback the
+// step will look at. See daemonEnvIn.
+func launchDockerdIn(netns string) func(context.Context, []string, string) (daemonProcess, error) {
+	return func(ctx context.Context, argv []string, sock string) (daemonProcess, error) {
+		return launchWith(ctx, osexec.LookPath, argv, sock, netns)
+	}
 }
 
 // launchWith is launchDockerd with the lookup made explicit.
@@ -59,7 +68,7 @@ func launchDockerd(ctx context.Context, argv []string, sock string) (daemonProce
 // exactly the wrong advice: the daemon runs beside the step (E368), so the image
 // needs a client and the machine needs the daemon.
 func launchWith(
-	_ context.Context, look lookFn, argv []string, sock string,
+	_ context.Context, look lookFn, argv []string, sock, netns string,
 ) (daemonProcess, error) {
 	bin, err := look("dockerd")
 	if err != nil {
@@ -83,8 +92,9 @@ func launchWith(
 	// only thing that ends this process, and withDaemon calls it on every path.
 	//nolint:gosec,noctx // argv is this package's; the context reason is above
 	cmd := osexec.Command(self, shimArgv(bin, argv)...)
-	// See daemonEnv: the invoker's runtime directory is not the daemon's.
-	cmd.Env = daemonEnv(os.Environ())
+	// See daemonEnv: the invoker's runtime directory is not the daemon's - and
+	// daemonEnvIn: nor is the guest's network namespace, when the step has one.
+	cmd.Env = daemonEnvIn(os.Environ(), netns)
 	// Kept as well as forwarded. A daemon that will not start says why, and every
 	// such message in this project has been the answer - `needs to be started
 	// with root privileges`, `mkdir /run/docker/plugins`, `unix socket path too
@@ -227,6 +237,29 @@ const runtimeDirVar = "XDG_RUNTIME_DIR"
 // without one fails in a way this engine cannot explain; the rule has to be
 // something evidence can add to, not a policy that silently drops the next
 // thing somebody needs.
+// daemonEnvIn is daemonEnv plus the step's network namespace, when it has one.
+//
+// **The daemon publishes ports onto the loopback of whatever namespace it is
+// in.** It runs beside the step (daemonPaths), so once a step has a namespace of
+// its own the two loopbacks are different interfaces: `WITH DOCKER --compose`
+// published `127.0.0.1:5432` in the guest's, the step waited on `localhost:5432`
+// in its own, and the corpus writes that wait unbounded - so the step span for
+// six hours rather than failing (E967).
+//
+// Named to the shim rather than joined here, for the reason every other
+// namespace is: Go cannot run code between clone and exec, so the shim does it
+// on the way through. See joinStepNet, which the step shim already calls, and
+// daemonResolver - joining without a reachable nameserver is worse than not
+// joining, and that half is what made the first attempt at this a regression.
+func daemonEnvIn(environ []string, netns string) []string {
+	out := daemonEnv(environ)
+	if netns == "" {
+		return out
+	}
+
+	return append(slices.Clone(out), EnvStepNetNS+"="+netns)
+}
+
 func daemonEnv(environ []string) []string {
 	out := environ
 

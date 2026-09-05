@@ -18,16 +18,74 @@ import (
 // that dies badly leaves nothing on the machine, and two daemons cannot see each
 // other's plugin sockets.
 func prepareShim() error {
+	// **Before the mount below, because /var/run/netns is under /run.** The
+	// tmpfs would cover the very bind mount that holds the namespace open, and
+	// the daemon would be told to join a path that no longer resolves - the same
+	// trap the resolver comment describes, one directory along.
+	netns := os.Getenv(EnvStepNetNS)
+
+	err := joinStepNet()
+	if err != nil {
+		return err
+	}
+
 	// Read before the mount, because after it the file is not there to read.
 	// See resolver.
 	keep := savedResolver()
 
-	err := unix.Mount("none", "/run", "tmpfs", 0, "")
+	// Read before the mount for the same reason, and only when it will be used:
+	// the reachable nameservers live in a second file under /run that the tmpfs
+	// hides and restoreResolver does not put back, because it restores the one
+	// the symlink names - which is the loopback stub. See daemonResolver.
+	reachable := daemonResolver(netns, hostNameservers())
+
+	err = unix.Mount("none", "/run", "tmpfs", 0, "")
 	if err != nil {
 		return fmt.Errorf("mount a private /run: %w%s", err, sysAdminHint(err))
 	}
 
-	return restoreResolver(keep)
+	err = restoreResolver(keep)
+	if err != nil {
+		return err
+	}
+
+	return useReachableResolver(reachable)
+}
+
+// useReachableResolver gives the daemon a resolver that answers in the namespace
+// it has just joined, and does nothing when it has not joined one.
+//
+// **Bind-mounted, not written over the machine's file.** A mount namespace
+// isolates mounts and not file contents, so writing `/etc/resolv.conf` would
+// change the *machine's* resolver on any host where that is a real file rather
+// than a symlink into /run. The bind is private to this shim and the daemon it
+// becomes, which is the containment the write does not have.
+//
+// Not fatal on failure, matching restoreResolver: a daemon that cannot resolve
+// is worse than one that can, and both are better than a step that does not run.
+func useReachableResolver(data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+
+	// In the private /run, so the file itself is this shim's and disappears with
+	// it. Written after the tmpfs is mounted, which is what makes that true.
+	at := "/run/earthbuild-resolv.conf"
+
+	err := os.WriteFile(at, data, 0o644) //nolint:gosec // a resolver is world-readable
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earthbuild daemon shim: write a reachable resolver: %v\n", err)
+
+		return nil
+	}
+
+	err = unix.Mount(at, "/etc/resolv.conf", "", unix.MS_BIND, "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"earthbuild daemon shim: use the reachable resolver: %v%s\n", err, sysAdminHint(err))
+	}
+
+	return nil
 }
 
 // resolver is the machine's resolver configuration, and where it lives.

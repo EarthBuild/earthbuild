@@ -46926,9 +46926,32 @@ so in those words. The reasoning was not carried across to the daemon. A hazard
 already written down, in the package being edited, about the same namespace.
 
 So the daemon must either stay where it is and publish somewhere the step can
-reach, or move *and* be given a resolver - and that is a design question rather
-than a patch. Until then the step timeout below keeps the cost to 45 minutes
-instead of 360.
+reach, or move *and* be given a resolver.
+
+**The second attempt gives it both**, because the resolver is the half that was
+missing rather than a second bug. `savedResolver` follows `/etc/resolv.conf`,
+which under systemd-resolved is the *stub* - `nameserver 127.0.0.53` - so what
+gets restored inside the private `/run` is a loopback that answers in the guest's
+namespace and nowhere else. The reachable upstreams sit in a second file under
+`/run` that the tmpfs hides and nothing puts back. `daemonResolver` writes those
+instead, bind-mounted rather than written over the machine's file: a mount
+namespace isolates mounts and not file contents, so writing `/etc/resolv.conf`
+would change the *host's* resolver wherever that is a real file.
+
+**Neither half could be verified locally, and the harness says so itself.** The
+privileged container reproduces the *daemon placement* - the bridge moves into
+the step's namespace, measured against the parent binary - but its positive
+control fails: with `EARTH_STEP_NET=shared`, where the port must be reachable by
+construction, it is not. A harness whose control fails cannot answer the question
+it was built for, so every port result from it is void. The DNS half is
+unreachable there for a different reason: Docker Desktop's VM does not run
+systemd-resolved, so the loopback stub that caused the regression does not exist
+to reproduce.
+
+That leaves CI as the experiment, which is acceptable only because the cost is
+now bounded: the step timeout turns a hang into a 45-minute failure with
+diagnostics, and a regression of the previous shape shows up as the same two jobs
+and is one revert away.
 
 **The six hours are a second defect.** The corpus writes an unbounded wait, which
 is reasonable of it; CI had no `timeout-minutes` on the step, so a hang cost a

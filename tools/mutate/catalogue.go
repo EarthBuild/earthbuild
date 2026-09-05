@@ -3511,6 +3511,20 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
+		Name:        "guest: the daemon joining the step's network namespace (E967)",
+		File:        "engine/guest/dockerdproc.go",
+		Anchor:      "\treturn append(slices.Clone(out), EnvStepNetNS+\"=\"+netns)",
+		Replacement: "\treturn out",
+		Package:     "./engine/guest/",
+	},
+	{
+		Name:        "guest: the daemon's resolver in its own namespace (E967)",
+		File:        "engine/guest/resolvconf.go",
+		Anchor:      "\tif netns == \"\" || len(nameservers) == 0 {",
+		Replacement: "\tif true {",
+		Package:     "./engine/guest/",
+	},
+	{
 		Name:        "interp: a copy destination ending /. read as a directory (E966)",
 		File:        "engine/interp/interp.go",
 		Anchor:      "\tif strings.HasSuffix(dest, \"/.\") {",

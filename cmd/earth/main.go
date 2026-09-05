@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/timing"
+
 	// TODO(jhorsts): this can be removed when earthbuild/buildkit repo is up to date
 	// GRPC_ENFORCE_ALPN_ENABLED is set to "false" via the disable_alpn package import
 	// to ensure it happens before other packages initialize.
@@ -25,9 +27,13 @@ import (
 	eFlag "github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/EarthBuild/earthbuild/cmd/earth/subcmd"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/engine/exec"
+	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/guestd"
 	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/version"
+	"github.com/EarthBuild/earthbuild/util/enginetrace"
 	"github.com/EarthBuild/earthbuild/util/syncutil"
 	"github.com/fatih/color"
 	"github.com/joho/godotenv"
@@ -62,11 +68,48 @@ func setExportableVars() {
 }
 
 func main() {
+	// First of all, and it does not return when it applies: this binary is also
+	// the shim that a step's own docker daemon is launched through, because
+	// `dockerd` needs a user namespace it is root in and a writable `/run`, and
+	// Go cannot run code between clone and exec (E373). On the native backend on
+	// Linux the guest runs in this process, so it is this binary that gets
+	// re-executed.
+	guest.RunDaemonShimIfAsked()
+	guest.RunStepShimIfAsked()
+
+	// **This binary is also the sandbox agent.** `earth guestd ...` runs it, and
+	// that is how the agent reaches places the CLI is copied into - a nested
+	// build inside a step runs a copy of this binary and has nowhere beside it
+	// to put a second file.
+	//
+	// After the shim above and before flag parsing: the shim is the more
+	// primitive re-exec and an agent process may need it too, while the agent's
+	// own arguments are not the CLI's and must not be parsed as them.
+	if len(os.Args) > 1 && os.Args[1] == guestd.Command {
+		guestd.Main(os.Args[2:])
+
+		return
+	}
+
+	// Having got past that, this binary demonstrably dispatches the agent - so
+	// the engine may run it as one rather than hunting for a separate file.
+	exec.SelfServesAsGuest()
+
 	os.Exit(run())
 }
 
 // run executes the CLI and returns an exit code to pass to [os.Exit].
 func run() (code int) {
+	// Phase 0 measurement harness; a no-op unless EARTH_ENGINE_TRACE is set.
+	defer enginetrace.Dump(os.Stderr)
+
+	// Registered first, so it ends last: this covers every other defer, and is
+	// the phase to compare the rest against. A build whose phases do not add up
+	// to this one has its cost somewhere nothing is measuring, which is how the
+	// container-frontend probe stayed invisible while costing a third of a
+	// cached build (E871).
+	defer timing.Phase("process", "")()
+
 	// set up OpenTelemetry
 	ctx := context.Background()
 

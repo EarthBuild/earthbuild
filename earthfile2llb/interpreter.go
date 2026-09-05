@@ -237,7 +237,6 @@ func (i *Interpreter) handleCommand(ctx context.Context, cmd earthfile.Command) 
 		return i.errorf(cmd.SourceLocation, "unexpected WITH command %s", cmd.Name)
 	}
 
-	//nolint:exhaustive // Maps commands to handlers. Commands handled in other contexts (e.g. WITH) are omitted.
 	switch cmd.Name {
 	case earthfile.CmdFrom:
 		return i.handleFrom(ctx, cmd)
@@ -2110,6 +2109,18 @@ func (i *Interpreter) handleWithDocker(ctx context.Context, cmd earthfile.Comman
 
 	if len(args) != 0 {
 		return i.errorf(cmd.SourceLocation, "invalid WITH DOCKER arguments %v", args)
+	}
+
+	// Refused rather than ignored. `--isolate` is the native engine's, and the
+	// options struct is shared between the two engines - so without this the
+	// buildkit path parses the flag, does nothing about it, and gives the author
+	// a shared daemon for a block that asked for its own. An accepted-and-ignored
+	// option is the silent-wrong failure this project refuses on principle.
+	if opts.Isolate {
+		return i.errorf(cmd.SourceLocation,
+			"WITH DOCKER --isolate is not supported by the buildkit engine;"+
+				" it starts a daemon of the step's own, which the native engine does"+
+				" - build it with the `earth-native` binary")
 	}
 
 	expandedPlatform, err := i.expandArgs(ctx, opts.Platform, false, false)

@@ -39,16 +39,16 @@ After making changes to the codebase, verify the following and rectify any issue
 
 * All linting passes (`earth +lint`)
 
-# Repository Layout
+## Repository Layout
 
-```
+```text
 <workspace>/
 ├── cmd/           # CLI commands
 ├── examples/      # Examples in different languages
 └── www/           # Website
 ```
 
-# Tooling
+## Tooling
 
 The primary development lifecycle tool is `earth`.
 
@@ -57,6 +57,62 @@ The primary development lifecycle tool is `earth`.
 * `earth +for-darwin-m1` builds the project for macOS (darwin-arm64).
 * `earth doc` shows all other targets and a description of what they do.
 
-# Guardrails
+## Diagnosing a CI failure
+
+**Run it locally. Do not wait on GitHub Actions.** The suites CI runs are
+Earthfile targets, so `earth` runs them on your machine. A local run answers in
+minutes and can be re-asked with one variable changed; a CI round takes about an
+hour behind `Fast Check & Build` and its queue.
+
+A CI job named `+test-no-qemu-group4` is `BUILD ./tests+ga-no-qemu-group4`, which
+is a list of `BUILD +<name>-test` lines in `tests/Earthfile`. Run one directly:
+
+```bash
+go build -o /tmp/earth ./cmd/earth
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o /tmp/guestd ./cmd/earth-guestd
+
+EARTH_GUESTD=/tmp/guestd /tmp/earth -P --engine=native ./tests+copy-tilde-test
+
+EARTH_BUILDKIT_IMAGE=ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1 \
+  /tmp/earth -P --engine=buildkit ./tests+copy-tilde-test
+```
+
+Run both engines. A difference between them is the finding; a failure in one
+alone says nothing until you know what the other does.
+
+One limit: a target whose *inner* build starts its own buildkitd cannot run
+under `--engine=native`, because starting a daemon inside a step needs a
+privilege this engine declines by design. Run those under `--engine=buildkit`.
+And a single red run is not a result - a cold cache produced one false failure
+in this suite; re-run before believing it.
+
+And a green group locally does not predict a green job in CI. An inner `earth`
+picks its engine from its environment: here it may find no container frontend
+and fall back to native, which needs no daemon, where a runner reaches for
+buildkit and finds none. Comparing two engines on one machine is sound; claiming
+a CI job will pass because the group passed here is not (E861).
+
+Four symptoms that each cost an hour before being understood:
+
+| Symptom                                       | Cause                                                     |
+| --------------------------------------------- | --------------------------------------------------------- |
+| `unknown request <name>`                      | stale `earth-guestd`; rebuild it and set `$EARTH_GUESTD`  |
+| `RUN --privileged ... refused by design`      | pass `-P`; the harness uses `RUN --privileged`            |
+| `docker: manifest unknown` starting buildkitd | set `EARTH_BUILDKIT_IMAGE` to the ghcr image above        |
+| a queued CI run vanishing                     | pushing cancels it; batch commits while awaiting a result |
+
+Reading habits this branch has paid for:
+
+* Read a job to **its own fatal error**, not its most frequent one. The frequent
+  line is usually the harness reacting; the cause is upstream of it.
+* A fix that removes an error message has not necessarily fixed anything.
+  Compare which jobs *pass* before and after, by name.
+* Filter job selectors by suite. Every suite has a `+test-no-qemu-group4`, so a
+  substring match silently answers about a different one.
+* `grep` is a hypothesis generator, not evidence: most messages here are built
+  with a format verb, so the literal never appears in the source. Confirm by
+  running the case.
+
+## Guardrails
 
 * Do not add golang dependencies unless asked by user explicitly.

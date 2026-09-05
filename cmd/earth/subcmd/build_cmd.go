@@ -277,6 +277,24 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		return err
 	}
 
+	// Before anything else sets up: the native engine brings its own scheduling,
+	// store and sandbox, so sharing the buildkit path's preparation would mean
+	// starting a daemon neither engine was going to use.
+	if b.cli.Flags().Engine == nativeEngine {
+		if artifact.Target.Target != "" || destPath != "./" {
+			return fmt.Errorf(
+				"--engine=%s builds a target, and this invocation names an artifact"+
+					"\n  build the target that saves it, or use --engine=buildkit",
+				nativeEngine)
+		}
+
+		// Secrets are read here rather than shared with the buildkit path
+		// below, which this branch returns before reaching. See nativeSecrets:
+		// `--secret` was parsed, stored, and never looked at, so a build that
+		// was given its secret reported that it was missing.
+		return b.runNative(ctx, cmd, target, flagArgs)
+	}
+
 	cleanCollection := cleanup.NewCollection()
 	defer cleanCollection.Close()
 

@@ -10,7 +10,6 @@ import (
 func TestProcessParamsAndQuotes(t *testing.T) {
 	t.Parallel()
 
-	//nolint:goconst
 	tests := []struct {
 		in   []string
 		args []string

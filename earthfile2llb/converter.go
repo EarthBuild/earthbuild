@@ -3415,7 +3415,6 @@ func (c *Converter) checkAllowed(command cmdType) error {
 		// earthfile2llb.runCmd, earthfile2llb.saveArtifactCmd, earthfile2llb.saveImageCmd, earthfile2llb.userCmd,
 		// earthfile2llb.volumeCmd, earthfile2llb.workdirCmd, earthfile2llb.cacheCmd, earthfile2llb.hostCmd
 		// TODO(jhorsts): future proof by adding all the cases
-		//nolint:exhaustive
 		switch command {
 		case fromCmd, fromDockerfileCmd, locallyCmd, buildCmd, argCmd, letCmd, setCmd, importCmd, projectCmd:
 			return nil
@@ -3435,7 +3434,6 @@ func (c *Converter) checkAllowed(command cmdType) error {
 	// earthfile2llb.saveImageCmd, earthfile2llb.userCmd, earthfile2llb.volumeCmd, earthfile2llb.workdirCmd,
 	// earthfile2llb.cacheCmd, earthfile2llb.hostCmd, earthfile2llb.projectCmd
 	// TODO(jhorsts): future proof by adding all the cases
-	//nolint:exhaustive
 	switch command {
 	case setCmd, letCmd:
 		if !c.ftrs.ArgScopeSet {

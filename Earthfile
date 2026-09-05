@@ -7,12 +7,18 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.27.0-alpine3.24
+    FROM golang:1.27.0-alpine3.24@sha256:4c9fe60190a2a3350ddc51de80d0224b8a6698d12bdfc999fee45ea9d6c46dbc
     RUN apk add --no-cache git
+    # Go writes a counter under /root/.config/go/telemetry and mutates it on
+    # every build, under a name carrying the date. Nothing observed reads it
+    # today - measured, this changes no cache outcome - but it is a file in the
+    # tree that changes for reasons no build caused, which is the shape that
+    # costs a hit the day something does read it. Off, so it cannot. See E698.
+    RUN go telemetry off
     WORKDIR /earthly
 
 node:
-    FROM node:26.8.1-alpine3.24
+    FROM node:26.8.1-alpine3.24@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3
     # renovate: datasource=npm packageName=npm
     LET npm_version=12.0.2
     RUN \
@@ -48,7 +54,29 @@ code:
             go mod download
     END
     COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
-        docker2earth dockertar domain earthfile2llb features internal logbus logstream regproxy states slog util variables ./
+        docker2earth dockertar domain earthfile2llb engine features internal logbus logstream regproxy states slog tools util variables ./
+    # docs-internals holds one Go package: a guard that every `§` citation in
+    # the code names a section the specification or the plan actually has. It
+    # needs the documents themselves, not only its own source, which is why the
+    # whole directory comes in rather than the `.go` file alone.
+    COPY --dir docs-internals ./
+    # The reference for the language this engine implements. `engine/interp`
+    # asserts that every flag it refuses by name is described from this file, so
+    # the test needs the document as well as the code - without it the guard
+    # fails in CI for want of a file rather than for want of an explanation.
+    COPY docs/earthfile/earthfile.md docs/earthfile/earthfile.md
+    # The corpus the engine's sweep builds, and the Earthfile it reaches up to.
+    #
+    # `engine/cli` asserts that the sweep runs in a *copy* - a full sweep once
+    # produced 58,000 lines of build output in the working tree - and that the
+    # copy holds both the corpus and what the corpus refers to, because an
+    # Earthfile in a monorepo says `FROM ../..+base`. Without these the test
+    # fails in CI for want of the files, which it had been doing.
+    #
+    # 2.5 MB tracked. The 958 MB in a developer's `examples/` is build output,
+    # untracked, and is exactly what that test exists to keep out.
+    COPY --dir examples ./
+    COPY Earthfile ./
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go \
         buildkitd/with_docker_env_test.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
@@ -69,7 +97,7 @@ update-buildkit:
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
 lint-scripts-base:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     RUN apk add --no-cache shellcheck
     WORKDIR /shell_scripts
 
@@ -102,7 +130,7 @@ lint-scripts:
 
 # lint-workflows audits GitHub Actions workflows and composite actions with zizmor (https://docs.zizmor.sh).
 lint-workflows:
-    FROM ghcr.io/zizmorcore/zizmor:1.29.0
+    FROM ghcr.io/zizmorcore/zizmor:1.29.0@sha256:863026d54f91271b10b60b67ad8054cb37120167e162482597db102b3026a284
     WORKDIR /audit
     COPY --dir .github .
     # --no-online-audits: no GITHUB_TOKEN here, and the online audits reach out
@@ -116,7 +144,7 @@ lint-workflows:
 earthbuild-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
+    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0@sha256:d9c249f5ef1bb91fd73203b06054c73ec79efaf36daa644306241665b4a8ed33
     RUN apk add --no-cache bash
     COPY earthly .earthly_version_flag_overrides .
 
@@ -139,7 +167,18 @@ lint:
         rm /tmp/golangci-install.sh
     COPY ./.golangci.yaml .
     COPY --dir +code/earthly /
-    FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
+    # `-n1` because `dirname` in this image is busybox's, which takes exactly one
+    # argument. With several modules `xargs` passed them all at once, dirname
+    # printed its usage and exited 1, and the reference engine iterated over the
+    # *words of the error message* - `Usage:`, `dirname`, `FILENAME`, ... - as
+    # module paths. It worked only while this image happened to hold a single
+    # go.mod, which stopped being true the moment `examples/` was added to
+    # `+code` for the corpus tests.
+    #
+    # `examples/` is excluded because it never was linted: those modules are
+    # sample code, they are here so the engine's corpus tests can see them, and
+    # linting them now would be a new policy rather than a fix.
+    FOR mod_path IN $(find . -name go.mod -not -path './examples/*' -print0 | xargs -0 -n1 dirname)
         ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
         RUN \
             --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
@@ -222,6 +261,303 @@ unit-test:
         testarg=""; \
         if [ -n "$testname" ]; then testarg="-run $testname"; fi; \
         go test -timeout 5m -json $testarg $pkgname | ./testparser
+
+# engine-race runs the engine's own tests under the race detector, shuffled.
+#
+# Separate from +unit-test because `-race` needs cgo and a C toolchain, and the
+# rest of this build deliberately does without one - every other Go target sets
+# CGO_ENABLED=0.
+#
+# Two sweeps in one run, answering different questions: `-race` finds
+# unsynchronised access, `-shuffle` finds a test that only passes because
+# another ran first. Both were clean when this target was written (E158), which
+# is exactly why it exists - a sweep whose findings arrive only when somebody
+# remembers to look is not coverage, and the engine has already shipped one
+# concurrent-map crash and one test that passed on macOS and failed on Linux.
+#
+# Longer timeout than +unit-test: the race detector costs roughly four times the
+# wall clock on this suite.
+engine-race:
+    FROM +go
+    # -race needs a C compiler; the base image has none.
+    RUN apk add --no-cache build-base
+    COPY --dir +code/earthly /
+    ENV CGO_ENABLED=1
+    # How many tests may skip here before the run stops being evidence.
+    #
+    # Measured: 112 of 1466 skip in this container against 76 of 1474 on a Linux
+    # developer machine, so CI verifies 97% of what a developer does. The
+    # difference is the tests needing a user namespace, an overlay mount or a
+    # device node, each of which now asks whether the operation works (E160).
+    #
+    # A ceiling rather than an equality - tests come and go - but a low one. The
+    # failure it exists to catch is a change that makes half the suite skip in
+    # the container and leaves the target green, which is what "green" would
+    # then mean.
+    # **170 rather than 130, and the increase is an accounting change.** The
+    # thirty-one tests between those numbers did not stop running here; they
+    # stopped *failing* here. Each needed something a hosted runner does not
+    # grant - CAP_SYS_ADMIN for a mount namespace, a complete checkout for a
+    # fixture, a filesystem whose blocks it had assumed - and each reported that
+    # as a defect until it was taught to say "this machine will not" instead
+    # (E604, E605, E606, E607).
+    #
+    # So the same tests run and the same tests do not; what moved is which
+    # column they are counted in. Raising the ceiling to cover a genuine
+    # reduction in coverage would be this guard's exact failure mode, which is
+    # why the number is justified per cause above rather than fitted to the run.
+    # **172 rather than 170, and the two are named.** `engine/trace` gained two
+    # measurements - what a traced call costs with its path read, and how many
+    # calls a build makes (E681, E693) - and both call `SkipIfAlreadyFiltered`,
+    # as every filtering test in that package does: a filter installed by an
+    # earlier test is process-wide, so whichever runs first is the only one that
+    # can. That is a pre-existing property of the package and not coverage these
+    # two gave up.
+    #
+    # A third was avoided rather than counted: the stat loop those two exec is
+    # not a test, and as a `TestXxx` that skipped unless its parent started it
+    # would have been a permanent skip. It runs from `TestMain` instead and is
+    # never collected.
+    #
+    # 173: `TestCopyingADirectoryMergesIntoTheOneThere` (E704) needs a registry
+    # and a sandbox, so like every other end-to-end test here it skips unless
+    # `EARTH_TEST_NETWORK` is set, and this container does not set it. The
+    # ceiling caught it at 173 > 172 on the commit that added it, which is what
+    # it is for - a test that only ever skips is a test nobody runs.
+    #
+    # 174: `TestAStepsProcIsItsOwn` (E705) is the same shape - a registry and a
+    # sandbox - and skips here for the same reason.
+    #
+    # 175: `TestTheThreadAStepIsStartedFromIsNotFiltered` (E723) asks whether the
+    # thread a step is started from is carrying a seccomp filter, because a
+    # filter live across `os/exec`'s `CLONE_VFORK` is the deadlock it exists to
+    # prevent. `Seccomp:` in /proc is a *mode* and not a count, so under this
+    # container's own profile a thread reads 2 whether the filter is the guest's
+    # or the container's, and the question cannot be answered here.
+    #
+    # Not coverage given up. It is answered on any machine that does not filter
+    # the test process, which is where it was developed and where it fails if
+    # the guest ever installs before the clone again. The alternative was an
+    # assertion that reported the runner's filter as the engine's - it did,
+    # exactly once, on the first CI run this branch ever had.
+    # 176: two arrived together and one left, so the number moves by one.
+    #
+    # `TestSaveArtifactIfExistsFollowsWhatIsThere` (E788) is the shape of 173 and
+    # 174 - it needs a registry and a sandbox, so it skips unless
+    # `EARTH_TEST_NETWORK` is set, and this container does not set it.
+    #
+    # `TestNoCaseAdviceWhenTheGuestUnpacks` (E806) asks whether the case note is
+    # withheld when the guest unpacks. There is no note to withhold on a
+    # case-sensitive filesystem and Linux is one, so the question cannot be put
+    # here at all - it is answered on the machine the note exists for.
+    #
+    # Verified rather than deduced: the target was run in this container at
+    # `62860ec71`, where it reports 175 of 2970 and passes, and at HEAD, where it
+    # reports 176 of 3172. Diffing the two skip lists names those two as new and
+    # one other as no longer skipping. CI could not have shown this - it prints
+    # the top forty and there are a hundred and sixty-three (E824).
+    ARG SKIP_CEILING=176
+    # Nothing is excluded. Every test needing a privilege this container does
+    # not grant - a user namespace, an overlay mount, a device node - now skips
+    # with the reason, because each asks whether the *operation* works rather
+    # than whether the uid is zero (E160). The portable tests are swept; the
+    # rest say out loud what this machine will not do.
+    # **The failure branch grepped for skip reasons too.** `^ *[a-z_]+\.go:`
+    # matches "casenote_test.go:102: this machine's temporary directory is
+    # case-sensitive" exactly as well as it matches a failure, and this suite
+    # skips 161 tests - so `head -40` printed forty skips and stopped, and a run
+    # that failed reported nothing about why. Twice, before anybody noticed the
+    # diagnostic was the thing that was broken (E609).
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        go test -race -shuffle=on -timeout 20m -v ./engine/... > /tmp/t.log 2>&1; \
+        rc=$?; \
+        grep -E "^ *--- (FAIL|SKIP)" /tmp/t.log | sort | uniq -c | sort -rn | head -40; \
+        skipped=$(grep -cE "^ *--- SKIP" /tmp/t.log || true); \
+        echo "skipped here: $skipped of $(grep -cE "^ *--- (PASS|SKIP|FAIL)" /tmp/t.log)"; \
+        if [ "$rc" -ne 0 ]; then \
+            echo "--- what failed:"; \
+            grep -E "^ *--- FAIL" /tmp/t.log | head -20 || echo "(no test reported FAIL)"; \
+            # The package line as well as the test line, because a package can fail
+            # without any test failing - a binary that will not build, a TestMain
+            # that exits, a panic outside a test - and then every diagnostic above
+            # is empty. That happened, and the run reported a bare "FAIL" with
+            # nothing anywhere naming which of the twenty-odd packages it was.
+            echo "--- packages that failed:"; \
+            grep -E "^FAIL[[:space:]]" /tmp/t.log | head -20 || echo "(none named)"; \
+            echo "--- with context:"; \
+            grep -E -B 8 -A 1 "^ *--- FAIL" /tmp/t.log | head -80; \
+            # **`tail` shows the wrong package.** `go test` buffers each
+            # package's output and emits it as one block when that package
+            # finishes, so the end of the log belongs to whichever package
+            # finished *last* - not to the one that failed. engine/fleet was
+            # diagnosed three times from twenty lines of a different package's
+            # passing output, which is worse than no diagnostic: it looks like
+            # evidence (E869).
+            #
+            # The same mistake made the seed useless. `-shuffle=on` gives every
+            # package its own seed, and printing them as an unlabelled list of
+            # twenty-two numbers attributes none of them - two were replayed
+            # against the wrong package before anyone noticed (E869).
+            #
+            # Both are fixed by the same move. `go test` emits each package's
+            # output as one block terminated by that package's own `ok`/`FAIL`
+            # line, so the awk keeps only the block that ends in `FAIL` - which
+            # holds that package's seed and the last test it started.
+            awk '{b[n++]=$0} /^ok[[:space:]]/{n=0} /^FAIL[[:space:]]/{for(i=0;i<n;i++)print b[i]; n=0}' \
+                /tmp/t.log > /tmp/failed.log; \
+            echo "--- the seed for the package that failed (not the other twenty-one):"; \
+            grep -E "^-test.shuffle" /tmp/failed.log || echo "(no seed line; -shuffle may be off)"; \
+            echo "--- and the end of that package's own output:"; \
+            tail -120 /tmp/failed.log; \
+            # **And what a timeout was doing.** Go prints `panic: test timed out`
+            # followed by a goroutine dump naming the running test, which is the
+            # only thing that says *which* test hung. None of the greps above
+            # match it, so a package that timed out reported a bare package name
+            # and nothing else.
+            if grep -qE "^panic: test timed out" /tmp/t.log; then \
+                echo "--- a test timed out; the goroutine that was running:"; \
+                grep -A 12 "panic: test timed out" /tmp/t.log | head -30; \
+            fi; \
+            exit "$rc"; \
+        fi; \
+        if [ "$skipped" -gt "$SKIP_CEILING" ]; then \
+            echo "more tests skipped than this container should need ($skipped > $SKIP_CEILING):"; \
+            echo "a green run that verified less is the failure this ceiling exists to catch"; \
+            # **The reason, not just the count.** The count is here and the
+            # reasons are in the tree, so the first time this tripped nobody
+            # could say which skip had moved: two runs of log archaeology, a
+            # diff against a partial log, and the answer in the end was a test
+            # that skipped on a *timeout* and so flapped under load (E770).
+            # go's -v prints "  file_test.go:12: reason" immediately above each
+            # "--- SKIP", so the pairing is free and the grouping says which
+            # kind of skip moved - a privilege this container lacks, an opt-in
+            # switch, or a machine more capable than the test needs.
+            echo "--- every skip, by reason:"; \
+            grep -B1 -E "^ *--- SKIP: " /tmp/t.log \
+                | grep -E "^ *[a-z0-9_]+\.go:[0-9]+: " \
+                | sed -E "s/^ *[a-z0-9_]+\.go:[0-9]+: //" \
+                | cut -c1-90 | sort | uniq -c | sort -rn | head -30; \
+            # **And the names, all of them, sorted.** The grouping above says
+            # which *kind* of skip moved; it cannot say which test, and a new
+            # skip that shares a reason with an existing one is invisible in it.
+            # Naming them costs a hundred and sixty-odd lines of a log nobody
+            # reads unless this trips, and saves reproducing this container to
+            # get the same list - which is what finding the last one took: the
+            # top forty were printed, there were a hundred and sixty-three, and
+            # the two that moved were not among them (E824).
+            #
+            # Sorted, so the way to use it is `diff` against the last green run.
+            echo "--- every skipped test, sorted (diff against a green run):"; \
+            grep -E "^ *--- SKIP: " /tmp/t.log \
+                | sed -E "s/^ *--- SKIP: //; s/ \([0-9.]+s\)$//" \
+                | sort; \
+            exit 1; \
+        fi
+
+# engine-daemon runs the tests that need a real docker daemon.
+#
+# Behind the `integration` build tag and therefore skipped by every other
+# target, because they take a `dockerd`, a privileged container and several
+# seconds each. They are also the only tests that exercise what a `WITH DOCKER`
+# step actually gets: a daemon started for it, or one inherited from the step it
+# is running inside (E364-E387).
+#
+# **Privileged, and that is a requirement rather than a convenience.** The daemon
+# runs in a mount namespace with a private `/run`, which needs CAP_SYS_ADMIN; a
+# plain container fails at `clone` before anything starts. Measured both ways
+# before this target was written, so the flag is here because the alternative was
+# tried (E387).
+#
+# `CGO_ENABLED=0` for the same reason every other Go target sets it, and one
+# more: a dynamically linked test binary cannot run in a container that has no
+# interpreter for it, which is E117's failure arriving in the test harness.
+#
+# No Go toolchain is needed at *test* time - the tests copy this binary into the
+# step they are testing and re-execute it as their prober, the same trick the
+# daemon shim uses, so nothing has to be compiled inside a step whose root is
+# empty.
+engine-daemon:
+    FROM +go
+    # docker brings dockerd and the client; util-linux brings unshare, which the
+    # tests use to clean up what a namespaced daemon wrote as root.
+    RUN apk add --no-cache docker util-linux
+    COPY --dir +code/earthly /
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        CGO_ENABLED=0 go test -c -tags integration -o /tmp/daemon.test ./engine/guest/ \
+        && CGO_ENABLED=0 go test -c -tags integration -o /tmp/build.test ./engine/cli/
+    # How few tests may run here before the run stops being evidence.
+    #
+    # The mirror of +engine-race's SKIP_CEILING and the same argument: a target
+    # that passes because nothing ran is the failure worth catching, and these
+    # tests skip themselves when there is no `dockerd` on the machine. A floor
+    # turns "no daemon here" from a green run into a red one.
+    # **Six, and the seventh is deliberate rather than lost.** The list below
+    # named `HowManyEarthTestsBuild`, which sweeps `tests/*.earth` - and
+    # `+code`, which this target mounts at /earthly, does not carry `tests/`. So
+    # it skipped every time this step has ever run, and the floor counted on a
+    # test that could not start.
+    #
+    # Shipping the corpus would make it run, and that is the wrong trade: it
+    # builds 286 invocations four at a time, which this suite's own note prices
+    # at an hour serially, and it pulls images. The same corpus is run properly
+    # by `+test-no-qemu-group1..8` and `+test-misc` in the docker and podman test
+    # suites - the jobs that *depend on this one*. Paying fifteen minutes here to
+    # preview work that the next job does thoroughly delays the thorough version.
+    ARG RAN_FLOOR=6
+    # TMPDIR on a cache mount for the build test, and that is a requirement
+    # rather than thrift: a container's root is overlayfs and **overlayfs cannot
+    # stack on overlayfs**, so a build whose store is under the container's own
+    # `/tmp` cannot materialise its first base - which the engine says in as many
+    # words, with the remedy. A cache mount is a real filesystem.
+    #
+    # **For the build test only.** Moving the guest's tests there too made two of
+    # them skip: their isolation probe runs as root in a user namespace, which is
+    # nobody on a shared directory, and `mkdir: permission denied` became "this
+    # machine cannot isolate a step". A fix for one test silently disabling two
+    # others is what a floor counting by name catches and a floor counting
+    # `--- PASS` would not (E400, E401).
+    #
+    # EARTH_TEST_NETWORK because the build test pulls a base image; the guest's
+    # tests need none.
+    # **The daemon binary runs from its own package directory.** `go test -c`
+    # relocates the binary and this ran it from `/earthly`, where several of
+    # `engine/guest`'s tests cannot find what they read: the wire-vocabulary
+    # guard opens `proto.go` to enumerate the request kinds, and the isolation
+    # gate reads source too. `go test` guarantees the package directory as the
+    # working directory and compiling the binary out of the tree took that away,
+    # so two guards failed for having been moved rather than for being wrong
+    # (E629).
+    RUN --privileged \
+        --mount type=cache,target=/scratch,id=engine-daemon-scratch \
+        sh -c "(cd /earthly/engine/guest && /tmp/daemon.test -test.v); \
+               TMPDIR=/scratch EARTH_TEST_NETWORK=1 EARTH_CORPUS_DIR=/earthly /tmp/build.test -test.v \
+                   -test.run 'ABuildWithADockerBlockRuns|ABuildInsideABuild'" \
+            > /tmp/d.log 2>&1; \
+        rc=$?; \
+        grep -E "^ *--- (FAIL|SKIP)" /tmp/d.log | head -20; \
+        # The four that need a real daemon, named one by one.
+        #
+        # Neither `--- PASS` nor a name pattern works: this binary holds the
+        # package's whole unit suite, so a plain count is in the hundreds and a
+        # daemon-ish pattern still matches 33 tests that never start one. Either
+        # would let a green run clear the floor while verifying nothing, which is
+        # the failure the floor exists to catch (E400).
+        #
+        # A written-out list goes stale when a test is renamed, and that is the
+        # trade: it goes stale *loudly*, by failing here, rather than quietly by
+        # matching nothing.
+        passed=$(grep -cE "^ *--- PASS: Test(TheWholeDaemonLifetimeAgainstARealDockerd|ADaemonStartsInAUserNamespace|AStepIsGivenADaemonAtItsOwnPath|AStepReachesADaemonItDidNotStart|ABuildWithADockerBlockRuns|ABuildInsideABuild)" /tmp/d.log || true); \
+        echo "daemon tests passed: $passed"; \
+        if [ "$rc" -ne 0 ]; then grep -E "^ *--- FAIL|^ *[a-z_]+\.go:" /tmp/d.log | head -40; exit "$rc"; fi; \
+        if [ "$passed" -lt "$RAN_FLOOR" ]; then \
+            echo "only $passed daemon test(s) ran, and this target is evidence for none of them"; \
+            echo "a green run that verified nothing is the failure this floor exists to catch"; \
+            exit 1; \
+        fi
 
 # unit-test-scripts runs unit tests for the shell scripts baked into the images.
 unit-test-scripts:
@@ -369,9 +705,35 @@ earthly:
     SAVE ARTIFACT build/$EXECUTABLE_NAME AS LOCAL "build/$GOOS/$GOARCH$VARIANT/$EXECUTABLE_NAME"
     SAVE IMAGE --cache-from=earthly/earthly:main
 
+# native-engine builds the post-BuildKit engine's own binaries.
+#
+# The bootstrap. Everything else here builds the BuildKit front end; this builds
+# the engine that is meant to replace it, with itself - so the engine is the
+# first consumer of its own output and a defect in a layer write shows up as a
+# binary that does not run rather than as a digest nobody re-checks.
+#
+# Both for Linux: `earth-guestd` runs inside the sandbox and has no other
+# platform, and `earth-native` is built for the same one so that a Linux host
+# has the pair. A developer's machine builds them with `go build`, which is what
+# the verify script does; this is what a deployment installs.
+native-engine:
+    FROM +code
+    ENV CGO_ENABLED=0
+    ARG TARGETARCH
+    ARG GOOS=linux
+    ARG GOARCH=$TARGETARCH
+    RUN mkdir -p build
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        go build -o build/earth-native ./cmd/earth-native && \
+        go build -o build/earth-guestd ./cmd/earth-guestd
+    SAVE ARTIFACT build/earth-native AS LOCAL "build/$GOOS/$GOARCH/earth-native"
+    SAVE ARTIFACT build/earth-guestd AS LOCAL "build/$GOOS/$GOARCH/earth-guestd"
+
 # earthly-linux-amd64 builds the earthly artifact  for linux amd64
 earthly-linux-amd64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # Release metadata baked into the binary via ldflags in +earthly. These are
@@ -401,7 +763,7 @@ earthly-linux-amd64:
 
 # earthly-linux-arm64 builds the earthly artifact  for linux arm64
 earthly-linux-arm64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -421,7 +783,7 @@ earthly-linux-arm64:
 
 # earthly-darwin-amd64 builds the earthly artifact  for darwin amd64
 earthly-darwin-amd64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -441,7 +803,7 @@ earthly-darwin-amd64:
 
 # earthly-darwin-arm64 builds the earthly artifact for darwin arm64
 earthly-darwin-arm64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -461,7 +823,7 @@ earthly-darwin-arm64:
 
 # earthly-windows-arm64 builds the earthly artifact  for windows arm64
 earthly-windows-amd64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -486,7 +848,7 @@ earthly-windows-amd64:
 # Darwin amd64 and arm64
 # Windows amd64
 all-binaries:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     # Release metadata, forwarded to every per-platform target so that callers
     # such as release+signed-release can set it once here and have it baked into
@@ -547,6 +909,25 @@ earthly-docker:
     # release+perform-release-buildkitd-dockerhub pushes.
     FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG" --RELEASE_VERSION="$VERSION"
     RUN apk add --no-cache docker-cli libcap-ng-utils git
+    # **This image is a buildkitd, so its CLI speaks to it.** The entrypoint
+    # starts that daemon; a CLI in here defaulting to the native engine would
+    # boot a daemon it never used, and refuse every remote target - the native
+    # engine builds only from a checkout. The workflow sets EARTH_ENGINE for the
+    # job, and a job's environment does not cross into `docker run`, so the
+    # image is the only thing that can say this about itself.
+    #
+    # **It reaches the integration tests too**, which are built FROM this image,
+    # and that is what makes their nested `earth` invocations work: a test that
+    # runs a build inside a step gets this CLI, and this CLI now knows which
+    # engine it has. Without it, `tests/scrub-https-credentials` expected
+    # "failed to fetch remote" from a remote target and got native's "it is not
+    # a local target" instead.
+    #
+    # A consequence worth stating: the Native jobs run their *outer* build on
+    # the native engine and their nested builds on buildkit. That is what is
+    # being tested - the engine under test is the one running the suite - and
+    # `-e EARTH_ENGINE=native` overrides it if inner-native is ever wanted.
+    ENV EARTH_ENGINE=buildkit
     # When Earthbuild is run from a container, the registry proxy networking setup
     # will fail as the registry is meant to be run on a dynamic localhost port
     # (which won't be exposed by the container). Let's fall back to tar-based
@@ -629,7 +1010,7 @@ earthbuild-integration-test-base:
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
 prerelease:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
@@ -640,7 +1021,7 @@ prerelease:
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     COPY ./earthly ./
     # This script is useful in other repos too.
     SAVE ARTIFACT ./earthly
@@ -648,7 +1029,7 @@ prerelease-script:
 # ci-release builds earthly for linux/amd64 in a container and pushes wtth the tag
 # EARTH_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
 ci-release:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
     ARG BUILDKIT_PROJECT
@@ -669,7 +1050,7 @@ ci-release:
 # for-own builds earthly-buildkitd and the earthly CLI for the current system
 # and saves the final CLI binary locally at ./build/own/earthly
 for-own:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. See
@@ -683,7 +1064,7 @@ for-own:
 # build-ticktock is used for building the ticktock version of buildkit
 # it is only used when BUILDKIT_PROJECT is not overridden
 build-ticktock:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     ARG BUILDKIT_PROJECT
     IF [ -z "$BUILDKIT_PROJECT" ]
         COPY earthly-next .
@@ -696,7 +1077,7 @@ build-ticktock:
 # for-linux builds earthly-buildkitd and the earthly CLI for the a linux amd64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -704,11 +1085,17 @@ for-linux:
     BUILD --platform=linux/amd64 +build-ticktock
     COPY (+earthly-linux-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/amd64/earthly
+    # The standalone agent, saved beside the CLI for anyone who wants one. The
+    # CLI no longer needs it: `earth guestd ...` runs the agent out of the CLI
+    # itself, which is the only arrangement a nested build can use - a step
+    # copies in one binary and has nowhere to put a sibling.
+    COPY (+native-engine/earth-guestd --GOOS=linux --GOARCH=amd64) ./
+    SAVE ARTIFACT ./earth-guestd AS LOCAL ./build/linux/amd64/earth-guestd
 
 # for-linux-arm64 builds earthly-buildkitd and the earthly CLI for the a linux arm64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux-arm64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -716,12 +1103,15 @@ for-linux-arm64:
     BUILD --platform=linux/arm64 +build-ticktock
     COPY (+earthly-linux-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/arm64/earthly
+    # The agent goes with it; see +for-linux.
+    COPY (+native-engine/earth-guestd --GOOS=linux --GOARCH=arm64) ./
+    SAVE ARTIFACT ./earth-guestd AS LOCAL ./build/linux/arm64/earth-guestd
 
 # for-darwin builds earthly-buildkitd and the earthly CLI for the a darwin amd64 system
 # and saves the final CLI binary locally in the ./build/darwin folder.
 # For arm64 use +for-darwin-m1
 for-darwin:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -733,7 +1123,7 @@ for-darwin:
 # for-darwin-m1 builds earthly-buildkitd and the earthly CLI for the a darwin m1 system
 # and saves the final CLI binary locally.
 for-darwin-m1:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -745,7 +1135,7 @@ for-darwin-m1:
 # for-windows builds earthly-buildkitd and the earthly CLI for the a windows system
 # and saves the final CLI binary locally in the ./build/windows folder.
 for-windows:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     ARG GO_GCFLAGS
     # BUILD --platform=linux/amd64 ./buildkitd+buildkitd
@@ -777,6 +1167,38 @@ lint-all:
     BUILD +lint-scripts
     BUILD +lint-changelog
     BUILD +lint-workflows
+
+# mutate deletes each mechanism the engine's correctness rests on and checks
+# that the suite notices.
+#
+# Not a merge gate: it runs the tests once per mutant, which is minutes rather
+# than seconds. It is the thing to run when adding an invariant, and the thing
+# to run before believing a green suite means anything - five tests in this
+# engine asserted an outcome and were satisfied by any of its causes, and every
+# one was found this way rather than by reading.
+#
+# On Linux, because half the catalogue is Linux-only and a sweep elsewhere
+# reports those as `unrun` rather than as guarded. A mutation the platform
+# compiled away looks exactly like one nothing tested.
+mutate:
+    FROM +code
+    RUN --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        cd /earthly && go run ./tools/mutate
+
+# lint-gating runs the linting checks that gate a merge.
+#
+# The Go linters are not among them, and deliberately: the configuration is
+# maximal, the engine work carries a backlog against it, and a check that is
+# expected to be red stops being read - which costs more than the findings do.
+# They run in CI as their own step, reported and not gating, so the number stays
+# visible while it comes down.
+#
+# Shell and changelog linting do gate. Both pass, and folding two working gates
+# into one broken one to excuse the broken one would lose more than it saves.
+lint-gating:
+    BUILD +lint-scripts
+    BUILD +lint-changelog
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and
 # using secure docker hub mirror configurations
@@ -911,7 +1333,7 @@ examples:
     BUILD +examples-5
 
 examples-1:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     ARG TARGETARCH
     BUILD ./examples/c+docker
     BUILD ./examples/cpp+docker
@@ -964,7 +1386,7 @@ examples-5:
 
 # license copies the license file and saves it as an artifact
 license:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /earth
     COPY LICENSE ./
     SAVE ARTIFACT LICENSE
@@ -993,7 +1415,7 @@ npm-update-all:
 
 # merge-main-to-docs merges the main branch into docs-0.8
 merge-main-to-docs:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     RUN apk add --no-cache github-cli ca-certificates
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \
@@ -1061,7 +1483,7 @@ check-broken-links:
 
 # open-pr-for-fork creates a new PR based on the given pr_number
 open-pr-for-fork:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     RUN apk add --no-cache github-cli ca-certificates curl
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \
@@ -1096,7 +1518,7 @@ open-pr-for-fork:
     END
 
 check-broken-links-pr:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     WORKDIR /tmp
     RUN apk add --no-cache ca-certificates git github-cli
     ARG BRANCH

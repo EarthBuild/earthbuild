@@ -30,8 +30,178 @@ env:
   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
 jobs:
-  fast-check-and-build:
-    name: Fast Check & Build
+  # **Split so a flake costs one job, not thirty minutes.** These four ran as one
+  # `fast-check-and-build`, which every other job gates on - so a single slow or
+  # flaky check blocked a hundred jobs and had to be re-run whole. Two CI rounds
+  # were lost that way to `engine/fleet` alone (E931d).
+  #
+  # Each repeats the same three setup steps, which is the price of the split and
+  # a minute a job. They join at `fast-check-and-build`, which now waits and
+  # nothing else: the eight jobs downstream still say
+  # `needs: fast-check-and-build` and did not change. The artifacts they
+  # download are uploaded by `build` under the same names, and an artifact is
+  # fetched by name rather than by the job that made it.
+  check-lint:
+    name: Lint
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EARTH_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+    steps:
+      - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
+        with:
+          # Authenticate the release-list API call so it isn't rate-limited on
+          # shared runner IPs (unauthenticated is 60 req/hr/IP).
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Let unprivileged user namespaces work
+        # The same sysctl `stage2-setup` sets, for the same reason, and this job
+        # needs it for a reason of its own. The engine's sandbox is an
+        # unprivileged user namespace; ubuntu-24.04 ships
+        # `kernel.apparmor_restrict_unprivileged_userns=1`, which refuses one to
+        # any binary without an AppArmor profile.
+        #
+        # The suites got this and this job did not, because when it was written
+        # the only thing here running the native engine was the test suite, and
+        # that runs inside containers. It is this job that invokes `earthly`
+        # *directly on the runner* - `+ci-release` and the artifact builds - so
+        # since native became the default those are the first commands in the
+        # whole workflow to need it, and the first to fail: the guest started,
+        # could not mount its scratch, and the build reported only "the guest
+        # did not answer the handshake: EOF".
+        #
+        # A sysctl on a throwaway runner rather than a profile, and it stops
+        # mattering the moment the default goes back to buildkit.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          unshare -Urm true && echo "unprivileged userns: ok" || echo "unprivileged userns: still refused"
+        shell: bash
+      - name: Lint
+        run: earth --ci +lint-gating
+      # Reported, not gating. The Go linter configuration is maximal and the
+      # engine work carries a backlog against it; a check expected to be red is
+      # one nobody reads, which costs more than the findings. The count is
+      # tracked in docs-internals/plan-native-engine.md and comes down there.
+      - name: Go lint (report only)
+        run: earth --ci +lint
+        continue-on-error: true
+
+  check-unit:
+    name: Unit tests
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EARTH_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+    steps:
+      - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
+        with:
+          # Authenticate the release-list API call so it isn't rate-limited on
+          # shared runner IPs (unauthenticated is 60 req/hr/IP).
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Let unprivileged user namespaces work
+        # The same sysctl `stage2-setup` sets, for the same reason, and this job
+        # needs it for a reason of its own. The engine's sandbox is an
+        # unprivileged user namespace; ubuntu-24.04 ships
+        # `kernel.apparmor_restrict_unprivileged_userns=1`, which refuses one to
+        # any binary without an AppArmor profile.
+        #
+        # The suites got this and this job did not, because when it was written
+        # the only thing here running the native engine was the test suite, and
+        # that runs inside containers. It is this job that invokes `earthly`
+        # *directly on the runner* - `+ci-release` and the artifact builds - so
+        # since native became the default those are the first commands in the
+        # whole workflow to need it, and the first to fail: the guest started,
+        # could not mount its scratch, and the build reported only "the guest
+        # did not answer the handshake: EOF".
+        #
+        # A sysctl on a throwaway runner rather than a profile, and it stops
+        # mattering the moment the default goes back to buildkit.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          unshare -Urm true && echo "unprivileged userns: ok" || echo "unprivileged userns: still refused"
+        shell: bash
+      - name: Unit tests
+        run: earth --ci +unit-test
+      # The engine's own tests again, under the race detector and shuffled.
+      #
+      # Separate from +unit-test because -race needs cgo and everything else
+      # here builds with CGO_ENABLED=0, and because the two answer different
+      # questions: whether the tests pass, and whether they pass for the reason
+      # they claim. It also refuses to be green if more of the suite skipped in
+      # the container than it should - a run that verified less is the failure
+      # that ceiling exists to catch.
+
+  check-engine:
+    name: Engine tests
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EARTH_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+    steps:
+      - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
+        with:
+          # Authenticate the release-list API call so it isn't rate-limited on
+          # shared runner IPs (unauthenticated is 60 req/hr/IP).
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Let unprivileged user namespaces work
+        # The same sysctl `stage2-setup` sets, for the same reason, and this job
+        # needs it for a reason of its own. The engine's sandbox is an
+        # unprivileged user namespace; ubuntu-24.04 ships
+        # `kernel.apparmor_restrict_unprivileged_userns=1`, which refuses one to
+        # any binary without an AppArmor profile.
+        #
+        # The suites got this and this job did not, because when it was written
+        # the only thing here running the native engine was the test suite, and
+        # that runs inside containers. It is this job that invokes `earthly`
+        # *directly on the runner* - `+ci-release` and the artifact builds - so
+        # since native became the default those are the first commands in the
+        # whole workflow to need it, and the first to fail: the guest started,
+        # could not mount its scratch, and the build reported only "the guest
+        # did not answer the handshake: EOF".
+        #
+        # A sysctl on a throwaway runner rather than a profile, and it stops
+        # mattering the moment the default goes back to buildkit.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          unshare -Urm true && echo "unprivileged userns: ok" || echo "unprivileged userns: still refused"
+        shell: bash
+      - name: Engine race and shuffle
+        run: earth --ci +engine-race
+      # The tests that need a real docker daemon.
+      #
+      # Behind a build tag, so nothing else runs them, and privileged, because a
+      # daemon of a step's own needs a mount namespace with a private /run and a
+      # plain container is refused at clone. They are the only tests that
+      # exercise what a WITH DOCKER step actually gets, and until now the only
+      # ones nothing ran but a person typing the command.
+      #
+      # The target refuses to be green if fewer than three of them ran: they
+      # skip themselves where there is no dockerd, and a target that passes
+      # because nothing ran is what that floor exists to catch.
+      - name: Engine docker daemon tests
+        run: earth --ci --allow-privileged +engine-daemon
+      - name: Fuzz tests
+        run: earth --ci +fuzz-test
+
+  build:
+    name: Build
     runs-on: ubuntu-26.04
     permissions:
       contents: read
@@ -48,13 +218,28 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - name: Lint
-        run: earth --ci +lint-all
-      - name: Unit tests
-        run: earth --ci +unit-test
-      - name: Fuzz tests
-        run: earth --ci +fuzz-test
-
+      - name: Let unprivileged user namespaces work
+        # The same sysctl `stage2-setup` sets, for the same reason, and this job
+        # needs it for a reason of its own. The engine's sandbox is an
+        # unprivileged user namespace; ubuntu-24.04 ships
+        # `kernel.apparmor_restrict_unprivileged_userns=1`, which refuses one to
+        # any binary without an AppArmor profile.
+        #
+        # The suites got this and this job did not, because when it was written
+        # the only thing here running the native engine was the test suite, and
+        # that runs inside containers. It is this job that invokes `earthly`
+        # *directly on the runner* - `+ci-release` and the artifact builds - so
+        # since native became the default those are the first commands in the
+        # whole workflow to need it, and the first to fail: the guest started,
+        # could not mount its scratch, and the build reported only "the guest
+        # did not answer the handshake: EOF".
+        #
+        # A sysctl on a throwaway runner rather than a profile, and it stops
+        # mattering the moment the default goes back to buildkit.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          unshare -Urm true && echo "unprivileged userns: ok" || echo "unprivileged userns: still refused"
+        shell: bash
       # --- Build Standard EarthBuild ---
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
@@ -79,19 +264,42 @@ jobs:
           set -euo pipefail
           EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      # **`--engine=buildkit` on every invocation of the binary this branch
+      # built.** These steps produce the release artifacts - the buildkitd image
+      # and the CLI - and buildkitd is built through `FROM DOCKERFILE`, whose
+      # `RUN --mount` the native engine refuses rather than running without the
+      # mounts it was given. So the engine that builds the *other* engine's
+      # image is the other engine.
+      #
+      # Not a retreat from the default. Everything above this - lint, unit
+      # tests, the race sweep, the daemon tests - still runs native, and so do
+      # the suites that gate on this job. What changed is that the steps whose
+      # output is buildkitd say so.
+      #
+      # `earth` itself needs no flag: that is the released binary from
+      # actions-setup, which predates the native engine and has no such
+      # default.
+      #
+      # **Retried, because this step gates sixteen Native jobs.** It pushes
+      # layers to ghcr.io, and one `net/http: timeout awaiting response headers`
+      # failed the whole run with the downstream suites never scheduled - so a
+      # registry hiccup costs a full CI round and tests nothing (run
+      # 33736445593). `build-earthly.yml` already wraps the same command; this
+      # copy did not, which was an oversight rather than a decision.
       - name: Build and push +ci-release using latest earth build
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="latest"
-          ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+          scripts/ci/earth-retry.sh --sleep 3 -- \
+            ./build/linux/amd64/earthly --ci --engine=buildkit --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           export TAG_SUFFIX="latest"
           # Build ci-release (builds binary and buildkitd but doesn't push)
-          ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
+          ./build/linux/amd64/earthly --ci --engine=buildkit --output --build-arg TAG_SUFFIX +ci-release
           # Explicitly output the buildkitd image to local docker daemon
-          ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+          ./build/linux/amd64/earthly --ci --engine=buildkit --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
       - name: Save buildkitd image tarball (all runs)
         # Shipping buildkitd as a GHA artifact -- rather than having every
         # downstream test job pull it from ghcr -- moves ~67 in-run image
@@ -115,6 +323,20 @@ jobs:
             docker pull "$IMG"
           fi
           docker save "$IMG" -o ./artifacts-standard/buildkitd-image.tar
+
+          # **The standalone agent is not shipped here, and was never being
+          # shipped.** This step used to `cp ./build/linux/amd64/earth-guestd`,
+          # which nothing on this path produces: `+ci-release` saves a *pushed
+          # image*, and the only target that writes that binary locally is
+          # `+for-linux-amd64`, which CI does not run. The copy failed the first
+          # time this workflow ever executed on the branch.
+          #
+          # Removed rather than fixed, because nothing wants it. The native jobs
+          # run the CLI as their own agent - `earth guestd ...` serves out of the
+          # CLI itself, which is the only arrangement a nested build can use -
+          # and stage2-setup deliberately does not install a sibling agent,
+          # since supplying one would hide the bug that arrangement fixes.
+          # Anyone who does want the binary can build `+for-linux-amd64`.
       - name: Build earth binary artifact (fork only)
         # Fork PRs cannot read the binary from ghcr, so it ships in the
         # artifact. Non-fork jobs fetch it via `earth upgrade` instead --
@@ -127,7 +349,14 @@ jobs:
           # The test suites address the buildkitd daemon by container name, so
           # DEFAULT_INSTALLATION_NAME must be pinned rather than left at its dev
           # default. "earth" gives them "earth-buildkitd".
-          ./build/linux/amd64/earthly --ci --artifact \
+          #
+          # `--engine=buildkit` because this branch makes the native engine the
+          # default and this step is one of the buildkit-facing ones - the same
+          # rule as the ci-release steps above, where the engine that builds the
+          # other engine's artifacts is the other engine. Stated as the rule it
+          # follows rather than as a failure mode: the flag predates this merge
+          # and what breaks without it has not been observed here.
+          ./build/linux/amd64/earthly --ci --engine=buildkit --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
             --VERSION="0.8.18" \
@@ -149,15 +378,16 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
           export TAG_SUFFIX="latest-ticktock"
-          ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+          scripts/ci/earth-retry.sh --sleep 3 -- \
+            ./build/linux/amd64/earthly --ci --engine=buildkit --push --build-arg TAG_SUFFIX +ci-release
       - name: Build +ci-release (next) using latest earth build (fork - no push)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           export TAG_SUFFIX="latest-ticktock"
           # Build ci-release (builds binary and buildkitd but doesn't push)
-          ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
+          ./build/linux/amd64/earthly --ci --engine=buildkit --output --build-arg TAG_SUFFIX +ci-release
           # Explicitly output the buildkitd image to local docker daemon
-          ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+          ./build/linux/amd64/earthly --ci --engine=buildkit --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
       - name: Save buildkitd image tarball (next, all runs)
         # See the standard-variant step above for why this is unconditional.
         run: |-
@@ -180,7 +410,14 @@ jobs:
           # The test suites address the buildkitd daemon by container name, so
           # DEFAULT_INSTALLATION_NAME must be pinned rather than left at its dev
           # default. "earth" gives them "earth-buildkitd".
-          ./build/linux/amd64/earthly --ci --artifact \
+          #
+          # `--engine=buildkit` because this branch makes the native engine the
+          # default and this step is one of the buildkit-facing ones - the same
+          # rule as the ci-release steps above, where the engine that builds the
+          # other engine's artifacts is the other engine. Stated as the rule it
+          # follows rather than as a failure mode: the flag predates this merge
+          # and what breaks without it has not been observed here.
+          ./build/linux/amd64/earthly --ci --engine=buildkit --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
             --VERSION="0.8.18" \
@@ -194,6 +431,67 @@ jobs:
           retention-days: 1
 
   # --- Docker Suite ---
+  # The native engine's own run of the docker suite, target for target.
+  #
+  # **The same matrix, not a subset.** The docker suite is the full one - podman
+  # runs a slice of it - so the engine that is meant to replace buildkit is
+  # measured against the whole thing or against nothing worth comparing.
+  #
+  # It shares `ci-test-suite.yml` and differs only in what `FRONTEND` selects.
+  # That input names what hosts buildkitd: with docker it loads the image into
+  # the docker daemon, with podman into podman, and with native there is no
+  # buildkitd to load - so `stage2-setup` skips the load and the outer-buildkit
+  # pointer, and installs the sandbox agent beside the CLI instead.
+  #
+  # Alongside the buildkit suites rather than in place of them, deliberately.
+  # What this branch is for is the difference between the two engines on a suite
+  # that has been run against buildkit for years, and a difference is only
+  # visible while both are running.
+
+  # The join. A no-op by design: it exists so the eight jobs that gate on it
+  # need not each list four names, and so that adding a fifth check is one line
+  # here rather than eight edits there.
+  fast-check-and-build:
+    name: Fast Check & Build
+    runs-on: ubuntu-26.04
+    needs: [check-lint, check-unit, check-engine, build]
+    permissions:
+      contents: read
+    steps:
+      - name: All checks and the build passed
+        run: echo "checks and build complete"
+        shell: bash
+  native-tests:
+    name: Native
+    needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/ci-test-suite.yml
+    with:
+      FRONTEND: "native"
+      # **Root, because Podman is root and the suites must differ in engine
+      # only.** Mounting a cgroup tree for a step needs CAP_SYS_ADMIN, so as
+      # the `runner` user the sandbox reports `mount /sys/fs/cgroup for the
+      # step: operation not permitted` and any test that nests a runtime
+      # cannot start one. That hit 12 of the 13 failing Native jobs, and it
+      # was read for weeks as a GitHub restriction because the Podman suite -
+      # the one it was being compared against - had been passing `sudo` all
+      # along. Bisected inside one privileged container, changing only the
+      # uid: root mounts it, uid 1001 does not (E922).
+      #
+      # Note this does NOT fix the second defect found alongside it: parallel
+      # steps used to share one network namespace and collide on the fixed
+      # buildkitd ports 8371/8372 (E923). That is fixed in the engine now - a
+      # step gets a namespace of its own by default - so nothing is passed here
+      # for it. It was briefly set through `sudo EARTH_STEP_NET=private`, which
+      # plain `sudo` needs because it carries no environment (E901); the default
+      # makes that unnecessary rather than wrong.
+      SUDO: "sudo"
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
   docker-tests:
     name: Docker
     needs: fast-check-and-build
@@ -289,11 +587,41 @@ jobs:
   # frontends) without an admin having to re-point the ruleset - a mismatch
   # there leaves a PR waiting forever on a context nothing will ever report.
   # Add new suites to `needs` and they are gated automatically.
+  # What the native engine does on a machine nobody developed it on.
+  #
+  # It has been built against one darwin arm64 laptop; this is linux on amd64,
+  # with a different sandbox and a different filesystem, which is the set of
+  # assumptions a single developer's machine cannot test (E593).
+  #
+  # **Not a gate.** `continue-on-error` and absent from `ci-success` on purpose:
+  # the native engine is not what this repository ships, and a job that reports
+  # is worth having long before one that blocks. It turns red into a comment on
+  # a pull request rather than a merge nobody can complete.
+  # The report-only native-engine job lived here.
+  #
+  # **Removed because it stopped being a differential.** It existed to run the
+  # native engine against this repository while `--engine=buildkit` was the
+  # default and every other job exercised buildkit. The default is `native`
+  # now (E603), so every job in this workflow is a native-engine job and a
+  # dedicated one adds runner time and a second place for the same failure to
+  # be reported.
+  #
+  # What it carried that the suites did not, and where that went:
+  #
+  #   * `kernel.apparmor_restrict_unprivileged_userns=0`, without which the
+  #     engine's sandbox cannot be created on ubuntu-24.04 - moved into
+  #     `.github/actions/stage2-setup`, which every suite job uses;
+  #   * the watched-against-unwatched and second-tier measurements, which are
+  #     experiments rather than coverage and are written up in
+  #     `docs-internals/experiments-adversarial.md` (E601, E602, E621);
+  #   * a five-platform cross-build, which `+all-binaries` already covers.
+
   ci-success:
     name: CI Success
     if: always()
     needs:
       - fast-check-and-build
+      - native-tests
       - docker-tests
       - docker-examples
       - docker-integrations

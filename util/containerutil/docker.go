@@ -33,24 +33,14 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 		},
 	}
 
-	// running `docker info --format={{.SecurityOptions}}` results in a panic() when docker is not running.
-	// To workaround this issue, first we run `docker info` to test docker is running, then again with the
-	// `--format` option.
-	// This is to prevent displaying panic() errors to our users (even though the panic() occurred in the
-	// docker cli binary and not earth).
-	_, err := fe.commandContextOutput(ctx, "info")
+	security, rootDir, err := fe.probe(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	output, err := fe.commandContextOutput(ctx, "info", "--format={{.SecurityOptions}}")
-	if err != nil {
-		return nil, err
-	}
+	fe.rootless = strings.Contains(security, "rootless")
 
-	fe.rootless = strings.Contains(output.string(), "rootless")
-
-	fe.userNamespaced = strings.Contains(output.string(), "name=userns")
+	fe.userNamespaced = strings.Contains(security, "name=userns")
 	if fe.userNamespaced {
 		fe.runCompatibilityArgs = []string{"--userns", "host"}
 	}
@@ -60,19 +50,7 @@ func NewDockerShellFrontend(ctx context.Context, cfg *FrontendConfig) (Container
 		return nil, fmt.Errorf("failed to calculate buildkit URLs: %w", err)
 	}
 
-	output, err = fe.commandContextOutput(ctx, "info", "--format={{.DockerRootDir}}")
-	if err != nil {
-		// Maybe the user has aliased podman=docker?
-		// (The same information is found at a different path in podman)
-		var err2 error
-
-		output, err2 = fe.commandContextOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to get docker root dir: %w", err)
-		}
-	}
-
-	outputStr := strings.TrimSpace(output.string())
+	outputStr := strings.TrimSpace(rootDir)
 	if outputStr == "/var/lib/containers/storage" {
 		// Likely podman making itself available via the docker CLI.
 		// This can happen either when podman set /var/run/docker.sock itself,
@@ -240,4 +218,61 @@ func (dsf *dockerShellFrontend) VolumeInfo(ctx context.Context, volumeNames ...s
 	}
 
 	return results, err
+}
+
+// probeSeparator divides the two answers asked for in one question. Neither a
+// security option nor a path contains it, and both contain spaces and commas,
+// which is why it is not one of those.
+const probeSeparator = "|"
+
+// probe asks the daemon what this frontend needs to know, in one question.
+//
+// `docker info` talks to the daemon and costs about a tenth of a second each
+// time. Three of them ran here before any command was dispatched, so every
+// invocation - including the many that never touch Docker - paid for answers it
+// usually did not use.
+//
+// **The three-call form is still here, and still says what it always said.** It
+// was not only slow: the bare `info` came first because `docker info --format`
+// panics when the daemon is down, and printing a panic from somebody else's
+// binary is not a diagnosis. So the one question is *tried*, and anything other
+// than an answer - a panic, a daemon that is not there, a field this daemon does
+// not have - falls through to the sequence that knows how to tell those apart.
+func (dsf *dockerShellFrontend) probe(ctx context.Context) (security, rootDir string, err error) {
+	one, err := dsf.commandContextOutput(ctx, "info",
+		"--format={{.SecurityOptions}}"+probeSeparator+"{{.DockerRootDir}}")
+	if err == nil {
+		both := strings.SplitN(strings.TrimSpace(one.string()), probeSeparator, 2)
+		if len(both) == 2 && both[1] != "" {
+			return both[0], both[1], nil
+		}
+	}
+
+	// Whether docker is there at all, asked without a template so that a
+	// stopped daemon is reported rather than panicked over.
+	_, err = dsf.commandContextOutput(ctx, "info")
+	if err != nil {
+		return "", "", err
+	}
+
+	output, err := dsf.commandContextOutput(ctx, "info", "--format={{.SecurityOptions}}")
+	if err != nil {
+		return "", "", err
+	}
+
+	security = output.string()
+
+	output, err = dsf.commandContextOutput(ctx, "info", "--format={{.DockerRootDir}}")
+	if err != nil {
+		// Maybe the user has aliased podman=docker?
+		// (The same information is found at a different path in podman)
+		var err2 error
+
+		output, err2 = dsf.commandContextOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
+		if err2 != nil {
+			return "", "", fmt.Errorf("failed to get docker root dir: %w", err)
+		}
+	}
+
+	return security, output.string(), nil
 }

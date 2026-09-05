@@ -1244,7 +1244,7 @@ This does not apply to Dockerfile's [RUN --security](https://docs.docker.com/ref
 
 ```Dockerfile
 WITH DOCKER [--pull <image-name>] [--load [<image-name>=]<target-ref>] [--compose <compose-file>]
-            [--service <compose-service>] [--platform <platform>] [--allow-privileged]
+            [--service <compose-service>] [--platform <platform>] [--allow-privileged] [--isolate]
   <commands>
   ...
 END
@@ -1298,6 +1298,20 @@ Note that the cleanup phase (after the `RUN` command has finished), does not occ
 {% endhint %}
 
 #### Options
+
+##### `--isolate` (native engine only)
+
+Gives the block a Docker daemon of its own, rather than the one it would otherwise share.
+
+By default, a `WITH DOCKER` block running inside another container - a build invoked from within a `WITH DOCKER` step, for example - uses the daemon it is already inside. That is almost always what is wanted: images an outer step loaded are visible, and nothing has to be built twice. It also means the block's result depends on what that daemon already contained, so a shared block is never cached.
+
+`--isolate` asks for the opposite. The block gets a daemon started for it, whose storage lives inside the step and is discarded with it, so the block starts from an empty daemon every time. That makes the result a function of the block's inputs, and an isolated block **is** cached.
+
+Use it when a build must not be affected by images that happen to be lying around - most often when testing caching behaviour itself, where being handed a cache hit is the failure being looked for.
+
+`--isolate` and `--cache-id` are refused together: one says the daemon's storage is discarded with the step, the other names storage that outlives it.
+
+This option is not supported by the buildkit engine, which refuses it rather than ignoring it.
 
 ##### `--pull <image-name>`
 
@@ -2004,6 +2018,16 @@ The classical [`ADD` Dockerfile command](https://docs.docker.com/engine/referenc
 
 The classical [`ONBUILD` Dockerfile command](https://docs.docker.com/engine/reference/builder/#onbuild) is not supported.
 
-## STOPSIGNAL (not supported)
+## STOPSIGNAL (native engine only)
 
-The classical [`STOPSIGNAL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#stopsignal) is not yet supported.
+#### Synopsis
+
+- `STOPSIGNAL <signal>`
+
+#### Description
+
+The `STOPSIGNAL` command sets the system call signal that will be sent to the container to exit. The signal may be given by name (`SIGKILL`) or by number (`9`), and is recorded on the image exactly as written - the same value the classical [`STOPSIGNAL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#stopsignal) records.
+
+An image that declares a stop signal is a different image from the same layers without one, so changing it rebuilds whatever stands on it.
+
+This command is supported by the native engine (`--engine=native`) only, which also accepts it inside a `FROM DOCKERFILE`. The BuildKit engine refuses it.

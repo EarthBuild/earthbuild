@@ -57,7 +57,6 @@ func newConsLogger() *conslogging.ConsoleLogger {
 	return conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 }
 
-//nolint:goconst
 func TestMultiAuth(t *testing.T) {
 	t.Parallel()
 

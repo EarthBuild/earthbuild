@@ -102,6 +102,48 @@ runs:
         echo "Earth binary installed from artifact to ${INPUTS_BUILT_EARTH_PATH}"
       env:
         INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+    - name: Choose the engine this job measures
+      # **`BINARY` says which engine, not only which runtime.** The CLI this
+      # branch builds defaults to native, so without this every suite job runs
+      # native - including the docker and podman ones, whose whole purpose is to
+      # be the buildkit half of the comparison. They were, and they failed
+      # building buildkitd through `FROM DOCKERFILE`.
+      #
+      # Set here because every suite job runs this action, and setting it in
+      # fifteen reusable workflows is fifteen places to forget. `EARTH_ENGINE` is
+      # the variable the `--engine` flag already reads.
+      #
+      # It stops mattering the moment the default goes back to buildkit, at which
+      # point this line says out loud what the default would say quietly.
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${INPUTS_BINARY}" = "native" ]; then
+          echo "EARTH_ENGINE=native" >> "$GITHUB_ENV"
+        else
+          echo "EARTH_ENGINE=buildkit" >> "$GITHUB_ENV"
+        fi
+        echo "this job measures the ${INPUTS_BINARY} configuration"
+      env:
+        INPUTS_BINARY: ${{inputs.BINARY}}
+    - name: Let unprivileged user namespaces work
+      # **Every job in this suite is a native-engine job now.** The engine's
+      # sandbox is an unprivileged user namespace, and ubuntu-24.04 ships
+      # `kernel.apparmor_restrict_unprivileged_userns=1`, which refuses one
+      # to any binary without an AppArmor profile - so `unshare -Urm` fails and
+      # every RUN fails at the mount.
+      #
+      # This was set in the report-only native job and nowhere else, which was
+      # correct while `--engine=buildkit` was the default and is not now: the
+      # suites never reached the failure because they are gated behind
+      # `fast-check-and-build`, so nothing had told us yet.
+      #
+      # A sysctl on a throwaway runner rather than a profile, and it stops
+      # mattering the moment the default goes back to buildkit.
+      run: |
+        sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+        unshare -Urm true && echo "unprivileged userns: ok" || echo "unprivileged userns: still refused"
+      shell: bash
     - name: Set up Docker Hub Mirrors and ulimits for Docker 29+
       if: inputs.BINARY == 'docker'
       run: |
@@ -177,13 +219,24 @@ runs:
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}
-    - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU == 'true' }}
-      # qemu-user-binfmt needed for cross-compilation (--platform) targets
+    - if: ${{ (inputs.BINARY == 'podman' || inputs.BINARY == 'native') && inputs.USE_QEMU == 'true' }}
+      # qemu-user-binfmt needed for cross-compilation (--platform) targets.
+      #
+      # **And for native, for the same reason podman needs it.** Docker does not
+      # because buildkitd's own container carries qemu; podman and native have no
+      # such container, so the interpreters have to be on the machine. The native
+      # engine already reads them - `exec.EmulatedPlatforms` walks
+      # /proc/sys/fs/binfmt_misc and `core.Worker.Emulates` is filled from it -
+      # so with none registered it finds none, and the scheduler refuses a step
+      # honestly: `no eligible worker: this step is for linux/arm64 and this
+      # build has linux/amd64` (E932). The support was there and the
+      # registrations were not.
       run: ${INPUTS_SUDO} apt-get update && ${INPUTS_SUDO} apt-get install -y qemu-user-binfmt
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}
     - name: Load buildkitd image from artifact
+      if: inputs.BINARY != 'native'
       # Must run AFTER the Docker and Podman setup steps above: on podman jobs
       # the engine is apt-installed there (and docker is purged), so loading any
       # earlier fails with `podman: command not found`.
@@ -196,6 +249,7 @@ runs:
         INPUTS_SUDO: ${{inputs.SUDO}}
         INPUTS_BINARY: ${{inputs.BINARY}}
     - name: Point outer buildkit at the PR's own staging image
+      if: inputs.BINARY != 'native'
       # Non-fork runs previously hardcoded the stable pinned buildkitd image.
       # That meant the outer layer ran the PR's earth CLI against the *old*
       # buildkit, and the PR's own buildkit was only exercised inside
@@ -253,6 +307,15 @@ runs:
       shell: bash
       env:
         INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+    # **No sandbox agent is installed, deliberately.** The CLI is its own
+    # agent - `earth guestd ...` runs it - so a native job needs one file and
+    # not two, and this step used to copy the second one into place.
+    #
+    # Removing it is what tests the arrangement. A nested build copies the CLI
+    # into a step and has nowhere beside it to put a sibling, which is how every
+    # nested native build failed with "cannot find earth-guestd"; a CI that
+    # quietly supplied the sibling to the outer build would prove only that the
+    # outer build was not the one that was broken.
     - if: ${{ inputs.USE_NEXT == 'true' }}
       run: |-
         export expected_buildkit_client_sha="$(cat earthly-next | head -c 12)"

@@ -21,7 +21,7 @@ func TestAGuestWithNoDockerdSaysSo(t *testing.T) {
 
 	_, err := launchWith(t.Context(),
 		func(string) (string, error) { return "", errors.New("not in $PATH") },
-		[]string{"--host=unix:///x"}, "/x", "")
+		[]string{"--host=unix:///x"}, "/x")
 
 	if err == nil {
 		t.Fatal("a guest with no dockerd launched one anyway")
@@ -53,7 +53,7 @@ func TestStoppingADaemonStopsIt(t *testing.T) {
 	}
 
 	proc, err := launchWith(t.Context(),
-		func(string) (string, error) { return script, nil }, nil, "/unused.sock", "")
+		func(string) (string, error) { return script, nil }, nil, "/unused.sock")
 	skipIfUnprivileged(t, err)
 
 	d, ok := proc.(*dockerd)
@@ -115,7 +115,7 @@ func TestADaemonThatDiedIsNoticed(t *testing.T) {
 	}
 
 	proc, err := launchWith(t.Context(),
-		func(string) (string, error) { return script, nil }, nil, "/unused.sock", "")
+		func(string) (string, error) { return script, nil }, nil, "/unused.sock")
 	skipIfUnprivileged(t, err)
 
 	// Generous, because it is a *ceiling* and not a measurement: the loop returns
@@ -158,7 +158,7 @@ func TestStoppingAnAlreadyNoticedDeadDaemonReturns(t *testing.T) {
 	}
 
 	proc, err := launchWith(t.Context(),
-		func(string) (string, error) { return script, nil }, nil, "/unused.sock", "")
+		func(string) (string, error) { return script, nil }, nil, "/unused.sock")
 	skipIfUnprivileged(t, err)
 
 	// Notice the death first, which is what the wait does on every poll.
@@ -220,7 +220,7 @@ func TestADaemonIsAskedOnItsOwnSocket(t *testing.T) {
 	}
 
 	proc, err := launchWith(t.Context(),
-		func(string) (string, error) { return script, nil }, nil, "/steps/h1/var/run/docker.sock", "")
+		func(string) (string, error) { return script, nil }, nil, "/steps/h1/var/run/docker.sock")
 	skipIfUnprivileged(t, err)
 
 	t.Cleanup(func() { _ = proc.Stop() })
@@ -259,7 +259,7 @@ func TestWhatTheDaemonSaidBeforeItDiedReachesTheAuthor(t *testing.T) {
 	}
 
 	proc, err := launchWith(t.Context(),
-		func(string) (string, error) { return script, nil }, nil, "/unused.sock", "")
+		func(string) (string, error) { return script, nil }, nil, "/unused.sock")
 	skipIfUnprivileged(t, err)
 
 	t.Cleanup(func() { _ = proc.Stop() })

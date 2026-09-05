@@ -18,20 +18,11 @@ import (
 // that dies badly leaves nothing on the machine, and two daemons cannot see each
 // other's plugin sockets.
 func prepareShim() error {
-	// **Before the mount below, because /var/run/netns is under /run.** The
-	// tmpfs would cover the very bind mount that holds the namespace open, and
-	// the daemon would then be told to join a path that no longer resolves -
-	// the same trap the resolver comment describes, one directory along.
-	err := joinStepNet()
-	if err != nil {
-		return err
-	}
-
 	// Read before the mount, because after it the file is not there to read.
 	// See resolver.
 	keep := savedResolver()
 
-	err = unix.Mount("none", "/run", "tmpfs", 0, "")
+	err := unix.Mount("none", "/run", "tmpfs", 0, "")
 	if err != nil {
 		return fmt.Errorf("mount a private /run: %w%s", err, sysAdminHint(err))
 	}

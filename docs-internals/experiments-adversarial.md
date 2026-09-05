@@ -46898,6 +46898,38 @@ lines below describes the same trap for `/etc/resolv.conf`.
 secret provider - so the first round to get past E966 was the first ever to run
 this construct under the native engine.
 
+**The fix was wrong and is reverted.** Moving the daemon into the step's
+namespace does work - the docker bridge appears inside it, measured against the
+parent binary in a container built to reproduce CI's conditions - and it broke
+three jobs, two of which had been green:
+
+```text
++test-no-qemu-slow    docker pull ubuntu:26.04 failed
++test-no-qemu-group8  docker pull hello-world failed
++test-no-qemu-group7  compose up ... failed
+```
+
+all from one cause the daemon's own log names:
+
+```text
+detected 127.0.0.53 nameserver, assuming systemd-resolved
+Get "https://registry-1.docker.io/v2/": dial tcp: lookup ... failed
+```
+
+A GitHub runner resolves through a **loopback** nameserver, and in the step's
+namespace that loopback is a different device. So a daemon moved there can reach
+nothing by name.
+
+**The engine already knew this**, one file away: `openStepNet` refuses to give a
+*step* a private namespace on a machine that resolves through loopback, and says
+so in those words. The reasoning was not carried across to the daemon. A hazard
+already written down, in the package being edited, about the same namespace.
+
+So the daemon must either stay where it is and publish somewhere the step can
+reach, or move *and* be given a resolver - and that is a design question rather
+than a patch. Until then the step timeout below keeps the cost to 45 minutes
+instead of 360.
+
 **The six hours are a second defect.** The corpus writes an unbounded wait, which
 is reasonable of it; CI had no `timeout-minutes` on the step, so a hang cost a
 whole runner-day and produced nothing. A *job* timeout would not have helped: it

@@ -15,7 +15,7 @@ import (
 func TestNoDaemonPathIsTheHostDefault(t *testing.T) {
 	t.Parallel()
 
-	got := strings.Join(daemonArgs("/store/docker-cache/layers", "/run/d.sock"), " ")
+	got := strings.Join(daemonArgs("/store/docker-cache/layers", "/run/d.sock", false), " ")
 
 	for _, host := range []string{
 		"/var/run/docker.pid", "/var/lib/docker", "/run/docker",
@@ -43,7 +43,7 @@ func TestNoDaemonPathIsTheHostDefault(t *testing.T) {
 func TestTheStorageDriverAsksTheKernelForNothing(t *testing.T) {
 	t.Parallel()
 
-	got := strings.Join(daemonArgs("/root", "/sock"), " ")
+	got := strings.Join(daemonArgs("/root", "/sock", false), " ")
 
 	if !strings.Contains(got, "--storage-driver=vfs") {
 		t.Errorf("the daemon picks its own storage driver:\n%s", got)
@@ -64,7 +64,7 @@ func TestTheStorageDriverAsksTheKernelForNothing(t *testing.T) {
 func TestTheGuestIsNotToldWhichCacheAStepWasGiven(t *testing.T) {
 	t.Parallel()
 
-	got := strings.Join(daemonArgs("/var/lib/earthbuild-docker", "/var/run/docker.sock"), " ")
+	got := strings.Join(daemonArgs("/var/lib/earthbuild-docker", "/var/run/docker.sock", false), " ")
 
 	// Distinctive names, not "a" and "b": the first version of this test looked
 	// for those as substrings and found the "b" in `--bridge`, failing against
@@ -95,7 +95,7 @@ func TestTheDaemonsSocketsFitInASockaddr(t *testing.T) {
 	// About as long as a real one gets: a store, a handle, and a root.
 	step := "/var/lib/earthbuild/store/handles/" + strings.Repeat("h", 40) + "/root"
 
-	for _, a := range daemonArgs(step+"/var/lib/earthbuild-docker", step+"/var/run/docker.sock") {
+	for _, a := range daemonArgs(step+"/var/lib/earthbuild-docker", step+"/var/run/docker.sock", false) {
 		if !strings.HasPrefix(a, "--exec-root=") {
 			continue
 		}

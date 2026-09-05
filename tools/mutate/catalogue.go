@@ -2128,8 +2128,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: a daemon told the guest's paths, not the step's (E370)",
 		File:        "engine/guest/withdaemon.go",
-		Anchor:      "\t\tstarted, launchErr := launch(ctx, daemonArgs(root, listen), listen)",
-		Replacement: "\tproc, err := launch(ctx, daemonArgs(d.Root, listen), listen)",
+		Anchor:      "\t\tstarted, launchErr := launch(ctx, daemonArgs(root, listen, ownNet), listen)",
+		Replacement: "\t\tstarted, launchErr := launch(ctx, daemonArgs(d.Root, listen, ownNet), listen)",
 		Package:     "./engine/guest/",
 	},
 	{
@@ -3515,6 +3515,13 @@ var Mutants = []Mutant{
 		File:        "engine/guest/dockerdproc.go",
 		Anchor:      "\treturn append(slices.Clone(out), EnvStepNetNS+\"=\"+netns)",
 		Replacement: "\treturn out",
+		Package:     "./engine/guest/",
+	},
+	{
+		Name:        "guest: a daemon with its own network managing it (E967)",
+		File:        "engine/guest/daemonargs.go",
+		Anchor:      "\tif ownNet {",
+		Replacement: "\tif false {",
 		Package:     "./engine/guest/",
 	},
 	{

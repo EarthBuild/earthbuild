@@ -2737,7 +2737,12 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// beside the step and publishes ports onto its own loopback, which is a
 		// different interface once the step has a namespace of its own - see
 		// daemonEnvIn, and daemonResolver for the other half (E967).
-		err = withDaemon(ctx, h.Root(), req.Daemon, launchDockerdIn(netAt), publishSocket, body)
+		// **Its own network to manage, only where it has one.** In the guest's
+		// shared namespace the daemon must not touch iptables - that is the
+		// machine's firewall - and there it also cannot publish a port. See
+		// daemonArgs (E967).
+		err = withDaemon(ctx, h.Root(), req.Daemon, netAt != "",
+			launchDockerdIn(netAt), publishSocket, body)
 	}
 
 	if len(out) > maxOutput {

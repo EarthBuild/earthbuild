@@ -116,3 +116,48 @@ func TestTheDaemonGetsAResolverItCanReach(t *testing.T) {
 		})
 	}
 }
+
+// A daemon in the step's own namespace manages its own network.
+//
+// `--iptables=false --bridge=none` was measured, and its recorded reason is
+// conditional: *"a bridge wants netlink permissions a user namespace does not
+// have, and a step's network is the sandbox's"*. Both halves have since stopped
+// holding - the Native suite runs as root, so no user namespace is created, and
+// a step now has a network namespace of its own.
+//
+// The cost of keeping them is that the daemon cannot publish a port at all:
+// without iptables there are no DNAT rules and only the userland proxy is left,
+// so `WITH DOCKER --compose` publishing `127.0.0.1:5432` produced nothing for the
+// step to connect to (E967).
+//
+// Left exactly as it was otherwise. In the guest's shared namespace a daemon
+// managing iptables would be editing the *machine's* firewall, which is the
+// thing those flags were right to prevent.
+func TestADaemonWithItsOwnNetworkManagesIt(t *testing.T) {
+	t.Parallel()
+
+	own := daemonArgs("/r", "/s", true)
+	for _, unwanted := range []string{"--iptables=false", "--bridge=none"} {
+		if slices.Contains(own, unwanted) {
+			t.Errorf("a daemon with its own network is still given %s, so it"+
+				" cannot publish a port", unwanted)
+		}
+	}
+
+	shared := daemonArgs("/r", "/s", false)
+	for _, wanted := range []string{"--iptables=false", "--bridge=none"} {
+		if !slices.Contains(shared, wanted) {
+			t.Errorf("a daemon sharing the guest's network lost %s, so it may"+
+				" edit the machine's firewall", wanted)
+		}
+	}
+
+	// The rest is identical either way: only the two network flags are in
+	// question, and a silent change to a data root or a pidfile would be a
+	// different bug wearing this one's clothes.
+	for _, flag := range []string{"--group=", "--storage-driver=vfs", "--host=unix:///s"} {
+		if !slices.Contains(own, flag) || !slices.Contains(shared, flag) {
+			t.Errorf("%s did not survive in both shapes", flag)
+		}
+	}
+}

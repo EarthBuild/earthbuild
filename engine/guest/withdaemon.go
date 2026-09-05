@@ -80,8 +80,10 @@ func daemonPolicy() retry.Policy {
 	}
 }
 
+// ownNet says the step has a network namespace of its own, which the daemon
+// joins and may therefore manage. See daemonArgs.
 func withDaemon(
-	ctx context.Context, stepRoot string, d *Daemon,
+	ctx context.Context, stepRoot string, d *Daemon, ownNet bool,
 	launch launchDaemon, publish publishDaemon, body func() error,
 ) (out error) {
 	root, inStep := daemonPaths(stepRoot, d)
@@ -126,7 +128,7 @@ func withDaemon(
 	var proc daemonProcess
 
 	err = retry.Do(ctx, daemonPolicy(), func() error {
-		started, launchErr := launch(ctx, daemonArgs(root, listen), listen)
+		started, launchErr := launch(ctx, daemonArgs(root, listen, ownNet), listen)
 		if launchErr != nil {
 			return fmt.Errorf("start a daemon for this step: %w", launchErr)
 		}

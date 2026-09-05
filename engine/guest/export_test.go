@@ -27,5 +27,5 @@ func (t *TestConn) Recv(v any) error { return t.c.recv(v) }
 // same shutdown - and put something else inside it. A production caller has
 // `execRequest`, which is the only path that should ever start one.
 func RunWithDaemonForTest(ctx context.Context, stepRoot string, d *Daemon, body func() error) error {
-	return withDaemon(ctx, stepRoot, d, launchDockerd, publishSocket, body)
+	return withDaemon(ctx, stepRoot, d, false, launchDockerd, publishSocket, body)
 }

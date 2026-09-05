@@ -42,7 +42,7 @@ func TestADaemonThatDoesNotComeUpIsLaunchedAgain(t *testing.T) {
 	publish := func(_, _ string) (func(), error) { return func() {}, nil }
 
 	ran := false
-	err := withDaemon(context.Background(), t.TempDir(), &Daemon{Root: t.TempDir(), Socket: "d.sock"},
+	err := withDaemon(context.Background(), t.TempDir(), &Daemon{Root: t.TempDir(), Socket: "d.sock"}, false,
 		launch, publish, func() error {
 			ran = true
 
@@ -93,7 +93,7 @@ func TestADaemonThatNeverComesUpIsStoppedAndReported(t *testing.T) {
 
 	publish := func(_, _ string) (func(), error) { return func() {}, nil }
 
-	err := withDaemon(context.Background(), t.TempDir(), &Daemon{Root: t.TempDir(), Socket: "d.sock"},
+	err := withDaemon(context.Background(), t.TempDir(), &Daemon{Root: t.TempDir(), Socket: "d.sock"}, false,
 		launch, publish, func() error { return nil })
 	if err == nil {
 		t.Fatal("want an error when no daemon ever answers")
@@ -129,7 +129,7 @@ func TestAMissingDockerdIsNotRetried(t *testing.T) {
 
 	publish := func(_, _ string) (func(), error) { return func() {}, nil }
 
-	err := withDaemon(context.Background(), t.TempDir(), &Daemon{Root: t.TempDir(), Socket: "d.sock"},
+	err := withDaemon(context.Background(), t.TempDir(), &Daemon{Root: t.TempDir(), Socket: "d.sock"}, false,
 		launch, publish, func() error { return nil })
 	if err == nil {
 		t.Fatal("want an error")

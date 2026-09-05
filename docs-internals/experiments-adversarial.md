@@ -46953,6 +46953,35 @@ now bounded: the step timeout turns a hang into a 45-minute failure with
 diagnostics, and a regression of the previous shape shows up as the same two jobs
 and is one revert away.
 
+**CI settled the resolver half and refused the port half.** `+test-no-qemu-slow`
+and `+test-no-qemu-group8` - the two the first attempt broke - came back green, so
+the loopback stub was the whole of that regression. group7 hung again and, this
+time, the timeout fired at 46 minutes as a *failure* rather than a cancellation,
+so `Failure diagnostics` ran. That is the mechanism working as designed: the same
+defect, six hours cheaper, and diagnosable.
+
+**And the diagnosis is not the namespace at all.** `daemonArgs` passes
+`--iptables=false --bridge=none`, so the daemon cannot publish a port under any
+circumstances - there are no DNAT rules, leaving only the userland proxy, whose
+`exited early` line had been in every log since the first. The recorded reason
+for those flags is explicitly conditional:
+
+> a bridge wants netlink permissions a user namespace does not have, and a step's
+> network is the sandbox's
+
+Both halves have since stopped holding. The daemon is only put in a user
+namespace when the guest is *not* root (`namespacedAs`), and the Native suite
+runs under `sudo`; and a step now has a network namespace of its own. Inside that
+namespace the daemon can own iptables without touching the machine's firewall -
+which is exactly what those flags were right to prevent in the shared one, and
+why the change is conditional rather than a deletion.
+
+**Still unverified locally, for the same reason as before**: the harness's
+positive control fails, so it can answer "did this regress" - `PULL-OK` survives,
+which is the guard that matters - and cannot answer "is the port reachable". A
+harness that cannot produce the passing case cannot confirm a fix, only refute
+one.
+
 **The six hours are a second defect.** The corpus writes an unbounded wait, which
 is reasonable of it; CI had no `timeout-minutes` on the step, so a hang cost a
 whole runner-day and produced nothing. A *job* timeout would not have helped: it

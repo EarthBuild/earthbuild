@@ -41,7 +41,7 @@ func TestTheBodyDoesNotRunUntilTheDaemonAnswers(t *testing.T) {
 	f := &fakeDaemon{says: "29.4.3 vfs"}
 	ran := false
 
-	err := withDaemon(t.Context(), t.TempDir(), &Daemon{Root: "/d", Socket: "/var/run/docker.sock"},
+	err := withDaemon(t.Context(), t.TempDir(), &Daemon{Root: "/d", Socket: "/var/run/docker.sock"}, false,
 		func(context.Context, []string, string) (daemonProcess, error) { return f, nil },
 		published(&where),
 		func() error { ran = true; return nil })
@@ -76,7 +76,7 @@ func TestADaemonThatNeverAnswersIsStoppedAnyway(t *testing.T) {
 	ctx, done := context.WithTimeout(t.Context(), 20*time.Millisecond)
 	defer done()
 
-	err := withDaemon(ctx, t.TempDir(), &Daemon{Root: "/d", Socket: "/var/run/docker.sock"},
+	err := withDaemon(ctx, t.TempDir(), &Daemon{Root: "/d", Socket: "/var/run/docker.sock"}, false,
 		func(context.Context, []string, string) (daemonProcess, error) { return f, nil },
 		published(&where),
 		func() error { ran = true; return nil })
@@ -110,7 +110,7 @@ func TestAFailingBodyStillStopsTheDaemonAndKeepsItsOwnError(t *testing.T) {
 	f := &fakeDaemon{says: "29.4.3 vfs"}
 	boom := errors.New("the step failed")
 
-	err := withDaemon(t.Context(), t.TempDir(), &Daemon{Root: "/d", Socket: "/var/run/docker.sock"},
+	err := withDaemon(t.Context(), t.TempDir(), &Daemon{Root: "/d", Socket: "/var/run/docker.sock"}, false,
 		func(context.Context, []string, string) (daemonProcess, error) { return f, nil },
 		published(&where),
 		func() error { return boom })
@@ -142,7 +142,7 @@ func TestTheSocketsDirectoryIsMadeBeforeTheDaemonStarts(t *testing.T) {
 	f := &fakeDaemon{says: "29.4.3 vfs"}
 	there := false
 
-	err := withDaemon(t.Context(), root, &Daemon{Root: "/d", Socket: "/var/run/docker.sock"},
+	err := withDaemon(t.Context(), root, &Daemon{Root: "/d", Socket: "/var/run/docker.sock"}, false,
 		func(_ context.Context, _ []string, sock string) (daemonProcess, error) {
 			_, err := os.Stat(filepath.Dir(sock))
 			there = err == nil
@@ -177,7 +177,7 @@ func TestADaemonThatWillNotStopIsNewsWhenNothingElseWentWrong(t *testing.T) {
 
 	f := &fakeDaemon{says: "29.4.3 vfs", stopErr: errors.New("it would not die")}
 
-	err := withDaemon(t.Context(), t.TempDir(), &Daemon{Root: "/d", Socket: "/var/run/docker.sock"},
+	err := withDaemon(t.Context(), t.TempDir(), &Daemon{Root: "/d", Socket: "/var/run/docker.sock"}, false,
 		func(context.Context, []string, string) (daemonProcess, error) { return f, nil },
 		published(&where),
 		func() error { return nil })
@@ -212,7 +212,7 @@ func TestTheDaemonIsToldTheGuestsPathsNotTheSteps(t *testing.T) {
 
 	var argv []string
 
-	err := withDaemon(t.Context(), root, &Daemon{Root: "/d", Socket: "/var/run/docker.sock"},
+	err := withDaemon(t.Context(), root, &Daemon{Root: "/d", Socket: "/var/run/docker.sock"}, false,
 		func(_ context.Context, a []string, _ string) (daemonProcess, error) {
 			argv = a
 
@@ -284,7 +284,7 @@ func TestTheSocketIsPublishedWhereTheImagesSymlinkLeads(t *testing.T) {
 
 	var where [2]string
 
-	err = withDaemon(t.Context(), root, &Daemon{Root: "/d", Socket: "/var/run/docker.sock"},
+	err = withDaemon(t.Context(), root, &Daemon{Root: "/d", Socket: "/var/run/docker.sock"}, false,
 		func(context.Context, []string, string) (daemonProcess, error) {
 			return &fakeDaemon{says: "29.4.3 vfs"}, nil
 		},

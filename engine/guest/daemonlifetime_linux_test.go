@@ -52,7 +52,7 @@ func TestTheWholeDaemonLifetimeAgainstARealDockerd(t *testing.T) {
 
 	began := time.Now()
 
-	err = withDaemon(ctx, root, d, launchDockerd, publishSocket, func() error {
+	err = withDaemon(ctx, root, d, false, launchDockerd, publishSocket, func() error {
 		_, sock := daemonPaths(root, d)
 
 		out, err := osexec.Command("docker", "-H", "unix://"+sock,

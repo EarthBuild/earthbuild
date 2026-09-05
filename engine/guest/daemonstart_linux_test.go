@@ -50,7 +50,7 @@ func TestADaemonStartsInAUserNamespace(t *testing.T) {
 	// A writable /run: the plugin manager makes a directory there before it
 	// reads any flag, and the host's is not writable from inside (E364).
 	script := "mount -t tmpfs none /run; exec dockerd " +
-		strings.Join(daemonArgs(root, sock), " ")
+		strings.Join(daemonArgs(root, sock, false), " ")
 
 	ctx, stop := context.WithTimeout(context.Background(), 90*time.Second)
 	defer stop()

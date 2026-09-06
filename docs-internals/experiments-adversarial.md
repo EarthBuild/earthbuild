@@ -47146,3 +47146,49 @@ the cause leaves `parent` unused, so the catalogue reported the entry as no
 longer applying rather than as surviving. Replaced with one that still builds and
 still loses what the line is for - the step's own identity - which the
 interrupted-build test catches.
+
+### E970 - the services were brought up in a daemon that was then stopped
+
+`tests/with-docker-compose` hung for five CI rounds while three separate fixes -
+the daemon's network namespace, its resolver, its iptables - each made no
+difference. The listener diagnostic finally said why, and it was none of them:
+
+```text
+netns[guest]: /proc/net/tcp in /var/run/netns/earth-s5:
+  sl  local_address rem_address   st tx_queue ...
+```
+
+Empty. Not "the port is on the wrong interface" - **nothing was listening at
+all**, at 30s and again at 90s, while the step sat waiting on `localhost:5432`.
+
+The timeline says the rest:
+
+```text
+08:00:38  Container default-postgres-1  Started -> Healthy
+08:00:39  Processing signal 'terminated'          <- the daemon is stopped
+08:00:39  Userland proxy exited early             <- consequence, not cause
+08:00:44  netns[daemon pid=4209]: joined earth-s4 <- a different daemon starts
+```
+
+`composeUp` builds a **separate `ir.Node`**, so `docker compose up` is one step
+and the block's body is another - and `withDaemon` gives every step a daemon of
+its own. The services come up in one daemon, that daemon is torn down when its
+step ends, and the body runs against a fresh one with nothing in it.
+
+**Shared storage is not a shared daemon.** `DockerCache` and `DockerScope`
+already make the generated step and the body use the same *storage* (E354),
+which is why `--load` works: an image written to disk survives the daemon that
+wrote it. A running container does not - it is daemon runtime state, and it dies
+with the daemon.
+
+The reference never had the problem because it never splits them:
+`dockerd-wrapper.sh execute --compose ... -- <command>` brings the services up
+and runs the body inside one `RUN`.
+
+**Three fixes for a cause that was never there.** The namespace join, the
+resolver and the iptables flags were each argued from real evidence and each
+verified to do what they claimed - the bridge moved, the DNS regression cleared,
+the flags changed. None of them touched this, because the port was never
+published in the first place. What was missing was not a better hypothesis but
+the one measurement nobody had taken: *is anything listening*. It cost five
+rounds and was six lines of diagnostic.

@@ -3518,6 +3518,13 @@ var Mutants = []Mutant{
 		Package:     "./engine/guest/",
 	},
 	{
+		Name:        "guest: step numbering started somewhere free (E970)",
+		File:        "engine/guest/stepnetuse_linux.go",
+		Anchor:      "\tc.Store(startingStepNet())",
+		Replacement: "\tc.Store(0)",
+		Package:     "./engine/guest/",
+	},
+	{
 		Name: "cli: a failed build saying what it stopped (E969)",
 		File: "engine/cli/stoppedsummary.go",
 		// The filter rather than the call in cli.go: that call is only reached

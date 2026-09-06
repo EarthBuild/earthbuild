@@ -4,6 +4,8 @@ package guest
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"os"
 	osexec "os/exec"
@@ -29,7 +31,44 @@ var privateStepNet = sync.OnceValue(func() bool {
 // Monotonic rather than a free list. A returned number could be handed out
 // again while the kernel was still tearing down the veth that used it, and the
 // second setup would fail on a name the first had not finished releasing.
-var nextStepNet atomic.Int64
+//
+// **Started somewhere random rather than at one.** The number allocates the
+// name, both interface names and the /30 subnet together, and `ip netns add`
+// failing on the name is the atomic claim on all four - so beginning at one made
+// a collision the normal case: a build runs a nested `earth` inside every step
+// that starts one, and each began at one and walked into the namespaces the
+// outer build already held (E933). Beginning elsewhere makes the claim succeed
+// first time and leaves the retry as the backstop it reads as.
+var nextStepNet = newStepNetCounter()
+
+// newStepNetCounter is nextStepNet, seeded.
+func newStepNetCounter() *atomic.Int64 {
+	c := &atomic.Int64{}
+	c.Store(startingStepNet())
+
+	return c
+}
+
+// startingStepNet is where this process begins numbering.
+//
+// Inside the 16384 blocks `stepNetPlan` can address, because it masks to 0x3fff
+// and a start beyond that wraps onto blocks a live step may hold - which is the
+// silent subnet overlap that salting the *name* would have caused, arriving by
+// another route.
+//
+// A failure to read randomness falls back to the old behaviour rather than
+// refusing: a build that starts at one is what every build did until now, and it
+// is correct - merely slower to claim its first namespace.
+func startingStepNet() int64 {
+	var b [2]byte
+
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return 0
+	}
+
+	return int64(binary.BigEndian.Uint16(b[:]) & 0x3fff)
+}
 
 // openStepNet builds a network namespace for one step, or says why it did not.
 //

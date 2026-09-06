@@ -5541,6 +5541,84 @@ Not gVisor: it is a user-space kernel rather than a VM, which is a different thr
 different set of syscall compatibility problems. Worth its own assessment, not a substitute for this
 one.
 
+### Measured on the x86 box, 2026-09-06
+
+Both VMMs boot the same kernel and initramfs with a static Go binary as PID 1,
+which settles feasibility: `earth-guestd` needs no libc and can *be* init.
+
+|                     | init reached | VMM exit                     |
+| ------------------- | ------------ | ---------------------------- |
+| Firecracker 1.13    | 0.245s       | hung; needed the timeout     |
+| Cloud Hypervisor 48 | 0.280s       | clean power-down via ACPI S5 |
+
+**Firecracker has no virtio-fs.** Its device model is block, net, vsock, balloon
+and rng; the configuration schema demands `drives` and knows no filesystem
+device. So "the store is shared in over virtiofs" is a Cloud Hypervisor design,
+not a portable one - with Firecracker the store has to be a block device.
+
+**And a block device turns out to be the better shape anyway.** The question
+that decides it is not throughput but whether a layer can be *placed* without
+copying its bytes:
+
+* **virtiofs** hands the guest the host's filesystem semantics, so a reflink
+  works only if the *host* filesystem has them. This box is ext4 throughout, so
+  it cannot.
+* **a block device** is opaque to the host and formatted by the guest, so the
+  guest can have XFS with `reflink=1` on an ext4 host.
+
+Measured in a Firecracker guest, 256 MiB, store on guest-formatted XFS:
+
+| operation             | result        |
+| --------------------- | ------------- |
+| `FICLONE` (reflink)   | **supported** |
+| hard link             | supported     |
+| copy within the store | 534 MiB/s     |
+| copy to guest tmpfs   | 805 MiB/s     |
+| `FICLONE` on tmpfs    | unsupported   |
+
+A read figure was taken and is discarded: the guest had written the file moments
+before, so it measured page cache rather than the device.
+
+**The kernel decides what a store may be.** The Firecracker CI kernel offers
+ext4, XFS and overlay - no btrfs, and no virtiofs - so a guest kernel is a
+choice with consequences and not a detail. Two mount failures here read as
+"wrong filesystem" and were nothing of the kind: `ENOENT` because an initramfs
+has an empty `/dev` and nobody had mounted `devtmpfs`, against `ENODEV` for a
+driver the kernel genuinely lacks. Reporting each attempt's own errno separated
+them in one run.
+
+### Overlay options this engine does not yet pass
+
+Raised 2026-09-06. `mountOptions` passes `lowerdir`, `upperdir`, `workdir` and
+`userxattr`, and nothing else. The defaults are conservative for reasons that
+apply to untrusted lower layers, and this engine builds its own:
+
+* `metacopy=on` - a chown or chmod copies metadata and defers the data, which is
+  most of the cost of a uid-shifted layer.
+* `redirect_dir=on`, `index=on` - directory renames out of a lower layer, and
+  copy-up consistency.
+* `volatile` - no sync on the upper directory. **Not free here, unlike a
+  container runtime**: an upper becomes a *cache entry*, and I5 says a poisoned
+  cache may make a build slower and may never make it wrong. It needs an explicit
+  sync before the layer is recorded, and then it is worth having.
+* `userxattr` instead of `index`/`metacopy` when rootless, which is the case this
+  engine already detects.
+
+### The larger lever: do not unpack at all
+
+Also raised 2026-09-06, and it outranks the filesystem choice. Start latency
+scales with image size only because the image is unpacked. It need not be:
+
+* **EROFS** images mounted directly, lazily over fscache (Nydus), or
+* **composefs** - a read-only EROFS metadata image with content addressed into a
+  shared store, then overlaid.
+
+Start time stops scaling with image size, page cache is shared across every
+guest using the same layer, and fs-verity integrity comes with it. Podman and
+ostree ship this today. If the target is p99 cold start on large images, this
+beats any tar-into-overlay design whatever the backing filesystem - so it is a
+question about `engine/mat`, not about which VMM runs the guest.
+
 **Two things must be decided before this is scheduled**, and neither is technical:
 
 * **The default: on, decided 2026-08-30.** The fast path opts out, not the other way round. A

@@ -2719,6 +2719,11 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 			}
 		}
 
+		// Temporary, for E967: see sayNetNS. By here the daemon has answered, so
+		// anything it published is listening - or is not, which is the fact
+		// still missing.
+		sayStepListeners(netAt)
+
 		out, rerr = runStep(cmd, sink, req, s, h, mountPoints(mounts), shimming)
 
 		return rerr

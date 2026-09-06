@@ -46987,3 +46987,62 @@ is reasonable of it; CI had no `timeout-minutes` on the step, so a hang cost a
 whole runner-day and produced nothing. A *job* timeout would not have helped: it
 cancels, and the diagnostics step is `if: failure()`. A step timeout fails, so
 the diagnostics run and say where it stopped.
+
+### E968 - the function that picked the same culprit twice, picking three
+
+`TestTheReportedFailureIsDeterministic` failed once in CI and passed 500 times
+locally, including under `-race` and `GOMAXPROCS=1`. A one-in-a-hundred flake in
+a test named for determinism is worth more attention than its frequency
+suggests: the thing it guards is the thing it is failing at.
+
+`worseFailure` is folded pairwise over results as they arrive, so it has to be a
+**total order**. It was not. Two rules, each right on its own:
+
+* two failures in one file compare by line, because that is the order the author
+  reads in (E934);
+* two failures in different files fall back to graph order, because no order
+  between files means anything to a reader.
+
+Together they are intransitive. With three failures across two files:
+
+```text
+Earthfile:10        graph 0
+other/Earthfile:1   graph 1
+Earthfile:5         graph 2
+```
+
+`Earthfile:5` beats `Earthfile:10` on line, `Earthfile:10` beats
+`other/Earthfile:1` on graph order, `other/Earthfile:1` beats `Earthfile:5` on
+graph order. A cycle, so the fold returns whoever arrived first - **three
+different answers from six arrival orders**, which is precisely what the
+function's own comment says it exists to prevent.
+
+**It needs three failures across two files, and every test above it used two.**
+Two elements cannot form a cycle, so a pairwise comparison is trivially
+transitive there and the tests were all satisfied. The reproduction is
+deterministic: 200 failures in 200 runs.
+
+Fixed by ordering across files by name. Arbitrary, which is the point - a reader
+recognises no order between two files, so the only requirement is that it be
+stable, and the name is the one thing both failures always carry.
+
+**And the answer is now more than one failure.** Picking a single culprit was
+always the wrong shape where the failures are independent: two sibling steps that
+fail for their own reasons are two things to fix, and naming one sends the author
+back for a second build to be told about the other - the build already ran both.
+`independentFailures` reports all of them, in reading order, dropping any whose
+node descends from another failed node, because a step that failed *because* an
+earlier one did is the same news restated further down. Cancellations are still
+dropped beside a real failure, and are still reported when they are all there is.
+
+One failure returns itself unchanged, so the shape almost every build produces is
+untouched; several return a `MultiStepError` whose `Unwrap() []error` keeps
+`errors.As` working for every caller that looked for a `*StepError`.
+
+**The flake it came from is not proven fixed.** That test's leaves are all in one
+file, where the comparison was already transitive, so the cycle is not its cause.
+The likely mechanism is different - when the first failure cancels its siblings,
+*which* of them report a real failure rather than `context canceled` is
+timing-dependent, so the set being folded varies - and reporting all independent
+failures removes that sensitivity too. Stated as the expectation it is, rather
+than as a result.

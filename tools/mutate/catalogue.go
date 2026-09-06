@@ -3518,6 +3518,20 @@ var Mutants = []Mutant{
 		Package:     "./engine/guest/",
 	},
 	{
+		Name:        "core: the blame comparison being a total order (E968)",
+		File:        "engine/core/worsefailure.go",
+		Anchor:      "\t\tif nextFile < curFile {",
+		Replacement: "\t\tif false {",
+		Package:     "./engine/core/",
+	},
+	{
+		Name:        "core: independent failures all reported (E968)",
+		File:        "engine/core/worsefailure.go",
+		Anchor:      "\t\tif cause, ok := causedBy(f.key); ok && isFailure[cause] {",
+		Replacement: "\t\tif true {",
+		Package:     "./engine/core/",
+	},
+	{
 		Name:        "guest: a daemon with its own network managing it (E967)",
 		File:        "engine/guest/daemonargs.go",
 		Anchor:      "\tif ownNet {",

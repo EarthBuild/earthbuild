@@ -519,12 +519,15 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 	}
 
 	var (
-		wg      sync.WaitGroup
-		sem     = make(chan struct{}, limit)
-		mu      sync.Mutex
-		failure error
-		failAt  = len(nodes) // graph position of the failure being reported
-		queue   = ready
+		wg  sync.WaitGroup
+		sem = make(chan struct{}, limit)
+		mu  sync.Mutex
+		// Every failure seen, not the worst one folded in as it arrives.
+		// Independent failures are separate things to fix and the build already
+		// ran them; which of these survive to be reported is
+		// independentFailures' decision, taken once at the end (E968).
+		failures []failed
+		queue    = ready
 	)
 
 	// Cancelled on the first failure, so work already started can stop rather
@@ -547,7 +550,7 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 		defer func() { <-sem }()
 
 		mu.Lock()
-		stop := failure != nil
+		stop := len(failures) > 0
 		mu.Unlock()
 
 		if stop {
@@ -559,11 +562,13 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 		mu.Lock()
 
 		if err != nil {
-			// The *earliest* failure in graph order, not the first to arrive: a
-			// build that blames a different command depending on which goroutine
-			// lost a race is a build nobody can act on - and a cancellation
-			// never outranks the failure that caused it, however the order falls.
-			failAt, failure = worseFailure(failure, failAt, err, indexOf[n.ID()])
+			// Collected, not folded. Ordering and pruning happen once, over the
+			// whole set, where they can be a total order rather than a pairwise
+			// comparison applied in whatever order the goroutines finished
+			// (E968).
+			failures = append(failures, failed{
+				err: err, at: indexOf[n.ID()], key: n.ID().String(),
+			})
 
 			mu.Unlock()
 
@@ -606,7 +611,7 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 
 	wg.Wait()
 
-	if failure != nil {
+	if len(failures) > 0 {
 		// Handlers before giving up. A step guarded by OnFailure exists to run
 		// when the step it names fails - a CATCH that reports, a teardown that
 		// takes away what the block started - and the build abandoning itself
@@ -620,7 +625,7 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 		// and the build still fails with the error it already had.
 		s.unwind(ctx, nodes)
 
-		return nil, failure
+		return nil, reportFailures(failures, nodes)
 	}
 
 	// Sorted by graph position, so two runs of one build produce identical

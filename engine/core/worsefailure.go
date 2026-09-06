@@ -3,8 +3,11 @@ package core
 import (
 	"context"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
 // worseFailure picks which of two failures a build should be blamed on.
@@ -43,18 +46,20 @@ func worseFailure(cur error, curAt int, next error, nextAt int) (int, error) {
 	// told about whichever it preferred - stably, and unactionably (E934). The
 	// order an author reads in is the order to blame in.
 	//
-	// Only within one file. Two files have no order between them that a reader
-	// would recognise, so those fall through to the graph, which at least does
-	// not change between runs.
-	curFile, curLine, curOK := sourceAt(cur)
-	nextFile, nextLine, nextOK := sourceAt(next)
-
-	if curOK && nextOK && curFile == nextFile && curLine != nextLine {
-		if nextLine < curLine {
-			return nextAt, next
-		}
-
-		return curAt, cur
+	// **Across files, by file name, because a fold needs a total order.**
+	// Falling back to the graph there was the obvious answer and is intransitive
+	// with the line rule above: `Earthfile:5` beats `Earthfile:10` on line,
+	// `Earthfile:10` beats `other/Earthfile:1` on graph position, and
+	// `other/Earthfile:1` beats `Earthfile:5` on graph position. Three failures
+	// in two files then blame whoever arrived first - which is the one thing
+	// this function exists to prevent, and it went unnoticed because two
+	// failures cannot form a cycle (E968).
+	//
+	// A reader recognises no order between two files, so the choice is
+	// arbitrary; it only has to be stable, and the name is the one thing both
+	// failures always carry.
+	if at, ok, chosen := byPosition(cur, curAt, next, nextAt); ok {
+		return at, chosen
 	}
 
 	if nextAt < curAt {
@@ -62,6 +67,38 @@ func worseFailure(cur error, curAt int, next error, nextAt int) (int, error) {
 	}
 
 	return curAt, cur
+}
+
+// byPosition compares two failures by where they were written, and says whether
+// it could: a failure with no source has no position to compare.
+//
+// Returns the winner, so the caller's fall-back to graph order is reached only
+// when this cannot decide.
+func byPosition(cur error, curAt int, next error, nextAt int) (at int, ok bool, err error) {
+	curFile, curLine, curOK := sourceAt(cur)
+	nextFile, nextLine, nextOK := sourceAt(next)
+
+	if !curOK || !nextOK {
+		return 0, false, nil
+	}
+
+	if curFile != nextFile {
+		if nextFile < curFile {
+			return nextAt, true, next
+		}
+
+		return curAt, true, cur
+	}
+
+	if curLine == nextLine {
+		return 0, false, nil
+	}
+
+	if nextLine < curLine {
+		return nextAt, true, next
+	}
+
+	return curAt, true, cur
 }
 
 // sourceAt is the file and line a failure names, if it names one.
@@ -109,3 +146,154 @@ func splitSource(src string) (file string, line int, ok bool) {
 
 	return src[:at], n, true
 }
+
+// failed is one step that failed, and where it sits.
+//
+// key identifies the node, so a failure caused by another can be recognised
+// without this file knowing what a node is.
+type failed struct {
+	err error
+	at  int
+	key string
+}
+
+// independentFailures is every failure worth telling the author about, in the
+// order they would read them.
+//
+// **All of them, when they are independent.** Two sibling steps that fail for
+// their own reasons are two things to fix, and naming one sends the author back
+// for a second build to be told about the other. The build already ran both.
+//
+// **And only the cause, when one produced the other.** A step that failed
+// because an earlier one did is the same news restated further down; `causedBy`
+// answers which failure a step's own failure descends from, if any.
+//
+// Cancellations are dropped as soon as anything really failed, for the reason
+// worseFailure gives: they are the consequence of the failure being reported,
+// and a consequence in place of a cause is the half nobody can act on. Where
+// *everything* was cancelled they are all there is, so they are what is
+// reported.
+func independentFailures(all []failed, causedBy func(key string) (string, bool)) []failed {
+	genuine := make([]failed, 0, len(all))
+
+	for _, f := range all {
+		if !isCancellation(f.err) {
+			genuine = append(genuine, f)
+		}
+	}
+
+	if len(genuine) == 0 {
+		genuine = all
+	}
+
+	// Which of the failures are themselves a cause, so a step descending from
+	// one can be recognised as its echo.
+	isFailure := make(map[string]bool, len(genuine))
+	for _, f := range genuine {
+		isFailure[f.key] = true
+	}
+
+	out := make([]failed, 0, len(genuine))
+
+	for _, f := range genuine {
+		if cause, ok := causedBy(f.key); ok && isFailure[cause] {
+			continue
+		}
+
+		out = append(out, f)
+	}
+
+	// The order the author reads in, by the same rule that picks a single
+	// failure - so one failure and several are ordered by one definition.
+	sort.SliceStable(out, func(i, j int) bool {
+		at, _ := worseFailure(out[i].err, out[i].at, out[j].err, out[j].at)
+
+		return at == out[i].at
+	})
+
+	return out
+}
+
+// reportFailures turns everything that failed into the error a build reports.
+//
+// One failure returns itself, unchanged, because that is almost every build and
+// nothing downstream should have to learn a new shape for it. Several
+// independent ones return a MultiStepError, which reports them in the order the
+// author reads them in.
+func reportFailures(all []failed, nodes []*ir.Node) error {
+	byID := make(map[string]*ir.Node, len(nodes))
+	for _, n := range nodes {
+		byID[n.ID().String()] = n
+	}
+
+	failing := make(map[string]bool, len(all))
+	for _, f := range all {
+		failing[f.key] = true
+	}
+
+	// Which failure a step's own failure descends from, walking what it stood
+	// on and what it read. A step cannot fail *because* of another unless the
+	// other is upstream of it.
+	causedBy := func(key string) (string, bool) {
+		n, ok := byID[key]
+		if !ok {
+			return "", false
+		}
+
+		seen := map[string]bool{key: true}
+		queue := append(append([]*ir.Node{}, n.Inputs...), n.Sources...)
+
+		for len(queue) > 0 {
+			up := queue[0]
+			queue = queue[1:]
+
+			id := up.ID().String()
+			if seen[id] {
+				continue
+			}
+
+			seen[id] = true
+
+			if failing[id] {
+				return id, true
+			}
+
+			queue = append(append(queue, up.Inputs...), up.Sources...)
+		}
+
+		return "", false
+	}
+
+	report := independentFailures(all, causedBy)
+	if len(report) == 1 {
+		return report[0].err
+	}
+
+	errs := make([]error, 0, len(report))
+	for _, f := range report {
+		errs = append(errs, f.err)
+	}
+
+	return &MultiStepError{Steps: errs}
+}
+
+// MultiStepError is more than one independent step failing in one build.
+//
+// **A type rather than a joined string**, so `errors.As` still finds a
+// `*StepError` and every caller that looked for one keeps working - it just now
+// finds the first of several rather than the only one.
+type MultiStepError struct {
+	Steps []error
+}
+
+func (f *MultiStepError) Error() string {
+	parts := make([]string, 0, len(f.Steps))
+	for _, e := range f.Steps {
+		parts = append(parts, e.Error())
+	}
+
+	return strings.Join(parts, "\n")
+}
+
+// Unwrap gives errors.Is and errors.As every failure, not just the first.
+func (f *MultiStepError) Unwrap() []error { return f.Steps }

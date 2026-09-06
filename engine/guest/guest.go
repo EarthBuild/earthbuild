@@ -2405,6 +2405,11 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// Without a shim there is nobody to tell, and the step runs shared.
 	netAt, closeNet, whyNoNet := openStepNet()
 
+	// Temporary, for E967: see sayNetNS. Says what the guest decided, so a log
+	// showing no join can be read as "declined" rather than "failed".
+	fmt.Fprintf(os.Stderr, "earthbuild netns[guest]: step namespace %q (declined: %q)\n",
+		netAt, whyNoNet)
+
 	defer closeNet()
 
 	if whyNoNet != "" {

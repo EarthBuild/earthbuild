@@ -155,7 +155,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: a step's daemon not using the host's pidfile (E364)",
 		File:        "engine/guest/daemonargs.go",
-		Anchor:      "\t\t\"--pidfile=\" + filepath.Join(root, \"docker.pid\"),",
+		Anchor:      "\t\t\"--pidfile=\"+filepath.Join(root, \"docker.pid\"),",
 		Replacement: "",
 		Package:     "./engine/guest/",
 	},
@@ -2142,7 +2142,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: the exec root off the step, under the sockaddr limit (E375)",
 		File:        "engine/guest/daemonargs.go",
-		Anchor:      "\t\t\"--exec-root=\" + execRoot,",
+		Anchor:      "\t\t\"--exec-root=\"+execRoot,",
 		Replacement: "\t\t\"--exec-root=\" + filepath.Join(root, \"exec\"),",
 		Package:     "./engine/guest/",
 	},

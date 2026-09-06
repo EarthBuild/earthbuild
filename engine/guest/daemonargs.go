@@ -46,14 +46,17 @@ const execRoot = "/run/earthbuild-docker"
 // guest's shared one it must not: editing iptables there is editing the
 // *machine's* firewall, which is what these flags were right to prevent.
 func daemonArgs(root, sock string, ownNet bool) []string {
-	args := []string{
+	// Capacity for the two network flags below, which the shared-namespace case
+	// appends.
+	args := make([]string, 0, 8)
+	args = append(args,
 		"--group=",
 		"--storage-driver=vfs",
-		"--host=unix://" + sock,
-		"--data-root=" + filepath.Join(root, "data"),
-		"--exec-root=" + execRoot,
-		"--pidfile=" + filepath.Join(root, "docker.pid"),
-	}
+		"--host=unix://"+sock,
+		"--data-root="+filepath.Join(root, "data"),
+		"--exec-root="+execRoot,
+		"--pidfile="+filepath.Join(root, "docker.pid"),
+	)
 
 	if ownNet {
 		return args

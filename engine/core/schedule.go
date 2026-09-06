@@ -538,6 +538,7 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 	// already know, and withheld the only thing they can act on: what went wrong
 	// somewhere else. The cause travels with the cancellation and every stopped
 	// step names the root failure rather than its own symptom (E969).
+	parent := ctx
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
@@ -572,7 +573,7 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 			// own `context canceled` is the symptom; the cause is the root
 			// failure, which is what an author can act on (E969).
 			if isCancellation(err) {
-				err = cancelled(n.Meta.Source, context.Cause(ctx))
+				err = cancelled(n.Meta.Source, rootCause(ctx, parent))
 			}
 
 			// Collected, not folded. Ordering and pruning happen once, over the

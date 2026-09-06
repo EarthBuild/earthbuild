@@ -3518,10 +3518,20 @@ var Mutants = []Mutant{
 		Package:     "./engine/guest/",
 	},
 	{
-		Name:        "core: a stopped step told what stopped it (E969)",
-		File:        "engine/core/schedule.go",
-		Anchor:      "\t\t\t\terr = cancelled(n.Meta.Source, context.Cause(ctx))",
-		Replacement: "",
+		Name:        "core: an interruption named as its own cause (E969)",
+		File:        "engine/core/cancelcause.go",
+		Anchor:      "\t\treturn ErrInterrupted",
+		Replacement: "\t\treturn context.Canceled",
+		Package:     "./engine/core/",
+	},
+	{
+		Name:   "core: a stopped step told what stopped it (E969)",
+		File:   "engine/core/schedule.go",
+		Anchor: "\t\t\t\terr = cancelled(n.Meta.Source, rootCause(ctx, parent))",
+		// Not a deletion: removing the line leaves `parent` unused and the
+		// mutant does not compile, which tests nothing. Dropping the step's
+		// identity keeps it building and still loses what the line is for.
+		Replacement: "\t\t\t\terr = cancelled(\"\", rootCause(ctx, parent))",
 		Package:     "./engine/core/",
 	},
 	{

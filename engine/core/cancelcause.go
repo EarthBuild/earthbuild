@@ -19,6 +19,45 @@ import (
 // cancel as a fault turns a working optimisation into a red build.
 var ErrSuperseded = errors.New("superseded: another worker produced this result first")
 
+// ErrInterrupted is a cancellation that came from outside the build.
+//
+// **Ctrl-C is a root cause, not a missing one.** The operator stopping a build
+// is a complete explanation of why every step stopped, and it is a different
+// thing from the build collapsing around a failure: nothing went wrong, and
+// there is nothing to fix. Reported as `context canceled` it reads as an
+// unexplained cancellation - the engine failing to say why - when in fact the
+// why is known exactly.
+var ErrInterrupted = errors.New("interrupted: the build was stopped from outside")
+
+// rootCause is why a step was stopped, in terms an author can act on.
+//
+// The scheduler's own cancellation carries the failing step's error, so that is
+// the cause. Anything else means the cancellation arrived from outside - the
+// operator, or a deadline - and those are causes in their own right rather than
+// an absence of one.
+func rootCause(ctx, parent context.Context) error {
+	cause := context.Cause(ctx)
+
+	// One of ours: a step's failure, or a good cancel.
+	if cause != nil &&
+		!errors.Is(cause, context.Canceled) && !errors.Is(cause, context.DeadlineExceeded) {
+		return cause
+	}
+
+	// From outside. A deadline says what it is; a cancellation does not, and is
+	// the operator.
+	parentCause := context.Cause(parent)
+	if errors.Is(parentCause, context.DeadlineExceeded) {
+		return parentCause
+	}
+
+	if parent.Err() != nil {
+		return ErrInterrupted
+	}
+
+	return cause
+}
+
 // CancelledError is a step stopped before it finished, and why.
 //
 // **The cause, not the cancellation.** A step that reports `context canceled`
@@ -37,6 +76,10 @@ type CancelledError struct {
 func (e *CancelledError) Error() string {
 	if errors.Is(e.Cause, ErrSuperseded) {
 		return fmt.Sprintf("%s was not needed: %v", e.Source, e.Cause)
+	}
+
+	if errors.Is(e.Cause, ErrInterrupted) {
+		return fmt.Sprintf("%s was stopped: %v", e.Source, e.Cause)
 	}
 
 	return fmt.Sprintf("%s was stopped because %v", e.Source, e.Cause)

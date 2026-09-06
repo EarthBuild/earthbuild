@@ -43983,10 +43983,10 @@ The engine is not slow here; it is waiting for two round trips that resolve
 this is testable without changing the engine. Three changed-file rebuilds of
 each form, same fixture, same sandbox, all `rc=0`:
 
-| form                   | process (s)         | median  | plan    |
-| ---------------------- | ------------------- | ------- | ------- |
-| `alpine:3.24.1`        | 0.482, 0.455, 0.430 | 0.455s  | ~0.439s |
-| the same, `@sha256:e7` | 0.288, 0.304, 0.322 | 0.304s  | ~0.004s |
+| form                   | process (s)         | median | plan    |
+| ---------------------- | ------------------- | ------ | ------- |
+| `alpine:3.24.1`        | 0.482, 0.455, 0.430 | 0.455s | ~0.439s |
+| the same, `@sha256:e7` | 0.288, 0.304, 0.322 | 0.304s | ~0.004s |
 
 **1.5x, and the arithmetic is the point.** `plan` fell by 0.435s while
 `process` fell by 0.151s. The other 0.28s is the sandbox boot that planning had
@@ -44141,11 +44141,11 @@ engine work: both are round trips through Apple's `container` CLI.
 Benchmarked properly - seven runs each, timed around `subprocess.run` rather
 than from the shell:
 
-| command                        | median  | min    | max     |
-| ------------------------------ | ------- | ------ | ------- |
-| `container --version`          | 17.2ms  | 14.7ms | 25.4ms  |
-| `container volume list`        | 17.5ms  | 15.7ms | 26.8ms  |
-| `container ls -a` (89 present) | 56.8ms  | 36.9ms | 112.1ms |
+| command                        | median | min    | max     |
+| ------------------------------ | ------ | ------ | ------- |
+| `container --version`          | 17.2ms | 14.7ms | 25.4ms  |
+| `container volume list`        | 17.5ms | 15.7ms | 26.8ms  |
+| `container ls -a` (89 present) | 56.8ms | 36.9ms | 112.1ms |
 
 `--version` does nothing, so **17ms is the floor under every subprocess a build
 makes**. `volume list` sits on that floor; `ls -a` costs three times it, and the
@@ -44240,10 +44240,10 @@ counts exchanges against a fake registry and requires exactly one.
 
 Alternating A/B, four pairs, fresh cache each, all `rc=0`:
 
-| build  | median | runs                         |
-| ------ | ------ | ---------------------------- |
-| before | 2.276s | 2.209, 2.221, 2.330, 2.753   |
-| after  | 1.960s | 1.886, 1.956, 1.963, 2.135   |
+| build  | median | runs                       |
+| ------ | ------ | -------------------------- |
+| before | 2.276s | 2.209, 2.221, 2.330, 2.753 |
+| after  | 1.960s | 1.886, 1.956, 1.963, 2.135 |
 
 0.32s, and **the ranges do not overlap** - every run of the second beat every
 run of the first. The claim travels as "one round trip moved off the critical
@@ -44287,10 +44287,10 @@ volume behind - verified.
 `container run` is a worse place for it. Three runs of each, timed around the
 whole create-and-start sequence:
 
-| sequence                       | median   | runs               |
-| ------------------------------ | -------- | ------------------ |
-| `volume create` then `run -v`  | 1350.6ms | 1317, 1351, 1474   |
-| `run -v` alone, implicit       | 1522.7ms | 1548, 1523, 1460   |
+| sequence                      | median   | runs             |
+| ----------------------------- | -------- | ---------------- |
+| `volume create` then `run -v` | 1350.6ms | 1317, 1351, 1474 |
+| `run -v` alone, implicit      | 1522.7ms | 1548, 1523, 1460 |
 
 172ms *worse* for the version with less code in it. The ranges touch at one
 end, which is why the conclusion is "not faster, do not remove" rather than a
@@ -44311,12 +44311,12 @@ defect from the phase log alone and was not.
 Run 33254832027 reported. The predictions of E903, written before it started,
 against what it did:
 
-| prediction                             | outcome            | verdict |
-| -------------------------------------- | ------------------ | ------- |
-| Podman at least 14 of 16                | **16 of 16**       | exceeded |
-| Podman Examples at least 4 of 5         | **5 of 5**         | met     |
-| Native `+test-misc` passes              | passed             | met     |
-| the other thirteen Native jobs unmoved  | **13 failing**     | exact   |
+| prediction                             | outcome        | verdict  |
+| -------------------------------------- | -------------- | -------- |
+| Podman at least 14 of 16               | **16 of 16**   | exceeded |
+| Podman Examples at least 4 of 5        | **5 of 5**     | met      |
+| Native `+test-misc` passes             | passed         | met      |
+| the other thirteen Native jobs unmoved | **13 failing** | exact    |
 
 Every failure in a run of 99 jobs is a Native job. Docker 16, Docker
 Integrations 24, Docker Examples 5, Podman 16, Podman Examples 5, Next 16: no
@@ -44350,8 +44350,8 @@ three times) and is absent from one that fails. Counting it was the mistake
 Attributed instead by what each failing job's last error actually was, across
 all thirteen:
 
-| cause                                                  | jobs |
-| ------------------------------------------------------ | ---- |
+| cause                                                   | jobs |
+| ------------------------------------------------------- | ---- |
 | nested `earth`, through the tmpfs script wrapper        | 7    |
 | nested docker: `load`, `inspect`, `run`, the pre-script | 4    |
 | cross-architecture emulation                            | 1    |
@@ -44538,10 +44538,10 @@ E907 and the manifest cache measured 0.32s and 0.10s off a cold build on the
 Mac. Re-run on the x86 box, against the same fixture pinned to its own digest,
 four alternating pairs:
 
-| build  | median | runs                         |
-| ------ | ------ | ---------------------------- |
-| before | 1.105s | 1.103, 1.109, 1.086, 1.106   |
-| after  | 1.124s | 1.131, 1.099, 1.439, 1.116   |
+| build  | median | runs                       |
+| ------ | ------ | -------------------------- |
+| before | 1.105s | 1.103, 1.109, 1.086, 1.106 |
+| after  | 1.124s | 1.131, 1.099, 1.439, 1.116 |
 
 Nothing, or slightly worse. The phase log says why in one line: **there is no
 `sandbox:start` on Linux at all.** The macOS backend boots a VM for 1.4s and the
@@ -44582,10 +44582,10 @@ work, cold builds with the base image pinned to that machine's own digest.
 macOS, four alternating pairs, every run of the second beating every run of the
 first:
 
-| build     | median | runs                        |
-| --------- | ------ | --------------------------- |
-| pre-E907  | 2.468s | 2.305, 2.412, 2.523, 2.790  |
-| with fix  | 1.853s | 1.814, 1.843, 1.862, 2.035  |
+| build    | median | runs                       |
+| -------- | ------ | -------------------------- |
+| pre-E907 | 2.468s | 2.305, 2.412, 2.523, 2.790 |
+| with fix | 1.853s | 1.814, 1.843, 1.862, 2.035 |
 
 **0.615s**, which is larger than the 0.32s and 0.10s measured separately - those
 were taken on a busier machine, and the point of re-measuring the whole change
@@ -44594,10 +44594,10 @@ against one baseline in one sitting is that the parts do not add up otherwise.
 x86, request counts rather than a stopwatch, because the wall clock says nothing
 here:
 
-| build     | token exchanges | manifest fetches |
-| --------- | --------------- | ---------------- |
-| before    | 1               | 1                |
-| with fix  | 1               | 1                |
+| build    | token exchanges | manifest fetches |
+| -------- | --------------- | ---------------- |
+| before   | 1               | 1                |
+| with fix | 1               | 1                |
 
 Neutral, which is the goal: Linux has no VM boot to hide a handshake behind, so
 there is nothing to win, and the single-flight makes sure there is nothing to
@@ -44660,10 +44660,10 @@ holding eleven of the thirteen Native jobs, showing up in a second measurement.
 
 So the two numbers mean different things and neither is "the" parity figure:
 
-| number    | where           | what it measures                                |
-| --------- | --------------- | ----------------------------------------------- |
-| 198 / 251 | x86, privileged | what the engine can do when nothing stops it    |
-| 156       | CI runner       | what the engine can do inside the CI sandbox    |
+| number    | where           | what it measures                             |
+| --------- | --------------- | -------------------------------------------- |
+| 198 / 251 | x86, privileged | what the engine can do when nothing stops it |
+| 156       | CI runner       | what the engine can do inside the CI sandbox |
 
 Raising the ratchet to 198 would fail CI on the next run, and lowering the sweep
 to match CI would hide the +2. The ratchet stays where it is until the privilege
@@ -44717,13 +44717,13 @@ fifteen Native jobs, "read as a policy decision rather than a dropped field".
 
 Measured, on darwin, before and after:
 
-| flag                 | before                                    | after       |
-| -------------------- | ----------------------------------------- | ----------- |
-| `--secret`           | refused the build as though unsupplied     | works       |
-| `--no-cache`         | `3 hit, 0 miss` - read the cache anyway    | forces work |
-| `--no-output`        | wrote the artifact it was told not to      | suppressed  |
-| `--push`             | `RUN --push` steps did not run             | they run    |
-| `--arg-file`         | never reached the engine                   | reaches it  |
+| flag          | before                                  | after       |
+| ------------- | --------------------------------------- | ----------- |
+| `--secret`    | refused the build as though unsupplied  | works       |
+| `--no-cache`  | `3 hit, 0 miss` - read the cache anyway | forces work |
+| `--no-output` | wrote the artifact it was told not to   | suppressed  |
+| `--push`      | `RUN --push` steps did not run          | they run    |
+| `--arg-file`  | never reached the engine                | reaches it  |
 
 `--no-cache` is the one worth staring at: it returned success having done the
 opposite of what it was asked, so anyone reproducing a cache bug under it was
@@ -44803,10 +44803,10 @@ branch exists to make had a second variable in it the whole time.**
 Bisected inside a single privileged container, changing only the uid, so kernel,
 image, mounts and engine are held fixed:
 
-| uid  | `/sys/fs/cgroup` mount      |
-| ---- | --------------------------- |
-| 0    | succeeds, no warning        |
-| 1001 | `operation not permitted`   |
+| uid  | `/sys/fs/cgroup` mount    |
+| ---- | ------------------------- |
+| 0    | succeeds, no warning      |
+| 1001 | `operation not permitted` |
 
 Mounting a cgroup tree needs `CAP_SYS_ADMIN`; an unprivileged process cannot do
 it, on a GitHub runner or anywhere else. Nothing about GitHub was involved.
@@ -44983,11 +44983,11 @@ anything, which is exactly why `CLONE_NEWNET` was rejected before.
 That suite fails `rc=1` under both modes, so whatever it collides on is not the
 network:
 
-| run                     | shared | private |
-| ----------------------- | ------ | ------- |
-| `with-docker-expose+all` | rc=0   | rc=0    |
-| `with-docker-validate-labels+all` | rc=1 | rc=1 |
-| `+test-with-labels` alone | rc=0  | rc=0    |
+| run                               | shared | private |
+| --------------------------------- | ------ | ------- |
+| `with-docker-expose+all`          | rc=0   | rc=0    |
+| `with-docker-validate-labels+all` | rc=1   | rc=1    |
+| `+test-with-labels` alone         | rc=0   | rc=0    |
 
 Alone it passes; together it fails. Both its targets `SAVE IMAGE myimage:test` -
 **the same tag** - and a reduced case says what happens:
@@ -45016,14 +45016,14 @@ two blocks should not share one, and the reduced case says they do share
 
 CI at `51cbc7311`, against the run that established thirteen:
 
-| Job     | Then | Now  | What moved it                          |
-| ------- | ---- | ---- | -------------------------------------- |
-| group11 | fail | pass | `EXPOSE host:container` (E924)          |
-| group12 | fail | pass | `SAVE IMAGE` labels, then the load fix |
-| group4  | fail | pass | one of the two image fixes             |
-| slow    | fail | pass | the `--load` fix (E926)                |
-| group6  | fail | fail | inner container is unprivileged        |
-| the other eight | fail | fail | unexamined or known           |
+| Job             | Then | Now  | What moved it                          |
+| --------------- | ---- | ---- | -------------------------------------- |
+| group11         | fail | pass | `EXPOSE host:container` (E924)         |
+| group12         | fail | pass | `SAVE IMAGE` labels, then the load fix |
+| group4          | fail | pass | one of the two image fixes             |
+| slow            | fail | pass | the `--load` fix (E926)                |
+| group6          | fail | fail | inner container is unprivileged        |
+| the other eight | fail | fail | unexamined or known                    |
 
 **No job that passed now fails**, which is the half of a change worth checking
 before the half that improved.
@@ -45141,14 +45141,14 @@ CI at `3f28d9f38`: **three Native failures**, from thirteen. Nothing that passed
 before fails now. The step from nine to three is a single commit, E928a's
 one-line scope fix, and what it cleared is the point of this entry:
 
-| Job     | Filed in E924 as        |
-| ------- | ----------------------- |
-| group1  | output diff             |
-| group2  | port clash              |
-| group5  | port clash              |
-| group6  | missing `CAP_SYS_ADMIN` |
-| group7  | ARG semantics           |
-| group8  | missing `VERSION` flag  |
+| Job    | Filed in E924 as        |
+| ------ | ----------------------- |
+| group1 | output diff             |
+| group2 | port clash              |
+| group5 | port clash              |
+| group6 | missing `CAP_SYS_ADMIN` |
+| group7 | ARG semantics           |
+| group8 | missing `VERSION` flag  |
 
 Six families, one bug. A block served another block's `docker load` from cache
 gets an image it did not ask for, and a build holding the wrong image fails
@@ -45163,8 +45163,8 @@ provisional instead of six wrong repairs in the tree.
 
 **What is left, and it is now legible:**
 
-| Job     | Failure                                              |
-| ------- | ---------------------------------------------------- |
+| Job     | Failure                                               |
+| ------- | ----------------------------------------------------- |
 | group3  | `connect provided buildkit: timeout 1m0s` - E923      |
 | group10 | `invalid arguments .../privileged:main+locally && ls` |
 | qemu    | `BUILD --pass-args (Earthfile:1304)`                  |
@@ -45211,10 +45211,10 @@ default is still going.
 
 `EARTH_STEP_NET=private` became the default and was reverted the same round.
 
-| Run                        | Native failures |
-| -------------------------- | --------------- |
-| before, shared by default  | 3 of 16         |
-| with private by default    | **15 of 16**    |
+| Run                       | Native failures |
+| ------------------------- | --------------- |
+| before, shared by default | 3 of 16         |
+| with private by default   | **15 of 16**    |
 
 And not only Native: `+test-misc`, `group9` and `Docker Integrations` had been
 green and were not. The step's own message says what happened:
@@ -45320,11 +45320,11 @@ worker. What was missing was the registrations and one of the two gates.
 **Bisected on the box**, by presenting the engine with a register and watching
 which message it gave:
 
-| register | message                                                      |
-| -------- | ------------------------------------------------------------ |
-| absent   | `no eligible worker: this step is for linux/arm64`             |
-| present  | `is for linux/arm64 and this sandbox runs linux/amd64`         |
-| present, with the fix | `exec /bin/sh: exec format error`               |
+| register              | message                                                |
+| --------------------- | ------------------------------------------------------ |
+| absent                | `no eligible worker: this step is for linux/arm64`     |
+| present               | `is for linux/arm64 and this sandbox runs linux/amd64` |
+| present, with the fix | `exec /bin/sh: exec format error`                      |
 
 Each is a different gate and the third is honest: the fake register names an
 interpreter that is not there, so the kernel is right to refuse. The first two
@@ -45436,12 +45436,12 @@ insufficient twice.
 The step network namespace has now failed to be measured four times, each for a
 different reason and none of them the change:
 
-| Round | Lost to                                                        |
-| ----- | -------------------------------------------------------------- |
-| 1     | the runner's loopback resolver (E931a)                          |
-| 2     | Docker's DROP forward policy (E931b)                            |
+| Round | Lost to                                                            |
+| ----- | ------------------------------------------------------------------ |
+| 1     | the runner's loopback resolver (E931a)                             |
+| 2     | Docker's DROP forward policy (E931b)                               |
 | 3     | a `run:` line my own scripted edit dropped from a composite action |
-| 4     | `engine/fleet` reaching the 5-minute per-package test timeout   |
+| 4     | `engine/fleet` reaching the 5-minute per-package test timeout      |
 
 Rounds 1 and 2 were the change's fault and are fixed. Round 3 was mine. Round 4
 is a gating job failing on a package this work does not touch, for the second
@@ -45824,10 +45824,10 @@ the engine's step setup at all.
 
 **The A/B, on the real base image, on one machine:**
 
-| Probe                          | native   | buildkit          |
-| ------------------------------ | -------- | ----------------- |
-| `/run` in the integration base | empty    | holds `secrets`   |
-| `../run/` offered              | no       | yes               |
+| Probe                          | native | buildkit        |
+| ------------------------------ | ------ | --------------- |
+| `/run` in the integration base | empty  | holds `secrets` |
+| `../run/` offered              | no     | yes             |
 
 And on a bare `alpine:3.19`, with no secret anywhere in the build, buildkit still
 makes `/run/secrets`. So it is unconditional runtime behaviour rather than
@@ -45862,11 +45862,11 @@ tee: earthly.output: Permission denied
 The working directory is root-owned and 0755, the step is `USER bambi`, and the
 harness writes into it. The same probe on one machine, both engines:
 
-| Probe                                     | native (before) | buildkit | native (after) |
-| ----------------------------------------- | --------------- | -------- | -------------- |
-| `USER bambi`, plain RUN, write to cwd     | fails           | fails    | fails          |
-| `USER bambi`, `RUN --privileged`, same    | fails           | succeeds | succeeds       |
-| uid in the privileged step                | 1000            | 1000     | 1000           |
+| Probe                                  | native (before) | buildkit | native (after) |
+| -------------------------------------- | --------------- | -------- | -------------- |
+| `USER bambi`, plain RUN, write to cwd  | fails           | fails    | fails          |
+| `USER bambi`, `RUN --privileged`, same | fails           | succeeds | succeeds       |
+| uid in the privileged step             | 1000            | 1000     | 1000           |
 
 The third row is what makes the second one legible. Both engines run the
 privileged step as uid 1000 - `--privileged` is not a uid switch - so the
@@ -47087,7 +47087,28 @@ author pressing Ctrl-C - the cancellation is then all there is, and the build
 hands it back - which is both the missing test and the scenario the feature most
 obviously exists for.
 
+**Ctrl-C is a root cause, not a missing one.** The first version named the step
+and then reported `context canceled` as the reason, which reads as the engine
+failing to know why - when the why is known exactly: the operator stopped it.
+That is a third kind, distinct from both a failure and a supersession, and it has
+its own cause (`ErrInterrupted`) so a stopped build says so. A deadline keeps its
+own error, which already describes itself.
+
+The three, and why they must not be one thing:
+
+| cancellation   | what it means                  | reported as                |
+| -------------- | ------------------------------ | -------------------------- |
+| a failure      | the build is collapsing        | the **root** failure       |
+| an interrupt   | the operator stopped it        | `ErrInterrupted`           |
+| a supersession | another worker got there first | nothing; it is not a fault |
+
 The cross-machine race that produces a good cancel does not exist yet;
 `Speculation` is a policy today, not a duplicate-work scheduler. `ErrSuperseded`
 is the vocabulary waiting for it, tested on its own so the first caller inherits
 a decided answer rather than deciding it under pressure.
+
+**A mutant that does not compile tests nothing.** Deleting the line that attaches
+the cause leaves `parent` unused, so the catalogue reported the entry as no
+longer applying rather than as surviving. Replaced with one that still builds and
+still loses what the line is for - the step's own identity - which the
+interrupted-build test catches.

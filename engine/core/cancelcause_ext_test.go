@@ -139,4 +139,16 @@ func TestAnExternallyStoppedBuildNamesTheStepAndTheReason(t *testing.T) {
 	if _, ok := errors.AsType[*core.CancelledError](err); !ok {
 		t.Errorf("a stopped build is not reported as a cancellation: %v", err)
 	}
+
+	// **Ctrl-C is a root cause, not a missing one.** The operator stopping a
+	// build explains completely why every step stopped, so the report says so
+	// rather than handing back `context canceled`, which reads as the engine
+	// failing to know why.
+	if !errors.Is(err, core.ErrInterrupted) {
+		t.Errorf("an interrupted build does not say it was interrupted: %v", err)
+	}
+
+	if strings.Contains(err.Error(), "context canceled") {
+		t.Errorf("an interrupted build reports the bare context error: %v", err)
+	}
 }

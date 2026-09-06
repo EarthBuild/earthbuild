@@ -47119,6 +47119,28 @@ what stopped it - the failing step, the operator, or a deadline. A string rather
 than an error, because a record is written out and read back by tools that do not
 share this package's types, and the question a reader has is prose.
 
+**And none of it was rendered.** The per-step table is printed *after* the
+build's error is returned, so a failed build printed no step lines at all: every
+cancellation record went to a reader who never saw one. The summary is now
+printed before the error, and reads:
+
+```text
+  Earthfile:12   cancelled  RUN sleep 40
+  stopped                   1 stopped, by Earthfile:8 failing
+Error: RUN sleep 1 && echo "this one breaks" && exit 1 failed ... (Earthfile:8)
+```
+
+**The cause points at the failure rather than restating it.** The first version
+put `cause.Error()` in the record, so the summary line carried the whole
+diagnostic - including its `its output is above` continuation - and printed the
+same sentence twice, out of line with every other row, immediately above the
+error it was quoting. A reader wants to know *which* step stopped this one and
+can read it below.
+
+A wide fan is summarised rather than listed: twenty parallel steps stopped by one
+failure is twenty lines of identical news pushing the actual error off the top of
+the terminal, so five name themselves and the rest are counted.
+
 **A mutant that does not compile tests nothing.** Deleting the line that attaches
 the cause leaves `parent` unused, so the catalogue reported the entry as no
 longer applying rather than as surviving. Replaced with one that still builds and

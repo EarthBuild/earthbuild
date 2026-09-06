@@ -130,7 +130,17 @@ func cancelReason(ctx context.Context) string {
 		return cause.Error()
 	case errors.Is(cause, context.Canceled):
 		return ErrInterrupted.Error()
-	default:
-		return cause.Error()
 	}
+
+	// **Where it failed, not what it said.** The failing step's own diagnostic
+	// is printed under this, in full and with its output; repeating it here puts
+	// the same sentence on the screen twice and, because it is multi-line, out
+	// of line with every other row. A reader wants to know *which* step stopped
+	// this one, and can then read it below.
+	step, ok := errors.AsType[*StepError](cause)
+	if ok && step.Source != "" {
+		return step.Source + " failing"
+	}
+
+	return cause.Error()
 }

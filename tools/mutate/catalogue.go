@@ -3518,6 +3518,18 @@ var Mutants = []Mutant{
 		Package:     "./engine/guest/",
 	},
 	{
+		Name: "cli: a failed build saying what it stopped (E969)",
+		File: "engine/cli/stoppedsummary.go",
+		// The filter rather than the call in cli.go: that call is only reached
+		// by a real failing build, which needs a sandbox and the network, so a
+		// mutant there is killed by nothing in an ordinary run. What the
+		// function decides is covered; that it is called rests on the port
+		// guard, which is what that guard is for.
+		Anchor:      "\t\tif r.Outcome == core.OutcomeCancelled {",
+		Replacement: "\t\tif false {",
+		Package:     "./engine/cli/",
+	},
+	{
 		Name:        "core: a stopped step recorded as cancelled (E969)",
 		File:        "engine/core/schedule.go",
 		Anchor:      "\t\t\trec.Outcome, rec.Cause = OutcomeCancelled, cancelReason(ctx)",

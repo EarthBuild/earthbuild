@@ -630,6 +630,13 @@ func runPlan(
 	var tolerated *core.ToleratedFailureError
 
 	if runErr != nil && !errors.As(runErr, &tolerated) {
+		// **What the failure stopped, before the failure itself.** The per-step
+		// table below is never reached by a failed build, so the work abandoned
+		// beside the fault went unmentioned entirely - on a wide fan that is
+		// most of the build. Printed here rather than added to the error,
+		// because it is context for the diagnostic and not part of it (E969).
+		fmt.Fprint(o.Out, stoppedSummary(rec.Steps))
+
 		// The step's own diagnostic is the useful part and already names the
 		// line; wrapping it in "build failed" would only push it further from
 		// the top of the message.

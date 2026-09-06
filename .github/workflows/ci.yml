@@ -492,6 +492,35 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
+  # **One target, on its own, so a diagnostic round costs ten minutes.**
+  # `tests/with-docker-compose` is the only thing in group7 that *hangs* rather
+  # than fails, and reaching it through that group means waiting out its
+  # 45-minute timeout and the rest of the run behind it. This is the same target
+  # on the same engine, reporting on its own (E967).
+  #
+  # Runs beside the Native suite rather than instead of it: the suite is still
+  # what gates the branch, and this only shortens the loop while the fault is
+  # being found. Remove with the diagnosis.
+  compose-probe:
+    name: WITH DOCKER compose (native)
+    needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      # The target directly, not a root alias: `TEST_TARGET` is passed to
+      # `earth` as its target argument, so pointing at the subdirectory avoids
+      # adding an Earthfile target and moving the corpus ratchet for a probe.
+      TEST_TARGET: "./tests/with-docker-compose+all"
+      BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
+      RUNS_ON: "ubuntu-26.04"
+      BINARY: "native"
+      SUDO: "sudo"
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
   docker-tests:
     name: Docker
     needs: fast-check-and-build

@@ -9,6 +9,43 @@ import (
 	"time"
 )
 
+// watchStepListeners reports what is listening inside the step's namespace while
+// the step runs, and stops when it returns.
+//
+// **On a timer, because the interesting moment is not the start.** The first
+// version fired once before the body and caught an empty table - which said
+// nothing, since `WITH DOCKER --compose` brings the service up as part of the
+// step, after that point. The step that hangs waits for a port; these fire while
+// it is waiting.
+//
+// Temporary, for E967. Remove with the diagnosis.
+func watchStepListeners(netAt string) func() {
+	if netAt == "" {
+		return func() {}
+	}
+
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+
+	go func() {
+		defer close(stopped)
+
+		for _, after := range []time.Duration{30 * time.Second, 90 * time.Second} {
+			select {
+			case <-done:
+				return
+			case <-time.After(after):
+				sayStepListeners(netAt)
+			}
+		}
+	}()
+
+	return func() {
+		close(done)
+		<-stopped
+	}
+}
+
 // sayStepListeners prints what is listening inside the step's network namespace.
 //
 // **Temporary, for E967.** `/proc/net/tcp` is per network namespace, so this

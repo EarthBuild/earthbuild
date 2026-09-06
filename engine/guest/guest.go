@@ -2719,12 +2719,15 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 			}
 		}
 
-		// Temporary, for E967: see sayNetNS. By here the daemon has answered, so
-		// anything it published is listening - or is not, which is the fact
-		// still missing.
-		sayStepListeners(netAt)
+		// Temporary, for E967: see watchStepListeners. Fired while the step runs
+		// rather than before it, because `WITH DOCKER --compose` brings the
+		// service up as part of the step - so the interesting moment is the one
+		// where the step is waiting for a port.
+		stopWatching := watchStepListeners(netAt)
 
 		out, rerr = runStep(cmd, sink, req, s, h, mountPoints(mounts), shimming)
+
+		stopWatching()
 
 		return rerr
 	}

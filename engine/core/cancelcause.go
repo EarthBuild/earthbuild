@@ -110,3 +110,27 @@ func cancelled(source string, cause error) error {
 func benignCancel(err error) bool {
 	return errors.Is(err, ErrSuperseded)
 }
+
+// cancelReason is why a step was stopped, as a record can carry it.
+//
+// A string rather than an error, because a record is written out and read back
+// by tools that do not share this package's types - and the question a reader
+// has is "what stopped this", which is prose.
+//
+// The scheduler's own cancellation carries the failing step's error, so that is
+// the answer. A bare context error means it came from outside, which is the
+// operator; a deadline says what it is already.
+func cancelReason(ctx context.Context) string {
+	cause := context.Cause(ctx)
+
+	switch {
+	case cause == nil:
+		return ""
+	case errors.Is(cause, context.DeadlineExceeded):
+		return cause.Error()
+	case errors.Is(cause, context.Canceled):
+		return ErrInterrupted.Error()
+	default:
+		return cause.Error()
+	}
+}

@@ -152,3 +152,71 @@ func TestAnExternallyStoppedBuildNamesTheStepAndTheReason(t *testing.T) {
 		t.Errorf("an interrupted build reports the bare context error: %v", err)
 	}
 }
+
+// A stopped step leaves a record saying it was stopped, and by what.
+//
+// The top-level error names the root failure, which is right - a build should
+// blame the thing that broke. But it says nothing about the steps that were
+// stopped because of it, and those left no trace at all: a step cancelled
+// mid-flight returned early and recorded nothing, so it was indistinguishable
+// from one that never started.
+//
+// That is the half of "why was this cancelled" the build error cannot answer,
+// because the answer is per-step (E969).
+func TestAStoppedStepIsRecordedWithItsCause(t *testing.T) {
+	t.Parallel()
+
+	root := &ir.Node{Op: ir.Op{Kind: ir.OpImage, Args: []string{"img"}}, Meta: ir.Meta{Source: "Earthfile:1"}}
+	quick := &ir.Node{
+		Op: ir.Op{Kind: ir.OpExec, Args: []string{"quick"}}, Inputs: []*ir.Node{root},
+		Meta: ir.Meta{Source: "Earthfile:9"},
+	}
+	slow := &ir.Node{
+		Op: ir.Op{Kind: ir.OpExec, Args: []string{"slow"}}, Inputs: []*ir.Node{root},
+		Meta: ir.Meta{Source: "Earthfile:20"},
+	}
+	top := &ir.Node{Op: ir.Op{Kind: ir.OpMerge}, Inputs: []*ir.Node{quick, slow}, Meta: ir.Meta{Source: "Earthfile:30"}}
+
+	started := make(chan struct{})
+
+	s := &core.Scheduler{
+		Workers: []core.Worker{{ID: "w", IsInvoker: true}},
+		Blobs:   allBlobs{},
+		Executor: execFunc(func(ctx context.Context, n *ir.Node) (core.Result, error) {
+			switch n.Op.Args[0] {
+			case "quick":
+				<-started
+
+				return core.Result{}, &core.StepError{Source: n.Meta.Source, Desc: "RUN make", Exit: 1}
+			case "slow":
+				close(started)
+				<-ctx.Done()
+
+				return core.Result{}, ctx.Err()
+			}
+
+			return core.Result{Layer: n.ID(), Captured: true}, nil
+		}),
+	}
+
+	_, err := s.Run(context.Background(), &ir.Graph{Root: top})
+	if err == nil {
+		t.Fatal("a build with a failing step reported success")
+	}
+
+	var stopped *core.StepRecord
+
+	for i := range s.Record.Steps {
+		if s.Record.Steps[i].Outcome == core.OutcomeCancelled {
+			stopped = &s.Record.Steps[i]
+		}
+	}
+
+	if stopped == nil {
+		t.Fatal("the stopped step left no record, so nothing says it was cancelled")
+	}
+
+	if !strings.Contains(stopped.Cause, "Earthfile:9") {
+		t.Errorf("the record says it was stopped by %q, want the step that failed", stopped.Cause)
+	}
+}

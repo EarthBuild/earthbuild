@@ -16,6 +16,7 @@ const (
 	OutcomeL2Hit                     // observed-input key hit
 	OutcomeRefused                   // the engine cannot evaluate this construct (I10)
 	OutcomeUncaptured                // executed, but what it produced was not captured
+	OutcomeCancelled                 // stopped before it finished; see Cause
 )
 
 func (o Outcome) String() string {
@@ -28,6 +29,8 @@ func (o Outcome) String() string {
 		return "refused"
 	case OutcomeUncaptured:
 		return "uncaptured"
+	case OutcomeCancelled:
+		return "cancelled"
 	default:
 		return "miss"
 	}
@@ -75,6 +78,18 @@ type StepRecord struct {
 	Exit    int
 	Bytes   int64
 	Outcome Outcome
+	// Cause is why a step was stopped, for OutcomeCancelled.
+	//
+	// **Per-step, because the build error cannot carry it.** A build blames the
+	// root failure, which is right - but that says nothing about the steps
+	// stopped because of it, and those left no trace at all: a step cancelled
+	// mid-flight recorded nothing, so it was indistinguishable from one that
+	// never started. "Which steps did this failure stop, and what stopped them"
+	// is a per-step question and this is where it is answered (E969).
+	//
+	// A string, because a record is written out and read back by tools that do
+	// not share this package's error types.
+	Cause string
 
 	// Flattened records that Φ was applied and over what, because flattening
 	// trades away cache granularity and a build where it happened behaves

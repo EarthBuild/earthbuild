@@ -1510,6 +1510,16 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 	endStep()
 	if err != nil {
+		// **A stopped step leaves a record.** Returning here without one made a
+		// cancelled step indistinguishable from one that never started, so
+		// "which steps did this failure stop" had no answer anywhere - the build
+		// error blames the root failure and says nothing about what it stopped
+		// (E969).
+		if isCancellation(err) {
+			rec.Outcome, rec.Cause = OutcomeCancelled, cancelReason(ctx)
+			s.record(rec)
+		}
+
 		return fmt.Errorf("run %s: %w", n.ID(), err)
 	}
 

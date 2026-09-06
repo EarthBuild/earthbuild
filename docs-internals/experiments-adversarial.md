@@ -47107,6 +47107,18 @@ The cross-machine race that produces a good cancel does not exist yet;
 is the vocabulary waiting for it, tested on its own so the first caller inherits
 a decided answer rather than deciding it under pressure.
 
+**The build error cannot answer the whole question, because half of it is
+per-step.** A build blames the root failure, which is right; it says nothing
+about the steps that failure *stopped*, and those left no trace at all - a step
+cancelled mid-flight returned before recording anything, so it was
+indistinguishable from one that never started. "Which steps did this stop, and
+what stopped them" had no answer anywhere.
+
+So a stopped step now leaves a record: `OutcomeCancelled`, and a `Cause` naming
+what stopped it - the failing step, the operator, or a deadline. A string rather
+than an error, because a record is written out and read back by tools that do not
+share this package's types, and the question a reader has is prose.
+
 **A mutant that does not compile tests nothing.** Deleting the line that attaches
 the cause leaves `parent` unused, so the catalogue reported the entry as no
 longer applying rather than as surviving. Replaced with one that still builds and

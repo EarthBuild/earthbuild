@@ -3518,10 +3518,20 @@ var Mutants = []Mutant{
 		Package:     "./engine/guest/",
 	},
 	{
-		Name:        "core: an interruption named as its own cause (E969)",
-		File:        "engine/core/cancelcause.go",
-		Anchor:      "\t\treturn ErrInterrupted",
-		Replacement: "\t\treturn context.Canceled",
+		Name:        "core: a stopped step recorded as cancelled (E969)",
+		File:        "engine/core/schedule.go",
+		Anchor:      "\t\t\trec.Outcome, rec.Cause = OutcomeCancelled, cancelReason(ctx)",
+		Replacement: "\t\t\trec.Outcome = OutcomeCancelled",
+		Package:     "./engine/core/",
+	},
+	{
+		Name: "core: an interruption named as its own cause (E969)",
+		File: "engine/core/cancelcause.go",
+		// The branch rather than its return: `cancelReason` returns
+		// `ErrInterrupted.Error()`, which contains the shorter anchor, and an
+		// anchor matching twice is an anchor that mutates the wrong line.
+		Anchor:      "\tif parent.Err() != nil {",
+		Replacement: "\tif false {",
 		Package:     "./engine/core/",
 	},
 	{

@@ -521,6 +521,13 @@ jobs:
       # the job ends, so eight minutes is everything this probe can tell us.
       # Waiting out the suite's 45 was the whole cost being removed.
       TIMEOUT_MINUTES: 8
+      # **It cannot make the branch red.** A diagnostic that fails the run trains
+      # everyone to ignore a red run, which is the opposite of what it is for.
+      # It is already absent from `ci-success`'s `needs` - the one required
+      # context - and this keeps it out of the run's conclusion too, so a red
+      # always means a real suite. `continue-on-error` cannot go on the job:
+      # a `uses:` job takes no such key, which actionlint says plainly.
+      ALLOW_FAILURE: true
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}

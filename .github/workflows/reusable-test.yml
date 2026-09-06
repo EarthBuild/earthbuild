@@ -39,6 +39,13 @@ on:
         required: false
         type: number
         default: 45
+      # When true the test step may fail without failing the job. For a probe
+      # whose value is what it prints rather than whether it passed; a suite
+      # must never set it.
+      ALLOW_FAILURE:
+        required: false
+        type: boolean
+        default: false
     secrets:
       DOCKERHUB_TOKEN:
         required: false
@@ -101,6 +108,10 @@ jobs:
         # retrievable once the job ends, so that is the difference between a
         # diagnostic round of ten minutes and one of an hour.
         timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
+        # See ALLOW_FAILURE. Note this also keeps the job out of `failure()`, so
+        # the diagnostics step below does not run for such a caller - which is
+        # right for a probe that prints what it came for during the step itself.
+        continue-on-error: ${{ inputs.ALLOW_FAILURE }}
         run: |
           # **The engine goes on the command line, not through the environment.**
           # `stage2-setup` sets EARTH_ENGINE=buildkit for every non-native suite,

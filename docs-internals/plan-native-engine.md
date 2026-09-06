@@ -5619,12 +5619,40 @@ more than a silence that could equally mean the agent never started.
 The guest reaches its store in a third of a second, and the agent is the shipped
 binary with no VM-specific code in it.
 
-**What is not yet answered: how the host places an image in the store.** With
-virtio-fs the host writes into the share; a block device is opaque to it while
-the guest holds it, so `StoreDir()` cannot be a host path under Firecracker.
-Either images travel over the same vsock, or the store is a second device the
-host prepares between builds. That is the next decision and it is an
-architectural one, not a detail.
+### Where the store lives: already decided, and already measured
+
+The store is in the guest, and has been since `EnvStoreInVM`. That was settled
+for the Apple backend on the numbers rather than the principle - one layer of
+`golang:1.26-alpine`, unpacked into the shared store in 4.67s against 2.18s into
+the guest's own volume, and read back in 6.04s against 1.47s, which is about
+0.31ms per file a step opens and invisible in every phase because it is spread
+through the step's own execution.
+
+So Firecracker inherits the answer rather than needing one: `storeInVMByDefault`
+is false only where the sandbox is not a VM, and a Firecracker sandbox is one.
+The block device and the guest-formatted XFS measured above are the same shape
+the Apple backend already runs.
+
+**What Firecracker does not inherit is the way out.** Moving layers onto the
+guest's device once broke every `SAVE ARTIFACT` - the export was staged in the
+store, which the host could no longer open - and the fix was `EnvExportDir`,
+staging exports on the *shared mount* instead. Apple has one; Firecracker has no
+virtio-fs and so has no shared mount at all.
+
+That is the open question, and it is narrower than "where does the store live":
+**how does an export leave a Firecracker guest.** Either it streams over the same
+vsock the agent already uses, or it lands on a second block device the host reads
+once the guest has released it. The first keeps one channel and costs a copy
+through the agent; the second needs the guest to unmount cleanly before the host
+can trust what it reads.
+
+**And the credentials stay on the host either way.** `engine/image` reads the
+machine's credential store today, so a registry password has never been inside
+the sandbox; a guest that fetched for itself would move it into the blast radius
+of the untrusted code the sandbox exists to contain. Proxying the fetch over
+vsock keeps the credential where it is, streams the bytes straight into the
+guest's store, and needs no network device in the guest at all - no tap, no NAT,
+and no host privilege to create either.
 
 ### Overlay options this engine does not yet pass
 

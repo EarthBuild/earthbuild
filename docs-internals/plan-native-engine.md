@@ -5587,6 +5587,45 @@ has an empty `/dev` and nobody had mounted `devtmpfs`, against `ENODEV` for a
 driver the kernel genuinely lacks. Reporting each attempt's own errno separated
 them in one run.
 
+### The transport, proven end to end on 2026-09-06
+
+Firecracker chosen for the smaller device model. The linchpin was never the VMM
+but the *channel*: `earth-guestd` speaks its protocol over stdin and stdout, and
+a microVM has neither. Firecracker's only non-console channel is virtio-vsock,
+so the guest needs an adapter - and that adapter is what keeps the agent
+unchanged, which was the whole argument for doing this now.
+
+`vmboot` is PID 1 in the initramfs. It mounts `devtmpfs` (without which the
+store's device node does not exist), mounts the block device as XFS, listens on
+a fixed vsock port, and hands the accepted connection to `earth-guestd` as its
+stdio. The host connects to Firecracker's unix multiplexer and writes
+`CONNECT <port>`.
+
+Measured, with a 4 GiB store image and the agent inside the initramfs:
+
+```text
+[0.317] Run /init as init process
+[0.325] XFS (vda): Ending clean mount
+        vmboot: store mounted
+        vmboot: listening
+host:   CONNECT 5555  ->  OK 1073741824
+        earth-guestd: serve: receive: unexpected EOF
+```
+
+That last line is the agent's own diagnostic, reading the host's bytes off the
+vsock and objecting to them - which is the proof the chain is joined, and worth
+more than a silence that could equally mean the agent never started.
+
+The guest reaches its store in a third of a second, and the agent is the shipped
+binary with no VM-specific code in it.
+
+**What is not yet answered: how the host places an image in the store.** With
+virtio-fs the host writes into the share; a block device is opaque to it while
+the guest holds it, so `StoreDir()` cannot be a host path under Firecracker.
+Either images travel over the same vsock, or the store is a second device the
+host prepares between builds. That is the next decision and it is an
+architectural one, not a detail.
+
 ### Overlay options this engine does not yet pass
 
 Raised 2026-09-06. `mountOptions` passes `lowerdir`, `upperdir`, `workdir` and

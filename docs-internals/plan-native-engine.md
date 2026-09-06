@@ -5642,9 +5642,35 @@ virtio-fs and so has no shared mount at all.
 That is the open question, and it is narrower than "where does the store live":
 **how does an export leave a Firecracker guest.** Either it streams over the same
 vsock the agent already uses, or it lands on a second block device the host reads
-once the guest has released it. The first keeps one channel and costs a copy
-through the agent; the second needs the guest to unmount cleanly before the host
-can trust what it reads.
+once the guest has released it.
+
+**The unmount is not the hard part.** The host need not guess whether the guest
+flushed: the agent says so over the vsock it already holds, and the host waits
+for that. If the agent is dishonest the build is lost either way - it could as
+easily send wrong bytes down the vsock - so on that axis the two options are
+equal, and the phrase "the host must trust the unmount" makes the second sound
+weaker than it is.
+
+**The hard part is what the host does next.** Reading that device means mounting
+a filesystem whose metadata was written inside the sandbox, and kernel filesystem
+parsers are a long-standing exploit target: a malicious superblock is a far
+better attack than anything a build step is otherwise offered. The two directions
+are not symmetric, and the asymmetry is the whole reason inbound images are safe:
+
+| direction               | who wrote the metadata | mounting it                           |
+| ----------------------- | ---------------------- | ------------------------------------- |
+| inbound, host to guest  | the trusted host       | fine, and is what makes EROFS-in work |
+| outbound, guest to host | the sandbox            | not fine                              |
+
+So an outbound device carries a **stream, not a filesystem**: the guest appends a
+tar or a sequence of content-addressed blobs to a raw device, and the host reads
+it sequentially in userspace - bytes it already parses, with no kernel parser
+exposed to sandbox-authored metadata. That keeps the copy out and leaves the
+attack surface where it was.
+
+Which makes the choice between the two options a question of engineering cost
+rather than of safety: one channel and a copy through the agent, against two
+channels and a framing format to maintain.
 
 **And the credentials stay on the host either way.** `engine/image` reads the
 machine's credential store today, so a registry password has never been inside

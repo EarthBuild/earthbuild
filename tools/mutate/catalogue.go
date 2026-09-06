@@ -3518,6 +3518,13 @@ var Mutants = []Mutant{
 		Package:     "./engine/guest/",
 	},
 	{
+		Name:        "interp: compose folded into the body command (E970)",
+		File:        "engine/interp/interp.go",
+		Anchor:      "\t\tif len(p.composeFiles) > 0 && !c.ExecMode && !rf.entrypoint {",
+		Replacement: "\t\tif false {",
+		Package:     "./engine/interp/",
+	},
+	{
 		Name:        "guest: step numbering started somewhere free (E970)",
 		File:        "engine/guest/stepnetuse_linux.go",
 		Anchor:      "\tc.Store(startingStepNet())",

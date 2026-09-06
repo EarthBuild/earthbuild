@@ -473,7 +473,14 @@ func (p *Plan) withStatement(st *earthfile.WithStatement, prev *ir.Node, rs *sta
 
 		defer func() { rs.env = restore }()
 
-		prev = p.composeUp(opts.ComposeFiles, opts.ComposeServices, prev, rs, where)
+		// Carried to the body's own command rather than planned as a step: see
+		// Plan.composeFiles. Saved and restored like every other block-scoped
+		// field, because a `--load` builds another target whose own block must
+		// not inherit this one's services.
+		outerFiles, outerServices := p.composeFiles, p.composeServices
+		p.composeFiles, p.composeServices = opts.ComposeFiles, opts.ComposeServices
+
+		defer func() { p.composeFiles, p.composeServices = outerFiles, outerServices }()
 	}
 
 	// What was already running, before the body starts anything. Recorded
@@ -496,9 +503,6 @@ func (p *Plan) withStatement(st *earthfile.WithStatement, prev *ir.Node, rs *sta
 	// failure so the teardown still runs, which is TRY's machinery and TRY's
 	// error reporting, and is a change to make deliberately rather than as part
 	// of this.
-	if len(opts.ComposeFiles) > 0 {
-		last = p.composeDown(opts.ComposeFiles, last, rs, where)
-	}
 
 	// And anything else the block started. `compose down` takes away a
 	// project's services; a bare `docker run -d` is the commoner case in real
@@ -904,25 +908,29 @@ func containerList(where string) string {
 	return "/tmp/earthbuild-containers-" + h.Sum().String()[:8]
 }
 
-// composeUp brings a block's services up before its commands run.
+// composeAround wraps a block's command so its services are up while it runs.
 //
-// `--wait` is not optional. `docker compose up -d` returns when containers have
-// started rather than when they are ready, and the first line of a block like
-// this is usually something that connects to one - so without it the failure is
-// a connection refused that succeeds on a retry, which is the least actionable
-// kind of flake there is.
-func (p *Plan) composeUp(files, services []string, prev *ir.Node, rs *state, where string) *ir.Node {
-	cmd := "docker compose" + composeFlags(files) + " up -d --wait"
+// **One command, because one daemon.** `WITH DOCKER` permits exactly one `RUN`
+// and the daemon lives exactly as long as it, so anything planned as a separate
+// step gets a daemon of its own - which is what made the services come up and
+// die before the body could reach them (E970). This is the reference's shape:
+// `dockerd-wrapper.sh execute --compose ... -- <command>` brings them up and
+// runs the command in the same place.
+//
+// The body's exit status is what the step reports. Taking the services down is
+// best-effort and cannot change it: a teardown failure reported in place of the
+// body's own result would replace the answer with a footnote - and the daemon is
+// about to be destroyed anyway, which takes the containers with it. The down is
+// here for the case where it is not, and for a reader who expects symmetry.
+func composeAround(files, services []string, body string) string {
+	up := "docker compose" + composeFlags(files) + " up -d --wait"
 	if len(services) > 0 {
-		cmd += " " + strings.Join(services, " ")
+		up += " " + strings.Join(services, " ")
 	}
 
-	return p.dockerStep(cmd, "compose up", prev, rs, where)
-}
+	down := "docker compose" + composeFlags(files) + " down"
 
-// composeDown takes them away again.
-func (p *Plan) composeDown(files []string, prev *ir.Node, rs *state, where string) *ir.Node {
-	return p.dockerStep("docker compose"+composeFlags(files)+" down", "compose down", prev, rs, where)
+	return up + " && { " + body + "; }; rc=$?; " + down + " >/dev/null 2>&1 || true; exit $rc"
 }
 
 // dockerStep is a command run against the block's daemon.

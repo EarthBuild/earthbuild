@@ -141,6 +141,18 @@ type Plan struct {
 	// planned shares, and nothing outlives it. Empty outside a block and when
 	// the block named a cache, because the author's own answer wins.
 	dockerScope string
+	// composeFiles and composeServices are the services the `WITH DOCKER` block
+	// being planned brings up, folded into its body's own command.
+	//
+	// **Not a step of their own.** `WITH DOCKER` permits exactly one `RUN` and
+	// the daemon's lifetime is that command - so a separate `docker compose up`
+	// step brought the services up in a daemon that was torn down the moment
+	// that step ended, and the body then ran against a fresh one with nothing in
+	// it (E970). Folded in, they are the same step and therefore the same
+	// daemon, which is how the reference does it:
+	// `dockerd-wrapper.sh execute --compose ... -- <command>`.
+	composeFiles    []string
+	composeServices []string
 	// blocks counts `WITH DOCKER` blocks planned so far, which is what makes one
 	// block's scope distinct from another's in the same build.
 	blocks int
@@ -1309,6 +1321,15 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// executor does not prepend a second copy. The argv is then in the
 		// step's key, which is where an input belongs.
 		argv, fromImage := runArgv(c, rf.rest, rf.entrypoint), rf.entrypoint
+
+		// **The block's services come up in this step, not beside it.** See
+		// Plan.composeFiles: a separate step means a separate daemon, and the
+		// containers die with it (E970). Shell form only - an exec-form argv is
+		// handed to the kernel and has no shell to sequence anything.
+		if len(p.composeFiles) > 0 && !c.ExecMode && !rf.entrypoint {
+			argv = shell(composeAround(p.composeFiles, p.composeServices,
+				strings.Join(rf.rest, " ")))
+		}
 		if rf.entrypoint && len(rs.cfg.Entrypoint) > 0 {
 			argv, fromImage = append(append([]string{}, rs.cfg.Entrypoint...), argv...), false
 

@@ -47185,6 +47185,16 @@ The reference never had the problem because it never splits them:
 `dockerd-wrapper.sh execute --compose ... -- <command>` brings the services up
 and runs the body inside one `RUN`.
 
+**Fixed by folding the compose commands into the body's own.** `WITH DOCKER`
+permits exactly one `RUN` and earthfile.md says the daemon is stopped and its
+data deleted once that command completes - so the daemon's lifetime *is* the
+body, and anything that must share it has to be in it. The reference has always
+had this shape:
+`dockerd-wrapper.sh execute --compose ... -- <command>`.
+
+Verified on the container harness, where a positive result is self-validating:
+`PORT-REACHED`, no hang, where every previous configuration was unreachable.
+
 **Three fixes for a cause that was never there.** The namespace join, the
 resolver and the iptables flags were each argued from real evidence and each
 verified to do what they claimed - the bridge moved, the DNS regression cleared,

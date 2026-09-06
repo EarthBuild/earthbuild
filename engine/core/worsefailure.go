@@ -124,6 +124,10 @@ func sourceAt(err error) (file string, line int, ok bool) {
 // Both, because a deadline and an explicit cancel are the same news here: this
 // step did not fail, it was not allowed to finish.
 func isCancellation(err error) bool {
+	if _, ok := errors.AsType[*CancelledError](err); ok {
+		return true
+	}
+
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
@@ -174,16 +178,28 @@ type failed struct {
 // *everything* was cancelled they are all there is, so they are what is
 // reported.
 func independentFailures(all []failed, causedBy func(key string) (string, bool)) []failed {
-	genuine := make([]failed, 0, len(all))
+	// **Superseded work is dropped outright.** Every other cancellation survives
+	// the empty case below, because a build that failed has to say something; a
+	// superseded step is different in kind - it did not fail, it stopped being
+	// needed - so a build made entirely of them did not go wrong (E969).
+	kept := make([]failed, 0, len(all))
 
 	for _, f := range all {
+		if !benignCancel(f.err) {
+			kept = append(kept, f)
+		}
+	}
+
+	genuine := make([]failed, 0, len(kept))
+
+	for _, f := range kept {
 		if !isCancellation(f.err) {
 			genuine = append(genuine, f)
 		}
 	}
 
 	if len(genuine) == 0 {
-		genuine = all
+		genuine = kept
 	}
 
 	// Which of the failures are themselves a cause, so a step descending from

@@ -47046,3 +47046,48 @@ The likely mechanism is different - when the first failure cancels its siblings,
 timing-dependent, so the set being folded varies - and reporting all independent
 failures removes that sensitivity too. Stated as the expectation it is, rather
 than as a result.
+
+### E969 - a cancelled step that could not say what stopped it
+
+`context canceled` tells an author the one thing they already know - this step
+stopped - and withholds the only thing they can act on, which is what went wrong
+somewhere else. It is why a cancelled buildkit build sends you reading logs to
+find the single step that actually failed, and this engine had inherited the same
+silence: `context.WithCancel` carries no reason, so every stopped step reported
+the symptom.
+
+**Two kinds of cancellation, and conflating them is the second half of the
+problem.** A step stopped because the build is collapsing is a fault, and the
+report must name the *root* failure rather than the cancellation. A step stopped
+because another worker got there first is the design working - speculative work,
+or the same step given to two machines - and reporting that as a failure turns a
+successful optimisation into a red build.
+
+So a cancellation now carries its cause:
+
+* `context.WithCancelCause`, cancelled with the failing step's own error, so the
+  reason travels to everything the failure stops;
+* `CancelledError{Source, Cause}` re-describes a stopped step in terms of what
+  stopped it, and unwraps to the root - so `errors.As` reaches the original
+  `*StepError` rather than a sentence about it;
+* `ErrSuperseded` marks a good cancel, and `benignCancel` is the only thing that
+  reads as one. A bare `context canceled` deliberately does not: nothing said it
+  was good, and assuming so is how a real fault becomes silence, which is the
+  direction that costs a debugging session rather than a red build.
+
+Superseded work is dropped from the report outright, where every other
+cancellation survives the case of being all there is. That asymmetry is the
+point: a build that failed must say something, and a build whose steps were
+merely not needed did not fail.
+
+**The mutation catalogue found the gap in the first attempt.** Deleting the line
+that attaches the cause was killed by nothing: cancellations are outranked by any
+real failure, so no test observed one. The case where it *is* observed is the
+author pressing Ctrl-C - the cancellation is then all there is, and the build
+hands it back - which is both the missing test and the scenario the feature most
+obviously exists for.
+
+The cross-machine race that produces a good cancel does not exist yet;
+`Speculation` is a policy today, not a duplicate-work scheduler. `ErrSuperseded`
+is the vocabulary waiting for it, tested on its own so the first caller inherits
+a decided answer rather than deciding it under pressure.

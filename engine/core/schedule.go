@@ -532,8 +532,14 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 
 	// Cancelled on the first failure, so work already started can stop rather
 	// than finishing a build that has already lost.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	//
+	// **WithCancelCause, so a stopped step can say what stopped it.** A step
+	// that reports `context canceled` has told the author the one thing they
+	// already know, and withheld the only thing they can act on: what went wrong
+	// somewhere else. The cause travels with the cancellation and every stopped
+	// step names the root failure rather than its own symptom (E969).
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 
 	var run func(n *ir.Node)
 
@@ -562,6 +568,13 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 		mu.Lock()
 
 		if err != nil {
+			// A stopped step is re-described in terms of what stopped it. Its
+			// own `context canceled` is the symptom; the cause is the root
+			// failure, which is what an author can act on (E969).
+			if isCancellation(err) {
+				err = cancelled(n.Meta.Source, context.Cause(ctx))
+			}
+
 			// Collected, not folded. Ordering and pruning happen once, over the
 			// whole set, where they can be a total order rather than a pairwise
 			// comparison applied in whatever order the goroutines finished
@@ -580,7 +593,8 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 			s.failed[n.ID()] = true
 			s.mu.Unlock()
 
-			cancel()
+			// The cause, so every step stopped by this one can name it.
+			cancel(err)
 
 			return
 		}

@@ -3518,6 +3518,20 @@ var Mutants = []Mutant{
 		Package:     "./engine/guest/",
 	},
 	{
+		Name:        "core: a stopped step told what stopped it (E969)",
+		File:        "engine/core/schedule.go",
+		Anchor:      "\t\t\t\terr = cancelled(n.Meta.Source, context.Cause(ctx))",
+		Replacement: "",
+		Package:     "./engine/core/",
+	},
+	{
+		Name:        "core: superseded work not counted as failure (E969)",
+		File:        "engine/core/worsefailure.go",
+		Anchor:      "\t\tif !benignCancel(f.err) {",
+		Replacement: "\t\tif true {",
+		Package:     "./engine/core/",
+	},
+	{
 		Name:        "core: the blame comparison being a total order (E968)",
 		File:        "engine/core/worsefailure.go",
 		Anchor:      "\t\tif nextFile < curFile {",

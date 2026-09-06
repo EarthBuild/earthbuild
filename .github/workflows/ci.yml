@@ -517,6 +517,10 @@ jobs:
       RUNS_ON: "ubuntu-26.04"
       BINARY: "native"
       SUDO: "sudo"
+      # The diagnostics fire at 30s and 90s and a log is only retrievable once
+      # the job ends, so eight minutes is everything this probe can tell us.
+      # Waiting out the suite's 45 was the whole cost being removed.
+      TIMEOUT_MINUTES: 8
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}

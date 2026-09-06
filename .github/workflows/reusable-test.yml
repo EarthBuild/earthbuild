@@ -32,6 +32,13 @@ on:
         required: false
         type: boolean
         default: false
+      # Minutes the test step may take before it is treated as hung. 45 suits a
+      # suite, which may legitimately retry three times; a probe that only needs
+      # its first minute of output says so and gets its log back sooner.
+      TIMEOUT_MINUTES:
+        required: false
+        type: number
+        default: 45
     secrets:
       DOCKERHUB_TOKEN:
         required: false
@@ -87,10 +94,13 @@ jobs:
         # never coming, ran the full 360 minutes GitHub allows, and produced no
         # diagnosis at all (E967).
         #
-        # 45 minutes because the retry wrapper may legitimately make three
-        # attempts inside this one step and a suite takes 4-10 minutes; anything
-        # past that is a hang, not a slow run.
-        timeout-minutes: 45
+        # 45 minutes by default because the retry wrapper may legitimately make
+        # three attempts inside this one step and a suite takes 4-10 minutes;
+        # anything past that is a hang, not a slow run. A caller that only wants
+        # the first minute of output can ask for less - and a log is only
+        # retrievable once the job ends, so that is the difference between a
+        # diagnostic round of ten minutes and one of an hour.
+        timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
         run: |
           # **The engine goes on the command line, not through the environment.**
           # `stage2-setup` sets EARTH_ENGINE=buildkit for every non-native suite,

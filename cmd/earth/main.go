@@ -91,6 +91,15 @@ func main() {
 		return
 	}
 
+	// The microVM's network shim, for the same reason and in the same place: it
+	// is a re-exec of this binary that makes a namespace and a tap and then
+	// becomes the VMM, and its arguments are the VMM's rather than the CLI's.
+	if len(os.Args) > 1 && os.Args[1] == exec.NetShimCommand {
+		exec.NetShimMain(os.Args[2:])
+
+		return
+	}
+
 	// Having got past that, this binary demonstrably dispatches the agent - so
 	// the engine may run it as one rather than hunting for a separate file.
 	exec.SelfServesAsGuest()

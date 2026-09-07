@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/netip"
 	"os"
-	"strings"
 
 	"github.com/EarthBuild/earthbuild/cmd/earth-vmboot/vmboot"
 	"github.com/EarthBuild/earthbuild/engine/guest"
@@ -132,13 +131,6 @@ func hostResolver() netip.Addr {
 // rather than leaving a step to fail on a name that will not resolve.
 func guestNet() (vmboot.Net, string) {
 	name := os.Getenv(EnvTap)
-	if name == "" {
-		name = defaultTap
-	}
-
-	if strings.EqualFold(name, "off") {
-		return vmboot.Net{}, ""
-	}
 
 	tap, err := tapNet(name)
 	if err != nil {

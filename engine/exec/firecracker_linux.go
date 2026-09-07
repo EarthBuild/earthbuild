@@ -68,6 +68,10 @@ type Firecracker struct {
 	net     vmboot.Net
 	release func()
 	console *os.File
+	// ownNet is set when the engine provides the guest's network itself, which
+	// is the default; own is the stack it started. See userNet.
+	ownNet bool
+	own    *userNet
 	// conn is the agent's own channel, kept so that stopping can close it: the
 	// agent ends at end-of-stream, which is what lets the guest flush.
 	conn Conn
@@ -228,12 +232,31 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 		return nil, err
 	}
 
+	argv := []string{f.Binary, "--no-api", "--config-file", cfg,
+		"--api-sock", filepath.Join(dir, "fc.sock")}
+
+	// **Through the shim when the engine provides the network itself**, which
+	// is the default: the VMM has to run inside a network namespace that has a
+	// tap in it, and neither the namespace nor the tap can be made by a process
+	// that is already running. See NetShimMain.
+	//
 	// Not CommandContext: the context ends the *build*, and a VM killed by it
 	// dies before Stop can take its sockets away. Stop is the only thing that
 	// ends this process.
 	//nolint:gosec,noctx // the argv is this package's; the context reason is above
-	cmd := osexec.Command(f.Binary, "--no-api", "--config-file", cfg,
-		"--api-sock", filepath.Join(dir, "fc.sock"))
+	cmd := osexec.Command(argv[0], argv[1:]...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	var back *net.UnixConn
+
+	if f.ownNet {
+		var shimErr error
+
+		back, shimErr = f.throughNetShim(cmd, argv)
+		if shimErr != nil {
+			return nil, shimErr
+		}
+	}
 
 	// **The guest's console goes to a file, not to the terminal.** It is where
 	// earth-vmboot and the kernel report a boot that does not reach the agent,
@@ -257,7 +280,6 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 
 	f.console = console
 	cmd.Stdout, cmd.Stderr = console, console
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	err = cmd.Start()
 	if err != nil {
@@ -266,6 +288,15 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 
 	f.cmd = cmd
 	f.gone = make(chan struct{})
+
+	if back != nil {
+		err = f.takeNetFrom(back)
+		if err != nil {
+			_ = f.stopLocked()
+
+			return nil, err
+		}
+	}
 
 	// **Waited for, so a VMM that stops is noticed.** Nothing else reaps it -
 	// Stop kills the process group - and without this a guest that reset itself
@@ -612,6 +643,11 @@ func (f *Firecracker) stopLocked() error {
 		_ = syscall.Kill(-f.cmd.Process.Pid, syscall.SIGKILL)
 	}
 
+	if f.own != nil {
+		f.own.Close()
+		f.own = nil
+	}
+
 	if f.console != nil {
 		_ = f.console.Close()
 		f.console = nil
@@ -847,10 +883,25 @@ func (f *Firecracker) GuestStore() string { return vmboot.StoreAt }
 // `RUN apk add` fail on a name that will not resolve, which reads as a broken
 // mirror rather than as a machine with no network.
 func (f *Firecracker) attachNet() {
-	f.tap = os.Getenv(EnvTap)
-	if f.tap == "" {
-		f.tap = defaultTap
+	asked := os.Getenv(EnvTap)
+
+	// **The default is a network the engine makes itself**, with no privilege
+	// and nothing installed: a user namespace of its own, a tap inside it, and
+	// a userspace TCP/IP stack on this side of it. See userNet.
+	if asked == "" {
+		f.ownNet, f.tap = true, tapName
+		f.net = (&userNet{}).guestConfig()
+
+		return
 	}
+
+	if strings.EqualFold(asked, "off") {
+		return
+	}
+
+	// A device somebody made as root, for a machine that wants the guest on its
+	// real network rather than behind a stack in this process.
+	f.tap = asked
 
 	net, why := guestNet()
 	if why != "" {

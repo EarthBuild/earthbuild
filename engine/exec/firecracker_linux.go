@@ -67,6 +67,9 @@ type Firecracker struct {
 	tap     string
 	net     vmboot.Net
 	release func()
+	console *os.File
+	// gone is closed when the VMM process ends, however it ended. See dialPort.
+	gone    chan struct{}
 	stopped bool
 
 	// exporting holds the export device to one artifact at a time. There is one
@@ -229,10 +232,28 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 	cmd := osexec.Command(f.Binary, "--no-api", "--config-file", cfg,
 		"--api-sock", filepath.Join(dir, "fc.sock"))
 
-	// The guest's console, which is where earth-vmboot and the kernel report a
-	// boot that does not reach the agent. Without it a failure to mount the
-	// store is a connection that never arrives and no reason anywhere.
-	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
+	// **The guest's console goes to a file, not to the terminal.** It is where
+	// earth-vmboot and the kernel report a boot that does not reach the agent,
+	// so it cannot be discarded - and it is three hundred lines of kernel
+	// initialisation and unimplemented-port complaints per build, so it cannot
+	// go where the author is reading either. Kept, named when something goes
+	// wrong, and quiet when nothing does.
+	// In the store rather than beside the sockets, because the sockets go when
+	// the sandbox stops and the account of a failed boot is worth reading after
+	// the build that failed. One per sandbox, overwritten: it is the last
+	// build's console, which is the one anybody wants.
+	err = os.MkdirAll(f.StoreDir(), 0o750)
+	if err != nil {
+		return nil, fmt.Errorf("make room for the guest's console: %w", err)
+	}
+
+	console, err := os.Create(filepath.Join(f.StoreDir(), "console.log"))
+	if err != nil {
+		return nil, fmt.Errorf("make room for the guest's console: %w", err)
+	}
+
+	f.console = console
+	cmd.Stdout, cmd.Stderr = console, console
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	err = cmd.Start()
@@ -241,16 +262,59 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 	}
 
 	f.cmd = cmd
+	f.gone = make(chan struct{})
 
-	conn, err := dialGuest(ctx, vsock)
+	// **Waited for, so a VMM that stops is noticed.** Nothing else reaps it -
+	// Stop kills the process group - and without this a guest that reset itself
+	// leaves every dial to time out rather than to answer at once.
+	go func(gone chan struct{}) {
+		_ = cmd.Wait()
+
+		close(gone)
+	}(f.gone)
+
+	conn, err := f.dialGuest(ctx, vsock)
 	if err != nil {
+		// The console is the only account of why: a guest that cannot mount its
+		// store says so there and nowhere else, and without this the failure is
+		// a connection that never arrived and no reason anywhere.
+		why := fmt.Errorf("%w%s", err, consoleTail(console.Name()))
+
 		_ = f.stopLocked()
 
-		return nil, err
+		return nil, why
 	}
 
 	return conn, nil
 }
+
+// consoleTail is the end of the guest's console, for a failure to quote.
+//
+// **The end, and a bounded amount of it.** The start is the kernel finding its
+// devices, which is the same every time; whatever went wrong is last. A guest
+// that failed early may also have written nothing at all, and saying so is
+// better than an empty quotation.
+func consoleTail(at string) string {
+	b, err := os.ReadFile(at) //nolint:gosec // a path this package made
+	if err != nil {
+		return "\n  its console could not be read: " + err.Error()
+	}
+
+	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	if len(lines) == 1 && lines[0] == "" {
+		return "\n  its console at " + at + " is empty, so it did not reach its own first line"
+	}
+
+	if len(lines) > consoleLines {
+		lines = lines[len(lines)-consoleLines:]
+	}
+
+	return "\n  the last of its console (" + at + "):\n    " + strings.Join(lines, "\n    ")
+}
+
+// consoleLines is how much of the console a failure quotes. Enough for a mount
+// failure and its context, short of pasting a kernel boot into an error.
+const consoleLines = 20
 
 // writeConfig states the whole machine in one file, which is what `--no-api`
 // takes.
@@ -346,11 +410,19 @@ func orDefault(v, fallback int) int {
 // because the socket appears when the VMM starts and the *agent* binds its port
 // a moment later - a connection made in between is refused, and refusing to
 // retry would make a working guest look broken.
-func dialGuest(ctx context.Context, vsock string) (Conn, error) {
-	return dialPort(ctx, vsock, vmboot.VsockPort)
+func (f *Firecracker) dialGuest(ctx context.Context, vsock string) (Conn, error) {
+	return dialPort(ctx, vsock, vmboot.VsockPort, f.gone)
 }
 
-func dialPort(ctx context.Context, vsock string, port uint32) (Conn, error) {
+// dialPort retries until the guest answers, the deadline passes, or the VMM
+// stops.
+//
+// **`gone` is what turns a thirty-second wait into an immediate answer.** A
+// guest that cannot mount its store says so and resets, Firecracker exits, and
+// every dial after that is `connection refused` - a verdict, not a "not yet".
+// Retrying it to the deadline delays the diagnosis the guest has already
+// written by half a minute.
+func dialPort(ctx context.Context, vsock string, port uint32, gone <-chan struct{}) (Conn, error) {
 	deadline := time.Now().Add(guestBootTimeout)
 
 	var last error
@@ -358,6 +430,13 @@ func dialPort(ctx context.Context, vsock string, port uint32) (Conn, error) {
 	for time.Now().Before(deadline) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
+		}
+
+		select {
+		case <-gone:
+			return nil, fmt.Errorf("the guest stopped before it answered on vsock port %d: %w",
+				port, last)
+		default:
 		}
 
 		conn, err := tryDial(vsock, port)
@@ -370,9 +449,8 @@ func dialPort(ctx context.Context, vsock string, port uint32) (Conn, error) {
 		time.Sleep(guestPollInterval)
 	}
 
-	return nil, fmt.Errorf("the guest did not answer on vsock port %d within %s: %w"+
-		"\n  its console is on this process's stderr, and a guest that cannot"+
-		" mount its store says so there", port, guestBootTimeout, last)
+	return nil, fmt.Errorf("the guest did not answer on vsock port %d within %s: %w",
+		port, guestBootTimeout, last)
 }
 
 const (
@@ -411,8 +489,36 @@ func tryDial(vsock string, port uint32) (Conn, error) {
 	return c, nil
 }
 
+// greetingPatience bounds the wait for `OK <n>`.
+//
+// **A dial that succeeds is not a guest that is there.** Firecracker's
+// multiplexer socket exists for as long as the VMM process does, and the VMM
+// outlives a guest that halted - so a panicked guest leaves a socket that
+// accepts connections and answers nothing. Without this the read blocks for
+// ever and the retry loop's own deadline never gets a turn: a guest handed an
+// unformatted store device printed a perfectly good diagnosis and then hung the
+// build that could have shown it.
+//
+// Short, because the answer comes from the VMM rather than from the guest: it
+// is a local socket write and a local read, not a boot.
+const greetingPatience = 2 * time.Second
+
 // readLine reads one line without reading past it. See tryDial.
 func readLine(c net.Conn) (string, error) {
+	// Cleared before returning, so the caller's connection is left as it was
+	// found: this is the protocol channel, and a deadline left on it would
+	// expire in the middle of somebody's build.
+	err := c.SetReadDeadline(time.Now().Add(greetingPatience))
+	if err != nil {
+		return "", fmt.Errorf("set a deadline on the guest's greeting: %w", err)
+	}
+
+	defer func() { _ = c.SetReadDeadline(time.Time{}) }()
+
+	return readLineNow(c)
+}
+
+func readLineNow(c net.Conn) (string, error) {
 	var (
 		out [64]byte
 		n   int
@@ -452,6 +558,11 @@ func (f *Firecracker) stopLocked() error {
 	if f.release != nil {
 		f.release()
 		f.release = nil
+	}
+
+	if f.console != nil {
+		_ = f.console.Close()
+		f.console = nil
 	}
 
 	// Cleared here so a PlaceBlob racing a Stop is refused with "not running"
@@ -539,7 +650,7 @@ func (f *Firecracker) PlaceBlob(ctx context.Context, host string) (string, error
 	// each gets its own, which is what makes them independent - one that fails
 	// mid-blob closes its own channel and leaves the others alone. Firecracker
 	// multiplexes them onto the one device.
-	conn, err := dialPort(ctx, vsock, vmboot.BulkPort)
+	conn, err := dialPort(ctx, vsock, vmboot.BulkPort, f.gone)
 	if err != nil {
 		return "", fmt.Errorf("open a bulk channel for %s: %w", filepath.Base(host), err)
 	}
@@ -651,7 +762,7 @@ func (f *Firecracker) FetchExport(ctx context.Context, guestPath, into string) e
 
 // askForExport tells the guest what to write and reads how much it wrote.
 func (f *Firecracker) askForExport(ctx context.Context, vsock, guestPath string) (int64, error) {
-	conn, err := dialPort(ctx, vsock, vmboot.ExportPort)
+	conn, err := dialPort(ctx, vsock, vmboot.ExportPort, f.gone)
 	if err != nil {
 		return 0, fmt.Errorf("open the export channel for %s: %w", guestPath, err)
 	}

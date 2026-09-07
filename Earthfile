@@ -356,7 +356,15 @@ engine-race:
     # reports 176 of 3172. Diffing the two skip lists names those two as new and
     # one other as no longer skipping. CI could not have shown this - it prints
     # the top forty and there are a hundred and sixty-three (E824).
-    ARG SKIP_CEILING=176
+    #
+    # 177 since the microVM sandbox: `TestAMicroVMBootsAndItsAgentAnswers` needs
+    # `/dev/kvm`, a hosted runner has none, and Firecracker cannot emulate what
+    # it needs - so that one is skipped here for as long as CI runs on hosted
+    # runners, and is run on a machine with hardware virtualisation instead. The
+    # number came from CI's own count (177 of 3478), not from a dev box, because
+    # a ceiling raised from the other machine's total is a ceiling that turns CI
+    # red.
+    ARG SKIP_CEILING=177
     # Nothing is excluded. Every test needing a privilege this container does
     # not grant - a user namespace, an overlay mount, a device node - now skips
     # with the reason, because each asks whether the *operation* works rather

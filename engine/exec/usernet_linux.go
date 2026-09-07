@@ -298,6 +298,7 @@ func guestSettings() []string {
 		image.EnvHashOnUnpack,
 		overlay.EnvScratchTmpfs,
 		guestd.EnvProfile,
+		guestd.EnvStoreFree,
 		guestd.EnvProfileMode,
 		timing.Env,
 	} {

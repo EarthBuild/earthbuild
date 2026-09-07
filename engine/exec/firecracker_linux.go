@@ -55,7 +55,9 @@ type Firecracker struct {
 	// are one directory only where a filesystem is shared, and none is here.
 	Store string
 
-	// VCPUs and MemoryMiB size the guest. Zero takes the defaults below.
+	// VCPUs and MemoryMiB size the guest. Zero takes this machine's own
+	// processors and half its memory - see defaultCPUs and defaultMemory, and
+	// EnvVMCPUs for why a build wants that rather than a small slice.
 	VCPUs     int
 	MemoryMiB int
 
@@ -87,12 +89,7 @@ type Firecracker struct {
 	exporting sync.Mutex
 }
 
-// Defaults sized to run one step rather than to be generous: a VM is per worker,
-// so these are paid once, but a guest that swaps is slower than no VM at all.
 const (
-	defaultVCPUs     = 4
-	defaultMemoryMiB = 2048
-
 	// guestCID is the guest's vsock address. 2 is the host and 0-2 are
 	// reserved, so 3 is the first a guest may have.
 	guestCID = 3
@@ -199,7 +196,7 @@ func (f *Firecracker) StoreDir() string {
 // is given four vCPUs by default and the machine starting it may have
 // thirty-two; a build that runs one step per host core then puts thirty-two of
 // them inside this. See EnvVMCPUs.
-func (f *Firecracker) CPUs() int { return orDefault(f.VCPUs, defaultVCPUs) }
+func (f *Firecracker) CPUs() int { return orDefault(f.VCPUs, defaultCPUs()) }
 
 // Confines reports that a step's writes are held to its own layer.
 func (f *Firecracker) Confines() bool { return true }
@@ -417,8 +414,8 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			"uds_path":  vsock,
 		},
 		"machine-config": object{
-			"vcpu_count":   orDefault(f.VCPUs, defaultVCPUs),
-			"mem_size_mib": orDefault(f.MemoryMiB, defaultMemoryMiB),
+			"vcpu_count":   f.CPUs(),
+			"mem_size_mib": orDefault(f.MemoryMiB, defaultMemory()),
 		},
 	}
 

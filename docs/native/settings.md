@@ -511,7 +511,14 @@ Needs the four settings above. Default: off.
 
 ### `EARTH_VM_CPUS`, `EARTH_VM_MEMORY_MIB`
 
-How large the guest is. Default: 4 vCPUs and 2048 MiB.
+How large the guest is. **Default: every processor this machine has, and half its memory.**
+
+The guest is the build machine rather than a helper beside it - it unpacks the layers, runs the
+steps and does the compiling, while the process that started it waits - so a small slice of the
+host is exactly the wrong shape. Half the memory rather than all of it because a VM's memory is
+committed: the host cannot use what the guest has been given, and taking all of it is how a build
+takes the machine down with it. A guest never gets less than 2048 MiB, which is what it takes to
+unpack a large image.
 
 **Parallelism follows the vCPUs, so raising one raises both.** A build runs a step per processor,
 and the processors that matter are the *guest's* - the machine starting it may have thirty-two

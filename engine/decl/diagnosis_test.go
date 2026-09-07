@@ -52,12 +52,17 @@ func TestATruncationNamesTheFieldAndTheOffset(t *testing.T) {
 	}
 }
 
-// Damage in the store says where the file is and what to do about it.
+// Damage in the store says where the file was and what has been done about it.
 //
-// A declaration is named by its contents, so the remedy is unusually simple and
-// unusually easy to miss: delete it and it will be fetched again. A message that
-// stops at "damaged" leaves the reader wondering whether they have lost
-// something.
+// A declaration is named by its contents, so the remedy is unusually simple -
+// and the engine now applies it rather than describing it: the file is removed
+// and will be fetched again. The message has to say so, because a build that
+// fails and then works without anybody touching anything is otherwise
+// indistinguishable from a flake.
+//
+// It said "safe to delete" until the removal was automatic. That wording is what
+// this asserted, and updating it is the behaviour changing rather than the test
+// being loosened: what is still required is the path, and what became of it.
 func TestDamageSaysWhereAndWhatToDo(t *testing.T) {
 	t.Parallel()
 
@@ -78,7 +83,7 @@ func TestDamageSaysWhereAndWhatToDo(t *testing.T) {
 		t.Fatal("a damaged declaration read back clean")
 	}
 
-	for _, want := range []string{decl.Path(store, id), "delete"} {
+	for _, want := range []string{decl.Path(store, id), "removed", "fetched again"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the damage report does not mention %q:\n  %v", want, err)
 		}

@@ -70,6 +70,20 @@ func Write(store string, d Declaration) (ir.NodeID, error) {
 		return ir.NodeID{}, fmt.Errorf("write a declaration: %w", err)
 	}
 
+	// **Synced before the rename, or the rename can land without the bytes.**
+	// A rename is atomic in the directory and says nothing about the file's
+	// contents: a machine that stops between the two leaves a zero-length file
+	// under a name that promises a declaration, which every later build then
+	// reads and refuses. That is not hypothetical - it is what a microVM killed
+	// mid-flight left in its store, and the build failed on it repeatedly.
+	err = tmp.Sync()
+	if err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
+
+		return ir.NodeID{}, fmt.Errorf("flush a declaration: %w", err)
+	}
+
 	err = tmp.Close()
 	if err != nil {
 		_ = os.Remove(tmp.Name())
@@ -105,12 +119,34 @@ func Read(store string, id ir.NodeID) (Declaration, bool, error) {
 
 	d, err := Decode(b)
 	if err != nil {
-		// **The remedy is simple and easy to miss.** A declaration is named by
-		// its contents, so nothing here is irreplaceable: whatever wrote it can
-		// write it again, and a reader who is not told that is left wondering
-		// what they have lost.
-		return Declaration{}, false, fmt.Errorf("the declaration at %s is damaged: %w"+
-			"\n  it is named by its contents, so it is safe to delete and will be fetched again",
+		// **The remedy was simple, always the same, and left to the reader.** A
+		// declaration is named by its contents, so nothing here is
+		// irreplaceable: whatever wrote it writes it again. The message said as
+		// much and then left the file in place, so every build after it failed
+		// in the same way and the store could only be repaired by hand.
+		//
+		// Removed and reported absent, because absent is what it now is - and
+		// absent is the answer that makes the caller fetch. This is not the
+		// case the "absent and damaged are different answers" rule above is
+		// about: that one is about never *silently* dropping what an image
+		// declared, and a file that does not decode declares nothing.
+		removeErr := os.Remove(Path(store, id))
+		if removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+			return Declaration{}, false, fmt.Errorf("the declaration at %s is damaged"+
+				" and could not be removed: %w"+
+				"\n  it is named by its contents, so deleting it is safe and it will"+
+				" be fetched again", Path(store, id), removeErr)
+		}
+
+		// **Removed, and still an error.** Both, because they answer different
+		// questions: the removal is what makes the *next* build work, and the
+		// error is what makes *this* one say why. Reporting it as absent
+		// instead would heal the store and hand the reader the caller's vaguer
+		// complaint - "this store holds neither a layer nor a declaration" -
+		// for a fault that had a precise name a moment earlier.
+		return Declaration{}, false, fmt.Errorf("the declaration at %s was damaged: %w"+
+			"\n  it is named by its contents, so it has been removed and will be"+
+			" fetched again; this build fails and the next will not",
 			Path(store, id), err)
 	}
 

@@ -57,6 +57,7 @@ func run() error {
 		return err
 	}
 
+	saySettings()
 	sayStore()
 
 	err = writeResolver()
@@ -322,7 +323,28 @@ func halt() {
 // What the kernel passed in is kept, because boot arguments are the only way a
 // setting reaches a guest at all: there is no shell here and no profile to read.
 func agentEnv(boot []string) []string {
-	return append(append([]string{}, boot...), "EARTH_GUEST_ROOT="+storeAt)
+	out := append(append([]string{}, boot...), fromCmdline()...)
+
+	// Last, so the store is this guest's own whatever anything else said: it is
+	// a fact about this machine rather than a setting.
+	return append(out, "EARTH_GUEST_ROOT="+storeAt)
+}
+
+// fromCmdline is the settings the host sent, which is every setting the guest
+// has.
+//
+// **The kernel command line is the only channel that exists before the guest
+// does.** Reading it here rather than in `run` so that `agentEnv` is the whole
+// answer to "what does the agent see", and a test can ask.
+func fromCmdline() []string {
+	b, err := os.ReadFile("/proc/cmdline")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: no settings: %v\n", err)
+
+		return nil
+	}
+
+	return vmboot.ParseEnv(string(b))
 }
 
 // serveExports answers the host's requests for a staged artifact.
@@ -481,4 +503,18 @@ func sayStore() {
 	}
 
 	fmt.Fprintf(os.Stderr, "earth-vmboot: store: %d layer(s) in %s\n", len(entries), at)
+}
+
+// saySettings reports how many settings reached this guest.
+//
+// **Because not arriving is silent.** A setting the guest never received is not
+// an error anywhere: the guest uses its default, the build works, and an A/B
+// between two values of it produces one result twice. That is how a whole class
+// of them was found to be missing - fifteen settings the agent reads, and a
+// microVM was passing none.
+//
+// A count rather than the values: some are paths and one day one will be a
+// secret, and the question this answers is "did they cross".
+func saySettings() {
+	fmt.Fprintf(os.Stderr, "earth-vmboot: settings: %d from the host\n", len(fromCmdline()))
 }

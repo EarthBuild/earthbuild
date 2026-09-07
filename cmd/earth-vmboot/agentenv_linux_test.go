@@ -4,6 +4,7 @@ package main
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -32,5 +33,29 @@ func TestTheBootEnvironmentIsKept(t *testing.T) {
 
 	if !slices.Contains(got, "EARTH_TRACE_PIN=1") {
 		t.Errorf("a setting given at boot did not reach the agent: %v", got)
+	}
+}
+
+// The store is the guest's own, whatever the host sent.
+//
+// A setting is a request and this is a fact: the device is mounted at /store by
+// this process, so a host that sent a different `EARTH_GUEST_ROOT` - by mistake,
+// or from a stale sandbox's settings - must not move the agent's store to a
+// path that holds nothing.
+func TestTheStoreWinsOverAnythingSent(t *testing.T) {
+	t.Parallel()
+
+	got := agentEnv([]string{"EARTH_GUEST_ROOT=/somewhere/else"})
+
+	last := ""
+
+	for _, kv := range got {
+		if strings.HasPrefix(kv, "EARTH_GUEST_ROOT=") {
+			last = kv
+		}
+	}
+
+	if last != "EARTH_GUEST_ROOT="+storeAt {
+		t.Errorf("the agent would use %q", last)
 	}
 }

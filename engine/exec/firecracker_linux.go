@@ -398,7 +398,8 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			// XFS reports a bad superblock at warning level, so what matters
 			// still comes through.
 			"boot_args": strings.TrimSpace(
-				"console=ttyS0 loglevel=5 reboot=k panic=1 pci=off " + f.net.BootArgs()),
+				"console=ttyS0 loglevel=5 reboot=k panic=1 pci=off " +
+					f.net.BootArgs() + " " + vmboot.EncodeEnv(guestSettings())),
 		},
 		"drives": []object{},
 		"vsock": object{

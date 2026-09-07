@@ -17,6 +17,11 @@ import (
 
 	"github.com/EarthBuild/earthbuild/cmd/earth-vmboot/vmboot"
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
+	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/guestd"
+	"github.com/EarthBuild/earthbuild/engine/image"
+	"github.com/EarthBuild/earthbuild/engine/mat/overlay"
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // The addresses a guest sees when the engine provides its own network.
@@ -266,4 +271,40 @@ func fileOf(c *net.UnixConn) *os.File {
 	}
 
 	return f
+}
+
+// guestSettings is what this machine passes to its guest.
+//
+// **The list Apple's backend passes, because the guest is the same agent.** It
+// reads fifteen settings and a microVM gave it none: a guest's environment
+// comes from its kernel rather than from the process that started the machine,
+// so every one of them arrived unset and was silently ignored. That is not a
+// failure anyone sees - it is an A/B whose two arms are the same arm, which is
+// how it was found.
+//
+// Only what is set, so the command line carries what somebody asked for and
+// nothing else. `EARTH_GUEST_ROOT` is deliberately absent: the store is a fact
+// about the machine and `earth-vmboot` states it.
+func guestSettings() []string {
+	var out []string
+
+	for _, name := range []string{
+		guest.EnvIdle,
+		guest.EnvTracePin,
+		guest.EnvStepShim,
+		guest.EnvDentryLimit,
+		guest.EnvShareExports,
+		guest.EnvCloneLayers,
+		image.EnvHashOnUnpack,
+		overlay.EnvScratchTmpfs,
+		guestd.EnvProfile,
+		guestd.EnvProfileMode,
+		timing.Env,
+	} {
+		if v := os.Getenv(name); v != "" {
+			out = append(out, name+"="+v)
+		}
+	}
+
+	return out
 }

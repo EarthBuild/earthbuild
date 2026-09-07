@@ -135,6 +135,7 @@ func serve(conn *os.File) error {
 	}
 
 	cmd := osexec.Command(agent) //nolint:gosec // a fixed path in our own initramfs
+	cmd.Env = agentEnv(os.Environ())
 	cmd.Stdin, cmd.Stdout = conn, conn
 	// Its diagnostics go to the console rather than down the protocol channel,
 	// where they would be read as frames and desynchronise the stream.
@@ -149,4 +150,18 @@ func halt() {
 	_ = unix.Reboot(unix.LINUX_REBOOT_CMD_POWER_OFF)
 
 	select {}
+}
+
+// agentEnv is the environment the agent runs under.
+//
+// **The store has to be said.** The guest's own default is
+// `/var/lib/earthbuild`, which inside a microVM is the initramfs - a tmpfs the
+// size of the guest's memory, holding nothing, and thrown away with the
+// machine. The store is the block device mounted at /store and nothing else
+// tells the agent so.
+//
+// What the kernel passed in is kept, because boot arguments are the only way a
+// setting reaches a guest at all: there is no shell here and no profile to read.
+func agentEnv(boot []string) []string {
+	return append(append([]string{}, boot...), "EARTH_GUEST_ROOT="+storeAt)
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,7 +23,7 @@ func TestABlobArrivesWhole(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	got := receive(t, dir, func(w io.Writer) {
+	got := receive(t, dir, func(w io.ReadWriter) {
 		if err := bulk.SendBlob(w, "sha256-abc", bytes.NewReader(want), int64(len(want))); err != nil {
 			t.Errorf("send: %v", err)
 		}
@@ -48,7 +49,7 @@ func TestSeveralBlobsShareTheChannel(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	got := receive(t, dir, func(w io.Writer) {
+	got := receive(t, dir, func(w io.ReadWriter) {
 		for _, name := range []string{"a", "b", "c"} {
 			body := strings.Repeat(name, 1000)
 			if err := bulk.SendBlob(w, name, strings.NewReader(body), int64(len(body))); err != nil {
@@ -87,31 +88,56 @@ func TestATruncatedBlobIsRefused(t *testing.T) {
 func TestANameThatEscapesIsRefused(t *testing.T) {
 	t.Parallel()
 
-	var buf bytes.Buffer
+	host, guestSide := net.Pipe()
+	got := make(chan error, 1)
 
-	if err := bulk.SendBlob(&buf, "../escaped", strings.NewReader("x"), 1); err != nil {
-		t.Fatal(err)
-	}
+	go func() {
+		_, err := bulk.ReceiveBlobs(guestSide, t.TempDir())
+		got <- err
 
-	dir := t.TempDir()
+		_ = guestSide.Close()
+	}()
 
-	_, err := bulk.ReceiveBlobs(&buf, dir)
-	if err == nil {
+	// The send fails too - the receiver closes rather than acknowledging - but
+	// the receiver's refusal is the one under test.
+	_ = bulk.SendBlob(host, "../escaped", strings.NewReader("x"), 1)
+
+	if err := <-got; err == nil {
 		t.Fatal("a blob wrote outside the directory it was given")
 	}
 }
 
-// receive runs send into a pipe and returns how many blobs landed.
-func receive(t *testing.T, dir string, send func(io.Writer)) int {
+// receive runs send against a live receiver and returns how many blobs landed.
+//
+// **A pipe rather than a buffer**, because the channel is now bidirectional:
+// the receiver acknowledges each blob and the sender waits for it, so the two
+// have to run at once. A buffer would deadlock on the first acknowledgement,
+// which is the shape of the bug this acknowledgement exists to fix.
+func receive(t *testing.T, dir string, send func(io.ReadWriter)) int {
 	t.Helper()
 
-	var buf bytes.Buffer
+	host, guestSide := net.Pipe()
 
-	send(&buf)
+	done := make(chan struct{})
 
-	n, err := bulk.ReceiveBlobs(&buf, dir)
-	if err != nil && err != io.EOF {
-		t.Fatalf("receive: %v", err)
+	var (
+		n     int
+		rxErr error
+	)
+
+	go func() {
+		n, rxErr = bulk.ReceiveBlobs(guestSide, dir)
+
+		close(done)
+	}()
+
+	send(host)
+
+	_ = host.Close()
+	<-done
+
+	if rxErr != nil && rxErr != io.EOF {
+		t.Fatalf("receive: %v", rxErr)
 	}
 
 	entries, err := os.ReadDir(dir)
@@ -126,4 +152,36 @@ func receive(t *testing.T, dir string, send func(io.Writer)) int {
 	}
 
 	return len(entries)
+}
+
+// **The sender does not return until the blob is readable by name.**
+//
+// Closing the channel is not a barrier: the receiver learns the blob is
+// complete by reading end-of-stream, and renames it into place after that. A
+// sender that returned at `Close` would hand its caller a path and race the
+// rename - which is what happened, and produced a guest reporting `no such
+// file` for a blob whose arrival it had just logged.
+func TestTheSenderWaitsForTheBlobToBeInPlace(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	host, guestSide := net.Pipe()
+
+	go func() {
+		_, _ = bulk.ReceiveBlobs(guestSide, dir)
+		_ = guestSide.Close()
+	}()
+
+	body := strings.Repeat("x", 1<<16)
+
+	err := bulk.SendBlob(host, "sha256-abc", strings.NewReader(body), int64(len(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The instant Send returns, and with no sleep: the point is that waiting is
+	// unnecessary, so a test that waited would pass against the bug.
+	if _, err := os.Stat(filepath.Join(dir, "sha256-abc")); err != nil {
+		t.Errorf("the sender returned before the blob was in place: %v", err)
+	}
 }

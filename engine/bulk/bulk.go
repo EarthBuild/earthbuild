@@ -36,6 +36,19 @@ const (
 	// maxName bounds the name field. A blob is named by its digest, which
 	// is 71 bytes; the rest is room for a prefix.
 	maxName = 256
+
+	// ack is what the receiver sends once a blob is readable under its own
+	// name, and the sender waits for.
+	//
+	// **Because closing is not a barrier.** The receiver renames the blob into
+	// place after it has the whole of it, and a sender that returned at `Close`
+	// would hand its caller a path and race that rename. It did: a guest
+	// reported `no such file` for a blob it had just logged the arrival of.
+	//
+	// One byte rather than a status, because there is nothing to say: a failure
+	// closes the channel, and a channel that closes without this is a blob that
+	// did not land.
+	ack = 0x06 // ASCII ACK, for the benefit of anyone reading a packet capture
 )
 
 var errDesync = errors.New("the bulk channel lost its framing")
@@ -46,7 +59,7 @@ var errDesync = errors.New("the bulk channel lost its framing")
 // receiver has to know how much to expect before it starts: a stream that ends
 // early must be a failure and not a short file. A reader that gives fewer bytes
 // than promised fails here, before the receiver can accept a partial layer.
-func SendBlob(w io.Writer, name string, body io.Reader, size int64) error {
+func SendBlob(w io.ReadWriter, name string, body io.Reader, size int64) error {
 	if name == "" || len(name) > maxName {
 		return fmt.Errorf("a blob's name is %d bytes and the limit is %d",
 			len(name), maxName)
@@ -83,6 +96,22 @@ func SendBlob(w io.Writer, name string, body io.Reader, size int64) error {
 			" which is a wrong build that reports success", name, size, n)
 	}
 
+	// Waited for, so the caller may use the path the moment this returns. See
+	// ack.
+	var back [1]byte
+
+	_, err = io.ReadFull(w, back[:])
+	if err != nil {
+		return fmt.Errorf("%s was sent and never acknowledged: %w"+
+			"\n  the receiver renames a blob into place before acknowledging it,"+
+			" so this is a blob that did not land", name, err)
+	}
+
+	if back[0] != ack {
+		return fmt.Errorf("%w: %s was answered with %#x rather than an"+
+			" acknowledgement", errDesync, name, back[0])
+	}
+
 	return nil
 }
 
@@ -96,7 +125,7 @@ func SendBlob(w io.Writer, name string, body io.Reader, size int64) error {
 //
 // Returns nil at a clean end. A stream that stops mid-blob is an error: the
 // sender went away, and what has been written is a fraction of a layer.
-func ReceiveBlobs(r io.Reader, dir string) (int, error) {
+func ReceiveBlobs(rw io.ReadWriter, dir string) (int, error) {
 	err := os.MkdirAll(dir, 0o750)
 	if err != nil {
 		return 0, fmt.Errorf("prepare %s for blobs: %w", dir, err)
@@ -105,7 +134,7 @@ func ReceiveBlobs(r io.Reader, dir string) (int, error) {
 	n := 0
 
 	for {
-		err := receiveBlob(r, dir)
+		err := receiveBlob(rw, dir)
 		if errors.Is(err, io.EOF) {
 			return n, nil
 		}
@@ -118,10 +147,10 @@ func ReceiveBlobs(r io.Reader, dir string) (int, error) {
 	}
 }
 
-func receiveBlob(r io.Reader, dir string) error {
+func receiveBlob(rw io.ReadWriter, dir string) error {
 	var hdr [16]byte
 
-	_, err := io.ReadFull(r, hdr[:])
+	_, err := io.ReadFull(rw, hdr[:])
 	if err != nil {
 		// A channel that ends *between* blobs has ended cleanly, and one that
 		// ends inside a header has not.
@@ -144,7 +173,7 @@ func receiveBlob(r io.Reader, dir string) error {
 
 	name := make([]byte, nameLen)
 
-	_, err = io.ReadFull(r, name)
+	_, err = io.ReadFull(rw, name)
 	if err != nil {
 		return fmt.Errorf("read a blob's name: %w", err)
 	}
@@ -155,8 +184,21 @@ func receiveBlob(r io.Reader, dir string) error {
 	}
 
 	//nolint:gosec // the size is the sender's, and the sender is the host
-	return writeBlob(at, io.LimitReader(r, int64(binary.BigEndian.Uint64(hdr[8:16]))),
+	err = writeBlob(at, io.LimitReader(rw, int64(binary.BigEndian.Uint64(hdr[8:16]))),
 		string(name))
+	if err != nil {
+		return err
+	}
+
+	// **After the rename, never before.** The acknowledgement is what makes the
+	// path the sender holds usable; sent any earlier it would say the blob is
+	// there when it is still a temporary file. See ack.
+	_, err = rw.Write([]byte{ack})
+	if err != nil {
+		return fmt.Errorf("acknowledge %s: %w", name, err)
+	}
+
+	return nil
 }
 
 // pathFor is where a named blob lands, and refuses a name that would land

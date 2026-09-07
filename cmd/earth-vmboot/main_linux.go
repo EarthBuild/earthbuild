@@ -151,10 +151,17 @@ func serveBulk(at string) {
 		// this guest's store.
 		f := os.NewFile(uintptr(conn), "bulk")
 
-		err = bulk.ReceiveBlobs(f, at)
+		n, err := bulk.ReceiveBlobs(f, at)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "earth-vmboot: bulk channel: %v\n", err)
 		}
+
+		// **Said out loud, on the console the host is already reading.** What
+		// arrived is the one fact that separates "the channel never carried it"
+		// from "the store lost it", and without it the two look identical from
+		// outside: a guest reporting `no such file` for a blob the host
+		// believes it sent.
+		fmt.Fprintf(os.Stderr, "earth-vmboot: %d blob(s) into %s\n", n, at)
 
 		_ = f.Close()
 	}

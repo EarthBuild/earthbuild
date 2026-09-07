@@ -95,7 +95,7 @@ func TestANameThatEscapesIsRefused(t *testing.T) {
 
 	dir := t.TempDir()
 
-	err := bulk.ReceiveBlobs(&buf, dir)
+	_, err := bulk.ReceiveBlobs(&buf, dir)
 	if err == nil {
 		t.Fatal("a blob wrote outside the directory it was given")
 	}
@@ -109,7 +109,7 @@ func receive(t *testing.T, dir string, send func(io.Writer)) int {
 
 	send(&buf)
 
-	err := bulk.ReceiveBlobs(&buf, dir)
+	n, err := bulk.ReceiveBlobs(&buf, dir)
 	if err != nil && err != io.EOF {
 		t.Fatalf("receive: %v", err)
 	}
@@ -117,6 +117,12 @@ func receive(t *testing.T, dir string, send func(io.Writer)) int {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// The count and the directory must agree: a receiver that reports more than
+	// it wrote is the failure this number exists to make visible.
+	if n != len(entries) {
+		t.Errorf("%d blobs reported, %d on disk", n, len(entries))
 	}
 
 	return len(entries)

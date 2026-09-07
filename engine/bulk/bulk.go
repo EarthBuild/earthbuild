@@ -87,25 +87,34 @@ func SendBlob(w io.Writer, name string, body io.Reader, size int64) error {
 }
 
 // ReceiveBlobs writes every blob on the channel into dir, until the channel
-// ends.
+// ends, and reports how many landed.
+//
+// **The count, because zero and one are the interesting difference.** A channel
+// that connected and carried nothing looks exactly like one that was never
+// opened, from the far side: a guest reporting `no such file` for a blob the
+// host believes it sent.
 //
 // Returns nil at a clean end. A stream that stops mid-blob is an error: the
 // sender went away, and what has been written is a fraction of a layer.
-func ReceiveBlobs(r io.Reader, dir string) error {
+func ReceiveBlobs(r io.Reader, dir string) (int, error) {
 	err := os.MkdirAll(dir, 0o750)
 	if err != nil {
-		return fmt.Errorf("prepare %s for blobs: %w", dir, err)
+		return 0, fmt.Errorf("prepare %s for blobs: %w", dir, err)
 	}
+
+	n := 0
 
 	for {
 		err := receiveBlob(r, dir)
 		if errors.Is(err, io.EOF) {
-			return nil
+			return n, nil
 		}
 
 		if err != nil {
-			return err
+			return n, err
 		}
+
+		n++
 	}
 }
 

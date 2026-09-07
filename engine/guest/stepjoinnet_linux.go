@@ -48,29 +48,5 @@ func joinStepNet() error {
 			at, err, sysAdminHint(err))
 	}
 
-	sayNetNS("joined " + at)
-
 	return nil
-}
-
-// sayNetNS reports which network namespace this process is in, and who it is.
-//
-// **Temporary, for E967.** CI is the only place `WITH DOCKER --compose` fails and
-// its logs cannot show the step's network state, so the one fact that decides
-// the question - whether the daemon and the step end up in the *same* namespace
-// - has been inferred three times and never observed. Remove with the
-// diagnosis.
-func sayNetNS(what string) {
-	who := "step"
-	if len(os.Args) > 1 && os.Args[1] == daemonShimFlag {
-		who = "daemon"
-	}
-
-	at, err := os.Readlink("/proc/self/ns/net")
-	if err != nil {
-		at = "unreadable: " + err.Error()
-	}
-
-	fmt.Fprintf(os.Stderr, "earthbuild netns[%s pid=%d]: %s is now %s\n",
-		who, os.Getpid(), what, at)
 }

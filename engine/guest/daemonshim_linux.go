@@ -23,11 +23,6 @@ func prepareShim() error {
 	// the daemon would be told to join a path that no longer resolves - the same
 	// trap the resolver comment describes, one directory along.
 	netns := os.Getenv(EnvStepNetNS)
-	if netns == "" {
-		// Temporary, for E967: see sayNetNS. The absence of a namespace is the
-		// other half of the answer and is otherwise invisible.
-		sayNetNS("no step namespace to join, so staying where it is -")
-	}
 
 	err := joinStepNet()
 	if err != nil {

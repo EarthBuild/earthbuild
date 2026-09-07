@@ -67,6 +67,20 @@ if [ -n "$snippet" ]; then
 fi
 
 reset_buildkit() {
+  # **A native run has no buildkitd and no container engine here.** `--binary`
+  # names what holds buildkitd, and on the native suite it names the engine
+  # itself - so every command below would be `native logs ...`, exit 127, and be
+  # swallowed by the `|| true` that is there for a different reason. Swallowed
+  # noise is still noise, and a reset that cannot reset anything should say so
+  # once rather than fail four times quietly.
+  if ! command -v "$binary" >/dev/null 2>&1; then
+    echo "no $binary on this machine, so there is no buildkitd to reset"
+    if [ "$sleep_secs" -gt 0 ] 2>/dev/null; then
+      sleep "$sleep_secs"
+    fi
+    return 0
+  fi
+
   if [ "$log_tail" -gt 0 ] 2>/dev/null; then
     # Before the reset, which destroys it. Without this an attempt-1
     # session-loss failure is undiagnosable.

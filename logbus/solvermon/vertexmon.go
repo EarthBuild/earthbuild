@@ -127,7 +127,6 @@ func formatErrorMessage(
 	// logstream.FailureType_FAILURE_TYPE_RATE_LIMITED,
 	// logstream.FailureType_FAILURE_TYPE_INVALID_PARAM, logstream.FailureType_FAILURE_TYPE_AUTO_SKIP
 	// TODO(jhorsts): future proof by adding all the cases
-	//nolint:exhaustive
 	switch fatalErrorType {
 	case logstream.FailureType_FAILURE_TYPE_OOM_KILLED:
 		return fmt.Sprintf(

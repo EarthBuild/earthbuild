@@ -160,7 +160,6 @@ func TestDetermineFatalErrorType(t *testing.T) {
 func TestReErrNotFound(t *testing.T) {
 	t.Parallel()
 
-	//nolint:goconst
 	tests := []struct {
 		name      string
 		errString string

@@ -99,9 +99,16 @@ jobs:
         # other frontends (e.g. Podman) run the non-push build.
         if: github.event_name != 'push' || inputs.BINARY != 'docker'
         run: |
-          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
+          # The engine on the command line rather than through the environment:
+          # plain `sudo` resets it, and the Podman suites are the ones that use
+          # sudo. See reusable-test.yml for the whole story (E901).
+          engine=()
+          if [ -n "${EARTH_ENGINE:-}" ]; then
+            engine=(--engine "${EARTH_ENGINE}")
+          fi
+          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo": it must word-split
           scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" \
-            -- ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P "${INPUTS_EXAMPLE_NAME}"
+            -- ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" "${engine[@]}" --ci -P "${INPUTS_EXAMPLE_NAME}"
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
@@ -120,7 +127,12 @@ jobs:
           INPUTS_EXAMPLE_NAME: ${{inputs.EXAMPLE_NAME}}
       - name: Build and test multi-platform example
         run: |
-          ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" ./examples/multiplatform+all
+          # Same reason as the step above: sudo resets EARTH_ENGINE (E901).
+          engine=()
+          if [ -n "${EARTH_ENGINE:-}" ]; then
+            engine=(--engine "${EARTH_ENGINE}")
+          fi
+          ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" "${engine[@]}" ./examples/multiplatform+all
           ${INPUTS_SUDO} "${INPUTS_BINARY}" run --rm earthbuild/examples:multiplatform_linux_arm64 | grep aarch64
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}

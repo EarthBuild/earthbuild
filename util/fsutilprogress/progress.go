@@ -59,7 +59,6 @@ func (s *progressCallback) Verbose(relPath string, status fsutil.VerboseProgress
 
 	// missing cases in switch of type fsutil.VerboseProgressStatus: fsutil.StatusSending
 	// TODO(jhorsts): future proof by adding all the cases
-	//nolint:exhaustive
 	switch status {
 	case fsutil.StatusStat:
 		s.numStats++

@@ -32,6 +32,20 @@ on:
         required: false
         type: boolean
         default: false
+      # Minutes the test step may take before it is treated as hung. 45 suits a
+      # suite, which may legitimately retry three times; a probe that only needs
+      # its first minute of output says so and gets its log back sooner.
+      TIMEOUT_MINUTES:
+        required: false
+        type: number
+        default: 45
+      # When true the test step may fail without failing the job. For a probe
+      # whose value is what it prints rather than whether it passed; a suite
+      # must never set it.
+      ALLOW_FAILURE:
+        required: false
+        type: boolean
+        default: false
     secrets:
       DOCKERHUB_TOKEN:
         required: false
@@ -80,17 +94,51 @@ jobs:
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute ${{ inputs.TEST_TARGET }} (Earthly Only)
         if: ${{ !inputs.SKIP_JOB }}
+        # **On the step, not the job, because only a step timeout is a
+        # failure.** A job that exceeds its own limit is *cancelled*, and the
+        # diagnostics below are `if: failure()`, so they would not run - which is
+        # exactly what happened: `+test-no-qemu-group7` waited on a port that was
+        # never coming, ran the full 360 minutes GitHub allows, and produced no
+        # diagnosis at all (E967).
+        #
+        # 45 minutes by default because the retry wrapper may legitimately make
+        # three attempts inside this one step and a suite takes 4-10 minutes;
+        # anything past that is a hang, not a slow run. A caller that only wants
+        # the first minute of output can ask for less - and a log is only
+        # retrievable once the job ends, so that is the difference between a
+        # diagnostic round of ten minutes and one of an hour.
+        timeout-minutes: ${{ inputs.TIMEOUT_MINUTES }}
+        # See ALLOW_FAILURE. Note this also keeps the job out of `failure()`, so
+        # the diagnostics step below does not run for such a caller - which is
+        # right for a probe that prints what it came for during the step itself.
+        continue-on-error: ${{ inputs.ALLOW_FAILURE }}
         run: |
-          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
+          # **The engine goes on the command line, not through the environment.**
+          # `stage2-setup` sets EARTH_ENGINE=buildkit for every non-native suite,
+          # because the default on this branch is native. That crosses into the
+          # Docker jobs, which run without sudo - and is reset by the Podman
+          # ones, which do: plain `sudo` does not preserve the environment. So
+          # the Podman suite silently built with the native engine, left no
+          # `earth-buildkitd` for the step below to ask, and failed there rather
+          # than where the choice was made. 223 `L1 hit` lines in a job that was
+          # meant to be the buildkit half of the comparison (E901).
+          engine=()
+          if [ -n "${EARTH_ENGINE:-}" ]; then
+            engine=(--engine "${EARTH_ENGINE}")
+          fi
+          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo": it must word-split
           scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" \
-            -- ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P "${INPUTS_TEST_TARGET}"
+            -- ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" "${engine[@]}" --ci -P "${INPUTS_TEST_TARGET}"
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
           INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
           INPUTS_TEST_TARGET: ${{inputs.TEST_TARGET}}
       - name: Display buildkit version
-        if: ${{ !inputs.SKIP_JOB }}
+        # Not on a native job: there is no buildkitd to ask, and `BINARY` there
+        # names an engine rather than a container runtime - so `native ps -a`
+        # is not a command.
+        if: ${{ !inputs.SKIP_JOB && inputs.BINARY != 'native' }}
         run: |-
           ${INPUTS_SUDO} "${INPUTS_BINARY}" ps -a
           ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earth-buildkitd |& grep 'starting earthly-buildkit'

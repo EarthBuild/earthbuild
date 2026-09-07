@@ -35,6 +35,14 @@ const (
 // by the subcommands so I thought it made since to declare them just once there and then
 // pass them in.
 type Global struct {
+	// Engine selects which build engine runs the build: the buildkit one that
+	// ships, or the native one this repository is growing beside it.
+	//
+	// A flag rather than a build tag, because the point is to run the same
+	// Earthfile both ways on the same machine and compare - which is how the
+	// native engine's gaps get found, and it is what CI can do that a laptop
+	// cannot (E593).
+	Engine                     string
 	FeatureFlagOverrides       string
 	InstallationName           string
 	GitUsernameOverride        string

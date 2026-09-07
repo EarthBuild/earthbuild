@@ -124,15 +124,16 @@ type HealthCheck struct {
 
 // WithDocker contains options for the WITH DOCKER command.
 type WithDocker struct {
-	Platform        string   `description:"The platform to use"                                             long:"platform"` //nolint:lll
-	CacheID         string   `description:"When specified, layer data will be persisted to specified cache" long:"cache-id"` //nolint:lll
-	ComposeFiles    []string `description:"A compose file used to bring up services from"                   long:"compose"`  //nolint:lll
-	ComposeServices []string `description:"A compose service to bring up"                                   long:"service"`  //nolint:lll
-	Loads           []string `description:"An image produced by earth which is loaded as a Docker image"    long:"load"`
-	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target"     long:"build-arg"` //nolint:lll
-	Pulls           []string `description:"An image which is pulled and made available in the docker cache" long:"pull"`
-	AllowPrivileged bool     `description:"Allow targets referenced by load to assume privileged mode"      long:"allow-privileged"` //nolint:lll
-	PassArgs        bool     `description:"Pass arguments to external targets"                              long:"pass-args"`        //nolint:lll
+	Platform        string   `description:"The platform to use"                                                long:"platform"` //nolint:lll
+	CacheID         string   `description:"When specified, layer data will be persisted to specified cache"    long:"cache-id"` //nolint:lll
+	ComposeFiles    []string `description:"A compose file used to bring up services from"                      long:"compose"`  //nolint:lll
+	ComposeServices []string `description:"A compose service to bring up"                                      long:"service"`  //nolint:lll
+	Loads           []string `description:"An image produced by earth which is loaded as a Docker image"       long:"load"`
+	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target"        long:"build-arg"` //nolint:lll
+	Pulls           []string `description:"An image which is pulled and made available in the docker cache"    long:"pull"`
+	AllowPrivileged bool     `description:"Allow targets referenced by load to assume privileged mode"         long:"allow-privileged"` //nolint:lll
+	PassArgs        bool     `description:"Pass arguments to external targets"                                 long:"pass-args"`        //nolint:lll
+	Isolate         bool     `description:"Start a daemon of this step's own rather than sharing an outer one" long:"isolate"`          //nolint:lll
 }
 
 // Do contains options for the DO command.

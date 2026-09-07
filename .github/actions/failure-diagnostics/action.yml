@@ -128,7 +128,23 @@ runs:
         # earth-buildkitd is the released daemon, earth-dev-buildkitd the
         # source-built one; which of them exists depends on the job. A custom
         # installation name means a custom container name - pass CONTAINERS.
+        #
+        # **Absence is checked before it is reported, because the engine reports
+        # it as an error.** `logs` on a container that is not there prints
+        # `Error: no container with name or ID "x" found` on stderr, and this
+        # step runs last, so that line became the final line of a failed job's
+        # log - where anyone reading the tail, or grepping for `Error`, finds it
+        # instead of the fault it was collected to explain. It happened, twice,
+        # on the same investigation.
+        present=0
+        absent=""
         for name in $CONTAINERS; do
+          if ! $SUDO_PREFIX "$ENGINE" inspect "$name" >/dev/null 2>&1; then
+            echo "--- $name: not present ---"
+            absent="$absent $name"
+            continue
+          fi
+          present=$((present + 1))
           echo "--- $name inspect ---"
           $SUDO_PREFIX "$ENGINE" inspect "$name" 2>/dev/null || true
           echo "--- $name logs (last ${LOG_TAIL} lines) ---"
@@ -136,9 +152,25 @@ runs:
         done
         echo "::endgroup::"
 
+        # **What the absence means, said where the reader will be looking.**
+        # No buildkit container at all is not a gap in the diagnostics; on a job
+        # that failed with `could not connect to buildkit` it is the whole
+        # answer, and it belongs in the summary rather than a collapsed group.
+        if [ "$present" -eq 0 ]; then
+          echo "::warning::no buildkit container was running when this job failed" \
+               "(looked for:$absent) - if the failure was a connect timeout," \
+               "the daemon never started, and its own logs cannot say why"
+        fi
+
         echo "::group::earthly directories"
         run_shell 'du -sh ~/.earthly ~/.earthly-dev 2>/dev/null || true'
         run_shell 'find ~/.earthly ~/.earthly-dev -maxdepth 2 -type d 2>/dev/null | sort | head -100 || true'
         echo "::endgroup::"
+
+        # The last line a reader sees, so a tail of a failed job ends in a
+        # statement about the diagnostics rather than in whatever the last
+        # best-effort command happened to print.
+        echo "failure-diagnostics: complete;" \
+             "$present of $(echo "$CONTAINERS" | wc -w | tr -d ' ') buildkit container(s) present"
 
         exit 0

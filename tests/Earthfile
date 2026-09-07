@@ -365,9 +365,9 @@ builtin-args-invalid-default-test:
     DO +RUN_EARTH --should_fail=true --target=+test --output_contains="arg default value supplied for built-in ARG"
 
 builtin-args-invalid-pass-test:
-    DO +RUN_EARTH --earthfile=builtin-args-invalid-pass.earth --should_fail=true --target=+test --output_contains="value cannot be specified for built-in build arg EARTHLY_VERSION"
+    DO +RUN_EARTH --earthfile=builtin-args-invalid-pass.earth --should_fail=true --target=+test --output_contains="value cannot be specified for built-in build arg EARTHLY_VERSION" --output_contains_native="which the engine supplies"
     RUN sed -i "1s/VERSION \(.*\)/VERSION --arg-scope-and-set \1/" Earthfile
-    DO +RUN_EARTH --should_fail=true --target=+test --output_contains="value cannot be specified for built-in build arg EARTHLY_VERSION"
+    DO +RUN_EARTH --should_fail=true --target=+test --output_contains="value cannot be specified for built-in build arg EARTHLY_VERSION" --output_contains_native="which the engine supplies"
 
 parser-smoke-test:
     DO +RUN_EARTH --earthfile=parser-smoke.earth --target=+test
@@ -400,14 +400,16 @@ secrets-test:
         --extra_args="--secret SECRET1 --secret SECRET2=bar --build-arg SECRET_ID=\"\" --build-arg SECRET_ID_2=\"\"" \
         --target=+test \
         --should_fail=true \
-        --output_contains='unable to lookup secret \"SECRET3\": not found'
+        --output_contains='unable to lookup secret \"SECRET3\": not found' \
+        --output_contains_native='which was not supplied'
 
 project-secrets-test:
     DO +RUN_EARTH \
         --earthfile=project-secrets-without-flag.earth \
         --target=+without-flag \
         --should_fail=true \
-        --output_contains="must be enabled in order to use PROJECT"
+        --output_contains="must be enabled in order to use PROJECT" \
+        --output_contains_native="needs the --use-project-secrets feature"
     DO +RUN_EARTH \
         --earthfile=project-secrets.earth \
         --target=+local-override \
@@ -436,7 +438,8 @@ build-arg-explicit-global-test:
     DO +RUN_EARTH --earthfile=build-arg-explicit-global.earth --target=+test-success
     DO +RUN_EARTH --should_fail=true --earthfile=build-arg-explicit-global.earth \
         --target=+test-failure \
-        --output_contains="invalid ARG arguments.*: global ARG can only be set in the base target"
+        --output_contains="invalid ARG arguments.*: global ARG can only be set in the base target" \
+        --output_contains_native="a global belongs to the commands before the first target"
 
 build-arg-dynamic-with-empty-base:
     DO +RUN_EARTH --earthfile=build-arg-dynamic-with-empty-base.earth --target=+test
@@ -623,7 +626,8 @@ fail-push-test:
 fail-invalid-artifact-test:
     # test that the artifact fails to be copied
     DO +RUN_EARTH --earthfile=fail-invalid-artifact.earth --should_fail=true --target="--artifact +test/foo /tmp/stuff" \
-        --output_contains="cannot save artifact +test/foo, since it does not exist"
+        --output_contains="cannot save artifact +test/foo, since it does not exist" \
+        --output_contains_native="nothing in that target has it"
 
 wildcard-all:
     # wildcard BUILD tests
@@ -1215,7 +1219,7 @@ arg-scope-requires-shellout-anywhere:
     DO +RUN_EARTH --earthfile=arg-scope-requires-shellout-anywhere.earth --target=+base --should_fail=true
 
 arg-set:
-    DO +RUN_EARTH --earthfile=arg-set.earth --target=+base --should_fail=true --output_contains="Hint: 'foo' is an ARG and cannot be used with SET - try declaring 'LET foo = \\\$foo' first"
+    DO +RUN_EARTH --earthfile=arg-set.earth --target=+base --should_fail=true --output_contains="Hint: 'foo' is an ARG and cannot be used with SET - try declaring 'LET foo = \\\$foo' first" --output_contains_native="is an ARG and cannot be used with SET - try declaring"
 
 if:
     RUN touch exists-locally
@@ -1454,9 +1458,9 @@ host:
     DO +RUN_EARTH --earthfile=host.earth --target=+expand-args
 
 host-invalid:
-    DO +RUN_EARTH --earthfile=host.earth --should_fail=true --target=+invalid-ip --output_contains="invalid HOST ip"
-    DO +RUN_EARTH --earthfile=host.earth --should_fail=true --target=+only-host --output_contains="invalid number of arguments for HOST"
-    DO +RUN_EARTH --earthfile=host.earth --should_fail=true --target=+only-ip --output_contains="invalid number of arguments for HOST"
+    DO +RUN_EARTH --earthfile=host.earth --should_fail=true --target=+invalid-ip --output_contains="invalid HOST ip" --output_contains_native="is not an IP address"
+    DO +RUN_EARTH --earthfile=host.earth --should_fail=true --target=+only-host --output_contains="invalid number of arguments for HOST" --output_contains_native="HOST needs a hostname and an address"
+    DO +RUN_EARTH --earthfile=host.earth --should_fail=true --target=+only-ip --output_contains="invalid number of arguments for HOST" --output_contains_native="HOST needs a hostname and an address"
 
 mtime:
     RUN echo test > file
@@ -1548,7 +1552,8 @@ test-reserved-label:
        --earthfile=reserved-label.earth \
        --target=+test1 \
        --should_fail=true \
-       --output_contains="LABEL keys starting with .dev.earthly.. are reserved"
+       --output_contains="LABEL keys starting with .dev.earthly.. are reserved" \
+       --output_contains_native="is in the engine's own namespace"
 
 test-cache-mount-mode:
   DO +RUN_EARTH \
@@ -1710,6 +1715,21 @@ RUN_EARTH:
     ARG use_tmpfs=true
     ARG exec_cmd=""
     ARG output_contains=""
+    # The same requirement, in the native engine's wording, where the two
+    # engines phrase a correct refusal differently.
+    #
+    # **Either satisfies it, rather than one being selected.** The harness
+    # cannot tell which engine wrote earthly.output: the inner `earth` picks its
+    # engine from EARTH_ENGINE inside the step, which the image sets and a
+    # caller may override, so a switch here would key on the wrong thing. An
+    # `or` is sound because neither engine can produce the other's phrasing.
+    #
+    # Used where this engine says more, not to paper over a difference that
+    # matters: `HOST takes a hostname and an address, and "c" is a third
+    # argument (Earthfile:12)` names the file, the line and the offending
+    # argument, where the legacy message says `invalid number of arguments for
+    # HOST` (E846).
+    ARG output_contains_native=""
     ARG output_does_not_contain=""
     ARG grep_flags=""
     ARG verbose=1
@@ -1778,8 +1798,13 @@ RUN_EARTH:
         fi
         if [ -n \"$output_contains\" ]; then
             if ! grep $grep_flags \"$output_contains\" earthly.output >/dev/null; then
-                echo \"ERROR: earth output did not contain \\\"$output_contains\\\"\"
-                exit 1
+                if [ -z \"$output_contains_native\" ] || ! grep $grep_flags \"$output_contains_native\" earthly.output >/dev/null; then
+                    echo \"ERROR: earth output did not contain \\\"$output_contains\\\"\"
+                    if [ -n \"$output_contains_native\" ]; then
+                        echo \"       nor, in the native engine's wording, \\\"$output_contains_native\\\"\"
+                    fi
+                    exit 1
+                fi
             fi
         fi
         if [ -n \"$output_does_not_contain\" ]; then

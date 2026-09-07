@@ -1,0 +1,92 @@
+# Pinning image references
+
+`FROM golang:1.26.5-alpine3.24` names a tag, and a tag moves. Every build therefore asks the registry
+what the tag means right now, because that digest is what keys the cache: even a build with nothing
+to do has to know whether the answer changed.
+
+That lookup is most of a build that has nothing else to do - about 0.45s of a 0.5s no-op. A reference
+that already names its digest skips it entirely:
+
+```text
+FROM golang:1.26.5-alpine3.24            planning 0.46s
+FROM golang:1.26.5-alpine3.24@sha256:…   planning 0.03s
+```
+
+## Writing them down
+
+```console
+$ earth-native --pin
+  ./Earthfile:4 golang:1.26.5-alpine3.24 -> golang:1.26.5-alpine3.24@sha256:787328…
+```
+
+This edits the Earthfile, and it is the only thing the engine does that changes a file you wrote - so
+it happens only when you ask for it by name, never as a side effect of building. Run it again and it
+reports `nothing to pin`.
+
+A build that had to resolve anything says so, and says this:
+
+```text
+  pinned    golang:1.26.5-alpine3.24 -> golang@sha256:787328…
+  note      --pin writes these into the Earthfile, which makes the build reproducible and skips the lookup
+```
+
+What is left alone: target references (`+base`, `./dir+target`), `scratch`, `FROM DOCKERFILE`,
+references built from an argument, and anything that already names a digest. A reference the registry
+cannot be reached for is reported and left as written - an unreachable registry means a file this
+could not improve, not one it damaged.
+
+## Keeping them up to date
+
+The form is `image:tag@sha256:…` rather than `image@sha256:…`, and the tag is doing real work: it is
+what you read to know which version you are on, and it is what
+[Renovate](https://docs.renovatebot.com)'s `docker` datasource matches to bump **both** halves when a
+new version appears. Pinning is not freezing.
+
+Renovate's `dockerfile` manager does not look at `Earthfile` by default. One stanza points it there:
+
+```json5
+{
+  dockerfile: {
+    enabled: true,
+    managerFilePatterns: ['/Earthfile/', '/.*\\.earth$/'],
+  },
+}
+```
+
+This repository already carries that, in `.github/renovate.json5`.
+
+Note that `default:pinDigestsDisabled` - which this repository also extends - only stops Renovate
+*adding* digests to references that lack them. A reference that already names one is kept current,
+which is exactly the arrangement `--pin` is for: you decide what is pinned, Renovate keeps it moving.
+
+## What it costs not to
+
+An unpinned `FROM` is resolved against the origin registry on every build, because a tag is a
+question about today rather than a fact - see `EARTH_STREAM_TO_GUEST` and `resolve.go` for why
+that lookup deliberately does not use a mirror or a cache. The lookup is two round trips, a token
+and a manifest, and it is on the critical path: nothing about the build can start until the base
+is known.
+
+One `RUN` step, warm cache, best of three, on two machines:
+
+| build           | Linux: unpinned | pinned | macOS: unpinned | pinned |
+| --------------- | --------------- | ------ | --------------- | ------ |
+| nothing to do   | 412ms           | 9ms    | 447ms           | 307ms  |
+| one step to run | 498ms           | 71ms   | 483ms           | 327ms  |
+
+**What pinning removes is the lookup, and what that is worth depends on what else the build pays.**
+The saving is 403ms on the Linux box and 140ms on the Mac - the lookup is a network round trip and
+costs what the link costs. The *ratio* differs far more, forty-six times against one and a half,
+because of what is left over: a pinned no-op on Linux is 9ms, while on macOS some 300ms of sandbox
+and virtual machine remains that no amount of pinning touches.
+
+So the honest claim is the absolute one. Pinning takes the registry off the critical path of every
+build. On a machine with nothing else fixed to pay that is nearly the whole build; on one that
+starts a virtual machine it is a large slice of one.
+
+The engine says so itself when the lookups are slow enough to matter: the `note` line after a build
+reports what that build's own lookups cost, measured rather than estimated.
+
+This is why pinning is worth more than it looks. Reproducibility is the reason it exists; on a
+machine where somebody is running `earth` every few seconds, the latency is the reason they will
+keep it.

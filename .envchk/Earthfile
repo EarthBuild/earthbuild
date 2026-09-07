@@ -1,0 +1,4 @@
+VERSION 0.8
+t:
+    FROM ../tests/git-webserver+server
+    RUN echo "ENGINE=[$EARTH_ENGINE]" && env | grep -c EARTH_ || true

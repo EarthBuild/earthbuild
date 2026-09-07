@@ -602,7 +602,6 @@ func lexCommandKeyword(l *lexer) stateFn {
 		nextState = lexRecipeCommandArgs
 	)
 
-	//nolint:exhaustive // Only specific command prefixes (SAVE, etc.) are checked here to identify keywords.
 	switch val {
 	case "SAVE":
 		switch {

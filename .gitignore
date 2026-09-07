@@ -12,3 +12,33 @@
 .DS_Store
 **/node_modules
 .gradle
+# a stray build of ./tools/mutate; the tool is run with `go run`
+/mutate
+
+# Stray builds of ./cmd/*, for the same reason: `go build ./cmd/earth-native/`
+# without -o drops a 20MB binary here, and the intended output is /build/.
+/debugger
+/earth
+/earth-guestd
+/earth-native
+/earth-worker
+
+# Generated test fixtures: a hundred thousand files is a repository nobody can
+# clone, for content that is a for loop. See engine/exec/bigtree_test.go.
+**/testdata/bigtree-*
+**/testdata/bigtree-*.complete
+
+# What running the test suite locally leaves behind. `AGENTS.md` now tells a
+# developer to run `./tests+<target>` directly, and a target invoked that way
+# resolves `SAVE ARTIFACT ... AS LOCAL` against the invoked Earthfile's own
+# directory - so the binary lands in tests/build rather than /build, and the
+# module files the test base copies in land beside it. None was ever tracked.
+# Any tests/ subdirectory invoked directly gets its own, so the pattern is
+# broad. Nothing under tests/ named build/ is tracked.
+/tests/**/build/
+# Only at the top level: tests/docker2earth/go.mod and tests/go-project/go.mod
+# are tracked fixtures, and a broad pattern here would silently hide the next
+# one somebody adds. The copies a local run leaves in other subdirectories stay
+# visible, which is the lesser problem.
+/tests/go.mod
+/tests/go.sum

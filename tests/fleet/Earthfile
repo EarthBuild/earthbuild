@@ -1,0 +1,35 @@
+VERSION 0.8
+
+# A build whose steps are independent and cost something, which is what a fleet
+# is for. Four targets that share a base and share nothing else: the base is
+# fetched once and every RUN can run on a different machine at the same moment.
+#
+# The RUNs busy-loop rather than sleeping. A sleeping step delegates just as
+# well and proves less: it would be carried by a worker that never ran anything,
+# and the difference between a fleet and a very patient local build would not
+# show up in the wall clock.
+
+all:
+    BUILD +a
+    BUILD +b
+    BUILD +c
+    BUILD +d
+
+common:
+    FROM alpine:3.22
+
+a:
+    FROM +common
+    RUN sh -c 'i=0; while [ $i -lt 4000000 ]; do i=$((i+1)); done; echo a'
+
+b:
+    FROM +common
+    RUN sh -c 'i=0; while [ $i -lt 4000000 ]; do i=$((i+1)); done; echo b'
+
+c:
+    FROM +common
+    RUN sh -c 'i=0; while [ $i -lt 4000000 ]; do i=$((i+1)); done; echo c'
+
+d:
+    FROM +common
+    RUN sh -c 'i=0; while [ $i -lt 4000000 ]; do i=$((i+1)); done; echo d'

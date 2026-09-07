@@ -295,7 +295,6 @@ func (p *parser) parseEarthfile() (Tree, error) {
 		token := p.peek()
 		// Only structural block keywords and top-level commands are handled explicitly
 		// in the top-level parse loop. Commands and arguments are delegated to sub-parsers.
-		//nolint:exhaustive
 		switch token.Typ {
 		case itemEOF:
 			p.next() // consume EOF
@@ -491,7 +490,6 @@ func (p *parser) parseVersion() (Version, error) {
 		tok := p.peek()
 		// Only a specific subset of tokens is valid in the VERSION command;
 		// all others fall through to default error handling.
-		//nolint:exhaustive
 		switch tok.Typ {
 		case itemAtom:
 			p.next()
@@ -569,7 +567,6 @@ func (p *parser) parseStmts() (Block, error) {
 		tok := p.peek()
 		// The default block acts as a catch-all for any token types that
 		// are not valid statements inside a recipe block.
-		//nolint:exhaustive
 		switch tok.Typ {
 		case itemError:
 			p.next()
@@ -699,7 +696,6 @@ func (p *parser) parseBlock() (Block, error) {
 
 		// The default block is a generic catch-all for all token types that
 		// cannot start a statement within a block.
-		//nolint:exhaustive
 		switch tok.Typ {
 		case itemError:
 			p.next()
@@ -834,7 +830,6 @@ func (p *parser) parseCommand() (Command, error) {
 
 	var err error
 
-	//nolint:exhaustive // Only ENV/ARG/SET/LET are parsed specially; other commands parse until newline.
 	switch cmd.Name {
 	case CmdEnv, CmdArg, CmdSet, CmdLet:
 		args, endLoc, err = p.parseKeyValueCommandArgs()
@@ -885,7 +880,6 @@ func (p *parser) parseArgsUntilNL() ([]string, SourceLocation, error) {
 		t := p.peek()
 		// Arguments only allow a specific subset of token types; all other
 		// tokens are invalid and handled by default.
-		//nolint:exhaustive
 		switch t.Typ {
 		case itemAtom:
 			p.next()
@@ -1125,7 +1119,6 @@ func (p *parser) parseIf() (IfStatement, error) {
 		tok := p.peek()
 		// Only control flow tokens (ELSE IF, ELSE, END, DEDENT) are expected;
 		// any other token is a syntax error handled by default.
-		//nolint:exhaustive
 		switch tok.Typ {
 		case itemDedent:
 			p.next() // consume dedent
@@ -1250,7 +1243,6 @@ func (p *parser) parseTry() (TryStatement, error) {
 
 		// Only control flow tokens (CATCH, FINALLY, END, DEDENT) are expected;
 		// any other token is a syntax error handled by default.
-		//nolint:exhaustive
 		switch tok.Typ {
 		case itemDedent:
 			p.next()

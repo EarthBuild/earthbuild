@@ -12,7 +12,6 @@ import (
 func TestGetProjectName(t *testing.T) {
 	t.Parallel()
 
-	//nolint:goconst
 	tests := []struct {
 		tag  string
 		safe string

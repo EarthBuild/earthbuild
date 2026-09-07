@@ -70,3 +70,26 @@ func consoleFile(t *testing.T, body string) string {
 
 	return at
 }
+
+// The guest's own words lead, whatever the kernel said afterwards.
+//
+// **The kernel talks last.** Resetting the machine prints another dozen lines
+// after `earth-vmboot` has explained itself, so a plain tail shows a guest
+// freeing memory and not the mount that failed - which is the one line the
+// reader came for.
+func TestTheGuestsOwnWordsAreQuotedFirst(t *testing.T) {
+	t.Parallel()
+
+	var lines []string
+
+	lines = append(lines, "earth-vmboot: mount the layer store from /dev/vda: invalid argument")
+	for i := range consoleLines * 2 {
+		lines = append(lines, "[    0.1] kernel noise "+strconv.Itoa(i))
+	}
+
+	got := consoleTail(consoleFile(t, strings.Join(lines, "\n")))
+
+	if !strings.Contains(got, "mount the layer store") {
+		t.Error("the guest's own diagnosis is not quoted; only the kernel's shutdown is")
+	}
+}

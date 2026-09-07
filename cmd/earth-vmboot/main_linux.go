@@ -27,6 +27,12 @@ import (
 
 // storeDev is the block device carrying the layer store, and storeAt is where
 // the agent expects to find it.
+// mounted records whether the store was actually mounted, so `halt` puts down
+// what exists and stays quiet about what does not. A package-level value
+// because PID 1 is one process doing one thing, and threading it through the
+// two functions that care would be ceremony.
+var mounted bool
+
 const (
 	storeDev = "/dev/vda"
 	storeAt  = vmboot.StoreAt
@@ -112,6 +118,8 @@ func prepare() error {
 	}
 
 	err = unix.Mount(storeDev, storeAt, "xfs", 0, "")
+	mounted = err == nil
+
 	if err != nil {
 		return fmt.Errorf("mount the layer store from %s: %w"+
 			"\n  the host makes this device and formats it; an unformatted one"+
@@ -244,6 +252,35 @@ func serve(conn *os.File) error {
 	return cmd.Run()
 }
 
+// putStoreDown unmounts the store, and says nothing when there was none.
+//
+// **Separate from `halt` because it must not be able to skip the reset.** It
+// was an early `return` inside `halt`, which skipped the reboot below it: PID 1
+// returned, and the kernel panicked with a backtrace in place of the diagnosis
+// the guest had already written. A function that can only decline to unmount
+// cannot decline to stop the machine.
+//
+// Silent where nothing was mounted, because that is the one path where the
+// console is being read closely: a guest that could not mount its store has
+// already said why, and `could not be unmounted: invalid argument` underneath
+// reads as a second fault.
+func putStoreDown() {
+	if !mounted {
+		return
+	}
+
+	err := unix.Unmount(storeAt, 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: the store at %s could not be"+
+			" unmounted: %v\n  what this build wrote may not be there for the"+
+			" next one\n", storeAt, err)
+
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "earth-vmboot: store unmounted\n")
+}
+
 // halt stops the guest rather than letting PID 1 return.
 func halt() {
 	_ = os.Stdout.Sync()
@@ -259,14 +296,7 @@ func halt() {
 	// cache and a wrong one.
 	unix.Sync()
 
-	err := unix.Unmount(storeAt, 0)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "earth-vmboot: the store at %s could not be"+
-			" unmounted: %v\n  what this build wrote may not be there for the"+
-			" next one\n", storeAt, err)
-	} else {
-		fmt.Fprintf(os.Stderr, "earth-vmboot: store unmounted\n")
-	}
+	putStoreDown()
 
 	// **Reset, not power-off.** With `pci=off` there is no ACPI to power the
 	// machine down, so `POWER_OFF` falls through to `reboot: System halted` and

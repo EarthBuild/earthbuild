@@ -312,12 +312,31 @@ func consoleTail(at string) string {
 		return "\n  its console at " + at + " is empty, so it did not reach its own first line"
 	}
 
+	// **The guest's own last word first.** Resetting the machine prints another
+	// dozen kernel lines after `earth-vmboot` has explained itself, so a plain
+	// tail shows memory being freed and not the mount that failed. The kernel's
+	// lines are context; this one is the diagnosis.
+	out := ""
+
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.Contains(lines[i], guestSays) {
+			out = "\n  the guest said: " + strings.TrimSpace(lines[i])
+
+			break
+		}
+	}
+
 	if len(lines) > consoleLines {
 		lines = lines[len(lines)-consoleLines:]
 	}
 
-	return "\n  the last of its console (" + at + "):\n    " + strings.Join(lines, "\n    ")
+	return out + "\n  the last of its console (" + at + "):\n    " +
+		strings.Join(lines, "\n    ")
 }
+
+// guestSays is how PID 1 prefixes its own lines, which is what separates the
+// guest's diagnosis from the kernel's running commentary.
+const guestSays = "earth-vmboot:"
 
 // consoleLines is how much of the console a failure quotes. Enough for a mount
 // failure and its context, short of pasting a kernel boot into an error.
@@ -339,8 +358,16 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			// a guest that fails early can say so. The network settings ride
 			// here because the command line is the only channel into a guest
 			// that exists before the guest is running - see vmboot.Net.
+			// `loglevel=5` prints errors and warnings and drops the
+			// informational chatter, which is three hundred lines of a guest
+			// enumerating its own hardware. It is not only noise: the kernel
+			// and PID 1 write to one serial port, so a printk lands *inside*
+			// the guest's own line - `earth-vmboot: mo[ 0.359858] kvm-guest:
+			// ...` - and the one message a reader came for arrives cut in half.
+			// XFS reports a bad superblock at warning level, so what matters
+			// still comes through.
 			"boot_args": strings.TrimSpace(
-				"console=ttyS0 reboot=k panic=1 pci=off " + f.net.BootArgs()),
+				"console=ttyS0 loglevel=5 reboot=k panic=1 pci=off " + f.net.BootArgs()),
 		},
 		"drives": []object{},
 		"vsock": object{

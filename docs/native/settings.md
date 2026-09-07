@@ -444,6 +444,19 @@ the compressed `bzImage` a distribution ships, so the kernel is an artefact some
 than something found on the machine; and the store is a device the guest formats, which is what
 gives it reflinks on a host whose own filesystem has none.
 
+**Format the store for the guest's kernel, not for the host's.** A recent `mkfs.xfs` enables
+`nrext64` by default, and a guest kernel that does not know it refuses the filesystem outright -
+`Superblock has unknown incompatible features (0x20) enabled`, on the guest console and nowhere
+else:
+
+```sh
+truncate -s 32G store.img
+mkfs.xfs -m reflink=1,crc=1 -i nrext64=0 -n ftype=1 -f store.img
+```
+
+`reflink=1` is the reason the store is a device at all: the guest keeps copy-on-write clones even
+where the host's own filesystem has none. Sparse, so the size is a ceiling rather than a cost.
+
 `EARTH_FIRECRACKER` defaults to `firecracker` on `PATH`. The other three are unset, and without
 them the sandbox reports what is missing and the build uses the namespace backend instead - a
 machine with no `/dev/kvm`, which includes most hosted CI runners, does the same. This is I11:

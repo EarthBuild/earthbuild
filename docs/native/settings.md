@@ -433,6 +433,22 @@ the move it exists for.
 
 Default: off.
 
+### `EARTH_FIRECRACKER`, `EARTH_VM_KERNEL`, `EARTH_VM_INITRD`, `EARTH_VM_STORE`
+
+The parts a Linux microVM sandbox is built from: the `firecracker` binary, an uncompressed ELF
+`vmlinux`, an initramfs carrying `earth-vmboot` as `/init` with `earth-guestd` beside it, and a
+block device image formatted XFS for the layer store.
+
+**Four settings rather than one because none of them has a sane default.** Firecracker cannot boot
+the compressed `bzImage` a distribution ships, so the kernel is an artefact somebody builds rather
+than something found on the machine; and the store is a device the guest formats, which is what
+gives it reflinks on a host whose own filesystem has none.
+
+`EARTH_FIRECRACKER` defaults to `firecracker` on `PATH`. The other three are unset, and without
+them the sandbox reports what is missing and the build uses the namespace backend instead - a
+machine with no `/dev/kvm`, which includes most hosted CI runners, does the same. This is I11:
+degrade and say so, because refusing would break every machine that works today.
+
 ### `EARTH_STORE_IN_VM`
 
 Puts the layer store on the block device the guest owns rather than in a directory shared from the

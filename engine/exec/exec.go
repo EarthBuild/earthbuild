@@ -2018,11 +2018,6 @@ func (e *Executor) stageContextInGuest(ctx context.Context, n *ir.Node) (core.Re
 		return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
 	}
 
-	seer, ok := e.sb.(interface{ GuestPath(string) (string, bool) })
-	if !ok {
-		return core.Result{}, fmt.Errorf("%w (%s)", localContextRefusal(), n.Meta.Source)
-	}
-
 	// Beside the image blobs, which is the directory already established as one
 	// the host writes and the guest reads.
 	blobs := filepath.Join(e.sb.StoreDir(), "blobs")
@@ -2081,10 +2076,12 @@ func (e *Executor) stageContextInGuest(ctx context.Context, n *ir.Node) (core.Re
 	// the layer it becomes is the thing worth keeping.
 	defer func() { _ = os.Remove(tarball) }()
 
-	at, visible := seer.GuestPath(tarball)
-	if !visible {
-		return core.Result{}, fmt.Errorf("the guest cannot see %s, so the build"+
-			" context cannot be handed to it (%s)", tarball, n.Meta.Source)
+	// Shared where the sandbox has a filesystem in common with this machine,
+	// and sent where it has none. See placeBlob.
+	at, err := placeBlob(ctx, e.sb, tarball)
+	if err != nil {
+		return core.Result{}, fmt.Errorf("hand the build context to the guest (%s): %w",
+			n.Meta.Source, err)
 	}
 
 	id, err := c.UnpackLayerAs(ctx, at, contextMedia, n.ID())

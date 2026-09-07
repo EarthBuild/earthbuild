@@ -81,13 +81,6 @@ func (e *Executor) materialiseImageInGuest(
 		}
 	}
 
-	seer, ok := e.sb.(interface{ GuestPath(string) (string, bool) })
-	if !ok {
-		return core.Result{}, fmt.Errorf("FROM %s (%s): this sandbox cannot say"+
-			" where the guest sees a host path, so it cannot be handed a blob",
-			n.Op.Args[0], n.Meta.Source)
-	}
-
 	// Beside the layers rather than in the image cache: this is where a blob
 	// already goes when one is kept, and it is a directory the guest can read.
 	blobs := filepath.Join(root, "blobs")
@@ -117,12 +110,20 @@ func (e *Executor) materialiseImageInGuest(
 	// unpack either way, and starting one twice would place the same layer
 	// twice and count it once.
 	start := func(i int, l image.FetchedLayer) {
-		at, visible := seer.GuestPath(filepath.Join(blobs, l.At))
+		// Deferred into the goroutine below: placing a blob on a sandbox with
+		// no shared filesystem sends its bytes, and doing that here would send
+		// each layer in turn - which is the whole overlap this function exists
+		// to keep.
+		host := filepath.Join(blobs, l.At)
 
 		// Zero unless the blob is still being written, which is what tells the
 		// guest to read it as it grows rather than to the end (Request.Growing).
+		// **Zero for a sandbox that is sent its blobs**, whatever the setting
+		// says: a growing blob is one the guest reads as the host writes it,
+		// which needs a file both can see. What travels here is a copy, sent
+		// once and whole, so there is nothing to grow into.
 		growing := int64(0)
-		if streamToGuest() {
+		if streamToGuest() && sharesBlobs(e.sb) {
 			growing = l.Size
 		}
 
@@ -137,13 +138,13 @@ func (e *Executor) materialiseImageInGuest(
 
 		unpacking.Add(1)
 
-		go func(i int, at, media string, visible bool, growing int64) {
+		go func(i int, host, media string, growing int64) {
 			defer unpacking.Done()
 
-			if !visible {
+			at, perr := placeBlob(ctx, e.sb, host)
+			if perr != nil {
 				idsMu.Lock()
-				failed[i] = fmt.Errorf("the guest cannot see %s, so it"+
-					" cannot unpack it", l.At)
+				failed[i] = perr
 				idsMu.Unlock()
 
 				return
@@ -159,13 +160,18 @@ func (e *Executor) materialiseImageInGuest(
 				ids[i] = id
 			}
 			idsMu.Unlock()
-		}(i, at, l.MediaType, visible, growing)
+		}(i, host, l.MediaType, growing)
 	}
 
 	opts := image.Options{
 		Platform: platform, Challenges: imageRoot, Mirrors: image.MirrorsFromEnv(),
 	}
-	if streamToGuest() {
+	// **Only where the guest reads the host's own file.** Streaming announces a
+	// layer before its bytes have landed, so the guest can unpack it as it
+	// arrives; a sandbox that is *sent* its blobs has nothing to read until the
+	// send happens, and sending a blob that is still being fetched sends a
+	// fraction of it.
+	if streamToGuest() && sharesBlobs(e.sb) {
 		opts.Fetching = start
 
 		// **Per build, and taken back when it ends.** The answers come from the

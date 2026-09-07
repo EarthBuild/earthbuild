@@ -18,8 +18,10 @@ import (
 	"fmt"
 	"os"
 	osexec "os/exec"
+	"path/filepath"
 
 	"github.com/EarthBuild/earthbuild/cmd/earth-vmboot/vmboot"
+	"github.com/EarthBuild/earthbuild/engine/bulk"
 	"golang.org/x/sys/unix"
 )
 
@@ -48,6 +50,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	// Started before the agent, because the host may push a blob before it
+	// sends its first request: the two channels are independent and the host
+	// has no way to know when this one is listening.
+	go serveBulk(filepath.Join(storeAt, "blobs"))
 
 	conn, err := waitForHost()
 	if err != nil {
@@ -92,21 +99,72 @@ func prepare() error {
 	return nil
 }
 
-// waitForHost blocks until the host connects on the vsock port.
-func waitForHost() (*os.File, error) {
+// listenVsock binds one vsock port and returns the listening descriptor.
+func listenVsock(port uint32, backlog int) (int, error) {
 	fd, err := unix.Socket(unix.AF_VSOCK, unix.SOCK_STREAM, 0)
 	if err != nil {
-		return nil, fmt.Errorf("vsock socket: %w", err)
+		return -1, fmt.Errorf("vsock socket: %w", err)
 	}
 
-	err = unix.Bind(fd, &unix.SockaddrVM{CID: unix.VMADDR_CID_ANY, Port: vmboot.VsockPort})
+	err = unix.Bind(fd, &unix.SockaddrVM{CID: unix.VMADDR_CID_ANY, Port: port})
 	if err != nil {
-		return nil, fmt.Errorf("bind vsock port %d: %w", vmboot.VsockPort, err)
+		return -1, fmt.Errorf("bind vsock port %d: %w", port, err)
 	}
 
-	err = unix.Listen(fd, 1)
+	err = unix.Listen(fd, backlog)
 	if err != nil {
-		return nil, fmt.Errorf("listen on vsock: %w", err)
+		return -1, fmt.Errorf("listen on vsock port %d: %w", port, err)
+	}
+
+	return fd, nil
+}
+
+// serveBulk takes blob bytes from the host for as long as the guest runs.
+//
+// **Here rather than in the agent**, because this is what mounted the device
+// the blobs land on: the agent finds them afterwards by path, which is what it
+// does on every backend that shares a filesystem with its host. Nothing about
+// the agent knows a VM is involved, which is the point of this binary.
+//
+// Best-effort and loud: a guest that cannot take blobs still runs steps, and
+// what it cannot do is fail silently - the symptom of that is a build that
+// stops at its first FROM saying the store holds no layer, which is the failure
+// this exists to fix and reads as an empty store rather than as a lost channel.
+func serveBulk(at string) {
+	fd, err := listenVsock(vmboot.BulkPort, 4)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: no bulk channel: %v\n", err)
+
+		return
+	}
+
+	for {
+		conn, _, err := unix.Accept(fd)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "earth-vmboot: bulk accept: %v\n", err)
+
+			return
+		}
+
+		// One at a time: the host opens one connection and sends every blob of
+		// a build down it, and a second would be a second party writing into
+		// this guest's store.
+		f := os.NewFile(uintptr(conn), "bulk")
+
+		err = bulk.ReceiveBlobs(f, at)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "earth-vmboot: bulk channel: %v\n", err)
+		}
+
+		_ = f.Close()
+	}
+}
+
+// waitForHost blocks until the host connects on the vsock port.
+func waitForHost() (*os.File, error) {
+	fd, err := listenVsock(vmboot.VsockPort, 1)
+	if err != nil {
+		return nil, err
 	}
 
 	// Said on the console before blocking, so a host whose connection never

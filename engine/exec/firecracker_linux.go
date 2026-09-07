@@ -9,12 +9,14 @@ import (
 	"net"
 	"os"
 	osexec "os/exec"
+	"path"
 	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/cmd/earth-vmboot/vmboot"
+	"github.com/EarthBuild/earthbuild/engine/bulk"
 )
 
 // Firecracker runs the guest inside a microVM rather than in namespaces.
@@ -57,6 +59,7 @@ type Firecracker struct {
 	mu      sync.Mutex
 	cmd     *osexec.Cmd
 	tmp     string
+	vsockAt string
 	stopped bool
 }
 
@@ -183,6 +186,7 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 
 	cfg := filepath.Join(dir, "vm.json")
 	vsock := filepath.Join(dir, "guest.vsock")
+	f.vsockAt = vsock
 
 	err = f.writeConfig(cfg, vsock)
 	if err != nil {
@@ -284,6 +288,10 @@ func orDefault(v, fallback int) int {
 // a moment later - a connection made in between is refused, and refusing to
 // retry would make a working guest look broken.
 func dialGuest(ctx context.Context, vsock string) (Conn, error) {
+	return dialPort(ctx, vsock, vmboot.VsockPort)
+}
+
+func dialPort(ctx context.Context, vsock string, port uint32) (Conn, error) {
 	deadline := time.Now().Add(guestBootTimeout)
 
 	var last error
@@ -293,7 +301,7 @@ func dialGuest(ctx context.Context, vsock string) (Conn, error) {
 			return nil, err
 		}
 
-		conn, err := tryDial(vsock)
+		conn, err := tryDial(vsock, port)
 		if err == nil {
 			return conn, nil
 		}
@@ -303,9 +311,9 @@ func dialGuest(ctx context.Context, vsock string) (Conn, error) {
 		time.Sleep(guestPollInterval)
 	}
 
-	return nil, fmt.Errorf("the guest did not answer on vsock within %s: %w"+
+	return nil, fmt.Errorf("the guest did not answer on vsock port %d within %s: %w"+
 		"\n  its console is on this process's stderr, and a guest that cannot"+
-		" mount its store says so there", guestBootTimeout, last)
+		" mount its store says so there", port, guestBootTimeout, last)
 }
 
 const (
@@ -313,13 +321,13 @@ const (
 	guestPollInterval = 20 * time.Millisecond
 )
 
-func tryDial(vsock string) (Conn, error) {
+func tryDial(vsock string, port uint32) (Conn, error) {
 	c, err := net.Dial("unix", vsock)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = fmt.Fprintf(c, "CONNECT %d\n", vmboot.VsockPort)
+	_, err = fmt.Fprintf(c, "CONNECT %d\n", port)
 	if err != nil {
 		_ = c.Close()
 
@@ -382,6 +390,12 @@ func (f *Firecracker) stopLocked() error {
 
 	f.stopped = true
 
+	// Cleared here so a PlaceBlob racing a Stop is refused with "not running"
+	// rather than dialling a socket that is about to be removed - which fails
+	// as ECONNREFUSED, retries for thirty seconds, and reports a boot timeout
+	// for a guest that was deliberately stopped.
+	f.vsockAt = ""
+
 	if f.cmd != nil && f.cmd.Process != nil {
 		// The group, not the leader: a VMM leaves helpers behind, and a signal
 		// to the leader alone leaves them holding the sockets open.
@@ -420,4 +434,69 @@ func (f *Firecracker) dir() (string, error) {
 	f.tmp = tmp
 
 	return tmp, nil
+}
+
+// PlaceBlob makes a blob on this machine readable by the guest, and says where
+// the guest will find it.
+//
+// **Copied rather than shared, because there is nothing to share.** Firecracker
+// has no virtio-fs, so a host path means nothing inside the guest; the bytes go
+// over a vsock channel of their own and land on the device the guest formatted.
+// A sandbox that *can* share a filesystem implements `GuestPath` instead and
+// copies nothing, which is why both exist.
+//
+// The credential stays here, which is the reason the host pushes rather than the
+// guest fetching: `engine/image` reads the machine's credential store, and a
+// guest that fetched for itself would put a registry password inside the
+// boundary this sandbox exists to be.
+func (f *Firecracker) PlaceBlob(ctx context.Context, host string) (string, error) {
+	fi, err := os.Stat(host)
+	if err != nil {
+		return "", fmt.Errorf("read the blob at %s: %w", host, err)
+	}
+
+	src, err := os.Open(host)
+	if err != nil {
+		return "", fmt.Errorf("open the blob at %s: %w", host, err)
+	}
+
+	defer func() { _ = src.Close() }()
+
+	f.mu.Lock()
+	vsock := f.vsockAt
+	f.mu.Unlock()
+
+	if vsock == "" {
+		return "", fmt.Errorf("this sandbox is not running, so %s cannot be"+
+			" placed in it", filepath.Base(host))
+	}
+
+	// A connection per blob. The build fetches an image's layers at once and
+	// each gets its own, which is what makes them independent - one that fails
+	// mid-blob closes its own channel and leaves the others alone. Firecracker
+	// multiplexes them onto the one device.
+	conn, err := dialPort(ctx, vsock, vmboot.BulkPort)
+	if err != nil {
+		return "", fmt.Errorf("open a bulk channel for %s: %w", filepath.Base(host), err)
+	}
+
+	defer func() { _ = conn.Close() }()
+
+	name := filepath.Base(host)
+
+	err = bulk.SendBlob(conn, name, src, fi.Size())
+	if err != nil {
+		return "", err
+	}
+
+	// **Closed before returning, because the guest writes on end of stream.**
+	// The receiver renames the blob into place when the channel ends, so a
+	// caller told the path while the connection is still open would look for a
+	// file that is still a temporary one.
+	err = conn.Close()
+	if err != nil {
+		return "", fmt.Errorf("finish the bulk channel for %s: %w", name, err)
+	}
+
+	return path.Join(f.StoreDir(), "blobs", name), nil
 }

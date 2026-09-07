@@ -471,6 +471,23 @@ the same metadata. The device is `flock`ed for the life of the build and a secon
 rather than queued; give it its own `EARTH_VM_STORE` to run alongside. The lock is held by an open
 descriptor, so it dies with the process however the process ended.
 
+### `EARTH_CLONE_LAYERS`
+
+Commits a captured layer by sharing extents rather than by copying every byte.
+
+A captured layer is mostly bytes its base already had. `copy_file_range` is a reflink on XFS and
+btrfs, so the store grows by what a step **changed** rather than by what it could **see**; on ext4
+it still copies, but in the kernel, so the bytes do not pass through the engine. This is the reason
+a microVM's store is XFS with `reflink=1`, and one test group filled sixty-three gigabytes before
+it was used.
+
+Set it to `0` to copy instead. The saving is invisible from inside - a reflink and a copy leave
+identical bytes - so running the same build both ways and looking at the store is the only way to
+measure it, and the switch is also how a store that has grown strangely gets bisected.
+
+Default: on. The fallback is always correct, so this guards against a slow store rather than a
+wrong one.
+
 ### `EARTH_VM`
 
 Runs the guest inside a microVM rather than in namespaces on the host kernel.

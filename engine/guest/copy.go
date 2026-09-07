@@ -578,7 +578,7 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	// Best-effort by design: different filesystems, an old kernel and a file
 	// whose size cannot be known are all ordinary, and the answer to each is
 	// the copy below.
-	if fi, statErr := in.Stat(); statErr == nil && fi.Mode().IsRegular() &&
+	if fi, statErr := in.Stat(); cloneLayers() && statErr == nil && fi.Mode().IsRegular() &&
 		fsclone.Range(in, out, fi.Size()) {
 		return nil
 	}
@@ -652,4 +652,24 @@ func mkdirAllStamped(path string, perm os.FileMode, clamp *time.Time) error {
 	}
 
 	return nil
+}
+
+// EnvCloneLayers turns off committing a captured layer by reflink.
+//
+// **An A/B switch, because the saving is invisible from inside.** A reflink and
+// a copy leave identical bytes, so the only way to know what sharing extents is
+// worth is to run the same build both ways and look at the store - and a switch
+// is also how the next person bisects a store that has grown strangely.
+//
+// On unless turned off: the fallback is always correct, so what this guards
+// against is a slow store rather than a wrong one.
+const EnvCloneLayers = "EARTH_CLONE_LAYERS"
+
+func cloneLayers() bool {
+	switch os.Getenv(EnvCloneLayers) {
+	case "0", "false", "no":
+		return false
+	default:
+		return true
+	}
 }

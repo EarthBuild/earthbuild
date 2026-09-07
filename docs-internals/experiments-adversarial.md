@@ -47439,3 +47439,50 @@ guest succeeds - so it is not the network, the volume, or the userspace stack.
 the machine that *started* it. A four-vCPU guest was being given thirty-two
 concurrent steps; parallelism now follows the sandbox. It did not fix the
 remaining failure, which is worth recording as plainly as if it had.
+
+### E976 - the store had a collector and nothing called it
+
+Five suite runs in one afternoon ended with `no space left on device`, each
+twenty minutes in, partway through a capture. The diagnoses attempted, in order:
+a larger device, a reflink for the layer commit, and a measurement of what the
+reflink saved - twice, on two workloads, both times against a switch that was
+not reaching the guest.
+
+The answer was `earth prune`. `store.Collect` has always been able to collect
+the store, least-recently-used with a size ceiling, and nothing has ever called
+it. On a host directory that is untidy. On a device made once at a fixed size it
+stops the build.
+
+Called now as the agent comes up, which is the one moment nothing is reading the
+store: there is no lock on it, and a build that read a layer the collector
+removed would materialise a filesystem missing an element. Both backends pass
+through there.
+
+```text
+earth-vmboot: settings: 1 from the host
+earth-vmboot: store: 16137 layer(s) in /store/layers, 81M free
+earth-guestd: removed 2381 layers, freed 27.5 GiB, 5491 layers and 64.2 GiB left
+```
+
+**And the ordering gained a rule it did not have.** A fleet holds more than one
+machine can, so losing a layer a peer still has costs a *fetch* while losing one
+nobody else has costs a *rebuild*. Least-recently-used treats those alike, and so
+takes the expensive one first whenever it happens to be older - which it often
+is, because a layer only this machine has is usually one this machine made.
+`CollectWith` sorts recoverable ahead of age; nothing supplies that knowledge
+yet, and the interface admits it so the ordering does not need redesigning when
+something does.
+
+**What it does not solve.** Collection happens at start, so the headroom has to
+cover the whole run: one test group consumed sixty gigabytes, and a store
+collected to eight gigabytes free stops in the same place it did before.
+Collecting during a build needs a lock every read would then have to respect,
+which is a different design and a larger one.
+
+**Two faults found by the fix rather than by the failure.** The first attempt at
+a collector overwrote the existing one wholesale - written without looking for
+what was already there, and caught only because `engine/cli/prune.go` stopped
+compiling. The second wired `EARTH_STORE_FREE` into the guest and not into the
+list of settings the host sends, so a suite ran with the collector on its default
+while the setting said otherwise; the diagnostic that would have caught it,
+`settings: N from the host`, was already printing and went unread.

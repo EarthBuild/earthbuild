@@ -51,6 +51,13 @@ func run() error {
 		return err
 	}
 
+	err = writeResolver()
+	if err != nil {
+		// Not fatal: a guest with no resolver still builds everything that does
+		// not fetch, and the host has already said whether it has a network.
+		fmt.Fprintf(os.Stderr, "earth-vmboot: no resolver: %v\n", err)
+	}
+
 	// Started before the agent, because the host may push a blob before it
 	// sends its first request: the two channels are independent and the host
 	// has no way to know when this one is listening.
@@ -335,4 +342,38 @@ func readAsk(c *os.File) (string, error) {
 	}
 
 	return "", fmt.Errorf("no newline in the first %d bytes of a request", len(out))
+}
+
+// writeResolver puts the host's resolver where a step will find it.
+//
+// **`/etc/resolv.conf` in the guest, because that is what the agent binds into
+// every step.** An image ships none - the runtime is expected to provide one -
+// so without this every name lookup in every step fails, each tool with its own
+// unrelated-looking error (E931's shape, reached through a different door).
+//
+// The kernel has already configured the interface from its own `ip=` parameter
+// before this runs; the resolver is the one part of that it does not write
+// where anything looks for it.
+func writeResolver() error {
+	b, err := os.ReadFile("/proc/cmdline")
+	if err != nil {
+		return fmt.Errorf("read the kernel command line: %w", err)
+	}
+
+	at := vmboot.ParseNet(string(b)).DNS
+	if !at.IsValid() {
+		return nil
+	}
+
+	err = os.MkdirAll("/etc", 0o755)
+	if err != nil {
+		return fmt.Errorf("make /etc: %w", err)
+	}
+
+	err = os.WriteFile("/etc/resolv.conf", []byte("nameserver "+at.String()+"\n"), 0o644)
+	if err != nil {
+		return fmt.Errorf("write /etc/resolv.conf: %w", err)
+	}
+
+	return nil
 }

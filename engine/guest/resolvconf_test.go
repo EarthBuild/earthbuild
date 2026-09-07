@@ -41,8 +41,8 @@ func TestOnlyReachableNameserversSurvive(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := reachableNameservers(c.in); !reflect.DeepEqual(got, c.want) {
-				t.Errorf("reachableNameservers(%q) = %v, want %v", c.in, got, c.want)
+			if got := ReachableNameservers(c.in); !reflect.DeepEqual(got, c.want) {
+				t.Errorf("ReachableNameservers(%q) = %v, want %v", c.in, got, c.want)
 			}
 		})
 	}

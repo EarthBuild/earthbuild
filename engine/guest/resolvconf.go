@@ -15,8 +15,13 @@ import (
 // with its own namespace cannot use the stub.
 const systemdResolvConf = "/run/systemd/resolve/resolv.conf"
 
-// reachableNameservers is the nameservers in a resolv.conf that a step in its
+// ReachableNameservers is the nameservers in a resolv.conf that a step in its
 // own network namespace could actually reach.
+//
+// Exported because a microVM asks the same question from outside: the host
+// picks one resolver to hand its guest on the kernel command line, and the rule
+// for which are usable is this one. Two copies of it would be two answers to
+// "is 127.0.0.53 any use to something over there".
 //
 // Loopback is dropped, and that is the entire point: 127.0.0.53 names a
 // listener in the *guest's* namespace, and a step given one of its own has an
@@ -26,7 +31,7 @@ const systemdResolvConf = "/run/systemd/resolve/resolv.conf"
 // Only `nameserver` lines are read. `search` and `options` describe how to ask
 // rather than whom, and carrying them would mean deciding what a step's search
 // domains should be - which is the image's business and not this engine's.
-func reachableNameservers(conf string) []string {
+func ReachableNameservers(conf string) []string {
 	var out []string
 
 	for line := range strings.SplitSeq(conf, "\n") {
@@ -59,7 +64,7 @@ func hostNameservers() []string {
 			continue
 		}
 
-		if ns := reachableNameservers(string(b)); len(ns) > 0 {
+		if ns := ReachableNameservers(string(b)); len(ns) > 0 {
 			return ns
 		}
 	}

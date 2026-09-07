@@ -64,6 +64,8 @@ type Firecracker struct {
 	tmp     string
 	vsockAt string
 	exports string
+	tap     string
+	net     vmboot.Net
 	stopped bool
 
 	// exporting holds the export device to one artifact at a time. There is one
@@ -204,6 +206,8 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 		return nil, err
 	}
 
+	f.attachNet()
+
 	err = f.writeConfig(cfg, vsock)
 	if err != nil {
 		return nil, err
@@ -252,8 +256,11 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			"kernel_image_path": f.Kernel,
 			"initrd_path":       f.Initrd,
 			// `pci=off` because there is no PCI bus; the console is the only way
-			// a guest that fails early can say so.
-			"boot_args": "console=ttyS0 reboot=k panic=1 pci=off",
+			// a guest that fails early can say so. The network settings ride
+			// here because the command line is the only channel into a guest
+			// that exists before the guest is running - see vmboot.Net.
+			"boot_args": strings.TrimSpace(
+				"console=ttyS0 reboot=k panic=1 pci=off " + f.net.BootArgs()),
 		},
 		"drives": []object{},
 		"vsock": object{
@@ -290,6 +297,17 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 	}
 
 	cfg["drives"] = drives
+
+	// **Only where there is a tap.** A guest with an interface and no peer is
+	// slower to fail than one with no interface: it waits out a connect timeout
+	// per fetch rather than saying at once that nothing resolves.
+	if f.net.Wanted() {
+		cfg["network-interfaces"] = []object{{
+			"iface_id":      "eth0",
+			"host_dev_name": f.tap,
+			"guest_mac":     vmboot.MACFor(f.net.Address.Addr()),
+		}}
+	}
 
 	b, err := json.Marshal(cfg)
 	if err != nil {
@@ -656,3 +674,27 @@ func (f *Firecracker) askForExport(ctx context.Context, vsock, guestPath string)
 // it, so anything named *to* the guest - a placed blob, a staged export - is
 // named from here.
 func (f *Firecracker) GuestStore() string { return vmboot.StoreAt }
+
+// attachNet works out how this guest reaches the network, and says once when it
+// cannot.
+//
+// **Said once, at start, rather than left to a step.** A sandbox with no route
+// still builds everything that does not fetch; what it must not do is let a
+// `RUN apk add` fail on a name that will not resolve, which reads as a broken
+// mirror rather than as a machine with no network.
+func (f *Firecracker) attachNet() {
+	f.tap = os.Getenv(EnvTap)
+	if f.tap == "" {
+		f.tap = defaultTap
+	}
+
+	net, why := guestNet()
+	if why != "" {
+		fmt.Fprintf(os.Stderr, "earthbuild: this microVM has no network: %s\n"+
+			"  steps that fetch will fail; set %s=off to stop being told\n", why, EnvTap)
+
+		return
+	}
+
+	f.net = net
+}

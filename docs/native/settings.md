@@ -470,6 +470,36 @@ is how "is the store what broke my build" gets asked.
 
 Needs the four settings above. Default: off.
 
+### `EARTH_VM_TAP`
+
+The tap device a microVM's guest reaches the network through. Defaults to `earthtap0`; set it to
+`off` for a guest with no network at all.
+
+**Pre-created, because creating one needs a privilege a build must not have.** `TUNSETIFF` on a new
+device wants `CAP_NET_ADMIN`, and so does giving it an address or a route - so the engine takes a
+device somebody made once and only *reads* its address, which needs nothing. Three commands, as
+root, and they survive until the machine reboots:
+
+```sh
+ip tuntap add earthtap0 mode tap user "$USER"
+ip addr add 172.30.0.1/30 dev earthtap0 && ip link set earthtap0 up
+iptables -t nat -A POSTROUTING -s 172.30.0.0/30 -j MASQUERADE
+sysctl -w net.ipv4.ip_forward=1
+```
+
+**A /30 and only a /30**, which is the whole reason there is one setting rather than two: four
+addresses, of which one is the network and one the broadcast, leaving exactly two. The tap carries
+one and the guest takes the other, so the two ends cannot drift.
+
+The guest is configured by the kernel's own `ip=` parameter - `CONFIG_IP_PNP` reads it before
+`/init` runs - so the initramfs needs no `ip` binary, no ioctls and no netlink. The resolver is the
+one part that lands nowhere useful, so `earth-vmboot` writes `/etc/resolv.conf`, which is what the
+agent binds into every step.
+
+Without a tap the sandbox says so once at start and builds anyway. Steps that fetch then fail, which
+is the honest outcome: a guest with an interface and no peer waits out a connect timeout per fetch
+instead.
+
 ### `EARTH_STORE_IN_VM`
 
 Puts the layer store on the block device the guest owns rather than in a directory shared from the

@@ -5680,6 +5680,36 @@ vsock keeps the credential where it is, streams the bytes straight into the
 guest's store, and needs no network device in the guest at all - no tap, no NAT,
 and no host privilege to create either.
 
+### What already crosses as a stream, and what does not
+
+Read out of the code 2026-09-07, before designing anything, because two features
+in a row turned out to be built already.
+
+The fault-in channel is **already transport-shaped**. `guest.ListenForFills`
+binds a socket inside the guest and `RelayFills` carries bytes between it and the
+host over whatever stream the sandbox has; Apple reaches it with a second `exec`
+because a VM gives it no descriptor to pass. Nothing in it assumes a shared
+filesystem, and a vsock port answers the same shape. `ServeFillsAnd` carries the
+blob-progress question over the same channel for the same reason: the file on the
+shared mount it replaced answered 460ms late (E688).
+
+What still assumes one is narrower than it looked, and it is two things:
+
+* **Blobs in.** `unpack-layer` is given `req.Blob`, a path the guest opens. The
+  host fetches into the shared store and names it; with no shared mount the bytes
+  have to arrive over the channel that already carries the progress question.
+* **Exports out.** The guest stages under `EnvExportDir` and the host reads the
+  result with `os.Lstat` and `filepath.Walk`. This is the crossing the outbound
+  device above is for.
+
+Everything else the host opens against `StoreDir` - blobs, the action cache, the
+profile store, build records - is **host-side only**, and the guest never reads
+it. That was not obvious: `StoreDir` is one method, and on every backend so far
+it named a directory both sides could see, so nothing forced the two meanings
+apart. `EnvStoreInVM` had already separated them in fact - the layers moved to
+the guest's device and the exports stayed behind - without separating them in the
+type.
+
 ### Overlay options this engine does not yet pass
 
 Raised 2026-09-06. `mountOptions` passes `lowerdir`, `upperdir`, `workdir` and

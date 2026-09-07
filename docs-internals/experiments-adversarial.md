@@ -47486,3 +47486,37 @@ compiling. The second wired `EARTH_STORE_FREE` into the guest and not into the
 list of settings the host sends, so a suite ran with the collector on its default
 while the setting said otherwise; the diagnostic that would have caught it,
 `settings: N from the host`, was already printing and went unread.
+
+### E977 - a collected store does return to warm
+
+E574 left a warning on `earth prune`: collecting this repository's store down to
+1GiB left every subsequent build at ~101s rather than 0.65s, publishing fresh
+layers and fresh action-cache keys each time and matching none of them. Whether
+the collection caused that or revealed something already true was never settled,
+and the caveat has sat on `Prune` since.
+
+That caveat became load-bearing the moment collection stopped being a command
+somebody types: the agent now collects at start, so if a collected store cannot
+go warm again, every build after the first is cold and the collector is worse
+than the disk it saves.
+
+Checked, on a two-step build against a store the collector had just taken the
+base image out of:
+
+| build                       | FROM     | RUN      |
+| --------------------------- | -------- | -------- |
+| cold                        | L1 hit   | miss     |
+| warm                        | L1 hit   | L1 hit   |
+| after a forced collection   | **miss** | L1 hit   |
+| the one after that          | L1 hit   | L1 hit   |
+
+The collection is visible - the base was removed and the next build missed it -
+and the build after that is warm again. Nothing is poisoned.
+
+**This does not refute E574**, and is not offered as doing so. That was this
+repository's own store collected to 1GiB, which is a different scale and a
+different shape: forty-odd layers republished per build is not something a
+two-step Earthfile can reproduce. What it establishes is narrower and is the
+thing the automatic collector needed: collecting is *recoverable*, so a store
+that gives up a layer gets it back by fetching or rebuilding it once, rather than
+by never matching again.

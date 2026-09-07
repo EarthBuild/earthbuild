@@ -47322,3 +47322,53 @@ and creating one needs `CAP_NET_ADMIN` - so the machine has to be prepared once
 before any of it can be exercised. Per-step namespaces need `ip` in the
 initramfs, or the same work done by syscall; it degrades to one shared namespace
 and says so, which only bites when two steps want one port.
+
+### E974 - a microVM cached nothing, and the store had to be put down
+
+Two identical builds in a microVM, both `miss`, where the namespace backend
+reports `L1 hit`. Every VM build had been re-fetching and re-unpacking its base.
+Two faults, found by elimination rather than by reading.
+
+**The store was never put down.** Three consecutive builds each captured their
+work and each found the same 161 layers waiting:
+
+```text
+build 1  store: 161 layer(s)
+build 2  store: 161 layer(s)
+build 3  store: 161 layer(s)
+```
+
+`Stop` sent SIGKILL to the VMM, which takes the machine away mid-flight, and the
+next boot said so - `XFS (vda): Starting recovery`, every time. Closing the
+agent's connection is the whole mechanism: the agent ends at end-of-stream,
+`earth-vmboot` runs it rather than exec'ing it so it regains control, and the
+kernel syncs on the way down. Syncing was still not enough; the filesystem has
+to be **unmounted**. With that, 161 -> 168 -> 172, and `FROM` takes an L1 hit.
+
+**A step whose delta is empty is still not cached**, and this one is open. The
+entry is found - the keys are identical, the action cache holds a stable seven
+files rather than a growing pile - and `Lookup` rejects it at `held`: the guest
+answers that it does not hold the layer the previous build recorded.
+
+Which layers, exactly:
+
+| entry            | layer id filed | caches |
+| ---------------- | -------------- | ------ |
+| `bytes=0`        | no             | never  |
+| `bytes=5`        | yes            | yes    |
+
+`Capture` returns an id *and* a content digest, and the entry records both. On
+the shared-filesystem path they are the same thing - `Place` files a tree under
+the digest of its contents - and 2074 `bytes=0` entries there have their layer
+directory present. In a microVM the two differ for an empty delta and neither is
+filed, so the entry names a layer nobody kept.
+
+The reproduction is one line either way: `RUN echo hello` never caches in a VM
+and `RUN echo hello > /kept.txt` caches from the second build on.
+
+**What the debugging needed was two silences broken.** `earth-vmboot: store: N
+layer(s)` at boot, because "the guest does not hold it" covers an empty store, a
+store that did not survive, and a device mounted elsewhere; and a report of the
+first question the guest could not be asked, because a failed question is a
+miss, a miss is "do the work", and the build is *correct* - so an unreachable
+store costs every hit and says nothing.

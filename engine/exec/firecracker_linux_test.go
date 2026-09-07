@@ -5,6 +5,7 @@ package exec_test
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/exec"
@@ -83,4 +84,49 @@ func contains(s, sub string) bool {
 	}
 
 	return false
+}
+
+// The store this sandbox names is a directory on **this** machine.
+//
+// Every caller of `StoreDir` opens it here: the CLI opens the blob store, the
+// action cache and the profile store against it before anything boots, and
+// `SAVE ARTIFACT` reads the staged artifact off it with an ordinary `os.Lstat`.
+// A guest path there names a directory nothing on the host writes to - and
+// worse, one that resolves, so the blobs would be written *somewhere* and the
+// guest would find none of them.
+//
+// The guest's own layers are a separate thing on a separate device, addressed
+// by the environment. The two are only the same directory on a backend that
+// shares a filesystem, which this one cannot: Firecracker has no virtio-fs.
+func TestTheStoreIsAHostDirectory(t *testing.T) {
+	t.Parallel()
+
+	at := t.TempDir()
+	fc := &exec.Firecracker{Store: at}
+
+	if got := fc.StoreDir(); got != at {
+		t.Errorf("the sandbox was told to keep its store at %s and answers %s", at, got)
+	}
+}
+
+// Left unset it is still a host directory, and a durable one.
+//
+// The store is a cache: it is worth having because the *next* build reads it.
+// A temporary directory would answer every question this asks correctly and
+// still throw the cache away between builds, so the assertion is that it lives
+// under the user's cache directory, which is where Apple's does.
+func TestTheDefaultStoreOutlivesTheBuild(t *testing.T) {
+	t.Parallel()
+
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		t.Skip("no user cache directory on this machine: ", err)
+	}
+
+	got := (&exec.Firecracker{}).StoreDir()
+
+	if !strings.HasPrefix(got, cache+string(os.PathSeparator)) {
+		t.Errorf("the default store is %s, which is not under the cache directory %s"+
+			"\n  a store that does not outlive the build is not a cache", got, cache)
+	}
 }

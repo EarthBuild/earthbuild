@@ -45,6 +45,11 @@ type Firecracker struct {
 	// empty.
 	Root string
 
+	// Store is where the *host* keeps this sandbox's blobs, action cache and
+	// staged exports. Not the guest's layers, which are on StoreImage: the two
+	// are one directory only where a filesystem is shared, and none is here.
+	Store string
+
 	// VCPUs and MemoryMiB size the guest. Zero takes the defaults below.
 	VCPUs     int
 	MemoryMiB int
@@ -123,11 +128,41 @@ func (f *Firecracker) Available() error {
 
 // StoreDir is where layers live for this sandbox.
 //
-// **The guest's own path, not the host's.** The store is on the block device the
-// guest formats, which the host cannot open while the guest holds it - see
-// `guest.EnvStoreInVM`, which established that on measurements rather than on
-// principle. A host path here would name a directory nothing writes to.
-func (f *Firecracker) StoreDir() string { return "/store" }
+// **A host directory, because every caller opens it here.** The CLI opens the
+// blob store, the action cache and the profile store against this before
+// anything boots, and `SAVE ARTIFACT` reads the staged artifact off it with an
+// ordinary `os.Lstat`. A guest path would name a directory nothing on the host
+// writes to - and it would *resolve*, so the blobs would land somewhere and the
+// guest would find none of them.
+//
+// The guest's own layers are elsewhere and stay there: they live on the block
+// device it formats, which the host cannot open while the guest holds it (see
+// `guest.EnvStoreInVM`). On a backend with a shared filesystem those two are the
+// same directory; here they cannot be, because Firecracker has no virtio-fs.
+// What still has to cross - blobs in, exports out - crosses as a stream and not
+// as a mount.
+//
+// Under the user's cache directory by default, because the store is a cache: it
+// is worth having because the next build reads it, and a temporary directory
+// would be correct and worthless.
+func (f *Firecracker) StoreDir() string {
+	if f.Store != "" {
+		return f.Store
+	}
+
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		// No cache directory to resolve it from. Answering "" would be worse
+		// than any guess: "" is the working directory, so the caller joining
+		// "layers" onto it fills the user's checkout instead (E965's neighbour
+		// in Native.root).
+		cache = os.TempDir()
+	}
+
+	f.Store = filepath.Join(cache, "earthbuild", "fc-store")
+
+	return f.Store
+}
 
 // Confines reports that a step's writes are held to its own layer.
 func (f *Firecracker) Confines() bool { return true }

@@ -449,6 +449,12 @@ them the sandbox reports what is missing and the build uses the namespace backen
 machine with no `/dev/kvm`, which includes most hosted CI runners, does the same. This is I11:
 degrade and say so, because refusing would break every machine that works today.
 
+**One build at a time per store device.** A device holds one filesystem, and two guests mounting it
+read-write is not a race that loses an update - it is two kernels with two independent logs writing
+the same metadata. The device is `flock`ed for the life of the build and a second build is refused
+rather than queued; give it its own `EARTH_VM_STORE` to run alongside. The lock is held by an open
+descriptor, so it dies with the process however the process ended.
+
 ### `EARTH_VM`
 
 Runs the guest inside a microVM rather than in namespaces on the host kernel.

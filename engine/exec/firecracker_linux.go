@@ -66,6 +66,7 @@ type Firecracker struct {
 	exports string
 	tap     string
 	net     vmboot.Net
+	release func()
 	stopped bool
 
 	// exporting holds the export device to one artifact at a time. There is one
@@ -200,6 +201,14 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 	cfg := filepath.Join(dir, "vm.json")
 	vsock := filepath.Join(dir, "guest.vsock")
 	f.vsockAt = vsock
+
+	// **Before anything is written**, because the claim is what says this
+	// machine is not already running a guest on that device - and the export
+	// device beside it belongs to the same sandbox.
+	f.release, err = claimStore(f.StoreImage)
+	if err != nil {
+		return nil, err
+	}
 
 	err = f.makeExportDevice(dir)
 	if err != nil {
@@ -439,6 +448,11 @@ func (f *Firecracker) stopLocked() error {
 	}
 
 	f.stopped = true
+
+	if f.release != nil {
+		f.release()
+		f.release = nil
+	}
 
 	// Cleared here so a PlaceBlob racing a Stop is refused with "not running"
 	// rather than dialling a socket that is about to be removed - which fails

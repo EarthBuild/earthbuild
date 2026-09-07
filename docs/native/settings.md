@@ -509,6 +509,21 @@ is how "is the store what broke my build" gets asked.
 
 Needs the four settings above. Default: off.
 
+### `EARTH_VM_CPUS`, `EARTH_VM_MEMORY_MIB`
+
+How large the guest is. Default: 4 vCPUs and 2048 MiB.
+
+**Parallelism follows the vCPUs, so raising one raises both.** A build runs a step per processor,
+and the processors that matter are the *guest's* - the machine starting it may have thirty-two
+cores, and one-step-per-host-core puts thirty-two concurrent steps inside a four-vCPU guest, each
+unpacking layers and running a package manager in two gigabytes of shared memory. What that
+produces is not a clean failure but a step that exits non-zero having printed nothing, which reads
+as the command being wrong.
+
+`EARTH_PARALLELISM` still wins over both: it exists to make a build serial, and a sandbox
+overriding that would take the instrument away. A guest is never believed past this machine's own
+core count either - its processors are this machine's, however many it claims.
+
 ### `EARTH_VM_TAP`
 
 The tap device a microVM's guest reaches the network through. Defaults to `earthtap0`; set it to

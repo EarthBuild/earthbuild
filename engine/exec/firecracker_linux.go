@@ -103,6 +103,8 @@ const (
 func NewFirecracker() *Firecracker {
 	return &Firecracker{
 		Binary:     envOr("EARTH_FIRECRACKER", "firecracker"),
+		VCPUs:      envInt(EnvVMCPUs),
+		MemoryMiB:  envInt(EnvVMMemory),
 		Kernel:     os.Getenv("EARTH_VM_KERNEL"),
 		Initrd:     os.Getenv("EARTH_VM_INITRD"),
 		StoreImage: os.Getenv(EnvVMStore),
@@ -190,6 +192,14 @@ func (f *Firecracker) StoreDir() string {
 
 	return f.Store
 }
+
+// CPUs is how many processors a step actually has.
+//
+// **Asked, because the host's core count is the wrong number here.** The guest
+// is given four vCPUs by default and the machine starting it may have
+// thirty-two; a build that runs one step per host core then puts thirty-two of
+// them inside this. See EnvVMCPUs.
+func (f *Firecracker) CPUs() int { return orDefault(f.VCPUs, defaultVCPUs) }
 
 // Confines reports that a step's writes are held to its own layer.
 func (f *Firecracker) Confines() bool { return true }
@@ -962,3 +972,26 @@ const shutdownPatience = 10 * time.Second
 // the executor sees an ENOSPC from a guest and has no way to tell a directory
 // somebody can make room in from an image somebody has to remake.
 func (f *Firecracker) Full(err error) string { return vmFullHint(err, f.StoreImage) }
+
+// EnvVMCPUs and EnvVMMemory size the guest.
+//
+// **Because the defaults are one machine's guess about another's work.** Four
+// vCPUs and two gigabytes run a step comfortably and a build of several at once
+// not at all - and the parallelism follows the vCPUs, so raising one raises
+// both. A machine with cores to spare should say so.
+const (
+	EnvVMCPUs   = "EARTH_VM_CPUS"
+	EnvVMMemory = "EARTH_VM_MEMORY_MIB"
+)
+
+// envInt is a setting as a number, or zero for absent and for anything that is
+// not one. A typo bounds how fast the build goes and nothing about what it
+// produces, so it takes the default rather than stopping the build.
+func envInt(name string) int {
+	n, err := strconv.Atoi(os.Getenv(name))
+	if err != nil || n <= 0 {
+		return 0
+	}
+
+	return n
+}

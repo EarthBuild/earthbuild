@@ -47277,3 +47277,48 @@ A second block device carries it out. It carries a **stream and not a
 filesystem** (see the plan): the host must never mount metadata a sandbox
 authored, because a kernel filesystem parser is exactly the surface the VM
 boundary was added to remove.
+
+### E973 - what a microVM costs, and what it can already build
+
+Measured on the 16-core x86 box, 2026-09-07, five runs a side on a warm cache
+after a discarded warm-up, twice over. The build is trivial - every step a cache
+hit - so what is left is the fixed cost of the sandbox.
+
+| round | namespaces (median) | microVM (median) |
+| ----- | ------------------- | ---------------- |
+| 1     | 440ms               | 1205ms           |
+| 2     | 448ms               | 1261ms           |
+
+**About 760ms a build**, and the two rounds agree, which is the point of running
+it twice: the namespace side is the noisy one (422-1044ms) and the VM side is
+tight (1075-1474ms), so a single pair would have been a coin toss.
+
+That is boot, XFS mount, agent handshake and teardown, paid once per build. The
+obvious answer is Apple's - a machine kept alive by name with an idle timeout,
+which the agent already implements (`EnvIdle`) and `earth-vmboot` already
+respects, since it halts when the agent exits. **Not done, deliberately**: make
+it work, make it correct, make it fast. The backend is not yet correct for a
+build that fetches, and optimising the cost of a boot before that is optimising
+the wrong thing.
+
+What runs inside a microVM today, verified rather than assumed:
+
+| construct                                     | state               |
+| --------------------------------------------- | ------------------- |
+| `FROM`, multi-layer images                    | works               |
+| `RUN`, `ARG`, `IF`                            | works               |
+| `COPY` from the build context                 | works               |
+| `COPY +target/artifact`                       | works               |
+| `CACHE` mounts, including `--sharing=locked`  | works               |
+| `RUN --secret`, and left uncaptured           | works               |
+| `SAVE ARTIFACT`, a file and a directory       | works               |
+| `SAVE IMAGE`                                  | works               |
+| `BUILD` of several targets at once            | works               |
+| anything that fetches                         | **no network**      |
+| a network namespace per step                  | shared, and says so |
+
+The two gaps are one gap: the guest reaches the network through a tap device,
+and creating one needs `CAP_NET_ADMIN` - so the machine has to be prepared once
+before any of it can be exercised. Per-step namespaces need `ip` in the
+initramfs, or the same work done by syscall; it degrades to one shared namespace
+and says so, which only bites when two steps want one port.

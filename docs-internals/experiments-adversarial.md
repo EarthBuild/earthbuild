@@ -47289,17 +47289,36 @@ hit - so what is left is the fixed cost of the sandbox.
 | 1     | 440ms               | 1205ms           |
 | 2     | 448ms               | 1261ms           |
 
-**About 760ms a build**, and the two rounds agree, which is the point of running
-it twice: the namespace side is the noisy one (422-1044ms) and the VM side is
-tight (1075-1474ms), so a single pair would have been a coin toss.
+**⚠ These numbers are wrong and are kept for what they teach.** They compare a
+*cached* namespace build against an *uncached* microVM one: E974 had not been
+found, so every VM run re-fetched and re-unpacked its base while the namespace
+run took an L1 hit. The 760ms attributed to "boot, XFS mount, agent handshake"
+was mostly an image being unpacked again.
 
-That is boot, XFS mount, agent handshake and teardown, paid once per build. The
-obvious answer is Apple's - a machine kept alive by name with an idle timeout,
-which the agent already implements (`EnvIdle`) and `earth-vmboot` already
-respects, since it halts when the agent exits. **Not done, deliberately**: make
-it work, make it correct, make it fast. The backend is not yet correct for a
-build that fetches, and optimising the cost of a boot before that is optimising
-the wrong thing.
+Both rounds agreed, twice, and agreement is what made it look sound. Two rounds
+of the same confound is one confound. What would have caught it is the thing
+neither round did: check that the two arms were doing the same work.
+
+Re-measured after E974, same script, three rounds:
+
+| round | namespaces (median) | microVM (median) |
+| ----- | ------------------- | ---------------- |
+| A     | 553ms               | 592ms            |
+| 1     | 475ms               | 463ms            |
+| 2     | 425ms               | 457ms            |
+
+**About 30ms, and sometimes negative** - which is to say the second boundary
+costs nothing measurable per build. The VM side is also the *tighter* of the two
+(457-463ms against 425-553ms across rounds): a machine that starts from the same
+state every time varies less than a host that does not.
+
+Which settles a question that was about to be answered the expensive way. Keeping
+a machine alive by name with an idle timeout - Apple's arrangement, which the
+agent already implements (`EnvIdle`) and `earth-vmboot` already respects, since
+it halts when the agent exits - was the obvious next optimisation while the
+figure was 760ms. At 30ms it buys nothing, and the deferral turned out to be the
+right call for a better reason than the one given: not "correctness first", but
+"the number was measuring a bug".
 
 What runs inside a microVM today, verified rather than assumed:
 

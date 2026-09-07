@@ -3,12 +3,11 @@
 package exec
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"golang.org/x/sys/unix"
+	"github.com/EarthBuild/earthbuild/engine/fsclone"
 )
 
 // cloneOneFile puts a copy of src at dst without the bytes going through this
@@ -94,29 +93,14 @@ func cloneOneFile(src, dst string) bool {
 	return true
 }
 
-// copyRange moves size bytes from in to out with the kernel doing the moving.
+// copyRange is fsclone.Range, which the guest uses too.
 //
-// Looped because one call is permitted to copy less than it was asked for, and
-// a short copy taken for a whole one is a truncated file that nothing reports.
-func copyRange(in, out *os.File, size int64) bool {
-	for done := int64(0); done < size; {
-		n, err := unix.CopyFileRange(int(in.Fd()), nil, int(out.Fd()), nil, int(size-done), 0)
-		switch {
-		case errors.Is(err, unix.EINTR):
-			continue
-		case err != nil:
-			return false
-		case n == 0:
-			// Nothing copied and no error means the source ended sooner than
-			// its size promised. Reporting success would leave a short file.
-			return done == size
-		}
-
-		done += int64(n)
-	}
-
-	return true
-}
+// **One definition, because the two callers ask the same question.** The guest
+// commits captured layers and this commits exports and contexts; both want the
+// kernel to move the bytes and both fall back to reading them here. Two copies
+// of a `copy_file_range` loop is two places for the short-copy rule to be got
+// wrong.
+func copyRange(in, out *os.File, size int64) bool { return fsclone.Range(in, out, size) }
 
 // mayClone reports whether this invocation is allowed to clone.
 //

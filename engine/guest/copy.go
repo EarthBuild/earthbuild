@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/fsclone"
 	"github.com/EarthBuild/earthbuild/engine/fstime"
 )
 
@@ -564,6 +565,34 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	err = out.Chmod(mode)
 	if err != nil {
 		return fmt.Errorf("set the mode of %s: %w", dst, err)
+	}
+
+	// **The kernel first, because on this store that is a reflink.** A captured
+	// layer is mostly bytes its base already had, and committing it copies
+	// every one of them: `copy_file_range` on XFS or btrfs shares the extents
+	// instead, so the store grows by what a step changed rather than by what it
+	// could see. One test group filled sixty-three gigabytes the other way -
+	// which is the whole reason a microVM's store is XFS with `reflink=1`, and
+	// it was being paid for and not used.
+	//
+	// Best-effort by design: different filesystems, an old kernel and a file
+	// whose size cannot be known are all ordinary, and the answer to each is
+	// the copy below.
+	if fi, statErr := in.Stat(); statErr == nil && fi.Mode().IsRegular() &&
+		fsclone.Range(in, out, fi.Size()) {
+		return nil
+	}
+
+	// Whatever the clone managed, this starts again from the beginning: a
+	// partial clone that reported failure has left the offsets where it stopped.
+	_, err = in.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("rewind %s: %w", src, err)
+	}
+
+	_, err = out.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("rewind %s: %w", dst, err)
 	}
 
 	_, err = io.Copy(out, in)

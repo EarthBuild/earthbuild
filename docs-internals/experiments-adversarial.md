@@ -47202,3 +47202,78 @@ the flags changed. None of them touched this, because the port was never
 published in the first place. What was missing was not a better hypothesis but
 the one measurement nobody had taken: *is anything listening*. It cost five
 rounds and was six lines of diagnostic.
+
+### E971 - Firecracker has no virtio-fs, so the store arrives as a device
+
+The device model is the reason to choose Firecracker and the constraint that
+shapes everything built on it: block, net, vsock, balloon, rng, and nothing
+else. There is no filesystem sharing at all.
+
+Every other backend gives host and guest one directory. Apple shares the store
+in over virtiofs; the namespace backend has no boundary to cross. Both spell
+`Sandbox.StoreDir` as one path because for them it *is* one path, and nothing in
+the type says which side it belongs to.
+
+Here they are two directories that cannot be made one:
+
+| what                                   | where            |
+| -------------------------------------- | ---------------- |
+| blobs, action cache, profiles, records | the host's store |
+| layers, mounts, staged exports         | the guest's XFS  |
+
+The first `StoreDir` written for this backend answered `/store` - the guest's
+path - and would have had the CLI open its blob store, action cache and profile
+store on a host directory nothing writes to. It *resolves*, which is what makes
+it the bad kind of wrong: the blobs would have been written somewhere real and
+the guest would have found none of them.
+
+`EARTH_STORE_IN_VM` had already separated the two in fact, moving the layers to
+the guest's device and leaving the exports behind, without separating them in
+the type. Where nothing is shared, the type has to say which side it means.
+
+### E972 - a build inside a microVM, and the acknowledgement it needed
+
+`VERSION 0.8 / FROM alpine:3.22 / RUN echo hello-from-the-vm` ran end to end
+inside Firecracker on 2026-09-07: kernel, initramfs, XFS on `/dev/vda`, PID 1,
+vsock, agent, image fetch on the host, unpack in the guest, step. The output
+came back.
+
+What it cost was one channel and one barrier.
+
+**The channel**, because the agent's frames are length-prefixed JSON with a size
+limit: a 45 MB layer would have to be base64-encoded and cut into pieces. Blobs
+now travel on a vsock port of their own, served by PID 1 - which is what mounted
+the device they land on - and the agent finds them afterwards by path, exactly
+as it does on a backend that shares a filesystem. Nothing in the agent knows a
+VM is involved, which is the point of `earth-vmboot`.
+
+**The barrier**, because closing a stream is not one. The receiver learns a blob
+is complete by reading end-of-stream and renames it into place *after* that, so
+the sender returned at `Close` and handed its caller a path that was still a
+temporary file. The guest said both halves of it in four lines:
+
+```text
+earth-vmboot: 1 blob(s) into /store/blobs
+Error: unpack-layer: open /store/blobs/sha256-f7ee36c9…: no such file or directory
+```
+
+Both true. The blob had arrived and the unpack request had overtaken the rename.
+Neither line is wrong on its own and the pair is the whole diagnosis - which is
+the argument for printing the count at all: a channel that connected and carried
+nothing is indistinguishable, from the far side, from one that was never opened.
+
+One byte back, sent after the rename and waited for before the path is returned.
+
+What is still missing is the other direction. `SAVE ARTIFACT` stages inside the
+guest and the host reads the staged file off its own store with an ordinary
+`lstat`, which here is a directory the guest cannot write:
+
+```text
+Error: the guest did not stage out.txt:
+  lstat /home/…/.cache/earthbuild/fc-store/exports/out.txt: no such file
+```
+
+A second block device carries it out. It carries a **stream and not a
+filesystem** (see the plan): the host must never mount metadata a sandbox
+authored, because a kernel filesystem parser is exactly the surface the VM
+boundary was added to remove.

@@ -55,6 +55,11 @@ var knowsTheLayout = map[string]string{
 
 	// Inside the sandbox, which is where all of this ends up.
 	"engine/guest/guest.go": sideGuest,
+
+	// PID 1 of a microVM, which mounts the device the store is on and counts
+	// what it holds at boot. As inside the sandbox as it is possible to be:
+	// the store's own filesystem does not exist until this has mounted it.
+	"cmd/earth-vmboot/main_linux.go": sideGuest,
 	// Packs one layer onto a pipe for a host that cannot open the store. It is
 	// the answer to a `host` entry rather than a new problem: the reading moved
 	// inside, which is the shape every remaining one has to take (E556).

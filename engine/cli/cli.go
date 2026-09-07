@@ -541,6 +541,16 @@ func runPlan(
 		}
 	}
 
+	// **The writer asks the same question the reader does.** `Lookup` refuses an
+	// entry whose result the store no longer holds, and `Put` leaves an
+	// existing entry alone - so without this a store that has lost a layer
+	// leaves that key permanently unhittable, the step rerunning and its fresh
+	// claim discarded every time (E974).
+	//
+	// After `present` is decided, so a store held inside the guest is asked of
+	// the guest rather than of a host directory the layers were never in.
+	ac.Held = func(e core.Entry) bool { return core.Held(present, e) }
+
 	blobs.Gap = func(id ir.NodeID) {
 		fmt.Fprintf(o.Out, "earth: layer %s is in the store and was not in its"+
 			" index, which means something filed it without recording it;"+

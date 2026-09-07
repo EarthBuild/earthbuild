@@ -37,6 +37,10 @@ type Cache struct {
 
 	conflicts []Conflict
 
+	// Held answers whether an entry's result is still in the store, or is nil
+	// where nothing can say. See Put.
+	Held func(core.Entry) bool
+
 	// Guards the conflict record only. The entries themselves need no lock -
 	// one file each, inserted atomically - which is the arrangement this
 	// package's doc comment is about.
@@ -267,12 +271,30 @@ func (c *Cache) Put(k core.Key, e core.Entry) {
 	// modified in place (I9). The early check is for the common case - the same
 	// claim arriving twice - and os.Link below is what actually makes it true,
 	// since two steps can pass this check together.
-	if held, ok := c.Get(k); ok {
-		if disagree(held, e) {
-			c.note(k, held.Layer, e.Layer)
+	//
+	// **Unless what it claims is gone**, which is removal followed by insertion
+	// and so is I9 rather than an exception to it. `Lookup` refuses an entry
+	// whose result is absent, and this rule refuses to replace it, so between
+	// them a store that has lost a layer poisons that key for ever: the step
+	// misses, reruns, publishes, and the publish is dropped on the floor. A
+	// step whose delta is empty is where it bites hardest - the cheapest thing
+	// to rerun, and the last thing an author suspects (E974).
+	if existing, ok := c.Get(k); ok {
+		if c.Held == nil || c.Held(existing) {
+			if disagree(existing, e) {
+				c.note(k, existing.Layer, e.Layer)
+			}
+
+			return
 		}
 
-		return
+		// Not a conflict, and deliberately not noted as one: two claims on one
+		// key mean a step is not reproducible, and this is a claim nobody can
+		// use being replaced by one somebody can.
+		err = os.Remove(c.path(k))
+		if err != nil {
+			return
+		}
 	}
 
 	// A unique temporary, then a *link*. The name used to be

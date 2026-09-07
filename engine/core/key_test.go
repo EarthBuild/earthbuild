@@ -20,11 +20,23 @@ import (
 // died about one in five runs (E139) - a fake that violates the port's contract
 // is a flake attributed to the engine.
 type memCache struct {
+	// Held answers whether an existing entry's result is still in the store, or
+	// is nil where nothing can say. See Put.
+	Held func(core.Entry) bool
+
 	mu sync.Mutex
 	m  map[core.Key]core.Entry
 }
 
 func newMemCache() *memCache { return &memCache{m: map[core.Key]core.Entry{}} }
+
+// heldBy makes this fake ask a blob store whether an existing entry is still
+// real, the way the CLI wires the true cache.
+func (c *memCache) heldBy(bs core.BlobStore) *memCache {
+	c.Held = func(e core.Entry) bool { return core.Held(bs, e) }
+
+	return c
+}
 
 func (c *memCache) Get(k core.Key) (core.Entry, bool) {
 	c.mu.Lock()
@@ -35,9 +47,25 @@ func (c *memCache) Get(k core.Key) (core.Entry, bool) {
 	return e, ok
 }
 
+// Put follows the real cache's rule, which is the point of it: state is
+// inserted or removed, never modified in place (I9) - *unless* what the
+// existing entry claims is gone, which is removal followed by insertion.
+//
+// **A fake that simply overwrote hid a whole class.** The real cache leaves an
+// existing entry alone, so a store that has lost a layer poisons that key for
+// ever: the step misses, reruns, publishes, and the publish is discarded. Every
+// test of that scenario passed here because this map had no such rule (E974).
 func (c *memCache) Put(k core.Key, e core.Entry) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if existing, ok := c.m[k]; ok {
+		if c.Held == nil || c.Held(existing) {
+			return
+		}
+
+		delete(c.m, k)
+	}
 
 	c.m[k] = e
 }

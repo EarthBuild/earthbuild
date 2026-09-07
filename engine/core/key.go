@@ -366,6 +366,15 @@ func Lookup(ac ActionCache, bs BlobStore, allowed map[string]bool, k Key) (Entry
 	return e, true
 }
 
+// Held reports whether the blob store holds everything this entry names.
+//
+// Exported because the *writer* has to ask it too. An entry naming a layer the
+// store no longer holds is one `Lookup` will refuse for ever, and a cache that
+// leaves an existing entry alone can never replace it - so the key is poisoned
+// until somebody deletes the file by hand. One definition of "is this claim
+// still real", asked at both ends.
+func Held(bs BlobStore, e Entry) bool { return held(bs, e) }
+
 // held reports whether the blob store holds everything this entry names.
 //
 // A stack is all-or-nothing: a hit that materialised some of an image's layers

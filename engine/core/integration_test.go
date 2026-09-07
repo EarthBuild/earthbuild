@@ -29,6 +29,13 @@ type storingExec struct {
 	inner *sim.Executor
 	store *blob.Store
 	t     *testing.T
+
+	// salt makes this executor's layers differ from another's for the same
+	// step, which is how a *non-reproducible* step is modelled. Without it a
+	// rerun stores exactly the bytes it stored last time and puts back whatever
+	// the store lost, so a stale entry heals itself and a test cannot see it
+	// fail to.
+	salt string
 }
 
 func (e storingExec) Run(
@@ -41,7 +48,7 @@ func (e storingExec) Run(
 
 	// Stand in for a captured layer: bytes derived from the step, stored for
 	// real, and named by their own digest.
-	id, size, err := e.store.Put(strings.NewReader("layer for " + n.ID().String()))
+	id, size, err := e.store.Put(strings.NewReader("layer for " + n.ID().String() + e.salt))
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -71,7 +78,7 @@ func TestLookupVerifiesAgainstRealStore(t *testing.T) {
 	g := &ir.Graph{Root: chain(img, "a", "b")}
 
 	// A first build, storing every result for real.
-	cache := newMemCache()
+	cache := newMemCache().heldBy(storeBlobs{st})
 	first := storingExec{inner: &sim.Executor{Seed: 5}, store: st, t: t}
 
 	_, err = newSched(cache, storeBlobs{st}, first).Run(context.Background(), g)
@@ -107,7 +114,13 @@ func TestLookupVerifiesAgainstRealStore(t *testing.T) {
 		}
 	}
 
-	third := storingExec{inner: &sim.Executor{Seed: 5}, store: st, t: t}
+	// **Salted, because a reproducible step heals itself.** Rerunning one
+	// stores exactly the bytes it stored last time, which puts back what the
+	// store lost and makes the stale entry good again - so the poisoning below
+	// is invisible unless the rerun's output actually differs. That is the case
+	// this exists for: a step whose rerun yields a new layer leaves the cache
+	// naming one nobody has.
+	third := storingExec{inner: &sim.Executor{Seed: 5}, store: st, t: t, salt: "rerun"}
 
 	s3 := newSched(cache, storeBlobs{st}, third)
 	_, err = s3.Run(context.Background(), g)
@@ -121,6 +134,35 @@ func TestLookupVerifiesAgainstRealStore(t *testing.T) {
 
 	if len(third.inner.Log) == 0 {
 		t.Error("nothing executed, so the dangling entries were used after all")
+	}
+
+	// **And the build after that hits again**, which is the half this test used
+	// to stop one build short of. Degrading to a miss is only half the
+	// contract: the rerun publishes a fresh claim, and if the cache keeps the
+	// dead one instead - which is exactly what "an entry already here is left
+	// alone" does - the key is unhittable for ever. The step misses, reruns,
+	// publishes, and the publish is dropped, build after build.
+	//
+	// It was invisible because the fake cache overwrote where the real one
+	// refuses to. A step whose delta is empty is where it bites hardest: the
+	// cheapest thing to rerun, and the last thing an author suspects (E974).
+	fourth := storingExec{inner: &sim.Executor{Seed: 5}, store: st, t: t, salt: "rerun"}
+
+	s4 := newSched(cache, storeBlobs{st}, fourth)
+
+	_, err = s4.Run(context.Background(), g)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if s4.Stats.Misses != 0 {
+		t.Errorf("%d steps missed after a build had already replaced what the store lost;"+
+			" the cache is keeping claims nobody can use", s4.Stats.Misses)
+	}
+
+	if len(fourth.inner.Log) != 0 {
+		t.Errorf("%d steps ran again against a store that now holds their results",
+			len(fourth.inner.Log))
 	}
 }
 

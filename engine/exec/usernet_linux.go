@@ -299,6 +299,12 @@ func guestSettings() []string {
 		overlay.EnvScratchTmpfs,
 		guestd.EnvProfile,
 		guestd.EnvStoreFree,
+		// **Without this the setting is a knob wired to nothing.** A guest's
+		// environment comes from its kernel command line, not from the process
+		// that started the VM, so a setting absent from this list is silently
+		// ignored inside the VM - which once made fifteen of them look like
+		// they had no effect.
+		guestd.EnvCollectBudget,
 		guestd.EnvProfileMode,
 		timing.Env,
 	} {

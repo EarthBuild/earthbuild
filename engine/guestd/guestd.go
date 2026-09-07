@@ -374,7 +374,46 @@ const defaultStoreFree = 8 << 30
 // handshake budget covers all of them. A collection that does not finish leaves
 // the rest for the next build; the store converges over boots, and a build that
 // genuinely runs out of room says so in words that name the problem.
-const collectBudget = 5 * time.Second
+const defaultCollectBudget = 5 * time.Second
+
+// EnvCollectBudget overrides that budget, and zero removes it.
+//
+// **The only way to collect a device-backed store.** `earth prune` collects the
+// host's store directory; a microVM's store is a fixed-size image the host has
+// never opened, so the command that would normally do this cannot reach it. The
+// agent's own collection is budgeted so housekeeping never blocks a handshake,
+// and a busy build writes more than five seconds of collecting frees - one
+// session took a store from 21G free to 5G while collecting on every sandbox
+// start. Without this the only remedy left is remaking the image, which
+// discards every layer in it.
+//
+// Raising it means a build may wait: a guest that spends ten minutes collecting
+// answers nothing for ten minutes, and the host gives up long before that. It
+// is for a maintenance run - one build, told to tidy up - and not for a
+// setting anybody leaves on.
+const EnvCollectBudget = "EARTH_COLLECT_BUDGET"
+
+// budgetFrom reads the budget from a setting's value.
+//
+// Zero is meaningful and is not "unset": it asks for an unbudgeted collection,
+// which is what an operator tidying a store wants and what prune does on a
+// store the host can reach. Unset and unparseable both give the default -
+// a typo should choose neither "never collect" nor "block forever".
+func budgetFrom(v string) time.Duration {
+	if v == "" {
+		return defaultCollectBudget
+	}
+
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s is %q, which is not a duration"+
+			" (try 30s, 10m); using %v\n", label(), EnvCollectBudget, v, defaultCollectBudget)
+
+		return defaultCollectBudget
+	}
+
+	return d
+}
 
 func reclaim(root string) {
 	want := uint64(defaultStoreFree)
@@ -391,7 +430,9 @@ func reclaim(root string) {
 		want = n
 	}
 
-	report, err := store.ReclaimWithin(root, want, nil, collectBudget)
+	budget := budgetFrom(os.Getenv(EnvCollectBudget))
+
+	report, err := store.ReclaimWithin(root, want, nil, budget)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: the store could not be collected, so this build"+
 			" may run out of room: %v\n", label(), err)
@@ -407,6 +448,6 @@ func reclaim(root string) {
 		fmt.Fprintf(os.Stderr, "%s: the store still has less than %dG free after %s of"+
 			" collecting, and the rest is left for the next build\n"+
 			"  a build may yet run out of room\n%s",
-			label(), want>>30, collectBudget, adviceFor(root))
+			label(), want>>30, budget, adviceFor(root))
 	}
 }

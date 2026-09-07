@@ -498,5 +498,17 @@ func (f *Firecracker) PlaceBlob(ctx context.Context, host string) (string, error
 		return "", fmt.Errorf("finish the bulk channel for %s: %w", name, err)
 	}
 
-	return path.Join(f.StoreDir(), "blobs", name), nil
+	return f.GuestBlob(name), nil
+}
+
+// GuestBlob is where the guest sees a blob this sandbox placed.
+//
+// **The guest's store, never this machine's.** The two are different
+// directories here and only here: the host's holds blobs, the action cache and
+// staged exports, and the guest's is a block device the host cannot open at
+// all. What this returns is handed straight to the guest as the path to unpack,
+// so naming the host's store produced a guest reporting `no such file or
+// directory` for bytes it was holding.
+func (f *Firecracker) GuestBlob(name string) string {
+	return path.Join(vmboot.StoreAt, "blobs", name)
 }

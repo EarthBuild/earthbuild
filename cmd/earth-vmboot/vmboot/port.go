@@ -18,3 +18,12 @@ const VsockPort = 5555
 // device the blobs land on and the agent finds them afterwards by path - which
 // is the same thing it does on every backend that shares a filesystem.
 const BulkPort = 5556
+
+// StoreAt is where the guest mounts the block device carrying the layer store.
+//
+// Shared for the same reason the ports are: the host names blobs it has placed
+// by a path *inside* the guest, and a path the two sides spell separately is a
+// guest that has the bytes and is told to open them somewhere else. That is not
+// hypothetical - it is what happened, and the guest reported `no such file or
+// directory` for a blob it was holding.
+const StoreAt = "/store"

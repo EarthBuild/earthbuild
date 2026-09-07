@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/cmd/earth-vmboot/vmboot"
 	"github.com/EarthBuild/earthbuild/engine/exec"
 )
 
@@ -128,5 +129,32 @@ func TestTheDefaultStoreOutlivesTheBuild(t *testing.T) {
 	if !strings.HasPrefix(got, cache+string(os.PathSeparator)) {
 		t.Errorf("the default store is %s, which is not under the cache directory %s"+
 			"\n  a store that does not outlive the build is not a cache", got, cache)
+	}
+}
+
+// A blob placed in the guest is named by a path **the guest** can open.
+//
+// The two stores are different directories on this backend and only on this
+// backend: the host's holds blobs, the action cache and staged exports, and the
+// guest's is a block device the host cannot open at all. `PlaceBlob` answers
+// for the guest, because what it answers is handed straight to the guest as the
+// path to unpack - and answering with the host's own store produced exactly
+// that: `open /home/…/.cache/earthbuild/fc-store/blobs/sha256-…: no such file
+// or directory`, reported by a guest that had the bytes all along.
+func TestAPlacedBlobIsNamedForTheGuest(t *testing.T) {
+	t.Parallel()
+
+	fc := &exec.Firecracker{Store: t.TempDir()}
+
+	at := fc.GuestBlob("sha256-abc")
+
+	if !strings.HasPrefix(at, vmboot.StoreAt+"/") {
+		t.Errorf("a placed blob is at %s, which is not under the guest's store %s",
+			at, vmboot.StoreAt)
+	}
+
+	if strings.HasPrefix(at, fc.StoreDir()) {
+		t.Errorf("a placed blob is named by the host's store %s, which the guest"+
+			" cannot open", fc.StoreDir())
 	}
 }

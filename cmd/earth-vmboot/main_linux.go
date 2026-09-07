@@ -29,7 +29,7 @@ import (
 // the agent expects to find it.
 const (
 	storeDev = "/dev/vda"
-	storeAt  = "/store"
+	storeAt  = vmboot.StoreAt
 )
 
 func main() {

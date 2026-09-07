@@ -248,6 +248,26 @@ func serve(conn *os.File) error {
 func halt() {
 	_ = os.Stdout.Sync()
 
+	// **Unmounted, not merely synced.** The store is a filesystem the *next*
+	// boot has to read, and a build's layers are worth nothing if they are not
+	// there when it looks: three consecutive builds each captured their work
+	// and each found the same 161 layers waiting, because the machine went away
+	// before the filesystem was put down.
+	//
+	// Said out loud either way. A store that could not be unmounted is a store
+	// the next build may find short, and that is the difference between a slow
+	// cache and a wrong one.
+	unix.Sync()
+
+	err := unix.Unmount(storeAt, 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: the store at %s could not be"+
+			" unmounted: %v\n  what this build wrote may not be there for the"+
+			" next one\n", storeAt, err)
+	} else {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: store unmounted\n")
+	}
+
 	// **Reset, not power-off.** With `pci=off` there is no ACPI to power the
 	// machine down, so `POWER_OFF` falls through to `reboot: System halted` and
 	// the VMM keeps running with a stopped guest inside it - a host dialling

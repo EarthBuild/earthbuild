@@ -449,6 +449,22 @@ them the sandbox reports what is missing and the build uses the namespace backen
 machine with no `/dev/kvm`, which includes most hosted CI runners, does the same. This is I11:
 degrade and say so, because refusing would break every machine that works today.
 
+### `EARTH_VM`
+
+Runs the guest inside a microVM rather than in namespaces on the host kernel.
+
+**Offered, not imposed.** Nearly every Linux machine has `/dev/kvm`, and taking the VM whenever one
+is available would change what a step can reach, how long the first build waits and where the layers
+live, on every machine and without being asked. The boundary is worth having and is not worth
+taking by default.
+
+Asked for on a machine that cannot run one, the build is **refused** rather than degraded - which is
+the opposite of what the parts below do when nothing asked. A build that asked for a VM and quietly
+got namespaces runs under a weaker boundary than it believes it has, and nothing in its output would
+say which it got.
+
+Needs the four settings above. Default: off.
+
 ### `EARTH_STORE_IN_VM`
 
 Puts the layer store on the block device the guest owns rather than in a directory shared from the

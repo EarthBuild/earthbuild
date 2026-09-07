@@ -364,7 +364,12 @@ engine-race:
     # number came from CI's own count (177 of 3478), not from a dev box, because
     # a ceiling raised from the other machine's total is a ceiling that turns CI
     # red.
-    ARG SKIP_CEILING=177
+    #
+    # 178 with the backend wired in: `TestAMicroVMIsUsedWhenAskedFor` skips for
+    # the same reason and on the same machines. Deduced rather than counted -
+    # one new test, skipping wherever there is no `/dev/kvm` - and confirmed by
+    # the run that carries this.
+    ARG SKIP_CEILING=178
     # Nothing is excluded. Every test needing a privilege this container does
     # not grant - a user namespace, an overlay mount, a device node - now skips
     # with the reason, because each asks whether the *operation* works rather

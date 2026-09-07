@@ -2573,6 +2573,8 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		}
 	}
 
+	began := time.Now()
+
 	endCgroup := timing.Phase("guest:cgroup", req.Handle)
 	cg, err := newCgroup(req.Handle, s.Limits)
 
@@ -2754,6 +2756,20 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// A step that ran and failed spent time too, and a build asked for its
 		// stats wants the expensive failure counted (E467).
 		cpu, rss := usageOf(cmd.ProcessState)
+
+		// **A step that fails saying nothing hands over what else is known.**
+		// "exited 2, and printed nothing" is otherwise the whole of what a
+		// reader gets, and it is not enough to act on: the same facts - a
+		// signal, an OOM kill the cgroup counted, how long it ran and what it
+		// took - are all in hand here and were being dropped. See silentNote.
+		out = append(out, noteFor(out, failure{
+			exit:     exitErr.ExitCode(),
+			signal:   signalOf(cmd.ProcessState),
+			cpu:      cpu,
+			rss:      rss,
+			ran:      time.Since(began),
+			oomKills: oomKillsIn(cgroupPathOf(cg)),
+		})...)
 
 		return Response{
 			Exit: exitErr.ExitCode(), Output: outputFor(req, out), Degraded: degradedNow,

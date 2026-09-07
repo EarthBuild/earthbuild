@@ -53,3 +53,41 @@ func TestASandboxThatCannotCountSaysNothing(t *testing.T) {
 		t.Errorf("a backend that counts no bytes still produced a line: %s", line)
 	}
 }
+
+// Background chatter is not a transfer, and is not described as one.
+//
+// **Observed, not anticipated.** The first end-to-end firing was a stalled
+// `RUN sleep 400` - a step doing no networking whatever - and the note read
+// "the guest's network is still moving: 0 B out, 1.7 KiB in". The bytes were
+// real: a guest's link carries ARP and the odd DHCP renewal whether or not any
+// step is using it. But "still moving" is the sentence that tells a reader
+// their download is progressing, and here it was flatly the wrong reading of
+// the very case the line exists to judge.
+//
+// Three bands rather than two, because the honest answer to "is the network
+// doing anything" has a middle: nothing, background, and a transfer.
+func TestBackgroundChatterIsNotCalledATransfer(t *testing.T) {
+	t.Parallel()
+
+	// What a link does while nothing uses it.
+	chatter := netLine(traffic{known: true}, traffic{received: 1741, known: true})
+	if strings.Contains(chatter, "still moving") {
+		t.Errorf("1.7 KiB of chatter was called a transfer: %s", chatter)
+	}
+
+	if !strings.Contains(chatter, "1.7 KiB") {
+		t.Errorf("the note hid the figure it was judging: %s", chatter)
+	}
+
+	// What a step fetching something looks like.
+	transfer := netLine(traffic{known: true}, traffic{sent: 4096, received: 9 << 20, known: true})
+	if !strings.Contains(transfer, "still moving") {
+		t.Errorf("9 MiB was not called a transfer: %s", transfer)
+	}
+
+	// Nothing at all stays its own case: it is the one that says the step is
+	// waiting on something that will not arrive.
+	if !strings.Contains(netLine(traffic{known: true}, traffic{known: true}), "not moving") {
+		t.Error("a silent network was not called silent")
+	}
+}

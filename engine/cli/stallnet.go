@@ -16,6 +16,16 @@ type netCounter interface {
 	NetBytes() (sent, received uint64)
 }
 
+// chatter is the most a link carries while nothing is using it.
+//
+// ARP, the odd DHCP renewal, a neighbour advertisement. A stalled `RUN sleep
+// 400` moved 1.7 KiB in five minutes with no step touching the network at all,
+// and calling that "still moving" told the reader their download was
+// progressing when nothing of the sort was happening. 64 KiB, because anything
+// a step is genuinely fetching clears it by orders of magnitude and nothing
+// idle comes close.
+const chatter = 64 << 10
+
 // traffic is a reading of a guest's network counters, or the absence of one.
 type traffic struct {
 	sent     uint64
@@ -52,14 +62,23 @@ func netLine(before, now traffic) string {
 	}
 
 	sent, received := now.sent-before.sent, now.received-before.received
-	if sent == 0 && received == 0 {
+
+	switch {
+	case sent == 0 && received == 0:
 		return "  the guest's network is not moving: nothing sent and nothing received since\n" +
 			"  the last check, so a step waiting on one is waiting on something that will\n" +
 			"  not arrive\n"
-	}
 
-	return fmt.Sprintf("  the guest's network is still moving: %s out, %s in since the last check\n",
-		bytesHuman(sent), bytesHuman(received))
+	case sent+received < chatter:
+		return fmt.Sprintf(
+			"  the guest's network is idle but for background traffic: %s out, %s in since\n"+
+				"  the last check, which is a link keeping itself up rather than a step using it\n",
+			bytesHuman(sent), bytesHuman(received))
+
+	default:
+		return fmt.Sprintf("  the guest's network is still moving: %s out, %s in since the last check\n",
+			bytesHuman(sent), bytesHuman(received))
+	}
 }
 
 // bytesHuman renders a byte count the way a person reads one.

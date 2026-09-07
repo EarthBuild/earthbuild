@@ -455,7 +455,10 @@ mkfs.xfs -m reflink=1,crc=1 -i nrext64=0 -n ftype=1 -f store.img
 ```
 
 `reflink=1` is the reason the store is a device at all: the guest keeps copy-on-write clones even
-where the host's own filesystem has none. Sparse, so the size is a ceiling rather than a cost.
+where the host's own filesystem has none. Sparse, so the size is a ceiling rather than a cost -
+make it generous. Nothing collects the store yet, so it only grows, and a device that fills stops
+builds with `no space left on device`; 8G is not enough to build this repo once, and the remedy is a
+larger image rather than more room on the host.
 
 `EARTH_FIRECRACKER` defaults to `firecracker` on `PATH`. The other three are unset, and without
 them the sandbox reports what is missing and the build uses the namespace backend instead - a

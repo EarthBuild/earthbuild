@@ -687,7 +687,8 @@ func (e *Executor) Run(
 	defer endAfter()
 
 	if err != nil {
-		return core.Result{}, fmt.Errorf("capture the result of %s: %w", n.Meta.Source, err)
+		return core.Result{}, fmt.Errorf("capture the result of %s: %w%s",
+			n.Meta.Source, err, e.fullHint(err))
 	}
 
 	// What the step looked at, which the guest recorded while it ran. Asked
@@ -998,7 +999,8 @@ func (e *Executor) copyStep(
 	id, content, bytes, leaked, err := c.Capture(ctx, h)
 	e.noteLeaked(id, leaked)
 	if err != nil {
-		return core.Result{}, fmt.Errorf("capture the result of %s: %w", n.Meta.Source, err)
+		return core.Result{}, fmt.Errorf("capture the result of %s: %w%s",
+			n.Meta.Source, err, e.fullHint(err))
 	}
 
 	// What the copy looked at in its base, which the guest recorded while doing
@@ -2107,4 +2109,20 @@ func packInto(dir, at string) error {
 	}
 
 	return f.Close()
+}
+
+// fullHint is whatever this sandbox can say about running out of room.
+//
+// **Asked of the sandbox, because only it knows what the store is.** An ENOSPC
+// from a guest looks the same whether the store is a directory on a disk
+// somebody can make room in or a fixed-size image somebody has to remake, and
+// the remedies are opposite. A sandbox with nothing to add says nothing, which
+// is every backend that shares a filesystem.
+func (e *Executor) fullHint(err error) string {
+	teller, ok := e.sb.(interface{ Full(error) string })
+	if !ok {
+		return ""
+	}
+
+	return teller.Full(err)
 }

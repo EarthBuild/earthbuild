@@ -43,7 +43,7 @@ type Firecracker struct {
 	// Initrd carries earth-vmboot as `/init` and earth-guestd beside it.
 	Initrd string
 	// StoreImage is the block device holding the layer store, formatted XFS so
-	// the guest keeps reflinks on a host that may have none.
+	// the guest keeps reflinks on a host that may have none. See EnvVMStore.
 	StoreImage string
 
 	// Root is where this sandbox keeps its sockets. A temporary directory when
@@ -105,7 +105,7 @@ func NewFirecracker() *Firecracker {
 		Binary:     envOr("EARTH_FIRECRACKER", "firecracker"),
 		Kernel:     os.Getenv("EARTH_VM_KERNEL"),
 		Initrd:     os.Getenv("EARTH_VM_INITRD"),
-		StoreImage: os.Getenv("EARTH_VM_STORE"),
+		StoreImage: os.Getenv(EnvVMStore),
 	}
 }
 
@@ -954,3 +954,10 @@ func (f *Firecracker) shutDownLocked() {
 // shutdownPatience is how long a guest gets to flush and halt. An unmount of a
 // journalled filesystem holding a build's worth of layers, not a boot.
 const shutdownPatience = 10 * time.Second
+
+// Full explains a failure that ran out of room on this sandbox's store device.
+//
+// Answered by the sandbox because only it knows the store is a device at all:
+// the executor sees an ENOSPC from a guest and has no way to tell a directory
+// somebody can make room in from an image somebody has to remake.
+func (f *Firecracker) Full(err error) string { return vmFullHint(err, f.StoreImage) }

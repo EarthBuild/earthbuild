@@ -365,11 +365,19 @@ engine-race:
     # a ceiling raised from the other machine's total is a ceiling that turns CI
     # red.
     #
-    # 178 with the backend wired in: `TestAMicroVMIsUsedWhenAskedFor` skips for
-    # the same reason and on the same machines. Deduced rather than counted -
-    # one new test, skipping wherever there is no `/dev/kvm` - and confirmed by
-    # the run that carries this.
-    ARG SKIP_CEILING=178
+    # 177, and the microVM tests are discounted by their own reason rather than
+    # counted - see the `vmskips` line below. It went 176 -> 177 -> 178 -> 181
+    # in a day as those tests were written, and a ceiling raised once per new
+    # test is a ratchet that only loosens: each raise silently admits whatever
+    # *else* has started skipping.
+    #
+    # Which had already happened. Diffing the skip lists of two runs against the
+    # four microVM tests left one over - `TestTheNamespaceBackendIsTheDefault`,
+    # which skips because this container cannot make a namespace sandbox at all,
+    # a different cause with a different reason. It is the one this is raised
+    # for, and it is the only one: 176 + 1, verified against the run's own list
+    # rather than deduced.
+    ARG SKIP_CEILING=177
     # Nothing is excluded. Every test needing a privilege this container does
     # not grant - a user namespace, an overlay mount, a device node - now skips
     # with the reason, because each asks whether the *operation* works rather
@@ -388,7 +396,18 @@ engine-race:
         rc=$?; \
         grep -E "^ *--- (FAIL|SKIP)" /tmp/t.log | sort | uniq -c | sort -rn | head -40; \
         skipped=$(grep -cE "^ *--- SKIP" /tmp/t.log || true); \
-        echo "skipped here: $skipped of $(grep -cE "^ *--- (PASS|SKIP|FAIL)" /tmp/t.log)"; \
+        # **The microVM tests are discounted, not counted.** They need
+        # /dev/kvm, a hosted runner has none, and Firecracker cannot emulate
+        # what it needs - so every one of them skips here for as long as CI runs
+        # on hosted runners. Counting them made the ceiling a number that had to
+        # be raised each time one was written, which is a ratchet that only ever
+        # loosens: 176 to 177 to 178 to 181 in a day, and each raise silently
+        # admitted whatever else had started skipping. Discounting them by their
+        # own reason keeps the ceiling about the skips it was written for.
+        vmskips=$(grep -c "no microVM on this machine" /tmp/t.log || true); \
+        skipped=$((skipped - vmskips)); \
+        echo "skipped here: $skipped of $(grep -cE "^ *--- (PASS|SKIP|FAIL)" /tmp/t.log)" \
+            "($vmskips microVM tests discounted: this runner has no /dev/kvm)"; \
         if [ "$rc" -ne 0 ]; then \
             echo "--- what failed:"; \
             grep -E "^ *--- FAIL" /tmp/t.log | head -20 || echo "(no test reported FAIL)"; \

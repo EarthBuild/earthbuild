@@ -9726,3 +9726,56 @@ teaching the substitution scanner about single quotes - shipped a regression tha
 suppressed expansion after any apostrophe and broke eight assertions in the test
 harness (E947). The rule that came out of it: a change to argument resolution
 gets the corpus before it gets pushed.
+
+## The microVM backend, as built
+
+Written after a day of building it, so the next reader starts from what is true
+rather than from what was planned.
+
+**It works.** A build runs end to end inside Firecracker: kernel, initramfs, XFS
+on a block device, PID 1, vsock, agent, image fetch on the host, unpack in the
+guest, steps, exports. `FROM`, `RUN`, `ARG`, `IF`, `COPY` from the context and
+from another target, `CACHE` mounts including `--sharing=locked`, `RUN --secret`
+left uncaptured, `SAVE ARTIFACT` for a file and a directory, `SAVE IMAGE`, and
+`BUILD` of several targets at once. `apk add` reaches the network. The repository
+builds itself.
+
+**What the shape of it turned out to be**, none of which was obvious from the
+plan:
+
+* **No virtio-fs means two stores, not one.** `Sandbox.StoreDir` was one method
+  meaning one directory on every backend that shares a filesystem; here the
+  host's store and the guest's are different things and the type had to say so
+  (E971). The same confusion produced three separate faults before it was named.
+* **Blobs in and exports out are the only crossings.** The fault-in channel was
+  already transport-shaped, so it needed nothing. Blobs travel on a vsock channel
+  of their own because the agent's frames are size-capped JSON; exports leave on
+  a second block device carrying a *stream, not a filesystem*, so the host never
+  mounts metadata a sandbox wrote.
+* **The network needs no privilege.** A user namespace of the engine's own, a tap
+  inside it, and a userspace TCP/IP stack on a packet socket bound to the tap's
+  kernel end - the VMM takes the descriptor end, so the two cannot share one.
+  Nothing is installed and no `CAP_NET_ADMIN` is held.
+* **Everything the guest reads has to be carried in.** A guest's environment
+  comes from its kernel, so fifteen settings arrived unset and were silently
+  ignored; they travel on the command line now. The failure mode is not an error
+  but an A/B whose two arms are the same arm.
+* **The guest is the build machine.** Four vCPUs and two gigabytes is a
+  serverless default; it gets the host's processors and half its memory, and the
+  parallelism follows the guest rather than the host.
+
+**What is left.**
+
+* One VM-only test failure, in `autocompletion+test-all`, at roughly one run in
+  twelve. Every failure observed was against a store at or near its ceiling, and
+  eleven consecutive runs have been clean since the collector started running -
+  which is a correlation and not yet a cause.
+* Collection happens at guest start, so the headroom has to cover the whole run.
+  Collecting *during* a build needs a lock every read would then respect, which
+  is a different design.
+* Per-step network namespaces are unavailable: the guest has no `ip`, so steps
+  share one namespace and two wanting the same port collide. It degrades and says
+  so.
+* CI cannot exercise any of this. Hosted runners have no `/dev/kvm`, which is why
+  the four microVM tests are discounted from the skip ceiling by their own reason
+  rather than counted.

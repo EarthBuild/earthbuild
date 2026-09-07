@@ -309,6 +309,21 @@ type Scheduler struct {
 	// Stats records what the lookup path decided, which is the cheapest
 	// version of the cache-outcome telemetry Dagger's dagql emits.
 	Stats Stats
+
+	// Stall is how long the build may make no progress before OnStall is told.
+	// Zero means DefaultStall; negative disables the watch entirely.
+	Stall time.Duration
+	// OnStall is called with a note naming the steps a stalled build is waiting
+	// on. Nil means nothing is said - this package writes nowhere itself, and
+	// which stream a warning belongs on is the caller's to decide.
+	//
+	// Called from a ticker goroutine, and repeatedly while the stall lasts: a
+	// build that hangs for an hour should say so more than once, because the
+	// reader may have looked away for the first.
+	OnStall func(note string)
+
+	// stall tracks steps in flight for OnStall. Nil until Run.
+	stall *stalled
 }
 
 // Stats counts lookup outcomes. Not a result, so it never affects one.
@@ -432,6 +447,12 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 	if s.Record == nil {
 		s.Record = &Record{}
 	}
+
+	// The stall watch, which outlives no build: it is started here and stopped
+	// on the way out, so a scheduler reused for a second build gets a fresh one
+	// rather than a clock still running from the first.
+	stopStall := s.watchForStall()
+	defer stopStall()
 
 	// Evaluate concurrently, respecting dependencies.
 	//
@@ -1276,6 +1297,12 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 	// largest thing in their path once somebody measured them.
 	defer timing.Phase("eval", n.Meta.Source)()
 
+	// **Bracketed here rather than around the step, so a cache hit counts as
+	// progress.** A build churning through hits while one step runs long is
+	// working, and a watch that only saw executions would call it stalled.
+	s.stall.begin(n.ID(), n.Meta.Source, n.Meta.Description, time.Now())
+	defer func() { s.stall.end(n.ID(), time.Now()) }()
+
 	// The half of `eval` that is not the step: stack, key and digests, each
 	// walking a base one layer deeper than the last.
 	endBefore := timing.Phase("eval:before", n.Meta.Source)
@@ -1730,4 +1757,50 @@ func archOf(platform string) string {
 	arch, _, _ := strings.Cut(rest, "/")
 
 	return arch
+}
+
+// watchForStall starts the stall watch and returns its stop.
+//
+// A ticker at a fraction of the threshold rather than a timer at it, because
+// the question "has anything happened lately" has no event to hang a timer on -
+// the whole condition is the *absence* of events.
+func (s *Scheduler) watchForStall() func() {
+	after := s.Stall
+	if after == 0 {
+		after = DefaultStall
+	}
+
+	s.stall = newStalled(time.Now())
+
+	if s.OnStall == nil || after < 0 {
+		return func() {}
+	}
+
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+
+	go func() {
+		defer close(stopped)
+
+		// A quarter, so a stall is reported within a quarter of the threshold
+		// of crossing it and the tick is still cheap on a long build.
+		tick := time.NewTicker(after / 4)
+		defer tick.Stop()
+
+		for {
+			select {
+			case <-done:
+				return
+			case now := <-tick.C:
+				if note := s.stall.note(now, after); note != "" {
+					s.OnStall(note)
+				}
+			}
+		}
+	}()
+
+	return func() {
+		close(done)
+		<-stopped
+	}
 }

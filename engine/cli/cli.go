@@ -587,6 +587,13 @@ func runPlan(
 		// per step and applies only where something actually watched.
 		Profiles: profiles,
 		Views:    views,
+
+		// **Said to stderr, because a hung build's stdout may be a pipe nobody
+		// is reading.** The one failure the rest of the reporting cannot
+		// describe: an outcome is recorded when a step finishes, so a step that
+		// never finishes is indistinguishable from a build that is working -
+		// see core.stalled.
+		OnStall: stallReporter(os.Stderr, sb),
 	}
 
 	endSetup()

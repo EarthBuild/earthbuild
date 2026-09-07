@@ -2729,14 +2729,30 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 			if errors.As(rerr, &exitErr) {
 				cpu, rss := usageOf(cmd.ProcessState)
 
-				sink([]byte(silentNote(failure{
+				note := silentNote(failure{
 					exit:     exitErr.ExitCode(),
 					signal:   signalOf(cmd.ProcessState),
 					cpu:      cpu,
 					rss:      rss,
 					ran:      time.Since(began),
 					oomKills: oomKillsIn(cgroupPathOf(cg)),
-				})+"\n"), true)
+				})
+
+				// **Two channels, and a step uses exactly one.** A streaming
+				// step's output has already left, so the note follows it
+				// through the sink; a step that is not streaming carries its
+				// output back in the reply, and `streamer` returns nil for one
+				// - so a note sent to the sink there is dropped on the floor.
+				//
+				// That is not a hypothetical half: the steps that evaluate an
+				// `ARG` or an `ENV` run during planning and do not stream, and
+				// they are precisely the ones whose failures read `exited 2,
+				// and printed nothing` with nothing else anywhere.
+				if req.Stream {
+					sink([]byte(note+"\n"), true)
+				} else {
+					out = append(out, note...)
+				}
 			}
 		}
 

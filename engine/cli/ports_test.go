@@ -1,6 +1,10 @@
 package cli
 
 import (
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -37,6 +41,21 @@ const (
 	mustRead
 	// inert is a port deliberately left alone, and reason says why.
 	inert
+	// mustSetEverywhere is a port every construction of a Scheduler has to
+	// provide, not merely one of them.
+	//
+	// **A second construction site is where this table's blind spot was.** The
+	// front end builds two schedulers - one for the build and a sparser one for
+	// the conditions and ARG-substitution pass - and a check that reads `cli.go`
+	// is satisfied by the first while the second quietly has none. That is how
+	// the stall watch came to be wired on the build and absent from the pass
+	// that actually hung: a microVM build sat for eight minutes and said
+	// nothing, with the watch installed and running in the wrong scheduler.
+	//
+	// Most ports are rightly absent from the second one - it keeps no record
+	// and stacks no layers. A *diagnostic* port is not like that: a scheduler
+	// that can hang has to be able to say so, whatever it was built for.
+	mustSetEverywhere
 )
 
 type port struct {
@@ -52,6 +71,20 @@ var schedulerPorts = map[string]port{
 	"Writer":   {role: mustSet},
 	"Record":   {role: mustSet},
 	"MaxStack": {role: mustSet},
+
+	// The front end supplies the sink, because this package writes nowhere
+	// itself and which stream a warning belongs on is the caller's decision.
+	// Everywhere, not somewhere: see mustSetEverywhere.
+	"OnStall": {role: mustSetEverywhere},
+
+	// The threshold is deliberately left at core.DefaultStall. A hang is not a
+	// thing a user tunes their way out of, and a knob here would be one more
+	// setting whose wrong value silences the warning that exists to catch the
+	// case nobody anticipated.
+	"Stall": {
+		role:   inert,
+		reason: "zero means core.DefaultStall, which is the only value with a caller",
+	},
 
 	// An input the front end supplies, like the rest of mustSet: the CLI passes
 	// `Options.NoCache` straight through, so a build told to redo everything
@@ -145,6 +178,14 @@ func TestEverySchedulerPortIsWiredOrDeclaredInert(t *testing.T) {
 				t.Errorf("core.Scheduler.%s is filled in by Run and nothing reads it"+
 					"\n  an output nobody looks at is work the engine does for no one", f.Name)
 			}
+		case mustSetEverywhere:
+			for _, where := range schedulersBuiltIn(t, ".") {
+				if !where.sets(f.Name) {
+					t.Errorf("core.Scheduler.%s is required of every scheduler and %s does not set it"+
+						"\n  a scheduler that can hang has to be able to say so, whatever it was built for",
+						f.Name, where.at)
+				}
+			}
 		case inert:
 			if set {
 				t.Errorf("core.Scheduler.%s is now set, so its reason for being unset is stale:"+
@@ -177,4 +218,81 @@ func TestEveryReasonSaysSomething(t *testing.T) {
 			t.Errorf("the reason for leaving %s unset is too short to be one: %q", name, p.reason)
 		}
 	}
+}
+
+// built is one place a core.Scheduler is constructed.
+type built struct {
+	at   string
+	keys map[string]bool
+}
+
+func (b built) sets(field string) bool { return b.keys[field] }
+
+// schedulersBuiltIn finds every core.Scheduler composite literal in a package.
+//
+// Parsed rather than grepped: the previous check read one file's text, which
+// made a second construction site invisible to it - and an invisible
+// construction site is exactly the defect this table exists to catch.
+func schedulersBuiltIn(t *testing.T, dir string) []built {
+	t.Helper()
+
+	fset := token.NewFileSet()
+
+	pkgs, err := parser.ParseDir(fset, dir, func(fi os.FileInfo) bool {
+		return !strings.HasSuffix(fi.Name(), "_test.go")
+	}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found []built
+
+	for _, pkg := range pkgs {
+		for name, file := range pkg.Files {
+			ast.Inspect(file, func(n ast.Node) bool {
+				lit, ok := n.(*ast.CompositeLit)
+				if !ok || !isSchedulerType(lit.Type) {
+					return true
+				}
+
+				keys := map[string]bool{}
+
+				for _, e := range lit.Elts {
+					kv, ok := e.(*ast.KeyValueExpr)
+					if !ok {
+						continue
+					}
+
+					if id, ok := kv.Key.(*ast.Ident); ok {
+						keys[id.Name] = true
+					}
+				}
+
+				found = append(found, built{
+					at:   fmt.Sprintf("%s:%d", filepath.Base(name), fset.Position(lit.Pos()).Line),
+					keys: keys,
+				})
+
+				return true
+			})
+		}
+	}
+
+	if len(found) == 0 {
+		t.Fatal("no core.Scheduler is built in this package, which cannot be right")
+	}
+
+	return found
+}
+
+// isSchedulerType reports whether an expression names core.Scheduler.
+func isSchedulerType(e ast.Expr) bool {
+	sel, ok := e.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+
+	pkg, ok := sel.X.(*ast.Ident)
+
+	return ok && pkg.Name == "core" && sel.Sel.Name == "Scheduler"
 }

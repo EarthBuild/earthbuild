@@ -390,6 +390,15 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 			Cache:    ac,
 			Blobs:    blobs,
 			Writer:   writerName,
+
+			// **This pass hangs like any other, and for longer.** An `ARG`
+			// whose value is a command substitution runs a whole build here,
+			// inside the interpreter, before the build proper has started - so
+			// a step that never returns leaves the engine with no graph, no
+			// record and nothing printed. A microVM build sat for eight minutes
+			// in exactly this scheduler while the stall watch ran in the other
+			// one.
+			OnStall: stallReporter(os.Stderr, sb),
 		}
 	})
 

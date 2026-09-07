@@ -1138,7 +1138,7 @@ func (e *Executor) GuestNote() string {
 		return ""
 	}
 
-	return staleGuestNote(self, guest)
+	return guestNoteFor(e.sb, self, guest)
 }
 
 // DockerNote reports why a WITH DOCKER step was given no docker client, or

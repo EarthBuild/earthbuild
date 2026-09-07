@@ -92,3 +92,52 @@ func TestAGuestTheSameAgeIsNotReported(t *testing.T) {
 		t.Errorf("two binaries of the same age produced %q", got)
 	}
 }
+
+// carriesOwnAgent is a sandbox that brings its own agent, as a microVM does.
+type carriesOwnAgent struct{ Sandbox }
+
+func (carriesOwnAgent) OwnAgent() bool { return true }
+
+// A sandbox carrying its own agent is not told about the one on this machine.
+//
+// The microVM backend ships the agent inside its initramfs, so `$EARTH_GUESTD`
+// and the binary beside the engine are both files that run never opens. Naming
+// one of them is the mistake staleGuestNote's own comment warns against: a note
+// about a different file than the one that ran is worse than no note, because
+// the reader rebuilds the wrong thing and believes they have ruled the agent
+// out (E499).
+//
+// Observed rather than reasoned: a microVM run printed "earth-guestd is 223h
+// older than this engine" while running an agent from an initramfs built
+// minutes earlier.
+func TestASandboxWithItsOwnAgentIsNotToldAboutThisMachines(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	engine := filepath.Join(dir, "earth-native")
+	guest := filepath.Join(dir, "earth-guestd")
+
+	for _, p := range []string{engine, guest} {
+		err := os.WriteFile(p, []byte("x"), 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	old := time.Now().Add(-2 * time.Hour)
+	err := os.Chtimes(guest, old, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The same two files that TestAGuestOlderThanTheEngineIsReported gets a
+	// note for, so the sandbox is the only difference.
+	if note := guestNoteFor(nil, engine, guest); note == "" {
+		t.Fatal("a stale guest went unmentioned for a sandbox without its own agent")
+	}
+
+	note := guestNoteFor(carriesOwnAgent{}, engine, guest)
+	if note != "" {
+		t.Fatalf("a sandbox carrying its own agent was told about this machine's: %s", note)
+	}
+}

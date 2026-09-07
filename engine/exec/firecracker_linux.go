@@ -190,6 +190,27 @@ func (f *Firecracker) StoreDir() string {
 	return f.Store
 }
 
+// NetBytes says how much the guest's network has carried.
+//
+// For the stall note: a build that has stopped making progress reads very
+// differently depending on whether its network is still moving. Aggregate
+// rather than per-connection, because that is what the stack exposes - and it
+// is enough to separate a slow fetch from a dead one.
+func (f *Firecracker) NetBytes() (sent, received uint64) {
+	if f.own == nil || f.own.net == nil {
+		return 0, 0
+	}
+
+	return f.own.net.BytesSent(), f.own.net.BytesReceived()
+}
+
+// OwnAgent says this sandbox brings its own agent.
+//
+// The agent is built into the initramfs by `tools/mkguest`, so `$EARTH_GUESTD`
+// and the binary beside the engine are files this backend never opens. Saying
+// so keeps the staleness note off a run it cannot describe - see guestNoteFor.
+func (f *Firecracker) OwnAgent() bool { return true }
+
 // CPUs is how many processors a step actually has.
 //
 // **Asked, because the host's core count is the wrong number here.** The guest

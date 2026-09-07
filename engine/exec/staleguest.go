@@ -52,3 +52,27 @@ func staleGuestNote(engine, guest string) string {
 			"  rebuild it: %sgo build -o %s ./cmd/earth-guestd\n",
 		guest, behind.Round(time.Minute), crossPrefix(), guest)
 }
+
+// ownAgent is a sandbox that carries its own copy of the agent, so the one on
+// this machine is not the one that will run.
+//
+// The microVM backend ships the agent inside its initramfs. Nothing else does,
+// which is why this is asked of the sandbox rather than assumed either way.
+type ownAgent interface {
+	OwnAgent() bool
+}
+
+// guestNoteFor is staleGuestNote, silenced for a sandbox with its own agent.
+//
+// **A note naming a file the run never opened is worse than no note.** The
+// reader rebuilds it, sees no change, and concludes the agent is not the
+// problem - which is the reasoning error this note exists to prevent, arrived
+// at by a different road. Seen in a microVM run reporting a 223-hour-old
+// `earth-guestd` while executing an agent built minutes before.
+func guestNoteFor(sb Sandbox, engine, guest string) string {
+	if a, ok := sb.(ownAgent); ok && a.OwnAgent() {
+		return ""
+	}
+
+	return staleGuestNote(engine, guest)
+}

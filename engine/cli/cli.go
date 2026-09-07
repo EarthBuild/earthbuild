@@ -523,9 +523,16 @@ func runPlan(
 			ViewDigests(context.Context, []ir.NodeID, []string) (map[string]ir.NodeID, map[string]ir.NodeID, error)
 		})
 		if ok {
-			present = &guestBlobs{ask: func(ids []ir.NodeID) ([]ir.NodeID, error) {
-				return asker.StoreHas(ctx, ids)
-			}}
+			present = &guestBlobs{
+				ask: func(ids []ir.NodeID) ([]ir.NodeID, error) {
+					return asker.StoreHas(ctx, ids)
+				},
+				Why: func(err error) {
+					fmt.Fprintf(o.Out, "earth: the layer store is inside the sandbox"+
+						" and could not be asked what it holds, so this build caches"+
+						" nothing: %v\n", err)
+				},
+			}
 			views = &guestViews{ask: asker.ViewDigests}
 		} else {
 			fmt.Fprintln(o.Out, "earth: the layer store is inside the sandbox and"+

@@ -68,6 +68,9 @@ type Firecracker struct {
 	net     vmboot.Net
 	release func()
 	console *os.File
+	// conn is the agent's own channel, kept so that stopping can close it: the
+	// agent ends at end-of-stream, which is what lets the guest flush.
+	conn Conn
 	// gone is closed when the VMM process ends, however it ended. See dialPort.
 	gone    chan struct{}
 	stopped bool
@@ -274,6 +277,10 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 	}(f.gone)
 
 	conn, err := f.dialGuest(ctx, vsock)
+	if err == nil {
+		f.conn = conn
+	}
+
 	if err != nil {
 		// The console is the only account of why: a guest that cannot mount its
 		// store says so there and nowhere else, and without this the failure is
@@ -560,11 +567,6 @@ func (f *Firecracker) stopLocked() error {
 		f.release = nil
 	}
 
-	if f.console != nil {
-		_ = f.console.Close()
-		f.console = nil
-	}
-
 	// Cleared here so a PlaceBlob racing a Stop is refused with "not running"
 	// rather than dialling a socket that is about to be removed - which fails
 	// as ECONNREFUSED, retries for thirty seconds, and reports a boot timeout
@@ -572,10 +574,20 @@ func (f *Firecracker) stopLocked() error {
 	f.vsockAt = ""
 
 	if f.cmd != nil && f.cmd.Process != nil {
+		f.shutDownLocked()
+
 		// The group, not the leader: a VMM leaves helpers behind, and a signal
 		// to the leader alone leaves them holding the sockets open.
+		//
+		// A backstop now rather than the method: `shutDownLocked` has usually
+		// left nothing to kill, and a signal to a process that has gone is
+		// harmless.
 		_ = syscall.Kill(-f.cmd.Process.Pid, syscall.SIGKILL)
-		_ = f.cmd.Wait()
+	}
+
+	if f.console != nil {
+		_ = f.console.Close()
+		f.console = nil
 	}
 
 	if f.tmp != "" {
@@ -823,3 +835,44 @@ func (f *Firecracker) attachNet() {
 
 	f.net = net
 }
+
+// shutDownLocked asks the guest to stop, and waits for it.
+//
+// **Killing the VMM loses the store.** A guest's writes live in its own page
+// cache until something flushes them, and SIGKILL to Firecracker takes the
+// machine away mid-flight: the layers this build unpacked never reach the
+// device, and the next build asks whether the store holds them, is told no, and
+// rebuilds everything. That is not a slow cache, it is no cache at all - every
+// step of every microVM build missed, for exactly this reason.
+//
+// Closing the agent's connection is the whole mechanism. The agent reads its
+// protocol from stdin, so end-of-stream ends it; `earth-vmboot` runs the agent
+// rather than exec'ing it, so it regains control, halts, and the kernel syncs
+// its filesystems on the way down. Firecracker exits when the guest resets.
+//
+// Bounded, because a guest that will not stop must not hold a build open: past
+// the wait the caller's SIGKILL takes it, and the store is then as good as it
+// was before this existed.
+func (f *Firecracker) shutDownLocked() {
+	if f.conn != nil {
+		_ = f.conn.Close()
+		f.conn = nil
+	}
+
+	if f.gone == nil {
+		return
+	}
+
+	select {
+	case <-f.gone:
+	case <-time.After(shutdownPatience):
+		fmt.Fprintf(os.Stderr, "earthbuild: the microVM did not stop within %s,"+
+			" so it is being killed\n"+
+			"  what it had not yet written to its store is lost, and the next"+
+			" build will rebuild it\n", shutdownPatience)
+	}
+}
+
+// shutdownPatience is how long a guest gets to flush and halt. An unmount of a
+// journalled filesystem holding a build's worth of layers, not a boot.
+const shutdownPatience = 10 * time.Second

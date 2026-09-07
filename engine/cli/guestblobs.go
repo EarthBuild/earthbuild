@@ -30,8 +30,31 @@ var errNoPathsGiven = errors.New("a view of a store held elsewhere needs the pat
 type guestBlobs struct {
 	ask func(ids []ir.NodeID) ([]ir.NodeID, error)
 
+	// Why reports the first question that could not be asked at all.
+	//
+	// **Because the symptom is silence.** A failed question is a miss, a miss
+	// is "do the work", and a build that does the work is correct - so a store
+	// that cannot be reached costs every hit this build had and says nothing.
+	// It reads as a cache that does not work rather than as a store that cannot
+	// be asked, and those want different fixes.
+	Why func(error)
+
 	mu   sync.Mutex
 	seen map[ir.NodeID]bool
+	said bool
+}
+
+// sayOnce reports the first failure and no others: one unreachable store
+// produces one failed question per lookup, and a build has thousands.
+func (b *guestBlobs) sayOnce(err error) {
+	b.mu.Lock()
+	first := !b.said
+	b.said = true
+	b.mu.Unlock()
+
+	if first && b.Why != nil {
+		b.Why(err)
+	}
 }
 
 // Has reports whether the store holds a layer.
@@ -49,7 +72,13 @@ func (b *guestBlobs) Has(id ir.NodeID) bool {
 	b.mu.Unlock()
 
 	held, err := b.ask([]ir.NodeID{id})
-	if err != nil || len(held) == 0 {
+	if err != nil {
+		b.sayOnce(err)
+
+		return false
+	}
+
+	if len(held) == 0 {
 		return false
 	}
 

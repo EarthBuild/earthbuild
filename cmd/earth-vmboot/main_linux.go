@@ -51,6 +51,8 @@ func run() error {
 		return err
 	}
 
+	sayStore()
+
 	err = writeResolver()
 	if err != nil {
 		// Not fatal: a guest with no resolver still builds everything that does
@@ -410,4 +412,23 @@ func writeResolver() error {
 	}
 
 	return nil
+}
+
+// sayStore reports what the store held when this guest mounted it.
+//
+// **One line, and it settles a question nothing else can.** The host asks the
+// guest what layers it holds and takes "none" for an answer; whether that means
+// an empty store, a store that did not survive the last shutdown, or a device
+// mounted somewhere else is invisible from outside. From here it is a count.
+func sayStore() {
+	at := filepath.Join(storeAt, "layers")
+
+	entries, err := os.ReadDir(at)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: store: no %s yet (%v)\n", at, err)
+
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "earth-vmboot: store: %d layer(s) in %s\n", len(entries), at)
 }

@@ -47391,3 +47391,51 @@ store that did not survive, and a device mounted elsewhere; and a report of the
 first question the guest could not be asked, because a failed question is a
 miss, a miss is "do the work", and the build is *correct* - so an unreachable
 store costs every hit and says nothing.
+
+### E975 - three engines on eight targets, and what it took to read the table
+
+The microVM backend needed a measure, and the suite it was being measured
+against is green under no engine on the machine it runs on. So: eight of
+`ga-no-qemu-group1`'s targets, three engines, pass or fail.
+
+| target                           | buildkit | namespaces | microVM |
+| -------------------------------- | -------- | ---------- | ------- |
+| `autocompletion+test-all`        | pass     | pass       | fail    |
+| `dockerfile+test-all`            | pass     | fail       | fail    |
+| `dockerfile2/subdir+test`        | pass     | pass       | pass    |
+| `locally-in-command+all`         | pass     | pass       | pass    |
+| `locally-in-function+all`        | pass     | pass       | pass    |
+| `command-to-function-rename+all` | pass     | pass       | pass    |
+| `import+build`                   | pass     | pass       | pass    |
+| `import+build-imported`          | pass     | pass       | pass    |
+
+**Three earlier versions of this table were wrong**, and each was wrong in a way
+that looked like a result:
+
+* The microVM column ran against a store that had filled. Every failure in it
+  was `no space left on device`, including one that looked like the single
+  interesting asymmetry.
+* The namespace column ran a months-old `earth-guestd`. The engine is three
+  binaries in three artefacts - the engine, the agent, and PID 1 in the
+  initramfs - and shipping two of them is enough to produce four "engine bugs"
+  that evaporate on a fourth. The giveaway was in the output: diagnostics
+  deleted hours earlier were still printing.
+* Four microVM failures did not survive a sequential re-run with per-target
+  logs. A table with one log, overwritten per row, cannot tell a failure from
+  its neighbour.
+
+There was no buildkit column at all until somebody asked for one, on the
+grounds that an aggregate failing says nothing about its parts. All eight parts
+pass. That single row is what turns the other two columns from a list of
+complaints into a measurement.
+
+**What the table then said.** One native-engine bug in `dockerfile+test-all`,
+common to both backends, and one microVM-only failure. The microVM one is
+narrow: a `xx-apk`/`xx-info` step in the vendored buildkit Earthfile, where an
+ordinary `apk add musl-dev gcc libseccomp-dev libseccomp-static` in the same
+guest succeeds - so it is not the network, the volume, or the userspace stack.
+
+**And one fault the table found on the way.** A build ran one step per core of
+the machine that *started* it. A four-vCPU guest was being given thirty-two
+concurrent steps; parallelism now follows the sandbox. It did not fix the
+remaining failure, which is worth recording as plainly as if it had.

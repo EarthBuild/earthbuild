@@ -36,7 +36,7 @@ func TestOnlyCertainlyDifferentPlacesAreWrittenAtOnce(t *testing.T) {
 			want:  [][]int{{0}, {1}, {2}},
 		},
 		{
-			name: "the same place keeps the Earthfile's order, because the second is meant to win",
+			name:  "the same place keeps the Earthfile's order, because the second is meant to win",
 			dests: []string{j("out", "a"), j("out", "b"), j("out", "a")},
 			want:  [][]int{{0, 2}, {1}},
 		},

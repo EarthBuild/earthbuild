@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/exec"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 )
 
 // Asked for a microVM, this platform gives one.
@@ -72,4 +73,49 @@ func vmArtefact(t *testing.T, name string) string {
 	}
 
 	return at
+}
+
+// Asking for a microVM asks for what a microVM implies.
+//
+// **The store is on the guest's device because there is nowhere else**: the
+// host cannot write a block device the guest has mounted, so the guest unpacks
+// too. Both were already settings, and both had to be spelled out beside
+// `EARTH_VM` for a build in a VM to work at all - three environment variables
+// where one is a fact and two are its consequences.
+func TestAMicroVMImpliesWhereTheStoreLives(t *testing.T) { // not parallel: sets the environment
+	t.Setenv(envVM, "1")
+	t.Setenv("EARTH_STORE_IN_VM", "")
+	t.Setenv("EARTH_UNPACK_IN_GUEST", "")
+	t.Setenv("EARTH_VM_KERNEL", vmArtefact(t, "vmlinux"))
+	t.Setenv("EARTH_VM_INITRD", vmArtefact(t, "initrd.cpio.gz"))
+
+	_, err := sandbox("")
+	if err != nil {
+		t.Skip("no microVM on this machine: ", err)
+	}
+
+	if !guest.StoreInVM() {
+		t.Error("the store was left on a mount the guest does not have")
+	}
+
+	if !exec.UnpacksInGuest() {
+		t.Error("the host was left to unpack into a device it cannot write")
+	}
+}
+
+// An explicit answer is kept, because the switches exist to be turned off.
+func TestAnExplicitStoreSettingSurvives(t *testing.T) { // not parallel: sets the environment
+	t.Setenv(envVM, "1")
+	t.Setenv("EARTH_STORE_IN_VM", "0")
+	t.Setenv("EARTH_VM_KERNEL", vmArtefact(t, "vmlinux"))
+	t.Setenv("EARTH_VM_INITRD", vmArtefact(t, "initrd.cpio.gz"))
+
+	_, err := sandbox("")
+	if err != nil {
+		t.Skip("no microVM on this machine: ", err)
+	}
+
+	if guest.StoreInVM() {
+		t.Error("an explicit EARTH_STORE_IN_VM=0 was overridden")
+	}
 }

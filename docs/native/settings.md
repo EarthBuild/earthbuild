@@ -463,6 +463,11 @@ the opposite of what the parts below do when nothing asked. A build that asked f
 got namespaces runs under a weaker boundary than it believes it has, and nothing in its output would
 say which it got.
 
+Implies `EARTH_STORE_IN_VM` and `EARTH_UNPACK_IN_GUEST`, because a microVM leaves no choice about
+either: the host cannot write a block device the guest has mounted, so the store is on the device
+and the guest unpacks. Both remain switches - set either explicitly and that answer is kept, which
+is how "is the store what broke my build" gets asked.
+
 Needs the four settings above. Default: off.
 
 ### `EARTH_STORE_IN_VM`

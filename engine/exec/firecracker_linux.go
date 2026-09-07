@@ -204,6 +204,29 @@ func (f *Firecracker) NetBytes() (sent, received uint64) {
 	return f.own.net.BytesSent(), f.own.net.BytesReceived()
 }
 
+// consolePath is where this sandbox's guest writes its console.
+//
+// **In the sandbox's own directory, because a console shared is a console that
+// lies.** It was in the store directory - one fixed path for the machine - and
+// `os.Create` truncates, so every guest a build started wrote over the previous
+// one's account of itself. A run that started thirty-two guests in sequence
+// kept one file, and a failure quoting it attributed one guest's last words to
+// another. The symptom was a console reading "earth-vmboot: ready" beneath a
+// guest that had just failed its handshake.
+//
+// The trade is that it goes when the sandbox does, where the old path outlived
+// it. Acceptable now that a failure carries the tail in its own text: the file
+// was only ever read to explain a failure, and the explanation now travels with
+// the failure instead of waiting in a directory for somebody to think of it.
+func (f *Firecracker) consolePath() (string, error) {
+	dir, err := f.dir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dir, "console.log"), nil
+}
+
 // ConsoleTail is the end of the guest's console, for a failure to quote.
 //
 // The guest's own account of itself. A microVM that boots, announces itself
@@ -310,14 +333,13 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 	// wrong, and quiet when nothing does.
 	// In the store rather than beside the sockets, because the sockets go when
 	// the sandbox stops and the account of a failed boot is worth reading after
-	// the build that failed. One per sandbox, overwritten: it is the last
-	// build's console, which is the one anybody wants.
-	err = os.MkdirAll(f.StoreDir(), 0o750)
+	// the build that failed.
+	at, err := f.consolePath()
 	if err != nil {
 		return nil, fmt.Errorf("make room for the guest's console: %w", err)
 	}
 
-	console, err := os.Create(filepath.Join(f.StoreDir(), "console.log"))
+	console, err := os.Create(at)
 	if err != nil {
 		return nil, fmt.Errorf("make room for the guest's console: %w", err)
 	}

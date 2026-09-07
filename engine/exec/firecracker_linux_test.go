@@ -4,7 +4,9 @@ package exec_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -156,5 +158,42 @@ func TestAPlacedBlobIsNamedForTheGuest(t *testing.T) {
 	if strings.HasPrefix(at, fc.StoreDir()) {
 		t.Errorf("a placed blob is named by the host's store %s, which the guest"+
 			" cannot open", fc.StoreDir())
+	}
+}
+
+// The machine has an entropy device.
+//
+// **Firecracker gives a guest none unless asked**, and the consequence is in its
+// own documentation: applications block on `/dev/random` or `getrandom(2)`, or -
+// worse - take what they need from `/dev/urandom` before the pool is seeded and
+// generate weak key material. A build fetches over TLS on almost every step.
+//
+// Asserted on the configuration rather than on a running guest, because the
+// failure it prevents is one you cannot see: a key that is weak looks exactly
+// like a key.
+func TestTheGuestIsGivenEntropy(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	fc := &exec.Firecracker{Root: dir, Store: t.TempDir(), StoreImage: "/dev/null"}
+
+	at := filepath.Join(dir, "vm.json")
+	if err := fc.WriteConfigForTest(at, filepath.Join(dir, "guest.vsock")); err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := os.ReadFile(at)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var cfg map[string]any
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := cfg["entropy"]; !ok {
+		t.Error("the machine has no entropy device, so its guest blocks on randomness" +
+			" or invents it")
 	}
 }

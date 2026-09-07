@@ -58,6 +58,7 @@ func run() error {
 	}
 
 	saySettings()
+	sayEntropy()
 	sayStore()
 
 	err = writeResolver()
@@ -502,7 +503,12 @@ func sayStore() {
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "earth-vmboot: store: %d layer(s) in %s\n", len(entries), at)
+	// The count and what is left, because the device is fixed and nothing
+	// collects it: a store that is nearly full is the difference between a
+	// build that is slow and one that stops with `no space left on device`
+	// halfway through a capture.
+	fmt.Fprintf(os.Stderr, "earth-vmboot: store: %d layer(s) in %s, %s free\n",
+		len(entries), at, freeOn(storeAt))
 }
 
 // saySettings reports how many settings reached this guest.
@@ -517,4 +523,52 @@ func sayStore() {
 // secret, and the question this answers is "did they cross".
 func saySettings() {
 	fmt.Fprintf(os.Stderr, "earth-vmboot: settings: %d from the host\n", len(fromCmdline()))
+}
+
+// sayEntropy reports whether the machine gave this guest a source of randomness.
+//
+// **Because having none is silent and its consequence is not.** Firecracker
+// attaches no entropy device unless asked, and a guest without one blocks on
+// `/dev/random` and `getrandom(2)` - or, worse, takes what it needs from
+// `/dev/urandom` before the pool is seeded and generates key material that
+// merely looks like key material. A build fetches over TLS on nearly every step.
+//
+// The device node rather than the kernel log, because the log line is
+// informational and this guest boots quiet: what matters is whether the driver
+// bound, and devtmpfs answers that.
+func sayEntropy() {
+	const at = "/dev/hwrng"
+
+	_, err := os.Stat(at)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: no %s, so this guest has no hardware"+
+			" entropy source: anything wanting randomness waits for the kernel to"+
+			" seed itself\n", at)
+
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "earth-vmboot: entropy: %s\n", at)
+}
+
+// freeOn is how much room the store has left, in a form a reader can act on.
+func freeOn(at string) string {
+	var st unix.Statfs_t
+
+	err := unix.Statfs(at, &st)
+	if err != nil {
+		return "unknown"
+	}
+
+	//nolint:gosec // block counts and sizes are the kernel's, and positive
+	free := uint64(st.Bsize) * st.Bavail
+
+	switch {
+	case free > 1<<30:
+		return fmt.Sprintf("%dG", free>>30)
+	case free > 1<<20:
+		return fmt.Sprintf("%dM", free>>20)
+	default:
+		return fmt.Sprintf("%dK", free>>10)
+	}
 }

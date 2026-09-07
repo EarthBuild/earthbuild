@@ -444,6 +444,16 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 
 	cfg["drives"] = drives
 
+	// **An entropy device, because Firecracker gives a guest none unless asked.**
+	// Its own documentation states the consequence: applications block on
+	// `/dev/random` or `getrandom(2)`, or take what they need before the pool is
+	// seeded and generate weak key material. A build fetches over TLS on almost
+	// every step, so this is not a corner of the workload.
+	//
+	// No rate limiter. One is available and is for a host running many guests
+	// that might starve each other; this host runs one per build.
+	cfg["entropy"] = object{}
+
 	// **Only where there is a tap.** A guest with an interface and no peer is
 	// slower to fail than one with no interface: it waits out a connect timeout
 	// per fetch rather than saying at once that nothing resolves.
@@ -992,3 +1002,11 @@ func envInt(name string) int {
 
 	return n
 }
+
+// WriteConfigForTest writes the machine configuration a test wants to inspect.
+//
+// **Exported for a test rather than tested through a running guest**, because
+// the properties that matter here are ones a working guest cannot demonstrate:
+// a machine with no entropy device still boots, and a key generated without
+// seeded randomness looks exactly like a key.
+func (f *Firecracker) WriteConfigForTest(at, vsock string) error { return f.writeConfig(at, vsock) }

@@ -26,6 +26,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
 	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // Command is the word that selects the agent when it is a subcommand.
@@ -143,6 +144,8 @@ func run() error {
 	if scratch == "" {
 		scratch = "/var/lib/earthbuild/scratch"
 	}
+
+	reclaim(root)
 
 	// Off Linux newMaterialiser always fails - see mat_other.go, which refuses
 	// rather than layering without overlayfs - so on that build this branch is
@@ -319,4 +322,63 @@ func envDuration(name string, fallback time.Duration) time.Duration {
 	}
 
 	return d
+}
+
+// EnvStoreFree is how much room the store should have before a build starts.
+//
+// **Because nothing collected it and a device is a fixed size.** The store grew
+// without limit - a cache with a collector nothing called - and on a host
+// directory that is untidy while on a guest's own device it stops the build:
+// five suite runs in one afternoon ended with `no space left on device` partway
+// through a capture, each time after twenty minutes of work.
+//
+// Accepts the sizes `earth prune` does: `20G`, `500M`. Zero or unset is the
+// default below; `0` explicitly is off, for a machine that would rather run out
+// than lose a layer.
+const EnvStoreFree = "EARTH_STORE_FREE"
+
+// defaultStoreFree is what a build is left before it starts.
+//
+// Enough to unpack a large image and capture what a step wrote, which is the
+// unit of work that fails when it runs out. Smaller would collect more often
+// and still stop mid-build; larger throws away layers nobody asked it to.
+const defaultStoreFree = 8 << 30
+
+// reclaim makes room in the store, before anything reads it.
+//
+// **Here because this is the one moment nothing is running.** There is no lock
+// on the store, and a build that read a layer this removed would materialise a
+// filesystem missing an element - so the collection happens as the agent comes
+// up and not while it serves. Both backends pass through here, which is what
+// makes this the engine's answer rather than the microVM's.
+//
+// Best-effort and loud: a store that cannot be measured or collected is a build
+// that may run out of room, which is slower and not wrong - so it says so and
+// carries on.
+func reclaim(root string) {
+	want := uint64(defaultStoreFree)
+
+	if v := os.Getenv(EnvStoreFree); v != "" {
+		n, err := store.ParseSize(v)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %s is %q, which is not a size: %v\n",
+				label(), EnvStoreFree, v, err)
+
+			return
+		}
+
+		want = n
+	}
+
+	report, err := store.Reclaim(root, want, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: the store could not be collected, so this build"+
+			" may run out of room: %v\n", label(), err)
+
+		return
+	}
+
+	if report.Removed > 0 {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", label(), report)
+	}
 }

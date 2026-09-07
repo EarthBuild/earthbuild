@@ -509,6 +509,22 @@ is how "is the store what broke my build" gets asked.
 
 Needs the four settings above. Default: off.
 
+### `EARTH_STORE_FREE`
+
+How much room the store is left with before a build starts. Default: 8G. Accepts the sizes
+`earth prune` does - `20G`, `500M`. `0` turns it off, for a machine that would rather run out than
+lose a layer.
+
+**Because nothing collected the store and a device is a fixed size.** `earth prune` has always been
+able to collect it and nothing ever called it, so the store grew without limit: untidy on a host
+directory, and fatal on a guest's own device, where five suite runs in one afternoon each ended with
+`no space left on device` partway through a capture, twenty minutes in.
+
+Collected as the agent comes up, which is the one moment nothing is reading the store - there is no
+lock on it, and a build that read a layer the collector removed would materialise a filesystem
+missing an element. Least-recently-used first, and it gives up exactly the shortfall rather than
+some fraction of the disk: every byte past that is a rebuild somebody pays for later.
+
 ### `EARTH_VM_CPUS`, `EARTH_VM_MEMORY_MIB`
 
 How large the guest is. **Default: every processor this machine has, and half its memory.**

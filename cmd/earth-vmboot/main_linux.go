@@ -139,7 +139,7 @@ func listenVsock(port uint32, backlog int) (int, error) {
 // stops at its first FROM saying the store holds no layer, which is the failure
 // this exists to fix and reads as an empty store rather than as a lost channel.
 func serveBulk(at string) {
-	fd, err := listenVsock(vmboot.BulkPort, 4)
+	fd, err := listenVsock(vmboot.BulkPort, bulkBacklog)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "earth-vmboot: no bulk channel: %v\n", err)
 
@@ -154,26 +154,39 @@ func serveBulk(at string) {
 			return
 		}
 
-		// One at a time: the host opens one connection and sends every blob of
-		// a build down it, and a second would be a second party writing into
-		// this guest's store.
-		f := os.NewFile(uintptr(conn), "bulk")
+		// **One goroutine per connection, because the host opens one per
+		// layer.** `materialiseImageInGuest` places every layer of an image at
+		// once - that is the overlap the whole path exists for - so serving
+		// them one at a time gives the sum where the design says the maximum,
+		// and past the backlog the kernel starts refusing connections outright.
+		// The blobs are independent: separate names, separate temporary files,
+		// one directory.
+		go func(c int) {
+			f := os.NewFile(uintptr(c), "bulk")
+			defer func() { _ = f.Close() }()
 
-		n, err := bulk.ReceiveBlobs(f, at)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "earth-vmboot: bulk channel: %v\n", err)
-		}
+			n, recvErr := bulk.ReceiveBlobs(f, at)
+			if recvErr != nil {
+				fmt.Fprintf(os.Stderr, "earth-vmboot: bulk channel: %v\n", recvErr)
+			}
 
-		// **Said out loud, on the console the host is already reading.** What
-		// arrived is the one fact that separates "the channel never carried it"
-		// from "the store lost it", and without it the two look identical from
-		// outside: a guest reporting `no such file` for a blob the host
-		// believes it sent.
-		fmt.Fprintf(os.Stderr, "earth-vmboot: %d blob(s) into %s\n", n, at)
-
-		_ = f.Close()
+			// **Said out loud, on the console the host is already reading.**
+			// What arrived is the one fact that separates "the channel never
+			// carried it" from "the store lost it", and without it the two look
+			// identical from outside: a guest reporting `no such file` for a
+			// blob the host believes it sent.
+			fmt.Fprintf(os.Stderr, "earth-vmboot: %d blob(s) into %s\n", n, at)
+		}(conn)
 	}
 }
+
+// bulkBacklog is how many placements may be waiting to be served.
+//
+// A layer per connection and an image is rarely more than a dozen, so this is
+// slack rather than a limit - the connections are served as they arrive. It
+// matters only in the instant between the host dialling every layer at once and
+// the accept loop getting round to them.
+const bulkBacklog = 64
 
 // waitForHost blocks until the host connects on the vsock port.
 func waitForHost() (*os.File, error) {

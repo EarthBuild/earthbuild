@@ -87,6 +87,18 @@ func prepare() error {
 	_ = unix.Mount("sysfs", "/sys", "sysfs", 0, "")
 	_ = unix.Mount("tmpfs", "/tmp", "tmpfs", 0, "")
 
+	// **cgroup2, or nested runtimes cannot start.** The agent looks for
+	// `/sys/fs/cgroup/cgroup.controllers` to decide whether a step may run a
+	// daemon, and sysfs alone does not provide it: the guest reported "this
+	// machine is not on cgroups v2" and `WITH DOCKER` was unavailable in every
+	// microVM build.
+	//
+	// Best-effort, like the mounts above it: a guest that cannot mount this
+	// still runs every step that is not a nested runtime, and the agent already
+	// says which that is.
+	_ = os.MkdirAll("/sys/fs/cgroup", 0o755)
+	_ = unix.Mount("cgroup2", "/sys/fs/cgroup", "cgroup2", 0, "")
+
 	// **Without devtmpfs there are no device nodes.** The kernel finds the disk
 	// and logs `virtio_blk virtio0: [vda]`, but an initramfs has an empty /dev,
 	// so mounting it fails with ENOENT - which reads as "wrong filesystem" and
@@ -233,8 +245,17 @@ func serve(conn *os.File) error {
 // halt stops the guest rather than letting PID 1 return.
 func halt() {
 	_ = os.Stdout.Sync()
-	_ = unix.Reboot(unix.LINUX_REBOOT_CMD_POWER_OFF)
 
+	// **Reset, not power-off.** With `pci=off` there is no ACPI to power the
+	// machine down, so `POWER_OFF` falls through to `reboot: System halted` and
+	// the VMM keeps running with a stopped guest inside it - a host dialling
+	// that machine gets a socket that accepts and never answers. Firecracker
+	// traps the i8042 reset and exits, which is the documented way to end a
+	// microVM from within.
+	_ = unix.Reboot(unix.LINUX_REBOOT_CMD_RESTART)
+
+	// Reached only if the reset did nothing. Returning from PID 1 panics the
+	// kernel, which reports the panic rather than the cause said above.
 	select {}
 }
 

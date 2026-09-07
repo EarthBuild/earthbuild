@@ -55,6 +55,7 @@ func run() error {
 	// sends its first request: the two channels are independent and the host
 	// has no way to know when this one is listening.
 	go serveBulk(filepath.Join(storeAt, "blobs"))
+	go serveExports()
 
 	conn, err := waitForHost()
 	if err != nil {
@@ -229,4 +230,109 @@ func halt() {
 // setting reaches a guest at all: there is no shell here and no profile to read.
 func agentEnv(boot []string) []string {
 	return append(append([]string{}, boot...), "EARTH_GUEST_ROOT="+storeAt)
+}
+
+// serveExports answers the host's requests for a staged artifact.
+//
+// **The path in, a byte count out, and the artifact on the device.** The host
+// sends one line - the staged path inside this guest - and reads back `OK <n>`
+// or `ERR <why>`; the archive itself is written to the export device, which the
+// host reads as a file. Two channels because they are two different things: a
+// question small enough to be a line, and an answer that may be gigabytes.
+//
+// One at a time, because there is one device. `SAVE ARTIFACT` is not on the hot
+// path and the alternative - offsets, and a guest and a host agreeing about
+// them - is a second allocator to get wrong.
+func serveExports() {
+	fd, err := listenVsock(vmboot.ExportPort, 4)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: no export channel: %v\n", err)
+
+		return
+	}
+
+	for {
+		conn, _, acceptErr := unix.Accept(fd)
+		if acceptErr != nil {
+			fmt.Fprintf(os.Stderr, "earth-vmboot: export accept: %v\n", acceptErr)
+
+			return
+		}
+
+		exportOnce(os.NewFile(uintptr(conn), "exports"))
+	}
+}
+
+func exportOnce(c *os.File) {
+	defer func() { _ = c.Close() }()
+
+	asked, err := readAsk(c)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: export request: %v\n", err)
+
+		return
+	}
+
+	n, err := writeExport(asked)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: export %s: %v\n", asked, err)
+		fmt.Fprintf(c, "ERR %v\n", err)
+
+		return
+	}
+
+	fmt.Fprintf(c, "OK %d\n", n)
+}
+
+// writeExport packs the staged path onto the export device.
+//
+// **Synced before the count is reported**, because the host reads the device as
+// an ordinary file the moment it has the number: an unsynced write is a host
+// reading a hole where the artifact is, which is the same class of race as the
+// blob acknowledgement and would be as hard to see.
+func writeExport(at string) (int64, error) {
+	dev, err := os.OpenFile(vmboot.ExportDev, os.O_WRONLY, 0)
+	if err != nil {
+		return 0, fmt.Errorf("open the export device: %w", err)
+	}
+
+	defer func() { _ = dev.Close() }()
+
+	n, err := bulk.PackTree(at, dev)
+	if err != nil {
+		return 0, err
+	}
+
+	err = dev.Sync()
+	if err != nil {
+		return 0, fmt.Errorf("flush the export device: %w", err)
+	}
+
+	return n, nil
+}
+
+// readAsk reads one line, which is the whole request.
+//
+// A byte at a time and bounded: this is PID 1 reading something from outside,
+// and a `bufio.Reader` would happily buffer until it ran out of memory.
+func readAsk(c *os.File) (string, error) {
+	var (
+		out [4096]byte
+		n   int
+	)
+
+	for n < len(out) {
+		_, err := c.Read(out[n : n+1])
+		if err != nil {
+			return "", fmt.Errorf("read the request: %w", err)
+		}
+
+		if out[n] == '\n' {
+			return string(out[:n]), nil
+		}
+
+		n++
+	}
+
+	return "", fmt.Errorf("no newline in the first %d bytes of a request", len(out))
 }

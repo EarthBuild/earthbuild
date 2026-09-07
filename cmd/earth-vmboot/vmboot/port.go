@@ -19,6 +19,25 @@ const VsockPort = 5555
 // is the same thing it does on every backend that shares a filesystem.
 const BulkPort = 5556
 
+// ExportPort is where the host asks for a staged artifact.
+//
+// **The control channel only.** The bytes go on the export device, not down
+// this connection: the host sends the staged path and reads back a byte count,
+// and the artifact itself is written once to a block device the host then
+// reads. See ExportDev.
+const ExportPort = 5557
+
+// ExportDev is the block device an artifact leaves the guest on, and ExportAt
+// is the same device seen by the host.
+//
+// **It carries a stream, not a filesystem.** A formatted volume the host mounts
+// would put a kernel filesystem parser on metadata the sandbox authored, which
+// is the surface the VM boundary was added to remove; a tar is parsed in
+// userspace by code that refuses what it does not like. It also disposes of the
+// "the host must trust the unmount happened" problem, because there is no
+// unmount.
+const ExportDev = "/dev/vdb"
+
 // StoreAt is where the guest mounts the block device carrying the layer store.
 //
 // Shared for the same reason the ports are: the host names blobs it has placed

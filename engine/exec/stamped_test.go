@@ -30,6 +30,13 @@ func TestEveryMtimeIsClampedOrExcused(t *testing.T) {
 	// Files allowed to write a time that did not come through stamp(), and why.
 	excused := map[string]string{
 		"image/unpack.go": "the times belong to the image being unpacked, not to this build",
+		// An export leaves the engine. Its times are the ones the artifact
+		// carried inside the guest - a published layer is stamped when it is
+		// published (I8), so they are already this build's clamp where the
+		// clamp applies - and restamping here would make an artifact fetched
+		// out of a microVM differ from the same artifact read off a shared
+		// mount. The two paths must produce the same file.
+		"bulk/tree.go": "the times belong to the artifact being exported, and this side is restoring them rather than writing them",
 		// The index entry beside a layer, not the layer. Its mtime is the only
 		// record of when a layer was last *read*, which is what lets a collector
 		// drop last month's throwaway rather than the base image every build

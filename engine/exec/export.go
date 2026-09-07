@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	gopath "path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -177,7 +178,11 @@ func (e *Executor) exportTo(
 		return err
 	}
 
-	staged := filepath.Join(e.sb.StoreDir(), "exports", filepath.Clean("/"+stage))
+	// **The guest's store, not this machine's.** They are the same directory on
+	// every backend that shares a filesystem, and two on the one that does not
+	// - where this named a host path the guest had never written to.
+	staged := gopath.Join(guestStoreDir(e.sb), "exports",
+		gopath.Clean("/"+filepath.ToSlash(stage)))
 
 	// Nothing was staged, because nothing needed to be: the guest recognised
 	// the artifact as a file the store already holds, so the host reads it off
@@ -185,15 +190,27 @@ func (e *Executor) exportTo(
 	// stamped when it is published (I8) - and one fewer 45 MB trip out of the
 	// VM (E568).
 	if shared != "" {
-		staged = filepath.Join(e.sb.StoreDir(), filepath.Clean("/"+shared))
+		staged = gopath.Join(guestStoreDir(e.sb), gopath.Clean("/"+shared))
 
 		memo.Note(asked, path, shared)
 	}
 
+	// Read where it lies if the guest and this machine share a filesystem, and
+	// brought out if they do not. See stagedOnHost.
+	endFetch := phase("export:fetch", path)
+	at, done, err := stagedOnHost(ctx, e.sb, staged, filepath.Dir(localDest))
+	endFetch()
+
+	if err != nil {
+		return err
+	}
+
+	defer done()
+
 	endOut := phase("export:copyout", localDest)
 	defer endOut()
 
-	return copyOut(staged, localDest)
+	return copyOut(at, localDest)
 }
 
 // copyOut moves a staged artifact to where the user asked for it.

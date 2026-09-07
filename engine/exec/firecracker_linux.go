@@ -6,11 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	osexec "os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -60,7 +63,15 @@ type Firecracker struct {
 	cmd     *osexec.Cmd
 	tmp     string
 	vsockAt string
+	exports string
 	stopped bool
+
+	// exporting holds the export device to one artifact at a time. There is one
+	// device and the stream starts at its beginning; two at once would
+	// interleave. `SAVE ARTIFACT` is not on the hot path, and the alternative -
+	// offsets, agreed between a host and a guest - is a second allocator to get
+	// wrong.
+	exporting sync.Mutex
 }
 
 // Defaults sized to run one step rather than to be generous: a VM is per worker,
@@ -188,6 +199,11 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 	vsock := filepath.Join(dir, "guest.vsock")
 	f.vsockAt = vsock
 
+	err = f.makeExportDevice(dir)
+	if err != nil {
+		return nil, err
+	}
+
 	err = f.writeConfig(cfg, vsock)
 	if err != nil {
 		return nil, err
@@ -250,14 +266,30 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 		},
 	}
 
+	drives := []object{}
+
+	// **Order is the device order**: the guest names them `/dev/vda`, `/dev/vdb`
+	// in the order they appear here, and `vmboot` mounts the first as its store
+	// and writes exports to the second. A configuration listing only the export
+	// device would have the guest format it as a store, which is a build that
+	// destroys the thing it was about to hand back.
 	if f.StoreImage != "" {
-		cfg["drives"] = []object{{
+		drives = append(drives, object{
 			"drive_id":       "store",
 			"path_on_host":   f.StoreImage,
 			"is_root_device": false,
 			"is_read_only":   false,
-		}}
+		})
+
+		drives = append(drives, object{
+			"drive_id":       "exports",
+			"path_on_host":   f.exports,
+			"is_root_device": false,
+			"is_read_only":   false,
+		})
 	}
+
+	cfg["drives"] = drives
 
 	b, err := json.Marshal(cfg)
 	if err != nil {
@@ -512,3 +544,115 @@ func (f *Firecracker) PlaceBlob(ctx context.Context, host string) (string, error
 func (f *Firecracker) GuestBlob(name string) string {
 	return path.Join(vmboot.StoreAt, "blobs", name)
 }
+
+// exportSize is how large the export device is made.
+//
+// **Sparse, so the number is a ceiling and not a cost**: the file occupies what
+// is written to it. It bounds one artifact rather than a build's worth, because
+// the device is rewritten from its start for each.
+const exportSize = 64 << 30
+
+// makeExportDevice creates the device an artifact leaves the guest on.
+//
+// Beside the sockets, and remade for each sandbox: it holds one artifact at a
+// time and nothing about it is worth keeping between runs.
+func (f *Firecracker) makeExportDevice(dir string) error {
+	at := filepath.Join(dir, "exports.img")
+
+	dev, err := os.OpenFile(at, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return fmt.Errorf("make the export device: %w", err)
+	}
+
+	defer func() { _ = dev.Close() }()
+
+	err = dev.Truncate(exportSize)
+	if err != nil {
+		return fmt.Errorf("size the export device: %w", err)
+	}
+
+	f.exports = at
+
+	return nil
+}
+
+// FetchExport brings a staged artifact out of the guest, into a directory on
+// this machine.
+//
+// **The path goes down a socket and the artifact comes back on a device.** They
+// are two different things: a question small enough to be a line, and an answer
+// that may be gigabytes. The device carries a tar stream rather than a
+// filesystem, so nothing on this side mounts metadata a sandbox wrote - see
+// vmboot.ExportDev.
+func (f *Firecracker) FetchExport(ctx context.Context, guestPath, into string) error {
+	f.exporting.Lock()
+	defer f.exporting.Unlock()
+
+	f.mu.Lock()
+	vsock, dev := f.vsockAt, f.exports
+	f.mu.Unlock()
+
+	if vsock == "" {
+		return fmt.Errorf("this sandbox is not running, so %s cannot be"+
+			" fetched from it", guestPath)
+	}
+
+	n, err := f.askForExport(ctx, vsock, guestPath)
+	if err != nil {
+		return err
+	}
+
+	src, err := os.Open(dev)
+	if err != nil {
+		return fmt.Errorf("read the export device: %w", err)
+	}
+
+	defer func() { _ = src.Close() }()
+
+	err = bulk.UnpackTree(io.LimitReader(src, n), into)
+	if err != nil {
+		return fmt.Errorf("unpack %s from the export device: %w", guestPath, err)
+	}
+
+	return nil
+}
+
+// askForExport tells the guest what to write and reads how much it wrote.
+func (f *Firecracker) askForExport(ctx context.Context, vsock, guestPath string) (int64, error) {
+	conn, err := dialPort(ctx, vsock, vmboot.ExportPort)
+	if err != nil {
+		return 0, fmt.Errorf("open the export channel for %s: %w", guestPath, err)
+	}
+
+	defer func() { _ = conn.Close() }()
+
+	_, err = fmt.Fprintf(conn, "%s\n", guestPath)
+	if err != nil {
+		return 0, fmt.Errorf("ask for %s: %w", guestPath, err)
+	}
+
+	line, err := readLine(conn.(net.Conn))
+	if err != nil {
+		return 0, fmt.Errorf("the guest did not answer for %s: %w", guestPath, err)
+	}
+
+	if !strings.HasPrefix(line, "OK ") {
+		return 0, fmt.Errorf("the guest could not stage %s: %s",
+			guestPath, strings.TrimPrefix(line, "ERR "))
+	}
+
+	n, err := strconv.ParseInt(strings.TrimPrefix(line, "OK "), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("the guest answered %q for %s, which is not a size",
+			line, guestPath)
+	}
+
+	return n, nil
+}
+
+// GuestStore is where the guest keeps what this sandbox asks it about.
+//
+// The other half of E971: `StoreDir` is this machine's and the guest cannot open
+// it, so anything named *to* the guest - a placed blob, a staged export - is
+// named from here.
+func (f *Firecracker) GuestStore() string { return vmboot.StoreAt }

@@ -15,7 +15,7 @@ import (
 //
 // A name for what was a bare string in two places, because a failure has to be
 // able to tell a reader which setting to change.
-const EnvVMStore = "EARTH_VM_STORE"
+const EnvVMStore = vmboot.EnvVMStore
 
 // vmFullHint explains an ENOSPC that a guest's store device caused.
 //

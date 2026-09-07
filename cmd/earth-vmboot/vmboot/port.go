@@ -46,3 +46,11 @@ const ExportDev = "/dev/vdb"
 // hypothetical - it is what happened, and the guest reported `no such file or
 // directory` for a blob it was holding.
 const StoreAt = "/store"
+
+// EnvVMStore names the block device a guest keeps its layers on.
+//
+// Here rather than beside the backend that reads it, because both sides need
+// the name: the host to find the device, and the guest to tell a reader which
+// setting sizes the store it has just run out of. The guest cannot import the
+// backend - that package is the host's, and linux-only besides.
+const EnvVMStore = "EARTH_VM_STORE"

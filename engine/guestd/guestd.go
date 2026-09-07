@@ -406,8 +406,7 @@ func reclaim(root string) {
 	if report.Stopped {
 		fmt.Fprintf(os.Stderr, "%s: the store still has less than %dG free after %s of"+
 			" collecting, and the rest is left for the next build\n"+
-			"  a build may yet run out of room; `earth prune` collects with no"+
-			" budget when you can spare the wait\n",
-			label(), want>>30, collectBudget)
+			"  a build may yet run out of room\n%s",
+			label(), want>>30, collectBudget, adviceFor(root))
 	}
 }

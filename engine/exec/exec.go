@@ -286,6 +286,11 @@ func (e *Executor) connect() (*guest.Client, error) {
 		return c, nil
 	}
 
+	// **Read before the sandbox is stopped or removed**, because clearing one
+	// takes its console with it - and the console is the only place a guest
+	// that booted and then would not speak says why.
+	err = withConsole(err, e.sb)
+
 	r, ok := e.sb.(interface{ Remove() error })
 	if !ok {
 		_ = e.sb.Stop()
@@ -307,6 +312,8 @@ func (e *Executor) connect() (*guest.Client, error) {
 	}
 
 	if err2 != nil {
+		err2 = withConsole(err2, e.sb)
+
 		_ = e.sb.Stop()
 
 		return nil, fmt.Errorf("connect to the guest inside the sandbox: %w"+

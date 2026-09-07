@@ -204,6 +204,22 @@ func (f *Firecracker) NetBytes() (sent, received uint64) {
 	return f.own.net.BytesSent(), f.own.net.BytesReceived()
 }
 
+// ConsoleTail is the end of the guest's console, for a failure to quote.
+//
+// The guest's own account of itself. A microVM that boots, announces itself
+// ready and then does not answer has said why here and nowhere else - the
+// engine sees only a connection that went unanswered.
+func (f *Firecracker) ConsoleTail() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.console == nil {
+		return ""
+	}
+
+	return consoleTail(f.console.Name())
+}
+
 // OwnAgent says this sandbox brings its own agent.
 //
 // The agent is built into the initramfs by `tools/mkguest`, so `$EARTH_GUESTD`

@@ -56,6 +56,17 @@ func stagedOnHost(
 		return guestPath, func() {}, nil
 	}
 
+	// **The destination's parent first, because it usually does not exist yet.**
+	// `SAVE ARTIFACT … AS LOCAL build/linux/amd64/earthly` names a directory the
+	// build is about to create, and staging beside the destination - which is
+	// deliberate, so the copy stays on one filesystem - has to create it rather
+	// than assume it. `copyOut` made it later, which was late enough to work
+	// only when nothing staged there first.
+	err = os.MkdirAll(into, 0o750)
+	if err != nil {
+		return "", nil, fmt.Errorf("make room for %s: %w", guestPath, err)
+	}
+
 	tmp, err := os.MkdirTemp(into, "export-")
 	if err != nil {
 		return "", nil, fmt.Errorf("make room for %s: %w", guestPath, err)

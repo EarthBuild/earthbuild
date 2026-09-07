@@ -144,10 +144,20 @@ func Read(store string, id ir.NodeID) (Declaration, bool, error) {
 		// instead would heal the store and hand the reader the caller's vaguer
 		// complaint - "this store holds neither a layer nor a declaration" -
 		// for a fault that had a precise name a moment earlier.
+		// **What the next build does depends on what else the store holds.**
+		// Removing the file is not the same as healing the store: the element's
+		// *layer* may still be present, in which case the step that would have
+		// re-filed the declaration takes a cache hit and re-files nothing, and
+		// the next build fails with the materialiser's "neither a layer nor a
+		// declaration" instead. Saying "the next will not fail" was measured
+		// and wrong. So the message says what happened and stops there.
 		return Declaration{}, false, fmt.Errorf("the declaration at %s was damaged: %w"+
-			"\n  it is named by its contents, so it has been removed and will be"+
-			" fetched again; this build fails and the next will not",
-			Path(store, id), err)
+			"\n  it is named by its contents, so it has been removed and can be"+
+			" fetched again"+
+			"\n  if the next build reports the element missing rather than damaged,"+
+			" nothing re-fetched it: the store has its layer and not its"+
+			" declaration, and that half-state is repaired by fetching the image"+
+			" again", Path(store, id), err)
 	}
 
 	return d, true, nil

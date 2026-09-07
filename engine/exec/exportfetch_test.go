@@ -93,3 +93,29 @@ func (s *fetchingSandbox) FetchExport(_ context.Context, guestPath, into string)
 
 	return os.WriteFile(filepath.Join(into, filepath.Base(guestPath)), []byte("x"), 0o600)
 }
+
+// The destination's parent may not exist yet, and usually does not.
+//
+// **`SAVE ARTIFACT ... AS LOCAL build/linux/amd64/earthly` names a directory the
+// build is about to create.** Staging beside the destination is deliberate - it
+// keeps the copy on one filesystem - but the old path created that parent later,
+// in `copyOut`, so a fetch that stages there first failed with `stat
+// build/linux/amd64: no such file or directory` on the first export of a fresh
+// checkout.
+func TestTheDestinationsParentIsMadeBeforeStaging(t *testing.T) {
+	t.Parallel()
+
+	into := filepath.Join(t.TempDir(), "build", "linux", "amd64")
+	sb := &fetchingSandbox{}
+
+	got, done, err := stagedOnHost(context.Background(), sb, "/store/exports/earthly", into)
+	if err != nil {
+		t.Fatalf("staging into a directory that does not exist yet: %v", err)
+	}
+
+	defer done()
+
+	if !strings.HasPrefix(got, into) {
+		t.Errorf("the artifact is at %s, outside %s", got, into)
+	}
+}

@@ -24,6 +24,12 @@ import (
 // absence would heal the store and hand the reader the materialiser's vaguer
 // complaint - "this store holds neither a layer nor a declaration" - for a fault
 // that had a precise name a moment earlier.
+//
+// **Removing the file is not the same as healing the store**, which was worth
+// measuring rather than assuming: if the element's layer is still present, the
+// step that would have re-filed the declaration takes a cache hit and re-files
+// nothing, and the build after this one fails on the absence instead. The
+// message says so rather than promising a recovery it cannot make.
 func TestADamagedDeclarationIsRemovedAndStillReported(t *testing.T) {
 	t.Parallel()
 

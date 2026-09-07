@@ -228,6 +228,13 @@ func waitForHost() (*os.File, error) {
 		return nil, fmt.Errorf("accept on vsock: %w", err)
 	}
 
+	// **Said because "ready" alone cannot be read.** A guest whose console ends
+	// at "ready" is either still waiting for a connection that never arrived or
+	// has accepted one and handed it to an agent that then said nothing, and
+	// those two have opposite causes. Thirty-second handshake timeouts were
+	// diagnosed twice from a console that could not tell them apart.
+	fmt.Println("earth-vmboot: host connected")
+
 	return os.NewFile(uintptr(conn), "vsock"), nil
 }
 

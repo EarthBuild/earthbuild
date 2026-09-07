@@ -18,6 +18,12 @@ type Report struct {
 	Removed int
 	// Kept is how many remain.
 	Kept int
+	// Stopped says the collection gave up its budget before reaching the
+	// ceiling, so the store is larger than was asked for and the rest is left
+	// for next time. Reported rather than inferred: "freed less than asked"
+	// also describes a store with nothing left to give, and those want
+	// different words.
+	Stopped bool
 }
 
 // Freed is how much the collection reclaimed.
@@ -71,6 +77,33 @@ func Collect(root string, keep uint64) (Report, error) {
 // age, and only when they run out does the store give up something it cannot get
 // back. Nil is "no idea", and then this is exactly Collect as it always was.
 func CollectWith(root string, keep uint64, elsewhere func(ir.NodeID) bool) (Report, error) {
+	return CollectUntil(root, keep, elsewhere, nil)
+}
+
+// CollectUntil is CollectWith, stopping early when stop says so.
+//
+// **A collector on the critical path can make a machine unusable.** The guest
+// agent collects before it serves, so whatever collection costs is spent inside
+// the host's handshake budget - and on a store of 44,015 layers with 5G free
+// that budget was gone before the agent answered anything. Every sandbox in the
+// build then failed with "the guest did not answer the handshake", describing a
+// guest that had booted, accepted the connection, and was busy with housekeeping
+// nobody was waiting for.
+//
+// Safe to stop part-way by construction rather than by luck: a layer is
+// forgotten from the index before it is deleted, so an interrupted collection
+// leaves an index that *lags* - a store holding more than it claims, which is
+// the harmless direction. The loop below already said so; nothing was calling
+// it in a way that could stop.
+//
+// A predicate rather than a deadline, so the decision to stop is testable
+// without a clock.
+//
+// nil stop means run to completion, which is every caller but the agent: `earth
+// prune` was asked to free space and should finish the job.
+func CollectUntil(
+	root string, keep uint64, elsewhere func(ir.NodeID) bool, stop func() bool,
+) (Report, error) {
 	if root == "" {
 		return Report{}, nil
 	}
@@ -107,6 +140,12 @@ func CollectWith(root string, keep uint64, elsewhere func(ir.NodeID) bool) (Repo
 
 	for _, l := range layers {
 		if report.After <= keep {
+			break
+		}
+
+		if stop != nil && stop() {
+			report.Stopped = true
+
 			break
 		}
 

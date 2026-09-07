@@ -1,6 +1,10 @@
 package store
 
-import "github.com/EarthBuild/earthbuild/engine/ir"
+import (
+	"time"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
+)
 
 // CeilingFor is the size a store must come down to so that `want` bytes are
 // free, given what it holds now and what is free now.
@@ -37,6 +41,29 @@ func CeilingFor(size, want, free uint64) uint64 {
 // cannot be measured is left alone: collecting on a guess throws a cache away
 // for a number nobody has.
 func Reclaim(root string, want uint64, elsewhere func(ir.NodeID) bool) (Report, error) {
+	return ReclaimWithin(root, want, elsewhere, 0)
+}
+
+// ReclaimWithin is Reclaim, giving up after within.
+//
+// Zero means no limit, which is what `earth prune` wants: somebody asked for
+// the space and should get it. A budget is for the collection nobody asked for
+// - the one the agent runs at startup, where the cost is paid by a host waiting
+// on a handshake. See CollectUntil.
+//
+// The clock starts here rather than at the loop, because walking the store to
+// size it is itself most of the cost on a large one: a budget that only bounded
+// the deleting would be spent before it was consulted.
+func ReclaimWithin(
+	root string, want uint64, elsewhere func(ir.NodeID) bool, within time.Duration,
+) (Report, error) {
+	began := time.Now()
+
+	var stop func() bool
+	if within > 0 {
+		stop = func() bool { return time.Since(began) > within }
+	}
+
 	if root == "" || want == 0 {
 		return Report{}, nil
 	}
@@ -55,7 +82,13 @@ func Reclaim(root string, want uint64, elsewhere func(ir.NodeID) bool) (Report, 
 	// undercount collects far more than the shortfall.
 	size := SizeAll(root)
 
+	// Sizing alone can spend the whole budget on a large store. Saying so beats
+	// collecting against a ceiling derived from a walk that already ran long.
+	if stop != nil && stop() {
+		return Report{Stopped: true}, nil
+	}
+
 	keep := CeilingFor(size, want, free)
 
-	return CollectWith(root, keep, elsewhere)
+	return CollectUntil(root, keep, elsewhere, stop)
 }

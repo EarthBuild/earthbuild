@@ -145,6 +145,11 @@ func run() error {
 		scratch = "/var/lib/earthbuild/scratch"
 	}
 
+	// Before the collector, because the collector is the longest thing between
+	// the agent starting and its first answer - and a console that says nothing
+	// cannot distinguish an agent that is working from one that never ran.
+	fmt.Fprintf(os.Stderr, "%s: starting, collecting the store\n", label())
+
 	reclaim(root)
 
 	// Off Linux newMaterialiser always fails - see mat_other.go, which refuses
@@ -158,6 +163,8 @@ func run() error {
 	// The scratch may be a tmpfs this process mounted, and a mount outlives the
 	// process that made it unless somebody unmounts it.
 	defer releaseScratch()
+
+	fmt.Fprintf(os.Stderr, "%s: serving\n", label())
 
 	srv := &guest.Server{
 		Mat:      mat,
@@ -355,6 +362,20 @@ const defaultStoreFree = 8 << 30
 // Best-effort and loud: a store that cannot be measured or collected is a build
 // that may run out of room, which is slower and not wrong - so it says so and
 // carries on.
+// collectBudget is how long the agent may collect before it starts serving.
+//
+// **The host is waiting on a handshake while this runs.** Collection here is
+// housekeeping nobody asked for, and it was unbounded: on a store of 44,015
+// layers with 5G free it outlasted the host's thirty-second budget, so every
+// sandbox in a build failed with "the guest did not answer the handshake" -
+// describing a guest that had booted, accepted the connection, and was busy.
+//
+// Well under that thirty seconds, because the boot has its own costs and the
+// handshake budget covers all of them. A collection that does not finish leaves
+// the rest for the next build; the store converges over boots, and a build that
+// genuinely runs out of room says so in words that name the problem.
+const collectBudget = 5 * time.Second
+
 func reclaim(root string) {
 	want := uint64(defaultStoreFree)
 
@@ -370,7 +391,7 @@ func reclaim(root string) {
 		want = n
 	}
 
-	report, err := store.Reclaim(root, want, nil)
+	report, err := store.ReclaimWithin(root, want, nil, collectBudget)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: the store could not be collected, so this build"+
 			" may run out of room: %v\n", label(), err)
@@ -380,5 +401,13 @@ func reclaim(root string) {
 
 	if report.Removed > 0 {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", label(), report)
+	}
+
+	if report.Stopped {
+		fmt.Fprintf(os.Stderr, "%s: the store still has less than %dG free after %s of"+
+			" collecting, and the rest is left for the next build\n"+
+			"  a build may yet run out of room; `earth prune` collects with no"+
+			" budget when you can spare the wait\n",
+			label(), want>>30, collectBudget)
 	}
 }

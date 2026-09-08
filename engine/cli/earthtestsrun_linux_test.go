@@ -316,9 +316,16 @@ func TestHowManyEarthTestsBuild(t *testing.T) {
 			names["built"] = append(names["built"], where)
 
 		default:
-			why[got.reason]++
+			// Grouped by cause rather than by message: two reports of one
+			// fault differ in the layer and the directory they name, and
+			// counting those apart made a corrupt store device arrive as 146
+			// groups of one while the list called a missing Dockerfile the
+			// biggest problem. See groupOf.
+			key := groupOf(got.reason)
 
-			names[got.reason] = append(names[got.reason], where)
+			why[key]++
+
+			names[key] = append(names[key], where)
 		}
 	}
 

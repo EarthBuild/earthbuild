@@ -3,6 +3,9 @@ package exec
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
+	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -53,14 +56,78 @@ func claimStore(at string) (release func(), err error) {
 	if err != nil {
 		_ = f.Close()
 
+		history := claimHistory(at)
+
+		// **To stderr as well, because the error's later lines do not survive.**
+		// Every caller that records this records its first line. A claim still
+		// standing in *this* process is an engine defect rather than a busy
+		// machine - there is no second build to be waiting for - so the one
+		// thing that identifies which sandbox leaked is written where it will
+		// be read.
+		if history != "" {
+			fmt.Fprintf(os.Stderr, "earthbuild: a sandbox this build started"+
+				" still holds %s%s\n", at, history)
+		}
+
 		return nil, fmt.Errorf("the store device %s is in use%s, after waiting %s: %w"+
 			"\n  a device holds one filesystem and two guests mounting it would"+
 			" destroy it, so this build is refused rather than queued"+
-			"\n  point EARTH_VM_STORE at a device of its own to build alongside",
-			at, whoHolds(at), waited.Round(time.Millisecond), err)
+			"\n  point EARTH_VM_STORE at a device of its own to build alongside"+
+			"%s",
+			at, whoHolds(at), waited.Round(time.Millisecond), err, history)
 	}
 
-	return func() { _ = f.Close() }, nil
+	claimedAt.Store(at, claimNote{at: time.Now(), stack: string(debug.Stack())})
+
+	return func() {
+		claimedAt.Delete(at)
+
+		_ = f.Close()
+	}, nil
+}
+
+// claimedAt records the standing claim on each store device in this process.
+//
+// **Because naming the holder was not enough.** A refusal that says `this build
+// itself` identifies the process, which is the one thing a reader watching one
+// process already knows; two fixes aimed at plausible leaks changed nothing,
+// because neither was the path that actually made the sandbox nobody stopped.
+// The claim's own stack says which one is, and it is free to keep: one capture
+// per sandbox, not one per operation.
+var claimedAt sync.Map //nolint:gochecknoglobals // process-wide, like the locks it describes
+
+type claimNote struct {
+	at    time.Time
+	stack string
+}
+
+// claimHistory describes the standing claim on a device, or "" for none.
+func claimHistory(at string) string {
+	v, ok := claimedAt.Load(at)
+	if !ok {
+		return ""
+	}
+
+	note, ok := v.(claimNote)
+	if !ok {
+		return ""
+	}
+
+	return fmt.Sprintf("\n  the standing claim was taken %s ago, here:\n%s",
+		time.Since(note.at).Round(time.Millisecond), indent(note.stack))
+}
+
+// indent shifts a stack under the diagnostic that carries it.
+func indent(s string) string {
+	var out strings.Builder
+
+	for _, line := range strings.Split(strings.TrimRight(s, "\n"), "\n") {
+		out.WriteString("    ")
+		out.WriteString(line)
+		out.WriteString("\n")
+	}
+
+	return strings.TrimRight(out.String(), "\n")
 }
 
 // storeClaimPatience is how long a claim waits for a departing guest.

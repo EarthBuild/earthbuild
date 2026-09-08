@@ -1212,6 +1212,14 @@ func (a *Apple) guestRoot() string {
 	return guestStore
 }
 
+// StoreOutOfReach reports whether this run keeps its layers where the host
+// cannot read them.
+//
+// The same condition guestRoot turns on, said where the front end can ask it:
+// with the store on the guest's own device, a prune of this machine's directory
+// tidies something else and reports success. See exec.StoreIsInGuest.
+func (a *Apple) StoreOutOfReach() bool { return guest.StoreInVM() }
+
 // guestExportDir is where the guest stages an artifact on its way out.
 //
 // The shared mount, whenever the layers are not already on it. An export exists

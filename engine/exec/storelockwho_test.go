@@ -2,6 +2,8 @@ package exec
 
 import (
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -57,5 +59,42 @@ func TestAClaimHeldByThisProcessSaysSo(t *testing.T) {
 
 	if got := describeHolders(nil); got != "" {
 		t.Errorf("no holders should add nothing, got %q", got)
+	}
+}
+
+// The whole path, against a real lock: a claim refused by this very process
+// says so.
+//
+// The parser and the sentence are covered above with fixtures; this covers the
+// part fixtures cannot - that the inode a caller stats is the inode the kernel
+// prints, on this machine's filesystem. It was wrong about exactly that once.
+func TestARefusedClaimNamesThisProcessInPractice(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("/proc/locks is a Linux facility")
+	}
+
+	at := filepath.Join(t.TempDir(), "store.img")
+
+	err := os.WriteFile(at, make([]byte, 4096), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	held, err := claimStore(at)
+	if err != nil {
+		t.Fatalf("the first claim was refused: %v", err)
+	}
+
+	defer held()
+
+	_, err = claimStore(at)
+	if err == nil {
+		t.Fatal("a second claim on a held device succeeded")
+	}
+
+	if !strings.Contains(err.Error(), "this build itself") {
+		t.Errorf("the refusal does not name the holder, so it cannot say"+
+			" whether this is another terminal or a sandbox this build left"+
+			" running:\n%v", err)
 	}
 }

@@ -25,6 +25,7 @@ func TestEachStepGetsItsOwnAddressOnTheGuestSwitch(t *testing.T) {
 
 	seen := map[netip.Addr]int{}
 
+	// Fewer than the subnet holds, so uniqueness is a real claim here.
 	for i := range 64 {
 		n := vmStepNet(i)
 
@@ -48,20 +49,25 @@ func TestEachStepGetsItsOwnAddressOnTheGuestSwitch(t *testing.T) {
 	}
 }
 
-// The guest's own switch does not overlap the host's.
+// No step is given an address that is already spoken for.
 //
-// The host runs one of these for the VM's single NIC on 192.168.127.0/24. A
-// guest-side switch on the same range would give a step a route to its own
-// side of the boundary and a gateway that is two different machines depending
-// which table answered.
+// Steps are macvlan children on the guest's own NIC, so they join the segment
+// the VM is already on rather than getting a subnet of their own. That is what
+// makes a second TCP/IP stack in the guest unnecessary - and it is why the
+// allocator has to know what is already there.
 func TestTheGuestSwitchDoesNotOverlapTheHosts(t *testing.T) {
 	t.Parallel()
 
-	hosts := netip.MustParsePrefix("192.168.127.0/24")
+	// Steps sit on the segment the VM is already on, so what must be avoided is
+	// not the subnet but the addresses already spoken for: the gateway at .1
+	// and the guest's own NIC at .2.
+	taken := map[string]string{"192.168.127.1": "the gateway", "192.168.127.2": "the guest's own NIC"}
 
-	n := vmStepNet(0)
-	if n.Subnet.Overlaps(hosts) {
-		t.Errorf("the guest's step network %s overlaps the host's %s", n.Subnet, hosts)
+	for i := range 300 {
+		n := vmStepNet(i)
+		if who, ok := taken[n.Addr.String()]; ok {
+			t.Fatalf("step %d was given %s (%s)", i, n.Addr, who)
+		}
 	}
 }
 

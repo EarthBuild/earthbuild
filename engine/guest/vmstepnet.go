@@ -7,16 +7,21 @@ import (
 
 // vmStepSpace is where a microVM's per-step networks are addressed from.
 //
-// **Not the host's range.** The host runs a virtual switch for the VM's single
-// NIC on 192.168.127.0/24; a guest-side switch sharing it would give a step a
-// route to the other side of the boundary and a gateway that is two different
-// machines depending which table answered.
+// **The host switch's own subnet, deliberately.** An earlier draft of this put
+// steps on a private range behind a second virtual switch running in the
+// agent - which works, and costs about 8MB of TCP/IP stack in an initramfs
+// that is 3.8MB in total and reproducible because it holds nothing else.
 //
-// A /16 of the same private block the host's `private` mode avoided
-// buildkit's 172.30.0.0/16 for, and distinct from that mode's 10.201.0.0/16:
-// all three can be live on one machine while the comparison this branch exists
-// for is being made.
-const vmStepSpace = "10.202.0.0/16"
+// It is not needed. The host's switch keeps a CAM table and learns a source
+// MAC per connection, so many MACs on the VM's single link are forwarded
+// correctly. A step given a macvlan on the guest's own NIC therefore appears
+// as another host on the segment the VM is already on: its own MAC, its own
+// address, its own port space, and no stack, bridge, veth or NAT anywhere.
+//
+// Which means steps share this subnet rather than getting one of their own,
+// and the addresses have to avoid what is already on it: .1 is the gateway and
+// .2 is the guest itself.
+const vmStepSpace = "192.168.127.0/24"
 
 // VMStepNet is one step's place on the guest's own switch.
 //
@@ -52,22 +57,29 @@ type VMStepNet struct {
 func vmStepNet(i int) VMStepNet {
 	subnet := netip.MustParsePrefix(vmStepSpace)
 
-	// .1 is the switch; steps start at .2, so no step is ever handed the
-	// gateway's own address.
-	const gatewayHost = 1
+	// .1 is the gateway and .2 is the guest's own NIC, so steps start at .3.
+	const (
+		gatewayHost = 1
+		firstStep   = 3
+	)
 
-	block := i & 0x3fff
-	host := block + gatewayHost + 1
+	// A /24 with three addresses spoken for. Wrapping rather than failing: the
+	// guest's concurrency is bounded far below this, and a guard would be
+	// untested code in front of an impossibility.
+	block := i % (254 - firstStep)
+	host := block + firstStep
 
 	base := subnet.Addr().As4()
-	gw := netip.AddrFrom4([4]byte{base[0], base[1], 0, gatewayHost})
-	addr := netip.AddrFrom4([4]byte{base[0], base[1], byte(host >> 8), byte(host)})
+	gw := netip.AddrFrom4([4]byte{base[0], base[1], base[2], gatewayHost})
+	addr := netip.AddrFrom4([4]byte{base[0], base[1], base[2], byte(host)})
 
 	return VMStepNet{
 		Link:    fmt.Sprintf("es%d", block),
 		Addr:    addr,
 		Gateway: gw,
 		Subnet:  subnet,
-		MAC:     fmt.Sprintf("5a:94:ef:%02x:%02x:%02x", 0, host>>8, host&0xff),
+		// Locally administered and unicast, so it cannot collide with a real
+		// card, and derived from the address so two steps cannot share one.
+		MAC: fmt.Sprintf("5a:94:ef:00:00:%02x", host),
 	}
 }

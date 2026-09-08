@@ -34,7 +34,12 @@ func TestAFailedStartGivesTheStoreBack(t *testing.T) {
 	f.Root = dir
 
 	// A VMM that is not there, so Start gets as far as launching and fails.
-	// Whichever step it fails at, the claim is the thing being tested.
+	//
+	// **Without the network shim**, because with it the child is this binary -
+	// which exists - and the failure lands later, on a path that already stops
+	// the sandbox and gives the claim back. The paths worth testing are the
+	// ones before the machine is running at all.
+	f.ownNet = false
 	f.Binary = filepath.Join(dir, "no-such-firecracker")
 	f.Kernel = filepath.Join(dir, "vmlinux")
 	f.Initrd = filepath.Join(dir, "initrd.cpio.gz")

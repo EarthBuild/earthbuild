@@ -1401,6 +1401,19 @@ func (e *Executor) Close() error {
 	// inside it, and a build must never exit leaving one up.
 	e.releases.wait()
 
+	// **And before anything is read, because a boot may still be in flight.**
+	// A warm-up starts the sandbox on another goroutine and returns at once, so
+	// a Close arriving in between found `running` false - the executor made,
+	// the machine not yet answering - and returned having stopped nothing. The
+	// boot then finished, claimed the store device and ran on owned by nobody:
+	// the engine had already moved to a new sandbox, and every build after it
+	// in that process was refused with `in use by this build itself`.
+	//
+	// `Do` on a Once that is running blocks until it returns, which is exactly
+	// the wait wanted. On one that never ran it is a no-op that leaves the
+	// executor unable to start - which is what Close means.
+	e.start.Do(func() {})
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 

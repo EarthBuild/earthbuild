@@ -175,8 +175,14 @@ func run() error {
 
 	fmt.Fprintf(os.Stderr, "%s: serving\n", label())
 
+	// One reading a second, which costs 2.2us and is ample resolution for a
+	// figure describing minutes. Stopped with the agent.
+	stopWatch := make(chan struct{})
+	defer close(stopWatch)
+
 	srv := &guest.Server{
 		Ready:    ready,
+		Pressure: store.Watch(root, stopWatch),
 		Mat:      mat,
 		LayerDir: root,
 		// A sandbox nobody is using stops itself. The host cannot be trusted to

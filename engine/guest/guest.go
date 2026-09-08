@@ -120,6 +120,11 @@ type Server struct {
 	// which is honest, because the store it would use is not ready yet.
 	Ready <-chan struct{}
 
+	// Pressure describes the store's free space over the last little while, or
+	// nothing. Nil means say nothing, which is every caller that does not watch
+	// - see store.Watch.
+	Pressure func() string
+
 	Terminals *net.UnixConn
 
 	// termMu is held for the length of an interactive step. One terminal, one
@@ -1353,7 +1358,12 @@ func (s *Server) commit(delta string, id ir.NodeID) (portable bool, err error) {
 	if err != nil {
 		_ = os.RemoveAll(tmp)
 
-		return false, err
+		// **A store that ran out says how fast it went.** "no space left on
+		// device" is the end of a story nobody watched: it names the file that
+		// could not be written and not whether the store had been full for an
+		// hour or emptied itself in the last forty seconds. Those want opposite
+		// answers - a bigger device, or a collector that is not keeping up.
+		return false, s.withPressure(err)
 	}
 
 	// Losing to another build committing the same layer is a race worth losing,
@@ -4265,4 +4275,22 @@ func (s *Server) expandPattern(h core.Handle, from []string, src, dest string) (
 	sort.Strings(out)
 
 	return out, nil
+}
+
+// withPressure adds what the store's free space has been doing, when the
+// failure is that it ran out.
+//
+// Only for ENOSPC: a rate attached to a permissions failure sends the reader
+// somewhere the problem is not, which is worse than saying nothing.
+func (s *Server) withPressure(err error) error {
+	if s.Pressure == nil || !errors.Is(err, syscall.ENOSPC) {
+		return err
+	}
+
+	note := s.Pressure()
+	if note == "" {
+		return err
+	}
+
+	return fmt.Errorf("%w\n%s", err, strings.TrimRight(note, "\n"))
 }

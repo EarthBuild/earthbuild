@@ -828,14 +828,53 @@ func (c *conn) send(v any) error {
 
 	binary.BigEndian.PutUint32(hdr[:], uint32(len(b))) //nolint:gosec // bounded by message size
 
-	_, err = c.wc.Write(hdr[:])
+	err = writeChunked(c.wc, hdr[:])
 	if err != nil {
 		return fmt.Errorf("write header: %w", err)
 	}
 
-	_, err = c.wc.Write(b)
+	err = writeChunked(c.wc, b)
 	if err != nil {
 		return fmt.Errorf("write body: %w", err)
+	}
+
+	return nil
+}
+
+// vsockWrite is the most that goes to the connection in one Write.
+//
+// **Firecracker replays 32 KiB of any larger write whenever the reader
+// stalls.** Measured against firecracker v1.13.1 with a standalone probe: a
+// guest writing a counting stream to a host that pauses every MiB sees the
+// stream jump backwards by exactly 32768 bytes, once per write, at every write
+// size above 32768 - and never once at 32768 or below. The threshold is half
+// the VMM's 64 KiB per-connection TX ring, CONN_TX_BUF_SIZE. A reader that
+// never pauses sees 512 MB go by intact, which is why this took a build to find
+// and not a test.
+//
+// The fault is silent at the transport: the bytes arrive, they are simply the
+// wrong ones. What the engine saw was the consequence - 32 KiB duplicated
+// inside a length-prefixed frame leaves every later length off by that much, so
+// the connection is lost a megabyte after the damage, naming neither. A step's
+// `reads` observation of a Go build runs to 1.5 MB, which is what made this
+// reachable at all (E1042).
+const vsockWrite = 32 << 10
+
+// writeChunked hands w no more than vsockWrite at a time.
+//
+// Here rather than in the guest's own writer because both ends send through
+// send: a host's request crosses the same device as a guest's reply, in the
+// other direction and through the other ring.
+func writeChunked(w io.Writer, b []byte) error {
+	for len(b) > 0 {
+		n := min(len(b), vsockWrite)
+
+		_, err := w.Write(b[:n])
+		if err != nil {
+			return err //nolint:wrapcheck // the caller says which half this was
+		}
+
+		b = b[n:]
 	}
 
 	return nil

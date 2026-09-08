@@ -18,6 +18,11 @@ var partialName = regexp.MustCompile(`^\.[0-9a-f]{64}\.partial-[0-9]+$`)
 // sweepPartials removes the debris of layer writes that did not finish, and
 // says how much it freed.
 //
+// Takes the store's root and finds the layers itself, so that knowing where
+// layers live stays inside the store's own implementation - see the register in
+// boundary_test.go, which exists because a reader of the layout that nobody
+// decided about is how the disk work fails.
+//
 // **Nothing else ever removed these.** A layer is staged in
 // `.<id>.partial-<n>` and renamed into place when it is whole; the writer
 // deletes it on an error, but a *killed* writer deletes nothing. `candidates`
@@ -33,7 +38,9 @@ var partialName = regexp.MustCompile(`^\.[0-9a-f]{64}\.partial-[0-9]+$`)
 // collects at startup before any step runs, a device-backed store is claimed
 // exclusively, and `Prune` documents the same assumption. Without it a sweep
 // could take a write that is still happening.
-func sweepPartials(dir string) (int, uint64) {
+func sweepPartials(root string) (int, uint64) {
+	dir := filepath.Join(root, "layers")
+
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return 0, 0

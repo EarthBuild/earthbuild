@@ -51,7 +51,8 @@ var knowsTheLayout = map[string]string{
 	// Store-side by necessity rather than by choice: once the store is a device,
 	// collecting is something only whoever mounts it can do, and a host-side
 	// collector would be a reader found on the day that changes (E574).
-	"engine/store/collect.go": sideStore,
+	"engine/store/collect.go":  sideStore,
+	"engine/store/partials.go": sideStore,
 
 	// Inside the sandbox, which is where all of this ends up.
 	"engine/guest/guest.go": sideGuest,

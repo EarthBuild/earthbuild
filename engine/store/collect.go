@@ -129,7 +129,7 @@ func CollectUntil(
 	// has.** A half-written layer's directory is skipped by `candidates`, so
 	// its bytes were neither counted nor reclaimable, and a collector could
 	// decide a full store already fit. See sweepPartials.
-	debris, freed := sweepPartials(filepath.Join(root, "layers"))
+	debris, freed := sweepPartials(root)
 
 	layers, total, err := candidates(root, index)
 	if err != nil {

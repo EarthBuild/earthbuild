@@ -514,8 +514,23 @@ func sayStore() {
 	// collects it: a store that is nearly full is the difference between a
 	// build that is slow and one that stops with `no space left on device`
 	// halfway through a capture.
-	fmt.Fprintf(os.Stderr, "earth-vmboot: store: %d layer(s) in %s, %s free\n",
-		len(entries), at, freeOn(storeAt))
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+
+	layers, debris := splitStore(names)
+
+	// Debris named only when there is some. A store that keeps reporting it is
+	// a store whose writers keep being killed, and that is the thing worth a
+	// reader noticing - it was invisible while the two were added together.
+	extra := ""
+	if debris > 0 {
+		extra = fmt.Sprintf(", %d unfinished write(s)", debris)
+	}
+
+	fmt.Fprintf(os.Stderr, "earth-vmboot: store: %d layer(s)%s in %s, %s free\n",
+		layers, extra, at, freeOn(storeAt))
 }
 
 // saySettings reports how many settings reached this guest.

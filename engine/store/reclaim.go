@@ -64,17 +64,39 @@ func ReclaimWithin(
 		stop = func() bool { return time.Since(began) > within }
 	}
 
-	if root == "" || want == 0 {
+	if root == "" {
 		return Report{}, nil
+	}
+
+	// **Debris first, and unconditionally.** A half-written layer is not a
+	// cache entry being kept against future use - nothing can ever use one -
+	// so there is no version of "the store has room" that makes keeping it
+	// right. Swept before the free space is even measured, because every one
+	// still on disk makes that measurement less true.
+	//
+	// This used to sit after the early return below, so debris was cleared only
+	// once the store was already short. It therefore accumulated through all
+	// the healthy time and was first noticed when there was a great deal of it
+	// and a full store to dig out of.
+	debris, freed := sweepPartials(root)
+
+	swept := Report{Debris: debris, Before: freed}
+
+	// `want == 0` means "do not collect", which is about layers: they are worth
+	// keeping until the space is wanted. It has never meant "keep the remains
+	// of writes that were killed", and a store told not to collect is exactly
+	// the one where those would otherwise pile up untouched for ever.
+	if want == 0 {
+		return swept, nil
 	}
 
 	free, err := Free(root)
 	if err != nil {
-		return Report{}, err
+		return swept, err
 	}
 
 	if free >= want {
-		return Report{}, nil
+		return swept, nil
 	}
 
 	// `SizeAll` rather than `Size`: the budgeted one gives up on a large store
@@ -85,10 +107,19 @@ func ReclaimWithin(
 	// Sizing alone can spend the whole budget on a large store. Saying so beats
 	// collecting against a ceiling derived from a walk that already ran long.
 	if stop != nil && stop() {
-		return Report{Stopped: true}, nil
+		swept.Stopped = true
+
+		return swept, nil
 	}
 
 	keep := CeilingFor(size, want, free)
 
-	return CollectUntil(root, keep, elsewhere, stop)
+	report, err := CollectUntil(root, keep, elsewhere, stop)
+
+	// The sweep above already happened, and CollectUntil's own sweep found
+	// nothing left to do - so its counts are added rather than replaced.
+	report.Debris += swept.Debris
+	report.Before += swept.Before
+
+	return report, err
 }

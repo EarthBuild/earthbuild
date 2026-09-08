@@ -18,6 +18,10 @@ type Report struct {
 	Removed int
 	// Kept is how many remain.
 	Kept int
+	// Debris is how many unfinished layer writes were cleared. Counted apart
+	// from Removed because they are not layers: nothing could have used them,
+	// and losing one costs nothing where losing a layer costs a rebuild.
+	Debris int
 	// Stopped says the collection gave up its budget before reaching the
 	// ceiling, so the store is larger than was asked for and the rest is left
 	// for next time. Reported rather than inferred: "freed less than asked"
@@ -31,8 +35,16 @@ func (r Report) Freed() uint64 { return r.Before - r.After }
 
 // String is the one line a person asked for a prune wants back.
 func (r Report) String() string {
-	return fmt.Sprintf("removed %d layers, freed %s, %d layers and %s left",
-		r.Removed, human(r.Freed()), r.Kept, human(r.After))
+	// Debris only when there was some. It is the uninteresting case that
+	// matters here - a store that keeps reporting cleared debris is a store
+	// whose writers keep being killed, and that is worth a reader noticing.
+	debris := ""
+	if r.Debris > 0 {
+		debris = fmt.Sprintf(", cleared %d unfinished write(s)", r.Debris)
+	}
+
+	return fmt.Sprintf("removed %d layers%s, freed %s, %d layers and %s left",
+		r.Removed, debris, human(r.Freed()), r.Kept, human(r.After))
 }
 
 // candidate is one layer up for collection, with the two facts that decide its
@@ -113,12 +125,23 @@ func CollectUntil(
 		return Report{}, err
 	}
 
+	// **Before sizing, because debris is space the store does not know it
+	// has.** A half-written layer's directory is skipped by `candidates`, so
+	// its bytes were neither counted nor reclaimable, and a collector could
+	// decide a full store already fit. See sweepPartials.
+	debris, freed := sweepPartials(filepath.Join(root, "layers"))
+
 	layers, total, err := candidates(root, index)
 	if err != nil {
 		return Report{}, err
 	}
 
-	report := Report{Before: total, After: total, Kept: len(layers)}
+	report := Report{
+		Before: total + freed,
+		After:  total,
+		Kept:   len(layers),
+		Debris: debris,
+	}
 
 	// Recoverable first, then oldest use, then by id where two are
 	// indistinguishable - so a prune of the same store twice makes the same

@@ -61,9 +61,11 @@ type Firecracker struct {
 	VCPUs     int
 	MemoryMiB int
 
-	mu      sync.Mutex
-	cmd     *osexec.Cmd
-	tmp     string
+	mu  sync.Mutex
+	cmd *osexec.Cmd
+	tmp string
+	// unlock releases this sandbox's claim on its directory. See holdSandbox.
+	unlock  func()
 	vsockAt string
 	exports string
 	tap     string
@@ -730,6 +732,11 @@ func (f *Firecracker) stopLocked() error {
 		f.console = nil
 	}
 
+	if f.unlock != nil {
+		f.unlock()
+		f.unlock = nil
+	}
+
 	if f.tmp != "" {
 		err := os.RemoveAll(f.tmp)
 		if err != nil {
@@ -750,14 +757,31 @@ func (f *Firecracker) dir() (string, error) {
 		return f.tmp, nil
 	}
 
+	// **Before making one of our own**, so a build cleans up after the builds
+	// that were killed before it. Nothing else ever removed these: every
+	// ordinary path is tidy and a SIGKILL runs none of them. See
+	// sweepSandboxes, which uses a lock rather than age so a running build's
+	// directory is never taken.
+	sweepSandboxes(os.TempDir())
+
 	// **Short, because a unix socket path is 108 bytes** and the API socket, the
 	// vsock and the guest's own suffix all hang off this. A path under a long
 	// temporary directory binds nothing and reports it as an invalid argument.
-	tmp, err := os.MkdirTemp("", "earth-fc")
+	tmp, err := os.MkdirTemp("", sandboxPrefix)
 	if err != nil {
 		return "", fmt.Errorf("make a directory for the sandbox: %w", err)
 	}
 
+	// Held for as long as this process lives, which is what tells the next
+	// build's sweep that this one is not abandoned.
+	release, err := holdSandbox(tmp)
+	if err != nil {
+		_ = os.RemoveAll(tmp)
+
+		return "", fmt.Errorf("claim the sandbox directory %s: %w", tmp, err)
+	}
+
+	f.unlock = release
 	f.tmp = tmp
 
 	return tmp, nil

@@ -2452,7 +2452,22 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	// is no moment between the clone and the exec that the guest can run code
 	// in, and `setns` has to happen in the process that becomes the step.
 	// Without a shim there is nobody to tell, and the step runs shared.
-	netAt, closeNet, whyNoNet := openStepNet()
+	// **Not for a step that asked for none.** `isolate` honours
+	// `RUN --network=none` with an empty namespace through CLONE_NEWNET, and
+	// the shim joins the namespace named here with setns *after* the clone - so
+	// handing one over silently undoes the isolation. `tests/no-network.earth`,
+	// which the tree declares must fail, succeeded under the microVM and failed
+	// correctly under namespaces, which is the whole of the difference between
+	// the two backends on the corpus.
+	var (
+		netAt    string
+		closeNet = func() {}
+		whyNoNet string
+	)
+
+	if wantsStepNet(s.DropNet, req.NoNet) {
+		netAt, closeNet, whyNoNet = openStepNet()
+	}
 
 	defer closeNet()
 
@@ -3100,6 +3115,16 @@ type Step struct {
 	NoNet bool
 	// Privileged is `RUN --privileged`. See Request.Privileged.
 	Privileged bool
+}
+
+// wantsStepNet reports whether a step should be given a network of its own.
+//
+// A step gets one so that two running in parallel cannot collide on a fixed
+// port. A step that asked for no network must not: the namespace would be
+// joined after the clone that was supposed to leave it with nothing, and the
+// isolation is the older promise.
+func wantsStepNet(dropNet, noNet bool) bool {
+	return !dropNet && !noNet
 }
 
 // ExecIn runs a step in a working directory.

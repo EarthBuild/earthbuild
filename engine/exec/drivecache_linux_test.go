@@ -9,28 +9,25 @@ import (
 	"testing"
 )
 
-// Every drive honours the guest's flushes.
+// The store is fast by default and durable when asked.
 //
-// **Firecracker's default is `Unsafe`, which discards them.** The guest's
-// filesystem believes a journal commit reached stable storage when nothing has
-// left the host's page cache, so a VMM that stops without a clean shutdown
-// leaves the image holding a mixture of old and new metadata. That is not a
-// dirty log XFS can replay - it is corruption, and it presents as
+// **A layer store is a cache, so speed is the right default.** Firecracker's
+// `Unsafe` cache does not pass the guest's flushes to the host, which is faster
+// and perfectly safe as long as the guest unmounts before the VMM goes: the
+// writes themselves have already been issued, and it is the *ordering* a flush
+// would impose that is lost. Kill a guest mid-write and the image keeps a
+// mixture of old and new metadata - not a dirty log XFS can replay, but
 //
 //	earth-vmboot: mount the layer store from /dev/vda: structure needs cleaning
-//	XFS (vda): Corruption of in-memory data detected. Shutting down filesystem
 //
-// after which every later build fails at boot, because the store is a cache
-// nothing can repair from the host: `xfs_repair` is not in the initramfs and
-// the device is not mountable outside the guest.
+// after which every later build fails at boot.
 //
-// Found after a night of killing the VMM to end hung builds, which is a fair
-// approximation of a crash - and a crash is precisely what a journalling
-// filesystem is supposed to survive. It could not, because this setting told
-// the hypervisor not to let it.
-func TestEveryDriveHonoursTheGuestsFlushes(t *testing.T) {
-	t.Parallel()
-
+// So the answer is a clean unmount on the way out and recovery when there was
+// not one - not paying a journal flush on every write for a cache that can be
+// rebuilt. `Writeback` stays available for somebody who would rather have the
+// guarantee than the speed.
+func TestTheStoreIsFastByDefaultAndDurableWhenAsked(t *testing.T) {
+	// Not parallel: it sets the durability setting to check both modes.
 	dir := t.TempDir()
 
 	f := &Firecracker{
@@ -69,11 +66,36 @@ func TestEveryDriveHonoursTheGuestsFlushes(t *testing.T) {
 		t.Fatal("the configuration lists no drives")
 	}
 
+	// Nothing set: fast, which is what a cache wants.
+	for _, d := range cfg.Drives {
+		if d.Cache != "" && d.Cache != "Unsafe" {
+			t.Errorf("drive %q has cache_type %q by default, wanted the fast one", d.ID, d.Cache)
+		}
+	}
+
+	t.Setenv(EnvDurableStore, "1")
+
+	err = f.writeConfig(at, filepath.Join(dir, "guest.vsock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err = os.ReadFile(at)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg.Drives = nil
+
+	err = json.Unmarshal(raw, &cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	for _, d := range cfg.Drives {
 		if d.Cache != "Writeback" {
-			t.Errorf("drive %q has cache_type %q, wanted Writeback"+
-				"\n  the default discards the guest's flushes, so a VMM that is killed"+
-				"\n  leaves a store no host tool can repair", d.ID, d.Cache)
+			t.Errorf("drive %q has cache_type %q with %s set, wanted Writeback",
+				d.ID, d.Cache, EnvDurableStore)
 		}
 	}
 }

@@ -252,6 +252,32 @@ func (f *Firecracker) ConsoleTail() string {
 // so keeps the staleness note off a run it cannot describe - see guestNoteFor.
 func (f *Firecracker) OwnAgent() bool { return true }
 
+// EnvDurableStore makes the guest's drives honour its flushes.
+//
+// **Off by default, because a layer store is a cache.** Firecracker's `Unsafe`
+// cache does not pass a flush to the host, which is faster and safe so long as
+// the guest unmounts before the VMM stops: the writes have already been issued,
+// and it is the ordering the flush would impose that is lost. A guest killed
+// mid-write leaves metadata half-old and half-new, which XFS reports as
+// `structure needs cleaning` rather than replaying.
+//
+// The cure for that is a clean unmount and recovery when there was not one, not
+// a journal flush on every write of a cache that can be rebuilt. This exists
+// for somebody who would rather have the guarantee than the speed - a shared
+// machine, or a store expensive enough to refill that losing it beats the
+// write cost.
+const EnvDurableStore = "EARTH_VM_DURABLE_STORE"
+
+// driveCache is the cache mode for the guest's drives.
+func driveCache() string {
+	switch os.Getenv(EnvDurableStore) {
+	case "", "0", "false", "no":
+		return "Unsafe"
+	default:
+		return "Writeback"
+	}
+}
+
 // CPUs is how many processors a step actually has.
 //
 // **Asked, because the host's core count is the wrong number here.** The guest
@@ -386,6 +412,14 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 		// a connection that never arrived and no reason anywhere.
 		why := fmt.Errorf("%w%s", err, consoleTail(console.Name()))
 
+		// **A store that did not come back from an unclean stop is a state, not
+		// a mystery.** Every guest after the first will refuse the same device,
+		// so a build that does not recognise it fails identically for ever. See
+		// storeUnmountable, which reads the guest's own words.
+		if storeUnmountable(why) {
+			why = fmt.Errorf("%w%s", why, brokenStoreHint(f.StoreImage))
+		}
+
 		_ = f.stopLocked()
 
 		return nil, why
@@ -493,20 +527,11 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			"path_on_host":   f.StoreImage,
 			"is_root_device": false,
 			"is_read_only":   false,
-			// **Firecracker's default is `Unsafe`, which discards the guest's
-			// flushes.** The guest's filesystem then believes a journal commit
-			// reached stable storage when nothing has left the host's page
-			// cache, so a VMM stopped without a clean shutdown leaves the image
-			// holding a mixture of old and new metadata. That is not a dirty
-			// log XFS can replay - it is corruption, and it presents as
-			// `structure needs cleaning` on the next boot, after which every
-			// later build fails: the store is a cache no host tool can repair,
-			// because `xfs_repair` is not in the initramfs and the device is
-			// not mountable outside the guest.
-			//
-			// A journalling filesystem is meant to survive a crash. This
-			// setting was telling the hypervisor not to let it.
-			"cache_type": "Writeback",
+			// **Fast by default, because a layer store is a cache.** See
+			// EnvDurableStore: the flush a journal relies on is what makes a
+			// kill survivable, and the answer is to unmount cleanly on the way
+			// out rather than to pay for durability on every write.
+			"cache_type": driveCache(),
 		})
 
 		drives = append(drives, object{
@@ -514,10 +539,9 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			"path_on_host":   f.exports,
 			"is_root_device": false,
 			"is_read_only":   false,
-			// The same, for the same reason. An export device is remade per
-			// sandbox and so has less to lose, but a drive whose durability
-			// depends on which one it is is a drive somebody will get wrong.
-			"cache_type": "Writeback",
+			// The same, for the same reason: a drive whose durability depends
+			// on which one it is is a drive somebody will get wrong.
+			"cache_type": driveCache(),
 		})
 	}
 

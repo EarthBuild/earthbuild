@@ -864,10 +864,31 @@ func (c *conn) recv(v any) error {
 
 	err = json.Unmarshal(b, v)
 	if err != nil {
-		return fmt.Errorf("unmarshal: %w", err)
+		// **The bytes name what wrote them.** This protocol is length-prefixed,
+		// so a body that will not parse means the stream is desynchronised:
+		// something wrote bytes nobody framed, a length was taken from the
+		// middle of a message, and every read after that is offset. The parse
+		// error says only that it happened; the body says what did it, and it
+		// is already in hand.
+		return fmt.Errorf("unmarshal: %w\n  the frame held: %s", err, quoteBody(b))
 	}
 
 	return nil
+}
+
+// bodyQuote is how much of an unparseable frame is shown.
+//
+// Enough for a line of whatever was written into the channel, which is almost
+// always what identifies it, and not enough to put a layer through a terminal.
+const bodyQuote = 200
+
+// quoteBody renders a frame for a person, bounded and escaped.
+func quoteBody(b []byte) string {
+	if len(b) > bodyQuote {
+		return fmt.Sprintf("%q ... and %d bytes more", b[:bodyQuote], len(b)-bodyQuote)
+	}
+
+	return fmt.Sprintf("%q", b)
 }
 
 // encodeStack renders layer ids for the wire.

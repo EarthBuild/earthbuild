@@ -107,27 +107,15 @@ func ReclaimWithin(
 		stop = nil
 	}
 
-	// `SizeAll` rather than `Size`: the budgeted one gives up on a large store
-	// and reports what it had reached, and a ceiling computed from an
-	// undercount collects far more than the shortfall.
-	size := SizeAll(root)
+	// **The filesystem is asked, never the store.** Deriving a byte ceiling
+	// needs SizeAll, which walks every file - 5.1s on a store of 696,191,
+	// against a budget of five. Free space is one syscall at 2.2us, it is the
+	// thing actually wanted, and it is exact. See collectUntilFree.
+	report, err := collectUntilFree(root, want, elsewhere, stop, Free)
 
-	// Sizing alone can spend the whole budget on a large store. Saying so beats
-	// collecting against a ceiling derived from a walk that already ran long.
-	if stop != nil && stop() {
-		swept.Stopped = true
-
-		return swept, nil
-	}
-
-	keep := CeilingFor(size, want, free)
-
-	report, err := CollectUntil(root, keep, elsewhere, stop)
-
-	// The sweep above already happened, and CollectUntil's own sweep found
-	// nothing left to do - so its counts are added rather than replaced.
+	// The sweep above already ran; collectUntilFree's own found nothing left,
+	// so the counts add rather than replace.
 	report.Debris += swept.Debris
-	report.Before += swept.Before
 
 	return report, err
 }

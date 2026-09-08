@@ -18,6 +18,13 @@ type Report struct {
 	Removed int
 	// Kept is how many remain.
 	Kept int
+	// Reclaimed is what the filesystem gained, measured rather than summed.
+	//
+	// Set by the free-space path, where nothing is ever sized: statfs reports
+	// what a removal actually returned to the disk, including the metadata a
+	// sum of file sizes misses. Zero from the ceiling path, which reports
+	// through Before and After instead.
+	Reclaimed uint64
 	// Debris is how many unfinished layer writes were cleared. Counted apart
 	// from Removed because they are not layers: nothing could have used them,
 	// and losing one costs nothing where losing a layer costs a rebuild.
@@ -43,8 +50,16 @@ func (r Report) String() string {
 		debris = fmt.Sprintf(", cleared %d unfinished write(s)", r.Debris)
 	}
 
+	// The measured figure when there is one: a sum of file sizes misses what
+	// the directories and metadata cost, and this is the number the disk
+	// actually gained.
+	freed := r.Freed()
+	if r.Reclaimed > 0 {
+		freed = r.Reclaimed
+	}
+
 	return fmt.Sprintf("removed %d layers%s, freed %s, %d layers and %s left",
-		r.Removed, debris, human(r.Freed()), r.Kept, human(r.After))
+		r.Removed, debris, human(freed), r.Kept, human(r.After))
 }
 
 // candidate is one layer up for collection, with the two facts that decide its

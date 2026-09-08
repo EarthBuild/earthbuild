@@ -145,12 +145,21 @@ func run() error {
 		scratch = "/var/lib/earthbuild/scratch"
 	}
 
-	// Before the collector, because the collector is the longest thing between
-	// the agent starting and its first answer - and a console that says nothing
-	// cannot distinguish an agent that is working from one that never ran.
+	// **Collected beside the server rather than before it.** The host waits
+	// thirty seconds for a handshake, and a collection worth doing outlasts
+	// that - so collecting first meant the guest was killed mid-tidy and the
+	// store never got smaller. The server answers Hello immediately and holds
+	// every other request until this closes, which is honest: the store those
+	// requests would use is not ready yet.
 	fmt.Fprintf(os.Stderr, "%s: starting, collecting the store\n", label())
 
-	reclaim(root)
+	ready := make(chan struct{})
+
+	go func() {
+		defer close(ready)
+
+		reclaim(root)
+	}()
 
 	// Off Linux newMaterialiser always fails - see mat_other.go, which refuses
 	// rather than layering without overlayfs - so on that build this branch is
@@ -167,6 +176,7 @@ func run() error {
 	fmt.Fprintf(os.Stderr, "%s: serving\n", label())
 
 	srv := &guest.Server{
+		Ready:    ready,
 		Mat:      mat,
 		LayerDir: root,
 		// A sandbox nobody is using stops itself. The host cannot be trusted to

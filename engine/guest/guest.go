@@ -105,6 +105,21 @@ type Server struct {
 	// something that passes `test -t 0` and has no job control, no window size
 	// and no signal from Ctrl-C (E190). Nil means no interactive step can run
 	// here, which is the honest answer for any arrangement that is not one host.
+	// Ready is closed when the agent can do work. Nil means it always can.
+	//
+	// **The handshake is answered before this, and nothing else is.** The agent
+	// collects its store at startup, and on a device-backed store that
+	// collection cannot be skipped - `earth prune` collects the host's
+	// directory and never reaches a microVM's image. But the host waits only
+	// thirty seconds for a handshake, so a collection long enough to matter is
+	// killed every time: a store with 7M free was left uncollected because the
+	// guest was still working when the host gave up.
+	//
+	// Answering Hello immediately settles both. The host is satisfied, the
+	// collection runs to completion, and the first real request waits for it -
+	// which is honest, because the store it would use is not ready yet.
+	Ready <-chan struct{}
+
 	Terminals *net.UnixConn
 
 	// termMu is held for the length of an interactive step. One terminal, one
@@ -384,6 +399,18 @@ func (s *Server) Serve(ctx context.Context, rw io.ReadWriter) error {
 }
 
 func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
+	// **Hello first, and it does not wait.** A handshake that waits for startup
+	// work is a handshake the host times out, and then the work is lost with
+	// the guest that was doing it. Everything else waits, because everything
+	// else touches the store.
+	if req.Kind != KindHello && s.Ready != nil {
+		select {
+		case <-s.Ready:
+		case <-ctx.Done():
+			return Response{Err: ctx.Err().Error()}
+		}
+	}
+
 	switch req.Kind {
 	case KindHello:
 		// Version is checked on the first exchange because the guest ships

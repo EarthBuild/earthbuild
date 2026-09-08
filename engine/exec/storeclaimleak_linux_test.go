@@ -39,7 +39,10 @@ func TestAFailedStartGivesTheStoreBack(t *testing.T) {
 	// which exists - and the failure lands later, on a path that already stops
 	// the sandbox and gives the claim back. The paths worth testing are the
 	// ones before the machine is running at all.
-	f.ownNet = false
+	// Naming a tap turns the shim off - attachNet sets ownNet itself, from the
+	// environment, after the claim is taken.
+	t.Setenv(EnvTap, "earth-no-such-tap")
+
 	f.Binary = filepath.Join(dir, "no-such-firecracker")
 	f.Kernel = filepath.Join(dir, "vmlinux")
 	f.Initrd = filepath.Join(dir, "initrd.cpio.gz")

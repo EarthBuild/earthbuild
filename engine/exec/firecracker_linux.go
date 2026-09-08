@@ -290,7 +290,7 @@ func (f *Firecracker) CPUs() int { return orDefault(f.VCPUs, defaultCPUs()) }
 func (f *Firecracker) Confines() bool { return true }
 
 // Start boots the guest and returns the protocol connection to its agent.
-func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
+func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -314,6 +314,23 @@ func (f *Firecracker) Start(ctx context.Context) (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// **Given back on every failure from here on, because a Start that fails
+	// leaves nothing for Stop to be called on.** The claim is taken before the
+	// machine exists - which is the point of it - so the paths that give up
+	// between here and a running VMM used to return holding the device for the
+	// rest of the process's life. Two of them stopped the sandbox and released
+	// it; five did not, and a single corpus run in a single process was refused
+	// 25 times with `in use by this build itself`.
+	//
+	// A deferred release rather than one before each return: the next failure
+	// added between here and there gets it too, which is exactly how the five
+	// came to be missing it.
+	defer func() {
+		if err != nil {
+			f.releaseStore()
+		}
+	}()
 
 	err = f.makeExportDevice(dir)
 	if err != nil {
@@ -738,6 +755,21 @@ func readLineNow(c net.Conn) (string, error) {
 	return string(out[:n]), fmt.Errorf("no newline in the first %d bytes", len(out))
 }
 
+// releaseStore gives the store device back, once and safely twice.
+//
+// Called both from the deferred failure path in Start and from stopLocked, and
+// those overlap: a Start that stops the sandbox on its way out releases there
+// and returns an error, and the defer then runs. Idempotent, so the second call
+// is the no-op it should be rather than a double close.
+func (f *Firecracker) releaseStore() {
+	if f.release == nil {
+		return
+	}
+
+	f.release()
+	f.release = nil
+}
+
 // Stop ends the guest and removes what this sandbox made.
 func (f *Firecracker) Stop() error {
 	f.mu.Lock()
@@ -753,10 +785,7 @@ func (f *Firecracker) stopLocked() error {
 
 	f.stopped = true
 
-	if f.release != nil {
-		f.release()
-		f.release = nil
-	}
+	f.releaseStore()
 
 	// Cleared here so a PlaceBlob racing a Stop is refused with "not running"
 	// rather than dialling a socket that is about to be removed - which fails

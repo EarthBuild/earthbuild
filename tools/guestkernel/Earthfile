@@ -1,0 +1,181 @@
+VERSION 0.8
+
+# The guest kernel a microVM sandbox boots.
+#
+# **Firecracker's own microVM config, plus one driver.** The upstream config
+# already carries every hard requirement this guest has - virtio mmio, blk, net,
+# vsock and rng; XFS; overlayfs; IP_PNP; the namespaces; cgroup v2 with memory,
+# pids and CFS bandwidth; seccomp with filters. It sets exactly one thing the
+# other way:
+#
+#     # CONFIG_MACVLAN is not set
+#
+# which is what stops a step being given a network of its own inside a guest,
+# and so is what made eight of the test suite's targets fail on a port
+# collision. Forking a container platform's kernel to get that driver would
+# trade a small attack surface for a large one; turning one line on does not.
+#
+# Built here rather than downloaded because Firecracker boots an uncompressed
+# ELF vmlinux on x86_64 and a distribution ships a compressed bzImage.
+# `tools/mkguest` says the same thing about why the kernel was not its
+# business - "that artefact comes from elsewhere". This is elsewhere.
+
+# guest-kernel builds the kernel for THIS machine's architecture.
+#
+# **Native only, deliberately.** Kernels cross-compile perfectly well, and an
+# earlier draft of this did, but a cross toolchain is a second thing to pin and
+# a second thing to be wrong about - and every machine that runs a microVM
+# build is already the architecture it needs. A release that has to produce
+# both builds this target on both.
+#
+# The two architectures differ in more than a flag, which is why the make
+# target and the artefact name are derived rather than assumed:
+#
+#   x86_64   config microvm-kernel-ci-x86_64-6.18.config    make vmlinux   ELF
+#   aarch64  config microvm-kernel-ci-aarch64-6.18.config   make Image     PE
+#
+# Verified by inspection rather than taken from documentation: the aarch64
+# artefact begins 4d 5a ("MZ", a PE image) and the x86_64 one 7f 45 4c 46
+# (ELF). Asking for `vmlinux` on aarch64 produces something Firecracker will
+# not boot.
+guest-kernel:
+    FROM debian:bookworm-slim@sha256:40b107342c492725bc7aacbe93a49945445191ae9c15fbf1f2be5c07d43fb2eb
+    RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
+        build-essential bc bison flex libelf-dev libssl-dev python3 cpio xz-utils \
+        curl ca-certificates git \
+     && rm -rf /var/lib/apt/lists/*
+    WORKDIR /src
+
+    # **Amazon Linux, not mainline.** Firecracker's own kernel-policy.md says
+    # the configs in resources/guest_configs are not guaranteed to produce a
+    # working image against upstream sources. A mainline build of this config
+    # does boot - that was tried - but "it worked once here" and "this is the
+    # combination upstream tests" are different claims, and only the second one
+    # survives somebody else's machine.
+    #
+    # ---------------------------------------------------------------------
+    # PICKING THE NEXT COMMIT
+    #
+    # The tag moves with each Amazon Linux kernel release; the commit does not,
+    # which is why both are recorded and only the commit is trusted.
+    #
+    #   1. List the tags for the kernel line you want:
+    #
+    #        curl -sS https://api.github.com/repos/amazonlinux/linux/git/matching-refs/tags/microvm-kernel-6.18 \
+    #          | grep -oE '"ref": "refs/tags/[^"]+"'
+    #
+    #   2. Resolve the tag to its commit. These are ANNOTATED tags, so the ref
+    #      points at a tag object and has to be dereferenced - taking the first
+    #      sha you see gives you the tag, not the commit, and the build will
+    #      refuse it:
+    #
+    #        ref=$(curl -sS https://api.github.com/repos/amazonlinux/linux/git/ref/tags/<TAG>)
+    #        # -> {"object": {"sha": "<TAG OBJECT>", "type": "tag"}}
+    #        curl -sS https://api.github.com/repos/amazonlinux/linux/git/tags/<TAG OBJECT>
+    #        # -> {"object": {"sha": "<COMMIT>", "type": "commit"}}
+    #
+    #   3. Update KERNEL_TAG and KERNEL_COMMIT together, and move FIRECRACKER_REF
+    #      to a commit of the firecracker repo whose guest_configs carry a config
+    #      for the same kernel line.
+    #
+    #   4. Build, boot it, and run ./tests/locally-in-command+all under
+    #      EARTH_VM=1. A kernel that boots proves less than a kernel that runs a
+    #      build: the store mount, overlayfs and per-step networking are all
+    #      exercised only by the second.
+    # ---------------------------------------------------------------------
+    ARG KERNEL_TAG=microvm-kernel-6.18.25-57.115.amzn2023
+    ARG KERNEL_COMMIT=003a7905ac5f07e7f0e213951258d5bb80ea31e5
+
+    # Pinned to a commit rather than a branch: upstream may change what a microVM
+    # needs, and this build should change when somebody decides it does.
+    ARG FIRECRACKER_REF=main
+    ARG KERNEL_LINE=6.18
+
+    RUN git clone --quiet --depth 1 --branch "$KERNEL_TAG" \
+        https://github.com/amazonlinux/linux linux
+    WORKDIR /src/linux
+
+    # **The pin, checked rather than assumed.** A tag can be moved or replaced;
+    # a commit cannot. Without this the build would silently follow whatever
+    # the tag came to mean.
+    RUN got="$(git rev-parse HEAD)" \
+     && [ "$got" = "$KERNEL_COMMIT" ] \
+        || { echo "refused: $KERNEL_TAG is $got, expected $KERNEL_COMMIT" >&2; exit 1; }
+
+    # NATIVEARCH is this machine's own architecture, which is the only one this
+    # target builds. The kernel and Firecracker both spell the architectures
+    # their own way, so neither name is Go's.
+    ARG NATIVEARCH
+    LET config_arch = "x86_64"
+    LET make_target = "vmlinux"
+    IF [ "$NATIVEARCH" = "arm64" ]
+        SET config_arch = "aarch64"
+        SET make_target = "Image"
+    END
+
+    RUN curl -sSL -o .config \
+        "https://raw.githubusercontent.com/firecracker-microvm/firecracker/$FIRECRACKER_REF/resources/guest_configs/microvm-kernel-ci-$config_arch-$KERNEL_LINE.config"
+
+    # The driver upstream's config leaves off, and the only feature this adds.
+    RUN sed -i 's/^# CONFIG_MACVLAN is not set/CONFIG_MACVLAN=y/' .config \
+     && grep -q '^CONFIG_MACVLAN=y' .config
+
+    # **No module loader in the guest, so no modules in the kernel.** The
+    # initramfs is two static Go binaries: no insmod, no /lib/modules, no kmod.
+    # Every option this engine needs is already =y and upstream's config has no
+    # =m at all, so nothing is lost by removing the mechanism - and an entire
+    # way of getting code into a running kernel goes with it, which is the point
+    # of choosing a hypervisor in the first place.
+    #
+    # It is also load-bearing rather than tidy-minded. Amazon's tree
+    # force-selects CRYPTO_FIPS140_EXTMOD when MODULES=y, which loads a signed
+    # crypto module during boot and panics in fips_loader_init on finding none:
+    #
+    #     panic+0x52/0x60
+    #     fips_loader_init+0x95/0xb0
+    #     fips140_sync_thread+0x15/0x40
+    #
+    # That is the difference between this tree and mainline, and it is exactly
+    # why Firecracker's policy says to build against the tree the config is
+    # written for: a mainline build boots without complaint and hides it.
+    RUN sed -i 's/^CONFIG_MODULES=y/# CONFIG_MODULES is not set/' .config
+
+    # A kernel records when, where and by whom it was built unless told not to.
+    # A build tool whose claim is that identical inputs give identical outputs
+    # cannot ship an artefact that differs every time it is made.
+    ENV KBUILD_BUILD_TIMESTAMP="1970-01-01 00:00:00 UTC"
+    ENV KBUILD_BUILD_USER=earthbuild
+    ENV KBUILD_BUILD_HOST=earthbuild
+    ENV SOURCE_DATE_EPOCH=0
+
+    RUN make olddefconfig
+
+    # **Asserted after olddefconfig, not only before.** That step silently drops
+    # an option whose dependencies are unmet, and a kernel that boots and then
+    # cannot make a network namespace is a very long way from here to diagnose.
+    RUN for k in CONFIG_MACVLAN CONFIG_OVERLAY_FS CONFIG_XFS_FS CONFIG_VIRTIO_MMIO \
+                 CONFIG_VIRTIO_BLK CONFIG_VIRTIO_VSOCKETS CONFIG_HW_RANDOM_VIRTIO \
+                 CONFIG_IP_PNP CONFIG_NET_NS CONFIG_MEMCG CONFIG_CFS_BANDWIDTH \
+                 CONFIG_SECCOMP_FILTER CONFIG_DEVTMPFS CONFIG_UNIX98_PTYS; do \
+            grep -q "^$k=y" .config \
+              || { echo "refused: $k did not survive olddefconfig" >&2; exit 1; }; \
+        done
+
+    RUN make -j"$(nproc)" "$make_target"
+
+    # x86_64 leaves vmlinux at the root; aarch64 leaves Image under arch/.
+    RUN cp "$(find . -maxdepth 4 -name "$make_target" -type f | head -1)" /src/guest-kernel \
+     && sha256sum /src/guest-kernel > /src/guest-kernel.sha256
+
+    # **What it is, not only that it exists.** Firecracker boots an ELF on
+    # x86_64 and a PE image on aarch64; a build that quietly produced the other
+    # one would fail much later, in a guest that never speaks.
+    RUN head -c 4 /src/guest-kernel | od -A n -t x1 | tr -d ' \n' > /src/magic \
+     && if [ "$NATIVEARCH" = "arm64" ]; then \
+            grep -q '^4d5a' /src/magic || { echo "refused: not a PE image" >&2; exit 1; }; \
+        else \
+            grep -q '^7f454c46' /src/magic || { echo "refused: not an ELF vmlinux" >&2; exit 1; }; \
+        fi
+
+    SAVE ARTIFACT /src/guest-kernel AS LOCAL out/vm/guest-kernel
+    SAVE ARTIFACT /src/guest-kernel.sha256 AS LOCAL out/vm/guest-kernel.sha256

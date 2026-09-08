@@ -532,6 +532,17 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			// kill survivable, and the answer is to unmount cleanly on the way
 			// out rather than to pay for durability on every write.
 			"cache_type": driveCache(),
+			// **io_uring rather than a thread per request.** Firecracker's
+			// default block engine is Sync, which serves each request on a host
+			// thread; Async submits through io_uring. The difference lands
+			// where this backend spends real time - the export phase is 0.504s
+			// of a 3.6s hot build and is mostly writing an artifact through
+			// this device.
+			//
+			// Host-side and guest-transparent: the guest sees an ordinary block
+			// device either way, so no kernel config and nothing in the agent
+			// has an opinion about it.
+			"io_engine": "Async",
 		})
 
 		drives = append(drives, object{
@@ -542,6 +553,7 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			// The same, for the same reason: a drive whose durability depends
 			// on which one it is is a drive somebody will get wrong.
 			"cache_type": driveCache(),
+			"io_engine":  "Async",
 		})
 	}
 

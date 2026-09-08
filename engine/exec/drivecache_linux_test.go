@@ -99,3 +99,62 @@ func TestTheStoreIsFastByDefaultAndDurableWhenAsked(t *testing.T) {
 		}
 	}
 }
+
+// Both drives use the io_uring engine.
+//
+// **Firecracker defaults to Sync, which is one host thread per request.** The
+// Async engine submits through io_uring instead, and the difference lands
+// where this backend spends real time: the export phase, which is 0.504s of a
+// 3.6s hot build and is dominated by writing a built artifact through a
+// virtio-blk device.
+//
+// Host-side and guest-transparent - the guest sees an ordinary block device
+// either way, so nothing in the kernel config or the agent has an opinion
+// about it.
+func TestBothDrivesUseTheAsyncEngine(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	f := &Firecracker{
+		Kernel:     filepath.Join(dir, "vmlinux"),
+		Initrd:     filepath.Join(dir, "initrd"),
+		StoreImage: filepath.Join(dir, "store.img"),
+		Root:       dir,
+	}
+	f.exports = filepath.Join(dir, "exports.img")
+
+	at := filepath.Join(dir, "vm.json")
+
+	err := f.writeConfig(at, filepath.Join(dir, "guest.vsock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(at)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var cfg struct {
+		Drives []struct {
+			ID     string `json:"drive_id"`
+			Engine string `json:"io_engine"`
+		} `json:"drives"`
+	}
+
+	err = json.Unmarshal(raw, &cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(cfg.Drives) == 0 {
+		t.Fatal("the configuration lists no drives")
+	}
+
+	for _, d := range cfg.Drives {
+		if d.Engine != "Async" {
+			t.Errorf("drive %q uses io_engine %q, wanted Async", d.ID, d.Engine)
+		}
+	}
+}

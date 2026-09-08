@@ -82,11 +82,25 @@ func openStepNet() (path string, done func(), why string) {
 		return "", nothing, ""
 	}
 
+	// **Without `ip`, build it directly.** A microVM guest has neither `ip` nor
+	// `iptables` and cannot grow them: the initramfs is two static Go binaries,
+	// and that is what makes it reproducible. It does not need them - the
+	// host's switch learns a source MAC per connection, so a macvlan on the
+	// guest's own NIC is another host on the segment the VM is already on. See
+	// nativeStepNet.
+	//
+	// Tried only when `ip` is missing, so a Linux host keeps the arrangement
+	// that has run against the corpus. This is the path that had no answer.
 	for _, prog := range []string{"ip", "iptables"} {
 		_, err := osexec.LookPath(prog)
 		if err != nil {
-			return "", nothing, prog + " is not on the guest's PATH, so a step" +
-				" cannot be given a network of its own"
+			at, release, why := nativeStepNet(int(nextStepNet.Add(1)))
+			if why == "" {
+				return at, release, ""
+			}
+
+			return "", nothing, prog + " is not on the guest's PATH and a step's own" +
+				" network could not be built directly: " + why
 		}
 	}
 

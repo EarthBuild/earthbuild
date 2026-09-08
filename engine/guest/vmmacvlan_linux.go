@@ -155,5 +155,5 @@ func addMacvlan(n VMStepNet, parent string, ns *os.File) error {
 		return fmt.Errorf("ask for %s on %s: %w", n.Link, parent, err)
 	}
 
-	return readAck(fd, seq)
+	return readAck(fd, seq, "interface")
 }

@@ -131,11 +131,16 @@ func addDefaultRoute(gw netip.Addr, ifname string) error {
 	// refused request is an NLMSG_ERROR nobody has to collect, so a route that
 	// was never added looks exactly like one that was until something tries to
 	// use it.
-	return readAck(fd, seq)
+	return readAck(fd, seq, "route")
 }
 
 // readAck reads the kernel's answer and turns a refusal into an error.
-func readAck(fd int, seq uint32) error {
+//
+// what names the request, because this is shared: a link creation reported as
+// "the kernel refused the route" sends a reader to the routing code for a
+// failure in the link message, which cost one round of looking in the wrong
+// place.
+func readAck(fd int, seq uint32, what string) error {
 	buf := make([]byte, os.Getpagesize())
 
 	n, _, err := unix.Recvfrom(fd, buf, 0)
@@ -168,7 +173,7 @@ func readAck(fd int, seq uint32) error {
 		return nil
 	}
 
-	return fmt.Errorf("the kernel refused the route: %w", unix.Errno(-code))
+	return fmt.Errorf("the kernel refused the %s: %w", what, unix.Errno(-code))
 }
 
 // interfaceIndex is the kernel's number for a named interface.

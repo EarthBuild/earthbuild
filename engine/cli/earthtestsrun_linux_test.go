@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -141,7 +142,22 @@ func TestHowManyEarthTestsBuild(t *testing.T) {
 	// file, serially, is an hour for the tree and so the gate looked at a
 	// fraction of it. Four, because each build starts a sandbox and pulls
 	// images, and a machine that swaps measures its own memory pressure (E453).
-	const workers = 4
+	//
+	// **Settable, because one backend cannot take four.** A microVM mounts the
+	// store as a block device and holds it exclusively - two guests writing one
+	// XFS would destroy it - so the whole gate reports `the store device is in
+	// use by another build` and measures nothing. Namespaces share a directory
+	// and do not care. One knob, so the same gate can be pointed at either.
+	workers := 4
+
+	if at := os.Getenv("EARTH_TEST_WORKERS"); at != "" {
+		n, convErr := strconv.Atoi(at)
+		if convErr != nil || n < 1 {
+			t.Fatalf("EARTH_TEST_WORKERS is %q, which is not a worker count", at)
+		}
+
+		workers = n
+	}
 
 	// copyCostMB is roughly what one worker's copy of `tests/` takes at the
 	// moment it is made, so a machine that runs out can be told how much it was

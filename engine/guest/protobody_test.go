@@ -80,3 +80,52 @@ func TestAQuotedBodyIsBounded(t *testing.T) {
 		t.Errorf("the error is %d bytes; a diagnostic nobody can read is not one", len(err.Error()))
 	}
 }
+
+// A frame that goes wrong deep inside is quoted where it goes wrong.
+//
+// **The head of a spliced frame is healthy, which is why quoting the head says
+// nothing.** The real ones look like this: a `reads` map of several thousand
+// bytes whose first two hundred are a perfectly ordinary observation, and the
+// damage somewhere in the middle. Printing the opening of the message confirms
+// only that the reader was in step when the message began - which the length
+// prefix already said.
+//
+// `json.SyntaxError` carries the byte offset it stopped at, so the window that
+// contains the intruding bytes is known exactly rather than guessed at.
+func TestAQuotedBodyIsWindowedOnTheFailure(t *testing.T) {
+	t.Parallel()
+
+	// A healthy observation, spliced: a line of somebody else's output dropped
+	// into the middle of the map, exactly as a second writer to the channel
+	// would leave it.
+	head := `{"id":391,"reads":{` + strings.Repeat(`"/bin/`+strings.Repeat("a", 40)+`":"h",`, 60)
+	splice := "earth-guestd: cannot open the store\n"
+	body := head + splice + `"/bin/cat":"h"}}`
+
+	var buf bytes.Buffer
+
+	var hdr [4]byte
+
+	binary.BigEndian.PutUint32(hdr[:], uint32(len(body)))
+	buf.Write(hdr[:])
+	buf.WriteString(body)
+
+	c := newConn(&buf)
+
+	var resp Response
+
+	err := c.recv(&resp)
+	if err == nil {
+		t.Fatal("a body that is not JSON was accepted")
+	}
+
+	if !strings.Contains(err.Error(), "earth-guestd: cannot open the store") {
+		t.Errorf("the error quotes the healthy opening of the frame rather than"+
+			" the bytes it actually stopped on, which is the only part that"+
+			" names what wrote them:\n%s", err)
+	}
+
+	if len(err.Error()) > 1024 {
+		t.Errorf("the error is %d bytes; a diagnostic nobody can read is not one", len(err.Error()))
+	}
+}

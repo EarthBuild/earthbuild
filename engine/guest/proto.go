@@ -870,7 +870,7 @@ func (c *conn) recv(v any) error {
 		// middle of a message, and every read after that is offset. The parse
 		// error says only that it happened; the body says what did it, and it
 		// is already in hand.
-		return fmt.Errorf("unmarshal: %w\n  the frame held: %s", err, quoteBody(b))
+		return fmt.Errorf("unmarshal: %w\n  the frame held: %s", err, quoteBody(b, err))
 	}
 
 	return nil
@@ -883,12 +883,52 @@ func (c *conn) recv(v any) error {
 const bodyQuote = 200
 
 // quoteBody renders a frame for a person, bounded and escaped.
-func quoteBody(b []byte) string {
-	if len(b) > bodyQuote {
+//
+// **Windowed on the failure, not on the opening.** A length-prefixed frame that
+// will not parse was spliced by a second writer, and the splice is wherever the
+// decoder stopped - which for the real ones is several thousand bytes into an
+// observation whose first two hundred are unremarkable. json.SyntaxError carries
+// that offset, so the bytes that name the intruder are known rather than
+// guessed at; without it the diagnostic reports only that the message began in
+// step, which the length prefix already said.
+func quoteBody(b []byte, err error) string {
+	if len(b) <= bodyQuote {
+		return fmt.Sprintf("%q", b)
+	}
+
+	at := failedAt(err)
+	if at < 0 {
 		return fmt.Sprintf("%q ... and %d bytes more", b[:bodyQuote], len(b)-bodyQuote)
 	}
 
-	return fmt.Sprintf("%q", b)
+	// Centred on the offset, and clamped: the decoder stops just past the byte
+	// it objected to, and the writer that put it there is behind it.
+	from := at - bodyQuote/2
+	if from < 0 {
+		from = 0
+	}
+
+	to := from + bodyQuote
+	if to > len(b) {
+		to = len(b)
+		from = max(0, to-bodyQuote)
+	}
+
+	return fmt.Sprintf("%q\n  at byte %d of %d, which is where it stopped", b[from:to], at, len(b))
+}
+
+// failedAt is the byte a decoder stopped on, or -1 when it does not say.
+//
+// Only a syntax error has an offset. An UnmarshalTypeError has one too, but it
+// means the frame parsed and the stream is in step - a different fault, and not
+// one this window helps with.
+func failedAt(err error) int {
+	var syntax *json.SyntaxError
+	if errors.As(err, &syntax) {
+		return int(syntax.Offset)
+	}
+
+	return -1
 }
 
 // encodeStack renders layer ids for the wire.

@@ -298,6 +298,21 @@ func (g *engine) profileStore(store string) (*cache.Profiles, error) {
 // machine it runs on.
 func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 	g.once.Do(func() {
+		// **Marked here, where the sandbox is made, rather than at each call
+		// site.** close() shuts one down only when the engine says it has one,
+		// and every caller that asked for a sandbox used to have to say so
+		// itself. executorFor did not - so a build with a condition the
+		// interpreter could not decide got a guest, left it running and kept
+		// its store device claimed for the life of the process, refusing every
+		// build after it with `in use by this build itself`.
+		//
+		// Before the sandbox exists rather than after, because a close that
+		// races this must find the engine already marked: the flag says a guest
+		// may exist, and the recovery for one that does not is a no-op.
+		g.mu.Lock()
+		g.started = true
+		g.mu.Unlock()
+
 		sb, err := sandbox(g.image)
 		if err != nil {
 			g.err = err

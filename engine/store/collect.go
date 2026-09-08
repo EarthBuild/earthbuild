@@ -177,7 +177,11 @@ func CollectUntil(
 	})
 
 	for _, l := range layers {
-		if report.After <= keep {
+		// **Zero is a purge, not a ceiling.** A store whose layers happen to
+		// weigh nothing already satisfies "come down to 0 bytes", so a person
+		// asking to keep nothing would be told the store was already small
+		// enough and left holding every layer in it.
+		if keep > 0 && report.After <= keep {
 			break
 		}
 

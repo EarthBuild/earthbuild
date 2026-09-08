@@ -264,3 +264,16 @@ func parseDigestMap(from map[string]string) map[string]ir.NodeID {
 
 	return out
 }
+
+// Prune asks the guest to collect its store down to keep bytes, and returns
+// what it says it did.
+//
+// Zero keeps nothing. See KindPrune for why this is the guest's job.
+func (c *Client) Prune(ctx context.Context, keep uint64) (string, error) {
+	resp, err := c.do(ctx, Request{Kind: KindPrune, Keep: keep})
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Pruned, nil
+}

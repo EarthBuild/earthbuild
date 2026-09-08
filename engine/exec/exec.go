@@ -2133,3 +2133,15 @@ func (e *Executor) fullHint(err error) string {
 
 	return teller.Full(err)
 }
+
+// PruneStore asks the guest to collect its own store down to keep bytes.
+//
+// For a store the host cannot open. Zero keeps nothing.
+func (e *Executor) PruneStore(ctx context.Context, keep uint64) (string, error) {
+	c, err := e.client()
+	if err != nil {
+		return "", err
+	}
+
+	return c.Prune(ctx, keep)
+}

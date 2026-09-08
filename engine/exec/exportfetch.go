@@ -86,3 +86,16 @@ func stagedOnHost(
 	// the destination either way. See bulk.PackTree.
 	return filepath.Join(tmp, path.Base(guestPath)), done, nil
 }
+
+// StoreIsInGuest reports whether a sandbox keeps its store somewhere this
+// machine cannot open.
+//
+// Exported because the front end has to route `earth prune` on the answer: a
+// prune of the host's directory is the right thing for a shared store and
+// collects a different store entirely for a microVM, where it then reports
+// success. See guest.KindPrune.
+func StoreIsInGuest(sb Sandbox) bool {
+	_, ok := sb.(guestStorer)
+
+	return ok
+}

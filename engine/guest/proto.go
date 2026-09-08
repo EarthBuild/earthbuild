@@ -135,6 +135,20 @@ const (
 	// second and a perfectly good place for the first.
 	KindUnpackLayer Kind = "unpack-layer"
 
+	// KindPrune asks the guest to collect its own store down to a size.
+	//
+	// **Because the host cannot reach it.** `earth prune` collects the host's
+	// store directory, which is the same directory where the two share a
+	// filesystem and a different one entirely on a microVM - there the store is
+	// an image the guest has mounted and the host has never opened. The command
+	// collected something else and reported success, leaving remaking the
+	// device as the only way to reclaim space: a purge where a prune was asked
+	// for.
+	//
+	// Keep is a ceiling in bytes, and zero means keep nothing - which is what
+	// somebody reclaiming a device-backed store usually means.
+	KindPrune Kind = "prune"
+
 	// KindFileConfig files an image's configuration beside a layer already in
 	// the store, and reports what it declares.
 	//
@@ -245,6 +259,8 @@ type Request struct {
 	// it - the answer across a shared mount is cached, which is what made a
 	// growing file unreadable in the first place (E683).
 	Growing int64 `json:"growing,omitempty"`
+	// Keep is the size a prune should bring the store down to, in bytes.
+	Keep uint64 `json:"keep,omitempty"`
 
 	// As is the name to file the unpacked layer under, when the caller has
 	// already decided it.
@@ -612,6 +628,8 @@ type Response struct {
 	Version int    `json:"version,omitempty"`
 	Handle  string `json:"handle,omitempty"`
 	Root    string `json:"root,omitempty"`
+	// Pruned is what a collection did, for a person who asked for one.
+	Pruned string `json:"pruned,omitempty"`
 	// Reads and Listings carry two questions of the same shape: what a step
 	// looked at, and - for a view-digests request - what a base holds at the
 	// paths it was asked about. One pair of fields rather than two, because two

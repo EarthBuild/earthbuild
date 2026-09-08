@@ -728,6 +728,18 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 
 		return Response{}
 
+	case KindPrune:
+		// The guest is the only party that can: on a microVM the store is a
+		// device nothing outside has mounted. Unbudgeted, because a person
+		// asked for this and is waiting for it - unlike the collection at
+		// startup, which nobody asked for and which a handshake is waiting on.
+		report, err := store.CollectWith(s.LayerDir, req.Keep, nil)
+		if err != nil {
+			return Response{Err: err.Error()}
+		}
+
+		return Response{Pruned: report.String()}
+
 	case KindStoreHas:
 		ids, err := decodeStack(req.Stack)
 		if err != nil {

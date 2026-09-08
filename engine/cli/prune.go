@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
+
+	"github.com/EarthBuild/earthbuild/engine/exec"
 
 	"github.com/EarthBuild/earthbuild/engine/store"
 )
@@ -27,6 +30,17 @@ import (
 // (E574). Until it is, this reclaims space reliably and does not reliably leave
 // a cache behind.
 func Prune(o Options, keep uint64) error {
+	// **Asked of the guest where the guest is the only one who can.** A
+	// microVM's store is a fixed-size image the guest has mounted and this
+	// process has never opened, so collecting the host's directory would tidy
+	// something else and report success - leaving remaking the device as the
+	// only way to reclaim the space, which is a purge where a prune was asked
+	// for.
+	sb, sbErr := sandbox("")
+	if sbErr == nil && exec.StoreIsInGuest(sb) {
+		return pruneInGuest(o, sb, keep)
+	}
+
 	dir, err := storeDir()
 	if err != nil {
 		return err
@@ -50,4 +64,25 @@ func say(w io.Writer, dir string, r store.Report) {
 	if r.Removed == 0 && r.Before > 0 {
 		fmt.Fprintf(w, "  already within the ceiling; nothing to do\n")
 	}
+}
+
+// pruneInGuest starts the sandbox and has it collect its own store.
+func pruneInGuest(o Options, sb exec.Sandbox, keep uint64) error {
+	e, err := exec.New(sb)
+	if err != nil {
+		return err
+	}
+
+	defer func() { _ = e.Close() }()
+
+	said, err := e.PruneStore(context.Background(), keep)
+	if err != nil {
+		return err
+	}
+
+	if o.Out != nil {
+		fmt.Fprintf(o.Out, "%s: %s\n", sb.StoreDir(), said)
+	}
+
+	return nil
 }

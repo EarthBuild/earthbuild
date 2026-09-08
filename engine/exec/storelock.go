@@ -42,11 +42,11 @@ func claimStore(at string) (release func(), err error) {
 	if err != nil {
 		_ = f.Close()
 
-		return nil, fmt.Errorf("the store device %s is in use by another build: %w"+
+		return nil, fmt.Errorf("the store device %s is in use by another build: %w%s"+
 			"\n  a device holds one filesystem and two guests mounting it would"+
 			" destroy it, so this build is refused rather than queued"+
 			"\n  point EARTH_VM_STORE at a device of its own to build alongside",
-			at, err)
+			at, err, whoHolds(at))
 	}
 
 	return func() { _ = f.Close() }, nil

@@ -1064,3 +1064,50 @@ connection closed under a client about to reuse it does not care how long you wa
 Waits are jittered, so concurrent operations that fail together do not retry together. That matters
 here because images are pulled in parallel: without it, every failed pull in a batch would retry at
 the same instant, against the same registry that had just closed on all of them.
+
+## `EARTH_COLLECT_BUDGET`
+
+How long the store collector may spend before a build starts. Default: 5s. `0` lets it run to
+completion.
+
+**Because it was spending its budget measuring rather than collecting.** Deciding what to remove
+means knowing what is there, and on a store of 45,353 layers a full tree walk is five seconds
+before the first byte is freed - so a bounded collector reached its deadline having freed nothing
+and the build began with the same shortfall it started with. The walk is now a `statfs` (2.2µs
+against 5.1s for 696k files) and the budget pays for removal.
+
+Raise it on a machine whose store has grown large and whose builds keep hitting
+`EARTH_STORE_FREE`; a collector cut short leaves debris that the next build inherits.
+
+## `EARTH_VM_DURABLE_STORE`
+
+Makes a microVM's store survive a hard stop, at the cost of speed. Default: off.
+
+A guest's store device is attached with firecracker's `cache_type: Unsafe`, which discards the
+guest's flushes: the host's page cache answers them and the data reaches the disk when the host
+gets to it. That is the fast setting and it is the right default - a store is a cache, and a build
+that has to fsync every layer it writes pays for durability it does not need.
+
+**What it costs is a store that can be torn.** A machine that loses power, or a VMM killed with
+`SIGKILL`, can leave the XFS inconsistent; the guest detects that at mount and says so rather than
+building on it. Set this to `1` for `Writeback`, where the guest's flushes reach the disk, on a
+machine where losing the store matters more than the minutes it costs to rebuild it.
+
+An ordinary interrupt does not need this: `Ctrl-C` unmounts the store before the guest stops.
+
+## `EARTH_PROTO_TRACE`
+
+A directory into which every byte read from a guest connection is copied. Unset by default, and
+not something a build should ever be run with.
+
+**For diagnosing a desynchronised stream, which cannot be diagnosed any other way.** The protocol
+is length-prefixed: once a length has been taken from the middle of a message, every read after it
+is a window into the next, and the parse fails wherever that window lands - which was 1.5 MB past
+the boundary that actually moved, on the fault this was written for. Replaying the captured bytes
+against the framing rules finds the first length that does not lead to another well-formed frame.
+
+Files are written `<pid>-<n>.frames`, mode 0600, one per connection. A capture is the whole
+conversation, which includes the values of the build's secrets, and it is as large as the build is
+talkative - 8 MB for a single corpus target. Delete them when you are done.
+
+See `tools/vsockprobe` for the fault this was built to find.

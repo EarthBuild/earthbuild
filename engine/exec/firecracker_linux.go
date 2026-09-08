@@ -493,6 +493,20 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			"path_on_host":   f.StoreImage,
 			"is_root_device": false,
 			"is_read_only":   false,
+			// **Firecracker's default is `Unsafe`, which discards the guest's
+			// flushes.** The guest's filesystem then believes a journal commit
+			// reached stable storage when nothing has left the host's page
+			// cache, so a VMM stopped without a clean shutdown leaves the image
+			// holding a mixture of old and new metadata. That is not a dirty
+			// log XFS can replay - it is corruption, and it presents as
+			// `structure needs cleaning` on the next boot, after which every
+			// later build fails: the store is a cache no host tool can repair,
+			// because `xfs_repair` is not in the initramfs and the device is
+			// not mountable outside the guest.
+			//
+			// A journalling filesystem is meant to survive a crash. This
+			// setting was telling the hypervisor not to let it.
+			"cache_type": "Writeback",
 		})
 
 		drives = append(drives, object{
@@ -500,6 +514,10 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			"path_on_host":   f.exports,
 			"is_root_device": false,
 			"is_read_only":   false,
+			// The same, for the same reason. An export device is remade per
+			// sandbox and so has less to lose, but a drive whose durability
+			// depends on which one it is is a drive somebody will get wrong.
+			"cache_type": "Writeback",
 		})
 	}
 

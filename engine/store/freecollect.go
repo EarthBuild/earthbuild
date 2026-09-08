@@ -26,9 +26,10 @@ import (
 //
 // The reading is of the *filesystem*, not of the store. For a guest's store
 // that is a device of its own, so the two are the same thing. Where the store
-// shares a filesystem, another writer can move the number - but a collector
-// that stops as soon as there is room can only ever be too generous, never too
-// destructive, which is the right way round.
+// shares a filesystem they are not, and that difference is dangerous rather
+// than merely imprecise: if the disk is full of somebody else's data, no
+// number of layers removed will reach the target, and a collector that keeps
+// going until it does empties the entire cache and still fails. See futile.
 //
 // free is a parameter so the stop condition can be tested without a disk.
 func collectUntilFree(
@@ -85,6 +86,20 @@ func collectUntilFree(
 	report.Kept = len(names)
 	now := began
 
+	// futile counts removals that have not moved the filesystem's figure since
+	// the collection began.
+	//
+	// **The bound that stops a shared disk taking the whole cache.** Free space
+	// is only the store's to reclaim where the store is what filled it; when
+	// something else has, every removal is a layer lost for nothing. Deleting
+	// is not helping, so it stops.
+	//
+	// Counted against the reading at the start rather than the previous one,
+	// so a single removal that happens to free nothing - an empty layer, or an
+	// allocator that has not caught up - does not end a collection that is
+	// working.
+	futile, limit := 0, futileLimit(len(names))
+
 	for _, id := range names {
 		if stop != nil && stop() {
 			report.Stopped = true
@@ -113,11 +128,51 @@ func collectUntilFree(
 		if now >= want {
 			break
 		}
+
+		if now > began {
+			futile = 0
+		} else {
+			futile++
+
+			if futile >= limit {
+				report.Stopped = true
+
+				break
+			}
+		}
 	}
 
 	report.Reclaimed = now - began
 
 	return report, nil
+}
+
+// futileLimit is how many removals may free nothing before collection gives up.
+//
+// Proportional, because a fixed number is wrong at both ends: sixteen is a
+// handful of a large store and the whole of a small one, and the point is to
+// lose a fraction rather than everything. A quarter, capped at sixteen, and
+// never less than one.
+//
+// Large enough that a run of tiny layers, or a filesystem slow to report, does
+// not end a collection that is working; small enough that a disk somebody else
+// filled costs a few layers rather than the cache.
+func futileLimit(layers int) int {
+	const (
+		cap   = 16
+		share = 4
+	)
+
+	n := layers / share
+	if n > cap {
+		n = cap
+	}
+
+	if n < 1 {
+		n = 1
+	}
+
+	return n
 }
 
 // layerNames is every layer id the store holds, without measuring any of them.

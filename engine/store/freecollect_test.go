@@ -94,3 +94,57 @@ func TestAStoreWithRoomIsNotCollected(t *testing.T) {
 		t.Errorf("removed %d layers from a store that already had room", report.Removed)
 	}
 }
+
+// A store sharing a filesystem is never emptied chasing space someone else is
+// using.
+//
+// **Free space is only the store's business when the store owns the disk.** On
+// a guest's device the two are the same thing. On a shared filesystem they are
+// not: if the disk is full of somebody else's data, no number of layers
+// removed will reach the target, and a collector that keeps going until it does
+// deletes the entire cache and still fails. That is the worst available
+// outcome, and the free-space path walks straight into it.
+//
+// So the shortfall bounds the work. A collection may free what was actually
+// missing and no more; if the filesystem still says there is no room after
+// that, the space was never the store's to give back.
+func TestASharedFilesystemIsNotEmptiedForSomeoneElsesSpace(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	layers := filepath.Join(root, "layers")
+
+	if err := os.MkdirAll(layers, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{
+		"1111111111111111111111111111111111111111111111111111111111111111",
+		"2222222222222222222222222222222222222222222222222222222222222222",
+		"3333333333333333333333333333333333333333333333333333333333333333",
+		"4444444444444444444444444444444444444444444444444444444444444444",
+	} {
+		if err := os.MkdirAll(filepath.Join(layers, name), 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// A filesystem that never gains room however much is deleted, because what
+	// is filling it is not this store.
+	stuck := func(string) (uint64, error) { return 0, nil }
+
+	report, err := collectUntilFree(root, 1<<40, nil, nil, stuck)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	left, err := os.ReadDir(layers)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(left) == 0 {
+		t.Fatalf("the whole store was deleted chasing space it did not hold (%d removed)",
+			report.Removed)
+	}
+}

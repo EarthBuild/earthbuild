@@ -57,8 +57,17 @@ func TestAClaimHeldByThisProcessSaysSo(t *testing.T) {
 		t.Errorf("a lock held elsewhere reads as %q", got)
 	}
 
-	if got := describeHolders(nil); got != "" {
-		t.Errorf("no holders should add nothing, got %q", got)
+	// **On the first line, because that is the only line anything keeps.** The
+	// corpus gate records `firstLine(err.Error())`, so a holder named on the
+	// second line is a holder nobody reads - which is how 36 refusals were
+	// diagnosed twice from a message that had the answer in it all along.
+	if got := describeHolders(nil); !strings.Contains(got, "another build") {
+		t.Errorf("an unknown holder reads as %q, which does not say a build"+
+			" holds it", got)
+	}
+
+	if strings.Contains(describeHolders([]int{me}), "\n") {
+		t.Error("the holder is on its own line, where firstLine drops it")
 	}
 }
 

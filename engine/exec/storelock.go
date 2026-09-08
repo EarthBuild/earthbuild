@@ -49,15 +49,15 @@ func claimStore(at string) (release func(), err error) {
 	//
 	// Short enough that a device held by a real build still says so while the
 	// reader is watching, which is what stops this becoming the hang above.
-	err = flockWithin(f, storeClaimPatience)
+	err, waited := flockWithin(f, storeClaimPatience)
 	if err != nil {
 		_ = f.Close()
 
-		return nil, fmt.Errorf("the store device %s is in use by another build: %w%s"+
+		return nil, fmt.Errorf("the store device %s is in use%s, after waiting %s: %w"+
 			"\n  a device holds one filesystem and two guests mounting it would"+
 			" destroy it, so this build is refused rather than queued"+
 			"\n  point EARTH_VM_STORE at a device of its own to build alongside",
-			at, err, whoHolds(at))
+			at, whoHolds(at), waited.Round(time.Millisecond), err)
 	}
 
 	return func() { _ = f.Close() }, nil
@@ -77,7 +77,10 @@ const storeClaimPatience = 10 * time.Second
 // deadline: LOCK_EX without LOCK_NB waits for as long as the holder lives, and
 // the whole point here is to wait for a holder that is leaving and not for one
 // that is staying.
-func flockWithin(f *os.File, within time.Duration) error {
+// It reports how long it waited as well as how it ended, because "refused
+// immediately" and "refused after ten seconds" are different faults: the first
+// is a build that is running, the second a device nothing will ever release.
+func flockWithin(f *os.File, within time.Duration) (error, time.Duration) { //nolint:revive // the duration is the diagnosis, not an error-first pair
 	var (
 		err   error
 		start = time.Now()
@@ -86,7 +89,7 @@ func flockWithin(f *os.File, within time.Duration) error {
 	for {
 		err = unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB)
 		if err == nil || time.Since(start) >= within {
-			return err //nolint:wrapcheck // the caller writes the diagnosis
+			return err, time.Since(start) //nolint:wrapcheck // the caller writes the diagnosis
 		}
 
 		time.Sleep(storeClaimPoll)

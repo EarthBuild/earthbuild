@@ -79,10 +79,19 @@ func flockHolders(locks string, ino uint64) []int {
 	return found
 }
 
-// describeHolders turns pids into the sentence that follows the refusal.
+// describeHolders turns pids into the phrase that follows "in use".
+//
+// **One line, and the first one.** Every caller that records this records
+// `firstLine(err.Error())`, so a holder named underneath is a holder nobody
+// reads: 36 refusals in one corpus run were diagnosed twice over from a message
+// that had been carrying the answer on line two.
 func describeHolders(pids []int) string {
 	if len(pids) == 0 {
-		return ""
+		// Not "by nobody": flock said the lock was held, so it was. What this
+		// means is that the holder had gone by the time the question was asked,
+		// which is itself the diagnosis - a guest on its way out rather than a
+		// build that is running.
+		return " by another build, which had already released it when asked"
 	}
 
 	var out []string
@@ -90,14 +99,14 @@ func describeHolders(pids []int) string {
 	for _, pid := range pids {
 		switch {
 		case pid == os.Getpid():
-			out = append(out, fmt.Sprintf("%d, which is this build itself -"+
+			out = append(out, fmt.Sprintf("this build itself (pid %d):"+
 				" a sandbox it started has not been stopped", pid))
 		default:
-			out = append(out, fmt.Sprintf("%d (%s)", pid, commOf(pid)))
+			out = append(out, fmt.Sprintf("build %d (%s)", pid, commOf(pid)))
 		}
 	}
 
-	return "\n  held by " + strings.Join(out, ", ")
+	return " by " + strings.Join(out, ", ")
 }
 
 // commOf names a process, or says it has gone.

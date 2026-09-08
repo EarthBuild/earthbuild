@@ -99,6 +99,14 @@ func ReclaimWithin(
 		return swept, nil
 	}
 
+	// **The budget is reconsidered now that the shortfall is known.** A store
+	// with almost nothing left is not being tidied, it is being rescued, and
+	// stopping early there is how a sweep kept failing on space with the
+	// collector reporting it had given up every time.
+	if budgetFor(within, want, free) == 0 {
+		stop = nil
+	}
+
 	// `SizeAll` rather than `Size`: the budgeted one gives up on a large store
 	// and reports what it had reached, and a ceiling computed from an
 	// undercount collects far more than the shortfall.
@@ -122,4 +130,35 @@ func ReclaimWithin(
 	report.Before += swept.Before
 
 	return report, err
+}
+
+// rescueFloor is the free space below which collection stops being optional.
+//
+// A tenth of what was asked for. Above it the store is merely untidy and a
+// budget is the right trade; below it the next capture is what fails, and a
+// build that waits is strictly better than a build that dies part-way through
+// writing a layer.
+const rescueFloor = 10
+
+// budgetFor is how long collection may take, given what the store has.
+//
+// **Budget the housekeeping, not the rescue.** The budget exists so routine
+// tidying never makes a guest look unresponsive, and it was applied equally to
+// a store with a little less room than it wanted and one with almost none.
+// Those are different situations: the first is a cache that will be tidied
+// eventually, the second is a build about to fail with "no space left on
+// device".
+//
+// Spending longer became cheap when collection moved off the handshake path: a
+// long collection now delays the first request instead of killing the
+// connection.
+//
+// Zero means no limit and is returned unchanged - an operator who asked for a
+// full collection gets one whatever the store looks like.
+func budgetFor(budget time.Duration, want, free uint64) time.Duration {
+	if budget == 0 || free < want/rescueFloor {
+		return 0
+	}
+
+	return budget
 }

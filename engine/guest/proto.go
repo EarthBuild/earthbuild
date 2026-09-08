@@ -796,7 +796,7 @@ type conn struct {
 }
 
 func newConn(rw io.ReadWriter) *conn {
-	return &conn{r: bufio.NewReader(rw), wc: rw}
+	return &conn{r: bufio.NewReader(traceStream(rw)), wc: rw}
 }
 
 // send is safe for concurrent use: the write lock covers header and body

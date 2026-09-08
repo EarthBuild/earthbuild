@@ -81,7 +81,13 @@ func pruneInGuest(o Options, sb exec.Sandbox, keep uint64) error {
 	}
 
 	if o.Out != nil {
-		fmt.Fprintf(o.Out, "%s: %s\n", sb.StoreDir(), said)
+		// **Not sb.StoreDir(), which is the host path this prune did not
+		// touch.** Naming it would repeat, in the line announcing the fix, the
+		// exact mistake the fix is for: a report about one store labelled with
+		// another's location. The guest's own path is not knowable here either
+		// - the sandbox reports whether the host can reach the store, not
+		// where the guest keeps it - so this says only what is true.
+		fmt.Fprintf(o.Out, "the store inside the sandbox: %s\n", said)
 	}
 
 	return nil

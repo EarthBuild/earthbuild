@@ -112,6 +112,11 @@ func Main(args []string) {
 	// Go cannot run code between clone and exec (E373).
 	guest.RunDaemonShimIfAsked()
 	guest.RunStepShimIfAsked()
+	// And the shim that holds a step's network namespace open while the agent
+	// puts an interface in it. A child rather than a thread of this process,
+	// because a thread that enters a namespace does not reliably come back -
+	// see RunStepNetShimIfAsked.
+	guest.RunStepNetShimIfAsked()
 
 	// Before anything else, and it may not return: a guest spawned into an
 	// unmapped user namespace waits here for its ids and then re-executes

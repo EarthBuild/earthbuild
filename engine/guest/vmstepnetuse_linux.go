@@ -3,12 +3,9 @@
 package guest
 
 import (
-	"errors"
 	"fmt"
 	"net"
-	"os"
 	"path/filepath"
-	"runtime"
 
 	"golang.org/x/sys/unix"
 )
@@ -38,67 +35,6 @@ func uplink() (string, error) {
 	}
 
 	return "", fmt.Errorf("this guest has no interface a step could share")
-}
-
-// configureIn addresses a step's interface from inside its namespace.
-//
-// **The ioctls have to be issued where the interface is.** An interface in
-// another namespace is not in this one's table at all, so the address, the
-// flags and the route are all set after entering - and the thread is locked
-// and put back for the reason makeNetns gives: `setns` moves a thread, and one
-// left behind answers a later step's syscalls in the wrong place.
-func configureIn(nsPath string, n VMStepNet) (err error) {
-	ns, err := os.Open(nsPath)
-	if err != nil {
-		return fmt.Errorf("open the namespace at %s: %w", nsPath, err)
-	}
-
-	defer func() { _ = ns.Close() }()
-
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	here, err := os.Open("/proc/thread-self/ns/net")
-	if err != nil {
-		return fmt.Errorf("find this thread's network namespace: %w", err)
-	}
-
-	defer func() { _ = here.Close() }()
-
-	err = unix.Setns(int(ns.Fd()), unix.CLONE_NEWNET)
-	if err != nil {
-		return fmt.Errorf("enter the step's network namespace: %w", err)
-	}
-
-	defer func() {
-		back := unix.Setns(int(here.Fd()), unix.CLONE_NEWNET)
-		if back != nil {
-			// **Never swallowed, whatever else went wrong.** A thread that
-			// does not come back rejoins the runtime's pool still inside a
-			// step's namespace, and every goroutine later scheduled on it does
-			// its networking there - which is unbounded, silent, and exactly
-			// the failure the lock above exists to prevent. Reporting it under
-			// an earlier error hid the one thing that cannot be recovered from.
-			err = errors.Join(err, fmt.Errorf(
-				"a thread could not be returned to its own network namespace,"+
-					" so this agent can no longer be trusted with one: %w", back))
-		}
-	}()
-
-	err = addressLink(n)
-	if err != nil {
-		return err
-	}
-
-	// Loopback too: a step that talks to itself - which is most of what a
-	// nested daemon does - finds nothing listening without it, and the failure
-	// reads as the daemon never starting.
-	err = bringUpByName("lo")
-	if err != nil {
-		return fmt.Errorf("bring loopback up in the step's namespace: %w", err)
-	}
-
-	return addDefaultRoute(n.Gateway, n.Link)
 }
 
 // addressLink gives a step's interface its address, mask and flags.
@@ -196,35 +132,15 @@ func nativeStepNet(i int) (path string, done func(), why string) {
 	n := vmStepNet(i)
 	at := filepath.Join(netnsDir, n.Link)
 
-	err = makeNetns(at)
+	// **Built by a child, so no thread of this process ever moves.** See
+	// RunStepNetShimIfAsked: the agent addresses the child's namespace by pid
+	// and binds it to a file, and never enters it.
+	err = buildStepNet(n, parent, at)
 	if err != nil {
-		return "", nothing, fmt.Sprintf("a network namespace could not be made: %v", err)
+		_ = removeNetns(at)
+
+		return "", nothing, fmt.Sprintf("a step's own network could not be built: %v", err)
 	}
 
-	release := func() { _ = removeNetns(at) }
-
-	ns, err := os.Open(at)
-	if err != nil {
-		release()
-
-		return "", nothing, fmt.Sprintf("the namespace at %s could not be opened: %v", at, err)
-	}
-
-	defer func() { _ = ns.Close() }()
-
-	err = addMacvlan(n, parent, ns)
-	if err != nil {
-		release()
-
-		return "", nothing, fmt.Sprintf("a step's interface on %s could not be made: %v", parent, err)
-	}
-
-	err = configureIn(at, n)
-	if err != nil {
-		release()
-
-		return "", nothing, fmt.Sprintf("a step's interface could not be configured: %v", err)
-	}
-
-	return at, release, ""
+	return at, func() { _ = removeNetns(at) }, ""
 }

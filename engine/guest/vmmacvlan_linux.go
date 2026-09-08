@@ -5,7 +5,6 @@ package guest
 import (
 	"encoding/binary"
 	"fmt"
-	"os"
 
 	"golang.org/x/sys/unix"
 )
@@ -59,7 +58,7 @@ func attrU32(kind uint16, v uint32) []byte {
 // source MAC per connection, so a child with its own MAC is simply another
 // host on the segment the VM is already on. That is what makes this one
 // message instead of a bridge, two links, addresses at both ends and NAT.
-func macvlanMessage(n VMStepNet, parent uint32, nsFD int, seq uint32) []byte {
+func macvlanMessage(n VMStepNet, parent uint32, nsPID int, seq uint32) []byte {
 	mac, _ := parseMAC(n.MAC)
 
 	// Innermost first: the mode sits inside INFO_DATA, which sits inside
@@ -72,7 +71,7 @@ func macvlanMessage(n VMStepNet, parent uint32, nsFD int, seq uint32) []byte {
 	body = append(body, attrU32(unix.IFLA_LINK, parent)...)
 	body = append(body, attr(unix.IFLA_IFNAME, []byte(n.Link+"\x00"))...)
 	body = append(body, attr(unix.IFLA_ADDRESS, mac)...)
-	body = append(body, attrU32(unix.IFLA_NET_NS_FD, uint32(nsFD))...)
+	body = append(body, attrU32(unix.IFLA_NET_NS_PID, uint32(nsPID))...)
 	body = append(body, info...)
 
 	msg := make([]byte, unix.SizeofNlMsghdr+unix.SizeofIfInfomsg+len(body))
@@ -122,8 +121,8 @@ func parseMAC(s string) ([]byte, error) {
 	return out, nil
 }
 
-// addMacvlan creates a step's interface inside the namespace held open by ns.
-func addMacvlan(n VMStepNet, parent string, ns *os.File) error {
+// addMacvlan creates a step's interface inside the network namespace of nsPID.
+func addMacvlan(n VMStepNet, parent string, nsPID int) error {
 	idx, err := interfaceIndex(parent)
 	if err != nil {
 		return err
@@ -149,7 +148,7 @@ func addMacvlan(n VMStepNet, parent string, ns *os.File) error {
 
 	const seq = 1
 
-	err = unix.Sendto(fd, macvlanMessage(n, idx, int(ns.Fd()), seq), 0,
+	err = unix.Sendto(fd, macvlanMessage(n, idx, nsPID, seq), 0,
 		&unix.SockaddrNetlink{Family: unix.AF_NETLINK})
 	if err != nil {
 		return fmt.Errorf("ask for %s on %s: %w", n.Link, parent, err)

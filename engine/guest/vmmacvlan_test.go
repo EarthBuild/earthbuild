@@ -21,6 +21,11 @@ import (
 // sounds like the kernel lacks macvlan rather than like this package cannot
 // count.
 //
+// Addressed by PID rather than by an open descriptor, which is what lets the
+// agent stay where it is: a process that can see the parent NIC creates the
+// interface directly inside another process's namespace, so no thread of this
+// one ever moves. See RunStepNetShimIfAsked.
+//
 // Checked as bytes because that error names nothing, and because the live
 // check needs a real parent NIC - a step's macvlan hangs off the guest's own
 // interface, which no unprivileged test namespace has.
@@ -29,11 +34,11 @@ func TestTheMacvlanRequestNestsItsAttributes(t *testing.T) {
 
 	const (
 		parent = 2
-		nsFD   = 9
+		nsPID  = 4242
 	)
 
 	n := vmStepNet(0)
-	msg := macvlanMessage(n, parent, nsFD, 1)
+	msg := macvlanMessage(n, parent, nsPID, 1)
 
 	if got := binary.NativeEndian.Uint32(msg[0:4]); int(got) != len(msg) {
 		t.Fatalf("the header says %d bytes and the message is %d", got, len(msg))
@@ -50,11 +55,11 @@ func TestTheMacvlanRequestNestsItsAttributes(t *testing.T) {
 	attrs := msg[unix.SizeofNlMsghdr+unix.SizeofIfInfomsg:]
 
 	want := map[uint16]bool{
-		unix.IFLA_LINK:      false,
-		unix.IFLA_IFNAME:    false,
-		unix.IFLA_ADDRESS:   false,
-		unix.IFLA_NET_NS_FD: false,
-		unix.IFLA_LINKINFO:  false,
+		unix.IFLA_LINK:       false,
+		unix.IFLA_IFNAME:     false,
+		unix.IFLA_ADDRESS:    false,
+		unix.IFLA_NET_NS_PID: false,
+		unix.IFLA_LINKINFO:   false,
 	}
 
 	var linkinfo []byte

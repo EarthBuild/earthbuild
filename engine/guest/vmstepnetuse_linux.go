@@ -3,6 +3,7 @@
 package guest
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -71,8 +72,16 @@ func configureIn(nsPath string, n VMStepNet) (err error) {
 
 	defer func() {
 		back := unix.Setns(int(here.Fd()), unix.CLONE_NEWNET)
-		if back != nil && err == nil {
-			err = fmt.Errorf("return this thread to its own network namespace: %w", back)
+		if back != nil {
+			// **Never swallowed, whatever else went wrong.** A thread that
+			// does not come back rejoins the runtime's pool still inside a
+			// step's namespace, and every goroutine later scheduled on it does
+			// its networking there - which is unbounded, silent, and exactly
+			// the failure the lock above exists to prevent. Reporting it under
+			// an earlier error hid the one thing that cannot be recovered from.
+			err = errors.Join(err, fmt.Errorf(
+				"a thread could not be returned to its own network namespace,"+
+					" so this agent can no longer be trusted with one: %w", back))
 		}
 	}()
 

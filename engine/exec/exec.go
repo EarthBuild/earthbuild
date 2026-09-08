@@ -694,6 +694,10 @@ func (e *Executor) Run(
 	defer endAfter()
 
 	if err != nil {
+		// A guest that stopped mid-build says why on its console, exactly as
+		// one that never answered does. See lostGuest.
+		err = e.lostGuest(err)
+
 		return core.Result{}, fmt.Errorf("capture the result of %s: %w%s",
 			n.Meta.Source, err, e.fullHint(err))
 	}
@@ -1006,6 +1010,10 @@ func (e *Executor) copyStep(
 	id, content, bytes, leaked, err := c.Capture(ctx, h)
 	e.noteLeaked(id, leaked)
 	if err != nil {
+		// A guest that stopped mid-build says why on its console, exactly as
+		// one that never answered does. See lostGuest.
+		err = e.lostGuest(err)
+
 		return core.Result{}, fmt.Errorf("capture the result of %s: %w%s",
 			n.Meta.Source, err, e.fullHint(err))
 	}
@@ -2145,3 +2153,7 @@ func (e *Executor) PruneStore(ctx context.Context, keep uint64) (string, error) 
 
 	return c.Prune(ctx, keep)
 }
+
+// lostGuest adds the guest's console to a connection that was lost, where the
+// sandbox keeps one.
+func (e *Executor) lostGuest(err error) error { return lostGuest(err, e.sb) }

@@ -85,3 +85,38 @@ func TestACorruptRegisterReadsAsAbsent(t *testing.T) {
 		t.Error("a register nobody can parse reported a machine")
 	}
 }
+
+// The register carries the export device, because a build that attaches never
+// makes one.
+//
+// **The device is made at boot and lives in the booting build's sandbox
+// directory.** A build that joins a running machine skips that step entirely,
+// so without this it holds an empty path and every `SAVE ARTIFACT AS LOCAL`
+// fails on `os.Open("")` - which reads as a broken export and not as a machine
+// that was joined.
+func TestTheRegisterCarriesTheExportDevice(t *testing.T) {
+	t.Parallel()
+
+	store := filepath.Join(t.TempDir(), "store.img")
+
+	want := vmRecord{
+		Digest: "d", Vsock: "/tmp/s/guest.vsock", PID: os.Getpid(),
+		Exports: "/tmp/s/exports.img",
+	}
+
+	err := writeVMRecord(store, want)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, ok := readVMRecord(store)
+	if !ok {
+		t.Fatal("not found")
+	}
+
+	if got.Exports != want.Exports {
+		t.Errorf("the register gave back exports %q, want %q"+
+			"\n  a build that attaches has no other way to learn it",
+			got.Exports, want.Exports)
+	}
+}

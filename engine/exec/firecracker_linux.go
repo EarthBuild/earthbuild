@@ -475,7 +475,7 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 		// never spoke would send the next build to a socket nobody holds, which
 		// is a boot timeout rather than an answer.
 		recErr := writeVMRecord(f.StoreImage, vmRecord{
-			Digest: want, Vsock: vsock, PID: cmd.Process.Pid,
+			Digest: want, Vsock: vsock, PID: cmd.Process.Pid, Exports: f.exports,
 		})
 		if recErr != nil {
 			// Not a reason to fail a machine that works: the cost is that the

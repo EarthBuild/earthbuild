@@ -177,6 +177,7 @@ func (f *Firecracker) attach(want string) (Conn, bool) {
 	f.mu.Lock()
 	f.attached = true
 	f.vsockAt = rec.Vsock
+	f.exports = rec.Exports
 	f.conn = conn
 	f.mu.Unlock()
 

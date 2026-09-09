@@ -26,6 +26,10 @@ type vmRecord struct {
 	Vsock string `json:"vsock"`
 	// PID is the VMM, which is the cheap half of liveness.
 	PID int `json:"pid"`
+	// Exports is the device an artifact is staged on, made at boot and living
+	// in the booting build's sandbox directory. A build that joins a running
+	// machine never makes one and has no other way to learn where it is.
+	Exports string `json:"exports"`
 }
 
 // vmRecordPath is the register for a store, beside the store.

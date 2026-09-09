@@ -147,6 +147,10 @@ const vmHaltPatience = 15 * time.Second
 // greets the guest over it, so a machine that is up but wedged is discovered
 // there, where the recovery already lives: Stop, then Remove, then Start again.
 func (f *Firecracker) attach(want string) (Conn, bool) {
+	if !mayAttach() {
+		return nil, false
+	}
+
 	rec, ok := readVMRecord(f.StoreImage)
 	if !ok {
 		return nil, false
@@ -196,3 +200,22 @@ func (f *Firecracker) Boots() int { return int(f.boots.Load()) }
 // Reuses reports how many running machines this sandbox joined rather than
 // replaced.
 func (f *Firecracker) Reuses() int { return int(f.reuses.Load()) }
+
+// mayAttach reports whether a machine can be joined at all on this host.
+//
+// **Only where the guest's network outlives the build that made it.** By
+// default this engine provides that network itself, without privilege: a tap in
+// a namespace the shim made, and a userspace TCP/IP stack on this side of it -
+// and that stack lives in the build process. When the build exits the stack
+// goes with it, and the machine is left with a tap nobody services. A build
+// that joined one got a guest which could not resolve a name: a fresh boot
+// finished cleanly, and the next build failed in `apk add` with `DNS:
+// transient error`.
+//
+// EARTH_VM_TAP names a tap somebody else made and somebody else services, and
+// that one does outlive a build. The rest of the reuse machinery is untouched
+// and becomes useful for every build the moment the stack lives where the
+// machine does - which is the shim, not here.
+func mayAttach() bool {
+	return os.Getenv(EnvTap) != ""
+}

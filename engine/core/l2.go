@@ -119,12 +119,16 @@ func (s *Scheduler) tryL2(ctx context.Context, n *ir.Node, base, refs []ir.NodeI
 		return Entry{}, false
 	}
 
-	view, err := viewOf(ctx, s.Views, base, PredictedReads(pred))
+	// **The question, not the evidence.** Where the store answers for itself -
+	// a guest holding it on a device - this is one comparison that stops at the
+	// first difference, rather than 6299 digests fetched so that the first of
+	// them can be looked at. See StaleAsker.
+	why, err := whyStaleVia(ctx, s.Views, base, pred)
 	if err != nil {
 		return Entry{}, false // cannot check, so cannot use
 	}
 
-	if why := WhyStale(pred, view); why != "" {
+	if why != "" {
 		s.Stats.L2Stale++
 
 		// The first one, kept: every stale prediction in a build is usually the

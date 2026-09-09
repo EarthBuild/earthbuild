@@ -94,3 +94,21 @@ func acceptWithin(fd int, within time.Duration) (*os.File, error) {
 		return os.NewFile(uintptr(conn), "vsock"), nil
 	}
 }
+
+// envOneSession tells a guest that nothing will connect to it again.
+//
+// **Because a machine that waits cannot be shut down by hanging up.** The host
+// ends a build by closing the protocol connection, and before this loop existed
+// that ended the agent, returned PID 1 from serve, and unmounted the store on
+// the way out. A guest that waits for the next connection instead does none of
+// that - so the host's shutdown timed out after ten seconds and killed the VMM
+// with the store still mounted, which is how `/bin/busybox is gone from the
+// base` arrives in a build that changed one Go file.
+//
+// The host knows at boot whether it will come back: see exec.mayAttach. Where
+// it will not, it says so here and the machine ends with its build, exactly as
+// it did before.
+const envOneSession = "EARTH_VM_ONE_SESSION"
+
+// oneSession reports whether this machine serves a single build.
+func oneSession() bool { return os.Getenv(envOneSession) == "1" }

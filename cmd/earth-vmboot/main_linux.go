@@ -258,6 +258,14 @@ func serveSessions() error {
 
 		_ = conn.Close()
 
+		// **Nobody is coming back, so end the machine while the store can
+		// still be unmounted.** The host says so at boot when it cannot rejoin
+		// this guest; waiting anyway means the shutdown it sends next is a
+		// timeout and a kill, with the store mounted.
+		if oneSession() {
+			return err
+		}
+
 		if err != nil {
 			// A build whose agent failed is not a machine that must stop: the
 			// next build gets a new agent, and the one that failed has already

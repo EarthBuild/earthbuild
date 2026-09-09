@@ -55,7 +55,9 @@ func (a *askingViews) WhyStaleIn(context.Context, []ir.NodeID, Observation) (str
 // Asking the holder of the store to run the comparison keeps one implementation
 // of it - WhyStale, here - and makes the work proportional to the answer.
 func TestAStoreHeldElsewhereIsAskedTheQuestion(t *testing.T) {
-	t.Parallel()
+	// Not parallel: the path is behind a setting, because the answers it gives
+	// disagree with the fetched view's. See EnvAskStale.
+	t.Setenv(EnvAskStale, "1")
 
 	obs := Observation{Reads: map[string]ir.NodeID{"/a": {}, "/b": {}, "/c": {}}}
 

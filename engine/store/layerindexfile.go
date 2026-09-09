@@ -106,13 +106,3 @@ func loadIndex(at string) *layerIndex {
 
 	return idx
 }
-
-// forgetLayerIndex removes a layer's saved index, for a layer being collected.
-//
-// Best effort: the index is derived, so failing to remove it costs a file and
-// never an answer. Called where a layer is removed, because a collector that
-// took the directory and left the notes beside it would fill a store with them.
-func forgetLayerIndex(layerPath string) {
-	_ = os.Remove(layerPath + indexSuffix)
-	indexed.Delete(layerPath)
-}

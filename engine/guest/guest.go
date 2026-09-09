@@ -775,6 +775,9 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 	case KindFileConfig:
 		return s.fileConfig(req)
 
+	case KindWhyStale:
+		return s.whyStale(ctx, req)
+
 	case KindViewDigests:
 		return s.viewDigests(ctx, req)
 
@@ -4339,4 +4342,84 @@ func (s *Server) withPressure(err error) error {
 	}
 
 	return fmt.Errorf("%w\n%s", err, strings.TrimRight(note, "\n"))
+}
+
+// whyStale answers whether an observation still describes a base.
+//
+// **The comparison runs here because the files are here.** Answering
+// view-digests means computing the digest of every path a prediction names -
+// opening and hashing 6307 files for the step that builds this repository -
+// and the host then stops at the first one that differs. Running core.WhyStale
+// against the same view stops there too, so the work is proportional to the
+// answer rather than to the prediction.
+//
+// The same function the host runs, called with a view of the guest's own store:
+// one comparison, wherever the store happens to be.
+func (s *Server) whyStale(ctx context.Context, req Request) Response {
+	if s.LayerDir == "" {
+		return Response{Err: "why-stale: this guest was started without a" +
+			" layer directory (set EARTH_GUEST_ROOT, or Server.LayerDir)"}
+	}
+
+	ids, err := decodeStack(req.Stack)
+	if err != nil {
+		return Response{Err: "why-stale: " + err.Error()}
+	}
+
+	view, err := store.LayerStore(s.LayerDir).View(ctx, ids)
+	if err != nil {
+		return Response{Err: "why-stale: " + err.Error()}
+	}
+
+	return Response{Stale: core.WhyStale(observationFrom(req), view)}
+}
+
+// observationFrom rebuilds the observation the host sent.
+//
+// Anything unparseable is dropped rather than refused, and dropping is safe in
+// one direction only: a read this cannot decode is a read that is not checked,
+// so it is turned into a difference instead. See staleUnreadable.
+func observationFrom(req Request) core.Observation {
+	obs := core.Observation{
+		Reads:    map[string]ir.NodeID{},
+		Listings: map[string]ir.NodeID{},
+		Negative: req.Absent,
+	}
+
+	for at, want := range req.Expect {
+		id, err := ir.ParseNodeID(want)
+		if err != nil {
+			// A path whose expected digest cannot be read cannot be compared,
+			// and an unchecked path must never look unchanged: an identity
+			// nothing in the store can equal makes it a difference.
+			obs.Reads[at] = staleUnreadable
+
+			continue
+		}
+
+		obs.Reads[at] = id
+	}
+
+	for at, want := range req.ExpectDirs {
+		id, err := ir.ParseNodeID(want)
+		if err != nil {
+			obs.Listings[at] = staleUnreadable
+
+			continue
+		}
+
+		obs.Listings[at] = id
+	}
+
+	return obs
+}
+
+// staleUnreadable stands for an expectation this guest could not decode. Every
+// byte set, which no digest of anything is, so the comparison against it fails
+// and the entry is refused rather than trusted.
+var staleUnreadable = ir.NodeID{
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 }

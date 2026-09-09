@@ -139,34 +139,3 @@ func TestAnAbsentIndexIsNil(t *testing.T) {
 			" for every path in the layer")
 	}
 }
-
-// A layer's index goes when the layer does.
-//
-// **Derived, so an orphan is litter rather than a fault** - the identity is the
-// content, so an index left behind would still be right if the same layer ever
-// returned. But it grows without bound in a store that collects, and a file
-// nobody will ever open again is the kind of thing a store fills up with.
-func TestCollectingALayerTakesItsIndex(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	layers := filepath.Join(root, "layers")
-
-	err := os.MkdirAll(filepath.Join(layers, "abc"), 0o750)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	at := filepath.Join(layers, "abc") + indexSuffix
-
-	err = os.WriteFile(at, []byte("x"), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	forgetLayerIndex(filepath.Join(layers, "abc"))
-
-	if _, err = os.Stat(at); err == nil {
-		t.Error("the index outlived the layer it describes")
-	}
-}

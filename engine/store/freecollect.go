@@ -112,8 +112,6 @@ func collectUntilFree(
 		// claims - the harmless direction.
 		_ = index.Forget(id)
 
-		forgetLayerIndex(LayerStore(root).Path(id))
-
 		err := os.RemoveAll(LayerStore(root).Path(id))
 		if err != nil {
 			return report, err

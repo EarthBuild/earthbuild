@@ -170,6 +170,20 @@ const (
 	// cost more than the tier saves. The paths come from the profile, which is
 	// read before the view is asked for.
 	KindViewDigests Kind = "view-digests"
+
+	// KindWhyStale asks the store whether a step's observation still describes
+	// a base, and for the first difference if it does not.
+	//
+	// **The question rather than the evidence, because the comparison stops at
+	// the first difference and a fetch cannot.** view-digests answers with the
+	// digest of every path a prediction names, so a guest computed 6307 file
+	// hashes - opening and reading each one - to answer what the host settles
+	// after the first path that changed. It measured 1.4s of a 4.3s build, and
+	// on a colder store 4.0s of 4.7s, for an answer of one line.
+	//
+	// What runs on the other side is core.WhyStale: the same comparison the
+	// host does, where the files are.
+	KindWhyStale Kind = "why-stale"
 	// KindCancel abandons a request that is still running, by id.
 	//
 	// The only request that refers to another one. It exists because a step is
@@ -218,6 +232,16 @@ type Request struct {
 
 	// Paths are what a view-digests request asks about. View-digests only.
 	Paths []string `json:"paths,omitempty"`
+	// Expect, Absent and ExpectDirs carry the observation a KindWhyStale asks
+	// about: what the step read and what it read there, what it looked for and
+	// did not find, and what it saw when it listed a directory.
+	//
+	// Sent with the question rather than fetched back as an answer, which is
+	// the whole point of that request: the comparison stops at the first
+	// difference, and a view that has to be shipped cannot.
+	Expect     map[string]string `json:"expect,omitempty"`
+	Absent     []string          `json:"absent,omitempty"`
+	ExpectDirs map[string]string `json:"expectDirs,omitempty"`
 
 	// Layer is the layer a file-config request files beside. File-config only.
 	Layer string `json:"layer,omitempty"`
@@ -642,6 +666,14 @@ type Response struct {
 	Reads    map[string]string `json:"reads,omitempty"`
 	Negative []string          `json:"negative,omitempty"`
 	Listings map[string]string `json:"listings,omitempty"`
+	// Stale is the first difference between an observation and a base, or
+	// empty where there is none. The answer to KindWhyStale - and empty is the
+	// interesting value, because it means the entry may be used.
+	//
+	// Named apart from Why, which is this guest's account of what it could not
+	// do. One is about a base and the other about the guest, and a field
+	// answering both is a field nobody can read.
+	Stale string `json:"stale,omitempty"`
 	// Incomplete is the guest admitting it missed something. Without it a
 	// source that knows it is lossy has no way to say so, and the host decodes
 	// a partial observation as a complete one - which is the false hit Κ₂

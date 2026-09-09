@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -276,4 +277,40 @@ func (c *Client) Prune(ctx context.Context, keep uint64) (string, error) {
 	}
 
 	return resp.Pruned, nil
+}
+
+// WhyStaleIn asks the guest whether an observation still describes a base.
+//
+// **One question, one line back.** ViewDigests answers with the digest of every
+// path a prediction names, which for the step that builds this repository is
+// 6307 files opened and hashed - and the host then stops at the first one that
+// differs. This sends the expectation instead, so the guest runs the same
+// comparison the host would and stops where the host would have.
+func (c *Client) WhyStaleIn(
+	ctx context.Context, stack []ir.NodeID, obs core.Observation,
+) (string, error) {
+	ids := make([]string, len(stack))
+	for i, id := range stack {
+		ids[i] = id.String()
+	}
+
+	expect := make(map[string]string, len(obs.Reads))
+	for at, id := range obs.Reads {
+		expect[at] = id.String()
+	}
+
+	dirs := make(map[string]string, len(obs.Listings))
+	for at, id := range obs.Listings {
+		dirs[at] = id.String()
+	}
+
+	resp, err := c.do(ctx, Request{
+		Kind: KindWhyStale, Stack: ids,
+		Expect: expect, Absent: obs.Negative, ExpectDirs: dirs,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Stale, nil
 }

@@ -577,9 +577,8 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			// ...` - and the one message a reader came for arrives cut in half.
 			// XFS reports a bad superblock at warning level, so what matters
 			// still comes through.
-			"boot_args": strings.TrimSpace(
-				"console=ttyS0 loglevel=5 reboot=k panic=1 pci=off " +
-					f.net.BootArgs() + " " + vmboot.EncodeEnv(guestSettings())),
+			"boot_args": guestBootArgs(f.net.BootArgs()) + " " +
+				vmboot.EncodeEnv(guestSettings()),
 		},
 		"drives": []object{},
 		"vsock": object{
@@ -1318,4 +1317,31 @@ func machineConfig(cpus, memMiB int) map[string]any {
 		"mem_size_mib": roundToHugePage(memMiB),
 		"huge_pages":   pages,
 	}
+}
+
+// guestBootArgs is the kernel command line every guest boots with.
+//
+// **`transparent_hugepage=always`, because the kernel we build defaults to
+// madvise and nothing madvises.** The config firecracker publishes sets
+// CONFIG_TRANSPARENT_HUGEPAGE_MADVISE, so a guest process is given 2 MiB pages
+// only if it asks - and a Go compiler, which is what this engine spends its
+// time running, never does. Every allocation it makes is then backed by 4 KiB
+// pages, and every TLB miss walks a full page table inside a guest whose walks
+// are themselves nested.
+//
+// That is where the measurements point. Against the namespace backend on one
+// box and one build: a tight CPU loop at parity, reading files at parity, and
+// two thousand process creations 21% slower in the guest - the penalty lands
+// exactly where page tables are walked and nowhere else.
+//
+// This asks nothing of the machine the build runs on, which is the point of
+// choosing it over the alternatives: the host's own THP mode is global and
+// needs root, and hugetlbfs needs a pool reserved with root that no other
+// process can then use. The kernel command line is ours.
+func guestBootArgs(net string) string {
+	return strings.TrimSpace(strings.Join([]string{
+		"console=ttyS0", "loglevel=5", "reboot=k", "panic=1", "pci=off",
+		"transparent_hugepage=always",
+		net,
+	}, " "))
 }

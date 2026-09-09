@@ -1395,7 +1395,18 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 	// build one in.
 	if flat.Applied() {
 		if sq, ok := s.Executor.(Squasher); ok {
+			// **Timed, because it is the largest untimed thing in a microVM
+			// build.** `eval:before` was 4.558s for one step against 0.035s for
+			// the same step under namespaces, and nothing inside it said which
+			// part - the key derivation beside this has a phase and is
+			// microseconds. A squash is real filesystem work in the guest, and
+			// the deepest base in the tree is the one that triggers a flatten.
+			endSquash := timing.Phase("squash", n.Meta.Source)
+
 			err := sq.Squash(ctx, flat.Into, stack[flat.From:flat.To])
+
+			endSquash()
+
 			if err != nil {
 				return fmt.Errorf("collapse %d layers into one: %w", flat.To-flat.From, err)
 			}

@@ -809,8 +809,12 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 		// **A store on the guest's device implies the guest unpacks**, because
 		// the host cannot write a block device it does not have.
 		if e.unpacksInGuest() {
+			defer timing.Phase("image:in-guest", n.Op.Args[0])()
+
 			return e.materialiseImageInGuest(ctx, n, platform, imageRoot, root, shared)
 		}
+
+		defer timing.Phase("image:apart", n.Op.Args[0])()
 
 		return e.materialiseImageApart(ctx, n, platform, imageRoot, root, shared)
 	}
@@ -819,6 +823,8 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 	// node asked for it. The recorded name is what makes this cheap: without it
 	// every build would re-capture the tree to learn a digest it had already
 	// computed.
+	defer timing.Phase("image:merged", n.Op.Args[0])()
+
 	st := store.DirStore(root)
 
 	if id, ok := imageLayerNamed(shared); ok && st.Populated(id) {

@@ -117,6 +117,17 @@ func (v stackView) Digest(path string) (ir.NodeID, bool) {
 	for i := range slices.Backward(v.roots) {
 		root := v.roots[i]
 
+		// **Skipped only where the layer provably cannot answer.** A lookup
+		// walks every layer above the one holding the file, two syscalls each
+		// and nearly all of them ENOENT - 6299 observed paths over a 64-layer
+		// stack is some 800,000 of them, which measured 4.0s inside a guest.
+		// The index says what a layer holds; it may say yes when the answer is
+		// no, which costs the stat that would have happened anyway, and it
+		// never says no when the answer is yes. See layerIndex.
+		if idx := indexOfLayer(root); idx != nil && !idx.mayTouch(rel) {
+			continue
+		}
+
 		if deleted(root, rel) {
 			return ir.NodeID{}, false
 		}

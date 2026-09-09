@@ -286,17 +286,7 @@ func fileOf(c *net.UnixConn) *os.File {
 // nothing else. `EARTH_GUEST_ROOT` is deliberately absent: the store is a fact
 // about the machine and `earth-vmboot` states it.
 func guestSettings() []string {
-	out := []string{}
-
-	// **A machine nobody will rejoin ends with its build.** The host ends a
-	// build by closing the protocol connection, and a guest that then waits for
-	// the next one cannot be stopped that way: the shutdown times out and the
-	// VMM is killed with the store still mounted. Said at boot because the
-	// kernel command line is the only channel into a guest, and known at boot
-	// because it is a property of this host's network. See mayAttach.
-	if !mayAttach() {
-		out = append(out, "EARTH_VM_ONE_SESSION=1")
-	}
+	var out []string
 
 	for _, name := range []string{
 		guest.EnvIdle,

@@ -74,7 +74,14 @@ func run() error {
 	go serveBulk(filepath.Join(storeAt, "blobs"))
 	go serveExports()
 
-	return serveSessions()
+	conn, err := waitForHost()
+	if err != nil {
+		return err
+	}
+
+	defer conn.Close()
+
+	return serve(conn)
 }
 
 // prepare gives the guest the filesystems the agent assumes.
@@ -205,74 +212,30 @@ func serveBulk(at string) {
 // the accept loop getting round to them.
 const bulkBacklog = 64
 
-// serveSessions serves one build after another until nobody comes.
-//
-// **The machine outlives the build, which is the point of it.** The agent's
-// standard input *is* the protocol connection, so a build ending ends the
-// agent - and handing PID 1 a single accepted socket meant the machine ended
-// with it. Every build paid a boot, and the register a host writes so the next
-// build can find a running machine could never find one: measured, the VM was
-// gone five seconds after the build that started it.
-//
-// A fresh agent per connection, deliberately. What is expensive is the machine
-// - the kernel, the store mount, the network - and that is what is kept. An
-// agent is a process, it costs milliseconds, and starting a new one for each
-// build means no build inherits another's memory.
-func serveSessions() error {
+// waitForHost blocks until the host connects on the vsock port.
+func waitForHost() (*os.File, error) {
 	fd, err := listenVsock(vmboot.VsockPort, 1)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	defer func() { _ = unix.Close(fd) }()
-
-	// Said once, before the first wait: a host whose connection never arrives
-	// can tell "the guest is not ready" from "the guest is waiting".
+	// Said on the console before blocking, so a host whose connection never
+	// arrives can tell "the guest is not ready" from "the guest is waiting".
 	fmt.Println("earth-vmboot: ready")
 
-	for session := 1; ; session++ {
-		conn, acceptErr := acceptWithin(fd, sessionIdle())
-		if acceptErr != nil {
-			if idleOut(acceptErr) {
-				// The ordinary end of a machine: the last build finished and no
-				// other came. Said, because a machine that went away between
-				// two builds is otherwise a mystery to whoever comes next.
-				fmt.Printf("earth-vmboot: nothing has connected for %v, stopping\n",
-					sessionIdle())
-
-				return nil
-			}
-
-			return acceptErr
-		}
-
-		// **Said because "ready" alone cannot be read.** A guest whose console
-		// ends at "ready" is either still waiting for a connection that never
-		// arrived or has accepted one and handed it to an agent that then said
-		// nothing, and those two have opposite causes. Thirty-second handshake
-		// timeouts were diagnosed twice from a console that could not tell them
-		// apart. Numbered now, because there is more than one.
-		fmt.Printf("earth-vmboot: host connected (session %d)\n", session)
-
-		err = serve(conn)
-
-		_ = conn.Close()
-
-		// **Nobody is coming back, so end the machine while the store can
-		// still be unmounted.** The host says so at boot when it cannot rejoin
-		// this guest; waiting anyway means the shutdown it sends next is a
-		// timeout and a kill, with the store mounted.
-		if oneSession() {
-			return err
-		}
-
-		if err != nil {
-			// A build whose agent failed is not a machine that must stop: the
-			// next build gets a new agent, and the one that failed has already
-			// reported to its own host.
-			fmt.Fprintf(os.Stderr, "earth-vmboot: session %d ended: %v\n", session, err)
-		}
+	conn, _, err := unix.Accept(fd)
+	if err != nil {
+		return nil, fmt.Errorf("accept on vsock: %w", err)
 	}
+
+	// **Said because "ready" alone cannot be read.** A guest whose console ends
+	// at "ready" is either still waiting for a connection that never arrived or
+	// has accepted one and handed it to an agent that then said nothing, and
+	// those two have opposite causes. Thirty-second handshake timeouts were
+	// diagnosed twice from a console that could not tell them apart.
+	fmt.Println("earth-vmboot: host connected")
+
+	return os.NewFile(uintptr(conn), "vsock"), nil
 }
 
 // serve runs the agent with the host's connection as its stdio.

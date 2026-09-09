@@ -29,26 +29,13 @@ import (
 // Advisory, and that is enough: the only thing that attaches this device is
 // this engine, and a VMM started by hand is a person who has decided to.
 func claimStore(at string) (release func(), err error) {
-	_, release, err = claimStoreFile(at)
-
-	return release, err
-}
-
-// claimStoreFile is claimStore, keeping the descriptor.
-//
-// **Handed to the machine, because the claim has to last as long as the mount.**
-// A guest now stays up between builds, so a claim held by the build is released
-// while the store is still mounted - and the next build with a different
-// configuration would boot a second guest onto the same filesystem, which is
-// the one thing this lock exists to prevent.
-func claimStoreFile(at string) (held *os.File, release func(), err error) {
 	if at == "" {
-		return nil, func() {}, nil
+		return func() {}, nil
 	}
 
 	f, err := os.OpenFile(at, os.O_RDWR, 0)
 	if err != nil {
-		return nil, nil, fmt.Errorf("open the store device %s: %w", at, err)
+		return nil, fmt.Errorf("open the store device %s: %w", at, err)
 	}
 
 	// **Non-blocking, but not instant.** A second build waiting on a first
@@ -82,7 +69,7 @@ func claimStoreFile(at string) (held *os.File, release func(), err error) {
 				" still holds %s%s\n", at, history)
 		}
 
-		return nil, nil, fmt.Errorf("the store device %s is in use%s, after waiting %s: %w"+
+		return nil, fmt.Errorf("the store device %s is in use%s, after waiting %s: %w"+
 			"\n  a device holds one filesystem and two guests mounting it would"+
 			" destroy it, so this build is refused rather than queued"+
 			"\n  point EARTH_VM_STORE at a device of its own to build alongside"+
@@ -92,7 +79,7 @@ func claimStoreFile(at string) (held *os.File, release func(), err error) {
 
 	claimedAt.Store(at, claimNote{at: time.Now(), stack: string(debug.Stack())})
 
-	return f, func() {
+	return func() {
 		claimedAt.Delete(at)
 
 		_ = f.Close()

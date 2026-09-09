@@ -1112,26 +1112,6 @@ talkative - 8 MB for a single corpus target. Delete them when you are done.
 
 See `tools/vsockprobe` for the fault this was built to find.
 
-## `EARTH_VM_HUGE_PAGES`
-
-Backs a microVM's memory with 2 MiB pages. Default: off. Any value but `0`, `false` or `no` turns
-it on.
-
-**Because the cost a microVM cannot argue away is paging.** Measured against the namespace backend
-on one machine and one build: a tight CPU loop runs at parity, reading files runs at parity, and
-creating two thousand processes costs 21% more inside the guest. The penalty appears exactly where
-page tables are walked and guest memory is faulted in - and a compiler does both all day, which is
-why the step that builds this repository runs about a third slower in a guest than out of one.
-
-The host has to have reserved a pool first - `sysctl vm.nr_hugepages=<n>` - and that memory is then
-unavailable to everything else on the machine, which is why this is asked for by name rather than
-taken when it happens to be there. A guest's size is rounded up to a whole number of pages when
-they are in use, because firecracker validates that and refuses the configuration otherwise.
-
-A build that asks for them on a host that has none is told how large the pool is and how large the
-guest needed it to be, and then runs with ordinary pages. Firecracker itself does not fall back: it
-maps guest memory with `MAP_HUGETLB` and fails to boot, reporting only that it could not start.
-
 ## `EARTH_ASK_STALE`
 
 Asks a store held inside a guest whether a step's observation still describes its base, rather than

@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -66,18 +65,7 @@ type Firecracker struct {
 	cmd *osexec.Cmd
 	tmp string
 	// unlock releases this sandbox's claim on its directory. See holdSandbox.
-	unlock func()
-	// dirLock is that claim's descriptor, handed to the machine so the claim
-	// lasts as long as the machine rather than as long as this build.
-	dirLock *os.File
-	// attached is set when this build joined a machine it did not start, which
-	// decides what Stop may do to it.
-	attached bool
-	// boots and reuses make "one machine per session" observable rather than
-	// asserted in a comment, which is how the Apple backend states the same
-	// claim. See Boots and Reuses.
-	boots   atomic.Int64
-	reuses  atomic.Int64
+	unlock  func()
 	vsockAt string
 	exports string
 	tap     string
@@ -310,25 +298,6 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 		return nil, fmt.Errorf("this sandbox is already running")
 	}
 
-	// **Find the machine the last build left running, the way the Apple backend
-	// does.** Booting one costs 0.55s and stopping one costs 2.15s, measured on
-	// a no-op build of this repository - 2.7s of a 3.2s build, spent building a
-	// machine and taking it apart again. A guest is named after what it is, so
-	// the next build can attach to it and can never attach to one built
-	// differently.
-	want := f.vmDigest()
-
-	unstart, err := vmStartLock(f.StoreImage)
-	if err != nil {
-		return nil, err
-	}
-
-	defer unstart()
-
-	if conn, ok := f.attach(want); ok {
-		return conn, nil
-	}
-
 	dir, err := f.dir()
 	if err != nil {
 		return nil, err
@@ -341,9 +310,7 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 	// **Before anything is written**, because the claim is what says this
 	// machine is not already running a guest on that device - and the export
 	// device beside it belongs to the same sandbox.
-	var storeLock *os.File
-
-	storeLock, f.release, err = claimStoreFile(f.StoreImage)
+	f.release, err = claimStore(f.StoreImage)
 	if err != nil {
 		return nil, err
 	}
@@ -403,21 +370,6 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 		}
 	}
 
-	// **The locks go to the machine, which outlives this build.** A guest now
-	// stays up for the next build to attach to, so a lock held by this process
-	// is released while the machine is still using what it protects: the
-	// sandbox directory holding its sockets, and the store device it has
-	// mounted. Passed as descriptors, they are closed by the one event that
-	// means the machine is finished with them - the VMM exiting.
-	//
-	// Appended rather than assigned: the network shim puts its own channel
-	// first and documents it as fd 3.
-	for _, held := range []*os.File{f.dirLock, storeLock} {
-		if held != nil {
-			cmd.ExtraFiles = append(cmd.ExtraFiles, held)
-		}
-	}
-
 	// **The guest's console goes to a file, not to the terminal.** It is where
 	// earth-vmboot and the kernel report a boot that does not reach the agent,
 	// so it cannot be discarded - and it is three hundred lines of kernel
@@ -469,19 +421,6 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 	conn, err := f.dialGuest(ctx, vsock)
 	if err == nil {
 		f.conn = conn
-		f.boots.Add(1)
-
-		// **Recorded only once it answers.** A record naming a machine that
-		// never spoke would send the next build to a socket nobody holds, which
-		// is a boot timeout rather than an answer.
-		recErr := writeVMRecord(f.StoreImage, vmRecord{
-			Digest: want, Vsock: vsock, PID: cmd.Process.Pid, Exports: f.exports,
-		})
-		if recErr != nil {
-			// Not a reason to fail a machine that works: the cost is that the
-			// next build boots its own.
-			fmt.Fprintf(os.Stderr, "earthbuild: this guest will not be reused: %v\n", recErr)
-		}
 	}
 
 	if err != nil {
@@ -577,15 +516,19 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			// ...` - and the one message a reader came for arrives cut in half.
 			// XFS reports a bad superblock at warning level, so what matters
 			// still comes through.
-			"boot_args": guestBootArgs(f.net.BootArgs()) + " " +
-				vmboot.EncodeEnv(guestSettings()),
+			"boot_args": strings.TrimSpace(
+				"console=ttyS0 loglevel=5 reboot=k panic=1 pci=off " +
+					f.net.BootArgs() + " " + vmboot.EncodeEnv(guestSettings())),
 		},
 		"drives": []object{},
 		"vsock": object{
 			"guest_cid": guestCID,
 			"uds_path":  vsock,
 		},
-		"machine-config": machineConfig(f.CPUs(), orDefault(f.MemoryMiB, defaultMemory())),
+		"machine-config": object{
+			"vcpu_count":   f.CPUs(),
+			"mem_size_mib": orDefault(f.MemoryMiB, defaultMemory()),
+		},
 	}
 
 	drives := []object{}
@@ -827,96 +770,12 @@ func (f *Firecracker) releaseStore() {
 	f.release = nil
 }
 
-// Stop lets go of the guest, and leaves it running.
-//
-// **The machine outlives the build, which is the whole of the difference
-// between this backend and buildkit on a small change.** Booting one costs
-// 0.55s and taking one apart costs 2.15s - 2.7s of a 3.2s no-op build of this
-// repository, spent building a machine and destroying it. The Apple backend has
-// never done that: its Stop ends the exec client and leaves the VM up for the
-// next build to attach to, which is what made a second build fast (E524).
-//
-// What ends a machine is its own idle timeout - see guest.EnvIdle, which exists
-// for exactly this and until now could never apply, because the host stopped
-// the guest at the end of every build - or a build that wants a different one,
-// or `earth prune`. See Remove.
+// Stop ends the guest and removes what this sandbox made.
 func (f *Firecracker) Stop() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	if f.stopped {
-		return nil
-	}
-
-	f.stopped = true
-
-	// **A machine nobody can join must not be left running.** Where this build
-	// provides the guest's network, the next build cannot join this machine -
-	// see mayAttach - and a machine left behind holds the store device, so the
-	// build after it is refused before it starts. Leaving one running is only
-	// an optimisation where somebody can pick it up.
-	if !mayAttach() {
-		return f.haltLocked()
-	}
-
-	// The protocol channel, which is this build's and not the machine's. The
-	// agent sees end-of-stream and goes back to waiting for the next one.
-	if f.conn != nil {
-		_ = f.conn.Close()
-		f.conn = nil
-	}
-
-	// Let go of the descriptors this build holds. The machine holds its own
-	// copies - they were passed to it at boot - so the directory and the device
-	// stay claimed for as long as it is running.
-	if f.release != nil {
-		f.release()
-		f.release = nil
-	}
-
-	if f.unlock != nil {
-		f.unlock()
-		f.unlock = nil
-	}
-
-	return nil
-}
-
-// Remove ends the machine itself.
-//
-// Separate from Stop because Stop no longer does: this is for a build that
-// wants a machine other than the one running, for `earth prune`, and for the
-// executor's recovery when a guest answers its socket and not a handshake -
-// which calls Stop and then this, and would otherwise leave the wedged machine
-// up for the next build to find.
-func (f *Firecracker) Remove() error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.haltLocked()
-}
-
-// haltLocked ends the machine and leaves this sandbox startable again.
-//
-// Shared by Remove and by a Stop that has nobody to hand the machine to.
-func (f *Firecracker) haltLocked() error {
-	if f.StoreImage != "" {
-		forgetVMRecord(f.StoreImage)
-	}
-
-	// stopLocked declines when it has already run, and both callers may have
-	// set that.
-	f.stopped = false
-
-	err := f.stopLocked()
-
-	// Startable again: the executor's recovery boots one immediately after
-	// this, and a Stop that halted is the end of this sandbox either way.
-	f.cmd = nil
-	f.stopped = true
-	f.attached = false
-
-	return err
+	return f.stopLocked()
 }
 
 func (f *Firecracker) stopLocked() error {
@@ -998,7 +857,7 @@ func (f *Firecracker) dir() (string, error) {
 
 	// Held for as long as this process lives, which is what tells the next
 	// build's sweep that this one is not abandoned.
-	held, release, err := holdSandboxFile(tmp)
+	release, err := holdSandbox(tmp)
 	if err != nil {
 		_ = os.RemoveAll(tmp)
 
@@ -1006,7 +865,6 @@ func (f *Firecracker) dir() (string, error) {
 	}
 
 	f.unlock = release
-	f.dirLock = held
 	f.tmp = tmp
 
 	return tmp, nil
@@ -1318,48 +1176,3 @@ func envInt(name string) int {
 // a machine with no entropy device still boots, and a key generated without
 // seeded randomness looks exactly like a key.
 func (f *Firecracker) WriteConfigForTest(at, vsock string) error { return f.writeConfig(at, vsock) }
-
-// machineConfig sizes the guest, and backs it with huge pages where the host
-// has them and the build asked. See EnvHugePages.
-func machineConfig(cpus, memMiB int) map[string]any {
-	pages := hugePagesFor(memMiB)
-	if pages == "" {
-		return map[string]any{"vcpu_count": cpus, "mem_size_mib": memMiB}
-	}
-
-	// Rounded only when they are in use: firecracker validates that the size is
-	// a whole number of pages, and refusing an odd one reads as a machine that
-	// will not start rather than as a size that wants rounding.
-	return map[string]any{
-		"vcpu_count":   cpus,
-		"mem_size_mib": roundToHugePage(memMiB),
-		"huge_pages":   pages,
-	}
-}
-
-// guestBootArgs is the kernel command line every guest boots with.
-//
-// **`transparent_hugepage=always`, because the kernel we build defaults to
-// madvise and nothing madvises.** The config firecracker publishes sets
-// CONFIG_TRANSPARENT_HUGEPAGE_MADVISE, so a guest process is given 2 MiB pages
-// only if it asks - and a Go compiler, which is what this engine spends its
-// time running, never does. Every allocation it makes is then backed by 4 KiB
-// pages, and every TLB miss walks a full page table inside a guest whose walks
-// are themselves nested.
-//
-// That is where the measurements point. Against the namespace backend on one
-// box and one build: a tight CPU loop at parity, reading files at parity, and
-// two thousand process creations 21% slower in the guest - the penalty lands
-// exactly where page tables are walked and nowhere else.
-//
-// This asks nothing of the machine the build runs on, which is the point of
-// choosing it over the alternatives: the host's own THP mode is global and
-// needs root, and hugetlbfs needs a pool reserved with root that no other
-// process can then use. The kernel command line is ours.
-func guestBootArgs(net string) string {
-	return strings.TrimSpace(strings.Join([]string{
-		"console=ttyS0", "loglevel=5", "reboot=k", "panic=1", "pci=off",
-		"transparent_hugepage=always",
-		net,
-	}, " "))
-}

@@ -22,13 +22,25 @@ import (
 // using that store - nothing yet stops two processes sharing a directory, which
 // is the one-writer question phase 3 answers with a device (E571).
 //
-// ⚠ **A pruned store has not been observed returning to warm.** Collecting this
-// repository's own store down to 1GiB left every subsequent build at ~101s
-// rather than the 0.65s it ran at before, publishing ~44 layers and ~48 fresh
-// action-cache keys each time and matching none of them. Whether the collection
-// causes that or reveals something already true of a cold chain is not settled
-// (E574). Until it is, this reclaims space reliably and does not reliably leave
-// a cache behind.
+// ⚠ **A pruned store has not been observed returning to warm on the host.**
+// Collecting this repository's own store down to 1GiB left every subsequent
+// build at ~101s rather than the 0.65s it ran at before, publishing ~44 layers
+// and ~48 fresh action-cache keys each time and matching none of them. Whether
+// the collection causes that or reveals something already true of a cold chain
+// is not settled (E574).
+//
+// **The guest's store does return.** `+earthly` under a microVM, pruned from
+// 164 layers to 27 - 540.7 MiB freed, which is most of it - cost exactly one
+// rebuild and then went back to what it was:
+//
+//	before   94 hit,  0 miss   1.20s
+//	after-1   1 hit, 72 miss  15.68s
+//	after-2  94 hit,  0 miss   1.21s   (and five more like it)
+//
+// So the collection does not by itself poison a chain, and E574 is about
+// something the two paths do not share rather than about Collect. Not the same
+// scale - 674 MiB against many gigabytes - so this narrows the question rather
+// than closing it.
 func Prune(o Options, keep uint64) error {
 	// **Asked of the guest where the guest is the only one who can.** A
 	// microVM's store is a fixed-size image the guest has mounted and this

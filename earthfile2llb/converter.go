@@ -7,7 +7,7 @@ import (
 	"crypto/sha1" // #nosec G505
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uuid"
 
 	"al.essio.dev/pkg/shellescape"
 	"github.com/EarthBuild/earthbuild/buildcontext"
@@ -53,7 +54,6 @@ import (
 	"github.com/EarthBuild/earthbuild/variables/reserved"
 	"github.com/containerd/platforms"
 	"github.com/distribution/reference"
-	"github.com/google/uuid"
 	"github.com/moby/buildkit/client/llb"
 	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
 	"github.com/moby/buildkit/frontend/dockerfile/dockerfile2llb"
@@ -528,15 +528,13 @@ func (c *Converter) FromDockerfile(
 	bcRawState, done := BuildContextFactory.Construct().RawState()
 	bc.SetBuildContext(&bcRawState, c.mts.FinalTarget().String())
 	state, dfImg, _, err := dockerfile2llb.Dockerfile2LLB(ctx, dfData, dockerfile2llb.ConvertOpt{
-		MetaResolver: c.opt.MetaResolver,
-		LLBCaps:      c.opt.LLBCaps,
-		Config: dockerui.Config{
-			BuildArgs:        overriding.Map(),
-			Target:           dfTarget,
-			ImageResolveMode: c.opt.ImageResolveMode,
-		},
-		TargetPlatform: &plat,
-		Client:         bc,
+		MetaResolver:     c.opt.MetaResolver,
+		LLBCaps:          c.opt.LLBCaps,
+		BuildArgs:        overriding.Map(),
+		Target:           dfTarget,
+		ImageResolveMode: c.opt.ImageResolveMode,
+		TargetPlatform:   &plat,
+		Client:           bc,
 	})
 
 	done()
@@ -2807,7 +2805,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 
 	if opts.NoCache {
 		// llb.IgnoreCache is not always enough; we will force a different cache key as a work-around
-		finalArgs = append(finalArgs, "#"+uuid.NewString())
+		finalArgs = append(finalArgs, "#"+uuid.New().String())
 	}
 
 	if opts.Locally {

@@ -5,7 +5,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/sha1" // #nosec G505
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"hash"
@@ -42,7 +42,7 @@ func (h *Hasher) HashInt(i int) {
 
 // HashJSONMarshalled hashes a JSON marshalled value.
 func (h *Hasher) HashJSONMarshalled(v any) {
-	dt, err := json.Marshal(v)
+	dt, err := json.Marshal(v, json.Deterministic(true))
 	if err != nil {
 		panic(fmt.Sprintf("failed to hash command: %s", err)) // shouldn't happen
 	}

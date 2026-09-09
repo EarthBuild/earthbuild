@@ -31,6 +31,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/store"
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // Conn is a bidirectional channel to a guest agent. An interface rather than
@@ -1397,6 +1398,13 @@ func (hostOnlyStore) Confines() bool   { return false }
 // Close stops the sandbox. Idempotent, because a deferred Close and an explicit
 // one on an error path both run, and the second must not mask the first error.
 func (e *Executor) Close() error {
+	// **Timed, because a microVM build spends more here than in its scheduler.**
+	// `process` was 3.147s for a no-op against a `schedule` of 0.523s, and the
+	// difference was outside every phase there was. Stopping a guest is not
+	// free: it unmounts a store that must be consistent for the next build,
+	// and the host waits for that.
+	defer timing.Phase("sandbox:stop", "")()
+
 	// Before the sandbox is let go: a release still running refers to a mount
 	// inside it, and a build must never exit leaving one up.
 	e.releases.wait()

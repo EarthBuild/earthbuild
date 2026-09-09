@@ -199,6 +199,10 @@ func (e *dockerEngine) DefaultAddr(cfg *Config) (string, error) {
 }
 
 // ContainerAddr returns the reachable address for the specified port on a Docker container.
-func (e *dockerEngine) ContainerAddr(_ context.Context, containerName string, _ int) (string, error) {
-	return DockerSchemePrefix + containerName, nil
+func (e *dockerEngine) ContainerAddr(_ context.Context, containerName string, port int) (string, error) {
+	if port == 8372 {
+		return DockerSchemePrefix + containerName, nil
+	}
+
+	return defaultTCPAddr(port), nil
 }

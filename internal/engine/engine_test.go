@@ -390,6 +390,10 @@ func TestContainerAddr(t *testing.T) {
 		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
 		r.NoError(err)
 		assert.Equal(t, "docker-container://my-container", addr)
+
+		addr, err = e.ContainerAddr(ctx, "my-container", 8371)
+		r.NoError(err)
+		assert.Equal(t, "tcp://127.0.0.1:8371", addr)
 	})
 
 	t.Run("podman", func(t *testing.T) {
@@ -399,6 +403,10 @@ func TestContainerAddr(t *testing.T) {
 		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
 		r.NoError(err)
 		assert.Equal(t, "tcp://127.0.0.1:8372", addr)
+
+		addr, err = e.ContainerAddr(ctx, "my-container", 8371)
+		r.NoError(err)
+		assert.Equal(t, "tcp://127.0.0.1:8371", addr)
 	})
 
 	t.Run("stub", func(t *testing.T) {
@@ -408,6 +416,10 @@ func TestContainerAddr(t *testing.T) {
 		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
 		r.NoError(err)
 		assert.Equal(t, "docker-container://my-container", addr)
+
+		addr, err = e.ContainerAddr(ctx, "my-container", 8371)
+		r.NoError(err)
+		assert.Equal(t, "tcp://127.0.0.1:8371", addr)
 	})
 }
 

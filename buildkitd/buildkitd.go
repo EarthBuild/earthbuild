@@ -320,14 +320,14 @@ func maybeStart(
 	}
 
 	// check arch is correct
-	runningContainerInfo, inspectErr := GetContainerInfo(ctx, containerName, eng)
-	if inspectErr != nil {
-		return nil, nil, nil, fmt.Errorf("GetContainerInfo %s: %w", containerName, inspectErr)
+	runningContainerInfo, err := GetContainerInfo(ctx, containerName, eng)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("GetContainerInfo %s: %w", containerName, err)
 	}
 
-	currentImageInfo, imageErr := GetImageInfo(ctx, runningContainerInfo.Image, eng)
-	if imageErr != nil {
-		return nil, nil, nil, fmt.Errorf("GetImageInfo %s: %w", runningContainerInfo.Image, imageErr)
+	currentImageInfo, err := GetImageInfo(ctx, runningContainerInfo.Image, eng)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("GetImageInfo %s: %w", runningContainerInfo.Image, err)
 	}
 
 	if currentImageInfo.Architecture != runtime.GOARCH {
@@ -424,7 +424,7 @@ func maybeRestart(
 				workerInfo *client.WorkerInfo
 			)
 
-			bkClient, info, workerInfo, err = connectExistingDaemon(ctx, bkLog, containerName, settings, eng, opts)
+			bkClient, info, workerInfo, err = connectExisting(ctx, bkLog, containerName, settings, eng, opts)
 			if err != nil {
 				if settings.NoUpdate {
 					return nil, nil, nil, fmt.Errorf("could not connect to buildkitd: %w", err)
@@ -448,7 +448,7 @@ func maybeRestart(
 			workerInfo *client.WorkerInfo
 		)
 
-		bkClient, info, workerInfo, err = connectExistingDaemon(ctx, bkLog, containerName, settings, eng, opts)
+		bkClient, info, workerInfo, err = connectExisting(ctx, bkLog, containerName, settings, eng, opts)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("could not verify connection to buildkitd container: %w", err)
 		}
@@ -498,7 +498,7 @@ func maybeRestart(
 	return bkClient, info, workerInfo, nil
 }
 
-func connectExistingDaemon(
+func connectExisting(
 	ctx context.Context,
 	bkLog *conslogging.ConsoleLogger,
 	containerName string,
@@ -734,23 +734,6 @@ func Start(
 						Dest:     "/etc/earth-certs",
 						ReadOnly: true,
 					})
-
-					// Disable the built-in TLS template which hardcodes /etc/cert.pem in older images (e.g. v0.8.18),
-					// and supply the TLS config pointing to /etc/earth-certs via additional config instead.
-					envs["BUILDKIT_TLS_ENABLED"] = "false"
-
-					appleTLSConfig := "[grpc.tls]\n" +
-						"  cert = \"/etc/earth-certs/buildkit_cert.pem\"\n" +
-						"  key = \"/etc/earth-certs/buildkit_key.pem\"\n" +
-						"  ca = \"/etc/earth-certs/ca_cert.pem\"\n"
-
-					if additional, ok := envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"]; ok && additional != "" {
-						envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"] = additional + "\n" + appleTLSConfig
-					} else {
-						envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"] = appleTLSConfig
-					}
-
-					envs["EARTHLY_ADDITIONAL_BUILDKIT_CONFIG"] = envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"]
 				} else {
 					if settings.TLSCA != "" {
 						mounts = append(mounts, engine.Mount{
@@ -1496,15 +1479,6 @@ func updateContainerAddrs(ctx context.Context, eng *engine.Client, containerName
 	addr, err := eng.ContainerAddr(ctx, containerName, 8372)
 	if err == nil && addr != "" {
 		settings.BuildkitAddr = addr
-	}
-
-	if settings.LocalRegistryAddr != "" {
-		regAddr, err := eng.ContainerAddr(ctx, containerName, 8371)
-		if err == nil && regAddr != "" {
-			if after, ok := strings.CutPrefix(regAddr, "tcp://"); ok {
-				settings.LocalRegistryAddr = "http://" + after
-			}
-		}
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/moby/buildkit/client"
 	"github.com/urfave/cli/v3"
 )
@@ -29,6 +30,13 @@ func (cli *CLI) GetBuildkitClient(ctx context.Context, cmd *cli.Command) (*clien
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new buildkit client: %w", err)
+	}
+
+	if cli.Flags().LocalRegistryHost != "" && engine.IsLocal(cli.Flags().LocalRegistryHost) {
+		addr, err := cli.Flags().Engine.ContainerAddr(ctx, cli.Flags().ContainerName, 8371)
+		if err == nil && addr != "" {
+			cli.Flags().LocalRegistryHost = addr
+		}
 	}
 
 	return c, nil

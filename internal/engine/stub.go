@@ -69,8 +69,12 @@ func (e *stubEngine) DefaultAddr(cfg *Config) (string, error) {
 }
 
 // ContainerAddr returns the reachable address for the stub engine.
-func (e *stubEngine) ContainerAddr(_ context.Context, containerName string, _ int) (string, error) {
-	return DockerSchemePrefix + containerName, nil
+func (e *stubEngine) ContainerAddr(_ context.Context, containerName string, port int) (string, error) {
+	if port == 8372 {
+		return DockerSchemePrefix + containerName, nil
+	}
+
+	return defaultTCPAddr(port), nil
 }
 
 // IsAvailable always returns false for the stub engine.

@@ -65,7 +65,10 @@ type Firecracker struct {
 	cmd *osexec.Cmd
 	tmp string
 	// unlock releases this sandbox's claim on its directory. See holdSandbox.
-	unlock  func()
+	unlock func()
+	// dirLock is that claim's descriptor, handed to the machine so the claim
+	// lasts as long as the machine rather than as long as this build.
+	dirLock *os.File
 	vsockAt string
 	exports string
 	tap     string
@@ -310,7 +313,9 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 	// **Before anything is written**, because the claim is what says this
 	// machine is not already running a guest on that device - and the export
 	// device beside it belongs to the same sandbox.
-	f.release, err = claimStore(f.StoreImage)
+	var storeLock *os.File
+
+	storeLock, f.release, err = claimStoreFile(f.StoreImage)
 	if err != nil {
 		return nil, err
 	}
@@ -367,6 +372,21 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 		back, shimErr = f.throughNetShim(cmd, argv)
 		if shimErr != nil {
 			return nil, shimErr
+		}
+	}
+
+	// **The locks go to the machine, which outlives this build.** A guest now
+	// stays up for the next build to attach to, so a lock held by this process
+	// is released while the machine is still using what it protects: the
+	// sandbox directory holding its sockets, and the store device it has
+	// mounted. Passed as descriptors, they are closed by the one event that
+	// means the machine is finished with them - the VMM exiting.
+	//
+	// Appended rather than assigned: the network shim puts its own channel
+	// first and documents it as fd 3.
+	for _, held := range []*os.File{f.dirLock, storeLock} {
+		if held != nil {
+			cmd.ExtraFiles = append(cmd.ExtraFiles, held)
 		}
 	}
 
@@ -857,7 +877,7 @@ func (f *Firecracker) dir() (string, error) {
 
 	// Held for as long as this process lives, which is what tells the next
 	// build's sweep that this one is not abandoned.
-	release, err := holdSandbox(tmp)
+	held, release, err := holdSandboxFile(tmp)
 	if err != nil {
 		_ = os.RemoveAll(tmp)
 
@@ -865,6 +885,7 @@ func (f *Firecracker) dir() (string, error) {
 	}
 
 	f.unlock = release
+	f.dirLock = held
 	f.tmp = tmp
 
 	return tmp, nil

@@ -19,20 +19,6 @@ import (
 // one question answers it.
 type guestViews struct {
 	ask func(ctx context.Context, stack []ir.NodeID, paths []string) (files, listings map[string]ir.NodeID, err error)
-	// askWhy runs the comparison where the store is, when the holder can.
-	// See core.StaleAsker, and WhyStaleIn on the guest client.
-	askWhy func(ctx context.Context, stack []ir.NodeID, obs core.Observation) (string, error)
-}
-
-// WhyStaleIn asks the holder of the store the question rather than for the
-// evidence, so the comparison stops at the first difference.
-//
-// Declines when the holder cannot answer, and then whyStaleVia falls back to
-// fetching a view - which is what this did everywhere before.
-func (g *guestViews) WhyStaleIn(
-	ctx context.Context, stack []ir.NodeID, obs core.Observation,
-) (string, error) {
-	return g.askWhy(ctx, stack, obs)
 }
 
 // View without a set of paths cannot be batched, and asking per path would cost

@@ -588,6 +588,9 @@ func runPlan(
 		// per step and applies only where something actually watched.
 		Profiles: profiles,
 		Views:    views,
+		// Off, because asking the guest gives different answers from fetching
+		// the view - see EnvAskStale and core.whyStaleVia.
+		AskStale: os.Getenv(EnvAskStale) == "1",
 
 		// **Said to stderr, because a hung build's stdout may be a pipe nobody
 		// is reading.** The one failure the rest of the reporting cannot
@@ -890,3 +893,11 @@ func (g *engine) scheduling(local core.Executor, platform string) (core.Executor
 
 	return fleetEx, workers
 }
+
+// EnvAskStale asks a store held inside a guest whether an observation is still
+// true, rather than fetching its digests and comparing here.
+//
+// Off, because the two disagree: the guest's own view reports paths as absent
+// that the fetched view finds, and a build went from 61 cache hits to none.
+// Here so the disagreement can be reproduced without a rebuild.
+const EnvAskStale = "EARTH_ASK_STALE"

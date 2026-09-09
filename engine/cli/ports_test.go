@@ -117,6 +117,12 @@ var schedulerPorts = map[string]port{
 	// the mount (E121) - which is the comparison Consistent makes.
 	"Views": {role: mustSet},
 
+	// Set from EARTH_ASK_STALE, and false unless somebody asks: the guest's own
+	// view reports paths as absent that the fetched view finds, so asking it
+	// made L2 144 times faster - 0.010s against 1.44s for the same 6308 paths -
+	// and took a build from 61 cache hits to none.
+	"AskStale": {role: mustSet},
+
 	"Capabilities": {role: inert, reason: "nil means no restriction here, and the refusal happens" +
 		" earlier instead: the interpreter refuses an unsupported construct while reading the" +
 		" Earthfile, so a graph containing one never reaches a scheduler. Green paper I10 is met" +

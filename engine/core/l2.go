@@ -123,7 +123,7 @@ func (s *Scheduler) tryL2(ctx context.Context, n *ir.Node, base, refs []ir.NodeI
 	// a guest holding it on a device - this is one comparison that stops at the
 	// first difference, rather than 6299 digests fetched so that the first of
 	// them can be looked at. See StaleAsker.
-	why, err := whyStaleVia(ctx, s.Views, base, pred)
+	why, err := whyStaleVia(ctx, s.Views, base, pred, s.AskStale)
 	if err != nil {
 		return Entry{}, false // cannot check, so cannot use
 	}

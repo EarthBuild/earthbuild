@@ -240,6 +240,12 @@ type Scheduler struct {
 	// without a view there is no way to check it.
 	Profiles Profiles
 	Views    ViewSource
+	// AskStale asks a store that holds itself elsewhere whether an observation
+	// is still true, rather than fetching the digests and comparing here. Off,
+	// because the answers disagree - see whyStaleVia. A field rather than a
+	// setting read here, because this package reaches the outside through its
+	// ports and nowhere else.
+	AskStale bool
 
 	// MaxStack is the deepest stack a step may be given before Φ collapses its
 	// oldest layers. Zero means MaxStackDepth.

@@ -116,7 +116,7 @@ lint-workflows:
 earthbuild-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
+    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r1
     RUN apk add --no-cache bash
     COPY earthly .earthly_version_flag_overrides .
 

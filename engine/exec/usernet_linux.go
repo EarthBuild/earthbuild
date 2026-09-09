@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/containers/gvisor-tap-vsock/pkg/types"
 	"github.com/containers/gvisor-tap-vsock/pkg/virtualnetwork"
 
@@ -77,12 +79,56 @@ func (u *userNet) guestConfig() vmboot.Net {
 	}
 }
 
+// pollable returns a descriptor the runtime can interrupt, and takes the one it
+// was given.
+//
+// **A descriptor that arrives over SCM_RIGHTS is in blocking mode**, and
+// `os.NewFile` leaves a blocking file out of the runtime's poller. A goroutine
+// sitting in `read(2)` on one of those is not woken by `Close`; it is woken by
+// the next frame, which on a sandbox that is stopping never comes. So the wait
+// in Close ran to its bound every time, and every microVM build paid two
+// seconds for a network it had finished with - `sandbox:stop` 2.157s against
+// 0.152s for the same build with no stack to close.
+//
+// Duplicated rather than switched in place, because `os.File.Fd` hands back a
+// descriptor in blocking mode and unregisters the file: the flag has to be set
+// on one no `os.File` is holding, and a new file wrapped around that. The
+// duplicate shares the open file description, so the mode is the same one the
+// original had - which is why the original is closed rather than kept.
+func pollable(f *os.File) (*os.File, error) {
+	name := f.Name()
+
+	fd, err := unix.Dup(int(f.Fd()))
+	if err != nil {
+		_ = f.Close()
+
+		return nil, fmt.Errorf("duplicate the guest network's descriptor: %w", err)
+	}
+
+	err = unix.SetNonblock(fd, true)
+	if err != nil {
+		_ = unix.Close(fd)
+		_ = f.Close()
+
+		return nil, fmt.Errorf("make the guest network's descriptor interruptible: %w", err)
+	}
+
+	_ = f.Close()
+
+	return os.NewFile(uintptr(fd), name), nil
+}
+
 // startUserNet brings up the stack on a packet socket the shim handed back.
 //
 // Started before the guest is spoken to and stopped with the sandbox: the guest
 // will ARP for its gateway within a second of booting, and a stack that started
 // afterwards would answer the retry rather than the request.
 func startUserNet(sock *os.File) (*userNet, error) {
+	sock, err := pollable(sock)
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &types.Configuration{
 		Debug:             false,
 		MTU:               userNetMTU,

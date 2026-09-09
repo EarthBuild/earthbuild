@@ -586,10 +586,7 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 			"guest_cid": guestCID,
 			"uds_path":  vsock,
 		},
-		"machine-config": object{
-			"vcpu_count":   f.CPUs(),
-			"mem_size_mib": orDefault(f.MemoryMiB, defaultMemory()),
-		},
+		"machine-config": machineConfig(f.CPUs(), orDefault(f.MemoryMiB, defaultMemory())),
 	}
 
 	drives := []object{}
@@ -1304,3 +1301,21 @@ func envInt(name string) int {
 // a machine with no entropy device still boots, and a key generated without
 // seeded randomness looks exactly like a key.
 func (f *Firecracker) WriteConfigForTest(at, vsock string) error { return f.writeConfig(at, vsock) }
+
+// machineConfig sizes the guest, and backs it with huge pages where the host
+// has them and the build asked. See EnvHugePages.
+func machineConfig(cpus, memMiB int) map[string]any {
+	pages := hugePagesFor(memMiB)
+	if pages == "" {
+		return map[string]any{"vcpu_count": cpus, "mem_size_mib": memMiB}
+	}
+
+	// Rounded only when they are in use: firecracker validates that the size is
+	// a whole number of pages, and refusing an odd one reads as a machine that
+	// will not start rather than as a size that wants rounding.
+	return map[string]any{
+		"vcpu_count":   cpus,
+		"mem_size_mib": roundToHugePage(memMiB),
+		"huge_pages":   pages,
+	}
+}

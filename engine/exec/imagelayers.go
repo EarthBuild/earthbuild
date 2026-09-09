@@ -48,6 +48,16 @@ func LayersApart() bool {
 	return os.Getenv(EnvImageLayers) != "" || guest.StoreInVM()
 }
 
+// layersApart is LayersApart for a sandbox that can be asked.
+//
+// The third place that asked the platform where the store is. See
+// Executor.unpacksInGuest: on Linux that answer is false, so a microVM's images
+// were kept together and unpacked by the host into a store the guest cannot
+// read.
+func (e *Executor) layersApart() bool {
+	return os.Getenv(EnvImageLayers) != "" || StoreIsInGuest(e.sb)
+}
+
 // EnvImageStream unpacks each layer as it arrives rather than after it lands.
 //
 // Separate from EnvImageLayers so the two can be measured apart: streaming only

@@ -57,10 +57,8 @@ func (m *mockDriver) InspectContainers(_ context.Context, _ ...string) ([]Contai
 func NewTestClient(meta Metadata) *Client {
 	return &Client{
 		driver: &mockDriver{
-			stubEngine: stubEngine{
-				shellEngine: &shellEngine{},
-			},
-			meta: meta,
+			shellEngine: &shellEngine{},
+			meta:        meta,
 		},
 	}
 }

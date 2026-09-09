@@ -42,7 +42,9 @@ func (cli *CLI) InitContainer(cmd *cli.Command) error {
 		return fmt.Errorf("failed to parse generated buildkit URL: %w", err)
 	}
 
-	if engine.UsesTCP(bkURL.Scheme) && cli.Cfg().Global.TLSEnabled {
+	useTCP := engine.UsesTCP(bkURL.Scheme)
+
+	if useTCP && cli.Cfg().Global.TLSEnabled {
 		if exists, _ := fileutil.FileExists(cli.Cfg().Global.TLSCACert); !exists {
 			err = buildkitd.GenCerts(*cli.Cfg(), "127.0.0.1")
 			if err != nil {
@@ -63,7 +65,7 @@ func (cli *CLI) InitContainer(cmd *cli.Command) error {
 	cli.Flags().BuildkitdSettings.Debug = cli.Flags().Debug
 	cli.Flags().BuildkitdSettings.BuildkitAddr = cli.Flags().BuildkitHost
 	cli.Flags().BuildkitdSettings.LocalRegistryAddr = cli.Flags().LocalRegistryHost
-	cli.Flags().BuildkitdSettings.UseTCP = engine.UsesTCP(bkURL.Scheme)
+	cli.Flags().BuildkitdSettings.UseTCP = useTCP
 	cli.Flags().BuildkitdSettings.UseTLS = cli.Cfg().Global.TLSEnabled
 	cli.Flags().BuildkitdSettings.MaxParallelism = cli.Cfg().Global.BuildkitMaxParallelism
 	cli.Flags().BuildkitdSettings.CacheSizeMb = cli.Cfg().Global.BuildkitCacheSizeMb

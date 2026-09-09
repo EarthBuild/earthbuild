@@ -1387,7 +1387,11 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 	var flat Flattening
 
+	endFlatten := timing.Phase("flatten", n.Meta.Source)
+
 	base, flat = Flatten(base, s.maxStack(), SquashID)
+
+	endFlatten()
 
 	// A flattened stack names a layer that does not exist yet. Building it is
 	// the executor's, because the executor is the only party that knows where
@@ -1421,7 +1425,17 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 	key := DeriveChainKey(n, base, refs)
 
 	endKey()
+
+	// **Timed because eval:before is the gap.** With the machine now kept
+	// between builds, eval:before is 4.578s of a microVM build against
+	// effectively nothing under namespaces - and the squash, which was the
+	// obvious suspect, does not fire. What is left in here is the stack, the
+	// key and these digests, and only the key had a phase.
+	endDigests := timing.Phase("digests", n.Meta.Source)
+
 	bd, od, ed, pd := componentDigests(n, base)
+
+	endDigests()
 
 	rec := StepRecord{
 		Ident: stepIdent(n), Node: n.ID(), Class: StepClass(n),

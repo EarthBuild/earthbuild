@@ -9,9 +9,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/EarthBuild/earthbuild/engine/cli"
 	"github.com/EarthBuild/earthbuild/engine/exec"
@@ -131,9 +134,32 @@ func main() {
 	guest.RunStepShimIfAsked()
 	guest.RunDaemonShimIfAsked()
 
+	// **And the microVM's network shim**, which is the fourth door and was the
+	// one this binary did not have. It is a re-exec that makes a namespace and
+	// a tap and then becomes the VMM, so its arguments are the VMM's; without
+	// this line they are read as a build's, `vm-net` is taken for the target,
+	// and the engine waits out its patience and reports that the guest's
+	// network never arrived - on every step, and on `-prune`, which is the one
+	// operation only this front end offers.
+	if len(os.Args) > 1 && os.Args[1] == exec.NetShimCommand {
+		exec.NetShimMain(os.Args[2:])
+
+		return
+	}
+
 	// Having got past that, this binary demonstrably dispatches the agent - so
 	// the engine may run it as one rather than hunting for a separate file.
 	exec.SelfServesAsGuest()
+
+	// **What the other front end does, for the reason it says**: imported
+	// libraries log through logrus and this engine's output is its own. The
+	// guest's network stack is one of them, and it reports the descriptor being
+	// closed under it as a fault - `cannot receive packets from tap0,
+	// disconnecting` - because from inside the stack that is what a stopping
+	// sandbox looks like. `earth` has discarded these since before this binary
+	// existed; without the same line, the same build is quiet through one front
+	// end and not the other.
+	logrus.StandardLogger().Out = io.Discard
 
 	var (
 		dir      = flag.String("dir", ".", "directory holding the Earthfile; also the build context")

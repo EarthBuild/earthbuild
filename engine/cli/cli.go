@@ -19,7 +19,6 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/fleet"
-	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/pin"
@@ -517,7 +516,7 @@ func runPlan(
 		views                  = viewsFor(sb)
 	)
 
-	if guest.StoreInVM() {
+	if storeInGuest(sb) {
 		asker, ok := over.(interface {
 			StoreHas(context.Context, []ir.NodeID) ([]ir.NodeID, error)
 			ViewDigests(context.Context, []ir.NodeID, []string) (map[string]ir.NodeID, map[string]ir.NodeID, error)

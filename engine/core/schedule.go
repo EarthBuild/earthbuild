@@ -1307,10 +1307,21 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 	// walking a base one layer deeper than the last.
 	endBefore := timing.Phase("eval:before", n.Meta.Source)
 
+	// **Timed separately, because eval:before is four seconds and everything
+	// inside it that has a phase is zero.** flatten, key and digests each
+	// measure 0.000s while the region containing them measures 4.020s, so the
+	// time is spent reaching them - and the only thing here that can block is
+	// this lock. Whether that is contention or a step holding it across a guest
+	// round trip is the difference between a scheduling defect and a slow
+	// backend, and nothing said which.
+	endLock := timing.Phase("eval:lock", n.Meta.Source)
+
 	// Shared state is read under the lock and released before the expensive
 	// work. Holding it across a step's execution would serialise the build
 	// again, which is the whole thing this is for.
 	s.mu.Lock()
+
+	endLock()
 
 	if _, ok := s.done[n.ID()]; ok {
 		s.mu.Unlock()

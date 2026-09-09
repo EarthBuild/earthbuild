@@ -2466,7 +2466,14 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 	)
 
 	if wantsStepNet(s.DropNet, req.NoNet) {
+		// Timed, because it was the one region of a step's preparation that was
+		// not - and on a host it is twelve processes (`ip` nine times,
+		// `iptables` three) built and torn down for every step.
+		endNet := timing.Phase("guest:net", req.Handle)
+
 		netAt, closeNet, whyNoNet = openStepNet()
+
+		endNet()
 	}
 
 	defer closeNet()

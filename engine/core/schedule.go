@@ -1529,7 +1529,13 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 		// L2. Consulted only when L1 missed, which is exactly when the
 		// alternative is a full rebuild (green paper 4.3).
-		endL2 := timing.Phase("l2", n.Meta.Source)
+		// The path count is in the label because "L2 took four seconds" and
+		// "L2 took four seconds for nine thousand paths" are different faults:
+		// the first is a slow store, the second is a question nobody should be
+		// asking. The two backends keep separate histories, so they can predict
+		// different sets for the same step.
+		endL2 := timing.Phase("l2", fmt.Sprintf("%s (%d predicted)",
+			n.Meta.Source, len(PredictedReads(predOf(s.Profiles, n)))))
 		e, hit = s.tryL2(ctx, n, base, refs)
 
 		endL2()
@@ -1843,4 +1849,22 @@ func (s *Scheduler) watchForStall() func() {
 		close(done)
 		<-stopped
 	}
+}
+
+// predOf is the profile for a step's class, or an empty one.
+//
+// Read again here rather than threaded down from tryL2: this is a label, and a
+// diagnostic that changes the shape of the code it measures is one nobody
+// trusts.
+func predOf(p Profiles, n *ir.Node) Observation {
+	if p == nil {
+		return Observation{}
+	}
+
+	got, ok := p.Get(StepClass(n))
+	if !ok {
+		return Observation{}
+	}
+
+	return got
 }

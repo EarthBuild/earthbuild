@@ -19,19 +19,19 @@
   git checkout main && git pull
   ```
 - Update the CHANGELOG.md with the corresponding release notes and open a PR
-- Use a comparison such as https://github.com/earthly/earthly/compare/v0.8.13...main (replace the versions in the URL with the previously released version) or a tool such as `gitk` (aka `git-gui`) to see which PRs will go into this release.
+- Use a comparison such as https://github.com/earthbuild/earthbuild/compare/v0.8.13...main (replace the versions in the URL with the previously released version) or a tool such as `gitk` (aka `git-gui`) to see which PRs will go into this release.
 - Make sure that main build is green for all platforms (check build status for the latest commit on GitHub).
 - Make sure the following build status are green:
   | Platform | Status |
   | ------------- | ------------- |
   | MacOS (x86) | [![Build status](https://badge.buildkite.com/cc0627732806ab3b76cf13b02c498658b851056242ec28f62d.svg)](https://buildkite.com/earthly-technologies/earthly-mac-scheduled)
   | MacOS (M1) | [![Build status](https://badge.buildkite.com/10a7331b2032fcc9f7f311c5218d12c1a18c317cd7fc9270ba.svg)](https://buildkite.com/earthly-technologies/earthly-m1-scheduled)
-- Run
+- Create and publish the release on [GitHub Releases](https://github.com/earthbuild/earthbuild/releases/new) targeting `$RELEASE_TAG` (include release notes and mark pre-release if applicable). Publishing the release automatically triggers the [Tagged Release](../.github/workflows/on-tag-release.yml) workflow to upload release artifacts and promote images to DockerHub.
+- If publishing package repositories (apt/yum):
   ```bash
-  cd release
-  env -i HOME="$HOME" PATH="$PATH" SSH_AUTH_SOCK="$SSH_AUTH_SOCK" RELEASE_TAG="$RELEASE_TAG" USER="$USER" PRERELEASE="$PRERELEASE" ./release.sh
+  earth --push ./release+release-repo --RELEASE_TAG="$RELEASE_TAG"
   ```
-- Wait for the [Merge main to docs-0.8 on New EarthBuild Release](../.github/workflows/release-merge-docs.yml) workflow to complete; this workflow automatically merges `main` into `docs-0.8`. You can watch for it here: [![Merge main to docs-0.8 on New EarthBuild Release](https://github.com/earthly/earthly/actions/workflows/release-merge-docs.yml/badge.svg)](https://github.com/earthly/earthly/actions/workflows/release-merge-docs.yml)
+- Wait for the [Merge main to docs-0.8 on New EarthBuild Release](../.github/workflows/release-merge-docs.yml) workflow to complete; this workflow automatically merges `main` into `docs-0.8`. You can watch for it here: [![Merge main to docs-0.8 on New EarthBuild Release](https://github.com/earthbuild/earthbuild/actions/workflows/release-merge-docs.yml/badge.svg)](https://github.com/earthbuild/earthbuild/actions/workflows/release-merge-docs.yml)
   In case the workflow fails the manual process is:
   ````shell
     git checkout docs-0.8 && git pull && git merge main && git push
@@ -52,8 +52,8 @@
 
 <!-- vale HouseStyle.Spelling = YES -->
 
-- Wait for the [Check Docs for Broken Links](../.github/workflows/docs-checks-links.yml) workflow to complete; this workflow validates https://docs.earthly.dev does not contain any broken links. You can watch for it here: [![Check Docs for Broken Links](https://github.com/earthly/earthly/actions/workflows/docs-checks-links.yml/badge.svg?event=push)](https://github.com/earthly/earthly/actions/workflows/docs-checks-links.yml)
-- Verify the [Homebrew release job](https://github.com/earthly/homebrew-earthly) has successfully run and has merged the new `release-v...` branch into `main`.
+- Wait for the [Check Docs for Broken Links](../.github/workflows/docs-checks-links.yml) workflow to complete; this workflow validates https://docs.earthbuild.dev does not contain any broken links. You can watch for it here: [![Check Docs for Broken Links](https://github.com/earthbuild/earthbuild/actions/workflows/docs-checks-links.yml/badge.svg?event=push)](https://github.com/earthbuild/earthbuild/actions/workflows/docs-checks-links.yml)
+- Verify the Homebrew formula in [earthbuild/homebrew-tap](https://github.com/earthbuild/homebrew-tap) is updated (Renovate detects the new EarthBuild release and the tap's GitHub workflows release it automatically).
 - Copy the release notes you have written before and paste them in the EarthBuild Community slack channel `#announcements`, together with a link to the release's GitHub page. If you have Slack markdown editing activated, you can copy the markdown version of the text.
 
 ### One-Time (clear this section when done during release)
@@ -62,32 +62,16 @@
 
 #### Performing a test release
 
-To perform a test release to a personal repo, first:
-
-1. fork a copy of both `earthly/earthly`, and `earthly/homebrew-earthly`
-2. commit your changes you wish to release and push them to your personal repo.
-3. save a copy of your GitHub token to `user/github-token` (e.g. `earth secrets set /user/github-token keep-it-secret`)
-
-Then run:
-
-```bash
-RELEASE_TAG=v0.5.10 GITHUB_USER=mygithubuser DOCKERHUB_USER=mydockerhubuser EARTHLY_REPO=earth BREW_REPO=homebrew-earthly GITHUB_SECRET_PATH=user/github-token ./release.sh
-```
+To test staging releases via CI, push your changes to a branch matching `**-staging-test` (which triggers the [staging release](../.github/workflows/ci-staging-deploy.yml) workflow) or manually trigger the workflow via `workflow_dispatch`.
 
 NOTE: apt and yum repos do not currently support test releases. (TODO: fix this)
-
-#### Troubleshooting
-
-If the release-homebrew fails with a rejected git push, you may have to delete the remote branch by running the following under the interactive debugger:
-
-    git push "$GIT_USERNAME" --delete "release-$RELEASE_TAG"
 
 #### Rollbacks
 
 If you need to rollback/disable a version:
 
-1. Go to [GitHub releases](https://github.com/earthly/earthly/releases), click on the `edit release` button, then check the `This is a prerelease` checkbox.
-2. Check out the [earthly/homebrew-earthly](https://github.com/earthly/homebrew-earthly) repo, and run:
+1. Go to [GitHub releases](https://github.com/earthbuild/earthbuild/releases), click on the `edit release` button, then check the `This is a prerelease` checkbox.
+2. Check out the [earthbuild/homebrew-tap](https://github.com/earthbuild/homebrew-tap) repo, and run:
 
 ```bash
 git checkout main
@@ -96,7 +80,7 @@ git commit # enter a message saying you are rolling back
 git push
 ```
 
-3. Mark the release title in [CHANGELOG.log](../CHANGELOG.md) as `(aborted release/not recommended)`, e.g.:
+3. Mark the release title in [CHANGELOG.md](../CHANGELOG.md) as `(aborted release/not recommended)`, e.g.:
    `## v0.7.18 - 2023-09-18 (aborted release/not recommended)`
 4. TODO need to create targets for apt and yum Earthfiles to perform rollbacks
 

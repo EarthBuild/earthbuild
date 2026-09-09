@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -69,6 +70,14 @@ type Firecracker struct {
 	// dirLock is that claim's descriptor, handed to the machine so the claim
 	// lasts as long as the machine rather than as long as this build.
 	dirLock *os.File
+	// attached is set when this build joined a machine it did not start, which
+	// decides what Stop may do to it.
+	attached bool
+	// boots and reuses make "one machine per session" observable rather than
+	// asserted in a comment, which is how the Apple backend states the same
+	// claim. See Boots and Reuses.
+	boots   atomic.Int64
+	reuses  atomic.Int64
 	vsockAt string
 	exports string
 	tap     string
@@ -301,6 +310,25 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 		return nil, fmt.Errorf("this sandbox is already running")
 	}
 
+	// **Find the machine the last build left running, the way the Apple backend
+	// does.** Booting one costs 0.55s and stopping one costs 2.15s, measured on
+	// a no-op build of this repository - 2.7s of a 3.2s build, spent building a
+	// machine and taking it apart again. A guest is named after what it is, so
+	// the next build can attach to it and can never attach to one built
+	// differently.
+	want := f.vmDigest()
+
+	unstart, err := vmStartLock(f.StoreImage)
+	if err != nil {
+		return nil, err
+	}
+
+	defer unstart()
+
+	if conn, ok := f.attach(want); ok {
+		return conn, nil
+	}
+
 	dir, err := f.dir()
 	if err != nil {
 		return nil, err
@@ -441,6 +469,19 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 	conn, err := f.dialGuest(ctx, vsock)
 	if err == nil {
 		f.conn = conn
+		f.boots.Add(1)
+
+		// **Recorded only once it answers.** A record naming a machine that
+		// never spoke would send the next build to a socket nobody holds, which
+		// is a boot timeout rather than an answer.
+		recErr := writeVMRecord(f.StoreImage, vmRecord{
+			Digest: want, Vsock: vsock, PID: cmd.Process.Pid,
+		})
+		if recErr != nil {
+			// Not a reason to fail a machine that works: the cost is that the
+			// next build boots its own.
+			fmt.Fprintf(os.Stderr, "earthbuild: this guest will not be reused: %v\n", recErr)
+		}
 	}
 
 	if err != nil {
@@ -790,12 +831,78 @@ func (f *Firecracker) releaseStore() {
 	f.release = nil
 }
 
-// Stop ends the guest and removes what this sandbox made.
+// Stop lets go of the guest, and leaves it running.
+//
+// **The machine outlives the build, which is the whole of the difference
+// between this backend and buildkit on a small change.** Booting one costs
+// 0.55s and taking one apart costs 2.15s - 2.7s of a 3.2s no-op build of this
+// repository, spent building a machine and destroying it. The Apple backend has
+// never done that: its Stop ends the exec client and leaves the VM up for the
+// next build to attach to, which is what made a second build fast (E524).
+//
+// What ends a machine is its own idle timeout - see guest.EnvIdle, which exists
+// for exactly this and until now could never apply, because the host stopped
+// the guest at the end of every build - or a build that wants a different one,
+// or `earth prune`. See Remove.
 func (f *Firecracker) Stop() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	return f.stopLocked()
+	if f.stopped {
+		return nil
+	}
+
+	f.stopped = true
+
+	// The protocol channel, which is this build's and not the machine's. The
+	// agent sees end-of-stream and goes back to waiting for the next one.
+	if f.conn != nil {
+		_ = f.conn.Close()
+		f.conn = nil
+	}
+
+	// Let go of the descriptors this build holds. The machine holds its own
+	// copies - they were passed to it at boot - so the directory and the device
+	// stay claimed for as long as it is running.
+	if f.release != nil {
+		f.release()
+		f.release = nil
+	}
+
+	if f.unlock != nil {
+		f.unlock()
+		f.unlock = nil
+	}
+
+	return nil
+}
+
+// Remove ends the machine itself.
+//
+// Separate from Stop because Stop no longer does: this is for a build that
+// wants a machine other than the one running, for `earth prune`, and for the
+// executor's recovery when a guest answers its socket and not a handshake -
+// which calls Stop and then this, and would otherwise leave the wedged machine
+// up for the next build to find.
+func (f *Firecracker) Remove() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.StoreImage != "" {
+		forgetVMRecord(f.StoreImage)
+	}
+
+	// Whatever this build was holding goes first, then the machine.
+	f.stopped = false
+
+	err := f.stopLocked()
+
+	// Startable again: the recovery boots one immediately after this.
+	f.cmd = nil
+	f.stopped = false
+	f.attached = false
+
+	return err
 }
 
 func (f *Firecracker) stopLocked() error {

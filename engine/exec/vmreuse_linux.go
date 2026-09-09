@@ -143,7 +143,7 @@ const vmHaltPatience = 15 * time.Second
 // not answer its socket. The caller's next move is the same in all of them -
 // boot one - and that is the right move whatever went wrong here.
 //
-// The handshake is not done here. Start returns a connection and the executor
+// Called with f.mu held, by Start. The handshake is not done here. Start returns a connection and the executor
 // greets the guest over it, so a machine that is up but wedged is discovered
 // there, where the recovery already lives: Stop, then Remove, then Start again.
 func (f *Firecracker) attach(want string) (Conn, bool) {
@@ -174,12 +174,14 @@ func (f *Firecracker) attach(want string) (Conn, bool) {
 		return nil, false
 	}
 
-	f.mu.Lock()
+	// **No lock taken here: Start holds it.** Go's mutexes are not reentrant,
+	// so locking would deadlock the caller - which is exactly what it did, and
+	// the symptom was a corpus run that stopped after two targets with no
+	// error to read.
 	f.attached = true
 	f.vsockAt = rec.Vsock
 	f.exports = rec.Exports
 	f.conn = conn
-	f.mu.Unlock()
 
 	f.reuses.Add(1)
 

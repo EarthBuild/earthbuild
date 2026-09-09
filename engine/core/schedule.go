@@ -1401,7 +1401,11 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 			// part - the key derivation beside this has a phase and is
 			// microseconds. A squash is real filesystem work in the guest, and
 			// the deepest base in the tree is the one that triggers a flatten.
-			endSquash := timing.Phase("squash", n.Meta.Source)
+			// The depth is in the label because "a squash happened" and "a
+			// squash of 70 layers happened" are different facts, and the
+			// threshold it crossed is a number somebody chose.
+			endSquash := timing.Phase("squash", fmt.Sprintf("%s (%d layers)",
+				n.Meta.Source, flat.To-flat.From))
 
 			err := sq.Squash(ctx, flat.Into, stack[flat.From:flat.To])
 

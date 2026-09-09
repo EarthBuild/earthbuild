@@ -90,10 +90,24 @@ func (e *Executor) materialiseImageInGuest(
 	// rebuilds everything it already had.
 	if ids, ok := imageStackNamed(shared); ok {
 		held, herr := c.StoreHas(ctx, ids)
-		if herr == nil && len(held) == len(ids) {
+
+		// **Only where there is no declaration to get wrong.** StoreHas answers
+		// for layers, which are directories; a declaration is a file beside
+		// them and no answer here can mention it. So a short circuit that
+		// returned a declaration remembered on the *host* named a stack element
+		// the guest had never written - and the base built on it failed at
+		// materialise with the store saying it holds neither a layer nor a
+		// declaration for it.
+		//
+		// That is the same lesson the fetch path below already carries: naming
+		// a declaration is not enough, because only the guest can write one.
+		// The remembered id cannot be re-filed faithfully from here either -
+		// what is kept beside the image is the id, and a declaration is derived
+		// from the configuration, which is not - so an image that declares
+		// anything takes the long way and lets the guest write it.
+		if herr == nil && len(held) == len(ids) && declarationRemembered(shared) == (ir.NodeID{}) {
 			return core.Result{
 				Layers: ids, Captured: e.sb.Confines(),
-				Declares: declarationRemembered(shared),
 			}, nil
 		}
 	}

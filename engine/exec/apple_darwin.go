@@ -2,7 +2,6 @@ package exec
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,8 +16,6 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
-
-	"lukechampine.com/blake3"
 
 	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/guestd"
@@ -211,9 +208,9 @@ func SandboxName(image, guestDir, store string) string {
 // and fails the load with a complaint about a missing `blobs/json`, the legacy
 // format it fell back to.
 func SandboxNameWith(image, guestDir, store, memory string, command []string) string {
-	h := blake3.New(32, nil)
-	// Length-prefixed, so ("ab", "c") and ("a", "bc") are different sandboxes
-	// rather than the same one.
+	// Length-prefixing and the hash itself live in sandboxDigest, which the
+	// microVM backend names its machines with too. What stays here is the list
+	// of settings that make an Apple VM what it is.
 	//
 	// Memory is in here because a VM is found and reused by name: leave it out
 	// and raising the setting changes nothing until every existing sandbox has
@@ -228,17 +225,13 @@ func SandboxNameWith(image, guestDir, store, memory string, command []string) st
 	// request that found it - so a build asking for an hour and a build asking
 	// for the default have to be asking about two machines, or the second gets
 	// whatever the first said (E549's failure class, E555's occasion).
-	for _, part := range append(
+	return "earthbuild-" + sandboxDigest(append(
 		[]string{
 			image, guestDir, store, memory, guestFast,
 			idleSetting(), scratchTmpfsSetting(), storeSetting(), pinSetting(), digestSetting(),
 			sandboxCPUs(), shimSetting(),
 		},
-		command...) {
-		fmt.Fprintf(h, "%d:%s", len(part), part)
-	}
-
-	return "earthbuild-" + hex.EncodeToString(h.Sum(nil))[:16]
+		command...)...)
 }
 
 // NewApple returns a sandbox with the defaults.

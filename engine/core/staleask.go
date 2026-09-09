@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"os"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -31,7 +32,14 @@ type StaleAsker interface {
 func whyStaleVia(
 	ctx context.Context, src ViewSource, stack []ir.NodeID, obs Observation,
 ) (string, error) {
-	if asker, ok := src.(StaleAsker); ok {
+	// **Not used yet, and deliberately.** Asking the guest made L2 144 times
+	// faster - 0.010s against 1.44s for the same 6308 paths - and made it
+	// wrong: the guest's own view reported `/bin/busybox is gone from the
+	// base` for paths the fetched view finds, so a build went from 61 hits to
+	// none and rebuilt everything. The two views disagree about a store they
+	// both read, and until that is understood the slow answer is the one worth
+	// having.
+	if asker, ok := src.(StaleAsker); ok && staleAskingEnabled() {
 		return asker.WhyStaleIn(ctx, stack, obs)
 	}
 
@@ -42,3 +50,12 @@ func whyStaleVia(
 
 	return WhyStale(obs, view), nil
 }
+
+// EnvAskStale turns on asking a store held elsewhere the staleness question.
+//
+// Off, because the answers disagree with the ones the fetched view gives - see
+// whyStaleVia. Here so the disagreement can be reproduced without rebuilding,
+// and so this does not become a branch nobody can run.
+const EnvAskStale = "EARTH_ASK_STALE"
+
+func staleAskingEnabled() bool { return os.Getenv(EnvAskStale) == "1" }

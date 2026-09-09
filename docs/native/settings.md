@@ -1131,3 +1131,26 @@ they are in use, because firecracker validates that and refuses the configuratio
 A build that asks for them on a host that has none is told how large the pool is and how large the
 guest needed it to be, and then runs with ordinary pages. Firecracker itself does not fall back: it
 maps guest memory with `MAP_HUGETLB` and fails to boot, reporting only that it could not start.
+
+## `EARTH_ASK_STALE`
+
+Asks a store held inside a guest whether a step's observation still describes its base, rather than
+fetching the digests and comparing here. Default: off, because the two disagree.
+
+**The tier's cost is not where it looks.** `WhyStale` walks a step's observed reads in sorted order
+and returns at the first one that changed, so a host reading its own store answers after a single
+lookup - usually the file somebody just edited. A guest holding the store on a device cannot do
+that: the host asks for the digest of every path the prediction names, the guest opens and hashes
+6307 files to answer, and only then is the first of them compared. Measured on the step that builds
+this repository: 1.4s of a 4.3s build, and 4.0s of 4.7s against a colder store.
+
+Sending the expectation instead, so the guest runs the same comparison where the files are, made
+that check 144 times faster - 0.010s against 1.44s for the same 6308 paths.
+
+**And it gave different answers**, which is why it is off. The guest's own view reports paths as
+absent that the fetched view finds - `/bin/busybox is gone from the base` - so a build went from 61
+hits to none and rebuilt everything it could have reused. Both sides call the same `LayerStore.View`
+over the same stack, so the disagreement is not in the comparison; it is in what the two views see
+of one store, and that is the thing to understand before this is turned on.
+
+Set it to `1` to reproduce that.

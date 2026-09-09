@@ -169,3 +169,44 @@ func TestDrainClosesWhatWasNeverUsed(t *testing.T) {
 }
 
 var _ = atomic.Bool{}
+
+// Depth zero means no pool, which is what the setting says it means.
+//
+// **A control arm that is not a control measures nothing.** The first A/B of
+// this feature compared `EARTH_STEP_NET_AHEAD=0` against `=1` and found no
+// difference, because the constructor clamped a depth below one back up to one
+// - so both arms had the pool and the run said the feature was worthless. The
+// same shape as reading `-P` as parallelism: an arm that did not do what it
+// was named after.
+func TestDepthZeroBuildsEachNetworkWhenTheStepAsks(t *testing.T) {
+	t.Parallel()
+
+	b := &builder{}
+	p := newStepNets(b.build, 0)
+
+	defer p.drain()
+
+	for range 3 {
+		at, done, why := p.take()
+		if why != "" || at == "" {
+			t.Fatalf("take failed: %q %q", at, why)
+		}
+
+		done()
+	}
+
+	if got := p.fromPool.Load(); got != 0 {
+		t.Errorf("%d takes came from a pool that was asked not to exist", got)
+	}
+
+	// Three taken, three built, and nothing built ahead of anything.
+	eventually(t, "the pool built ahead when it was told not to", func() bool {
+		made, _ := b.counts()
+
+		return made == 3
+	})
+
+	if made, _ := b.counts(); made != 3 {
+		t.Errorf("%d networks built for 3 steps, want 3", made)
+	}
+}

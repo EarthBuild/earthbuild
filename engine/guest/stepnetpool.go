@@ -50,9 +50,14 @@ type readyNet struct {
 }
 
 // newStepNets returns a pool that keeps depth networks ahead of demand.
+//
+// **Depth zero is not depth one.** It clamped, so a run asked to build each
+// network when the step asked for it got the pool anyway - and the A/B that was
+// supposed to say whether any of this was worth doing compared the feature
+// against itself and reported no difference.
 func newStepNets(build func() (string, func(), string), depth int) *stepNets {
-	if depth < 1 {
-		depth = 1
+	if depth < 0 {
+		depth = 0
 	}
 
 	return &stepNets{build: build, depth: depth, ready: make(chan readyNet, depth)}
@@ -72,13 +77,15 @@ func (p *stepNets) take() (string, func(), string) {
 		return "", func() {}, ""
 	}
 
-	select {
-	case got := <-p.ready:
-		p.fromPool.Add(1)
-		p.fill()
+	if p.depth > 0 {
+		select {
+		case got := <-p.ready:
+			p.fromPool.Add(1)
+			p.fill()
 
-		return got.at, got.done, ""
-	default:
+			return got.at, got.done, ""
+		default:
+		}
 	}
 
 	at, done, why := p.build()

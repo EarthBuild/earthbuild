@@ -850,6 +850,15 @@ func (f *Firecracker) Stop() error {
 
 	f.stopped = true
 
+	// **A machine nobody can join must not be left running.** Where this build
+	// provides the guest's network, the next build cannot join this machine -
+	// see mayAttach - and a machine left behind holds the store device, so the
+	// build after it is refused before it starts. Leaving one running is only
+	// an optimisation where somebody can pick it up.
+	if !mayAttach() {
+		return f.haltLocked()
+	}
+
 	// The protocol channel, which is this build's and not the machine's. The
 	// agent sees end-of-stream and goes back to waiting for the next one.
 	if f.conn != nil {
@@ -884,18 +893,27 @@ func (f *Firecracker) Remove() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	return f.haltLocked()
+}
+
+// haltLocked ends the machine and leaves this sandbox startable again.
+//
+// Shared by Remove and by a Stop that has nobody to hand the machine to.
+func (f *Firecracker) haltLocked() error {
 	if f.StoreImage != "" {
 		forgetVMRecord(f.StoreImage)
 	}
 
-	// Whatever this build was holding goes first, then the machine.
+	// stopLocked declines when it has already run, and both callers may have
+	// set that.
 	f.stopped = false
 
 	err := f.stopLocked()
 
-	// Startable again: the recovery boots one immediately after this.
+	// Startable again: the executor's recovery boots one immediately after
+	// this, and a Stop that halted is the end of this sandbox either way.
 	f.cmd = nil
-	f.stopped = false
+	f.stopped = true
 	f.attached = false
 
 	return err

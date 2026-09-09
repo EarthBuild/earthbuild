@@ -808,7 +808,7 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 		// differ only in which side writes them. See EnvUnpackInGuest.
 		// **A store on the guest's device implies the guest unpacks**, because
 		// the host cannot write a block device it does not have.
-		if UnpacksInGuest() {
+		if e.unpacksInGuest() {
 			return e.materialiseImageInGuest(ctx, n, platform, imageRoot, root, shared)
 		}
 

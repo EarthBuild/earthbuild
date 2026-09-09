@@ -53,6 +53,23 @@ func UnpacksInGuest() bool {
 	return os.Getenv(EnvUnpackInGuest) != "" || guest.StoreInVM()
 }
 
+// unpacksInGuest is UnpacksInGuest for a sandbox that can be asked.
+//
+// **Asked of the sandbox, because the platform gives one answer and Linux needs
+// two.** `guest.StoreInVM()` is true on darwin and false everywhere else, so a
+// microVM on Linux had its images unpacked by the host into the host's own
+// store - a place the guest, whose layers live on a block device the host
+// cannot write, could never read them from. `FROM alpine:3.24.1` on an empty
+// guest store failed every time, and every corpus figure the microVM has
+// produced was against a store filled by something else.
+//
+// The comment above already stated the rule - "a store on the guest's device
+// implies the guest unpacks, because the host cannot write a block device it
+// does not have". It was right; it asked the wrong thing.
+func (e *Executor) unpacksInGuest() bool {
+	return os.Getenv(EnvUnpackInGuest) != "" || StoreIsInGuest(e.sb)
+}
+
 // materialiseImageInGuest fetches an image's layers and has the guest unpack
 // them.
 //

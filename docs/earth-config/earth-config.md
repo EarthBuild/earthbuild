@@ -188,10 +188,6 @@ This option is obsolete and it is ignored. EarthBuild no longer uses a loop devi
 
 Allows to override the image used to run internal `git` commands (e.g. during `GIT CLONE` or `IMPORT`). This defaults to `alpine/git:v2.30.1`.
 
-### org
-
-The default organization to use when performing EarthBuild operations that require an organization. Ignored when  the `--org` CLI option is present, or when the `EARTH_ORG` environment variable are set.
-
 ### Frontend configuration
 
 This option allows you to specify what supported frontend you are using (Docker / Podman).

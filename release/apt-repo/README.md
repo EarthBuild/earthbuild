@@ -5,7 +5,7 @@ We host a Debian repository which Debian and ubuntu users can use to install ear
 ## Setup for Ubuntu
 
 TODO: move these notes elsewhere, this readme should only be notes on how to release to our repo, and is only intended for those with
-access to earth credentials.
+access to EarthBuild credentials.
 
 Ubuntu users can use this guide to set up our repo:
 
@@ -19,7 +19,7 @@ First install the following tools:
        gnupg \
        lsb-release
 
-Second, add earth's official GPG key:
+Second, add EarthBuild's official GPG key:
 
     curl -fsSL https://pkg.earthly.dev/earthly.pgp | sudo gpg --dearmor -o /usr/share/keyrings/earthly-archive-keyring.gpg
 
@@ -32,7 +32,7 @@ Finally, set up the stable repository:
 
 ## Requirements
 
-To package a new version of earth, ensure the following requirements are met:
+To package a new version of EarthBuild, ensure the following requirements are met:
 
 1. you have aws credentials configured in the earth secret store under `/user/earthly-technologies/aws/credentials`, and have access to the developer role
 

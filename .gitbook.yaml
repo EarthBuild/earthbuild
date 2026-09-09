@@ -12,6 +12,10 @@ redirects:
     earthly-command/earthly-command: earth-command/earth-command.md
     earthly-config/earthly-config: earth-config/earth-config.md
     earthfile/earthlyignore: earthfile/earthignore.md
+    basics/part-6-using-docker-with-earthly: basics/part-6-using-docker-with-earthbuild.md
+    basics/part-8a-using-earthly-in-your-current-ci: basics/part-8a-using-earthbuild-in-your-current-ci.md
+    ci-integration/use-earthly-ci-image: ci-integration/use-earthbuild-ci-image.md
+    ci-integration/build-an-earthly-ci-image: ci-integration/build-an-earthbuild-ci-image.md
     guides: ./README.md
     guides/advanced-local-caching: caching/caching-in-earthfiles.md
     docs/guides/advanced-local-caching: caching/caching-in-earthfiles.md
@@ -19,7 +23,7 @@ redirects:
     guides/cache: caching/managing-cache.md
     docs/guides/cache: caching/managing-cache.md
     guides/debugging: guides/debugging.md
-    guides/docker-in-earthly: guides/docker-in-earthly.md
+    guides/docker-in-earthly: guides/docker-in-earthbuild.md
     guides/integration: guides/integration.md
     guides/multi-platform: guides/multi-platform.md
     guides/target-ref: guides/importing.md
@@ -29,7 +33,6 @@ redirects:
     earthly-config: earth-config/earth-config.md # legacy pre-rename URL (redirect source)
     ci-integration: ci-integration/overview.md
     earthly-command: earth-command/earth-command.md
-    earthly-config: earth-config/earth-config.md
     installation: ./README.md
     guides/pushing-and-pulling-images-with-cloud-providers: guides/auth.md
     guides/pushing-and-pulling-images-with-cloud-providers/pushing-images-to-ecr: guides/registries/aws-ecr.md

@@ -103,7 +103,7 @@ Finally, the last form of project referencing is an import reference. Import ref
 | --------------------------------------------------- | ---------------- | ------------------------------ | ---------------------------------------------- | -------------------------------- |
 | `IMPORT <full-project-ref> AS <import-alias>`       | `<import-alias>` | `<import-alias>+<target-name>` | `<import-alias>+<target-name>/<artifact-path>` | `<import-alias>+<function-name>` |
 | `IMPORT github.com/earthbuild/earthbuild/buildkitd` | `buildkitd`      | `buildkitd+build`              | `buildkitd+build/out.bin`                      | `buildkitd+COMPILE`              |
-| `IMPORT github.com/earthbuild/earthbuild:v0.8.18`   | `earth`        | `earth+build`                | `earth+build/out.bin`                        | `earth+COMPILE`                |
+| `IMPORT github.com/earthbuild/earthbuild:v0.8.18`   | `earthbuild`     | `earthbuild+build`             | `earthbuild+build/out.bin`                     | `earthbuild+COMPILE`             |
 
 Here is an example in an Earthfile:
 

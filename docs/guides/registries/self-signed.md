@@ -14,7 +14,7 @@ FROM alpine:3.18
 build:
     RUN echo "Hello from EarthBuild!" > motd
     ENTRYPOINT cat motd
-    SAVE IMAGE --push <registry-hostname>/hello-earthly:with-love
+    SAVE IMAGE --push <registry-hostname>/hello-earthbuild:with-love
 ```
 
 ## Add certificates to EarthBuild
@@ -52,7 +52,7 @@ FROM alpine:3.18
 build:
     RUN echo "Hello from EarthBuild!" > motd
     ENTRYPOINT cat motd
-    SAVE IMAGE --push --insecure <registry-hostname>/hello-earthly:with-love
+    SAVE IMAGE --push --insecure <registry-hostname>/hello-earthbuild:with-love
 ```
 
 {% hint style='danger' %}

@@ -1,6 +1,6 @@
 # Definitions
 
-This page presents some common terms used throughout the earth documentation. Understanding these terms with help you understand how to use earth. 
+This page presents some common terms used throughout the EarthBuild documentation. Understanding these terms will help you understand how to use `earth`. 
 
 - **EarthBuild** - the build automation system as a whole
 - **`earth`** - the CLI tool used to interact with EarthBuild

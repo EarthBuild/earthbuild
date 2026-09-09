@@ -8,7 +8,7 @@ First, edit `sso_config` with your AWS SSO details. Edit `config` so that it poi
 
 When used on a developer's machine, EarthBuild will run `aws sso login`, open a web browser, and login with AWS SSO. Credentials will be cached both in an image layer, and at `cache`.
 
-When used with the `--ci` flag, e.g. in GitHub Actions, EarthBuild will accept the credentials passed in with EarthBuild Secrets.
+When used with the `--ci` flag, e.g. in GitHub Actions, EarthBuild will accept the credentials passed in via `--secret`.
 
 `earth +target` will run `aws sts get-caller-identity` showing how to run arbitrary AWS commands using this Earthfile.
 

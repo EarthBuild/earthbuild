@@ -167,7 +167,7 @@ golang:1.15-alpine3.13 | --> Load metadata linux/amd64
     redis:6.0-alpine | [██████████] resolve docker.io/library/redis:6.0-alpine@sha256:61f3e955fbef87ea07d7409a48a48b069579e32f37d2f310526017d68e9983b7 ... 100%
                +deps | --> SAVE ARTIFACT go.sum +deps/go.sum AS LOCAL go.sum
                +deps | --> SAVE ARTIFACT go.mod +deps/go.mod AS LOCAL go.mod
-             context | transferred 1 file(s) for context /var/folders/5f/jkczhmh52g71v8_q34kt2wm80000gn/T/earthly-docker-load330575103 (10 MB, 1 file/dir stats)
+             context | transferred 1 file(s) for context /var/folders/5f/jkczhmh52g71v8_q34kt2wm80000gn/T/earth-docker-load330575103 (10 MB, 1 file/dir stats)
    +integration-test | --> WITH DOCKER RUN --privileged CGO_ENABLED=0 go test github.com/earthbuild/earthbuild/examples/go
    +integration-test | Loading images...
    +integration-test | Loaded image: redis:6.0-alpine

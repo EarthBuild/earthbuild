@@ -4,9 +4,9 @@
 
 - Make sure you have access to the `earthly-technologies` organization secrets.
   ```bash
-  ./earthly secrets --org earthly-technologies --project core ls
+  ./earth secrets --org earthly-technologies --project core ls
   ```
-- Choose the next [release tag](https://github.com/earthly/earthly/releases).
+- Choose the next [release tag](https://github.com/earthbuild/earthbuild/releases).
   ```bash
   export RELEASE_TAG="v..."
   ```
@@ -102,7 +102,7 @@ git push
 
 ### dind
 
-Docker-in-Docker (dind) images change less frequently than earth, but take a long time to build.
+Docker-in-Docker (dind) images change less frequently than EarthBuild, but take a long time to build.
 earthbuild/dind images and their releases are maintained in [project repo](https://github.com/earthbuild/dind).
 
 ### Syntax Highlighting Releases

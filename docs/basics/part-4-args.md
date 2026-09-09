@@ -70,7 +70,7 @@ with-copy:
 
 ## Builtin `ARG`s
 
-There are a number of builtin `ARG`s that EarthBuild offers. You can read about a [complete list of them](https://docs.earthly.dev/docs/earthfile/builtin-args), but for now, let's take a look at how they work.
+There are a number of builtin `ARG`s that EarthBuild offers. You can read about a [complete list of them](../earthfile/builtin-args.md), but for now, let's take a look at how they work.
 
 **In order to use EarthBuild builtin `ARG`s they need to be pre-declared.** Once you do that, you can use them just like any other `ARG`.
 

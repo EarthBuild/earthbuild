@@ -1,6 +1,6 @@
 # Why do we have a buildkit fork?
 
-Here's a very rough list on some of the features we have in our BuildKit fork, which are too-specific to earth,
+Here's a very rough list on some of the features we have in our BuildKit fork, which are too-specific to EarthBuild,
 and would not be a good fit to submit upstream.
 
 - ability to pass arbitrary sockets from the host to buildkitd container; used by the interactive debugger

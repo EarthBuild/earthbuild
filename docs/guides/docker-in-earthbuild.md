@@ -37,10 +37,10 @@ build:
     SAVE IMAGE my-image:latest
 
 smoke-test:
-    FROM arthbuild/dind:alpine-3.22-docker-28.3.3-r1
+    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
     WITH DOCKER --load test:latest=+build
         RUN docker run test:latest
-    FROM arthbuild/dind:alpine-3.22-docker-28.3.3-r1
+    FROM earthbuild/dind:alpine-3.22-docker-28.3.3-r1
     WITH DOCKER --load +build
         RUN docker run my-image:latest
     END
@@ -67,7 +67,7 @@ Using the `--compose` flag has the added benefit that any images needed by the c
 
 ## Performance
 
-It's recommended to use the `earthbuild/dind:alpine-3.24-docker-29.5.3-r0` image for running docker-in-docker. See the best-practices' section on using [with docker](../guides/best-practices.md#use-earthly-dind) for more details.
+It's recommended to use the `earthbuild/dind:alpine-3.24-docker-29.5.3-r0` image for running docker-in-docker. See the best-practices' section on using [with docker](../guides/best-practices.md#use-earthbuild-dind) for more details.
 
 In cases when using `earthbuild/dind` is not possible, EarthBuild will attempt to install Docker in the image you have chosen. This has the drawback of not being able to use cache efficiently and is not recommended for performance reasons.
 
@@ -115,7 +115,7 @@ It is not always necessary to execute docker commands within an EarthBuild build
 
 ### Alternative to docker run
 
-In certain cases, simple `docker run` invocations can be replaced by a simple [`RUN --entrypoint`](../earthfile/earthfile.md#entrypoint). For example, the following:
+In certain cases, simple `docker run` invocations can be replaced by a simple [`RUN --entrypoint`](../earthfile/earthfile.md#--entrypoint). For example, the following:
 
 ```Dockerfile
 FROM docker:19.03.13-dind

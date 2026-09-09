@@ -38,7 +38,7 @@ Your Kubernetes cluster needs to allow `privileged` mode pods. It's possible to 
 
 ### Installation
 
-The default image from `earthbuild/earthbuild` should be sufficient. If you need additional tools or configuration, you can [create your own runner image](../build-an-earthly-ci-image.md).
+The default image from `earthbuild/earthbuild` should be sufficient. If you need additional tools or configuration, you can [create your own runner image](../build-an-earthbuild-ci-image.md).
 
 ### Configuration
 

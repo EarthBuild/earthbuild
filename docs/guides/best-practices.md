@@ -33,7 +33,7 @@ Below we list some of the best practices that we have found to be useful in desi
     - [Repository structure: Place build logic as close to the relevant code as possible](#repository-structure-place-build-logic-as-close-to-the-relevant-code-as-possible)
     - [Repository structure: Do not place all Earthfiles in a dedicated directory](#repository-structure-do-not-place-all-earthfiles-in-a-dedicated-directory)
     - [Pattern: Pass-through artifacts or images](#pattern-pass-through-artifacts-or-images)
-    - [Use `earthbuild/dind`](#use-earthly-dind)
+    - [Use `earthbuild/dind`](#use-earthbuild-dind)
     - [Pattern: Saving artifacts resulting from a `WITH DOCKER`](#pattern-saving-artifacts-resulting-from-a-with-docker)
 - [Usage-specific](#usage-specific)
     - [Use `--ci` when running in CI](#use-ci-when-running-in-ci)
@@ -927,9 +927,9 @@ For a real-world example, you can also take a look at EarthBuild's own build, wh
 https://github.com/earthbuild/earthbuild/blob/main/Earthfile was changed to https://tinyurl.com/yt3d3cx6 -->
 
 - [`internal/earthfile/tests`](https://github.com/earthbuild/earthbuild/tree/main/internal/earthfile/tests) - Earthfile contains logic for running AST-specific tests.
-- [`buildkitd`](https://github.com/earthly/earthly/tree/main/buildkitd) - Earthfile contains the logic for building the EarthBuild BuildKit image.
-- [`tests`](https://github.com/earthly/earthly/tree/main/tests) - Earthfile contains logic for executing e2e tests.
-- [`release/**/`](https://github.com/earthly/earthly/tree/main/release) - Multiple Earthfiles contain logic used for the release of EarthBuild.
+- [`buildkitd`](https://github.com/earthbuild/earthbuild/tree/main/buildkitd) - Earthfile contains the logic for building the EarthBuild BuildKit image.
+- [`tests`](https://github.com/earthbuild/earthbuild/tree/main/tests) - Earthfile contains logic for executing e2e tests.
+- [`release/**/`](https://github.com/earthbuild/earthbuild/tree/main/release) - Multiple Earthfiles contain logic used for the release of EarthBuild.
 - [The main Earthfile](https://tinyurl.com/yt3d3cx6) - ties everything together, referencing the various targets across the sub-directories.
 
 ### Repository structure: Do not place all Earthfiles in a dedicated directory
@@ -1045,7 +1045,7 @@ Let's assume that `some-other-image:latest` does not already have Docker engine 
 
 The problem, however, will be apparent when there is a change (no matter how small) to `docker-compose.yml`. That will cause the build to re-execute without cache from the `COPY` command onwards, meaning that the installation of Docker engine will be repeated.
 
-A simple way to fix this is to use an earthly-provided [function](../guides/functions.md) to install Docker engine before the `COPY` command. Please note that this particular function is fastest when ran on top of an alpine-based image.
+A simple way to fix this is to use an EarthBuild-provided [function](../guides/functions.md) to install Docker engine before the `COPY` command. Please note that this particular function is fastest when ran on top of an alpine-based image.
 
 ```Dockerfile
 # Better
@@ -1128,7 +1128,7 @@ A good balance is often to perform pushes on the `main` branch only, and to disa
 Main branch build: `earth --ci --push +target`.
 PR build: `earth --ci +target`.
 
-The push option can also be configured via the env var `EARTHLY_PUSH`, which may be easier to manipulate in your CI of choice.
+The push option can also be configured via the env var `EARTH_PUSH`, which may be easier to manipulate in your CI of choice.
 
 A more extreme case of this idea can be to use explicit maximum cache: `earth --ci --push --remote-cache=.... --max-remote-cache +target`. The idea, again is to tradeoff performance on the `main` branch, for the benefit of faster PR builds. Whether this is actually beneficial needs to be measured on a project-by-project basis, however.
 
@@ -1208,11 +1208,11 @@ base:
     RUN apt-get install pandoc  pandocfilters -y
 
     # Manually cache the base image by pushing it to a registry
-    SAVE IMAGE –push earthly/blog-base-image:latest
+    SAVE IMAGE –push earthbuild/blog-base-image:latest
 
 build:
     # Use the cached base image for builds
-    FROM earthly/blog-base-image:latest
+    FROM earthbuild/blog-base-image:latest
     RUN ...
 ```
 

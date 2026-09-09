@@ -318,13 +318,13 @@ Note that mounts cannot be shared between targets, nor can they be shared within
 Mounting a secret as a file:
 
 ```Dockerfile
-RUN --mount=type=secret,id=netrc,target=/root/.netrc curl https://example.earthly.dev/restricted/example-file-that-requires-auth > data
+RUN --mount=type=secret,id=netrc,target=/root/.netrc curl https://example.earthbuild.dev/restricted/example-file-that-requires-auth > data
 ```
 
 The contents of the secret `/root/.netrc` file can then be specified from the command line as:
 
 ```bash
-earth --secret netrc="machine example.earthly.dev login myusername password mypassword" +base
+earth --secret netrc="machine example.earthbuild.dev login myusername password mypassword" +base
 ```
 
 or by passing the contents of an existing file from the host filesystem:
@@ -396,8 +396,8 @@ The `<oidc-spec>` is defined as a series of comma-separated list of key-values. 
 
 ##### The hosted OIDC provider is unavailable
 
-Configuring this required registering EarthBuild's hosted OIDC issuer (`api.earthly.dev`) as an
-identity provider in AWS IAM. That host was decommissioned along with EarthBuild Cloud and no longer
+Configuring this required registering Earthly's hosted OIDC issuer (`api.earthly.dev`) as an
+identity provider in AWS IAM. That host was decommissioned along with Earthly Cloud and no longer
 resolves, so the flow cannot be set up as previously documented. The option is still accepted by
 the parser, but there is no working issuer behind it unless you run your own.
 
@@ -1277,7 +1277,7 @@ WITH DOCKER \
 END
 ```
 
-For more examples, see the [Docker in EarthBuild guide](../guides/docker-in-earthly.md) and the [Integration testing guide](../guides/integration.md).
+For more examples, see the [Docker in EarthBuild guide](../guides/docker-in-earthbuild.md) and the [Integration testing guide](../guides/integration.md).
 
 For information on using `WITH DOCKER` with podman see the [Podman guide](../guides/podman.md)
 

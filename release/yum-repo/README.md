@@ -5,7 +5,7 @@ We host a rpm repository which fedora and CentOS users can use to install earth.
 ## Setup for Fedora
 
 TODO: move these notes elsewhere, this readme should only be notes on how to release to our repo, and is only intended for those with
-access to earth credentials.
+access to EarthBuild credentials.
 
 fedora users can use this guide to set up our repo:
 
@@ -15,7 +15,7 @@ First install the following tools:
 
     sudo dnf -y install dnf-plugins-core
 
-Second, add earth's repo
+Second, add EarthBuild's repo
 
     dnf config-manager \
         --add-repo \
@@ -27,7 +27,7 @@ Finally, install earth:
 
 ## Requirements
 
-To package a new version of earth, ensure the following requirements are met:
+To package a new version of EarthBuild, ensure the following requirements are met:
 
 1. you have aws credentials configured in the earth secret store under `/user/earthly-technologies/aws/credentials`, and have access to the developer role
 
@@ -41,7 +41,7 @@ To package a new version of earth, ensure the following requirements are met:
 
 ## Release steps
 
-Once earth has been released to GitHub, visit https://github.com/earthly/earthly/releases to determine the latest version:
+Once earth has been released to GitHub, visit https://github.com/earthbuild/earthbuild/releases to determine the latest version:
 
     export RELEASE_TAG="v0.0.0"
 

@@ -6,7 +6,7 @@ This folder contains a series of examples to help you familiarize yourself with 
 
 ## Examples from the Basics tutorial
 
-If you are new to EarthBuild, you may find the [Basics tutorial](https://docs.earthly.dev/basics) helpful.
+If you are new to EarthBuild, you may find the [Basics tutorial](https://docs.earthbuild.dev/basics) helpful.
 
 <!-- vale HouseStyle.Spelling = NO -->
 - [tutorial](./tutorial)
@@ -30,7 +30,7 @@ Please note that these examples, although similar, are distinct from the ones us
 - [go](./go)
 - [java](./java)
 - [js](./js)
-- [next-js-netlify](./next-js-netlify)
+- [next-js](./next-js)
 - [python](./python)
 - [ruby](./ruby)
 - [ruby-on-rails](./ruby-on-rails)
@@ -60,7 +60,7 @@ Please note that these examples, although similar, are distinct from the ones us
 ## Other
 
 - [readme](./readme) - some sample code we used in our README.
-- [tests](./tests) - a suite of tests EarthBuild uses to ensure that its features are working correctly.
+- [tests](../tests) - a suite of tests EarthBuild uses to ensure that its features are working correctly.
 
 ### Larger Examples And Community Examples
 

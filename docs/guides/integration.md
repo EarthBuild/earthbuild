@@ -357,6 +357,6 @@ There we have it, a reproducible integration process. If you have questions abou
 
 ## See also
 
-- [Docker In EarthBuild](./docker-in-earthly.md)
+- [Docker In EarthBuild](./docker-in-earthbuild.md)
 - [Source code for example](https://github.com/earthbuild/earthbuild/tree/main/examples/integration-test)
 - [Integration Testing vs Unit Testing](https://blog.earthly.dev/unit-vs-integration/)

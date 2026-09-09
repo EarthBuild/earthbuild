@@ -5,7 +5,7 @@
 ##### Removed commands
 
 The commands below were documented here previously and **no longer exist**. They belonged to
-EarthBuild's commercial cloud offering, which was shut down; EarthBuild is self-hosted only.
+Earthly's commercial cloud offering, which was shut down; EarthBuild is self-hosted only.
 
 | Removed                   | Instead                                                                                            |
 | ------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -17,7 +17,7 @@ EarthBuild's commercial cloud offering, which was shut down; EarthBuild is self-
 | `web`, `billing`, `gha`   | Not applicable.                                                                                      |
 | `prune-auto-skip`         | Delete the local auto-skip database file directly.                                                   |
 
-See [Migrating from earthly](../migrating-from-earthly.md) for the full migration guide.
+See [Migrating from Earthly](../migrating-from-earthly.md) for the full migration guide.
 
 {% endhint %}
 

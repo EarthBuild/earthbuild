@@ -96,16 +96,16 @@ Argument values can be set multiple ways:
    earth +hello --HELLO="$HELLO" --FOO="$FOO"
    ```
 
-3. Via the `EARTHLY_BUILD_ARGS` environment variable
+3. Via the `EARTH_BUILD_ARGS` environment variable
 
-    The value can also be set via the `EARTHLY_BUILD_ARGS` environment variable.
+    The value can also be set via the `EARTH_BUILD_ARGS` environment variable.
     
     ```bash
-    export EARTHLY_BUILD_ARGS="HELLO=world,FOO=bar"
+    export EARTH_BUILD_ARGS="HELLO=world,FOO=bar"
     earth +hello
     ```
 
-    This may be useful if you have a set of build args that you'd like to always use and would prefer not to have to specify them on the command line every time. The `EARTHLY_BUILD_ARGS` environment variable may also be stored in your `~/.bashrc` file, or some other shell-specific startup script.
+    This may be useful if you have a set of build args that you'd like to always use and would prefer not to have to specify them on the command line every time. The `EARTH_BUILD_ARGS` environment variable may also be stored in your `~/.bashrc` file, or some other shell-specific startup script.
 
 4. From an `.arg` file
 

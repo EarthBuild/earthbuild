@@ -4,7 +4,7 @@
 
 The AWS Elastic Container Registry (ECR) is a hosted docker repository that requires extra configuration for day-to-day use. This configuration is not typical of other repositories, and there are some considerations to account for when using it with EarthBuild. This guide will walk you through creating an Earthfile, building an image, and pushing it to ECR.
 
-This guide assumes you have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html), and [created a new repository named hello-earthly](https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-create.html).
+This guide assumes you have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html), and [created a new repository named hello-earthbuild](https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-create.html).
 
 ## Create an Earthfile
 
@@ -16,7 +16,7 @@ FROM alpine:3.18
 build:
     RUN echo "Hello from EarthBuild!" > motd
     ENTRYPOINT cat motd
-    SAVE IMAGE --push <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthly:with-love
+    SAVE IMAGE --push <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthbuild:with-love
 ```
 
 ## Install and Configure the ECR Credential Helper
@@ -83,11 +83,11 @@ With the helper installed, no special commands or flags are required. To build a
               output | [██████████] exporting manifest sha256:9ab4df74dafa2a71d71e39e1af133d110186698c78554ab000159cfa92081de4 ... 100%
               output | [██████████] exporting config sha256:6feef98708c14c000a6489a2a99315a5328c2c16091851ae10438b53f655d042 ... 100%
               output | [██████████] pushing layers ... 100%
-              output | [██████████] pushing manifest for <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthly:with-love ... 100%
+              output | [██████████] pushing manifest for <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthbuild:with-love ... 100%
               output | [██████████] sending tarballs ... 100%
 =========================== SUCCESS ===========================
-Loaded image: <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthly:with-love
-              +build | Image +build as <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthly:with-love (pushed)
+Loaded image: <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthbuild:with-love
+              +build | Image +build as <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthbuild:with-love (pushed)
 
 ```
 
@@ -99,8 +99,8 @@ Using this credential helper; you can also pull images without any special handl
 FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
 
 run:
-    WITH DOCKER --pull <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthly:with-love
-        RUN docker run <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthly:with-love
+    WITH DOCKER --pull <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthbuild:with-love
+        RUN docker run <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthbuild:with-love
     END
 ```
 
@@ -110,13 +110,13 @@ And here is how you would run it:
 ❯ earth -P +run
            buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
  earthbuild/dind:alpine-3.24-docker-29.5.3-r0 | --> Load metadata linux/amd64
-4/hello-earthly:with-love | --> Load metadata linux/amd64
-4/hello-earthly:with-love | --> DOCKER PULL <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthly:with-love
-4/hello-earthly:with-love | [██████████] resolve <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthly:with-love@sha256:9ab4df74dafa2a71d71e39e1af133d110186698c78554ab000159cfa92081de4 ... 100%
+4/hello-earthbuild:with-love | --> Load metadata linux/amd64
+4/hello-earthbuild:with-love | --> DOCKER PULL <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthbuild:with-love
+4/hello-earthbuild:with-love | [██████████] resolve <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthbuild:with-love@sha256:9ab4df74dafa2a71d71e39e1af133d110186698c78554ab000159cfa92081de4 ... 100%
                +base | --> FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
                +base | [██████████] resolve docker.io/earthbuild/dind:alpine-3.24-docker-29.5.3-r0@sha256:2cef4089960efe028de40721749e3ec6eba9f471562bf10681de729287bd78fb ... 100%
                 +run | *cached* --> WITH DOCKER (install deps)
-                +run | *cached* --> WITH DOCKER RUN docker run <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthly:with-love
+                +run | *cached* --> WITH DOCKER RUN docker run <aws_account_id>.dkr.ecr.<region>.amazonaws.com/hello-earthbuild:with-love
               output | --> exporting outputs
               output | [██████████] sending tarballs ... 100%
 =========================== SUCCESS ===========================

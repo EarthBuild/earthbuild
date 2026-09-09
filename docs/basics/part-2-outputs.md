@@ -12,7 +12,7 @@ Targets have the ability to produce output outside of the build environment. You
 
 ## Saving Files
 
-We've already seen how the command [SAVE ARTIFACT](https://docs.earthly.dev/docs/earthfile#save-artifact) copies a file or directory from the build environment into the target's artifact environment.
+We've already seen how the command [SAVE ARTIFACT](../earthfile/earthfile.md#save-artifact) copies a file or directory from the build environment into the target's artifact environment.
 
 This gives us the ability to copy files between targets, **but it does not allow us to save any files to our local machine.**
 

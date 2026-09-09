@@ -38,7 +38,7 @@ For users who want explicit control over git authentication, the following secti
 EarthBuild uses the environment variable `SSH_AUTH_SOCK` to detect where the SSH agent socket is located and mounts that socket to the BuildKit daemon container.
 (As an exception, on Mac, Docker's compatibility SSH auth socket is used instead).
 
-If you need to override the SSH agent socket, you can set the environment variable `EARTHLY_SSH_AUTH_SOCK`, or use the `--ssh-auth-sock` flag to point to an alternative SSH agent.
+If you need to override the SSH agent socket, you can set the environment variable `EARTH_SSH_AUTH_SOCK`, or use the `--ssh-auth-sock` flag to point to an alternative SSH agent.
 
 In order for the SSH agent to have the right credentials available, make sure you run `ssh-add` before executing EarthBuild builds.
 
@@ -69,7 +69,7 @@ git:
         password: <password>
 ```
 
-If no `user` or `password` are found, earth will check for entries under [`~/.netrc`](https://everything.curl.dev/usingcurl/netrc).
+If no `user` or `password` are found, earth will check for entries under [`~/.netrc`](https://everything.curl.dev/usingcurl/netrc.html).
 
 ##### Global override via environment variables (deprecated)
 

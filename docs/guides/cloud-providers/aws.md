@@ -34,8 +34,8 @@ and/or when authentication requires MFA (multi-factor authentication).
 
 ##### The hosted OIDC provider is unavailable
 
-Setting this up required registering EarthBuild's hosted OIDC issuer (`api.earthly.dev`) as an
-identity provider in AWS IAM. That host was decommissioned along with EarthBuild Cloud and no longer
+Setting this up required registering Earthly's hosted OIDC issuer (`api.earthly.dev`) as an
+identity provider in AWS IAM. That host was decommissioned along with Earthly Cloud and no longer
 resolves. Use `RUN --aws` with credentials supplied by your CI provider instead.
 
 Progress is tracked in [issue #750](https://github.com/EarthBuild/earthbuild/issues/750).

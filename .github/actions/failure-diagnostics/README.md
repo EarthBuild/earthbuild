@@ -33,7 +33,7 @@ integration. Pin `@<sha>` rather than `@main` if you pin your other actions.
 
 `CONTAINERS` — space-separated buildkit container names to inspect. Default
 `earth-buildkitd earth-dev-buildkitd earth-integration-buildkitd
-earthly-test-buildkitd`. Override it when you build with a custom
+earth-test-buildkitd`. Override it when you build with a custom
 `DEFAULT_INSTALLATION_NAME`, which renames the daemon container.
 
 `LOG_TAIL` — lines of daemon log dumped per container. Default `2000`.

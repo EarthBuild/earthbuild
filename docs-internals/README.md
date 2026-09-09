@@ -31,7 +31,7 @@ the [buildkit/docs/dev](https://github.com/moby/buildkit/tree/master/docs/dev) s
 | **mts** | Multi-target states; which holds multiple LLB States, in the order they should be built |
 | **pullping** | Once the build function returns (passing a set of LLB references back to buildkit), the BuildKit server will execute the commands, and call the earthlyoutputs exporter, which will call back to the client (EarthBuild), which will be received by the pullping handler. This will cause earth to perform a `docker pull ...` against the embedded registry |
 | **dockertar** | The legacy approach for exporting images from BuildKit to the host via a `tar` file; we try to use pullping instead, since it only pulls the needed layers |
-| **logbus** | An interface for writing output to both stdout and the web-based log viewer under cloud.earthly.dev |
+| **logbus** | An interface for writing structured output and events to stdout and logging handlers |
 | **earthlyoutputs** | A custom buildkit exporter (within the [EarthBuild/buildkit fork](https://github.com/EarthBuild/buildkit/tree/main/exporter/earthlyoutputs)), which is used to send images back to earth |
 | **embedded registry** | A [docker registry](https://github.com/distribution/distribution) which runs within the earth-buildkitd container, used in combination with earthlyoutputs and the pullping callback; also referred to as "local registry" |
 

@@ -6,7 +6,7 @@ The example contains two Microservices in a `services` directory, and a single s
 
 Each sub-module of this monorepo manages it's own build, test, and release steps, with parent Earthfile acting as an orchestrator.
 
-The `services` import code from `libs` during their EarthBuild build by utilizing [artifacts](https://docs.earthly.dev/docs/earthfile?q=save+artifact).
+The `services` import code from `libs` during their EarthBuild build by utilizing [artifacts](https://docs.earthbuild.dev/docs/earthfile?q=save+artifact).
 
 Some other noteworthy features of this demo include releases microservices based on a `.semver.yaml` file, starting the entire stack locally, and running unit-tests across the entire monorepo in parallel.
 

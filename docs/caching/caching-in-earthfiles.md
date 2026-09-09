@@ -96,7 +96,7 @@ Auto-skip is a feature that allows EarthBuild to skip large parts of a build in 
 ##### Experimental, and deprecated
 
 Auto-skip originally stored its skip-set in a hosted cloud database. That backend was removed with
-the rest of EarthBuild Cloud, so only the **local database** remains. It is experimental, and the
+the rest of Earthly Cloud, so only the **local database** remains. It is experimental, and the
 flags are deprecated — using them logs a deprecation warning.
 
 We may remove auto-skip in a future release, and are collecting feedback to help decide. If you

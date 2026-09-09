@@ -54,10 +54,10 @@ This is possible in a few ways:
 
    If the value of the secret is omitted on the command line EarthBuild will lookup the environment variable with that name.
 
-3. Via the environment variable `EARTHLY_SECRETS`
+3. Via the environment variable `EARTH_SECRETS`
 
    ```bash
-   export EARTHLY_SECRETS="passwd=itsasecret"
+   export EARTH_SECRETS="passwd=itsasecret"
    earth +hush
    ```
 
@@ -112,10 +112,10 @@ Secrets are never written to disk by EarthBuild, and never leave the machine run
 
 ##### Cloud-based secrets have been removed
 
-EarthBuild offered a hosted secret store, managed with `earth secret set ...`. That service and the
+Earthly previously offered a hosted secret store, managed with `earthly secret set ...`. That service and the
 `secret`/`secrets` commands were removed as part of the cloud teardown and are not part of
 EarthBuild. To share secrets across a team, fetch them from a secret manager you control and pass
 them in via `--secret`, `--secret-file-path`, or the environment. See
-[Migrating from earth](../migrating-from-earthly.md) for the full list of removed commands.
+[Migrating from Earthly](../migrating-from-earthly.md) for the full list of removed commands.
 
 {% endhint %}

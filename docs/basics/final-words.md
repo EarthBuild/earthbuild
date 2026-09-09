@@ -33,7 +33,7 @@ If you have any questions, feedback or suggestions for EarthBuild or this tutori
 - [Part 3: Adding dependencies With Caching](./part-3-adding-dependencies-with-caching.md)
 - [Part 4: Args](./part-4-args.md)
 - [Part 5: Importing](./part-5-importing.md)
-- [Part 6: Using Docker In EarthBuild](./part-6-using-docker-with-earthly.md)
+- [Part 6: Using Docker In EarthBuild](./part-6-using-docker-with-earthbuild.md)
 - [Part 7: Using remote runners](./part-7-using-remote-runners.md)
-- [Part 8: Using EarthBuild in CI](./part-8a-using-earthly-in-your-current-ci.md)
+- [Part 8: Using EarthBuild in CI](./part-8a-using-earthbuild-in-your-current-ci.md)
 - **Final words** <-- You are here.

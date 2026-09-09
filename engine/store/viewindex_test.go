@@ -3,20 +3,20 @@ package store
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
-// The index may only ever save a syscall, never change an answer.
+// What a stack answers for a path, across the ways a layer can decide it.
 //
-// **These are the cases where skipping a layer would be wrong.** A layer is
-// skipped when its index says it holds neither the path, nor a marker deleting
-// it, nor an opaque marker on any directory above it - and every one of those
-// three is a way for a layer with none of the path's bytes to still decide what
-// the path is. Getting this wrong does not fail a build; it produces a cache
-// hit against a base that no longer says what the entry claims.
+// **Three of these are ways a layer with none of the path's bytes still decides
+// what the path is**: a marker deleting it, an opaque marker on its directory,
+// and an opaque marker further up. They were written for an index that skipped
+// layers it thought could not answer - see symlinkview_test.go for why there is
+// no such index - and they are worth keeping without it, because getting any of
+// them wrong does not fail a build. It produces a cache hit against a base that
+// no longer says what the entry claims.
 func TestTheIndexNeverChangesWhatAViewAnswers(t *testing.T) {
 	t.Parallel()
 
@@ -120,22 +120,7 @@ func TestTheIndexNeverChangesWhatAViewAnswers(t *testing.T) {
 	}
 }
 
-// A layer nobody can read is never skipped.
-//
-// The index answers "absent" for everything it does not know, so a layer that
-// could not be walked must have no index at all - otherwise every file in it
-// disappears from every view, which is a cache hit against a base missing the
-// files the entry was recorded against.
-func TestALayerThatCannotBeWalkedIsNeverSkipped(t *testing.T) {
-	t.Parallel()
-
-	if idx := indexOfLayer(filepath.Join(t.TempDir(), "absent")); idx != nil {
-		t.Fatal("a layer that is not there produced an index")
-	}
-}
-
-// Two stacks sharing a layer share its index, and neither is confused by the
-// other - the cache is keyed on the layer, which is content-addressed.
+// Two stacks sharing a layer each see it, and neither sees the other's.
 func TestAnIndexIsSharedBetweenStacks(t *testing.T) {
 	t.Parallel()
 

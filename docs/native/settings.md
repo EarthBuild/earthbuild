@@ -1111,25 +1111,3 @@ conversation, which includes the values of the build's secrets, and it is as lar
 talkative - 8 MB for a single corpus target. Delete them when you are done.
 
 See `tools/vsockprobe` for the fault this was built to find.
-
-## `EARTH_STEP_NET_AHEAD`
-
-How many step networks the guest keeps built ahead of demand. Default: 1. `0` builds each one when
-the step asks for it, which is what happened before there was a pool.
-
-**Because the setup was a third of a small step.** A step gets a network namespace of its own so
-that two running at once cannot collide on a fixed port, and building it costs about 6ms - against
-a `guest:request` of about 17ms for `RUN echo`, on both the microVM and the namespace backend. It
-does not have to be built while the step waits: the guest is running the *previous* step at the
-time.
-
-**Every step still gets a namespace nobody has used**, which is the part not to trade away. A
-namespace is self-cleaning because it is destroyed; handing a used one to the next step would hand
-over whatever the last step left listening in it, and a step that leaves a process running is
-ordinary enough that `stepWaitDelay` exists for it. That is the port collision this feature was
-built to remove, returning nondeterministically.
-
-One rather than the parallelism: a step only waits once, so a single ready network is enough for
-any build whose steps take longer than the 6ms, and a deeper pool spends veths, addresses and
-iptables rules on networks the build may never reach. What was built and never used is destroyed
-when the agent's connection ends.

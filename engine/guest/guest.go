@@ -40,12 +40,6 @@ import (
 type Server struct {
 	Mat core.Materialiser
 
-	// stepNets keeps a step's network built before the step asks. Made on
-	// first use through nets(), because a build with no steps should not pay
-	// for one. See stepNetPool.
-	netsOnce sync.Once
-	stepNets *stepNets
-
 	// Idle stops the sandbox when nobody has used it for a while. Nil means it
 	// stays up until something else stops it, which is what a sandbox did
 	// before this existed. See idle.
@@ -334,12 +328,6 @@ func (s *Server) cancel(id uint64) {
 
 // Serve handles requests until the connection closes.
 func (s *Server) Serve(ctx context.Context, rw io.ReadWriter) error {
-	// **What was built ahead and never used still exists.** A network nobody
-	// took is a veth, an address and two iptables rules; inside a microVM they
-	// go with the machine, on a host they do not - and openStepNet's retry
-	// exists because namespaces do get left behind.
-	defer s.nets().drain()
-
 	c := newConn(rw)
 
 	defer s.abandonAll()
@@ -2479,11 +2467,13 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 
 	if wantsStepNet(s.DropNet, req.NoNet) {
 		// Timed, because it was the one region of a step's preparation that was
-		// not - and on a host it is twelve processes (`ip` nine times,
-		// `iptables` three) built and torn down for every step.
+		// not. Worth knowing rather than worth removing: building it ahead of
+		// the step was tried and measured no different - 3543ms against 3543ms
+		// over sixty steps - because warm it costs about 1ms, and the 7ms that
+		// made it look worth doing was a cold first run.
 		endNet := timing.Phase("guest:net", req.Handle)
 
-		netAt, closeNet, whyNoNet = s.nets().take()
+		netAt, closeNet, whyNoNet = openStepNet()
 
 		endNet()
 	}

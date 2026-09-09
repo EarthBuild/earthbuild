@@ -197,6 +197,8 @@ func CollectUntil(
 		// there. Interrupted here, this store lags.
 		_ = index.Forget(l.id)
 
+		forgetLayerIndex(LayerStore(root).Path(l.id))
+
 		err := os.RemoveAll(LayerStore(root).Path(l.id))
 		if err != nil {
 			return report, fmt.Errorf("collect layer %s: %w", l.id, err)

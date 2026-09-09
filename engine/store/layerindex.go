@@ -1,7 +1,6 @@
 package store
 
 import (
-	"hash/maphash"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -37,11 +36,27 @@ func (i *layerIndex) mayHave(rel string) bool {
 	return ok
 }
 
-// seed makes the hash stable for the life of the process, which is all the
-// index needs: it is never written down.
-var seed = maphash.MakeSeed() //nolint:gochecknoglobals // one seed per process
+// hashPath is FNV-1a, which is a function of the path and of nothing else.
+//
+// **Not maphash, whose seed is per-process.** An index is written beside its
+// layer and read by later builds, so a hash that varied between processes would
+// produce a file saying the layer holds nothing it holds - and "holds nothing"
+// is the answer that loses files. Changing this invalidates every index on
+// disk, which is what indexVersion is for.
+func hashPath(rel string) uint64 {
+	const (
+		offset = 14695981039346656037
+		prime  = 1099511628211
+	)
 
-func hashPath(rel string) uint64 { return maphash.String(seed, rel) }
+	h := uint64(offset)
+	for i := range len(rel) {
+		h ^= uint64(rel[i])
+		h *= prime
+	}
+
+	return h
+}
 
 // indexed remembers what has been walked. A layer is content-addressed and
 // immutable, so an index of one is good for as long as this process lives -
@@ -60,7 +75,24 @@ func indexOfLayer(root string) *layerIndex {
 		return idx
 	}
 
-	idx := walkLayer(root)
+	// **Beside the layer, because the walk must happen once and not once a
+	// build.** An agent is started fresh for every build - which is what stops
+	// one build inheriting another's memory - so an index held only in memory
+	// is rebuilt every time and pays for itself and no more: measured at 1.39s
+	// of L2 either way. A layer is content-addressed and immutable, so a file
+	// written beside it is good for ever.
+	at := root + indexSuffix
+
+	idx := loadIndex(at)
+	if idx == nil {
+		idx = walkLayer(root)
+
+		// Best effort: a store nobody may write to is a slower build, not a
+		// failed one, and the index is only ever an accelerator.
+		if idx != nil {
+			_ = saveIndex(at, idx)
+		}
+	}
 
 	// Stored even when nil, so a missing layer is not walked again on every
 	// path of every step.

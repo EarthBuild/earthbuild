@@ -197,3 +197,57 @@ func TestTheGuestIsGivenEntropy(t *testing.T) {
 			" or invents it")
 	}
 }
+
+// TestTheGuestIsToldToUseHugePages.
+//
+// **The kernel firecracker publishes a config for defaults to madvise, and
+// nothing madvises.** `CONFIG_TRANSPARENT_HUGEPAGE_MADVISE` means a guest
+// process gets 2 MiB pages only if it asks for them, and a Go compiler - which
+// is what this engine spends its time running - never asks. Every allocation is
+// then backed by 4 KiB pages and every TLB miss walks a page table inside a
+// guest whose walks are themselves nested.
+//
+// That is where the measured penalty is, and only there: against the namespace
+// backend on one box and one build, a tight CPU loop ran at parity and reading
+// files ran at parity, while two thousand process creations cost 21% more in
+// the guest.
+//
+// The command line rather than the host's own setting, which is the reason this
+// is affordable: the host's THP mode is global and needs root, and a hugetlbfs
+// pool needs memory reserved that nothing else on the machine may use. The
+// guest's command line is this engine's to write.
+//
+// Asserted on the configuration because the alternative is a benchmark, and a
+// missing kernel argument shows up there as noise rather than as an absence.
+func TestTheGuestIsToldToUseHugePages(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	fc := &exec.Firecracker{Root: dir, Store: t.TempDir(), StoreImage: "/dev/null"}
+
+	at := filepath.Join(dir, "vm.json")
+	if err := fc.WriteConfigForTest(at, filepath.Join(dir, "guest.vsock")); err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := os.ReadFile(at)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var cfg struct {
+		BootSource struct {
+			BootArgs string `json:"boot_args"`
+		} `json:"boot-source"`
+	}
+
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(cfg.BootSource.BootArgs, "transparent_hugepage=always") {
+		t.Errorf("the guest is not told to use huge pages, so every allocation a"+
+			" step makes is backed by 4 KiB pages and walked twice"+
+			"\n  boot_args: %s", cfg.BootSource.BootArgs)
+	}
+}

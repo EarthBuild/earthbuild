@@ -1388,6 +1388,7 @@ examples-2:
     BUILD ./examples/clojure+docker
     BUILD ./examples/cobol+docker
     BUILD ./examples/rust+docker
+    BUILD ./examples/rust-layered+build
     BUILD ./examples/multiplatform+all
     BUILD ./examples/multiplatform-cross-compile+build-all-platforms
     BUILD github.com/EarthBuild/hello-world:main+hello

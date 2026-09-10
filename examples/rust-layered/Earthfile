@@ -1,0 +1,77 @@
+VERSION 0.8
+
+# A Rust workspace cached in ordinary layers.
+#
+# No CACHE command and no --mount=type=cache anywhere: everything here is a
+# content-addressed layer, so it is shared through a registry, reproducible on a
+# machine that has never run this build, and comparable between two builds.
+# See README.md for the reasoning and for how this differs from cargo-chef.
+
+toolchain:
+    FROM rust:slim-bookworm
+    WORKDIR /w
+
+# deps compiles everything from crates.io and nothing of ours.
+#
+# It copies the manifests and no source, so it is keyed on the dependency graph
+# alone and survives every edit to a source file.
+deps:
+    FROM +toolchain
+    COPY Cargo.toml Cargo.lock .
+    COPY crates/app/Cargo.toml crates/app/
+    COPY crates/greet/Cargo.toml crates/greet/
+    COPY crates/mathy/Cargo.toml crates/mathy/
+
+    # Just enough of each crate for cargo to resolve the graph, and no more.
+    RUN for c in crates/*/; do mkdir -p "$c/src" && : > "$c/src/lib.rs"; done \
+     && echo 'fn main() {}' > crates/app/src/main.rs \
+     && cargo build --release --workspace
+
+    # **The stubs are our crates**, so cargo left fingerprints claiming they are
+    # built. Drop ours and keep every dependency's - without this the real
+    # sources arrive looking older than the stubs' fingerprints, cargo reports
+    # them `Fresh`, and the stub binary is what ships.
+    RUN rm -rf crates/app/src crates/greet/src crates/mathy/src \
+     && for c in app greet mathy; do \
+            rm -rf "target/release/.fingerprint/$c-"*; \
+            rm -f "target/release/deps/$c-"* "target/release/deps/lib$c-"*; \
+        done \
+     && rm -f target/release/app
+
+# build compiles the workspace on top of that layer.
+build:
+    FROM +deps
+    COPY --dir crates .
+    RUN cargo build --release
+    SAVE ARTIFACT target/release/app app
+
+# build-warm starts from a whole build tree a previous run published, target/
+# and all, so cargo recompiles only the crates whose sources actually changed -
+# not every crate you own, which is as well as a dependency-only cache can do.
+#
+#     earth --build-arg warm_image=ghcr.io/you/app-build-cache:main \
+#         ./examples/rust-layered+build-warm
+#
+# Defaulted to +deps so a cold build works with no registry at all.
+build-warm:
+    ARG warm_image=""
+    IF [ -z "$warm_image" ]
+        FROM +deps
+    ELSE
+        FROM $warm_image
+    END
+    COPY --dir crates .
+    RUN cargo build --release
+    SAVE ARTIFACT target/release/app app
+
+# cache publishes the build tree for the next run to start from.
+cache:
+    FROM +build
+    ARG cache_image=app-build-cache:latest
+    SAVE IMAGE --push $cache_image
+
+docker:
+    FROM debian:bookworm-slim
+    COPY +build/app app
+    ENTRYPOINT ["./app"]
+    SAVE IMAGE earthbuild/examples:rust-layered

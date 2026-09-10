@@ -272,10 +272,22 @@ func writeLayers(blobs string, sources []LayerSource) ([]ocispec.Descriptor, []d
 		// The same composition `Pack` uses on the other side of this seam, so
 		// the digest of a layer read here and a layer streamed in is computed
 		// once, in one way.
-		sum := sha256.New()
-		count := &countingWriter{w: io.MultiWriter(tmp, sum)}
+		// **Two digests of two different things.** The descriptor names the
+		// compressed bytes, which is what a registry stores and fetches; the
+		// diffID names the plain ones, which is what a runtime checks against
+		// what it decompressed. Writing one where the other belongs produces an
+		// image that pulls and then fails to verify.
+		packed := sha256.New()
+		plain := sha256.New()
+		count := &countingWriter{w: io.MultiWriter(tmp, packed)}
 
-		err = source(count)
+		zw := compressorTo(count)
+
+		err = source(io.MultiWriter(zw, plain))
+		if err == nil {
+			err = zw.Close()
+		}
+
 		if err != nil {
 			_ = tmp.Close()
 			_ = os.Remove(tmp.Name())
@@ -288,7 +300,8 @@ func writeLayers(blobs string, sources []LayerSource) ([]ocispec.Descriptor, []d
 			return nil, nil, fmt.Errorf("finish a layer: %w", err)
 		}
 
-		dgst, size := "sha256:"+hex.EncodeToString(sum.Sum(nil)), count.n
+		dgst, size := "sha256:"+hex.EncodeToString(packed.Sum(nil)), count.n
+		diffID := "sha256:" + hex.EncodeToString(plain.Sum(nil))
 
 		err = os.Rename(tmp.Name(), filepath.Join(blobs, strings.TrimPrefix(dgst, "sha256:")))
 		if err != nil {
@@ -296,11 +309,11 @@ func writeLayers(blobs string, sources []LayerSource) ([]ocispec.Descriptor, []d
 		}
 
 		descs = append(descs, ocispec.Descriptor{
-			MediaType: ocispec.MediaTypeImageLayer,
+			MediaType: layerMediaType(),
 			Digest:    digest.Digest(dgst),
 			Size:      size,
 		})
-		diffIDs = append(diffIDs, digest.Digest(dgst))
+		diffIDs = append(diffIDs, digest.Digest(diffID))
 	}
 
 	return descs, diffIDs, nil

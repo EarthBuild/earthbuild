@@ -98,3 +98,38 @@ excluding what cannot build alone was tried twice and reverted twice, both times
 caught by the same check: **an exclusion moves the denominator and must leave the
 numerator alone** (E880, E880b). One narrow rule survived, worth three
 invocations.
+
+## Preserved mtimes and layer deduplication pull against each other
+
+A layer of the store keeps the times the store holds, so a published build tree
+is usable by an incremental compiler: cargo compares a source's mtime against
+the artefact built from it, and a flattened layer answers every such question the
+same way (`image.PackStored`).
+
+The cost is that a layer's digest now moves whenever a step reruns, even when the
+step produces byte-identical output - the mtimes differ, so the tar differs, so
+the blob is new. Two consequences:
+
+* a cold engine cache re-pushes layers whose contents nobody changed;
+* determinism screening compares `Content` rather than `ID` for exactly this
+  reason (§6), so the two notions of "the same layer" have drifted further apart.
+
+Measured on a three-crate workspace: with the cache in play a republish shared 8
+of 10 layers and moved 0.07% of the image, so the ordinary case is unaffected.
+Forced to rebuild (`--no-cache`), 9 of 10 layers churned - all of them
+byte-identical but for their times.
+
+What is not yet decided is whether the two can be had at once. Sketches worth
+weighing, none tried:
+
+* **Stamp produced files from the step's own identity** rather than the wall
+  clock - a deterministic time derived from the layer id, ordered after its base.
+  Reproducible *and* usable, if an ordering can be defined that a compiler
+  accepts.
+* **Carry times beside the tar** rather than in it, so the blob dedups and the
+  materialiser applies them. Costs a second artefact per layer and a format that
+  is no longer plain OCI.
+* **Accept the churn** and rely on chunk-level dedup in the registry
+  (zstd:chunked, nydus) to make an unchanged 5 GB layer cheap to re-push.
+
+Raised 2026-09-10, while measuring what a republish costs at substrate scale.

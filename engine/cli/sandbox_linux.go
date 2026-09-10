@@ -30,9 +30,20 @@ const envVM = "EARTH_VM"
 // sandbox picks the backend for this platform: a microVM where one can be
 // built, and otherwise the guest as a child process confined with namespaces
 // and cgroups.
-func sandbox(_ string) (exec.Sandbox, error) {
+func sandbox(_ string) (exec.Sandbox, error) { return SandboxIn("") }
+
+// SandboxIn is the same choice, into a store the caller names.
+//
+// **Exported because a fleet worker asks the same question.** It used to build
+// `exec.NewNative()` itself, so a worker running other people's steps always got
+// the weaker of the two boundaries - not by decision, but because the choice was
+// written down in one place and the worker was not that place. The machine with
+// the strongest reason to want a hypervisor was the one that could not have one.
+//
+// An empty root means the store a local build uses.
+func SandboxIn(root string) (exec.Sandbox, error) {
 	if wantsVM() {
-		sb, err := microVM()
+		sb, err := microVM(root)
 		if err == nil {
 			return sb, nil
 		}
@@ -50,15 +61,21 @@ func sandbox(_ string) (exec.Sandbox, error) {
 		sayNoMicroVM(err)
 	}
 
-	dir, err := storeDir()
-	if err != nil {
-		return nil, err
+	dir := root
+
+	if dir == "" {
+		var err error
+
+		dir, err = storeDir()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	sb := exec.NewNative()
 	sb.Root = dir
 
-	err = sb.Available()
+	err := sb.Available()
 	if err != nil {
 		return nil, err
 	}
@@ -106,8 +123,14 @@ func sayNoMicroVM(why error) {
 // asked for one; a build that *did* ask and got namespaces runs under a weaker
 // boundary than it believes it has, and nothing in its output says which it
 // got. So the degrade lives at the default and the refusal lives here.
-func microVM() (exec.Sandbox, error) {
+func microVM(root string) (exec.Sandbox, error) {
 	sb := exec.NewFirecracker()
+
+	// The host side of the store, where the caller keeps one of its own. The
+	// guest's layers are on its own device either way - see Firecracker.StoreDir.
+	if root != "" {
+		sb.Store = root
+	}
 
 	err := sb.Available()
 	if err != nil {

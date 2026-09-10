@@ -85,6 +85,27 @@ func (e *Executor) exportTo(
 	// between waking a sandbox and not: nothing else in the build needs one
 	// (E569).
 	memo := store.OpenExportMemo(e.sb.StoreDir())
+
+	// **The destination may already hold it.** A stack is content-addressed, so
+	// the same key names the same bytes forever; if this machine's copy is
+	// still the one the last build wrote, there is nothing to do and no sandbox
+	// to wake. Unlike the lookup below this asks nothing of the store, so it is
+	// the one answer a backend whose store is a device the host cannot open can
+	// still use - and that is the backend it was measured on: 0.409s of a 1.17s
+	// build with every step a cache hit, to hand back a 70 MiB binary already
+	// sitting at the destination.
+	//
+	// Not for a pattern. `SAVE ARTIFACT /output/* AS LOCAL .` writes a set of
+	// files whose membership one stat cannot speak for, and a memo that
+	// answered for it would skip an artifact that had appeared. Same test
+	// stagingFor uses, for the same distinction.
+	if !isPattern(path) && memo.Current(stack, path, localDest) {
+		endCurrent := phase("export:current", path)
+		defer endCurrent()
+
+		return insideProject(project, localDest)
+	}
+
 	if guest.ShareExports() {
 		if rel, ok := memo.Lookup(stack, path); ok {
 			endMemo := phase("export:memo", path)
@@ -210,7 +231,28 @@ func (e *Executor) exportTo(
 	endOut := phase("export:copyout", localDest)
 	defer endOut()
 
-	return copyOut(at, localDest)
+	err = copyOut(at, localDest)
+	if err != nil {
+		return err
+	}
+
+	// After the write, so the stamp is the one this build left behind. A
+	// pattern is not remembered, for the reason the check above is not asked
+	// about one.
+	if !isPattern(path) {
+		memo.NoteOutput(asked, path, localDest)
+	}
+
+	return nil
+}
+
+// isPattern reports whether an export names a set of files rather than one.
+//
+// Named once because two decisions turn on it - where the guest stages, and
+// whether the destination can be remembered - and a build where those two
+// disagreed would remember one file on behalf of a set.
+func isPattern(path string) bool {
+	return strings.ContainsAny(filepath.Base(path), "*?[")
 }
 
 // copyOut moves a staged artifact to where the user asked for it.
@@ -228,7 +270,7 @@ func (e *Executor) exportTo(
 // leave one directory per invocation, and two patterns to one destination do
 // not share.
 func stagingFor(path, localDest string) string {
-	if !strings.ContainsAny(filepath.Base(path), "*?[") {
+	if !isPattern(path) {
 		return localDest
 	}
 

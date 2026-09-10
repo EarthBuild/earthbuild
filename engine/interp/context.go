@@ -36,7 +36,10 @@ type options struct {
 	unsafeUnpinnedRemoteLocally bool
 	// push says this build is a push, so `RUN --push` steps run.
 	push bool
-	args map[string]string
+	// strict withholds the constructs that make a build unrepeatable. See
+	// WithStrict.
+	strict bool
+	args   map[string]string
 	// terminal says the invocation has one, so an interactive step can run.
 	terminal bool
 	// commands runs what the plan cannot work out: a condition it cannot
@@ -446,6 +449,24 @@ func WithUnsafeUnpinnedRemoteLocally(on bool) Option {
 // Not the same question as pushing an *image*: `SAVE IMAGE --push` needs a
 // registry, credentials and a network, where this needs a shell. Conflating
 // the two is why `tests/push.earth` ran nothing for as long as it did.
+// WithStrict withholds the constructs that make a build unrepeatable: a step
+// that runs outside the sandbox, and one that waits for a person.
+//
+// **The invocation's choice, not the engine's position.** This engine already
+// refuses what it cannot *reproduce* - an unpinned remote reaching LOCALLY, say
+// (I10) - and that is why the flag was read as having nothing to switch on. But
+// `--strict` is a wider question than pinning: `LOCALLY` in the Earthfile in
+// front of you is legitimate, repeatable-enough for a developer, and exactly
+// what a release pipeline wants withheld. `--ci` implies it, so a pipeline
+// asking for repeatability was getting the ordinary rules.
+//
+// The two it withholds are the reference's two, so an Earthfile that builds
+// under one engine's `--strict` builds under the other's.
+func WithStrict(on bool) Option {
+	return func(o *options) { o.strict = on }
+}
+
+// WithPush says this build is a push, so `RUN --push` steps run.
 func WithPush(on bool) Option {
 	return func(o *options) { o.push = on }
 }

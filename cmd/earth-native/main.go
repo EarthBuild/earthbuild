@@ -215,7 +215,9 @@ func main() {
 		noOutput = flag.Bool("no-output", false,
 			"do not write SAVE ARTIFACT AS LOCAL artifacts to the working tree")
 		ci = flag.Bool("ci", false,
-			"execute in CI mode; implies -no-output (this engine is already strict)")
+			"execute in CI mode; implies -no-output -strict")
+		strict = flag.Bool("strict", false,
+			"refuse the constructs that make a build unrepeatable: LOCALLY, RUN --interactive")
 		// Wiring, not mechanism, exactly as the three above: `engine/cli`
 		// already has ExecStats and prints `total CPU: ... total memory: ...`
 		// from it (E467), and nothing could set it - so the option was
@@ -390,12 +392,16 @@ func main() {
 		UnsafeAllowUnpinnedRemoteLocally: *unsafeUnpinned,
 		Push:                             *push,
 		VersionFlags:                     splitList(*versionFlags),
-		// **`--ci` means `--no-output --strict`.** Strict is what this engine
-		// already is: it refuses what it cannot reproduce rather than offering
-		// the choice (I10), so there is nothing for the flag to switch on. What
-		// remains is leaving the working tree alone, which is the half a build
-		// machine actually wants.
+		// **`--ci` means `--no-output --strict`**, and both halves are real.
+		//
+		// This was read as "strict is what this engine already is" - true of
+		// what it cannot *reproduce* (I10), and not of what `--strict` is
+		// actually about. `LOCALLY` in the Earthfile in front of you is
+		// legitimate and repeatable enough for a developer; it is exactly what
+		// a release pipeline wants withheld. So the flag had something to
+		// switch on after all, and switched on nothing.
 		NoOutput: *noOutput || *ci,
+		Strict:   *strict || *ci,
 		Out:      os.Stdout,
 	})
 	if err != nil {

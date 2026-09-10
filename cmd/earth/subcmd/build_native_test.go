@@ -256,6 +256,7 @@ func TestEveryOptionIsAccountedFor(t *testing.T) {
 		allowPrivileged: true,
 		noCache:         true,
 		push:            true,
+		strict:          true,
 		noOutput:        true,
 		execStats:       true,
 		argFile:         "f",

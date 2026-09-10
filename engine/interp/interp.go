@@ -1168,7 +1168,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		allowHere := p.granted ||
 			(p.opt.allowPrivileged && p.here.fetchedFrom == "")
 
-		rf, err := runFlags(c, rs.env, rs.dir, p.opt.terminal, allowHere)
+		rf, err := runFlags(c, rs.env, rs.dir, p.opt.terminal, allowHere, p.opt.strict)
 		if err != nil {
 			return nil, err
 		}
@@ -1597,6 +1597,22 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		return prev, nil
 
 	case earthfile.CmdLocally:
+		// **Withheld by the invocation, not by the engine.** A host step runs
+		// outside the sandbox on whatever this machine happens to have, so
+		// nothing bounds what it observed (I7) and nothing makes it repeatable
+		// somewhere else. That is a trade a developer may want and a release
+		// pipeline may not, which is what `--strict` is for.
+		if p.opt.strict {
+			return nil, fmt.Errorf(
+				"LOCALLY at %s is withheld by --strict"+
+					"\n  a host step runs outside the sandbox, so what it reads is"+
+					" whatever this machine has and the build is not repeatable"+
+					" elsewhere"+
+					"\n  drop --strict (and --ci, which implies it), or move the"+
+					" work into a sandboxed target",
+				loc(c.SourceLocation))
+		}
+
 		// Not from somewhere else. `LOCALLY` runs commands on the invoking
 		// machine outside any sandbox, which in an Earthfile you wrote is a
 		// choice you made - and in one fetched from a repository is a command

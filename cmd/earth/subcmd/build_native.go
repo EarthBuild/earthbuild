@@ -123,6 +123,13 @@ func (b *Build) runNative(
 		argFile = b.cli.Flags().ArgFile
 	}
 
+	// **Before the build, not after.** A note about what will not happen is
+	// worth reading while there is still time to stop and pass it differently;
+	// after a ten-minute build it is a post-mortem.
+	if said := ignoredNote(cmd.IsSet); said != "" {
+		fmt.Fprintln(os.Stderr, said)
+	}
+
 	return enginecli.Run(ctx, nativeOptions(nativeInput{
 		dir:             dir,
 		target:          target.Target,
@@ -132,6 +139,7 @@ func (b *Build) runNative(
 		allowPrivileged: b.cli.Flags().AllowPrivileged,
 		noCache:         b.cli.Flags().NoCache,
 		push:            b.cli.Flags().Push,
+		strict:          b.cli.Flags().Strict || b.cli.Flags().CI,
 		noOutput:        b.cli.Flags().NoOutput,
 		execStats:       b.cli.Flags().DisplayExecStats,
 		argFile:         argFile,
@@ -155,6 +163,7 @@ type nativeInput struct {
 	allowPrivileged bool
 	noCache         bool
 	push            bool
+	strict          bool
 	noOutput        bool
 	execStats       bool
 	argFile         string
@@ -174,6 +183,7 @@ func nativeOptions(in nativeInput) enginecli.Options {
 		AllowPrivileged: in.allowPrivileged,
 		NoCache:         in.noCache,
 		Push:            in.push,
+		Strict:          in.strict,
 		NoOutput:        in.noOutput,
 		ExecStats:       in.execStats,
 		ArgFile:         in.argFile,

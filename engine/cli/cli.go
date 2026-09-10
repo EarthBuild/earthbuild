@@ -84,6 +84,9 @@ type Options struct {
 	// Push says this build is a push, so `RUN --push` steps run rather than
 	// being planned away (interp.WithPush).
 	Push bool
+	// Strict withholds the constructs that make a build unrepeatable - a host
+	// step, an interactive one. `--ci` implies it (interp.WithStrict).
+	Strict bool
 	// NoCache builds every step, reading no cache entry that is already there.
 	//
 	// Two of the corpus's own invocations pass `--no-cache` and the gate could
@@ -332,6 +335,7 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		interp.WithVersionFlags(o.VersionFlags),
 		interp.WithAllowPrivileged(o.AllowPrivileged),
 		interp.WithPush(o.Push),
+		interp.WithStrict(o.Strict),
 		interp.WithUnsafeUnpinnedRemoteLocally(o.UnsafeAllowUnpinnedRemoteLocally),
 		interp.WithPlatform(o.platformOrDefault()),
 		interp.WithGitClone(g.gitClone(ctx)),

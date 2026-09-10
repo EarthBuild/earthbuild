@@ -80,7 +80,7 @@ type runOpts struct {
 
 func runFlags(
 	c earthfile.Command, env map[string]string, workdir string,
-	hasTerminal, allowPrivileged bool,
+	hasTerminal, allowPrivileged, strict bool,
 ) (runOpts, error) {
 	// The exec form takes no flags: `RUN ["a", "--b"]` is an argv, and reading
 	// `--b` as an option would eat an argument the author wrote deliberately.
@@ -132,6 +132,20 @@ func runFlags(
 	// A prompt needs a terminal, and a terminal is the caller's to supply. With
 	// one the step runs on it (E189-E193); without, this is the same shape as a
 	// secret nobody passed - a valid Earthfile and an incomplete invocation.
+	// **A step that waits for a person is not a step that repeats.** Refused
+	// ahead of the terminal check, because "this invocation has no terminal" is
+	// the wrong diagnosis when the invocation asked for repeatability: it sends
+	// the reader looking for a tty they were never going to be allowed to use.
+	if opts.Interactive && strict {
+		return runOpts{}, fmt.Errorf(
+			"RUN --interactive at %s is withheld by --strict"+
+				"\n  a step that waits for a person produces a different build"+
+				" each time it is answered differently"+
+				"\n  drop --strict (and --ci, which implies it), or drop"+
+				" --interactive",
+			loc(c.SourceLocation))
+	}
+
 	if opts.Interactive && !hasTerminal {
 		return runOpts{}, fmt.Errorf(
 			"RUN --interactive at %s needs a terminal and this invocation has none"+

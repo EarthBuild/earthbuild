@@ -65,23 +65,29 @@ as many words. So getting to 257 needs `LOCALLY`, the three decisions, and a
 harness that does not count what it cannot stage - in that order of size, and
 none of them is discovery.
 
-## Isolation traded for a warm cache
+## Decided: isolation traded for a warm cache
 
-Reusing a microVM between builds is the last item between this backend and the
-namespace backend on speed - it addresses the boot, the teardown and most of the
-compile penalty at once, because all three are the same cold guest (E979, and
-the plan's reuse section). Nobody disputes the number. What needs deciding is
-what it costs.
+**Taken, 2026-09-10.** A microVM outlives the build that started it by default,
+and a microVM is the default backend on Linux where one can be built.
 
-| decision                    | what it costs now                                                                                                                                                                                                                                                                                                                                                             | evidence |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| a machine serves two builds | 1.70x against namespaces on the edit-one-file build, projected to 1.1-1.2x. **The cost is the boundary**: a guest serving build B after build A carries A's kernel state, page cache, `/tmp` and anything left outside the store, all of which die with the machine today. The layer store is already shared, so store content is not new surface; guest state outside it is. | E979     |
-| reset between sessions      | Remounting the store, clearing the writable layers and re-execing the agent makes reuse "a fresh userland on a warm kernel and a warm cache" rather than "the same machine again" - most of the benefit, most of the surface given back. Costs a session boundary that has to be correct, which is where the first attempt tore a store.                                      | E979     |
+What it costs is boundary: a guest serving a second build carries the first's
+kernel state and page cache. It does not carry the first's agent, which is a new
+process per build, nor its steps, which run in their own overlays, and the layer
+store is shared between builds already, by design, being a cache.
 
-The question, plainly: is a page cache shared between two of one user's own
-builds an acceptable weakening, given their layer store is shared already? It
-should be answered before the guest is taught to wait, not by whoever writes
-that code.
+What it buys is that the boundary is affordable enough to be the default at all -
+2.93x the namespace backend to 1.13x on the build this repository does most
+often, and per-step file access at parity or better (E983, E985b). A boundary
+nobody can afford to switch on protects nothing.
+
+`EARTH_VM_REUSE=0` gives a machine per build; `EARTH_VM=0` gives the namespace
+backend. Both are the stronger and the weaker of their pair respectively, and
+both remain one variable away.
+
+**What is still open** is not the trade but the evidence behind it: one machine,
+one corpus, one repository. A reused guest resetting more of its userland between
+sessions - remounting the store, clearing the writable layers - would hand back
+most of the surface for most of the benefit, and has not been tried.
 
 ## What is not a decision
 

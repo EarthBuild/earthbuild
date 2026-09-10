@@ -91,7 +91,19 @@ func resolvMount(nameservers []string) []Mount {
 		b.WriteString("nameserver " + ns + "\n")
 	}
 
-	return []Mount{{Target: "/etc/resolv.conf", Secret: b.String()}}
+	// **A resolver is not a secret, and the mode is the difference.** Carried as
+	// one because a secret mount is the shape that holds its own contents - the
+	// alternative is a file in a store, and there is nothing in any store to
+	// point at - but a secret is staged `0400` for the excellent reason that a
+	// credential is, and a resolver at `0400` is a step that cannot resolve a
+	// name unless it runs as root.
+	//
+	// Which most steps do and many do not. `apt` drops to the `_apt` user for
+	// network access and reports `Temporary failure resolving`; so does any
+	// image with a `USER` in it. The namespace backend binds the host's own
+	// file at `0444` and never had this, so it read as one sandbox having no
+	// network rather than as one file having no mode.
+	return []Mount{{Target: "/etc/resolv.conf", Secret: b.String(), Mode: 0o644}}
 }
 
 // daemonResolver is the `/etc/resolv.conf` a daemon in the step's own network

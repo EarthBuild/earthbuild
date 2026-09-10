@@ -223,14 +223,19 @@ func (f *Firecracker) Reuses() int { return int(f.reuses.Load()) }
 
 // EnvReuse offers a machine that outlives the build that started it.
 //
-// **Offered, not imposed**, in the shape EARTH_VM itself is offered. A reused
-// machine is a weaker boundary than a fresh one - a guest serving a second
-// build carries the first's kernel state and page cache, though not its agent,
-// which is a new process per build, nor its steps, which run in their own
-// overlays. That is a trade worth having and not worth taking unasked.
+// **On.** A reused machine is a weaker boundary than a fresh one, and the trade
+// was put to the owner of this engine rather than taken: a guest serving a
+// second build carries the first's kernel state and its page cache. It does not
+// carry the first's agent, which is a new process per build, nor its steps,
+// which run in their own overlays; and the layer store is shared between builds
+// already, by design, being a cache.
 //
-// It is also new, and the last attempt at it tore a store. Off until it has run
-// against more than the machine it was written on.
+// What it buys is most of the difference from the namespace backend - 2.93x to
+// 1.13x on the build this repository does most often - and it is what makes a
+// microVM affordable enough to be the default at all.
+//
+// Set to `0` for a machine per build, which is what every build did before
+// this and is the stronger boundary of the two.
 const EnvReuse = "EARTH_VM_REUSE"
 
 // mayAttach reports whether a machine can be joined at all on this host.
@@ -251,7 +256,7 @@ const EnvReuse = "EARTH_VM_REUSE"
 // operator asked.
 func mayAttach() bool {
 	switch os.Getenv(EnvReuse) {
-	case "", "0", "false", "no":
+	case "0", "false", "no":
 		return false
 	default:
 		return true

@@ -20,6 +20,19 @@ VERSION 0.8
 # `tools/mkguest` says the same thing about why the kernel was not its
 # business - "that artefact comes from elsewhere". This is elsewhere.
 
+# **A digest pin on a rolling tag has a shelf life.** The base here was pinned
+# to a digest that Docker Hub has since collected: the tag `bookworm-slim` moved
+# on, the old manifest became unreferenced, and it was eventually removed. The
+# registry answers 404 for it now, so this target could not be built from a cold
+# cache at all - which was found by copying the pin into a new target rather
+# than by anything noticing.
+#
+# The pin is still right. What it buys is that a build either uses the bytes
+# somebody tested or fails loudly, and it failed loudly. What it does not buy is
+# that those bytes will be there next year, so a pinned base needs refreshing on
+# purpose rather than only when it breaks - and the failure, when it comes,
+# reads as a network problem.
+#
 # guest-kernel builds the kernel for THIS machine's architecture.
 #
 # **Native only, deliberately.** Kernels cross-compile perfectly well, and an
@@ -39,7 +52,7 @@ VERSION 0.8
 # (ELF). Asking for `vmlinux` on aarch64 produces something Firecracker will
 # not boot.
 guest-kernel:
-    FROM debian:bookworm-slim@sha256:40b107342c492725bc7aacbe93a49945445191ae9c15fbf1f2be5c07d43fb2eb
+    FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
     RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
         build-essential bc bison flex libelf-dev libssl-dev python3 cpio xz-utils \
         curl ca-certificates git \
@@ -179,3 +192,60 @@ guest-kernel:
 
     SAVE ARTIFACT /src/guest-kernel AS LOCAL out/vm/guest-kernel
     SAVE ARTIFACT /src/guest-kernel.sha256 AS LOCAL out/vm/guest-kernel.sha256
+
+# guest-initrd is the initramfs a microVM boots: earth-vmboot as /init, with
+# earth-guestd beside it.
+#
+# The same thing `go run ./tools/mkguest` makes, built here so that a release
+# can carry it. Static, because the initramfs is the whole filesystem until
+# /store is mounted - there is no dynamic loader in it and nothing to find one
+# in - which is mkguest's own reason and is asserted there.
+guest-initrd:
+    FROM ../..+code
+    ARG NATIVEARCH
+    RUN go run ./tools/mkguest -o /out -arch "$NATIVEARCH"
+    RUN sha256sum /out/initrd.cpio.gz | sed 's| /out/| |' > /out/initrd.cpio.gz.sha256
+    SAVE ARTIFACT /out/initrd.cpio.gz AS LOCAL out/vm/initrd.cpio.gz
+    SAVE ARTIFACT /out/initrd.cpio.gz.sha256 AS LOCAL out/vm/initrd.cpio.gz.sha256
+
+# guest-store is an empty layer store, formatted for the guest's kernel.
+#
+# **Shipped compressed, because an empty one is almost entirely holes.** The
+# device is 32 GiB and sparse, which is a ceiling rather than a cost - nothing
+# collects the store yet, so it only grows - and a freshly formatted one is a
+# few megabytes of metadata in a great deal of zero. gzip rather than anything
+# better because the engine has to be able to expand it without a tool the
+# machine may not have, and Go reads gzip in the standard library.
+#
+# **Formatted for the guest's kernel, not for whatever built this.** A recent
+# `mkfs.xfs` turns on `nrext64` by default and a guest kernel that does not know
+# it refuses the filesystem outright - `Superblock has unknown incompatible
+# features (0x20) enabled`, on the guest console and nowhere else. `reflink=1`
+# is the reason the store is a device at all: the guest keeps copy-on-write
+# clones where the host's own filesystem may have none.
+guest-store:
+    FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
+    RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends xfsprogs \
+     && rm -rf /var/lib/apt/lists/*
+    ARG STORE_SIZE=32G
+    WORKDIR /out
+    RUN truncate -s "$STORE_SIZE" store.img \
+     && mkfs.xfs -q -m reflink=1,crc=1 -i nrext64=0 -n ftype=1 -f store.img
+    # -n so the name and timestamp stay out of the stream: two builds of one
+    # commit have to agree, and gzip records both by default.
+    RUN gzip -9 -n store.img \
+     && sha256sum store.img.gz | sed 's| store| store|' > store.img.gz.sha256
+    SAVE ARTIFACT /out/store.img.gz AS LOCAL out/vm/store.img.gz
+    SAVE ARTIFACT /out/store.img.gz.sha256 AS LOCAL out/vm/store.img.gz.sha256
+
+# guest-vm is everything a machine needs to run a microVM sandbox.
+#
+# The three artefacts the engine looks for in `~/.cache/earthbuild/vm`, in one
+# target so a release publishes a set rather than three things somebody has to
+# remember to publish together. A guest whose kernel and initramfs come from
+# different commits is a guest that boots and then cannot speak - the agent's
+# protocol is a version that has to match - so they travel as one.
+guest-vm:
+    BUILD +guest-kernel
+    BUILD +guest-initrd
+    BUILD +guest-store

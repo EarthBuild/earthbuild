@@ -559,6 +559,15 @@ func writeResolver() error {
 		return fmt.Errorf("write /etc/resolv.conf: %w", err)
 	}
 
+	// **Set, not asked for.** The mode passed to `WriteFile` is a request the
+	// umask answers, and it applies only where the file is created. A resolver
+	// only root can read is a step that cannot resolve a name, so the mode is
+	// stated rather than hoped for.
+	err = os.Chmod("/etc/resolv.conf", 0o644)
+	if err != nil {
+		return fmt.Errorf("make /etc/resolv.conf readable: %w", err)
+	}
+
 	return nil
 }
 

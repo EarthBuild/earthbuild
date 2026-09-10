@@ -460,10 +460,23 @@ make it generous. Nothing collects the store yet, so it only grows, and a device
 builds with `no space left on device`; 8G is not enough to build this repo once, and the remedy is a
 larger image rather than more room on the host.
 
-`EARTH_FIRECRACKER` defaults to `firecracker` on `PATH`. The other three are unset, and without
-them the sandbox reports what is missing and the build uses the namespace backend instead - a
-machine with no `/dev/kvm`, which includes most hosted CI runners, does the same. This is I11:
-degrade and say so, because refusing would break every machine that works today.
+`EARTH_FIRECRACKER` defaults to `firecracker` on `PATH`. The other three default to
+`~/.cache/earthbuild/vm/vmlinux`, `~/.cache/earthbuild/vm/initrd.cpio.gz` and
+`~/.cache/earthbuild/vm/store.img` - beside the store, because they are artefacts a machine keeps
+rather than configuration a person edits. **Nothing installs them yet**, so on a machine where they
+have not been built the sandbox reports what is missing and the build uses the namespace backend
+instead, exactly as a machine with no `/dev/kvm` does. This is I11: degrade and say so, because
+refusing would break every machine that works today.
+
+To populate them by hand:
+
+```sh
+mkdir -p ~/.cache/earthbuild/vm && cd ~/.cache/earthbuild/vm
+earth +guest-kernel                       # tools/guestkernel, writes out/vm/guest-kernel
+go run ./tools/mkguest -o .               # initrd.cpio.gz
+truncate -s 32G store.img
+mkfs.xfs -m reflink=1,crc=1 -i nrext64=0 -n ftype=1 -f store.img
+```
 
 **One build at a time per store device.** A device holds one filesystem, and two guests mounting it
 read-write is not a race that loses an update - it is two kernels with two independent logs writing
@@ -488,11 +501,28 @@ measure it, and the switch is also how a store that has grown strangely gets bis
 Default: on. The fallback is always correct, so this guards against a slow store rather than a
 wrong one.
 
+### A guest has no IPv6
+
+A step inside a microVM reaches the network through a userspace TCP/IP stack this engine runs, and
+that stack speaks IPv4 only: `gvisor-tap-vsock` builds itself with `ipv4` and `arp` and no v6
+counterpart, and offers no setting that would change it. A guest has a link-local `fe80::` address
+because the kernel makes one, no global address, no v6 default route, and its resolver returns no
+AAAA records.
+
+So **a step cannot reach an IPv6-only host** in a microVM. It can reach every dual-stack one, and
+the missing AAAA records are deliberate rather than a second fault - a stack with no v6 route that
+answered them would have every client try v6 first, stall, and fall back.
+
+The namespace backend uses this machine's own network and has whatever it has, v6 included. So does
+a guest given a tap somebody made as root: see `EARTH_VM_TAP`, which is the way to a microVM on a
+real network rather than behind a stack in this process.
+
 ### `EARTH_VM_REUSE`
 
 Lets a microVM outlive the build that started it, so the next build joins it instead of booting one.
 
-Default: off.
+Default: **on**. Set it to `0` for a machine per build, which is what every build did before this
+and is the stronger boundary of the two.
 
 **What it costs is boundary, and that is the whole trade.** A guest serving a second build carries
 the first's kernel state and its page cache. It does not carry the first's agent - that is a new
@@ -522,10 +552,26 @@ no longer matches is stopped and replaced, because a device holds one filesystem
 
 Runs the guest inside a microVM rather than in namespaces on the host kernel.
 
-**Offered, not imposed.** Nearly every Linux machine has `/dev/kvm`, and taking the VM whenever one
-is available would change what a step can reach, how long the first build waits and where the layers
-live, on every machine and without being asked. The boundary is worth having and is not worth
-taking by default.
+Default: **on, where a machine can be built**. Set it to `0` to decline.
+
+**This was off, and the reason was cost.** Taking a VM whenever one was available would change how
+long the first build waits and where the layers live, on every machine, without being asked - and
+the build this repository does most often ran at 2.93x the namespace backend, most of that a
+machine booted and taken apart again for one build.
+
+It is 1.13x now. The machine is kept between builds (`EARTH_VM_REUSE`), step overhead is slightly
+*cheaper* in a guest than out of one, file access is at parity, and a compile is 6% off. What is
+bought is a boundary an escape has to cross a hypervisor to leave, on an engine whose job is
+running other people's Earthfiles.
+
+**"Where a machine can be built" is sniffed, not assumed.** A microVM needs `/dev/kvm` this process
+can *open* - the node exists on a machine whose user is not in the `kvm` group and on one with
+virtualisation off in firmware, and a stat succeeds on both - plus a `firecracker` binary, a
+kernel, an initramfs and a store device. Any of those missing and the build runs in namespaces and
+says so once, naming what was absent.
+
+A build that *asked* for a microVM and cannot have one is refused instead, because running it in
+namespaces would give it a weaker boundary than it believes it has. Saying nothing is not asking.
 
 Asked for on a machine that cannot run one, the build is **refused** rather than degraded - which is
 the opposite of what the parts below do when nothing asked. A build that asked for a VM and quietly

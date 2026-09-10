@@ -116,10 +116,33 @@ func NewFirecracker() *Firecracker {
 		Binary:     envOr("EARTH_FIRECRACKER", "firecracker"),
 		VCPUs:      envInt(EnvVMCPUs),
 		MemoryMiB:  envInt(EnvVMMemory),
-		Kernel:     os.Getenv("EARTH_VM_KERNEL"),
-		Initrd:     os.Getenv("EARTH_VM_INITRD"),
-		StoreImage: os.Getenv(EnvVMStore),
+		Kernel:     envOr("EARTH_VM_KERNEL", vmArtefact("vmlinux")),
+		Initrd:     envOr("EARTH_VM_INITRD", vmArtefact("initrd.cpio.gz")),
+		StoreImage: envOr(EnvVMStore, vmArtefact("store.img")),
 	}
+}
+
+// vmArtefact is where a guest's parts live when nobody has said otherwise.
+//
+// **Because a default that can never apply is not one.** A microVM needs a
+// kernel, an initramfs and a device, and while those were only ever named by
+// environment variables the backend could not be chosen for anybody - the
+// availability check would refuse every machine on which nobody had already
+// set three paths. A conventional place makes "use a microVM where one is
+// available" a sentence with a truth value.
+//
+// Beside the store, under the user's cache directory, because these are built
+// artefacts a machine keeps rather than configuration a person edits - the
+// kernel from tools/guestkernel, the initramfs from tools/mkguest, the device
+// from `mkfs.xfs`. An absent one is not an error anywhere: the sandbox reports
+// itself unavailable and the build runs in namespaces.
+func vmArtefact(name string) string {
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(cache, "earthbuild", "vm", name)
 }
 
 func envOr(name, fallback string) string {
@@ -137,12 +160,23 @@ func envOr(name, fallback string) string {
 // so. Refusing would break every machine that works today, and the boundary is
 // an improvement rather than a requirement.
 func (f *Firecracker) Available() error {
-	_, err := os.Stat("/dev/kvm")
+	// **Opened, not stat'd.** `/dev/kvm` being *there* says nothing about this
+	// process being able to use it: the node exists on a machine whose user is
+	// not in the `kvm` group, and on one where virtualisation is off in
+	// firmware, and a stat succeeds on both. That was tolerable while a microVM
+	// was asked for by name - the person asking had usually just installed it -
+	// and is not now that this backend is chosen by default, where the
+	// difference is a build that degrades cleanly against one that boots into
+	// a permission error.
+	kvm, err := os.Open("/dev/kvm")
 	if err != nil {
-		return fmt.Errorf("no /dev/kvm, so no hardware virtualisation: %w"+
-			"\n  a hosted CI runner commonly has none, and nested virtualisation"+
-			" is not something Firecracker can emulate", err)
+		return fmt.Errorf("cannot use /dev/kvm, so no hardware virtualisation: %w"+
+			"\n  a hosted CI runner commonly has none, nested virtualisation is not"+
+			" something Firecracker can emulate, and a machine that has one still"+
+			" needs its user in the kvm group", err)
 	}
+
+	_ = kvm.Close()
 
 	_, err = osexec.LookPath(f.Binary)
 	if err != nil {
@@ -150,7 +184,15 @@ func (f *Firecracker) Available() error {
 			"\n  set EARTH_FIRECRACKER to it, or install it", err)
 	}
 
-	for what, at := range map[string]string{"kernel": f.Kernel, "initrd": f.Initrd} {
+	// **The device is part of this, or the degrade is a failure instead.** The
+	// kernel and initramfs are checked because a guest cannot boot without
+	// them; the store is checked because a guest that boots without one fails
+	// at the first `FROM` with a claim on a file that is not there - and a
+	// backend chosen by default has to be able to say "not here" rather than
+	// break a build that never asked for it.
+	for what, at := range map[string]string{
+		"kernel": f.Kernel, "initrd": f.Initrd, "store device": f.StoreImage,
+	} {
 		if at == "" {
 			return fmt.Errorf("no %s for the guest"+
 				"\n  set EARTH_VM_KERNEL and EARTH_VM_INITRD: a microVM boots an"+

@@ -48002,3 +48002,65 @@ reported 50 files and hundredths of a second - and reporting *that* as "no
 effect" would have buried the real finding under a second error. Both were
 caught by asking what the individual steps cost rather than what the average
 did.
+
+### E986 - a resolver is not a secret, and a guest has no IPv6
+
+Two things found by making a microVM the default and then building an
+apt-based image through it - the first a bug that had been latent since the
+guest got per-step networks, the second a limitation that was always true and
+had never been written down.
+
+**`apt` could not resolve a name in a guest, and `apk` could.**
+
+The step's `/etc/resolv.conf` is delivered by `resolvMount`, which carries its
+contents as a `Secret` mount. That is the right shape - a secret mount is the
+one that holds its own bytes, and there is nothing in any store to point at -
+and secrets are staged `0400`, for the excellent reason that credentials are.
+
+A resolver at `0400` is a step that cannot resolve a name unless it runs as
+root. `apt` drops to the `_apt` user for network access; so does any image with
+a `USER` in it. What it reports is `Temporary failure resolving`, in the step,
+naming no file.
+
+| backend    | the step's /etc/resolv.conf | `_apt` resolves |
+| ---------- | --------------------------- | --------------- |
+| namespaces | `-r--r--r--` nobody:nogroup | yes             |
+| microVM    | `-r--------` root:root      | no              |
+
+The namespace backend binds the host's own file at `0444` and never had this, so
+the difference read as one sandbox having no network rather than one file having
+no mode. `Mode: 0o644` on that mount fixes it; `apt-get install` then succeeds
+in a guest.
+
+**Two wrong theories first, both cheap to rule out and worth recording.** IPv6,
+refuted by `Acquire::ForceIPv4=true` failing identically; and the umask in
+`writeResolver`, refuted by a console diagnostic that printed nothing, which is
+what said that function was not in the path at all. The thing that found it was
+asking who could *read* the file rather than what the network was doing:
+`getent` worked serially and in parallel as root and failed as uid 42.
+
+**And the guest has no IPv6.** Asked because the first theory named it:
+
+```text
+addresses   es200 inet 192.168.127.203/24
+            es200 inet6 fe80::5894:efff:fe00:cb/64   link-local only
+routes v6   fe80::/64, ff00::/8                       no default
+resolver    A: 151.101.x.x        AAAA: (empty)
+curl -6     000                   curl -4  200
+```
+
+This is the transport rather than the configuration. `gvisor-tap-vsock` v0.8.9
+builds its stack with `ipv4.NewProtocol` and `arp.NewProtocol` and nothing else,
+`icmp.NewProtocol4` and no v6 counterpart, and `types.Configuration` has no
+field that would ask for one. A step in a microVM cannot reach an IPv6-only
+host, and the namespace backend - which uses the host's own network - can.
+
+The AAAA suppression is right rather than a second fault: a stack with no v6
+route that answered AAAA would have every client try v6, stall and fall back.
+`EARTH_VM_TAP` is the way to a guest with whatever the host has, v6 included,
+and costs a device somebody makes as root.
+
+**The interface names in that output are the other half of the first finding.**
+`es200`, `es201` - `stepNetPlan`'s `"es" + id` - so per-step network namespaces
+are running in the guest, which is why `ownNet` is true, which is why the
+secret-mounted resolver was in the path at all.

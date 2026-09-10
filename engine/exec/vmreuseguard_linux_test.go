@@ -31,7 +31,7 @@ func TestAMachineIsJoinedOnlyWhenAskedFor(t *testing.T) {
 		want bool
 		why  string
 	}{
-		{"", false, "nothing was said, and a weaker boundary is not a default"},
+		{"", true, "nothing said: a machine outlives its build by default"},
 		{"0", false, "the operator said no"},
 		{"false", false, "the operator said no"},
 		{"no", false, "the operator said no"},
@@ -46,19 +46,21 @@ func TestAMachineIsJoinedOnlyWhenAskedFor(t *testing.T) {
 	}
 }
 
-// TestReuseIsOffUntilAsked states the direction of the default alone, because
-// the table above would pass just as well with every answer inverted together.
+// TestReuseCanBeDeclined states the one direction that must keep working,
+// apart from the table above.
 //
-// **A reused machine is a weaker boundary than a fresh one**, and the boundary
-// is what this backend is for. A guest serving a second build carries the
+// **A reused machine is a weaker boundary than a fresh one**, and that trade
+// was decided rather than assumed: a guest serving a second build carries the
 // first's kernel state and page cache - not its agent, which is a new process
-// per build, nor its steps, which run in their own overlays, but not nothing
-// either. That is a trade worth offering and not worth taking unasked.
-func TestReuseIsOffUntilAsked(t *testing.T) {
-	t.Setenv(EnvReuse, "")
+// per build, nor its steps, which run in their own overlays, and the layer
+// store was shared already. A default nobody can turn off is not a default,
+// and this is the way back to a machine per build.
+func TestReuseCanBeDeclined(t *testing.T) {
+	t.Setenv(EnvReuse, "0")
 
 	if mayAttach() {
-		t.Fatal("a build nobody asked would join a machine another build left" +
-			" running, which is a weaker boundary than the one it thinks it has")
+		t.Fatal("a build that asked for a machine of its own would join one" +
+			" another build left running, so there is no way back to the" +
+			" stronger boundary")
 	}
 }

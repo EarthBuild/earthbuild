@@ -47873,3 +47873,44 @@ that needed it**. The count that proves arrival cannot prove delivery.
 **The store survives a killed host**, which is the test that found the tearing
 the first time: SIGKILL to the build mid-step, machine still running, next build
 60 hits and 3 misses with nothing missing from the base.
+
+### E984 - two more settings the guest was told and could not read, and an orphan nobody adopted
+
+Written while finishing reuse, because both were found by looking beside a bug
+rather than by anything failing.
+
+**`EARTH_GUEST_IDLE` never reached the machine.** `sessionIdle` asked
+`os.Getenv`, and the host's settings arrive on the kernel command line and are
+put into the *agent's* environment by `agentEnv`; PID 1's own never has them.
+So a machine's idle period was the built-in twenty minutes on every host that
+ever configured it. Nothing reported that and nothing could: a machine waiting
+twenty minutes instead of two is a machine that works.
+
+That is the same fault as `mayRejoin` (E983), in the function directly beside
+it, and it was there first. The lesson generalises past both: **on this guest,
+`os.Getenv` in PID 1 is always the wrong way to read a setting.** The count
+`saySettings` prints proves the settings arrived; it cannot prove any particular
+reader was given them.
+
+**And the fd-server was never reaped.** It ends when its machine goes, and the
+first version asked whether `getppid` had become 1 - an orphan is re-parented to
+init. That is only true where nothing has claimed the job. A systemd user
+session is a child subreaper, so the orphan is re-parented to *it*, `getppid`
+never returns 1, and the server runs until the host reboots. One per machine,
+accumulating, on a NixOS box.
+
+It notes its parent's pid at startup instead and asks `kill(pid, 0)`. The shim
+becomes the VMM by `exec`, which keeps the pid, so that number is the machine's
+for its whole life.
+
+Both fixed, and the accounting checked with a pattern that cannot match the
+shell doing the checking - `ps | grep vm-net-fds` counts the shell whose own
+command line contains it, which reported a leak that was not there and then hid
+one that was. Three builds, one machine, one server; the idle period passes and
+both go:
+
+```text
+before:                fc=0 servers=0
+after build 1/2/3:     fc=1 servers=1
+after the idle period: fc=0 servers=0
+```

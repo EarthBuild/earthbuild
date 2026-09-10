@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -31,8 +32,32 @@ func idleOut(err error) bool { return errors.Is(err, errAcceptTimeout) }
 // agent was running in, which until now ended with every build anyway. Read
 // from the same setting so one number governs both, and defaulted rather than
 // required because a guest is started by a host that may say nothing.
-func sessionIdle() time.Duration {
-	at := os.Getenv(envGuestIdle)
+func sessionIdle() time.Duration { return idleFrom(fromCmdline()) }
+
+// idleFrom is how long to wait, read from the settings the host sent.
+//
+// **From the command line, for the reason mayRejoin is.** The host's settings
+// arrive there and `agentEnv` hands them to the *agent*; PID 1's own
+// environment never has them. This asked `os.Getenv` and so never once saw
+// EARTH_GUEST_IDLE - the setting crossed, was counted, went to the agent, and
+// every machine used the built-in default however the host was configured.
+//
+// Nothing reported that, and nothing could: a machine waiting twenty minutes
+// instead of two is a machine that works. It was found by looking at the
+// neighbour of a bug rather than by anything failing.
+//
+// Anything unusable is the default rather than an error: this is a machine
+// deciding how long to hang about, and refusing to boot over a misspelt
+// duration would be the wrong trade.
+func idleFrom(settings []string) time.Duration {
+	at := ""
+
+	for _, kv := range settings {
+		if v, ok := strings.CutPrefix(kv, envGuestIdle+"="); ok {
+			at = v
+		}
+	}
+
 	if at == "" {
 		return defaultSessionIdle
 	}
@@ -114,9 +139,11 @@ func acceptWithin(fd int, within time.Duration) (*os.File, error) {
 // they are all a machine that behaves exactly as it did before sessions
 // existed.
 //
-// The host says yes only where the network outlives the build, which is what
-// EARTH_VM_TAP means: a tap somebody made as root does not go when the build
-// that used it goes, and the stack this engine runs itself does. See
+// The host says yes where the operator asked for a machine that outlives its
+// build. That used to mean only EARTH_VM_TAP - a tap somebody made as root
+// survives the build that used it, and the stack this engine runs itself does
+// not. It no longer does: the stack need not survive, only be re-established,
+// which the server the shim leaves in the namespace answers. See
 // exec.mayAttach.
 const envMayRejoin = "EARTH_VM_MAY_REJOIN"
 

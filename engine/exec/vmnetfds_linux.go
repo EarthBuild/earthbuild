@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
 )
 
@@ -78,22 +80,35 @@ func netFDServer(args []string) error {
 	// build is never killed that way - so without this, one server accumulates
 	// per machine, holding a namespace open, for as long as the host is up.
 	//
-	// Watching the parent rather than a pid: `getppid` becoming 1 is the kernel
-	// telling us, and it cannot be confused by pid reuse the way polling a
-	// recorded number can.
-	go endWithParent(ln)
+	// The parent is noted now, while it is still the process that started this,
+	// and watched from there. See endWithParent.
+	go endWithParent(ln, os.Getppid())
 
 	return serveNetFDs(ln, func() (*os.File, error) { return packetSocket(device) })
 }
 
-// endWithParent closes the listener once this process has been orphaned.
+// endWithParent closes the listener once the machine that started this has
+// gone.
+//
+// **Watching the parent that was, not the parent that is.** The first version
+// asked whether `getppid` had become 1, on the reasoning that an orphan is
+// re-parented to init. That is only true where nothing else has claimed the
+// job: a systemd user session is a child subreaper, so an orphan there is
+// re-parented to *it*, `getppid` never returns 1, and the server never ends.
+// Measured on a NixOS host - one server left behind per machine, accumulating
+// for as long as the host was up.
+//
+// The parent's pid is noted at startup, while it is still the shim that started
+// this, and `kill(pid, 0)` asks whether it is there. The shim becomes the VMM
+// by `exec`, which keeps the pid, so the number is the machine's for its whole
+// life.
 //
 // Closing rather than exiting, so the accept loop returns and the socket is
 // unlinked on the way out - a name left behind is a later build dialling
 // something nobody answers, which it reads as a machine that is there.
-func endWithParent(ln *net.UnixListener) {
+func endWithParent(ln *net.UnixListener, parent int) {
 	for range time.Tick(orphanCheck) {
-		if os.Getppid() == 1 {
+		if parent <= 1 || unix.Kill(parent, 0) != nil {
 			_ = ln.Close()
 
 			return

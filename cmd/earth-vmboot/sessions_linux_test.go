@@ -39,12 +39,46 @@ func TestTheMachineStopsWhenNobodyComes(t *testing.T) {
 func TestTheIdleWaitIsBounded(t *testing.T) {
 	t.Parallel()
 
-	if sessionIdle() <= 0 {
+	if idleFrom(nil) <= 0 {
 		t.Error("an unbounded wait leaves a VM per abandoned build")
 	}
 
-	if sessionIdle() > time.Hour {
-		t.Errorf("a machine waits %v for a build that may never come", sessionIdle())
+	if idleFrom(nil) > time.Hour {
+		t.Errorf("a machine waits %v for a build that may never come", idleFrom(nil))
+	}
+}
+
+// TestTheIdleWaitIsReadFromWhereTheHostPutIt.
+//
+// **The same fault as mayRejoin, in the function beside it.** The host's
+// settings reach this guest on the kernel command line and `agentEnv` puts them
+// into the *agent's* environment; PID 1's own never has them. So this asked
+// `os.Getenv` for EARTH_GUEST_IDLE and never once saw it - the setting crossed,
+// was counted by saySettings, went to the agent, and the machine's own idle
+// period was the built-in default on every host that ever set it.
+//
+// Found by checking the neighbour of a bug rather than by anything failing,
+// which is what that class of fault costs: nothing reports it, and an A/B
+// between two values produces one result twice.
+func TestTheIdleWaitIsReadFromWhereTheHostPutIt(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		settings []string
+		want     time.Duration
+		why      string
+	}{
+		{[]string{"EARTH_GUEST_IDLE=90s"}, 90 * time.Second, "what the host said"},
+		{[]string{"EARTH_TIMINGS=1", "EARTH_GUEST_IDLE=2m"}, 2 * time.Minute, "said among others"},
+		{nil, defaultSessionIdle, "nothing said"},
+		{[]string{"EARTH_GUEST_IDLE="}, defaultSessionIdle, "said and empty"},
+		{[]string{"EARTH_GUEST_IDLE=soon"}, defaultSessionIdle, "not a duration"},
+		{[]string{"EARTH_GUEST_IDLE=0"}, defaultSessionIdle, "zero is not a wait"},
+		{[]string{"EARTH_GUEST_IDLE=-5s"}, defaultSessionIdle, "nor is a negative one"},
+	} {
+		if got := idleFrom(c.settings); got != c.want {
+			t.Errorf("%q read as %v, wanted %v (%s)", c.settings, got, c.want, c.why)
+		}
 	}
 }
 

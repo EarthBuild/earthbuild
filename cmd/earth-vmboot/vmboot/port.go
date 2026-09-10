@@ -78,3 +78,20 @@ const LayerAsk = "layer:"
 // right and whose `PATH` is missing - which fails as `cargo: not found` three
 // steps later, in a build that had nothing to do with it.
 const DeclAsk = "decl:"
+
+// FillPort is where the host answers a step's fault-in.
+//
+// **The one message that travels the other way.** Every other exchange is the
+// host asking the guest; a fault is the guest asking the host for a path its
+// base does not have. A sandbox that spawns its guest as a child passes a second
+// descriptor for it; through a VM there is no descriptor to pass, so the guest
+// listens on a socket of its own and this port is how the host reaches it - see
+// guest.EnvFillSocket, which says exactly this and had no caller until now.
+const FillPort = 5558
+
+// FillSocket is where the agent listens for that channel, inside the guest.
+//
+// Short and under /run, because a unix socket path lives in a fixed-size field:
+// `sun_path` is 104 bytes and a longer path fails with `invalid argument`,
+// naming neither the limit nor the length.
+const FillSocket = "/run/earth-fills.sock"

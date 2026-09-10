@@ -77,6 +77,7 @@ func run() error {
 	// has no way to know when this one is listening.
 	go serveBulk(filepath.Join(storeAt, "blobs"))
 	go serveExports()
+	go serveFills()
 
 	return serveSessions()
 }
@@ -405,6 +406,12 @@ func halt() {
 func agentEnv(boot []string) []string {
 	out := append(append([]string{}, boot...), fromCmdline()...)
 
+	// **And where to listen for a fault-in.** Always, rather than only when the
+	// host intends to answer one: the agent is started per connection and the
+	// host decides per build, so a guest that waited to be told would have to be
+	// told again for every agent. A listener nothing dials costs a socket.
+	out = append(out, guest.EnvFillSocket+"="+vmboot.FillSocket)
+
 	// Last, so the store is this guest's own whatever anything else said: it is
 	// a fact about this machine rather than a setting.
 	return append(out, "EARTH_GUEST_ROOT="+storeAt)
@@ -425,6 +432,46 @@ func fromCmdline() []string {
 	}
 
 	return vmboot.ParseEnv(string(b))
+}
+
+// serveFills carries a fault-in between the host and the agent.
+//
+// **Bytes and no understanding of them.** The protocol is between the host at
+// one end and the agent at the other; this is the length of wire a VM boundary
+// puts in the middle, and `guest.RelayFills` is the same relay a darwin sandbox
+// runs as a second `container exec`.
+//
+// One at a time is not a constraint worth adding: a fault-in channel is per
+// build, the host dials when it has one to serve, and a second dial belongs to a
+// second build that will have its own agent.
+func serveFills() {
+	fd, err := listenVsock(vmboot.FillPort, 4)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: no fault-in channel: %v"+
+			"\n  steps will take whole layers\n", err)
+
+		return
+	}
+
+	for {
+		conn, _, acceptErr := unix.Accept(fd)
+		if acceptErr != nil {
+			fmt.Fprintf(os.Stderr, "earth-vmboot: fault-in accept: %v\n", acceptErr)
+
+			return
+		}
+
+		go relayFill(os.NewFile(uintptr(conn), "fills"))
+	}
+}
+
+func relayFill(c *os.File) {
+	defer func() { _ = c.Close() }()
+
+	err := guest.RelayFills(vmboot.FillSocket, c, c)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earth-vmboot: fault-in relay: %v\n", err)
+	}
 }
 
 // serveExports answers the host's requests for a staged artifact.

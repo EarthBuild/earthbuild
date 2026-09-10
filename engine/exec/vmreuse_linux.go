@@ -217,6 +217,10 @@ func (f *Firecracker) attach(want string) (Conn, bool) {
 
 	f.reuses.Add(1)
 
+	// A joined machine can answer a fault-in as readily as a booted one, and
+	// the caller set this before either happened. Locked form: Start holds it.
+	f.serveFillsLocked()
+
 	return conn, true
 }
 

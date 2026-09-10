@@ -102,6 +102,11 @@ type Firecracker struct {
 	// offsets, agreed between a host and a guest - is a second allocator to get
 	// wrong.
 	exporting sync.Mutex
+
+	// fill answers a step's fault-in, and fills says the server for it is
+	// already running. See SetFill.
+	fill  func(handle, path string) error
+	fills bool
 }
 
 const (
@@ -525,6 +530,10 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 
 		close(gone)
 	}(f.gone)
+
+	// Now that there is a machine to dial, in case a caller set this before
+	// there was one. The locked form: Start holds the lock throughout.
+	f.serveFillsLocked()
 
 	conn, err := f.dialGuest(ctx, vsock)
 	if err == nil {

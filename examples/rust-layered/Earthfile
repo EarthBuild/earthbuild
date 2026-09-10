@@ -60,6 +60,10 @@ build-warm:
     ELSE
         FROM $warm_image
     END
+    # Stated rather than inherited: a pulled image's own WORKDIR is not applied
+    # to the steps after `FROM`, so without this the build starts in / and cargo
+    # reports that it cannot find Cargo.toml.
+    WORKDIR /w
     COPY --dir crates .
     RUN cargo build --release
     SAVE ARTIFACT target/release/app app

@@ -86,12 +86,33 @@ earth --push --build-arg cache_image=ghcr.io/you/app-build-cache:main \
     ./examples/rust-layered+cache
 ```
 
-> **`+build-warm` does not work yet, for a reason unrelated to the pattern.** An
-> image whose build deleted anything - and `+deps` ends by deleting the stub
-> sources - packs into layers the puller then refuses, with `create directory
-> ".../src/": not a directory`. It is a whiteout-conversion defect, it predates
-> this example, and it reproduces on both backends. Until it is fixed, treat
-> `+build` as the pattern and `+build-warm` as the direction.
+Then a later build starts from it:
+
+```sh
+earth --build-arg warm_image=ghcr.io/you/app-build-cache:main \
+    ./examples/rust-layered+build-warm
+```
+
+Measured on this workspace, publishing the tree and then editing `mathy`, which
+nothing depends on:
+
+| crate       | `+build` (deps layer only) | `+build-warm` (whole tree) |
+| ----------- | -------------------------- | -------------------------- |
+| `mathy`     | Compiling                  | Compiling                  |
+| `greet`     | Compiling                  | **Fresh**                  |
+| `app`       | Compiling                  | **Fresh**                  |
+| `termcolor` | Fresh                      | Fresh                      |
+
+**That column is the whole argument.** A dependency-only cache - chef's, and
+`+build`'s - has to recompile every crate you own whenever any of them changes,
+because none of them were ever in the layer. A published build tree carries
+`target/` too, so cargo recompiles what changed and nothing else, exactly as it
+would locally.
+
+It works because a layer keeps the mtimes the store holds and a context file
+carries the time of the commit that last changed it. Both are properties of the
+history rather than of the machine, so the comparison cargo makes means the same
+thing on the machine that published the tree and the machine that pulled it.
 
 ## The crates
 

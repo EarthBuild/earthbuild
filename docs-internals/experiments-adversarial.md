@@ -47645,3 +47645,66 @@ first and not the second.
 Set `EARTH_ASK_STALE=0` if a build loses cache hits it used to have, or if the
 two views disagree about a path on a store known to be intact. Neither has been
 observed in 12 builds and 48 corpus targets.
+
+### E980 - the network does not belong in the shim
+
+**The assumption under test**, taken from the message that reverted microVM
+reuse: "Both are fixable - the network belongs in the shim, which already
+outlives the machine." The first half of that sentence is right and the second
+half is wrong twice.
+
+**Kill criterion, fixed before the attempt**: a build whose network stack has
+moved into the shim must still fetch. It did not.
+
+Moving `startUserNet` into `NetShimMain` - fork the VMM rather than exec it,
+keep the packet socket, serve frames from there - builds correctly and reaches
+nothing:
+
+```text
+WARNING: fetching https://dl-cdn.alpinelinux.org/alpine/v3.20/main:
+  could not connect to server (check repositories file)
+ERROR: unable to select packages: curl (no such package)
+```
+
+**Why, and it is structural.** The shim runs inside `CLONE_NEWUSER|CLONE_NEWNET`
+because that is what lets it make a tap without `CAP_NET_ADMIN`. The stack it
+would run is a userspace TCP/IP stack that *terminates* the guest's connections
+and opens ordinary host sockets of its own - and a fresh network namespace has
+no route to anywhere. Demonstrated apart from the engine:
+
+```console
+$ unshare -Ur -n sh -c 'ip -br link; curl -sS https://example.com'
+lo               DOWN           00:00:00:00:00:00 <LOOPBACK>
+curl: (7) Failed to connect to example.com port 443 after 25 ms
+```
+
+So the namespace that makes the tap possible is the one place the stack cannot
+live. The two requirements are not merely different, they are opposed: the tap
+needs a namespace with nothing in it, and the stack needs one with everything.
+
+**The shim also does not outlive the machine**, which is the other half of the
+sentence. It `unix.Exec`s into Firecracker, so the VMM *is* the shim; there is
+no surviving process, only a surviving namespace held open by the VMM.
+
+**What the shape has to be instead.** File descriptors are not namespaced, so
+the packet socket can be made in the tap's namespace and served from outside it.
+That gives three parties rather than two:
+
+| party      | namespace  | lifetime           | holds                        |
+| ---------- | ---------- | ------------------ | ---------------------------- |
+| shim       | its own    | becomes the VMM    | makes the tap, passes the fd |
+| stack host | the host's | outlives the build | the packet socket, the stack |
+| engine     | the host's | the build          | neither                      |
+
+The stack host is a third process the engine starts and detaches. That is more
+machinery than "move it into the shim", and it is the machinery the problem
+actually has.
+
+**A second thing this attempt found, worth keeping whoever writes the next
+one.** The stall note asks the sandbox how much its network has carried, and
+`readTraffic` marks a reading known whenever the method exists. Move the stack
+anywhere out of the engine's process and `NetBytes` must be able to answer "I
+cannot tell you" - because "nothing moved" is the reading that tells a reader to
+stop waiting for a download that is fine. The fix is a third result on the
+method and counters the stack host publishes; it was written and reverted with
+the rest, and it will be needed again unchanged.

@@ -9834,36 +9834,64 @@ and the `firecracker_linux.go` hunks, all recoverable from `3567463d7^`.
 
 ### The work, in order
 
-**1. The shim keeps the network, and stops becoming the VMM.**
+**1. The guest serves one build after another.** *(done, 248853219)*
 
-Today `netShim` makes the tap, hands the host a packet socket, and `unix.Exec`s
-into Firecracker so that the VMM *is* the process holding the network
-namespace. The current comment argues for exactly that: "a shim that waited
-would be a second process to signal, reap and get wrong". Reuse inverts it. The
-shim has to fork the VMM, keep the packet socket, run the stack itself, and
-outlive the build that started it.
+Restore the session loop and the boot-time flag that tells a guest whether it
+may wait. Ending a session leaves the store mounted for the next one; ending the
+*machine* unmounts it.
 
-What that costs: a process to supervise, a lifetime to bound, and the reaping
-the present comment is right about. What it buys: a network whose lifetime is
-the machine's rather than the build's, which is the precondition for every
-later step and cannot be worked around from the host side.
+**Asked in the positive, which the first attempt did not.** That version had the
+host say when it could *not* come back, so waiting was the default and every way
+of failing to say anything led to it - an older host, a setting dropped from the
+list that crosses into the guest, a configuration written by hand. Each of those
+is a guest that waits, a shutdown that times out, and a VMM killed with its store
+mounted. `EARTH_VM_MAY_REJOIN=1` is now the only value that means yes.
 
-Exit criterion: a build ends, its CLI exits, and a `curl` from inside the still
-running guest resolves a name and fetches. No engine change beyond the shim.
+Nothing sets it yet, so this step changed no behaviour, which is why it could go
+first: measured after it, 94 hits and no misses, teardown 0.104s, no machine left
+behind.
 
-**2. The guest serves one build after another.**
+**2. Somewhere for the stack to live, which is not the shim.**
 
-Restore `sessions_linux.go` and the boot-time flag that tells the guest whether
-it may wait. Ending a session must leave the store consistent without
-unmounting it, since the next session will want it mounted; ending the *machine*
-still unmounts.
+The revert said "the network belongs in the shim, which already outlives the
+machine". Tried, and both halves are wrong (E980).
+
+The shim runs inside `CLONE_NEWUSER|CLONE_NEWNET` - that is what lets it make a
+tap without `CAP_NET_ADMIN` - and the stack it would run terminates the guest's
+connections and opens ordinary host sockets. **A fresh network namespace has no
+route anywhere**, so the namespace that makes the tap possible is the one place
+the stack cannot live. And the shim does not outlive anything: it `unix.Exec`s
+into Firecracker, so what survives is a namespace held open by the VMM, not a
+process.
+
+Descriptors are not namespaced, so the shape is three parties rather than two: a
+shim that makes the tap and becomes the VMM, a **stack host** in the host's own
+namespace that holds the packet socket and outlives the build, and an engine
+that holds neither. The stack host is a process the engine starts and detaches.
+
+Exit criterion unchanged and still the right one: a build ends, its CLI exits,
+and a `curl` from inside the still running guest resolves a name and fetches.
+
+Two things the first attempt at this step turned up, to be brought back rather
+than rediscovered. `NetBytes` must gain a third result: with the stack out of
+this process, a sandbox that has no reading must say so, because "nothing moved"
+is what tells a reader to stop waiting for a download that is fine. And the
+counters the stall note reports have to be published by the stack host and read
+by the engine - a file, written whole and renamed, since the two share no
+protocol.
+
+**3. Two builds, one machine.**
+
+With a stack that outlives a build and a guest that will wait for one, turn it
+on: the host says `EARTH_VM_MAY_REJOIN=1` where the network is not its own to
+take away, and a second build connects to a machine that is already up.
 
 Exit criterion: two consecutive builds against one guest, the second reporting
 the first's layers as hits, and a `SIGKILL` of the host at any point still
-leaving a store the next build reads without loss - which is the test that
-found the tearing the first time.
+leaving a store the next build reads without loss - which is the test that found
+the tearing the first time.
 
-**3. Finding and claiming a machine.**
+**4. Finding and claiming a machine.**
 
 `vmregister.go` named a VM by a digest of what it was made of. Two constraints
 it must respect: the store device is `flock`ed for the life of a build and two
@@ -9875,7 +9903,7 @@ Exit criterion: two builds started simultaneously against one store, one
 proceeds and the other is refused with the existing message rather than
 corrupting anything.
 
-**4. Bounding what accumulates.**
+**5. Bounding what accumulates.**
 
 `EARTH_GUEST_IDLE` exists and has never meant anything, because the host has
 always stopped the guest at the end of every build. It starts meaning something

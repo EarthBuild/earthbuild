@@ -64,7 +64,33 @@ build-warm:
     # to the steps after `FROM`, so without this the build starts in / and cargo
     # reports that it cannot find Cargo.toml.
     WORKDIR /w
-    COPY --dir crates .
+
+    # **Content decides which files are new, not timestamps.**
+    #
+    # The tree carries artefacts stamped with the publishing build's clock, and
+    # the sources arriving carry the time of the commit that last changed each
+    # one. Comparing two clocks is sound only while one happens to run ahead of
+    # the other, and a branch, a rebase or a slow clock breaks that: a commit
+    # dated before the cache was published changes a file, the file still looks
+    # older than the artefact built from its previous contents, and cargo
+    # reports it `Fresh`. Measured - the binary went on printing the old string.
+    #
+    # So each incoming file is compared with the one already here. Identical
+    # files are left untouched, which is what lets cargo call them fresh;
+    # only what differs is written, and touched so it is unambiguously newer.
+    # Timestamps stop deciding anything.
+    COPY --dir crates /incoming
+    RUN cd /incoming && find . -type f | while read -r f; do \
+            t="/w/crates/$f"; \
+            if [ ! -e "$t" ] || ! cmp -s "$f" "$t"; then \
+                mkdir -p "$(dirname "$t")" && cp "$f" "$t" && touch "$t"; \
+            fi; \
+        done; \
+        cd /w/crates && find . -type f | while read -r t; do \
+            [ -e "/incoming/$t" ] || rm -f "$t"; \
+        done; \
+        rm -rf /incoming
+
     RUN cargo build --release
     SAVE ARTIFACT target/release/app app
 

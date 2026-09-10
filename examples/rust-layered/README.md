@@ -109,10 +109,33 @@ because none of them were ever in the layer. A published build tree carries
 `target/` too, so cargo recompiles what changed and nothing else, exactly as it
 would locally.
 
-It works because a layer keeps the mtimes the store holds and a context file
-carries the time of the commit that last changed it. Both are properties of the
-history rather than of the machine, so the comparison cargo makes means the same
-thing on the machine that published the tree and the machine that pulled it.
+### Why it compares content instead of trusting the clock
+
+cargo decides freshness by comparing a source's mtime against the artefact built
+from it. Across a published tree those two come from different clocks: the
+artefacts carry the publishing build's wall clock, the sources carry the time of
+the commit that last changed each one. That is sound only while one clock happens
+to run ahead of the other - and a branch, a rebase or a slow clock breaks it.
+
+Measured, because it is not obvious: publish a tree, then make a commit *dated
+before the publish* that changes a source. Every crate reports `Fresh`, nothing
+recompiles, and the binary goes on printing the old string. A silently wrong
+build, from a cache that looked like it was working.
+
+So `+build-warm` compares each arriving file with the one already in the tree.
+Identical files are left exactly as they are, which is what lets cargo call them
+fresh; only what differs is written and touched. Timestamps stop deciding
+anything, and both properties hold at once:
+
+| what changed                                   | rebuilds        | binary  |
+| ---------------------------------------------- | --------------- | ------- |
+| one crate, ordinary commit                     | that crate only | correct |
+| one crate, commit dated before the cache build | that crate only | correct |
+| nothing                                        | nothing         | correct |
+
+This is worth knowing about any restore-based Rust cache, not just this one: if
+it hands cargo a `target/` and relies on mtimes to say what is stale, the same
+hole is in it.
 
 ## The crates
 

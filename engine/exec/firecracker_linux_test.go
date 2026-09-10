@@ -218,7 +218,13 @@ func TestTheGuestIsGivenEntropy(t *testing.T) {
 // guest's command line is this engine's to write.
 //
 // Asserted on the configuration because the alternative is a benchmark, and a
-// missing kernel argument shows up there as noise rather than as an absence.
+// missing kernel argument shows up there as noise rather than as an absence -
+// which is not hypothetical: the first measurement of this read as no effect at
+// all, against a workload whose spread was larger than the effect (E978).
+//
+// This test is the guard on a line that has already been removed once, as
+// collateral in the revert of an unrelated experiment. E978 is the other half
+// of that guard, for a revert that would take this file with it.
 func TestTheGuestIsToldToUseHugePages(t *testing.T) {
 	t.Parallel()
 

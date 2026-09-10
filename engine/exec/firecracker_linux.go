@@ -512,9 +512,11 @@ const consoleLines = 20
 // needs root, and hugetlbfs needs a pool reserved with root that no other
 // process can then use. The kernel command line is ours.
 //
-// Restored on its own. It was written beside a reuse experiment and reverted
-// with it, which is a reason to doubt that experiment and none at all to doubt
-// this: it shares no mechanism with it and none of its measurements.
+// **Restored on its own, and not to be carried off again.** It was written
+// beside a microVM reuse experiment and went out with the revert of it, sharing
+// none of its mechanism and none of its measurements. E978 says so at length,
+// because the test below is the mechanical guard and a wholesale revert takes
+// the test with it.
 func guestBootArgs(net, settings string) string {
 	return strings.TrimSpace(strings.Join([]string{
 		"console=ttyS0", "loglevel=5", "reboot=k", "panic=1", "pci=off",

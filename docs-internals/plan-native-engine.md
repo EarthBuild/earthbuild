@@ -9779,3 +9779,133 @@ plan:
 * CI cannot exercise any of this. Hosted runners have no `/dev/kvm`, which is why
   the four microVM tests are discounted from the skip ceiling by their own reason
   rather than counted.
+
+## Reusing a microVM between builds, 2026-09-10
+
+The last thing between the microVM backend and the namespace backend, and the
+only remaining item large enough to need a plan rather than a commit.
+
+**Where the gap stands.** One file changed, `+earthly` rebuilt, both arms warm,
+both reporting 60 hits and 3 misses, interleaved:
+
+| phase                            | namespaces | microVM | delta  |
+| -------------------------------- | ---------- | ------- | ------ |
+| `process`                        | 3.38s      | 5.73s   | +2.36s |
+| `run` (the compile)              | 2.30s      | 3.36s   | +1.06s |
+| sandbox start and stop           | 0.16s      | 0.99s   | +0.82s |
+| export of a genuinely new binary | ~0.08s     | 0.38s   | +0.30s |
+| `l2`, 6303 predicted paths       | 0.222s     | 0.238s  | +0.02s |
+
+`l2` is at parity and was 4.409s a day ago (E979). What is left is the first
+three rows, and the first two have one cause between them.
+
+**The compile is not slow because the guest is a guest. It is slow because the
+guest is new.** Every build boots a machine whose page cache is empty and reads
+the toolchain off virtio-blk again; the namespace backend reads the same bytes
+out of a host page cache that has seen them. That is the same cause as the 0.82s
+of lifecycle, and the same cause as the L2 penalty that has just been removed by
+asking a question instead of fetching six thousand answers. Reuse addresses all
+three, which is why nothing else on the list is worth doing first.
+
+Expect roughly 1.1-1.2x against the namespace backend if the page cache carries
+over, against 1.70x today. That is a projection and not a measurement: it
+assumes the compile's penalty is mostly cold cache, which the L2 result makes
+likely and does not establish.
+
+### What was tried, and which half of it is still true
+
+Built in `c839af0ab`, reverted in `3567463d7`. Two regressions killed it:
+
+* **The guest's network lives in the build process.** A machine left running is
+  left with a tap nobody services: `startUserNet` runs the userspace TCP/IP
+  stack in the CLI, so a rejoined guest ARPs into silence and `apk add` fails
+  with `DNS: transient error`. Three times against three clean runs. **Still
+  true, and it is the whole of the work below.**
+* **A machine that waits for the next connection cannot be stopped by hanging
+  up.** The host ends a build by closing the protocol channel; a guest waiting
+  instead meant the shutdown timed out and the VMM was killed with the store
+  mounted, which tore it. Fixed at the time by `e4548e3c4` - the host tells the
+  guest at boot whether anybody may rejoin it - and reverted along with
+  everything else. **Restore it; do not rediscover it.**
+
+The reverted code is worth reading rather than reinventing: `vmreuse_linux.go`
+(221 lines), `vmregister.go` (139), `cmd/earth-vmboot/sessions_linux.go` (18)
+and the `firecracker_linux.go` hunks, all recoverable from `3567463d7^`.
+
+### The work, in order
+
+**1. The shim keeps the network, and stops becoming the VMM.**
+
+Today `netShim` makes the tap, hands the host a packet socket, and `unix.Exec`s
+into Firecracker so that the VMM *is* the process holding the network
+namespace. The current comment argues for exactly that: "a shim that waited
+would be a second process to signal, reap and get wrong". Reuse inverts it. The
+shim has to fork the VMM, keep the packet socket, run the stack itself, and
+outlive the build that started it.
+
+What that costs: a process to supervise, a lifetime to bound, and the reaping
+the present comment is right about. What it buys: a network whose lifetime is
+the machine's rather than the build's, which is the precondition for every
+later step and cannot be worked around from the host side.
+
+Exit criterion: a build ends, its CLI exits, and a `curl` from inside the still
+running guest resolves a name and fetches. No engine change beyond the shim.
+
+**2. The guest serves one build after another.**
+
+Restore `sessions_linux.go` and the boot-time flag that tells the guest whether
+it may wait. Ending a session must leave the store consistent without
+unmounting it, since the next session will want it mounted; ending the *machine*
+still unmounts.
+
+Exit criterion: two consecutive builds against one guest, the second reporting
+the first's layers as hits, and a `SIGKILL` of the host at any point still
+leaving a store the next build reads without loss - which is the test that
+found the tearing the first time.
+
+**3. Finding and claiming a machine.**
+
+`vmregister.go` named a VM by a digest of what it was made of. Two constraints
+it must respect: the store device is `flock`ed for the life of a build and two
+guests must never mount one, and a machine whose configuration differs in any
+way that matters is a different machine. Claiming has to be atomic against a
+second build starting at the same instant.
+
+Exit criterion: two builds started simultaneously against one store, one
+proceeds and the other is refused with the existing message rather than
+corrupting anything.
+
+**4. Bounding what accumulates.**
+
+`EARTH_GUEST_IDLE` exists and has never meant anything, because the host has
+always stopped the guest at the end of every build. It starts meaning something
+here. The macOS backend's experience is the warning: content-named VMs are never
+reaped, and 140 stopped records and 55 volumes totalling 32GB accumulated on one
+development machine.
+
+Exit criterion: an idle machine stops on its own, and a machine killed rather
+than stopped leaves nothing a later build trips over - the sandbox sweep
+already does this for directories and is the shape to copy.
+
+### The part that is not a performance question
+
+**A reused machine is a weaker boundary than a fresh one, and the point of this
+backend is the boundary.** A guest that serves build B after build A carries A's
+kernel state, its page cache, its `/tmp`, and anything a step left outside the
+store. Today every one of those dies with the machine. That is not a detail of
+the implementation; it is part of what "a microVM per build" means.
+
+Two things bound it, and both should be decided before step 2 rather than after:
+
+* Most of the surface is shared already. The layer store is a cache that
+  outlives every build by design, so cross-build reads of *store* content are
+  not new. What is new is guest state outside it.
+* A session boundary can reset that state - remount the store, clear the
+  writable layers, re-exec the agent - which makes reuse "a fresh userland on a
+  warm kernel and a warm cache" rather than "the same machine again". That
+  keeps most of the cache benefit and gives up most of the extra surface.
+
+The trade is real either way, and it belongs in `decisions-pending.md` with a
+number against it rather than being settled by whoever writes step 2. The
+question to answer: is a warm page cache shared between two of this user's own
+builds an acceptable weakening, given that their layer store is shared already?

@@ -19,13 +19,13 @@ or the harness.
 
 ## Speed, with prices
 
-| decision                                                    | gain                                                  | price                                                                                |
-| ----------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| cache the registry token across builds                      | 0.45s of a 1.1s cold build on Linux (E916)            | a bearer token on disk                                                               |
-| layers on tmpfs (`EARTH_IMAGE_CACHE_DIR` splits the store)  | 1.42x on a 30-step build                              | ~1.1GB of RAM for a golang base, and a build that exceeds it fails rather than slows |
-| a guest that listens, instead of `container exec` per build | 165ms of every macOS build                            | a listening service inside the sandbox - a different security posture                |
-| prefetch image blobs on the host while the sandbox boots    | up to 0.58s of a 2.3s cold build                      | blobs kept on disk - 61MB a layer (E659)                                             |
-| dial the sandbox optimistically, scan beside it             | 0.11s of a 0.39s warm build - 28% (E914)              | macOS-only boot logic; CI cannot regression-test it                                  |
+| decision                                                    | gain                                       | price                                                                                |
+| ----------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| cache the registry token across builds                      | 0.45s of a 1.1s cold build on Linux (E916) | a bearer token on disk                                                               |
+| layers on tmpfs (`EARTH_IMAGE_CACHE_DIR` splits the store)  | 1.42x on a 30-step build                   | ~1.1GB of RAM for a golang base, and a build that exceeds it fails rather than slows |
+| a guest that listens, instead of `container exec` per build | 165ms of every macOS build                 | a listening service inside the sandbox - a different security posture                |
+| prefetch image blobs on the host while the sandbox boots    | up to 0.58s of a 2.3s cold build           | blobs kept on disk - 61MB a layer (E659)                                             |
+| dial the sandbox optimistically, scan beside it             | 0.11s of a 0.39s warm build - 28% (E914)   | macOS-only boot logic; CI cannot regression-test it                                  |
 
 `EARTH_ASYNC_RELEASE` is **no longer on this list**. It defers a cost that belongs
 to the store's filesystem - 19.5ms on ext4, 0.00ms on tmpfs for identical work -
@@ -64,6 +64,24 @@ those: `test-for-ls-locally` opens with `LOCALLY`, and the engine refuses it in
 as many words. So getting to 257 needs `LOCALLY`, the three decisions, and a
 harness that does not count what it cannot stage - in that order of size, and
 none of them is discovery.
+
+## Isolation traded for a warm cache
+
+Reusing a microVM between builds is the last item between this backend and the
+namespace backend on speed - it addresses the boot, the teardown and most of the
+compile penalty at once, because all three are the same cold guest (E979, and
+the plan's reuse section). Nobody disputes the number. What needs deciding is
+what it costs.
+
+| decision                    | what it costs now                                                                                                                                                                                                                                                                                                                                                             | evidence |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| a machine serves two builds | 1.70x against namespaces on the edit-one-file build, projected to 1.1-1.2x. **The cost is the boundary**: a guest serving build B after build A carries A's kernel state, page cache, `/tmp` and anything left outside the store, all of which die with the machine today. The layer store is already shared, so store content is not new surface; guest state outside it is. | E979     |
+| reset between sessions      | Remounting the store, clearing the writable layers and re-execing the agent makes reuse "a fresh userland on a warm kernel and a warm cache" rather than "the same machine again" - most of the benefit, most of the surface given back. Costs a session boundary that has to be correct, which is where the first attempt tore a store.                                      | E979     |
+
+The question, plainly: is a page cache shared between two of one user's own
+builds an acceptable weakening, given their layer store is shared already? It
+should be answered before the guest is taught to wait, not by whoever writes
+that code.
 
 ## What is not a decision
 

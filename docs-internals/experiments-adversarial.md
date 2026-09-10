@@ -47322,19 +47322,19 @@ right call for a better reason than the one given: not "correctness first", but
 
 What runs inside a microVM today, verified rather than assumed:
 
-| construct                                     | state               |
-| --------------------------------------------- | ------------------- |
-| `FROM`, multi-layer images                    | works               |
-| `RUN`, `ARG`, `IF`                            | works               |
-| `COPY` from the build context                 | works               |
-| `COPY +target/artifact`                       | works               |
-| `CACHE` mounts, including `--sharing=locked`  | works               |
-| `RUN --secret`, and left uncaptured           | works               |
-| `SAVE ARTIFACT`, a file and a directory       | works               |
-| `SAVE IMAGE`                                  | works               |
-| `BUILD` of several targets at once            | works               |
-| anything that fetches                         | **no network**      |
-| a network namespace per step                  | shared, and says so |
+| construct                                    | state               |
+| -------------------------------------------- | ------------------- |
+| `FROM`, multi-layer images                   | works               |
+| `RUN`, `ARG`, `IF`                           | works               |
+| `COPY` from the build context                | works               |
+| `COPY +target/artifact`                      | works               |
+| `CACHE` mounts, including `--sharing=locked` | works               |
+| `RUN --secret`, and left uncaptured          | works               |
+| `SAVE ARTIFACT`, a file and a directory      | works               |
+| `SAVE IMAGE`                                 | works               |
+| `BUILD` of several targets at once           | works               |
+| anything that fetches                        | **no network**      |
+| a network namespace per step                 | shared, and says so |
 
 The two gaps are one gap: the guest reaches the network through a tap device,
 and creating one needs `CAP_NET_ADMIN` - so the machine has to be prepared once
@@ -47371,10 +47371,10 @@ answers that it does not hold the layer the previous build recorded.
 
 Which layers, exactly:
 
-| entry            | layer id filed | caches |
-| ---------------- | -------------- | ------ |
-| `bytes=0`        | no             | never  |
-| `bytes=5`        | yes            | yes    |
+| entry     | layer id filed | caches |
+| --------- | -------------- | ------ |
+| `bytes=0` | no             | never  |
+| `bytes=5` | yes            | yes    |
 
 `Capture` returns an id *and* a content digest, and the entry records both. On
 the shared-filesystem path they are the same thing - `Place` files a tree under
@@ -47503,12 +47503,12 @@ than the disk it saves.
 Checked, on a two-step build against a store the collector had just taken the
 base image out of:
 
-| build                       | FROM     | RUN      |
-| --------------------------- | -------- | -------- |
-| cold                        | L1 hit   | miss     |
-| warm                        | L1 hit   | L1 hit   |
-| after a forced collection   | **miss** | L1 hit   |
-| the one after that          | L1 hit   | L1 hit   |
+| build                     | FROM     | RUN    |
+| ------------------------- | -------- | ------ |
+| cold                      | L1 hit   | miss   |
+| warm                      | L1 hit   | L1 hit |
+| after a forced collection | **miss** | L1 hit |
+| the one after that        | L1 hit   | L1 hit |
 
 The collection is visible - the base was removed and the next build missed it -
 and the build after that is warm again. Nothing is poisoned.
@@ -47520,3 +47520,128 @@ two-step Earthfile can reproduce. What it establishes is narrower and is the
 thing the automatic collector needed: collecting is *recoverable*, so a store
 that gives up a layer gets it back by fetching or rebuilding it once, rather than
 by never matching again.
+
+### E978 - the guest is told to use huge pages, and this line is not part of anything
+
+**Assumption under test.** A guest process backed by 4 KiB pages pays for every
+TLB miss twice, because its page-table walk is itself nested, and telling the
+guest kernel to hand out 2 MiB pages instead is worth measurable time on a
+build.
+
+The kernel Firecracker publishes a config for sets
+`CONFIG_TRANSPARENT_HUGEPAGE_MADVISE`, so a process is given huge pages only if
+it asks. A Go compiler - which is most of what this engine runs - never asks.
+The lever is one word on the guest's kernel command line, which is this engine's
+to write; the alternatives are the host's global THP mode, which needs root, and
+a hugetlbfs pool, which needs memory reserved that nothing else may use.
+
+**Measured twice, and the first measurement said nothing.** Against a cold
+`+earthly`, three runs each: 16.68, 17.51, 17.19 with, against 18.06, 16.94,
+16.72 without. Median 17.19 to 16.94, ranges fully overlapping. Read at the time
+as "no effect", and reported as such.
+
+That reading was wrong, and instructively so. It was the same effect all along,
+under six seconds of costs that have since gone (E979, and the export memo).
+Re-measured on the edit-one-file build, where the compile is 58% of the total
+rather than a fifth of it, five interleaved rounds, every run 60 hits and 3
+misses:
+
+| pages       | runs                     | median |
+| ----------- | ------------------------ | ------ |
+| 2 MiB (THP) | 5.78 5.78 5.79 5.81 5.83 | 5.79s  |
+| 4 KiB       | 5.96 5.98 5.98 6.08 6.24 | 5.98s  |
+
+The distributions do not overlap: every run with is faster than every run
+without. 0.19s, 3.2%.
+
+**The lesson is about the instrument, not the flag.** An effect worth 3% cannot
+be measured on a workload whose run-to-run spread is 8%. The honest procedure
+when a small effect reads as noise is to say the measurement was inconclusive
+and name the noise floor, not to say the effect is absent - and the first report
+of this said the latter.
+
+**Why this entry exists.** The line has been removed once already, and not
+because anybody disagreed with it. It was written beside the microVM reuse
+experiment and went out with `3567463d7` when that was reverted, along with 132
+lines of huge-page support that had nothing to do with reuse either. It shares
+no mechanism with reuse and none of its measurements.
+
+So: **if you are reverting something in this area, this is not part of it.**
+`TestTheGuestIsToldToUseHugePages` fails when the argument goes, which is the
+mechanical half; this paragraph is the half a wholesale revert would otherwise
+carry away with the test.
+
+What would justify removing it: a build measurably slower with 2 MiB pages, or a
+guest kernel that stops honouring `transparent_hugepage=always`. Neither has
+been observed. The reserved-pool half (`EARTH_VM_HUGE_PAGES`, host-side
+`huge_pages` backing) is a separate question and remains unrestored, because it
+needs `vm.nr_hugepages` set by root and memory no other process may use.
+
+### E979 - the L2 tier was asking the wrong question, not asking it slowly
+
+**The observation.** On the edit-one-file rebuild of `+earthly`, one L2 lookup
+cost 4.409s in a microVM and 0.222s under namespaces. Same step, same 6303
+predicted paths, both arms 60 hits and 3 misses. Twenty times the cost per file.
+
+The phase label carries the path count precisely so that "L2 took four seconds"
+and "L2 took four seconds for six thousand paths" can be told apart. This was
+neither: it was L2 taking four seconds *to find out about one file*.
+
+**What the tier does.** `WhyStale` walks a step's observed reads in order and
+returns at the first one that has changed - on an edit-and-rebuild that is
+usually the file just typed into. Fetching digests cannot stop early: every one
+of the 6303 is computed so that the first can be looked at. On a host those
+reads come out of a page cache that has seen them; in a guest booted a second
+ago they come off virtio-blk with nothing cached, which is the whole of the 20x.
+
+**The fix already existed and was wired to nothing.** `StaleAsker` sends the
+expectation to the guest and gets one line back. `guest.Client` implements it.
+But `Executor` never exposed the method, and the view source a guest store gets
+had no `WhyStaleIn`, so `core.whyStaleVia`'s type assertion always failed and
+quietly fetched. `EARTH_ASK_STALE=1` therefore turned on and changed nothing -
+9.84s off against 9.81s on, behaviour identical. **A switch reporting success
+and doing nothing is worse than an absent one**, and this one had a paragraph of
+documentation telling a reader to set it to reproduce a fault it could not
+reach.
+
+**Why it was off.** Because a build once went from 61 cache hits to none,
+reporting `/bin/busybox is gone from the base` for paths the fetched view found,
+and the conclusion drawn was that the two views disagree about one store.
+
+That conclusion was recorded one commit before the one that stopped a microVM
+being killed with its store still mounted. A torn store is exactly what "a file
+the base should have is not there" looks like; the two commit messages describe
+the same symptom and quote the same numbers. The disagreement was almost
+certainly a casualty of the tearing rather than a fault of its own.
+
+Worth noting against the original diagnosis: `... is gone from the base` is the
+ordinary phrasing of a staleness reason. A corpus run with the setting *off*
+prints `/app is gone from the base` in the course of working correctly. The
+message was never the evidence; the hit count was.
+
+**Re-measured, with the question actually reaching the guest:**
+
+| check                             | result                                       |
+| --------------------------------- | -------------------------------------------- |
+| ten edit-and-rebuild cycles       | 60 hits, 3 misses, every time                |
+| the edit reverted, rebuilt twice  | 94 hits, no misses                           |
+| 24 corpus targets under a microVM | 24 built, none failed - as with it off       |
+| `l2`, 6303 paths                  | 0.239s, against 4.409s; the host does 0.222s |
+| the build                         | 9.75s to 5.74s                               |
+
+The reverted case is the one that carries the argument. A view disagreeing with
+the host's could not put every layer back.
+
+**A second fault, found by the fix.** Wiring `WhyStaleIn` into the interface
+assertion that decides whether the store lives in the guest is how this was lost
+the first time: only one implementation had the method, the whole assertion
+failed, no layer was ever transferred into the sandbox, and the corpus went from
+194 of 246 to 88. **An interface assertion that gains a method silently loses a
+capability, and not the one being added.** The requirement is now asked for
+alone and the optimisation after it, with a test for an executor that can do the
+first and not the second.
+
+**Kill criterion, fixed now for the next person rather than in advance of this.**
+Set `EARTH_ASK_STALE=0` if a build loses cache hits it used to have, or if the
+two views disagree about a path on a store known to be intact. Neither has been
+observed in 12 builds and 48 corpus targets.

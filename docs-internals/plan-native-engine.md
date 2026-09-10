@@ -9864,13 +9864,32 @@ the stack cannot live. And the shim does not outlive anything: it `unix.Exec`s
 into Firecracker, so what survives is a namespace held open by the VMM, not a
 process.
 
-Descriptors are not namespaced, so the shape is three parties rather than two: a
-shim that makes the tap and becomes the VMM, a **stack host** in the host's own
-namespace that holds the packet socket and outlives the build, and an engine
-that holds neither. The stack host is a process the engine starts and detaches.
+**And it does not have to outlive anything** (E981). Between builds the guest is
+idle, waiting in `acceptWithin` for a host; a tap with no reader drops nothing
+anybody wanted. The stack must exist while a build runs and may go when it does.
+The requirement is that it can be *re-established*, not that it persists - and
+the engine half-assumes this already, since `gatewayMAC` is a fixed constant so
+that "a guest that remembers one across a reboot is not surprised".
 
-Exit criterion unchanged and still the right one: a build ends, its CLI exits,
-and a `curl` from inside the still running guest resolves a name and fetches.
+So the work is smaller than a detached stack host: a way to obtain a fresh
+packet socket for a tap that already exists. Descriptors are not namespaced -
+which the working engine demonstrates, since the shim makes the socket inside
+the namespace and the engine serves it from outside - so what is needed is
+something inside the namespace that can make one on request.
+
+A small server the shim leaves behind before it becomes the VMM, listening on a
+unix socket in the sandbox directory, handing out packet sockets over SCM_RIGHTS.
+It needs no connectivity, which is just as well, and it must not die with the
+build's process group.
+
+Rejected: re-entering with `nsenter`, which does work - an unprivileged process
+can rejoin the namespaces it created, given `--preserve-credentials` - but puts
+util-linux in the path of every microVM build purely to work around
+`setns(CLONE_NEWUSER)` needing a single-threaded process, which a Go program is
+not. The shim exists because this backend needs nothing installed.
+
+Exit criterion: a build ends, its CLI exits, a second build attaches to the same
+machine, and a `RUN` in it fetches over the network.
 
 Two things the first attempt at this step turned up, to be brought back rather
 than rediscovered. `NetBytes` must gain a third result: with the stack out of

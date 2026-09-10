@@ -47708,3 +47708,62 @@ cannot tell you" - because "nothing moved" is the reading that tells a reader to
 stop waiting for a download that is fine. The fix is a third result on the
 method and counters the stack host publishes; it was written and reverted with
 the rest, and it will be needed again unchanged.
+
+### E981 - the stack does not have to outlive the build, only be re-establishable
+
+E980 concluded that a network outliving its build needs a stack host: a third
+process, in the host's namespace, detached, running for as long as the machine.
+That is more than the problem needs, and the reason is in what a tap does when
+nobody is reading it.
+
+**Between builds the guest is idle.** It is sitting in `acceptWithin` waiting
+for a host. Nothing is sent, so a tap with no reader drops nothing anybody
+wanted. The stack has to be there when a build is running and need not exist
+when one is not - which makes the requirement *re-establishable*, not
+*long-lived*.
+
+The engine already assumes something close to this. `gatewayMAC` is a fixed
+constant, and its comment says why: "fixed so a guest that remembers one across
+a reboot is not surprised". A guest that keeps its ARP entry across a stack
+being replaced is the same case.
+
+**What can be reconnected, and what cannot.**
+
+A tap has no file outside its own network namespace. `/dev/net` holds `tun` and
+nothing else, and `/sys/class/net` outside the namespace lists the host's
+interfaces only; the device is reachable as an interface, through
+`/dev/net/tun` and `TUNSETIFF`, and only from inside.
+
+The descriptor is a different matter, and it is the one that counts. Descriptors
+are not namespaced, which the working engine already demonstrates: the shim makes
+an `AF_PACKET` socket inside the namespace and the engine serves it from the
+host's, and builds fetch. Where a socket was *made* is what matters; where it is
+*held* is not.
+
+**Re-entering is permitted, which was not obvious.** An unprivileged process can
+rejoin the user and network namespaces it created:
+
+```console
+$ nsenter --target <pid> --user --net --preserve-credentials -- ip -br link
+lo     DOWN     00:00:00:00:00:00 <LOOPBACK>
+tap0   DOWN     0e:76:6f:db:04:5c <NO-CARRIER,BROADCAST,MULTICAST,UP>
+```
+
+Two earlier attempts failed and neither was the kernel refusing: `-U` with
+`--preserve-credentials` returned EINVAL from nsenter's own argument handling,
+and without it nsenter called `setgroups` after entering and was refused, which
+is the `deny` an unprivileged user namespace is created with. Entering the
+network namespace *alone* is refused, as it should be - that needs CAP_SYS_ADMIN
+in the user namespace that owns it.
+
+**So there are two ways to get a socket for an existing tap**, and the choice is
+not about capability:
+
+| route                                                                                            | cost                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a small server the shim leaves inside the namespace, handing out packet sockets on a unix socket | one more process to reap, and it must not be killed with the build's process group                                                                        |
+| re-enter with `nsenter` and make one there                                                       | a util-linux dependency on the host path of every microVM build, and `setns(CLONE_NEWUSER)` requires a single-threaded process, which a Go program is not |
+
+The first. The second exists only to work around Go's threading and would put an
+external binary in the way of every build; the engine's own reason for the shim
+is that it needs nothing installed.

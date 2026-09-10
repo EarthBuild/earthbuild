@@ -15,6 +15,45 @@ import (
 // everything fresh is a build that reuses a step whose base moved.
 var errNoStaleAsker = errors.New("this view has no guest to ask about staleness")
 
+// storeAsker is what an executor must be able to answer for its store to be
+// held inside the guest: what layers it has, and what a base holds at a path.
+type storeAsker interface {
+	StoreHas(context.Context, []ir.NodeID) ([]ir.NodeID, error)
+	ViewDigests(context.Context, []ir.NodeID, []string) (map[string]ir.NodeID, map[string]ir.NodeID, error)
+}
+
+// staleAsker is the faster way of asking one of those questions, which an
+// executor may or may not have.
+type staleAsker interface {
+	WhyStaleIn(context.Context, []ir.NodeID, core.Observation) (string, error)
+}
+
+// guestStoreAskers separates what the guest store *requires* from what merely
+// makes it quicker.
+//
+// **Never one assertion, however tempting.** A single interface holding both
+// was how the guest store came to be switched off wholesale: `WhyStaleIn` was
+// added to the assertion that decides whether the store is in the guest, only
+// the guest client had it, so the assertion failed, the host kept the store,
+// no layer was ever transferred in, and the corpus went from 194 of 246 to 88.
+// An interface assertion that gains a method silently loses a capability, and
+// the capability it loses is not the one being added.
+//
+// So the requirement is asked for alone and the optimisation is asked for
+// after: an executor that cannot answer the staleness question keeps its guest
+// store and fetches digests, which is what every backend did before the
+// question existed.
+func guestStoreAskers(over any) (storeAsker, staleAsker) {
+	required, ok := over.(storeAsker)
+	if !ok {
+		return nil, nil
+	}
+
+	faster, _ := over.(staleAsker)
+
+	return required, faster
+}
+
 // guestViews answers what a base holds by asking whoever holds the store.
 //
 // **The observed-input tier reads a base to check a prediction against it**, and

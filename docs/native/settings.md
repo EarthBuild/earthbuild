@@ -1115,7 +1115,7 @@ See `tools/vsockprobe` for the fault this was built to find.
 ## `EARTH_ASK_STALE`
 
 Asks a store held inside a guest whether a step's observation still describes its base, rather than
-fetching the digests and comparing here. Default: off, because the two disagree.
+fetching the digests and comparing here. Default: on.
 
 **The tier's cost is not where it looks.** `WhyStale` walks a step's observed reads in sorted order
 and returns at the first one that changed, so a host reading its own store answers after a single
@@ -1127,10 +1127,29 @@ this repository: 1.4s of a 4.3s build, and 4.0s of 4.7s against a colder store.
 Sending the expectation instead, so the guest runs the same comparison where the files are, made
 that check 144 times faster - 0.010s against 1.44s for the same 6308 paths.
 
-**And it gave different answers**, which is why it is off. The guest's own view reports paths as
-absent that the fetched view finds - `/bin/busybox is gone from the base` - so a build went from 61
-hits to none and rebuilt everything it could have reused. Both sides call the same `LayerStore.View`
-over the same stack, so the disagreement is not in the comparison; it is in what the two views see
-of one store, and that is the thing to understand before this is turned on.
+**It was off, for a reason that turned out to be someone else's.** The guest's view appeared to
+report paths as absent that the fetched view found - `/bin/busybox is gone from the base` - and a
+build went from 61 hits to none. That was recorded one commit before the one that stopped a microVM
+being killed with its store still mounted, and a torn store is precisely what "a file the base
+should have is not there" looks like. The two commit messages describe the same symptom and quote
+the same numbers.
 
-Set it to `1` to reproduce that.
+Two things had to be repaired before it could be re-measured. The store is no longer torn on
+shutdown; and the question was not reaching the guest at all - the view source a guest store gets
+had no `WhyStaleIn`, so `core.whyStaleVia` fell back to fetching and the setting turned on and
+changed nothing. Measured before that was fixed: 9.84s with it off and 9.81s with it on.
+
+On the repaired engine:
+
+| check | result |
+| ---------------------------------- | ------------------------------------ |
+| ten edit-and-rebuild cycles | 60 hits, 3 misses, every time |
+| the edit reverted, rebuilt twice | 94 hits, no misses |
+| 24 corpus targets under a microVM | 24 built, none failed - as with it off |
+| L2 for a 6303-path step | 0.239s, against 4.409s and the host's 0.222s |
+
+The reverted case is the one that matters: a view that disagreed with the host's could not put
+every layer back.
+
+Set it to `0` to fetch digests instead. Do that if a build loses cache hits it used to have, or if
+the two views disagree about a path on a store known to be intact.

@@ -517,12 +517,11 @@ func runPlan(
 	)
 
 	if storeInGuest(sb) {
-		asker, ok := over.(interface {
-			StoreHas(context.Context, []ir.NodeID) ([]ir.NodeID, error)
-			ViewDigests(context.Context, []ir.NodeID, []string) (map[string]ir.NodeID, map[string]ir.NodeID, error)
-			WhyStaleIn(context.Context, []ir.NodeID, core.Observation) (string, error)
-		})
-		if ok {
+		// Two assertions, deliberately. See guestStoreAskers: fusing them is
+		// how a method only one executor had switched the guest store off
+		// entirely.
+		asker, faster := guestStoreAskers(over)
+		if asker != nil {
 			present = &guestBlobs{
 				ask: func(ids []ir.NodeID) ([]ir.NodeID, error) {
 					return asker.StoreHas(ctx, ids)
@@ -533,7 +532,12 @@ func runPlan(
 						" nothing: %v\n", err)
 				},
 			}
-			views = &guestViews{ask: asker.ViewDigests, stale: asker.WhyStaleIn}
+			gv := &guestViews{ask: asker.ViewDigests}
+			if faster != nil {
+				gv.stale = faster.WhyStaleIn
+			}
+
+			views = gv
 		} else {
 			fmt.Fprintln(o.Out, "earth: the layer store is inside the sandbox and"+
 				" this executor cannot be asked what it holds, so this build"+
@@ -587,9 +591,8 @@ func runPlan(
 		// per step and applies only where something actually watched.
 		Profiles: profiles,
 		Views:    views,
-		// Off, because asking the guest gives different answers from fetching
-		// the view - see EnvAskStale and core.whyStaleVia.
-		AskStale: os.Getenv(EnvAskStale) == "1",
+		// On. See EnvAskStale for what changed and what would change it back.
+		AskStale: askStale(),
 
 		// **Said to stderr, because a hung build's stdout may be a pipe nobody
 		// is reading.** The one failure the rest of the reporting cannot
@@ -896,7 +899,40 @@ func (g *engine) scheduling(local core.Executor, platform string) (core.Executor
 // EnvAskStale asks a store held inside a guest whether an observation is still
 // true, rather than fetching its digests and comparing here.
 //
-// Off, because the two disagree: the guest's own view reports paths as absent
-// that the fetched view finds, and a build went from 61 cache hits to none.
-// Here so the disagreement can be reproduced without a rebuild.
+// **On, and it was off for a reason that turned out to be someone else's.** It
+// was switched off after a build went from 61 cache hits to none, reporting
+// `/bin/busybox is gone from the base` for paths the fetched view found. That
+// commit landed one before the one that stopped a microVM being killed with its
+// store still mounted - and a torn store is exactly what "a file the base
+// should have is not there" looks like. The symptom and the numbers in the two
+// commit messages are the same symptom and the same numbers.
+//
+// Re-measured on the repaired engine, with the question actually reaching the
+// guest (it had not been: the view source had no WhyStaleIn, so the setting
+// turned on and changed nothing):
+//
+//   - ten edit-and-rebuild cycles, 60 hits and 3 misses every time;
+//   - the edit reverted, and both later builds back to 94 hits and no misses,
+//     which a view disagreeing with the host's could not produce;
+//   - 24 corpus targets built under a microVM, 24 built and none failed, the
+//     same as with it off;
+//   - the L2 tier for a 6303-path step at 0.239s against 4.409s, which is the
+//     0.222s the host manages reading its own store.
+//
+// Set it to `0` to go back to fetching. What would justify that: a build losing
+// cache hits it had, or the two views disagreeing about a path where the store
+// is known to be intact.
 const EnvAskStale = "EARTH_ASK_STALE"
+
+// askStale reads the setting, defaulting to on.
+//
+// Spelled as "off unless said otherwise" rather than `!= "0"`, so an empty or
+// misspelled value takes the default rather than being read as a decision.
+func askStale() bool {
+	switch os.Getenv(EnvAskStale) {
+	case "0", "false", "no":
+		return false
+	default:
+		return true
+	}
+}

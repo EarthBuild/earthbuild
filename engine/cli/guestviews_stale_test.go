@@ -80,3 +80,73 @@ func TestAViewWithNoAskerDeclines(t *testing.T) {
 		t.Errorf("a view with nobody to ask answered anyway: %v", err)
 	}
 }
+
+// canHold answers what layers a store has and what a base holds, and nothing
+// else - which is every executor that existed before the staleness question
+// did.
+type canHold struct{}
+
+func (canHold) StoreHas(context.Context, []ir.NodeID) ([]ir.NodeID, error) { return nil, nil }
+
+func (canHold) ViewDigests(
+	context.Context, []ir.NodeID, []string,
+) (map[string]ir.NodeID, map[string]ir.NodeID, error) {
+	return nil, nil, nil
+}
+
+// canAlsoAnswer can be asked the whole question.
+type canAlsoAnswer struct{ canHold }
+
+func (canAlsoAnswer) WhyStaleIn(
+	context.Context, []ir.NodeID, core.Observation,
+) (string, error) {
+	return "", nil
+}
+
+// TestAnExecutorThatCannotAnswerStalenessKeepsItsGuestStore.
+//
+// **The regression this separation exists for.** `WhyStaleIn` was once added to
+// the single assertion that decides whether the layer store lives in the guest.
+// Only the guest client had the method, so the assertion failed, the host kept
+// the store, no layer was ever transferred into the sandbox, and every base the
+// guest tried to materialise was missing - the corpus went from 194 of 246 to
+// 88. The line that named it was one nobody reads: "this executor cannot be
+// asked what it holds, so this build caches nothing".
+//
+// An interface assertion that gains a method silently loses a capability, and
+// the capability it loses is not the one being added.
+func TestAnExecutorThatCannotAnswerStalenessKeepsItsGuestStore(t *testing.T) {
+	t.Parallel()
+
+	asker, faster := guestStoreAskers(canHold{})
+	if asker == nil {
+		t.Fatal("an executor that can say what its store holds was refused one," +
+			" so its build transfers no layer into the guest and caches nothing")
+	}
+
+	if faster != nil {
+		t.Error("an executor with no WhyStaleIn was reported as having one")
+	}
+}
+
+// TestAnExecutorThatCanAnswerStalenessIsAskedTo.
+func TestAnExecutorThatCanAnswerStalenessIsAskedTo(t *testing.T) {
+	t.Parallel()
+
+	asker, faster := guestStoreAskers(canAlsoAnswer{})
+	if asker == nil || faster == nil {
+		t.Fatalf("an executor that can answer both was offered %v and %v", asker, faster)
+	}
+}
+
+// TestAnExecutorThatCanDoNeitherGetsNoGuestStore. The requirement is a
+// requirement: a store nobody can be asked about must not be treated as one
+// held in the guest.
+func TestAnExecutorThatCanDoNeitherGetsNoGuestStore(t *testing.T) {
+	t.Parallel()
+
+	if asker, _ := guestStoreAskers(struct{}{}); asker != nil {
+		t.Error("an executor that cannot be asked what it holds was treated as" +
+			" holding the store in its guest")
+	}
+}

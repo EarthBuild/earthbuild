@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/EarthBuild/earthbuild/engine/image"
 )
 
 // No entry in a packed context names an absolute path.
@@ -42,7 +44,7 @@ func TestAPackedContextNamesNothingAbsolute(t *testing.T) {
 	at := filepath.Join(t.TempDir(), "context.tar")
 
 	// The sub-path exactly as packContextDirect builds it.
-	err = packContextInto(root, filepath.Clean("/inputgraph/testdata"), nil, at)
+	err = packContextInto(root, filepath.Clean("/inputgraph/testdata"), nil, at, image.AtEpoch)
 	if err != nil {
 		t.Fatal(err)
 	}

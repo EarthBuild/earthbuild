@@ -2082,6 +2082,12 @@ func artifact(
 		// requesting the behaviour it was going to get - the least defensible
 		// kind of incompatibility, because the build it refused was correct.
 		//
+		// The build context was the one place that was not true: it was packed
+		// at a fixed epoch, so a `COPY --keep-ts` of a context kept nothing.
+		// It now carries commit times - not the filesystem's, which two clones
+		// disagree on, but times that order the same way on every machine. See
+		// EARTH_CONTEXT_TIMES.
+		//
 		// If this engine ever clamps by default - an open question (E34), not a
 		// settled one - the flag becomes load-bearing and this is where it
 		// starts.

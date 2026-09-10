@@ -1,6 +1,7 @@
 package exec
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/ignore"
 	"github.com/EarthBuild/earthbuild/engine/image"
@@ -31,7 +33,7 @@ import (
 //
 // Sorted for the same reason `Pack` sorts: a layer's digest is over the archive,
 // so the same tree has to produce the same bytes.
-func packContextInto(root, sub string, ex excluder, at string) error {
+func packContextInto(root, sub string, ex excluder, at string, when image.Stamps) error {
 	src := filepath.Join(root, filepath.FromSlash(sub))
 
 	names, err := selectedUnder(root, src, sub, ex)
@@ -46,7 +48,7 @@ func packContextInto(root, sub string, ex excluder, at string) error {
 
 	defer f.Close()
 
-	_, _, err = image.PackSelected(root, names, f)
+	_, _, err = image.PackSelectedAt(root, names, f, when)
 	if err != nil {
 		return fmt.Errorf("pack the build context: %w", err)
 	}
@@ -150,7 +152,7 @@ func directContextPack() bool {
 }
 
 // packContextDirect writes the node's context into the tarball without staging.
-func (e *Executor) packContextDirect(n *ir.Node, at string) error {
+func (e *Executor) packContextDirect(ctx context.Context, n *ir.Node, at string) error {
 	root := n.Meta.ContextRoot
 	if root == "" {
 		root = e.Context
@@ -164,17 +166,22 @@ func (e *Executor) packContextDirect(n *ir.Node, at string) error {
 		return fmt.Errorf("build context %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
 	}
 
+	// What time each entry carries, asked once for the whole context rather
+	// than once per entry - see EnvContextTimes for why it is not simply the
+	// epoch any more.
+	when := stampsOrEpoch(e.stampsFor(ctx, root))
+
 	// A single file has no tree to walk and no ignore file to consult: staging
 	// copied it and packed the one entry, and this packs the one entry.
 	if !fi.IsDir() {
-		return packOneContextFile(root, sub, at)
+		return packOneContextFile(root, sub, at, when)
 	}
 
-	return packContextInto(root, sub, ignore.For(root, src), at)
+	return packContextInto(root, sub, ignore.For(root, src), at, when)
 }
 
 // packOneContextFile packs a context that is a single file rather than a tree.
-func packOneContextFile(root, sub, at string) error {
+func packOneContextFile(root, sub, at string, when image.Stamps) error {
 	f, err := os.Create(at) //nolint:gosec // a path this engine derived
 	if err != nil {
 		return fmt.Errorf("make room for the packed context: %w", err)
@@ -194,10 +201,21 @@ func packOneContextFile(root, sub, at string) error {
 
 	sort.Strings(names)
 
-	_, _, err = image.PackSelected(root, names, f)
+	_, _, err = image.PackSelectedAt(root, names, f, when)
 	if err != nil {
 		return fmt.Errorf("pack the build context: %w", err)
 	}
 
 	return f.Close()
+}
+
+// stampsOrEpoch keeps the fixed epoch as the answer when there is no history to
+// read - no checkout, or the operator has asked for it. Degrading to what this
+// always did is the shape every other mechanism here takes (I11).
+func stampsOrEpoch(at func(rel string) time.Time) image.Stamps {
+	if at == nil {
+		return image.AtEpoch
+	}
+
+	return at
 }

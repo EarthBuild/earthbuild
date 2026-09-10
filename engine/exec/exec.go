@@ -184,6 +184,9 @@ type Executor struct {
 	running bool
 	// dockerNote is why a WITH DOCKER step got no client. See DockerNote.
 	dockerNote string
+
+	// stamps memoises what times a packed context carries. See EnvContextTimes.
+	stamps contextStamps
 }
 
 // New prepares an executor over a sandbox, without starting it.
@@ -2115,7 +2118,7 @@ func (e *Executor) stageContextInGuest(ctx context.Context, n *ir.Node) (core.Re
 	// against 152ms to pack alone, over 2000 files (E829c).
 	if directContextPack() {
 		endPack := phase("context:pack", n.Meta.Source)
-		err = e.packContextDirect(n, tarball)
+		err = e.packContextDirect(ctx, n, tarball)
 		endPack()
 
 		if err != nil {

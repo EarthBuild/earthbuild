@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/ignore"
+	"github.com/EarthBuild/earthbuild/engine/image"
 )
 
 // TestPackingStraightFromTheContextCarriesTheSameThing.
@@ -74,7 +75,7 @@ func TestPackingStraightFromTheContextCarriesTheSameThing(t *testing.T) {
 	// The route proposed: pack the context where it lies, selecting as it walks.
 	direct := filepath.Join(t.TempDir(), "direct.tar")
 
-	err = packContextInto(root, "ctx", ex, direct)
+	err = packContextInto(root, "ctx", ex, direct, image.AtEpoch)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +181,7 @@ func TestPackingStraightFromTheContextKeepsAHardLink(t *testing.T) {
 
 	at := filepath.Join(t.TempDir(), "direct.tar")
 
-	err = packContextInto(root, "ctx", ignore.For(root, filepath.Join(root, "ctx")), at)
+	err = packContextInto(root, "ctx", ignore.For(root, filepath.Join(root, "ctx")), at, image.AtEpoch)
 	if err != nil {
 		t.Fatal(err)
 	}

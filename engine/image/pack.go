@@ -21,6 +21,18 @@ import (
 // by the very mechanism meant to keep it out.
 var epoch = time.Unix(1, 0).UTC()
 
+// Stamps says what time an entry carries in the archive.
+//
+// The archive is the layer, so this is choosing what a layer's identity depends
+// on. `atEpoch` makes it depend on nothing but content, which is why it was the
+// only behaviour for so long; a caller that can name a time two machines agree
+// on - a commit time - buys back the ordering that content alone cannot express.
+type Stamps func(rel string) time.Time
+
+// AtEpoch is the fixed stamp every entry used to get, and still gets wherever
+// there is no better answer than "the same one for everything".
+func AtEpoch(string) time.Time { return epoch }
+
 // Pack writes a directory as a tar, and reports the digest and size of what it
 // wrote.
 //
@@ -64,6 +76,19 @@ func Pack(dir string, w io.Writer) (digest string, size int64, err error) {
 // same for the same tree; a caller assembling names itself is responsible for
 // the same property.
 func PackSelected(root string, names []string, w io.Writer) (digest string, size int64, err error) {
+	return PackSelectedAt(root, names, w, AtEpoch)
+}
+
+// PackSelectedAt is PackSelected with the times the caller chooses.
+//
+// **Why a layer would ever want a real time in it.** cargo does not hash
+// sources; it compares each one's mtime against the fingerprint it wrote in
+// `target/` and recompiles what is strictly newer. Flatten a tree to one
+// instant and it cannot answer the question at all - measured both ways round:
+// changed content with an older mtime is called `Fresh` and leaves a stale
+// binary, unchanged content with a newer one is recompiled. Ordering is the
+// signal, and only a stamp that moves forward carries it.
+func PackSelectedAt(root string, names []string, w io.Writer, at Stamps) (digest string, size int64, err error) {
 	root, err = filepath.Abs(root)
 	if err != nil {
 		return "", 0, fmt.Errorf("resolve %s: %w", root, err)
@@ -78,7 +103,7 @@ func PackSelected(root string, names []string, w io.Writer) (digest string, size
 	links := map[linkID]string{}
 
 	for _, rel := range names {
-		packErr := packOne(tw, root, rel, links)
+		packErr := packOne(tw, root, rel, links, at)
 		if packErr != nil {
 			return "", 0, packErr
 		}
@@ -140,7 +165,7 @@ func sortedEntries(root string) ([]string, error) {
 // an inode number is only unique within a filesystem.
 type linkID struct{ dev, ino uint64 }
 
-func packOne(tw *tar.Writer, root, rel string, links map[linkID]string) error {
+func packOne(tw *tar.Writer, root, rel string, links map[linkID]string, at Stamps) error {
 	p := filepath.Join(root, filepath.FromSlash(rel))
 
 	info, err := os.Lstat(p)
@@ -166,12 +191,18 @@ func packOne(tw *tar.Writer, root, rel string, links map[linkID]string) error {
 		h.Name += "/"
 	}
 
-	// Everything that is about the machine rather than the content. A timestamp
-	// and an owner are properties of the checkout, not of what was built, and
-	// two clones of one commit disagree on both.
-	h.ModTime = epoch
-	h.AccessTime = epoch
-	h.ChangeTime = epoch
+	// Everything that is about the machine rather than the content. An owner is
+	// a property of the checkout, not of what was built, and two clones of one
+	// commit disagree on it.
+	//
+	// A timestamp is the same kind of thing *when it is read off the
+	// filesystem*, which is why it was pinned here too. The caller's `Stamps`
+	// is the way out: a commit time is a property of the history rather than of
+	// the clone, so two clones agree on it and cargo still gets an order.
+	when := at(rel)
+	h.ModTime = when
+	h.AccessTime = when
+	h.ChangeTime = when
 	h.Uid, h.Gid = 0, 0
 	h.Uname, h.Gname = "", ""
 	h.Format = tar.FormatPAX

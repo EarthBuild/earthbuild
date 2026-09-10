@@ -1117,6 +1117,50 @@ changed my cache" without rebuilding the engine.
 
 Default: on.
 
+## `EARTH_CONTEXT_TIMES`
+
+What timestamps a packed build context carries.
+
+**`history`, the default.** Each committed file carries the time of the commit that last changed
+it, and each locally-modified one its mtime on disk.
+
+**`epoch` is what this did before**, and gives every entry one fixed stamp.
+
+**Why a build context has real times in it at all.** A layer's identity is its bytes, so a
+timestamp read off the filesystem would make two clones of one commit build different layers -
+which is why every entry used to be pinned. But a tree that arrives all at one instant is one an
+incremental compiler cannot read. cargo does not hash sources; it compares each one's mtime
+against the fingerprint it wrote in `target/` and recompiles what is strictly newer. Flatten the
+tree and it cannot answer the question at all: measured both ways round, changed content with an
+older mtime is reported `Fresh` and leaves a **stale binary**, and unchanged content with a newer
+one is recompiled every time.
+
+A commit time is the quantity that satisfies both. It belongs to the history rather than to the
+clone, so two machines agree on it, and it only ever moves forward, so it carries the ordering
+content alone cannot. It is the committer date - the author date survives a rebase or a
+cherry-pick, which sounds like the more stable choice and is the wrong one, since it would let a
+two-year-old patch land on today's tree carrying a two-year-old stamp.
+
+**Uncommitted edits get the local clock and lose nothing by it.** A modified working tree is not
+reproducible by definition - nobody else has those bytes - so there is no shared answer to forgo,
+and the local mtime is exactly what the compiler needs. Reproducibility is kept where it can exist
+and spent where it cannot.
+
+The cost is one L1 miss where two histories hold the same content under different commits, which
+is what a rebase or a cherry-pick produces. L2 does not notice: its digest excludes mtimes by
+construction, so the step is answered from its observed inputs instead. Directories, and anything
+git has no answer for, stay at the fixed epoch.
+
+Reading the history costs one `git log` walk per context, abandoned as soon as every wanted path
+has a time - 0.46s over 4836 commits and 3138 files when nothing lets it stop early, memoised for
+the rest of the build.
+
+`EARTH_CONTEXT_TIMES=epoch` restores the old behaviour, which is the setting for a context that
+must pack identically whichever commit it came from - and the way to answer "is this what changed
+my cache" without rebuilding the engine.
+
+Default: `history`.
+
 ## `EARTH_RETRY_ATTEMPTS`
 
 How many times an operation that can be retried is tried in total, not how many extra tries it

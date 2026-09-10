@@ -89,6 +89,18 @@ func netShim(args []string) error {
 	_ = out.Close()
 	_ = sock.Close()
 
+	// **Left behind, because a tap cannot be opened from outside its
+	// namespace.** This process is about to become the VMM, and after that
+	// nothing in the namespace can be asked for anything. A build that finds
+	// this machine already running needs a socket on its tap and has no way to
+	// make one; that is what this answers. See NetFDCommand.
+	//
+	// Started before the exec and not waited for: it is a child of a process
+	// that is about to be replaced, so when the machine goes it is orphaned and
+	// reaped like any other. A machine nobody will rejoin leaves one that
+	// nobody asks, which costs a process and no decisions.
+	startNetFDServer(tapName)
+
 	// **Exec rather than run**, so the VMM *is* this process: the network
 	// namespace lives as long as a process is in it, and a shim that waited
 	// would be a second process to signal, reap and get wrong.
@@ -216,3 +228,40 @@ func netInterfaceIndex(name string) (int, error) {
 // htons is host-to-network for the 16-bit protocol field. AF_PACKET wants it
 // big-endian even in a struct every other field of which is native.
 func htons(v uint16) uint16 { return v<<8 | v>>8 }
+
+// startNetFDServer leaves something in this namespace that can be asked for a
+// socket on the tap.
+//
+// Best effort and silent about not being asked for: a machine whose network
+// cannot be rejoined is a machine that has to be booted again, which is what
+// every machine did until now. Failing the build over it would trade a working
+// guest for a missing optimisation.
+func startNetFDServer(device string) {
+	at := os.Getenv(EnvNetFDs)
+	if at == "" {
+		return
+	}
+
+	self, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earthbuild: no path to leave a network server at: %v\n", err)
+
+		return
+	}
+
+	//nolint:gosec,noctx // this binary, and a machine's life is not a context
+	srv := osexec.Command(self, NetFDCommand, at, device)
+	srv.Stdout, srv.Stderr = os.Stdout, os.Stderr
+
+	err = srv.Start()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "earthbuild: this machine cannot be rejoined: %v\n", err)
+
+		return
+	}
+
+	// **Not waited for, and deliberately not held.** The wait would have to
+	// outlive this process, which is about to exec, and there is nothing
+	// sensible to do with the answer: the server ends when the namespace does.
+	_ = srv.Process.Release()
+}

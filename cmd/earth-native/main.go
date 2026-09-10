@@ -147,6 +147,16 @@ func main() {
 		return
 	}
 
+	// And the fifth: what the shim leaves inside that namespace, so a build
+	// finding a machine already running can be handed a socket on its tap. Same
+	// shape, same reason - it must be *in* the namespace, and the only process
+	// that was is the one that became the VMM.
+	if len(os.Args) > 1 && os.Args[1] == exec.NetFDCommand {
+		exec.NetFDMain(os.Args[2:])
+
+		return
+	}
+
 	// Having got past that, this binary demonstrably dispatches the agent - so
 	// the engine may run it as one rather than hunting for a separate file.
 	exec.SelfServesAsGuest()

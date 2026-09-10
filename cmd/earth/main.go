@@ -100,6 +100,15 @@ func main() {
 		return
 	}
 
+	// And the thing the shim leaves inside that namespace, which is a re-exec
+	// of this binary for the same reason: it has to be *in* the namespace, and
+	// the only process that was is the one about to become the VMM.
+	if len(os.Args) > 1 && os.Args[1] == exec.NetFDCommand {
+		exec.NetFDMain(os.Args[2:])
+
+		return
+	}
+
 	// Having got past that, this binary demonstrably dispatches the agent - so
 	// the engine may run it as one rather than hunting for a separate file.
 	exec.SelfServesAsGuest()

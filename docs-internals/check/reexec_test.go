@@ -21,6 +21,7 @@ var reExecs = map[string]string{
 	"RunStepShimIfAsked":   "a step's own namespaces",
 	"RunDaemonShimIfAsked": "a step's own docker daemon",
 	"exec.NetShimCommand":  "the microVM's tap, made in a namespace of its own",
+	"exec.NetFDCommand":    "sockets on that tap, for a build that finds the machine running",
 }
 
 // frontEnds are the binaries that can reach a sandbox, and so need every door.
@@ -41,6 +42,17 @@ var frontEnds = []string{
 // Read as text rather than parsed. The property is that a name appears in a
 // file somebody has to remember to edit, which is exactly what a forgotten line
 // looks like; a type checker cannot see an omission.
+//
+// **Not the only guard on this, and the other one is better where they
+// overlap.** `engine/cli` has TestEveryShimIsDispatchedWhereverThisBinaryIsReExecuted,
+// which discovers the command words by parsing where they are declared instead
+// of listing them, so a new one is covered without anybody remembering. It was
+// written first and this was written without finding it.
+//
+// Kept because the two cover different things. That one finds exported consts
+// ending in `Command`; two of the re-execs here are functions - the step and
+// daemon shims - and no parse of a const list will ever see them. Add a new
+// *command* there; add a new *shim function* here.
 func TestEveryFrontEndDispatchesEveryReExec(t *testing.T) {
 	t.Parallel()
 

@@ -47767,3 +47767,46 @@ not about capability:
 The first. The second exists only to work around Go's threading and would put an
 external binary in the way of every build; the engine's own reason for the shim
 is that it needs nothing installed.
+
+### E982 - the third place a re-exec has to be dispatched is the test binary
+
+Adding a fifth re-exec - the server a machine leaves inside its namespace, so a
+later build can be handed a socket on its tap (E981) - was caught by three
+separate guards before it was run, each naming a different place it was missing.
+
+**The settings guard** wanted `EARTH_VM_NET_FDS` documented or declared
+internal, which is the shape it has caught things in before.
+
+**The re-exec guard in `docs-internals/check`** named `cmd/earth-native/main.go`,
+which is the fault that guard was written for: that binary dispatched three of
+four and not the network shim, so every `EARTH_VM` build through it waited out
+the shim's patience and reported that the guest's network never arrived.
+
+**And a guard nobody had looked for** named a site that would not have been
+guessed. `engine/cli` has
+`TestEveryShimIsDispatchedWhereverThisBinaryIsReExecuted`, and its subject is
+`engine/cli/main_test.go` - the *test* binary. The engine re-executes
+`os.Executable()`, and under `go test` that is the test binary; one that does
+not recognise a command word runs the tests again, inside itself. Its own
+account of what that cost:
+
+> It cost 88 test processes, 280 attempts at a 246-invocation corpus, store
+> claims held by builds that were themselves the gate, and a parity number that
+> measured nothing. Nothing in the failure said "recursion". It said `the store
+> device is in use by another build`, which was true and useless.
+
+**Two guards for one property, and the older one is better.** It discovers the
+command words by parsing the packages where they are declared, so a new one is
+covered without anybody remembering; the newer one holds a hand-written list.
+The newer was written without finding the older.
+
+Both are kept, because they do not cover the same thing: a parse for exported
+consts ending in `Command` will never see the step and daemon shims, which are
+functions. The older now checks `cmd/earth-native/main.go` too, so the
+auto-discovering one reaches every front end, and each says which additions
+belong to it.
+
+The lesson is not "look for existing guards", though that is true. It is that a
+guard whose list is *derived* found a site a guard whose list is *written* could
+not have, because nobody writing the list would have thought of the test binary
+until it had already re-run the corpus inside itself.

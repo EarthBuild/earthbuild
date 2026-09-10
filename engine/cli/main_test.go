@@ -39,5 +39,11 @@ func TestMain(m *testing.M) {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == exec.NetFDCommand {
+		exec.NetFDMain(os.Args[2:])
+
+		return
+	}
+
 	os.Exit(m.Run())
 }

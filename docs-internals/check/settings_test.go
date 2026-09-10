@@ -45,6 +45,7 @@ var internalSettings = map[string]string{
 	"EARTH_KEEP_BLOBS":          "an E659 experiment switch; nothing reads the blobs yet",
 	"EARTH_GUEST_ARCH":          hostToGuest,
 	"EARTH_VM_MAY_REJOIN":       hostToGuest,
+	"EARTH_VM_NET_FDS":          "the shim tells the server it leaves where to listen",
 	"EARTH_GUEST_CGROUP_PARENT": hostToGuest,
 	"EARTH_GUEST_FAST":          hostToGuest,
 	"EARTH_GUEST_OWNS_MACHINE":  "passed to the guest by the host: a grant, not a preference",

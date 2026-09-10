@@ -38,6 +38,12 @@ func TestEveryShimIsDispatchedWhereverThisBinaryIsReExecuted(t *testing.T) {
 
 	for _, where := range []string{
 		filepath.Join(root, "cmd", "earth", "main.go"),
+		// The other front end, which had this exact fault: it dispatched three
+		// of the four re-execs and not the network shim, so every EARTH_VM
+		// build through it waited out the shim's patience and reported that the
+		// guest's network never arrived - on every step, and on `-prune`, which
+		// is the one operation only that binary offers.
+		filepath.Join(root, "cmd", "earth-native", "main.go"),
 		filepath.Join(root, "engine", "cli", "main_test.go"),
 	} {
 		b, err := os.ReadFile(where)

@@ -368,6 +368,10 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 		if shimErr != nil {
 			return nil, shimErr
 		}
+
+		// Where this machine answers requests for a socket on its tap, for a
+		// build that finds it already running. See NetFDCommand.
+		cmd.Env = append(os.Environ(), EnvNetFDs+"="+netFDAt(dir))
 	}
 
 	// **The guest's console goes to a file, not to the terminal.** It is where

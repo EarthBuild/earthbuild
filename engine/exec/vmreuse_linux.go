@@ -24,7 +24,15 @@ import (
 // not in here is what a build asks it to do, which is the request.
 func (f *Firecracker) vmDigest() string {
 	parts := []string{
-		f.Kernel, f.Initrd, f.StoreImage,
+		// **What the images are, not only where they are.** A rebuilt initrd
+		// keeps its path, so naming it alone let a build attach to a machine
+		// booted from the *previous* one: new code on disk, old code in memory,
+		// and a fix that appears not to have taken. Anyone working on the guest
+		// agent rebuilds in place, so this is the ordinary case rather than a
+		// corner.
+		f.Kernel, fileStamp(f.Kernel),
+		f.Initrd, fileStamp(f.Initrd),
+		f.StoreImage,
 		strconv.Itoa(f.CPUs()), strconv.Itoa(orDefault(f.MemoryMiB, defaultMemory())),
 		os.Getenv(EnvTap),
 	}
@@ -315,4 +323,28 @@ func keptOpen(files ...*os.File) []*os.File {
 	}
 
 	return out
+}
+
+// fileStamp identifies the contents of a boot image cheaply enough to ask on
+// every build.
+//
+// Size and modification time rather than a digest of the bytes: a rebuilt image
+// always has a new mtime, which is the case this exists to catch, and hashing
+// five megabytes on the way into every build buys only the case where somebody
+// restores an old image with its timestamp intact.
+//
+// **Absent is a value, not an error.** A missing kernel is a failure the boot
+// reports far more usefully than a digest could, and it has to be distinct from
+// an unset path or an absent image would match every other.
+func fileStamp(at string) string {
+	if at == "" {
+		return "unset"
+	}
+
+	fi, err := os.Stat(at)
+	if err != nil {
+		return "absent:" + at
+	}
+
+	return fmt.Sprintf("%d:%d", fi.Size(), fi.ModTime().UnixNano())
 }

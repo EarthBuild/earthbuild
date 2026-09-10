@@ -13,9 +13,9 @@ import (
 
 // GetBuildkitClient returns a Buildkit client.
 func (cli *CLI) GetBuildkitClient(ctx context.Context, cmd *cli.Command) (*client.Client, error) {
-	err := cli.InitContainer(cmd)
+	err := cli.InitBuildkit(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("init container engine: %w", err)
+		return nil, fmt.Errorf("init buildkit: %w", err)
 	}
 
 	if cli.Flags().BuildkitdSettings.BuildkitAddr == "" {

@@ -2,7 +2,7 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -22,40 +22,16 @@ type podmanEngine struct {
 }
 
 // newPodmanEngine constructs a new Engine using the podman binary installed on the host.
-func newPodmanEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
+func newPodmanEngine(_ context.Context, cfg *Config) (*podmanEngine, error) {
 	e := &podmanEngine{
 		shellEngine: &shellEngine{
-			BinaryName:              "podman",
-			RunCompatibilityArgs:    []string{"--security-opt", "unmask=/sys/fs/cgroup"},
-			GlobalCompatibilityArgs: make([]string, 0),
-			Log:                     cfg.Log,
+			BinaryName: "podman",
+			RunArgs:    []string{"--security-opt", "unmask=/sys/fs/cgroup"},
+			Log:        cfg.Log,
 		},
 	}
 
-	output, err := e.CommandOutput(ctx, "info", "--format={{.Host.Security.Rootless}}")
-	if err != nil {
-		return nil, err
-	}
-
-	if output.Stderr.Len() > 0 {
-		// Only check stdout; since some podman versions less than 3.4 will report warnings about no systemd session,
-		// and falling back to cgroupfs. These errors land on stderr. https://github.com/containers/podman/pull/12834
-		cfg.Log.VerbosePrintf("Podman logged additional information to stderr:")
-		cfg.Log.VerbosePrint(output.Stderr.String())
-		cfg.Log.VerbosePrintf("Adding log level compatibility flag for all additional operations.")
-
-		e.GlobalCompatibilityArgs = append(e.GlobalCompatibilityArgs, "--log-level", "error")
-	}
-
-	// Only check stdout here since it may be contaminated with log output detected above.
-	trimmedStdOut := strings.TrimSpace(output.Stdout.String())
-
-	isRootless, err := strconv.ParseBool(trimmedStdOut)
-	if err != nil {
-		return nil, fmt.Errorf("info returned invalid value %s: %w", output.String(), err)
-	}
-
-	e.Rootless = isRootless
+	var err error
 
 	e.Addrs, err = resolveAddrs(e, cfg)
 	if err != nil {
@@ -68,12 +44,9 @@ func newPodmanEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 // Metadata returns current engine metadata.
 func (e *podmanEngine) Metadata() Metadata {
 	return Metadata{
-		Name:      "Podman",
-		Scheme:    SchemePodman,
-		Binary:    e.BinaryName,
-		Transport: TransportShell,
-		Addrs:     e.Addrs,
-		IsPodman:  true,
+		Name:   "Podman",
+		Scheme: SchemePodman,
+		Addrs:  e.Addrs,
 	}
 }
 

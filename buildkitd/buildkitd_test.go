@@ -24,41 +24,24 @@ func TestEngineContainer(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		engineName   string
-		engineBinary string
-		wantName     string
-		wantDesc     string
+		name       string
+		engineName string
+		wantDesc   string
 	}{
 		{
 			name:       "docker",
 			engineName: dockerEngineName,
-			wantName:   dockerEngineName,
 			wantDesc:   "Docker container",
 		},
 		{
 			name:       "podman",
 			engineName: "Podman",
-			wantName:   "Podman",
 			wantDesc:   "Podman container",
 		},
 		{
 			name:       "apple container",
 			engineName: appleContainerName,
-			wantName:   appleContainerName,
 			wantDesc:   appleContainerName,
-		},
-		{
-			name:         "fallback to binary",
-			engineBinary: "nerdctl",
-			wantName:     "nerdctl",
-			wantDesc:     "nerdctl container",
-		},
-		{
-			name:         "fallback binary starting with vowel",
-			engineBinary: "oci-runtime",
-			wantName:     "oci-runtime",
-			wantDesc:     "oci-runtime container",
 		},
 	}
 
@@ -67,11 +50,9 @@ func TestEngineContainer(t *testing.T) {
 			t.Parallel()
 
 			eng := engine.NewTestClient(engine.Metadata{
-				Name:   tt.engineName,
-				Binary: tt.engineBinary,
+				Name: tt.engineName,
 			})
 
-			assert.Equal(t, tt.wantName, engineName(eng))
 			assert.Equal(t, tt.wantDesc, engineContainer(eng))
 		})
 	}

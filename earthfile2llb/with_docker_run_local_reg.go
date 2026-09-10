@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
@@ -107,10 +106,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 			return err
 		}
 
-		err = w.c.engine.TagImage(ctx, engine.Tag{
-			SourceRef: pullImage,
-			TargetRef: result.FinalImageName,
-		})
+		err = w.c.engine.TagImage(ctx, pullImage, result.FinalImageName)
 		if err != nil {
 			return fmt.Errorf("tag image %q: %w", result.FinalImageName, err)
 		}

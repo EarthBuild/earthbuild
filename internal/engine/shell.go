@@ -2,18 +2,15 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
-	"al.essio.dev/pkg/shellescape"
 	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
@@ -42,12 +39,10 @@ type containerInfoJSON struct {
 
 // shellEngine provides shared shell-execution functionality across CLI-based container engines.
 type shellEngine struct {
-	Log                     *conslogging.ConsoleLogger
-	Addrs                   Addrs
-	BinaryName              string
-	RunCompatibilityArgs    []string
-	GlobalCompatibilityArgs []string
-	Rootless                bool
+	Log        *conslogging.ConsoleLogger
+	Addrs      Addrs
+	BinaryName string
+	RunArgs    []string
 }
 
 // IsAvailable reports whether the CLI binary can execute successfully.
@@ -158,9 +153,9 @@ func (e *shellEngine) StopContainer(ctx context.Context, timeout time.Duration, 
 	args := []string{"stop"}
 
 	if timeout > 0 {
-		timeoutSec := max(1, int64(timeout.Seconds()))
+		timeoutSec := max(1, int(timeout.Seconds()))
 
-		args = append(args, "--time", strconv.FormatInt(timeoutSec, 10))
+		args = append(args, "--time", strconv.Itoa(timeoutSec))
 	}
 
 	args = append(args, namesOrIDs...)
@@ -228,20 +223,14 @@ func (e *shellEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 			args = append(args, "--mount", mount)
 		}
 
-		for _, port := range spec.Ports {
-			hostPort := strconv.Itoa(port.HostPort)
-			if port.HostPort <= 0 {
-				hostPort = ""
-			}
-
-			// Format: -p IP:HostPort:ContainerPort/Protocol
-			args = append(args, "-p", fmt.Sprintf("%s:%s:%d/%s", port.IP, hostPort, port.ContainerPort, port.Protocol))
+		for _, portMapping := range spec.PortMappings {
+			args = append(args, "-p", portMapping.String())
 		}
 
 		args = append(args, "-d")
 		args = append(args, "--name", spec.NameOrID)
 		args = append(args, spec.AdditionalArgs...)
-		args = append(args, e.RunCompatibilityArgs...)
+		args = append(args, e.RunArgs...)
 		args = append(args, spec.ImageRef)
 		args = append(args, spec.ContainerArgs...)
 
@@ -322,80 +311,13 @@ func (e *shellEngine) RemoveImage(ctx context.Context, force bool, refs ...strin
 }
 
 // TagImage tags an image via the CLI.
-func (e *shellEngine) TagImage(ctx context.Context, tags ...Tag) error {
-	var err error
-
-	for _, tag := range tags {
-		_, tagErr := e.CommandOutput(ctx, "tag", tag.SourceRef, tag.TargetRef)
-		if tagErr != nil {
-			err = errors.Join(err, fmt.Errorf("tag image %s -> %s: %w", tag.SourceRef, tag.TargetRef, tagErr))
-		}
-	}
-
-	return err
-}
-
-// LoadImage loads images into the CLI daemon.
-func (e *shellEngine) LoadImage(ctx context.Context, images ...io.Reader) error {
-	var err error
-
-	for _, img := range images {
-		cmd := e.Command(ctx, "load")
-		cmd.Stdin = img
-
-		loadErr := cmd.Run()
-		if loadErr != nil {
-			err = errors.Join(err, fmt.Errorf("load image: %w", loadErr))
-		}
-	}
-
-	return err
-}
-
-// ImageLoadCommand returns the shell command used to load an image from a file.
-func (e *shellEngine) ImageLoadCommand(filename string) string {
-	return strings.Join(e.CommandArgs("load", "-i", shellescape.Quote(filename)), " ")
-}
-
-type volumeInspectJSON struct {
-	Name       string `json:"Name"`
-	Mountpoint string `json:"Mountpoint"`
-	UsageData  struct {
-		Size int64 `json:"Size"`
-	} `json:"UsageData"`
-}
-
-// InspectVolumes retrieves information about volumes via the CLI.
-func (e *shellEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
-	args := append([]string{"volume", "inspect"}, volumeNames...)
-
-	output, err := e.CommandOutput(ctx, args...)
+func (e *shellEngine) TagImage(ctx context.Context, source, target string) error {
+	_, err := e.CommandOutput(ctx, "tag", source, target)
 	if err != nil {
-		return nil, fmt.Errorf("inspect volumes: %w", err)
+		return fmt.Errorf("tag image %s -> %s: %w", source, target, err)
 	}
 
-	stdout := strings.TrimSpace(output.Stdout.String())
-	if stdout == "" || stdout == "[]" {
-		return nil, nil
-	}
-
-	var in []volumeInspectJSON
-
-	err = json.Unmarshal([]byte(stdout), &in)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal volume inspect output: %w", err)
-	}
-
-	volumes := make([]Volume, 0, len(in))
-	for _, vol := range in {
-		volumes = append(volumes, Volume{
-			Name:       vol.Name,
-			Mountpoint: vol.Mountpoint,
-			SizeBytes:  uint64(vol.UsageData.Size), //nolint:gosec // UsageData.Size is non-negative container size
-		})
-	}
-
-	return volumes, nil
+	return nil
 }
 
 type commandContextOutput struct {
@@ -438,7 +360,7 @@ func (e *shellEngine) Command(ctx context.Context, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// CommandArgs generates the full command argument slice with binary name and compatibility args.
+// CommandArgs generates the full command argument slice with binary name.
 func (e *shellEngine) CommandArgs(args ...string) []string {
-	return slices.Concat([]string{e.BinaryName}, e.GlobalCompatibilityArgs, args)
+	return append([]string{e.BinaryName}, args...)
 }

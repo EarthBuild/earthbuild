@@ -83,7 +83,7 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	if a.reset {
-		err := a.cli.InitContainer(cmd)
+		err := a.cli.InitBuildkit(cmd)
 		if err != nil {
 			return err
 		}

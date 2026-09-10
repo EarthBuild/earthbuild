@@ -9,7 +9,7 @@ import (
 )
 
 // defaultContainerResources dynamically detects host resources on darwin and allocates
-// 75% of host memory and all CPU cores by default for Apple Container VMs.
+// 25% of host memory and all CPU cores by default for Apple Container VMs.
 func defaultContainerResources() (cpus, memoryMB int) {
 	cpus = runtime.NumCPU()
 

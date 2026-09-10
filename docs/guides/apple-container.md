@@ -19,6 +19,7 @@ EarthBuild supports Apple Container as a native container engine on macOS (`darw
 ## Getting started
 
 When `earth` starts, it automatically detects available container engines in this order:
+
 1. **Docker**
 2. **Podman**
 3. **Apple Container**
@@ -50,21 +51,24 @@ You should see BuildKit start up inside Apple Container:
  1. Init 🚀
 ————————————————————————————————————————————————————————————————————————————————
 
-           buildkitd | Starting buildkit daemon as an Apple Container (earth-buildkitd)...
+           buildkitd | Starting buildkit daemon as Apple Container (earth-buildkitd)...
            buildkitd | ...Done
 ```
 
 ## Features & Integration Details
 
 ### Rosetta 2 Translation
+
 Apple Container runs containers with `--rosetta` enabled by default. This allows executing both `linux/arm64` and `linux/amd64` binaries within your build steps seamlessly using macOS Rosetta translation.
 
 ### Automatic Resource Sizing
-On macOS, EarthBuild automatically probes host hardware and allocates **75% of system RAM** (minimum 4GB) and **all CPU cores** to the BuildKit daemon VM container, ensuring high performance without manual VM tuning.
+
+On macOS, EarthBuild automatically probes host hardware and allocates **25% of system RAM** (minimum 4GB) and **all CPU cores** to the BuildKit daemon VM container, ensuring high performance without manual VM tuning.
 
 ## Troubleshooting
 
 ### "container system service is not running"
+
 Ensure the Apple Container service is running:
 
 ```bash
@@ -78,6 +82,7 @@ container system start --enable-kernel-install
 ```
 
 ### Checking Container Logs
+
 If the daemon fails to start, inspect the container logs:
 
 ```bash
@@ -85,6 +90,7 @@ container logs earth-buildkitd
 ```
 
 ### Cleaning Up
+
 To reset and remove the EarthBuild daemon and cache volume in Apple Container:
 
 ```bash

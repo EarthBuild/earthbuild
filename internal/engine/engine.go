@@ -43,7 +43,7 @@ type engineDriver interface {
 	InspectImages(ctx context.Context, refs ...string) ([]Image, error)
 	PullImage(ctx context.Context, refs ...string) error
 	RemoveImage(ctx context.Context, force bool, refs ...string) error
-	TagImage(ctx context.Context, tags ...Tag) error
+	TagImage(ctx context.Context, source, target string) error
 	LoadImage(ctx context.Context, images ...io.Reader) error
 	ImageLoadCommand(filename string) string
 
@@ -269,13 +269,9 @@ func (c *Client) RemoveImage(ctx context.Context, force bool, refs ...string) er
 	return c.driver.RemoveImage(ctx, force, refs...)
 }
 
-// TagImage tags an image with target references.
-func (c *Client) TagImage(ctx context.Context, tags ...Tag) error {
-	if len(tags) == 0 {
-		return nil
-	}
-
-	return c.driver.TagImage(ctx, tags...)
+// TagImage tags a source image with a target reference.
+func (c *Client) TagImage(ctx context.Context, source, target string) error {
+	return c.driver.TagImage(ctx, source, target)
 }
 
 // LoadImage loads images from tar streams into the container engine.
@@ -421,13 +417,6 @@ type Volume struct {
 	SizeBytes  uint64
 }
 
-// Tag contains a source and target ref, used for tagging an image.
-// It means that the SourceRef is tagged as the value in TargetRef.
-type Tag struct {
-	SourceRef string
-	TargetRef string
-}
-
 // MountType constrains the kinds of mounts the Engine API needs to support.
 // Current valid values are bind and volume.
 type MountType string
@@ -448,24 +437,33 @@ type Mount struct {
 	ReadOnly bool
 }
 
-// ProtocolType constrains the kinds of protocols the engine API needs to support.
-// Current valid values are tcp and udp.
-type ProtocolType string
-
-const (
-	// ProtocolTCP is the TCP protocol type.
-	ProtocolTCP = ProtocolType("tcp")
-
-	// ProtocolUDP is the UDP protocol type.
-	ProtocolUDP = ProtocolType("udp")
-)
-
-// Port contains the needed data to publish a port for a given container in a given engine.
-type Port struct {
-	IP            string
-	Protocol      ProtocolType
+// PortMapping describes a published container port.
+type PortMapping struct {
+	HostIP        string
 	HostPort      int
 	ContainerPort int
+}
+
+// String returns the port mapping formatted for CLI flags ([host-ip:][host-port:]container-port).
+func (m PortMapping) String() string {
+	var sb strings.Builder
+
+	if m.HostIP != "" {
+		sb.WriteString(m.HostIP)
+		sb.WriteByte(':')
+	}
+
+	if m.HostPort > 0 {
+		sb.WriteString(strconv.Itoa(m.HostPort))
+	}
+
+	if m.HostIP != "" || m.HostPort > 0 {
+		sb.WriteByte(':')
+	}
+
+	sb.WriteString(strconv.Itoa(m.ContainerPort))
+
+	return sb.String()
 }
 
 // ContainerSpec contains the information needed to create and run a container.
@@ -475,12 +473,10 @@ type ContainerSpec struct {
 	NameOrID      string
 	ImageRef      string
 	Mounts        []Mount
-	Ports         []Port
+	PortMappings  []PortMapping
 	ContainerArgs []string
-	// We would like to shift to the non-shell providers. However, we do provide an option for supplying
-	// additional arguments to the CLI when starting buildkit. While this allowed great flexibility, we
-	// also do not know what or how it is being used. This gives us the option to support those users until
-	// we decide to pull the plug. This argument is ignored by non-shell providers.
+	// AdditionalArgs holds extra CLI arguments forwarded to the container engine's run command
+	// (e.g. from the buildkit_additional_args user configuration).
 	AdditionalArgs []string
 	Privileged     bool
 }
@@ -519,40 +515,8 @@ type Metadata struct {
 	// Name is the display name of the engine (e.g. "Docker", "Podman", "Apple Container").
 	Name string
 
-	// Binary is the executable name used for CLI operations (e.g. "docker", "podman", "container").
-	Binary string
-
 	// Scheme is the connection protocol scheme used by the engine (e.g. SchemeDocker).
 	Scheme Scheme
-
-	// Transport is the communication mechanism used by the engine.
-	Transport Transport
-
-	// IsPodman indicates if the underlying engine is Podman, even if accessed via a generic alias.
-	IsPodman bool
-}
-
-// Transport represents the communication mechanism used by the container engine.
-type Transport int
-
-const (
-	// TransportShell signifies that a given engine executes operations via an external CLI binary.
-	TransportShell Transport = iota
-
-	// TransportAPI signifies that a given engine executes operations via a direct daemon API or socket.
-	TransportAPI
-)
-
-// String returns the string representation of the transport mechanism.
-func (t Transport) String() string {
-	switch t {
-	case TransportShell:
-		return "shell"
-	case TransportAPI:
-		return "api"
-	default:
-		return "unknown"
-	}
 }
 
 // Scheme represents a supported container connection protocol.
@@ -598,6 +562,16 @@ func (s Scheme) UsesTCP() bool {
 	return s == SchemeTCP || s == SchemeApple
 }
 
+// SupportsRegistryProxy reports whether the scheme supports the local registry proxy.
+func (s Scheme) SupportsRegistryProxy() bool {
+	return s == SchemeDocker
+}
+
+// RequiresTLSByDefault reports whether the scheme requires TLS certificates by default.
+func (s Scheme) RequiresTLSByDefault() bool {
+	return s == SchemePodman || s == SchemeApple
+}
+
 // UsesTCP returns true if the given URL scheme communicates with BuildKit over TCP
 // (e.g. "tcp", "apple-container").
 func UsesTCP(scheme string) bool {
@@ -631,6 +605,9 @@ func parseScheme(s string) (Scheme, error) {
 }
 
 const (
+	// DefaultBuildkitPort is the standard network port used by the buildkit daemon.
+	DefaultBuildkitPort = 8372
+
 	// DockerSchemePrefix is used to construct the buildkit address for local docker-based connections.
 	DockerSchemePrefix = "docker-container://"
 
@@ -671,7 +648,7 @@ func newDriverForAddrs(driver Driver, cfg *Config) (engineDriver, error) {
 	case AppleContainer:
 		return &appleEngine{shellEngine: &shellEngine{Log: cfg.Log}}, nil
 	case Stub:
-		return &stubEngine{shellEngine: &shellEngine{Log: cfg.Log}}, nil
+		return &stubEngine{}, nil
 	case Auto:
 		return nil, fmt.Errorf("cannot determine default buildkit address for %s", driver)
 	}
@@ -801,8 +778,8 @@ func autodetectEngine(ctx context.Context, cfg *Config) (*Client, error) {
 	var errs error
 
 	for _, driver := range [...]Driver{
-		DockerShell,
-		PodmanShell,
+		Docker,
+		Podman,
 		AppleContainer,
 	} {
 		client, err := New(ctx, driver, cfg)
@@ -812,11 +789,6 @@ func autodetectEngine(ctx context.Context, cfg *Config) (*Client, error) {
 		}
 
 		if !client.IsAvailable(ctx) {
-			continue
-		}
-
-		if client.Metadata().IsPodman && driver == DockerShell {
-			// Docker CLI works, but it's likely podman making itself available via docker CLI.
 			continue
 		}
 

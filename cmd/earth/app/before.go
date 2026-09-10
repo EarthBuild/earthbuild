@@ -135,7 +135,7 @@ func (app *EarthApp) parseEngine(ctx context.Context) error {
 		BuildkitHostFileValue:      app.BaseCLI.Cfg().Global.BuildkitHost,
 		LocalRegistryHostFileValue: app.BaseCLI.Cfg().Global.LocalRegistryHost,
 		LocalContainerName:         app.BaseCLI.Flags().ContainerName,
-		DefaultPort:                8372 + config.PortOffset(app.BaseCLI.Flags().InstallationName),
+		DefaultPort:                engine.DefaultBuildkitPort + config.PortOffset(app.BaseCLI.Flags().InstallationName),
 		Log:                        log,
 	}
 

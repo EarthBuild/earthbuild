@@ -21,11 +21,11 @@ import (
 )
 
 func newDocker(ctx context.Context, cfg *engine.Config) (*engine.Client, error) {
-	return engine.New(ctx, engine.DockerShell, cfg)
+	return engine.New(ctx, engine.Docker, cfg)
 }
 
 func newPodman(ctx context.Context, cfg *engine.Config) (*engine.Client, error) {
-	return engine.New(ctx, engine.PodmanShell, cfg)
+	return engine.New(ctx, engine.Podman, cfg)
 }
 
 func TestEngineNew(t *testing.T) {
@@ -336,12 +336,11 @@ func TestEngineContainerRun(t *testing.T) {
 							ReadOnly: true,
 						},
 					},
-					Ports: []engine.Port{
+					PortMappings: []engine.PortMapping{
 						{
-							IP:            "127.0.0.1",
+							HostIP:        "127.0.0.1",
 							HostPort:      0,
 							ContainerPort: 5678,
-							Protocol:      engine.ProtocolTCP,
 						},
 					},
 				})
@@ -520,16 +519,10 @@ func TestEngineImageTag(t *testing.T) {
 
 			imageID := info.ID
 
-			tags := make([]engine.Tag, 0, len(tC.tagList))
 			for _, tagName := range tC.tagList {
-				tags = append(tags, engine.Tag{
-					SourceRef: imageID,
-					TargetRef: tagName,
-				})
+				err = eng.TagImage(ctx, imageID, tagName)
+				NoError(t, err)
 			}
-
-			err = eng.TagImage(ctx, tags...)
-			NoError(t, err)
 
 			infos, err := eng.InspectImages(ctx, tC.tagList...)
 			NoError(t, err)

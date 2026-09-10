@@ -63,12 +63,12 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 	go p.serve(ctx)
 
 	// Find the assigned port.
-	reg, ok := ln.Addr().(*net.TCPAddr)
+	registry, ok := ln.Addr().(*net.TCPAddr)
 	if !ok {
 		return "", nil, errors.New("failed to get proxy listener address")
 	}
 
-	addr = fmt.Sprintf("127.0.0.1:%d", reg.Port)
+	addr = fmt.Sprintf("127.0.0.1:%d", registry.Port)
 
 	c.log.VerbosePrintf("Starting registry proxy on %s", addr)
 
@@ -104,7 +104,7 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 			}
 		}
 
-		port, err := c.startDarwinProxy(ctx, containerName, reg.Port)
+		port, err := c.startDarwinProxy(ctx, containerName, registry.Port)
 		if err != nil {
 			stopFn(ctx)
 			return "", nil, fmt.Errorf("failed to start Darwin support container: %w", err)
@@ -144,12 +144,11 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 	spec := engine.ContainerSpec{
 		NameOrID: containerName,
 		ImageRef: c.darwinProxyImage,
-		Ports: []engine.Port{
+		PortMappings: []engine.PortMapping{
 			{
-				IP:            "127.0.0.1",
+				HostIP:        "127.0.0.1",
 				HostPort:      containerPort, // Bind to available port
 				ContainerPort: 80,
-				Protocol:      engine.ProtocolTCP,
 			},
 		},
 		ContainerArgs: []string{

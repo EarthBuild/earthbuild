@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -108,6 +108,12 @@ func TestConvertAppleContainer(t *testing.T) {
 	assert.Equal(t, "192.168.64.2", container.IPs["default"])
 	assert.Equal(t, "value", container.Labels["key"])
 	assert.False(t, container.Created.IsZero())
+
+	// Verify "stopped" state maps to StatusExited
+	stoppedInspect := inspects[0]
+	stoppedInspect.Status.State = "stopped"
+	stoppedContainer := convertAppleContainer(stoppedInspect)
+	assert.Equal(t, StatusExited, stoppedContainer.Status)
 }
 
 func TestAppleImageInspectUnmarshal(t *testing.T) {
@@ -327,4 +333,35 @@ func TestIsMemoryPressured(t *testing.T) {
 
 	// Ensure IsMemoryPressured executes safely without panicking.
 	_ = IsMemoryPressured()
+}
+
+func TestAppleContainerInspectUnmarshalVariants(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty string returns nil", func(t *testing.T) {
+		t.Parallel()
+
+		inspects, err := unmarshalSingleOrSlice[appleContainerInspect]("")
+		require.NoError(t, err)
+		assert.Nil(t, inspects)
+	})
+
+	t.Run("empty array returns empty slice", func(t *testing.T) {
+		t.Parallel()
+
+		inspects, err := unmarshalSingleOrSlice[appleContainerInspect]("[]")
+		require.NoError(t, err)
+		assert.Empty(t, inspects)
+	})
+
+	t.Run("single object unmarshals into slice with 1 element", func(t *testing.T) {
+		t.Parallel()
+
+		data := `{"id": "single-id", "status": {"state": "running"}}`
+		inspects, err := unmarshalSingleOrSlice[appleContainerInspect](data)
+		require.NoError(t, err)
+		require.Len(t, inspects, 1)
+		assert.Equal(t, "single-id", inspects[0].ID)
+		assert.Equal(t, "running", inspects[0].Status.State)
+	})
 }

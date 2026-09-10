@@ -2,7 +2,7 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -101,13 +101,11 @@ type appleEngine struct {
 	*shellEngine
 }
 
-func newAppleEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
+func newAppleEngine(ctx context.Context, cfg *Config) (*appleEngine, error) {
 	e := &appleEngine{
 		shellEngine: &shellEngine{
-			BinaryName:              "container",
-			RunCompatibilityArgs:    make([]string, 0),
-			GlobalCompatibilityArgs: make([]string, 0),
-			Log:                     cfg.Log,
+			BinaryName: "container",
+			Log:        cfg.Log,
 		},
 	}
 
@@ -132,11 +130,9 @@ func newAppleEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 // Metadata returns engine metadata.
 func (e *appleEngine) Metadata() Metadata {
 	return Metadata{
-		Name:      "Apple Container",
-		Scheme:    SchemeApple,
-		Binary:    e.BinaryName,
-		Transport: TransportShell,
-		Addrs:     e.Addrs,
+		Name:   "Apple Container",
+		Scheme: SchemeApple,
+		Addrs:  e.Addrs,
 	}
 }
 
@@ -153,14 +149,15 @@ func (e *appleEngine) Version(ctx context.Context) (Version, error) {
 	}
 
 	ver := strings.TrimSpace(output.Stdout.String())
+	platform := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 
 	return Version{
 		ClientVersion:    ver,
 		ClientAPIVersion: "N/A",
-		ClientPlatform:   "darwin/arm64",
+		ClientPlatform:   platform,
 		ServerVersion:    ver,
 		ServerAPIVersion: "N/A",
-		ServerPlatform:   "darwin/arm64",
+		ServerPlatform:   platform,
 		ServerAddress:    "local",
 	}, nil
 }
@@ -172,11 +169,11 @@ func (e *appleEngine) ListContainers(ctx context.Context) ([]Container, error) {
 		return nil, err
 	}
 
-	var inspects []appleContainerInspect
+	stdout := strings.TrimSpace(output.Stdout.String())
 
-	err = json.Unmarshal([]byte(output.Stdout.String()), &inspects)
+	inspects, err := unmarshalSingleOrSlice[appleContainerInspect](stdout)
 	if err != nil {
-		return nil, fmt.Errorf("decode apple container list output (%s): %w", output.Stdout.String(), err)
+		return nil, fmt.Errorf("decode apple container list output (%s): %w", stdout, err)
 	}
 
 	ret := make([]Container, len(inspects))
@@ -228,11 +225,16 @@ func convertAppleContainer(v appleContainerInspect) Container {
 	imageID := strings.TrimPrefix(v.Configuration.Image.Descriptor.Digest, "sha256:")
 	created, _ := time.Parse(time.RFC3339Nano, v.Configuration.CreationDate)
 
+	status := v.Status.State
+	if status == "stopped" {
+		status = StatusExited
+	}
+
 	return Container{
 		ID:       v.ID,
 		Name:     v.ID,
 		Created:  created,
-		Status:   v.Status.State,
+		Status:   status,
 		Image:    v.Configuration.Image.Reference,
 		ImageID:  imageID,
 		Platform: v.Configuration.Platform.Architecture,
@@ -303,7 +305,7 @@ func (e *appleEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 		args = append(args, "-d")
 		args = append(args, "--name", spec.NameOrID)
 		args = append(args, spec.AdditionalArgs...)
-		args = append(args, e.RunCompatibilityArgs...)
+		args = append(args, e.RunArgs...)
 		args = append(args, spec.ImageRef)
 		args = append(args, spec.ContainerArgs...)
 
@@ -392,17 +394,13 @@ func (e *appleEngine) PullImage(ctx context.Context, refs ...string) error {
 }
 
 // TagImage applies tags to existing images.
-func (e *appleEngine) TagImage(ctx context.Context, tags ...Tag) error {
-	var err error
-
-	for _, tag := range tags {
-		_, cmdErr := e.CommandOutput(ctx, "image", "tag", tag.SourceRef, tag.TargetRef)
-		if cmdErr != nil {
-			err = errors.Join(err, fmt.Errorf("tag image %s -> %s: %w", tag.SourceRef, tag.TargetRef, cmdErr))
-		}
+func (e *appleEngine) TagImage(ctx context.Context, source, target string) error {
+	_, err := e.CommandOutput(ctx, "image", "tag", source, target)
+	if err != nil {
+		return fmt.Errorf("tag image %s -> %s: %w", source, target, err)
 	}
 
-	return err
+	return nil
 }
 
 // RemoveImage removes images via the CLI.
@@ -528,6 +526,10 @@ func (e *appleEngine) ContainerAddr(ctx context.Context, containerName string, p
 
 	if len(containers) == 0 {
 		return "", fmt.Errorf("container %s not found", containerName)
+	}
+
+	if ip, ok := containers[0].IPs["default"]; ok && ip != "" {
+		return "tcp://" + net.JoinHostPort(ip, strconv.Itoa(port)), nil
 	}
 
 	for _, ip := range containers[0].IPs {

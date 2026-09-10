@@ -2,7 +2,7 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -17,19 +17,14 @@ import (
 // dockerEngine implements Engine for the Docker CLI.
 type dockerEngine struct {
 	*shellEngine
-
-	userNamespaced bool
-	isPodman       bool
 }
 
 // newDockerEngine constructs a new Engine using the docker binary installed on the host.
-func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
+func newDockerEngine(ctx context.Context, cfg *Config) (*dockerEngine, error) {
 	e := &dockerEngine{
 		shellEngine: &shellEngine{
-			BinaryName:              string(Docker),
-			RunCompatibilityArgs:    make([]string, 0),
-			GlobalCompatibilityArgs: make([]string, 0),
-			Log:                     cfg.Log,
+			BinaryName: string(Docker),
+			Log:        cfg.Log,
 		},
 	}
 
@@ -46,11 +41,8 @@ func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 		return nil, err
 	}
 
-	e.Rootless = strings.Contains(output.String(), "rootless")
-
-	e.userNamespaced = strings.Contains(output.String(), "name=userns")
-	if e.userNamespaced {
-		e.RunCompatibilityArgs = []string{"--userns", "host"}
+	if strings.Contains(output.String(), "name=userns") {
+		e.RunArgs = []string{"--userns", "host"}
 	}
 
 	e.Addrs, err = resolveAddrs(e, cfg)
@@ -69,10 +61,9 @@ func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 		}
 	}
 
-	outputStr := strings.TrimSpace(output.String())
-	if outputStr == "/var/lib/containers/storage" {
-		// Likely podman making itself available via the docker CLI.
-		e.isPodman = true
+	graphRoot := strings.TrimRight(output.String(), "/")
+	if strings.HasSuffix(graphRoot, "containers/storage") {
+		return nil, errors.New("podman detected via docker CLI; use podman driver")
 	}
 
 	return e, nil
@@ -81,12 +72,9 @@ func newDockerEngine(ctx context.Context, cfg *Config) (engineDriver, error) {
 // Metadata returns current engine metadata.
 func (e *dockerEngine) Metadata() Metadata {
 	return Metadata{
-		Name:      "Docker",
-		Scheme:    SchemeDocker,
-		Binary:    e.BinaryName,
-		Transport: TransportShell,
-		Addrs:     e.Addrs,
-		IsPodman:  e.isPodman,
+		Name:   "Docker",
+		Scheme: SchemeDocker,
+		Addrs:  e.Addrs,
 	}
 }
 
@@ -200,7 +188,7 @@ func (e *dockerEngine) DefaultAddr(cfg *Config) (string, error) {
 
 // ContainerAddr returns the reachable address for the specified port on a Docker container.
 func (e *dockerEngine) ContainerAddr(_ context.Context, containerName string, port int) (string, error) {
-	if port == 8372 {
+	if port == DefaultBuildkitPort {
 		return DockerSchemePrefix + containerName, nil
 	}
 

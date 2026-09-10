@@ -60,6 +60,7 @@ const (
 // Opt represent builder options.
 type Opt struct {
 	BuildkitSkipper                       bk.BuildkitSkipper
+	Engine                                *engine.Client
 	Parallelism                           semutil.Semaphore
 	OverridingVars                        *variables.Scope
 	GitLookup                             *buildcontext.GitLookup
@@ -74,7 +75,6 @@ type Opt struct {
 	DarwinProxyImage                      string
 	MaxCacheExport                        string
 	GitLFSInclude                         string
-	Engine                                *engine.Client
 	LocalRegistryAddr                     string
 	GitBranchOverride                     string
 	FeatureFlagOverrides                  string
@@ -181,11 +181,10 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 		return nil, false
 	}
 
-	// Podman and Apple Container do not support the insecure localhost registry proxy
-	scheme := b.opt.Engine.Metadata().Scheme
-	if scheme == engine.SchemePodman ||
-		scheme == engine.SchemeApple {
-		cons.Printf("Registry proxy not supported on Podman/Apple Container. Falling back to tar-based outputs.")
+	meta := b.opt.Engine.Metadata()
+
+	if !meta.Scheme.SupportsRegistryProxy() {
+		cons.Printf("Registry proxy not supported on %s. Falling back to tar-based outputs.", meta.Name)
 		return nil, false
 	}
 

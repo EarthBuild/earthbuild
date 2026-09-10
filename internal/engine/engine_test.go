@@ -125,12 +125,12 @@ func TestBuildArgMatrix(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		urls, err := ResolveAddrs(DockerShell, &Config{
+		urls, err := ResolveAddrs(Docker, &Config{
 			BuildkitHostCLIValue:       tt.args.buildkit,
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			LocalContainerName:         "test", //nolint:goconst
-			DefaultPort:                8372,
+			DefaultPort:                DefaultBuildkitPort,
 			Log:                        logger,
 		})
 		r.NoError(err)
@@ -188,12 +188,12 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		_, err := ResolveAddrs(DockerShell, &Config{
+		_, err := ResolveAddrs(Docker, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Log:                        logger,
 			LocalContainerName:         "test",
-			DefaultPort:                8372,
+			DefaultPort:                DefaultBuildkitPort,
 		})
 		r.ErrorIs(err, tt.expected)
 		assert.Contains(t, logs.String(), tt.log)
@@ -254,6 +254,46 @@ func TestParseAddr(t *testing.T) {
 	}
 }
 
+func TestResolveAddrsDrivers(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		LocalContainerName: "test",
+		DefaultPort:        DefaultBuildkitPort,
+	}
+
+	tests := []struct {
+		driver       Driver
+		wantBuildkit string
+		wantErr      bool
+	}{
+		{driver: Docker, wantBuildkit: "docker-container://test"},
+		{driver: DockerShell, wantBuildkit: "docker-container://test"},
+		{driver: AppleContainer, wantBuildkit: "apple-container://test"},
+		{driver: Podman, wantBuildkit: "tcp://127.0.0.1:8372"},
+		{driver: PodmanShell, wantBuildkit: "tcp://127.0.0.1:8372"},
+		{driver: Stub, wantBuildkit: "docker-container://test"},
+		{driver: Auto, wantErr: true},
+		{driver: Driver("unsupported"), wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.driver), func(t *testing.T) {
+			t.Parallel()
+
+			urls, err := ResolveAddrs(tt.driver, cfg)
+			if tt.wantErr {
+				require.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantBuildkit, urls.Buildkit.String())
+		})
+	}
+}
+
 func TestResolveAddrsLogging(t *testing.T) {
 	t.Parallel()
 
@@ -280,12 +320,12 @@ func TestResolveAddrsLogging(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		_, err := ResolveAddrs(DockerShell, &Config{
+		_, err := ResolveAddrs(Docker, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Log:                        logger,
 			LocalContainerName:         "test",
-			DefaultPort:                8372,
+			DefaultPort:                DefaultBuildkitPort,
 		})
 		r.NoError(err)
 		assert.Contains(t, logs.String(), tt.log)
@@ -326,12 +366,12 @@ func TestResolveAddrsLoggingNonIssues(t *testing.T) {
 		logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 		logger = logger.WithWriter(&logs)
 
-		_, err := ResolveAddrs(DockerShell, &Config{
+		_, err := ResolveAddrs(Docker, &Config{
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
 			Log:                        logger,
 			LocalContainerName:         "test",
-			DefaultPort:                8372,
+			DefaultPort:                DefaultBuildkitPort,
 		})
 		r.NoError(err)
 		assert.NotContains(t, logs.String(), tt.log)
@@ -387,7 +427,7 @@ func TestContainerAddr(t *testing.T) {
 		t.Parallel()
 
 		e := &dockerEngine{}
-		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
+		addr, err := e.ContainerAddr(ctx, "my-container", DefaultBuildkitPort)
 		r.NoError(err)
 		assert.Equal(t, "docker-container://my-container", addr)
 
@@ -400,7 +440,7 @@ func TestContainerAddr(t *testing.T) {
 		t.Parallel()
 
 		e := &podmanEngine{}
-		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
+		addr, err := e.ContainerAddr(ctx, "my-container", DefaultBuildkitPort)
 		r.NoError(err)
 		assert.Equal(t, "tcp://127.0.0.1:8372", addr)
 
@@ -413,7 +453,7 @@ func TestContainerAddr(t *testing.T) {
 		t.Parallel()
 
 		e := &stubEngine{}
-		addr, err := e.ContainerAddr(ctx, "my-container", 8372)
+		addr, err := e.ContainerAddr(ctx, "my-container", DefaultBuildkitPort)
 		r.NoError(err)
 		assert.Equal(t, "docker-container://my-container", addr)
 
@@ -462,17 +502,6 @@ func TestImageLoadCommand(t *testing.T) {
 		assert.Equal(t, "podman pull 'docker-archive:/tmp/image.tar; rm -rf /'", cmdInj)
 	})
 
-	t.Run("shell engine quotes filename", func(t *testing.T) {
-		t.Parallel()
-
-		e := &shellEngine{BinaryName: "nerdctl"}
-		cmd := e.ImageLoadCommand(filenameWithSpaces)
-		assert.Equal(t, "nerdctl load -i '/tmp/path with spaces/my image.tar'", cmd)
-
-		cmdInj := e.ImageLoadCommand(filenameWithInjection)
-		assert.Equal(t, "nerdctl load -i '/tmp/image.tar; rm -rf /'", cmdInj)
-	})
-
 	t.Run("stub engine returns empty string", func(t *testing.T) {
 		t.Parallel()
 
@@ -501,6 +530,74 @@ func TestUsesTCP(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tt.want, UsesTCP(tt.scheme))
+		})
+	}
+}
+
+func TestSchemeCapabilities(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, SchemeDocker.SupportsRegistryProxy())
+	assert.False(t, SchemePodman.SupportsRegistryProxy())
+	assert.False(t, SchemeApple.SupportsRegistryProxy())
+	assert.False(t, SchemeTCP.SupportsRegistryProxy())
+	assert.False(t, SchemeInvalid.SupportsRegistryProxy())
+
+	assert.True(t, SchemePodman.RequiresTLSByDefault())
+	assert.True(t, SchemeApple.RequiresTLSByDefault())
+	assert.False(t, SchemeDocker.RequiresTLSByDefault())
+	assert.False(t, SchemeTCP.RequiresTLSByDefault())
+	assert.False(t, SchemeInvalid.RequiresTLSByDefault())
+}
+
+func TestPortMappingString(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		want    string
+		mapping PortMapping
+	}{
+		{
+			name: "full mapping with host IP and port",
+			want: "127.0.0.1:8372:8372",
+			mapping: PortMapping{
+				HostIP:        "127.0.0.1",
+				HostPort:      8372,
+				ContainerPort: 8372,
+			},
+		},
+		{
+			name: "host IP with dynamic host port",
+			mapping: PortMapping{
+				HostIP:        "127.0.0.1",
+				HostPort:      0,
+				ContainerPort: 5678,
+			},
+			want: "127.0.0.1::5678",
+		},
+		{
+			name: "host port and container port without host IP",
+			mapping: PortMapping{
+				HostPort:      8080,
+				ContainerPort: 80,
+			},
+			want: "8080:80",
+		},
+		{
+			name: "container port only",
+			mapping: PortMapping{
+				ContainerPort: 80,
+			},
+			want: "80",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, tt.mapping.String())
 		})
 	}
 }

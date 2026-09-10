@@ -2,7 +2,6 @@
 package buildkitd
 
 import (
-	"cmp"
 	"context"
 	"crypto/rsa"
 	"errors"
@@ -11,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -71,8 +71,7 @@ func NewClient(
 		}
 
 		if errors.Is(retErr, os.ErrNotExist) {
-			scheme := eng.Metadata().Scheme
-			if scheme == engine.SchemePodman || scheme == engine.SchemeApple {
+			if eng.Metadata().Scheme.RequiresTLSByDefault() {
 				tlsPaths := []string{
 					settings.TLSCA,
 					settings.ServerTLSKey,
@@ -86,7 +85,7 @@ func NewClient(
 						"%s requires TLS certs by default - "+
 							"try stopping the %s container and re-running 'earth bootstrap'\n"+
 							"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
-						engineName(eng),
+						eng.Metadata().Name,
 						containerName,
 					)
 				}
@@ -112,10 +111,11 @@ func NewClient(
 	isLocal := engine.IsLocal(settings.BuildkitAddr)
 	if isLocal {
 		if !eng.IsAvailable(ctx) {
+			engName := eng.Metadata().Name
 			log.WithPrefix("buildkitd").
-				Printf("Is %[1]s installed and running? Are you part of any needed groups?\n", engineName(eng))
+				Printf("Is %[1]s installed and running? Are you part of any needed groups?\n", engName)
 
-			return nil, fmt.Errorf("%s not available", engineName(eng))
+			return nil, fmt.Errorf("%s not available", engName)
 		}
 
 		bkClient, info, workerInfo, err := maybeStart(ctx, log, image, containerName, eng, settings, opts...)
@@ -618,7 +618,7 @@ func Start(
 		},
 	}
 
-	ports := []engine.Port{}
+	var portMappings []engine.PortMapping
 
 	if settings.AdditionalConfig != "" {
 		envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
@@ -657,11 +657,10 @@ func Start(
 					return fmt.Errorf("invalid port in local registry address %q: %w", settings.LocalRegistryAddr, err)
 				}
 
-				ports = append(ports, engine.Port{
-					IP:            localhost,
+				portMappings = append(portMappings, engine.PortMapping{
+					HostIP:        localhost,
 					HostPort:      hostPort,
 					ContainerPort: 8371,
-					Protocol:      engine.ProtocolTCP,
 				})
 			}
 		}
@@ -682,20 +681,18 @@ func Start(
 					return fmt.Errorf("invalid port in buildkit address %q: %w", settings.BuildkitAddr, err)
 				}
 
-				ports = append(ports, engine.Port{
-					IP:            localhost,
+				portMappings = append(portMappings, engine.PortMapping{
+					HostIP:        localhost,
 					HostPort:      hostPort,
 					ContainerPort: 8372,
-					Protocol:      engine.ProtocolTCP,
 				})
 			}
 
 			if settings.EnableProfiler {
-				ports = append(ports, engine.Port{
-					IP:            localhost,
+				portMappings = append(portMappings, engine.PortMapping{
+					HostIP:        localhost,
 					HostPort:      6061, // 6060 is reserved for earth client
 					ContainerPort: 6060,
-					Protocol:      engine.ProtocolTCP,
 				})
 			}
 
@@ -803,7 +800,7 @@ func Start(
 		Envs:           envs,
 		Labels:         labels,
 		Mounts:         mounts,
-		Ports:          ports,
+		PortMappings:   portMappings,
 		AdditionalArgs: additionalArgs,
 	})
 	if err != nil {
@@ -1476,20 +1473,16 @@ func requiredOpts(settings Settings) ([]client.ClientOpt, error) {
 }
 
 func updateContainerAddrs(ctx context.Context, eng *engine.Client, containerName string, settings *Settings) {
-	addr, err := eng.ContainerAddr(ctx, containerName, 8372)
+	addr, err := eng.ContainerAddr(ctx, containerName, engine.DefaultBuildkitPort)
 	if err == nil && addr != "" {
 		settings.BuildkitAddr = addr
 	}
 }
 
 func containsAny(hs string, needles []string) bool {
-	for _, n := range needles {
-		if strings.Contains(hs, n) {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(needles, func(n string) bool {
+		return strings.Contains(hs, n)
+	})
 }
 
 func humanizeBytes(v int64) string {
@@ -1502,14 +1495,8 @@ func humanizeBytes(v int64) string {
 	return humanize.Bytes(bytes)
 }
 
-func engineName(eng *engine.Client) string {
-	meta := eng.Metadata()
-
-	return cmp.Or(meta.Name, meta.Binary)
-}
-
 func engineContainer(eng *engine.Client) string {
-	name := engineName(eng)
+	name := eng.Metadata().Name
 	if strings.HasSuffix(strings.ToLower(name), "container") {
 		return name
 	}

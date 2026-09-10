@@ -70,10 +70,7 @@ func LoadDockerManifest(
 		parentImageName, strings.Join(childImgs, "\n\t"), noteDetail,
 	)
 
-	err := eng.TagImage(ctx, engine.Tag{
-		SourceRef: children[defaultChild].ImageName,
-		TargetRef: parentImageName,
-	})
+	err := eng.TagImage(ctx, children[defaultChild].ImageName, parentImageName)
 	if err != nil {
 		return fmt.Errorf("docker tag default platform image: %w", err)
 	}
@@ -129,10 +126,7 @@ func dockerPullLocalImage(
 		return err
 	}
 
-	err = eng.TagImage(ctx, engine.Tag{
-		SourceRef: fullPullName,
-		TargetRef: finalName,
-	})
+	err = eng.TagImage(ctx, fullPullName, finalName)
 	if err != nil {
 		return fmt.Errorf("image tag after pull: %w", err)
 	}

@@ -10,14 +10,12 @@ import (
 // stubEngine is a null/stub engine for use when a container engine is not available or needed
 // (e.g. remote satellite builds).
 type stubEngine struct {
-	*shellEngine
+	Addrs Addrs
 }
 
 // newStubEngine creates a stub engine instance.
-func newStubEngine(cfg *Config) (engineDriver, error) {
-	e := &stubEngine{
-		shellEngine: &shellEngine{Log: cfg.Log},
-	}
+func newStubEngine(cfg *Config) (*stubEngine, error) {
+	e := &stubEngine{}
 
 	var err error
 
@@ -57,8 +55,7 @@ func (m *mockDriver) InspectContainers(_ context.Context, _ ...string) ([]Contai
 func NewTestClient(meta Metadata) *Client {
 	return &Client{
 		driver: &mockDriver{
-			shellEngine: &shellEngine{},
-			meta:        meta,
+			meta: meta,
 		},
 	}
 }
@@ -70,7 +67,7 @@ func (e *stubEngine) DefaultAddr(cfg *Config) (string, error) {
 
 // ContainerAddr returns the reachable address for the stub engine.
 func (e *stubEngine) ContainerAddr(_ context.Context, containerName string, port int) (string, error) {
-	if port == 8372 {
+	if port == DefaultBuildkitPort {
 		return DockerSchemePrefix + containerName, nil
 	}
 
@@ -142,7 +139,7 @@ func (*stubEngine) RemoveImage(context.Context, bool, ...string) error {
 }
 
 // TagImage returns ErrNotInitialized.
-func (*stubEngine) TagImage(context.Context, ...Tag) error {
+func (*stubEngine) TagImage(context.Context, string, string) error {
 	return ErrNotInitialized
 }
 

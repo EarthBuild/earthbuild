@@ -23,7 +23,7 @@ type CLI interface {
 	Log() *conslogging.ConsoleLogger
 	SetLog(*conslogging.ConsoleLogger)
 
-	InitContainer(*cli.Command) error
+	InitBuildkit(*cli.Command) error
 	Cfg() *config.Config
 	SetCommandName(name string)
 

@@ -14,8 +14,8 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// InitContainer initializes the container engine settings for the given command.
-func (cli *CLI) InitContainer(cmd *cli.Command) error {
+// InitBuildkit initializes the buildkit daemon settings for the given command.
+func (cli *CLI) InitBuildkit(cmd *cli.Command) error {
 	// command line option overrides the config which overrides the default value
 	if !cmd.IsSet("buildkit-image") && cli.Cfg().Global.BuildkitImage != "" {
 		cli.Flags().BuildkitdImage = cli.Cfg().Global.BuildkitImage
@@ -31,7 +31,7 @@ func (cli *CLI) InitContainer(cmd *cli.Command) error {
 		}
 
 		if cli.Cfg().Global.BuildkitImage != "" {
-			return errors.New("the --ticktock flags can not be used in combination with the buildkit_image config option")
+			return errors.New("the --ticktock flag cannot be used in combination with the buildkit_image config option")
 		}
 
 		cli.Flags().BuildkitdImage += "-ticktock"
@@ -45,6 +45,8 @@ func (cli *CLI) InitContainer(cmd *cli.Command) error {
 	useTCP := engine.UsesTCP(bkURL.Scheme)
 
 	if useTCP && cli.Cfg().Global.TLSEnabled {
+		// Auto-generate mTLS certificates on first run when connecting via TCP (e.g. Apple Container
+		// or local TCP daemon) so that users do not need to run 'earth bootstrap' beforehand.
 		if exists, _ := fileutil.FileExists(cli.Cfg().Global.TLSCACert); !exists {
 			err = buildkitd.GenCerts(*cli.Cfg(), "127.0.0.1")
 			if err != nil {

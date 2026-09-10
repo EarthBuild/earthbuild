@@ -22,5 +22,6 @@ test-allow-privileged-with-privileged-context:
 
 test-allow-privileged-with-privileged-run-command:
     FROM DOCKERFILE --allow-privileged -f ./Dockerfile +privileged-context/*
+    # Try dummy interface first, fall back to bridge if unsupported (e.g. Apple Container kernel lacks dummy module).
     RUN --privileged (ip link add dummy0 type dummy 2>/dev/null || ip link add br0 type bridge) && (ip link delete dummy0 2>/dev/null || ip link delete br0)
     SAVE IMAGE test-allow-privileged-with-privileged-run-command:latest

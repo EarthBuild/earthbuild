@@ -320,6 +320,22 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 	}
 
 	err = unix.Mount("overlay", merged, "overlay", 0, opts)
+
+	// **A kernel that will not redirect is not a kernel with no overlay.** The
+	// option is asked for wherever the metadata can be written, and it is the
+	// mounter's privilege that decides that - not the kernel's build. A kernel
+	// compiled without `CONFIG_OVERLAY_FS_REDIRECT_DIR`, or one whose policy
+	// refuses it, answers EINVAL for the option and would otherwise take the
+	// whole mount down with it.
+	//
+	// So the second attempt is the mount this made before the option existed:
+	// directories that live only in a lower layer cannot be renamed, which
+	// costs a cache tier on some builds and no correctness anywhere.
+	if err != nil && strings.Contains(opts, redirectDir) {
+		opts = strings.ReplaceAll(opts, ","+redirectDir, "")
+		err = unix.Mount("overlay", merged, "overlay", 0, opts)
+	}
+
 	if err != nil {
 		// Diagnose before cleaning up: the hint inspects the filesystem under
 		// base, and RemoveAll takes that evidence away. Getting this backwards

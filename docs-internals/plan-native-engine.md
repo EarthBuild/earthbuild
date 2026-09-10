@@ -9955,10 +9955,15 @@ the idle period passes and both go. The corpus builds 24 of 24 with reuse on and
 
 **What the 1.13x does not cover.** Per-step *overhead* is free - a trivial step
 costs 0.036s in a reused guest against 0.042s on the host - and per-step *file
-reads* cost 2.18x (E985). So the tax multiplies by how many files a build opens
-rather than by how many steps it runs, and `+earthly` is a compile-bound build
-that flatters it. That is the next thing to measure, and it is a bigger number
-than anything left in the lifecycle.
+access* is at parity or better: 0.99 on a 15,247-file metadata walk, 0.97 on a
+200 MiB read, 0.71 on `tar` of the Go tree. A real compile is +6%. An earlier
+entry reported 2.18x for file reads and was wrong: it divided a sum containing a
+cache-missed `FROM` by the number of steps (E985b).
+
+What is left is that `FROM`: **0.735s against 0.017s** to put a base image into
+a guest that has to be sent it, where the host already holds it unpacked. Per
+cache-missed base, not per step - and now the largest single cost the boundary
+still charges.
 
 ### The part that is not a performance question
 

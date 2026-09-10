@@ -47951,3 +47951,54 @@ the cause is not established.
 
 What this does establish is where to look next, and that "how many steps" was
 the wrong question to ask about it. The right one is "how many files".
+
+### E985b - that 2.18x was a base image, not a file read
+
+E985 reported per-file reads costing 2.18x inside a guest and asked where to
+look. The answer is that the number was wrong, and wrong in a way worth writing
+down rather than quietly deleting.
+
+It came from twelve identical `tar` steps over one base, built with
+`--no-cache`, summing the `step` phases and dividing by how many there were. But
+`--no-cache` rebuilds the `FROM` as well, and the sum included it:
+
+| phase                  | namespaces | microVM |
+| ---------------------- | ---------- | ------- |
+| the `FROM` step        | 0.017s     | 0.735s  |
+| the twelve `RUN` steps | 0.798s     | 0.821s  |
+
+The twelve steps that actually read files are at **1.03x**. The whole of the
+difference is materialising a base image into a guest that has to be sent it,
+against a host that already has it unpacked - a fixed cost per cache-missed
+`FROM`, averaged across steps by an arithmetic mistake and presented as a
+property of steps.
+
+**Measured properly**, on `golang:1.26-alpine` and its 15,247 files, one
+operation per step:
+
+| what the step does | namespaces          | microVM | ratio  |      |
+| ------------------ | ------------------- | ------- | ------ | ---- |
+| `find / \          | wc -l`, 15247 files | 1.147s  | 1.135s | 0.99 |
+| `dd` write 200 MiB | 1.071s              | 0.905s  | 0.85   |      |
+| `dd` read 200 MiB  | 0.238s              | 0.232s  | 0.97   |      |
+| `tar` the Go tree  | 1.752s              | 1.249s  | 0.71   |      |
+| `find` the Go tree | 1.116s              | 0.888s  | 0.80   |      |
+| `true`             | 0.042s              | 0.038s  | 0.90   |      |
+
+**File access inside a step is at parity or better**, on bandwidth, on per-file
+reads and on metadata walks alike. A real compile is +6% (E983's `run`, 2.315s
+against 2.460s). Nothing about a step's own I/O is 2x anything.
+
+What is left, and it is the real remaining cost: **a base image crosses into a
+guest at 0.735s against 0.017s**, because the host already holds it unpacked and
+the guest has to be sent it. That is per cache-missed `FROM`, not per step, and
+it is where the next measurement belongs.
+
+**How the mistake was made, since the shape recurs.** A per-unit figure was
+computed by dividing a total by a count, and the total contained a term that
+does not scale with the count. The first probe written to explain it was also
+junk - `$(...)` inside an Earthfile is expanded before the step runs, so it
+reported 50 files and hundredths of a second - and reporting *that* as "no
+effect" would have buried the real finding under a second error. Both were
+caught by asking what the individual steps cost rather than what the average
+did.

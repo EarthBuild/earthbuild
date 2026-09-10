@@ -78,10 +78,20 @@ Given such an image, cargo recompiles only the crates whose sources actually
 changed, exactly as a local incremental build would - which is strictly more
 than a dependency-only cache can do. Producing the image is `+cache`.
 
-> **This does not work yet.** `SAVE IMAGE` under the microVM backend writes a
-> config-only image with no layers, so `+cache` produces nothing usable to start
-> from. `+build-warm` works against an image built elsewhere. Until that is
-> fixed, treat `+build` as the pattern and `+build-warm` as the direction.
+Publishing needs both halves to agree - `SAVE IMAGE --push` in the Earthfile and
+`earth --push` on the invocation:
+
+```sh
+earth --push --build-arg cache_image=ghcr.io/you/app-build-cache:main \
+    ./examples/rust-layered+cache
+```
+
+> **`+build-warm` does not work yet, for a reason unrelated to the pattern.** An
+> image whose build deleted anything - and `+deps` ends by deleting the stub
+> sources - packs into layers the puller then refuses, with `create directory
+> ".../src/": not a directory`. It is a whiteout-conversion defect, it predates
+> this example, and it reproduces on both backends. Until it is fixed, treat
+> `+build` as the pattern and `+build-warm` as the direction.
 
 ## The crates
 

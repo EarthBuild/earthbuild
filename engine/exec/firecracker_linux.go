@@ -21,6 +21,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/cmd/earth-vmboot/vmboot"
 	"github.com/EarthBuild/earthbuild/engine/bulk"
+	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
 // Firecracker runs the guest inside a microVM rather than in namespaces.
@@ -1193,6 +1194,57 @@ func (f *Firecracker) FetchExport(ctx context.Context, guestPath, into string) e
 	err = bulk.UnpackTree(io.LimitReader(src, n), into)
 	if err != nil {
 		return fmt.Errorf("unpack %s from the export device: %w", guestPath, err)
+	}
+
+	return nil
+}
+
+// PackLayer hands one layer of the guest's store to the host as an OCI blob.
+//
+// **The capability `SAVE IMAGE` has always branched on, and nothing implemented.**
+// Writing an image means reading every layer of a stack, which the host does off
+// its own disk on a backend that shares one - and cannot do at all here, because
+// the store is a block device this guest holds open. The branch existed, the
+// guest half existed as `guest.PackLayer`, and the two were never joined: so
+// every element was skipped and `SAVE IMAGE` wrote images with no filesystem in
+// them. Measured, 2 layers under the namespace backend and 0 under this one.
+//
+// The same channel a staged artifact leaves by, and for the same reasons: the
+// request is a line, the answer may be gigabytes, and the device is serialised
+// so one asker at a time gets it. What differs is only what the guest packs -
+// see vmboot.LayerAsk.
+//
+// The bytes are copied out verbatim rather than unpacked. A layer blob is named
+// by the digest of exactly these bytes, so anything that rewrote them on the way
+// past would produce an image whose layers do not match their own names.
+func (f *Firecracker) PackLayer(ctx context.Context, id ir.NodeID, w io.Writer) error {
+	f.exporting.Lock()
+	defer f.exporting.Unlock()
+
+	f.mu.Lock()
+	vsock, dev := f.vsockAt, f.exports
+	f.mu.Unlock()
+
+	if vsock == "" {
+		return fmt.Errorf("this sandbox is not running, so layer %s cannot be"+
+			" packed from it", id)
+	}
+
+	n, err := f.askForExport(ctx, vsock, vmboot.LayerAsk+id.String())
+	if err != nil {
+		return err
+	}
+
+	src, err := os.Open(dev)
+	if err != nil {
+		return fmt.Errorf("read the export device for layer %s: %w", id, err)
+	}
+
+	defer func() { _ = src.Close() }()
+
+	_, err = io.Copy(w, io.LimitReader(src, n))
+	if err != nil {
+		return fmt.Errorf("copy layer %s off the export device: %w", id, err)
 	}
 
 	return nil

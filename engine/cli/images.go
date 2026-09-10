@@ -200,9 +200,7 @@ func layerSources(
 	ctx context.Context, e *exec.Executor, storeRoot string,
 	stack []ir.NodeID, declared func(ir.NodeID) bool,
 ) []image.LayerSource {
-	packer, ok := e.Sandbox().(interface {
-		PackLayer(context.Context, ir.NodeID, io.Writer) error
-	})
+	packer, ok := e.Sandbox().(exec.LayerPacker)
 
 	// **The guest's store is not the host's to look in.** A sandbox that packs
 	// its own layers keeps them on a device this process cannot open, so every

@@ -16,12 +16,16 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	osexec "os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/EarthBuild/earthbuild/cmd/earth-vmboot/vmboot"
 	"github.com/EarthBuild/earthbuild/engine/bulk"
+	"github.com/EarthBuild/earthbuild/engine/guest"
+	"github.com/EarthBuild/earthbuild/engine/ir"
 	"golang.org/x/sys/unix"
 )
 
@@ -464,7 +468,7 @@ func exportOnce(c *os.File) {
 		return
 	}
 
-	n, err := writeExport(asked)
+	n, err := answerExport(asked)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "earth-vmboot: export %s: %v\n", asked, err)
 		fmt.Fprintf(c, "ERR %v\n", err)
@@ -473,6 +477,84 @@ func exportOnce(c *os.File) {
 	}
 
 	fmt.Fprintf(c, "OK %d\n", n)
+}
+
+// layerAsked reports that a request names a layer of the store, and which.
+//
+// The prefix cannot collide with a staged path: those are absolute and so begin
+// with a separator. See vmboot.LayerAsk.
+func layerAsked(asked string) (string, bool) {
+	id, is := strings.CutPrefix(asked, vmboot.LayerAsk)
+	if !is {
+		// Nothing, rather than the whole request back. `strings.CutPrefix`
+		// returns its input unchanged on no match, and an id that is really a
+		// staged path is the kind of value that goes a long way before it fails.
+		return "", false
+	}
+
+	return id, true
+}
+
+// answerExport writes whatever was asked for onto the export device.
+//
+// Two questions, one device, and the same answer shape: `OK <n>` with n bytes
+// waiting. A staged path is packed as a tree the host unpacks; a layer is packed
+// as the OCI blob the host copies straight into an image, which is the whole
+// reason the host cannot do it itself - the store is a disk this guest holds.
+func answerExport(asked string) (int64, error) {
+	if id, isLayer := layerAsked(asked); isLayer {
+		return writeLayer(id)
+	}
+
+	return writeExport(asked)
+}
+
+// writeLayer packs one layer of the store onto the export device.
+//
+// **The count is measured, not asked for.** `guest.PackLayer` reports no size
+// because its other caller hashes the stream instead, and the host here needs a
+// number before it may read the device - so the bytes are counted as they go by.
+func writeLayer(id string) (int64, error) {
+	parsed, err := ir.ParseNodeID(id)
+	if err != nil {
+		return 0, fmt.Errorf("%q does not name a layer: %w", id, err)
+	}
+
+	dev, err := os.OpenFile(vmboot.ExportDev, os.O_WRONLY, 0)
+	if err != nil {
+		return 0, fmt.Errorf("open the export device: %w", err)
+	}
+
+	defer func() { _ = dev.Close() }()
+
+	counted := &countedWrites{to: dev}
+
+	err = guest.PackLayer(vmboot.StoreAt, parsed, counted)
+	if err != nil {
+		return 0, err
+	}
+
+	// Synced before the count is reported, for the reason writeExport gives:
+	// the host reads the device the moment it has the number.
+	err = dev.Sync()
+	if err != nil {
+		return 0, fmt.Errorf("flush the export device: %w", err)
+	}
+
+	return counted.n, nil
+}
+
+// countedWrites is a writer that remembers how much went through it.
+type countedWrites struct {
+	to io.Writer
+	n  int64
+}
+
+func (c *countedWrites) Write(b []byte) (int, error) {
+	n, err := c.to.Write(b)
+	c.n += int64(n)
+
+	return n, err
 }
 
 // writeExport packs the staged path onto the export device.

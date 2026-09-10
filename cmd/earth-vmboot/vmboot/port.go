@@ -54,3 +54,17 @@ const StoreAt = "/store"
 // setting sizes the store it has just run out of. The guest cannot import the
 // backend - that package is the host's, and linux-only besides.
 const EnvVMStore = "EARTH_VM_STORE"
+
+// LayerAsk marks an export request as naming a layer of the store rather than a
+// staged path.
+//
+// **One channel, two questions, and they cannot be confused.** A staged path is
+// absolute, so it begins with a separator and never with this; the prefix is
+// what lets the layer request share the export device's serialisation instead of
+// opening a second device and a second allocator to get wrong.
+//
+// The answer is the same shape either way - `OK <n>` and n bytes on the device -
+// but the bytes differ: a staged path is packed as a tree for the host to
+// unpack, and a layer is packed as an OCI blob for the host to copy verbatim
+// into an image. See guest.PackLayer.
+const LayerAsk = "layer:"

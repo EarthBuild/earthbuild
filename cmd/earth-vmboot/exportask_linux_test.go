@@ -17,22 +17,23 @@ import (
 func TestAnExportAskNamesEitherALayerOrAStagedPath(t *testing.T) {
 	t.Parallel()
 
+	const id = "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+
 	for _, tc := range []struct {
 		name  string
 		asked string
 		layer string
 		is    bool
 	}{
-		{
-			name:  "a layer",
-			asked: vmboot.LayerAsk + "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
-			layer: "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
-			is:    true,
-		},
+		{name: "a layer", asked: vmboot.LayerAsk + id, layer: id, is: true},
 		{name: "a staged artifact", asked: "/store/staged/out.tar"},
 		// The shape that would collide if the prefix were not excluded by an
 		// absolute path: a directory that happens to be called "layer:".
 		{name: "a path that reads like one", asked: "/layer:7"},
+		// A declaration is a third question on the same channel, and must not
+		// be read as a layer - they are the two halves of a stack element and
+		// answering with the wrong one gives an image without the other.
+		{name: "a declaration", asked: vmboot.DeclAsk + id},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -75,5 +76,25 @@ func TestWhatIsCountedIsWhatWasWritten(t *testing.T) {
 
 	if counted.n != int64(sink.Len()) {
 		t.Errorf("counted %d, wrote %d", counted.n, sink.Len())
+	}
+}
+
+// A declaration is asked for by its own prefix, and is not a layer.
+func TestADeclarationIsAskedForSeparately(t *testing.T) {
+	t.Parallel()
+
+	const id = "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+
+	got, is := declAsked(vmboot.DeclAsk + id)
+	if !is || got != id {
+		t.Errorf("a declaration request read as (%q, %v)", got, is)
+	}
+
+	if _, is := declAsked(vmboot.LayerAsk + id); is {
+		t.Error("a layer request read as a declaration")
+	}
+
+	if _, is := declAsked("/store/staged/out.tar"); is {
+		t.Error("a staged path read as a declaration")
 	}
 }

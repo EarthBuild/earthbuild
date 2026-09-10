@@ -15,8 +15,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	osexec "os/exec"
 	"path/filepath"
@@ -24,6 +26,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/cmd/earth-vmboot/vmboot"
 	"github.com/EarthBuild/earthbuild/engine/bulk"
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"golang.org/x/sys/unix"
@@ -495,18 +498,74 @@ func layerAsked(asked string) (string, bool) {
 	return id, true
 }
 
+// declAsked reports that a request names a stack element's declaration.
+func declAsked(asked string) (string, bool) {
+	id, is := strings.CutPrefix(asked, vmboot.DeclAsk)
+	if !is {
+		return "", false
+	}
+
+	return id, true
+}
+
 // answerExport writes whatever was asked for onto the export device.
 //
-// Two questions, one device, and the same answer shape: `OK <n>` with n bytes
+// Three questions, one device, and the same answer shape: `OK <n>` with n bytes
 // waiting. A staged path is packed as a tree the host unpacks; a layer is packed
-// as the OCI blob the host copies straight into an image, which is the whole
-// reason the host cannot do it itself - the store is a disk this guest holds.
+// as the OCI blob the host copies straight into an image; a declaration is
+// copied out as it lies. All three exist because the store is a disk this guest
+// holds open and the host cannot read any of them for itself.
 func answerExport(asked string) (int64, error) {
 	if id, isLayer := layerAsked(asked); isLayer {
 		return writeLayer(id)
 	}
 
+	if id, isDecl := declAsked(asked); isDecl {
+		return writeDecl(id)
+	}
+
 	return writeExport(asked)
+}
+
+// writeDecl puts what a stack element declares onto the export device.
+//
+// **Nothing is an answer.** A stack element is a tree or a declaration, so an
+// element with no declaration file is the ordinary case and not a failure: it
+// is reported as zero bytes, which is what the host reads as "this one declares
+// nothing".
+func writeDecl(id string) (int64, error) {
+	parsed, err := ir.ParseNodeID(id)
+	if err != nil {
+		return 0, fmt.Errorf("%q does not name a stack element: %w", id, err)
+	}
+
+	body, err := os.ReadFile(decl.Path(vmboot.StoreAt, parsed))
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+
+	if err != nil {
+		return 0, fmt.Errorf("read declaration %s: %w", id, err)
+	}
+
+	dev, err := os.OpenFile(vmboot.ExportDev, os.O_WRONLY, 0)
+	if err != nil {
+		return 0, fmt.Errorf("open the export device: %w", err)
+	}
+
+	defer func() { _ = dev.Close() }()
+
+	n, err := dev.Write(body)
+	if err != nil {
+		return 0, fmt.Errorf("write declaration %s: %w", id, err)
+	}
+
+	err = dev.Sync()
+	if err != nil {
+		return 0, fmt.Errorf("flush the export device: %w", err)
+	}
+
+	return int64(n), nil
 }
 
 // writeLayer packs one layer of the store onto the export device.

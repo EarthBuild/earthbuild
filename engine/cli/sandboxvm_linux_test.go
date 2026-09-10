@@ -4,6 +4,7 @@ package cli
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/exec"
@@ -31,17 +32,26 @@ func TestAMicroVMIsUsedWhenAskedFor(t *testing.T) { // not parallel: sets the en
 	}
 }
 
-// Not asked for, it is the namespace backend, which is every build today.
-func TestTheNamespaceBackendIsTheDefault(t *testing.T) { // not parallel: sets the environment
+// Not asked for, it is a microVM where one can be had and namespaces where one
+// cannot.
+//
+// **The default changed and this test did not**, so it asserted the namespace
+// backend on a machine that had stopped choosing it and was left failing. The
+// property worth pinning is not which of the two answers comes back - that is
+// the machine's to decide - but that the choice is made silently: a build that
+// said nothing gets a working build either way.
+func TestTheDefaultIsAMicroVMWhereThereCanBeOne(t *testing.T) { // not parallel: sets the environment
 	t.Setenv(envVM, "")
 
 	sb, err := sandbox("")
 	if err != nil {
-		t.Skip("no sandbox on this machine: ", err)
+		t.Fatal("saying nothing left this machine with no sandbox at all: ", err)
 	}
 
-	if _, ok := sb.(*exec.Native); !ok {
-		t.Errorf("the default backend is %T, not the namespace one", sb)
+	switch sb.(type) {
+	case *exec.Firecracker, *exec.Native:
+	default:
+		t.Errorf("the default backend is %T, which is neither", sb)
 	}
 }
 
@@ -54,12 +64,25 @@ func TestTheNamespaceBackendIsTheDefault(t *testing.T) { // not parallel: sets t
 // output says which one it ran under.
 func TestAMicroVMThatCannotBeHadIsRefused(t *testing.T) { // not parallel: sets the environment
 	t.Setenv(envVM, "1")
-	t.Setenv("EARTH_VM_KERNEL", "")
-	t.Setenv("EARTH_VM_INITRD", "")
+
+	// **Named and absent, not empty.** These used to be set to "", which meant
+	// "nothing here" when the artefacts had to be pointed at by hand and means
+	// "look in the usual place" now that they are found - so on a machine that
+	// has them the microVM was available, the refusal never happened, and the
+	// test failed for having asked the wrong question.
+	gone := t.TempDir()
+	t.Setenv("EARTH_VM_KERNEL", gone+"/no-such-vmlinux")
+	t.Setenv("EARTH_VM_INITRD", gone+"/no-such-initrd.cpio.gz")
 
 	_, err := sandbox("")
 	if err == nil {
 		t.Fatal("a microVM was asked for, could not be had, and nothing said so")
+	}
+
+	// And it says how to get a build out of the situation, rather than only
+	// that it will not proceed.
+	if !strings.Contains(err.Error(), envVM+"=0") {
+		t.Errorf("the refusal does not say what to do about it: %v", err)
 	}
 }
 

@@ -183,23 +183,49 @@ func TestABuildWithNoConditionsRecordsNothing(t *testing.T) {
 	}
 }
 
-// An image declared for publishing says so, and says it was not published.
+// An image declared for publishing but not published says so.
 //
-// `SAVE IMAGE --push` is a declaration that the invocation decides on, and this
-// engine has no flag to decide it with - so not pushing is correct. Saying
-// nothing is not: someone who wrote `--push` and watched a build succeed has
-// been given every reason to believe it was published.
-func TestAnImageDeclaredForPushSaysItWasNotPushed(t *testing.T) {
+// **Both sides have to agree before anything is pushed.** `SAVE IMAGE --push`
+// is the Earthfile saying this image is worth publishing; `earth --push` is the
+// invocation saying this run is the one that publishes. An Earthfile alone
+// would push from every developer's laptop.
+//
+// The note exists for the gap between them: someone who wrote `--push` in an
+// Earthfile, and watched a build succeed, has every reason to believe the image
+// went somewhere.
+func TestAnImageDeclaredForPushSaysWhenItWasNotPushed(t *testing.T) {
 	t.Parallel()
 
-	if got := pushNote(true); got == "" {
-		t.Error("a pushable image is written with no mention of the push")
-	} else if !strings.Contains(got, "not pushed") {
-		t.Errorf("the note does not say what did not happen: %q", got)
-	}
+	for _, tc := range []struct {
+		name            string
+		declared, asked bool
+		note            bool
+	}{
+		{name: "declared, not asked", declared: true, note: true},
+		// Asked for, so it is being pushed and there is nothing to explain.
+		{name: "declared and asked", declared: true, asked: true},
+		{name: "an ordinary image", declared: false},
+		// An invocation that pushes does not make every image pushable, and
+		// must not imply otherwise.
+		{name: "asked, not declared", declared: false, asked: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	if got := pushNote(false); got != "" {
-		t.Errorf("an ordinary image carries a note about pushing: %q", got)
+			got := pushNote(tc.declared, tc.asked)
+
+			if tc.note && got == "" {
+				t.Error("no mention of the push that did not happen")
+			}
+
+			if !tc.note && got != "" {
+				t.Errorf("an unexplained note: %q", got)
+			}
+
+			if tc.note && !strings.Contains(got, "--push") {
+				t.Errorf("the note does not say what to do about it: %q", got)
+			}
+		})
 	}
 }
 

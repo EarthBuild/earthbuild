@@ -21,3 +21,12 @@ import (
 type LayerPacker interface {
 	PackLayer(ctx context.Context, id ir.NodeID, w io.Writer) error
 }
+
+// DeclarationReader is a sandbox that can hand over what a stack element
+// declares, from a store this host cannot open.
+//
+// The companion to LayerPacker, and optional for the same reason: where the
+// store is a directory this process shares, the declaration is read off disk.
+type DeclarationReader interface {
+	ReadDeclaration(ctx context.Context, id ir.NodeID) ([]byte, bool, error)
+}

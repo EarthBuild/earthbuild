@@ -402,24 +402,27 @@ func report(w io.Writer, plan *interp.Plan) error {
 }
 
 func build(ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os.File) error {
-	e, s, err := runPlan(ctx, o, plan, g, tty)
-	if err != nil {
-		return err
-	}
+	// Nothing is left to do with what ran the plan: `runPlan` both exports and
+	// writes the images before it returns.
+	_, _, err := runPlan(ctx, o, plan, g, tty)
 
-	// **`runPlan` has already exported.** There were two calls, with identical
-	// arguments, one here and one at the end of the run - so every artifact was
-	// written out twice and the second write was invisible because it produced
-	// the same bytes as the first.
+	// **`runPlan` has already exported, and has already written the images.**
+	// There were two calls of each, with identical arguments, one here and one
+	// at the end of the run - so every artifact was written out twice and the
+	// second write was invisible because it produced the same bytes as the
+	// first.
 	//
 	// Found by timing, not by reading: the export phase logged its whole
 	// sequence twice in one build, 0.37s a time for a 45MB binary, on a build
 	// whose total was 1.6s (E566). Two calls that agree are the hardest kind of
 	// duplicate to see, because nothing about the result is wrong.
-
-	// After the artifacts, because a build that produced both should keep the
-	// artifacts even if writing an image fails.
-	return writeImages(ctx, o, e, s.StackFor, s.Declared, plan.Images, scheduled(plan.Graph))
+	//
+	// The image half of it outlived that fix, directly under this comment, and
+	// stayed invisible for the same reason: writing one layout twice produces
+	// the same directory. It stopped being invisible when `--push` began doing
+	// something, because the second write is then a second upload - every blob
+	// offered to the registry again, and the tag republished.
+	return err
 }
 
 // runPlan runs a plan and gives back what ran it.

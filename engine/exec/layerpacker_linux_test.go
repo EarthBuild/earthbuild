@@ -32,3 +32,16 @@ func TestTheNamespaceBackendNeedsNoPacker(t *testing.T) {
 			" its store itself, and two routes to one blob can disagree")
 	}
 }
+
+// The backend whose store the host cannot read must also hand over what a stack
+// element declares, or the image it writes inherits no environment.
+func TestTheMicroVMCanHandOverWhatAnElementDeclares(t *testing.T) {
+	t.Parallel()
+
+	var sb Sandbox = &Firecracker{}
+
+	if _, ok := sb.(DeclarationReader); !ok {
+		t.Error("the microVM backend cannot read its own declarations, so an" +
+			" image written from it would carry no PATH")
+	}
+}

@@ -858,6 +858,41 @@ func tryDial(vsock string, port uint32) (Conn, error) {
 // is a local socket write and a local read, not a boot.
 const greetingPatience = 2 * time.Second
 
+// workPatience bounds the wait for an answer the guest sends only once it has
+// finished working.
+//
+// **Not `greetingPatience`, which is two seconds.** That one bounds a handshake
+// with the VMM - a local write and a local read - and an export's `OK <n>`
+// arrives only after the guest has packed the thing being asked for. A Rust
+// `target/` is hundreds of megabytes and takes far longer than two seconds to
+// pack, so the host gave up on an answer that was coming: `the guest did not
+// answer for layer:5eb0f3...: i/o timeout`, on a guest that was working
+// perfectly.
+//
+// Long, because it bounds a *hung* guest and not the work. What bounds the work
+// is the caller's context, which is the build's.
+const workPatience = 15 * time.Minute
+
+// readAnswer reads a line the guest sends after doing what it was asked.
+//
+// The caller's deadline where it has one, so a build that is being cancelled
+// does not wait out the fallback.
+func readAnswer(ctx context.Context, c net.Conn) (string, error) {
+	until := time.Now().Add(workPatience)
+	if at, ok := ctx.Deadline(); ok && at.Before(until) {
+		until = at
+	}
+
+	err := c.SetReadDeadline(until)
+	if err != nil {
+		return "", fmt.Errorf("set a deadline on the guest's answer: %w", err)
+	}
+
+	defer func() { _ = c.SetReadDeadline(time.Time{}) }()
+
+	return readLineNow(c)
+}
+
 // readLine reads one line without reading past it. See tryDial.
 func readLine(c net.Conn) (string, error) {
 	// Cleared before returning, so the caller's connection is left as it was
@@ -874,8 +909,14 @@ func readLine(c net.Conn) (string, error) {
 }
 
 func readLineNow(c net.Conn) (string, error) {
+	// **Long enough to hold what the guest has to say when it fails.** This was
+	// 64, which fits a greeting and not an `ERR <why>` - so an export that the
+	// guest refused came back as "no newline in the first 64 bytes" and the
+	// reason it gave was thrown away. The same bound the guest reads requests
+	// with, and still bounded, because this is a host reading something from
+	// inside a sandbox.
 	var (
-		out [64]byte
+		out [4096]byte
 		n   int
 	)
 
@@ -892,7 +933,11 @@ func readLineNow(c net.Conn) (string, error) {
 		n++
 	}
 
-	return string(out[:n]), fmt.Errorf("no newline in the first %d bytes", len(out))
+	// What was read comes back with the complaint. A caller that cannot show
+	// the guest's answer reports only that it could not read one, which says
+	// nothing about why the guest was unhappy.
+	return string(out[:n]), fmt.Errorf("no newline in the first %d bytes, which began %q",
+		len(out), string(out[:min(n, 200)]))
 }
 
 // releaseStore gives the store device back, once and safely twice.
@@ -1250,6 +1295,56 @@ func (f *Firecracker) PackLayer(ctx context.Context, id ir.NodeID, w io.Writer) 
 	return nil
 }
 
+// ReadDeclaration hands over what a stack element declares, from a store this
+// host cannot open.
+//
+// **The other half of PackLayer.** A stack element is a tree or a declaration
+// (green paper 3.2a) and an image needs both: the layers give it a filesystem
+// and the declarations give it the environment, working directory and user the
+// base established. Read from the host's own store this answered nothing, so an
+// image built `FROM rust` was written with no PATH - and the build that used it
+// as a base failed at `cargo: not found`, three steps and one registry away
+// from anything that looked related.
+//
+// Nothing is a real answer: an element that is a tree declares nothing, which
+// the guest reports as zero bytes.
+func (f *Firecracker) ReadDeclaration(ctx context.Context, id ir.NodeID) ([]byte, bool, error) {
+	f.exporting.Lock()
+	defer f.exporting.Unlock()
+
+	f.mu.Lock()
+	vsock, dev := f.vsockAt, f.exports
+	f.mu.Unlock()
+
+	if vsock == "" {
+		return nil, false, fmt.Errorf("this sandbox is not running, so what %s"+
+			" declares cannot be read from it", id)
+	}
+
+	n, err := f.askForExport(ctx, vsock, vmboot.DeclAsk+id.String())
+	if err != nil {
+		return nil, false, err
+	}
+
+	if n == 0 {
+		return nil, false, nil
+	}
+
+	src, err := os.Open(dev)
+	if err != nil {
+		return nil, false, fmt.Errorf("read the export device for %s: %w", id, err)
+	}
+
+	defer func() { _ = src.Close() }()
+
+	body, err := io.ReadAll(io.LimitReader(src, n))
+	if err != nil {
+		return nil, false, fmt.Errorf("read what %s declares: %w", id, err)
+	}
+
+	return body, true, nil
+}
+
 // askForExport tells the guest what to write and reads how much it wrote.
 func (f *Firecracker) askForExport(ctx context.Context, vsock, guestPath string) (int64, error) {
 	conn, err := dialPort(ctx, vsock, vmboot.ExportPort, f.gone)
@@ -1264,7 +1359,7 @@ func (f *Firecracker) askForExport(ctx context.Context, vsock, guestPath string)
 		return 0, fmt.Errorf("ask for %s: %w", guestPath, err)
 	}
 
-	line, err := readLine(conn.(net.Conn))
+	line, err := readAnswer(ctx, conn.(net.Conn))
 	if err != nil {
 		return 0, fmt.Errorf("the guest did not answer for %s: %w", guestPath, err)
 	}

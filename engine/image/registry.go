@@ -842,34 +842,10 @@ func token(ctx context.Context, client *http.Client, url, dir, key string) (stri
 		return "", nil
 	}
 
-	challenge := resp.Header.Get("WWW-Authenticate")
-	if !strings.HasPrefix(challenge, "Bearer ") {
-		return "", fmt.Errorf("unsupported authentication challenge %q", challenge)
+	at, err := tokenEndpoint(resp.Header.Get("WWW-Authenticate"))
+	if err != nil {
+		return "", err
 	}
-
-	var realm, service, scope string
-
-	for part := range strings.SplitSeq(strings.TrimPrefix(challenge, "Bearer "), ",") {
-		k, v, ok := strings.Cut(strings.TrimSpace(part), "=")
-		if !ok {
-			continue
-		}
-
-		switch v = strings.Trim(v, `"`); k {
-		case "realm":
-			realm = v
-		case "service":
-			service = v
-		case "scope":
-			scope = v
-		}
-	}
-
-	if realm == "" {
-		return "", fmt.Errorf("authentication challenge names no realm: %q", challenge)
-	}
-
-	at := fmt.Sprintf("%s?service=%s&scope=%s", realm, service, scope)
 
 	tok, err := fetchTokenAs(ctx, client, at, cred())
 	if err != nil {
@@ -1428,4 +1404,70 @@ func blobFile(digest string) string {
 	}
 
 	return algo + "-" + hexsum
+}
+
+// tokenEndpoint turns a registry's challenge into the URL that issues its token.
+//
+// **The scope is carried through unread.** A registry states what it wants to
+// be asked for - `repository:app:pull` for a read, `pull,push` for a write -
+// and handing back anything else produces a token that authorises the wrong
+// thing. So this copies rather than composes: the one place a scope is decided
+// is the registry, and the one thing that draws a write scope is a write.
+func tokenEndpoint(challenge string) (string, error) {
+	if !strings.HasPrefix(challenge, "Bearer ") {
+		return "", fmt.Errorf("unsupported authentication challenge %q", challenge)
+	}
+
+	var realm, service, scope string
+
+	for _, part := range challengeParts(strings.TrimPrefix(challenge, "Bearer ")) {
+		k, v, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if !ok {
+			continue
+		}
+
+		switch v = strings.Trim(v, `"`); k {
+		case "realm":
+			realm = v
+		case "service":
+			service = v
+		case "scope":
+			scope = v
+		}
+	}
+
+	if realm == "" {
+		return "", fmt.Errorf("authentication challenge names no realm: %q", challenge)
+	}
+
+	return fmt.Sprintf("%s?service=%s&scope=%s", realm, service, scope), nil
+}
+
+// challengeParts splits a challenge on the commas that separate its parameters,
+// and not on the ones inside a quoted value.
+//
+// **A push scope always contains one.** `scope="repository:app:pull,push"` is
+// one parameter, and splitting the string on every comma turns it into
+// `scope="repository:app:pull` and a stray `push"` - so the token comes back
+// authorising reads, every upload made with it is refused, and the failure reads
+// as a bad credential rather than as half a scope. Pull scopes have no comma,
+// which is why this survived: the only caller never wrote anything.
+func challengeParts(s string) []string {
+	var (
+		out    []string
+		quoted bool
+		from   int
+	)
+
+	for i, r := range s {
+		switch {
+		case r == '"':
+			quoted = !quoted
+		case r == ',' && !quoted:
+			out = append(out, s[from:i])
+			from = i + 1
+		}
+	}
+
+	return append(out, s[from:])
 }

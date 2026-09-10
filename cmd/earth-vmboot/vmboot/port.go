@@ -68,3 +68,13 @@ const EnvVMStore = "EARTH_VM_STORE"
 // unpack, and a layer is packed as an OCI blob for the host to copy verbatim
 // into an image. See guest.PackLayer.
 const LayerAsk = "layer:"
+
+// DeclAsk marks an export request as naming what a stack element declares -
+// its environment, working directory and user - rather than its bytes.
+//
+// **A stack element is one or the other** (green paper 3.2a): a tree has layers
+// and no declaration, a declaration has neither. The host needs both halves to
+// write an image, and asking for the wrong one yields an image whose layers are
+// right and whose `PATH` is missing - which fails as `cargo: not found` three
+// steps later, in a build that had nothing to do with it.
+const DeclAsk = "decl:"

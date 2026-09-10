@@ -176,6 +176,42 @@ func BaseDeclaration(root string, base []ir.NodeID) decl.Declaration {
 	return decl.Compose(found...)
 }
 
+// BaseDeclarationVia is BaseDeclaration, asking whoever can actually read the
+// store.
+//
+// **A host cannot read a sidecar on a device it does not have.** `decl.Read`
+// answers from a directory, which is right on every backend that shares one and
+// answers nothing on a microVM - so an image inherited no environment at all,
+// silently, and the failure surfaced in whatever later build used it as a base.
+// The sandbox is asked where it can answer, and the directory is read where it
+// cannot: the same shape as the layers themselves.
+func (e *Executor) BaseDeclarationVia(ctx context.Context, root string, base []ir.NodeID) decl.Declaration {
+	reader, ok := e.Sandbox().(DeclarationReader)
+	if !ok {
+		return BaseDeclaration(root, base)
+	}
+
+	var found []decl.Declaration
+
+	for _, id := range base {
+		body, held, err := reader.ReadDeclaration(ctx, id)
+		if err != nil || !held {
+			continue
+		}
+
+		d, err := decl.Decode(body)
+		if err != nil {
+			continue
+		}
+
+		found = append(found, d)
+	}
+
+	// Oldest first, as BaseDeclaration composes them: a later base overrides an
+	// earlier one exactly as it does at run time.
+	return decl.Compose(found...)
+}
+
 // ConfigWithBase is what the image declares: its base's word, then its own.
 //
 // Exported because `SAVE IMAGE` writes its layout from engine/cli and packing

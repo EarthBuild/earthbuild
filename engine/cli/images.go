@@ -147,12 +147,31 @@ func writeImages(
 		created, _ := fstime.Clamp()
 
 		err = image.WriteLayout(dir, specFor(img, o.Platform, layers,
-			exec.BaseDeclaration(store, stack), created))
+			e.BaseDeclarationVia(ctx, store, stack), created))
 		if err != nil {
 			return fmt.Errorf("write %s (%s): %w", img.Ref, img.Source, err)
 		}
 
-		fmt.Fprintf(o.Out, "  %-14s %s -> %s%s\n", img.Source, img.Ref, dir, pushNote(img.Push))
+		fmt.Fprintf(o.Out, "  %-14s %s -> %s%s\n", img.Source, img.Ref, dir,
+			pushNote(img.Push, o.Push))
+
+		// **Both have to say so.** `SAVE IMAGE --push` is the Earthfile
+		// declaring that this image is one worth publishing; `earth --push` is
+		// the invocation deciding that this run is the one that publishes. A
+		// build that pushed on the strength of the Earthfile alone would push
+		// from every developer's laptop.
+		if !img.Push || !o.Push {
+			continue
+		}
+
+		at, err := image.Push(ctx, dir, img.Ref, image.PushOptions{
+			Challenges: root,
+		})
+		if err != nil {
+			return fmt.Errorf("%s (%s): %w", img.Ref, img.Source, err)
+		}
+
+		fmt.Fprintf(o.Out, "  %-14s %s pushed -> %s\n", img.Source, img.Ref, at)
 	}
 
 	return nil
@@ -170,19 +189,18 @@ func refDir(ref string) string {
 	return string(out)
 }
 
-// pushNote says what did not happen to an image declared for publishing.
+// pushNote says why an image declared for publishing is not being published.
 //
 // `SAVE IMAGE --push` is a declaration the *invocation* decides on, which is how
-// the tool that ships behaves, and this engine has no flag to decide it with -
-// so not pushing is correct. Saying nothing about it is not: someone who wrote
-// `--push` and watched a build succeed has been given every reason to think the
+// the tool that ships behaves. Saying nothing when it does not happen is how
+// someone who wrote `--push`, and watched a build succeed, comes to believe the
 // image was published.
-func pushNote(push bool) string {
-	if !push {
+func pushNote(declared, asked bool) string {
+	if !declared || asked {
 		return ""
 	}
 
-	return " (declared --push; not pushed - this engine writes images, it does not publish them)"
+	return " (declared --push; run with --push to publish it)"
 }
 
 // layerSources is where this image's layers come from.

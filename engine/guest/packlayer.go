@@ -22,9 +22,9 @@ import (
 // the caller hashes the stream as it copies and needs no answer back - which is
 // what makes this expressible as a pipe rather than as a protocol.
 //
-// The same `image.Pack` the host runs today, on the same directory, so the blob
-// is the one the host would have produced. That is the property the transport
-// has to have and the one a test can check without a machine.
+// The same `image.PackStored` the host runs today, on the same directory, so
+// the blob is the one the host would have produced. That is the property the
+// transport has to have and the one a test can check without a machine.
 func PackLayer(root string, id ir.NodeID, w io.Writer) error {
 	at := filepath.Join(root, "layers", id.String())
 
@@ -37,7 +37,7 @@ func PackLayer(root string, id ir.NodeID, w io.Writer) error {
 		return fmt.Errorf("pack layer %s: %s is not a layer directory", id, at)
 	}
 
-	_, _, err = image.Pack(at, w)
+	_, _, err = image.PackStored(at, w)
 	if err != nil {
 		return fmt.Errorf("pack layer %s: %w", id, err)
 	}

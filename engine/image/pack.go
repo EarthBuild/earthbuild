@@ -50,6 +50,29 @@ func AtEpoch(string) time.Time { return epoch }
 // this digest is written into an OCI manifest and read by registries. It is the
 // one place the format dictates the hash.
 func Pack(dir string, w io.Writer) (digest string, size int64, err error) {
+	return packTree(dir, w, AtEpoch)
+}
+
+// PackStored packs a layer of the store, keeping the times the store holds.
+//
+// **The difference from Pack is what the times are worth.** A staged context is
+// a copy of a working tree, so its mtimes say when the copy happened and two
+// machines never agree; normalising them is the only way to a reproducible
+// archive. A layer of the store is content-addressed and its mtimes are part of
+// its identity, so two machines holding that layer hold the same times - and
+// carrying them costs no determinism at all.
+//
+// **What it buys is the whole point of publishing a build tree.** cargo, make
+// and ninja all decide what to redo by comparing an mtime against an artefact's.
+// Flattened to one epoch, every artefact in a pulled `target/` claims 1970,
+// every source arrives newer, and the build that was meant to stand on the tree
+// recompiles all of it. Measured on a Rust workspace: three crates rebuilt where
+// one had changed.
+func PackStored(dir string, w io.Writer) (digest string, size int64, err error) {
+	return packTree(dir, w, nil)
+}
+
+func packTree(dir string, w io.Writer, at Stamps) (digest string, size int64, err error) {
 	root, err := filepath.Abs(dir)
 	if err != nil {
 		return "", 0, fmt.Errorf("resolve %s: %w", dir, err)
@@ -60,7 +83,7 @@ func Pack(dir string, w io.Writer) (digest string, size int64, err error) {
 		return "", 0, err
 	}
 
-	return PackSelected(root, names, w)
+	return PackSelectedAt(root, names, w, at)
 }
 
 // PackSelected packs the named entries and nothing else.
@@ -199,10 +222,24 @@ func packOne(tw *tar.Writer, root, rel string, links map[linkID]string, at Stamp
 	// filesystem*, which is why it was pinned here too. The caller's `Stamps`
 	// is the way out: a commit time is a property of the history rather than of
 	// the clone, so two clones agree on it and cargo still gets an order.
-	when := at(rel)
-	h.ModTime = when
-	h.AccessTime = when
-	h.ChangeTime = when
+	// **A nil stamper keeps what the tree holds**, which is what a layer of the
+	// store wants: its mtimes are part of its identity (I8), so they are already
+	// the same on every machine that has the layer, and flattening them is the
+	// one thing that makes a published build tree useless to the next build.
+	if at != nil {
+		when := at(rel)
+		h.ModTime = when
+		h.AccessTime = when
+		h.ChangeTime = when
+	} else {
+		// **The modification time and not the other two.** An access time moves
+		// when anything reads the file - including the pack that is reading it
+		// now - so carrying it makes two packs of one unchanged tree differ,
+		// which is an image whose identity changes for having been looked at.
+		// Caught by packing the same directory twice. A change time is the
+		// inode's own bookkeeping and is no more portable.
+		h.AccessTime, h.ChangeTime = time.Time{}, time.Time{}
+	}
 	h.Uid, h.Gid = 0, 0
 	h.Uname, h.Gname = "", ""
 	h.Format = tar.FormatPAX
@@ -216,9 +253,21 @@ func packOne(tw *tar.Writer, root, rel string, links map[linkID]string, at Stamp
 		return fmt.Errorf("read the attributes of %s: %w", rel, err)
 	}
 
-	if len(xs) > 0 {
+	// **A directory that hides what is under it says so as an entry**, written
+	// before the directory's own contents so the unpacker clears the path as it
+	// reaches it. The store keeps this as an overlay attribute, which means
+	// nothing to whoever pulls the image.
+	opaque := info.IsDir() && hidesWhatIsBelow(xs)
+
+	if xs = withoutOverlayAttrs(xs); len(xs) > 0 {
 		h.PAXRecords = xs
 	}
+
+	// **A deletion, in the form an image means it.** The store holds what the
+	// kernel wrote - a character device 0:0 - and an OCI layer spells the same
+	// thing `.wh.<name>`. Packing the device verbatim shipped an image whose
+	// next layer could not unpack over it.
+	asDeletion(h)
 
 	// A second name for a file already written is a link, not a second copy.
 	// `layer.Take` records that two paths share an inode and the guest's own
@@ -238,6 +287,13 @@ func packOne(tw *tar.Writer, root, rel string, links map[linkID]string, at Stamp
 	err = tw.WriteHeader(h)
 	if err != nil {
 		return fmt.Errorf("write the header for %s: %w", rel, err)
+	}
+
+	if opaque {
+		err = tw.WriteHeader(opaqueEntry(h.Name, h))
+		if err != nil {
+			return fmt.Errorf("write the opaque marker for %s: %w", rel, err)
+		}
 	}
 
 	// A link entry carries no bytes: they are already in the archive under the

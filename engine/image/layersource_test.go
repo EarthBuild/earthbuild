@@ -41,7 +41,7 @@ func TestALayoutIsTheSameWhicheverSourceWroteIt(t *testing.T) {
 	for _, d := range dirs {
 		var packed bytes.Buffer
 
-		_, _, err = image.Pack(d, &packed)
+		_, _, err = image.PackStored(d, &packed)
 		if err != nil {
 			t.Fatal(err)
 		}

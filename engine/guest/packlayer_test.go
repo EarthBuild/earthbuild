@@ -45,10 +45,13 @@ func TestTheGuestPacksTheBlobTheHostWouldHave(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// What the host does today, from the directory it can see.
+	// What the host does today, from the directory it can see. `PackStored`,
+	// because a layer keeps the times the store holds - `Pack` normalises them
+	// and is for a staged context, so comparing against it would assert the
+	// guest does something the host stopped doing.
 	var host bytes.Buffer
 
-	_, _, err = image.Pack(at, &host)
+	_, _, err = image.PackStored(at, &host)
 	if err != nil {
 		t.Fatal(err)
 	}

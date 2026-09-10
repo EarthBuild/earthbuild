@@ -389,7 +389,10 @@ type LayerSource func(w io.Writer) error
 // FromDir is the layer source for a store this process can open.
 func FromDir(dir string) LayerSource {
 	return func(w io.Writer) error {
-		_, _, err := Pack(dir, w)
+		// A layer of the store, so it keeps the times the store holds - see
+		// PackStored. Flattening them is what made a published build tree
+		// useless to the build that pulled it.
+		_, _, err := PackStored(dir, w)
 
 		return err
 	}

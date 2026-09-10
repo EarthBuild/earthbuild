@@ -173,5 +173,12 @@ func pathOf(m *memFiles, n seccompNotif) (string, error) {
 			errUnreadable, n.Data.NR)
 	}
 
+	// **A null pointer is not an address this engine failed to read.** It is
+	// glibc asking the kernel whether `statx` exists, by calling it with
+	// nothing and reading the errno. See errNoPathNamed.
+	if namesNoPath(n.Data.Args[i]) {
+		return "", errNoPathNamed
+	}
+
 	return pathVia(m, n.Pid, n.Data.Args[i])
 }

@@ -176,6 +176,17 @@ func TestAForeignArchitectureIsDeclaredRatherThanDecoded(t *testing.T) {
 	}
 }
 
+// unreadableAddr is an address no user process can read: it sits in the kernel's
+// half of the address space, so `/proc/<pid>/mem` refuses it whatever the
+// architecture.
+//
+// **Deliberately not zero**, which these tests used to use. A null path argument
+// now means the call named no path at all - `statx(fd, NULL, AT_EMPTY_PATH)` is
+// an ordinary way to stat a descriptor - and is dropped rather than declared a
+// gap. Zero would exercise that rule instead of this one, which is not what
+// either test below is about.
+const unreadableAddr = ^uint64(0) - 4095
+
 // A path that cannot be read declares the gap rather than losing one entry.
 //
 // Unreadable is not absent. The step named something, and recording one fewer
@@ -189,8 +200,19 @@ func TestAnUnreadablePathDeclaresTheObservationIncomplete(t *testing.T) {
 	n := seccompNotif{Pid: uint32(os.Getpid())}
 	n.Data.Arch = auditArch
 	n.Data.NR = int32(traced[0])
+
+	// **Put where this syscall actually looks.** `traced[0]` is `open` on amd64,
+	// whose path is argument 0, and `openat` on arm64, whose path is argument 1.
+	// This set argument 1 unconditionally and passed on both only because the
+	// argument it *should* have set defaulted to zero, which used to be an
+	// unreadable address like any other.
+	i, ok := pathArg(n.Data.NR)
+	if !ok {
+		t.Fatalf("syscall %d takes no path, so this test proves nothing", n.Data.NR)
+	}
+
 	// Never mapped, so the read fails outright.
-	n.Data.Args[1] = 0
+	n.Data.Args[i] = unreadableAddr
 
 	tr.handle(n)
 
@@ -336,7 +358,7 @@ func TestAWriteOnlyOpenIsNotARead(t *testing.T) {
 		n.Data.Arch = auditArch
 		n.Data.NR = unix.SYS_OPENAT
 		n.Data.Args[0] = uint64(uint32(fdcwd)) // as the kernel delivers it
-		n.Data.Args[1] = 0                     // an address that cannot be read
+		n.Data.Args[1] = unreadableAddr        // an address that cannot be read
 		n.Data.Args[2] = tc.flags
 
 		tr.handle(n)

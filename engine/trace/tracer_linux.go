@@ -444,7 +444,19 @@ func (t *Tracer) handle(n seccompNotif) {
 	}
 
 	path, err := observedPath(&t.mem, n)
-	if err != nil {
+
+	// **Asked after the read, which is the only side of the race that proves
+	// anything.** Both `readpath_linux.go` and `stillRunning` say the caller
+	// must do this; until now no caller did, and the two things it decides were
+	// both being got wrong - see whatToDo.
+	switch whatToDoWith(err, t.stillOutstanding(n.ID)) {
+	case sightingDrop:
+		// The notification is no longer outstanding, so the call did not
+		// complete: it opened nothing, and anything read for it may be a pid's
+		// new owner. Nothing to record, and nothing missing.
+		return
+
+	case sightingLose:
 		// Unreadable is not absent. The step named *something*; recording one
 		// fewer path would be a claim this engine cannot make, so the whole
 		// observation is declared incomplete instead (I3).
@@ -458,6 +470,8 @@ func (t *Tracer) handle(n seccompNotif) {
 		t.lose(whyUnreadable + ": " + errnoOf(err))
 
 		return
+
+	case sightingRecord:
 	}
 
 	t.fill(path)
@@ -740,3 +754,25 @@ func pollEvents(r int16) string {
 // the ones whose path could not be read: the question it exists to answer is
 // what the round trip was paid for, and it was paid for all of them.
 func (t *Tracer) Handled() int { return int(t.handled.Load()) }
+
+// stillOutstanding reports whether the kernel still holds this notification.
+//
+// **No listener means nothing to ask, and nothing to doubt.** The check exists
+// to catch a pid recycled between a notification arriving and its memory being
+// read, and that can only happen to a notification a kernel actually issued. A
+// tracer built without a descriptor - which is how a synthetic sighting is fed
+// in, and how every test here works - has no such race, and asking anyway would
+// answer "gone" for every call and discard the lot.
+//
+// **Zero counts as absent**, and writing this as `fd < 0` did not. The zero
+// value of the struct is the synthetic tracer, so its descriptor is 0 - stdin,
+// which is never a seccomp listener but is a real descriptor the ioctl will
+// happily fail on. Three tests failed at once, all reporting that the tracer had
+// not attempted the path.
+func (t *Tracer) stillOutstanding(id uint64) bool {
+	if t.fd <= 0 {
+		return true
+	}
+
+	return stillRunning(t.fd, id)
+}

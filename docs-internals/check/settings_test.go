@@ -44,6 +44,7 @@ var internalSettings = map[string]string{
 	"EARTH_HASH_ON_UNPACK":      "an E653 experiment switch; neither setting is wrong to run",
 	"EARTH_KEEP_BLOBS":          "an E659 experiment switch; nothing reads the blobs yet",
 	"EARTH_GUEST_ARCH":          hostToGuest,
+	"EARTH_VM_MAY_REJOIN":       hostToGuest,
 	"EARTH_GUEST_CGROUP_PARENT": hostToGuest,
 	"EARTH_GUEST_FAST":          hostToGuest,
 	"EARTH_GUEST_OWNS_MACHINE":  "passed to the guest by the host: a grant, not a preference",

@@ -74,14 +74,82 @@ func run() error {
 	go serveBulk(filepath.Join(storeAt, "blobs"))
 	go serveExports()
 
-	conn, err := waitForHost()
+	return serveSessions()
+}
+
+// serveSessions serves one build after another until nobody comes.
+//
+// **The machine outlives the build, which is the point of it.** The agent's
+// standard input *is* the protocol connection, so a build ending ends the
+// agent - and handing PID 1 a single accepted socket meant the machine ended
+// with it. Every build therefore paid a boot, and a register a host writes so
+// the next build can find a running machine could never find one: measured,
+// the VM was gone five seconds after the build that started it.
+//
+// **A fresh agent per connection, deliberately.** What is expensive is the
+// machine - the kernel, the store mount, the network, and a page cache that has
+// seen this store before - and that is what is kept. An agent is a process, it
+// costs milliseconds, and starting a new one per build means no build inherits
+// another's memory.
+func serveSessions() error {
+	fd, err := listenVsock(vmboot.VsockPort, 1)
 	if err != nil {
 		return err
 	}
 
-	defer conn.Close()
+	defer func() { _ = unix.Close(fd) }()
 
-	return serve(conn)
+	// Said once, before the first wait: a host whose connection never arrives
+	// can tell "the guest is not ready" from "the guest is waiting".
+	fmt.Println("earth-vmboot: ready")
+
+	for session := 1; ; session++ {
+		conn, acceptErr := acceptWithin(fd, sessionIdle())
+		if acceptErr != nil {
+			if idleOut(acceptErr) {
+				// The ordinary end of a machine: the last build finished and no
+				// other came. Said, because a machine that went away between
+				// two builds is otherwise a mystery to whoever comes next.
+				fmt.Printf("earth-vmboot: nothing has connected for %v, stopping\n",
+					sessionIdle())
+
+				return nil
+			}
+
+			return acceptErr
+		}
+
+		// **Said because "ready" alone cannot be read.** A guest whose console
+		// ends at "ready" is either still waiting for a connection that never
+		// arrived or has accepted one and handed it to an agent that then said
+		// nothing, and those two have opposite causes. Thirty-second handshake
+		// timeouts were diagnosed twice from a console that could not tell them
+		// apart. Numbered now, because there is more than one.
+		fmt.Printf("earth-vmboot: host connected (session %d)\n", session)
+
+		err = serve(conn)
+
+		_ = conn.Close()
+
+		// **Nobody said anybody is coming back, so end the machine while the
+		// store can still be unmounted.** Waiting for a host that will never
+		// connect means the shutdown it already sent is a timeout and a kill,
+		// with the store mounted - a torn store, and a build that rebuilds
+		// everything.
+		//
+		// Asked in the positive: a host that has never heard of sessions says
+		// nothing and gets exactly the machine it got before.
+		if !mayRejoin() {
+			return err
+		}
+
+		if err != nil {
+			// A build whose agent failed is not a machine that must stop: the
+			// next build gets a new agent, and the one that failed has already
+			// reported to its own host.
+			fmt.Fprintf(os.Stderr, "earth-vmboot: session %d ended: %v\n", session, err)
+		}
+	}
 }
 
 // prepare gives the guest the filesystems the agent assumes.

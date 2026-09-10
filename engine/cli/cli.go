@@ -419,7 +419,7 @@ func build(ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os
 
 	// After the artifacts, because a build that produced both should keep the
 	// artifacts even if writing an image fails.
-	return writeImages(ctx, o, e, s.StackFor, plan.Images, scheduled(plan.Graph))
+	return writeImages(ctx, o, e, s.StackFor, s.Declared, plan.Images, scheduled(plan.Graph))
 }
 
 // runPlan runs a plan and gives back what ran it.
@@ -716,7 +716,7 @@ func runPlan(
 
 	// After the artifacts, because a build that produced both should keep the
 	// artifacts even if writing an image fails.
-	err = writeImages(ctx, o, e, s.StackFor, plan.Images, scheduled(plan.Graph))
+	err = writeImages(ctx, o, e, s.StackFor, s.Declared, plan.Images, scheduled(plan.Graph))
 	if err != nil {
 		return nil, nil, err
 	}

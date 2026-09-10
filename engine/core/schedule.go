@@ -289,6 +289,8 @@ type Scheduler struct {
 	load   map[string]int
 	sched  Schedule
 	stacks map[ir.NodeID][]ir.NodeID
+	// declared marks the stack elements that are declarations. See Declared.
+	declared map[ir.NodeID]bool
 	// nodes remembers which step produced which result, so an input that cannot
 	// be obtained can be rebuilt rather than failing the build (E278). The
 	// scheduler is the only party that knows: an executor holds a digest it
@@ -441,6 +443,10 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 	// stacks[n] is the layer stack n's inputs sit on, before n's own result is
 	// added. Depth accumulates along a chain, which is what reaches the limit.
 	s.stacks = make(map[ir.NodeID][]ir.NodeID, len(nodes))
+	// declared[id] marks a stack element that is a declaration rather than a
+	// tree. Only this side ever knows: it is told by every result it finishes,
+	// run or cached, and no store has to be asked - see Declared.
+	s.declared = map[ir.NodeID]bool{}
 
 	// The build record is emitted by default from the first milestone with a
 	// cache to explain: every mechanism that diffs, bisects or attributes
@@ -758,6 +764,17 @@ func (s *Scheduler) StackFor(n *ir.Node) []ir.NodeID {
 
 	return s.stacks[n.ID()]
 }
+
+// Declared reports that a stack element is a declaration rather than a tree.
+//
+// **The only answer that does not require opening the store.** A stack holds
+// both (green paper §3.2a) and a caller writing an image needs the trees alone;
+// asking a store which elements it holds answers correctly only while that store
+// is a directory the asker shares, which a microVM's is not. This side is told
+// by every result, so it knows wherever the bytes went.
+//
+// Read after the run, like StackFor, and unlocked for the same reason.
+func (s *Scheduler) Declared(id ir.NodeID) bool { return s.declared[id] }
 
 // runStep materialises the base, executes, and releases the handle whatever
 // happens. Separated from Run so that the release cannot be skipped by an early
@@ -1731,6 +1748,15 @@ func (s *Scheduler) finish(n *ir.Node, base []ir.NodeID, res Result, rec StepRec
 	// after it exactly as a layer does.
 	if res.Declares != (ir.NodeID{}) {
 		stack = pushLayer(stack, res.Declares)
+
+		// Lazily, because this is the only writer and a Scheduler assembled
+		// field by field - which is how the tests here build one - has not been
+		// through Run's setup.
+		if s.declared == nil {
+			s.declared = map[ir.NodeID]bool{}
+		}
+
+		s.declared[res.Declares] = true
 	}
 
 	s.stacks[n.ID()] = stack

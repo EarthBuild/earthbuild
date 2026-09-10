@@ -91,7 +91,8 @@ func emptyStackIsExpected(n *ir.Node) bool {
 // about has not really been produced.
 func writeImages(
 	ctx context.Context, o Options, e *exec.Executor,
-	stacks func(*ir.Node) []ir.NodeID, images []interp.Image, inGraph map[ir.NodeID]bool,
+	stacks func(*ir.Node) []ir.NodeID, declared func(ir.NodeID) bool,
+	images []interp.Image, inGraph map[ir.NodeID]bool,
 ) error {
 	if len(images) == 0 {
 		return nil
@@ -132,7 +133,7 @@ func writeImages(
 			return err
 		}
 
-		layers := layerSources(ctx, e, store, stack)
+		layers := layerSources(ctx, e, store, stack, declared)
 
 		// Named after the reference so two images from one build do not land on
 		// each other, and sanitised because a reference holds slashes and colons
@@ -196,36 +197,66 @@ func pushNote(push bool) string {
 // cannot pack is not a special case here: it simply does not answer, and the
 // directory path is what this always did.
 func layerSources(
-	ctx context.Context, e *exec.Executor, storeRoot string, stack []ir.NodeID,
+	ctx context.Context, e *exec.Executor, storeRoot string,
+	stack []ir.NodeID, declared func(ir.NodeID) bool,
 ) []image.LayerSource {
 	packer, ok := e.Sandbox().(interface {
 		PackLayer(context.Context, ir.NodeID, io.Writer) error
 	})
 
-	layerstore := store.LayerStore(storeRoot)
+	// **The guest's store is not the host's to look in.** A sandbox that packs
+	// its own layers keeps them on a device this process cannot open, so every
+	// question about what is *there* has to be answered without looking - see
+	// treeSources for the one that matters.
+	if ok {
+		return treeSources(ctx, stack, declared, packer.PackLayer)
+	}
 
+	layerstore := store.LayerStore(storeRoot)
 	out := make([]image.LayerSource, 0, len(stack))
 
 	for _, id := range stack {
-		// **A stack holds declarations as well as trees** (green paper §3.2a),
-		// and only the trees are layers. An image built from every element
-		// asked the packer for a `.decl` and was told there was no such layer,
-		// which is true and is not the caller's mistake - it is the same split
-		// the materialiser makes with `classify`, made here for the same
-		// reason (I18).
-		if !layerstore.Has(id) {
-			continue
-		}
-
-		if ok {
-			out = append(out, func(w io.Writer) error {
-				return packer.PackLayer(ctx, id, w)
-			})
-
+		// The store is this process's own here, so it can be asked as well as
+		// told: an element it holds neither way is one nothing can pack, and
+		// skipping it is what this always did.
+		if declared(id) || !layerstore.Has(id) {
 			continue
 		}
 
 		out = append(out, image.FromDir(layerstore.Path(id)))
+	}
+
+	return out
+}
+
+// treeSources is the packable half of a stack.
+//
+// **A stack holds declarations as well as trees** (green paper §3.2a), and only
+// the trees are layers. This used to tell them apart by asking the host's layer
+// store which elements it held, which is true only while the host and the
+// sandbox share one directory - and stopped being true when the microVM became
+// the default on Linux. The store moved onto a device the host cannot open, the
+// answer became "not here" for every element, and `SAVE IMAGE` wrote images with
+// no filesystem in them at all: 2 layers under the namespace backend, 0 under
+// the microVM, and `docker run` on the result unable to find `ls`.
+//
+// So the question is put to the party that knows it without looking anywhere:
+// the scheduler sees `Declares` on every result it finishes, run or cached, and
+// a declaration is a declaration wherever its bytes happen to live.
+func treeSources(
+	ctx context.Context,
+	stack []ir.NodeID,
+	declared func(ir.NodeID) bool,
+	pack func(context.Context, ir.NodeID, io.Writer) error,
+) []image.LayerSource {
+	out := make([]image.LayerSource, 0, len(stack))
+
+	for _, id := range stack {
+		if declared(id) {
+			continue
+		}
+
+		out = append(out, func(w io.Writer) error { return pack(ctx, id, w) })
 	}
 
 	return out

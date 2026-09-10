@@ -28,9 +28,12 @@ alpine-kind:
     END
 
 ubuntu-kind:
-    ARG DIND_IMAGE=earthbuild/dind:ubuntu-24.04-docker-29.8.0-1
+    ARG DIND_IMAGE=earthbuild/dind:ubuntu-26.04-docker-29.8.0-1
     FROM $DIND_IMAGE
-    RUN curl -fLo ./kind --retry 7 --retry-all-errors https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
+    # --retry-all-errors was added in curl 7.71.0; older base images (e.g. Ubuntu 20.04 with curl 7.68) only support --retry.
+    RUN curl -fLo ./kind --retry 7 \
+            $(curl --help all 2>&1 | grep -q -- '--retry-all-errors' && echo --retry-all-errors || true) \
+            https://kind.sigs.k8s.io/dl/v$KIND_VERSION/kind-linux-amd64 && chmod +x kind
     WITH DOCKER
         RUN ./kind create cluster --verbosity 99999 --retain || { \
                 ./kind export logs ./logs && \

@@ -145,7 +145,7 @@ We start from an appropriate docker image and set up a working directory.
 
 ```Dockerfile
 VERSION 0.8
-FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
+FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r1
 WORKDIR /scala-example
 RUN apk add --no-cache openjdk11 bash wget postgresql-client
 ```

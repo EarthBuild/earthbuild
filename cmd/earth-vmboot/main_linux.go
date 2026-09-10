@@ -15,10 +15,8 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	osexec "os/exec"
 	"path/filepath"
@@ -26,7 +24,6 @@ import (
 
 	"github.com/EarthBuild/earthbuild/cmd/earth-vmboot/vmboot"
 	"github.com/EarthBuild/earthbuild/engine/bulk"
-	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"golang.org/x/sys/unix"
@@ -539,15 +536,6 @@ func writeDecl(id string) (int64, error) {
 		return 0, fmt.Errorf("%q does not name a stack element: %w", id, err)
 	}
 
-	body, err := os.ReadFile(decl.Path(vmboot.StoreAt, parsed))
-	if errors.Is(err, fs.ErrNotExist) {
-		return 0, nil
-	}
-
-	if err != nil {
-		return 0, fmt.Errorf("read declaration %s: %w", id, err)
-	}
-
 	dev, err := os.OpenFile(vmboot.ExportDev, os.O_WRONLY, 0)
 	if err != nil {
 		return 0, fmt.Errorf("open the export device: %w", err)
@@ -555,9 +543,15 @@ func writeDecl(id string) (int64, error) {
 
 	defer func() { _ = dev.Close() }()
 
-	n, err := dev.Write(body)
+	// The same reader the other transport uses, so a declaration cannot mean one
+	// thing on a Mac and another in a microVM.
+	n, held, err := guest.WriteDeclaration(vmboot.StoreAt, parsed, dev)
 	if err != nil {
-		return 0, fmt.Errorf("write declaration %s: %w", id, err)
+		return 0, err
+	}
+
+	if !held {
+		return 0, nil
 	}
 
 	err = dev.Sync()

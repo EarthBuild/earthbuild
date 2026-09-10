@@ -106,6 +106,31 @@ func Main(args []string) {
 		return
 	}
 
+	// What a stack element declares, for the same host that cannot open the
+	// store to read a layer. Bytes on stdout and nothing else, exactly as
+	// `--pack`; an element that declares nothing writes none and exits clean,
+	// because most elements are trees and that is the ordinary answer.
+	if len(args) > 1 && args[0] == "--decl" {
+		root := os.Getenv("EARTH_GUEST_ROOT")
+		if root == "" {
+			root = "/var/lib/earthbuild"
+		}
+
+		id, err := ir.ParseNodeID(args[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s --decl: %v\n", label(), err)
+			os.Exit(1)
+		}
+
+		_, _, err = guest.WriteDeclaration(root, id, os.Stdout)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s --decl: %v\n", label(), err)
+			os.Exit(1)
+		}
+
+		return
+	}
+
 	// First of all, and it does not return when it applies: this binary is also
 	// the shim that a step's own docker daemon is launched through, because
 	// `dockerd` needs a user namespace it is root in and a writable `/run`, and

@@ -9922,7 +9922,7 @@ Exit criterion: two builds started simultaneously against one store, one
 proceeds and the other is refused with the existing message rather than
 corrupting anything.
 
-**5. Bounding what accumulates.** *(mechanisms in place, unmeasured)*
+**5. Bounding what accumulates.** *(done)*
 
 `EARTH_GUEST_IDLE` exists and has never meant anything, because the host has
 always stopped the guest at the end of every build. It starts meaning something
@@ -9948,7 +9948,17 @@ server inherited a lock it should not have, nothing ended that server, the
 network was wired and not called, and the guest was told it might wait in a
 place it does not read (E983). What remains unmeasured is the idle stop: the
 mechanism is there and `EARTH_GUEST_IDLE` finally means something, but nobody
-has watched a machine put itself away.
+put itself away, and it does: `nothing has connected for 25s, stopping`, store
+unmounted, VMM gone, server gone. Three builds leave one machine and one server;
+the idle period passes and both go. The corpus builds 24 of 24 with reuse on and
+24 of 24 with it off.
+
+**What the 1.13x does not cover.** Per-step *overhead* is free - a trivial step
+costs 0.036s in a reused guest against 0.042s on the host - and per-step *file
+reads* cost 2.18x (E985). So the tax multiplies by how many files a build opens
+rather than by how many steps it runs, and `+earthly` is a compile-bound build
+that flatters it. That is the next thing to measure, and it is a bigger number
+than anything left in the lifecycle.
 
 ### The part that is not a performance question
 

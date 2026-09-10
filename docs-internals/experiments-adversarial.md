@@ -47914,3 +47914,40 @@ before:                fc=0 servers=0
 after build 1/2/3:     fc=1 servers=1
 after the idle period: fc=0 servers=0
 ```
+
+### E985 - per-step cost is free, per-file cost is not
+
+Reuse got the edit-one-file build to 1.13x of the namespace backend (E983), and
+that number is a property of *that* build. Asked whether per-step costs are now
+level, because per-step costs multiply where a one-off boot does not.
+
+Two synthetic builds, all steps rebuilt, interleaved three times each against a
+reused machine:
+
+| step does                                   | namespaces | microVM | ratio |
+| ------------------------------------------- | ---------- | ------- | ----- |
+| `echo step-N > /sN`, 40 steps               | 0.0420s    | 0.0363s | 0.86  |
+| `tar cf /dev/null /usr /lib /bin`, 12 steps | 0.0620s    | 0.1354s | 2.18  |
+
+**Step overhead is free and slightly better.** Making a step's namespaces,
+mounting its overlay, running it and capturing the result costs *less* in the
+guest than on the host, and the microVM figure was still falling run to run -
+0.0398, 0.0355, 0.0336 - as the reused guest's page cache warmed further. A
+build of many trivial steps is not a build the boundary taxes.
+
+**Reading files costs 2.18x, and that is what multiplies.** A step that walks a
+tree pays on every file, on every step. The 1.13x headline came from a build
+that is compile-bound with modest reads; `tar`, `find`, `rsync`, a large `COPY`
+or a `node_modules` are the shape that does not flatter it.
+
+**Not yet attributed**, and this entry deliberately stops here rather than
+guessing. The candidates are the guest's overlayfs over XFS on virtio-blk
+against the host's own filesystem, the guest's page cache being colder for the
+lower layers than a host that has read them for a hundred builds, and the
+per-file cost of observing a step. The settings documentation already carries a
+measurement in this territory - 0.31ms per file a step opens, for the *shared
+store* arrangement that the block device replaced - so the shape is familiar and
+the cause is not established.
+
+What this does establish is where to look next, and that "how many steps" was
+the wrong question to ask about it. The right one is "how many files".

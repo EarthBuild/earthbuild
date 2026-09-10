@@ -2,10 +2,18 @@ package cli
 
 import (
 	"context"
+	"errors"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
+
+// errNoStaleAsker is what a view with nobody to ask answers.
+//
+// An error rather than "nothing is stale", because the two are opposite claims
+// and the cheap one is the dangerous one: a view that cannot check reporting
+// everything fresh is a build that reuses a step whose base moved.
+var errNoStaleAsker = errors.New("this view has no guest to ask about staleness")
 
 // guestViews answers what a base holds by asking whoever holds the store.
 //
@@ -19,13 +27,41 @@ import (
 // one question answers it.
 type guestViews struct {
 	ask func(ctx context.Context, stack []ir.NodeID, paths []string) (files, listings map[string]ir.NodeID, err error)
+	// stale answers the whole question rather than supplying its evidence. See
+	// WhyStaleIn.
+	stale func(ctx context.Context, stack []ir.NodeID, obs core.Observation) (string, error)
 }
+
+// WhyStaleIn asks the guest whether an observation still describes the base,
+// instead of fetching every digest and deciding here.
+//
+// **Because the comparison stops at the first difference and a fetch cannot.**
+// The tier walks a step's observed reads in order and returns as soon as one
+// has changed; fetching computes all 6302 of them so that the first can be
+// looked at. On a freshly booted guest those reads come off its own device with
+// an empty page cache, which is why the same comparison costs 4.409s there and
+// 0.222s on a host reading a store it has already read.
+//
+// Reached only under EARTH_ASK_STALE. The setting existed before this method
+// did and so turned on and changed nothing - `core.whyStaleVia` asks the view
+// source for this and quietly fetches when it has not got it, which is a switch
+// that reports success and does nothing.
 
 // View without a set of paths cannot be batched, and asking per path would cost
 // more than the tier saves - so it declines, which the tier reads as "no view"
 // and turns into an ordinary miss.
 func (g *guestViews) View(context.Context, []ir.NodeID) (core.BaseView, error) {
 	return nil, errNoPathsGiven
+}
+
+func (g *guestViews) WhyStaleIn(
+	ctx context.Context, stack []ir.NodeID, obs core.Observation,
+) (string, error) {
+	if g.stale == nil {
+		return "", errNoStaleAsker
+	}
+
+	return g.stale(ctx, stack, obs)
 }
 
 // ViewFor asks once for every path the prediction names.

@@ -520,6 +520,7 @@ func runPlan(
 		asker, ok := over.(interface {
 			StoreHas(context.Context, []ir.NodeID) ([]ir.NodeID, error)
 			ViewDigests(context.Context, []ir.NodeID, []string) (map[string]ir.NodeID, map[string]ir.NodeID, error)
+			WhyStaleIn(context.Context, []ir.NodeID, core.Observation) (string, error)
 		})
 		if ok {
 			present = &guestBlobs{
@@ -532,7 +533,7 @@ func runPlan(
 						" nothing: %v\n", err)
 				},
 			}
-			views = &guestViews{ask: asker.ViewDigests}
+			views = &guestViews{ask: asker.ViewDigests, stale: asker.WhyStaleIn}
 		} else {
 			fmt.Fprintln(o.Out, "earth: the layer store is inside the sandbox and"+
 				" this executor cannot be asked what it holds, so this build"+

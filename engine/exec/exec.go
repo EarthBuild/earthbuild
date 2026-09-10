@@ -1957,6 +1957,29 @@ func (e *Executor) ViewDigests(
 	return c.ViewDigests(ctx, stack, paths)
 }
 
+// WhyStaleIn asks the guest whether an observation still describes a base.
+//
+// **The question, not the evidence.** ViewDigests answers with the digest of
+// every path a prediction names - 6302 of them for the step that builds this
+// repository - and the host then walks them and stops at the first that
+// differs. The guest can stop there itself, and everything after it was read
+// and hashed to be thrown away: 4.409s of a 9.7s build, against 0.222s for the
+// same comparison on a host that reads its own store.
+//
+// Beside ViewDigests because it is the same store answering, and the caller
+// picks between them by what it wants to know rather than by which backend it
+// has.
+func (e *Executor) WhyStaleIn(
+	ctx context.Context, stack []ir.NodeID, obs core.Observation,
+) (string, error) {
+	c, err := e.client()
+	if err != nil {
+		return "", err
+	}
+
+	return c.WhyStaleIn(ctx, stack, obs)
+}
+
 // localContextRefusal says why a local build context cannot be staged, or nil.
 //
 // **What is left after the handing-across exists.** The store and the context

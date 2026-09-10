@@ -37,19 +37,33 @@ const (
 // pid would survive a SIGKILL and make an abandoned sandbox look busy for ever,
 // which is the failure mode of every lock file ever written.
 func holdSandbox(dir string) (release func(), err error) {
+	_, release, err = holdSandboxFile(dir)
+
+	return release, err
+}
+
+// holdSandboxFile is holdSandbox, keeping the descriptor.
+//
+// **The lock has to outlive the build, not the process that took it.** A guest
+// now stays up between builds, and sweepSandboxes reads a free lock as "the
+// owner has gone" - so a lock held by the build would let the next build's
+// sweep delete a running machine's sockets a minute after the first exited.
+// Handed to the machine instead, where it is released by the one event that
+// means the directory is finished with: the VMM exiting.
+func holdSandboxFile(dir string) (held *os.File, release func(), err error) {
 	f, err := os.OpenFile(filepath.Join(dir, sandboxLock), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB)
 	if err != nil {
 		_ = f.Close()
 
-		return nil, err
+		return nil, nil, err
 	}
 
-	return func() { _ = f.Close() }, nil
+	return f, func() { _ = f.Close() }, nil
 }
 
 // sweepSandboxes removes the directories of sandboxes whose build is gone, and

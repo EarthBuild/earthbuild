@@ -122,6 +122,30 @@ const envMayRejoin = "EARTH_VM_MAY_REJOIN"
 
 // mayRejoin reports whether a later build may connect to this machine.
 //
+// **Read from the command line, not from this process's environment.** The
+// host's settings arrive on the kernel command line - the only channel that
+// exists before the guest does - and `agentEnv` puts them into the *agent's*
+// environment. PID 1's own environment never sees them. So this asked
+// `os.Getenv` for something the host had said, the guest had received and
+// nobody had given to the process that needed it, and every machine ended with
+// its first build while the console reported the setting arriving.
+//
+// That is the failure `saySettings` was written for, one layer further in: not
+// a setting that failed to cross, but one that crossed and was routed past its
+// reader.
+func mayRejoin() bool { return rejoinAsked(fromCmdline()) }
+
+// rejoinAsked is the decision, taken apart from where the settings come from so
+// it can be tested without a kernel.
+//
 // Anything but an explicit yes is no. A misspelt value is not a decision, and
 // the cost of reading one as yes is a store.
-func mayRejoin() bool { return os.Getenv(envMayRejoin) == "1" }
+func rejoinAsked(settings []string) bool {
+	for _, kv := range settings {
+		if kv == envMayRejoin+"=1" {
+			return true
+		}
+	}
+
+	return false
+}

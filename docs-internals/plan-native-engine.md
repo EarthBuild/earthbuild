@@ -9851,7 +9851,7 @@ Nothing sets it yet, so this step changed no behaviour, which is why it could go
 first: measured after it, 94 hits and no misses, teardown 0.104s, no machine left
 behind.
 
-**2. Somewhere for the stack to live, which is not the shim.**
+**2. Somewhere for the stack to live, which is not the shim.** *(done, 5dce2930b)*
 
 The revert said "the network belongs in the shim, which already outlives the
 machine". Tried, and both halves are wrong (E980).
@@ -9899,7 +9899,7 @@ counters the stall note reports have to be published by the stack host and read
 by the engine - a file, written whole and renamed, since the two share no
 protocol.
 
-**3. Two builds, one machine.**
+**3. Two builds, one machine.** *(done)*
 
 With a stack that outlives a build and a guest that will wait for one, turn it
 on: the host says `EARTH_VM_MAY_REJOIN=1` where the network is not its own to
@@ -9910,7 +9910,7 @@ the first's layers as hits, and a `SIGKILL` of the host at any point still
 leaving a store the next build reads without loss - which is the test that found
 the tearing the first time.
 
-**4. Finding and claiming a machine.**
+**4. Finding and claiming a machine.** *(done, with 3)*
 
 `vmregister.go` named a VM by a digest of what it was made of. Two constraints
 it must respect: the store device is `flock`ed for the life of a build and two
@@ -9922,7 +9922,7 @@ Exit criterion: two builds started simultaneously against one store, one
 proceeds and the other is refused with the existing message rather than
 corrupting anything.
 
-**5. Bounding what accumulates.**
+**5. Bounding what accumulates.** *(mechanisms in place, unmeasured)*
 
 `EARTH_GUEST_IDLE` exists and has never meant anything, because the host has
 always stopped the guest at the end of every build. It starts meaning something
@@ -9933,6 +9933,22 @@ development machine.
 Exit criterion: an idle machine stops on its own, and a machine killed rather
 than stopped leaves nothing a later build trips over - the sandbox sweep
 already does this for directories and is the shape to copy.
+
+### Where it landed
+
+Four builds against one guest, sessions 1 to 4 on its console, each fetching:
+boot 0.530s, then joins at 0.009s, 0.012s, 0.017s. On the edit-one-file build,
+both arms warm and both at 60 hits and 3 misses: namespaces 3.33s, microVM 3.79s.
+
+**1.13x**, from 2.93x. Behind `EARTH_VM_REUSE`, off by default.
+
+Every fault on the way was a lifetime rather than a mechanism - the descriptor
+handover, the session loop and the register each worked first time, while a
+server inherited a lock it should not have, nothing ended that server, the
+network was wired and not called, and the guest was told it might wait in a
+place it does not read (E983). What remains unmeasured is the idle stop: the
+mechanism is there and `EARTH_GUEST_IDLE` finally means something, but nobody
+has watched a machine put itself away.
 
 ### The part that is not a performance question
 

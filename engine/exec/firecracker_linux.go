@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -65,13 +66,24 @@ type Firecracker struct {
 	cmd *osexec.Cmd
 	tmp string
 	// unlock releases this sandbox's claim on its directory. See holdSandbox.
-	unlock  func()
+	unlock func()
+	// dirLock is that claim as a descriptor, so it can be handed to the machine
+	// and outlive this build. See holdSandboxFile.
+	dirLock *os.File
 	vsockAt string
 	exports string
 	tap     string
 	net     vmboot.Net
 	release func()
 	console *os.File
+	// attached is set when this build joined a machine it did not start, which
+	// is what stops Stop from taking somebody else's machine away.
+	attached bool
+	// boots and reuses make "one machine per session" observable rather than
+	// asserted: a test can read them, a comment cannot.
+	boots  atomic.Int64
+	reuses atomic.Int64
+
 	// ownNet is set when the engine provides the guest's network itself, which
 	// is the default; own is the stack it started. See userNet.
 	ownNet bool
@@ -298,6 +310,25 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 		return nil, fmt.Errorf("this sandbox is already running")
 	}
 
+	// **Find the machine the last build left running.** Booting one costs
+	// 0.53s and stopping one 0.16s on this repository's own build, and the
+	// compile inside a machine booted a second ago is a further second slower
+	// because its page cache has never seen the store. A guest is named after
+	// what it is, so a build can join one and can never join one built
+	// differently.
+	want := f.vmDigest()
+
+	unstart, err := vmStartLock(f.StoreImage)
+	if err != nil {
+		return nil, err
+	}
+
+	defer unstart()
+
+	if conn, ok := f.attach(want); ok {
+		return conn, nil
+	}
+
 	dir, err := f.dir()
 	if err != nil {
 		return nil, err
@@ -310,7 +341,9 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 	// **Before anything is written**, because the claim is what says this
 	// machine is not already running a guest on that device - and the export
 	// device beside it belongs to the same sandbox.
-	f.release, err = claimStore(f.StoreImage)
+	var storeLock *os.File
+
+	storeLock, f.release, err = claimStoreFile(f.StoreImage)
 	if err != nil {
 		return nil, err
 	}
@@ -396,6 +429,18 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 	f.console = console
 	cmd.Stdout, cmd.Stderr = console, console
 
+	// **The locks are handed to the machine, not held by the build.** A guest
+	// that stays up between builds has the store mounted the whole time; a
+	// claim released when the build exits would let the next build with a
+	// different configuration boot a second guest onto the same filesystem,
+	// which is the one thing that lock exists to prevent. The sandbox
+	// directory is the same argument against the next build's sweep.
+	//
+	// Appended rather than assigned: the network shim puts its own channel in
+	// ExtraFiles first, and overwriting it would hand the shim a store lock and
+	// call it a socket.
+	cmd.ExtraFiles = append(cmd.ExtraFiles, keptOpen(storeLock, f.dirLock)...)
+
 	err = cmd.Start()
 	if err != nil {
 		return nil, fmt.Errorf("start firecracker: %w", err)
@@ -403,6 +448,22 @@ func (f *Firecracker) Start(ctx context.Context) (_ Conn, err error) {
 
 	f.cmd = cmd
 	f.gone = make(chan struct{})
+	f.boots.Add(1)
+
+	// **Recorded once it exists, because there is nothing to enumerate.** A VMM
+	// is a process with a socket and nothing lists it; the Apple backend asks
+	// its runtime what is up and this has no runtime to ask. A record that
+	// cannot be written costs the next build a boot and nothing else, so it is
+	// said and not fatal.
+	if mayAttach() {
+		recErr := writeVMRecord(f.StoreImage, vmRecord{
+			Digest: want, Vsock: vsock, PID: cmd.Process.Pid, Exports: f.exports,
+		})
+		if recErr != nil {
+			fmt.Fprintf(os.Stderr, "earthbuild: this machine will not be found by the"+
+				" next build: %v\n", recErr)
+		}
+	}
 
 	if back != nil {
 		err = f.takeNetFrom(back)
@@ -821,6 +882,28 @@ func (f *Firecracker) stopLocked() error {
 
 	f.stopped = true
 
+	// **A machine this build joined is not this build's to end.** It was up
+	// before and is meant to be up after; what ends it is its own idle period,
+	// which is the setting that has existed all along and could never apply
+	// while the host stopped the guest at the end of every build.
+	//
+	// The connection is closed and nothing else. The agent reads the protocol
+	// from it, so closing ends *that* agent - which is the session ending, not
+	// the machine - and the guest goes back to waiting for the next host.
+	if f.attached {
+		if f.conn != nil {
+			_ = f.conn.Close()
+			f.conn = nil
+		}
+
+		f.own.Close()
+		f.own = nil
+		f.attached = false
+		f.vsockAt = ""
+
+		return nil
+	}
+
 	f.releaseStore()
 
 	// Cleared here so a PlaceBlob racing a Stop is refused with "not running"
@@ -828,6 +911,23 @@ func (f *Firecracker) stopLocked() error {
 	// as ECONNREFUSED, retries for thirty seconds, and reports a boot timeout
 	// for a guest that was deliberately stopped.
 	f.vsockAt = ""
+
+	// **Left running where a later build may want it.** The guest was told it
+	// may wait, so hanging up ends the session and not the machine; killing the
+	// VMM here would take away the thing the record points at, and do it with
+	// the store mounted.
+	if mayAttach() && f.cmd != nil && f.cmd.Process != nil {
+		if f.conn != nil {
+			_ = f.conn.Close()
+			f.conn = nil
+		}
+
+		f.own.Close()
+		f.own = nil
+		f.vsockAt = ""
+
+		return nil
+	}
 
 	if f.cmd != nil && f.cmd.Process != nil {
 		f.shutDownLocked()
@@ -893,7 +993,7 @@ func (f *Firecracker) dir() (string, error) {
 
 	// Held for as long as this process lives, which is what tells the next
 	// build's sweep that this one is not abandoned.
-	release, err := holdSandbox(tmp)
+	held, release, err := holdSandboxFile(tmp)
 	if err != nil {
 		_ = os.RemoveAll(tmp)
 
@@ -901,6 +1001,7 @@ func (f *Firecracker) dir() (string, error) {
 	}
 
 	f.unlock = release
+	f.dirLock = held
 	f.tmp = tmp
 
 	return tmp, nil

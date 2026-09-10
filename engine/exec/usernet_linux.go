@@ -359,5 +359,22 @@ func guestSettings() []string {
 		}
 	}
 
+	// **Said only where it is true, and the guest defaults to the safe answer.**
+	// A machine told it may wait, whose host then never comes back, waits out
+	// its idle period and stops; a machine *not* told, whose host does come
+	// back, has already gone and costs a boot. Neither is a torn store, which
+	// is what the other way round costs - see cmd/earth-vmboot, envMayRejoin.
+	if mayAttach() {
+		out = append(out, envGuestMayRejoin+"=1")
+	}
+
 	return out
 }
+
+// envGuestMayRejoin is cmd/earth-vmboot's envMayRejoin, named here because the
+// host writes it and the guest reads it, and the two must be the same string.
+//
+// Not imported: earth-vmboot is a `package main` for an initramfs and links
+// nothing it does not need, so the name is stated at both ends and this comment
+// is what keeps them together.
+const envGuestMayRejoin = "EARTH_VM_MAY_REJOIN"

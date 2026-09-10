@@ -58,41 +58,48 @@ func TestTheIdleWaitIsBounded(t *testing.T) {
 // after ten seconds and the VMM is killed with the store still mounted. That is
 // a torn store, and it reads as `/bin/busybox is gone from the base` in a build
 // that changed one Go file - 61 cache hits to none.
+//
+// Asked of the settings rather than of the environment, because that is where
+// they are. The host's settings reach this guest on the kernel command line and
+// are put into the *agent's* environment; PID 1 never sees them in its own. A
+// first version of this read `os.Getenv` and was always false - every machine
+// ended with its first build while its console reported the setting arriving.
 func TestOnlyAnExplicitYesLetsAMachineWait(t *testing.T) {
-	for _, c := range []struct {
-		set  string
-		want bool
-		why  string
-	}{
-		{"1", true, "the host said a later build may connect"},
-		{"", false, "nothing was said, which must not mean yes"},
-		{"0", false, "the host said no"},
-		{"true", false, "not the one value that means yes"},
-		{"yes", false, "not the one value that means yes"},
-	} {
-		t.Setenv(envMayRejoin, c.set)
+	t.Parallel()
 
-		if got := mayRejoin(); got != c.want {
-			t.Errorf("%s=%q read as mayRejoin=%v, wanted %v (%s)",
-				envMayRejoin, c.set, got, c.want, c.why)
+	for _, c := range []struct {
+		settings []string
+		want     bool
+		why      string
+	}{
+		{[]string{"EARTH_VM_MAY_REJOIN=1"}, true, "the host said a later build may connect"},
+		{[]string{"EARTH_TIMINGS=1", "EARTH_VM_MAY_REJOIN=1"}, true, "said, among others"},
+		{nil, false, "nothing was said, which must not mean yes"},
+		{[]string{"EARTH_VM_MAY_REJOIN=0"}, false, "the host said no"},
+		{[]string{"EARTH_VM_MAY_REJOIN=true"}, false, "not the one value that means yes"},
+		{[]string{"EARTH_TIMINGS=1"}, false, "a different setting entirely"},
+		{[]string{"NOT_EARTH_VM_MAY_REJOIN=1"}, false, "a name ending in the right one"},
+	} {
+		if got := rejoinAsked(c.settings); got != c.want {
+			t.Errorf("%q read as mayRejoin=%v, wanted %v (%s)",
+				c.settings, got, c.want, c.why)
 		}
 	}
 }
 
-// TestSilenceMeansSingleUse states the direction of the default on its own,
-// because the table above would still pass with every answer inverted
-// together.
+// TestSilenceMeansSingleUse states the direction of the default alone, because
+// the table above would pass just as well with every answer inverted together.
 //
 // **This is the whole of why the question is asked in the positive.** The first
 // version asked the host to say when it could *not* come back, which makes
-// waiting what happens by default - and puts a torn store behind every way of
-// failing to say anything: an older host, a setting dropped from the list that
-// crosses into the guest, a machine configuration written by hand. Asked this
-// way round, every one of those is a machine that behaves as it always did.
+// waiting the default - and puts a torn store behind every way of failing to
+// say anything: an older host, a setting dropped from the list that crosses
+// into the guest, a machine configuration written by hand. Asked this way
+// round, every one of those is a machine that behaves as it always did.
 func TestSilenceMeansSingleUse(t *testing.T) {
-	t.Setenv(envMayRejoin, "")
+	t.Parallel()
 
-	if mayRejoin() {
+	if rejoinAsked(nil) {
 		t.Fatal("a guest nobody has said anything to will wait for a second" +
 			" build, so its host's shutdown becomes a kill with the store" +
 			" mounted")

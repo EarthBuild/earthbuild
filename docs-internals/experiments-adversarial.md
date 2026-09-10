@@ -47810,3 +47810,66 @@ The lesson is not "look for existing guards", though that is true. It is that a
 guard whose list is *derived* found a site a guard whose list is *written* could
 not have, because nobody writing the list would have thought of the test binary
 until it had already re-run the corpus inside itself.
+
+### E983 - a machine serves four builds, and the four ways it did not
+
+Reuse works. Four builds against one guest, sessions 1 to 4 on its console, each
+fetching over the network:
+
+| build | `sandbox:start` | what it did |
+| ----- | --------------- | ----------- |
+| 1     | 0.530s          | booted      |
+| 2     | 0.009s          | joined      |
+| 3     | 0.012s          | joined      |
+| 4     | 0.017s          | joined      |
+
+And the number this was all for, on the edit-one-file build of this repository,
+both arms warm and both reporting 60 hits and 3 misses:
+
+| backend          | wall  |
+| ---------------- | ----- |
+| namespaces       | 3.33s |
+| microVM, booting | 9.75s |
+| microVM, joining | 3.79s |
+
+**1.13x**, from 2.93x when this began. The boot was the smaller half of what
+reuse recovers: a machine booted a second ago has a page cache that has never
+seen the store, and its first compile reads the toolchain off the device again.
+
+**Four faults, and every one of them a lifetime.** None was in the mechanism -
+the fd handover, the session loop and the register all worked first time. Each
+was about how long something lives.
+
+*The server inherited the store claim.* The engine hands the store and sandbox
+locks to the shim as extra descriptors, deliberately without close-on-exec, so
+the VMM keeps them and a machine outliving its build keeps its device claimed.
+The fd-server, forked from the shim in between, inherited them and never let go.
+The message said it exactly: `the store device is in use by build 654478 (no
+longer running)`. **A dead process holding an flock means a living one has the
+descriptor** - the lock is released by the last close, not by the death of
+whoever took it.
+
+*Nothing ended the server.* With reuse off it died with the build's process
+group. With reuse on that group is never killed, so one server would accumulate
+per machine, holding a namespace open, until the host rebooted. It watches
+`getppid` now: becoming 1 is the kernel saying its machine has gone.
+
+*The network was written and not called.* `netForAttached` existed and nothing
+invoked it, so a joined machine would have worked until the first step fetched.
+
+*And the guest was told, and never heard it.* `EARTH_VM_MAY_REJOIN=1` crossed
+correctly - it is visible in the boot arguments, base64 in `earth.env`. But
+`fromCmdline` feeds `agentEnv`, so the host's settings land in the *agent's*
+environment and PID 1's own never sees them. `mayRejoin` asked `os.Getenv` and
+was always false: every machine ended after its first build while its console
+reported the setting arriving.
+
+That last one is `saySettings` one layer further in. That diagnostic exists
+because a setting which fails to cross is silent - the guest uses its default
+and an A/B produces one result twice. This was not a setting that failed to
+cross. It crossed, was counted, was printed, and was **routed past the process
+that needed it**. The count that proves arrival cannot prove delivery.
+
+**The store survives a killed host**, which is the test that found the tearing
+the first time: SIGKILL to the build mid-step, machine still running, next build
+60 hits and 3 misses with nothing missing from the base.

@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	osexec "os/exec"
+	"strconv"
 
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
 	"golang.org/x/sys/unix"
@@ -253,7 +254,22 @@ func startNetFDServer(device string) {
 	srv := osexec.Command(self, NetFDCommand, at, device)
 	srv.Stdout, srv.Stderr = os.Stdout, os.Stderr
 
+	// **Everything this process was handed stays behind.** The engine passes
+	// the store claim and the sandbox directory's claim as extra descriptors so
+	// that the *machine* holds them - a guest that outlives its build has the
+	// store mounted the whole time, and a claim released when the build exits
+	// would let the next build boot a second guest onto the same filesystem.
+	//
+	// Extra descriptors arrive with close-on-exec cleared, which is what makes
+	// the VMM inherit them and would make this inherit them too. A server
+	// holding the store claim keeps it after the machine has gone: the next
+	// build is refused by a lock whose owner "is no longer running", which is
+	// true, and the reason it is still held is standing right there.
+	undo := closeOnExecFrom(3)
+
 	err = srv.Start()
+
+	undo()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "earthbuild: this machine cannot be rejoined: %v\n", err)
 
@@ -264,4 +280,52 @@ func startNetFDServer(device string) {
 	// outlive this process, which is about to exec, and there is nothing
 	// sensible to do with the answer: the server ends when the namespace does.
 	_ = srv.Process.Release()
+}
+
+// closeOnExecFrom marks every open descriptor from `first` upwards
+// close-on-exec, and returns a function putting them back as they were.
+//
+// **For starting one child out of a process whose descriptors belong to
+// another.** The shim is handed locks meant for the VMM it is about to become;
+// anything else it starts in between must not keep them. Go marks what it opens
+// close-on-exec already, so what this finds is exactly what was passed in.
+//
+// Read from /proc rather than guessed from a count: the engine decides how many
+// it passes, and a number agreed in two places is a number that will disagree.
+func closeOnExecFrom(first int) (undo func()) {
+	names, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		// Nothing to put back, and nothing that can be done about it here. A
+		// leaked lock is a later build refused with a message that says which
+		// device and by whom, which is a great deal better than this failing.
+		return func() {}
+	}
+
+	var cleared []int
+
+	for _, e := range names {
+		fd, err := strconv.Atoi(e.Name())
+		if err != nil || fd < first {
+			continue
+		}
+
+		bits, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0)
+		if err != nil || bits&unix.FD_CLOEXEC != 0 {
+			continue
+		}
+
+		_, err = unix.FcntlInt(uintptr(fd), unix.F_SETFD, bits|unix.FD_CLOEXEC)
+		if err == nil {
+			cleared = append(cleared, fd)
+		}
+	}
+
+	return func() {
+		for _, fd := range cleared {
+			bits, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0)
+			if err == nil {
+				_, _ = unix.FcntlInt(uintptr(fd), unix.F_SETFD, bits&^unix.FD_CLOEXEC)
+			}
+		}
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
 )
@@ -70,7 +71,34 @@ func netFDServer(args []string) error {
 
 	defer func() { _ = ln.Close() }()
 
+	// **Ends with the machine, and nothing else can end it.** This is started
+	// by the shim, so its parent is the process that becomes the VMM; when that
+	// goes, this is re-parented to init. With reuse off the build's process
+	// group is killed and takes this with it, but a machine that outlives its
+	// build is never killed that way - so without this, one server accumulates
+	// per machine, holding a namespace open, for as long as the host is up.
+	//
+	// Watching the parent rather than a pid: `getppid` becoming 1 is the kernel
+	// telling us, and it cannot be confused by pid reuse the way polling a
+	// recorded number can.
+	go endWithParent(ln)
+
 	return serveNetFDs(ln, func() (*os.File, error) { return packetSocket(device) })
+}
+
+// endWithParent closes the listener once this process has been orphaned.
+//
+// Closing rather than exiting, so the accept loop returns and the socket is
+// unlinked on the way out - a name left behind is a later build dialling
+// something nobody answers, which it reads as a machine that is there.
+func endWithParent(ln *net.UnixListener) {
+	for range time.Tick(orphanCheck) {
+		if os.Getppid() == 1 {
+			_ = ln.Close()
+
+			return
+		}
+	}
 }
 
 // serveNetFDs answers each caller with a socket of its own.
@@ -120,6 +148,11 @@ func answer(conn *net.UnixConn, make func() (*os.File, error)) {
 		fmt.Fprintf(os.Stderr, "earth %s: hand over a socket: %v\n", NetFDCommand, err)
 	}
 }
+
+// orphanCheck is how often this asks whether its machine has gone. Coarse: the
+// cost of noticing late is one idle process, and the cost of asking often is a
+// wakeup per second per machine.
+const orphanCheck = 5 * time.Second
 
 // netFDRefused prefixes the reason a machine could not make one, so a caller
 // reading a message rather than a descriptor knows which it has.

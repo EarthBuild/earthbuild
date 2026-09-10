@@ -488,6 +488,36 @@ measure it, and the switch is also how a store that has grown strangely gets bis
 Default: on. The fallback is always correct, so this guards against a slow store rather than a
 wrong one.
 
+### `EARTH_VM_REUSE`
+
+Lets a microVM outlive the build that started it, so the next build joins it instead of booting one.
+
+Default: off.
+
+**What it costs is boundary, and that is the whole trade.** A guest serving a second build carries
+the first's kernel state and its page cache. It does not carry the first's agent - that is a new
+process per build - nor its steps, which run in their own overlays; and the layer store is shared
+between builds already, by design, since it is a cache. What is new is the state outside all of
+that.
+
+**What it buys is most of the difference from the namespace backend.** On this repository's own
+build with one file changed, both arms warm and doing identical work:
+
+| backend                | wall  | `sandbox:start` |
+| ---------------------- | ----- | --------------- |
+| namespaces             | 3.33s | 0.004s          |
+| microVM, booting       | 9.75s | 0.53s           |
+| microVM, joining       | 3.79s | 0.014s          |
+
+The boot is the smaller half. A machine booted a second ago has a page cache that has never seen
+the store, so its first compile reads the toolchain off the device again; a machine that has
+already built once has not.
+
+A machine ends on its own when nothing has connected for `EARTH_GUEST_IDLE`, which until now could
+never apply because the host stopped the guest at the end of every build. A machine whose host is
+killed keeps running and is joined by the next build, which is the point; one whose configuration
+no longer matches is stopped and replaced, because a device holds one filesystem.
+
 ### `EARTH_VM`
 
 Runs the guest inside a microVM rather than in namespaces on the host kernel.

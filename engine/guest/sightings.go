@@ -47,14 +47,6 @@ func (s *Server) recordSightings(
 		// like it worked and quietly record no listing at all.
 		outside := p
 
-		// Not the base's to describe. What this engine mounted into the step -
-		// the resolver, /proc, /dev, a cache directory - is regenerated or
-		// shared, so recording it makes the step stale on every later build
-		// whatever it actually read (E222).
-		if under(p, provided) {
-			continue
-		}
-
 		// The tracer resolves a path as *it* sees it, outside the step's root,
 		// so some arrive by their outside name:
 		// `/var/lib/earthbuild/scratch/mounts/h-3452187907/merged/usr/lib/...`.
@@ -74,22 +66,12 @@ func (s *Server) recordSightings(
 		// So the root is dropped and the rest is renamed to what the step calls
 		// it - which is what the base holds it under, and the only name a later
 		// build can compare.
-		if root != "" {
-			// The directory handles live in, derived from this one rather than
-			// asked of the Server: `mountStore()` answers where the *host*
-			// side puts them, which is not where this guest's materialiser
-			// does - 125 entries went on being recorded while that was the
-			// question being asked (E498).
-			//
-			// A root is `<mounts>/h-1234/merged`, so its grandparent is
-			// `<mounts>`. Structural, and the structure is this package's own.
-			inside, ok := insideRoot(p, root, filepath.Dir(filepath.Dir(root)))
-			if !ok {
-				continue
-			}
-
-			p = inside
+		kept, worth := worthRecording(p, root, provided)
+		if !worth {
+			continue
 		}
+
+		p = kept
 
 		// **A file the step made is not a file it read.** `printf > f && cat f`
 		// is a real read of a path the base cannot hold, so recording it as an
@@ -201,6 +183,47 @@ func insideRoot(p, root, mounts string) (string, bool) {
 	// (E498). What would recover them is knowing the two roots hold the same
 	// bytes, which is the question the digest was going to answer anyway.
 	if mounts != "" && under(clean, []string{mounts}) {
+		return "", false
+	}
+
+	return p, true
+}
+
+// worthRecording is two questions asked of one path: what would the base hold
+// it under, and is it the base's to describe at all.
+//
+// **The order is the whole of it.** The exclusion is written in the names a step
+// uses from inside, so asking it first only ever saw the paths that arrived that
+// way. One reported by its outside name is not under `/proc` - it is under the
+// root - so it walked past the exclusion and was recorded a few lines later
+// under its inside name. `/proc/10/mounts` carries a pid no later build has, so
+// those steps were stale for ever: found in 4 of 12 profiles written during half
+// an hour of Rust builds. The `own` check at the call site was already asked
+// after the rename, for exactly this reason, and says so.
+//
+// What is excluded is what this engine mounted into the step - the resolver,
+// `/proc`, `/dev`, a cache directory. Those are regenerated or shared, so
+// recording one makes the step stale on every later build whatever it actually
+// read (E222).
+func worthRecording(p, root string, provided []string) (string, bool) {
+	if root != "" {
+		// The directory handles live in, derived from the root rather than
+		// asked of the Server: `mountStore()` answers where the *host* side
+		// puts them, which is not where this guest's materialiser does - 125
+		// entries went on being recorded while that was the question being
+		// asked (E498).
+		//
+		// A root is `<mounts>/h-1234/merged`, so its grandparent is `<mounts>`.
+		// Structural, and the structure is this package's own.
+		inside, ok := insideRoot(p, root, filepath.Dir(filepath.Dir(root)))
+		if !ok {
+			return "", false
+		}
+
+		p = inside
+	}
+
+	if under(p, provided) {
 		return "", false
 	}
 

@@ -133,6 +133,8 @@ type ConvertOpt struct {
 	LocalRegistryAddr string
 	// The resolve mode for referenced images (force pull or prefer local).
 	ImageResolveMode llb.ResolveMode
+	// Export controls how much of a build's output is written out locally.
+	Export Export
 	// NoCache sets llb.IgnoreCache before calling StateToRef
 	NoCache bool
 	// EnableInteractiveDebugger is set to true when earth is run with the --interactive cli flag
@@ -142,22 +144,13 @@ type ConvertOpt struct {
 	// GlobalWaitBlockFtr, when true, forces all Earthfiles to add entries into the WAIT/END block
 	// this is to facilitate de-duplicating code from builder.go
 	GlobalWaitBlockFtr bool
-	// DoSaves controls when SAVE ARTIFACT AS LOCAL, and SAVE IMAGE (to the local docker instance) calls are
-	// executed When a SAVE IMAGE --push is encountered, the image may still be pushed to the remote registry
-	// (as long as DoPushes=true), but is not exported to the local docker instance.
-	DoSaves bool
-	// NoLocalImageExport suppresses exporting SAVE IMAGE images to the local container engine
-	// (Docker, Podman, etc.), while leaving SAVE ARTIFACT AS LOCAL alone. Where DoSaves gates both,
-	// this gates only the image half, so a build can push images and still write artifacts locally.
-	// Pushes are unaffected; see DoPushes.
-	NoLocalImageExport bool
 	// AllowPrivileged is used to allow (or prevent) any "RUN --privileged" or RUNs under a LOCALLY target
 	// to be executed, when set to false, it prevents other referenced remote targets from requesting
 	// elevated privileges
 	AllowPrivileged bool
 	// ForceSaveImage is used to force all SAVE IMAGE commands are executed regardless of if they are for a local or
 	// remote target; this is to support the legacy behaviour that was first introduced in earthbuild (up to 0.5)
-	// When this is set to false, SAVE IMAGE commands are only executed when DoSaves is true.
+	// When this is set to false, SAVE IMAGE commands are only executed when Export is ExportAll.
 	ForceSaveImage bool
 	// HasDangling represents whether the target has dangling instructions -
 	// ie if there are any non-SAVE commands after the first SAVE command,
@@ -166,7 +159,7 @@ type ConvertOpt struct {
 	// InteractiveDebuggerDebugLevelLogging controls if debug-level-logging is enabled within the interactive-debugger
 	InteractiveDebuggerDebugLevelLogging bool
 	// DoPushes controls when a SAVE IMAGE --push, and RUN --push commands are executed;
-	// SAVE IMAGE --push ... will still export an image to the local docker instance (as long as DoSaves=true)
+	// SAVE IMAGE --push ... will still export an image to the local docker instance (as long as Export is ExportAll)
 	DoPushes bool
 	// OnlyFinalTargetImages is used to ignore SAVE IMAGE commands in indirectly referenced targets
 	OnlyFinalTargetImages bool
@@ -255,8 +248,11 @@ func Earthfile2LLB(
 
 	opt.Features = bc.Features
 	if initialCall && !bc.Features.ReferencedSaveOnly {
-		opt.DoSaves = !target.IsRemote() // legacy mode only saves artifacts that are locally referenced
-		opt.ForceSaveImage = true        // legacy mode always saves images regardless of locally or remotely referenced
+		if target.IsRemote() {
+			opt.Export = ExportNone // legacy mode only saves artifacts that are locally referenced
+		}
+
+		opt.ForceSaveImage = true // legacy mode always saves images regardless of locally or remotely referenced
 	}
 
 	opt.PlatformResolver.AllowNativeAndUser = opt.Features.NewPlatform
@@ -309,7 +305,7 @@ func Earthfile2LLB(
 		// The found target may have initially been created by a FROM or a COPY;
 		// however, if it is referenced a second time by a BUILD, it may contain items that
 		// require a save (export to the local host) or a push
-		if opt.DoSaves {
+		if opt.Export != ExportNone {
 			sts.SetDoSaves()
 		}
 
@@ -317,7 +313,7 @@ func Earthfile2LLB(
 			sts.SetDoPushes()
 		}
 
-		if opt.DoSaves || opt.DoPushes {
+		if opt.Export != ExportNone || opt.DoPushes {
 			err = sts.Wait(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("wait failed on target %s: %w", target.String(), err)
@@ -362,7 +358,7 @@ func Earthfile2LLB(
 	}
 
 	if initialCall {
-		err = opt.waitBlock.Wait(ctx, opt.DoPushes, opt.DoSaves)
+		err = opt.waitBlock.Wait(ctx, opt.DoPushes, opt.Export != ExportNone)
 		if err != nil {
 			return nil, err
 		}

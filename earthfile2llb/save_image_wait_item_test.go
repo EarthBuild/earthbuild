@@ -8,7 +8,7 @@ import (
 )
 
 // SetDoSave is what propagates local image export down BUILD edges. It must
-// honour NoLocalImageExport, otherwise a child target's image is exported even
+// honour Export == ExportAll, otherwise a child target's image is exported even
 // though conversion already declined to export it. See #855.
 const testDockerTag = "myimg:latest"
 
@@ -16,25 +16,33 @@ func TestSaveImageWaitItemSetDoSave(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name               string
-		dockerTag          string
-		noLocalImageExport bool
-		wantLocalExport    bool
+		name            string
+		dockerTag       string
+		export          Export
+		wantLocalExport bool
 	}{
 		{
-			name:            "propagates local export by default",
+			name:            "propagates local export by default (ExportAll)",
 			dockerTag:       testDockerTag,
+			export:          ExportAll,
 			wantLocalExport: true,
 		},
 		{
-			name:               "no-image-output suppresses propagated local export",
-			noLocalImageExport: true,
-			dockerTag:          testDockerTag,
-			wantLocalExport:    false,
+			name:            "no-image-output suppresses propagated local export",
+			export:          ExportArtifactsOnly,
+			dockerTag:       testDockerTag,
+			wantLocalExport: false,
+		},
+		{
+			name:            "no-output suppresses propagated local export",
+			export:          ExportNone,
+			dockerTag:       testDockerTag,
+			wantLocalExport: false,
 		},
 		{
 			name:            "untagged image is never exported",
 			dockerTag:       "",
+			export:          ExportAll,
 			wantLocalExport: false,
 		},
 	}
@@ -43,7 +51,7 @@ func TestSaveImageWaitItemSetDoSave(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &Converter{opt: ConvertOpt{NoLocalImageExport: tt.noLocalImageExport}}
+			c := &Converter{opt: ConvertOpt{Export: tt.export}}
 			si := states.SaveImage{DockerTag: tt.dockerTag}
 
 			// localExport=false mirrors conversion having declined the export;
@@ -60,10 +68,10 @@ func TestSaveImageWaitItemSetDoSave(t *testing.T) {
 
 // A push must still happen when local image export is suppressed -- that is the
 // entire point of --no-image-output.
-func TestSaveImageWaitItemPushUnaffectedByNoLocalImageExport(t *testing.T) {
+func TestSaveImageWaitItemPushUnaffectedByExportArtifactsOnly(t *testing.T) {
 	t.Parallel()
 
-	c := &Converter{opt: ConvertOpt{NoLocalImageExport: true}}
+	c := &Converter{opt: ConvertOpt{Export: ExportArtifactsOnly}}
 	item := newSaveImage(states.SaveImage{DockerTag: testDockerTag}, c, true, false)
 
 	item.SetDoPush()
@@ -71,6 +79,6 @@ func TestSaveImageWaitItemPushUnaffectedByNoLocalImageExport(t *testing.T) {
 
 	siwi, ok := item.(*saveImageWaitItem)
 	require.True(t, ok)
-	require.True(t, siwi.doPush, "push should be unaffected by NoLocalImageExport")
+	require.True(t, siwi.doPush, "push should be unaffected by ExportArtifactsOnly")
 	require.False(t, siwi.localExport)
 }

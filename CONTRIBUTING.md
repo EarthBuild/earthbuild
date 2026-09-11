@@ -116,7 +116,7 @@ It is also possible to run tests without credentials. But running all of them, o
 ./build/*/*/earth -P ./tests+env-test
 ```
 
-If you don't want to specify these directly on the CLI, or don't want to type these each time, it's possible to store them in [.arg and .secret files](https://docs.earthbuild.dev/earth-command/earth-command#build-args) instead.
+If you don't want to specify these directly on the CLI, or don't want to type these each time, it's possible to store them in [.arg and .secret files](https://docs.earthbuild.dev/docs/earth-command#build-args) instead.
 Here is a template to get you started:
 
 ```sh

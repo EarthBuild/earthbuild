@@ -141,15 +141,15 @@ Here are some resources to get you started with EarthBuild
 - [Multiplatform Builds](./examples/multiplatform)
 - [Integration Tests](./examples/integration-test)
 - 🔍 Explore [EarthBuild's own build](https://docs.earthbuild.dev/docs/examples#earthbuilds-own-build)
-- ✔️ [Best practices](https://docs.earthbuild.dev/guides/best-practices)
+- ✔️ [Best practices](https://docs.earthbuild.dev/docs/guides/best-practices)
 
 See also the [full documentation](https://docs.earthbuild.dev).
 
 Reference pages
 
 - 📑 [Earthfile reference](https://docs.earthbuild.dev/docs/earthfile)
-- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/earth-command/earth-command)
-- ⚙️ [Configuration reference](https://docs.earthbuild.dev/earth-config/earth-config)
+- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/docs/earth-command)
+- ⚙️ [Configuration reference](https://docs.earthbuild.dev/docs/earth-config)
 
 ### A simple example (for Go)
 
@@ -271,7 +271,7 @@ docker run --rm earthbuild/examples:go
 
 Use `+` to reference other targets and create complex build inter-dependencies.
 
-<div align="center"><a href="https://docs.earthbuild.dev/guides/target-ref"><img src="docs/guides/img/ref-infographic-v2.png" alt="Target and artifact reference syntax" title="Reference targets using +" width="600px" /></a></div>
+<div align="center"><a href="https://docs.earthbuild.dev/docs/guides/target-ref"><img src="docs/guides/img/ref-infographic-v2.png" alt="Target and artifact reference syntax" title="Reference targets using +" width="600px" /></a></div>
 
 Examples
 
@@ -320,7 +320,7 @@ release:
 
 It is possible to use Dockerfiles in combination with other technologies (e.g., Makefiles or bash files) to solve such use cases. However, these combinations are difficult to parallelize, challenging to scale across repositories as they lack a robust import system, and often vary in style from one team to another. EarthBuild does not have these limitations as it was designed as a general-purpose build system.
 
-For example, EarthBuild introduces a richer target, artifact, and image [referencing system](https://docs.earthbuild.dev/guides/target-ref), allowing for better reuse in complex builds spanning a single large repository or multiple repositories. Because Dockerfiles are only meant to describe one image at a time, such features are outside the scope of applicability of Dockerfiles.
+For example, EarthBuild introduces a richer target, artifact, and image [referencing system](https://docs.earthbuild.dev/docs/guides/target-ref), allowing for better reuse in complex builds spanning a single large repository or multiple repositories. Because Dockerfiles are only meant to describe one image at a time, such features are outside the scope of applicability of Dockerfiles.
 
 ### How do I know if a command is a classic Dockerfile command or an EarthBuild command?
 

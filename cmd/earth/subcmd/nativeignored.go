@@ -32,9 +32,15 @@ var ignoredByNative = map[string]struct{ flag, lose string }{
 	"MaxRemoteCache":  {"--max-remote-cache", "there is no remote cache to write"},
 	"UseInlineCache":  {"--use-inline-cache", "this engine reads no inline cache from an image"},
 	"SaveInlineCache": {"--save-inline-cache", "this engine writes no inline cache into an image"},
-	"SkipBuildkit":    {"--auto-skip", "this engine has no auto-skip; every step is planned"},
-	"NoAutoSkip":      {"--no-auto-skip", "auto-skip is not implemented, so it is already off"},
-	"LocalSkipDB":     {"--auto-skip-db-path", "auto-skip is not implemented"},
+	// Auto-skip, whose nearest equivalent here is a different shape: `earth
+	// check-inputs` writes the fingerprint to a file rather than a database, and
+	// answers before the job starts rather than inside it. Named, because a
+	// reader told only "not implemented" goes looking for a flag.
+	"SkipBuildkit": {"--auto-skip",
+		"this engine has no auto-skip; every step is planned - see `earth check-inputs`"},
+	"NoAutoSkip": {"--no-auto-skip", "auto-skip is not implemented, so it is already off"},
+	"LocalSkipDB": {"--auto-skip-db-path",
+		"auto-skip is not implemented; `earth emit-inputs` writes a fingerprint to a file instead"},
 
 	// Output selection.
 	"ArtifactMode": {"--artifact", "this engine takes a target, not an artifact reference"},

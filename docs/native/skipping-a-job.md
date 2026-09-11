@@ -108,21 +108,35 @@ over the whole tree, so an edit anywhere under `crates` reads as `context crates
 
 ## Against `--auto-skip`
 
-`--auto-skip` answers a neighbouring question on the buildkit path, and the two are not
-interchangeable:
+`--auto-skip` answers a neighbouring question on the buildkit path. It is **deprecated**: its cloud
+backend has been removed and only the local database still works, and whether it goes entirely is
+being decided at <https://github.com/orgs/EarthBuild/discussions/707>. The native engine never had
+it - `--auto-skip`, `--no-auto-skip` and `--auto-skip-db-path` are all in the ignored-flag list and
+say so when passed.
 
-| Question           | `--auto-skip`                          | `check-inputs`                            |
-| ------------------ | -------------------------------------- | ----------------------------------------- |
-| engine             | buildkit                               | native                                    |
-| where the key goes | a database, local or cloud             | a file, so a CI cache can carry it        |
-| what it skips      | the target, from inside the invocation | the job, from outside it                  |
-| who computes it    | `inputgraph`, a second implementation  | the engine's own plan, one implementation |
+The two are not interchangeable:
+
+| Question           | `--auto-skip`                            | `check-inputs`                            |
+| ------------------ | ---------------------------------------- | ----------------------------------------- |
+| engine             | buildkit                                 | native                                    |
+| where the key goes | a local database (`--auto-skip-db-path`) | a file, so a CI cache can carry it        |
+| what it skips      | the target, from inside the invocation   | the job, from outside it                  |
+| who computes it    | `inputgraph`, a second implementation    | the engine's own plan, one implementation |
+| the base image     | hashed as the tag, so a moved tag skips  | hashed as the pinned digest               |
 
 That last row is the one to weigh. `inputgraph` walks the Earthfile and hashes it without evaluating,
 which means two functions have to agree about what a build depends on - and this repository's own key
 guard exists because exactly that arrangement, for `Κ₁` and the step class, silently disagreed about
 nine fields. `check-inputs` reads the node identities the cache already keys on, so there is nothing
 for it to drift from.
+
+One concrete consequence: `inputgraph` does not resolve an image reference at all - `handleFrom`
+returns early for anything without a `+` in it - so `FROM rust:slim-bookworm` reaches its hash as the
+tag. A tag that moves is not a new key, and the target is skipped. The fingerprint here carries the
+digest, because the plan pinned it.
+
+Two rows favour auto-skip, and both are borrowable: it records the key for you when a build succeeds,
+and it hashes each file of a `COPY` separately, so it could name the file rather than the tree.
 
 ## Cost
 

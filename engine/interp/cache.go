@@ -514,7 +514,7 @@ func (p *Plan) gitCloneNode(c earthfile.Command, prev *ir.Node, rs *state) (*ir.
 		return nil, fmt.Errorf("GIT CLONE %s (%s): %w", url, where, err)
 	}
 
-	src, err := resolveContext("COPY", dir, ".", where)
+	src, err := resolveContext("COPY", dir, ".", where, p.opt.stubContext)
 	if err != nil {
 		return nil, err
 	}
@@ -729,7 +729,7 @@ func (p *Plan) contextNode(what, at, where string) (*ir.Node, error) {
 		return n, nil
 	}
 
-	n, err := resolveContext(what, root, at, where)
+	n, err := resolveContext(what, root, at, where, p.opt.stubContext)
 	if err != nil {
 		return nil, err
 	}

@@ -21,7 +21,10 @@ type options struct {
 	// contextCache shares digested context paths between builds, when the
 	// caller supplies one. Nil means no sharing, which is the default.
 	contextCache *ContextCache
-	context      string
+	// stubContext leaves every context path undigested, carrying a sentinel in
+	// its place. See WithoutContextDigests.
+	stubContext bool
+	context     string
 	// versionFlags are features the *caller* turns on, whatever the file's
 	// VERSION line says: `--version-flag-overrides`. Seven of the corpus's
 	// invocations pass it, and it is how a tree drives one file through two
@@ -112,7 +115,7 @@ func WithContext(dir string) Option {
 // It said "COPY" whatever asked, and a `RUN --mount=type=bind` naming a path
 // outside the context was told a COPY had failed - a message that sends the
 // reader to a line that has no COPY on it.
-func resolveContext(what, root, src, where string) (*ir.Node, error) {
+func resolveContext(what, root, src, where string, stub bool) (*ir.Node, error) {
 	if root == "" {
 		return nil, fmt.Errorf(
 			"COPY at %s needs a build context, and none was given"+
@@ -167,12 +170,18 @@ func resolveContext(what, root, src, where string) (*ir.Node, error) {
 	// A warm build of this repository spends most of its wall clock here, and
 	// the phase list did not mention it - which is how a cost gets attributed
 	// to whatever *is* instrumented next to it (E562).
-	endDigest := timing.Phase("context:digest", src)
-	c, err := layer.TakeIgnoring(abs, excluderFor(root, abs))
-	endDigest()
+	content := stubbedContext
 
-	if err != nil {
-		return nil, fmt.Errorf("read %s from the build context: %w", src, err)
+	if !stub {
+		endDigest := timing.Phase("context:digest", src)
+		c, digestErr := layer.TakeIgnoring(abs, excluderFor(root, abs))
+		endDigest()
+
+		if digestErr != nil {
+			return nil, fmt.Errorf("read %s from the build context: %w", src, digestErr)
+		}
+
+		content = c.Content
 	}
 
 	// The *content* digest, not the identity: ℓ_con excludes mtimes (green paper
@@ -184,7 +193,7 @@ func resolveContext(what, root, src, where string) (*ir.Node, error) {
 	// Timestamps still reach the *image*, because COPY writes files with them;
 	// they simply do not decide whether the copy has to happen again.
 	return &ir.Node{
-		Op:   ir.Op{Kind: ir.OpLocal, Args: []string{strings.TrimPrefix(clean, "/")}, Content: c.Content},
+		Op:   ir.Op{Kind: ir.OpLocal, Args: []string{strings.TrimPrefix(clean, "/")}, Content: content},
 		Meta: ir.Meta{Source: where, Description: "context " + src, ContextRoot: root},
 	}, nil
 }
@@ -534,6 +543,36 @@ func excluderFor(root, under string) ignore.Excluder {
 type ContextCache struct {
 	mu sync.Mutex
 	m  map[string]*ir.Node
+}
+
+// stubbedContext stands in for a context path's content where the caller asked
+// not to digest one.
+//
+// Not the zero digest, which is what an *empty tree* hashes to - a stub that
+// collided with a real context would make a build whose context is empty
+// indistinguishable from one nobody digested. The bytes spell what it is, so a
+// digest turning up in a log is identifiable.
+var stubbedContext = ir.NodeID{
+	'n', 'o', 't', '-', 'd', 'i', 'g', 'e', 's', 't', 'e', 'd', '-', 'c', 'o', 'n',
+	't', 'e', 'x', 't', '-', 's', 't', 'u', 'b', '-', 'v', '1', 0, 0, 0, 1,
+}
+
+// WithoutContextDigests plans without reading the build context at all.
+//
+// **The shape of a build rather than the build.** Every command, argument, base
+// image digest and declared output is here; what the copied files *contain* is
+// not. That is the half of a job-level skip key that survives a file changing
+// which nothing reads - the other half being the digests of the files a previous
+// run actually read (docs-internals/job-skipping.md).
+//
+// Cheaper than an ordinary plan rather than dearer: digesting the context is the
+// largest thing planning does, and this is planning with that removed.
+//
+// **Not for building.** A plan made this way keys every step wrongly - every
+// `COPY` from the context hashes the same whatever it copies - so it answers
+// questions about a build and must never run one.
+func WithoutContextDigests() Option {
+	return func(o *options) { o.stubContext = true }
 }
 
 // WithContextCache shares digested context paths across builds.

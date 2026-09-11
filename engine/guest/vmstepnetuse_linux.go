@@ -114,7 +114,7 @@ func nativeStepNet(i int) (path string, done func(), why string) {
 
 	// **The segment is the parent's.** See vmStepNetOn: naming one here is what
 	// put a step on 192.168.127.0/24 inside a VM that was on 192.168.64.0/24.
-	n := vmStepNetOn(i, parent.Subnet, parent.Addr)
+	n := vmStepNetKind(i, parent.Subnet, parent.Addr, stepLinkKind())
 	at := filepath.Join(netnsDir, n.Link)
 
 	// **Built by a child, so no thread of this process ever moves.** See

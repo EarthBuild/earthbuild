@@ -112,6 +112,17 @@ resolves.
 
 Pins are kept beside the images, per machine, not per project.
 
+### `EARTH_STEP_LINK`
+
+How a step's interface hangs off the guest's own, where a step has a network of
+its own. `macvlan` gives the child its own MAC and is the better arrangement
+where anything will carry it; `ipvlan` shares the parent's MAC, which is what
+gets past a virtual NIC that forwards one MAC and drops the rest.
+
+Default: `macvlan`. Not every kernel has ipvlan built in - Apple's container VM
+refuses it with `operation not supported` - which is why that backend defaults
+steps to a shared network instead. See `EARTH_STEP_NET`.
+
 ### `EARTH_STEP_NET`
 
 How a step reaches the network. `private` is the default and gives each step a
@@ -119,7 +130,9 @@ namespace of its own with a veth, an address, NAT out and a resolver file of its
 own; `shared` gives every step the guest's namespace, which is what builds did
 before this.
 
-Default: `private`.
+Default: `private`, except on the macOS container backend, whose virtual NIC
+forwards one MAC and drops the rest - a step's own macvlan there comes up with
+the right address and cannot reach its own gateway, so it defaults to `shared`.
 
 Parallel steps share a network namespace, so two of them binding one fixed port
 collide: an inner buildkitd wants 8371 and 8372, and the second dies with

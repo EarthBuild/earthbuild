@@ -18,6 +18,17 @@ import (
 // not each other, which is a difference nobody would predict from the outside.
 const macvlanModeBridge = 4
 
+// ifla_IPVLAN_MODE and ipvlanModeL2 are the ipvlan equivalents.
+//
+// **Named here because x/sys/unix does not export them**, which is the only
+// reason they are numbers: IFLA_IPVLAN_MODE is 1 in the ipvlan netlink
+// attribute enum and IPVLAN_MODE_L2 is 0, both fixed by the kernel's uapi and
+// unchanged since ipvlan landed in 3.19.
+const (
+	ifla_IPVLAN_MODE = 1 //nolint:revive,stylecheck // the kernel's name
+	ipvlanModeL2     = 0
+)
+
 // attr is one netlink attribute: a length, a kind, a payload, padded to four.
 //
 // **Padding is not counted in the length.** The header records the header plus
@@ -59,18 +70,33 @@ func attrU32(kind uint16, v uint32) []byte {
 // host on the segment the VM is already on. That is what makes this one
 // message instead of a bridge, two links, addresses at both ends and NAT.
 func macvlanMessage(n VMStepNet, parent uint32, nsPID int, seq uint32) []byte {
-	mac, _ := parseMAC(n.MAC)
-
 	// Innermost first: the mode sits inside INFO_DATA, which sits inside
 	// LINKINFO beside INFO_KIND.
-	data := attrU32(unix.IFLA_MACVLAN_MODE, macvlanModeBridge)
-	kind := attr(unix.IFLA_INFO_KIND, []byte("macvlan\x00"))
+	var data []byte
+
+	switch n.Kind {
+	case LinkIPVLAN:
+		data = attrU32(ifla_IPVLAN_MODE, ipvlanModeL2)
+	default:
+		data = attrU32(unix.IFLA_MACVLAN_MODE, macvlanModeBridge)
+	}
+
+	kind := attr(unix.IFLA_INFO_KIND, []byte(n.Kind+"\x00"))
 	info := attr(unix.IFLA_LINKINFO, append(kind, attr(unix.IFLA_INFO_DATA, data)...))
 
 	body := make([]byte, 0, 128)
 	body = append(body, attrU32(unix.IFLA_LINK, parent)...)
 	body = append(body, attr(unix.IFLA_IFNAME, []byte(n.Link+"\x00"))...)
-	body = append(body, attr(unix.IFLA_ADDRESS, mac)...)
+
+	// **An ipvlan child must not be given an address of its own.** Sharing the
+	// parent's MAC is the whole point of it: that is what gets past a virtual
+	// NIC which forwards one MAC and drops the rest. Setting IFLA_ADDRESS here
+	// would ask the kernel for the thing this arrangement exists to avoid.
+	if n.Kind != LinkIPVLAN {
+		mac, _ := parseMAC(n.MAC)
+		body = append(body, attr(unix.IFLA_ADDRESS, mac)...)
+	}
+
 	body = append(body, attrU32(unix.IFLA_NET_NS_PID, uint32(nsPID))...)
 	body = append(body, info...)
 

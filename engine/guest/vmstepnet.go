@@ -21,9 +21,27 @@ type VMStepNet struct {
 	// Subnet is what both sit in.
 	Subnet netip.Prefix
 	// MAC is the interface's hardware address, derived so two steps cannot
-	// collide on one.
+	// collide on one. Unused for an ipvlan child, which shares its parent's.
 	MAC string
+	// Kind is the sort of link to make: see LinkMACVLAN and LinkIPVLAN.
+	Kind string
 }
+
+// The two ways a step can be put on its parent's segment.
+//
+// **A macvlan gives the child its own MAC**, which is the better arrangement
+// where anything will carry it: the child is simply another host, and the
+// segment's switch learns it like any other.
+//
+// **An ipvlan child shares its parent's MAC** and is told apart by address.
+// That is what gets past a virtual NIC which forwards one MAC and drops the
+// rest - Apple's Virtualization.framework does exactly that, so a macvlan step
+// there cannot reach its own gateway, which is not a routing failure but a
+// layer-2 one and reads as neither.
+const (
+	LinkMACVLAN = "macvlan"
+	LinkIPVLAN  = "ipvlan"
+)
 
 // vmStepNetOn derives a step's network from its number and the segment its
 // parent NIC is on.
@@ -48,6 +66,11 @@ type VMStepNet struct {
 // the guest's own concurrency is bounded far below a /24, and a guard would be
 // untested code standing in front of an impossibility.
 func vmStepNetOn(i int, subnet netip.Prefix, own netip.Addr) VMStepNet {
+	return vmStepNetKind(i, subnet, own, LinkMACVLAN)
+}
+
+// vmStepNetKind is vmStepNetOn told which sort of link to make.
+func vmStepNetKind(i int, subnet netip.Prefix, own netip.Addr, kind string) VMStepNet {
 	base := subnet.Masked().Addr().As4()
 	gateway := netip.AddrFrom4([4]byte{base[0], base[1], base[2], 1})
 
@@ -90,6 +113,7 @@ func vmStepNetOn(i int, subnet netip.Prefix, own netip.Addr) VMStepNet {
 		Subnet:  subnet,
 		// Locally administered and unicast, so it cannot collide with a real
 		// card, and derived from the address so two steps cannot share one.
-		MAC: fmt.Sprintf("5a:94:ef:00:00:%02x", host),
+		MAC:  fmt.Sprintf("5a:94:ef:00:00:%02x", host),
+		Kind: kind,
 	}
 }

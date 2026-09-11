@@ -584,7 +584,8 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 		// own default from an empty value exactly as it does from an unset one,
 		// and forwarding unconditionally keeps the list one line per setting
 		// rather than one branch per setting.
-		"-e", guest.EnvStepNet + "=" + os.Getenv(guest.EnvStepNet),
+		"-e", guest.EnvStepNet + "=" + stepNetSetting(os.Getenv(guest.EnvStepNet)),
+		"-e", guest.EnvStepLink + "=" + os.Getenv(guest.EnvStepLink),
 		"-e", guest.EnvCloneLayers + "=" + os.Getenv(guest.EnvCloneLayers),
 		"-e", guest.EnvProtoTrace + "=" + os.Getenv(guest.EnvProtoTrace),
 		"-e", guest.EnvShareExports + "=" + os.Getenv(guest.EnvShareExports),
@@ -1061,6 +1062,29 @@ func (a *Apple) Prewarm(ctx context.Context) {
 	}
 
 	_ = a.ensureRunning(ctx)
+}
+
+// stepNetSetting is what this backend tells the guest about step networks.
+//
+// **Shared unless the operator asks otherwise**, because this backend's virtual
+// NIC forwards the VM's own MAC and drops the rest. A step's own namespace is a
+// macvlan on the guest's interface, so the child has its own MAC and its frames
+// never leave: the step comes up with the right address and the right default
+// route and cannot reach its own gateway. That is a layer-2 failure and reads as
+// neither a routing nor a naming one, which is what makes it worth deciding here
+// rather than leaving to whoever hits it.
+//
+// ipvlan shares the parent's MAC and is the usual answer to exactly this; this
+// VM's kernel refuses it with EOPNOTSUPP, so it is not one here.
+//
+// An operator who asks for `private` gets it. The isolation is real and so is
+// what it costs, and this is a default rather than a refusal.
+func stepNetSetting(asked string) string {
+	if asked != "" {
+		return asked
+	}
+
+	return guest.NetShared
 }
 
 // idleSetting is what this invocation asks an unused sandbox to wait.

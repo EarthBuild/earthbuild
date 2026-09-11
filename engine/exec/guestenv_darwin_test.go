@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -153,15 +154,11 @@ func readForwarded(t *testing.T) map[string]bool {
 	}
 
 	// The constants are also named through the guest package, which the literal
-	// search above misses.
-	for _, ref := range []string{
-		"guest.EnvExportDir", "guest.EnvFast", "guest.EnvIdle", "guest.EnvStepNet",
-		"guest.EnvFillSocket", "guest.EnvStoreInVM", "guest.EnvShareExports",
-		"guest.EnvTracePin", "guest.EnvCloneLayers", "guest.EnvProtoTrace",
-	} {
-		if strings.Contains(string(b), ref) {
-			out[envValueOf(t, ref)] = true
-		}
+	// search above misses. Found rather than listed: a hand-kept list of which
+	// constants this file mentions is the same drift this whole test exists to
+	// prevent, one level up.
+	for _, ref := range regexp.MustCompile(`guest\.Env\w+`).FindAllString(string(b), -1) {
+		out[envValueOf(t, ref)] = true
 	}
 
 	return out

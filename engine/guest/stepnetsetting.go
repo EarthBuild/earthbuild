@@ -18,3 +18,10 @@ const (
 	NetShared  = "shared"
 	NetPrivate = "private"
 )
+
+// EnvStepLink selects how a step's interface hangs off the guest's own.
+//
+// `macvlan` gives the child its own MAC and is the better arrangement where
+// anything will carry it. `ipvlan` shares the parent's MAC, which is what gets
+// past a virtual NIC that forwards one MAC and drops the rest.
+const EnvStepLink = "EARTH_STEP_LINK"

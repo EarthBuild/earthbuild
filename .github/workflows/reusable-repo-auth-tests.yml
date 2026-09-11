@@ -54,7 +54,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: false
-      - uses: ./.github/actions/stage2-setup
+      - uses: $/.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -64,7 +64,9 @@ jobs:
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
       - name: Start SSHD container
-        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" run -d -p 2222:22 --name sshd rastasheep/ubuntu-sshd:18.04
+        run: |
+          ${INPUTS_SUDO} "${INPUTS_BINARY}" build -t test-sshd -f scripts/tests/auth/Dockerfile scripts/tests/auth
+          ${INPUTS_SUDO} "${INPUTS_BINARY}" run -d -p 2222:22 --name sshd test-sshd
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
@@ -96,7 +98,7 @@ jobs:
 # auto-generated-entries end
       - name: Failure diagnostics
         if: ${{ failure() }}
-        uses: ./.github/actions/failure-diagnostics
+        uses: $/.github/actions/failure-diagnostics
         with:
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"

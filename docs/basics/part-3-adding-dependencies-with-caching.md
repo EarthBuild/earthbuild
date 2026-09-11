@@ -138,7 +138,7 @@ Note that in our case, only the JavaScript version has an example where `FROM +d
 
 ```Dockerfile
 VERSION 0.8
-FROM node:26.1.0-alpine3.23
+FROM node:26.1.0-alpine3.24
 WORKDIR /js-example
 
 deps:

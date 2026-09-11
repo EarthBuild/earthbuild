@@ -306,7 +306,7 @@ The `Earthfile` is at the root of the directory.
 
 ```Dockerfile
 VERSION 0.8
-FROM node:26.1.0-alpine3.23
+FROM node:26.1.0-alpine3.24
 WORKDIR /js-example
 
 app-deps:

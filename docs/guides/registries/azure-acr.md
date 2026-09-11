@@ -52,7 +52,8 @@ EarthBuild also works with Service Principals; and these do not require `az acr 
 
 ```
 RUN --secret AZ_USERNAME=earthly-technologies/azure/ci-cd-username \
-    --secret AZ_PASSWORD=earthly-technologies/azure/ci-cd-password \
+RUN --secret AZ_USERNAME=earthbuild/azure/ci-cd-username \
+   --secret AZ_PASSWORD=earthbuild/azure/ci-cd-password \
     docker login helloearthbuild.azurecr.io --username $AZ_USERNAME --password $AZ_PASSWORD
 ```
 

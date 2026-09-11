@@ -9,14 +9,14 @@ redirects:
     # sources so old bookmarks/links resolve to the renamed pages.
     alt-installation: alt-installation/alt-installation.md
     basics: basics/basics.md
-    basics/part-2-detailed-explanation: basics/part-1b-detailed-explanation.md
-    basics/part-2-executing-a-build: basics/part-2-running-the-build.md
-    basics/part-3-adding-dependencies-in-the-mix: basics/part-3-adding-dependencies.md
-    basics/part-3-detailed-explanation: basics/part-1b-detailed-explanation.md
-    basics/part-4-adding-dependencies-in-the-mix: basics/part-3-adding-dependencies.md
-    basics/part-4-efficient-caching-of-dependencies: basics/part-4-caching-dependencies.md
-    basics/part-5-reduce-code-duplication: basics/part-5-reducing-code-duplication.md
-    basics/part-6-reduce-code-duplication: basics/part-5-reducing-code-duplication.md
+    basics/part-2-detailed-explanation: basics/part-1-a-simple-earthfile.md
+    basics/part-2-executing-a-build: basics/part-2-outputs.md
+    basics/part-3-adding-dependencies-in-the-mix: basics/part-3-adding-dependencies-with-caching.md
+    basics/part-3-detailed-explanation: basics/part-1-a-simple-earthfile.md
+    basics/part-4-adding-dependencies-in-the-mix: basics/part-3-adding-dependencies-with-caching.md
+    basics/part-4-efficient-caching-of-dependencies: basics/part-3-adding-dependencies-with-caching.md
+    basics/part-5-reduce-code-duplication: basics/part-5-importing.md
+    basics/part-6-reduce-code-duplication: basics/part-5-importing.md
     basics/part-6-using-docker-with-earthly: basics/part-6-using-docker-with-earthbuild.md
     basics/part-8a-using-earthly-in-your-current-ci: basics/part-8a-using-earthbuild-in-your-current-ci.md
     best-practices: guides/best-practices.md
@@ -32,7 +32,7 @@ redirects:
     docs/guides/cache: caching/managing-cache.md
     docs/guides/target-ref: guides/importing.md
     docs/guides/udc: guides/functions.md
-    docs/remote-caching: ./caching/caching-via-registry.md
+    docs/remote-caching: ./caching/caching.md
     earthfile: earthfile/earthfile.md
     earthfile/earthlyignore: earthfile/earthignore.md
     earthly-command: earth-command/earth-command.md
@@ -79,7 +79,7 @@ redirects:
     guides/pushing-and-pulling-images-with-cloud-providers/pushing-images-to-acr: guides/registries/azure-acr.md
     guides/pushing-and-pulling-images-with-cloud-providers/pushing-images-to-ecr: guides/registries/aws-ecr.md
     guides/pushing-and-pulling-images-with-cloud-providers/pushing-images-to-gcr: guides/registries/gcp-artifact-registry.md
-    guides/shared-cache: ./caching/caching-via-registry.md
+    guides/shared-cache: ./caching/caching.md
     guides/target-ref: guides/importing.md
     guides/udc: guides/functions.md
     installation: ./README.md

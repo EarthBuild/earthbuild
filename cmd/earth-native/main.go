@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -175,10 +176,14 @@ func main() {
 		dir      = flag.String("dir", ".", "directory holding the Earthfile; also the build context")
 		platform = flag.String("platform", "", "os/arch to build for; the sandbox's own when empty")
 		dryRun   = flag.Bool("dry-run", false, "resolve the plan and print it without running anything")
-		stopSb   = flag.Bool("stop-sandbox", false, "remove the persistent sandbox VM and exit")
-		doPin    = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
-		long     = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
-		prune    = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
+		emitIn   = flag.String("emit-inputs", "",
+			"write the plan's input fingerprint to this file and run nothing")
+		checkIn = flag.String("check-inputs", "",
+			"compare against a fingerprint written earlier; exit 0 unchanged, 2 changed, and run nothing")
+		stopSb = flag.Bool("stop-sandbox", false, "remove the persistent sandbox VM and exit")
+		doPin  = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
+		long   = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
+		prune  = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
 		// Wiring, not mechanism: engine/cli already reads all three and had no
 		// way to be told. The names are earthly's, because a flag that does the
 		// same thing under a different spelling is a compatibility gap wearing
@@ -383,6 +388,8 @@ func main() {
 		Secrets:         secrets,
 		SecretFiles:     secretFilePaths,
 		DryRun:          *dryRun,
+		EmitInputs:      *emitIn,
+		CheckInputs:     *checkIn,
 		ArgFile:         *argFile,
 		SecretFile:      *secretFile,
 		NoCache:         *noCache,
@@ -409,12 +416,20 @@ func main() {
 		// as prose and already name the construct, the line and the remedy.
 		fmt.Fprintln(os.Stderr, err)
 
+		// **`--check-inputs` says "run the build", not "the build failed".** A
+		// caller that cannot tell the two apart skips the job on a broken
+		// Earthfile, which is the one outcome a skip must never be.
+		code := 1
+		if errors.Is(err, cli.ErrInputsChanged) {
+			code = 2
+		}
+
 		// **Before the exit, because `defer` does not survive it.** `stop()`
 		// releases the signal handler this installed; leaving it to a deferred
 		// call that `os.Exit` skips means the tidy-up is written down and never
 		// performed (gocritic exitAfterDefer).
 		stop()
-		os.Exit(1) //nolint:gocritic // stop() is called above, which is the point
+		os.Exit(code) //nolint:gocritic // stop() is called above, which is the point
 	}
 }
 

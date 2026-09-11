@@ -126,6 +126,16 @@ type Options struct {
 	// ExecStats asks the build to say what it spent: total CPU across its steps
 	// and the largest peak any one of them reached (E467).
 	ExecStats bool
+	// EmitInputs writes the plan's input fingerprint to this path and runs
+	// nothing. See Inputs.
+	EmitInputs string
+	// CheckInputs compares this plan against a fingerprint written earlier and
+	// runs nothing, returning ErrInputsChanged where the build must run.
+	//
+	// **What a CI job restores from its cache and asks before spending a
+	// runner.** Planning costs the context digest - seconds on a large tree -
+	// against the job.
+	CheckInputs string
 }
 
 // platformOrDefault is the platform the build runs on.
@@ -357,6 +367,34 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 
 	if o.DryRun {
 		return report(o.Out, plan)
+	}
+
+	// **After planning and before anything runs.** The fingerprint is a
+	// statement about the plan, and making the plan is the whole of what these
+	// two cost - which is the point: a CI job asks this instead of booting a
+	// machine.
+	if o.EmitInputs != "" || o.CheckInputs != "" {
+		in := inputsOf(plan, o.Target, o.platformOrDefault())
+
+		if o.EmitInputs != "" {
+			err = writeInputs(o.EmitInputs, in)
+			if err != nil {
+				return err
+			}
+		}
+
+		if o.CheckInputs == "" {
+			return nil
+		}
+
+		err = checkInputs(o.CheckInputs, in)
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintf(o.Out, "unchanged: %s needs no build\n", o.Target)
+
+		return nil
 	}
 
 	return build(ctx, o, plan, g, tty)

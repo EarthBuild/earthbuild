@@ -24,6 +24,7 @@ import (
 	"github.com/EarthBuild/earthbuild/debugger/terminal"
 	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
@@ -615,7 +616,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		PrintPhases:                true,
 		Push:                       b.cli.Flags().Push,
 		CI:                         b.cli.Flags().CI,
-		Export:                     builder.ExportFor(b.cli.Flags().NoOutput, b.cli.Flags().NoImageOutput),
+		Export:                     toExport(b.cli.Flags().NoOutput, b.cli.Flags().NoImageOutput),
 		OnlyFinalTargetImages:      b.cli.Flags().ImageMode,
 		PlatformResolver:           platr,
 		EnableGatewayClientLogging: b.cli.Flags().Debug,
@@ -1033,4 +1034,17 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 	nonFlagArgs = []string{tempDir + "+build"}
 
 	return b.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
+}
+
+// toExport maps the --no-output / --no-image-output flags onto an Export.
+// --no-output is the broader of the two, so it wins when both are given.
+func toExport(noOutput, noImageOutput bool) earthfile2llb.Export {
+	switch {
+	case noOutput:
+		return earthfile2llb.ExportNone
+	case noImageOutput:
+		return earthfile2llb.ExportArtifactsOnly
+	default:
+		return earthfile2llb.ExportAll
+	}
 }

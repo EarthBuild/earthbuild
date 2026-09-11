@@ -1222,7 +1222,7 @@ func (c *Converter) SaveArtifact(
 	}
 
 	if c.ftrs.WaitBlock {
-		waitItem := newSaveArtifactLocal(saveLocal, c, c.opt.DoSaves)
+		waitItem := newSaveArtifactLocal(saveLocal, c, c.opt.Export != ExportNone)
 		c.waitBlock().AddItem(waitItem)
 		c.mts.Final.WaitItems = append(c.mts.Final.WaitItems, waitItem)
 	} else {
@@ -1378,7 +1378,7 @@ func (c *Converter) PopWaitBlock(ctx context.Context) error {
 	waitBlock := c.waitBlockStack[i]
 	c.waitBlockStack = c.waitBlockStack[:i]
 
-	return waitBlock.Wait(ctx, c.opt.DoPushes, c.opt.DoSaves)
+	return waitBlock.Wait(ctx, c.opt.DoPushes, c.opt.Export != ExportNone)
 }
 
 // SaveImage applies the earth SAVE IMAGE command.
@@ -1461,7 +1461,7 @@ func (c *Converter) SaveImage(
 
 			if c.ftrs.WaitBlock {
 				shouldPush := hasPushFlag && si.DockerTag != ""
-				shouldExportLocally := si.DockerTag != "" && c.opt.DoSaves && !c.opt.NoLocalImageExport
+				shouldExportLocally := si.DockerTag != "" && c.opt.Export == ExportAll
 				waitItem := newSaveImage(si, c, shouldPush, shouldExportLocally)
 				c.waitBlock().AddItem(waitItem)
 
@@ -2219,7 +2219,7 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 	c.mts.Final.VarCollection = c.varCollection
 
 	c.mts.Final.GlobalImports = c.varCollection.Imports().Global()
-	if c.opt.DoSaves {
+	if c.opt.Export != ExportNone {
 		c.mts.Final.SetDoSaves()
 	}
 
@@ -2461,12 +2461,18 @@ func (c *Converter) prepBuildTarget(
 	}
 
 	if c.opt.Features.ReferencedSaveOnly {
-		// DoSaves should only be potentially turned-off when the ReferencedSaveOnly feature is flipped
-		opt.DoSaves = (cmdT == buildCmd && c.opt.DoSaves && !c.opt.OnlyFinalTargetImages)
+		// Export should only be potentially turned-off when the ReferencedSaveOnly feature is flipped
+		if cmdT != buildCmd || c.opt.OnlyFinalTargetImages {
+			opt.Export = ExportNone
+		}
+
 		opt.DoPushes = (cmdT == buildCmd && c.opt.DoPushes)
 		opt.ForceSaveImage = false
 	} else {
-		opt.DoSaves = c.opt.DoSaves && !target.IsRemote()   // legacy mode only saves artifacts from local targets
+		if target.IsRemote() {
+			opt.Export = ExportNone // legacy mode only saves artifacts from local targets
+		}
+
 		opt.DoPushes = c.opt.DoPushes && !target.IsRemote() // legacy mode only saves artifacts from local targets
 	}
 

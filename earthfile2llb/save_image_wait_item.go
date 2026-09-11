@@ -33,7 +33,7 @@ func (siwi *saveImageWaitItem) SetDoSave() {
 	// SetDoSave is what propagates local export down BUILD edges, so
 	// --no-image-output has to be honoured here as well as at conversion time,
 	// or a child target's image would be exported anyway.
-	if siwi.c.opt.Export != ExportAll {
+	if !siwi.c.opt.Export.Images() {
 		return
 	}
 

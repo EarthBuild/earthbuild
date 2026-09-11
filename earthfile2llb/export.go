@@ -17,6 +17,22 @@ const (
 	ExportNone
 )
 
+// Images reports whether SAVE IMAGE images should be loaded into the local
+// container engine.
+//
+// Prefer this over comparing against a constant: it names the question being
+// asked, so a site that cares about images cannot accidentally be written with
+// the test for artifacts.
+func (e Export) Images() bool {
+	return e == ExportAll
+}
+
+// Artifacts reports whether SAVE ARTIFACT ... AS LOCAL artifacts should be
+// written to the local filesystem.
+func (e Export) Artifacts() bool {
+	return e != ExportNone
+}
+
 // String returns the human-readable description of the export mode.
 func (e Export) String() string {
 	switch e {

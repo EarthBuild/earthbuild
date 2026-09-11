@@ -305,7 +305,7 @@ func Earthfile2LLB(
 		// The found target may have initially been created by a FROM or a COPY;
 		// however, if it is referenced a second time by a BUILD, it may contain items that
 		// require a save (export to the local host) or a push
-		if opt.Export != ExportNone {
+		if opt.Export.Artifacts() {
 			sts.SetDoSaves()
 		}
 
@@ -313,7 +313,7 @@ func Earthfile2LLB(
 			sts.SetDoPushes()
 		}
 
-		if opt.Export != ExportNone || opt.DoPushes {
+		if opt.Export.Artifacts() || opt.DoPushes {
 			err = sts.Wait(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("wait failed on target %s: %w", target.String(), err)
@@ -358,7 +358,7 @@ func Earthfile2LLB(
 	}
 
 	if initialCall {
-		err = opt.waitBlock.Wait(ctx, opt.DoPushes, opt.Export != ExportNone)
+		err = opt.waitBlock.Wait(ctx, opt.DoPushes, opt.Export.Artifacts())
 		if err != nil {
 			return nil, err
 		}

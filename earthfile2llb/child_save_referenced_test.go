@@ -15,10 +15,10 @@ func TestChildSaveReferenced(t *testing.T) {
 
 	tests := []struct {
 		name                  string
+		cmdT                  cmdType
 		referencedSaveOnly    bool
 		parentSaveReferenced  bool
 		onlyFinalTargetImages bool
-		cmdT                  cmdType
 		targetIsRemote        bool
 		want                  bool
 	}{

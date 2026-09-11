@@ -5,24 +5,6 @@ import (
 	"net/netip"
 )
 
-// vmStepSpace is where a microVM's per-step networks are addressed from.
-//
-// **The host switch's own subnet, deliberately.** An earlier draft of this put
-// steps on a private range behind a second virtual switch running in the
-// agent - which works, and costs about 8MB of TCP/IP stack in an initramfs
-// that is 3.8MB in total and reproducible because it holds nothing else.
-//
-// It is not needed. The host's switch keeps a CAM table and learns a source
-// MAC per connection, so many MACs on the VM's single link are forwarded
-// correctly. A step given a macvlan on the guest's own NIC therefore appears
-// as another host on the segment the VM is already on: its own MAC, its own
-// address, its own port space, and no stack, bridge, veth or NAT anywhere.
-//
-// Which means steps share this subnet rather than getting one of their own,
-// and the addresses have to avoid what is already on it: .1 is the gateway and
-// .2 is the guest itself.
-const vmStepSpace = "192.168.127.0/24"
-
 // VMStepNet is one step's place on the guest's own switch.
 //
 // Flat rather than a /30 per step, which is what the veth arrangement needs:
@@ -43,40 +25,68 @@ type VMStepNet struct {
 	MAC string
 }
 
-// vmStepNet derives a step's network from its number.
+// vmStepNetOn derives a step's network from its number and the segment its
+// parent NIC is on.
+//
+// **The segment is the parent's, not a constant.** A macvlan makes a step
+// another host on the segment the guest's NIC is already on, so its address has
+// to come from that NIC. Writing the subnet down here instead worked on this
+// engine's own microVM, whose switch is 192.168.127.0/24, and addressed a step
+// onto a segment that does not exist on any backend whose VM sits elsewhere:
+// measured on Apple's `container`, whose VM is on 192.168.64.0/24, a step came
+// up on 192.168.127.87 with a default route via 192.168.127.1 and could not
+// reach a literal address, let alone resolve a name.
 //
 // Pure, so the arithmetic is testable without a kernel: the failures that
-// matter here are two steps given one address, a name too long for IFNAMSIZ,
-// and a range that overlaps the host's - none of which needs a namespace to
-// demonstrate.
+// matter here are two steps given one address, a step given the gateway's or
+// the guest's own, an address outside the segment, and a name too long for
+// IFNAMSIZ - none of which needs a namespace to demonstrate.
 //
-// 16384 steps, wrapping. A build with more concurrent steps than that would
-// reuse an address while the first holder still had it, which is worth knowing
-// rather than worth guarding: the guest's own concurrency is bounded far below
-// it, and a guard would be untested code standing in front of an impossibility.
-func vmStepNet(i int) VMStepNet {
-	subnet := netip.MustParsePrefix(vmStepSpace)
+// Wrapping rather than failing when the segment is small. A build with more
+// concurrent steps than the segment holds would reuse an address while the
+// first holder still had it, which is worth knowing rather than worth guarding:
+// the guest's own concurrency is bounded far below a /24, and a guard would be
+// untested code standing in front of an impossibility.
+func vmStepNetOn(i int, subnet netip.Prefix, own netip.Addr) VMStepNet {
+	base := subnet.Masked().Addr().As4()
+	gateway := netip.AddrFrom4([4]byte{base[0], base[1], base[2], 1})
 
-	// .1 is the gateway and .2 is the guest's own NIC, so steps start at .3.
-	const (
-		gatewayHost = 1
-		firstStep   = 3
-	)
+	// The hosts this segment's last octet can hold, less the two that are
+	// already real: the gateway, and whatever the guest itself answers to. A
+	// step given either collides with a live host and the switch resolves that
+	// by dropping one of them, silently.
+	//
+	// Enumerated and then indexed, rather than shifted past on collision.
+	// Shifting reads as obviously correct and is not: step `i` moving to `i+1`'s
+	// address collides with step `i+1`, which is what the first version of this
+	// did and what its own test caught.
+	//
+	// A segment wider than a /24 is not walked further. The concurrency that
+	// would need it does not exist, and arithmetic nobody can check is worse
+	// than a bound somebody can read.
+	free := make([]byte, 0, 254)
 
-	// A /24 with three addresses spoken for. Wrapping rather than failing: the
-	// guest's concurrency is bounded far below this, and a guard would be
-	// untested code in front of an impossibility.
-	block := i % (254 - firstStep)
-	host := block + firstStep
+	for h := 1; h <= 254; h++ {
+		at := netip.AddrFrom4([4]byte{base[0], base[1], base[2], byte(h)})
+		if at != gateway && at != own {
+			free = append(free, byte(h))
+		}
+	}
 
-	base := subnet.Addr().As4()
-	gw := netip.AddrFrom4([4]byte{base[0], base[1], base[2], gatewayHost})
-	addr := netip.AddrFrom4([4]byte{base[0], base[1], base[2], byte(host)})
+	// Wrapping rather than failing. A build with more concurrent steps than the
+	// segment holds would reuse an address while the first holder still had it,
+	// which is worth knowing rather than worth guarding: the guest's own
+	// concurrency is bounded far below this, and a guard would be untested code
+	// standing in front of an impossibility.
+	slot := i % len(free)
+	host := free[slot]
+
+	addr := netip.AddrFrom4([4]byte{base[0], base[1], base[2], host})
 
 	return VMStepNet{
-		Link:    fmt.Sprintf("es%d", block),
+		Link:    fmt.Sprintf("es%d", slot),
 		Addr:    addr,
-		Gateway: gw,
+		Gateway: gateway,
 		Subnet:  subnet,
 		// Locally administered and unicast, so it cannot collide with a real
 		// card, and derived from the address so two steps cannot share one.

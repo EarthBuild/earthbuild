@@ -11,30 +11,13 @@ import (
 )
 
 // uplink is the guest's own interface, whose segment a step's macvlan joins.
-//
-// Found rather than named, because a guest's NIC is called `eth0` until a
-// kernel decides otherwise: the first interface that is up, not loopback and
-// has an address is the one the host's switch is on.
-func uplink() (string, error) {
+func uplink() (Uplink, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return "", fmt.Errorf("list this guest's interfaces: %w", err)
+		return Uplink{}, fmt.Errorf("list this guest's interfaces: %w", err)
 	}
 
-	for _, i := range ifaces {
-		if i.Flags&net.FlagLoopback != 0 || i.Flags&net.FlagUp == 0 {
-			continue
-		}
-
-		addrs, err := i.Addrs()
-		if err != nil || len(addrs) == 0 {
-			continue
-		}
-
-		return i.Name, nil
-	}
-
-	return "", fmt.Errorf("this guest has no interface a step could share")
+	return uplinkAmong(ifaces, func(i net.Interface) ([]net.Addr, error) { return i.Addrs() })
 }
 
 // addressLink gives a step's interface its address, mask and flags.
@@ -129,13 +112,15 @@ func nativeStepNet(i int) (path string, done func(), why string) {
 		return "", nothing, err.Error()
 	}
 
-	n := vmStepNet(i)
+	// **The segment is the parent's.** See vmStepNetOn: naming one here is what
+	// put a step on 192.168.127.0/24 inside a VM that was on 192.168.64.0/24.
+	n := vmStepNetOn(i, parent.Subnet, parent.Addr)
 	at := filepath.Join(netnsDir, n.Link)
 
 	// **Built by a child, so no thread of this process ever moves.** See
 	// RunStepNetShimIfAsked: the agent addresses the child's namespace by pid
 	// and binds it to a file, and never enters it.
-	err = buildStepNet(n, parent, at)
+	err = buildStepNet(n, parent.Name, at)
 	if err != nil {
 		_ = removeNetns(at)
 

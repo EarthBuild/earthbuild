@@ -575,6 +575,19 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 		// Storage this sandbox owns, for the things that must outlive a step
 		// without the host needing to see them. See guestFast.
 		"-e", guest.EnvFast + "=" + guestFast,
+		// **Four settings the operator can set and this backend was not
+		// carrying.** Documented in docs/native/settings.md, read by the guest,
+		// and silently ignored here - which is the shape E555 had for EnvIdle
+		// and which `TestEveryGuestSettingIsForwardedOrExcused` now refuses.
+		//
+		// Passed through as they are found, empty included: the guest reads its
+		// own default from an empty value exactly as it does from an unset one,
+		// and forwarding unconditionally keeps the list one line per setting
+		// rather than one branch per setting.
+		"-e", guest.EnvStepNet + "=" + os.Getenv(guest.EnvStepNet),
+		"-e", guest.EnvCloneLayers + "=" + os.Getenv(guest.EnvCloneLayers),
+		"-e", guest.EnvProtoTrace + "=" + os.Getenv(guest.EnvProtoTrace),
+		"-e", guest.EnvShareExports + "=" + os.Getenv(guest.EnvShareExports),
 		// How long an unused sandbox waits before stopping.
 		//
 		// Forwarded because it was not, and `EnvIdle`'s own documentation says

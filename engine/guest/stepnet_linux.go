@@ -7,21 +7,6 @@ import (
 	"strconv"
 )
 
-// EnvStepNet selects how a step reaches the network. See docs/native/settings.md.
-//
-// `shared` is the default and is what every build has had until now: steps run
-// in the guest's own network namespace. `private` gives each step a namespace of
-// its own with a way out, which is the fix for E923 and is behind a setting
-// until it has run against the corpus - the same shape `EARTH_STEP_SHIM` used
-// for the shim, and for the same reason.
-const EnvStepNet = "EARTH_STEP_NET"
-
-// The two values EnvStepNet takes.
-const (
-	NetShared  = "shared"
-	NetPrivate = "private"
-)
-
 // stepNetSpace is where a step's networks are addressed from.
 //
 // **Not 172.30.0.0/16**, which is buildkit's - `buildkitd/cni-conf.json.template`

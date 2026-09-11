@@ -226,11 +226,11 @@ You may need to adjust the docker login command in the `earthbuild-integration-t
 
 ### Documentation
 
-We maintain three different branches for [0.6](https://github.com/earthly/earthly/tree/docs-0.6), [0.7](https://github.com/earthly/earthly/tree/docs-0.7) and [0.8](https://github.com/earthly/earthly/tree/docs-0.8) docs, which are automatically propagated to [docs.earthly.dev](https://docs.earthly.dev/) (which has a dropdown options to switch between versions).
+The published documentation is built from the [`docs-0.8`](https://github.com/EarthBuild/earthbuild/tree/docs-0.8) branch and served at [docs.earthbuild.dev](https://docs.earthbuild.dev/).
 
 Documentation related to new unreleased features should be submitted in a PR to `main`, which we will merge into the `docs-0.8` branch when we perform a release.
 
-To contribute improvements to documentation related to currently released features, please open a PR against the `docs-0.8` branch; we will cherry-pick these changes to the older documentation branches if necessary.
+To contribute improvements to documentation related to currently released features, please open a PR against the `docs-0.8` branch.
 
 ### Config
 

@@ -163,12 +163,12 @@ jobs:
           set -euo pipefail
           # DEFAULT_BUILDKITD_IMAGE must match what copy-buildkitd-to-dockerhub
           # publishes, and what the release binaries bake in (release-binaries).
-          # --no-output: the SAVE IMAGE targets here are multi-platform and
-          # --push already publishes them to ghcr, so loading a copy back into
-          # this runner's docker daemon buys nothing -- and it is that local
-          # load that trips the "pull ping error" (see issue #912). The smoke
-          # test below pulls the pushed image instead.
-          ./build/linux/amd64/earthly --push --no-output \
+          # --ci implies --no-output --strict. The SAVE IMAGE targets here are
+          # multi-platform and --push already publishes them to ghcr, so
+          # loading a copy back into this runner's docker daemon buys nothing
+          # -- and it is that local load that trips the "pull ping error" (see
+          # issue #912). The smoke test below pulls the pushed image instead.
+          ./build/linux/amd64/earthly --ci --push \
             ./release+release-dockerhub \
             --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
             --DEFAULT_BUILDKITD_IMAGE="docker.io/earthbuild/buildkitd:${VERSION}" \
@@ -238,12 +238,12 @@ jobs:
           # (perform-release-buildkitd-dockerhub pushes
           # buildkitd-staging-<tag>), so that is what the embedded CLI must
           # point at.
-          # --no-output: the SAVE IMAGE targets here are multi-platform and
-          # --push already publishes them to ghcr, so loading a copy back into
-          # this runner's docker daemon buys nothing -- and it is that local
-          # load that trips the "pull ping error" (see issue #912). The smoke
-          # test below pulls the pushed image instead.
-          ./build/linux/amd64/earthly --push --no-output \
+          # --ci implies --no-output --strict. The SAVE IMAGE targets here are
+          # multi-platform and --push already publishes them to ghcr, so
+          # loading a copy back into this runner's docker daemon buys nothing
+          # -- and it is that local load that trips the "pull ping error" (see
+          # issue #912). The smoke test below pulls the pushed image instead.
+          ./build/linux/amd64/earthly --ci --push \
             ./release+release-dockerhub \
             --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:${{ env.DOCKERHUB_BUILDKIT_IMG }}-${RELEASE_TAG}-ticktock" \
@@ -295,7 +295,9 @@ jobs:
           VARS_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
         run: |-
           set -euo pipefail
-          ./build/linux/amd64/earthly --push \
+          # --ci for the same reason as the release jobs above: +copy-img is
+          # RUN --push skopeo only, so there is nothing to output locally.
+          ./build/linux/amd64/earthly --ci --push \
             --secret "CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN}" \
             --secret "DEST_CONTAINER_REGISTRY_TOKEN=${DOCKERHUB_TOKEN}" \
             ./release+copy-staging-buildkitd-to-dockerhub \
@@ -351,6 +353,10 @@ jobs:
           VERSION: ${{ needs.prepare-release.outputs.version }}
         run: |-
           set -euo pipefail
+          # Deliberately NOT --ci, unlike every other release job here:
+          # +signed-release writes the binaries and signatures to
+          # ./release/release/ via SAVE ARTIFACT AS LOCAL, and --ci implies
+          # --no-output, which would silently produce nothing to upload.
           ./build/linux/amd64/earthly --push \
             --secret GPG_PRIVATE="${GPG_PRIVATE}" \
             ./release+signed-release \

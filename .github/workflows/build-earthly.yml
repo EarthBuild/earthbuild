@@ -26,10 +26,8 @@ on:
     outputs:
       TAG_SUFFIX:
         description: >-
-          The tag suffix this job actually built and pushed with, i.e. the
-          "<suffix>" in ghcr.io/earthbuild/earthbuild:buildkitd-staging-<sha>-<suffix>
-          and :earthlybinaries-<sha>-<suffix>. Callers must use this rather than
-          assuming a suffix, or they will reference images this job never pushed.
+          The suffix the images this job pushed are tagged with, as in
+          ghcr.io/earthbuild/earthbuild:buildkitd-staging-<sha>-<suffix>.
         value: ${{ jobs.build-earthly.outputs.TAG_SUFFIX }}
     secrets:
       OTEL_EXPORTER_OTLP_HEADERS:
@@ -162,8 +160,8 @@ jobs:
           set -euo pipefail
           EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      # Computed once: three later steps need it, and it is a pure function of
-      # the workflow inputs.
+      # Computed once: later steps and the workflow output need it, and it is a
+      # pure function of the workflow inputs.
       - name: Set TAG_SUFFIX env
         id: tag-suffix
         run: |-
@@ -171,8 +169,6 @@ jobs:
           suffix="$INPUTS_RUNS_ON"
           if [ "$INPUTS_USE_NEXT" = "true" ]; then suffix="$suffix-ticktock"; fi
           echo "TAG_SUFFIX=$suffix" >> "$GITHUB_ENV"
-          # Also an output: callers need the exact suffix to address the images
-          # this job pushes (see the workflow_call outputs block).
           echo "TAG_SUFFIX=$suffix" >> "$GITHUB_OUTPUT"
         env:
           INPUTS_RUNS_ON: ${{inputs.RUNS_ON}}
@@ -211,13 +207,6 @@ jobs:
         # before `save` can find the tag. We pay that pull once here instead of
         # once per test job. On fork PRs the image was built locally via
         # --image in the step above, so `image inspect` hits and no pull runs.
-        #
-        # TAG_SUFFIX comes from the `Set TAG_SUFFIX env` step, i.e. the suffix
-        # +ci-release was actually pushed under. Re-deriving "latest" here (as
-        # this step used to) asks ghcr for a tag this job never pushed: it only
-        # resolved when the separate CI workflow happened to have pushed the
-        # -latest tag for the same SHA first, which is why staging releases
-        # failed on the push and passed on a re-run.
         run: |-
           set -euo pipefail
           IMG="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
@@ -238,8 +227,6 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           set -euo pipefail
-          # As above, TAG_SUFFIX is the pushed suffix, not a re-derived "latest".
-
           # The test suites address the buildkitd daemon by container name, so
           # DEFAULT_INSTALLATION_NAME must be pinned rather than left at its dev
           # default. "earth" gives them "earth-buildkitd".

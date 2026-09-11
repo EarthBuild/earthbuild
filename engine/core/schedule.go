@@ -150,6 +150,12 @@ type Result struct {
 	// any base would falsely hit it.
 	Observation Observation
 	Observed    bool
+	// Placements is where the copies in this step put what they copied.
+	//
+	// Provenance rather than input: nothing here is hashed into a key, and it
+	// exists so a reader can rewrite a path inside the step's filesystem into
+	// the checkout path it came from. See Placement.
+	Placements []Placement
 }
 
 // Assignment is one scheduling decision: a step, a worker and a position.

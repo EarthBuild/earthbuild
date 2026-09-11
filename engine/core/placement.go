@@ -34,3 +34,22 @@ type Placement struct {
 	// slash-separated.
 	To string
 }
+
+// PlacementSource is a handle that can say where copies into it put things.
+//
+// Optional, and asked of a handle rather than required of one: three of the four
+// types implementing Handle have no copies to report, and a materialiser that
+// cannot answer leaves a reader with the coarser key rather than no build.
+type PlacementSource interface {
+	Placements() []Placement
+}
+
+// PlacementsOf is what a handle can say about the copies into it, or none.
+func PlacementsOf(h Handle) []Placement {
+	source, ok := h.(PlacementSource)
+	if !ok {
+		return nil
+	}
+
+	return source.Placements()
+}

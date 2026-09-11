@@ -97,3 +97,68 @@ func TestAHandleWithNoCopiesHasNoPlacements(t *testing.T) {
 		t.Errorf("a handle nothing copied into has placements: %v", got)
 	}
 }
+
+// **The record has to cross the wire**, because the copy happens in the guest
+// and the key is derived on the host.
+//
+// A separate request rather than a field on the observation pages: an
+// observation is fetched in pages and a placement is not part of one, so riding
+// along would mean deciding which page carries it and what an older guest does
+// with the answer. Asked for on its own, a guest that does not know the question
+// says so and the host falls back to the coarser key - which is the direction a
+// failure here has to fail.
+func TestPlacementsCrossTheWire(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	src := storeLayer(t, dir, map[string]string{"tree/a.txt": "one"})
+
+	root, delta := t.TempDir(), t.TempDir()
+
+	s := &Server{LayerDir: dir, Mat: &overlayMat{root: root, delta: delta}, Unconfined: true}
+	ctx := t.Context()
+
+	got := s.handle(ctx, Request{Kind: KindMaterialise, Stack: []string{src.String()}}, nil)
+	if got.Err != "" {
+		t.Fatalf("materialise: %s", got.Err)
+	}
+
+	handle := got.Handle
+
+	got = s.handle(ctx, Request{
+		Kind: KindCopy, Handle: handle, From: []string{src.String()},
+		Path: "tree", Dest: "/w/", DirCopy: true,
+	}, nil)
+	if got.Err != "" {
+		t.Fatalf("copy: %s", got.Err)
+	}
+
+	got = s.handle(ctx, Request{Kind: KindPlacements, Handle: handle}, nil)
+	if got.Err != "" {
+		t.Fatalf("placements: %s", got.Err)
+	}
+
+	want := core.Placement{Layer: src.String(), From: "tree", To: "/w/tree"}
+	if len(got.Placed) != 1 || got.Placed[0] != want {
+		t.Errorf("the wire carried %+v, want one %+v", got.Placed, want)
+	}
+}
+
+// A handle nobody copied into answers with none rather than refusing: a build
+// with no COPY from a context is an ordinary build, not a broken one.
+func TestPlacementsForAnUntouchedHandleAreNone(t *testing.T) {
+	t.Parallel()
+
+	root, delta := t.TempDir(), t.TempDir()
+	s := &Server{LayerDir: t.TempDir(), Mat: &overlayMat{root: root, delta: delta}, Unconfined: true}
+
+	got := s.handle(t.Context(), Request{Kind: KindMaterialise}, nil)
+	if got.Err != "" {
+		t.Fatalf("materialise: %s", got.Err)
+	}
+
+	got = s.handle(t.Context(), Request{Kind: KindPlacements, Handle: got.Handle}, nil)
+	if got.Err != "" || len(got.Placed) != 0 {
+		t.Errorf("an untouched handle answered %+v, err %q", got.Placed, got.Err)
+	}
+}

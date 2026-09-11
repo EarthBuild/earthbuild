@@ -19,6 +19,7 @@ var wireVocabulary = map[Kind]string{
 	KindMaterialise: "assemble a layer stack; the stack is named by digests the peer already holds",
 	KindRelease:     "unmount a handle this connection made",
 	KindObserve:     "report what a step looked at; reads, never runs",
+	KindPlacements:  "report where the copies into a handle put things; reads, never runs",
 	KindExec:        "run a command **inside** a step's filesystem, confined",
 	KindCapture:     "digest what a step wrote",
 	KindExport:      "copy an artifact out of a materialised stack",

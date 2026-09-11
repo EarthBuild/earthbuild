@@ -27,6 +27,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/image"
 
+	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -84,10 +85,14 @@ const (
 	KindMaterialise Kind = "materialise"
 	KindRelease     Kind = "release"
 	KindObserve     Kind = "observe"
-	KindExec        Kind = "exec"
-	KindCapture     Kind = "capture"
-	KindExport      Kind = "export"
-	KindCopy        Kind = "copy"
+	// KindPlacements asks where the copies into a handle put what they
+	// copied. Separate from KindObserve because an observation is paged and a
+	// placement is not part of one. See core.Placement.
+	KindPlacements Kind = "placements"
+	KindExec       Kind = "exec"
+	KindCapture    Kind = "capture"
+	KindExport     Kind = "export"
+	KindCopy       Kind = "copy"
 	// KindPackImage writes a loadable image archive into the store.
 	//
 	// `WITH DOCKER --load` needs the image as a tar the daemon in the sandbox
@@ -669,6 +674,14 @@ type Response struct {
 	Reads    map[string]string `json:"reads,omitempty"`
 	Negative []string          `json:"negative,omitempty"`
 	Listings map[string]string `json:"listings,omitempty"`
+	// Placed is where each copy into a handle put what it copied: the answer
+	// to KindPlacements.
+	//
+	// Not paged, because a step has one of these per COPY rather than one per
+	// path - a frame holds every placement a build could plausibly make, and
+	// the machinery that pages an observation would be answering a question
+	// nobody has.
+	Placed []core.Placement `json:"placed,omitempty"`
 	// Stale is the first difference between an observation and a base, or
 	// empty where there is none. The answer to KindWhyStale - and empty is the
 	// interesting value, because it means the entry may be used.

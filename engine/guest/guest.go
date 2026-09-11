@@ -513,6 +513,16 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 
 		return resp
 
+	case KindPlacements:
+		h, ok := s.get(req.Handle)
+		if !ok {
+			return Response{Err: "unknown handle " + req.Handle}
+		}
+
+		// None is an answer, not a refusal: a build with no COPY from a context
+		// is an ordinary build.
+		return Response{Placed: s.placementsOf(h)}
+
 	case KindExec:
 		return s.execRequest(ctx, req, c)
 
@@ -2024,6 +2034,25 @@ func unfetchedObservation(err error) core.Observation {
 		Incomplete: true,
 		Why:        []string{"the step's observation never arrived: " + err.Error()},
 	}
+}
+
+// Placements is where the copies into this step's filesystem put what they
+// copied, asked of the guest that did them.
+//
+// **Every failure is no placements**, never a partial list presented as
+// complete: a reader that mapped only some of a step's reads back to the
+// checkout would believe the rest came from the base image and skip a build on a
+// file it never accounted for. An older guest that does not know the request
+// answers with an error, which is exactly the case this has to survive.
+func (h *remoteHandle) Placements() []core.Placement {
+	// No caller context, for the reason Observations gives: this is asked while
+	// a result is being assembled and there is nobody left to cancel it.
+	resp, err := h.c.do(context.Background(), Request{Kind: KindPlacements, Handle: h.id})
+	if err != nil {
+		return nil
+	}
+
+	return resp.Placed
 }
 
 func (h *remoteHandle) Observations() core.Observation {

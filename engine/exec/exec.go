@@ -727,6 +727,7 @@ func (e *Executor) Run(
 		MaxRSS:      step.MaxRSS,
 		Observation: obs,
 		Observed:    observed,
+		Placements:  core.PlacementsOf(h),
 		Captured:    e.sb.Confines(),
 		// Anything watching has already seen these lines, so an error about
 		// this step points at them rather than printing them again (E73).
@@ -1036,7 +1037,7 @@ func (e *Executor) copyStep(
 
 	return core.Result{
 		Layer: id, Content: content, Bytes: bytes, Captured: e.sb.Confines(),
-		Observation: obs, Observed: observed,
+		Observation: obs, Observed: observed, Placements: core.PlacementsOf(h),
 	}, nil
 }
 

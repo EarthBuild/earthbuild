@@ -51,7 +51,7 @@ func TestSaveImageWaitItemSetDoSave(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &Converter{opt: ConvertOpt{Export: tt.export}}
+			c := &Converter{opt: ConvertOpt{Export: tt.export, SaveReferenced: true}}
 			si := states.SaveImage{DockerTag: tt.dockerTag}
 
 			// localExport=false mirrors conversion having declined the export;
@@ -66,12 +66,32 @@ func TestSaveImageWaitItemSetDoSave(t *testing.T) {
 	}
 }
 
+// A target first reached by FROM/COPY is converted as unreferenced, so its wait
+// item starts with localExport=false and its converter carries
+// SaveReferenced=false. A later BUILD of that same target calls SetDoSave, and
+// the image must then be exported -- being referenced is what this call
+// announces, so SetDoSave must not consult SaveReferenced. Doing so is how
+// tests/wait-block/save-multi-platform-image-with-from lost its amd64 image.
+func TestSaveImageWaitItemSetDoSaveAfterUnreferencedConversion(t *testing.T) {
+	t.Parallel()
+
+	c := &Converter{opt: ConvertOpt{Export: ExportAll, SaveReferenced: false}}
+	item := newSaveImage(states.SaveImage{DockerTag: testDockerTag}, c, true, false)
+
+	item.SetDoSave()
+
+	siwi, ok := item.(*saveImageWaitItem)
+	require.True(t, ok)
+	require.True(t, siwi.localExport,
+		"a BUILD reaching a previously unreferenced target must export its image")
+}
+
 // A push must still happen when local image export is suppressed -- that is the
 // entire point of --no-image-output.
 func TestSaveImageWaitItemPushUnaffectedByExportArtifactsOnly(t *testing.T) {
 	t.Parallel()
 
-	c := &Converter{opt: ConvertOpt{Export: ExportArtifactsOnly}}
+	c := &Converter{opt: ConvertOpt{Export: ExportArtifactsOnly, SaveReferenced: true}}
 	item := newSaveImage(states.SaveImage{DockerTag: testDockerTag}, c, true, false)
 
 	item.SetDoPush()

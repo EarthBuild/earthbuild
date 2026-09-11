@@ -100,6 +100,20 @@ rm -rf output
 test "$(docker images -q myimg:623cb5fb1b8c4cff8693281095724bb0 | wc -l)" = "0"
 test -f output/bar
 
+# A target reached by FROM first and BUILD second must still be saved, and
+# --no-image-output must still suppress only the image half of it. Getting this
+# wrong drops the image even without the flag.
+rm -rf output
+"$earthly" +build-img-and-artifact-via-from
+test "$(docker images -q myimg:623cb5fb1b8c4cff8693281095724bb0 | wc -l)" = "1"
+test -f output/bar
+docker rmi myimg:623cb5fb1b8c4cff8693281095724bb0
+
+rm -rf output
+"$earthly" --no-image-output +build-img-and-artifact-via-from
+test "$(docker images -q myimg:623cb5fb1b8c4cff8693281095724bb0 | wc -l)" = "0"
+test -f output/bar
+
 # --ci on its own still writes nothing.
 rm -rf output
 "$earthly" --ci +build-img-and-artifact

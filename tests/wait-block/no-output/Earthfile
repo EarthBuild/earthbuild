@@ -30,3 +30,21 @@ build-img-and-artifact:
     WAIT
         BUILD +img-and-artifact
     END
+
+# +img-and-artifact reached by FROM first and BUILD second. Its wait items are
+# created while the target is still unreferenced, and only turned on later when
+# the BUILD arrives - so this is the path where a stale per-target export
+# decision silently drops the save. The IF forces that order, as in
+# tests/wait-block/save-multi-platform-image-with-from.
+from-img-and-artifact:
+    FROM +img-and-artifact
+    RUN echo "reached by FROM, so this target has no SAVE IMAGE of its own"
+
+build-img-and-artifact-via-from:
+    FROM alpine:3.24.1
+    WAIT
+        BUILD +from-img-and-artifact
+        IF --no-cache sleep 5 # wait here so +from-img-and-artifact runs first
+            BUILD +img-and-artifact
+        END
+    END

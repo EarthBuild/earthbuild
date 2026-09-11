@@ -55,17 +55,27 @@ platform with no tracer, and a build the tracer could not follow completely all 
 Let 𝐺 be the plan graph and 𝑅 the *host inputs* the last successful build depended on.
 
 ```text
-(C.1)    shape(𝐺)  ≡  the fingerprint of §A with every OpLocal node's content digest zeroed
+(C.1)    σ         ≡  ℋ(𝒯(Earthfile) ‖ target ‖ platform ‖ 𝒮(args) ‖ 𝒮(secret digests) ‖ flags)
 (C.2)    𝑅         ≡  { (host path, digest) } ∪ { (host directory, listing digest) }
                         ∪ { host path : absent }
-(C.3)    Κ_job     ≡  ℋ(shape(𝐺) ‖ 𝒮(𝑅))
+(C.3)    Κ_job     ≡  ℋ(σ ‖ 𝒮(𝑅))
 ```
 
-𝒮 is the injective encoding of green paper §1.4, over 𝑅 sorted by path.
+𝒮 is the injective encoding of green paper §1.4, over sorted keys. 𝒯 is the Earthfile's parse tree
+with its source locations and doc comments removed - the meaning rather than the bytes, so a comment
+or a reformat is not a rebuild.
 
-`shape(𝐺)` still carries the base image digest, every command, every argument, and what the target
-is asked to produce - so a moved tag, an edited `RUN`, a changed `ARG` or a renamed artifact all move
-Κ_job without any observation being involved. Only the *content of copied files* is deferred to 𝑅.
+**σ needs no plan and no graph.** An Earthfile, what was asked of it, and the values handed in
+determine every step there will be, so the shape can be had from those directly - in milliseconds,
+without interpreting anything, without running an `IF` to decide a branch, and without digesting a
+byte of the build context. That is what makes a pre-flight check cheap enough to be worth making.
+
+Deriving σ from the *graph* instead would be exact to the target rather than to the file, and was
+tried: it needs either a second plan, which re-runs any `IF` the interpreter had to execute, or a
+second identity tree over every node. Neither is worth what it buys. See "Cool things" below.
+
+A moved tag, an edited `RUN`, a changed `ARG`, a renamed artifact and a different secret all move σ.
+Only the *content of copied files* is deferred to 𝑅.
 
 ---
 
@@ -108,7 +118,7 @@ than degrade. Where L2 can afford a hint, this cannot.
 | ---- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | H1   | any step reported `Incomplete`                                                                                   | the tracer knows it missed something; L2 pays a miss, this pays a wrong skip |
 | H2   | any step of the target recorded no observation at all                                                            | an unobserved step is one whose inputs are unknown, not one with none        |
-| H3   | the plan carries any caveat of §A - `--no-cache`, `LOCALLY`, an unpinned reference, a secret outside the key     | each is a declared reason the key under-claims                               |
+| H3   | the plan carries any caveat of §A - `--no-cache`, `LOCALLY`, an unpinned reference                               | each is a declared reason the key under-claims                               |
 | H4   | an observed read maps to neither a `COPY` from the context, nor a base image layer, nor an earlier step's output | a read nobody can explain is a read nobody can re-derive                     |
 | H5   | the platform has no observation source                                                                           | see below                                                                    |
 
@@ -116,6 +126,26 @@ Each gate falls back to key A, which is conservative and correct. **A gate that 
 never a skip.**
 
 ---
+
+## Secrets, and what σ can say about them
+
+With a fleet key configured, σ carries the *keyed digest* of every secret the build holds, so a
+rotated credential is a different build. That is the strong form and it is what `EARTH_SECRET_HMAC`
+buys.
+
+Without one there is nothing to fold a value into, and the choice is between covering the secrets'
+**names** and covering nothing. σ covers the names. It is a weaker claim, and the cost is exact: a
+rotated credential does not move the shape, so a job whose result depends on *which* credential it
+had could be skipped. Usually a secret fetches something rather than changing what is built; where
+that is not true, configure the key.
+
+Refusing instead was considered and rejected: it leaves `--auto-skip` doing nothing at all for
+anyone who has not configured an HMAC, which is most people, and a mechanism nobody can switch on
+protects nobody.
+
+**Which of the two was used is folded into σ**, so a name-keyed shape and a digest-keyed one for the
+same build are different values. A record written before a key was configured is simply not found
+afterwards, rather than being found and trusted for more than it says.
 
 ## No tracer
 
@@ -175,6 +205,25 @@ The second is how the skip decision is made; the first is how the input to that 
 
 ---
 
+## Cool things this does not do
+
+**Per-target granularity within one Earthfile.** σ is over the whole file, so editing any target
+moves the key for every target in it. A monorepo Earthfile with thirty targets and thirty jobs
+re-runs all thirty on a one-line edit.
+
+Recovering it means hashing only the statements reachable from the target asked for, which means
+following `FROM`, `BUILD` and `COPY +x/y` and expanding enough `ARG` to resolve the names - a second
+evaluator, which is the thing `inputgraph` is and the thing this deliberately is not. Or it means
+deriving σ from the plan, with the costs above.
+
+Not worth it yet, on the evidence: Earthfiles change rarely and the files they copy change constantly,
+so the case this would improve is the rare one. The record format does not care - σ is opaque to
+everything else - so it can be swapped later without a migration.
+
+**A build spread over several Earthfiles.** `IMPORT` and `./sub+target` are refused rather than
+hashed, for the same reason: finding which files participate is the reachability walk above. Hashing
+every Earthfile under the context would work and is coarser still.
+
 ## What this deliberately does not cover
 
 A `RUN` that reaches the network. The tracer sees the socket, not what came back, and no key over the
@@ -190,3 +239,7 @@ it is stated rather than mitigated.
   whether such a target simply falls back to A on the first cut is undecided.
 * **Where the record lives by default.** Beside the engine's own store, as the prediction history
   does, or beside `--auto-skip-db-path`. See `engine/cli/autoskip.go`.
+* **Whether σ should cover the invocation's flags exhaustively.** It covers the ones that change what
+  a build does - `--push`, `--strict`, `--no-output`, `--allow-privileged`, the version flags - and
+  not the ones that change how it reports. A flag added to the first group and not to σ is a false
+  skip, so the list wants a guard of the kind `TestEveryFlagIsClassified` already is.

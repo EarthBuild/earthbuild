@@ -24,6 +24,7 @@ import (
 	"github.com/EarthBuild/earthbuild/debugger/terminal"
 	"github.com/EarthBuild/earthbuild/docker2earth"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
@@ -67,6 +68,9 @@ type Build struct {
 	secretFiles  []string
 	cacheFrom    []string
 	dockerTags   []string
+	// export is resolved once in Action from the flags as typed, and read by
+	// ActionBuildImp. See resolveExport.
+	export earthfile2llb.Export
 }
 
 // NewBuild creates a new Build command.
@@ -134,7 +138,6 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 	b.cli.SetCommandName("build")
 
 	if b.cli.Flags().CI {
-		b.cli.Flags().NoOutput = !b.cli.Flags().Output && !b.cli.Flags().ArtifactMode && !b.cli.Flags().ImageMode
 		b.cli.Flags().Strict = true
 
 		if b.cli.Flags().InteractiveDebugging {
@@ -146,13 +149,22 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 		return params.Errorf("both image and artifact modes cannot be active at the same time")
 	}
 
-	if (b.cli.Flags().ImageMode && b.cli.Flags().NoOutput) || (b.cli.Flags().ArtifactMode && b.cli.Flags().NoOutput) {
-		if b.cli.Flags().CI {
-			b.cli.Flags().NoOutput = false
-		} else {
-			return params.Errorf("cannot use --no-output with image or artifact modes")
-		}
+	// Decide once, from the flags as typed, how much of the build is written out
+	// locally. The output flags are not modified in place: everything downstream
+	// reads b.export instead of re-deriving intent from them.
+	export, err := resolveExport(outputFlags{
+		CI:            b.cli.Flags().CI,
+		Output:        b.cli.Flags().Output,
+		NoOutput:      b.cli.Flags().NoOutput,
+		NoImageOutput: b.cli.Flags().NoImageOutput,
+		ArtifactMode:  b.cli.Flags().ArtifactMode,
+		ImageMode:     b.cli.Flags().ImageMode,
+	})
+	if err != nil {
+		return params.Errorf("%s", err)
 	}
+
+	b.export = export
 
 	if b.cli.Flags().InteractiveDebugging && !termutil.IsTTY() {
 		return params.Errorf("A tty-terminal must be present in order to use the --interactive flag")
@@ -609,7 +621,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		PrintPhases:                true,
 		Push:                       b.cli.Flags().Push,
 		CI:                         b.cli.Flags().CI,
-		NoOutput:                   b.cli.Flags().NoOutput,
+		Export:                     b.export,
 		OnlyFinalTargetImages:      b.cli.Flags().ImageMode,
 		PlatformResolver:           platr,
 		EnableGatewayClientLogging: b.cli.Flags().Debug,

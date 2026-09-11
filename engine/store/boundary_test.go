@@ -46,7 +46,10 @@ var knowsTheLayout = map[string]string{
 	"engine/store/squash.go":        sideStore,
 	"engine/store/placecaptured.go": sideStore,
 	"engine/store/declaration.go":   sideStore,
-	"engine/store/index.go":         sideStore,
+	// Beside a layer, and written by whoever captured it: everything a manifest
+	// holds is a by-product of the walk that produced the layer.
+	"engine/store/manifest.go": sideStore,
+	"engine/store/index.go":    sideStore,
 	// The collector reads the layer directory to size and remove what is in it.
 	// Store-side by necessity rather than by choice: once the store is a device,
 	// collecting is something only whoever mounts it can do, and a host-side

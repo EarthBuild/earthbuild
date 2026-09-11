@@ -57,6 +57,19 @@ func ManifestOwned(
 
 	sort.Slice(entries, func(i, j int) bool { return entries[i].path < entries[j].path })
 
+	return encodeEntries(entries, uids, gids), nil
+}
+
+// encodeEntries writes the manifest for entries already walked.
+//
+// Split out so a capture can hand back the manifest for what it captured
+// without walking the tree a second time: the two produce the same bytes
+// because they are the same function over the same entries, which is the
+// property `TestACaptureCanHandBackItsManifest` pins.
+//
+// The caller sorts. `ManifestOwned` and `capture` both do, for the same reason -
+// directory order is the filesystem's and must not reach a digest.
+func encodeEntries(entries []entry, uids, gids IDMap) []byte {
 	var buf bytes.Buffer
 
 	e := ir.NewEncoder(&buf)
@@ -69,7 +82,7 @@ func ManifestOwned(
 		en.hash(e, withTimes)
 	}
 
-	return buf.Bytes(), nil
+	return buf.Bytes()
 }
 
 // ManifestID is the layer identity a manifest attests to.

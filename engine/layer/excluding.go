@@ -83,7 +83,36 @@ func TakeExcludingIn(
 		}
 	}
 
-	return capture(kept, size, uids, gids), nil
+	c := capture(kept, size, uids, gids)
+
+	return c, nil
+}
+
+// TakeExcludingInManifested is TakeExcludingIn, handing back the manifest for
+// what it captured. See TakeManifested for why it is worth keeping.
+func TakeExcludingInManifested(
+	root string, faulted map[string]ir.NodeID, uids, gids IDMap,
+) (Capture, []byte, error) {
+	if len(faulted) == 0 {
+		return TakeManifestedIn(root, uids, gids)
+	}
+
+	// The excluding path drops entries the engine placed, so the manifest has
+	// to be taken over what was *kept* - a manifest describing more than its
+	// layer holds attests to a different layer and so attests to nothing.
+	c, err := TakeExcludingIn(root, faulted, uids, gids)
+	if err != nil {
+		return Capture{}, nil, err
+	}
+
+	// Walked again only on the lazy-base path, which is not a build anyone runs
+	// today (E293's neighbour): every build reaches the branch above.
+	m, err := ManifestIn(root, uids, gids)
+	if err != nil {
+		return c, nil, err
+	}
+
+	return c, m, nil
 }
 
 // placedStill reports whether an entry is still exactly what the engine put

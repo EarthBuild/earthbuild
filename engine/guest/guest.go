@@ -628,7 +628,8 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		// Whatever this guest faulted in is base, not delta (E293). Nil when
 		// nothing lazily materialised, and then this is exactly `TakeIn` - which
 		// is every build today.
-		c, err := layer.TakeExcludingIn(h.Delta(), s.placedIn(req.Handle, h.Delta()), uids, gids)
+		c, manifest, err := layer.TakeExcludingInManifested(
+			h.Delta(), s.placedIn(req.Handle, h.Delta()), uids, gids)
 		if err != nil {
 			return Response{Err: err.Error()}
 		}
@@ -643,6 +644,14 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		if err != nil {
 			return Response{Err: err.Error()}
 		}
+
+		// **The walk that made this layer read every byte of it.** Everything a
+		// manifest holds is a by-product of that read, so writing it down costs
+		// an encode and one file - about a tenth of a percent of the layer -
+		// while working it out later costs the whole walk again. Best effort,
+		// exactly like the note below: a manifest that cannot be written costs a
+		// later reader one walk, which is what every reader did before.
+		store.NoteManifest(s.LayerDir, c.ID, manifest)
 
 		// **The capture already knows.** Materialising a layer has to find out
 		// whether it carries deletion markers, and the only way to find out is

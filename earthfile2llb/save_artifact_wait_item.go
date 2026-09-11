@@ -21,7 +21,7 @@ func (salwi *saveArtifactLocalWaitItem) SetDoSave() {
 	salwi.mu.Lock()
 	defer salwi.mu.Unlock()
 
-	if salwi.c.opt.Export == ExportNone {
+	if !salwi.c.opt.Export.Artifacts() {
 		return
 	}
 

@@ -1222,7 +1222,7 @@ func (c *Converter) SaveArtifact(
 	}
 
 	if c.ftrs.WaitBlock {
-		waitItem := newSaveArtifactLocal(saveLocal, c, c.opt.Export != ExportNone)
+		waitItem := newSaveArtifactLocal(saveLocal, c, c.opt.Export.Artifacts())
 		c.waitBlock().AddItem(waitItem)
 		c.mts.Final.WaitItems = append(c.mts.Final.WaitItems, waitItem)
 	} else {
@@ -1378,7 +1378,7 @@ func (c *Converter) PopWaitBlock(ctx context.Context) error {
 	waitBlock := c.waitBlockStack[i]
 	c.waitBlockStack = c.waitBlockStack[:i]
 
-	return waitBlock.Wait(ctx, c.opt.DoPushes, c.opt.Export != ExportNone)
+	return waitBlock.Wait(ctx, c.opt.DoPushes, c.opt.Export.Artifacts())
 }
 
 // SaveImage applies the earth SAVE IMAGE command.
@@ -1461,7 +1461,7 @@ func (c *Converter) SaveImage(
 
 			if c.ftrs.WaitBlock {
 				shouldPush := hasPushFlag && si.DockerTag != ""
-				shouldExportLocally := si.DockerTag != "" && c.opt.Export == ExportAll
+				shouldExportLocally := si.DockerTag != "" && c.opt.Export.Images()
 				waitItem := newSaveImage(si, c, shouldPush, shouldExportLocally)
 				c.waitBlock().AddItem(waitItem)
 
@@ -2219,7 +2219,7 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 	c.mts.Final.VarCollection = c.varCollection
 
 	c.mts.Final.GlobalImports = c.varCollection.Imports().Global()
-	if c.opt.Export != ExportNone {
+	if c.opt.Export.Artifacts() {
 		c.mts.Final.SetDoSaves()
 	}
 

@@ -376,7 +376,7 @@ func (b *Builder) convertAndBuild(
 			gwCrafter.AddRef("main", ref)
 		}
 
-		if opt.Export != earthfile2llb.ExportNone && opt.OnlyArtifact != nil && !opt.OnlyFinalTargetImages {
+		if opt.Export.Artifacts() && opt.OnlyArtifact != nil && !opt.OnlyFinalTargetImages {
 			ref, err := b.stateToRef(childCtx, gwClient, mts.Final.ArtifactsState, mts.Final.PlatformResolver)
 			if err != nil {
 				return nil, err
@@ -435,7 +435,7 @@ func (b *Builder) convertAndBuild(
 
 			for _, saveImage := range b.targetPhaseImages(sts) {
 				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
-				shouldExport := opt.Export == earthfile2llb.ExportAll &&
+				shouldExport := opt.Export.Images() &&
 					opt.OnlyArtifact == nil &&
 					(!opt.OnlyFinalTargetImages || sts == mts.Final) &&
 					saveImage.DockerTag != "" &&
@@ -553,7 +553,7 @@ func (b *Builder) convertAndBuild(
 				}
 			}
 
-			performSaveLocals := (opt.Export != earthfile2llb.ExportNone &&
+			performSaveLocals := (opt.Export.Artifacts() &&
 				!opt.OnlyFinalTargetImages &&
 				opt.OnlyArtifact == nil &&
 				sts.GetDoSaves())
@@ -773,7 +773,7 @@ func (b *Builder) convertAndBuild(
 	outputPhaseSpecial := ""
 
 	switch {
-	case opt.Export == earthfile2llb.ExportNone:
+	case !opt.Export.Artifacts():
 		// noop
 	case opt.OnlyArtifact != nil:
 		if mts.Final.GetDoSaves() {
@@ -798,7 +798,7 @@ func (b *Builder) convertAndBuild(
 
 		for _, saveImage := range mts.Final.SaveImages {
 			doSave := (mts.Final.GetDoSaves() || saveImage.ForceSave)
-			shouldExport := opt.Export == earthfile2llb.ExportAll && saveImage.DockerTag != "" && doSave
+			shouldExport := opt.Export.Images() && saveImage.DockerTag != "" && doSave
 
 			shouldPush := opt.Push && saveImage.Push && saveImage.DockerTag != "" && mts.Final.GetDoPushes()
 			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
@@ -830,7 +830,7 @@ func (b *Builder) convertAndBuild(
 				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
 				shouldPush := opt.Push && saveImage.Push && !sts.Target.IsRemote() && saveImage.DockerTag != "" && sts.GetDoPushes()
 
-				shouldExport := opt.Export == earthfile2llb.ExportAll && saveImage.DockerTag != "" && doSave
+				shouldExport := opt.Export.Images() && saveImage.DockerTag != "" && doSave
 				if saveImage.SkipBuilder || !shouldPush && !shouldExport {
 					continue
 				}
@@ -965,7 +965,7 @@ func (b *Builder) convertAndBuild(
 
 	if opt.PrintPhases {
 		b.opt.Log.PrintPhaseFooter(PhasePush)
-		b.opt.Log.PrintPhaseHeader(PhaseOutput, opt.Export == earthfile2llb.ExportNone, outputPhaseSpecial)
+		b.opt.Log.PrintPhaseHeader(PhaseOutput, !opt.Export.Artifacts(), outputPhaseSpecial)
 	}
 
 	outputConsole.Flush()

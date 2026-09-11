@@ -286,7 +286,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/ci-test-suite.yml
+    uses: $/.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: 'docker'
     secrets:
@@ -299,7 +299,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/ci-examples-suite.yml
+    uses: $/.github/workflows/ci-examples-suite.yml
     with:
       FRONTEND: 'docker'
     secrets:
@@ -314,7 +314,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/ci-integration-suite.yml
+    uses: $/.github/workflows/ci-integration-suite.yml
     with:
       FRONTEND: 'docker'
     secrets:
@@ -330,7 +330,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/ci-test-suite.yml
+    uses: $/.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: 'podman'
       SUDO: 'sudo'
@@ -344,7 +344,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/ci-examples-suite.yml
+    uses: $/.github/workflows/ci-examples-suite.yml
     with:
       FRONTEND: 'podman'
       SUDO: 'sudo'
@@ -361,7 +361,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/ci-test-suite.yml
+    uses: $/.github/workflows/ci-test-suite.yml
     with:
       FRONTEND: 'docker'
       USE_NEXT: true

@@ -74,7 +74,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/reusable-test.yml
+    uses: $/.github/workflows/reusable-test.yml
     with:
       TEST_TARGET: ${{ matrix.target }}
       USE_QEMU: ${{ matrix.use_qemu || false }}

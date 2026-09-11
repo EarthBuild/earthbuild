@@ -39,7 +39,7 @@ func TestSaveArtifactLocalWaitItemSetDoSave(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &Converter{opt: ConvertOpt{Export: tt.export}}
+			c := &Converter{opt: ConvertOpt{Export: tt.export, SaveReferenced: true}}
 			sl := states.SaveLocal{}
 
 			// localExport=false mirrors conversion having declined the export;
@@ -52,4 +52,22 @@ func TestSaveArtifactLocalWaitItemSetDoSave(t *testing.T) {
 			require.Equal(t, tt.wantLocalExport, salwi.localExport)
 		})
 	}
+}
+
+// The artifact counterpart of
+// TestSaveImageWaitItemSetDoSaveAfterUnreferencedConversion: a BUILD reaching a
+// target that was first converted as unreferenced must still write its
+// AS LOCAL artifact.
+func TestSaveArtifactLocalWaitItemSetDoSaveAfterUnreferencedConversion(t *testing.T) {
+	t.Parallel()
+
+	c := &Converter{opt: ConvertOpt{Export: ExportAll, SaveReferenced: false}}
+	item := newSaveArtifactLocal(states.SaveLocal{}, c, false)
+
+	item.SetDoSave()
+
+	salwi, ok := item.(*saveArtifactLocalWaitItem)
+	require.True(t, ok)
+	require.True(t, salwi.localExport,
+		"a BUILD reaching a previously unreferenced target must write its artifact")
 }

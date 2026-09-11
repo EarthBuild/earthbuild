@@ -133,8 +133,20 @@ type ConvertOpt struct {
 	LocalRegistryAddr string
 	// The resolve mode for referenced images (force pull or prefer local).
 	ImageResolveMode llb.ResolveMode
-	// Export controls how much of a build's output is written out locally.
+	// Export is the user's output intent for the whole build: how much of it is
+	// written out locally. It is set once, from the command line, and is never
+	// narrowed per target - SaveReferenced carries that instead. Keeping the two
+	// apart is what lets a wait item, reached later down a BUILD edge, still ask
+	// what the user actually asked for.
 	Export Export
+	// SaveReferenced reports whether this target's saves count at all, which is a
+	// separate question from how much the user wants written out. It is false for a
+	// target reached by anything other than BUILD (and, in legacy mode, for remote
+	// targets), which is how "only referenced saves are saved" is expressed.
+	//
+	// A target can start out unreferenced and become referenced later, when a BUILD
+	// reaches an already-visited target; SingleTarget.SetDoSaves is that signal.
+	SaveReferenced bool
 	// NoCache sets llb.IgnoreCache before calling StateToRef
 	NoCache bool
 	// EnableInteractiveDebugger is set to true when earth is run with the --interactive cli flag
@@ -150,7 +162,8 @@ type ConvertOpt struct {
 	AllowPrivileged bool
 	// ForceSaveImage is used to force all SAVE IMAGE commands are executed regardless of if they are for a local or
 	// remote target; this is to support the legacy behaviour that was first introduced in earthbuild (up to 0.5)
-	// When this is set to false, SAVE IMAGE commands are only executed when Export is ExportAll.
+	// When this is set to false, SAVE IMAGE commands are only executed for a referenced target
+	// whose Export includes images; see Export and SaveReferenced.
 	ForceSaveImage bool
 	// HasDangling represents whether the target has dangling instructions -
 	// ie if there are any non-SAVE commands after the first SAVE command,
@@ -178,6 +191,16 @@ type ConvertOpt struct {
 	// UseInlineCache enables the inline caching feature (use any SAVE IMAGE --push declaration as
 	// cache import).
 	UseInlineCache bool
+}
+
+// doSaves reports whether this target's saves should be carried out: the user
+// asked for local output at all, and this target's saves are referenced.
+//
+// Both halves are needed, and they answer different questions - see Export and
+// SaveReferenced. Individual saves narrow this further: an image save also asks
+// Export.Images(), so --no-image-output drops it while artifacts go ahead.
+func (opt *ConvertOpt) doSaves() bool {
+	return opt.SaveReferenced && opt.Export.Artifacts()
 }
 
 // Earthfile2LLB parses a earthfile and executes the statements for a given target.
@@ -248,9 +271,7 @@ func Earthfile2LLB(
 
 	opt.Features = bc.Features
 	if initialCall && !bc.Features.ReferencedSaveOnly {
-		if target.IsRemote() {
-			opt.Export = ExportNone // legacy mode only saves artifacts that are locally referenced
-		}
+		opt.SaveReferenced = !target.IsRemote() // legacy mode only saves artifacts that are locally referenced
 
 		opt.ForceSaveImage = true // legacy mode always saves images regardless of locally or remotely referenced
 	}
@@ -305,7 +326,7 @@ func Earthfile2LLB(
 		// The found target may have initially been created by a FROM or a COPY;
 		// however, if it is referenced a second time by a BUILD, it may contain items that
 		// require a save (export to the local host) or a push
-		if opt.Export.Artifacts() {
+		if opt.doSaves() {
 			sts.SetDoSaves()
 		}
 
@@ -313,7 +334,7 @@ func Earthfile2LLB(
 			sts.SetDoPushes()
 		}
 
-		if opt.Export.Artifacts() || opt.DoPushes {
+		if opt.doSaves() || opt.DoPushes {
 			err = sts.Wait(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("wait failed on target %s: %w", target.String(), err)
@@ -358,7 +379,7 @@ func Earthfile2LLB(
 	}
 
 	if initialCall {
-		err = opt.waitBlock.Wait(ctx, opt.DoPushes, opt.Export.Artifacts())
+		err = opt.waitBlock.Wait(ctx, opt.DoPushes, opt.doSaves())
 		if err != nil {
 			return nil, err
 		}

@@ -21,6 +21,9 @@ func (salwi *saveArtifactLocalWaitItem) SetDoSave() {
 	salwi.mu.Lock()
 	defer salwi.mu.Unlock()
 
+	// As in saveImageWaitItem.SetDoSave, this asks the user's whole-build intent
+	// and not the per-target SaveReferenced: this call is what announces that a
+	// BUILD referenced the target.
 	if !salwi.c.opt.Export.Artifacts() {
 		return
 	}

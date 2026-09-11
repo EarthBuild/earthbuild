@@ -142,6 +142,7 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 	h.Bool(n.Op.DirCopy)
 	h.Bool(n.Op.NoFollow)
 	h.Bool(n.Op.KeepOwn)
+	h.Bool(n.Op.Sync)
 	h.Str(n.Op.Chown)
 	h.Bool(n.Op.Tolerate)
 

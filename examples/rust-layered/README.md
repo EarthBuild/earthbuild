@@ -122,16 +122,30 @@ before the publish* that changes a source. Every crate reports `Fresh`, nothing
 recompiles, and the binary goes on printing the old string. A silently wrong
 build, from a cache that looked like it was working.
 
-So `+build-warm` compares each arriving file with the one already in the tree.
-Identical files are left exactly as they are, which is what lets cargo call them
-fresh; only what differs is written and touched. Timestamps stop deciding
-anything, and both properties hold at once:
+So `+build-warm` copies with `--sync`, which leaves a file whose bytes
+already match exactly as it is - keeping the mtime the tree gave it, and staying
+out of the step's delta. Only what differs is written, and is then unambiguously
+newer. Timestamps stop deciding anything, and both properties hold at once:
 
 | what changed                                   | rebuilds        | binary  |
 | ---------------------------------------------- | --------------- | ------- |
 | one crate, ordinary commit                     | that crate only | correct |
 | one crate, commit dated before the cache build | that crate only | correct |
 | nothing                                        | nothing         | correct |
+
+### And it deletes what the source dropped
+
+A plain `COPY` merges - here as in every engine - so a source file you *remove*
+would survive in the warm tree and go on being compiled. That tree already holds
+a copy of these sources, which is what makes this base different from an
+ordinary one. Measured before the flag deleted anything: the removed file was
+still present after the copy.
+
+`--sync` removes it, which is why the flag carries that name rather than a
+narrower one, and why it insists on `--dir`. Removing needs a scope: a copy of a
+list of files into a directory says nothing about what else that directory may
+hold, while `--dir` makes the destination the copied directory itself - the
+scope the line names.
 
 This is worth knowing about any restore-based Rust cache, not just this one: if
 it hands cargo a `target/` and relies on mtimes to say what is stale, the same

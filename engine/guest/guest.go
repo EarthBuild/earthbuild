@@ -578,6 +578,7 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		err := s.copyIn(h, req.From, req.Path, req.Dest,
 			copyOpts{
 				AsDir: req.DirCopy, NoFollow: req.NoFollow, KeepOwn: req.KeepOwn,
+				Sync:  req.Sync,
 				Chown: req.Chown, Clamp: clampAt(req.Clamp), IfExists: req.IfExists,
 				LandsAs: req.LandsAs,
 				Chmod:   req.Chmod,
@@ -866,6 +867,10 @@ type copyOpts struct {
 	// Copying ownership always would put uids from the building machine into
 	// images that run somewhere else.
 	KeepOwn bool
+	// Sync is `--sync`: a destination file whose bytes already match
+	// is left as it is, so it keeps its mtime and is not copied up into the
+	// step's delta. See copyFileUnlessSame.
+	Sync bool
 	// Chown is `--chown=user[:group]`: what the copy belongs to, resolved
 	// against the destination image rather than this machine (E419).
 	//
@@ -3053,7 +3058,7 @@ func (c *Client) Copy(
 	_, err := c.do(ctx, Request{
 		Kind: KindCopy, Handle: rh.id, From: layerIDs(from), Clamp: hostClamp(),
 		Path: src, Dest: dest,
-		DirCopy: opts.AsDir, NoFollow: opts.NoFollow, KeepOwn: opts.KeepOwn,
+		Sync: opts.Sync, DirCopy: opts.AsDir, NoFollow: opts.NoFollow, KeepOwn: opts.KeepOwn,
 		IfExists: opts.IfExists,
 		LandsAs:  opts.LandsAs,
 		Chmod:    opts.Chmod,

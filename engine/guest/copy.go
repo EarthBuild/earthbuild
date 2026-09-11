@@ -1,8 +1,11 @@
 package guest
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -74,16 +77,24 @@ func copyPath(root, src, dst string, opts copyOpts) error {
 		return copyTree(src, dst, opts)
 	}
 
-	err = copyFile(src, dst, fi.Mode())
+	err = copyFileUnlessSame(src, dst, fi.Mode(), opts.Sync)
 	if err != nil {
 		return err
 	}
 
-	at := opts.stamp(fi.ModTime())
+	// **Not under --sync, where the times are the whole point.** A file this
+	// copy skipped must keep the time the destination gave it, or cargo stops
+	// calling it fresh; a file it wrote must stay newer than the artefacts built
+	// from the version it replaced, and the source's own time - a commit time -
+	// is older than those. Restoring either made the flag a no-op end to end,
+	// which every unit test passed and the first build caught.
+	if !opts.Sync {
+		at := opts.stamp(fi.ModTime())
 
-	err = os.Chtimes(dst, at, at)
-	if err != nil {
-		return fmt.Errorf("set the mtime on %s: %w", dst, err)
+		err = os.Chtimes(dst, at, at)
+		if err != nil {
+			return fmt.Errorf("set the mtime on %s: %w", dst, err)
+		}
 	}
 
 	return keepOwn(fi, dst, opts)
@@ -277,6 +288,19 @@ func copyLink(src, dst string) error {
 // that reset them would produce a layer whose digest does not match the one just
 // computed.
 func copyTree(src, dst string, opts copyOpts) error {
+	// **Before the copy, not after.** Pruning first means the walk that follows
+	// writes into a destination already holding only what the source has, so
+	// nothing it writes can be removed by mistake - and a destination entry that
+	// is about to be overwritten anyway is removed and rewritten rather than
+	// compared, which costs one file and removes a whole class of ordering
+	// question.
+	if opts.Sync {
+		err := pruneToMatch(src, dst)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Directory modes are applied once everything is in place, deepest first. A
 	// tree may contain a directory nothing may write to - `maven`'s image has
 	// /root at 0700, and a step that writes /root/.m2 inside it - and creating
@@ -419,7 +443,7 @@ func copyTree(src, dst string, opts copyOpts) error {
 				seen[k] = target
 			}
 
-			copyErr := copyFile(p, target, fi.Mode())
+			copyErr := copyFileUnlessSame(p, target, fi.Mode(), opts.Sync)
 			if copyErr != nil {
 				return copyErr
 			}
@@ -469,11 +493,15 @@ func copyTree(src, dst string, opts copyOpts) error {
 			return err
 		}
 
-		at := opts.stamp(fi.ModTime())
+		// See the note in copyPath: under --sync the filesystem's own answer is
+		// the correct one, for the skipped and the written alike.
+		if !opts.Sync {
+			at := opts.stamp(fi.ModTime())
 
-		err = os.Chtimes(target, at, at)
-		if err != nil {
-			return fmt.Errorf("set mtime on %s: %w", target, err)
+			err = os.Chtimes(target, at, at)
+			if err != nil {
+				return fmt.Errorf("set mtime on %s: %w", target, err)
+			}
 		}
 
 		return nil
@@ -530,6 +558,98 @@ func copyTree(src, dst string, opts copyOpts) error {
 	}
 
 	return nil
+}
+
+// copyFileUnlessSame is copyFile that may leave an identical destination
+// exactly as it is.
+//
+// **Not writing is the whole feature.** A file rewritten with the same bytes
+// gets a new mtime and, under an overlay, is copied up into the step's delta -
+// so a COPY over a tree that barely changed produces a layer holding all of it,
+// and makes every file in it look newer than everything built from those files.
+// An incremental compiler then rebuilds the lot. Leaving an unchanged file alone
+// is what lets a published build tree be stood on.
+//
+// Content, not length: two files of one size differing in a byte are different
+// files, and skipping that pair is a wrong build rather than a slow one.
+func copyFileUnlessSame(src, dst string, mode os.FileMode, syncCopy bool) error {
+	if syncCopy {
+		same, err := sameBytes(src, dst)
+		if err != nil {
+			return err
+		}
+
+		if same {
+			// The mode is still the caller's to state: an identical file at the
+			// wrong mode is a difference, and chmod moves ctime rather than
+			// mtime, so it costs nothing this exists to protect.
+			return os.Chmod(dst, mode)
+		}
+	}
+
+	return copyFile(src, dst, mode)
+}
+
+// sameBytes reports whether two paths hold the same contents.
+//
+// A missing destination is not the same as anything, which is the ordinary case
+// on a first copy and is not an error.
+func sameBytes(a, b string) (bool, error) {
+	ai, err := os.Stat(a)
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", a, err)
+	}
+
+	bi, err := os.Stat(b)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", b, err)
+	}
+
+	// Only a regular file can be compared this way, and a destination that is
+	// something else has to be replaced whatever it holds.
+	if !ai.Mode().IsRegular() || !bi.Mode().IsRegular() || ai.Size() != bi.Size() {
+		return false, nil
+	}
+
+	return equalContents(a, b)
+}
+
+func equalContents(a, b string) (bool, error) {
+	fa, err := os.Open(a) //nolint:gosec // walking our own delta
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", a, err)
+	}
+
+	defer fa.Close()
+
+	fb, err := os.Open(b) //nolint:gosec // see above
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", b, err)
+	}
+
+	defer fb.Close()
+
+	const chunk = 64 * 1024
+
+	ba, bb := make([]byte, chunk), make([]byte, chunk)
+
+	for {
+		na, ea := io.ReadFull(fa, ba)
+		nb, eb := io.ReadFull(fb, bb)
+
+		if na != nb || !bytes.Equal(ba[:na], bb[:nb]) {
+			return false, nil
+		}
+
+		if ea != nil || eb != nil {
+			// Both ended together, which the sizes already promised.
+			return true, nil
+		}
+	}
 }
 
 func copyFile(src, dst string, mode os.FileMode) error {
@@ -672,4 +792,82 @@ func cloneLayers() bool {
 	default:
 		return true
 	}
+}
+
+// pruneToMatch removes from dst everything src no longer has.
+//
+// **The half `--sync` promises and a plain COPY has never done.** COPY merges,
+// which is right for a base that holds something else and wrong for one holding
+// a previous copy of this same tree: a source file you delete survives there,
+// and a build that reads the directory rather than a manifest goes on compiling
+// it. Measured before this existed - the deleted file was still present after
+// the copy.
+//
+// **Scoped to the destination the copy named, and no wider.** `--sync` is
+// refused without `--dir` for exactly this reason: a copy of a list of files
+// into a directory says nothing about what else that directory is entitled to
+// hold, and deleting on that basis would remove things nobody mentioned.
+//
+// A destination that is not there is nothing to prune, which is the ordinary
+// first copy.
+func pruneToMatch(src, dst string) error {
+	_, err := os.Lstat(dst)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("read %s: %w", dst, err)
+	}
+
+	// Deepest first, so a directory is considered after the children that would
+	// have kept it: `filepath.WalkDir` hands out parents first, and removing one
+	// while walking it is a walk over something that is no longer there.
+	var extra []string
+
+	err = filepath.WalkDir(dst, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		if p == dst {
+			return nil
+		}
+
+		rel, relErr := filepath.Rel(dst, p)
+		if relErr != nil {
+			return relErr
+		}
+
+		_, statErr := os.Lstat(filepath.Join(src, rel))
+		if !errors.Is(statErr, fs.ErrNotExist) {
+			return statErr
+		}
+
+		extra = append(extra, p)
+
+		// **Only a directory skips.** `fs.SkipDir` returned while visiting a
+		// *file* abandons the rest of that file's directory, so the first extra
+		// file found hid every entry after it - including a subdirectory with
+		// extras of its own, which is what the test caught. Nothing under a
+		// directory the source dropped needs considering separately; it goes
+		// with the directory.
+		if d.IsDir() {
+			return fs.SkipDir
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("compare %s with %s: %w", dst, src, err)
+	}
+
+	for _, p := range extra {
+		err = os.RemoveAll(p)
+		if err != nil {
+			return fmt.Errorf("remove %s, which %s no longer has: %w", p, src, err)
+		}
+	}
+
+	return nil
 }

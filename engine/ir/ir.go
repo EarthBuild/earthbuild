@@ -451,6 +451,20 @@ type Op struct {
 	// users, and a service in the image that drops privileges to the user its
 	// files belong to fails at runtime rather than at build time.
 	KeepOwn bool
+	// Sync is `COPY --sync`: a destination file whose bytes already
+	// match the source is left exactly as it is, mtime and all.
+	//
+	// **Two things follow from not writing.** The file keeps the time the base
+	// gave it, which is what lets an incremental compiler call it fresh - cargo
+	// compares a source's mtime against the artefact built from it, and a copy
+	// that rewrites an unchanged file makes every one of them look new. And it
+	// is not copied up, so the step's delta holds what differs rather than the
+	// whole tree.
+	//
+	// In the key for the same reason as DirCopy: it changes what the step
+	// produces, so two builds of one line that disagree about it must not share
+	// an answer.
+	Sync bool
 	// SSH is `RUN --ssh`: the invoking user's ssh agent is reachable from this
 	// step.
 	//
@@ -790,6 +804,7 @@ func (n *Node) ID() NodeID {
 	h.Bool(n.Op.DirCopy)
 	h.Bool(n.Op.NoFollow)
 	h.Bool(n.Op.KeepOwn)
+	h.Bool(n.Op.Sync)
 	h.Str(n.Op.Chown)
 	h.Bool(n.Op.Tolerate)
 

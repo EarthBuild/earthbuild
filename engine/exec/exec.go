@@ -1010,6 +1010,7 @@ func (e *Executor) copyStep(
 	err = c.Copy(ctx, h, from, n.Op.Args[0], n.Op.Args[1],
 		guest.CopyOpts{
 			AsDir: n.Op.DirCopy, NoFollow: n.Op.NoFollow, KeepOwn: n.Op.KeepOwn,
+			Sync:  n.Op.Sync,
 			Chown: n.Op.Chown, IfExists: n.Op.IfExists, Chmod: n.Op.Chmod,
 			LandsAs: n.Op.As,
 		})

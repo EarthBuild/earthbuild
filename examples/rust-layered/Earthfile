@@ -1,4 +1,4 @@
-VERSION 0.8
+VERSION --sync 0.8
 
 # A Rust workspace cached in ordinary layers.
 #
@@ -71,26 +71,24 @@ build-warm:
     # the sources arriving carry the time of the commit that last changed each
     # one. Comparing two clocks is sound only while one happens to run ahead of
     # the other, and a branch, a rebase or a slow clock breaks that: a commit
-    # dated before the cache was published changes a file, the file still looks
-    # older than the artefact built from its previous contents, and cargo
-    # reports it `Fresh`. Measured - the binary went on printing the old string.
+    # dated before the cache was published changes a file, it still looks older
+    # than the artefact built from its previous contents, and cargo reports it
+    # `Fresh`. Measured - the binary went on printing the old string.
     #
-    # So each incoming file is compared with the one already here. Identical
-    # files are left untouched, which is what lets cargo call them fresh;
-    # only what differs is written, and touched so it is unambiguously newer.
-    # Timestamps stop deciding anything.
-    COPY --dir crates /incoming
-    RUN cd /incoming && find . -type f | while read -r f; do \
-            t="/w/crates/$f"; \
-            if [ ! -e "$t" ] || ! cmp -s "$f" "$t"; then \
-                mkdir -p "$(dirname "$t")" && cp "$f" "$t" && touch "$t"; \
-            fi; \
-        done; \
-        cd /w/crates && find . -type f | while read -r t; do \
-            [ -e "/incoming/$t" ] || rm -f "$t"; \
-        done; \
-        rm -rf /incoming
-
+    # `--sync` leaves a file whose bytes already match exactly as it is, so
+    # it keeps the mtime the tree gave it and stays out of this step's delta.
+    # Only what differs is written, and is then unambiguously newer. Timestamps
+    # stop deciding anything.
+    #
+    # The flag is this engine's own, which is why the VERSION line asks for it.
+    #
+    # **And it deletes what the source no longer has**, which a plain COPY has
+    # never done: this tree already holds a copy of these sources, so a file you
+    # remove would otherwise survive here and go on being compiled. That is why
+    # the flag is `--sync` rather than a narrower name, and why it insists on
+    # `--dir` - removing needs a scope, and the copied directory is the one the
+    # line names.
+    COPY --sync --dir crates .
     RUN cargo build --release
     SAVE ARTIFACT target/release/app app
 

@@ -386,6 +386,9 @@ type Request struct {
 	// Without it a directory source contributes what is in it, which is the rule
 	// everywhere else and one a trailing separator cannot express.
 	DirCopy bool `json:"dirCopy,omitempty"`
+	// Sync is `COPY --sync`: leave a destination whose bytes already
+	// match, so it keeps its mtime and stays out of the step's delta.
+	Sync bool `json:"syncCopy,omitempty"`
 	// IfExists is `COPY --if-exists`: a source that is not there is not a
 	// failure. Carried over the wire because only this side can answer it for
 	// an artifact - `SAVE ARTIFACT --if-exists` declares one the producer may

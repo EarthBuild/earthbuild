@@ -77,6 +77,7 @@ type Copy struct {
 	SymlinkNoFollow bool     `description:"Do not follow symlinks"                                                  long:"symlink-no-follow"` //nolint:lll
 	AllowPrivileged bool     `description:"Allow targets to assume privileged mode"                                 long:"allow-privileged"`  //nolint:lll
 	PassArgs        bool     `description:"Pass arguments to external targets"                                      long:"pass-args"`         //nolint:lll
+	Sync            bool     `description:"Leave a destination file whose bytes already match"                      long:"sync"`              //nolint:lll
 }
 
 // SaveArtifact contains options for the SAVE ARTIFACT command.

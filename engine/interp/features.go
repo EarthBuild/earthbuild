@@ -26,8 +26,10 @@ import (
 type features struct {
 	// runWithAWS is `--run-with-aws`, which RUN --aws needs.
 	runWithAWS bool
-	try        bool
-	passArgs   bool
+	// syncCopy is `--sync`, which `COPY --sync` needs.
+	syncCopy bool
+	try      bool
+	passArgs bool
 	// projectSecrets is `--use-project-secrets`, which PROJECT arrived with. A
 	// file older than the feature is using a keyword its dialect does not have,
 	// and `tests/project-secrets-without-flag.earth` says so in the command it
@@ -74,7 +76,12 @@ var knownFeatures = map[string]func(*features){
 	"--pass-args": func(f *features) { f.passArgs = true },
 	// SET, and the renaming of COMMAND to FUNCTION. Both gate a *construct*
 	// rather than a flag, which is the half `ignoredFeatures` cannot do (E458).
-	"--arg-scope-and-set":    func(f *features) { f.argScopeAndSet = true },
+	"--arg-scope-and-set": func(f *features) { f.argScopeAndSet = true },
+	// `COPY --sync`, which the reference has no equivalent of. Gated
+	// because accepting a flag is a statement about the dialect: a file using
+	// it builds here and nowhere else, and the VERSION line is where an
+	// Earthfile says which dialect it is written in.
+	"--sync":                 func(f *features) { f.syncCopy = true },
 	"--use-project-secrets":  func(f *features) { f.projectSecrets = true },
 	"--use-function-keyword": func(f *features) { f.functionKeyword = true },
 	// The builtin argument of the same name, which is a value rather than a

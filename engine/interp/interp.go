@@ -2343,6 +2343,32 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 		return nil, err
 	}
 
+	// **Gated, because accepting a flag is a statement about the dialect.** The
+	// reference has no `--sync`, so a file using it builds here and nowhere
+	// else - and the VERSION line is where an Earthfile says which dialect it is
+	// written in. Silently accepting it would leave the author unaware their
+	// file had stopped being portable.
+	err = p.here.features.needs(p.here.features.syncCopy,
+		"COPY --sync", "--sync", loc(c.SourceLocation))
+	if spec.Sync && err != nil {
+		return nil, err
+	}
+
+	// **`--sync` removes what the source no longer has, so its scope has to be
+	// a directory.** A copy of a list of files into a directory says nothing
+	// about what else that directory is entitled to hold, and deleting on that
+	// basis would remove things the Earthfile never mentioned. With `--dir` the
+	// destination is the copied directory itself, which is exactly the scope the
+	// author named.
+	if spec.Sync && !spec.Dir {
+		return nil, fmt.Errorf(
+			"COPY --sync at %s needs --dir"+
+				"\n  --sync removes what the source no longer has, and without"+
+				" --dir the destination is a directory this copy does not own"+
+				"\n  write `COPY --sync --dir <src> <dst>`",
+			loc(c.SourceLocation))
+	}
+
 	args, dirCopy, ifExists := spec.Args, spec.Dir, spec.IfExists
 
 	// As on FROM and BUILD: the line granting privilege is this one, and it
@@ -2522,6 +2548,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 						// inside one more directory would apply the rule twice.
 						Dir: rs.dir, User: rs.user, DirCopy: false,
 						NoFollow: spec.NoFollow, KeepOwn: spec.KeepOwn, Chown: spec.Chown,
+						Sync:     spec.Sync,
 						Chmod:    spec.Chmod,
 						IfExists: ifExists,
 					},
@@ -2578,6 +2605,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 						// lands under, so the guest has nothing left to decide.
 						Dir: rs.dir, User: rs.user, DirCopy: false,
 						NoFollow: spec.NoFollow, KeepOwn: spec.KeepOwn, Chown: spec.Chown,
+						Sync:     spec.Sync,
 						Chmod:    spec.Chmod,
 						IfExists: ifExists,
 					},
@@ -2599,6 +2627,7 @@ func (p *Plan) copy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, er
 				Kind: ir.OpFile, Args: []string{inSource, dest},
 				Dir: rs.dir, User: rs.user, DirCopy: dir,
 				NoFollow: spec.NoFollow, KeepOwn: spec.KeepOwn, Chown: spec.Chown,
+				Sync:     spec.Sync,
 				Chmod:    spec.Chmod,
 				IfExists: ifExists,
 				As:       landsAs,
@@ -3048,6 +3077,9 @@ type copySpec struct {
 	NoFollow bool
 	// KeepOwn is `--keep-own`: uid and gid travel with the copy.
 	KeepOwn bool
+	// Sync is `--sync`: a destination whose bytes already match is
+	// left as it is, mtime and all.
+	Sync bool
 	// Chown is `--chown=user[:group]`: what the copy belongs to, resolved
 	// against the destination image.
 	Chown string
@@ -3136,6 +3168,7 @@ func copyArgs(c earthfile.Command) (copySpec, error) {
 	return copySpec{
 		Args: rest, Dir: opts.IsDirCopy,
 		NoFollow: opts.SymlinkNoFollow, KeepOwn: opts.KeepOwn, Chown: opts.Chown,
+		Sync:     opts.Sync,
 		IfExists: opts.IfExists, PassArgs: opts.PassArgs, Chmod: opts.Chmod,
 		AllowPrivileged: opts.AllowPrivileged,
 		Platform:        opts.Platform, BuildArgs: args,

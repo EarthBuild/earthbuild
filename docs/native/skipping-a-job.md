@@ -31,18 +31,32 @@ on a broken build, which is the one outcome a skip must never be.
 The `fingerprint` field is the whole of the comparison. It is derived from the graph's node
 identities, which are recursive over their inputs, so it covers:
 
-| Covered                                | How                                             |
-| -------------------------------------- | ----------------------------------------------- |
-| the Earthfile's text                   | every command is an operation in the graph      |
-| build arguments and environment values | hashed into the step that reads them            |
-| the platform                           | hashed into every node                          |
-| the resolved digest of each base image | [pinned at plan time](pinning.md)               |
-| what every `COPY` reads from the host  | the context's content digest, mtimes excluded   |
-| targets reached only by `BUILD +other` | folded in beside the root                       |
+| Covered                                  | How                                           |
+| ---------------------------------------- | --------------------------------------------- |
+| what each command *does*                 | every command is an operation in the graph    |
+| build arguments and environment values   | expanded into the step that reads them        |
+| the platform                             | hashed into every node                        |
+| the resolved digest of each base image   | [pinned at plan time](pinning.md)             |
+| what every `COPY` reads from the host    | the context's content digest, mtimes excluded |
+| targets reached only by `BUILD +other`   | folded in beside the root                     |
+| where `SAVE ARTIFACT ... AS LOCAL` lands | folded in beside the graph                    |
+| what `SAVE IMAGE` declares, and `--push` | folded in beside the graph                    |
 
-That last row and the first are why this is not a path filter. `dorny/paths-filter` and its kin key
-on globs a human maintains: they go green on an edited command, on a moved tag, and on a dependency
-reached through `BUILD`. The fingerprint does not.
+This is why it is not a path filter. `dorny/paths-filter` and its kin key on globs a human maintains:
+they go green on an edited command, on a moved tag, and on a dependency reached through `BUILD`. The
+fingerprint does not.
+
+**It is the Earthfile's meaning, not its bytes.** A comment, a blank line or a reformat leaves the
+fingerprint equal, because none of them changes an operation - which is the right answer, and not the
+one a hash of the file would give.
+
+**The last two rows are about what the build is asked to leave behind, and they are not decoration.**
+`SAVE ARTIFACT x AS LOCAL out-$FOO.txt` has the same graph for every value of `FOO`: identical layers,
+a different file on disk. A fingerprint over the graph alone certifies the second build unchanged,
+skips it, and the file it was asked for is never written.
+
+A build argument no step reads does not move the fingerprint, and should not: passing `--build-arg
+UNUSED=x` is not a reason to rebuild.
 
 The context digest excludes mtimes, so a fresh clone of one commit fingerprints the same as the
 working tree it was cloned from - which is the case a CI runner is always in.

@@ -61,7 +61,7 @@ func TestTheFingerprintCoversWhatOnlyBUILDReaches(t *testing.T) {
 	one := &ir.Graph{Root: root, Also: []*ir.Node{imageNode("busybox@sha256:bb")}}
 	two := &ir.Graph{Root: root, Also: []*ir.Node{imageNode("busybox@sha256:cc")}}
 
-	if fingerprintOf(one) == fingerprintOf(two) {
+	if fingerprintOf(&interp.Plan{Graph: one}) == fingerprintOf(&interp.Plan{Graph: two}) {
 		t.Error("a changed BUILD-only dependency left the fingerprint equal")
 	}
 
@@ -71,7 +71,7 @@ func TestTheFingerprintCoversWhatOnlyBUILDReaches(t *testing.T) {
 	forwards := &ir.Graph{Root: root, Also: []*ir.Node{a, b}}
 	backwards := &ir.Graph{Root: root, Also: []*ir.Node{b, a}}
 
-	if fingerprintOf(forwards) != fingerprintOf(backwards) {
+	if fingerprintOf(&interp.Plan{Graph: forwards}) != fingerprintOf(&interp.Plan{Graph: backwards}) {
 		t.Error("the order of Also reached the fingerprint")
 	}
 }

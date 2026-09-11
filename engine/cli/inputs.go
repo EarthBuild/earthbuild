@@ -79,7 +79,7 @@ func inputsOf(plan *interp.Plan, target, platform string) Inputs {
 		Version:     inputsVersion,
 		Target:      target,
 		Platform:    platform,
-		Fingerprint: fingerprintOf(plan.Graph).String(),
+		Fingerprint: fingerprintOf(plan).String(),
 		Caveats:     caveatsOf(plan),
 	}
 
@@ -116,8 +116,18 @@ func inputsOf(plan *interp.Plan, target, platform string) Inputs {
 // rather than in the root's inputs - it is a thing the build must run, not a
 // filesystem the root stands on - so a fingerprint over `Root` alone goes green
 // when a BUILD-only dependency changes.
-func fingerprintOf(g *ir.Graph) ir.NodeID {
+//
+// **And what the build produces, not only what it runs.** A destination and an
+// image name live in the plan beside the graph rather than in it, so two builds
+// writing `out-one.txt` and `out-two.txt` have the same graph exactly - and a
+// fingerprint over the graph alone certifies the second unchanged, skips it, and
+// leaves the file it was asked for unwritten. The layers really are identical;
+// what the job was asked to produce is not, and that is what a green tick is a
+// claim about.
+func fingerprintOf(plan *interp.Plan) ir.NodeID {
 	h := ir.NewHasher()
+
+	g := plan.Graph
 
 	roots := append([]*ir.Node{g.Root}, g.Also...)
 
@@ -138,7 +148,47 @@ func fingerprintOf(g *ir.Graph) ir.NodeID {
 		h.Fixed(id[:])
 	}
 
+	hashProduces(h, plan)
+
 	return h.Sum()
+}
+
+// hashProduces writes what the build was asked to leave behind.
+//
+// Sorted and counted, as everything else here is: the order the interpreter
+// happened to collect them in is not an input, and without a count two entries
+// and one concatenation hash alike (§1.4).
+func hashProduces(h *ir.Hasher, plan *interp.Plan) {
+	saved := make([]string, 0, len(plan.Artifacts))
+
+	for _, a := range plan.Artifacts {
+		// The local destination is the field that carries an argument, and the
+		// path is what identifies the artifact. Both, because `SAVE ARTIFACT a`
+		// and `SAVE ARTIFACT b` to one destination are different builds too.
+		saved = append(saved, a.Path+"\x00"+a.LocalDest)
+	}
+
+	sort.Strings(saved)
+	h.Count(len(saved))
+
+	for _, one := range saved {
+		h.Str(one)
+	}
+
+	declared := make([]string, 0, len(plan.Images))
+
+	for _, i := range plan.Images {
+		// Push beside the reference: a build told to publish an image and one
+		// told to keep it are not the same job, whatever the layers say.
+		declared = append(declared, fmt.Sprintf("%s\x00%t", i.Ref, i.Push))
+	}
+
+	sort.Strings(declared)
+	h.Count(len(declared))
+
+	for _, one := range declared {
+		h.Str(one)
+	}
 }
 
 // caveatsOf is every reason this plan's fingerprint promises less than it looks

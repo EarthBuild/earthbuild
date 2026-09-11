@@ -269,3 +269,112 @@ func statOf(t *testing.T, at string) os.FileInfo {
 
 	return fi
 }
+
+// An identical file at an identical mode is not touched at all.
+//
+// **Not even a chmod.** The destination lives in an overlay merged view, and a
+// `chmod(2)` on a file whose bytes are in a *lower* layer makes the kernel copy
+// the whole file up before applying the mode - so reconciling a mode that was
+// already right read and rewrote every byte of every unchanged file. Measured:
+// 118 MB of skipped files cost ~236 MB of copy-up on top of the comparison, and
+// every one of them landed in the delta the skip existed to keep them out of.
+//
+// Changing a ctime to the value it already has is work with no result.
+func TestAnUnchangedFileAtTheSameModeIsNotTouched(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+
+	same := []byte("identical bytes")
+	writeAt(t, src, same)
+	writeAt(t, dst, same)
+
+	// 0o600, because a test fixture has no reason to be group-readable and
+	// gosec is right to say so.
+	chmodTo(t, dst, 0o600)
+
+	act, err := whatSyncMustDo(src, dst, 0o600)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if act != syncNothing {
+		t.Errorf("an identical file at the same mode gave %v, wanted %v", act, syncNothing)
+	}
+}
+
+// Same bytes, different mode: fix the mode and nothing else. The file is not
+// rewritten, so it keeps its mtime.
+func TestSameBytesAtADifferentModeOnlyChangesTheMode(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+
+	same := []byte("identical bytes")
+	writeAt(t, src, same)
+	writeAt(t, dst, same)
+
+	chmodTo(t, dst, 0o600)
+
+	act, err := whatSyncMustDo(src, dst, 0o700)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if act != syncMode {
+		t.Errorf("a mode difference gave %v, wanted %v", act, syncMode)
+	}
+}
+
+// Different bytes: write, whatever the modes say.
+func TestDifferentBytesAreWritten(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+
+	writeAt(t, src, []byte("aaaaBaaaa"))
+	writeAt(t, dst, []byte("aaaaAaaaa"))
+
+	act, err := whatSyncMustDo(src, dst, 0o644)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if act != syncWrite {
+		t.Errorf("a content difference gave %v, wanted %v", act, syncWrite)
+	}
+}
+
+// An absent destination is written.
+func TestAnAbsentDestinationIsAWrite(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+
+	writeAt(t, src, []byte("new"))
+
+	act, err := whatSyncMustDo(src, filepath.Join(dir, "no-such"), 0o644)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if act != syncWrite {
+		t.Errorf("an absent destination gave %v, wanted %v", act, syncWrite)
+	}
+}
+
+func chmodTo(t *testing.T, at string, mode os.FileMode) {
+	t.Helper()
+
+	err := os.Chmod(at, mode)
+	if err != nil {
+		t.Fatal(err)
+	}
+}

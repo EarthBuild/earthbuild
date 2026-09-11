@@ -260,6 +260,8 @@ func TestEveryOptionIsAccountedFor(t *testing.T) {
 		noOutput:        true,
 		execStats:       true,
 		argFile:         "f",
+		emitInputs:      "e",
+		checkInputs:     "c",
 	}
 
 	inv := reflect.ValueOf(in)

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -55,18 +56,30 @@ func (g *engine) imageResolver(ctx context.Context) interp.ResolveImage {
 			pins.Put(ref, want, to)
 		}
 
-		if err != nil {
-			// Said once, where it can be acted on. An unpinned build is not a
-			// failed build, but it is a build whose keys are coarser than they
-			// look, and silence here is indistinguishable from a build that had
-			// nothing to pin.
-			fmt.Fprintf(os.Stderr, "note: %s was not pinned: %v\n"+
-				"  the build uses the reference as written, so a tag that moves"+
-				" is not a new key\n", ref, err)
-		}
+		notePinFailure(os.Stderr, ref, err)
 
 		return to, err
 	}
+}
+
+// notePinFailure says a reference was left as written, where that is true.
+//
+// Said once, where it can be acted on. An unpinned build is not a failed build,
+// but it is a build whose keys are coarser than they look, and silence here is
+// indistinguishable from a build that had nothing to pin.
+//
+// **A cancelled lookup is not one of those.** The resolver runs ahead of the
+// walk, so a command that answers without building returns while a round trip
+// is in flight and cancels it - and the note then reports coarse keys for a
+// build that was never keyed at all, beside an answer that is exactly right.
+func notePinFailure(w io.Writer, ref string, err error) {
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return
+	}
+
+	fmt.Fprintf(w, "note: %s was not pinned: %v\n"+
+		"  the build uses the reference as written, so a tag that moves"+
+		" is not a new key\n", ref, err)
 }
 
 // recordPinning says what each mutable reference resolved to.

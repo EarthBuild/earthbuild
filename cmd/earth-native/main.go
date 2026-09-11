@@ -176,14 +176,10 @@ func main() {
 		dir      = flag.String("dir", ".", "directory holding the Earthfile; also the build context")
 		platform = flag.String("platform", "", "os/arch to build for; the sandbox's own when empty")
 		dryRun   = flag.Bool("dry-run", false, "resolve the plan and print it without running anything")
-		emitIn   = flag.String("emit-inputs", "",
-			"write the plan's input fingerprint to this file and run nothing")
-		checkIn = flag.String("check-inputs", "",
-			"compare against a fingerprint written earlier; exit 0 unchanged, 2 changed, and run nothing")
-		stopSb = flag.Bool("stop-sandbox", false, "remove the persistent sandbox VM and exit")
-		doPin  = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
-		long   = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
-		prune  = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
+		stopSb   = flag.Bool("stop-sandbox", false, "remove the persistent sandbox VM and exit")
+		doPin    = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
+		long     = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
+		prune    = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
 		// Wiring, not mechanism: engine/cli already reads all three and had no
 		// way to be told. The names are earthly's, because a flag that does the
 		// same thing under a different spelling is a compatibility gap wearing
@@ -345,12 +341,39 @@ func main() {
 		os.Exit(2)
 	}
 
+	// **Two more words that are not targets**, and unlike `ls` and `doc` they
+	// cannot be answered here: the fingerprint is over the whole plan, so they
+	// are the ordinary invocation with nothing to run. See engine/cli.Inputs.
+	//
+	// Read before the build arguments below, because they take the two words
+	// after themselves and everything past those is still `--ARG=value`.
+	var emitInputs, checkInputs string
+
+	target, rest := flag.Arg(0), 1
+
+	switch flag.Arg(0) {
+	case "emit-inputs", "check-inputs":
+		if flag.NArg() < 3 {
+			fmt.Fprintf(os.Stderr, "%s takes a file and a target\n"+
+				"  earth-native %s inputs.json build\n", flag.Arg(0), flag.Arg(0))
+			os.Exit(1)
+		}
+
+		if flag.Arg(0) == "emit-inputs" {
+			emitInputs = flag.Arg(1)
+		} else {
+			checkInputs = flag.Arg(1)
+		}
+
+		target, rest = flag.Arg(2), 3
+	}
+
 	// **Everything after the target is a build argument.** `+target --ARG=value`
 	// is the form the language uses and a person types; `-build-arg NAME=value`
 	// before the target keeps working and the two are merged, with what follows
 	// the target winning - it is the more specific of the two and the one
 	// written closest to what it applies to.
-	after, argErr := argsAfterTarget(flag.Args()[1:])
+	after, argErr := argsAfterTarget(flag.Args()[rest:])
 	if argErr != nil {
 		fmt.Fprintln(os.Stderr, argErr)
 		os.Exit(2)
@@ -382,14 +405,14 @@ func main() {
 
 	err := cli.Run(ctx, cli.Options{
 		Dir:             *dir,
-		Target:          flag.Arg(0),
+		Target:          target,
 		Platform:        *platform,
 		Args:            args,
 		Secrets:         secrets,
 		SecretFiles:     secretFilePaths,
 		DryRun:          *dryRun,
-		EmitInputs:      *emitIn,
-		CheckInputs:     *checkIn,
+		EmitInputs:      emitInputs,
+		CheckInputs:     checkInputs,
 		ArgFile:         *argFile,
 		SecretFile:      *secretFile,
 		NoCache:         *noCache,

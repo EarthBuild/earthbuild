@@ -14,6 +14,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
 	"github.com/EarthBuild/earthbuild/cmd/earth/helper"
+	"github.com/EarthBuild/earthbuild/cmd/earth/subcmd"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/env"
@@ -136,6 +137,24 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 
 	err := app.BaseCLI.App().Run(ctx, args)
 	if err != nil {
+		// **`check-inputs` saying "run the build" is not a failure**, so it does
+		// not go through handleError: that path records a fatal error against
+		// the run and reports every error as 1, which would leave a caller
+		// unable to tell "the inputs moved" from "the Earthfile does not
+		// parse". A job that cannot tell those apart skips on a broken build.
+		if code := subcmd.InputsChangedCode(err); code != 0 {
+			fmt.Fprintln(os.Stderr, err)
+
+			// **The command succeeded; its answer was "changed".** Ending the
+			// run as a success is what stops the catch-all above recording a
+			// fatal error nobody had - which is what it did, printing "No
+			// SetFatalError called appropriately. This should never happen."
+			// over a perfectly correct answer.
+			app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_SUCCESS)
+
+			return code
+		}
+
 		return app.handleError(ctx, err, args, lastSignal)
 	}
 

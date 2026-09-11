@@ -67,6 +67,10 @@ type Build struct {
 	secretFiles  []string
 	cacheFrom    []string
 	dockerTags   []string
+	// emitInputs and checkInputs are where `emit-inputs` and `check-inputs`
+	// write and read the plan's fingerprint. See inputs_cmds.go.
+	emitInputs  string
+	checkInputs string
 }
 
 // NewBuild creates a new Build command.
@@ -78,7 +82,7 @@ func NewBuild(cli CLI) *Build {
 
 // Cmds returns the list of commands for the build command.
 func (b *Build) Cmds() []*cli.Command {
-	return []*cli.Command{
+	return append(b.inputCmds(), []*cli.Command{
 		{
 			Name:         "build",
 			Usage:        "Build an earth target",
@@ -126,7 +130,7 @@ func (b *Build) Cmds() []*cli.Command {
 				},
 			),
 		},
-	}
+	}...)
 }
 
 // Action handles the "build" command.

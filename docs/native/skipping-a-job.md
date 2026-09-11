@@ -4,10 +4,17 @@ A CI job that rebuilds an unchanged target spends a runner to learn that. `--emi
 what a build's plan depends on; `--check-inputs` asks a later checkout whether any of it moved.
 
 ```console
-$ earth-native --emit-inputs inputs.json +test
-$ earth-native --check-inputs inputs.json +test
+$ earth --engine=native emit-inputs inputs.json +test
+$ earth --engine=native check-inputs inputs.json +test
 unchanged: +test needs no build
 ```
+
+Commands rather than flags on `build`, because neither builds. They carry the whole build flag set -
+`--build-arg`, `--platform`, `--secret` - because those decide the plan and therefore the fingerprint:
+a check run with different arguments from the emit before it is a different question, and answering it
+as though it were the same one is the false green this exists to avoid.
+
+`earth-native` takes the same two words: `earth-native check-inputs inputs.json test`.
 
 Exit codes are the interface: **0** unchanged, **2** changed, **1** something went wrong. The three
 are distinct on purpose - a job that cannot tell "changed" from "the Earthfile does not parse" skips
@@ -20,10 +27,12 @@ on a broken build, which is the one outcome a skip must never be.
     key: inputs-${{ github.job }}-${{ github.run_id }}
     restore-keys: inputs-${{ github.job }}-
 - id: check
-  run: earth-native --check-inputs inputs.json +test && echo "skip=true" >> "$GITHUB_OUTPUT"
+  run: earth --engine=native check-inputs inputs.json +test && echo "skip=true" >> "$GITHUB_OUTPUT"
   continue-on-error: true
 - if: steps.check.outputs.skip != 'true'
-  run: earth-native --ci +test && earth-native --emit-inputs inputs.json +test
+  run: |
+    earth --engine=native --ci +test
+    earth --engine=native emit-inputs inputs.json +test
 ```
 
 ## What the fingerprint covers
@@ -70,7 +79,7 @@ Where the engine *knows* it cannot key something, it says so in `caveats`, and *
 caveat is never certified unchanged** - `--check-inputs` exits 2 with the reason:
 
 ```console
-$ earth-native --check-inputs inputs.json +test
+$ earth --engine=native check-inputs inputs.json +test
 the build's inputs have changed: this build cannot be certified unchanged
   Earthfile:7 is --no-cache, so it runs whatever the inputs say
 ```
@@ -88,7 +97,7 @@ already make.
 A changed build says which input moved:
 
 ```console
-$ earth-native --check-inputs inputs.json +test
+$ earth --engine=native check-inputs inputs.json +test
 the build's inputs have changed:
   context crates changed
   rust:slim-bookworm moved from rust@sha256:aede… to rust@sha256:1b4c…
@@ -96,6 +105,24 @@ the build's inputs have changed:
 
 The granularity is the `COPY` source, not the file inside it: `COPY --dir crates .` reads one digest
 over the whole tree, so an edit anywhere under `crates` reads as `context crates changed`.
+
+## Against `--auto-skip`
+
+`--auto-skip` answers a neighbouring question on the buildkit path, and the two are not
+interchangeable:
+
+| Question           | `--auto-skip`                          | `check-inputs`                            |
+| ------------------ | -------------------------------------- | ----------------------------------------- |
+| engine             | buildkit                               | native                                    |
+| where the key goes | a database, local or cloud             | a file, so a CI cache can carry it        |
+| what it skips      | the target, from inside the invocation | the job, from outside it                  |
+| who computes it    | `inputgraph`, a second implementation  | the engine's own plan, one implementation |
+
+That last row is the one to weigh. `inputgraph` walks the Earthfile and hashes it without evaluating,
+which means two functions have to agree about what a build depends on - and this repository's own key
+guard exists because exactly that arrangement, for `Κ₁` and the step class, silently disagreed about
+nine fields. `check-inputs` reads the node identities the cache already keys on, so there is nothing
+for it to drift from.
 
 ## Cost
 

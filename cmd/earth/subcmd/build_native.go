@@ -79,8 +79,32 @@ func (b *Build) nativeSecrets(cmd *cli.Command) (map[string]string, error) {
 func (b *Build) runNative(
 	ctx context.Context, cmd *cli.Command, target domain.Target, flagArgs []string,
 ) error {
+	opts, err := b.nativeOptionsFor(cmd, target, flagArgs)
+	if err != nil {
+		return err
+	}
+
+	// **Before the build, not after.** A note about what will not happen is
+	// worth reading while there is still time to stop and pass it differently;
+	// after a ten-minute build it is a post-mortem.
+	if said := ignoredNote(cmd.IsSet); said != "" {
+		fmt.Fprintln(os.Stderr, said)
+	}
+
+	return enginecli.Run(ctx, opts)
+}
+
+// nativeOptionsFor is the command line in the terms the engine takes.
+//
+// Split out of runNative because the fingerprint commands need exactly the same
+// translation: what a build reads is decided by its arguments, its platform and
+// its secrets, so a `check-inputs` that read them differently from the `build`
+// it stands in for would answer about a different build.
+func (b *Build) nativeOptionsFor(
+	cmd *cli.Command, target domain.Target, flagArgs []string,
+) (enginecli.Options, error) {
 	if target.IsRemote() {
-		return fmt.Errorf(
+		return enginecli.Options{}, fmt.Errorf(
 			"--engine=%s cannot build %s: it is a remote target, and this engine"+
 				" builds the Earthfile in front of it"+
 				"\n  build it from a checkout, or use --engine=buildkit",
@@ -90,7 +114,7 @@ func (b *Build) runNative(
 	var platform string
 
 	if p := b.platformsStr; len(p) > 1 {
-		return fmt.Errorf(
+		return enginecli.Options{}, fmt.Errorf(
 			"--engine=%s was given %d platforms and builds one at a time"+
 				"\n  name a single --platform, or use --engine=buildkit",
 			nativeEngine, len(p))
@@ -105,12 +129,12 @@ func (b *Build) runNative(
 
 	args, err := nativeArgs(flagArgs, b.buildArgs)
 	if err != nil {
-		return err
+		return enginecli.Options{}, err
 	}
 
 	secrets, err := b.nativeSecrets(cmd)
 	if err != nil {
-		return err
+		return enginecli.Options{}, err
 	}
 
 	// **Only when the caller named one.** `namedFile` treats any non-empty path
@@ -123,14 +147,7 @@ func (b *Build) runNative(
 		argFile = b.cli.Flags().ArgFile
 	}
 
-	// **Before the build, not after.** A note about what will not happen is
-	// worth reading while there is still time to stop and pass it differently;
-	// after a ten-minute build it is a post-mortem.
-	if said := ignoredNote(cmd.IsSet); said != "" {
-		fmt.Fprintln(os.Stderr, said)
-	}
-
-	return enginecli.Run(ctx, nativeOptions(nativeInput{
+	return nativeOptions(nativeInput{
 		dir:             dir,
 		target:          target.Target,
 		platform:        platform,
@@ -143,7 +160,9 @@ func (b *Build) runNative(
 		noOutput:        b.cli.Flags().NoOutput,
 		execStats:       b.cli.Flags().DisplayExecStats,
 		argFile:         argFile,
-	}))
+		emitInputs:      b.emitInputs,
+		checkInputs:     b.checkInputs,
+	}), nil
 }
 
 // nativeInput is what the command line said, in the terms this engine takes.
@@ -167,6 +186,11 @@ type nativeInput struct {
 	noOutput        bool
 	execStats       bool
 	argFile         string
+	// emitInputs and checkInputs are `emit-inputs` and `check-inputs`: the
+	// plan's fingerprint written down, and a later plan compared against it.
+	// Both plan and run nothing.
+	emitInputs  string
+	checkInputs string
 }
 
 // nativeOptions is the whole of the translation, in one place that can be read.
@@ -187,6 +211,8 @@ func nativeOptions(in nativeInput) enginecli.Options {
 		NoOutput:        in.noOutput,
 		ExecStats:       in.execStats,
 		ArgFile:         in.argFile,
+		EmitInputs:      in.emitInputs,
+		CheckInputs:     in.checkInputs,
 		Out:             os.Stdout,
 	}
 }

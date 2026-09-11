@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
-	"github.com/EarthBuild/earthbuild/engine/pin"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
@@ -58,34 +56,25 @@ type shapeInput struct {
 	VersionFlags    []string
 }
 
-// reachesAnotherEarthfile matches a reference to a target in another file.
-//
-// `./sub+thing`, `../sib+thing`, and the `IMPORT` that names one. Deliberately
-// eager: a `RUN` whose text happens to look like one refuses a key it could
-// have had, which costs a build. The other way round costs a skip.
-var reachesAnotherEarthfile = regexp.MustCompile(`(?m)^\s*IMPORT\s|\.\.?/[^\s]*\+`)
-
 // readsASecret matches the two spellings of a step taking a credential.
 //
 // Eager, like the one above: a `RUN` whose text merely mentions `--secret`
 // refuses a key it could have had, which costs a build rather than a wrong one.
 var readsASecret = regexp.MustCompile(`--secret\b|type=secret\b`)
 
-// shapeOf is the build without what its copied files contain.
+// shapeOf is the invocation: everything asked of a build that is not a file.
+//
+// **The Earthfiles are not here.** They were, and so was an apparatus of
+// refusals that came with them - a build reaching another file, a reference
+// built from an argument, a reference nobody pinned - because one file cannot
+// describe a build spanning several. It does not have to. The interpreter reads
+// every Earthfile a build needs and says which (`interp.Plan.Earthfiles`), so
+// they are ordinary inputs like the files a step reads: recorded by the build
+// that read them, re-read when it is asked whether to run again. A build across
+// six Earthfiles is keyed exactly, with nothing followed and nothing refused.
 func shapeOf(in shapeInput) (ir.NodeID, error) {
-	canonical, err := canonicalTree(in.Source)
-	if err != nil {
-		return ir.NodeID{}, err
-	}
-
-	err = shapeIsDeterminedBy(in.Source)
-	if err != nil {
-		return ir.NodeID{}, err
-	}
-
 	h := ir.NewHasher()
 
-	h.Fixed(canonical)
 	h.Str(in.Target)
 	h.Str(in.Platform)
 	hashSorted(h, in.Args)
@@ -107,34 +96,6 @@ func shapeOf(in shapeInput) (ir.NodeID, error) {
 	return h.Sum(), nil
 }
 
-// shapeIsDeterminedBy refuses a source whose build this file does not settle.
-//
-// Each of these is a way the same text produces a different build, and each
-// fails closed: the caller falls back to a key over the declared inputs, which
-// is coarser and always right.
-func shapeIsDeterminedBy(src []byte) error {
-	if where := reachesAnotherEarthfile.FindIndex(src); where != nil {
-		return fmt.Errorf(
-			"%w: this build reaches another Earthfile, which is not hashed here",
-			ErrNotDerivable)
-	}
-
-	for _, ref := range pin.References(src) {
-		switch {
-		case strings.Contains(ref, "$"):
-			return fmt.Errorf("%w: %s is built from an argument, so the file does"+
-				" not say which image it is", ErrNotDerivable, ref)
-
-		case !strings.Contains(ref, "@sha256:"):
-			return fmt.Errorf("%w: %s is not pinned to a digest, so the tag may"+
-				" have moved since this was written\n  run --pin",
-				ErrNotDerivable, ref)
-		}
-	}
-
-	return nil
-}
-
 // canonicalTree is what the parser made of an Earthfile, with where it was
 // removed.
 //
@@ -150,12 +111,7 @@ func shapeIsDeterminedBy(src []byte) error {
 //
 // Deterministic: `encoding/json` writes a map's keys in sorted order and a
 // struct's in declaration order, and the tree is structs and slices.
-func canonicalTree(src []byte) ([]byte, error) {
-	tree, err := earthfile.Parse("Earthfile", string(src))
-	if err != nil {
-		return nil, fmt.Errorf("%w: this Earthfile does not parse: %w", ErrNotDerivable, err)
-	}
-
+func canonicalOf(tree earthfile.Tree) ([]byte, error) {
 	b, err := json.Marshal(tree)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrNotDerivable, err)

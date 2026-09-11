@@ -534,13 +534,19 @@ func askAutoSkip(
 		return ir.NodeID{}, false, nil
 	}
 
-	skip, shape, err := wouldSkip(asked, o.Dir, store)
+	skip, shape, why, err := wouldSkip(asked, o.Dir, store)
 	if err != nil {
 		return ir.NodeID{}, false, err
 	}
 
-	if skip {
+	switch {
+	case skip:
 		fmt.Fprintf(o.Out, "auto-skip: %s was built with these inputs before\n", o.Target)
+
+	case why != "":
+		// Said once, with the remedy, because a flag that quietly does nothing
+		// is one nobody can act on.
+		fmt.Fprintf(o.Out, "auto-skip: this build cannot be keyed, so it will run\n  %s\n", why)
 	}
 
 	return shape, skip, nil

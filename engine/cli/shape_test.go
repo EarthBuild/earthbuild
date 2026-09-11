@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -27,9 +26,8 @@ func shapeWith(t *testing.T, edit func(*shapeInput)) string {
 	return got.String()
 }
 
-// **The shape is the build, and the build is the file plus the invocation.**
-// No plan, no graph, no interpretation: an Earthfile, what was asked of it, and
-// the values handed in determine every step there will be.
+// **The shape is the invocation.** What the Earthfiles say is not here: they
+// are inputs, recorded by the build that read them. See earthfileDigest.
 func TestTheShapeIsStableForTheSameBuild(t *testing.T) {
 	t.Parallel()
 
@@ -48,12 +46,6 @@ func TestEverythingThatChangesTheBuildMovesTheShape(t *testing.T) {
 	was := shapeWith(t, nil)
 
 	for what, edit := range map[string]func(*shapeInput){
-		"an edited command": func(in *shapeInput) {
-			in.Source = []byte(shapeSrc + "    RUN make install\n")
-		},
-		"a moved base image": func(in *shapeInput) {
-			in.Source = []byte(strings.ReplaceAll(shapeSrc, "sha256:aa", "sha256:bb"))
-		},
 		"a different target":   func(in *shapeInput) { in.Target = "test" },
 		"a different platform": func(in *shapeInput) { in.Platform = "linux/amd64" },
 		"a changed build arg":  func(in *shapeInput) { in.Args = map[string]string{"A": "2"} },
@@ -79,77 +71,6 @@ func TestEverythingThatChangesTheBuildMovesTheShape(t *testing.T) {
 	}
 }
 
-// A comment is not a command. Hashing the file's bytes would rebuild on a
-// reformat, which is the coarseness that makes people turn a cache off.
-func TestAReformattedEarthfileDoesNotMoveTheShape(t *testing.T) {
-	t.Parallel()
-
-	was := shapeWith(t, nil)
-
-	// **In the middle, not at the end.** A trailing comment shifts nothing, so
-	// a test that appends one passes whether or not source locations are
-	// stripped - which is what this test was doing until the stripping was
-	// removed and it went on passing.
-	for what, src := range map[string]string{
-		"a comment above a command": strings.Replace(shapeSrc,
-			"    RUN make", "    # why\n    RUN make", 1),
-		"a blank line": strings.Replace(shapeSrc,
-			"    COPY src.txt /", "\n    COPY src.txt /", 1),
-		"a trailing comment": shapeSrc + "\n# a comment\n",
-	} {
-		t.Run(what, func(t *testing.T) {
-			t.Parallel()
-
-			got := shapeWith(t, func(in *shapeInput) { in.Source = []byte(src) })
-			if got != was {
-				t.Errorf("%s moved the shape", what)
-			}
-		})
-	}
-}
-
-// **A build spread over more than one Earthfile cannot be keyed by one of
-// them.** `./sub+target` and `IMPORT` bring in a file this does not hash, so a
-// change there would be invisible - which is a skip on a build that changed.
-// Refused until those are hashed too.
-func TestABuildReachingAnotherEarthfileHasNoShape(t *testing.T) {
-	t.Parallel()
-
-	for what, src := range map[string]string{
-		"a local target reference": "VERSION 0.8\n\nbuild:\n    COPY ./sub+thing/x /\n",
-		"an import":                "VERSION 0.8\nIMPORT ./sub AS sub\n\nbuild:\n    FROM sub+base\n",
-		"a computed reference":     "VERSION 0.8\n\nbuild:\n    BUILD ./$DIR+thing\n",
-	} {
-		t.Run(what, func(t *testing.T) {
-			t.Parallel()
-
-			_, err := shapeOf(shapeInput{Source: []byte(src), Target: "build"})
-			if err == nil {
-				t.Errorf("%s produced a shape", what)
-			}
-		})
-	}
-}
-
-// An unpinned reference is the other way a file does not determine the build.
-func TestAnUnpinnedReferenceHasNoShape(t *testing.T) {
-	t.Parallel()
-
-	_, err := shapeOf(shapeInput{
-		Source: []byte("VERSION 0.8\n\nbuild:\n    FROM alpine:3.22\n"), Target: "build",
-	})
-	if err == nil {
-		t.Error("an unpinned base image produced a shape")
-	}
-}
-
-// **With no key configured the shape covers which secrets a build carries, not
-// what they are.** A weaker claim than the digest, made deliberately: without a
-// key there is nothing to fold a value into, and refusing outright would leave
-// `--auto-skip` doing nothing for anyone who has not configured an HMAC.
-//
-// What it costs is written down as a test rather than as a sentence: a rotated
-// credential does not move the shape.
 func TestWithNoKeyTheShapeCoversTheSecretsNames(t *testing.T) {
 	t.Parallel()
 

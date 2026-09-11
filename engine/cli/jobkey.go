@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 // ErrNotDerivable says a job key cannot be computed for this build.
@@ -35,6 +37,13 @@ const (
 	inputFile    = "file"
 	inputListing = "listing"
 	inputAbsent  = "absent"
+	// inputEarthfile is a file the interpreter read to make the plan.
+	//
+	// **Digested as its parse tree, not its bytes**, so a comment or a reformat
+	// is not a rebuild - which is what σ did when it hashed the one Earthfile
+	// itself, and is the reason that is worth keeping now the files have become
+	// ordinary inputs.
+	inputEarthfile = "earthfile"
 )
 
 // gone is the digest of a host path that is not there.
@@ -170,6 +179,34 @@ func sealOf(root, rel string) ir.NodeID {
 	}
 
 	return id
+}
+
+// earthfileDigest is what an Earthfile means, or `gone`.
+//
+// The parse tree rather than the bytes: an Earthfile is read by the interpreter
+// and what it does is what matters, so a comment above a command must not
+// rebuild it. Absolute, because the interpreter named it that way and a build
+// may read files outside its own context root.
+func earthfileDigest(at string) ir.NodeID {
+	src, err := os.ReadFile(at) //nolint:gosec // a path a plan named
+	if err != nil {
+		return gone
+	}
+
+	tree, err := earthfile.Parse(at, string(src))
+	if err != nil {
+		return gone
+	}
+
+	canonical, err := canonicalOf(tree)
+	if err != nil {
+		return gone
+	}
+
+	h := ir.NewHasher()
+	h.Fixed(canonical)
+
+	return h.Sum()
 }
 
 // listingOf is the names a directory holds, or `gone`.

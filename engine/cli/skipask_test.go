@@ -8,7 +8,7 @@ import (
 func askFor(t *testing.T, root string, s skipRecordStore, src string) (bool, error) {
 	t.Helper()
 
-	skip, _, err := wouldSkip(shapeInput{
+	skip, _, _, err := wouldSkip(shapeInput{
 		Source: []byte(src), Target: "build", Platform: "linux/arm64",
 	}, root, s)
 
@@ -70,10 +70,15 @@ func TestARecordThatHoldsSkipsTheBuild(t *testing.T) {
 		t.Errorf("an unchanged build: skip=%t err=%v", skip, err)
 	}
 
-	// And an edited Earthfile is a different shape, so the record is not found.
-	skip, err = askFor(t, root, s, shapeSrc+"    RUN make install\n")
+	// An edited Earthfile is not a different *shape* - the shape is the
+	// invocation - it is a changed input, which the record carries and
+	// `TestAnEarthfilesDigestIsWhatItMeans` covers. What must still hold here is
+	// that a different invocation is a different question.
+	skip, _, _, err = wouldSkip(shapeInput{
+		Source: []byte(shapeSrc), Target: "build", Platform: "linux/amd64",
+	}, root, s)
 	if err != nil || skip {
-		t.Errorf("an edited Earthfile: skip=%t err=%v", skip, err)
+		t.Errorf("another platform: skip=%t err=%v", skip, err)
 	}
 }
 
@@ -128,7 +133,7 @@ func TestARecordWrittenWithoutAKeyIsNotFoundWithOne(t *testing.T) {
 		Shape: byName.String(), Key: jobKey(byName, nil),
 	})
 
-	skip, _, err := wouldSkip(shapeInput{
+	skip, _, _, err := wouldSkip(shapeInput{
 		Source: []byte(src), Target: "build", Platform: "linux/arm64",
 		SecretDigests: map[string]string{"TOKEN": "a-keyed-digest"},
 	}, root, s)

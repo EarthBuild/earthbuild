@@ -2,6 +2,8 @@ package cli
 
 import (
 	"errors"
+	"sort"
+	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/interp"
@@ -20,22 +22,27 @@ import (
 // **Every uncertainty is a build.** A shape that cannot be had, a record that
 // is not there, a store that cannot be read: none of them is an error and all
 // of them mean run. The only thing that means skip is a record that says so.
-func wouldSkip(in shapeInput, root string, s skipRecordStore) (bool, ir.NodeID, error) {
+func wouldSkip(in shapeInput, root string, s skipRecordStore) (bool, ir.NodeID, string, error) {
 	shape, err := shapeOf(in)
 	if err != nil {
+		// **Why, not silence.** A flag that quietly does nothing is one nobody
+		// can act on: the operator sees builds that never skip and has no way
+		// to learn that an unpinned reference is the reason. Every one of these
+		// has a remedy and the message names it.
 		if errors.Is(err, ErrNotDerivable) {
-			return false, ir.NodeID{}, nil
+			return false, ir.NodeID{}, strings.TrimPrefix(err.Error(),
+				ErrNotDerivable.Error()+": "), nil
 		}
 
-		return false, ir.NodeID{}, err
+		return false, ir.NodeID{}, "", err
 	}
 
 	rec, ok := s.get(in.Target, in.Platform)
 	if !ok {
-		return false, shape, nil
+		return false, shape, "", nil
 	}
 
-	return rec.stillHolds(shape, root), shape, nil
+	return rec.stillHolds(shape, root), shape, "", nil
 }
 
 // noteBuild writes down what this build read, so the next one can skip.
@@ -60,6 +67,19 @@ func noteBuild(o Options, plan *interp.Plan, sched *core.Scheduler, shape ir.Nod
 		return
 	}
 
+	// **Every Earthfile the build read, as an input like any other.** This is
+	// what lets a build spanning several files be keyed without following a
+	// reference or refusing one: the interpreter read them and says which.
+	inputs = append(inputs, earthfileInputs(plan)...)
+
+	sort.Slice(inputs, func(i, j int) bool {
+		if inputs[i].Path != inputs[j].Path {
+			return inputs[i].Path < inputs[j].Path
+		}
+
+		return inputs[i].Kind < inputs[j].Kind
+	})
+
 	store, err := skipRecordStoreFor(o.AutoSkipDB)
 	if err != nil {
 		return
@@ -70,6 +90,27 @@ func noteBuild(o Options, plan *interp.Plan, sched *core.Scheduler, shape ir.Nod
 		Target:  o.Target, Platform: o.platformOrDefault(),
 		Shape: shape.String(), Inputs: inputs, Key: jobKey(shape, inputs),
 	})
+}
+
+// earthfileInputs is every Earthfile the plan read, as host inputs.
+//
+// Absolute paths, because a build may read a file outside its own context root
+// and the record has to name it the way the next build will look for it.
+func earthfileInputs(plan *interp.Plan) []hostInput {
+	if plan == nil {
+		return nil
+	}
+
+	files := plan.Earthfiles()
+	out := make([]hostInput, 0, len(files))
+
+	for _, at := range files {
+		out = append(out, hostInput{
+			Path: at, Kind: inputEarthfile, Digest: earthfileDigest(at).String(),
+		})
+	}
+
+	return out
 }
 
 // contextLayersOf is which of a build's layers came from the checkout.

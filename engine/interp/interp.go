@@ -332,6 +332,29 @@ func Build(src, target string, opts ...Option) (*Plan, error) {
 // one subgraph, not three. Node identity would collapse the duplicates anyway -
 // identical steps have identical ids - but expanding them repeatedly makes a
 // deep graph exponential to build in the first place.
+// Earthfiles are the files this build read, absolute and sorted.
+//
+// **Told rather than worked out.** The interpreter loads each one and keeps
+// them by directory already, so this costs a map walk. Anything needing to know
+// what a build depends on - a job-level skip key, which has to move when any of
+// them changes - would otherwise follow the references itself, expanding
+// arguments to resolve names, which is a second interpreter and the thing this
+// engine keeps declining to write.
+//
+// Only the ones actually read: an Earthfile nothing referenced is not an input,
+// or every file in a monorepo would rebuild every target in it.
+func (p *Plan) Earthfiles() []string {
+	out := make([]string, 0, len(p.units))
+	for dir := range p.units {
+		out = append(out, filepath.Join(dir, "Earthfile"))
+	}
+
+	// Sorted, because a map walk is not an order and this reaches a digest.
+	sort.Strings(out)
+
+	return out
+}
+
 func (p *Plan) target(name string) (*ir.Node, error) {
 	n, _, err := p.targetIn(p.here, name)
 

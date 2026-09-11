@@ -83,19 +83,30 @@ func placedFromAContext(places []core.Placement, contexts map[string]bool) bool 
 	return false
 }
 
+// watched are the step kinds whose reads decide their result, and so the only
+// kinds whose silence is a gap rather than an absence.
+//
+// A `FROM` pulls an image and a local context is staged: both execute, both
+// observe nothing, and neither hides a read. Counting them as gaps would mean
+// no build with a base image ever earns a key, which is every build - and it is
+// what the first end-to-end run did, refusing every record with "Earthfile:4 ran
+// and was not watched" where Earthfile:4 was the FROM.
+func watched(kind ir.OpKind) bool {
+	return kind == ir.OpExec || kind == ir.OpFile
+}
+
 // gapIn is the first reason this build cannot be keyed, or empty.
 //
-// **A step that ran and was not usefully watched is the gap**, and the
-// discriminator is that it ran. A step served from cache watched nothing
-// because it did nothing; a `FROM` watched nothing because there was nothing to
-// watch. Treating either as a gap would mean no build ever earns a key.
+// **A step that ran, had something to watch, and was not usefully watched is
+// the gap.** A step served from cache watched nothing because it did nothing.
+// Neither is a reason to distrust the key.
 //
 // The first reason rather than all of them, and never cleared: a build with one
 // unwatched step among fifty is a build whose key would be wrong, and the
 // forty-nine that reported cleanly say nothing about the one that did not.
 func gapIn(rec *core.Record) string {
 	for _, step := range rec.Steps {
-		if !executed(step.Outcome) {
+		if !watched(step.Kind) || !executed(step.Outcome) {
 			continue
 		}
 
@@ -139,7 +150,7 @@ func refreshable(rec *core.Record) bool {
 	}
 
 	for _, step := range rec.Steps {
-		if !executed(step.Outcome) {
+		if watched(step.Kind) && !executed(step.Outcome) {
 			return false
 		}
 	}

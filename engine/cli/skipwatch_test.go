@@ -4,13 +4,15 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
 // ranAndWatched is a step that executed and whose observation the scheduler
 // judged usable.
 func ranAndWatched(places []core.Placement, obs core.Observation) core.StepRecord {
 	return core.StepRecord{
-		Outcome: core.OutcomeMiss, Observation: obs, Observed: true, Placements: places,
+		Kind: ir.OpExec, Outcome: core.OutcomeMiss,
+		Observation: obs, Observed: true, Placements: places,
 	}
 }
 
@@ -50,7 +52,7 @@ func TestAnUnobservedStepPoisonsTheWholeRecord(t *testing.T) {
 
 	rec := &core.Record{Steps: []core.StepRecord{
 		ranAndWatched(placedAt(), read("/w/src/a.txt")),
-		{Outcome: core.OutcomeMiss, Observed: false},
+		{Kind: ir.OpExec, Outcome: core.OutcomeMiss, Observed: false},
 	}}
 
 	_, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
@@ -119,7 +121,7 @@ func TestAPartialRebuildDoesNotRefreshTheRecord(t *testing.T) {
 
 	partial := &core.Record{Steps: []core.StepRecord{
 		ranAndWatched(placedAt(), read("/w/src/a.txt")),
-		{Outcome: core.OutcomeL2Hit},
+		{Kind: ir.OpExec, Outcome: core.OutcomeL2Hit},
 	}}
 
 	if refreshable(partial) {
@@ -148,7 +150,7 @@ func TestAnUncapturedStepStillCounts(t *testing.T) {
 	}
 
 	// And an uncaptured step that was not watched is still a gap.
-	blind := core.StepRecord{Outcome: core.OutcomeUncaptured}
+	blind := core.StepRecord{Kind: ir.OpExec, Outcome: core.OutcomeUncaptured}
 	if gapIn(&core.Record{Steps: []core.StepRecord{blind}}) == "" {
 		t.Error("an uncaptured step that watched nothing is not a gap")
 	}
@@ -190,5 +192,50 @@ func TestAContextCopiedAndNeverReadIsRefused(t *testing.T) {
 	got, err := hostInputsOfBuild(none, map[string]bool{contextLayer: true}, root)
 	if err != nil || len(got) != 0 {
 		t.Errorf("a build with no context copies gave %v, %v", got, err)
+	}
+}
+
+// **A step that ran and had nothing to watch is not a step that was not
+// watched.** A `FROM` pulls an image; a local context is staged. Both execute,
+// both observe nothing, and neither hides a read - so treating them as gaps
+// means no build with a base image ever earns a key, which is every build.
+//
+// The outcome cannot tell them apart, because both ran. Only the kind can, and
+// this is the test that made StepRecord carry one: the end-to-end run refused
+// every record with "Earthfile:4 ran and was not watched", and Earthfile:4 was
+// the FROM.
+func TestAStepWithNothingToWatchIsNotAGap(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src/a.txt": "one"})
+
+	pulled := core.StepRecord{Kind: ir.OpImage, Outcome: core.OutcomeMiss, Observed: false}
+	staged := core.StepRecord{Kind: ir.OpLocal, Outcome: core.OutcomeMiss, Observed: false}
+
+	rec := &core.Record{Steps: []core.StepRecord{
+		pulled, staged, ranAndWatched(placedAt(), read("/w/src/a.txt")),
+	}}
+
+	got, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
+	if err != nil {
+		t.Fatalf("a FROM that pulled an image was treated as a gap: %v", err)
+	}
+
+	if len(got) != 1 {
+		t.Errorf("gathered %v", got)
+	}
+
+	// Such a build can still refresh the record: nothing was hidden.
+	if !refreshable(rec) {
+		t.Error("a build whose FROM pulled an image cannot refresh the record")
+	}
+
+	// And a RUN that ran unwatched is still a gap.
+	blind := &core.Record{Steps: []core.StepRecord{
+		pulled, {Kind: ir.OpExec, Outcome: core.OutcomeMiss, Observed: false},
+	}}
+
+	if gapIn(blind) == "" {
+		t.Error("a RUN that ran unwatched is not a gap")
 	}
 }

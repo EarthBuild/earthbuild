@@ -63,6 +63,19 @@ type StepRecord struct {
 
 	Node  ir.NodeID
 	Class Key
+	// Kind is what sort of step this was.
+	//
+	// **Because "ran and watched nothing" means two different things.** A `RUN`
+	// that executed unwatched is a step whose inputs nobody knows; a `FROM`
+	// that pulled an image watched nothing because there was nothing to watch.
+	// The outcome cannot tell them apart - both ran - and a reader that treats
+	// the second as the first concludes that no build with a base image can be
+	// keyed, which is every build.
+	//
+	// Cheap enough to carry that the alternative - inferring it from the other
+	// fields - is the sort of guess that is right until somebody adds an
+	// operation.
+	Kind ir.OpKind
 
 	// Component digests, so divergence can be attributed rather than merely
 	// located.

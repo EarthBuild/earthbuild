@@ -120,7 +120,7 @@ than degrade. Where L2 can afford a hint, this cannot.
 | H2   | any step of the target recorded no observation at all                                                            | an unobserved step is one whose inputs are unknown, not one with none        |
 | H3   | the plan carries any caveat of §A - `--no-cache`, `LOCALLY`, an unpinned reference                               | each is a declared reason the key under-claims                               |
 | H4   | an observed read maps to neither a `COPY` from the context, nor a base image layer, nor an earlier step's output | a read nobody can explain is a read nobody can re-derive                     |
-| H5   | the platform has no observation source                                                                           | see below                                                                    |
+| H5   | the guest has no observation source                                                                              | see below                                                                    |
 
 Each gate falls back to key A, which is conservative and correct. **A gate that fires is a rebuild,
 never a skip.**
@@ -150,15 +150,15 @@ afterwards, rather than being found and trusted for more than it says.
 ## No tracer
 
 `engine/trace` is seccomp user notification and is Linux only; `trace_other.go` is deliberately empty.
-On darwin there is no observation source for `RUN`, so H5 fires and the build falls back to A.
 
-Said once per build, not silently: a Mac developer measuring hit rates on their laptop and
-concluding the mechanism does not work is the failure mode here, and it costs one line to prevent.
+**That is a property of the guest, not of the host.** An earlier draft of this note said a Mac has no
+observation source and falls back to A. It does not: the sandbox runs steps in a Linux guest, the
+guest is where the filter is installed, and the end-to-end run that proved this mechanism was made on
+darwin. The fallback is reached where steps run *natively* on a host with no seccomp - which is no
+backend this engine currently ships.
 
-```text
-note: no read tracing on darwin, so --auto-skip is using declared inputs
-  a file copied into the build and never read will still cause a rebuild
-```
+H5 therefore stays as a gate and is expected never to fire. A gate nothing reaches is cheap; a
+missing one is a false skip.
 
 ---
 

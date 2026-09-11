@@ -282,3 +282,60 @@ func TestAMissingHostInputIsADifferenceNotAFailure(t *testing.T) {
 		t.Errorf("a host path that is not there failed the derivation: %v", err)
 	}
 }
+
+// **A directory's digest is the entry at it, not everything under it.**
+//
+// `watcher.list` states the rule: "a read of a directory digests the entry *at*
+// it - its mode and ownership - which does not change when a file appears
+// inside it; the listing is the only thing that does". Sealing the subtree
+// instead makes every directory input as coarse as the whole context, so a file
+// nobody read moves the key and nothing is ever skipped.
+//
+// Found end to end, not here: the first run recorded `/w` as an input, its
+// digest covered every file under the copied tree, and the one case the
+// mechanism exists for - a README nothing opened - rebuilt.
+func TestADirectoryInputIsNotItsContents(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src/read.txt": "one", "src/other.txt": "one"})
+
+	was := sealOf(root, "src")
+
+	err := os.WriteFile(filepath.Join(root, "src/other.txt"), []byte("two"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if sealOf(root, "src") != was {
+		t.Error("a file changing inside a directory moved the directory's own digest")
+	}
+
+	// A file appearing inside it does not either - that is what the listing is
+	// for, and the listing does move.
+	listed := listingOf(root, "src")
+
+	err = os.WriteFile(filepath.Join(root, "src/new.txt"), []byte("new"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if sealOf(root, "src") != was {
+		t.Error("a file appearing inside a directory moved the directory's own digest")
+	}
+
+	if listingOf(root, "src") == listed {
+		t.Error("a file appearing inside a directory did not move its listing")
+	}
+
+	// The directory's own mode is part of it, or two directories differing in
+	// what they permit would look alike.
+	//nolint:gosec // a directory mode, which gosec reads as a file's
+	err = os.Chmod(filepath.Join(root, "src"), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if sealOf(root, "src") == was {
+		t.Error("a directory's own mode changed and its digest did not")
+	}
+}

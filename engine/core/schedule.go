@@ -1478,7 +1478,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 	endDigests()
 
 	rec := StepRecord{
-		Ident: stepIdent(n), Node: n.ID(), Class: StepClass(n),
+		Ident: stepIdent(n), Node: n.ID(), Class: StepClass(n), Kind: n.Op.Kind,
 		Base: bd, Op: od, Env: ed, Plat: pd,
 		ChainKey: key, Flattened: flat, Meta: n.Meta, Seq: idx,
 	}

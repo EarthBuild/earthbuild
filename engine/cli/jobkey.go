@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -148,22 +147,29 @@ func slashed(p string) string {
 
 // sealOf is what the checkout holds at a path, or `gone`.
 //
-// `layer.Take` over a single path, so this agrees with every other answer the
-// engine gives about what is at a path rather than being a second opinion.
+// **The entry at the path, not everything under it.** `watcher.list` states the
+// rule this has to match: "a read of a directory digests the entry *at* it - its
+// mode and ownership - which does not change when a file appears inside it; the
+// listing is the only thing that does". Digesting the subtree instead makes
+// every directory input as coarse as the whole context, so a file nobody read
+// moves the key and nothing is ever skipped - which is exactly what the first
+// end-to-end run did.
+//
+// `layer.PathDigestIn` is the function the tracer itself records reads with
+// (engine/guest/sightings.go), so this is the engine's own answer rather than a
+// second opinion about what is at a path.
 func sealOf(root, rel string) ir.NodeID {
 	at := filepath.Join(root, filepath.FromSlash(rel))
 
-	_, err := os.Lstat(at)
+	// Identity maps: this reads the checkout on this machine, not a mount
+	// inside a user namespace, so there is nothing to translate. Both sides of
+	// the comparison come through here, so they agree whatever that is.
+	id, err := layer.PathDigestIn(at, layer.IDMap{}, layer.IDMap{})
 	if err != nil {
 		return gone
 	}
 
-	c, err := layer.Take(at)
-	if err != nil {
-		return gone
-	}
-
-	return c.Content
+	return id
 }
 
 // listingOf is the names a directory holds, or `gone`.

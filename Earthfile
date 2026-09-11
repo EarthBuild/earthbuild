@@ -7,12 +7,12 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.27.0-alpine3.24
+    FROM golang:1.27.1-alpine3.24
     RUN apk add --no-cache git
     WORKDIR /earthly
 
 node:
-    FROM node:26.8.1-alpine3.24
+    FROM node:26.8.2-alpine3.24
     # renovate: datasource=npm packageName=npm
     LET npm_version=12.0.2
     RUN \
@@ -102,7 +102,7 @@ lint-scripts:
 
 # lint-workflows audits GitHub Actions workflows and composite actions with zizmor (https://docs.zizmor.sh).
 lint-workflows:
-    FROM ghcr.io/zizmorcore/zizmor:1.29.0
+    FROM ghcr.io/zizmorcore/zizmor:1.30.1
     WORKDIR /audit
     COPY --dir .github .
     # --no-online-audits: no GITHUB_TOKEN here, and the online audits reach out
@@ -292,7 +292,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.7-slim@sha256:cae66f2ef0ec51a9891263eeee7f987dacf0a9879e8aa9353d5606e0530619a5
+    FROM python:3.14.7-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser

@@ -11,10 +11,15 @@ import (
 // ManifestSuffix names the manifest kept beside a layer.
 //
 // A manifest lists every path the layer holds with its mode, ownership, times,
-// size and - for a regular file - the digest of its contents. It attests to the
-// layer: `layer.ManifestID` over these bytes is the layer's own identity, so a
-// manifest cannot describe paths the layer does not have without ceasing to be
-// that layer's manifest.
+// size and - for a regular file - the digest of its contents.
+//
+// **It attests to a layer named by its own digest**: `layer.ManifestID` over
+// these bytes is that layer's identity, so a manifest cannot describe paths the
+// layer does not have without ceasing to be its manifest. A layer filed under a
+// name the caller gave - a build context, whose identity is the plan's - has a
+// manifest too, and that one is a note rather than a proof. A reader that needs
+// the proof must check the hash; a reader that only needs to be told what a file
+// holds, as `COPY --sync` does, need not.
 const ManifestSuffix = ".manifest"
 
 // ManifestPath is where a layer's manifest lives.

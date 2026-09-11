@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
 // A destination whose bytes already match is left exactly as it is.
@@ -29,7 +31,7 @@ func TestCopyingAnIdenticalFileLeavesItAlone(t *testing.T) {
 	old := time.Unix(1_700_000_000, 0)
 	touchAt(t, dst, old)
 
-	err := copyFileUnlessSame(src, dst, 0o644, true)
+	err := copyFileUnlessSame(src, dst, 0o644, copyOpts{Sync: true})
 	if err != nil {
 		t.Fatalf("copy: %v", err)
 	}
@@ -53,7 +55,7 @@ func TestCopyingADifferentFileWritesIt(t *testing.T) {
 	old := time.Unix(1_700_000_000, 0)
 	touchAt(t, dst, old)
 
-	err := copyFileUnlessSame(src, dst, 0o644, true)
+	err := copyFileUnlessSame(src, dst, 0o644, copyOpts{Sync: true})
 	if err != nil {
 		t.Fatalf("copy: %v", err)
 	}
@@ -85,7 +87,7 @@ func TestASameSizedDifferenceIsNotSkipped(t *testing.T) {
 	writeAt(t, src, []byte("aaaaBaaaa"))
 	writeAt(t, dst, []byte("aaaaAaaaa"))
 
-	err := copyFileUnlessSame(src, dst, 0o644, true)
+	err := copyFileUnlessSame(src, dst, 0o644, copyOpts{Sync: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +118,7 @@ func TestWithoutTheFlagAnIdenticalFileIsStillRewritten(t *testing.T) {
 	old := time.Unix(1_700_000_000, 0)
 	touchAt(t, dst, old)
 
-	err := copyFileUnlessSame(src, dst, 0o644, false)
+	err := copyFileUnlessSame(src, dst, 0o644, copyOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +139,7 @@ func TestAnAbsentDestinationIsWritten(t *testing.T) {
 
 	dst := filepath.Join(dir, "dst")
 
-	err := copyFileUnlessSame(src, dst, 0o644, true)
+	err := copyFileUnlessSame(src, dst, 0o644, copyOpts{Sync: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +297,7 @@ func TestAnUnchangedFileAtTheSameModeIsNotTouched(t *testing.T) {
 	// gosec is right to say so.
 	chmodTo(t, dst, 0o600)
 
-	act, err := whatSyncMustDo(src, dst, 0o600)
+	act, err := whatSyncMustDo(src, dst, 0o600, copyOpts{Sync: true})
 	if err != nil {
 		t.Fatalf("decide: %v", err)
 	}
@@ -320,7 +322,7 @@ func TestSameBytesAtADifferentModeOnlyChangesTheMode(t *testing.T) {
 
 	chmodTo(t, dst, 0o600)
 
-	act, err := whatSyncMustDo(src, dst, 0o700)
+	act, err := whatSyncMustDo(src, dst, 0o700, copyOpts{Sync: true})
 	if err != nil {
 		t.Fatalf("decide: %v", err)
 	}
@@ -341,7 +343,7 @@ func TestDifferentBytesAreWritten(t *testing.T) {
 	writeAt(t, src, []byte("aaaaBaaaa"))
 	writeAt(t, dst, []byte("aaaaAaaaa"))
 
-	act, err := whatSyncMustDo(src, dst, 0o644)
+	act, err := whatSyncMustDo(src, dst, 0o644, copyOpts{Sync: true})
 	if err != nil {
 		t.Fatalf("decide: %v", err)
 	}
@@ -360,7 +362,7 @@ func TestAnAbsentDestinationIsAWrite(t *testing.T) {
 
 	writeAt(t, src, []byte("new"))
 
-	act, err := whatSyncMustDo(src, filepath.Join(dir, "no-such"), 0o644)
+	act, err := whatSyncMustDo(src, filepath.Join(dir, "no-such"), 0o644, copyOpts{Sync: true})
 	if err != nil {
 		t.Fatalf("decide: %v", err)
 	}
@@ -376,5 +378,107 @@ func chmodTo(t *testing.T, at string, mode os.FileMode) {
 	err := os.Chmod(at, mode)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// fakeDigests answers for every path, which no real oracle does. It is how the
+// tests below say "the store is certain" and then check what the copy does
+// about it anyway.
+func fakeDigests(srcOf, dstOf func(string) (ir.NodeID, bool)) syncDigests {
+	wrap := func(f func(string) (ir.NodeID, bool)) func(string, int64) (ir.NodeID, bool) {
+		return func(p string, _ int64) (ir.NodeID, bool) { return f(p) }
+	}
+
+	return syncDigests{src: wrap(srcOf), dst: wrap(dstOf)}
+}
+
+func alwaysDigest(what byte) func(string) (ir.NodeID, bool) {
+	var id ir.NodeID
+
+	id[0] = what
+
+	return func(string) (ir.NodeID, bool) { return id, true }
+}
+
+// **An absent destination is written, whatever the digests say.**
+//
+// The digest answers what a path *held*, and a manifest outlives the file it
+// describes: a base's manifest still names a path the merged view no longer has
+// at all. Believing it without looking would leave the copy's own destination
+// missing - which is the whole of the copy.
+func TestAnAbsentDestinationIsWrittenWhateverTheDigestsSay(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "gone")
+
+	writeAt(t, src, []byte("bytes"))
+
+	opts := copyOpts{Sync: true, digests: fakeDigests(alwaysDigest(1), alwaysDigest(1))}
+
+	err := copyFileUnlessSame(src, dst, 0o644, opts)
+	if err != nil {
+		t.Fatalf("copy: %v", err)
+	}
+
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("the destination was not written: %v", err)
+	}
+
+	if string(got) != "bytes" {
+		t.Errorf("the destination holds %q", got)
+	}
+}
+
+// Digests that disagree mean a write, even where the bytes happen to match:
+// the recorded digest is what the layer says the file is, and a file that is
+// not what its layer says it is must be replaced rather than trusted.
+func TestDisagreeingDigestsAreAWrite(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+
+	writeAt(t, src, []byte("identical"))
+	writeAt(t, dst, []byte("identical"))
+	touchAt(t, dst, time.Unix(1_700_000_000, 0))
+
+	opts := copyOpts{Sync: true, digests: fakeDigests(alwaysDigest(1), alwaysDigest(2))}
+
+	act, err := whatSyncMustDo(src, dst, 0o600, opts)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if act != syncWrite {
+		t.Errorf("disagreeing digests gave %v, wanted %v", act, syncWrite)
+	}
+}
+
+// A digest nobody wrote down is not an answer: the bytes decide, as they did
+// before any manifest was kept.
+func TestNoDigestFallsBackToTheBytes(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	dst := filepath.Join(dir, "dst")
+
+	writeAt(t, src, []byte("identical"))
+	writeAt(t, dst, []byte("identical"))
+
+	unknown := func(string) (ir.NodeID, bool) { return ir.NodeID{}, false }
+	opts := copyOpts{Sync: true, digests: fakeDigests(alwaysDigest(1), unknown)}
+
+	act, err := whatSyncMustDo(src, dst, 0o600, opts)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if act != syncNothing {
+		t.Errorf("an unknown digest gave %v, wanted the bytes to decide (%v)", act, syncNothing)
 	}
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/engine/fsclone"
 	"github.com/EarthBuild/earthbuild/engine/fstime"
+	"github.com/EarthBuild/earthbuild/engine/timing"
 )
 
 // copyPath copies a file or a directory, and its callers do not say which.
@@ -77,7 +78,7 @@ func copyPath(root, src, dst string, opts copyOpts) error {
 		return copyTree(src, dst, opts)
 	}
 
-	err = copyFileUnlessSame(src, dst, fi.Mode(), opts.Sync)
+	err = copyFileUnlessSame(src, dst, fi.Mode(), opts)
 	if err != nil {
 		return err
 	}
@@ -295,11 +296,18 @@ func copyTree(src, dst string, opts copyOpts) error {
 	// compared, which costs one file and removes a whole class of ordering
 	// question.
 	if opts.Sync {
+		endPrune := timing.Phase("guest:copy:prune", dst)
+
 		err := pruneToMatch(src, dst)
+
+		endPrune()
+
 		if err != nil {
 			return err
 		}
 	}
+
+	defer timing.Phase("guest:copy:walk", src)()
 
 	// Directory modes are applied once everything is in place, deepest first. A
 	// tree may contain a directory nothing may write to - `maven`'s image has
@@ -443,7 +451,7 @@ func copyTree(src, dst string, opts copyOpts) error {
 				seen[k] = target
 			}
 
-			copyErr := copyFileUnlessSame(p, target, fi.Mode(), opts.Sync)
+			copyErr := copyFileUnlessSame(p, target, fi.Mode(), opts)
 			if copyErr != nil {
 				return copyErr
 			}
@@ -597,8 +605,8 @@ func (a syncAction) String() string {
 // against 1.75s for a plain COPY.
 //
 // A ctime moved to the value it already had is work with no result.
-func whatSyncMustDo(src, dst string, mode os.FileMode) (syncAction, error) {
-	same, at, err := sameBytes(src, dst)
+func whatSyncMustDo(src, dst string, mode os.FileMode, opts copyOpts) (syncAction, error) {
+	same, at, err := sameBytes(src, dst, opts.digests)
 	if err != nil || !same {
 		return syncWrite, err
 	}
@@ -623,12 +631,12 @@ func whatSyncMustDo(src, dst string, mode os.FileMode) (syncAction, error) {
 //
 // Content, not length: two files of one size differing in a byte are different
 // files, and skipping that pair is a wrong build rather than a slow one.
-func copyFileUnlessSame(src, dst string, mode os.FileMode, skipSame bool) error {
-	if !skipSame {
+func copyFileUnlessSame(src, dst string, mode os.FileMode, opts copyOpts) error {
+	if !opts.Sync {
 		return copyFile(src, dst, mode)
 	}
 
-	what, err := whatSyncMustDo(src, dst, mode)
+	what, err := whatSyncMustDo(src, dst, mode, opts)
 	if err != nil {
 		return err
 	}
@@ -652,7 +660,11 @@ func copyFileUnlessSame(src, dst string, mode os.FileMode, skipSame bool) error 
 //
 // A missing destination is not the same as anything, which is the ordinary case
 // on a first copy and is not an error.
-func sameBytes(a, b string) (bool, os.FileInfo, error) {
+//
+// `known` short-circuits the read where the store has already recorded what both
+// files hold. It may always decline, and the answer is the same either way - only
+// slower.
+func sameBytes(a, b string, known syncDigests) (bool, os.FileInfo, error) {
 	ai, err := os.Stat(a)
 	if err != nil {
 		return false, nil, fmt.Errorf("read %s: %w", a, err)
@@ -671,6 +683,15 @@ func sameBytes(a, b string) (bool, os.FileInfo, error) {
 	// something else has to be replaced whatever it holds.
 	if !ai.Mode().IsRegular() || !bi.Mode().IsRegular() || ai.Size() != bi.Size() {
 		return false, bi, nil
+	}
+
+	// **Asked only once both files are known to be there and the same length.**
+	// A manifest describes a layer, not the filesystem in front of it, so the
+	// digest is never allowed to answer the questions a stat already has: an
+	// absent destination must be written however certain the store is about the
+	// path it used to hold.
+	if same, sure := known.same(a, ai.Size(), b, bi.Size()); sure {
+		return same, bi, nil
 	}
 
 	same, err := equalContents(a, b)

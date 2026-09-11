@@ -168,14 +168,71 @@ func fragmentSeal(e entry) ir.NodeID {
 	return h.Sum()
 }
 
-// readManifest reads back what Manifest wrote: every path, and the digest of
-// what is at it.
+// readManifest is every path a manifest names and the seal a fragment of it is
+// checked against. See fragmentSeal.
+func readManifest(m []byte) (map[string]ir.NodeID, error) {
+	entries, err := decodeManifest(m)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(map[string]ir.NodeID, len(entries))
+	for _, e := range entries {
+		out[e.path] = fragmentSeal(e)
+	}
+
+	return out, nil
+}
+
+// File is what a manifest records about one regular file's contents.
+//
+// Not the whole entry: a caller comparing two files across layers has the
+// digest and the size, and every other field is about where the file sits
+// rather than what it holds.
+type File struct {
+	// Content is the digest of the bytes, as green paper §3.3 defines it.
+	Content ir.NodeID
+	// Size is what the layer says the file is, which is how a reader tells the
+	// manifest from a file that has changed under it.
+	Size int64
+}
+
+// Files is what a manifest says every regular file in its layer holds.
+//
+// **The point of keeping the manifest.** Every digest here was computed by the
+// walk that made the layer; a reader with the manifest can tell two files apart,
+// or the same, without opening either - which is what lets `COPY --sync` decide
+// a tree is unchanged without reading it twice over.
+//
+// Regular files only. A directory, a link and a whiteout have no contents, and
+// handing back a zero digest for them would let a caller conclude two of them
+// were identical because neither had anything to compare.
+func Files(m []byte) (map[string]File, error) {
+	entries, err := decodeManifest(m)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(map[string]File, len(entries))
+
+	for _, e := range entries {
+		if kindOf(e.mode) != 'f' {
+			continue
+		}
+
+		out[e.path] = File{Content: e.content, Size: e.size}
+	}
+
+	return out, nil
+}
+
+// decodeManifest reads back the entries Manifest wrote.
 //
 // The field order mirrors `entry.hash` because it is the same encoding read the
 // other way. That coupling is the point - a manifest is not a second format, it
 // is the bytes the digest is already over - and it is why the round trip is
 // asserted rather than assumed.
-func readManifest(m []byte) (map[string]ir.NodeID, error) {
+func decodeManifest(m []byte) ([]entry, error) {
 	d := &reader{r: bytes.NewReader(m)}
 
 	n := d.count(maxEntries)
@@ -183,7 +240,7 @@ func readManifest(m []byte) (map[string]ir.NodeID, error) {
 		return nil, d.err
 	}
 
-	out := make(map[string]ir.NodeID, n)
+	out := make([]entry, 0, n)
 
 	for range n {
 		var e entry
@@ -229,7 +286,7 @@ func readManifest(m []byte) (map[string]ir.NodeID, error) {
 				ErrMalformed, e.path, kind[0], kindOf(e.mode))
 		}
 
-		out[e.path] = fragmentSeal(e)
+		out = append(out, e)
 	}
 
 	return out, nil

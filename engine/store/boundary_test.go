@@ -80,6 +80,7 @@ var knowsTheLayout = map[string]string{
 	// Asks whether a path the step read is below its base, which is how a read
 	// of the base is told from a read of what the step just wrote (E696).
 	"engine/guest/ownwrite.go":            sideGuest,
+	"engine/guest/syncdigest.go":          sideGuest,
 	"engine/mat/overlay/overlay_linux.go": sideGuest,
 
 	// The work. Each of these opens the store from the host.

@@ -30,7 +30,8 @@ import (
 // name, and whichever copy is there has been named by exactly this function. The
 // staging tree is removed rather than filed twice.
 func placeCaptured(store, staging string, p Placement) (ir.NodeID, error) {
-	c, err := layer.TakeOwnedKnowing(staging, layer.IDMap{}, layer.IDMap{}, p.Owners, p.Digests)
+	c, manifest, err := layer.TakeOwnedKnowingManifested(
+		staging, layer.IDMap{}, layer.IDMap{}, p.Owners, p.Digests)
 	if err != nil {
 		return ir.NodeID{}, fmt.Errorf("capture what was materialised: %w", err)
 	}
@@ -54,6 +55,8 @@ func placeCaptured(store, staging string, p Placement) (ir.NodeID, error) {
 		// second copy is the whole of what "already there" costs.
 		_ = os.RemoveAll(staging)
 
+		NoteManifest(store, c.ID, manifest)
+
 		return c.ID, nil
 	}
 
@@ -68,6 +71,11 @@ func placeCaptured(store, staging string, p Placement) (ir.NodeID, error) {
 	// removing what is not there succeeds. On the losing path it is still
 	// here, and this is what "already filed" costs.
 	_ = os.RemoveAll(staging)
+
+	// **The walk that named this layer already knew every one of these digests.**
+	// Keeping them costs an encode and a tenth of a percent of the layer;
+	// recomputing them later costs the whole walk again. See NoteManifest.
+	NoteManifest(store, c.ID, manifest)
 
 	return c.ID, nil
 }

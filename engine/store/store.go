@@ -135,10 +135,27 @@ func (d DirStore) AdoptConfig(id ir.NodeID, from string) error {
 // staging is removed rather than renamed over, because a rename onto a directory
 // fails and because what is there has been built exactly as carefully.
 func (d DirStore) PutNamed(id ir.NodeID, staging string) error {
-	err := Publish(string(d), id, staging)
+	// **Before the rename, because afterwards the staging tree is gone.** A
+	// named tree is the one kind of layer nothing has walked - a build context
+	// arrives as a tar and is filed under the identity the plan gave it - so
+	// this is the one manifest that costs a pass rather than an encode. It is a
+	// pass over a tree that was written moments ago, paid once when the context
+	// changes, and it is what lets every `COPY --sync` in the build afterwards
+	// decide a file is unchanged without opening it.
+	//
+	// Best effort, like the note itself: a manifest that cannot be taken leaves
+	// readers walking, which is what they did before this existed.
+	manifest, err := layer.Manifest(staging)
+	if err != nil {
+		manifest = nil
+	}
+
+	err = Publish(string(d), id, staging)
 	if err != nil {
 		return err
 	}
+
+	NoteManifest(string(d), id, manifest)
 
 	// Gone already on the winning path; on the losing one this is what
 	// "already there" costs.

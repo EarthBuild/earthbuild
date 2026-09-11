@@ -575,14 +575,26 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		// on the habits of the caller that happens to be shipped with it.
 		unlock := s.lockHandle(req.Handle)
 
-		err := s.copyIn(h, req.From, req.Path, req.Dest,
-			copyOpts{
-				AsDir: req.DirCopy, NoFollow: req.NoFollow, KeepOwn: req.KeepOwn,
-				Sync:  req.Sync,
-				Chown: req.Chown, Clamp: clampAt(req.Clamp), IfExists: req.IfExists,
-				LandsAs: req.LandsAs,
-				Chmod:   req.Chmod,
-			})
+		opts := copyOpts{
+			AsDir: req.DirCopy, NoFollow: req.NoFollow, KeepOwn: req.KeepOwn,
+			Sync:  req.Sync,
+			Chown: req.Chown, Clamp: clampAt(req.Clamp), IfExists: req.IfExists,
+			LandsAs: req.LandsAs,
+			Chmod:   req.Chmod,
+		}
+
+		// **The hashes are already on disk; reading the bytes again is the cost
+		// `--sync` was meant to remove.** A capture writes a manifest beside
+		// every layer it stores, holding the content digest of every file in it,
+		// so the source layer and the layers under this step's filesystem can
+		// both be asked what a path holds. Without this, deciding a 4 GB tree
+		// was unchanged read 8 GB - both sides - to reach the answer the store
+		// had written down.
+		if req.Sync {
+			opts.digests = s.syncDigests(req.Handle, h)
+		}
+
+		err := s.copyIn(h, req.From, req.Path, req.Dest, opts)
 
 		unlock()
 
@@ -628,8 +640,13 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		// Whatever this guest faulted in is base, not delta (E293). Nil when
 		// nothing lazily materialised, and then this is exactly `TakeIn` - which
 		// is every build today.
+		endTake := timing.Phase("guest:capture", req.Handle)
+
 		c, manifest, err := layer.TakeExcludingInManifested(
 			h.Delta(), s.placedIn(req.Handle, h.Delta()), uids, gids)
+
+		endTake()
+
 		if err != nil {
 			return Response{Err: err.Error()}
 		}
@@ -880,6 +897,10 @@ type copyOpts struct {
 	// is left as it is, so it keeps its mtime and is not copied up into the
 	// step's delta. See copyFileUnlessSame.
 	Sync bool
+	// digests lets `--sync` answer "the same" from what the store already
+	// recorded instead of reading both files. Empty is the fallback, and is
+	// what every copy did before manifests were kept beside layers.
+	digests syncDigests
 	// Chown is `--chown=user[:group]`: what the copy belongs to, resolved
 	// against the destination image rather than this machine (E419).
 	//

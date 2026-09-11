@@ -116,8 +116,18 @@ func TestTheSameLayerIsFiledOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(entries) != 1 {
-		t.Errorf("%d entries for one distinct layer", len(entries))
+	// Directories, because a layer is one and the notes beside it - the
+	// manifest, the configuration, the unmarked flag - are files.
+	trees := 0
+
+	for _, e := range entries {
+		if e.IsDir() {
+			trees++
+		}
+	}
+
+	if trees != 1 {
+		t.Errorf("%d trees for one distinct layer", trees)
 	}
 }
 

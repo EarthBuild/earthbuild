@@ -1,5 +1,7 @@
 package layer
 
+import "github.com/EarthBuild/earthbuild/engine/ir"
+
 // TakeManifested is Take, handing back the manifest for what it captured.
 //
 // **The walk has already read everything.** Capturing a layer reads every file
@@ -36,6 +38,32 @@ func TakeManifestedIn(root string, uids, gids IDMap) (Capture, []byte, error) {
 
 	// `capture` sorts in place, and the manifest needs the same order - so it is
 	// taken afterwards, over the slice capture has already put in order.
+	c := capture(entries, size, uids, gids)
+
+	return c, encodeEntries(entries, uids, gids), nil
+}
+
+// TakeOwnedKnowingManifested is TakeOwnedKnowing, handing back the manifest for
+// what it captured.
+//
+// The general form of TakeManifested, and the one the store uses: a placement
+// arrives with an unpacker's digests and the archive's account of ownership,
+// and the manifest has to be taken over exactly the entries the capture hashed
+// or it describes a different layer.
+func TakeOwnedKnowingManifested(
+	root string, uids, gids IDMap, own map[string]Owner, known map[string]ir.NodeID,
+) (Capture, []byte, error) {
+	entries, size, err := walkKnowing(root, known)
+	if err != nil {
+		return Capture{}, nil, err
+	}
+
+	// Reassigned, because `declared` may hand back a different slice - and the
+	// manifest must be encoded from whichever one the capture hashed.
+	entries = declared(entries, own)
+
+	// `capture` sorts in place; the manifest needs that same order, so it is
+	// taken afterwards. See TakeManifestedIn.
 	c := capture(entries, size, uids, gids)
 
 	return c, encodeEntries(entries, uids, gids), nil

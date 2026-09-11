@@ -4,16 +4,15 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
-	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
-func observedResult(places []core.Placement, obs core.Observation) core.Result {
-	return core.Result{Observation: obs, Observed: true, Placements: places}
+// ranAndWatched is a step that executed and whose observation the scheduler
+// judged usable.
+func ranAndWatched(places []core.Placement, obs core.Observation) core.StepRecord {
+	return core.StepRecord{
+		Outcome: core.OutcomeMiss, Observation: obs, Observed: true, Placements: places,
+	}
 }
-
-// ran is a step that executed a command: the kind whose reads decide a result,
-// and the kind whose silence is a gap rather than an absence.
-func ran(w *skipWatch, r core.Result) { w.saw(ir.OpExec, r) }
 
 // A build is many steps, and the record is about all of them: what any step
 // read from the checkout is an input to the build, whichever step read it.
@@ -22,12 +21,12 @@ func TestAWatchGathersEveryStepsReadsAndPlacements(t *testing.T) {
 
 	root := tree(t, map[string]string{"src/a.txt": "one", "src/b.txt": "two"})
 
-	var w skipWatch
+	rec := &core.Record{Steps: []core.StepRecord{
+		ranAndWatched(placedAt(), read("/w/src/a.txt")),
+		ranAndWatched(nil, read("/w/src/b.txt")),
+	}}
 
-	ran(&w, observedResult(placedAt(), read("/w/src/a.txt")))
-	ran(&w, observedResult(nil, read("/w/src/b.txt")))
-
-	in, err := w.hostInputs(map[string]bool{contextLayer: true}, root)
+	in, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
 	if err != nil {
 		t.Fatalf("derive: %v", err)
 	}
@@ -49,12 +48,12 @@ func TestAnUnobservedStepPoisonsTheWholeRecord(t *testing.T) {
 
 	root := tree(t, map[string]string{"src/a.txt": "one"})
 
-	var w skipWatch
+	rec := &core.Record{Steps: []core.StepRecord{
+		ranAndWatched(placedAt(), read("/w/src/a.txt")),
+		{Outcome: core.OutcomeMiss, Observed: false},
+	}}
 
-	ran(&w, observedResult(placedAt(), read("/w/src/a.txt")))
-	ran(&w, core.Result{Observed: false})
-
-	_, err := w.hostInputs(map[string]bool{contextLayer: true}, root)
+	_, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
 	if err == nil {
 		t.Error("a build with an unobserved step produced host inputs")
 	}
@@ -70,34 +69,87 @@ func TestAnIncompleteStepPoisonsTheWholeRecord(t *testing.T) {
 	missed := read("/w/src/a.txt")
 	missed.Incomplete = true
 
-	var w skipWatch
+	rec := &core.Record{Steps: []core.StepRecord{
+		ranAndWatched(placedAt(), read("/w/src/a.txt")),
+		ranAndWatched(nil, missed),
+	}}
 
-	ran(&w, observedResult(placedAt(), read("/w/src/a.txt")))
-	ran(&w, observedResult(nil, missed))
-
-	_, err := w.hostInputs(map[string]bool{contextLayer: true}, root)
+	_, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
 	if err == nil {
 		t.Error("a build with an incomplete observation produced host inputs")
 	}
 }
 
-// A step that produced no layer and watched nothing - a plan node rather than a
-// command - is not an unobserved step. Counting it as one would mean no build
-// with a `FROM` ever earns a key.
-func TestAStepWithNothingToObserveIsNotAGap(t *testing.T) {
+// A step served from cache did not run, so it watched nothing. That is not a
+// gap in the sense that matters - but it does mean this build cannot refresh
+// the record, which TestAPartialRebuildDoesNotRefreshTheRecord pins.
+func TestACachedStepIsNotAGap(t *testing.T) {
 	t.Parallel()
 
 	root := tree(t, map[string]string{"src/a.txt": "one"})
 
-	var w skipWatch
+	rec := &core.Record{Steps: []core.StepRecord{
+		ranAndWatched(placedAt(), read("/w/src/a.txt")),
+		// A step served from cache: it did not run, so it watched nothing, and
+		// what it would have read is whatever the key that hit already covered.
+		{Outcome: core.OutcomeL1Hit, Observed: false},
+	}}
 
-	ran(&w, observedResult(placedAt(), read("/w/src/a.txt")))
-
-	// A FROM: it resolves an image and watches nothing, which is not a gap.
-	w.saw(ir.OpImage, core.Result{Observed: false})
-
-	_, err := w.hostInputs(map[string]bool{contextLayer: true}, root)
+	_, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
 	if err != nil {
 		t.Errorf("a step with nothing to observe was treated as a gap: %v", err)
+	}
+}
+
+// **A build that hit cache did not observe what those steps would have read**,
+// so what it gathered is a subset of the build's inputs - and a subset is
+// exactly the shape that skips on a change nobody accounted for. Such a build
+// leaves the existing record alone.
+func TestAPartialRebuildDoesNotRefreshTheRecord(t *testing.T) {
+	t.Parallel()
+
+	all := &core.Record{Steps: []core.StepRecord{
+		ranAndWatched(placedAt(), read("/w/src/a.txt")),
+		ranAndWatched(nil, read("/w/src/b.txt")),
+	}}
+
+	if !refreshable(all) {
+		t.Error("a build where every step ran cannot refresh the record")
+	}
+
+	partial := &core.Record{Steps: []core.StepRecord{
+		ranAndWatched(placedAt(), read("/w/src/a.txt")),
+		{Outcome: core.OutcomeL2Hit},
+	}}
+
+	if refreshable(partial) {
+		t.Error("a build with a cached step refreshed the record")
+	}
+
+	if refreshable(nil) || refreshable(&core.Record{}) {
+		t.Error("a build with no steps refreshed the record")
+	}
+}
+
+// A step that ran but whose output was not captured still read what it read.
+func TestAnUncapturedStepStillCounts(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src/a.txt": "one"})
+
+	uncaptured := ranAndWatched(placedAt(), read("/w/src/a.txt"))
+	uncaptured.Outcome = core.OutcomeUncaptured
+
+	rec := &core.Record{Steps: []core.StepRecord{uncaptured}}
+
+	in, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
+	if err != nil || len(in) != 1 {
+		t.Errorf("an uncaptured step gave %v, %v", in, err)
+	}
+
+	// And an uncaptured step that was not watched is still a gap.
+	blind := core.StepRecord{Outcome: core.OutcomeUncaptured}
+	if gapIn(&core.Record{Steps: []core.StepRecord{blind}}) == "" {
+		t.Error("an uncaptured step that watched nothing is not a gap")
 	}
 }

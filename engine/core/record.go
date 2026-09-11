@@ -106,6 +106,16 @@ type StepRecord struct {
 	// equality without walking every path.
 	ObsDigest ir.NodeID
 
+	// Placements is where this step's copies put what they copied.
+	//
+	// Beside the observation and for the same reason: a reader that has to
+	// rewrite an observed path into the checkout path it came from needs both,
+	// and the copy is the only thing that knows the correspondence. Carried in
+	// memory only - one entry per COPY rather than one per path, but a record
+	// on disk is for divergence reporting and this answers a different
+	// question. See Placement.
+	Placements []Placement
+
 	// Meta is carried for diagnostics only and never compared.
 	Meta ir.Meta
 }

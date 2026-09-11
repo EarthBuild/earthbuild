@@ -1627,6 +1627,10 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 	rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = res.Layer, res.Exit, res.Bytes, OutcomeMiss
 
+	// Kept whether or not the observation is usable: where a copy put something
+	// is a fact about this step regardless of how well anyone watched it.
+	rec.Placements = res.Placements
+
 	// An observation is usable only if it is closed: everything the step
 	// observed is in it. A source that reports its own loss is honest and costs
 	// an L2 hit; one that hides it costs correctness.

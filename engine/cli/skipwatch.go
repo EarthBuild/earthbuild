@@ -53,7 +53,34 @@ func hostInputsOfBuild(
 		merged.Negative = append(merged.Negative, step.Observation.Negative...)
 	}
 
-	return hostInputsFrom(contexts, places, merged, root)
+	in, err := hostInputsFrom(contexts, places, merged, root)
+	if err != nil {
+		return nil, err
+	}
+
+	// **Copied from the checkout and read none of it.** That is the shape a
+	// broken path rewrite takes - the tracer reporting one spelling, the
+	// placements recording another, nothing matching - and an empty 𝑅 with a
+	// matching shape skips. It can also be honest, and a build that copies a
+	// tree and reads nothing from it is rare; refusing it costs a rebuild,
+	// believing a broken rewrite costs correctness, and that decides it.
+	if len(in) == 0 && placedFromAContext(places, contexts) {
+		return nil, fmt.Errorf("%w: this build copied from the checkout and"+
+			" nothing it read came from there", ErrNotDerivable)
+	}
+
+	return in, nil
+}
+
+// placedFromAContext says a copy took something out of the checkout.
+func placedFromAContext(places []core.Placement, contexts map[string]bool) bool {
+	for _, p := range places {
+		if contexts[p.Layer] {
+			return true
+		}
+	}
+
+	return false
 }
 
 // gapIn is the first reason this build cannot be keyed, or empty.

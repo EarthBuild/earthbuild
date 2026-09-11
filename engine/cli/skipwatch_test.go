@@ -153,3 +153,42 @@ func TestAnUncapturedStepStillCounts(t *testing.T) {
 		t.Error("an uncaptured step that watched nothing is not a gap")
 	}
 }
+
+// **A build that copied from the checkout and read none of it is suspicious.**
+//
+// It is the shape a broken path mapping takes: the tracer reports reads under
+// one spelling, the placements record another, nothing matches, and 𝑅 comes
+// back empty. An empty 𝑅 with a matching shape *skips* - so the failure of the
+// rewrite is a build that never runs, which is the one outcome this must not
+// produce.
+//
+// It can also be honest: a build that copies a tree and reads nothing from it.
+// That build is rare, and refusing it costs a rebuild; believing a broken
+// mapping costs correctness. The asymmetry decides it.
+func TestAContextCopiedAndNeverReadIsRefused(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src/a.txt": "one"})
+
+	// Placed from the context, and the reads are of somewhere else entirely -
+	// which is what a mapping that agrees with nothing looks like.
+	elsewhere := &core.Record{Steps: []core.StepRecord{
+		ranAndWatched(placedAt(), read("/somewhere/else.txt")),
+	}}
+
+	_, err := hostInputsOfBuild(elsewhere, map[string]bool{contextLayer: true}, root)
+	if err == nil {
+		t.Error("a build that placed a context and mapped no read produced inputs")
+	}
+
+	// A build that placed nothing from a context is not suspicious: it has no
+	// checkout inputs because it has no checkout copies.
+	none := &core.Record{Steps: []core.StepRecord{
+		ranAndWatched(nil, read("/etc/alpine-release")),
+	}}
+
+	got, err := hostInputsOfBuild(none, map[string]bool{contextLayer: true}, root)
+	if err != nil || len(got) != 0 {
+		t.Errorf("a build with no context copies gave %v, %v", got, err)
+	}
+}

@@ -56,10 +56,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Retrieve earthbuild from build-earthly job
+        env:
+          TAG_SUFFIX: ${{ needs.build-earthly.outputs.TAG_SUFFIX }}
         run: |
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-latest" ./earthly upgrade
+          set -euo pipefail
+          TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-latest" ./build/linux/amd64/earthly
+          mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Compute release tag
         id: compute-tag
         run: |-
@@ -135,10 +139,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Retrieve earthbuild from build-earthly job
+        env:
+          TAG_SUFFIX: ${{ needs.build-earthly.outputs.TAG_SUFFIX }}
         run: |-
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-latest" ./earthly upgrade
+          set -euo pipefail
+          TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-latest" ./build/linux/amd64/earthly
+          mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Release to DockerHub (main)
         env:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
@@ -147,7 +155,7 @@ jobs:
           set -euo pipefail
           # DEFAULT_BUILDKITD_IMAGE must match what copy-buildkitd-to-dockerhub
           # publishes, and what the release binaries bake in (release-binaries).
-          ./build/linux/amd64/earthly --push \
+          ./build/linux/amd64/earthly --ci --push \
             ./release+release-dockerhub \
             --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
             --DEFAULT_BUILDKITD_IMAGE="docker.io/earthbuild/buildkitd:${VERSION}" \
@@ -195,10 +203,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Retrieve earthbuild from build-earthly job
+        env:
+          TAG_SUFFIX: ${{ needs.build-earthly.outputs.TAG_SUFFIX }}
         run: |-
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-latest" ./earthly upgrade
+          set -euo pipefail
+          TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-latest" ./build/linux/amd64/earthly
+          mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Release to DockerHub (ticktock)
         env:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
@@ -209,7 +221,7 @@ jobs:
           # (perform-release-buildkitd-dockerhub pushes
           # buildkitd-staging-<tag>), so that is what the embedded CLI must
           # point at.
-          ./build/linux/amd64/earthly --push \
+          ./build/linux/amd64/earthly --ci --push \
             ./release+release-dockerhub \
             --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:${{ env.DOCKERHUB_BUILDKIT_IMG }}-${RELEASE_TAG}-ticktock" \
@@ -241,10 +253,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Retrieve earthbuild from build-earthly job
+        env:
+          TAG_SUFFIX: ${{ needs.build-earthly.outputs.TAG_SUFFIX }}
         run: |-
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-latest" ./earthly upgrade
+          set -euo pipefail
+          TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-latest" ./build/linux/amd64/earthly
+          mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Copy buildkitd from GHCR to DockerHub
         env:
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -253,7 +269,7 @@ jobs:
           VARS_DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
         run: |-
           set -euo pipefail
-          ./build/linux/amd64/earthly --push \
+          ./build/linux/amd64/earthly --ci --push \
             --secret "CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN}" \
             --secret "DEST_CONTAINER_REGISTRY_TOKEN=${DOCKERHUB_TOKEN}" \
             ./release+copy-staging-buildkitd-to-dockerhub \
@@ -288,10 +304,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Retrieve earthbuild from build-earthly job
+        env:
+          TAG_SUFFIX: ${{ needs.build-earthly.outputs.TAG_SUFFIX }}
         run: |-
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="${GITHUB_SHA}-latest" ./earthly upgrade
+          set -euo pipefail
+          TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${GITHUB_SHA}-latest" ./build/linux/amd64/earthly
+          mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       # This step creates earthly binaries for all platforms plus signature files for them under
       # the ./release/release/ dir
       - name: Create Release Binaries
@@ -301,6 +321,11 @@ jobs:
           VERSION: ${{ needs.prepare-release.outputs.version }}
         run: |-
           set -euo pipefail
+          # The one release job without --ci: --ci implies --no-output, which
+          # would suppress the SAVE ARTIFACT AS LOCAL this job exists to
+          # produce. The cost is the local image load that --ci avoids
+          # elsewhere; https://github.com/EarthBuild/earthbuild/pull/858 adds
+          # --no-image-output, which would let this job have both.
           ./build/linux/amd64/earthly --push \
             --secret GPG_PRIVATE="${GPG_PRIVATE}" \
             ./release+signed-release \

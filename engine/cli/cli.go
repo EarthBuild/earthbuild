@@ -136,6 +136,16 @@ type Options struct {
 	// runner.** Planning costs the context digest - seconds on a large tree -
 	// against the job.
 	CheckInputs string
+	// AutoSkip is `--auto-skip`: a target whose plan this machine has built
+	// before is not built again.
+	//
+	// The same promise buildkit's flag makes, kept from the plan rather than
+	// from a second implementation of it - so a moved base image is a different
+	// plan here, where `inputgraph` hashes the tag and skips. See autoskip.go.
+	AutoSkip bool
+	// AutoSkipDB is `--auto-skip-db-path`. The plan store sits beside it rather
+	// than in it: see planSkipSuffix.
+	AutoSkipDB string
 }
 
 // platformOrDefault is the platform the build runs on.
@@ -334,6 +344,19 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		return err
 	}
 
+	// **Before planning, which is the whole point of the flag.** The shape needs
+	// no plan and the inputs it names are read from the checkout, so a job that
+	// need not run costs a parse, a hash and a few file reads - rather than a
+	// machine, a registry round trip and a digest of the whole build context.
+	shape, skip, err := askAutoSkip(o, src, args, secretDigest, secrets)
+	if err != nil {
+		return err
+	}
+
+	if skip {
+		return nil
+	}
+
 	plan, err := interp.Build(string(src), o.Target,
 		interp.WithContextCache(g.contexts),
 		interp.WithTerminal(tty != nil),
@@ -369,35 +392,20 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		return report(o.Out, plan)
 	}
 
-	// **After planning and before anything runs.** The fingerprint is a
-	// statement about the plan, and making the plan is the whole of what these
-	// two cost - which is the point: a CI job asks this instead of booting a
-	// machine.
 	if o.EmitInputs != "" || o.CheckInputs != "" {
-		in := inputsOf(plan, o.Target, o.platformOrDefault())
-
-		if o.EmitInputs != "" {
-			err = writeInputs(o.EmitInputs, in)
-			if err != nil {
-				return err
-			}
-		}
-
-		if o.CheckInputs == "" {
-			return nil
-		}
-
-		err = checkInputs(o.CheckInputs, in)
-		if err != nil {
-			return err
-		}
-
-		fmt.Fprintf(o.Out, "unchanged: %s needs no build\n", o.Target)
-
-		return nil
+		return answerAboutInputs(o, plan)
 	}
 
-	return build(ctx, o, plan, g, tty)
+	sched, err := build(ctx, o, plan, g, tty)
+	if err != nil {
+		return err
+	}
+
+	if o.AutoSkip {
+		noteBuild(o, plan, sched, shape)
+	}
+
+	return nil
 }
 
 // needsSandbox reports whether any step must run somewhere other than here.
@@ -443,10 +451,14 @@ func report(w io.Writer, plan *interp.Plan) error {
 	return nil
 }
 
-func build(ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os.File) error {
-	// Nothing is left to do with what ran the plan: `runPlan` both exports and
+func build(
+	ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os.File,
+) (*core.Scheduler, error) {
+	// The scheduler is handed back for its record: what every step observed and
+	// where its copies put things, which is what `--auto-skip` writes down. The
+	// rest of what ran the plan is finished with - `runPlan` both exports and
 	// writes the images before it returns.
-	_, _, err := runPlan(ctx, o, plan, g, tty)
+	_, sched, err := runPlan(ctx, o, plan, g, tty)
 
 	// **`runPlan` has already exported, and has already written the images.**
 	// There were two calls of each, with identical arguments, one here and one
@@ -464,7 +476,74 @@ func build(ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os
 	// the same directory. It stopped being invisible when `--push` began doing
 	// something, because the second write is then a second upload - every blob
 	// offered to the registry again, and the tag republished.
-	return err
+	return sched, err
+}
+
+// answerAboutInputs is `emit-inputs` and `check-inputs`: a statement about the
+// plan, with nothing run.
+func answerAboutInputs(o Options, plan *interp.Plan) error {
+	in := inputsOf(plan, o.Target, o.platformOrDefault())
+
+	if o.EmitInputs != "" {
+		err := writeInputs(o.EmitInputs, in)
+		if err != nil {
+			return err
+		}
+	}
+
+	if o.CheckInputs == "" {
+		return nil
+	}
+
+	err := checkInputs(o.CheckInputs, in)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(o.Out, "unchanged: %s needs no build\n", o.Target)
+
+	return nil
+}
+
+// askAutoSkip answers `--auto-skip` before anything is planned.
+//
+// Hands back the shape it computed, so a build that does run can record itself
+// under it, and whether there is anything left to do.
+func askAutoSkip(
+	o Options, src []byte, args, secretDigest, secrets map[string]string,
+) (ir.NodeID, bool, error) {
+	if !o.AutoSkip {
+		return ir.NodeID{}, false, nil
+	}
+
+	asked := shapeFor(o, src, args, secretDigest, secrets)
+
+	// Said once, where it can be acted on. A weaker key that nobody is told
+	// about is one nobody can decide to strengthen.
+	if secretsAreKeyedByName(asked) {
+		fmt.Fprintf(o.Out, "auto-skip: no %s is set, so this build is keyed on"+
+			" which secrets it reads and not on their values\n", EnvSecretHMAC)
+	}
+
+	store, storeErr := skipRecordStoreFor(o.AutoSkipDB)
+	if storeErr != nil {
+		// Nowhere to remember is a reason to build, not to fail: this flag is
+		// an optimisation and an optimisation that cannot be had must degrade
+		// to work rather than to failure.
+		//nolint:nilerr // see above
+		return ir.NodeID{}, false, nil
+	}
+
+	skip, shape, err := wouldSkip(asked, o.Dir, store)
+	if err != nil {
+		return ir.NodeID{}, false, err
+	}
+
+	if skip {
+		fmt.Fprintf(o.Out, "auto-skip: %s was built with these inputs before\n", o.Target)
+	}
+
+	return shape, skip, nil
 }
 
 // runPlan runs a plan and gives back what ran it.

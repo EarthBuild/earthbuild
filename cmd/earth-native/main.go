@@ -176,10 +176,14 @@ func main() {
 		dir      = flag.String("dir", ".", "directory holding the Earthfile; also the build context")
 		platform = flag.String("platform", "", "os/arch to build for; the sandbox's own when empty")
 		dryRun   = flag.Bool("dry-run", false, "resolve the plan and print it without running anything")
-		stopSb   = flag.Bool("stop-sandbox", false, "remove the persistent sandbox VM and exit")
-		doPin    = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
-		long     = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
-		prune    = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
+		autoSkip = flag.Bool("auto-skip", false,
+			"do not build a target that has been built with these inputs before")
+		autoSkipDB = flag.String("auto-skip-db-path", "",
+			"where to remember what has been built; a CI cache carries this file")
+		stopSb = flag.Bool("stop-sandbox", false, "remove the persistent sandbox VM and exit")
+		doPin  = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
+		long   = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
+		prune  = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
 		// Wiring, not mechanism: engine/cli already reads all three and had no
 		// way to be told. The names are earthly's, because a flag that does the
 		// same thing under a different spelling is a compatibility gap wearing
@@ -411,6 +415,8 @@ func main() {
 		Secrets:         secrets,
 		SecretFiles:     secretFilePaths,
 		DryRun:          *dryRun,
+		AutoSkip:        *autoSkip,
+		AutoSkipDB:      *autoSkipDB,
 		EmitInputs:      emitInputs,
 		CheckInputs:     checkInputs,
 		ArgFile:         *argFile,

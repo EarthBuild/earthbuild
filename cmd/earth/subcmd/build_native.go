@@ -160,6 +160,8 @@ func (b *Build) nativeOptionsFor(
 		noOutput:        b.cli.Flags().NoOutput,
 		execStats:       b.cli.Flags().DisplayExecStats,
 		argFile:         argFile,
+		autoSkip:        b.cli.Flags().SkipBuildkit && !b.cli.Flags().NoAutoSkip,
+		autoSkipDB:      b.cli.Flags().LocalSkipDB,
 		emitInputs:      b.emitInputs,
 		checkInputs:     b.checkInputs,
 	}), nil
@@ -186,6 +188,12 @@ type nativeInput struct {
 	noOutput        bool
 	execStats       bool
 	argFile         string
+	// autoSkip and autoSkipDB are `--auto-skip` and `--auto-skip-db-path`,
+	// which this engine now honours - keyed on the plan's shape and what a
+	// previous build actually read rather than on a second hash of the
+	// Earthfile. See docs-internals/job-skipping.md.
+	autoSkip   bool
+	autoSkipDB string
 	// emitInputs and checkInputs are `emit-inputs` and `check-inputs`: the
 	// plan's fingerprint written down, and a later plan compared against it.
 	// Both plan and run nothing.
@@ -211,6 +219,8 @@ func nativeOptions(in nativeInput) enginecli.Options {
 		NoOutput:        in.noOutput,
 		ExecStats:       in.execStats,
 		ArgFile:         in.argFile,
+		AutoSkip:        in.autoSkip,
+		AutoSkipDB:      in.autoSkipDB,
 		EmitInputs:      in.emitInputs,
 		CheckInputs:     in.checkInputs,
 		Out:             os.Stdout,

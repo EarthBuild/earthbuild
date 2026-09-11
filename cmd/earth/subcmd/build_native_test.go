@@ -262,6 +262,8 @@ func TestEveryOptionIsAccountedFor(t *testing.T) {
 		argFile:         "f",
 		emitInputs:      "e",
 		checkInputs:     "c",
+		autoSkip:        true,
+		autoSkipDB:      "db",
 	}
 
 	inv := reflect.ValueOf(in)

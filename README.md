@@ -20,7 +20,7 @@ If you're interested in understanding why the community fork is happening, [this
 
 [![CI](https://github.com/EarthBuild/earthbuild/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EarthBuild/earthbuild/actions/workflows/ci.yml?query=branch%3Amain)
 [![Staging Release](https://github.com/EarthBuild/earthbuild/actions/workflows/ci-staging-deploy.yml/badge.svg?branch=main)](https://github.com/EarthBuild/earthbuild/actions/workflows/ci-staging-deploy.yml?query=branch%3Amain)
-[![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://www.earthbuild.dev/slack)
+[![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://earthly.dev/slack)
 [![Docs](https://img.shields.io/badge/docs-earthbuild.dev-blue)](https://docs.earthbuild.dev)
 [![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://www.earthbuild.dev)
 [![Install EarthBuild](https://img.shields.io/github/v/release/earthbuild/earthbuild.svg?label=install&color=1f626c)](https://www.earthbuild.dev/install.html)
@@ -347,7 +347,7 @@ Bazel requires that you describe your build in its own language, and gives you s
 ## Contributing
 
 - Please report bugs as [GitHub issues](https://github.com/EarthBuild/earthbuild/issues).
-- Join us on [Slack](https://www.earthbuild.dev/slack)!
+- Join us on [Slack](https://earthly.dev/slack)!
 - Questions via GitHub issues are welcome!
 - PRs welcome! But please give a heads-up in a GitHub issue before starting work. If there is no GitHub issue for what you want to do, please create one.
 - To build from source, check the [contributing page](./CONTRIBUTING.md).

@@ -48,7 +48,7 @@ Each recipe contains a series of commands, which are defined below. For an intro
 
 #### Description
 
-The `FROM` command initializes a new build environment and sets the base image for subsequent instructions. It works similarly to the classical [Dockerfile `FROM` instruction](https://docs.docker.com/engine/reference/builder/#from), but it has the added ability to use another [target](https://docs.earthly.dev/docs/guides/target-ref#target-reference)'s image as the base image.
+The `FROM` command initializes a new build environment and sets the base image for subsequent instructions. It works similarly to the classical [Dockerfile `FROM` instruction](https://docs.docker.com/engine/reference/builder/#from), but it has the added ability to use another [target](../guides/target-ref.md#target-reference)'s image as the base image.
 
 Examples:
 
@@ -56,7 +56,7 @@ Examples:
 - Local reference: `FROM +another-target`
 - Relative reference: `FROM ./subdirectory+some-target` or `FROM ../otherdirectory+some-target`
 - Absolute reference: `FROM /absolute/path+some-target`
-- Remote reference from a public or [private](https://docs.earthly.dev/docs/guides/auth) git repository: `FROM github.com/example/project+remote-target`
+- Remote reference from a public or [private](../guides/auth.md) git repository: `FROM github.com/example/project+remote-target`
 
 The `FROM` command does not mark any saved images or artifacts of the referenced target for output, nor does it mark any push commands of the referenced target for pushing. For that, please use [`BUILD`](#build).
 
@@ -279,7 +279,7 @@ RUN --ssh git config --global url."git@github.com:".insteadOf "https://github.co
 ```
 
 {% hint style='warning' %}
-Note that `RUN --ssh` option is only used for creating a tunnel to the host's ssh-agent's socket (set via `$SSH_AUTH_SOCK`); it is **not** related to the git section of the earth [configuration file](../earthly-config/earthly-config.md).
+Note that `RUN --ssh` option is only used for creating a tunnel to the host's ssh-agent's socket (set via `$SSH_AUTH_SOCK`); it is **not** related to the git section of the earth [configuration file](../earth-config/earth-config.md).
 {% endhint %}
 
 ##### `--mount <mount-spec>`
@@ -318,13 +318,13 @@ Note that mounts cannot be shared between targets, nor can they be shared within
 Mounting a secret as a file:
 
 ```Dockerfile
-RUN --mount=type=secret,id=netrc,target=/root/.netrc curl https://example.earthly.dev/restricted/example-file-that-requires-auth > data
+RUN --mount=type=secret,id=netrc,target=/root/.netrc curl https://example.earthbuild.dev/restricted/example-file-that-requires-auth > data
 ```
 
 The contents of the secret `/root/.netrc` file can then be specified from the command line as:
 
 ```bash
-earth --secret netrc="machine example.earthly.dev login myusername password mypassword" +base
+earth --secret netrc="machine example.earthbuild.dev login myusername password mypassword" +base
 ```
 
 or by passing the contents of an existing file from the host filesystem:
@@ -396,8 +396,8 @@ The `<oidc-spec>` is defined as a series of comma-separated list of key-values. 
 
 ##### The hosted OIDC provider is unavailable
 
-Configuring this required registering EarthBuild's hosted OIDC issuer (`api.earthly.dev`) as an
-identity provider in AWS IAM. That host was decommissioned along with EarthBuild Cloud and no longer
+Configuring this required registering Earthly's hosted OIDC issuer (`api.earthly.dev`) as an
+identity provider in AWS IAM. That host was decommissioned along with Earthly Cloud and no longer
 resolves, so the flow cannot be set up as previously documented. The option is still accepted by
 the parser, but there is no working issuer behind it unless you run your own.
 
@@ -504,7 +504,7 @@ The classical form of the `COPY` command differs from Dockerfiles in three cases
 
 ##### Note
 
-To prevent EarthBuild from copying unwanted files, you may specify file patterns to be excluded from the build context using an [`.earthlyignore`](./earthlyignore.md) file. This file has the same syntax as a [`.dockerignore` file](https://docs.docker.com/engine/reference/builder/#dockerignore-file).
+To prevent EarthBuild from copying unwanted files, you may specify file patterns to be excluded from the build context using an [`.earthignore`](./earthignore.md) file. This file has the same syntax as a [`.dockerignore` file](https://docs.docker.com/engine/reference/builder/#dockerignore-file).
 {% endhint %}
 
 #### Options
@@ -1277,7 +1277,7 @@ WITH DOCKER \
 END
 ```
 
-For more examples, see the [Docker in EarthBuild guide](../guides/docker-in-earthly.md) and the [Integration testing guide](../guides/integration.md).
+For more examples, see the [Docker in EarthBuild guide](../guides/docker-in-earthbuild.md) and the [Integration testing guide](../guides/integration.md).
 
 For information on using `WITH DOCKER` with podman see the [Podman guide](../guides/podman.md)
 

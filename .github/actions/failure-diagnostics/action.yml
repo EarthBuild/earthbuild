@@ -136,9 +136,9 @@ runs:
         done
         echo "::endgroup::"
 
-        echo "::group::earthly directories"
-        run_shell 'du -sh ~/.earthly ~/.earthly-dev 2>/dev/null || true'
-        run_shell 'find ~/.earthly ~/.earthly-dev -maxdepth 2 -type d 2>/dev/null | sort | head -100 || true'
+        echo "::group::earth directories"
+        run_shell 'du -sh ~/.earth ~/.earthly ~/.earthly-dev 2>/dev/null || true'
+        run_shell 'find ~/.earth ~/.earthly ~/.earthly-dev -maxdepth 2 -type d 2>/dev/null | sort | head -100 || true'
         echo "::endgroup::"
 
         exit 0

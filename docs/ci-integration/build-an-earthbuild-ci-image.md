@@ -32,7 +32,7 @@ apk add --no-cache my-cool-tool
 
 If you are adding a tool from outside the Alpine Linux repositories, test it to ensure it is compatible. Alpine uses `musl`, which _can_ create incompatibilities with some software.
 
-Also, you should embed any configuration that your EarthBuild image might need (to avoid having it in your build scripts, or mounted from a host somewhere). You can do this in-line with the [`earth config` command](../earthly-command/earthly-command.md#earthly-config).
+Also, you should embed any configuration that your EarthBuild image might need (to avoid having it in your build scripts, or mounted from a host somewhere). You can do this in-line with the [`earth config` command](../earth-command/earth-command.md#earth-config).
 
 ### Adding EarthBuild To An Existing Image
 

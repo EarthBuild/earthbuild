@@ -23,6 +23,12 @@ on:
         required: false
         type: boolean
         default: false
+    outputs:
+      TAG_SUFFIX:
+        description: >-
+          The suffix the images this job pushed are tagged with, as in
+          ghcr.io/earthbuild/earthbuild:buildkitd-staging-<sha>-<suffix>.
+        value: ${{ jobs.build-earthly.outputs.TAG_SUFFIX }}
     secrets:
       OTEL_EXPORTER_OTLP_HEADERS:
         required: false
@@ -42,6 +48,8 @@ jobs:
     name: build (and push) earthly using ${{inputs.BINARY}} and earthly-next=${{inputs.USE_NEXT}}
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
+    outputs:
+      TAG_SUFFIX: ${{ steps.tag-suffix.outputs.TAG_SUFFIX }}
     # Needed for the +ci-release target to push to the GitHub Container Registry for later builds
     permissions:
       contents: read
@@ -152,14 +160,16 @@ jobs:
           set -euo pipefail
           EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      # Computed once: three later steps need it, and it is a pure function of
-      # the workflow inputs.
+      # Computed once: later steps and the workflow output need it, and it is a
+      # pure function of the workflow inputs.
       - name: Set TAG_SUFFIX env
+        id: tag-suffix
         run: |-
           set -euo pipefail
           suffix="$INPUTS_RUNS_ON"
           if [ "$INPUTS_USE_NEXT" = "true" ]; then suffix="$suffix-ticktock"; fi
           echo "TAG_SUFFIX=$suffix" >> "$GITHUB_ENV"
+          echo "TAG_SUFFIX=$suffix" >> "$GITHUB_OUTPUT"
         env:
           INPUTS_RUNS_ON: ${{inputs.RUNS_ON}}
           INPUTS_USE_NEXT: ${{inputs.USE_NEXT}}
@@ -199,8 +209,6 @@ jobs:
         # --image in the step above, so `image inspect` hits and no pull runs.
         run: |-
           set -euo pipefail
-          export TAG_SUFFIX="latest"
-          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
           IMG="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
 
           mkdir -p ./artifacts
@@ -219,9 +227,6 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           set -euo pipefail
-          export TAG_SUFFIX="latest"
-          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-
           # The test suites address the buildkitd daemon by container name, so
           # DEFAULT_INSTALLATION_NAME must be pinned rather than left at its dev
           # default. "earth" gives them "earth-buildkitd".

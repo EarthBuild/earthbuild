@@ -901,7 +901,7 @@ ContainerRunningLoop:
 					"\tearth config 'global.cache_size_mb' <new-size>\n" +
 					"\tearth config 'global.cache_size_pct' <new-percent>\n" +
 					"These set the BuildKit GC target to a specific value. For more information see " +
-					"the earth config reference page: https://docs.earthbuild.dev/docs/earthly-config\n")
+					"the earth config reference page: https://docs.earthbuild.dev/docs/earth-config\n")
 
 			info, workerInfo, err = waitForConnection(ctx, log, containerName, settings, eng, opts...)
 			if err != nil {

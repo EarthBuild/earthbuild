@@ -193,7 +193,7 @@ func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	if flags.GitUsernameOverride != "" || flags.GitPasswordOverride != "" {
 		app.BaseCLI.Log().Warnf("Warning: the --git-username and --git-password command flags " +
 			"are deprecated and are now configured in the ~/.earthly/config.yml file under the git section; " +
-			"see https://docs.earthbuild.dev/earthly-config for reference.\n")
+			"see https://docs.earthbuild.dev/docs/earth-config for reference.\n")
 
 		if _, ok := cfg.Git["github.com"]; !ok {
 			cfg.Git["github.com"] = config.GitConfig{}

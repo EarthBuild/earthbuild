@@ -20,7 +20,7 @@ If you're interested in understanding why the community fork is happening, [this
 
 [![CI](https://github.com/EarthBuild/earthbuild/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EarthBuild/earthbuild/actions/workflows/ci.yml?query=branch%3Amain)
 [![Staging Release](https://github.com/EarthBuild/earthbuild/actions/workflows/ci-staging-deploy.yml/badge.svg?branch=main)](https://github.com/EarthBuild/earthbuild/actions/workflows/ci-staging-deploy.yml?query=branch%3Amain)
-[![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://www.earthbuild.dev/slack)
+[![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://earthly.dev/slack)
 [![Docs](https://img.shields.io/badge/docs-earthbuild.dev-blue)](https://docs.earthbuild.dev)
 [![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://www.earthbuild.dev)
 [![Install EarthBuild](https://img.shields.io/github/v/release/earthbuild/earthbuild.svg?label=install&color=1f626c)](https://www.earthbuild.dev/install.html)
@@ -141,15 +141,15 @@ Here are some resources to get you started with EarthBuild
 - [Multiplatform Builds](./examples/multiplatform)
 - [Integration Tests](./examples/integration-test)
 - 🔍 Explore [EarthBuild's own build](https://docs.earthbuild.dev/docs/examples#earthbuilds-own-build)
-- ✔️ [Best practices](https://docs.earthbuild.dev/guides/best-practices)
+- ✔️ [Best practices](https://docs.earthbuild.dev/docs/guides/best-practices)
 
 See also the [full documentation](https://docs.earthbuild.dev).
 
 Reference pages
 
 - 📑 [Earthfile reference](https://docs.earthbuild.dev/docs/earthfile)
-- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/earthly-command/earthly-command)
-- ⚙️ [Configuration reference](https://docs.earthbuild.dev/earthly-config/earthly-config)
+- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/docs/earth-command)
+- ⚙️ [Configuration reference](https://docs.earthbuild.dev/docs/earth-config)
 
 ### A simple example (for Go)
 
@@ -271,7 +271,7 @@ docker run --rm earthbuild/examples:go
 
 Use `+` to reference other targets and create complex build inter-dependencies.
 
-<div align="center"><a href="https://docs.earthbuild.dev/guides/target-ref"><img src="docs/guides/img/ref-infographic-v2.png" alt="Target and artifact reference syntax" title="Reference targets using +" width="600px" /></a></div>
+<div align="center"><a href="https://docs.earthbuild.dev/docs/guides/target-ref"><img src="docs/guides/img/ref-infographic-v2.png" alt="Target and artifact reference syntax" title="Reference targets using +" width="600px" /></a></div>
 
 Examples
 
@@ -320,7 +320,7 @@ release:
 
 It is possible to use Dockerfiles in combination with other technologies (e.g., Makefiles or bash files) to solve such use cases. However, these combinations are difficult to parallelize, challenging to scale across repositories as they lack a robust import system, and often vary in style from one team to another. EarthBuild does not have these limitations as it was designed as a general-purpose build system.
 
-For example, EarthBuild introduces a richer target, artifact, and image [referencing system](https://docs.earthbuild.dev/guides/target-ref), allowing for better reuse in complex builds spanning a single large repository or multiple repositories. Because Dockerfiles are only meant to describe one image at a time, such features are outside the scope of applicability of Dockerfiles.
+For example, EarthBuild introduces a richer target, artifact, and image [referencing system](https://docs.earthbuild.dev/docs/guides/target-ref), allowing for better reuse in complex builds spanning a single large repository or multiple repositories. Because Dockerfiles are only meant to describe one image at a time, such features are outside the scope of applicability of Dockerfiles.
 
 ### How do I know if a command is a classic Dockerfile command or an EarthBuild command?
 
@@ -347,7 +347,7 @@ Bazel requires that you describe your build in its own language, and gives you s
 ## Contributing
 
 - Please report bugs as [GitHub issues](https://github.com/EarthBuild/earthbuild/issues).
-- Join us on [Slack](https://www.earthbuild.dev/slack)!
+- Join us on [Slack](https://earthly.dev/slack)!
 - Questions via GitHub issues are welcome!
 - PRs welcome! But please give a heads-up in a GitHub issue before starting work. If there is no GitHub issue for what you want to do, please create one.
 - To build from source, check the [contributing page](./CONTRIBUTING.md).

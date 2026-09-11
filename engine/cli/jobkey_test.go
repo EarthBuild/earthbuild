@@ -15,12 +15,12 @@ import (
 // scaffolding.
 
 // contextLayer is the identity a context layer is filed under in these tests.
-var contextLayer = ir.NodeID{'c', 't', 'x'}
+const contextLayer = "a-context-layer"
 
 // placedAt is the copy this suite's fixtures all make: the context path `src`
 // landing at `/w/src` inside the step.
-func placedAt() []Placement {
-	return []Placement{{Layer: contextLayer, From: "src", To: "/w/src"}}
+func placedAt() []core.Placement {
+	return []core.Placement{{Layer: contextLayer, From: "src", To: "/w/src"}}
 }
 
 // tree writes a fixture context and returns its root.
@@ -50,7 +50,7 @@ func tree(t *testing.T, files map[string]string) string {
 func keyFor(t *testing.T, root string, obs core.Observation) (string, error) {
 	t.Helper()
 
-	in, err := hostInputsFrom(map[ir.NodeID]bool{contextLayer: true}, placedAt(), obs, root)
+	in, err := hostInputsFrom(map[string]bool{contextLayer: true}, placedAt(), obs, root)
 	if err != nil {
 		return "", err
 	}
@@ -259,7 +259,7 @@ func TestAReadOfAPathNoCopyPlacedIsNotAHostInput(t *testing.T) {
 
 	// /etc/alpine-release is the base image's, covered by the pinned digest in
 	// the shape rather than by a host input.
-	in, err := hostInputsFrom(map[ir.NodeID]bool{contextLayer: true}, placedAt(),
+	in, err := hostInputsFrom(map[string]bool{contextLayer: true}, placedAt(),
 		read("/w/src/a.txt", "/etc/alpine-release"), root)
 	if err != nil {
 		t.Fatal(err)

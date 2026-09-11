@@ -27,6 +27,19 @@ type watcher struct {
 	listings map[string]ir.NodeID
 	negative []string
 	why      map[string]bool
+	// places is where each copy into this handle put what it copied. Kept
+	// beside the reads because it is the same kind of fact - what somebody did
+	// with this filesystem - and kept out of core.Observation because it is not
+	// something the step *read*. See core.Placement.
+	places []core.Placement
+}
+
+// placed records a copy's source and where it landed.
+func (w *watcher) placed(p core.Placement) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.places = append(w.places, p)
 }
 
 func (w *watcher) read(path string, id ir.NodeID) {
@@ -139,6 +152,20 @@ func (s *Server) watcherFor(h core.Handle) *watcher {
 	}
 
 	return w
+}
+
+// placementsOf is where the copies into a handle put what they copied.
+//
+// A copy, not the slice itself: the caller reads it while the step may still be
+// copying, and handing out the watcher's own slice is a data race waiting for a
+// build with two copies in flight.
+func (s *Server) placementsOf(h core.Handle) []core.Placement {
+	w := s.watcherFor(h)
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return slices.Clone(w.places)
 }
 
 // observationOf is what has been recorded against a handle.

@@ -19,24 +19,6 @@ import (
 // conservative and always available. See docs-internals/job-skipping.md.
 var ErrNotDerivable = errors.New("this build's inputs cannot be derived without running it")
 
-// Placement is where a copy put something.
-//
-// **Told rather than rediscovered.** Deciding where `COPY --dir crates .` lands
-// is `placedAs` and `intoDir` in the guest, reading a working directory, a
-// trailing separator and the source's own kind; a second implementation of that
-// here would be the two-functions-over-one-struct defect this repository has a
-// key guard for. The copy records what it did.
-type Placement struct {
-	// Layer the bytes came from.
-	Layer ir.NodeID
-	// From is the path within that layer, slash-separated. For a context layer
-	// this is the path the checkout has, because a context is staged under the
-	// path it has in the context (engine/exec, copyContextInto).
-	From string
-	// To is where it landed in the step's filesystem, absolute.
-	To string
-}
-
 // hostInput is one thing a build read from the host.
 //
 // The digest is the *entry's*, not the file's contents: a script that stopped
@@ -76,7 +58,7 @@ var gone = ir.NodeID{'n', 'o', 't', '-', 'h', 'e', 'r', 'e'}
 // afterwards, so where L2 can afford a hint this cannot - see the hard gates in
 // docs-internals/job-skipping.md.
 func hostInputsFrom(
-	contexts map[ir.NodeID]bool, places []Placement, obs core.Observation, root string,
+	contexts map[string]bool, places []core.Placement, obs core.Observation, root string,
 ) ([]hostInput, error) {
 	if obs.Incomplete {
 		return nil, fmt.Errorf("%w: the tracer reported that it missed something", ErrNotDerivable)
@@ -84,7 +66,7 @@ func hostInputsFrom(
 
 	// Longest destination first, so a copy nested inside another wins the path
 	// it actually placed.
-	from := make([]Placement, 0, len(places))
+	from := make([]core.Placement, 0, len(places))
 
 	for _, p := range places {
 		if contexts[p.Layer] {
@@ -141,7 +123,7 @@ func hostInputsFrom(
 
 // hostPathOf rewrites a path inside a step's filesystem to the checkout path the
 // copy took it from, or says it did not come from one.
-func hostPathOf(places []Placement, at string) (string, bool) {
+func hostPathOf(places []core.Placement, at string) (string, bool) {
 	clean := slashed(at)
 
 	for _, p := range places {

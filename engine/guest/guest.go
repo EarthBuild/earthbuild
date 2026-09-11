@@ -1118,9 +1118,41 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 		if err != nil {
 			return err
 		}
+
+		// **After the copy, because a copy that failed placed nothing.** And
+		// here rather than anywhere downstream: this is the only point that
+		// holds both the layer path the bytes came from and the destination
+		// `placedAs` and `intoDir` decided on. See core.Placement.
+		s.notePlacement(h, p, dstPath)
 	}
 
 	return nil
+}
+
+// notePlacement records where one copy put what it copied.
+//
+// Best effort in the sense that everything it cannot express it declines to
+// record: a destination outside the handle's root cannot be named the way the
+// step sees it, and a source outside its layer has no path within one. Both are
+// impossible - `within` and `findInStack` established them - so an absent
+// record here means a downstream reader falls back to a coarser key, never a
+// wrong one.
+func (s *Server) notePlacement(h core.Handle, from layerPath, dst string) {
+	inside, err := filepath.Rel(h.Root(), dst)
+	if err != nil || strings.HasPrefix(inside, "..") {
+		return
+	}
+
+	within, err := filepath.Rel(from.root, from.path)
+	if err != nil || strings.HasPrefix(within, "..") {
+		return
+	}
+
+	s.watcherFor(h).placed(core.Placement{
+		Layer: filepath.Base(from.root),
+		From:  filepath.ToSlash(within),
+		To:    "/" + filepath.ToSlash(filepath.Clean(inside)),
+	})
 }
 
 // export copies an artifact out of a step's filesystem into the shared store,

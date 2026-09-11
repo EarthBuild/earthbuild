@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -131,12 +132,11 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 func (app *EarthApp) parseEngine(ctx context.Context) error {
 	log := app.BaseCLI.Log().WithPrefix("frontend")
 	engCfg := &engine.Config{
-		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
-		BuildkitHostFileValue:      app.BaseCLI.Cfg().Global.BuildkitHost,
-		LocalRegistryHostFileValue: app.BaseCLI.Cfg().Global.LocalRegistryHost,
-		LocalContainerName:         app.BaseCLI.Flags().ContainerName,
-		DefaultPort:                engine.DefaultBuildkitPort + config.PortOffset(app.BaseCLI.Flags().InstallationName),
-		Log:                        log,
+		BuildkitHost:      cmp.Or(app.BaseCLI.Flags().BuildkitHost, app.BaseCLI.Cfg().Global.BuildkitHost),
+		LocalRegistryHost: app.BaseCLI.Cfg().Global.LocalRegistryHost,
+		ContainerName:     app.BaseCLI.Flags().ContainerName,
+		DefaultPort:       engine.DefaultBuildkitPort + config.PortOffset(app.BaseCLI.Flags().InstallationName),
+		Log:               log,
 	}
 
 	eng, err := engine.New(ctx, engine.Driver(app.BaseCLI.Cfg().Global.ContainerFrontend), engCfg)

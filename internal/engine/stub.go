@@ -62,7 +62,7 @@ func NewTestClient(meta Metadata) *Client {
 
 // DefaultAddr returns the default address for the stub engine.
 func (e *stubEngine) DefaultAddr(cfg *Config) (string, error) {
-	return DockerSchemePrefix + cfg.LocalContainerName, nil
+	return DockerSchemePrefix + cfg.ContainerName, nil
 }
 
 // ContainerAddr returns the reachable address for the stub engine.

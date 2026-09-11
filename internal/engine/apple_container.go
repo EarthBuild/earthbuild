@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"cmp"
 	"context"
 	"encoding/json/v2"
 	"errors"
@@ -373,9 +374,7 @@ func (e *appleEngine) PullImage(ctx context.Context, refs ...string) error {
 			args = append(args, "--scheme", "http")
 		} else if hostPart, _, ok := strings.Cut(ref, "/"); ok {
 			host, _, _ := net.SplitHostPort(hostPart)
-			if host == "" {
-				host = hostPart
-			}
+			host = cmp.Or(host, hostPart)
 
 			if ip := net.ParseIP(host); ip != nil && (ip.IsLoopback() || ip.IsPrivate()) {
 				args = append(args, "--scheme", "http")
@@ -479,13 +478,8 @@ func (e *appleEngine) InspectVolumes(ctx context.Context, volumeNames ...string)
 
 	volumes := make([]Volume, 0, len(inspects))
 	for _, vol := range inspects {
-		name := vol.Configuration.Name
-		if name == "" {
-			name = vol.ID
-		}
-
 		volumes = append(volumes, Volume{
-			Name:       name,
+			Name:       cmp.Or(vol.Configuration.Name, vol.ID),
 			SizeBytes:  vol.Configuration.SizeInBytes,
 			Mountpoint: vol.Configuration.Source,
 		})
@@ -514,7 +508,7 @@ func buildAppleMountArgs(mounts []Mount) []string {
 // The actual reachable IP address is determined dynamically later
 // via [appleEngine.ContainerAddr] once the container is running.
 func (e *appleEngine) DefaultAddr(cfg *Config) (string, error) {
-	return AppleSchemePrefix + cfg.LocalContainerName, nil
+	return AppleSchemePrefix + cfg.ContainerName, nil
 }
 
 // ContainerAddr returns the reachable address for the specified port on an Apple Container.

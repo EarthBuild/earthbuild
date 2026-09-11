@@ -183,7 +183,7 @@ func (e *dockerEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 
 // DefaultAddr returns the default address for the Docker engine.
 func (e *dockerEngine) DefaultAddr(cfg *Config) (string, error) {
-	return DockerSchemePrefix + cfg.LocalContainerName, nil
+	return DockerSchemePrefix + cfg.ContainerName, nil
 }
 
 // ContainerAddr returns the reachable address for the specified port on a Docker container.

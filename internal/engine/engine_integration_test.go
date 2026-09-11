@@ -395,8 +395,8 @@ func TestEngineImagePull(t *testing.T) {
 
 			// podman pull needs some potentially valid address to check against, otherwise panic
 			eng, err := tC.newFunc(ctx, &engine.Config{
-				LocalRegistryHostFileValue: "tcp://some-host:5309",
-				Log:                        testLogger(),
+				LocalRegistryHost: "tcp://some-host:5309",
+				Log:               testLogger(),
 			})
 			NoError(t, err)
 

@@ -336,12 +336,11 @@ func alignVolumes(volumeNames []string, found []Volume) ([]Volume, error) {
 // Config is the configuration needed to bring up a given container engine. Includes logging and needed information to
 // calculate URLs to reach the container.
 type Config struct {
-	Log                        *conslogging.ConsoleLogger
-	BuildkitHostCLIValue       string
-	BuildkitHostFileValue      string
-	LocalRegistryHostFileValue string
-	LocalContainerName         string
-	DefaultPort                int
+	Log               *conslogging.ConsoleLogger
+	BuildkitHost      string
+	LocalRegistryHost string
+	ContainerName     string
+	DefaultPort       int
 }
 
 // Container contains things we may care about from inspect output for a given container.
@@ -660,17 +659,13 @@ func newDriverForAddrs(driver Driver, cfg *Config) (engineDriver, error) {
 }
 
 func resolveAddrs(drv engineDriver, cfg *Config) (Addrs, error) {
-	addr := cfg.BuildkitHostCLIValue
+	addr := cfg.BuildkitHost
 	if addr == "" {
-		if cfg.BuildkitHostFileValue != "" {
-			addr = cfg.BuildkitHostFileValue
-		} else {
-			var err error
+		var err error
 
-			addr, err = drv.DefaultAddr(cfg)
-			if err != nil {
-				return Addrs{}, fmt.Errorf("validate default addr: %w", err)
-			}
+		addr, err = drv.DefaultAddr(cfg)
+		if err != nil {
+			return Addrs{}, fmt.Errorf("validate default addr: %w", err)
 		}
 	}
 
@@ -680,18 +675,18 @@ func resolveAddrs(drv engineDriver, cfg *Config) (Addrs, error) {
 	}
 
 	localRegistryURL := &url.URL{}
-	if IsLocal(addr) && cfg.LocalRegistryHostFileValue != "" {
+	if IsLocal(addr) && cfg.LocalRegistryHost != "" {
 		// Local registry only matters when local, and specified.
-		localRegistryURL, err = parseAddr(cfg.LocalRegistryHostFileValue)
+		localRegistryURL, err = parseAddr(cfg.LocalRegistryHost)
 		if err != nil {
 			return Addrs{}, err
 		}
 
-		if !IsLocal(cfg.LocalRegistryHostFileValue) && bkURL.Hostname() != localRegistryURL.Hostname() {
+		if !IsLocal(cfg.LocalRegistryHost) && bkURL.Hostname() != localRegistryURL.Hostname() {
 			format := "Buildkit and local registry URLs are pointed at different hosts (%s vs. %s)"
 			cfg.Log.Warnf(format, bkURL.Hostname(), localRegistryURL.Hostname())
 		}
-	} else if cfg.LocalRegistryHostFileValue != "" {
+	} else if cfg.LocalRegistryHost != "" {
 		cfg.Log.
 			VerbosePrintf("Local registry host is specified while using remote buildkit. Local registry will not be used.")
 	}

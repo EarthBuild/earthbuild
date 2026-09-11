@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"cmp"
 	"strings"
 	"testing"
 
@@ -126,12 +127,11 @@ func TestBuildArgMatrix(t *testing.T) {
 		logger = logger.WithWriter(&logs)
 
 		urls, err := ResolveAddrs(Docker, &Config{
-			BuildkitHostCLIValue:       tt.args.buildkit,
-			BuildkitHostFileValue:      tt.config.BuildkitHost,
-			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
-			LocalContainerName:         "test", //nolint:goconst
-			DefaultPort:                DefaultBuildkitPort,
-			Log:                        logger,
+			BuildkitHost:      cmp.Or(tt.args.buildkit, tt.config.BuildkitHost),
+			LocalRegistryHost: tt.config.LocalRegistryHost,
+			ContainerName:     "test", //nolint:goconst
+			DefaultPort:       DefaultBuildkitPort,
+			Log:               logger,
 		})
 		r.NoError(err)
 		assert.Equal(t, tt.expected, results{
@@ -189,11 +189,11 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 		logger = logger.WithWriter(&logs)
 
 		_, err := ResolveAddrs(Docker, &Config{
-			BuildkitHostFileValue:      tt.config.BuildkitHost,
-			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
-			Log:                        logger,
-			LocalContainerName:         "test",
-			DefaultPort:                DefaultBuildkitPort,
+			BuildkitHost:      tt.config.BuildkitHost,
+			LocalRegistryHost: tt.config.LocalRegistryHost,
+			Log:               logger,
+			ContainerName:     "test",
+			DefaultPort:       DefaultBuildkitPort,
 		})
 		r.ErrorIs(err, tt.expected)
 		assert.Contains(t, logs.String(), tt.log)
@@ -258,8 +258,8 @@ func TestResolveAddrsDrivers(t *testing.T) {
 	t.Parallel()
 
 	cfg := &Config{
-		LocalContainerName: "test",
-		DefaultPort:        DefaultBuildkitPort,
+		ContainerName: "test",
+		DefaultPort:   DefaultBuildkitPort,
 	}
 
 	tests := []struct {
@@ -321,11 +321,11 @@ func TestResolveAddrsLogging(t *testing.T) {
 		logger = logger.WithWriter(&logs)
 
 		_, err := ResolveAddrs(Docker, &Config{
-			BuildkitHostFileValue:      tt.config.BuildkitHost,
-			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
-			Log:                        logger,
-			LocalContainerName:         "test",
-			DefaultPort:                DefaultBuildkitPort,
+			BuildkitHost:      tt.config.BuildkitHost,
+			LocalRegistryHost: tt.config.LocalRegistryHost,
+			Log:               logger,
+			ContainerName:     "test",
+			DefaultPort:       DefaultBuildkitPort,
 		})
 		r.NoError(err)
 		assert.Contains(t, logs.String(), tt.log)
@@ -367,11 +367,11 @@ func TestResolveAddrsLoggingNonIssues(t *testing.T) {
 		logger = logger.WithWriter(&logs)
 
 		_, err := ResolveAddrs(Docker, &Config{
-			BuildkitHostFileValue:      tt.config.BuildkitHost,
-			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
-			Log:                        logger,
-			LocalContainerName:         "test",
-			DefaultPort:                DefaultBuildkitPort,
+			BuildkitHost:      tt.config.BuildkitHost,
+			LocalRegistryHost: tt.config.LocalRegistryHost,
+			Log:               logger,
+			ContainerName:     "test",
+			DefaultPort:       DefaultBuildkitPort,
 		})
 		r.NoError(err)
 		assert.NotContains(t, logs.String(), tt.log)
@@ -382,8 +382,8 @@ func TestDriverDefaultAddr(t *testing.T) {
 	t.Parallel()
 
 	cfg := &Config{
-		LocalContainerName: "custom-buildkitd",
-		DefaultPort:        9999,
+		ContainerName: "custom-buildkitd",
+		DefaultPort:   9999,
 	}
 
 	tests := []struct {

@@ -206,7 +206,10 @@ func ResetCache(
 			return err
 		}
 
-		err = WaitUntilStopped(ctx, containerName, settings.Timeout, eng)
+		stopCtx, stopCancel := context.WithTimeout(ctx, settings.Timeout)
+		defer stopCancel()
+
+		err = WaitUntilStopped(stopCtx, containerName, eng)
 		if err != nil {
 			return err
 		}
@@ -326,20 +329,8 @@ func maybeStart(
 
 	// check arch is correct
 	runningContainerInfo, err := GetContainerInfo(ctx, containerName, eng)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("GetContainerInfo %s: %w", containerName, err)
-	}
-
-	currentImageInfo, err := GetImageInfo(ctx, runningContainerInfo.Image, eng)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("GetImageInfo %s: %w", runningContainerInfo.Image, err)
-	}
-
-	if currentImageInfo.Architecture != runtime.GOARCH {
-		log.
-			WithPrefix("buildkitd").
-			Warnf("Warning: %s was started using architecture %s, but host architecture is %s; "+
-				"is DOCKER_DEFAULT_PLATFORM accidentally set?\n", containerName, currentImageInfo.Architecture, runtime.GOARCH)
+	if err == nil {
+		warnIfWrongArch(ctx, log, containerName, runningContainerInfo.Image, eng)
 	}
 
 	log.
@@ -367,27 +358,12 @@ func maybeRestart(
 		return nil, nil, nil, fmt.Errorf("could not get container info: %w", err)
 	}
 
-	currentImageInfo, err := GetImageInfo(ctx, runningContainerInfo.Image, eng)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("could not get image info: %w", err)
-	}
-
-	if currentImageInfo.Architecture != runtime.GOARCH {
-		log.
-			WithPrefix("buildkitd").
-			Warnf("Warning: currently running %s under architecture %s, but host architecture is %s; "+
-				"is DOCKER_DEFAULT_PLATFORM accidentally set?\n", containerName, currentImageInfo.Architecture, runtime.GOARCH)
-	}
+	warnIfWrongArch(ctx, log, containerName, runningContainerInfo.Image, eng)
 
 	containerImageID := runningContainerInfo.ImageID
 
-	availableImageID, err := GetAvailableImageID(ctx, image, eng)
-	if err != nil {
-		// Could not get available image ID. This happens when a new image tag is given and that
-		// tag has not yet been pulled locally. Restarting will cause that tag to be pulled.
-		availableImageID = "" // Will cause equality to fail and force a restart.
-		// Keep going anyway.
-	}
+	availableImage, _ := eng.InspectImage(ctx, image)
+	availableImageID := availableImage.ID
 
 	bkLog.VerbosePrintf("Comparing running container %q image (%q) with available image %q (%q)\n",
 		containerName, containerImageID, image, availableImageID)
@@ -469,7 +445,10 @@ func maybeRestart(
 		return nil, nil, nil, fmt.Errorf("could not shut down container %q: %w", containerName, err)
 	}
 
-	err = WaitUntilStopped(ctx, containerName, settings.Timeout, eng)
+	stopCtx, stopCancel := context.WithTimeout(ctx, settings.Timeout)
+	defer stopCancel()
+
+	err = WaitUntilStopped(stopCtx, containerName, eng)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("could not wait for container %q to stop: %w", containerName, err)
 	}
@@ -1199,26 +1178,23 @@ func GetLogs(
 }
 
 // WaitUntilStopped waits until the buildkitd daemon has stopped.
-func WaitUntilStopped(
-	ctx context.Context, containerName string, opTimeout time.Duration, eng *engine.Client,
-) error {
-	ctxTimeout, cancel := context.WithTimeout(ctx, opTimeout)
-	defer cancel()
+func WaitUntilStopped(ctx context.Context, containerName string, eng *engine.Client) error {
+	timer := time.NewTimer(0)
+	defer timer.Stop()
 
 	for {
 		select {
-		case <-time.After(200 * time.Millisecond):
-			isRunning, err := isContainerRunning(ctxTimeout, containerName, eng)
-			if err != nil {
-				// The container can no longer be found at all.
+		case <-timer.C:
+			isRunning, err := isContainerRunning(ctx, containerName, eng)
+			if err != nil || !isRunning {
+				// The container stopped or can no longer be found at all.
 				return nil
 			}
 
-			if !isRunning {
-				return nil
-			}
-		case <-ctxTimeout.Done():
-			return fmt.Errorf("timeout %s: buildkitd did not stop", opTimeout)
+			timer.Reset(200 * time.Millisecond)
+
+		case <-ctx.Done():
+			return fmt.Errorf("wait for container %s to stop: %w", containerName, ctx.Err())
 		}
 	}
 }
@@ -1253,34 +1229,21 @@ func GetContainerInfo(
 	return info, nil
 }
 
-// GetImageInfo inspects an image.
-func GetImageInfo(
-	ctx context.Context, image string, eng *engine.Client,
-) (engine.Image, error) {
-	info, err := eng.InspectImage(ctx, image)
-	if err != nil {
-		return engine.Image{}, fmt.Errorf("get image info %s: %w", image, err)
+func warnIfWrongArch(
+	ctx context.Context,
+	log *conslogging.ConsoleLogger,
+	containerName, imageRef string,
+	eng *engine.Client,
+) {
+	img, err := eng.InspectImage(ctx, imageRef)
+	if err != nil || img.Architecture == "" || img.Architecture == runtime.GOARCH {
+		return
 	}
 
-	if info.ID == "" {
-		return engine.Image{}, fmt.Errorf("info for image %s was not found", image)
-	}
-
-	return info, nil
-}
-
-// GetAvailableImageID fetches the ID of the image buildkitd image available.
-func GetAvailableImageID(ctx context.Context, image string, eng *engine.Client) (string, error) {
-	info, err := eng.InspectImage(ctx, image)
-	if err != nil {
-		return "", fmt.Errorf("get output for available image ID: %w", err)
-	}
-
-	if info.ID == "" {
-		return "", fmt.Errorf("image ID for %s was not found", image)
-	}
-
-	return info.ID, nil
+	log.
+		WithPrefix("buildkitd").
+		Warnf("Warning: %s is running under architecture %s, but host architecture is %s; "+
+			"is DOCKER_DEFAULT_PLATFORM accidentally set?\n", containerName, img.Architecture, runtime.GOARCH)
 }
 
 func isContainerRunning(ctx context.Context, containerName string, eng *engine.Client) (bool, error) {

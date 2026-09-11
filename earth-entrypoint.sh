@@ -72,16 +72,8 @@ if [ -z "$NO_BUILDKIT" ]; then
       exit 1
     fi
 
-    if [ ! -f /etc/ca.pem ]; then
-      ln -s "$earth_certs_dir/ca_cert.pem" /etc/ca.pem
-    fi
-
-    if [ ! -f /etc/cert.pem ]; then
-      ln -s "$earth_certs_dir/buildkit_cert.pem" /etc/cert.pem
-    fi
-
-    if [ ! -f /etc/key.pem ]; then
-      ln -s "$earth_certs_dir/buildkit_key.pem" /etc/key.pem
+    if [ ! -d /etc/earth-certs ] && [ ! -L /etc/earth-certs ]; then
+      ln -s "$earth_certs_dir" /etc/earth-certs
     fi
 
 

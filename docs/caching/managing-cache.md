@@ -6,7 +6,7 @@ This page describes how to manage the EarthBuild cache locally or on a remote ru
 
 ### Local cache location
 
-EarthBuild cache is persisted in a docker (or podman) volume called `earth-cache` on your system. When EarthBuild starts for the first time, it brings up a BuildKit daemon in a Docker container, which initializes the `earth-cache` volume. The volume is managed by EarthBuild's BuildKit daemon and there is a regular garbage-collection for old cache.
+EarthBuild cache is persisted in a Docker, Podman, or Apple Container volume called `earth-cache` on your system. When earth starts for the first time, it brings up a BuildKit daemon in a container, which initializes the `earth-cache` volume. The volume is managed by EarthBuild's BuildKit daemon and there is a regular garbage-collection for old cache.
 
 ### Specifying the local cache size limit
 
@@ -19,12 +19,15 @@ global:
 ```
 
 {% hint style='info' %}
+
 #### Checking current size of the cache volume
+
 You can check the current size of the cache volume by running:
 
 ```bash
 sudo du -h /var/lib/docker/volumes/earth-cache | tail -n 1
 ```
+
 {% endhint %}
 
 ### Resetting the local cache

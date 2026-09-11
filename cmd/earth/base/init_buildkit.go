@@ -1,19 +1,21 @@
 package base
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/urfave/cli/v3"
 )
 
-// InitFrontend initializes the frontend for the given command.
-func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
+// InitBuildkit initializes the buildkit daemon settings for the given command.
+func (cli *CLI) InitBuildkit(cmd *cli.Command) error {
 	// command line option overrides the config which overrides the default value
 	if !cmd.IsSet("buildkit-image") && cli.Cfg().Global.BuildkitImage != "" {
 		cli.Flags().BuildkitdImage = cli.Cfg().Global.BuildkitImage
@@ -29,7 +31,7 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 		}
 
 		if cli.Cfg().Global.BuildkitImage != "" {
-			return errors.New("the --ticktock flags can not be used in combination with the buildkit_image config option")
+			return errors.New("the --ticktock flag cannot be used in combination with the buildkit_image config option")
 		}
 
 		cli.Flags().BuildkitdImage += "-ticktock"
@@ -40,7 +42,18 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("failed to parse generated buildkit URL: %w", err)
 	}
 
-	if bkURL.Scheme == "tcp" && cli.Cfg().Global.TLSEnabled {
+	useTCP := engine.UsesTCP(bkURL.Scheme)
+
+	if useTCP && cli.Cfg().Global.TLSEnabled {
+		// Auto-generate mTLS certificates on first run when connecting via TCP (e.g. Apple Container
+		// or local TCP daemon) so that users do not need to run 'earth bootstrap' beforehand.
+		if exists, _ := fileutil.FileExists(cli.Cfg().Global.TLSCACert); !exists {
+			err = buildkitd.GenCerts(*cli.Cfg(), "127.0.0.1")
+			if err != nil {
+				return fmt.Errorf("auto-generate TLS certs: %w", err)
+			}
+		}
+
 		cli.Flags().BuildkitdSettings.ClientTLSCert = cli.Cfg().Global.ClientTLSCert
 		cli.Flags().BuildkitdSettings.ClientTLSKey = cli.Cfg().Global.ClientTLSKey
 		cli.Flags().BuildkitdSettings.TLSCA = cli.Cfg().Global.TLSCACert
@@ -52,9 +65,9 @@ func (cli *CLI) InitFrontend(_ context.Context, cmd *cli.Command) error {
 	cli.Flags().BuildkitdSettings.AdditionalConfig = cli.Cfg().Global.BuildkitAdditionalConfig
 	cli.Flags().BuildkitdSettings.Timeout = time.Duration(cli.Cfg().Global.BuildkitRestartTimeoutS) * time.Second
 	cli.Flags().BuildkitdSettings.Debug = cli.Flags().Debug
-	cli.Flags().BuildkitdSettings.BuildkitAddress = cli.Flags().BuildkitHost
-	cli.Flags().BuildkitdSettings.LocalRegistryAddress = cli.Flags().LocalRegistryHost
-	cli.Flags().BuildkitdSettings.UseTCP = bkURL.Scheme == "tcp"
+	cli.Flags().BuildkitdSettings.BuildkitAddr = cli.Flags().BuildkitHost
+	cli.Flags().BuildkitdSettings.LocalRegistryAddr = cli.Flags().LocalRegistryHost
+	cli.Flags().BuildkitdSettings.UseTCP = useTCP
 	cli.Flags().BuildkitdSettings.UseTLS = cli.Cfg().Global.TLSEnabled
 	cli.Flags().BuildkitdSettings.MaxParallelism = cli.Cfg().Global.BuildkitMaxParallelism
 	cli.Flags().BuildkitdSettings.CacheSizeMb = cli.Cfg().Global.BuildkitCacheSizeMb

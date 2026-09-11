@@ -9,7 +9,6 @@ import (
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 )
 
@@ -102,15 +101,12 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 		// Pull and then retag all images with expected tags.
 		pullImage := fmt.Sprintf("%s/%s", w.c.opt.LocalRegistryAddr, result.IntermediateImageName)
 
-		err = w.c.containerFrontend.ImagePull(ctx, pullImage)
+		err = w.c.engine.PullImage(ctx, pullImage)
 		if err != nil {
 			return err
 		}
 
-		err = w.c.containerFrontend.ImageTag(ctx, containerutil.ImageTag{
-			SourceRef: pullImage,
-			TargetRef: result.FinalImageName,
-		})
+		err = w.c.engine.TagImage(ctx, pullImage, result.FinalImageName)
 		if err != nil {
 			return fmt.Errorf("tag image %q: %w", result.FinalImageName, err)
 		}

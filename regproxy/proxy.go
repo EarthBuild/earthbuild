@@ -3,13 +3,11 @@ package regproxy
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 	"sync/atomic"
 
 	registry "github.com/moby/buildkit/api/services/registry"
-	"golang.org/x/sync/errgroup"
 )
 
 // newRegistryProxy creates and returns a new registry proxy that streams Docker
@@ -71,42 +69,18 @@ func (r *registryProxy) err() <-chan error {
 }
 
 func (r *registryProxy) handle(ctx context.Context, conn net.Conn) error {
-	defer conn.Close()
-
 	stream, err := r.cl.Proxy(ctx)
 	if err != nil {
+		conn.Close() // #nosec G104
 		return fmt.Errorf("failed to create proxy stream: %w", err)
 	}
 
-	rw := registry.NewStreamRW(stream)
-	eg, _ := errgroup.WithContext(ctx)
-
-	eg.Go(func() error {
-		_, err = registry.CopyWithDeadline(conn, rw)
-		if err != nil {
-			return fmt.Errorf("failed to write to stream: %w", err)
-		}
-
-		err = stream.CloseSend()
-		if err != nil {
-			return fmt.Errorf("failed to close stream: %w", err)
-		}
-
-		return nil
-	})
-
-	eg.Go(func() error {
-		_, err = io.Copy(conn, rw)
-		if err != nil {
-			return fmt.Errorf("failed to read from stream: %w", err)
-		}
-
-		return nil
-	})
-
-	err = eg.Wait()
+	// The bytes are opaque in both directions: each ends when its source ends
+	// it, and that end is passed on as a half-close, so a request whose
+	// response is still arriving is never cut short. Copy closes conn.
+	err = registry.Copy(ctx, conn, stream, stream.CloseSend)
 	if err != nil {
-		return fmt.Errorf("failed to wait: %w", err)
+		return fmt.Errorf("failed to proxy the connection: %w", err)
 	}
 
 	return nil

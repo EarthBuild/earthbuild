@@ -144,6 +144,11 @@ require (
 )
 
 replace (
-	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20260617184045-51fe8fb974fd
+	// TEMPORARY: this points at the head of EarthBuild/buildkit's
+	// giles-registry-proxy-framing branch (PR #24), not a merged commit,
+	// because regproxy below needs registry.Copy from it. Advance this to a
+	// commit on that repo's main before merging -- earthbuild's own main must
+	// never pin an unmerged branch.
+	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20260911002101-b78c6a7b69fc
 	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20231030221755-644b08355b65
 )

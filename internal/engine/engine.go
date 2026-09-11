@@ -605,6 +605,9 @@ func parseScheme(s string) (Scheme, error) {
 }
 
 const (
+	// DefaultLocalRegistryPort is the standard network port used by the embedded local registry for image exports.
+	DefaultLocalRegistryPort = 8371
+
 	// DefaultBuildkitPort is the standard network port used by the buildkit daemon.
 	DefaultBuildkitPort = 8372
 

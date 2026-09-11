@@ -431,7 +431,7 @@ func TestContainerAddr(t *testing.T) {
 		r.NoError(err)
 		assert.Equal(t, "docker-container://my-container", addr)
 
-		addr, err = e.ContainerAddr(ctx, "my-container", 8371)
+		addr, err = e.ContainerAddr(ctx, "my-container", DefaultLocalRegistryPort)
 		r.NoError(err)
 		assert.Equal(t, "tcp://127.0.0.1:8371", addr)
 	})
@@ -444,7 +444,7 @@ func TestContainerAddr(t *testing.T) {
 		r.NoError(err)
 		assert.Equal(t, "tcp://127.0.0.1:8372", addr)
 
-		addr, err = e.ContainerAddr(ctx, "my-container", 8371)
+		addr, err = e.ContainerAddr(ctx, "my-container", DefaultLocalRegistryPort)
 		r.NoError(err)
 		assert.Equal(t, "tcp://127.0.0.1:8371", addr)
 	})
@@ -457,7 +457,7 @@ func TestContainerAddr(t *testing.T) {
 		r.NoError(err)
 		assert.Equal(t, "docker-container://my-container", addr)
 
-		addr, err = e.ContainerAddr(ctx, "my-container", 8371)
+		addr, err = e.ContainerAddr(ctx, "my-container", DefaultLocalRegistryPort)
 		r.NoError(err)
 		assert.Equal(t, "tcp://127.0.0.1:8371", addr)
 	})
@@ -563,8 +563,8 @@ func TestPortMappingString(t *testing.T) {
 			want: "127.0.0.1:8372:8372",
 			mapping: PortMapping{
 				HostIP:        "127.0.0.1",
-				HostPort:      8372,
-				ContainerPort: 8372,
+				HostPort:      DefaultBuildkitPort,
+				ContainerPort: DefaultBuildkitPort,
 			},
 		},
 		{

@@ -33,7 +33,7 @@ func (cli *CLI) GetBuildkitClient(ctx context.Context, cmd *cli.Command) (*clien
 	}
 
 	if cli.Flags().LocalRegistryHost != "" && engine.IsLocal(cli.Flags().LocalRegistryHost) {
-		addr, err := cli.Flags().Engine.ContainerAddr(ctx, cli.Flags().ContainerName, 8371)
+		addr, err := cli.Flags().Engine.ContainerAddr(ctx, cli.Flags().ContainerName, engine.DefaultLocalRegistryPort)
 		if err == nil && addr != "" {
 			cli.Flags().LocalRegistryHost = addr
 		}

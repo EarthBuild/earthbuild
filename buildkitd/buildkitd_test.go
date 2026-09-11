@@ -20,44 +20,6 @@ const (
 	defaultBuildkitTCP = "tcp://127.0.0.1:8372"
 )
 
-func TestEngineContainer(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		engineName string
-		wantDesc   string
-	}{
-		{
-			name:       "docker",
-			engineName: dockerEngineName,
-			wantDesc:   "Docker container",
-		},
-		{
-			name:       "podman",
-			engineName: "Podman",
-			wantDesc:   "Podman container",
-		},
-		{
-			name:       "apple container",
-			engineName: appleContainerName,
-			wantDesc:   appleContainerName,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			eng := engine.NewTestClient(engine.Metadata{
-				Name: tt.engineName,
-			})
-
-			assert.Equal(t, tt.wantDesc, engineContainer(eng))
-		})
-	}
-}
-
 func TestContainerName(t *testing.T) {
 	t.Parallel()
 

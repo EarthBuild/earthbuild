@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,7 +33,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const minRecommendedCacheSize = 10 << 30 // 10 GiB
+const (
+	minRecommendedCacheSize = 10 << 30 // 10 GiB
+)
 
 var (
 	// ErrBuildkitCrashed is an error returned when buildkit has terminated unexpectedly.
@@ -72,22 +73,26 @@ func NewClient(
 
 		if errors.Is(retErr, os.ErrNotExist) {
 			if eng.Metadata().Scheme.RequiresTLSByDefault() {
-				tlsPaths := []string{
+				msg := retErr.Error()
+				for _, path := range []string{
 					settings.TLSCA,
 					settings.ServerTLSKey,
 					settings.ServerTLSCert,
 					settings.ClientTLSKey,
 					settings.ClientTLSCert,
-				}
-				if containsAny(retErr.Error(), tlsPaths) {
-					retErr = hint.Wrapf(
-						retErr,
-						"%s requires TLS certs by default - "+
-							"try stopping the %s container and re-running 'earth bootstrap'\n"+
-							"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
-						eng.Metadata().Name,
-						containerName,
-					)
+				} {
+					if path != "" && strings.Contains(msg, path) {
+						retErr = hint.Wrapf(
+							retErr,
+							"%s requires TLS certs by default - "+
+								"try stopping the %s container and re-running 'earth bootstrap'\n"+
+								"alternatively, run 'earth config global.tls_enabled false' to disable TLS",
+							eng.Metadata().Name,
+							containerName,
+						)
+
+						break
+					}
 				}
 			}
 
@@ -155,7 +160,7 @@ func NewClient(
 
 	bkClient, err = client.New(ctx, settings.BuildkitAddr, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("start provided buildkit: %w", err)
+		return nil, fmt.Errorf("initialize buildkit client: %w", err)
 	}
 
 	return bkClient, nil
@@ -281,7 +286,7 @@ func maybeStart(
 	if isStarted {
 		log.
 			WithPrefix("buildkitd").
-			Printf("Found buildkit daemon as %s (%s)\n", engineContainer(eng), containerName)
+			Printf("Found buildkit daemon on %s (%s)\n", eng.Metadata().Name, containerName)
 
 		bkClient, cinfo, winfo, err = maybeRestart(ctx, log, image, containerName, eng, settings, opts...)
 		if err != nil {
@@ -293,7 +298,7 @@ func maybeStart(
 
 	log.
 		WithPrefix("buildkitd").
-		Printf("Starting buildkit daemon as %s (%s)...\n", engineContainer(eng), containerName)
+		Printf("Starting buildkit daemon on %s (%s)...\n", eng.Metadata().Name, containerName)
 
 	err = Start(ctx, log, image, containerName, eng, settings, false)
 	if err != nil {
@@ -515,7 +520,10 @@ func connectExisting(
 
 	opts = append(opts, reqOpts...)
 
-	info, workerInfo, err := checkConnection(ctx, settings.BuildkitAddr, 5*time.Second, opts...)
+	checkCtx, checkCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer checkCancel()
+
+	info, workerInfo, err := checkConnection(checkCtx, settings.BuildkitAddr, opts...)
 	if err != nil {
 		bkLog.VerbosePrintf("Initial connection check failed (%v), waiting for buildkitd to be ready...\n", err)
 
@@ -642,17 +650,17 @@ func Start(
 		})
 	} else {
 		if settings.LocalRegistryAddr != "" {
-			var localRegistryURL *url.URL
+			var lrURL *url.URL
 
-			localRegistryURL, err = url.Parse(settings.LocalRegistryAddr)
+			lrURL, err = url.Parse(settings.LocalRegistryAddr)
 			if err != nil {
 				return fmt.Errorf("parse local registry address %q: %w", settings.LocalRegistryAddr, err)
 			}
 
-			if localRegistryURL.Scheme == "tcp" || localRegistryURL.Port() != "" {
+			if lrURL.Scheme == "tcp" || lrURL.Port() != "" {
 				var hostPort int
 
-				hostPort, err = strconv.Atoi(localRegistryURL.Port())
+				hostPort, err = strconv.Atoi(lrURL.Port())
 				if err != nil {
 					return fmt.Errorf("invalid port in local registry address %q: %w", settings.LocalRegistryAddr, err)
 				}
@@ -660,7 +668,7 @@ func Start(
 				portMappings = append(portMappings, engine.PortMapping{
 					HostIP:        localhost,
 					HostPort:      hostPort,
-					ContainerPort: 8371,
+					ContainerPort: engine.DefaultLocalRegistryPort,
 				})
 			}
 		}
@@ -684,14 +692,14 @@ func Start(
 				portMappings = append(portMappings, engine.PortMapping{
 					HostIP:        localhost,
 					HostPort:      hostPort,
-					ContainerPort: 8372,
+					ContainerPort: engine.DefaultBuildkitPort,
 				})
 			}
 
 			if settings.EnableProfiler {
 				portMappings = append(portMappings, engine.PortMapping{
 					HostIP:        localhost,
-					HostPort:      6061, // 6060 is reserved for earth client
+					HostPort:      6061, // 6060 is reserved for the earth client, 6061 for buildkit
 					ContainerPort: 6060,
 				})
 			}
@@ -938,22 +946,17 @@ func waitForConnection(
 	eng *engine.Client,
 	opts ...client.ClientOpt,
 ) (*client.Info, *client.WorkerInfo, error) {
+	const (
+		retryInterval  = 500 * time.Millisecond
+		attemptTimeout = 2 * time.Second
+	)
+
 	opTimeout := settings.Timeout
 	addr := settings.BuildkitAddr
 	isLocal := engine.IsLocal(settings.BuildkitAddr)
 
-	retryInterval := 200 * time.Millisecond
-	if !isLocal {
-		retryInterval = 1 * time.Second
-	}
-
 	ctxTimeout, cancel := context.WithTimeout(ctx, opTimeout)
 	defer cancel()
-
-	attemptTimeout := 500 * time.Millisecond
-	if !isLocal {
-		attemptTimeout = 1 * time.Second
-	}
 
 	startTime := time.Now()
 	lastLogTime := startTime
@@ -976,15 +979,19 @@ func waitForConnection(
 				}
 			}
 
-			info, workerInfo, err := checkConnection(ctxTimeout, addr, attemptTimeout, opts...)
+			attemptCtx, cancelAttempt := context.WithTimeout(ctxTimeout, attemptTimeout)
+
+			info, workerInfo, err := checkConnection(attemptCtx, addr, opts...)
 			if err != nil {
+				cancelAttempt()
+
 				lastErr = err
 				logConnectionFailure(log, addr, err, attemptCount, &startTime, &lastLogTime)
 
-				attemptTimeout = nextAttemptTimeout(attemptTimeout, isLocal)
-
 				continue
 			}
+
+			cancelAttempt()
 
 			if time.Since(startTime) > 2*time.Second {
 				log.WithPrefix("buildkitd").VerbosePrintf("Connected to buildkit daemon at %s after %s (attempt #%d)\n",
@@ -994,7 +1001,10 @@ func waitForConnection(
 			return info, workerInfo, nil
 
 		case <-ctxTimeout.Done():
-			info, workerInfo, err := checkConnection(ctx, addr, attemptTimeout, opts...)
+			finalCtx, cancelFinal := context.WithTimeout(ctx, attemptTimeout)
+			defer cancelFinal()
+
+			info, workerInfo, err := checkConnection(finalCtx, addr, opts...)
 			if err != nil {
 				if lastErr != nil && !errors.Is(lastErr, err) {
 					err = fmt.Errorf("%w (last error: %w)", err, lastErr)
@@ -1008,15 +1018,6 @@ func waitForConnection(
 			return info, workerInfo, nil
 		}
 	}
-}
-
-func nextAttemptTimeout(current time.Duration, isLocal bool) time.Duration {
-	maxTimeout := 2 * time.Second
-	if !isLocal {
-		maxTimeout = 5 * time.Second
-	}
-
-	return min(current*2, maxTimeout)
 }
 
 func logConnectionFailure(
@@ -1063,11 +1064,10 @@ func checkContainerCrashed(
 const unknown = "unknown"
 
 func checkConnection(
-	ctx context.Context, addr string, timeout time.Duration, opts ...client.ClientOpt,
+	ctx context.Context, addr string, opts ...client.ClientOpt,
 ) (*client.Info, *client.WorkerInfo, error) {
-	// Each attempt has limited time to succeed, to prevent hanging for too long
-	// here.
-	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	var (
 		mu         sync.Mutex // protects the vars below
@@ -1079,7 +1079,7 @@ func checkConnection(
 	go func() {
 		defer cancel()
 
-		bkClient, err := client.New(ctxTimeout, addr, opts...)
+		bkClient, err := client.New(ctx, addr, opts...)
 		if err != nil {
 			mu.Lock()
 			connErr = err
@@ -1089,10 +1089,7 @@ func checkConnection(
 		}
 		defer bkClient.Close()
 
-		ctxInfo, cancelInfo := context.WithTimeout(ctxTimeout, timeout)
-		defer cancelInfo()
-
-		workers, err := bkClient.ListWorkers(ctxInfo)
+		workers, err := bkClient.ListWorkers(ctx)
 		if err != nil {
 			mu.Lock()
 			connErr = err
@@ -1115,7 +1112,7 @@ func checkConnection(
 		connErr = nil
 		workerInfo = workers[0]
 
-		info, err = bkClient.Info(ctxInfo)
+		info, err = bkClient.Info(ctx)
 		if err != nil {
 			s, ok := status.FromError(err)
 			if ok && s.Code() == codes.Unimplemented {
@@ -1134,7 +1131,7 @@ func checkConnection(
 		}
 	}()
 
-	<-ctxTimeout.Done() // timeout or goroutine finished
+	<-ctx.Done() // timeout or goroutine finished
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -1479,12 +1476,6 @@ func updateContainerAddrs(ctx context.Context, eng *engine.Client, containerName
 	}
 }
 
-func containsAny(hs string, needles []string) bool {
-	return slices.ContainsFunc(needles, func(n string) bool {
-		return strings.Contains(hs, n)
-	})
-}
-
 func humanizeBytes(v int64) string {
 	var bytes uint64
 
@@ -1493,15 +1484,6 @@ func humanizeBytes(v int64) string {
 	}
 
 	return humanize.Bytes(bytes)
-}
-
-func engineContainer(eng *engine.Client) string {
-	name := eng.Metadata().Name
-	if strings.HasSuffix(strings.ToLower(name), "container") {
-		return name
-	}
-
-	return name + " container"
 }
 
 // prepareServerCertsDir stages only the server-required certificates and private key

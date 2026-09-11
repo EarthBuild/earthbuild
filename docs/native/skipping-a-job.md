@@ -24,8 +24,10 @@ on a broken build, which is the one outcome a skip must never be.
 - uses: actions/cache@v4
   with:
     path: inputs.json
-    key: inputs-${{ github.job }}-${{ github.run_id }}
-    restore-keys: inputs-${{ github.job }}-
+    key: inputs-${{ github.job }}-${{ github.ref_name }}-${{ github.sha }}
+    restore-keys: |
+      inputs-${{ github.job }}-${{ github.ref_name }}-
+      inputs-${{ github.job }}-${{ github.event.repository.default_branch }}-
 - id: check
   run: earth --engine=native check-inputs inputs.json +test && echo "skip=true" >> "$GITHUB_OUTPUT"
   continue-on-error: true
@@ -106,6 +108,32 @@ the build's inputs have changed:
 The granularity is the `COPY` source, not the file inside it: `COPY --dir crates .` reads one digest
 over the whole tree, so an edit anywhere under `crates` reads as `context crates changed`.
 
+## Branches
+
+The two `restore-keys` above are this branch's most recent fingerprint, then the default branch's. A
+run on a new branch therefore starts from what `main` last recorded, which is usually right and is
+never dangerous:
+
+**Every way the file can be wrong costs a rebuild, and none of them costs a skip.** The fingerprint is
+one value for one target on one platform, compared for equality. Restoring a stale one, one from
+another branch, or none at all all read as "changed". There is no state to merge and so no way for two
+branches to produce a file that is wrong rather than merely old.
+
+That asymmetry is the whole reason to prefer a single value over an accumulating set here. A set - a
+record of every input combination ever built - gets the branch question the other way round: the
+useful thing about it is that entries from elsewhere apply to you, and the cost of restoring the wrong
+one is a job that does not run.
+
+GitHub's cache is immutable per key and scoped to the current branch plus the default branch. A file
+holding one value works with that: a new key per commit, a prefix fallback, nothing to reconcile. A
+database being accumulated into does not, quite - two jobs restoring one snapshot and saving two
+successors leave one of them to be dropped by the next run, silently, and the file itself is a binary
+`bbolt` database rather than something a reviewer can read in a diff.
+
+If you would rather not use a cache at all: the file is small, deterministic and text, so committing
+it works, and the branch semantics become git's own. A merge conflict in it then means exactly what it
+looks like - two branches changed the same target's inputs.
+
 ## Against `--auto-skip`
 
 `--auto-skip` answers a neighbouring question on the buildkit path. It is **deprecated**: its cloud
@@ -123,6 +151,7 @@ The two are not interchangeable:
 | what it skips      | the target, from inside the invocation   | the job, from outside it                  |
 | who computes it    | `inputgraph`, a second implementation    | the engine's own plan, one implementation |
 | the base image     | hashed as the tag, so a moved tag skips  | hashed as the pinned digest               |
+| what is stored     | every hash ever built, forever           | one value for one target                  |
 
 That last row is the one to weigh. `inputgraph` walks the Earthfile and hashes it without evaluating,
 which means two functions have to agree about what a build depends on - and this repository's own key
@@ -137,6 +166,11 @@ digest, because the plan pinned it.
 
 Two rows favour auto-skip, and both are borrowable: it records the key for you when a build succeeds,
 and it hashes each file of a `COPY` separately, so it could name the file rather than the tree.
+
+The surviving backend is `--auto-skip-db-path`, whose own source says it is "only meant for
+dev/testing": a `bbolt` file mapping each SHA-1 to the time it was built, with the target name
+discarded and no eviction. Carrying that through a CI cache is possible and is not what it was
+written for.
 
 ## Cost
 

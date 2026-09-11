@@ -85,4 +85,25 @@ if "$earthly" --image --no-image-output +img-and-artifact; then
     exit 1
 fi
 
+# --no-output already suppresses images, so combining the two is contradictory
+# and rejected rather than silently resolved by precedence.
+if "$earthly" --no-output --no-image-output +build-img-and-artifact; then
+    echo "expected --no-output --no-image-output to be rejected"
+    exit 1
+fi
+
+# under --ci, --no-image-output counts as asking for output: the artifact is
+# still written, without needing --output alongside it. Without this, the --ci
+# default of writing nothing would silently swallow the flag.
+rm -rf output
+"$earthly" --ci --no-image-output +build-img-and-artifact
+test "$(docker images -q myimg:623cb5fb1b8c4cff8693281095724bb0 | wc -l)" = "0"
+test -f output/bar
+
+# --ci on its own still writes nothing.
+rm -rf output
+"$earthly" --ci +build-img-and-artifact
+test "$(docker images -q myimg:623cb5fb1b8c4cff8693281095724bb0 | wc -l)" = "0"
+test ! -f output/bar
+
 rm -rf output

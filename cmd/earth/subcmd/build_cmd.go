@@ -68,6 +68,9 @@ type Build struct {
 	secretFiles  []string
 	cacheFrom    []string
 	dockerTags   []string
+	// export is resolved once in Action from the flags as typed, and read by
+	// ActionBuildImp. See resolveExport.
+	export earthfile2llb.Export
 }
 
 // NewBuild creates a new Build command.
@@ -135,7 +138,6 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 	b.cli.SetCommandName("build")
 
 	if b.cli.Flags().CI {
-		b.cli.Flags().NoOutput = !b.cli.Flags().Output && !b.cli.Flags().ArtifactMode && !b.cli.Flags().ImageMode
 		b.cli.Flags().Strict = true
 
 		if b.cli.Flags().InteractiveDebugging {
@@ -147,19 +149,22 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 		return params.Errorf("both image and artifact modes cannot be active at the same time")
 	}
 
-	if (b.cli.Flags().ImageMode && b.cli.Flags().NoOutput) || (b.cli.Flags().ArtifactMode && b.cli.Flags().NoOutput) {
-		if b.cli.Flags().CI {
-			b.cli.Flags().NoOutput = false
-		} else {
-			return params.Errorf("cannot use --no-output with image or artifact modes")
-		}
+	// Decide once, from the flags as typed, how much of the build is written out
+	// locally. The output flags are not modified in place: everything downstream
+	// reads b.export instead of re-deriving intent from them.
+	export, err := resolveExport(outputFlags{
+		CI:            b.cli.Flags().CI,
+		Output:        b.cli.Flags().Output,
+		NoOutput:      b.cli.Flags().NoOutput,
+		NoImageOutput: b.cli.Flags().NoImageOutput,
+		ArtifactMode:  b.cli.Flags().ArtifactMode,
+		ImageMode:     b.cli.Flags().ImageMode,
+	})
+	if err != nil {
+		return params.Errorf("%s", err)
 	}
 
-	// The image form exists to output an image locally, so suppressing that
-	// leaves it with nothing to do.
-	if b.cli.Flags().ImageMode && b.cli.Flags().NoImageOutput {
-		return params.Errorf("cannot use --no-image-output with image mode")
-	}
+	b.export = export
 
 	if b.cli.Flags().InteractiveDebugging && !termutil.IsTTY() {
 		return params.Errorf("A tty-terminal must be present in order to use the --interactive flag")
@@ -616,7 +621,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		PrintPhases:                true,
 		Push:                       b.cli.Flags().Push,
 		CI:                         b.cli.Flags().CI,
-		Export:                     toExport(b.cli.Flags().NoOutput, b.cli.Flags().NoImageOutput),
+		Export:                     b.export,
 		OnlyFinalTargetImages:      b.cli.Flags().ImageMode,
 		PlatformResolver:           platr,
 		EnableGatewayClientLogging: b.cli.Flags().Debug,
@@ -1034,17 +1039,4 @@ func (b *Build) actionDockerBuild(ctx context.Context, cmd *cli.Command) error {
 	nonFlagArgs = []string{tempDir + "+build"}
 
 	return b.ActionBuildImp(ctx, cmd, flagArgs, nonFlagArgs)
-}
-
-// toExport maps the --no-output / --no-image-output flags onto an Export.
-// --no-output is the broader of the two, so it wins when both are given.
-func toExport(noOutput, noImageOutput bool) earthfile2llb.Export {
-	switch {
-	case noOutput:
-		return earthfile2llb.ExportNone
-	case noImageOutput:
-		return earthfile2llb.ExportArtifactsOnly
-	default:
-		return earthfile2llb.ExportAll
-	}
 }

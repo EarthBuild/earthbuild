@@ -822,6 +822,7 @@ func (b *Builder) convertAndBuild(
 		for _, saveImage := range mts.Final.SaveImages {
 			plan := planImage(opt, mts.Final, true, saveImage)
 			shouldExport, shouldPush := plan.export, plan.push
+
 			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
 				continue
 			}

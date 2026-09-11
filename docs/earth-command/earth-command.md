@@ -257,7 +257,11 @@ Pushing is unaffected, so `--push --no-image-output` pushes images to their regi
 them locally. This is useful in CI against a remote BuildKit daemon, where loading a large image means
 streaming the whole thing back to the runner only to discard it.
 
-This option cannot be used with the *image form*, whose purpose is to output an image locally.
+Under `--ci`, this counts as asking for output: `--ci --no-image-output` writes artifacts and skips images,
+rather than being suppressed by the `--ci` default of writing nothing. `--output` is not needed alongside it.
+
+This option cannot be used with the *image form*, whose purpose is to output an image locally, nor with
+`--no-output`, which already suppresses images.
 
 ##### `--output`
 

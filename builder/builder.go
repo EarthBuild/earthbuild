@@ -103,6 +103,34 @@ type ProjectAdder interface {
 	AddProject(org, project string)
 }
 
+// Export describes how much of a build's output is written out locally.
+type Export int
+
+const (
+	// ExportAll writes out both SAVE IMAGE images and SAVE ARTIFACT ... AS LOCAL
+	// artifacts. This is the default.
+	ExportAll Export = iota
+	// ExportArtifactsOnly writes out SAVE ARTIFACT ... AS LOCAL artifacts, but does
+	// not load SAVE IMAGE images into the local container engine (--no-image-output).
+	// Pushes are unaffected, so a build can push images and still write artifacts.
+	ExportArtifactsOnly
+	// ExportNone writes out neither images nor artifacts (--no-output).
+	ExportNone
+)
+
+// ExportFor maps the --no-output / --no-image-output flags onto an Export.
+// --no-output is the broader of the two, so it wins when both are given.
+func ExportFor(noOutput, noImageOutput bool) Export {
+	switch {
+	case noOutput:
+		return ExportNone
+	case noImageOutput:
+		return ExportArtifactsOnly
+	default:
+		return ExportAll
+	}
+}
+
 // BuildOpt is a collection of build options.
 type BuildOpt struct {
 	ProjectAdder               ProjectAdder
@@ -114,8 +142,7 @@ type BuildOpt struct {
 	OnlyArtifactDestPath       string
 	Runner                     string
 	OnlyFinalTargetImages      bool
-	NoOutput                   bool
-	NoImageOutput              bool
+	Export                     Export
 	EnableGatewayClientLogging bool
 	CI                         bool
 	GlobalWaitBlockFtr         bool
@@ -321,8 +348,8 @@ func (b *Builder) convertAndBuild(
 				ContainerFrontend:                    b.opt.ContainerFrontend,
 				UseLocalRegistry:                     (b.opt.LocalRegistryAddr != ""),
 				LocalRegistryAddr:                    b.opt.LocalRegistryAddr,
-				DoSaves:                              !opt.NoOutput,
-				NoLocalImageExport:                   opt.NoImageOutput,
+				DoSaves:                              opt.Export != ExportNone,
+				NoLocalImageExport:                   opt.Export == ExportArtifactsOnly,
 				OnlyFinalTargetImages:                opt.OnlyFinalTargetImages,
 				DoPushes:                             opt.Push,
 				IsCI:                                 opt.CI,
@@ -378,7 +405,7 @@ func (b *Builder) convertAndBuild(
 			gwCrafter.AddRef("main", ref)
 		}
 
-		if !opt.NoOutput && opt.OnlyArtifact != nil && !opt.OnlyFinalTargetImages {
+		if opt.Export != ExportNone && opt.OnlyArtifact != nil && !opt.OnlyFinalTargetImages {
 			ref, err := b.stateToRef(childCtx, gwClient, mts.Final.ArtifactsState, mts.Final.PlatformResolver)
 			if err != nil {
 				return nil, err
@@ -437,8 +464,7 @@ func (b *Builder) convertAndBuild(
 
 			for _, saveImage := range b.targetPhaseImages(sts) {
 				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
-				shouldExport := !opt.NoOutput &&
-					!opt.NoImageOutput &&
+				shouldExport := opt.Export == ExportAll &&
 					opt.OnlyArtifact == nil &&
 					(!opt.OnlyFinalTargetImages || sts == mts.Final) &&
 					saveImage.DockerTag != "" &&
@@ -556,7 +582,7 @@ func (b *Builder) convertAndBuild(
 				}
 			}
 
-			performSaveLocals := (!opt.NoOutput &&
+			performSaveLocals := (opt.Export != ExportNone &&
 				!opt.OnlyFinalTargetImages &&
 				opt.OnlyArtifact == nil &&
 				sts.GetDoSaves())
@@ -776,7 +802,7 @@ func (b *Builder) convertAndBuild(
 	outputPhaseSpecial := ""
 
 	switch {
-	case opt.NoOutput:
+	case opt.Export == ExportNone:
 		// noop
 	case opt.OnlyArtifact != nil:
 		if mts.Final.GetDoSaves() {
@@ -801,7 +827,7 @@ func (b *Builder) convertAndBuild(
 
 		for _, saveImage := range mts.Final.SaveImages {
 			doSave := (mts.Final.GetDoSaves() || saveImage.ForceSave)
-			shouldExport := !opt.NoOutput && !opt.NoImageOutput && saveImage.DockerTag != "" && doSave
+			shouldExport := opt.Export == ExportAll && saveImage.DockerTag != "" && doSave
 
 			shouldPush := opt.Push && saveImage.Push && saveImage.DockerTag != "" && mts.Final.GetDoPushes()
 			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
@@ -831,7 +857,7 @@ func (b *Builder) convertAndBuild(
 				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
 				shouldPush := opt.Push && saveImage.Push && !sts.Target.IsRemote() && saveImage.DockerTag != "" && sts.GetDoPushes()
 
-				shouldExport := !opt.NoOutput && !opt.NoImageOutput && saveImage.DockerTag != "" && doSave
+				shouldExport := opt.Export == ExportAll && saveImage.DockerTag != "" && doSave
 				if saveImage.SkipBuilder || !shouldPush && !shouldExport {
 					continue
 				}
@@ -964,7 +990,7 @@ func (b *Builder) convertAndBuild(
 
 	if opt.PrintPhases {
 		b.opt.Log.PrintPhaseFooter(PhasePush)
-		b.opt.Log.PrintPhaseHeader(PhaseOutput, opt.NoOutput, outputPhaseSpecial)
+		b.opt.Log.PrintPhaseHeader(PhaseOutput, opt.Export == ExportNone, outputPhaseSpecial)
 	}
 
 	outputConsole.Flush()

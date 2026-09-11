@@ -30,7 +30,6 @@ redirects:
     docs/ci-integration: ci-integration/overview.md
     docs/guides/advanced-local-caching: caching/caching-in-earthfiles.md
     docs/guides/cache: caching/managing-cache.md
-    docs/guides/target-ref: guides/importing.md
     docs/guides/udc: guides/functions.md
     docs/remote-caching: ./caching/caching.md
     earthfile: earthfile/earthfile.md
@@ -80,7 +79,6 @@ redirects:
     guides/pushing-and-pulling-images-with-cloud-providers/pushing-images-to-ecr: guides/registries/aws-ecr.md
     guides/pushing-and-pulling-images-with-cloud-providers/pushing-images-to-gcr: guides/registries/gcp-artifact-registry.md
     guides/shared-cache: ./caching/caching.md
-    guides/target-ref: guides/importing.md
     guides/udc: guides/functions.md
     installation: ./README.md
     the-earthly-command/earthly-command: earth-command/earth-command.md

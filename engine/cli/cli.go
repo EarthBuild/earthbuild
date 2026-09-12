@@ -396,6 +396,18 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		return answerAboutInputs(o, plan)
 	}
 
+	// **The coarse gate, which needs the plan the fine one did not.** Κ_job is
+	// over what a build read and is asked before anything is interpreted; the
+	// plan fingerprint is over what it declares, so it cannot be had until
+	// there is a plan. A build that watched nothing leaves only the second, and
+	// without this it would leave it for nobody.
+	//
+	// Still far cheaper than building: an interpretation and a context digest
+	// against a machine, a registry and a compile.
+	if o.AutoSkip && skippedByPlan(o, plan) {
+		return nil
+	}
+
 	sched, err := build(ctx, o, plan, g, tty)
 	if err != nil {
 		return err
@@ -503,6 +515,31 @@ func answerAboutInputs(o Options, plan *interp.Plan) error {
 	fmt.Fprintf(o.Out, "unchanged: %s needs no build\n", o.Target)
 
 	return nil
+}
+
+// skippedByPlan asks whether a record left by a build that watched nothing
+// still describes this one.
+//
+// Only reached when the reads did not answer: either there were none recorded,
+// or they have moved. See wouldSkipPlan.
+func skippedByPlan(o Options, plan *interp.Plan) bool {
+	store, err := skipRecordStoreFor(o.AutoSkipDB)
+	if err != nil {
+		return false
+	}
+
+	rec, ok := store.get(o.Target, o.platformOrDefault())
+	if !ok {
+		return false
+	}
+
+	if !rec.planHolds(inputsOf(plan, o.Target, o.platformOrDefault()).Fingerprint) {
+		return false
+	}
+
+	fmt.Fprintf(o.Out, "auto-skip: %s was built with these inputs before\n", o.Target)
+
+	return true
 }
 
 // askAutoSkip answers `--auto-skip` before anything is planned.

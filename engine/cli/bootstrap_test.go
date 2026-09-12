@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -91,5 +92,77 @@ func TestACachedBuildDoesNotDowngradeAnExistingRecord(t *testing.T) {
 
 	if back.Plan != "second" {
 		t.Errorf("the fingerprint was not brought up to date: %q", back.Plan)
+	}
+}
+
+// **The coarse record has to be consulted, not merely written.**
+//
+// A fully cached build records the plan fingerprint and nothing else. If the
+// asking side only ever compares the reads, that record is written by every
+// build and read by none - which is the whole bootstrap doing nothing, and is
+// what happened: `planHolds` existed, was tested on its own, and was never
+// called.
+func TestACoarseRecordIsUsedWhenThereAreNoReads(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src.txt": "one"})
+	s := skipRecordStore{at: filepath.Join(t.TempDir(), "records")}
+
+	in := shapeInput{Source: []byte(shapeSrc), Target: "build", Platform: "linux/arm64"}
+
+	shape, err := shapeOf(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fingerprint := "a-plan-fingerprint"
+	s.put(recordFor("build", "linux/arm64", shape, fingerprint, nil))
+
+	skip, _, _, err := wouldSkipPlan(in, root, s, fingerprint)
+	if err != nil || !skip {
+		t.Errorf("an unchanged plan against a coarse record: skip=%t err=%v", skip, err)
+	}
+
+	// And a changed one is not skipped.
+	skip, _, _, err = wouldSkipPlan(in, root, s, "another-fingerprint")
+	if err != nil || skip {
+		t.Errorf("a changed plan against a coarse record: skip=%t err=%v", skip, err)
+	}
+}
+
+// A full record is preferred over the coarse one: the reads are the finer
+// answer and a file nobody read must not rebuild.
+func TestAFullRecordWinsOverTheFingerprint(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src/read.txt": "one", "src/README.md": "one"})
+	s := skipRecordStore{at: filepath.Join(t.TempDir(), "records")}
+
+	in := shapeInput{Source: []byte(shapeSrc), Target: "build", Platform: "linux/arm64"}
+
+	shape, err := shapeOf(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	inputs, err := hostInputsFrom(map[string]bool{contextLayer: true},
+		placedAt(), read("/w/src/read.txt"), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s.put(recordFor("build", "linux/arm64", shape, "a-plan-fingerprint", inputs))
+
+	// The plan fingerprint moves - a file in the context changed - and the
+	// reads do not, because nothing read that file.
+	err = os.WriteFile(filepath.Join(root, "src/README.md"), []byte("two"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	skip, _, _, err := wouldSkipPlan(in, root, s, "a-moved-fingerprint")
+	if err != nil || !skip {
+		t.Errorf("a file nobody read moved the fingerprint and the reads were not"+
+			" consulted: skip=%t err=%v", skip, err)
 	}
 }

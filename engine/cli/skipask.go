@@ -23,6 +23,14 @@ import (
 // is not there, a store that cannot be read: none of them is an error and all
 // of them mean run. The only thing that means skip is a record that says so.
 func wouldSkip(in shapeInput, root string, s skipRecordStore) (bool, ir.NodeID, string, error) {
+	return wouldSkipPlan(in, root, s, "")
+}
+
+// wouldSkipPlan is wouldSkip told this build's plan fingerprint, which is what
+// a record left by a build that watched nothing is compared against.
+func wouldSkipPlan(
+	in shapeInput, root string, s skipRecordStore, plan string,
+) (bool, ir.NodeID, string, error) {
 	shape, err := shapeOf(in)
 	if err != nil {
 		// **Why, not silence.** A flag that quietly does nothing is one nobody
@@ -42,7 +50,16 @@ func wouldSkip(in shapeInput, root string, s skipRecordStore) (bool, ir.NodeID, 
 		return false, shape, "", nil
 	}
 
-	return rec.stillHolds(shape, root), shape, "", nil
+	// **The reads first, the fingerprint second.** The reads are the finer
+	// answer - a file nobody opened does not move them - so a record carrying
+	// them decides, and the fingerprint is what a build that watched nothing
+	// left behind. Consulting only the first meant the coarse record was
+	// written by every cached build and read by none.
+	if rec.stillHolds(shape, root) {
+		return true, shape, "", nil
+	}
+
+	return rec.planHolds(plan), shape, "", nil
 }
 
 // noteBuild writes down what this build read, so the next one can skip.

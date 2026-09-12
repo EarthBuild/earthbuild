@@ -47,7 +47,7 @@ func TestABuildThatRanRecordsBoth(t *testing.T) {
 		ranAndWatched(placedAt(), read("/w/src/a.txt")),
 	}}
 
-	in, err := hostInputsOfBuild(ran, map[string]bool{contextLayer: true}, root)
+	in, err := hostInputsOfBuild(ran, profilesOf{}, map[string]bool{contextLayer: true}, root)
 	if err != nil {
 		t.Fatal(err)
 	}

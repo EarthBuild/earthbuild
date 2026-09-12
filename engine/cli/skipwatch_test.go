@@ -28,7 +28,7 @@ func TestAWatchGathersEveryStepsReadsAndPlacements(t *testing.T) {
 		ranAndWatched(nil, read("/w/src/b.txt")),
 	}}
 
-	in, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
+	in, err := hostInputsOfBuild(rec, profilesOf{}, map[string]bool{contextLayer: true}, root)
 	if err != nil {
 		t.Fatalf("derive: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestAnUnobservedStepPoisonsTheWholeRecord(t *testing.T) {
 		{Kind: ir.OpExec, Outcome: core.OutcomeMiss, Observed: false},
 	}}
 
-	_, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
+	_, err := hostInputsOfBuild(rec, profilesOf{}, map[string]bool{contextLayer: true}, root)
 	if err == nil {
 		t.Error("a build with an unobserved step produced host inputs")
 	}
@@ -76,7 +76,7 @@ func TestAnIncompleteStepPoisonsTheWholeRecord(t *testing.T) {
 		ranAndWatched(nil, missed),
 	}}
 
-	_, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
+	_, err := hostInputsOfBuild(rec, profilesOf{}, map[string]bool{contextLayer: true}, root)
 	if err == nil {
 		t.Error("a build with an incomplete observation produced host inputs")
 	}
@@ -97,43 +97,12 @@ func TestACachedStepIsNotAGap(t *testing.T) {
 		{Outcome: core.OutcomeL1Hit, Observed: false},
 	}}
 
-	_, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
+	_, err := hostInputsOfBuild(rec, profilesOf{}, map[string]bool{contextLayer: true}, root)
 	if err != nil {
 		t.Errorf("a step with nothing to observe was treated as a gap: %v", err)
 	}
 }
 
-// **A build that hit cache did not observe what those steps would have read**,
-// so what it gathered is a subset of the build's inputs - and a subset is
-// exactly the shape that skips on a change nobody accounted for. Such a build
-// leaves the existing record alone.
-func TestAPartialRebuildDoesNotRefreshTheRecord(t *testing.T) {
-	t.Parallel()
-
-	all := &core.Record{Steps: []core.StepRecord{
-		ranAndWatched(placedAt(), read("/w/src/a.txt")),
-		ranAndWatched(nil, read("/w/src/b.txt")),
-	}}
-
-	if !refreshable(all) {
-		t.Error("a build where every step ran cannot refresh the record")
-	}
-
-	partial := &core.Record{Steps: []core.StepRecord{
-		ranAndWatched(placedAt(), read("/w/src/a.txt")),
-		{Kind: ir.OpExec, Outcome: core.OutcomeL2Hit},
-	}}
-
-	if refreshable(partial) {
-		t.Error("a build with a cached step refreshed the record")
-	}
-
-	if refreshable(nil) || refreshable(&core.Record{}) {
-		t.Error("a build with no steps refreshed the record")
-	}
-}
-
-// A step that ran but whose output was not captured still read what it read.
 func TestAnUncapturedStepStillCounts(t *testing.T) {
 	t.Parallel()
 
@@ -144,14 +113,14 @@ func TestAnUncapturedStepStillCounts(t *testing.T) {
 
 	rec := &core.Record{Steps: []core.StepRecord{uncaptured}}
 
-	in, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
+	in, err := hostInputsOfBuild(rec, profilesOf{}, map[string]bool{contextLayer: true}, root)
 	if err != nil || len(in) != 1 {
 		t.Errorf("an uncaptured step gave %v, %v", in, err)
 	}
 
 	// And an uncaptured step that was not watched is still a gap.
 	blind := core.StepRecord{Kind: ir.OpExec, Outcome: core.OutcomeUncaptured}
-	if gapIn(&core.Record{Steps: []core.StepRecord{blind}}) == "" {
+	if gapIn(&core.Record{Steps: []core.StepRecord{blind}}, profilesOf{}) == "" {
 		t.Error("an uncaptured step that watched nothing is not a gap")
 	}
 }
@@ -178,7 +147,7 @@ func TestAContextCopiedAndNeverReadIsRefused(t *testing.T) {
 		ranAndWatched(placedAt(), read("/somewhere/else.txt")),
 	}}
 
-	_, err := hostInputsOfBuild(elsewhere, map[string]bool{contextLayer: true}, root)
+	_, err := hostInputsOfBuild(elsewhere, profilesOf{}, map[string]bool{contextLayer: true}, root)
 	if err == nil {
 		t.Error("a build that placed a context and mapped no read produced inputs")
 	}
@@ -189,7 +158,7 @@ func TestAContextCopiedAndNeverReadIsRefused(t *testing.T) {
 		ranAndWatched(nil, read("/etc/alpine-release")),
 	}}
 
-	got, err := hostInputsOfBuild(none, map[string]bool{contextLayer: true}, root)
+	got, err := hostInputsOfBuild(none, profilesOf{}, map[string]bool{contextLayer: true}, root)
 	if err != nil || len(got) != 0 {
 		t.Errorf("a build with no context copies gave %v, %v", got, err)
 	}
@@ -216,7 +185,7 @@ func TestAStepWithNothingToWatchIsNotAGap(t *testing.T) {
 		pulled, staged, ranAndWatched(placedAt(), read("/w/src/a.txt")),
 	}}
 
-	got, err := hostInputsOfBuild(rec, map[string]bool{contextLayer: true}, root)
+	got, err := hostInputsOfBuild(rec, profilesOf{}, map[string]bool{contextLayer: true}, root)
 	if err != nil {
 		t.Fatalf("a FROM that pulled an image was treated as a gap: %v", err)
 	}
@@ -225,9 +194,9 @@ func TestAStepWithNothingToWatchIsNotAGap(t *testing.T) {
 		t.Errorf("gathered %v", got)
 	}
 
-	// Such a build can still refresh the record: nothing was hidden.
-	if !refreshable(rec) {
-		t.Error("a build whose FROM pulled an image cannot refresh the record")
+	// Such a build still records: nothing was hidden.
+	if why := gapIn(rec, profilesOf{}); why != "" {
+		t.Errorf("a build whose FROM pulled an image was refused: %s", why)
 	}
 
 	// And a RUN that ran unwatched is still a gap.
@@ -235,7 +204,67 @@ func TestAStepWithNothingToWatchIsNotAGap(t *testing.T) {
 		pulled, {Kind: ir.OpExec, Outcome: core.OutcomeMiss, Observed: false},
 	}}
 
-	if gapIn(blind) == "" {
+	if gapIn(blind, profilesOf{}) == "" {
 		t.Error("a RUN that ran unwatched is not a gap")
 	}
 }
+
+func TestACachedStepsReadsComeFromItsProfile(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src/a.txt": "one", "src/b.txt": "two"})
+
+	cached := core.StepRecord{
+		Seq: 9, Kind: ir.OpExec, Outcome: core.OutcomeL1Hit,
+		Class: ir.NodeID{'c', 'l', 's'},
+	}
+
+	rec := &core.Record{Steps: []core.StepRecord{
+		{Seq: 1, Kind: ir.OpFile, Outcome: core.OutcomeMiss, Observed: true, Placements: placedAt()},
+		cached,
+	}}
+
+	known := profilesOf{cached.Class: read("/w/src/b.txt")}
+
+	got, err := hostInputsOfBuild(rec, known, map[string]bool{contextLayer: true}, root)
+	if err != nil {
+		t.Fatalf("a cached step with a profile refused the key: %v", err)
+	}
+
+	if len(got) != 1 || got[0].Path != "src/b.txt" {
+		t.Fatalf("the cached step's reads were not recovered: %v", got)
+	}
+
+	if got[0].Digest == gone.String() {
+		t.Error("the recovered path was not re-read from the checkout")
+	}
+}
+
+// A cached step nobody has a profile for still blocks: its reads are unknown,
+// and unknown is not empty.
+func TestACachedStepWithNoProfileStillBlocks(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src/a.txt": "one"})
+
+	rec := &core.Record{Steps: []core.StepRecord{
+		{Seq: 1, Kind: ir.OpFile, Outcome: core.OutcomeMiss, Observed: true, Placements: placedAt()},
+		{Seq: 9, Kind: ir.OpExec, Outcome: core.OutcomeL1Hit, Class: ir.NodeID{'x'}},
+	}}
+
+	_, err := hostInputsOfBuild(rec, profilesOf{}, map[string]bool{contextLayer: true}, root)
+	if err == nil {
+		t.Error("a cached step nobody has a profile for did not block")
+	}
+}
+
+// profilesOf is what the scheduler keeps, as a map.
+type profilesOf map[ir.NodeID]core.Observation
+
+func (p profilesOf) Get(class core.Key) (core.Observation, bool) {
+	obs, ok := p[class]
+
+	return obs, ok
+}
+
+func (p profilesOf) Put(class core.Key, obs core.Observation) { p[class] = obs }

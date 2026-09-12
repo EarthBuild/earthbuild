@@ -406,10 +406,16 @@ type Stats struct {
 	// that could not be reused *this* time, while this is one that will not be
 	// reusable next time either.
 	Unobserved int
-	// UnobservedWhy is the first reason one was unusable. A count on its own
-	// says the tier is not working and not what to do about it - which is the
-	// state this whole line of work kept rediscovering (E209, E215, E217).
+	// UnobservedWhy is the most specific reason one was unusable. A count on
+	// its own says the tier is not working and not what to do about it - which
+	// is the state this whole line of work kept rediscovering (E209, E215,
+	// E217).
 	UnobservedWhy string
+	// unobservedStated says the reason above came from the observation source
+	// rather than being derived from an empty one, which is what lets a later
+	// stated reason displace an earlier derived one. Unexported because it is
+	// about the field beside it and not about the build.
+	unobservedStated bool
 	// UnobservedWhere is where that step is written. The reason says what went
 	// wrong and this says which line to look at, which is the difference
 	// between a fact and a thing somebody can act on - and it cost a corpus run
@@ -978,25 +984,43 @@ func (s *Scheduler) noteUnobserved(n *ir.Node, base []ir.NodeID, res Result) {
 
 	s.Stats.Unobserved++
 
-	if s.Stats.UnobservedWhy != "" {
+	why, stated := unobservedReason(res)
+
+	// **A stated reason outranks a derived one, however late it arrives.** The
+	// two derived reasons are what every step of an unwatchable kind says, and
+	// a build has many of those, so first-wins reports the reason that names a
+	// category and hides the one that names a defect. A cold substrate build
+	// said `Earthfile:197: nothing observed this step` about a `COPY` while
+	// discarding why the `RUN cargo build` above it - the step the build
+	// actually needed observed - had produced nothing.
+	//
+	// Among equals it is still first-wins, so the line does not churn.
+	if s.Stats.UnobservedWhy != "" && (!stated || s.Stats.unobservedStated) {
 		return
 	}
 
+	// Together, always: a reason attached to another step's source line sends
+	// the reader to a step that did not fail.
+	s.Stats.UnobservedWhy, s.Stats.unobservedStated = why, stated
 	s.Stats.UnobservedWhere = n.Meta.Source
+}
 
+// unobservedReason says why a step's observation is unusable, and whether the
+// observation source said so itself.
+func unobservedReason(res Result) (why string, stated bool) {
 	switch {
 	case len(res.Observation.Why) > 0:
-		s.Stats.UnobservedWhy = res.Observation.Why[0]
+		return res.Observation.Why[0], true
 
 	case !res.Observed:
 		// No source at all, which is a different thing from a source that
 		// missed something: nothing was watching.
-		s.Stats.UnobservedWhy = "nothing observed this step"
+		return "nothing observed this step", false
 
 	default:
 		// Complete, and saying nothing about the base - so it agrees with every
 		// base in existence and must not be keyed (I3).
-		s.Stats.UnobservedWhy = "the step looked at nothing in its base"
+		return "the step looked at nothing in its base", false
 	}
 }
 

@@ -90,6 +90,20 @@ The caveats are: a `--no-cache` step, a `LOCALLY` step, an image reference left 
 registry was unreachable, or nobody ran `--pin`), and a secret read where no fleet key is configured
 so its value is outside the fingerprint.
 
+The first two are stronger than caveats under `--auto-skip`: a build containing either records no
+skippable answer at all, and says so.
+
+```console
+$ earth --engine=native --auto-skip +deploy
+auto-skip: +deploy will not be skipped
+  Earthfile:12 runs LOCALLY, on this machine and outside the build: skipping it would skip whatever it writes there
+```
+
+A host step writes outside the build, so skipping it does not produce a coarser answer - it produces
+no answer. The other two caveats only make the key under-claim, which `--auto-skip` is allowed to
+trade away; these are not the same thing. `--ci` (and `--strict`, which it implies) refuses `LOCALLY`
+at plan time instead, so a pipeline never reaches this.
+
 What remains uncovered without a caveat is a `RUN` that reaches the network. The engine cannot see
 that, and neither can any other cache; it is the same assumption `CACHE` and every layer cache
 already make.

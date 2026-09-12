@@ -12,7 +12,7 @@ import (
 // skipRecordVersion is the format. A record written by a different engine is
 // refused rather than compared, because a field whose meaning changed is a
 // comparison that is wrong rather than one that fails.
-const skipRecordVersion = 1
+const skipRecordVersion = 2
 
 // skipRecordsKept bounds the store, for the reason skipStoreEntries gives: the
 // mechanism this stands beside keeps everything it has ever seen, which is a
@@ -51,6 +51,15 @@ type skipRecord struct {
 	// the record names and comparing it to this catches that, because the key
 	// over no inputs is not the key over three.
 	Key string `json:"key,omitempty"`
+	// MustRun says this build contains something no record can stand in for,
+	// and names it. Non-empty means neither key answers.
+	//
+	// **Recorded rather than asked at the ask.** `askAutoSkip` runs before
+	// planning - which is the whole point of the flag - so there is no plan in
+	// front of it to inspect. A build that never records a skippable answer
+	// cannot be skipped however the question arrives, including by a record
+	// this engine did not write.
+	MustRun string `json:"must_run,omitempty"`
 }
 
 // stillHolds asks whether this record describes the checkout in front of it.
@@ -64,6 +73,10 @@ type skipRecord struct {
 // nothing watched what the build read - and says so rather than guessing. Its
 // caller falls back to planHolds.
 func (r skipRecord) stillHolds(shape ir.NodeID, root string) bool {
+	if r.MustRun != "" {
+		return false
+	}
+
 	if r.Version != skipRecordVersion || r.Shape == "" || r.Shape != shape.String() {
 		return false
 	}
@@ -86,7 +99,8 @@ func (r skipRecord) stillHolds(shape ir.NodeID, root string) bool {
 
 // planHolds is the fallback: the whole plan fingerprint, unchanged.
 func (r skipRecord) planHolds(plan string) bool {
-	return r.Version == skipRecordVersion && r.Plan != "" && r.Plan == plan
+	return r.MustRun == "" &&
+		r.Version == skipRecordVersion && r.Plan != "" && r.Plan == plan
 }
 
 // now is what the checkout holds at this input's path today.

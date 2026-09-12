@@ -22,13 +22,13 @@ import (
 // derived from one step's reads would skip on a change another step would have
 // seen.
 func hostInputsOfBuild(
-	rec *core.Record, contexts map[string]bool, root string,
+	rec *core.Record, known core.Profiles, contexts map[string]bool, root string,
 ) ([]hostInput, error) {
 	if rec == nil {
 		return nil, fmt.Errorf("%w: this build kept no record", ErrNotDerivable)
 	}
 
-	why := gapIn(rec)
+	why := gapIn(rec, known)
 	if why != "" {
 		return nil, fmt.Errorf("%w: %s", ErrNotDerivable, why)
 	}
@@ -43,14 +43,15 @@ func hostInputsOfBuild(
 	for _, step := range rec.Steps {
 		places = append(places, step.Placements...)
 
-		if !step.Observed {
+		obs, ok := readsOf(step, known)
+		if !ok {
 			continue
 		}
 
-		maps.Copy(merged.Reads, step.Observation.Reads)
-		maps.Copy(merged.Listings, step.Observation.Listings)
+		maps.Copy(merged.Reads, obs.Reads)
+		maps.Copy(merged.Listings, obs.Listings)
 
-		merged.Negative = append(merged.Negative, step.Observation.Negative...)
+		merged.Negative = append(merged.Negative, obs.Negative...)
 	}
 
 	in, err := hostInputsFrom(contexts, places, merged, root)
@@ -95,26 +96,103 @@ func watched(kind ir.OpKind) bool {
 	return kind == ir.OpExec || kind == ir.OpFile
 }
 
+// benign is a kind that reads nothing of the checkout on its own account.
+//
+// What it produces is named by the chain above it: an image by its reference,
+// a context by its digest, a merge and a scratch by their inputs. There is
+// nothing for a tracer to have missed, so its presence does not stand between
+// a build and a key.
+func benign(kind ir.OpKind) bool {
+	switch kind {
+	case ir.OpImage, ir.OpLocal, ir.OpMerge, ir.OpPackImage, ir.OpScratch:
+		return true
+
+	default:
+		return false
+	}
+}
+
+// refuses reports whether no observation could make a build containing this
+// kind skippable.
+func refuses(kind ir.OpKind) bool { return refusal(kind) != "" }
+
+// refusal says why a kind cannot be keyed, or is empty.
+//
+// **Not the same question as "was it watched".** A watched kind lacking an
+// observation is a gap that a later build could close; these are kinds where
+// closing it would change nothing, because what makes them unskippable is not
+// missing information.
+func refusal(kind ir.OpKind) string {
+	switch kind {
+	case ir.OpHost:
+		// LOCALLY. Nothing watched it - it runs on this machine with no
+		// sandbox - but that is the lesser half. It *writes* here too, and a
+		// side effect is not an input: a perfect read set would not make
+		// skipping it safe, because what it does outside the build's own
+		// layers would simply not happen.
+		return "runs LOCALLY, on this machine and outside the build:" +
+			" skipping it would skip whatever it writes there"
+
+	case ir.OpBuild:
+		// Delegated wholesale to a worker, which schedules it itself, so the
+		// steps that did the reading are in that build's record and not in
+		// this one. Absent until the fleet exists, and named now because the
+		// alternative is that it arrives keyable by default.
+		return "delegates a target to a worker, whose reads are not in this build's record"
+
+	default:
+		return ""
+	}
+}
+
+// readsOf is what a step read, whether it ran or was served from cache.
+//
+// **A step's observation is its own reads and not the chain's**, so a step
+// served from cache contributes nothing - which is why every cached step used
+// to refuse the key, and why on a project with a shared prepare chain the key
+// was never recorded at all.
+//
+// The engine already keeps what a step class read: it is what L2 predicts from.
+// A cached step's paths come from there. The digests do not: they are re-read
+// from the checkout as every other input is, so a stale profile can contribute
+// a stale *set of paths* and never a stale digest - and the step's chain key
+// having hit is what says the paths have not moved.
+func readsOf(step core.StepRecord, known core.Profiles) (core.Observation, bool) {
+	if step.Observed {
+		return step.Observation, true
+	}
+
+	if known == nil || !watched(step.Kind) {
+		return core.Observation{}, false
+	}
+
+	return known.Get(step.Class)
+}
+
 // gapIn is the first reason this build cannot be keyed, or empty.
 //
 // **A step that ran, had something to watch, and was not usefully watched is
-// the gap.** A step served from cache watched nothing because it did nothing.
-// Neither is a reason to distrust the key.
-//
-// The first reason rather than all of them, and never cleared: a build with one
-// unwatched step among fifty is a build whose key would be wrong, and the
-// forty-nine that reported cleanly say nothing about the one that did not.
-func gapIn(rec *core.Record) string {
+// the gap** - and so is one served from cache that nobody has a profile for,
+// because its reads are then unknown, and unknown is not empty.
+func gapIn(rec *core.Record, known core.Profiles) string {
 	for _, step := range rec.Steps {
-		if !watched(step.Kind) || !executed(step.Outcome) {
+		if why := refusal(step.Kind); why != "" {
+			return stepName(step) + " " + why
+		}
+
+		if !watched(step.Kind) {
 			continue
 		}
 
-		switch {
-		case !step.Observed:
-			return stepName(step) + " ran and was not watched"
+		if _, ok := readsOf(step, known); !ok {
+			if executed(step.Outcome) {
+				return stepName(step) + " ran and was not watched"
+			}
 
-		case step.Observation.Incomplete:
+			return stepName(step) + " came from cache and nothing recorded what it reads"
+		}
+
+		if step.Observed && step.Observation.Incomplete {
 			return fmt.Sprintf("%s ran and its tracer missed something: %v",
 				stepName(step), step.Observation.Why)
 		}
@@ -134,28 +212,6 @@ func stepName(step core.StepRecord) string {
 	}
 
 	return "a step"
-}
-
-// refreshable says whether this build saw enough to write a new record.
-//
-// **A build where anything came from cache did not observe what those steps
-// would have read**, so the inputs it gathered are a subset of the build's. A
-// subset is exactly the shape that skips on a change nobody accounted for, so
-// such a build leaves the existing record alone: the old one still names the
-// right paths, and a build that actually changes something will run every step
-// that matters and refresh it then.
-func refreshable(rec *core.Record) bool {
-	if rec == nil {
-		return false
-	}
-
-	for _, step := range rec.Steps {
-		if watched(step.Kind) && !executed(step.Outcome) {
-			return false
-		}
-	}
-
-	return len(rec.Steps) > 0
 }
 
 // executed says a step actually ran, which is the only kind that can have

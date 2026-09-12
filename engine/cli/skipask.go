@@ -39,8 +39,7 @@ func wouldSkipPlan(
 		// to learn that an unpinned reference is the reason. Every one of these
 		// has a remedy and the message names it.
 		if errors.Is(err, ErrNotDerivable) {
-			return false, ir.NodeID{}, strings.TrimPrefix(err.Error(),
-				ErrNotDerivable.Error()+": "), nil
+			return false, ir.NodeID{}, reasonOf(err), nil
 		}
 
 		return false, ir.NodeID{}, "", err
@@ -79,6 +78,16 @@ func noteBuild(o Options, plan *interp.Plan, sched *core.Scheduler, shape ir.Nod
 		return
 	}
 
+	// **Before anything is derived.** A build containing a step that has to
+	// happen has no skippable answer to record, however well it was watched:
+	// what a later build would skip is the step itself.
+	if why := mustRun(plan); why != "" {
+		fmt.Fprintf(o.Out, "auto-skip: %s will not be skipped\n  %s\n", o.Target, why)
+		keepUnskippable(store, o.Target, o.platformOrDefault(), why)
+
+		return
+	}
+
 	// **What a build that ran nothing still established.** Every chain key hit,
 	// which covers the declared inputs - so the fingerprint over those is true
 	// even though no step watched anything. Without it `--auto-skip` could never
@@ -91,35 +100,29 @@ func noteBuild(o Options, plan *interp.Plan, sched *core.Scheduler, shape ir.Nod
 	// **Only a build where every watched step ran saw the whole of 𝑅.** One that
 	// hit cache anywhere gathered a subset, which is the shape that skips on a
 	// change nobody accounted for. See refreshable.
-	switch {
-	case !refreshable(sched.Record):
-		// **Said, because silence here is permanent.** A build that cannot
-		// record what it read leaves the coarse key in place, and the coarse
-		// key cannot ignore a file nobody opened - so the flag goes on working
-		// and goes on being worse than it could be, with nothing to act on.
-		fmt.Fprintf(o.Out, "auto-skip: %s\n  %s\n",
+	// **A cached step no longer refuses the key.** Its reads come from the
+	// profile the engine already keeps for its class - see readsOf - so the
+	// only thing that stops a record now is a step nobody has any account of.
+	inputs, err = hostInputsOfBuild(sched.Record, sched.Profiles, contextLayersOf(plan), o.Dir)
+	if err != nil {
+		// Said, because silence here is permanent: a build that cannot record
+		// what it read leaves the coarse key in place, and the coarse key
+		// cannot ignore a file nobody opened.
+		fmt.Fprintf(o.Out, "auto-skip: %s\n  %v\n",
 			"this build cannot record what it read, so the coarser key stands",
-			whyNotRefreshable(sched.Record))
+			reasonOf(err))
 
-	default:
-		inputs, err = hostInputsOfBuild(sched.Record, contextLayersOf(plan), o.Dir)
-		if err != nil {
-			fmt.Fprintf(o.Out, "auto-skip: %s\n  %v\n",
-				"this build cannot record what it read, so the coarser key stands",
-				errors.Unwrap(err))
+		inputs = nil
+	} else {
+		inputs = append(inputs, earthfileInputs(plan)...)
 
-			inputs = nil
-		} else {
-			inputs = append(inputs, earthfileInputs(plan)...)
+		sort.Slice(inputs, func(i, j int) bool {
+			if inputs[i].Path != inputs[j].Path {
+				return inputs[i].Path < inputs[j].Path
+			}
 
-			sort.Slice(inputs, func(i, j int) bool {
-				if inputs[i].Path != inputs[j].Path {
-					return inputs[i].Path < inputs[j].Path
-				}
-
-				return inputs[i].Kind < inputs[j].Kind
-			})
-		}
+			return inputs[i].Kind < inputs[j].Kind
+		})
 	}
 
 	keep(store, o.Target, o.platformOrDefault(), shape, fingerprint, inputs)
@@ -168,6 +171,56 @@ func keep(
 	}
 
 	store.put(out)
+}
+
+// keepUnskippable replaces whatever this target had with a record that answers
+// nothing, and says why.
+//
+// **Replaces rather than leaves alone.** The previous record was written when
+// the build did not contain this, and leaving it is how a target acquires a
+// `LOCALLY` and goes on being skipped - the shape and the fingerprint both move
+// when the Earthfile does, but only for as long as nothing else restores them.
+func keepUnskippable(store skipRecordStore, target, platform, why string) {
+	store.put(skipRecord{
+		Version: skipRecordVersion, Target: target, Platform: platform,
+		MustRun: why,
+	})
+}
+
+// mustRun names a construct in the plan that no record can stand in for, or is
+// empty.
+//
+// A subset of caveatsOf, deliberately. An unpinned base and a secret with no
+// fleet key are reasons the key *under-claims*, and running unpinned builds
+// anyway is a trade this flag is allowed to make. These two are different:
+// each is a step that has to happen, so skipping the build does not produce a
+// coarser answer, it produces no answer at all.
+func mustRun(plan *interp.Plan) string {
+	if plan == nil || plan.Graph == nil {
+		return ""
+	}
+
+	for _, n := range plan.Graph.Nodes() {
+		switch {
+		case n.Op.Kind == ir.OpHost:
+			return loc(n) + " runs LOCALLY, on this machine and outside the" +
+				" build: skipping it would skip whatever it writes there"
+
+		case n.Op.NoCache:
+			return loc(n) + " is --no-cache, so it runs whatever the inputs say"
+		}
+	}
+
+	return ""
+}
+
+// loc is where to tell the reader to look.
+func loc(n *ir.Node) string {
+	if n.Meta.Source == "" {
+		return "a step"
+	}
+
+	return n.Meta.Source
 }
 
 // recordFor is what a build has to say about itself.
@@ -248,4 +301,19 @@ func shapeFor(
 		Push: o.Push, Strict: o.Strict, NoOutput: o.NoOutput,
 		AllowPrivileged: o.AllowPrivileged, VersionFlags: o.VersionFlags,
 	}
+}
+
+// reasonOf is the specific half of an ErrNotDerivable, or the whole of any
+// other error.
+//
+// The sentinel says only that a reason exists; the text after it says which
+// step and what about it. `errors.Unwrap` returns the sentinel and throws the
+// half away, which is how a cold substrate build came to report that its
+// inputs could not be derived without ever saying why.
+func reasonOf(err error) string {
+	if !errors.Is(err, ErrNotDerivable) {
+		return err.Error()
+	}
+
+	return strings.TrimPrefix(err.Error(), ErrNotDerivable.Error()+": ")
 }

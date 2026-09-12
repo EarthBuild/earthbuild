@@ -124,11 +124,36 @@ than degrade. Where L2 can afford a hint, this cannot.
 | H1   | any step reported `Incomplete`                                                                                   | the tracer knows it missed something; L2 pays a miss, this pays a wrong skip |
 | H2   | any step of the target recorded no observation at all                                                            | an unobserved step is one whose inputs are unknown, not one with none        |
 | H3   | the plan carries `--no-cache` or a `LOCALLY` step                                                                | each is a declared reason the key under-claims                               |
+| H3a  | the *record* carries a step of a kind no observation could make skippable                                        | a host step writes outside the build, and a delegated one read elsewhere     |
 | H4   | an observed read maps to neither a `COPY` from the context, nor a base image layer, nor an earlier step's output | a read nobody can explain is a read nobody can re-derive                     |
 | H5   | the guest has no observation source                                                                              | see below                                                                    |
 
 Each gate falls back to key A, which is conservative and correct. **A gate that fires is a rebuild,
 never a skip.**
+
+H3 and H3a are the same rule asked of the two things that carry it. H3 reads the plan and feeds
+`check-inputs`; H3a reads the build's record and feeds Κ_job, and for a while only H3 existed - so a
+`LOCALLY` build was refused by `check-inputs` and keyed by `--auto-skip`, which is the wrong way
+round. `--strict` hides it, because it refuses `LOCALLY` at plan time, and `--strict` is opt-in.
+
+**Both keys, and at record time.** Gating only the reads leaves key A serving the skip, because
+`planHolds` compares a plan fingerprint and nothing else - and key A is exactly what a build
+containing `LOCALLY` falls back to, a host step never being watched. So a build carrying either
+construct writes a record whose `MustRun` names it, and both `stillHolds` and `planHolds` answer no.
+
+It is recorded rather than asked, because `askAutoSkip` runs *before* planning - which is the point
+of the flag - and there is no plan in front of it at the moment the question is asked. A build that
+never records a skippable answer cannot be skipped however the question arrives. `skipRecordVersion`
+went to 2 with it, so a record written before the gate existed is refused rather than believed.
+
+`mustRun` is a deliberate subset of `caveatsOf`: an unpinned base and an unkeyed secret make the key
+*under-claim*, which is a trade this flag may make, while these two are steps that have to happen -
+skipping the build produces no answer rather than a coarse one.
+
+H3a classifies every opcode rather than naming the unskippable ones, because the failure of a
+*forgotten* kind is a build that does not run. `benign` is the third class: an image, a context, a
+merge, a packed image and a scratch read nothing of the checkout on their own account, so their
+being unobserved is not a gap. `TestEveryOpKindIsClassifiedForSkipping` is the guard.
 
 ---
 

@@ -261,29 +261,50 @@ func (app *EarthApp) warnDeprecatedEarthlyEnvVars() {
 }
 
 // warnDeprecatedAutoSkip warns when any of the auto-skip flags or env vars are
-// used. The cloud backend that once powered auto-skip has been removed; only
-// the local database (--auto-skip-db-path) still functions. The flags and env
-// vars are deprecated, and we are collecting feedback to decide whether to
-// remove them in the future.
+// used on the buildkit engine, whose cloud backend has been removed.
+//
+// **Silent on the native engine, which supports them.** They are its documented
+// interface for job skipping (docs/native/skipping-a-job.md), so a notice on
+// that path told the reader the recommended way of doing this was going away -
+// on every invocation, native being the default.
 func (app *EarthApp) warnDeprecatedAutoSkip() {
 	flags := app.BaseCLI.Flags()
-	if warning := autoSkipDeprecationWarning(flags.SkipBuildkit, flags.NoAutoSkip, flags.LocalSkipDB); warning != "" {
+
+	warning := autoSkipDeprecationWarning(
+		flags.SkipBuildkit, flags.NoAutoSkip, flags.LocalSkipDB,
+		engineChosen(os.Args[1:], engineEnv()))
+	if warning != "" {
 		app.BaseCLI.Log().Warnf("%s", warning)
 	}
 }
 
 // autoSkipDeprecationWarning returns the auto-skip deprecation warning when any
-// auto-skip flag (or its env var) is set, or an empty string otherwise. It is
-// the testable core of warnDeprecatedAutoSkip.
-func autoSkipDeprecationWarning(skipBuildkit, noAutoSkip bool, localSkipDB string) string {
+// auto-skip flag (or its env var) is set on an engine that no longer supports
+// it, or an empty string otherwise. It is the testable core of
+// warnDeprecatedAutoSkip.
+//
+// Read from the raw arguments rather than the flag, because this runs from
+// `before` and the build subcommand's flags are not parsed yet - so an engine
+// nobody named is the flag's own default, which is native. That makes silence
+// the answer for anything unrecognised, which is the opposite of
+// needsContainerFrontend's timid direction and deliberately so: a spurious
+// notice on the default path is the fault being fixed here, while a missing
+// nudge on a buildkit build costs only the nudge.
+func autoSkipDeprecationWarning(skipBuildkit, noAutoSkip bool, localSkipDB, engine string) string {
 	if !skipBuildkit && !noAutoSkip && localSkipDB == "" {
 		return ""
 	}
 
+	if engine == "" || engine == nativeEngineName {
+		return ""
+	}
+
 	return "Deprecation: --auto-skip, --no-auto-skip and --auto-skip-db-path (and their " +
-		"EARTH_AUTO_SKIP* / EARTHLY_AUTO_SKIP* env vars) are deprecated. " +
-		"The cloud auto-skip backend has been removed; only the local database (--auto-skip-db-path) still functions. " +
-		"We may remove these in a future release and are collecting feedback to help decide. " +
+		"EARTH_AUTO_SKIP* / EARTHLY_AUTO_SKIP* env vars) are deprecated for the buildkit engine: " +
+		"the cloud auto-skip backend they used has been removed. " +
+		"The native engine supports them, and skips on what a build actually read rather than on a " +
+		"hash of everything it was given - see docs/native/skipping-a-job.md. " +
+		"We may remove them from the buildkit path in a future release and are collecting feedback. " +
 		"Let us know how you use auto-skip at https://github.com/orgs/EarthBuild/discussions/707"
 }
 

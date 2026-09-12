@@ -74,6 +74,27 @@ func engineFromArgs(args []string) (string, bool) {
 	return "", false
 }
 
+// engineChosen is the engine this invocation will use, decided from the raw
+// arguments and the environment.
+//
+// **Needed before the build subcommand's flags are parsed**, which is where
+// `before` runs and therefore where anything it decides has to come from. The
+// flag's own default is native, so an invocation that names nothing gets
+// native here too - stating that default in a second place is the cost of
+// having to answer the question early, and the alternative is a caller that
+// cannot tell "unnamed" from "buildkit".
+func engineChosen(args []string, engineEnv string) string {
+	if named, ok := engineFromArgs(args); ok && named != "" {
+		return named // the command line beats the environment, as everywhere else
+	}
+
+	if engineEnv != "" {
+		return engineEnv
+	}
+
+	return nativeEngineName
+}
+
 // commandNames lists what the CLI will accept as a subcommand, so the decision
 // above compares against the real set rather than a copy that drifts.
 func commandNames(cmds []*cli.Command) []string {

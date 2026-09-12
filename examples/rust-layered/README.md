@@ -12,7 +12,38 @@ already run.
 ```sh
 earth ./examples/rust-layered+build          # the binary, as an artifact
 earth ./examples/rust-layered+deps           # just the dependency layer
+earth ./examples/rust-layered+lint           # clippy, over +build's tree
+earth ./examples/rust-layered+test           # tests, over the same tree
 ```
+
+## One tree, three commands
+
+`+lint` and `+test` start from `+build` and stay in its profile, so all three
+share one `target/`. Measured here, each over a warm `+build`:
+
+| target   | wall | layer added | cache          |
+| -------- | ---- | ----------- | -------------- |
+| `+build` | 51s  | 264 MiB     | 0 hit, 16 miss |
+| `+lint`  | 5s   | 100 KiB     | 16 hit, 2 miss |
+| `+test`  | 2s   | 72 KiB      | 16 hit, 1 miss |
+
+Linting and testing therefore cost 14% of the build's wall clock and 0.06% of
+its layer size. The layer sizes are stable run to run; the wall clocks carry the
+usual few seconds of noise, and it is the ratio that matters. This is a
+three-crate workspace, so the mechanism transfers and the absolute numbers do
+not. Two choices make that so, and getting either wrong costs a full
+build per command:
+
+- **`FROM +build`, not `FROM +deps`.** Separate targets are separate layer
+  chains, so starting from `+deps` recompiles every crate in the workspace.
+- **`--release` on all three.** `cargo clippy` and `cargo test` default to the
+  dev profile, which shares nothing with the release tree.
+
+They coexist rather than compete. `cargo test` pulls dev-dependencies in, and
+where that changes feature unification the affected dependency gets a different
+`-C metadata` and sits *beside* the first rather than replacing it - duplication
+in the tree, never recompilation. So one layer serves all three, and running
+them in any order leaves the others `Fresh`.
 
 ## How it works
 
@@ -63,7 +94,21 @@ Where chef is still the more convenient of the two is a large workspace: it
 generates the stub skeleton that this example writes out by hand, and that
 boilerplate grows with every crate you add.
 
-**Neither approach caches your own crates.** Both warm the dependency graph and
+## Compared with Swatinem/rust-cache
+
+A different mechanism in the same category. `rust-cache` saves `~/.cargo` and
+`target/` into the GitHub Actions cache, and before saving it **deletes the
+workspace crates' artefacts**, keeping only dependencies - `cleanProfileTarget`
+keeps `build`, `.fingerprint` and `deps`, then prunes within them against a
+keep-set. It has little choice: the Actions cache is a 10 GB repository-wide LRU
+and a real tree does not fit.
+
+Measured on a Substrate-family workspace, `target/release/deps` holds 5.02 GiB,
+of which **2.04 GiB (41%) belongs to the workspace's own 38 crates** - which is
+exactly the part that recompiles on every commit, and exactly what gets pruned.
+A registry-backed layer has no 10 GB budget, so it keeps them.
+
+**Neither chef nor rust-cache caches your own crates.** Both warm the dependency graph and
 nothing else, so editing any crate in the workspace recompiles every crate you
 own - measured here: editing `mathy`, which nothing depends on, still recompiles
 `greet` and `app`. Getting past that needs a previously-built `target/` in the

@@ -283,6 +283,18 @@ type Entry struct {
 	// environment its image sets (§3.2a).
 	Declares ir.NodeID
 	Declared bool
+	// Placements is where the copies in this step put what they copied.
+	//
+	// **Provenance, not identity.** It is not hashed into any key and takes no
+	// part in comparing two claims: the same COPY over the same base put the
+	// same bytes in the same place, so the key having matched is what says
+	// these are still the right placements.
+	//
+	// Carried here because it was carried in memory only, which made the
+	// correspondence between a traced read and a checkout path available on the
+	// build that ran the copy and on no build after it - and a copy is the most
+	// cacheable step there is. See Placement and docs-internals/job-skipping.md.
+	Placements []Placement
 }
 
 // usableDeclaration reports whether an entry's declaration may be believed.

@@ -74,13 +74,21 @@ func TestEveryOpKindIsClassifiedForSkipping(t *testing.T) {
 			continue
 		}
 
-		if !watched(kind) && !benign(kind) && !refuses(kind) {
-			t.Errorf("%v is in no class: it is neither watched, benign nor refused,"+
+		if !watched(kind) && !placing(kind) && !benign(kind) && !refuses(kind) {
+			t.Errorf("%v is in no class: it is neither watched, placing, benign"+
+				" nor refused,"+
 				"\n  so a build containing it is keyed without anyone deciding that", kind)
 		}
 
 		if benign(kind) && refuses(kind) {
 			t.Errorf("%v is both benign and refused", kind)
+		}
+
+		// A kind answers for its reads or for its placements, never both: the
+		// two gates ask different questions and a kind subject to both would
+		// have to satisfy a rule nobody wrote down.
+		if watched(kind) && placing(kind) {
+			t.Errorf("%v is both watched and placing", kind)
 		}
 	}
 }

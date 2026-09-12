@@ -97,12 +97,27 @@ type stored struct {
 	// they existed has neither, and absent must stay absent rather than becoming
 	// "this image declares nothing".
 	Declares string `json:"declares,omitempty"`
+	// Placements is where this step's copies put what they copied, so a cached
+	// COPY can still translate a traced read into a checkout path. omitempty
+	// for the reason Content is: an entry written before it existed has none,
+	// and absent must stay absent rather than becoming "this copy placed
+	// nothing".
+	Placements []placed `json:"placements,omitempty"`
 	// The sized fields last, so the strings above sit together (govet
 	// fieldalignment). Field order is not part of the format: JSON is read by
 	// name, and every reader here goes through these tags.
 	Exit     int   `json:"exit"`
 	Bytes    int64 `json:"bytes"`
 	Declared bool  `json:"declared,omitempty"`
+}
+
+// placed is core.Placement on the wire. Three strings, named rather than
+// positional, because a tuple read by position is one field insertion away from
+// silently meaning something else.
+type placed struct {
+	Layer string `json:"layer"`
+	From  string `json:"from"`
+	To    string `json:"to"`
 }
 
 // Get returns a claim, if there is a readable one.
@@ -163,9 +178,16 @@ func (c *Cache) Get(k core.Key) (core.Entry, bool) {
 		declares = ir.NodeID{}
 	}
 
+	var places []core.Placement
+
+	for _, p := range s.Placements {
+		places = append(places, core.Placement{Layer: p.Layer, From: p.From, To: p.To})
+	}
+
 	return core.Entry{
 		Layer: id, Layers: layers, Content: content, Exit: s.Exit, Bytes: s.Bytes,
 		Writer: s.Writer, Declares: declares, Declared: s.Declared,
+		Placements: places,
 	}, true
 }
 
@@ -260,6 +282,10 @@ func (c *Cache) Put(k core.Key, e core.Entry) {
 	rec.Declared = e.Declared
 	if e.Declares != zero {
 		rec.Declares = e.Declares.String()
+	}
+
+	for _, p := range e.Placements {
+		rec.Placements = append(rec.Placements, placed{Layer: p.Layer, From: p.From, To: p.To})
 	}
 
 	b, err := json.Marshal(rec)

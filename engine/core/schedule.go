@@ -1571,9 +1571,13 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 		if hit && usableDeclaration(n.Op.Kind, e) {
 			rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = e.Layer, e.Exit, e.Bytes, OutcomeL1Hit
+			// A fact about the step, not about this run of it: the key having
+			// matched is what says the same copy put the same bytes in the
+			// same place.
+			rec.Placements = e.Placements
 			s.finish(n, base, Result{
 				Layer: e.Layer, Layers: e.Layers, Exit: e.Exit, Bytes: e.Bytes,
-				Declares: e.Declares,
+				Declares: e.Declares, Placements: e.Placements,
 			}, rec)
 			s.bump(&s.Stats.Hits)
 
@@ -1595,9 +1599,10 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 		if hit && usableDeclaration(n.Op.Kind, e) {
 			rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = e.Layer, e.Exit, e.Bytes, OutcomeL2Hit
+			rec.Placements = e.Placements
 			s.finish(n, base, Result{
 				Layer: e.Layer, Layers: e.Layers, Exit: e.Exit, Bytes: e.Bytes,
-				Declares: e.Declares,
+				Declares: e.Declares, Placements: e.Placements,
 			}, rec)
 			s.bump(&s.Stats.L2Hits)
 
@@ -1731,6 +1736,9 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 			// so whether it declares anything is known even when the answer is
 			// nothing.
 			Declares: res.Declares, Declared: true,
+			// Where this step's copies put things, so a later build served
+			// this entry can still name a traced read as a checkout path.
+			Placements: res.Placements,
 		}
 
 		// Both keys name the same result. Κ₁ is what the next identical build

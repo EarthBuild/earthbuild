@@ -93,6 +93,23 @@ the copy that placed the file.
 For each `OpLocal`-sourced `COPY` the plan knows `(context source -> destination prefix)`. An
 observed path under a destination prefix rewrites to the host path beneath the corresponding source.
 
+The mapping is *recorded* by the copy that did the placing rather than re-derived from its
+arguments, because a glob, `--dir`, `--if-exists` and `LANDS AS` are all resolved by the guest doing
+the work: the arguments say what was asked for and only the placement says what happened.
+
+**And it is stored with the cache entry**, not held in memory for the run that produced it. Held in
+memory, the correspondence exists on the build that ran the copy and on no build after it - and a
+copy is the most cacheable step there is, so in practice it existed almost nowhere. Measured on
+midnight-node: 37 steps, 15 of them `COPY`, five served from L1, and `--auto-skip` refused to record
+a key on every run, while the `RUN cargo build` above them observed 808 reads perfectly and none of
+them could be named. The placements take no part in any key and in no comparison of two claims: the
+same copy over the same base put the same bytes in the same place, so the chain key having matched is
+what says they still hold.
+
+One consequence of I9, which inserts and removes entries but never rewrites them: a store populated
+before this existed does not acquire placements, and a build over it keeps falling back to key A
+until those entries are evicted or pruned.
+
 **𝑅 stores host-side digests, captured at record time, never the digest the step saw.** A copy may
 legitimately change what the destination holds relative to the host file - `--chmod` changes the
 mode, `--keep-own` and `--chown` the ownership - and re-deriving from the host must not have to
@@ -151,9 +168,22 @@ went to 2 with it, so a record written before the gate existed is refused rather
 skipping the build produces no answer rather than a coarse one.
 
 H3a classifies every opcode rather than naming the unskippable ones, because the failure of a
-*forgotten* kind is a build that does not run. `benign` is the third class: an image, a context, a
-merge, a packed image and a scratch read nothing of the checkout on their own account, so their
-being unobserved is not a gap. `TestEveryOpKindIsClassifiedForSkipping` is the guard.
+*forgotten* kind is a build that does not run. `TestEveryOpKindIsClassifiedForSkipping` is the guard.
+Four classes:
+
+| Class     | Kinds                                                   | Owes the record                          |
+| --------- | ------------------------------------------------------- | ---------------------------------------- |
+| `watched` | `OpExec`                                                | an observation - what it read            |
+| `placing` | `OpFile`                                                | placements - where it put what it copied |
+| `benign`  | `OpImage` `OpLocal` `OpMerge` `OpPackImage` `OpScratch` | nothing                                  |
+| refused   | `OpHost` `OpBuild`                                      | nothing it could owe would be enough     |
+
+**A `COPY` is not asked for an observation**, which it was and which cost every build whose copies
+landed in an empty directory: what a copy reads is its source layer, not the checkout, and a copy
+that observes nothing of its base reports `Observed` false. Ten of midnight-node's fifteen did. What
+makes its bytes namable is the placement, so that is what it owes - and a copy that placed nothing is
+a gap for the same reason an unwatched `RUN` is, what it brought in being unaccounted for rather than
+absent.
 
 ---
 

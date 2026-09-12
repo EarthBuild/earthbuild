@@ -93,7 +93,24 @@ func placedFromAContext(places []core.Placement, contexts map[string]bool) bool 
 // what the first end-to-end run did, refusing every record with "Earthfile:4 ran
 // and was not watched" where Earthfile:4 was the FROM.
 func watched(kind ir.OpKind) bool {
-	return kind == ir.OpExec || kind == ir.OpFile
+	return kind == ir.OpExec
+}
+
+// placing is a kind whose contribution to 𝑅 is where it put things rather than
+// what it read.
+//
+// **A COPY is not asked for an observation.** What it reads is its source
+// layer, which is not the checkout; what makes its bytes namable is the
+// correspondence between the destination and the host path, which is the
+// placement. Requiring reads of it refused every build whose copies landed in
+// an empty directory - a real COPY that observes nothing of its base reports
+// `Observed` false, and ten of midnight-node's fifteen did exactly that.
+//
+// It is asked for placements instead, and a copy that cannot say where it put
+// anything is a gap for the same reason an unwatched RUN is: what it brought in
+// is then unaccounted for, and unaccounted is not absent.
+func placing(kind ir.OpKind) bool {
+	return kind == ir.OpFile
 }
 
 // benign is a kind that reads nothing of the checkout on its own account.
@@ -162,7 +179,13 @@ func readsOf(step core.StepRecord, known core.Profiles) (core.Observation, bool)
 		return step.Observation, true
 	}
 
-	if known == nil || !watched(step.Kind) {
+	// **Both kinds that contribute, not only the one that must.** A copy is no
+	// longer *required* to report reads - it owes placements - but what it did
+	// read still belongs in 𝑅 where a profile has it. Gating recovery on the
+	// requirement dropped four of examples/rust-layered's seventy-seven inputs
+	// on any build whose copies were cached, and a narrower 𝑅 is a false skip
+	// waiting for one of those four to change.
+	if known == nil || (!watched(step.Kind) && !placing(step.Kind)) {
 		return core.Observation{}, false
 	}
 
@@ -178,6 +201,20 @@ func gapIn(rec *core.Record, known core.Profiles) string {
 	for _, step := range rec.Steps {
 		if why := refusal(step.Kind); why != "" {
 			return stepName(step) + " " + why
+		}
+
+		// **Placements, not reads.** A copy that placed nothing is the shape a
+		// cached COPY took before its placements were stored with its cache
+		// entry, and it is indistinguishable here from one that copied nothing
+		// - so both refuse. Measured: believing it cost a false skip on
+		// examples/rust-layered, where an edit to a compiled source file was
+		// skipped outright.
+		if placing(step.Kind) {
+			if len(step.Placements) == 0 {
+				return stepName(step) + " copied and did not record where it put anything"
+			}
+
+			continue
 		}
 
 		if !watched(step.Kind) {

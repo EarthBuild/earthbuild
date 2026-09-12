@@ -14,6 +14,7 @@ earth ./examples/rust-layered+build          # the binary, as an artifact
 earth ./examples/rust-layered+deps           # just the dependency layer
 earth ./examples/rust-layered+lint           # clippy, over +build's tree
 earth ./examples/rust-layered+test           # tests, over the same tree
+earth ./examples/rust-layered+ci             # lint and test, fanned out
 ```
 
 ## One tree, three commands
@@ -26,12 +27,21 @@ share one `target/`. Measured here, each over a warm `+build`:
 | `+build` | 51s  | 264 MiB     | 0 hit, 16 miss |
 | `+lint`  | 5s   | 100 KiB     | 16 hit, 2 miss |
 | `+test`  | 2s   | 72 KiB      | 16 hit, 1 miss |
+| `+ci`    | 4s   | both        | 16 hit, 3 miss |
 
 Linting and testing therefore cost 14% of the build's wall clock and 0.06% of
 its layer size. The layer sizes are stable run to run; the wall clocks carry the
 usual few seconds of noise, and it is the ratio that matters. This is a
 three-crate workspace, so the mechanism transfers and the absolute numbers do
-not. Two choices make that so, and getting either wrong costs a full
+not.
+
+`+ci` fans the two out with `BUILD`, and neither orders the other, so the
+scheduler runs them as parallel branches: 4s against the 7s of running them one
+after another. Two qualifications on that number - these steps are seconds long,
+so scheduling overhead is a large share of them, and on one machine two
+concurrent cargos contend for the same cores, which puts real parallel wall clock
+between `max()` and `sum()`. Across a fleet they are parallel in earnest, and
+both workers can fetch `+build`'s layer from whichever peer already holds it. Two choices make that so, and getting either wrong costs a full
 build per command:
 
 - **`FROM +build`, not `FROM +deps`.** Separate targets are separate layer

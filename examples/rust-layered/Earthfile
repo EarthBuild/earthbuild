@@ -77,6 +77,13 @@ test:
     FROM +build
     RUN cargo test --release --workspace
 
+# ci fans the two out. They share +build and neither orders the other, so the
+# scheduler runs them as parallel branches of the graph - on one machine they
+# then contend for cores, and across a fleet they genuinely are parallel.
+ci:
+    BUILD +lint
+    BUILD +test
+
 # build-warm starts from a whole build tree a previous run published, target/
 # and all, so cargo recompiles only the crates whose sources actually changed -
 # not every crate you own, which is as well as a dependency-only cache can do.

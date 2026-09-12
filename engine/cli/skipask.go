@@ -56,40 +56,78 @@ func noteBuild(o Options, plan *interp.Plan, sched *core.Scheduler, shape ir.Nod
 		return
 	}
 
-	// **A build where anything came from cache saw a subset of the inputs**, so
-	// it leaves the record it found alone. See refreshable.
-	if !refreshable(sched.Record) {
-		return
-	}
-
-	inputs, err := hostInputsOfBuild(sched.Record, contextLayersOf(plan), o.Dir)
-	if err != nil {
-		return
-	}
-
-	// **Every Earthfile the build read, as an input like any other.** This is
-	// what lets a build spanning several files be keyed without following a
-	// reference or refusing one: the interpreter read them and says which.
-	inputs = append(inputs, earthfileInputs(plan)...)
-
-	sort.Slice(inputs, func(i, j int) bool {
-		if inputs[i].Path != inputs[j].Path {
-			return inputs[i].Path < inputs[j].Path
-		}
-
-		return inputs[i].Kind < inputs[j].Kind
-	})
-
 	store, err := skipRecordStoreFor(o.AutoSkipDB)
 	if err != nil {
 		return
 	}
 
-	store.put(skipRecord{
-		Version: skipRecordVersion,
-		Target:  o.Target, Platform: o.platformOrDefault(),
-		Shape: shape.String(), Inputs: inputs, Key: jobKey(shape, inputs),
-	})
+	// **What a build that ran nothing still established.** Every chain key hit,
+	// which covers the declared inputs - so the fingerprint over those is true
+	// even though no step watched anything. Without it `--auto-skip` could never
+	// start on a machine that already had a store, which is every machine after
+	// the first build, and the flag would appear to do nothing for ever.
+	fingerprint := inputsOf(plan, o.Target, o.platformOrDefault()).Fingerprint
+
+	var inputs []hostInput
+
+	// **Only a build where every watched step ran saw the whole of 𝑅.** One that
+	// hit cache anywhere gathered a subset, which is the shape that skips on a
+	// change nobody accounted for. See refreshable.
+	if refreshable(sched.Record) {
+		inputs, err = hostInputsOfBuild(sched.Record, contextLayersOf(plan), o.Dir)
+		if err != nil {
+			inputs = nil
+		} else {
+			inputs = append(inputs, earthfileInputs(plan)...)
+
+			sort.Slice(inputs, func(i, j int) bool {
+				if inputs[i].Path != inputs[j].Path {
+					return inputs[i].Path < inputs[j].Path
+				}
+
+				return inputs[i].Kind < inputs[j].Kind
+			})
+		}
+	}
+
+	keep(store, o.Target, o.platformOrDefault(), shape, fingerprint, inputs)
+}
+
+// keep writes a build's record without losing what an earlier one learned.
+//
+// **A build that hit cache must not downgrade a record made by one that ran.**
+// The fingerprint is brought up to date either way - it is true of this build -
+// and the reads are replaced only when this build actually saw them. Otherwise
+// running a build that happened to hit cache would undo the mechanism.
+func keep(
+	store skipRecordStore, target, platform string, shape ir.NodeID,
+	fingerprint string, inputs []hostInput,
+) {
+	out := recordFor(target, platform, shape, fingerprint, inputs)
+
+	if len(out.Inputs) == 0 {
+		if was, ok := store.get(out.Target, out.Platform); ok {
+			out.Shape, out.Inputs, out.Key = was.Shape, was.Inputs, was.Key
+		}
+	}
+
+	store.put(out)
+}
+
+// recordFor is what a build has to say about itself.
+func recordFor(
+	target, platform string, shape ir.NodeID, fingerprint string, inputs []hostInput,
+) skipRecord {
+	out := skipRecord{
+		Version: skipRecordVersion, Target: target, Platform: platform,
+		Plan: fingerprint,
+	}
+
+	if len(inputs) > 0 {
+		out.Shape, out.Inputs, out.Key = shape.String(), inputs, jobKey(shape, inputs)
+	}
+
+	return out
 }
 
 // earthfileInputs is every Earthfile the plan read, as host inputs.

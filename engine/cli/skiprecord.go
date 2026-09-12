@@ -99,6 +99,11 @@ func (in hostInput) now(root string) string {
 	case inputListing:
 		return listingOf(root, in.Path).String()
 
+	case inputEarthfile:
+		// Absolute already, and not under the context root: a build may read an
+		// Earthfile outside it.
+		return earthfileDigest(in.Path).String()
+
 	case inputFile, inputAbsent:
 		return sealOf(root, in.Path).String()
 

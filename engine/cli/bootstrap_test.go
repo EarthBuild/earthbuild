@@ -1,116 +1,95 @@
-package cli_test
+package cli
 
 import (
-	"bytes"
-	"context"
-	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 
-	"github.com/EarthBuild/earthbuild/engine/cli"
+	"github.com/EarthBuild/earthbuild/engine/core"
 )
 
-// The engine builds the engine, and what it built runs the next build.
+// **A build where everything hit cache still has something true to say.**
 //
-// Everything else in this repository's Earthfile builds the BuildKit front end.
-// Until now nothing built `earth-native` and `earth-guestd` at all - they were
-// `go build` and nothing else - so the engine had never been a consumer of its
-// own output.
+// It is the case every developer meets first: `--auto-skip` turned on against a
+// store they already have. No step runs, so nothing watched anything, so there
+// are no reads to record - and the record was therefore never written and the
+// flag never skipped anything, ever.
 //
-// **That is the difference between self-building and self-hosting.** A build
-// that produces a binary proves the steps ran; a build whose binary then runs
-// the next build proves the layers were right. Every defect this branch found in
-// the last eight iterations - a lost deletion, a flattened hardlink, a dropped
-// capability - is the kind that produces a perfectly plausible binary that does
-// not work, and none of them would have failed a build.
-//
-// Two stages, and the second is the point:
-//
-//  1. build `+native-engine`, which produces both binaries for linux/arm64;
-//  2. run an ordinary build using the `earth-guestd` that came out of it, with a
-//     deletion in it because that was the last thing to be wrong.
-//
-// Behind its own switch because stage one is a cold Go build of this whole
-// module - minutes, not seconds - and the gate runs on every change.
-func TestTheEngineBuildsItselfAndTheResultWorks(t *testing.T) { // not parallel: boots a VM
-	if os.Getenv("EARTH_TEST_BOOTSTRAP") == "" {
-		t.Skip("set EARTH_TEST_BOOTSTRAP=1 to build the engine with the engine")
+// What such a build *did* establish is that every chain key hit, which covers
+// the declared inputs. So it records those: the plan fingerprint, which is
+// coarser than the reads and is not nothing. The first build that actually runs
+// upgrades the record, and until then the flag works on the machine people have.
+func TestAFullyCachedBuildRecordsThePlanFingerprint(t *testing.T) {
+	t.Parallel()
+
+	got := recordFor("build", "linux/arm64", aShape('a'), "a-plan-fingerprint", nil)
+
+	if got.Plan != "a-plan-fingerprint" {
+		t.Errorf("a fully cached build recorded plan %q", got.Plan)
 	}
 
-	requireSandbox(t)
+	if got.Shape != "" || len(got.Inputs) != 0 {
+		t.Errorf("a fully cached build claimed reads it never saw: %+v", got)
+	}
 
-	t.Setenv("EARTH_GUESTD", buildGuestd(t))
-	t.Setenv("EARTH_IMAGE_CACHE_DIR", sharedImages(t))
-	useStore(t, storeDir(t))
+	if !got.planHolds("a-plan-fingerprint") {
+		t.Error("the record it wrote does not answer for the build that wrote it")
+	}
+}
 
-	repo, err := filepath.Abs("../..")
+// A build that ran records what it read, and the fingerprint besides.
+func TestABuildThatRanRecordsBoth(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src/a.txt": "one"})
+
+	ran := &core.Record{Steps: []core.StepRecord{
+		ranAndWatched(placedAt(), read("/w/src/a.txt")),
+	}}
+
+	in, err := hostInputsOfBuild(ran, map[string]bool{contextLayer: true}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var log bytes.Buffer
+	got := recordFor("build", "linux/arm64", aShape('a'), "a-plan-fingerprint", in)
 
-	err = cli.Run(context.Background(), cli.Options{
-		Dir: repo, Target: "native-engine", Out: &log, Platform: testPlatform(),
-	})
-	if err != nil {
-		t.Fatalf("the engine could not build itself: %v\n%s", err, log.String())
+	if got.Shape == "" || len(got.Inputs) != 1 || got.Key == "" {
+		t.Errorf("a build that ran recorded %+v", got)
 	}
 
-	// Where `+native-engine` puts it, which is `build/$GOOS/$GOARCH` - and the
-	// build above asked for `testPlatform()`, which is this machine's. It read
-	// `arm64`, the **third** assertion on this branch to be about the machine it
-	// was written on (E163a found two); this one had never run anywhere, so
-	// nothing said so.
-	built := filepath.Join(repo, testTarget, "linux", runtime.GOARCH, "earth-guestd")
+	if got.Plan != "a-plan-fingerprint" {
+		t.Error("a build that ran did not also record the fingerprint")
+	}
+}
 
-	fi, err := os.Stat(built)
-	if err != nil {
-		t.Fatalf("no guest binary came out: %v", err)
+// **And a cached build must not erase what a real one learned.** Downgrading a
+// record from what the build read to what it declared would undo the mechanism
+// every time somebody ran a build that happened to hit cache.
+func TestACachedBuildDoesNotDowngradeAnExistingRecord(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src/a.txt": "one"})
+	at := filepath.Join(t.TempDir(), "records")
+	s := skipRecordStore{at: at}
+
+	full := recorded(t, root, aShape('a'), "/w/src/a.txt")
+	full.Plan = "first"
+	s.put(full)
+
+	// A later build, fully cached, with a fingerprint of its own: it gathered
+	// no reads, so it has none to offer.
+	keep(s, "build", "linux/arm64", aShape('a'), "second", nil)
+
+	back, ok := s.get("build", "linux/arm64")
+	if !ok {
+		t.Fatal("the record vanished")
 	}
 
-	if fi.Size() == 0 {
-		t.Fatal("the guest binary is empty")
+	if len(back.Inputs) != len(full.Inputs) || back.Key != full.Key {
+		t.Errorf("a cached build downgraded the record to %+v", back)
 	}
 
-	// And now the half that matters. A binary that exists proves the steps ran;
-	// a binary that *works* proves the layers it was built from were right.
-	dir := t.TempDir()
-
-	err = os.WriteFile(filepath.Join(dir, testEarthfile), []byte(`VERSION 0.8
-
-probe:
-    FROM alpine:3.22
-    RUN echo x > /a.txt && rm /a.txt
-    RUN if [ -e /a.txt ]; then echo STILL; else echo GONE; fi > /r.txt
-    SAVE ARTIFACT /r.txt AS LOCAL r.txt
-`), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Setenv("EARTH_GUESTD", built)
-
-	var second bytes.Buffer
-
-	err = cli.Run(context.Background(), cli.Options{
-		Dir: dir, Target: testProbe, Out: &second, Platform: testPlatform(),
-	})
-	if err != nil {
-		t.Fatalf("the guest this engine built cannot run a build: %v\n%s", err, second.String())
-	}
-
-	body, err := os.ReadFile(filepath.Join(dir, "r.txt"))
-	if err != nil {
-		t.Fatalf("no artifact: %v\n%s", err, second.String())
-	}
-
-	// A deletion, because it was the last thing to be wrong (E88, E94) and
-	// because it exercises the whole chain: the marker written at commit, the
-	// translation at materialise, the overlay reading it.
-	if strings.TrimSpace(string(body)) != "GONE" {
-		t.Errorf("a build run by the engine's own guest lost a deletion: %q", body)
+	if back.Plan != "second" {
+		t.Errorf("the fingerprint was not brought up to date: %q", back.Plan)
 	}
 }

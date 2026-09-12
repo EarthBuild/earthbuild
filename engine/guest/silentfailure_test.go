@@ -86,3 +86,51 @@ func TestOOMKillsAreReadFromTheCgroup(t *testing.T) {
 		t.Errorf("read %d oom kills, wanted 1", got)
 	}
 }
+
+// **A step that was killed cannot have said so itself.**
+//
+// The note is otherwise suppressed once a step has printed anything, on the
+// grounds that its own output says more than this could. That holds for an
+// ordinary failure and not for these two: a process killed for memory prints
+// `Compiling foo` and stops, and nothing in what it printed says the kernel
+// killed it. The longer the build, the more certain it is to have printed
+// something, so the case where this matters most is exactly the one the gate
+// removed it from - a substrate build that dies at the link step after five
+// hundred lines of progress.
+//
+// The resource figures stay behind the gate. Those a reader can go and measure;
+// the kill they cannot.
+func TestAKilledStepSaysSoEvenWhenItPrinted(t *testing.T) {
+	t.Parallel()
+
+	chatty := []byte("   Compiling midnight-node v3.0.0\n   Compiling foo v0.1.0\n")
+
+	for what, f := range map[string]failure{
+		"out of memory": {exit: -1, oomKills: 1, rss: 8 << 30, ran: time.Minute},
+		"signalled":     {exit: -1, signal: syscall.SIGKILL, ran: time.Minute},
+	} {
+		t.Run(what, func(t *testing.T) {
+			t.Parallel()
+
+			got := noteFor(chatty, f)
+			if got == "" {
+				t.Fatalf("a step killed (%s) that had printed said nothing about it", what)
+			}
+
+			if f.oomKills > 0 && !strings.Contains(got, "memory") {
+				t.Errorf("an OOM kill did not mention memory: %q", got)
+			}
+		})
+	}
+
+	// What a reader can measure for themselves stays behind the gate: a step
+	// that printed and merely exited non-zero gets nothing added.
+	if got := noteFor(chatty, failure{exit: 1, cpu: time.Second, rss: 1 << 20}); got != "" {
+		t.Errorf("an ordinary failure that printed got a note anyway: %q", got)
+	}
+
+	// And a silent one still says everything it knows.
+	if got := noteFor(nil, failure{exit: 1, ran: time.Second}); got == "" {
+		t.Error("a silent failure said nothing")
+	}
+}

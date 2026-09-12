@@ -24,30 +24,40 @@ type failure struct {
 	oomKills int
 }
 
-// noteFor is what to add to a failing step's output, and nothing when the step
-// already said enough.
+// noteFor is what to add to a failing step's output.
 //
-// **A step that printed something has said more than this could.** The note is
-// for the case that defeats a reader: a process that exits non-zero and says
-// nothing at all, where the exit code is the entire evidence.
+// **A step that printed something has said more than this could** - with two
+// exceptions, which are the two things a step cannot say about itself.
+//
+// A process killed for running out of memory prints `Compiling foo` and stops.
+// Nothing in its output says the kernel killed it, and the longer the build the
+// more certain it is to have printed something - so gating the note on silence
+// removed it from exactly the case where it is the whole answer. The same goes
+// for any signal: Go reports a signalled process as exit -1, and "-1" is not a
+// reason.
+//
+// The resource figures stay behind the gate. Those a reader can go and measure;
+// the kill they cannot.
 func noteFor(out []byte, f failure) string {
-	if len(out) > 0 {
+	if len(out) == 0 {
+		return silentNote(f)
+	}
+
+	return killedNote(f)
+}
+
+// killedNote is what a step that printed still cannot have told anyone.
+func killedNote(f failure) string {
+	said := whyKilled(f)
+	if len(said) == 0 {
 		return ""
 	}
 
-	return silentNote(f)
+	return "\n  " + strings.Join(said, ", ")
 }
 
-// silentNote describes a failure that left no output.
-//
-// **Everything here was already in hand and was thrown away.** "exited 2, and
-// printed nothing" cost an afternoon: the command was reproduced in isolation,
-// run sixteen ways in parallel, and checked for lost output and crossed streams
-// - all to learn things this line could have said at the time.
-//
-// Ordered by what decides the next move: whether the kernel killed it, then
-// whether it ran at all, then what it consumed.
-func silentNote(f failure) string {
+// whyKilled is the kernel's part of a failure: the part no output contains.
+func whyKilled(f failure) []string {
 	var said []string
 
 	// **The one cause a reader cannot infer.** A process killed for memory
@@ -62,6 +72,21 @@ func silentNote(f failure) string {
 	if f.signal != 0 {
 		said = append(said, "killed by "+signalName(f.signal))
 	}
+
+	return said
+}
+
+// silentNote describes a failure that left no output.
+//
+// **Everything here was already in hand and was thrown away.** "exited 2, and
+// printed nothing" cost an afternoon: the command was reproduced in isolation,
+// run sixteen ways in parallel, and checked for lost output and crossed streams
+// - all to learn things this line could have said at the time.
+//
+// Ordered by what decides the next move: whether the kernel killed it, then
+// whether it ran at all, then what it consumed.
+func silentNote(f failure) string {
+	said := whyKilled(f)
 
 	if f.ran > 0 {
 		said = append(said, "ran for "+f.ran.Round(time.Millisecond).String())

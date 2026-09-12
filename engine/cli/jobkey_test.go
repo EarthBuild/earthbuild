@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
@@ -337,5 +338,131 @@ func TestADirectoryInputIsNotItsContents(t *testing.T) {
 
 	if sealOf(root, "src") == was {
 		t.Error("a directory's own mode changed and its digest did not")
+	}
+}
+
+// **One copy with many sources, all landing in one directory.**
+//
+// Every other test here places a single tree. A real project does not:
+// midnight-node's node build is `COPY --dir Cargo.lock Cargo.toml docs .sqlx
+// ledger node pallets primitives metadata res runtime util tests relay
+// partner-chains .` - fifteen sources, some files and some directories, all
+// arriving side by side at the root.
+//
+// The rewrite matches the longest destination first, so the hazard is a
+// placement whose destination is a prefix of another's: `/res` and `/runtime`
+// share no prefix, but `/node` and `/node_modules` would, and `/` and anything
+// always do.
+func TestManyPlacementsIntoOneDirectory(t *testing.T) {
+	t.Parallel()
+
+	sources := []string{
+		"Cargo.lock", "Cargo.toml", "docs", ".sqlx", "ledger", "node",
+		"pallets", "primitives", "metadata", "res", "runtime", "util",
+		"tests", "relay", "partner-chains",
+	}
+
+	files := map[string]string{}
+	places := make([]core.Placement, 0, len(sources))
+
+	for _, src := range sources {
+		files[src+"/f.rs"] = "x"
+
+		places = append(places, core.Placement{Layer: contextLayer, From: src, To: "/" + src})
+	}
+
+	root := tree(t, files)
+
+	// A read from each, plus one that belongs to none of them.
+	obs := read("/etc/alpine-release")
+	for _, src := range sources {
+		obs.Reads["/"+src+"/f.rs"] = ir.NodeID{}
+	}
+
+	got, err := hostInputsFrom(map[string]bool{contextLayer: true}, places, obs, root)
+	if err != nil {
+		t.Fatalf("derive: %v", err)
+	}
+
+	if len(got) != len(sources) {
+		t.Fatalf("mapped %d reads of %d, and dropped the base image's: %v",
+			len(got), len(sources), got)
+	}
+
+	for i, in := range got {
+		if !strings.HasSuffix(in.Path, "/f.rs") {
+			t.Errorf("input %d is %q, which is not a path in the checkout", i, in.Path)
+		}
+
+		if in.Digest == gone.String() {
+			t.Errorf("%s did not re-read", in.Path)
+		}
+	}
+}
+
+// **A destination that is a prefix of another must not steal its reads.**
+//
+// `COPY --dir node node_modules .` puts one at /node and the other at
+// /node_modules. What prevents `/node` claiming the other's reads is the
+// separator - the match is against `to + "/"` - and not the order placements
+// are tried in: reversing that order leaves this passing, which is how the
+// comment that used to be here was found to be attributing it to the wrong
+// mechanism.
+func TestAPlacementDoesNotStealAPrefixedSiblingsReads(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{
+		"node/a.rs": "one", "node_modules/b.js": "two",
+	})
+
+	places := []core.Placement{
+		{Layer: contextLayer, From: "node", To: "/node"},
+		{Layer: contextLayer, From: "node_modules", To: "/node_modules"},
+	}
+
+	obs := read("/node_modules/b.js")
+
+	got, err := hostInputsFrom(map[string]bool{contextLayer: true}, places, obs, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(got) != 1 || got[0].Path != "node_modules/b.js" {
+		t.Errorf("a read of /node_modules/b.js mapped to %v", got)
+	}
+
+	if got[0].Digest == gone.String() {
+		t.Error("the mapped path does not exist in the checkout")
+	}
+}
+
+// **And the order *is* load-bearing, for nested placements.**
+//
+// `COPY --dir src /w` beside `COPY --dir vendor /w/vendor` puts one inside the
+// other, and both destinations match a read under the inner one. The longest
+// destination has to win or every read of /w/vendor is named as though it came
+// from src.
+func TestANestedPlacementWinsOverTheOneAroundIt(t *testing.T) {
+	t.Parallel()
+
+	root := tree(t, map[string]string{"src/a.rs": "one", "vendor/b.rs": "two"})
+
+	places := []core.Placement{
+		{Layer: contextLayer, From: "src", To: "/w"},
+		{Layer: contextLayer, From: "vendor", To: "/w/vendor"},
+	}
+
+	got, err := hostInputsFrom(map[string]bool{contextLayer: true},
+		places, read("/w/vendor/b.rs"), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(got) != 1 || got[0].Path != "vendor/b.rs" {
+		t.Fatalf("a read under the inner placement mapped to %v", got)
+	}
+
+	if got[0].Digest == gone.String() {
+		t.Error("the mapped path does not exist in the checkout")
 	}
 }

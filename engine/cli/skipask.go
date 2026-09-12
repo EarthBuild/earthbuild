@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -90,9 +91,23 @@ func noteBuild(o Options, plan *interp.Plan, sched *core.Scheduler, shape ir.Nod
 	// **Only a build where every watched step ran saw the whole of 𝑅.** One that
 	// hit cache anywhere gathered a subset, which is the shape that skips on a
 	// change nobody accounted for. See refreshable.
-	if refreshable(sched.Record) {
+	switch {
+	case !refreshable(sched.Record):
+		// **Said, because silence here is permanent.** A build that cannot
+		// record what it read leaves the coarse key in place, and the coarse
+		// key cannot ignore a file nobody opened - so the flag goes on working
+		// and goes on being worse than it could be, with nothing to act on.
+		fmt.Fprintf(o.Out, "auto-skip: %s\n  %s\n",
+			"this build cannot record what it read, so the coarser key stands",
+			whyNotRefreshable(sched.Record))
+
+	default:
 		inputs, err = hostInputsOfBuild(sched.Record, contextLayersOf(plan), o.Dir)
 		if err != nil {
+			fmt.Fprintf(o.Out, "auto-skip: %s\n  %v\n",
+				"this build cannot record what it read, so the coarser key stands",
+				errors.Unwrap(err))
+
 			inputs = nil
 		} else {
 			inputs = append(inputs, earthfileInputs(plan)...)
@@ -108,6 +123,30 @@ func noteBuild(o Options, plan *interp.Plan, sched *core.Scheduler, shape ir.Nod
 	}
 
 	keep(store, o.Target, o.platformOrDefault(), shape, fingerprint, inputs)
+}
+
+// whyNotRefreshable names the first step that stopped this build recording what
+// it read.
+//
+// A reader told only "the coarser key stands" has to guess at which of a
+// hundred steps did it, which is the count-without-a-cause this engine keeps
+// refusing to ship.
+func whyNotRefreshable(rec *core.Record) string {
+	if rec == nil {
+		return "this build kept no record"
+	}
+
+	for _, step := range rec.Steps {
+		if watched(step.Kind) && !executed(step.Outcome) {
+			return stepName(step) + " came from cache, so nobody watched what it reads"
+		}
+	}
+
+	if len(rec.Steps) == 0 {
+		return "it ran no steps"
+	}
+
+	return "no step of it was watched"
 }
 
 // keep writes a build's record without losing what an earlier one learned.

@@ -398,7 +398,7 @@ func symlinkEarthlyToEarth() error {
 		return nil // legacy earth binary doesn't exist, don't create it (unless we're under a non-tty system e.g. CI)
 	}
 
-	if !common.IsEarthlyBinary(earthPath) {
+	if !common.IsEarthBinary(earthPath) {
 		return nil // file exists but is not an earth binary, leave it alone.
 	}
 

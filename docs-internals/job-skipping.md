@@ -55,27 +55,32 @@ platform with no tracer, and a build the tracer could not follow completely all 
 Let 𝐺 be the plan graph and 𝑅 the *host inputs* the last successful build depended on.
 
 ```text
-(C.1)    σ         ≡  ℋ(𝒯(Earthfile) ‖ target ‖ platform ‖ 𝒮(args) ‖ 𝒮(secret digests) ‖ flags)
+(C.1)    σ         ≡  ℋ(target ‖ platform ‖ 𝒮(args) ‖ 𝒮(secrets) ‖ flags)
 (C.2)    𝑅         ≡  { (host path, digest) } ∪ { (host directory, listing digest) }
-                        ∪ { host path : absent }
+                        ∪ { host path : absent } ∪ { (Earthfile, tree digest) }
 (C.3)    Κ_job     ≡  ℋ(σ ‖ 𝒮(𝑅))
 ```
 
-𝒮 is the injective encoding of green paper §1.4, over sorted keys. 𝒯 is the Earthfile's parse tree
-with its source locations and doc comments removed - the meaning rather than the bytes, so a comment
-or a reformat is not a rebuild.
+𝒮 is the injective encoding of green paper §1.4, over sorted keys.
 
-**σ needs no plan and no graph.** An Earthfile, what was asked of it, and the values handed in
-determine every step there will be, so the shape can be had from those directly - in milliseconds,
-without interpreting anything, without running an `IF` to decide a branch, and without digesting a
-byte of the build context. That is what makes a pre-flight check cheap enough to be worth making.
+**σ is the invocation and nothing else.** An earlier draft hashed the Earthfile into it, and an
+apparatus of refusals came with that: a build reaching another file, a reference built from an
+argument, a reference nobody pinned. All three existed because one file cannot describe a build
+spanning several.
 
-Deriving σ from the *graph* instead would be exact to the target rather than to the file, and was
-tried: it needs either a second plan, which re-runs any `IF` the interpreter had to execute, or a
-second identity tree over every node. Neither is worth what it buys. See "Cool things" below.
+It does not have to. The interpreter reads every Earthfile a build needs and already keeps them by
+directory, so `interp.Plan.Earthfiles` costs a map walk - and they join 𝑅 as ordinary inputs beside
+the files a step reads: recorded by the build that read them, re-read when it is asked whether to run
+again. A build across six Earthfiles is keyed exactly, with nothing followed and nothing refused.
 
-A moved tag, an edited `RUN`, a changed `ARG`, a renamed artifact and a different secret all move σ.
-Only the *content of copied files* is deferred to 𝑅.
+An Earthfile's digest is its **parse tree**, not its bytes, so a comment above a `RUN` is not a
+rebuild. That is the one thing worth keeping from the old σ.
+
+**Two things are deliberately not covered, by decision rather than by oversight.** A reference nobody
+pinned - a tag that moves between two runs is accepted as the same build - and a reference built from
+an argument. Both are resolved when the steps run, and what the steps then read is what 𝑅 records.
+Either could be tightened by resolving references before keying; neither is worth the round trip that
+costs on every check.
 
 ---
 
@@ -118,7 +123,7 @@ than degrade. Where L2 can afford a hint, this cannot.
 | ---- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | H1   | any step reported `Incomplete`                                                                                   | the tracer knows it missed something; L2 pays a miss, this pays a wrong skip |
 | H2   | any step of the target recorded no observation at all                                                            | an unobserved step is one whose inputs are unknown, not one with none        |
-| H3   | the plan carries any caveat of §A - `--no-cache`, `LOCALLY`, an unpinned reference                               | each is a declared reason the key under-claims                               |
+| H3   | the plan carries `--no-cache` or a `LOCALLY` step                                                                | each is a declared reason the key under-claims                               |
 | H4   | an observed read maps to neither a `COPY` from the context, nor a base image layer, nor an earlier step's output | a read nobody can explain is a read nobody can re-derive                     |
 | H5   | the guest has no observation source                                                                              | see below                                                                    |
 
@@ -187,6 +192,21 @@ produce. Each of these is a red test first.
 cover what they claim to. They are the reason the suite comes first.
 
 ---
+
+## Bootstrapping
+
+A build where every step hit cache watched nothing, so it has no reads to record - and without
+something else to write down, `--auto-skip` could never start on a machine that already had a store.
+Which is every machine after its first build: the flag would appear to do nothing, for ever, to
+everyone who turned it on.
+
+What such a build *did* establish is that every chain key hit, which covers the declared inputs. So
+it records those - the plan fingerprint, coarser than the reads and not nothing - and the first build
+that actually runs upgrades the record to Κ_job.
+
+A cached build may not downgrade a record made by one that ran: the reads are replaced only by a
+build that saw them. Otherwise running something that happened to hit cache would undo the mechanism
+each time.
 
 ## Storage, and carrying it through CI
 

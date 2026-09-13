@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
-	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
 // ManifestSuffix names the manifest kept beside a layer.
@@ -68,35 +67,21 @@ func NoteManifest(layerDir string, id ir.NodeID, manifest []byte) {
 	err = os.Rename(tmp.Name(), at)
 	if err != nil {
 		_ = os.Remove(tmp.Name())
-
-		return
 	}
-
-	noteNodesOf(layerDir, manifest)
 }
 
-// noteNodesOf files the directory nodes the manifest already describes.
+// **Tree nodes are deliberately not filed here.** They are derived from these
+// same bytes, so a store that kept the manifest and not the nodes reports
+// lacking every subtree of a base it holds in full - which argues for writing
+// them beside it.
 //
-// **Kept with the manifest because they are the same fact.** A store holding the
-// manifest and not the nodes answers "I lack every subtree" about a base it has
-// in full, and a sender believes it - so the saving the tree exists for is lost
-// by a store that is merely incomplete rather than wrong.
-//
-// Costs about what the manifest costs: measured at 95% of its bytes, which is
-// roughly a tenth of a percent of the layer, and the fold that produces them is
-// a millisecond against the walk's several hundred.
-//
-// Best effort, exactly as the manifest's own write is. Nodes that could not be
-// written cost a sender a larger transfer, which is what every transfer did
-// before this existed.
-func noteNodesOf(layerDir string, manifest []byte) {
-	f := layer.NewFold()
-	if !f.Add(manifest) {
-		return
-	}
-
-	_ = DirStore(layerDir).NoteNodes(f.Tree())
-}
+// Measured, and the argument does not survive the number. A 4,000-entry layer
+// is 221 nodes; noting the manifest alone is 0.6ms and noting the nodes with it
+// is 54.3ms, because each node is a create, a write and a rename. That is
+// ninety times the manifest's own cost and about a third of the walk that
+// produced it, paid by every capture in every build - for a question no
+// transport asks yet. DirStore.NoteNodes is the operation; whatever ships
+// subtrees calls it, and Collect already sweeps what it writes.
 
 // ReadManifest returns a layer's manifest, and whether one was kept.
 //

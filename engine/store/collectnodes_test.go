@@ -54,6 +54,23 @@ func TestCollectingRemovesUnreferencedNodes(t *testing.T) {
 	kept := bigLayerIn(t, root, 40, map[string]string{"keep/a.txt": "one"})
 	gone := bigLayerIn(t, root, 3, map[string]string{"drop/b.txt": "two"})
 
+	// Filed explicitly: a capture does not write nodes (see NoteManifest).
+	for _, id := range []ir.NodeID{kept, gone} {
+		m, ok, err := store.ReadManifest(root, id)
+		if err != nil || !ok {
+			t.Fatalf("no manifest for %v: %v", id, err)
+		}
+
+		f := layer.NewFold()
+		if !f.Add(m) {
+			t.Fatal("did not fold")
+		}
+
+		if err := store.DirStore(root).NoteNodes(f.Tree()); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	live := nodesOfLayer(t, root, kept)
 	dead := nodesOfLayer(t, root, gone)
 
@@ -197,4 +214,53 @@ func BenchmarkSweepOnCollect(b *testing.B) {
 			}
 		})
 	}
+}
+
+// What noting the nodes adds to noting a manifest.
+//
+// On the build's path, once per layer captured. The manifest's own justification
+// is that it costs "a tenth of a percent of the layer" against a walk that has
+// already happened; this has to stand beside that number, not beside zero.
+func BenchmarkNoteManifest(b *testing.B) {
+	dir := b.TempDir()
+
+	for j := range 4000 {
+		at := filepath.Join(dir, fmt.Sprintf("d%02d/s%02d/f%d.txt", j%20, (j/20)%10, j))
+		if err := os.MkdirAll(filepath.Dir(at), 0o750); err != nil {
+			b.Fatal(err)
+		}
+
+		if err := os.WriteFile(at, []byte("body"), 0o600); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	m, err := layer.Manifest(dir)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	took, err := layer.Take(dir)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.Run("note", func(b *testing.B) {
+		for b.Loop() {
+			root := b.TempDir()
+			if err := os.MkdirAll(store.LayerStore(root).Path(took.ID), 0o750); err != nil {
+				b.Fatal(err)
+			}
+
+			store.NoteManifest(root, took.ID, m)
+		}
+	})
+
+	b.Run("walk-that-produced-it", func(b *testing.B) {
+		for b.Loop() {
+			if _, err := layer.Manifest(dir); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 }

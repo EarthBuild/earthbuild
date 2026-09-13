@@ -220,54 +220,6 @@ func TestReportNodeStorageCost(t *testing.T) {
 		100*float64(nodeBytes)/float64(took.Bytes))
 }
 
-// Noting a manifest files the tree's nodes with it.
-//
-// **A store holding one without the other is a state nobody wants.** The nodes
-// are derived from the manifest's own bytes, so a store that kept the manifest
-// and not the nodes would answer "I lack every subtree" about a base it holds in
-// full - and a sender would ship all of it.
-func TestNotingAManifestFilesItsNodes(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	st := store.DirStore(root)
-
-	dir := t.TempDir()
-	writeFiles(t, dir, map[string]string{"src/main.go": "one", "docs/a.md": "a"})
-
-	took, err := layer.Take(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	m, err := layer.Manifest(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(store.ManifestPath(root, took.ID)), 0o750); err != nil {
-		t.Fatal(err)
-	}
-
-	store.NoteManifest(root, took.ID, m)
-
-	f := layer.NewFold()
-	if !f.Add(m) {
-		t.Fatal("did not fold")
-	}
-
-	ids := make([]ir.NodeID, 0, len(f.Tree().Nodes()))
-	for d := range f.Tree().Nodes() {
-		ids = append(ids, d)
-	}
-
-	if missing := st.MissingNodes(ids); len(missing) != 0 {
-		t.Errorf("after noting the manifest, %d of %d nodes are unfiled"+
-			"\n  the store holds the layer and would still be sent its subtrees",
-			len(missing), len(ids))
-	}
-}
-
 // Two stores, one holding an older base: only the changed subtree crosses.
 //
 // **The payoff, end to end.** A peer that built the base yesterday holds every
@@ -283,7 +235,12 @@ func TestAPeerNeedsOnlyTheChangedSubtree(t *testing.T) {
 		"src/main.go": "one", "src/util.go": "two",
 		"docs/a.md": "a", "vendor/x/dep.go": "dep", "vendor/y/dep.go": "dep2",
 	})
-	_ = old
+
+	// Filed explicitly: a capture does not write nodes, for the reason
+	// NoteManifest states. Whatever ships subtrees is what calls this.
+	if err := store.DirStore(peer).NoteNodes(treeOfManifest(t, old)); err != nil {
+		t.Fatal(err)
+	}
 
 	// What the sender now has: one file different.
 	mine := t.TempDir()

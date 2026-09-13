@@ -291,7 +291,13 @@ Set it when you are testing an agent you built yourself.
 
 How much memory the sandbox VM is given, on macOS. Ignored elsewhere, where there is no VM.
 
-Default: the backend's own.
+**Default: half this machine's memory, and never less than 8 GiB.** The same share
+`EARTH_VM_MEMORY_MIB` gives the other backend, and for the same reason: the figure is a ceiling
+rather than a reservation, so the VM takes what it uses and being generous costs address space
+rather than memory. A flat 8 GiB gave a build 6% of a 128 GiB machine, and a large compile was
+killed by the kernel for it.
+
+The floor is the old default and stays: below it a step runs and its result cannot be captured.
 
 ### `EARTH_CLONE_TREES`
 

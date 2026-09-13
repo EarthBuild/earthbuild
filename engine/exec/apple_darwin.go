@@ -156,14 +156,60 @@ func sandboxCPUs() string {
 	return strconv.Itoa(runtime.NumCPU())
 }
 
-// sandboxMemory is the configured size, so a machine that cannot spare 8 GiB
-// has a way out that does not involve editing a constant.
+// sandboxMemory is the configured size, so a machine that cannot spare its
+// share has a way out that does not involve editing a constant.
 func sandboxMemory() string {
 	if m := os.Getenv("EARTH_SANDBOX_MEMORY"); m != "" {
 		return m
 	}
 
-	return defaultSandboxMemory
+	return sandboxMemoryFor(hostMemory())
+}
+
+// sandboxMemoryFor is half a machine's memory, and never less than the floor.
+//
+// **The same decision `sandboxCPUs` already makes**, and for the reason its
+// comment gives: a flat default is somebody else's, and on a large machine it
+// is a fraction. A 128 GiB host gave a build 8 GiB, and a Substrate compile was
+// killed by the kernel twice in one afternoon for it - reported as `rustc was
+// terminated by a deadly signal`, cargo having caught its child and exited
+// normally.
+//
+// Generous costs nothing here, which `defaultSandboxMemory` says itself: the
+// figure is a *ceiling* and not a reservation, so the VM takes what it uses and
+// what is unused is address space. Half, because that is what the other
+// backend's EARTH_VM_MEMORY_MIB documents and there is no reason for the two to
+// disagree.
+//
+// The floor stays. Below it a step runs and its result cannot be captured -
+// writes over virtiofs fill the guest's page cache and a `mkdir` into the layer
+// store fails with ENOMEM - so halving a small machine would produce exactly
+// the failure the old default was chosen to avoid.
+func sandboxMemoryFor(host uint64) string {
+	const gib = 1 << 30
+
+	half := host / 2 / gib
+	if half < 8 {
+		return defaultSandboxMemory
+	}
+
+	return strconv.FormatUint(half, 10) + "G"
+}
+
+// hostMemory is how much this machine has, or zero where it cannot be asked -
+// which takes the floor, as a machine too small to halve does.
+func hostMemory() uint64 {
+	out, err := osexec.Command("sysctl", "-n", "hw.memsize").Output()
+	if err != nil {
+		return 0
+	}
+
+	n, err := strconv.ParseUint(strings.TrimSpace(string(out)), 10, 64)
+	if err != nil {
+		return 0
+	}
+
+	return n
 }
 
 // memory is the size this VM asks for.

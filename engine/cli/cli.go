@@ -689,7 +689,7 @@ func runPlan(
 		// entirely.
 		asker, faster := guestStoreAskers(over)
 		if asker != nil {
-			present = &guestBlobs{
+			gb := &guestBlobs{
 				ask: func(ids []ir.NodeID) ([]ir.NodeID, error) {
 					return asker.StoreHas(ctx, ids)
 				},
@@ -699,6 +699,18 @@ func runPlan(
 						" nothing: %v\n", err)
 				},
 			}
+
+			// Asserted apart from storeAsker, never fused with it: an executor
+			// that cannot say what a layer holds keeps its guest store and
+			// loses only Κₜ, where requiring it would lose the store.
+			if content, ok := over.(contentAsker); ok {
+				gb.askContent = func(ids []ir.NodeID) ([]ir.NodeID, error) {
+					return content.StoreContent(ctx, ids)
+				}
+			}
+
+			present = gb
+
 			gv := &guestViews{ask: asker.ViewDigests}
 			if faster != nil {
 				gv.stale = faster.WhyStaleIn

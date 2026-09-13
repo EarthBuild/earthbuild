@@ -2,7 +2,7 @@ package core
 
 import "github.com/EarthBuild/earthbuild/engine/ir"
 
-// domainContent separates Κ_c from every other key derived here.
+// domainContent separates Κₜ from every other key derived here.
 //
 // 0x03 is the squash domain and 0x06 is the next free byte. Both derivations
 // hash the same operation, environment and platform, so without this a content
@@ -31,7 +31,8 @@ func contentOf(b BlobStore, id ir.NodeID) (ir.NodeID, bool) {
 	return source.ContentOf(id)
 }
 
-// DeriveContentKey is Κ_c: the chain key with the clock taken out of the base.
+// DeriveContentKey is Κₜ, green paper (4.5a): the chain key with the clock
+// taken out of the base.
 //
 // **A layer's identity hashes its mtimes (I8)**, so one deterministic step
 // built twice produces two ids - creating a directory stamps it with the wall
@@ -41,7 +42,7 @@ func contentOf(b BlobStore, id ir.NodeID) (ir.NodeID, bool) {
 // and disagreed about their id. That is every eviction, on every machine, for
 // as long as a base is ever rebuilt rather than pulled.
 //
-// Κ_c names the base by what it *holds* instead. Everything else is Κ₁'s: the
+// Κₜ names the base by what it *holds* instead. Everything else is Κ₁'s: the
 // same operation, environment and platform, hashed the same way, because the
 // only thing wrong with Κ₁ here is the identity it uses for 𝑏.
 //

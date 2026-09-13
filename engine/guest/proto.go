@@ -124,6 +124,21 @@ const (
 	// at once and a round trip per layer is the cost this move exists to avoid.
 	KindStoreHas Kind = "store-has"
 
+	// KindStoreContent asks what each of a set of layers holds, with times
+	// excluded - `content(ℓ)` of green paper §3.3.
+	//
+	// Κₜ (4.5a) names a base by `contents(𝑏)`, and the fold that produces one is
+	// over the manifest kept beside the layer. On a disk the guest owns that
+	// manifest is not on the host's filesystem, so a host that folds it itself
+	// reads nothing and derives no key - and the tier written for rebuilt bases
+	// never fires on the builds with the most to gain.
+	//
+	// A set, for KindStoreHas's reason. The reply is **parallel to the
+	// question** rather than a subset: a content id is a value and not a
+	// membership, so "unknown" has to be sayable in place. The zero id is how it
+	// is said, and Κₜ treats it as not-derivable.
+	KindStoreContent Kind = "store-content"
+
 	// KindUnpackLayer asks the guest to unpack a compressed layer blob into its
 	// own store and say what the layer is called.
 	//
@@ -760,6 +775,14 @@ type Response struct {
 	// The subset rather than a parallel array of booleans: absent means absent,
 	// and a shorter list cannot be misread the way a truncated one could.
 	Held []string `json:"held,omitempty"`
+
+	// Contents answers a store-content request, one entry per id asked about
+	// and in that order. An empty entry is a layer the store cannot say
+	// anything about - no manifest beside it, or none it could read.
+	//
+	// Parallel and not a subset, unlike Held: membership can be conveyed by
+	// omission and a value cannot.
+	Contents []string `json:"contents,omitempty"`
 
 	Layer   string `json:"layer,omitempty"`
 	Content string `json:"content,omitempty"`

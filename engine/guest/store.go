@@ -9,6 +9,54 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
+// StoreContent asks the guest what each of these layers holds, times excluded.
+//
+// One entry per id and in that order, the zero id where the store cannot say.
+// Parallel rather than a subset because a content id is a value: membership can
+// be conveyed by omission and a value cannot, so "unknown" must be sayable in
+// place. See KindStoreContent, and green paper (4.5a) for what reads it.
+func (c *Client) StoreContent(ctx context.Context, ids []ir.NodeID) ([]ir.NodeID, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	stack := make([]string, len(ids))
+	for i, id := range ids {
+		stack[i] = id.String()
+	}
+
+	resp, err := c.do(ctx, Request{Kind: KindStoreContent, Stack: stack})
+	if err != nil {
+		return nil, err
+	}
+
+	// **The reply must line up with the question.** A short or long answer is
+	// not a partial answer: the caller reads it by position, so a peer that
+	// dropped an entry would shift every content id onto the wrong layer - and
+	// a key derived from that names a base nobody has.
+	if len(resp.Contents) != len(ids) {
+		return nil, fmt.Errorf("store-content: asked about %d layers and heard"+
+			" about %d", len(ids), len(resp.Contents))
+	}
+
+	out := make([]ir.NodeID, len(ids))
+
+	for i, c := range resp.Contents {
+		if c == "" {
+			continue // the store cannot say; the zero id means not-derivable
+		}
+
+		parsed, err := ir.ParseNodeID(c)
+		if err != nil {
+			return nil, fmt.Errorf("store-content: %s: %w", ids[i], err)
+		}
+
+		out[i] = parsed
+	}
+
+	return out, nil
+}
+
 // StoreHas asks the guest which of these layers its store holds.
 //
 // Asked of the guest rather than answered by a stat on the host, because the

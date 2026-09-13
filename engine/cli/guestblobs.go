@@ -39,8 +39,14 @@ type guestBlobs struct {
 	// be asked, and those want different fixes.
 	Why func(error)
 
+	// askContent is what each of these layers holds, times excluded, one entry
+	// per id and in that order. Nil where nobody can answer, which leaves Κₜ
+	// not derivable and the build on the key it already had.
+	askContent func(ids []ir.NodeID) ([]ir.NodeID, error)
+
 	mu   sync.Mutex
 	seen map[ir.NodeID]bool
+	held map[ir.NodeID]ir.NodeID
 	said bool
 }
 
@@ -93,4 +99,60 @@ func (b *guestBlobs) Has(id ir.NodeID) bool {
 	b.mu.Unlock()
 
 	return true
+}
+
+// ContentOf is a layer's identity with times excluded, asked of whoever holds
+// the store.
+//
+// **Because the manifest that answers is not on this filesystem.** Κₜ (green
+// paper 4.5a) names a base by what its layers hold, and the fold that produces
+// one reads the manifest beside the layer - which on a disk the guest owns the
+// host cannot see. A host that folds it itself reads nothing, derives no key,
+// and the tier written for rebuilt bases does nothing on exactly the builds
+// with the most to gain.
+//
+// Remembered, because a base is consulted once per step and a build has many;
+// a round trip per lookup is the cost KindStoreHas was batched to avoid and
+// this would reintroduce one layer at a time.
+//
+// A question that cannot be asked is no content, which leaves the key
+// underivable and the build on Κ₁ - the answer it had before this existed.
+// Answering with something plausible would be worse than answering nothing: two
+// bases holding anything at all would share a key.
+func (b *guestBlobs) ContentOf(id ir.NodeID) (ir.NodeID, bool) {
+	if b.askContent == nil {
+		return ir.NodeID{}, false
+	}
+
+	b.mu.Lock()
+	known, seen := b.held[id]
+	b.mu.Unlock()
+
+	if seen {
+		return known, known != ir.NodeID{}
+	}
+
+	got, err := b.askContent([]ir.NodeID{id})
+	if err != nil {
+		b.sayOnce(err)
+
+		return ir.NodeID{}, false
+	}
+
+	if len(got) != 1 {
+		return ir.NodeID{}, false
+	}
+
+	// Remembered either way. A layer the store cannot describe will not become
+	// describable, and asking again for every step above it is the round trip
+	// this cache exists to spend once.
+	b.mu.Lock()
+	if b.held == nil {
+		b.held = map[ir.NodeID]ir.NodeID{}
+	}
+
+	b.held[id] = got[0]
+	b.mu.Unlock()
+
+	return got[0], got[0] != ir.NodeID{}
 }

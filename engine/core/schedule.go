@@ -401,7 +401,7 @@ type Stats struct {
 	// it (E228).
 	Uncacheable   int
 	UncacheableAt []string
-	// ContentHits counts steps served by Κ_c: the chain key with the clock
+	// ContentHits counts steps served by Κₜ: the chain key with the clock
 	// taken out of the base. A build where this is non-zero is one that met a
 	// rebuilt-but-identical layer and did not rebuild above it.
 	ContentHits int
@@ -1588,7 +1588,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 			return nil
 		}
 
-		// Κ_c. **After Κ₁ and before Κ₂**, and both halves of that matter: the
+		// Κₜ. **After Κ₁ and before Κ₂**, and both halves of that matter: the
 		// fold it needs costs about 59ms on a 100k-entry base, so a fully
 		// cached build must never reach it, while it needs no profile and no
 		// view, so it is cheaper than the tier below.
@@ -1609,7 +1609,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 				}, rec)
 				s.bump(&s.Stats.ContentHits)
 
-				// **Answered by Κ_c, remembered as Κ₁**, for the reason a Κ₂ hit
+				// **Answered by Κₜ, remembered as Κ₁**, for the reason a Κ₂ hit
 				// is: Κ₁ is the narrower claim and names this exact base, which
 				// the hit just established produces this result. Without it the
 				// fold is repaid on every build for ever (E564).
@@ -1783,7 +1783,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		// nothing that differs.
 		s.Cache.Put(key, e)
 
-		// And Κ_c, which is what a build over a base that was *rebuilt* hits -
+		// And Κₜ, which is what a build over a base that was *rebuilt* hits -
 		// the same bytes under a new layer id. Published unconditionally rather
 		// than behind a usable-observation test: it asserts nothing about what
 		// the step read, only about what its base held, which the store either

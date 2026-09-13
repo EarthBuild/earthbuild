@@ -19,7 +19,7 @@ const ContentSuffix = ".content"
 //
 // **What a base can be keyed on across a rebuild.** A layer's own id hashes
 // mtimes (I8), so a deterministic step built twice gives two ids; the content
-// identity is unmoved by that, and Κ_c names a base by it. See
+// identity is unmoved by that, and Κₜ names a base by it. See
 // core.DeriveContentKey.
 //
 // Answered from the manifest already beside the layer - "the bytes the digest

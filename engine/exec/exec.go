@@ -1946,6 +1946,21 @@ func (e *Executor) StoreHas(ctx context.Context, ids []ir.NodeID) ([]ir.NodeID, 
 	return c.StoreHas(ctx, ids)
 }
 
+// StoreContent reports what each of these layers holds, times excluded.
+//
+// Asked of the guest for StoreHas's reason, and with a sharper failure: Κₜ
+// (green paper 4.5a) names a base by `contents(𝑏)`, and a host that reads its
+// own root finds no manifest, derives no key, and the tier written for rebuilt
+// bases quietly never fires.
+func (e *Executor) StoreContent(ctx context.Context, ids []ir.NodeID) ([]ir.NodeID, error) {
+	c, err := e.client()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.StoreContent(ctx, ids)
+}
+
 // ViewDigests reports what a base holds at each of the given paths.
 //
 // Asked of the guest for `StoreHas`'s reason: with `EARTH_STORE_IN_VM` the base

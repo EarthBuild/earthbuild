@@ -114,3 +114,81 @@ func TestAStoreThatCannotBeAskedSaysNo(t *testing.T) {
 		t.Error("a store that could not be asked reported a layer present")
 	}
 }
+
+// contentAsker answers what layers hold, and counts the questions.
+type contentReplier struct {
+	holds map[ir.NodeID]ir.NodeID
+	calls int
+	fail  bool
+}
+
+func (c *contentReplier) content(ids []ir.NodeID) ([]ir.NodeID, error) {
+	c.calls++
+
+	if c.fail {
+		return nil, errAskFailed
+	}
+
+	out := make([]ir.NodeID, len(ids))
+	for i, id := range ids {
+		out[i] = c.holds[id] // the zero id where it cannot say
+	}
+
+	return out, nil
+}
+
+// A layer's content is asked of whoever holds the store, and asked once.
+//
+// Κₜ (green paper 4.5a) names a base by what its layers hold, and on a store the
+// guest owns the manifest that answers is not on the host's filesystem. Without
+// this the key is never derivable there, and the tier written for rebuilt bases
+// does nothing on the builds with the most to gain.
+func TestContentIsAskedOfWhoeverHoldsTheStore(t *testing.T) {
+	t.Parallel()
+
+	known, unknown := ir.NodeID{1}, ir.NodeID{2}
+	held := ir.NodeID{9}
+
+	ask := &contentReplier{holds: map[ir.NodeID]ir.NodeID{known: held}}
+	b := &guestBlobs{askContent: ask.content}
+
+	got, ok := b.ContentOf(known)
+	if !ok || got != held {
+		t.Fatalf("answered %v/%v, want %v/true", got, ok, held)
+	}
+
+	// Asked again: remembered, not re-asked. A base is consulted once per step
+	// and a build has many.
+	if _, _ = b.ContentOf(known); ask.calls != 1 {
+		t.Errorf("asked %d times about one layer; a round trip per lookup is the"+
+			" cost this cache exists to avoid", ask.calls)
+	}
+
+	// A layer the store cannot say anything about is unknown, not zero-content.
+	if _, ok := b.ContentOf(unknown); ok {
+		t.Error("a layer the store could not describe was given a content id," +
+			" which two bases holding anything at all would share")
+	}
+}
+
+// A store that cannot be asked says nothing, and says it once.
+func TestAStoreThatCannotBeAskedGivesNoContent(t *testing.T) {
+	t.Parallel()
+
+	ask := &contentReplier{fail: true}
+
+	var said int
+
+	b := &guestBlobs{askContent: ask.content, Why: func(error) { said++ }}
+
+	if _, ok := b.ContentOf(ir.NodeID{1}); ok {
+		t.Error("a failed question produced a content id, so a key would be" +
+			" derived from an answer nobody gave")
+	}
+
+	_, _ = b.ContentOf(ir.NodeID{2})
+
+	if said != 1 {
+		t.Errorf("reported %d times; one unreachable store is one report", said)
+	}
+}

@@ -6,6 +6,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/EarthBuild/earthbuild/internal/sourceguard"
 )
 
 // A step that fails saying nothing hands over everything else that is known.
@@ -132,5 +134,38 @@ func TestAKilledStepSaysSoEvenWhenItPrinted(t *testing.T) {
 	// And a silent one still says everything it knows.
 	if got := noteFor(nil, failure{exit: 1, ran: time.Second}); got == "" {
 		t.Error("a silent failure said nothing")
+	}
+}
+
+// The kill note is produced by something.
+//
+// **The failure this guards against has already happened once.** `noteFor` was
+// written so that a step which printed is still told the kernel killed it -
+// commit cf71e0773, whose message says a process killed for memory "prints
+// `Compiling foo` and stops; nothing in its output says the kernel killed it" -
+// and the caller was never changed to use it. The helper had the right
+// behaviour, its tests passed, and every build kept the old gate, so a chatty
+// step that was OOM-killed still reported an exit code and no reason.
+//
+// It cost two substrate measurements on the day this was written, each
+// diagnosed by guessing from a candidate list - which is the thing that commit
+// existed to make unnecessary.
+//
+// A source-level check, and worth being plain about what it proves: that the
+// call exists, not that a build reaches it.
+func TestTheKillNoteIsProducedBySomething(t *testing.T) {
+	t.Parallel()
+
+	callers, err := sourceguard.NonTestFilesContaining(".", "noteFor(")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	delete(callers, "silentfailure.go")
+
+	if len(callers) == 0 {
+		t.Error("nothing outside silentfailure.go calls noteFor" +
+			"\n  a step killed for memory then reports its exit code and no reason," +
+			"\n  which is the one cause a reader cannot infer from the output")
 	}
 }

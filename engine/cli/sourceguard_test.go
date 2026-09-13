@@ -3,7 +3,8 @@ package cli
 import (
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/EarthBuild/earthbuild/internal/sourceguard"
 )
 
 // nonTestFilesContaining counts occurrences of a needle in the package's own
@@ -19,30 +20,7 @@ import (
 // elsewhere, and the pairing is the point - the behavioural test proves the
 // thing works, this proves somebody wired it up.
 func nonTestFilesContaining(dir, needle string) (map[string]int, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	found := map[string]int{}
-
-	for _, e := range entries {
-		name := e.Name()
-		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
-
-		b, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			return nil, err
-		}
-
-		if n := strings.Count(string(b), needle); n > 0 {
-			found[name] = n
-		}
-	}
-
-	return found, nil
+	return sourceguard.NonTestFilesContaining(dir, needle)
 }
 
 // writeFile writes a file and the directories above it.

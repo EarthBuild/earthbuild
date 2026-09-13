@@ -2926,12 +2926,23 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// first attempt at this vanished. A streaming step's output has already
 		// left by the time it fails, and `outputFor` returns nothing for one, so
 		// there is no later opportunity either.
-		if len(out) == 0 {
+		// **Whatever it printed**, because the two things a step cannot say
+		// about itself do not depend on whether it was chatty. A process killed
+		// for memory prints `Compiling foo` and stops; a signalled one is
+		// reported by Go as exit -1, and "-1" is not a reason. `noteFor` keeps
+		// the resource figures behind the silence gate and lets those two
+		// through - see cf71e0773, which wrote that and left this caller alone,
+		// so the note it added was produced by nothing for as long as it stood.
+		//
+		// The gate mattered for the case it was written for: a step that prints
+		// nothing at all. It never held for a long compile that dies at the
+		// link step, which is the case the diagnosis exists for.
+		{
 			var exitErr *osexec.ExitError
 			if errors.As(rerr, &exitErr) {
 				cpu, rss := usageOf(cmd.ProcessState)
 
-				note := silentNote(failure{
+				note := noteFor(out, failure{
 					exit:     exitErr.ExitCode(),
 					signal:   signalOf(cmd.ProcessState),
 					cpu:      cpu,
@@ -2950,7 +2961,10 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 				// `ARG` or an `ENV` run during planning and do not stream, and
 				// they are precisely the ones whose failures read `exited 2,
 				// and printed nothing` with nothing else anywhere.
-				if req.Stream {
+				if note == "" {
+					// An ordinary failure with output: its own words are the
+					// diagnosis and a note would be noise.
+				} else if req.Stream {
 					sink([]byte(note+"\n"), true)
 				} else {
 					out = append(out, note...)

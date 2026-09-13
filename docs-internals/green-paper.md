@@ -761,6 +761,12 @@ portable, which is the property the fleet exists for.
 A stack element with no layer contributes nothing: a declaration is a stack element and not a tree
 (§3.2a), so it is skipped rather than refused - the same rule Φ's own squash follows.
 
+**An element with nothing recorded is skipped; one whose record will not decode is refused.** The
+two say different things. A declaration contributes no paths and 𝜏 is defined without it, while
+bytes that are present and unreadable mean 𝜏 is not known for that stack at all - and a fold that
+proceeded would yield the digest of a tree missing a layer, which is a tree some other base has.
+Κₜ is then not derivable, and the step falls to Κ₂ or to doing the work.
+
 This is the eviction case and it is not rare: a base that is rebuilt rather than pulled is a base
 every step above must be re-evaluated over, though nothing observable has changed. Measured over two
 independent evaluations of one graph from cold, fourteen of the eighteen results carrying a delta

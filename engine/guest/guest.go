@@ -55,6 +55,13 @@ type Server struct {
 	// this server is built. See SetFills.
 	fillsMu sync.Mutex
 
+	// folder answers store-tree, reusing the fold it did last time. A build
+	// asks about a ladder - step 𝑖's base is step 𝑖-1's with one layer on it -
+	// so without this every step above a base pays for that whole base again.
+	// Built on first use, because LayerDir arrives with the server.
+	folderMu sync.Mutex
+	folder   *store.Folder
+
 	// obs records what each handle's step looked at in its base, which is the
 	// engine's first real observation source. See observe.go.
 	obsMu sync.Mutex
@@ -791,7 +798,7 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 
 		// Empty where the store cannot fold it, which Κₜ reads as
 		// not-derivable rather than as a tree shared by every base.
-		if tree, ok := store.DirStore(s.LayerDir).TreeOf(ids); ok {
+		if tree, ok := s.treeFolder().TreeOf(ids); ok {
 			return Response{Tree: tree.String()}
 		}
 
@@ -4552,4 +4559,19 @@ var staleUnreadable = ir.NodeID{
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+}
+
+// treeFolder is the one rolling fold this guest answers store-tree from.
+//
+// One per guest rather than one per request, which is the whole point: the fold
+// it holds is the base every later step extends.
+func (s *Server) treeFolder() *store.Folder {
+	s.folderMu.Lock()
+	defer s.folderMu.Unlock()
+
+	if s.folder == nil {
+		s.folder = store.NewFolder(s.LayerDir)
+	}
+
+	return s.folder
 }

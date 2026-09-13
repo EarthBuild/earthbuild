@@ -41,5 +41,5 @@ func (d DirStore) TreeOf(stack []ir.NodeID) (ir.NodeID, bool) {
 		return ir.NodeID{}, false
 	}
 
-	return layer.TreeFromManifests(manifests), true
+	return layer.TreeFromManifests(manifests)
 }

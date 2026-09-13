@@ -103,7 +103,14 @@ func TestAFlattenedStackFoldsToTheSameTree(t *testing.T) {
 		fullM = append(fullM, manifestOfLayer(t, root, id))
 	}
 
-	if got, want := layer.TreeFromManifests(flatM), layer.TreeFromManifests(fullM); got != want {
+	got, okFlat := layer.TreeFromManifests(flatM)
+	want, okFull := layer.TreeFromManifests(fullM)
+
+	if !okFlat || !okFull {
+		t.Fatal("a stack this test squashed could not be folded")
+	}
+
+	if got != want {
 		t.Errorf("the flattened stack folded to %v and the original to %v"+
 			"\n  they materialise the same filesystem, so a cache keyed on the"+
 			"\n  fold must not be able to tell them apart - which is the whole"+

@@ -5,8 +5,25 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 )
+
+// mustFold folds a stack and asserts it could be folded.
+//
+// Every caller wants the digest and none wants the zero one: a fold that could
+// not decode a manifest reports so, and a test that dropped that report would
+// pass on a digest nobody computed.
+func mustFold(t *testing.T, ms [][]byte) ir.NodeID {
+	t.Helper()
+
+	got, ok := layer.TreeFromManifests(ms)
+	if !ok {
+		t.Fatal("a stack of manifests this test wrote could not be folded")
+	}
+
+	return got
+}
 
 // manifestOf is the manifest of a tree built from a description.
 func manifestOf(t *testing.T, files map[string]string) []byte {
@@ -44,13 +61,13 @@ func TestTwoStacksThatMaterialiseTheSameTreeAgree(t *testing.T) {
 	t.Parallel()
 
 	// One layer holding both files.
-	together := layer.TreeFromManifests([][]byte{
+	together := mustFold(t, [][]byte{
 		manifestOf(t, map[string]string{"a.txt": "one", "dir/b.txt": "two"}),
 	})
 
 	// The same tree, assembled in two layers - which is what Φ undoes and what
 	// a differently-ordered build produces.
-	apart := layer.TreeFromManifests([][]byte{
+	apart := mustFold(t, [][]byte{
 		manifestOf(t, map[string]string{"a.txt": "one"}),
 		manifestOf(t, map[string]string{"dir/b.txt": "two"}),
 	})
@@ -66,12 +83,12 @@ func TestTwoStacksThatMaterialiseTheSameTreeAgree(t *testing.T) {
 func TestALaterLayerWins(t *testing.T) {
 	t.Parallel()
 
-	overwritten := layer.TreeFromManifests([][]byte{
+	overwritten := mustFold(t, [][]byte{
 		manifestOf(t, map[string]string{"a.txt": "first"}),
 		manifestOf(t, map[string]string{"a.txt": "second"}),
 	})
 
-	only := layer.TreeFromManifests([][]byte{
+	only := mustFold(t, [][]byte{
 		manifestOf(t, map[string]string{"a.txt": "second"}),
 	})
 
@@ -86,8 +103,8 @@ func TestALaterLayerWins(t *testing.T) {
 func TestDifferentTreesDisagree(t *testing.T) {
 	t.Parallel()
 
-	one := layer.TreeFromManifests([][]byte{manifestOf(t, map[string]string{"a.txt": "one"})})
-	two := layer.TreeFromManifests([][]byte{manifestOf(t, map[string]string{"a.txt": "two"})})
+	one := mustFold(t, [][]byte{manifestOf(t, map[string]string{"a.txt": "one"})})
+	two := mustFold(t, [][]byte{manifestOf(t, map[string]string{"a.txt": "two"})})
 
 	if one == two {
 		t.Error("two trees holding different bytes shared a digest")
@@ -130,7 +147,7 @@ func TestAWhiteoutBesideItsFileDeletesIt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if layer.TreeFromManifests([][]byte{m}) != layer.TreeFromManifests([][]byte{empty}) {
+	if mustFold(t, [][]byte{m}) != mustFold(t, [][]byte{empty}) {
 		t.Error("a layer holding both foo and .wh.foo folded to one holding foo," +
 			"\n  so a squashed range would resurrect what it deleted")
 	}

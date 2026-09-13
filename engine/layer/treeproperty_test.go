@@ -177,7 +177,7 @@ func TestTheFoldEqualsMaterialisingTheStack(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if got := layer.TreeFromManifests(manifests); got != took.Content {
+			if got := mustFold(t, manifests); got != took.Content {
 				t.Errorf("the fold gave %v and materialising gave %v"+
 					"\n  a merge wrong by one case makes two different filesystems"+
 					"\n  collide, which is the wrong hit I3 forbids", got, took.Content)

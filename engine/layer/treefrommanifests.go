@@ -2,7 +2,6 @@ package layer
 
 import (
 	"path"
-	"sort"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -30,43 +29,26 @@ const whOpaque = ".wh..wh..opq"
 // removes a name, and `.wh..wh..opq` removes everything a directory inherited
 // while leaving what its own layer puts back. Those two implementations must
 // agree, and only a test that materialises a stack and compares can say they do
-// - which is why nothing keys on this yet.
+// - which is why treeproperty_test.go materialises one and compares.
 //
 // The digest is TakeIn's fold over the merged set, so a stack of one layer
 // digests to that layer's own content id and the two tiers cannot disagree
 // about a base that never needed merging.
-func TreeFromManifests(ms [][]byte) ir.NodeID {
-	merged := map[string]entry{}
+//
+// False where a manifest will not decode: the fold then does not know what that
+// layer held, and the zero digest is not an answer. Returning one as though it
+// were would give every base with a corrupt manifest a single key, and serve a
+// step over one of them the result of a step over another (I3).
+func TreeFromManifests(ms [][]byte) (ir.NodeID, bool) {
+	f := NewFold()
 
 	for _, m := range ms {
-		entries, err := decodeManifest(m)
-		if err != nil {
-			// A manifest that cannot be read leaves the fold unable to say what
-			// the stack holds. The zero digest is not an answer and callers
-			// must not key on one; this returns it so that a caller comparing
-			// two of them cannot accidentally find them equal to a real tree.
-			return ir.NodeID{}
+		if !f.Add(m) {
+			return ir.NodeID{}, false
 		}
-
-		apply(merged, entries)
 	}
 
-	paths := make([]string, 0, len(merged))
-	for p := range merged {
-		paths = append(paths, p)
-	}
-
-	sort.Strings(paths)
-
-	h := ir.NewHasher()
-	h.Count(len(paths))
-
-	for _, p := range paths {
-		e := merged[p]
-		e.hash(&h.Encoder, withoutTimes)
-	}
-
-	return h.Sum()
+	return f.Digest(), true
 }
 
 // apply lays one layer over the merged set.

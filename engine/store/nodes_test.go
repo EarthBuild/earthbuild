@@ -1,7 +1,9 @@
 package store_test
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -167,6 +169,184 @@ func treeOfFiles(t *testing.T, files map[string]string) layer.Tree {
 	f := layer.NewFold()
 	if !f.Add(m) {
 		t.Fatal("the manifest did not fold")
+	}
+
+	return f.Tree()
+}
+
+// What storing the nodes costs, beside what the store already keeps.
+//
+// Reported rather than asserted: the number decides whether nodes are written
+// eagerly or derived, and a threshold guessed at now would be a test that fails
+// for being right.
+func TestReportNodeStorageCost(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	files := map[string]string{}
+
+	for i := range 4000 {
+		files[fmt.Sprintf("d%02d/s%02d/f%d.txt", i%20, (i/20)%10, i)] = fmt.Sprintf("body %d", i)
+	}
+
+	writeFiles(t, root, files)
+
+	m, err := layer.Manifest(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := layer.NewFold()
+	if !f.Add(m) {
+		t.Fatal("did not fold")
+	}
+
+	tree := f.Tree()
+
+	var nodeBytes int
+	for _, b := range tree.Nodes() {
+		nodeBytes += len(b)
+	}
+
+	took, err := layer.Take(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("entries %d  nodes %d  node-bytes %d  manifest %d  layer %d"+
+		"  (nodes are %.0f%% of the manifest, %.1f%% of the layer)",
+		len(files), len(tree.Nodes()), nodeBytes, len(m), took.Bytes,
+		100*float64(nodeBytes)/float64(len(m)),
+		100*float64(nodeBytes)/float64(took.Bytes))
+}
+
+// Noting a manifest files the tree's nodes with it.
+//
+// **A store holding one without the other is a state nobody wants.** The nodes
+// are derived from the manifest's own bytes, so a store that kept the manifest
+// and not the nodes would answer "I lack every subtree" about a base it holds in
+// full - and a sender would ship all of it.
+func TestNotingAManifestFilesItsNodes(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	st := store.DirStore(root)
+
+	dir := t.TempDir()
+	writeFiles(t, dir, map[string]string{"src/main.go": "one", "docs/a.md": "a"})
+
+	took, err := layer.Take(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := layer.Manifest(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(store.ManifestPath(root, took.ID)), 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	store.NoteManifest(root, took.ID, m)
+
+	f := layer.NewFold()
+	if !f.Add(m) {
+		t.Fatal("did not fold")
+	}
+
+	ids := make([]ir.NodeID, 0, len(f.Tree().Nodes()))
+	for d := range f.Tree().Nodes() {
+		ids = append(ids, d)
+	}
+
+	if missing := st.MissingNodes(ids); len(missing) != 0 {
+		t.Errorf("after noting the manifest, %d of %d nodes are unfiled"+
+			"\n  the store holds the layer and would still be sent its subtrees",
+			len(missing), len(ids))
+	}
+}
+
+// Two stores, one holding an older base: only the changed subtree crosses.
+//
+// **The payoff, end to end.** A peer that built the base yesterday holds every
+// directory the edit did not reach, so what it needs is the directory that
+// changed and the chain above it - not the base.
+func TestAPeerNeedsOnlyTheChangedSubtree(t *testing.T) {
+	t.Parallel()
+
+	peer := t.TempDir()
+
+	// What the peer already has.
+	old := captureInto(t, peer, map[string]string{
+		"src/main.go": "one", "src/util.go": "two",
+		"docs/a.md": "a", "vendor/x/dep.go": "dep", "vendor/y/dep.go": "dep2",
+	})
+	_ = old
+
+	// What the sender now has: one file different.
+	mine := t.TempDir()
+	fresh := captureInto(t, mine, map[string]string{
+		"src/main.go": "EDITED", "src/util.go": "two",
+		"docs/a.md": "a", "vendor/x/dep.go": "dep", "vendor/y/dep.go": "dep2",
+	})
+
+	tree := treeOfManifest(t, fresh)
+
+	ids := make([]ir.NodeID, 0, len(tree.Nodes()))
+	for d := range tree.Nodes() {
+		ids = append(ids, d)
+	}
+
+	missing := store.DirStore(peer).MissingNodes(ids)
+
+	if len(missing) != 2 {
+		t.Errorf("the peer needs %d of %d subtrees, want 2 (src, and the root)"+
+			"\n  everything the edit did not reach is already there", len(missing), len(ids))
+	}
+
+	// And what it asks for, it can verify.
+	for _, id := range missing {
+		if got := ir.DigestOf(tree.Nodes()[id]); got != id {
+			t.Errorf("node %v would be sent as bytes naming %v", id, got)
+		}
+	}
+}
+
+// layerIn captures a tree into a store and returns its manifest.
+func captureInto(t *testing.T, storeRoot string, files map[string]string) []byte {
+	t.Helper()
+
+	dir := t.TempDir()
+	writeFiles(t, dir, files)
+
+	took, err := layer.Take(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := layer.Manifest(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(store.ManifestPath(storeRoot, took.ID)), 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	store.NoteManifest(storeRoot, took.ID, m)
+
+	return m
+}
+
+// treeOfManifest is the Merkle tree of a one-layer stack.
+func treeOfManifest(t *testing.T, m []byte) layer.Tree {
+	t.Helper()
+
+	f := layer.NewFold()
+	if !f.Add(m) {
+		t.Fatal("did not fold")
 	}
 
 	return f.Tree()

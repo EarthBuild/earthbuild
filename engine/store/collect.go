@@ -5,9 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
 // Report is what a collection did.
@@ -25,6 +27,13 @@ type Report struct {
 	// sum of file sizes misses. Zero from the ceiling path, which reports
 	// through Before and After instead.
 	Reclaimed uint64
+	// Nodes is how many tree nodes were swept.
+	//
+	// Counted apart from Removed because a node is not a layer: it is derived
+	// from a manifest, so losing one costs a fold where losing a layer costs a
+	// rebuild or a fetch. A store that reported them together would read as
+	// having thrown away far more than it did.
+	Nodes int
 	// Debris is how many unfinished layer writes were cleared. Counted apart
 	// from Removed because they are not layers: nothing could have used them,
 	// and losing one costs nothing where losing a layer costs a rebuild.
@@ -202,12 +211,104 @@ func CollectUntil(
 			return report, fmt.Errorf("collect layer %s: %w", l.id, err)
 		}
 
+		// **The manifest is a sibling of the layer's directory, not a member**,
+		// so RemoveAll over the directory left it. Nothing reads a manifest
+		// except by the layer it attests to, so one whose layer is gone can only
+		// accumulate - a store pruned to a budget grew by what it pruned.
+		_ = os.Remove(ManifestPath(root, l.id))
+
 		report.After -= l.bytes
 		report.Removed++
 		report.Kept--
 	}
 
+	// **Only when something went.** A node stops being referenced when a
+	// manifest does, so a collection that removed no layer has nothing to
+	// sweep - and the sweep refolds every manifest in the store, which on the
+	// 44,015-layer store above is seconds. The agent collects before it serves,
+	// inside the host's handshake budget, and usually finds nothing to do:
+	// paying for a sweep there is the failure this function's own comment is
+	// about.
+	if report.Removed > 0 {
+		report.Nodes = sweepNodes(root, stop)
+	}
+
 	return report, nil
+}
+
+// sweepNodes removes the tree nodes no surviving manifest implies.
+//
+// **A node is derived, so the live set is a consequence rather than a record.**
+// Every manifest still in the store implies its own directories; anything in
+// `nodes` that no surviving manifest names is referenced by nothing and will be
+// named by nothing, and left alone it is the one directory in the store that
+// only grows.
+//
+// Refolding every manifest rather than counting references, because a node is
+// shared by every base that holds that directory and a count is a second fact to
+// keep true. The fold is milliseconds a layer and this runs when a person asks
+// for space back, not on a build's way past - the same trade NoteManifest's own
+// comment makes.
+//
+// Best effort: a sweep that cannot read a manifest keeps that manifest's nodes,
+// which is the direction that costs disk rather than correctness.
+func sweepNodes(root string, stop func() bool) int {
+	at := filepath.Join(root, "nodes")
+
+	held, err := os.ReadDir(at)
+	if err != nil {
+		return 0
+	}
+
+	live := map[ir.NodeID]bool{}
+
+	manifests, err := os.ReadDir(filepath.Join(root, "layers"))
+	if err != nil {
+		return 0
+	}
+
+	for _, e := range manifests {
+		if stop != nil && stop() {
+			return 0 // a partial live set would sweep what is still referenced
+		}
+
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ManifestSuffix) {
+			continue
+		}
+
+		b, err := os.ReadFile(filepath.Join(root, "layers", e.Name()))
+		if err != nil {
+			return 0
+		}
+
+		f := layer.NewFold()
+		if !f.Add(b) {
+			continue
+		}
+
+		for id := range f.Tree().Nodes() {
+			live[id] = true
+		}
+	}
+
+	var swept int
+
+	for _, e := range held {
+		id, err := ir.ParseNodeID(e.Name())
+		if err != nil {
+			continue // not a node; leave whatever it is alone
+		}
+
+		if live[id] {
+			continue
+		}
+
+		if os.Remove(filepath.Join(at, e.Name())) == nil {
+			swept++
+		}
+	}
+
+	return swept
 }
 
 // candidates sizes every layer and dates it by last use.

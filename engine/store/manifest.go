@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
 // ManifestSuffix names the manifest kept beside a layer.
@@ -67,7 +68,34 @@ func NoteManifest(layerDir string, id ir.NodeID, manifest []byte) {
 	err = os.Rename(tmp.Name(), at)
 	if err != nil {
 		_ = os.Remove(tmp.Name())
+
+		return
 	}
+
+	noteNodesOf(layerDir, manifest)
+}
+
+// noteNodesOf files the directory nodes the manifest already describes.
+//
+// **Kept with the manifest because they are the same fact.** A store holding the
+// manifest and not the nodes answers "I lack every subtree" about a base it has
+// in full, and a sender believes it - so the saving the tree exists for is lost
+// by a store that is merely incomplete rather than wrong.
+//
+// Costs about what the manifest costs: measured at 95% of its bytes, which is
+// roughly a tenth of a percent of the layer, and the fold that produces them is
+// a millisecond against the walk's several hundred.
+//
+// Best effort, exactly as the manifest's own write is. Nodes that could not be
+// written cost a sender a larger transfer, which is what every transfer did
+// before this existed.
+func noteNodesOf(layerDir string, manifest []byte) {
+	f := layer.NewFold()
+	if !f.Add(manifest) {
+		return
+	}
+
+	_ = DirStore(layerDir).NoteNodes(f.Tree())
 }
 
 // ReadManifest returns a layer's manifest, and whether one was kept.

@@ -303,6 +303,13 @@ identity, and mtime **to nanosecond precision**. It does not record atime or cti
 alters its atime, so including it would make a layer's identity depend on who last read the source
 tree.
 
+**content(ℓ) is id(ℓ) with the times excluded and nothing else changed.** Every other field above
+reaches it, so two layers with one content id are indistinguishable to any step that reads the
+filesystem rather than the clock. It exists because mtime is the one recorded field that is not a
+function of the step: creating a directory stamps it with the wall clock, so a deterministic step
+evaluated twice yields two identities and one content. Κₜ (4.5a) names a base by it; nothing else
+does, and id(ℓ) remains a layer's identity everywhere.
+
 ### 3.4 Steps
 
 ```text
@@ -714,15 +721,48 @@ miss, meaning "do the work" (I4). Λ never returns an error and never returns an
 This single property converts every failure of the caching system, malicious or accidental, into a
 performance cost.
 
+**Three keys are consulted, in one order, cheapest evidence first:** Κ₁, then Κₜ, then Κ₂. Κ₁ needs
+nothing that is not already held. Κₜ needs each base layer's content id, which is a fold over the
+layer's own metadata and is therefore reached only once Κ₁ has missed. Κ₂ needs a profile and a view
+of the base, and a consistency check against them (§4.5), so it is last.
+
+The order is a cost ordering and not a precedence: the three cannot disagree. Each returns a
+verified result or a miss, and a result served by any of them is the result the step would have
+produced. **A hit below the first tier is republished under Κ₁**, which is the narrower claim and
+has just been shown to hold, so the evidence is gathered once rather than on every later build.
+
 ### 4.4 Key derivation
 
 ```text
 (4.5)    Κ₁(s)     ≡ ℋ("c" ‖ ζ ‖ ids(𝑏) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
+(4.5a)   Κₜ(s)     ≡ ℋ("t" ‖ ζ ‖ contents(𝑏) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
 (4.6)    Κ₂(s, 𝑟)  ≡ ℋ("o" ‖ ζ ‖ sort(𝑅) ‖ sort(𝑁) ‖ sort(𝐷) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
 ```
 
-The domain-separating tag is a single fixed byte - `0x01` for Κ₁, `0x02` for Κ₂ - and prevents a
-chain key from ever colliding with an observed-input key.
+The domain-separating tag is a single fixed byte - `0x01` for Κ₁, `0x02` for Κ₂, `0x06` for Κₜ -
+and prevents any one of them from colliding with another. The tag is not decorative here: Κ₁ and Κₜ
+hash the same ω, ε and π, and over a base whose content digest equalled its own layer id they would
+otherwise be the same bytes.
+
+**Κₜ names the base by what it holds; Κ₁ names it by how it was made.** A layer's identity carries
+its mtimes (I8), so one deterministic step evaluated twice yields two layer ids - creating a
+directory stamps it with the wall clock - and Κ₁ therefore distinguishes two bases that no step can
+tell apart. `contents(𝑏)` is the same sequence with times excluded, so Κₜ does not.
+
+This is the eviction case and it is not rare: a base that is rebuilt rather than pulled is a base
+every step above must be re-evaluated over, though nothing observable has changed. Measured over two
+independent evaluations of one graph from cold, fourteen of the eighteen results carrying a delta
+agreed about their content and disagreed about their id.
+
+**Κₜ is sound for Κ₁'s reason and no other.** Two bases with one content sequence materialise to one
+filesystem, and A3 says a step over one filesystem yields one result. It is a coarser-invariant key
+over the same evidence - not a weaker one, and unlike Κ₂ it rests on no observation. A base holding
+a layer whose content is unknown yields no Κₜ: absence is an answer, and substituting the layer id
+for an unknown content would let two bases holding anything at all share a key.
+
+Images never reach it. Their ids are digests of content with no clock in them, so Κ₁ already matches
+across a rebuild - in the same measurement, the seven results whose ids agreed were exactly the seven
+with no content digest at all.
 
 **ζ is the cache generation, and both keys carry it.** An entry is a claim, and a defect in the
 engine that made it produces entries that are wrong in ways no inspection can find: what makes such
@@ -745,6 +785,7 @@ Per §1.4, prefixes appear only where a length varies:
 | domain tag     | one byte                                                | no         |
 | ζ              | `u32`                                                   | no         |
 | `ids(𝑏)`       | `u32` count, then 32 bytes per layer id                 | count only |
+| `contents(𝑏)`  | `u32` count, then 32 bytes per content id               | count only |
 | `sort(𝑅)`      | `u32` count, then per entry: digest (32) ‖ `u16` ‖ path | per path   |
 | `sort(𝑁)`      | `u32` count, then per entry: `u16` ‖ path               | per path   |
 | `sort(𝐷)`      | `u32` count, then per entry: digest (32) ‖ `u16` ‖ path | per path   |
@@ -1564,6 +1605,7 @@ found and fixed in the process, listed at the end.
 | Σ      | the step transition           | (4.2)        |
 | Λ      | cache lookup                  | (4.4)        |
 | Κ₁     | chain key derivation          | (4.5)        |
+| Κₜ     | content key derivation        | (4.5a)       |
 | Κ₂     | observed-input key derivation | (4.6)        |
 | Ω      | execution under observation   | §4.2         |
 | Μ      | mask consultation             | §4.2, App A  |
@@ -1585,6 +1627,8 @@ Named predicates and helpers, each defined where it is introduced:
 | ---------------- | ------------------------------------------ | ---------- |
 | id(ℓ)            | a layer's identity                         | (3.1)      |
 | id(γ)            | a declaration's identity                   | (3.8)      |
+| content(ℓ)       | a layer's identity, times excluded         | §3.3       |
+| contents(𝑏)      | a base's content ids, in order             | (4.5a)     |
 | sort(𝑆)          | canonical ordering                         | §1.2       |
 | consistent(𝑟̂, 𝑏) | a prediction still matches the base        | §4.5       |
 | legal(𝑔)         | a schedule satisfies every hard constraint | §4.7.1     |

@@ -1,6 +1,7 @@
 package ir
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"hash"
@@ -26,9 +27,22 @@ const HashSize = 32
 // a poor place to stand.
 func NewHasher() *Hasher {
 	h := blake3.New(HashSize, nil)
+	bw := bufio.NewWriterSize(h, hashBuffer)
 
-	return &Hasher{h: h, Encoder: Encoder{w: h}}
+	return &Hasher{h: h, bw: bw, Encoder: Encoder{w: bw}}
 }
+
+// hashBuffer is how much encoding is staged before it reaches ℋ.
+//
+// **The encoding is many small fields and ℋ is fastest given many bytes.** An
+// entry is eight writes - a length, a path, a kind byte, a fixed block, a
+// digest, two strings and an xattr count - so a tree of 20k entries made 160k
+// calls into blake3, most of them a handful of bytes. Staging them changes no
+// byte of the stream and so no key; it changes only how often the hash is
+// entered. A write larger than this goes straight through (bufio does not
+// buffer what will not fit), so streaming a blob's contents still costs one
+// copy of nothing.
+const hashBuffer = 64 << 10
 
 // Hasher builds the injective encoding required by green paper §1.4.
 //
@@ -45,7 +59,8 @@ type Hasher struct {
 	// assignment on the wire is the same bytes into a buffer.
 	Encoder
 
-	h hash.Hash
+	h  hash.Hash
+	bw *bufio.Writer
 }
 
 // Encoder writes the canonical encoding of green paper B.1.
@@ -54,7 +69,13 @@ type Hasher struct {
 // fixed-width big-endian, strings length-prefixed UTF-8. Two implementations
 // serialising equal values produce equal bytes - without which keys differ
 // across implementations and the entire cache is per-implementation.
-type Encoder struct{ w io.Writer }
+type Encoder struct {
+	w io.Writer
+
+	// one stages a single-byte field, so writing one does not allocate. Byte
+	// and Bool are called once per entry each, and `[]byte{b}` escaped.
+	one [1]byte
+}
 
 // NewEncoder writes the canonical encoding to w.
 func NewEncoder(w io.Writer) *Encoder { return &Encoder{w: w} }
@@ -72,7 +93,10 @@ func (w *Encoder) Fixed(b []byte) { _, _ = w.w.Write(b) }
 func (w *Encoder) Write(p []byte) (int, error) { return w.w.Write(p) } //nolint:wrapcheck // the writer's own error
 
 // Byte writes a single fixed-width byte.
-func (w *Encoder) Byte(b byte) { _, _ = w.w.Write([]byte{b}) }
+func (w *Encoder) Byte(b byte) {
+	w.one[0] = b
+	_, _ = w.w.Write(w.one[:])
+}
 
 // Count writes a sequence length, once, ahead of its elements.
 //
@@ -105,6 +129,16 @@ func (w *Encoder) Count(n int) {
 // ⟨"a","bc"⟩ cannot collide.
 func (w *Encoder) Str(s string) {
 	w.Count(len(s))
+
+	// The same bytes either way; WriteString avoids copying the string onto
+	// the heap to hand it over, which a path per entry made the dominant
+	// allocation in folding a tree.
+	if sw, ok := w.w.(io.StringWriter); ok {
+		_, _ = sw.WriteString(s)
+
+		return
+	}
+
 	_, _ = w.w.Write([]byte(s))
 }
 
@@ -119,7 +153,7 @@ func (w *Encoder) Bool(b bool) {
 		v = 1
 	}
 
-	_, _ = w.w.Write([]byte{v})
+	w.Byte(v)
 }
 
 // Sum is the identity of everything written so far.
@@ -129,6 +163,9 @@ func (w *Encoder) Bool(b bool) {
 // rather than a checkpoint in one - and two encodings that differ anywhere
 // before this differ here (green paper 1.4).
 func (w *Hasher) Sum() NodeID {
+	// Everything staged reaches ℋ before it is asked for its answer.
+	_ = w.bw.Flush()
+
 	var id NodeID
 
 	copy(id[:], w.h.Sum(nil))

@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -47,6 +48,8 @@ func (s *Server) followLink(
 ) bool {
 	r, err := os.OpenRoot(root)
 	if err != nil {
+		w.lose("the step's filesystem could not be opened to follow a symlink")
+
 		return false
 	}
 
@@ -57,7 +60,21 @@ func (s *Server) followLink(
 
 	for range linkHops {
 		fi, err := r.Lstat(at[1:])
-		if err != nil {
+
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			// **A dangling link is a fact, not a gap.** The step looked here
+			// and found nothing, and a base where something *is* would build
+			// differently - which is what a negative lookup records (§3.4, I3).
+			// Losing it instead would cost the key for a chain that ended
+			// honestly.
+			w.absent(at)
+
+			return true
+
+		case err != nil:
+			w.lose("a symlink could not be followed: " + err.Error())
+
 			return false
 		}
 
@@ -69,6 +86,8 @@ func (s *Server) followLink(
 
 		target, err := r.Readlink(at[1:])
 		if err != nil {
+			w.lose("a symlink could not be read: " + err.Error())
+
 			return false
 		}
 
@@ -81,16 +100,34 @@ func (s *Server) followLink(
 		// Above the root by way of `..`: Root would refuse the next Lstat
 		// anyway, and saying so here keeps the reason with the cause.
 		if at == "/" || !filepath.IsAbs(at) {
+			w.lose("a symlink leaves the step's filesystem")
+
 			return false
 		}
 
 		id, err := layer.PathDigestIn(filepath.Join(root, at), uids, gids)
-		if err != nil {
+
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			// The chain ended at a name nothing holds. A dangling link is
+			// ordinary - a package removed, a versioned name whose target moved
+			// - and where it points not existing is a fact about the base, so
+			// it is recorded as one. This is where it surfaces rather than at
+			// the Lstat above, the link itself being perfectly present.
+			w.absent(at)
+
+			return true
+
+		case err != nil:
+			w.lose("what a symlink points at could not be digested: " + err.Error())
+
 			return false
 		}
 
 		w.read(at, id)
 	}
+
+	w.lose("a symlink chain is longer than this engine follows")
 
 	return false
 }

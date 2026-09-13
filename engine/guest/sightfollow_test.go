@@ -3,6 +3,7 @@ package guest
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/engine/trace"
@@ -107,12 +108,19 @@ func TestATracedReadFollowsAChainOfSymlinks(t *testing.T) {
 	}
 }
 
-// A symlink out of the mount is refused, not followed.
+// A symlink naming a host path never reads the host's file.
 //
-// **The one that must never become a read.** Following it would digest a file
-// the base does not hold, under a path that means something else next time -
-// and would have this process hash whatever the step could point at.
-func TestATracedReadRefusesASymlinkOutOfTheMount(t *testing.T) {
+// **The one that must never become a read of this machine.** A target is data
+// inside the step's own filesystem, so following one is a traversal the step
+// chooses; `os.Root` resolves beneath the mount - `openat2(RESOLVE_BENEATH)` on
+// Linux - and an absolute target is root-relative because that is what the step
+// itself resolves inside its sandbox.
+//
+// So a link naming `/tmp/x/secret.txt` names that path *in the mount*, where
+// nothing is, and the honest record is a negative lookup - the same answer the
+// step gets. What must never happen is the host's file being digested and
+// recorded as something this base holds.
+func TestATracedReadOfAnEscapingSymlinkNeverReadsTheHost(t *testing.T) {
 	t.Parallel()
 
 	s, h := copyFixture(t)
@@ -126,20 +134,16 @@ func TestATracedReadRefusesASymlinkOutOfTheMount(t *testing.T) {
 		t.Skipf("symlinks are not available here: %v", err)
 	}
 
-	at, lossy := readsOfSighting(t, s, h, "/w/escape")
+	at, _ := readsOfSighting(t, s, h, "/w/escape")
 
-	if !lossy {
-		t.Error("a symlink out of the mount was not declared lossy")
+	if at[outside] {
+		t.Error("the host's file was recorded as a read of this base")
 	}
 
 	for p := range at {
-		if filepath.IsAbs(p) && !filepath.HasPrefix(p, "/w") {
-			t.Errorf("recorded %q, which is outside the mount", p)
+		if _, err := os.Stat(filepath.Join(h.root, strings.TrimPrefix(p, "/"))); err != nil {
+			t.Errorf("recorded %q, which is not a path inside the mount: %v", p, err)
 		}
-	}
-
-	if at[outside] {
-		t.Error("the escaping target was recorded as a read of this base")
 	}
 }
 
@@ -172,5 +176,29 @@ func TestATracedReadRefusesASymlinkLoop(t *testing.T) {
 		}
 	case <-t.Context().Done():
 		t.Fatal("a symlink loop was followed without bound")
+	}
+}
+
+// A dangling symlink is a negative lookup, not a gap.
+//
+// The step looked and found nothing, and a base where something *is* would build
+// differently - which is exactly what 𝑁 records (§3.4, I3). Losing the whole
+// observation instead costs the key for a chain that ended honestly, and a
+// dangling link is ordinary: a package that was removed, a versioned name whose
+// target moved.
+func TestATracedReadOfADanglingSymlinkIsAbsentNotLossy(t *testing.T) {
+	t.Parallel()
+
+	s, h := copyFixture(t)
+
+	if err := os.Symlink("gone.txt", filepath.Join(h.root, "w", "dangling")); err != nil {
+		t.Skipf("symlinks are not available here: %v", err)
+	}
+
+	_, lossy := readsOfSighting(t, s, h, "/w/dangling")
+
+	if lossy {
+		t.Error("a dangling symlink lost the observation, though where it points" +
+			" not existing is a fact about the base and not a gap in what was seen")
 	}
 }

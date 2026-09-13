@@ -114,9 +114,10 @@ func (s *Server) recordSightings(
 			// way of not reaching the bottom - an escape, a loop, a depth -
 			// falls back to declaring the gap.
 			if fi, statErr := os.Lstat(abs); statErr == nil && fi.Mode()&fs.ModeSymlink != 0 {
-				if !s.followLink(w, root, p, uids, gids) {
-					w.lose()
-				}
+				// followLink says why on every path it fails, so nothing is
+				// added here: a gap with a reason is the one a reader can act
+				// on, and a bare second call would bury it.
+				_ = s.followLink(w, root, p, uids, gids)
 			}
 
 			// **A directory is also enumerated, and the read cannot say so.**

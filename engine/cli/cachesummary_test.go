@@ -96,3 +96,23 @@ func TestStalePredictionsAreReportedAgainstTheirTotal(t *testing.T) {
 		t.Errorf("the summary does not mention stale predictions: %q", got)
 	}
 }
+
+// A content hit is reported, and only when there is one.
+//
+// **Otherwise the tier is invisible.** Κₜ (green paper 4.5a) turns a rebuilt
+// base into a hit rather than a rebuild, and a saving nobody can see is one
+// nobody can tell from a cache that is simply working - or from one that has
+// silently stopped, which is the failure mode this line exists to make loud.
+func TestContentHitsAreReportedWhenThereAreAny(t *testing.T) {
+	t.Parallel()
+
+	quiet := cacheSummary(core.Stats{Hits: 3, Misses: 1})
+	if strings.Contains(quiet, "rebuilt base") {
+		t.Errorf("a build with no content hits mentioned them: %q", quiet)
+	}
+
+	loud := cacheSummary(core.Stats{Hits: 3, Misses: 1, ContentHits: 2})
+	if !strings.Contains(loud, "2 over a rebuilt base") {
+		t.Errorf("summary was %q, wanted the content hits in it", loud)
+	}
+}

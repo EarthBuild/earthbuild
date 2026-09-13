@@ -49,6 +49,13 @@ func cacheSummary(s core.Stats) string {
 
 	parts := []string{fmt.Sprintf("%d hit, %d miss", s.Hits, s.Misses)}
 
+	// Named for what it means rather than for the key that did it. "over a
+	// rebuilt base" is a thing an operator recognises - a pruned runner, a cold
+	// machine - where "Κₜ" is a thing they would have to look up.
+	if s.ContentHits > 0 {
+		parts = append(parts, fmt.Sprintf("%d over a rebuilt base", s.ContentHits))
+	}
+
 	if s.L2Hits > 0 {
 		parts = append(parts, fmt.Sprintf("%d by observed inputs", s.L2Hits))
 	}

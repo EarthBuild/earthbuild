@@ -3,6 +3,7 @@ package guest
 import (
 	"errors"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -92,6 +93,31 @@ func (s *Server) recordSightings(
 		switch {
 		case err == nil:
 			w.read(p, id)
+
+			// **A symlink is a gap this cannot close**, exactly as it is for a
+			// copy's destination - see observeDest, which has always said so.
+			// `PathDigestIn` digests the entry *at* the path, and for a link
+			// that is its mode, ownership and target string, never the bytes
+			// it leads to. Two bases agreeing about the link and differing
+			// about its target then satisfy one prediction: I3 by omission.
+			//
+			// The kernel resolves the link inside a single `openat`, so the
+			// tracer sees one path and never the target - there is no second
+			// sighting to save this, and the shape is ordinary rather than
+			// contrived: `/usr/bin/cc`, an `/etc/alternatives` entry, a
+			// `libfoo.so.1` beside the real `libfoo.so.1.2.3`, all of which a
+			// base bump changes behind an identical link.
+			//
+			// Followed, and declared lossy only where it cannot be. See
+			// followLink: both the link and what it bottoms out to are
+			// recorded, so a repoint and an edit are each caught, and every
+			// way of not reaching the bottom - an escape, a loop, a depth -
+			// falls back to declaring the gap.
+			if fi, statErr := os.Lstat(abs); statErr == nil && fi.Mode()&fs.ModeSymlink != 0 {
+				if !s.followLink(w, root, p, uids, gids) {
+					w.lose()
+				}
+			}
 
 			// **A directory is also enumerated, and the read cannot say so.**
 			// PathDigestIn digests the entry at the path - for a directory its

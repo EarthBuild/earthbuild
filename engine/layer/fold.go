@@ -1,7 +1,8 @@
 package layer
 
 import (
-	"sort"
+	"path"
+	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -22,11 +23,16 @@ import (
 // any different answer - store.Folder's tests check the two agree at every depth.
 type Fold struct {
 	merged map[string]entry
+
+	// root is the same set as a directory trie, carried across Add so that a
+	// layer costs the directories it touched rather than all of them. Every
+	// node holds the digest it was last given and whether that is still true.
+	root *dir
 }
 
 // NewFold is the fold of the empty stack.
 func NewFold() *Fold {
-	return &Fold{merged: map[string]entry{}}
+	return &Fold{merged: map[string]entry{}, root: newDir()}
 }
 
 // Add lays one more layer over the fold, reporting whether it could be read.
@@ -39,27 +45,49 @@ func (f *Fold) Add(m []byte) bool {
 		return false
 	}
 
-	apply(f.merged, entries)
+	for _, p := range apply(f.merged, entries) {
+		f.resync(p)
+	}
 
 	return true
 }
 
-// Digest is the tree the fold has reached, and does not consume it.
+// resync brings the trie back in line with the merged set at one path.
+//
+// Asked of the set rather than told, because apply resolves a layer against
+// itself - a name written and then whited out within one layer is reported and
+// is not there - and a caller that trusted the report would hold a tree the
+// fold does not.
+func (f *Fold) resync(p string) {
+	if e, ok := f.merged[p]; ok {
+		f.root.insert(strings.Split(path.Clean(p), "/"), e)
+
+		return
+	}
+
+	f.root.remove(strings.Split(path.Clean(p), "/"))
+}
+
+// Digest is 𝜏, the tree the fold has reached, and does not consume it.
+//
+// Only the directories a layer moved are named again; everything else answers
+// from the digest it was given last time. That is the whole saving - a step
+// writes tens of paths into a base of tens of thousands.
 func (f *Fold) Digest() ir.NodeID {
-	paths := make([]string, 0, len(f.merged))
-	for p := range f.merged {
-		paths = append(paths, p)
-	}
+	b := builder{}
 
-	sort.Strings(paths)
+	return b.cached(f.root)
+}
 
-	h := ir.NewHasher()
-	h.Count(len(paths))
+// Tree is the fold as a Merkle tree of directories, every node addressable.
+//
+// Names every node and keeps its bytes, which Digest does not: a key needs the
+// name and shipping a subtree needs the encoding, and holding 26MB of them per
+// 20k entries for every fold in the memo is not a cost a key should carry.
+func (f *Fold) Tree() Tree {
+	b := builder{nodes: map[ir.NodeID][]byte{}}
+	t := Tree{nodes: b.nodes}
+	t.root = b.digest(f.root)
 
-	for _, p := range paths {
-		e := f.merged[p]
-		e.hash(&h.Encoder, withoutTimes)
-	}
-
-	return h.Sum()
+	return t
 }

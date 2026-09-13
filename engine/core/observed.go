@@ -42,7 +42,10 @@ import (
 //	1  the engine before this constant existed
 //	2  directories carry their listing as well as their mode (E794), and the
 //	   chain-key entries a false L2 hit had already written are retired with it
-const cacheEpoch = 2
+//	3  𝜏 is a Merkle tree of directories rather than one digest over a flat
+//	   sorted list (4.5a). Every layer's content id changes with it, so every
+//	   Κₜ entry names a base by a value no engine will derive again.
+const cacheEpoch = 3
 
 // DeriveObservedKey computes Κ₂ at the current epoch.
 func DeriveObservedKey(n *ir.Node, refs []ir.NodeID, obs Observation) Key {

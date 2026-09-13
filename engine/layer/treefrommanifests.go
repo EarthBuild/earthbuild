@@ -51,8 +51,15 @@ func TreeFromManifests(ms [][]byte) (ir.NodeID, bool) {
 	return f.Digest(), true
 }
 
-// apply lays one layer over the merged set.
-func apply(merged map[string]entry, entries []entry) {
+// apply lays one layer over the merged set, reporting every path it moved.
+//
+// The report is what makes a fold incremental: a layer touches tens of paths
+// where the set holds tens of thousands, and only the directories above those
+// paths need naming again. Paths may repeat and may never have been present -
+// a caller resyncs by asking the merged set what is there now.
+func apply(merged map[string]entry, entries []entry) []string {
+	var touched []string
+
 	// **Opaque first, and over the whole layer.** A directory marked opaque
 	// holds nothing it inherited, but it does hold what its own layer puts in
 	// it - so every marker is honoured before any of this layer's entries are
@@ -60,7 +67,7 @@ func apply(merged map[string]entry, entries []entry) {
 	// delete what the same layer had just written.
 	for _, e := range entries {
 		if path.Base(e.path) == whOpaque {
-			clear(merged, path.Dir(e.path))
+			clear(merged, path.Dir(e.path), &touched)
 		}
 	}
 
@@ -89,7 +96,9 @@ func apply(merged map[string]entry, entries []entry) {
 		gone[at] = true
 
 		delete(merged, at)
-		clear(merged, at)
+		touched = append(touched, at)
+
+		clear(merged, at, &touched)
 	}
 
 	for _, e := range entries {
@@ -108,7 +117,10 @@ func apply(merged map[string]entry, entries []entry) {
 		}
 
 		merged[e.path] = e
+		touched = append(touched, e.path)
 	}
+
+	return touched
 }
 
 // beneathGone reports whether a path lies beneath a name that was whited out.
@@ -123,7 +135,7 @@ func beneathGone(gone map[string]bool, p string) bool {
 }
 
 // clear removes everything beneath a directory, leaving the directory itself.
-func clear(merged map[string]entry, dir string) {
+func clear(merged map[string]entry, dir string, touched *[]string) {
 	prefix := dir + "/"
 	if dir == "." || dir == "/" {
 		prefix = ""
@@ -132,8 +144,10 @@ func clear(merged map[string]entry, dir string) {
 	for p := range merged {
 		if prefix != "" && strings.HasPrefix(p, prefix) {
 			delete(merged, p)
+			*touched = append(*touched, p)
 		} else if prefix == "" && p != "." {
 			delete(merged, p)
+			*touched = append(*touched, p)
 		}
 	}
 }

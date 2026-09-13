@@ -44,6 +44,18 @@ func NewHasher() *Hasher {
 // copy of nothing.
 const hashBuffer = 64 << 10
 
+// DigestOf is ℋ over a byte string, with no framing of any kind (§3.1).
+//
+// **The primitive a content-addressed store needs**, and the one a Hasher is
+// too heavy for: a Hasher carries blake3 state and a staging buffer, so naming
+// a thousand small blobs through one allocates a thousand of each. A receiver
+// verifying a blob against the name it asked for calls this, and so does
+// anything naming an encoding it has already assembled.
+//
+// Equal to NewHasher().Fixed(b).Sum() by construction - Fixed writes raw - and
+// TestDigestOfAgreesWithAHasher holds the two together.
+func DigestOf(b []byte) NodeID { return NodeID(blake3.Sum256(b)) }
+
 // Hasher builds the injective encoding required by green paper §1.4.
 //
 // Fixed-width fields are written raw. Variable-width fields carry a u32 length.

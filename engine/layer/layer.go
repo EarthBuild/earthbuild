@@ -156,7 +156,8 @@ func declared(entries []entry, own map[string]Owner) []entry {
 //
 // One function, because a second place that sorted and hashed entries would be a
 // second definition of what a layer *is* - and the two would agree until
-// somebody edited one.
+// somebody edited one. Content goes through treeOf for that reason: Fold.Digest
+// folds a whole stack and must land on this value for a stack of one layer.
 func capture(entries []entry, size int64, uids, gids IDMap) Capture {
 	// Sorted, because directory iteration order is a property of the filesystem
 	// and must not reach the digest. Paths are compared as byte strings, which
@@ -164,10 +165,14 @@ func capture(entries []entry, size int64, uids, gids IDMap) Capture {
 	// on the machine's locale.
 	sort.Slice(entries, func(i, j int) bool { return entries[i].path < entries[j].path })
 
-	full, content := ir.NewHasher(), ir.NewHasher()
-
+	full := ir.NewHasher()
 	full.Count(len(entries))
-	content.Count(len(entries))
+
+	// **ID is the sequence and Content is the tree**, which is the whole
+	// difference between the two tiers. A layer's identity is what this machine
+	// captured, mtimes and all (I8); its content is what a stack of it
+	// materialises to, which any machine holding the same filesystem derives.
+	merged := make(map[string]entry, len(entries))
 
 	for _, e := range entries {
 		// Translated before hashing, so the digest is the one the store would
@@ -176,10 +181,13 @@ func capture(entries []entry, size int64, uids, gids IDMap) Capture {
 		e.gid = gids.Outside(e.gid)
 
 		e.hash(&full.Encoder, withTimes)
-		e.hash(&content.Encoder, withoutTimes)
+
+		merged[e.path] = e
 	}
 
-	return Capture{ID: full.Sum(), Content: content.Sum(), Bytes: size, Marked: marked(entries)}
+	return Capture{
+		ID: full.Sum(), Content: rootDigestOf(merged), Bytes: size, Marked: marked(entries),
+	}
 }
 
 // whPrefix is how a deletion is carried between machines: an entry whose name
@@ -251,8 +259,15 @@ const (
 	withoutTimes times = false
 )
 
-func (e entry) hash(h *ir.Encoder, t times) {
-	h.Str(e.path)
+func (e entry) hash(h *ir.Encoder, t times) { e.hashAs(h, e.path, t) }
+
+// hashAs writes the entry under a name that is not its own path.
+//
+// **A tree node names its members by base name**, because a subtree that
+// carried its full path would be a different blob in every base that held it -
+// and sharing subtrees is the whole reason for having them (see Tree).
+func (e entry) hashAs(h *ir.Encoder, name string, t times) {
+	h.Str(name)
 	h.Byte(kindOf(e.mode))
 
 	var fixed [4 + 4 + 4 + 8 + 4 + 8 + 8]byte

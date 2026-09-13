@@ -130,3 +130,29 @@ func TestBufferingDoesNotChangeTheDigest(t *testing.T) {
 		t.Fatal("buffering changed the digest, so it is a key change and not an optimisation")
 	}
 }
+
+// BenchmarkTreeParts splits treeOf into building the trie and digesting it.
+//
+// If digesting dominates, caching node digests is enough and the trie can be
+// rebuilt; if building dominates, the trie has to persist across Add.
+func BenchmarkTreeParts(b *testing.B) {
+	f := foldOf(b, 20000)
+
+	b.Run("build-only", func(b *testing.B) {
+		for b.Loop() {
+			buildOnlyForBench(f)
+		}
+	})
+
+	b.Run("digest-only", func(b *testing.B) {
+		for b.Loop() {
+			f.Digest()
+		}
+	})
+
+	b.Run("tree-with-blobs", func(b *testing.B) {
+		for b.Loop() {
+			f.Tree()
+		}
+	})
+}

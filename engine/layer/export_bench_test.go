@@ -1,7 +1,9 @@
 package layer
 
 import (
+	"path"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -29,4 +31,28 @@ func SortCostForBench(f *Fold) int {
 	sort.Strings(paths)
 
 	return len(paths)
+}
+
+// buildOnlyForBench builds the directory trie without digesting it.
+func buildOnlyForBench(f *Fold) int {
+	root := newDir()
+
+	for p, e := range f.merged {
+		at := root
+
+		parts := strings.Split(path.Clean(p), "/")
+		for _, part := range parts[:len(parts)-1] {
+			next, ok := at.subdirs[part]
+			if !ok {
+				next = newDir()
+				at.subdirs[part] = next
+			}
+
+			at = next
+		}
+
+		at.files[parts[len(parts)-1]] = e
+	}
+
+	return len(root.subdirs)
 }

@@ -156,3 +156,70 @@ func TestACorruptManifestDoesNotPoisonTheNextFold(t *testing.T) {
 			"\n  stack that never existed", got, ok, want)
 	}
 }
+
+// Independent chains each keep their prefix.
+//
+// **The scheduler claims the cache before it takes a slot**, so Κₜ derivations
+// from parallel branches interleave: chain A, chain B, chain A again. A folder
+// holding one prefix has it thrown away by every neighbour, and measured on two
+// chains that is the whole of the saving - 9.3ms a fold became 15.7ms, which is
+// what folding from scratch cost. Holding one prefix per chain is what makes the
+// memo survive the concurrency the engine actually has.
+//
+// The probe is each chain's own manifest, removed once that chain is held: a
+// folder that kept the prefix never looks at it again, and one that started over
+// silently skips it and folds a tree missing its base.
+func TestChainsDoNotEvictEachOther(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	f := store.NewFolder(root)
+
+	shared := layerWithManifest(t, root, map[string]string{"base.txt": "deps"})
+
+	chains := make([][]ir.NodeID, 0, 3)
+
+	for _, name := range []string{"a", "b", "c"} {
+		tip := layerWithManifest(t, root, map[string]string{name + ".txt": name})
+		above := layerWithManifest(t, root, map[string]string{name + "-up.txt": "x"})
+		chains = append(chains, []ir.NodeID{shared, tip, above})
+	}
+
+	// Hold every chain's own prefix, interleaved as the scheduler would.
+	for i, c := range chains {
+		if _, ok := f.TreeOf(c[:2]); !ok {
+			t.Fatalf("chain %d did not fold", i)
+		}
+	}
+
+	// Now re-reading the shared base is impossible to do silently.
+	if err := os.Remove(store.ManifestPath(root, shared)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Every chain extends what it held. Collected before anything else is
+	// asked of the folder, so the measurement does not evict what it measures.
+	got := make([]ir.NodeID, len(chains))
+
+	for i, c := range chains {
+		var ok bool
+		if got[i], ok = f.TreeOf(c); !ok {
+			t.Fatalf("chain %d could not be extended", i)
+		}
+	}
+
+	// A fold that lost the prefix skips the base it can no longer read, so it
+	// lands on the tree of the layers above it alone.
+	for i, c := range chains {
+		bare, ok := f.TreeOf(c[1:])
+		if !ok {
+			t.Fatalf("chain %d without its base did not fold", i)
+		}
+
+		if got[i] == bare {
+			t.Errorf("chain %d folded to the same tree with and without its base"+
+				"\n  its prefix was evicted by another chain, so every step of a"+
+				"\n  parallel build pays for that base again", i)
+		}
+	}
+}

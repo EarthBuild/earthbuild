@@ -1589,9 +1589,11 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		}
 
 		// Κₜ. **After Κ₁ and before Κ₂**, and both halves of that matter: the
-		// fold it needs costs about 59ms on a 100k-entry base, so a fully
-		// cached build must never reach it, while it needs no profile and no
-		// view, so it is cheaper than the tier below.
+		// fold it needs costs about 9ms on a 20k-entry base, so a fully cached
+		// build must never reach it, while it needs no profile and no view, so
+		// it is cheaper than the tier below. The base is folded once per chain
+		// rather than once per step - see store.Folder, which is what makes the
+		// figure a per-chain cost and not a per-step one.
 		//
 		// What it buys is the rebuilt base. A layer's identity hashes its
 		// mtimes (I8), so a deterministic step rebuilt after an eviction has a

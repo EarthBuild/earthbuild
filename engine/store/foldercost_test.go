@@ -97,3 +97,45 @@ func BenchmarkBuildAsksItsLadder(b *testing.B) {
 		}
 	})
 }
+
+// BenchmarkInterleavedChains is the scheduler's actual shape.
+//
+// **Steps claim the cache before they take a slot**, so Κₜ derivations from
+// independent branches interleave: the folder is asked about chain A, then B,
+// then A again. One held prefix answers a chain and is thrown away by its
+// neighbour, so the reuse measured on a single ladder is not what a parallel
+// build gets. This says how much is left.
+func BenchmarkInterleavedChains(b *testing.B) {
+	const (
+		base  = 20000
+		steps = 12
+	)
+
+	root := b.TempDir()
+
+	// One shared base, then n independent chains over it.
+	for _, chains := range []int{1, 2, 4} {
+		ladders := make([][]ir.NodeID, chains)
+		shared := ladderInStore(b, root, base, 0)
+
+		for c := range chains {
+			ladders[c] = append(append([]ir.NodeID{}, shared...),
+				ladderInStore(b, root, 1, steps-1)[1:]...)
+		}
+
+		b.Run(fmt.Sprintf("chains=%d", chains), func(b *testing.B) {
+			for b.Loop() {
+				f := store.NewFolder(root)
+
+				// Round-robin, which is what a semaphore of width n produces.
+				for d := 1; d <= steps; d++ {
+					for c := range chains {
+						if _, ok := f.TreeOf(ladders[c][:d]); !ok {
+							b.Fatal("the ladder did not fold")
+						}
+					}
+				}
+			}
+		})
+	}
+}

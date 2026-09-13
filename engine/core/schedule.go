@@ -401,6 +401,10 @@ type Stats struct {
 	// it (E228).
 	Uncacheable   int
 	UncacheableAt []string
+	// ContentHits counts steps served by Κ_c: the chain key with the clock
+	// taken out of the base. A build where this is non-zero is one that met a
+	// rebuilt-but-identical layer and did not rebuild above it.
+	ContentHits int
 	// Unobserved counts steps whose observation could not be used, so nothing
 	// was stored for Κ₂ to find later. Distinct from a miss: a miss is a step
 	// that could not be reused *this* time, while this is one that will not be
@@ -1584,6 +1588,39 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 			return nil
 		}
 
+		// Κ_c. **After Κ₁ and before Κ₂**, and both halves of that matter: the
+		// fold it needs costs about 59ms on a 100k-entry base, so a fully
+		// cached build must never reach it, while it needs no profile and no
+		// view, so it is cheaper than the tier below.
+		//
+		// What it buys is the rebuilt base. A layer's identity hashes its
+		// mtimes (I8), so a deterministic step rebuilt after an eviction has a
+		// different id and Κ₁ misses above it although nothing observable
+		// changed - fourteen of eighteen results, measured over two cold builds
+		// of examples/rust-layered. See DeriveContentKey.
+		if ck, ok := DeriveContentKey(n, base, refs, s.Blobs); ok {
+			ce, chit := Lookup(s.cacheToRead(), s.Blobs, s.Trusted, ck)
+			if chit && usableDeclaration(n.Op.Kind, ce) {
+				rec.Layer, rec.Exit, rec.Bytes = ce.Layer, ce.Exit, ce.Bytes
+				rec.Outcome, rec.Placements = OutcomeContentHit, ce.Placements
+				s.finish(n, base, Result{
+					Layer: ce.Layer, Layers: ce.Layers, Exit: ce.Exit, Bytes: ce.Bytes,
+					Declares: ce.Declares, Placements: ce.Placements,
+				}, rec)
+				s.bump(&s.Stats.ContentHits)
+
+				// **Answered by Κ_c, remembered as Κ₁**, for the reason a Κ₂ hit
+				// is: Κ₁ is the narrower claim and names this exact base, which
+				// the hit just established produces this result. Without it the
+				// fold is repaid on every build for ever (E564).
+				if s.Cache != nil {
+					s.Cache.Put(key, ce)
+				}
+
+				return nil
+			}
+		}
+
 		// L2. Consulted only when L1 missed, which is exactly when the
 		// alternative is a full rebuild (green paper 4.3).
 		// The path count is in the label because "L2 took four seconds" and
@@ -1745,6 +1782,15 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		// hits; Κ₂ is what a build over a *different* base hits when it touched
 		// nothing that differs.
 		s.Cache.Put(key, e)
+
+		// And Κ_c, which is what a build over a base that was *rebuilt* hits -
+		// the same bytes under a new layer id. Published unconditionally rather
+		// than behind a usable-observation test: it asserts nothing about what
+		// the step read, only about what its base held, which the store either
+		// can say or cannot.
+		if ck, ok := DeriveContentKey(n, base, refs, s.Blobs); ok {
+			s.Cache.Put(ck, e)
+		}
 
 		switch {
 		case s.Profiles == nil:

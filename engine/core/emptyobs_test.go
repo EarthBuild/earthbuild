@@ -81,9 +81,17 @@ func TestAnEmptyObservationOfAnExecStepIsNotKeyed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Two Κ₁ entries now: the base image step and the exec above it.
-	if cache.len() != 2 {
-		t.Errorf("cache holds %d entries, want the two Κ₁ entries", cache.len())
+	// Asked of the key rather than of the count, for the reason
+	// TestIncompleteObservationsAreNotKeyed gives: a count says "no second key
+	// was published" only while there are exactly two keys.
+	would := core.DeriveObservedKey(n, nil, core.Observation{
+		Reads:    map[string]ir.NodeID{},
+		Listings: map[string]ir.NodeID{},
+	})
+
+	if _, published := cache.Get(would); published {
+		t.Error("an empty observation was published under its observed key," +
+			" which every base satisfies")
 	}
 
 	if got := s.Record.Steps[1].ObservedKey; got != (core.Key{}) {

@@ -189,8 +189,13 @@ func TestUnobservedStepsPublishNoObservedKey(t *testing.T) {
 		t.Error("an unobserved step recorded a profile; silence is not an observation")
 	}
 
-	if cache.len() != 1 {
-		t.Errorf("cache holds %d entries, want 1 (the chain key only)", cache.len())
+	// Asked of the key rather than of the count: a count says "no observed key
+	// was published" only while the chain key is the only other one.
+	would := core.DeriveObservedKey(node, nil, core.Observation{})
+
+	if _, published := cache.Get(would); published {
+		t.Error("an unobserved step was published under an observed key," +
+			" which claims it read nothing and every base satisfies")
 	}
 }
 

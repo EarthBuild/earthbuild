@@ -17,6 +17,10 @@ const (
 	OutcomeRefused                   // the engine cannot evaluate this construct (I10)
 	OutcomeUncaptured                // executed, but what it produced was not captured
 	OutcomeCancelled                 // stopped before it finished; see Cause
+	// OutcomeContentHit is Κ_c: the base held the same bytes under a different
+	// layer id. **Appended, never inserted** - an outcome's number reaches a
+	// record a reader may already hold.
+	OutcomeContentHit
 )
 
 func (o Outcome) String() string {
@@ -25,6 +29,8 @@ func (o Outcome) String() string {
 		return "L1 hit"
 	case OutcomeL2Hit:
 		return "L2 hit"
+	case OutcomeContentHit:
+		return "content hit"
 	case OutcomeRefused:
 		return "refused"
 	case OutcomeUncaptured:

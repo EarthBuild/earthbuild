@@ -62,8 +62,18 @@ func TestIncompleteObservationsAreNotKeyed(t *testing.T) {
 
 	// The chain key is still sound: it is derived from inputs, which are known in
 	// full regardless of what the step was seen to read. Only Κ₂ is affected.
-	if cache.len() != 1 {
-		t.Errorf("cache holds %d entries, want exactly the Κ₁ entry", cache.len())
+	//
+	// Asked of the key rather than of the count. Counting entries said "no
+	// second key was published" only while there were two keys, and a tier
+	// added beside them made it say nothing about Κ₂ at all.
+	would := core.DeriveObservedKey(n, nil, core.Observation{
+		Reads:      map[string]ir.NodeID{"/seen": {1}},
+		Listings:   map[string]ir.NodeID{},
+		Incomplete: true,
+	})
+
+	if _, published := cache.Get(would); published {
+		t.Error("an incomplete observation was published under its observed key")
 	}
 
 	if got := s.Record.Steps[0].ObservedKey; got != (core.Key{}) {

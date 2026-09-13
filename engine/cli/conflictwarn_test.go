@@ -57,7 +57,7 @@ func TestAConflictWarningSaysWhatItMeans(t *testing.T) {
 	k := core.Key{0x3f, 0xa2}
 	got := conflictWarning([]cache.Conflict{
 		{Key: k, Held: ir.NodeID{0x9c}, Given: ir.NodeID{0x44}},
-	}, 1)
+	}, 1, nil)
 
 	if got == "" {
 		t.Fatal("a conflict produced no warning at all")
@@ -84,7 +84,7 @@ func TestAConflictWarningSaysWhatItMeans(t *testing.T) {
 func TestACleanBuildWarnsAboutNothing(t *testing.T) {
 	t.Parallel()
 
-	if got := conflictWarning(nil, 0); got != "" {
+	if got := conflictWarning(nil, 0, nil); got != "" {
 		t.Errorf("a build with no conflicts printed:\n%s", got)
 	}
 }
@@ -107,7 +107,7 @@ func TestAnOverflowingConflictListSaysHowManyAreMissing(t *testing.T) {
 		})
 	}
 
-	got := conflictWarning(recorded, 40)
+	got := conflictWarning(recorded, 40, nil)
 
 	if !strings.Contains(got, "8 more") {
 		t.Errorf("the warning does not say 8 were not listed:\n%s", got)
@@ -125,7 +125,7 @@ func TestTheWarningIsOneIndentedBlock(t *testing.T) {
 
 	got := conflictWarning([]cache.Conflict{
 		{Key: core.Key{0x01}, Held: ir.NodeID{0x02}, Given: ir.NodeID{0x03}},
-	}, 1)
+	}, 1, nil)
 
 	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
 	if len(lines) < 2 {
@@ -136,5 +136,53 @@ func TestTheWarningIsOneIndentedBlock(t *testing.T) {
 		if !strings.HasPrefix(l, "    ") {
 			t.Errorf("a continuation line is not indented under the first:\n%q", l)
 		}
+	}
+}
+
+// A conflict names the step it happened in.
+//
+// **Otherwise it is unactionable where it matters most.** The warning says a
+// step is not reproducible and prints a key and two layer digests - none of
+// which a reader can turn into an Earthfile line. Nondeterminism is exactly the
+// diagnosis that needs a place to look, and the engine already knows: the step
+// record carries the chain key it was published under beside `Meta.Source`, so
+// the join costs a lookup and no new field anywhere.
+func TestAConflictNamesTheStep(t *testing.T) {
+	t.Parallel()
+
+	key := core.Key{7}
+
+	rec := &core.Record{Steps: []core.StepRecord{
+		{ChainKey: core.Key{1}, Meta: ir.Meta{Source: "Earthfile:11"}},
+		{ChainKey: key, Meta: ir.Meta{Source: "Earthfile:42"}},
+	}}
+
+	got := conflictWarning([]cache.Conflict{
+		{Key: key, Held: ir.NodeID{1}, Given: ir.NodeID{2}},
+	}, 1, rec)
+
+	if !strings.Contains(got, "Earthfile:42") {
+		t.Errorf("the warning does not say which step:\n%s", got)
+	}
+
+	if strings.Contains(got, "Earthfile:11") {
+		t.Errorf("the warning named a step that did not conflict:\n%s", got)
+	}
+}
+
+// A conflict under a key no step was published with still reports.
+//
+// Κ₂ and Κₜ entries are published under keys the step record does not carry, and
+// a conflict there is as real as any other. Saying less about it is right;
+// saying nothing would lose it.
+func TestAConflictWithNoMatchingStepStillReports(t *testing.T) {
+	t.Parallel()
+
+	got := conflictWarning([]cache.Conflict{
+		{Key: core.Key{9}, Held: ir.NodeID{1}, Given: ir.NodeID{2}},
+	}, 1, &core.Record{})
+
+	if got == "" {
+		t.Error("a conflict under an unrecognised key was not reported at all")
 	}
 }

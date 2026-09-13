@@ -877,7 +877,7 @@ func runPlan(
 		fmt.Fprint(o.Out, usageSummary(s.Stats))
 	}
 	fmt.Fprint(o.Out, whyItReran(sb.StoreDir(), o.Target, rec))
-	fmt.Fprint(o.Out, conflictWarning(ac.Conflicts(), ac.ConflictCount()))
+	fmt.Fprint(o.Out, conflictWarning(ac.Conflicts(), ac.ConflictCount(), rec))
 
 	// Written after it has been compared against, and best-effort: a record
 	// that could not be saved costs the *next* build its explanation and this

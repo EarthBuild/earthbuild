@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/cache"
+	"github.com/EarthBuild/earthbuild/engine/core"
 )
 
 // shortDigest is how much of a digest is worth printing. Twelve hex characters
@@ -25,7 +26,7 @@ const shortDigest = 12
 // Returns the empty string when there is nothing to say. A diagnostic that
 // appears on healthy builds is trained away inside a week, and is then absent
 // from the build that needed it.
-func conflictWarning(recorded []cache.Conflict, total int) string {
+func conflictWarning(recorded []cache.Conflict, total int, rec *core.Record) string {
 	if total == 0 {
 		return ""
 	}
@@ -37,6 +38,21 @@ func conflictWarning(recorded []cache.Conflict, total int) string {
 		" so its result is not reproducible\n")
 
 	for _, c := range recorded {
+		// **Where, not just what.** A key and two layer digests say a step is
+		// not reproducible without saying which step, and nondeterminism is
+		// exactly the diagnosis that needs a place to look. The record already
+		// carries the chain key each step published under, beside the line it
+		// was written on.
+		if at := stepAt(rec, c.Key); at != "" {
+			fmt.Fprintf(&b, "    %s  held %s, then produced %s\n",
+				at, short(c.Held.String()), short(c.Given.String()))
+
+			continue
+		}
+
+		// A key no step was published under - Κ₂ and Κₜ name entries the record
+		// does not carry. Saying less is right; saying nothing would lose a
+		// conflict as real as any other.
 		fmt.Fprintf(&b, "    %s  held %s, then produced %s\n",
 			short(c.Key.String()), short(c.Held.String()), short(c.Given.String()))
 	}
@@ -64,4 +80,19 @@ func plural(n int, thing string) string {
 	}
 
 	return fmt.Sprintf("%d %ss", n, thing)
+}
+
+// stepAt is where the step published under a key is written, or empty.
+func stepAt(rec *core.Record, key core.Key) string {
+	if rec == nil {
+		return ""
+	}
+
+	for _, step := range rec.Steps {
+		if step.ChainKey == key && step.Meta.Source != "" {
+			return step.Meta.Source
+		}
+	}
+
+	return ""
 }

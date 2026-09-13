@@ -124,11 +124,22 @@ const defaultSandboxImage = "alpine:3.20"
 //
 // `container run` defaults to 1 GiB, which is enough to run a step and not
 // enough to capture its result: writes over virtiofs fill the guest's page
-// cache, and a `mkdir` into the layer store then fails with ENOMEM. 8 GiB is
-// the figure Docker Desktop settled on for the same job. It is a *ceiling*, not
-// a reservation - the VM takes what it uses - so the cost of being generous is
-// address space rather than memory. Override with EARTH_SANDBOX_MEMORY.
-const defaultSandboxMemory = "8G"
+// cache, and a `mkdir` into the layer store then fails with ENOMEM.
+//
+// **A floor, and a deliberate over-allocation on a small machine.** It is a
+// *ceiling* and not a reservation - the VM takes what it uses - so on a machine
+// with less than this the ceiling simply stops binding, which is what a flat 8
+// GiB already did on anything smaller than 8. The choice it encodes is that a
+// large build on a small machine should be *slow* rather than dead: the host
+// swaps, where a guest that hits its ceiling is killed by its own kernel with
+// nothing in the output saying so.
+//
+// 16 rather than the 8 Docker Desktop settled on, because that failure is the
+// one this repository actually had - a Substrate compile killed twice in an
+// afternoon - and because 8 only ever binds below a 32 GiB host anyway, half
+// being the larger number above that. Override with EARTH_SANDBOX_MEMORY, which
+// is the way out for a machine with other work to do.
+const defaultSandboxMemory = "16G"
 
 // EnvSandboxCPUs is how many cores the VM asks for.
 //
@@ -189,7 +200,7 @@ func sandboxMemoryFor(host uint64) string {
 	const gib = 1 << 30
 
 	half := host / 2 / gib
-	if half < 8 {
+	if half < 16 {
 		return defaultSandboxMemory
 	}
 

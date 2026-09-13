@@ -25,8 +25,9 @@ func TestTheSandboxMemoryScalesWithTheMachine(t *testing.T) {
 		host uint64
 		want string
 	}{
-		{8, "8G"},   // a small machine keeps the floor
-		{16, "8G"},  // half of 16 is the floor exactly
+		{8, "16G"},  // smaller than the floor: the ceiling stops binding, as before
+		{16, "16G"}, // the floor
+		{32, "16G"}, // half is exactly the floor
 		{64, "32G"}, // half
 		{128, "64G"},
 	} {
@@ -38,9 +39,11 @@ func TestTheSandboxMemoryScalesWithTheMachine(t *testing.T) {
 
 // And a machine too small to halve keeps a usable ceiling.
 //
-// Below the old default a step runs and its result cannot be captured: writes
-// over virtiofs fill the guest's page cache and a `mkdir` into the layer store
-// fails with ENOMEM. Halving a 2 GiB machine would produce exactly that.
+// Below the floor a step runs and its result cannot be captured: writes over
+// virtiofs fill the guest's page cache and a `mkdir` into the layer store fails
+// with ENOMEM. Halving a 2 GiB machine would produce exactly that, so the floor
+// stands above what the machine has - which makes the ceiling stop binding, as
+// a flat 8 GiB already did on any machine smaller than that.
 func TestTheSandboxMemoryHasAFloor(t *testing.T) {
 	t.Parallel()
 

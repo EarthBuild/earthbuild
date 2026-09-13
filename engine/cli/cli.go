@@ -703,9 +703,9 @@ func runPlan(
 			// Asserted apart from storeAsker, never fused with it: an executor
 			// that cannot say what a layer holds keeps its guest store and
 			// loses only Κₜ, where requiring it would lose the store.
-			if content, ok := over.(contentAsker); ok {
-				gb.askContent = func(ids []ir.NodeID) ([]ir.NodeID, error) {
-					return content.StoreContent(ctx, ids)
+			if tree, ok := over.(treeAsker); ok {
+				gb.askTree = func(ids []ir.NodeID) (ir.NodeID, error) {
+					return tree.StoreTree(ctx, ids)
 				}
 			}
 

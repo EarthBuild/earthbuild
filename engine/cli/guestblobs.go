@@ -39,14 +39,13 @@ type guestBlobs struct {
 	// be asked, and those want different fixes.
 	Why func(error)
 
-	// askContent is what each of these layers holds, times excluded, one entry
-	// per id and in that order. Nil where nobody can answer, which leaves Κₜ
-	// not derivable and the build on the key it already had.
-	askContent func(ids []ir.NodeID) ([]ir.NodeID, error)
+	// askTree is what a stack materialises to. Nil where nobody can answer,
+	// which leaves Κₜ not derivable and the build on the key it already had.
+	askTree func(ids []ir.NodeID) (ir.NodeID, error)
 
 	mu   sync.Mutex
 	seen map[ir.NodeID]bool
-	held map[ir.NodeID]ir.NodeID
+	tree map[string]ir.NodeID
 	said bool
 }
 
@@ -101,58 +100,47 @@ func (b *guestBlobs) Has(id ir.NodeID) bool {
 	return true
 }
 
-// ContentOf is a layer's identity with times excluded, asked of whoever holds
-// the store.
+// TreeOf is what a stack materialises to, asked of whoever holds the store.
 //
-// **Because the manifest that answers is not on this filesystem.** Κₜ (green
-// paper 4.5a) names a base by what its layers hold, and the fold that produces
-// one reads the manifest beside the layer - which on a disk the guest owns the
-// host cannot see. A host that folds it itself reads nothing, derives no key,
-// and the tier written for rebuilt bases does nothing on exactly the builds
-// with the most to gain.
+// **Because the manifests that answer are not on this filesystem.** Κₜ (green
+// paper 4.5a) names a base by what it holds, and the fold reads the manifests
+// beside the layers - which on a disk the guest owns the host cannot see.
 //
-// Remembered, because a base is consulted once per step and a build has many;
-// a round trip per lookup is the cost KindStoreHas was batched to avoid and
-// this would reintroduce one layer at a time.
-//
-// A question that cannot be asked is no content, which leaves the key
-// underivable and the build on Κ₁ - the answer it had before this existed.
-// Answering with something plausible would be worse than answering nothing: two
-// bases holding anything at all would share a key.
-func (b *guestBlobs) ContentOf(id ir.NodeID) (ir.NodeID, bool) {
-	if b.askContent == nil {
+// Remembered per stack, because a stack is asked about once per step above it
+// and a deep build has many. A stack the store cannot fold is remembered as
+// unfoldable for the same reason: it will not become foldable.
+func (b *guestBlobs) TreeOf(stack []ir.NodeID) (ir.NodeID, bool) {
+	if b.askTree == nil || len(stack) == 0 {
 		return ir.NodeID{}, false
 	}
 
+	var key string
+	for _, id := range stack {
+		key += id.String()
+	}
+
 	b.mu.Lock()
-	known, seen := b.held[id]
+	known, seen := b.tree[key]
 	b.mu.Unlock()
 
 	if seen {
 		return known, known != ir.NodeID{}
 	}
 
-	got, err := b.askContent([]ir.NodeID{id})
+	got, err := b.askTree(stack)
 	if err != nil {
 		b.sayOnce(err)
 
 		return ir.NodeID{}, false
 	}
 
-	if len(got) != 1 {
-		return ir.NodeID{}, false
-	}
-
-	// Remembered either way. A layer the store cannot describe will not become
-	// describable, and asking again for every step above it is the round trip
-	// this cache exists to spend once.
 	b.mu.Lock()
-	if b.held == nil {
-		b.held = map[ir.NodeID]ir.NodeID{}
+	if b.tree == nil {
+		b.tree = map[string]ir.NodeID{}
 	}
 
-	b.held[id] = got[0]
+	b.tree[key] = got
 	b.mu.Unlock()
 
-	return got[0], got[0] != ir.NodeID{}
+	return got, got != ir.NodeID{}
 }

@@ -18,10 +18,10 @@ const whOpaque = ".wh..wh..opq"
 
 // TreeFromManifests folds a stack into the tree it materialises, and digests it.
 //
-// **`contents(𝑏)` is a sequence; this is not.** Κₜ (green paper 4.5a) names a
-// base by its layers' content ids in order, so two stacks that differ in how
-// they were assembled are different keys however identical the filesystem they
-// produce: a flattened stack and the one Φ (4.8) flattened, two branches that
+// **A tree, not a sequence.** Κₜ (green paper 4.5a) names a base by what it
+// materialises to; naming it by its layers' content ids in order would make two
+// stacks that differ in how they were assembled different keys however identical
+// the filesystem they produce: a flattened stack and the one Φ (4.8) flattened, two branches that
 // converge, independent steps written in either order. Folding to the tree makes
 // those agree.
 //

@@ -722,8 +722,8 @@ This single property converts every failure of the caching system, malicious or 
 performance cost.
 
 **Three keys are consulted, in one order, cheapest evidence first:** Κ₁, then Κₜ, then Κ₂. Κ₁ needs
-nothing that is not already held. Κₜ needs each base layer's content id, which is a fold over the
-layer's own metadata and is therefore reached only once Κ₁ has missed. Κ₂ needs a profile and a view
+nothing that is not already held. Κₜ needs the tree the base materialises to, which is a fold over the
+stack's manifests and is therefore reached only once Κ₁ has missed. Κ₂ needs a profile and a view
 of the base, and a consistency check against them (§4.5), so it is last.
 
 The order is a cost ordering and not a precedence: the three cannot disagree. Each returns a
@@ -735,7 +735,7 @@ has just been shown to hold, so the evidence is gathered once rather than on eve
 
 ```text
 (4.5)    Κ₁(s)     ≡ ℋ("c" ‖ ζ ‖ ids(𝑏) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
-(4.5a)   Κₜ(s)     ≡ ℋ("t" ‖ ζ ‖ contents(𝑏) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
+(4.5a)   Κₜ(s)     ≡ ℋ("t" ‖ ζ ‖ 𝜏(𝑏) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
 (4.6)    Κ₂(s, 𝑟)  ≡ ℋ("o" ‖ ζ ‖ sort(𝑅) ‖ sort(𝑁) ‖ sort(𝐷) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
 ```
 
@@ -747,18 +747,29 @@ otherwise be the same bytes.
 **Κₜ names the base by what it holds; Κ₁ names it by how it was made.** A layer's identity carries
 its mtimes (I8), so one deterministic step evaluated twice yields two layer ids - creating a
 directory stamps it with the wall clock - and Κ₁ therefore distinguishes two bases that no step can
-tell apart. `contents(𝑏)` is the same sequence with times excluded, so Κₜ does not.
+tell apart.
+
+𝜏(𝑏) is the tree the stack materialises: the left fold of layer application with times excluded, a
+later layer winning, a whiteout removing a name and everything under it, and an opaque marker
+removing what a directory inherited while leaving what its own layer puts back. **A tree and not a
+sequence**, which is what a first version of this got wrong: a sequence of per-layer identities
+distinguishes the stack Φ (4.8) flattened from the stack it flattened, and 𝑛ₘₐₓ is the smallest
+bound *the materialiser* is subject to - so two machines with different store paths flatten one
+target at different points and share no entry above the cut. A deep build's cache is then not
+portable, which is the property the fleet exists for.
+
+A stack element with no layer contributes nothing: a declaration is a stack element and not a tree
+(§3.2a), so it is skipped rather than refused - the same rule Φ's own squash follows.
 
 This is the eviction case and it is not rare: a base that is rebuilt rather than pulled is a base
 every step above must be re-evaluated over, though nothing observable has changed. Measured over two
 independent evaluations of one graph from cold, fourteen of the eighteen results carrying a delta
 agreed about their content and disagreed about their id.
 
-**Κₜ is sound for Κ₁'s reason and no other.** Two bases with one content sequence materialise to one
+**Κₜ is sound for Κ₁'s reason and no other.** Two bases materialising to one tree are one
 filesystem, and A3 says a step over one filesystem yields one result. It is a coarser-invariant key
-over the same evidence - not a weaker one, and unlike Κ₂ it rests on no observation. A base holding
-a layer whose content is unknown yields no Κₜ: absence is an answer, and substituting the layer id
-for an unknown content would let two bases holding anything at all share a key.
+over the same evidence - not a weaker one, and unlike Κ₂ it rests on no observation. A base no part of which can be folded yields no Κₜ: absence is an answer, and digesting an empty
+tree would let two bases holding anything at all share a key.
 
 Images never reach it. Their ids are digests of content with no clock in them, so Κ₁ already matches
 across a rebuild - in the same measurement, the seven results whose ids agreed were exactly the seven
@@ -785,7 +796,7 @@ Per §1.4, prefixes appear only where a length varies:
 | domain tag     | one byte                                                | no         |
 | ζ              | `u32`                                                   | no         |
 | `ids(𝑏)`       | `u32` count, then 32 bytes per layer id                 | count only |
-| `contents(𝑏)`  | `u32` count, then 32 bytes per content id               | count only |
+| `𝜏(𝑏)`         | 32 bytes                                                | no         |
 | `sort(𝑅)`      | `u32` count, then per entry: digest (32) ‖ `u16` ‖ path | per path   |
 | `sort(𝑁)`      | `u32` count, then per entry: `u16` ‖ path               | per path   |
 | `sort(𝐷)`      | `u32` count, then per entry: digest (32) ‖ `u16` ‖ path | per path   |
@@ -1628,7 +1639,7 @@ Named predicates and helpers, each defined where it is introduced:
 | id(ℓ)            | a layer's identity                         | (3.1)      |
 | id(γ)            | a declaration's identity                   | (3.8)      |
 | content(ℓ)       | a layer's identity, times excluded         | §3.3       |
-| contents(𝑏)      | a base's content ids, in order             | (4.5a)     |
+| 𝜏(𝑏)             | the tree a stack materialises to           | (4.5a)     |
 | sort(𝑆)          | canonical ordering                         | §1.2       |
 | consistent(𝑟̂, 𝑏) | a prediction still matches the base        | §4.5       |
 | legal(𝑔)         | a schedule satisfies every hard constraint | §4.7.1     |

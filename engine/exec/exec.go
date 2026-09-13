@@ -1946,19 +1946,17 @@ func (e *Executor) StoreHas(ctx context.Context, ids []ir.NodeID) ([]ir.NodeID, 
 	return c.StoreHas(ctx, ids)
 }
 
-// StoreContent reports what each of these layers holds, times excluded.
+// StoreTree reports what a stack materialises to.
 //
-// Asked of the guest for StoreHas's reason, and with a sharper failure: Κₜ
-// (green paper 4.5a) names a base by `contents(𝑏)`, and a host that reads its
-// own root finds no manifest, derives no key, and the tier written for rebuilt
-// bases quietly never fires.
-func (e *Executor) StoreContent(ctx context.Context, ids []ir.NodeID) ([]ir.NodeID, error) {
+// Asked of the guest for StoreHas's reason: the manifests the fold reads are on
+// a device the guest owns, and a host that reads its own root finds none.
+func (e *Executor) StoreTree(ctx context.Context, ids []ir.NodeID) (ir.NodeID, error) {
 	c, err := e.client()
 	if err != nil {
-		return nil, err
+		return ir.NodeID{}, err
 	}
 
-	return c.StoreContent(ctx, ids)
+	return c.StoreTree(ctx, ids)
 }
 
 // ViewDigests reports what a base holds at each of the given paths.

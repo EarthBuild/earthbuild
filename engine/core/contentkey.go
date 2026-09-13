@@ -11,24 +11,30 @@ import "github.com/EarthBuild/earthbuild/engine/ir"
 // other.
 const domainContent = 0x06
 
-// ContentSource is a 𝔅 that can say a layer's identity with times excluded.
+// TreeSource is a 𝔅 that can say what a stack materialises to.
+//
+// **A stack rather than a layer, which is the whole change.** Asking per layer
+// gave a *sequence* of content ids, and a sequence distinguishes two stacks that
+// materialise one filesystem: the stack Φ (4.8) flattened and the stack it
+// flattened, two branches that converge, independent steps written in either
+// order. Asking what the stack holds does not.
 //
 // Optional, and asked of the store rather than required of it, exactly as
-// PlacementSource is asked of a handle: a store with no manifest beside a layer
-// - an older one, a base that arrived as opaque bytes - answers no and the
-// caller falls back to the key it already had.
-type ContentSource interface {
-	ContentOf(id ir.NodeID) (ir.NodeID, bool)
+// PlacementSource is asked of a handle: a store that cannot fold a stack - a
+// layer with no manifest beside it, a base that arrived as opaque bytes -
+// answers no, and the caller falls back to the key it already had.
+type TreeSource interface {
+	TreeOf(stack []ir.NodeID) (ir.NodeID, bool)
 }
 
-// contentOf is what a store can say about a layer without its times, or nothing.
-func contentOf(b BlobStore, id ir.NodeID) (ir.NodeID, bool) {
-	source, ok := b.(ContentSource)
+// treeOf is what a store can say a stack materialises to, or nothing.
+func treeOf(b BlobStore, stack []ir.NodeID) (ir.NodeID, bool) {
+	source, ok := b.(TreeSource)
 	if !ok {
 		return ir.NodeID{}, false
 	}
 
-	return source.ContentOf(id)
+	return source.TreeOf(stack)
 }
 
 // DeriveContentKey is Κₜ, green paper (4.5a): the chain key with the clock
@@ -67,33 +73,18 @@ func DeriveContentKey(
 		return Key{}, false
 	}
 
-	if _, answers := blobs.(ContentSource); !answers {
+	// **What the base holds, not how it was made.** A fold over the manifests
+	// beside the stack's layers, which the store does because that is where
+	// they are - and once per stack rather than once per layer, the answer
+	// being about the stack.
+	//
+	// Not derivable is an ordinary answer and never a guess. Keying on the
+	// stack's own ids where the fold is unavailable would be Κ₁ under another
+	// domain: a second entry published for nothing, and a hit that told Κ₁
+	// nothing it did not already know.
+	tree, ok := treeOf(blobs, base)
+	if !ok {
 		return Key{}, false
-	}
-
-	content := make([]ir.NodeID, 0, len(base))
-
-	for _, id := range base {
-		// **An element with no content keeps its own identity.** A stack holds
-		// declarations as well as trees (§3.2a) and only a tree has a manifest
-		// to fold; a declaration's identity is over its content already, as is
-		// a layer pulled by digest, so neither carries a clock and neither
-		// needs one taken out.
-		//
-		// Sound because this is the identity, not a placeholder. Κ₁ keys on it
-		// and two elements that differ still differ here, so the fallback can
-		// only cost a hit - never cause one. A zero in its place would be the
-		// unsound thing: two bases holding anything at all would share a key.
-		//
-		// Found by running it. Every base over an image carries a declaration,
-		// so refusing here made Κₜ underivable for very nearly every step,
-		// while every unit test passed.
-		c, ok := contentOf(blobs, id)
-		if !ok {
-			c = id
-		}
-
-		content = append(content, c)
 	}
 
 	h := ir.NewHasher()
@@ -104,11 +95,7 @@ func DeriveContentKey(
 	h.Count(cacheEpoch)
 
 	// The base, by what it holds rather than by how it was made.
-	h.Count(len(content))
-
-	for _, c := range content {
-		h.Fixed(c[:])
-	}
+	h.Fixed(tree[:])
 
 	hashOperation(h, n, refs)
 	hashEnvAndPlatform(h, n)

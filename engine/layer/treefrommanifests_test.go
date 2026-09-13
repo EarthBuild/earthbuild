@@ -35,8 +35,8 @@ func manifestOf(t *testing.T, files map[string]string) []byte {
 
 // Two stacks that materialise the same tree have one digest.
 //
-// **The claim the tier would rest on.** `contents(𝑏)` is a sequence, so two
-// stacks that differ in how they were assembled differ as keys however
+// **The claim the tier would rest on.** A sequence of per-layer identities makes
+// two stacks that differ in how they were assembled differ as keys however
 // identical the filesystem they produce - a flattened stack and its original
 // (Φ, 4.8), two branches that converge, independent steps written in either
 // order. 𝜏 folds the stack into the tree it materialises, so those agree.

@@ -53,7 +53,7 @@ func manifestOfLayer(t *testing.T, root string, id ir.NodeID) []byte {
 // from a single page, so it "depends on the length of the layer paths" and is
 // "the smallest bound the materialiser is subject to". Two machines with
 // different store paths therefore flatten the *same target* at different
-// points. `contents(𝑏)` is a sequence, so the two stacks are different keys -
+// points. A per-layer sequence makes the two stacks different keys -
 // while the filesystem a step sees is identical.
 //
 // Measured elsewhere: a 70-step target reports `7 flattened`, so this is a

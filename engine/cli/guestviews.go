@@ -22,14 +22,10 @@ type storeAsker interface {
 	ViewDigests(context.Context, []ir.NodeID, []string) (map[string]ir.NodeID, map[string]ir.NodeID, error)
 }
 
-// contentAsker is what Κₜ (green paper 4.5a) needs of a guest store: what each
-// layer holds, times excluded.
-//
-// Optional, and asserted apart from storeAsker for the reason given below. An
-// executor that cannot answer leaves the key underivable, which costs the tier
-// and nothing else - where requiring it would cost the guest store entirely.
-type contentAsker interface {
-	StoreContent(context.Context, []ir.NodeID) ([]ir.NodeID, error)
+// treeAsker is what Κₜ needs of a guest store once the base is named by what it
+// holds rather than by its layers: the fold, asked once per stack.
+type treeAsker interface {
+	StoreTree(context.Context, []ir.NodeID) (ir.NodeID, error)
 }
 
 // staleAsker is the faster way of asking one of those questions, which an

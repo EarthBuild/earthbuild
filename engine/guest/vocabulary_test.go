@@ -15,17 +15,17 @@ import (
 // A test that derived the list from the code would accept whatever the code
 // says, which is the opposite of a guard.
 var wireVocabulary = map[Kind]string{
-	KindHello:        "version handshake; runs nothing",
-	KindMaterialise:  "assemble a layer stack; the stack is named by digests the peer already holds",
-	KindRelease:      "unmount a handle this connection made",
-	KindObserve:      "report what a step looked at; reads, never runs",
-	KindPlacements:   "report where the copies into a handle put things; reads, never runs",
-	KindExec:         "run a command **inside** a step's filesystem, confined",
-	KindCapture:      "digest what a step wrote",
-	KindExport:       "copy an artifact out of a materialised stack",
-	KindCopy:         "copy between layers this connection can name",
-	KindStoreContent: "report what layers hold with times excluded; reads, never runs",
-	KindStoreHas:     "report which of these layer ids the store holds; reads, never runs",
+	KindHello:       "version handshake; runs nothing",
+	KindMaterialise: "assemble a layer stack; the stack is named by digests the peer already holds",
+	KindRelease:     "unmount a handle this connection made",
+	KindObserve:     "report what a step looked at; reads, never runs",
+	KindPlacements:  "report where the copies into a handle put things; reads, never runs",
+	KindExec:        "run a command **inside** a step's filesystem, confined",
+	KindCapture:     "digest what a step wrote",
+	KindExport:      "copy an artifact out of a materialised stack",
+	KindCopy:        "copy between layers this connection can name",
+	KindStoreTree:   "report what a stack materialises to; reads, never runs",
+	KindStoreHas:    "report which of these layer ids the store holds; reads, never runs",
 	KindPrune: "collect the store down to a size; deletes layers this store holds," +
 		" names nothing outside it and never runs anything",
 	KindSquash:    "merge a range of the stack into one layer in the store; reads and writes layers, never runs",

@@ -777,35 +777,25 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 
 		return Response{Pruned: report.String()}
 
-	case KindStoreContent:
+	case KindStoreTree:
 		ids, err := decodeStack(req.Stack)
 		if err != nil {
-			return Response{Err: "store-content: " + err.Error()}
+			return Response{Err: "store-tree: " + err.Error()}
 		}
 
-		// An unset store is not an empty store, for KindStoreHas's reason - and
-		// here the wrong answer is quieter still: an unknown content is a key
-		// not derived, which reads as a tier that never fires.
 		if s.LayerDir == "" {
-			return Response{Err: "store-content: this guest was started without" +
-				" a layer directory, so it cannot say what a layer holds" +
+			return Response{Err: "store-tree: this guest was started without a" +
+				" layer directory, so it cannot say what a stack holds" +
 				" (set EARTH_GUEST_ROOT, or Server.LayerDir)"}
 		}
 
-		st := store.DirStore(s.LayerDir)
-		contents := make([]string, len(ids))
-
-		for i, id := range ids {
-			// The zero id where the store cannot say, which is how "unknown" is
-			// spelled on this wire: Κₜ treats it as not-derivable, and a
-			// plausible-looking substitute would let two bases holding anything
-			// at all share a key.
-			if content, ok := st.ContentOf(id); ok {
-				contents[i] = content.String()
-			}
+		// Empty where the store cannot fold it, which Κₜ reads as
+		// not-derivable rather than as a tree shared by every base.
+		if tree, ok := store.DirStore(s.LayerDir).TreeOf(ids); ok {
+			return Response{Tree: tree.String()}
 		}
 
-		return Response{Contents: contents}
+		return Response{}
 
 	case KindStoreHas:
 		ids, err := decodeStack(req.Stack)

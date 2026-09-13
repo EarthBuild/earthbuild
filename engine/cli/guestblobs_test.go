@@ -115,78 +115,90 @@ func TestAStoreThatCannotBeAskedSaysNo(t *testing.T) {
 	}
 }
 
-// contentAsker answers what layers hold, and counts the questions.
-type contentReplier struct {
-	holds map[ir.NodeID]ir.NodeID
+// treeReplier answers what a stack materialises to, and counts the questions.
+type treeReplier struct {
+	holds map[string]ir.NodeID
 	calls int
 	fail  bool
 }
 
-func (c *contentReplier) content(ids []ir.NodeID) ([]ir.NodeID, error) {
-	c.calls++
-
-	if c.fail {
-		return nil, errAskFailed
+func key(stack []ir.NodeID) string {
+	var k string
+	for _, id := range stack {
+		k += id.String()
 	}
 
-	out := make([]ir.NodeID, len(ids))
-	for i, id := range ids {
-		out[i] = c.holds[id] // the zero id where it cannot say
-	}
-
-	return out, nil
+	return k
 }
 
-// A layer's content is asked of whoever holds the store, and asked once.
+func (t *treeReplier) tree(ids []ir.NodeID) (ir.NodeID, error) {
+	t.calls++
+
+	if t.fail {
+		return ir.NodeID{}, errAskFailed
+	}
+
+	return t.holds[key(ids)], nil // the zero id where it cannot say
+}
+
+// A stack's tree is asked of whoever holds the store, and asked once.
 //
-// Κₜ (green paper 4.5a) names a base by what its layers hold, and on a store the
-// guest owns the manifest that answers is not on the host's filesystem. Without
-// this the key is never derivable there, and the tier written for rebuilt bases
-// does nothing on the builds with the most to gain.
-func TestContentIsAskedOfWhoeverHoldsTheStore(t *testing.T) {
+// Κₜ (green paper 4.5a) names a base by what it materialises to, and on a store
+// the guest owns the manifests that answer are not on the host's filesystem.
+// Without this the key is never derivable there, and the tier written for
+// rebuilt bases does nothing on the builds with the most to gain.
+func TestATreeIsAskedOfWhoeverHoldsTheStore(t *testing.T) {
 	t.Parallel()
 
-	known, unknown := ir.NodeID{1}, ir.NodeID{2}
+	known := []ir.NodeID{{1}, {2}}
+	unknown := []ir.NodeID{{3}}
 	held := ir.NodeID{9}
 
-	ask := &contentReplier{holds: map[ir.NodeID]ir.NodeID{known: held}}
-	b := &guestBlobs{askContent: ask.content}
+	ask := &treeReplier{holds: map[string]ir.NodeID{key(known): held}}
+	b := &guestBlobs{askTree: ask.tree}
 
-	got, ok := b.ContentOf(known)
+	got, ok := b.TreeOf(known)
 	if !ok || got != held {
 		t.Fatalf("answered %v/%v, want %v/true", got, ok, held)
 	}
 
 	// Asked again: remembered, not re-asked. A base is consulted once per step
-	// and a build has many.
-	if _, _ = b.ContentOf(known); ask.calls != 1 {
-		t.Errorf("asked %d times about one layer; a round trip per lookup is the"+
+	// above it and a deep build has many.
+	if _, _ = b.TreeOf(known); ask.calls != 1 {
+		t.Errorf("asked %d times about one stack; a round trip per lookup is the"+
 			" cost this cache exists to avoid", ask.calls)
 	}
 
-	// A layer the store cannot say anything about is unknown, not zero-content.
-	if _, ok := b.ContentOf(unknown); ok {
-		t.Error("a layer the store could not describe was given a content id," +
-			" which two bases holding anything at all would share")
+	// A stack the store cannot fold is unknown, not empty-tree.
+	if _, ok := b.TreeOf(unknown); ok {
+		t.Error("a stack the store could not fold was given a tree id, which" +
+			" two bases holding anything at all would share")
+	}
+
+	// And it stays unknown without asking twice: a stack that could not be
+	// folded will not become foldable.
+	if _, _ = b.TreeOf(unknown); ask.calls != 2 {
+		t.Errorf("asked %d times in total; an unfoldable stack is asked about"+
+			" once, like a foldable one", ask.calls)
 	}
 }
 
 // A store that cannot be asked says nothing, and says it once.
-func TestAStoreThatCannotBeAskedGivesNoContent(t *testing.T) {
+func TestAStoreThatCannotBeAskedGivesNoTree(t *testing.T) {
 	t.Parallel()
 
-	ask := &contentReplier{fail: true}
+	ask := &treeReplier{fail: true}
 
 	var said int
 
-	b := &guestBlobs{askContent: ask.content, Why: func(error) { said++ }}
+	b := &guestBlobs{askTree: ask.tree, Why: func(error) { said++ }}
 
-	if _, ok := b.ContentOf(ir.NodeID{1}); ok {
-		t.Error("a failed question produced a content id, so a key would be" +
+	if _, ok := b.TreeOf([]ir.NodeID{{1}}); ok {
+		t.Error("a failed question produced a tree id, so a key would be" +
 			" derived from an answer nobody gave")
 	}
 
-	_, _ = b.ContentOf(ir.NodeID{2})
+	_, _ = b.TreeOf([]ir.NodeID{{2}})
 
 	if said != 1 {
 		t.Errorf("reported %d times; one unreachable store is one report", said)

@@ -20,15 +20,19 @@ func (e *layeringExec) Run(
 	return core.Result{Layer: n.ID(), Captured: true}, nil
 }
 
-// oneContent says every layer it is told about holds the same bytes.
+// oneContent says every stack it is told about materialises the same tree.
 type oneContent struct {
-	by map[ir.NodeID]ir.NodeID
+	by map[ir.NodeID]ir.NodeID // keyed on the stack's first element, which is the base here
 }
 
 func (oneContent) Has(ir.NodeID) bool { return true }
 
-func (o oneContent) ContentOf(id ir.NodeID) (ir.NodeID, bool) {
-	c, ok := o.by[id]
+func (o oneContent) TreeOf(stack []ir.NodeID) (ir.NodeID, bool) {
+	if len(stack) == 0 {
+		return ir.NodeID{}, false
+	}
+
+	c, ok := o.by[stack[0]]
 
 	return c, ok
 }
@@ -145,18 +149,34 @@ func (e *restampingCapture) Run(
 	}, nil
 }
 
-// notingContent answers only about layers something captured, as a store
-// answers only where a manifest was written.
+// notingContent folds a stack from what it was told each layer holds, as a
+// store folds the manifests written beside them - and knows nothing about a
+// layer nobody captured, which is the declaration case.
 type notingContent struct{ by map[ir.NodeID]ir.NodeID }
 
 func (notingContent) Has(ir.NodeID) bool { return true }
 
 func (n notingContent) note(layer, content ir.NodeID) { n.by[layer] = content }
 
-func (n notingContent) ContentOf(id ir.NodeID) (ir.NodeID, bool) {
-	c, ok := n.by[id]
+func (n notingContent) TreeOf(stack []ir.NodeID) (ir.NodeID, bool) {
+	h := ir.NewHasher()
 
-	return c, ok
+	var known int
+
+	for _, id := range stack {
+		// An element nobody captured contributes nothing to the tree, exactly
+		// as a declaration does: it is a stack element and not a layer.
+		if c, ok := n.by[id]; ok {
+			known++
+			h.Fixed(c[:])
+		}
+	}
+
+	if known == 0 {
+		return ir.NodeID{}, false
+	}
+
+	return h.Sum(), true
 }
 
 // A --no-cache step does not invalidate the step above it.

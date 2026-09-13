@@ -93,3 +93,45 @@ func TestDifferentTreesDisagree(t *testing.T) {
 		t.Error("two trees holding different bytes shared a digest")
 	}
 }
+
+// A whiteout beside the file it deletes, in one layer, still deletes it.
+//
+// **The shape a squash produces.** `squashInto` concatenates a range by linking
+// trees over one another and leaves the markers for a later reader to apply, so
+// a range where one layer wrote `foo` and a later one deleted it yields a single
+// layer holding *both* `foo` and `.wh.foo`. `stackView.Digest` gets this right
+// by asking `deleted(root, rel)` before looking for the file in the same root;
+// a fold that walks entries in path order sees `.wh.foo` first, deletes
+// nothing, and then puts `foo` back.
+//
+// Not reachable from the property test's generator, which only ever whites out
+// a name an *earlier* layer wrote - so it is written by hand, from knowing how
+// Φ composes.
+func TestAWhiteoutBesideItsFileDeletesIt(t *testing.T) {
+	t.Parallel()
+
+	squashed := t.TempDir()
+	if err := os.WriteFile(filepath.Join(squashed, "foo"), []byte("resurrected?"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(squashed, ".wh.foo"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := layer.Manifest(squashed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// What the same range materialises to: nothing at all.
+	empty, err := layer.Manifest(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if layer.TreeFromManifests([][]byte{m}) != layer.TreeFromManifests([][]byte{empty}) {
+		t.Error("a layer holding both foo and .wh.foo folded to one holding foo," +
+			"\n  so a squashed range would resurrect what it deleted")
+	}
+}

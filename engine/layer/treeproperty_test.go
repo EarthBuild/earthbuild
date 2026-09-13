@@ -52,11 +52,25 @@ func applyNaively(t *testing.T, out string, layerDirs []string) {
 			_ = os.MkdirAll(filepath.Join(out, d), 0o750)
 		}
 
+		gone := map[string]bool{}
+
 		for _, p := range wh {
+			gone[p] = true
+
 			_ = os.RemoveAll(filepath.Join(out, p))
 		}
 
 		for _, rel := range plain {
+			// **A marker beats its own layer's entry**, which is what the
+			// engine's own view says: store/view.go asks `deleted(root, rel)`
+			// before it looks for the file in that root at all. The case is not
+			// hypothetical - `squashInto` concatenates a range and leaves the
+			// markers, so a squashed layer holds `foo` from one member and
+			// `.wh.foo` from a later one.
+			if gone[rel] {
+				continue
+			}
+
 			src, dst := filepath.Join(dir, rel), filepath.Join(out, rel)
 
 			fi, err := os.Lstat(src)
@@ -119,7 +133,10 @@ func TestTheFoldEqualsMaterialisingTheStack(t *testing.T) {
 				for range 1 + r.IntN(5) {
 					switch {
 					case len(live) > 0 && r.IntN(4) == 0:
-						// Whiteout a name a previous layer wrote.
+						// Whiteout a name something wrote - including, at times,
+						// this very layer, which is the shape a squashed range
+						// takes: squashInto concatenates and leaves the marker
+						// beside the file it deletes.
 						victim := live[r.IntN(len(live))]
 						at := filepath.Join(dir, filepath.Dir(victim), ".wh."+filepath.Base(victim))
 						_ = os.MkdirAll(filepath.Dir(at), 0o750)

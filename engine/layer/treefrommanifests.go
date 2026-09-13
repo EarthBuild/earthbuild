@@ -82,25 +82,62 @@ func apply(merged map[string]entry, entries []entry) {
 		}
 	}
 
+	// **Then every deletion, before any of this layer's own entries.** A squash
+	// concatenates a range and leaves the markers in place (squashInto), so a
+	// range that wrote `foo` and later deleted it yields one layer holding both
+	// `foo` and `.wh.foo`. Walking in path order puts `.wh.foo` first, which
+	// deletes nothing yet, and then puts `foo` back - resurrecting what the
+	// range deleted.
+	//
+	// store/view.go reaches the same answer the other way round, asking
+	// `deleted(root, rel)` before it looks for the file in that root. The two
+	// must agree, and this is the ordering that makes them.
+	gone := map[string]bool{}
+
 	for _, e := range entries {
 		base := path.Base(e.path)
+		if base == whOpaque || !strings.HasPrefix(base, whPrefix) {
+			continue
+		}
 
-		switch {
-		case base == whOpaque:
-			// Handled above, and never a path in the merged view.
+		// A deletion, of a name and of everything under it: whiting out a
+		// directory removes the directory, not merely its own entry.
+		at := path.Join(path.Dir(e.path), strings.TrimPrefix(base, whPrefix))
 
-		case strings.HasPrefix(base, whPrefix):
-			// A deletion, of a name and of everything under it: whiting out a
-			// directory removes the directory, not merely its own entry.
-			gone := path.Join(path.Dir(e.path), strings.TrimPrefix(base, whPrefix))
+		gone[at] = true
 
-			delete(merged, gone)
-			clear(merged, gone)
+		delete(merged, at)
+		clear(merged, at)
+	}
 
-		default:
-			merged[e.path] = e
+	for _, e := range entries {
+		base := path.Base(e.path)
+		if base == whOpaque || strings.HasPrefix(base, whPrefix) {
+			continue // markers are never paths in the merged view
+		}
+
+		// **The marker beats this layer's own entry**, not merely what the
+		// layer inherited. That is what store/view.go says by asking
+		// `deleted(root, rel)` before it looks in that root at all, and it is
+		// the case a squash produces: a concatenated range holds `foo` from one
+		// layer and `.wh.foo` from a later one, and the range deleted it.
+		if gone[e.path] || beneathGone(gone, e.path) {
+			continue
+		}
+
+		merged[e.path] = e
+	}
+}
+
+// beneathGone reports whether a path lies beneath a name that was whited out.
+func beneathGone(gone map[string]bool, p string) bool {
+	for at := path.Dir(p); at != "." && at != "/"; at = path.Dir(at) {
+		if gone[at] {
+			return true
 		}
 	}
+
+	return false
 }
 
 // clear removes everything beneath a directory, leaving the directory itself.

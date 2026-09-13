@@ -804,6 +804,30 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 
 		return Response{}
 
+	case KindTreeMissing:
+		ids, err := decodeStack(req.Stack)
+		if err != nil {
+			return Response{Err: "tree-missing: " + err.Error()}
+		}
+
+		// An unset store is not an empty store - KindStoreHas's reason, with a
+		// worse consequence here: "you lack all of them" from the wrong
+		// directory makes a sender ship the whole tree it had just avoided.
+		if s.LayerDir == "" {
+			return Response{Err: "tree-missing: this guest was started without a" +
+				" layer directory, so it cannot say which tree nodes it holds" +
+				" (set EARTH_GUEST_ROOT, or Server.LayerDir)"}
+		}
+
+		missing := store.DirStore(s.LayerDir).MissingNodes(ids)
+
+		out := make([]string, len(missing))
+		for i, id := range missing {
+			out[i] = id.String()
+		}
+
+		return Response{Missing: out}
+
 	case KindStoreHas:
 		ids, err := decodeStack(req.Stack)
 		if err != nil {

@@ -62,17 +62,7 @@ func layerWithManifest(t *testing.T, root string, files map[string]string) ir.No
 	t.Helper()
 
 	dir := t.TempDir()
-
-	for name, body := range files {
-		at := filepath.Join(dir, name)
-		if err := os.MkdirAll(filepath.Dir(at), 0o750); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := os.WriteFile(at, []byte(body), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
+	writeFiles(t, dir, files)
 
 	took, err := layer.Take(dir)
 	if err != nil {
@@ -91,4 +81,20 @@ func layerWithManifest(t *testing.T, root string, files map[string]string) ir.No
 	store.NoteManifest(root, took.ID, m)
 
 	return took.ID
+}
+
+// writeFiles lays a description out on disk, making the directories it implies.
+func writeFiles(t *testing.T, root string, files map[string]string) {
+	t.Helper()
+
+	for name, body := range files {
+		at := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(at), 0o750); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := os.WriteFile(at, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

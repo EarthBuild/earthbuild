@@ -126,6 +126,18 @@ const (
 
 	KindStoreTree Kind = "store-tree"
 
+	// KindTreeMissing asks which of a set of tree nodes the store lacks.
+	//
+	// **The subtree question, and the reply is the small half.** A tree names a
+	// node per directory; a peer sent one usually holds nearly all of them
+	// already, so what it needs back is the few it does not have. Asking the
+	// other way round - "which do you hold" - puts seven hundred digests on the
+	// wire to learn about two.
+	//
+	// The whole set in one request, for KindStoreHas's reason: the round trip is
+	// the cost, not the lookup.
+	KindTreeMissing Kind = "tree-missing"
+
 	// KindUnpackLayer asks the guest to unpack a compressed layer blob into its
 	// own store and say what the layer is called.
 	//
@@ -762,6 +774,12 @@ type Response struct {
 	// The subset rather than a parallel array of booleans: absent means absent,
 	// and a shorter list cannot be misread the way a truncated one could.
 	Held []string `json:"held,omitempty"`
+
+	// Missing is the subset of a tree-missing request's nodes the store lacks.
+	//
+	// Absent where it holds them all, which is the answer a warm peer gives and
+	// the one worth making cheap.
+	Missing []string `json:"missing,omitempty"`
 
 	// Tree answers a store-tree request: what the stack materialises to, or
 	// empty where the store cannot say - which Κₜ reads as not-derivable.

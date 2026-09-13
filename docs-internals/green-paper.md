@@ -739,7 +739,9 @@ has just been shown to hold, so the evidence is gathered once rather than on eve
 (4.6)    Κ₂(s, 𝑟)  ≡ ℋ("o" ‖ ζ ‖ sort(𝑅) ‖ sort(𝑁) ‖ sort(𝐷) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
 ```
 
-The domain-separating tag is a single fixed byte - `0x01` for Κ₁, `0x02` for Κ₂, `0x06` for Κₜ -
+The domain-separating tag is a single fixed byte - `0x01` for Κ₁, `0x02` for Κ₂, `0x06` for Κₜ,
+and `0x07` for a tree node (4.5b), which is not a key but is ℋ over an encoding and so shares the
+space they are drawn from -
 and prevents any one of them from colliding with another. The tag is not decorative here: Κ₁ and Κₜ
 hash the same ω, ε and π, and over a base whose content digest equalled its own layer id they would
 otherwise be the same bytes.
@@ -751,7 +753,35 @@ tell apart.
 
 𝜏(𝑏) is the tree the stack materialises: the left fold of layer application with times excluded, a
 later layer winning, a whiteout removing a name and everything under it, and an opaque marker
-removing what a directory inherited while leaving what its own layer puts back. **A tree and not a
+removing what a directory inherited while leaving what its own layer puts back.
+
+**𝜏 is the root of a Merkle tree of directories, not one digest over a list.** A directory 𝑑 is
+named by
+
+```text
+(4.5b)   𝜈(𝑑)     ≡ ℋ(0x07 ‖ 𝒮(files(𝑑)) ‖ 𝒮(dirs(𝑑)))
+```
+
+where files(𝑑) are the non-directory members of 𝑑 in name order, each encoded as §3.3's content(ℓ)
+under its **base name**, and dirs(𝑑) are the subdirectories in name order, each contributing its
+name, whether the stack records an entry for it, that entry where it does, and 𝜈 of the
+subdirectory. 𝜏(𝑏) ≡ 𝜈(root).
+
+Three properties follow, and all three are the point:
+
+* **A node names what is under it and nothing about where it is.** Two bases holding one directory
+  hold one node, whatever encloses it - so a holder of that node need not be told its context to
+  know it has it.
+* **A directory's own metadata is recorded by its parent**, not by its own node, so a subtree keeps
+  its name when the directory above it is repermissioned. The root has no parent and so no metadata:
+  a stack's root is the mount point, not something the layers describe.
+* **𝜈(𝑑) is ℋ over exactly the bytes that encode 𝑑**, so a holder verifies a node against the name
+  it asked for rather than trusting whoever sent it (A5). A node is therefore an object in 𝕊,
+  addressed like any other.
+
+A change reaches only the directories containing it and those above them, which is what makes both
+the derivation of 𝜏 and the transfer of a base proportional to what changed rather than to what a
+base holds. **A tree and not a
 sequence**, which is what a first version of this got wrong: a sequence of per-layer identities
 distinguishes the stack Φ (4.8) flattened from the stack it flattened, and 𝑛ₘₐₓ is the smallest
 bound *the materialiser* is subject to - so two machines with different store paths flatten one
@@ -802,6 +832,7 @@ Per §1.4, prefixes appear only where a length varies:
 | domain tag     | one byte                                                | no         |
 | ζ              | `u32`                                                   | no         |
 | `ids(𝑏)`       | `u32` count, then 32 bytes per layer id                 | count only |
+| `𝜈(𝑑)`         | 32 bytes                                                | no         |
 | `𝜏(𝑏)`         | 32 bytes                                                | no         |
 | `sort(𝑅)`      | `u32` count, then per entry: digest (32) ‖ `u16` ‖ path | per path   |
 | `sort(𝑁)`      | `u32` count, then per entry: `u16` ‖ path               | per path   |
@@ -1645,6 +1676,7 @@ Named predicates and helpers, each defined where it is introduced:
 | id(ℓ)            | a layer's identity                         | (3.1)      |
 | id(γ)            | a declaration's identity                   | (3.8)      |
 | content(ℓ)       | a layer's identity, times excluded         | §3.3       |
+| 𝜈(𝑑)             | the name of one directory of a tree        | (4.5b)     |
 | 𝜏(𝑏)             | the tree a stack materialises to           | (4.5a)     |
 | sort(𝑆)          | canonical ordering                         | §1.2       |
 | consistent(𝑟̂, 𝑏) | a prediction still matches the base        | §4.5       |

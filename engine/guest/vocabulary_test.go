@@ -24,6 +24,7 @@ var wireVocabulary = map[Kind]string{
 	KindCapture:     "digest what a step wrote",
 	KindExport:      "copy an artifact out of a materialised stack",
 	KindCopy:        "copy between layers this connection can name",
+	KindTreeMissing: "report which tree nodes the store lacks; reads, never runs",
 	KindStoreTree:   "report what a stack materialises to; reads, never runs",
 	KindStoreHas:    "report which of these layer ids the store holds; reads, never runs",
 	KindPrune: "collect the store down to a size; deletes layers this store holds," +

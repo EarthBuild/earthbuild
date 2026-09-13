@@ -90,6 +90,53 @@ func (c *Client) StoreHas(ctx context.Context, ids []ir.NodeID) ([]ir.NodeID, er
 	return held, nil
 }
 
+// TreeMissing asks the guest which of these tree nodes its store lacks.
+//
+// The reply is what a sender must put on the wire. A base rebuilt with one
+// directory changed has every other directory already there, so this is the
+// difference between shipping a tree and shipping a directory.
+//
+// An empty request is no nodes missing rather than a round trip: a tree with
+// nothing in it is nothing to send.
+func (c *Client) TreeMissing(ctx context.Context, ids []ir.NodeID) ([]ir.NodeID, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	stack := make([]string, len(ids))
+	for i, id := range ids {
+		stack[i] = id.String()
+	}
+
+	resp, err := c.do(ctx, Request{Kind: KindTreeMissing, Stack: stack})
+	if err != nil {
+		return nil, err
+	}
+
+	missing, err := decodeStack(resp.Missing)
+	if err != nil {
+		return nil, err
+	}
+
+	// The reply is data, not truth (green paper §5.3, A5). A node named that
+	// nobody asked about would have a sender ship bytes for a name it has no
+	// tree for - and, worse, would let a peer enumerate what this store holds
+	// by asking about one node and reading the answer to another.
+	asked := make(map[ir.NodeID]bool, len(ids))
+	for _, id := range ids {
+		asked[id] = true
+	}
+
+	for _, id := range missing {
+		if !asked[id] {
+			return nil, fmt.Errorf("the store reported lacking %s, which was not"+
+				" among the %d tree nodes it was asked about", id, len(ids))
+		}
+	}
+
+	return missing, nil
+}
+
 // Squash asks the guest to merge a range of the stack into one layer.
 //
 // Done where the store is, because a squash reads every layer in the range and

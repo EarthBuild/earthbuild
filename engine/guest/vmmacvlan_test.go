@@ -37,7 +37,7 @@ func TestTheMacvlanRequestNestsItsAttributes(t *testing.T) {
 		nsPID  = 4242
 	)
 
-	n := vmStepNet(0)
+	n := vmStepNetOn(0, theMicroVMs, theGuestsOwn)
 	msg := macvlanMessage(n, parent, nsPID, 1)
 
 	if got := binary.NativeEndian.Uint32(msg[0:4]); int(got) != len(msg) {

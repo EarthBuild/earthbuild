@@ -31,7 +31,7 @@ func TestTheKernelAcceptsTheDefaultRoute(t *testing.T) {
 	}
 
 	// Inside the namespaces now.
-	n := vmStepNet(0)
+	n := vmStepNetOn(0, theMicroVMs, theGuestsOwn)
 
 	err := makeGuestTap(n.Link)
 	if err != nil {

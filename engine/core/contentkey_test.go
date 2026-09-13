@@ -80,24 +80,50 @@ func TestTheContentKeyMovesWithContent(t *testing.T) {
 	}
 }
 
-// A base whose content nobody can say is not derivable.
+// An element with no content keeps its own identity.
 //
-// **Absent, never assumed.** A store that has no manifest for a layer - an
-// older entry, a base fetched as opaque bytes - cannot be given a placeholder
-// and keyed anyway: two such bases would then share a key while holding
-// anything at all.
-func TestAnUnknownContentIsNotDerivable(t *testing.T) {
+// **A stack holds declarations as well as trees** (§3.2a), and only a tree has a
+// manifest to fold. A declaration's identity is over its content already, as is
+// a layer pulled by digest, so neither carries a clock and neither needs one
+// taken out - refusing them instead made Κₜ underivable for very nearly every
+// step, every base over an image carrying a declaration.
+//
+// The fallback is the identity and not a placeholder, so two elements that
+// differ still differ: it can cost a hit and never cause one.
+func TestAnElementWithNoContentKeepsItsIdentity(t *testing.T) {
 	t.Parallel()
 
 	n := execOver(&ir.Node{Op: ir.Op{Kind: ir.OpImage, Args: []string{testBaseImage}}, Platform: amd64})
 
-	if _, ok := core.DeriveContentKey(n, []ir.NodeID{digest(1)}, nil, knownContent{}); ok {
-		t.Error("a base whose content is unknown was keyed anyway")
+	// A store that knows about neither.
+	blobs := knownContent{}
+
+	first, ok := core.DeriveContentKey(n, []ir.NodeID{digest(1)}, nil, blobs)
+	if !ok {
+		t.Fatal("a base of elements with no content was refused, so every base" +
+			" over an image is underivable")
 	}
 
-	// And a store that cannot answer at all is the same answer, not a panic.
+	second, _ := core.DeriveContentKey(n, []ir.NodeID{digest(2)}, nil, blobs)
+
+	if first == second {
+		t.Error("two different elements with no content shared a key, which is" +
+			" the collapse a placeholder would cause")
+	}
+}
+
+// A store that cannot answer at all derives nothing.
+//
+// Distinct from an element it has nothing to say about: a store with no content
+// to give would key every base on its layer ids, which is Κ₁ under another
+// domain and a second entry published for nothing.
+func TestAStoreThatCannotAnswerDerivesNoContentKey(t *testing.T) {
+	t.Parallel()
+
+	n := execOver(&ir.Node{Op: ir.Op{Kind: ir.OpImage, Args: []string{testBaseImage}}, Platform: amd64})
+
 	if _, ok := core.DeriveContentKey(n, []ir.NodeID{digest(1)}, nil, allBlobs{}); ok {
-		t.Error("a store with no content to give was keyed anyway")
+		t.Error("a store with no content to give derived a key anyway")
 	}
 }
 

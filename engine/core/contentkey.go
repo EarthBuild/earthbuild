@@ -67,12 +67,30 @@ func DeriveContentKey(
 		return Key{}, false
 	}
 
+	if _, answers := blobs.(ContentSource); !answers {
+		return Key{}, false
+	}
+
 	content := make([]ir.NodeID, 0, len(base))
 
 	for _, id := range base {
+		// **An element with no content keeps its own identity.** A stack holds
+		// declarations as well as trees (§3.2a) and only a tree has a manifest
+		// to fold; a declaration's identity is over its content already, as is
+		// a layer pulled by digest, so neither carries a clock and neither
+		// needs one taken out.
+		//
+		// Sound because this is the identity, not a placeholder. Κ₁ keys on it
+		// and two elements that differ still differ here, so the fallback can
+		// only cost a hit - never cause one. A zero in its place would be the
+		// unsound thing: two bases holding anything at all would share a key.
+		//
+		// Found by running it. Every base over an image carries a declaration,
+		// so refusing here made Κₜ underivable for very nearly every step,
+		// while every unit test passed.
 		c, ok := contentOf(blobs, id)
 		if !ok {
-			return Key{}, false
+			c = id
 		}
 
 		content = append(content, c)

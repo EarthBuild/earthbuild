@@ -143,6 +143,57 @@ Not scoped here deliberately: the decomposition that makes it worth doing - one 
 invocation rather than per RUN - is a separate argument, and the reason it pays is that it isolates
 nondeterminism to the action that has it rather than poisoning twenty minutes.
 
+## Worth stealing, and not remote execution
+
+Two things found by reading the API that are worth having whether or not any of the above happens.
+Neither is blocked on a peer, a protocol or a digest function.
+
+### `RUN --output`, narrowing a capture to what was asked for
+
+A step's result is the whole overlay delta. `cargo build --release` writes 10,638 files and
+gigabytes into `target/`, and the capture walks, hashes and stores all of it when the only thing
+anyone consumes is one binary. REAPI's `Command.output_paths` says up front what an action
+produces; a step could say the same.
+
+Three benefits, and the second is the one that matters:
+
+* The capture becomes proportional to what is wanted rather than to what the step touched.
+* **Incidental nondeterminism stops entering the key.** `Earthfile:202 cargo auditable build`
+  produces different bytes on two identical cold builds, and most of that variation is not in the
+  binary - it is `.d` files, fingerprint JSON, timestamps in intermediates. A step declaring only
+  its binary becomes cache-equal across runs *without fixing the tool*.
+* "What does this step produce" becomes answerable before it runs, which is what a scheduler needs
+  to decide what can be skipped and a fleet needs to decide what to ship.
+
+The constraint: an intermediate step's real output is the filesystem the *next* step sees, and the
+rest cannot be discarded because the next step may read any of it. So this is opt-in and applies
+where an author knows what they want - which is the long steps, where it pays. Note the symmetry
+with what this engine already has: Bazel *declares* outputs before running, Κ₂ *observes* inputs
+after. Two ends of one problem.
+
+### A cache hit that reproduces what the step printed
+
+`ActionResult` carries `stdout_raw`/`stdout_digest` and the stderr pair, so a hit replays a step's
+output. This engine has no such field, and `engine/cli/conditions.go` records the cost: a cache hit
+reproduces a step's *effects* but not its *observations*, so `LET v=$(ls -d helloworld*)` gave three
+files cold and nothing on every build after, silently - an empty string being a value and not an
+error. Twelve corpus targets counted their way to "found 0 files" with the files plainly in the
+image.
+
+The fix was `NoCache: true` on every command-substitution probe, so they re-run forever. Carrying
+the bytes on the entry would let that caching be turned back on.
+
+Two decisions it needs, both about being wrong rather than about being slow:
+
+* **Raw bytes, not a digest**, at least first. REAPI offers both and raw is right for what this
+  fixes - a `$( )` value is small - while a digest needs a home in the CAS with liveness against
+  cache entries, which is a collection change.
+* **Capped, and a capped result stored as nothing.** A step may print without bound, and a
+  *truncated* `$( )` value is a wrong value rather than a partial one. Past the cap the entry must
+  record that it kept nothing, so the caller re-runs instead of reading half.
+
+Switchable off, because replaying a previous run's output changes what a build log shows.
+
 ## Not in this plan
 
 * A transport that ships subtrees. `layer.PackPaths` and `fleet.Blobs.Fragment` already ship a

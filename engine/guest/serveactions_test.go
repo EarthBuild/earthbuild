@@ -34,6 +34,15 @@ import (
 // `Daemon.Socket`'s lesson: two implementations of one rule disagree eventually,
 // and present as a client that cannot reach a service running perfectly well.
 func TestAStepThatAskedCanReachTheActionService(t *testing.T) {
+	// **A step mounts /proc, which an unprivileged process cannot.** Re-executed
+	// into a user namespace where it can, which is what every other test that
+	// runs a step here does - and without it this is green on macOS, where the
+	// tests run as root inside a VM, and red on Linux for a reason that is
+	// about the machine rather than the code.
+	if !guest.NeedsIsolation(t) {
+		return
+	}
+
 	t.Parallel()
 
 	// **Short on purpose.** A step's root is part of a unix socket path, and
@@ -153,6 +162,15 @@ func waitFor(t *testing.T, at string) {
 // about a build that its author should have written down, and a service that
 // appeared everywhere would make `WITH RE` decorative.
 func TestAStepThatDidNotAskGetsNoSocket(t *testing.T) {
+	// **A step mounts /proc, which an unprivileged process cannot.** Re-executed
+	// into a user namespace where it can, which is what every other test that
+	// runs a step here does - and without it this is green on macOS, where the
+	// tests run as root inside a VM, and red on Linux for a reason that is
+	// about the machine rather than the code.
+	if !guest.NeedsIsolation(t) {
+		return
+	}
+
 	t.Parallel()
 
 	root := stepRoot(t)

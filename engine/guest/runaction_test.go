@@ -24,6 +24,15 @@ import (
 // `output_paths` is R4's narrowing under another name: the step writes `out`
 // and `debris`, declares only `out`, and the layer holds one file.
 func TestAnActionRunsAndReturnsWhatItDeclared(t *testing.T) {
+	// **A step mounts /proc, which an unprivileged process cannot.** Re-executed
+	// into a user namespace where it can, which is what every other test that
+	// runs a step here does - and without it this is green on macOS, where the
+	// tests run as root inside a VM, and red on Linux for a reason that is
+	// about the machine rather than the code.
+	if !guest.NeedsIsolation(t) {
+		return
+	}
+
 	t.Parallel()
 
 	root := stepRoot(t)

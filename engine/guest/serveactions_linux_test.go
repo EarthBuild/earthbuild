@@ -31,6 +31,15 @@ import (
 // bound while the step runs, is answered by a service holding that step's base,
 // and is gone afterwards.
 func TestAnActionOverAStepsSocketProducesALayer(t *testing.T) {
+	// **A step mounts /proc, which an unprivileged process cannot.** Re-executed
+	// into a user namespace where it can, which is what every other test that
+	// runs a step here does - and without it this is green on macOS, where the
+	// tests run as root inside a VM, and red on Linux for a reason that is
+	// about the machine rather than the code.
+	if !guest.NeedsIsolation(t) {
+		return
+	}
+
 	t.Parallel()
 
 	root := shortStepRoot(t)

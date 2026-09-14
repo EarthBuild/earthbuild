@@ -1,0 +1,6 @@
+result {
+  output_directories {
+    root_directory_digest { hash: "00000000000000000000000000000000000000000000000000000000000000dd" size_bytes: 42 }
+  }
+}
+cached_result: true

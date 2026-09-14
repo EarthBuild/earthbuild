@@ -1,0 +1,6 @@
+name: "earthbuild/00000000000000000000000000000000000000000000000000000000000000cc"
+done: true
+response {
+  type_url: "type.googleapis.com/build.bazel.remote.execution.v2.ExecuteResponse"
+  value: "\010\001"
+}

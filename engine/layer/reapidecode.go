@@ -526,3 +526,119 @@ func ReadsInResponse(b []byte) ([]Read, error) {
 
 	return out, nil
 }
+
+// Execution is what a client asked this service to run.
+type Execution struct {
+	Action ir.NodeID
+	// SkipCache says the client wants the action run even where a result is
+	// already known. A service that ignored it would answer a question the
+	// client did not ask - usually because it is trying to reproduce something.
+	SkipCache bool
+}
+
+// ExecutionIn reads an ExecuteRequest.
+func ExecutionIn(b []byte) (Execution, error) {
+	var out Execution
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		switch {
+		case field == fieldExecActionDgst && wire == wireBytes:
+			hex, err := hashOfDigest(v)
+			if err != nil {
+				return err
+			}
+
+			id, err := ir.ParseNodeID(hex)
+			if err != nil {
+				return fmt.Errorf("an Execute names %q, which is not a digest: %w", hex, err)
+			}
+
+			out.Action = id
+		case field == fieldSkipCacheLookup && wire == wireVarint:
+			n, read := binary.Uvarint(v)
+			if read <= 0 {
+				return fmt.Errorf("skip_cache_lookup is not a varint")
+			}
+
+			out.SkipCache = n != 0
+		}
+
+		return nil
+	})
+	if err != nil {
+		return Execution{}, err
+	}
+
+	return out, nil
+}
+
+// EncodeExecuteForTest writes a request to run one action.
+func EncodeExecuteForTest(id ir.NodeID, skipCache bool) []byte {
+	out := appendMessage(nil, fieldExecActionDgst, encodeDigest(&scratch{}, id, 0))
+	if skipCache {
+		out = appendVarintField(out, fieldSkipCacheLookup, 1)
+	}
+
+	return out
+}
+
+// Finished is what an Operation said about a completed action.
+type Finished struct {
+	Name   string
+	Done   bool
+	Cached bool
+	// Result is the ActionResult bytes, for a caller that wants the outputs.
+	Result []byte
+}
+
+// FinishedIn reads an Operation carrying an ExecuteResponse.
+//
+// **A client has to know whether the action ran.** `cached_result` is how the
+// API says it, and a build reporting every action as executed when none of them
+// were is a build nobody trusts.
+func FinishedIn(b []byte) (Finished, error) {
+	var out Finished
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		switch {
+		case field == fieldOpName && wire == wireBytes:
+			out.Name = string(v)
+		case field == fieldOpDone && wire == wireVarint:
+			n, read := binary.Uvarint(v)
+			if read <= 0 {
+				return fmt.Errorf("done is not a varint")
+			}
+
+			out.Done = n != 0
+		case field == fieldOpResponse && wire == wireBytes:
+			return eachField(v, func(af, aw int, av []byte) error {
+				if af != fieldAnyValue || aw != wireBytes {
+					return nil
+				}
+
+				return eachField(av, func(rf, rw int, rv []byte) error {
+					switch {
+					case rf == fieldExecResult && rw == wireBytes:
+						out.Result = rv
+					case rf == fieldExecCached && rw == wireVarint:
+						n, read := binary.Uvarint(rv)
+						if read <= 0 {
+							return fmt.Errorf("cached_result is not a varint")
+						}
+
+						out.Cached = n != 0
+					}
+
+					return nil
+				})
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return Finished{}, err
+	}
+
+	return out, nil
+}

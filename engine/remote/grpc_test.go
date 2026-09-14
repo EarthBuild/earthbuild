@@ -331,3 +331,186 @@ func TestAClientFetchesAnActionResult(t *testing.T) {
 			" this API says \"run it\"", err)
 	}
 }
+
+// Execute answers from the cache, as a stream of one finished operation.
+//
+// **The fast case must have the shape of the slow one.** A result ready before
+// the call arrived is still an Operation that is already done, so a client
+// written for the stream needs no second path for it.
+func TestExecuteAnswersFromTheCache(t *testing.T) {
+	restore := ir.SelectHashForTest(t, ir.HashSHA256)
+	defer restore()
+
+	root := t.TempDir()
+	st := store.DirStore(root)
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "out.txt"), []byte("built"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	took, err := layer.Take(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := layer.Manifest(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(store.LayerStore(root).Path(took.ID), 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	store.NoteManifest(root, took.ID, m)
+
+	key := core.Key{0x5a}
+	conn := dialWith(t, &remote.Cache{
+		Store:   st,
+		Actions: oneEntry{key: key, e: core.Entry{Layer: took.ID, Content: took.Content}},
+	})
+
+	out := executeOnce(t, conn, layer.EncodeExecuteForTest(ir.NodeID(key), false))
+
+	op, err := layer.FinishedIn(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !op.Done {
+		t.Error("the operation is not done, so a client waits for a second one" +
+			" that never comes")
+	}
+
+	// **It says the result was cached rather than run.** A build reporting
+	// every action as executed when none of them were is a build nobody trusts,
+	// and `cached_result` is how this API says which.
+	if !op.Cached {
+		t.Error("a result answered from the cache was reported as executed")
+	}
+
+	if !bytes.Contains(op.Result, []byte(took.Content.String())) {
+		t.Errorf("the result does not name the tree the action produced: %x", op.Result)
+	}
+
+	if op.Name != "earthbuild/"+ir.NodeID(key).String() {
+		t.Errorf("the operation is called %q, which does not name its action", op.Name)
+	}
+
+	// **A client that asked for a real run is refused even where a result is
+	// known.** skip_cache_lookup is asked for on purpose, usually to reproduce
+	// something, and answering from the cache answers a question nobody asked.
+	stream, err := conn.NewStream(context.Background(),
+		&grpc.StreamDesc{ServerStreams: true},
+		"/build.bazel.remote.execution.v2.Execution/Execute")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	skip := layer.EncodeExecuteForTest(ir.NodeID(key), true)
+	if err := stream.SendMsg(&skip); err != nil {
+		t.Fatal(err)
+	}
+
+	_ = stream.CloseSend()
+
+	var ignored []byte
+	if err := stream.RecvMsg(&ignored); status.Code(err) != codes.Unimplemented {
+		t.Errorf("skip_cache_lookup over a known result answered %v, want"+
+			" UNIMPLEMENTED - the client asked for the action to be run", err)
+	}
+}
+
+// An action this service cannot answer is refused, not answered emptily.
+//
+// **UNIMPLEMENTED rather than an empty result.** A client given a result with
+// nothing in it takes it for an action that produced nothing, and uses it.
+func TestExecuteRefusesWhatItCannotRun(t *testing.T) {
+	restore := ir.SelectHashForTest(t, ir.HashSHA256)
+	defer restore()
+
+	conn := dialWith(t, &remote.Cache{
+		Store:   store.DirStore(t.TempDir()),
+		Actions: oneEntry{key: core.Key{1}},
+	})
+
+	for _, tc := range []struct {
+		what string
+		req  []byte
+	}{
+		{"an action with no result", layer.EncodeExecuteForTest(ir.NodeID{2}, false)},
+		{"a client asking for a real run", layer.EncodeExecuteForTest(ir.NodeID{1}, true)},
+	} {
+		stream, err := conn.NewStream(context.Background(),
+			&grpc.StreamDesc{ServerStreams: true},
+			"/build.bazel.remote.execution.v2.Execution/Execute")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := stream.SendMsg(&tc.req); err != nil {
+			t.Fatal(err)
+		}
+
+		_ = stream.CloseSend()
+
+		var out []byte
+		if err := stream.RecvMsg(&out); status.Code(err) != codes.Unimplemented {
+			t.Errorf("%s: answered %v, want UNIMPLEMENTED - an empty result is"+
+				" one a client would use", tc.what, err)
+		}
+	}
+}
+
+// dialWith starts a service over this cache and returns a client.
+func dialWith(t *testing.T, c *remote.Cache) *grpc.ClientConn {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	g := grpc.NewServer(grpc.ForceServerCodec(remote.Codec()))
+	(&remote.Service{Cache: c}).Register(g)
+
+	go func() { _ = g.Serve(ln) }()
+	t.Cleanup(g.Stop)
+
+	conn, err := grpc.NewClient(ln.Addr().String(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.ForceCodec(remote.Codec())))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = conn.Close() })
+
+	return conn
+}
+
+// executeOnce sends one Execute and returns the operation that came back.
+func executeOnce(t *testing.T, conn *grpc.ClientConn, req []byte) []byte {
+	t.Helper()
+
+	stream, err := conn.NewStream(context.Background(),
+		&grpc.StreamDesc{ServerStreams: true},
+		"/build.bazel.remote.execution.v2.Execution/Execute")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := stream.SendMsg(&req); err != nil {
+		t.Fatal(err)
+	}
+
+	_ = stream.CloseSend()
+
+	var out []byte
+	if err := stream.RecvMsg(&out); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	return out
+}

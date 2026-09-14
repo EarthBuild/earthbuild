@@ -58,6 +58,20 @@ func (s *Service) Register(g grpc.ServiceRegistrar) {
 	}, s)
 
 	g.RegisterService(&grpc.ServiceDesc{
+		ServiceName: "build.bazel.remote.execution.v2.Execution",
+		HandlerType: (*any)(nil),
+		Streams: []grpc.StreamDesc{{
+			StreamName: "Execute",
+			Handler:    s.execute,
+			// **Server-streaming, because an execution reports progress.** A
+			// result that was ready before the call arrived is still delivered
+			// this way: one Operation, already done. A client written for the
+			// stream must not need a second shape for the fast case.
+			ServerStreams: true,
+		}},
+	}, s)
+
+	g.RegisterService(&grpc.ServiceDesc{
 		ServiceName: "build.bazel.remote.execution.v2.ActionCache",
 		HandlerType: (*any)(nil),
 		Methods: []grpc.MethodDesc{{
@@ -201,4 +215,47 @@ func (s *Service) getActionResult(_ context.Context, in []byte) ([]byte, error) 
 	}
 
 	return b, nil
+}
+
+// execute answers with what this action produced.
+//
+// **Only from the cache, for now, and it says so when it cannot.** Running an
+// action needs the input root materialised over a base image and the declared
+// outputs handed back, which is the rest of R5. Answering UNIMPLEMENTED is the
+// honest reply: a client is told this service cannot run the action, rather
+// than being given an empty result it would take for an action that produced
+// nothing.
+func (s *Service) execute(_ any, stream grpc.ServerStream) error {
+	var in []byte
+	if err := stream.RecvMsg(&in); err != nil {
+		return err
+	}
+
+	ask, err := layer.ExecutionIn(in)
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "read an Execute request: %v", err)
+	}
+
+	if ask.SkipCache {
+		// **Asked for on purpose, usually to reproduce something.** Answering
+		// from the cache anyway would answer a question the client did not ask.
+		return status.Error(codes.Unimplemented,
+			"this service answers from its cache and cannot run an action,"+
+				" and skip_cache_lookup asked for it to be run")
+	}
+
+	result, ok := s.Cache.ActionResult(ask.Action)
+	if !ok {
+		return status.Error(codes.Unimplemented,
+			"this service answers from its cache and holds no result for this"+
+				" action, and cannot yet run one")
+	}
+
+	// cached_result: true, because it is. A build reporting every action as
+	// executed when none of them were is a build nobody trusts.
+	op := layer.EncodeDoneOperation(
+		"earthbuild/"+ask.Action.String(),
+		layer.EncodeExecuteResponse(result, true))
+
+	return stream.SendMsg(&op)
 }

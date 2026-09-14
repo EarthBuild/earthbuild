@@ -228,3 +228,56 @@ func appendPackedVarints(b []byte, field int, vs []uint64) []byte {
 
 	return appendMessage(b, field, packed)
 }
+
+// Execute, ExecuteResponse and Operation fields.
+const (
+	fieldSkipCacheLookup = 3 // ExecuteRequest.skip_cache_lookup
+	fieldExecActionDgst  = 6 // ExecuteRequest.action_digest
+
+	fieldExecResult = 1 // ExecuteResponse.result
+	fieldExecCached = 2 // ExecuteResponse.cached_result
+
+	fieldAnyTypeURL = 1 // Any.type_url
+	fieldAnyValue   = 2 // Any.value
+
+	fieldOpName     = 1 // Operation.name
+	fieldOpDone     = 3 // Operation.done
+	fieldOpResponse = 5 // Operation.response
+)
+
+// executeResponseType is what an `Any` holding an ExecuteResponse is called.
+//
+// **A constant string on the wire, and a client checks it.** An `Any` is a
+// message nobody can read without being told what it is, so this is the telling.
+const executeResponseType = "type.googleapis.com/build.bazel.remote.execution.v2.ExecuteResponse"
+
+// EncodeExecuteResponse writes an ExecuteResponse carrying a result.
+//
+// cached says the result came from the cache rather than from running the
+// action. A client reports it, and a build that shows every action as executed
+// when none of them were is a build nobody trusts.
+func EncodeExecuteResponse(result []byte, cached bool) []byte {
+	out := appendMessage(nil, fieldExecResult, result)
+
+	if cached {
+		out = appendVarintField(out, fieldExecCached, 1)
+	}
+
+	return out
+}
+
+// EncodeDoneOperation wraps a finished ExecuteResponse as an Operation.
+//
+// **Execute answers with a stream of these**, so even a result that was ready
+// before the call arrived is delivered as an operation that is already done.
+// The name is this engine's to choose and is only useful for saying which
+// action it belongs to.
+func EncodeDoneOperation(name string, response []byte) []byte {
+	out := appendString(nil, fieldOpName, name)
+	out = appendVarintField(out, fieldOpDone, 1)
+
+	any := appendString(nil, fieldAnyTypeURL, executeResponseType)
+	any = appendBytes(any, fieldAnyValue, response)
+
+	return appendMessage(out, fieldOpResponse, any)
+}

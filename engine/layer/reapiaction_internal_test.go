@@ -298,3 +298,35 @@ func TestOurBatchReadBlobsReplyIsProtocs(t *testing.T) {
 		t.Errorf("ours is %x\n  protoc's is %x", got, want)
 	}
 }
+
+// Our Operation and ExecuteResponse are protoc's.
+func TestOurExecuteEncodingsAreProtocs(t *testing.T) {
+	t.Parallel()
+
+	wantResp, err := os.ReadFile("testdata/reapi/execresp.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result := EncodeActionResult(Result{
+		Root:     hexID("00000000000000000000000000000000000000000000000000000000000000dd"),
+		RootSize: 42,
+	})
+
+	if got := EncodeExecuteResponse(result, true); !bytes.Equal(got, wantResp) {
+		t.Errorf("ExecuteResponse: ours is %x\n  protoc's is %x", got, wantResp)
+	}
+
+	wantOp, err := os.ReadFile("testdata/reapi/op.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := EncodeDoneOperation(
+		"earthbuild/00000000000000000000000000000000000000000000000000000000000000cc",
+		[]byte{0x08, 0x01})
+
+	if !bytes.Equal(got, wantOp) {
+		t.Errorf("Operation: ours is %x\n  protoc's is %x", got, wantOp)
+	}
+}

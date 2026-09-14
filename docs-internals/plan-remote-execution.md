@@ -221,13 +221,26 @@ lesson that the path is *said* by the host rather than derived at both ends, bec
 implementations of one rule disagree eventually and present as a client that cannot reach a service
 running perfectly well. `WITH RE` inherits that for nothing.
 
-**Settled: both sources of an action's base, in that order.** The service is given a stack by the
-step it belongs to, which is the default and needs no cooperation from the client. Where an action
-names a `container-image` this guest has recorded a stack for, that wins - because an action naming
-a toolchain image different from its caller's is ordinary Buck2 behaviour, and running it in the
-caller's environment while keying it under the image it named would admit exactly the false hit I3
-forbids. An image this guest has no stack for is a refusal, not a substitution: the guest holds
-layers by digest and has no registry, so there is nothing honest it could run instead.
+**Settled: an action's base is the step's, and `container-image` is checked against it.** The
+service is given a stack by the step it belongs to, which needs no cooperation from the client. An
+action naming a `container-image` is checked against the reference that stack was resolved from,
+and refused where they differ: its image is part of its Platform, which is part of its Action,
+which is its key, so running it in the caller's environment while keying it under the image it
+named admits exactly the false hit I3 forbids. There is nothing honest to substitute - the guest
+holds layers by digest and has no registry - so a refusal is the answer and not a placeholder.
+
+**And there is no registry to build, which an earlier draft of this asked for.** `FROM` *is* the
+resolution: the engine turns a reference into a stack, memoised on (reference, platform), pinned
+before it reaches the key (I17), because it must in order to run the step at all. An action naming
+an image is naming something already known, so the host says which reference its stack came from -
+one field beside the socket - and the guest compares. A table mapping references to stacks would
+have been a second copy of what `FROM` already does, kept in the one place that cannot fetch
+anything.
+
+The consequence for an author is a line they were going to write anyway: an action wanting a given
+toolchain wants the target's `FROM` to name it. Where a build genuinely needs actions in an image
+its caller is not in, that is a second target with its own `FROM`, which is how everything else in
+an Earthfile expresses the same thing.
 
 **The seam between them is `remote.Runner`.** Which layers an action's environment is, and whether
 a client may name one of its own, is settled where the step is started; what reaches the protocol

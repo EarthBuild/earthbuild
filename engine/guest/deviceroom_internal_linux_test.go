@@ -39,7 +39,12 @@ func TestTheDevicesAreGivenARoomOfTheirOwn(t *testing.T) {
 
 	if !first.Ephemeral {
 		t.Error("/dev is not ephemeral, so it is not a directory of its own" +
-			"\n  the devices below it are then created in the overlay again")
+			"\n  the devices below it are then created in the overlay again" +
+			"\n  and - the consequence that is not merely slow - whatever a step" +
+			"\n  writes under /dev is then in the delta, so the runtime's own" +
+			"\n  device set enters every layer the build produces, differing by" +
+			"\n  machine. An ephemeral mount is a directory made for this step" +
+			"\n  outside its root, which is why what lands there is not captured")
 	}
 
 	// And every device is *under* it, or it is not doing anything for them.

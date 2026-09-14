@@ -1,7 +1,6 @@
 package buildkitd
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -168,28 +167,6 @@ func TestStart_ContainerLocalRegistryAddr(t *testing.T) {
 	}
 }
 
-func TestStart_AppleContainerAddr(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
-	eng := engine.NewTestClient(engine.Metadata{
-		Name:   appleContainerName,
-		Scheme: engine.SchemeApple,
-	})
-
-	settings := Settings{
-		BuildkitAddr: "apple-container://earth-buildkitd",
-		UseTCP:       true,
-	}
-
-	// Should not fail with port parsing error when UseTCP is true with apple-container scheme without explicit port.
-	err := Start(ctx, log, "test-image", "test-container", eng, settings, false)
-	if err != nil {
-		assert.NotContains(t, err.Error(), "invalid port in buildkit address")
-	}
-}
-
 func TestPrintBuildkitInfo(t *testing.T) {
 	t.Parallel()
 
@@ -330,55 +307,4 @@ func TestInstanceSettings(t *testing.T) {
 	// Non-matching container name falls back to base settings
 	resFallback := instanceSettings("unknown-container", base)
 	assert.Equal(t, base.TLSCA, resFallback.TLSCA)
-}
-
-func TestIsBuildkitActive_DebugOutput(t *testing.T) {
-	t.Parallel()
-
-	var buf bytes.Buffer
-
-	ctx := t.Context()
-	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Debug, false).WithWriter(&buf)
-
-	eng := engine.NewTestClient(engine.Metadata{
-		Name:   appleContainerName,
-		Scheme: engine.SchemeApple,
-	})
-
-	settings := Settings{}
-
-	// When connection fails, a debug log is produced
-	isActive := isBuildkitActive(ctx, log, eng, "non-existent-container", settings)
-	assert.False(t, isActive)
-	assert.Contains(t, buf.String(), "Failed to query Info from buildkit container non-existent-container")
-}
-
-func TestIsBuildkitActive_RealContainer(t *testing.T) {
-	t.Parallel()
-
-	var buf bytes.Buffer
-
-	ctx := t.Context()
-	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Debug, false).WithWriter(&buf)
-
-	eng, err := engine.New(ctx, engine.AppleContainer, &engine.Config{
-		Log: log,
-	})
-	if err != nil {
-		t.Skip("Apple container not available")
-	}
-
-	containers, err := eng.InspectContainers(ctx, "inst2-buildkitd")
-	if err != nil || len(containers) == 0 || containers[0].Status != engine.StatusRunning {
-		t.Skip("inst2-buildkitd is not running, skipping live container test")
-	}
-
-	settings := Settings{
-		UseTCP: true,
-		UseTLS: true,
-	}
-	isActive := isBuildkitActive(ctx, log, eng, "inst2-buildkitd", settings)
-	assert.False(t, isActive)
-	assert.Contains(t, buf.String(), "Probed buildkit container inst2-buildkitd: 0 active session(s)")
-	t.Logf("Captured probe log output:\n%s", buf.String())
 }

@@ -188,3 +188,93 @@ func pbField(b []byte, num int, v []byte) []byte {
 
 	return append(b, v...)
 }
+
+// An action naming an image this guest cannot confirm is refused.
+//
+// **The false hit I3 forbids, and it is one line of code away.** An action's
+// `container-image` is part of its Platform, which is part of its Action, which
+// is its key - so running it over whatever base the calling step happens to
+// have and filing the result under the image it *named* produces a cache entry
+// describing an environment the work never ran in. Every later build that
+// legitimately uses that image gets it.
+//
+// This guest holds layers by digest and has no registry, so today it can
+// confirm nothing and refuses everything that asks. That is the honest answer
+// rather than a placeholder: when it can resolve a reference the refusal
+// becomes a lookup, and until then there is no base it could substitute that
+// would make the key true.
+func TestAnActionNamingAnImageThisGuestCannotConfirmIsRefused(t *testing.T) {
+	t.Parallel()
+
+	layerDir := t.TempDir()
+	st := store.DirStore(layerDir)
+
+	srv := &guest.Server{
+		Mat:        &fixedRootMat{root: t.TempDir()},
+		LayerDir:   layerDir,
+		Unconfined: true,
+	}
+
+	cmd := layer.EncodeCommand(layer.Command{Arguments: []string{"/bin/sh", "-c", "true"}})
+
+	const ref = "docker://alpine@sha256:0000000000000000000000000000000000000000000000000000000000000001"
+
+	action := layer.EncodeAction(layer.Action{
+		Command:     put(t, st, cmd),
+		CommandSize: int64(len(cmd)),
+		InputRoot:   put(t, st, dirOf()),
+		Platform:    []layer.Property{{Name: "container-image", Value: ref}},
+	})
+
+	_, err := srv.RunAction(context.Background(), put(t, st, action), nil)
+	if err == nil {
+		t.Fatal("an action naming an image was run over whatever base was to hand," +
+			" and its result is now cached under that image's name")
+	}
+
+	// The refusal names the image, because the author's next question is which
+	// one - and a message that does not say is one they cannot act on.
+	if !strings.Contains(err.Error(), ref) {
+		t.Errorf("the refusal does not name the image: %v", err)
+	}
+}
+
+// An action naming no image runs over the base it was given.
+//
+// A refusal that refuses everything is not a check, and the test above cannot
+// tell the difference on its own.
+func TestAnActionNamingNoImageStillRuns(t *testing.T) {
+	if !guest.NeedsIsolation(t) {
+		return
+	}
+
+	t.Parallel()
+
+	root := stepRoot(t)
+	layerDir := t.TempDir()
+	st := store.DirStore(layerDir)
+
+	srv := &guest.Server{
+		Mat:        &fixedRootMat{root: root},
+		LayerDir:   layerDir,
+		Unconfined: true,
+	}
+
+	cmd := layer.EncodeCommand(layer.Command{
+		Arguments: []string{"/bin/sh", "-c", "echo ran > out"},
+		// A platform property that is not an image says nothing about the
+		// environment, and must not be mistaken for one that does.
+		OutputPaths: []string{"out"},
+	})
+
+	action := layer.EncodeAction(layer.Action{
+		Command:     put(t, st, cmd),
+		CommandSize: int64(len(cmd)),
+		InputRoot:   put(t, st, dirOf()),
+		Platform:    []layer.Property{{Name: "OSFamily", Value: "linux"}},
+	})
+
+	if _, err := srv.RunAction(context.Background(), put(t, st, action), nil); err != nil {
+		t.Fatalf("an action naming no image was refused: %v", err)
+	}
+}

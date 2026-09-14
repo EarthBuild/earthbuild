@@ -43,6 +43,10 @@ func (s *Server) RunAction(
 		return layer.Result{}, err
 	}
 
+	if bad := confirmable(a.Platform); bad != nil {
+		return layer.Result{}, bad
+	}
+
 	cb, err := st.Node(a.Command)
 	if err != nil {
 		return layer.Result{}, fmt.Errorf(
@@ -138,6 +142,45 @@ func (s *Server) RunAction(
 		ExitCode: int32(ran.Exit), //nolint:gosec // an exit status
 		Stdout:   []byte(ran.Output),
 	}, nil
+}
+
+// propContainerImage is REAPI's conventional name for the image an action runs
+// in. Every client that names one names it here, and the property is part of
+// the Platform, which is part of the Action, which is the key.
+const propContainerImage = "container-image"
+
+// confirmable refuses an action whose environment this guest cannot vouch for.
+//
+// **The one false hit that is a line of code away.** An action's image is part
+// of its key, so running it over whatever base the calling step happens to have
+// and filing the result under the image it *named* produces a cache entry
+// describing an environment the work never ran in - and every later build that
+// legitimately uses that image gets it (I3).
+//
+// This guest holds layers by digest and has no registry, so it can confirm
+// nothing and refuses everything that asks. That is the answer rather than a
+// placeholder: there is no base it could substitute that would make the key
+// true, and the alternative is a wrong answer nothing downstream can detect.
+// When it can resolve a reference to a stack, this becomes a lookup.
+func confirmable(platform []layer.Property) error {
+	for _, p := range platform {
+		if p.Name != propContainerImage {
+			continue
+		}
+
+		return fmt.Errorf(
+			"this action asks to run in %s, and this engine cannot confirm that"+
+				"\n  it holds layers by digest and has no registry, so it cannot tell"+
+				"\n  whether the environment it would run this in is that image"+
+				"\n  running it anyway would file the result under a key naming an"+
+				"\n  environment the work never ran in, which every later build using"+
+				"\n  that image would then be served"+
+				"\n  send the action without a %s property to run it in the environment"+
+				"\n  of the step that is asking",
+			p.Value, propContainerImage)
+	}
+
+	return nil
 }
 
 // actionIn reads the Action a digest names.

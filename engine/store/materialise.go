@@ -96,11 +96,20 @@ func (d DirStore) writeFile(f layer.Member, at string) error {
 		mode = os.FileMode(f.Mode) & os.ModePerm
 	}
 
-	// **O_EXCL, not truncate: the file must not be there already.** It creates
-	// nothing through a symlink, which is what makes writing into a directory
-	// an earlier action left behind safe rather than hopeful; and a name that
-	// is already taken is a tree describing two things at one path, which is
-	// a question for the sender and not something to resolve by writing last.
+	// **Unlinked and then created exclusively, never truncated in place.** An
+	// input root is written over a base image, so a path the base already holds
+	// is one the client meant to replace - which rules out refusing to write at
+	// all. Truncating would be the easy way to allow it and is the one thing
+	// that must not happen: if the path is a symlink, truncation follows it and
+	// writes the client's bytes wherever it points.
+	//
+	// Unlinking removes the link and not its target, so the two requirements
+	// are met by the same act: what the base held is replaced, and what a link
+	// pointed at is untouched.
+	if err := os.Remove(at); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("replace %s: %w", at, err)
+	}
+
 	w, err := os.OpenFile(at, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode) //nolint:gosec // the mode the sender asked for
 	if err != nil {
 		return fmt.Errorf("write %s: %w", at, err)

@@ -168,3 +168,68 @@ func field(b []byte, num int, v []byte) []byte {
 
 	return append(b, v...)
 }
+
+// An input root written over a base replaces what the base held.
+//
+// **Which is the whole point of an input root.** It is materialised over an
+// image, exactly as a COPY is, so a path the base already holds is a path the
+// client meant to replace. Creating exclusively - which is what stops a write
+// going through a symlink an earlier action left - must not turn that into a
+// refusal.
+//
+// The symlink case is the same act and the opposite outcome: the link itself is
+// removed, never followed, so what it pointed at is untouched.
+func TestAnInputRootReplacesWhatTheBaseHeld(t *testing.T) {
+	// Not parallel: SelectHashForTest changes a process-wide choice.
+	restore := ir.SelectHashForTest(t, ir.HashSHA256)
+	defer restore()
+
+	root := t.TempDir()
+	st := store.DirStore(filepath.Join(root, "store"))
+
+	// The base: a file to be replaced, and a symlink pointing at a file that
+	// must survive with its contents intact.
+	into := filepath.Join(root, "into")
+	if err := os.MkdirAll(into, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	target := filepath.Join(root, "pointed-at.txt")
+
+	for at, content := range map[string]string{
+		filepath.Join(into, "replaced.txt"): "from the base",
+		target:                              "not to be touched",
+	} {
+		if err := os.WriteFile(at, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := os.Symlink(target, filepath.Join(into, "via-link.txt")); err != nil {
+		t.Fatal(err)
+	}
+
+	id := keep(t, st, dirMsg([]node{
+		{name: "replaced.txt", digest: keep(t, st, []byte("from the input root"))},
+		{name: "via-link.txt", digest: keep(t, st, []byte("also from the input root"))},
+	}, nil, nil))
+
+	if err := st.Materialise(id, into); err != nil {
+		t.Fatalf("an input root over a base was refused: %v", err)
+	}
+
+	for at, want := range map[string]string{
+		filepath.Join(into, "replaced.txt"): "from the input root",
+		filepath.Join(into, "via-link.txt"): "also from the input root",
+		target:                              "not to be touched",
+	} {
+		got, err := os.ReadFile(at)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if string(got) != want {
+			t.Errorf("%s holds %q, want %q", filepath.Base(at), got, want)
+		}
+	}
+}

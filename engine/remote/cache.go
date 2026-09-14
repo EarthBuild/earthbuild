@@ -178,7 +178,7 @@ func (c *Cache) serveAction(w http.ResponseWriter, r *http.Request, key ir.NodeI
 	}
 
 	treeID, treeSize := c.treeOf(e)
-	b := resultOf(e, size, treeID, treeSize)
+	b := resultOf(e, size, treeID, treeSize, c.declaredBy(key, e))
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 
@@ -224,12 +224,15 @@ func (c *Cache) treeOf(e core.Entry) (ir.NodeID, int64) {
 // **One conversion, two transports.** HTTP and gRPC answer the same question,
 // and a second place that turned an entry into a result would be a second
 // answer to what a step produced.
-func resultOf(e core.Entry, rootSize int64, tree ir.NodeID, treeSize int64) []byte {
+func resultOf(
+	e core.Entry, rootSize int64, tree ir.NodeID, treeSize int64, declared layer.Declared,
+) []byte {
 	return layer.EncodeActionResult(layer.Result{
 		Root:     e.Content,
 		RootSize: rootSize,
 		Tree:     tree,
 		TreeSize: treeSize,
+		Declared: declared,
 		ExitCode: int32(e.Exit), //nolint:gosec // a process exit status
 		// What the step printed, which a client displays. Empty where it
 		// printed nothing or printed more than was kept - a caller needing to
@@ -261,5 +264,77 @@ func (c *Cache) ActionResult(key ir.NodeID) ([]byte, bool) {
 
 	treeID, treeSize := c.treeOf(e)
 
-	return resultOf(e, size, treeID, treeSize), true
+	return resultOf(e, size, treeID, treeSize, c.declaredBy(key, e)), true
+}
+
+// declaredBy is the outputs the action under this key said it produces.
+//
+// **Derived on the way out, because a hit has to answer what a run answers.**
+// A client asks about paths and is answered about paths whether or not the work
+// happened just now; a result that named the whole delta instead would be
+// refused by the client that had just asked for it ("Path is empty"), which is
+// a cache that cannot be used rather than a cache that is empty.
+//
+// Everything needed is in this store already: the key *is* the Action digest
+// (green paper 4.5a), the Action names its Command, and the Command lists the
+// paths. Nothing is kept in the entry that could go stale against them.
+//
+// Empty where any of that is missing - an action whose blobs have been
+// collected, or a step that declared nothing - and then the whole delta is
+// named as before, which is what a step's result is.
+func (c *Cache) declaredBy(key ir.NodeID, e core.Entry) layer.Declared {
+	paths, ok := c.outputPaths(key)
+	if !ok || len(paths) == 0 {
+		return layer.Declared{}
+	}
+
+	m, held, err := store.ReadManifest(string(c.Store), e.Layer)
+	if err != nil || !held {
+		return layer.Declared{}
+	}
+
+	declared, err := layer.Outputs(m, paths)
+	if err != nil {
+		return layer.Declared{}
+	}
+
+	// Fetchable, at the price of a link - see DirStore.LinkBlob. A client
+	// materialises what it is told about, and a hit it cannot read is worse
+	// than a miss.
+	for _, f := range declared.Files {
+		_ = c.Store.LinkBlob(e.Layer, f.Path, f.Digest)
+	}
+
+	for _, d := range declared.Dirs {
+		for id, b := range d.Nodes {
+			_ = c.Store.Accept(id, b)
+		}
+	}
+
+	return declared
+}
+
+// outputPaths reads an Action's Command to find what it declares.
+func (c *Cache) outputPaths(key ir.NodeID) ([]string, bool) {
+	ab, err := c.Store.Node(key)
+	if err != nil {
+		return nil, false
+	}
+
+	a, err := layer.ActionIn(ab)
+	if err != nil {
+		return nil, false
+	}
+
+	cb, err := c.Store.Node(a.Command)
+	if err != nil {
+		return nil, false
+	}
+
+	cmd, err := layer.CommandIn(cb)
+	if err != nil {
+		return nil, false
+	}
+
+	return cmd.OutputPaths, true
 }

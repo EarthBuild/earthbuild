@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/engine/cache"
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/fdpass"
@@ -59,6 +60,9 @@ type Server struct {
 	// asks about a ladder - step 𝑖's base is step 𝑖-1's with one layer on it -
 	// so without this every step above a base pays for that whole base again.
 	// Built on first use, because LayerDir arrives with the server.
+	actionsOnce sync.Once
+	actions     *cache.Cache
+
 	folderMu sync.Mutex
 	folder   *store.Folder
 

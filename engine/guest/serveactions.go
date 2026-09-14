@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/EarthBuild/earthbuild/engine/cache"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/remote"
@@ -66,6 +67,10 @@ func (s *Server) withActions(
 	(&remote.Service{
 		Cache: &remote.Cache{
 			Store: store.DirStore(s.LayerDir),
+			// **Without this the service has no memory.** GetActionResult
+			// always misses and Execute runs everything, which is correct and
+			// is not a cache - buck2 reported 0% on a build it had just done.
+			Actions: s.actionCache(),
 			// **Held open while an action runs.** Idleness is measured by when
 			// a host last spoke, and a client inside a step is not the host -
 			// so without this the machine stops itself while it is busiest, and
@@ -139,4 +144,26 @@ type stepRunner struct {
 
 func (r stepRunner) RunAction(ctx context.Context, action ir.NodeID) (layer.Result, error) {
 	return r.s.RunAction(ctx, action, r.stack, r.image)
+}
+
+// actionCache is where this guest records what an action produced.
+//
+// **The same cache a step's results go in, keyed the same way.** Κₜ is the
+// Action digest (green paper 4.5a), so an action's key and a step's are drawn
+// from one space: one store, whether the work came from an Earthfile or from a
+// client inside one. That is what R2b bought.
+//
+// Opened once and lazily, as the tree folder is, and nil where it cannot be -
+// a service that cannot remember still answers, which is the half a client
+// needs first.
+func (s *Server) actionCache() *cache.Cache {
+	s.actionsOnce.Do(func() {
+		if s.LayerDir == "" {
+			return
+		}
+
+		s.actions, _ = cache.Open(s.LayerDir)
+	})
+
+	return s.actions
 }

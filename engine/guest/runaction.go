@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/store"
@@ -153,6 +154,13 @@ func (s *Server) RunAction(
 		return layer.Result{}, err
 	}
 
+	// **Recorded under the action's own digest**, which is Κₜ - so a step's
+	// results and an action's are one key space and one store, whether the work
+	// came from an Earthfile or from a client inside one (green paper 4.5a).
+	// Without this the service answers correctly and remembers nothing, and a
+	// client that has just built something is told to build it again.
+	s.recordAction(id, a, made, root, ran)
+
 	return layer.Result{
 		Root:     root,
 		RootSize: size,
@@ -284,4 +292,34 @@ func namedOutputs(st store.DirStore, id ir.NodeID, paths []string) (layer.Declar
 	}
 
 	return declared, nil
+}
+
+// recordAction files what an action produced, under the action's own digest.
+//
+// **Only a success, and only where the action allows it.** REAPI's action cache
+// holds results a client may be given instead of running the work; a failure is
+// a fact about one run and not about the action, and `do_not_cache` is a client
+// saying so itself. Both are reasons to remember nothing rather than to
+// remember something with an asterisk.
+//
+// Best effort: an action that ran and could not be recorded has still run, and
+// the client is owed its result either way.
+func (s *Server) recordAction(
+	id ir.NodeID, a layer.Action, made, content ir.NodeID, ran Response,
+) {
+	c := s.actionCache()
+	if c == nil || a.DoNotCache || ran.Exit != 0 {
+		return
+	}
+
+	c.Put(core.Key(id), core.Entry{
+		Layer:   made,
+		Content: content,
+		Exit:    ran.Exit,
+		Stdout:  ran.Output,
+		// Whole, because the guest bounds a step's output and hands back what
+		// it kept: a caller needing to tell "printed nothing" from "printed too
+		// much" needs the entry, and this is the entry.
+		StdoutWhole: true,
+	})
 }

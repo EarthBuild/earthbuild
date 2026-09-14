@@ -1,0 +1,56 @@
+VERSION 0.8
+
+# Bazel, running as a target, whose actions this engine executes.
+#
+# The sibling of examples/buck2: the same service, a different client, and the
+# reason for having both is that each one checks a different half of the
+# protocol. Buck2 never reads the capability handshake; bazel refuses without
+# it.
+#
+# See docs-internals/plan-remote-execution.md, phase R5.
+
+# renovate: datasource=github-releases packageName=bazelbuild/bazel
+ARG --global bazel_version=7.4.1
+
+client:
+    FROM debian:bookworm-slim
+    RUN apt-get update -qq \
+     && apt-get install -y --no-install-recommends ca-certificates curl \
+     && rm -rf /var/lib/apt/lists/*
+    # The arch this is being built for, not the one it was written on.
+    ARG TARGETARCH
+    LET bazel_arch="x86_64"
+    IF [ "$TARGETARCH" = "arm64" ]
+        SET bazel_arch="arm64"
+    END
+    RUN curl -fsSL --retry 5 --retry-all-errors -o /usr/local/bin/bazel \
+          "https://github.com/bazelbuild/bazel/releases/download/$bazel_version/bazel-$bazel_version-linux-$bazel_arch" \
+     && chmod +x /usr/local/bin/bazel
+
+project:
+    FROM +client
+    WORKDIR /w
+    COPY project .
+
+# build runs the project's one action through this engine.
+build:
+    FROM +project
+    WITH RE
+        RUN bazel build //:hello
+    END
+
+# cached runs it a second time in a step this engine may not cache, so that
+# what is measured is the action cache rather than the step cache.
+cached:
+    FROM +project
+    WITH RE
+        RUN --no-cache bazel build //:hello
+    END
+
+# reach asks only whether the socket and its certificate are there.
+reach:
+    FROM +client
+    WITH RE
+        RUN test -S /run/earthbuild/actions.sock && test -f /run/earthbuild/ca.pem \
+         && echo "the service is there"
+    END

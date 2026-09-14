@@ -194,9 +194,18 @@ accepted - it is the shape of the thing, and it removes more work than it leaves
   token to issue and no identity to check.
 * **No exposure.** It listens where a step can reach it and nowhere else - the channel a guest
   already has, or a socket bound into the sandbox - so it is not a port on a machine.
-* **No lifetime to manage.** It exists for the build that started it and goes when that build does.
-  There is no daemon, no state to reconcile across restarts, and no cache to invalidate on
-  shutdown.
+* **It outlives a build, because the machine does.** A sandbox is reused - `Server.Idle` stops one
+  that nobody has wanted for a while, and a host that comes back rejoins the machine already
+  running rather than paying for a boot. So this is a daemon, and its lifetime is the guest's: warm
+  across builds, which is the whole reason the machine is kept.
+
+  That places it. It belongs in `guestd`, not in the host CLI, because the guest is the thing that
+  is already long-lived, already owns the store - "a store on the guest's device is not on the
+  host's filesystem" - and is already what a sandbox can reach. A service in the host would be a
+  second long-lived thing, on the wrong side of the boundary, holding a copy of what the guest has.
+
+  It also means the idle rule has to learn about it: a machine with an action in flight is not idle,
+  however long since a host last spoke to it.
 
 `earth-native -serve-cache` therefore stays a way to *try* this by hand, and is not the product.
 

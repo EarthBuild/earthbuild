@@ -294,8 +294,15 @@ const (
 	fieldAnyValue   = 2 // Any.value
 
 	fieldOpName     = 1 // Operation.name
+	fieldOpMetadata = 2 // Operation.metadata
 	fieldOpDone     = 3 // Operation.done
 	fieldOpResponse = 5 // Operation.response
+
+	fieldExecStage      = 1 // ExecuteOperationMetadata.stage
+	fieldExecMetaDigest = 2 // ExecuteOperationMetadata.action_digest
+
+	// stageCompleted is ExecutionStage.Value.COMPLETED.
+	stageCompleted = 4
 )
 
 // executeResponseType is what an `Any` holding an ExecuteResponse is called.
@@ -303,6 +310,12 @@ const (
 // **A constant string on the wire, and a client checks it.** An `Any` is a
 // message nobody can read without being told what it is, so this is the telling.
 const executeResponseType = "type.googleapis.com/build.bazel.remote.execution.v2.ExecuteResponse"
+
+// executeMetadataType is what an `Any` holding an ExecuteOperationMetadata is
+// called. A client reads `Operation.metadata` to learn how far an action has
+// got, and buck2 refuses an Operation without one - "The execution metadata are
+// not defined" - however complete the response beside it.
+const executeMetadataType = "type.googleapis.com/build.bazel.remote.execution.v2.ExecuteOperationMetadata"
 
 // EncodeExecuteResponse writes an ExecuteResponse carrying a result.
 //
@@ -325,11 +338,24 @@ func EncodeExecuteResponse(result []byte, cached bool) []byte {
 // before the call arrived is delivered as an operation that is already done.
 // The name is this engine's to choose and is only useful for saying which
 // action it belongs to.
-func EncodeDoneOperation(name string, response []byte) []byte {
+func EncodeDoneOperation(name string, action Blob, response []byte) []byte {
 	out := appendString(nil, fieldOpName, name)
+
+	// **How far this action got, which a client reads before the response.**
+	// An Operation with no metadata is refused by buck2 whatever is beside it,
+	// and COMPLETED is the honest stage for the only kind this service sends:
+	// one that is already done when it is first delivered.
+	meta := appendVarintField(nil, fieldExecStage, stageCompleted)
+	meta = appendMessage(meta, fieldExecMetaDigest,
+		encodeDigest(&scratch{}, action.ID, action.Size))
+
+	any := appendString(nil, fieldAnyTypeURL, executeMetadataType)
+	any = appendBytes(any, fieldAnyValue, meta)
+	out = appendMessage(out, fieldOpMetadata, any)
+
 	out = appendVarintField(out, fieldOpDone, 1)
 
-	any := appendString(nil, fieldAnyTypeURL, executeResponseType)
+	any = appendString(any[:0], fieldAnyTypeURL, executeResponseType)
 	any = appendBytes(any, fieldAnyValue, response)
 
 	return appendMessage(out, fieldOpResponse, any)

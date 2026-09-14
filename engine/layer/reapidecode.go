@@ -549,6 +549,9 @@ func ReadsInResponse(b []byte) ([]Read, error) {
 // Execution is what a client asked this service to run.
 type Execution struct {
 	Action ir.NodeID
+	// ActionSize is the Action blob's length, which travels with its hash: an
+	// Operation quotes the digest back, and a client compares the whole thing.
+	ActionSize int64
 	// SkipCache says the client wants the action run even where a result is
 	// already known. A service that ignored it would answer a question the
 	// client did not ask - usually because it is trying to reproduce something.
@@ -562,17 +565,12 @@ func ExecutionIn(b []byte) (Execution, error) {
 	err := eachField(b, func(field, wire int, v []byte) error {
 		switch {
 		case field == fieldExecActionDgst && wire == wireBytes:
-			hex, err := hashOfDigest(v)
+			id, size, err := digestIn(v)
 			if err != nil {
-				return err
+				return fmt.Errorf("an Execute names something that is not a digest: %w", err)
 			}
 
-			id, err := ir.ParseNodeID(hex)
-			if err != nil {
-				return fmt.Errorf("an Execute names %q, which is not a digest: %w", hex, err)
-			}
-
-			out.Action = id
+			out.Action, out.ActionSize = id, size
 		case field == fieldSkipCacheLookup && wire == wireVarint:
 			n, read := binary.Uvarint(v)
 			if read <= 0 {

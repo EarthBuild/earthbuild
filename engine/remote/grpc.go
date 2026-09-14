@@ -329,7 +329,7 @@ func (s *Service) execute(_ any, stream grpc.ServerStream) error {
 			// cached_result: true, because it is. A build reporting every
 			// action as executed when none of them were is a build nobody
 			// trusts.
-			return sendDone(stream, ask.Action, result, true)
+			return sendDone(stream, layer.Blob{ID: ask.Action, Size: ask.ActionSize}, result, true)
 		}
 	}
 
@@ -355,7 +355,8 @@ func (s *Service) execute(_ any, stream grpc.ServerStream) error {
 		return status.Errorf(codes.FailedPrecondition, "run this action: %v", err)
 	}
 
-	return sendDone(stream, ask.Action, layer.EncodeActionResult(res), false)
+	return sendDone(stream, layer.Blob{ID: ask.Action, Size: ask.ActionSize},
+		layer.EncodeActionResult(res), false)
 }
 
 // sendDone answers with one Operation that is already finished.
@@ -363,9 +364,9 @@ func (s *Service) execute(_ any, stream grpc.ServerStream) error {
 // A client written for the stream must not need a second shape for the fast
 // case, so a result that was ready before the call arrived is delivered exactly
 // as one that took a minute.
-func sendDone(stream grpc.ServerStream, action ir.NodeID, result []byte, cached bool) error {
+func sendDone(stream grpc.ServerStream, action layer.Blob, result []byte, cached bool) error {
 	op := layer.EncodeDoneOperation(
-		"earthbuild/"+action.String(),
+		"earthbuild/"+action.ID.String(), action,
 		layer.EncodeExecuteResponse(result, cached))
 
 	return stream.SendMsg(&op)

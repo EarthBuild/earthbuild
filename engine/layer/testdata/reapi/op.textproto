@@ -1,4 +1,8 @@
 name: "earthbuild/00000000000000000000000000000000000000000000000000000000000000cc"
+metadata {
+  type_url: "type.googleapis.com/build.bazel.remote.execution.v2.ExecuteOperationMetadata"
+  value: "\010\004\022E\012@00000000000000000000000000000000000000000000000000000000000000cc\020\215\001"
+}
 done: true
 response {
   type_url: "type.googleapis.com/build.bazel.remote.execution.v2.ExecuteResponse"

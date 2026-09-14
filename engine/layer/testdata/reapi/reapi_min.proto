@@ -214,6 +214,14 @@ message Any {
   bytes value = 2;
 }
 
+// Only the fields this engine emits: a client reads the stage before it reads
+// the response beside it.
+message ExecuteOperationMetadata {
+  int32 stage = 1;
+  Digest action_digest = 2;
+  reserved 3, 4;
+}
+
 message Operation {
   string name = 1;
   Any metadata = 2;

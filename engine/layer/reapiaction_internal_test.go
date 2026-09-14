@@ -323,6 +323,7 @@ func TestOurExecuteEncodingsAreProtocs(t *testing.T) {
 
 	got := EncodeDoneOperation(
 		"earthbuild/00000000000000000000000000000000000000000000000000000000000000cc",
+		Blob{ID: hexID("00000000000000000000000000000000000000000000000000000000000000cc"), Size: 141},
 		[]byte{0x08, 0x01})
 
 	if !bytes.Equal(got, wantOp) {

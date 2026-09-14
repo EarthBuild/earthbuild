@@ -280,6 +280,10 @@ func firstInput(n *ir.Node) *ir.Node {
 func (p *Plan) withStatement(st *earthfile.WithStatement, prev *ir.Node, rs *state) (*ir.Node, error) {
 	where := loc(st.SourceLocation)
 
+	if st.Command.Name == earthfile.CmdRE {
+		return p.withRE(st, prev, rs)
+	}
+
 	if st.Command.Name != earthfile.CmdDocker {
 		return nil, unsupported("WITH "+string(st.Command.Name), where, "")
 	}
@@ -1048,4 +1052,43 @@ func checkCacheID(id, where string) error {
 	}
 
 	return nil
+}
+
+// withRE applies a WITH RE ... RUN ... END clause.
+//
+// **Every step of the block, and no step after END.** The service is a property
+// of what the block wraps, exactly as a daemon is - so it is marked the same
+// way, by walking back over what the body added rather than by threading a flag
+// through everything that builds a step.
+//
+// No options yet. The block says the steps inside it may have their actions
+// executed by this engine; what an action is allowed to ask for is settled by
+// the service, and a flag here would be a second place to write it.
+func (p *Plan) withRE(st *earthfile.WithStatement, prev *ir.Node, rs *state) (*ir.Node, error) {
+	where := loc(st.SourceLocation)
+
+	// **WITH RE takes nothing**, and what was left over would otherwise be
+	// discarded - the accepted-and-ignored failure every option refusal in this
+	// file exists to prevent (I10).
+	if len(st.Command.Args) > 0 {
+		return nil, fmt.Errorf(
+			"WITH RE (%s): %q is not an option this construct takes, and"+
+				" WITH RE has no arguments of its own",
+			where, st.Command.Args[0])
+	}
+
+	before := prev
+
+	last, err := p.block(st.Body, prev, rs)
+	if err != nil {
+		return nil, err
+	}
+
+	for n := last; n != nil && n != before; n = firstInput(n) {
+		if n.Op.Kind == ir.OpExec {
+			n.Op.Actions = true
+		}
+	}
+
+	return last, nil
 }

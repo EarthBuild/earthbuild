@@ -510,6 +510,15 @@ type Request struct {
 // It lives and dies with the step. That is not a simplification: a daemon
 // outliving its step is a daemon holding the step's overlay open, and the layer
 // the capture then takes is of a filesystem still being written to.
+// DefaultActionSocket is where a WITH RE step's service listens.
+//
+// A default the host sends rather than a path the guest assumes: the value on
+// the wire is what both ends use, and this is only what the host fills in when
+// nothing else said otherwise. Under /run because that is where a socket
+// belongs and because the path has to be short - `sun_path` is a fixed-size
+// field, and the guest refuses a longer one.
+const DefaultActionSocket = "/run/earthbuild/actions.sock"
+
 // Actions is an execution service running beside a step: WITH RE.
 //
 // **The socket is the identity.** It is bound inside the step's own filesystem,

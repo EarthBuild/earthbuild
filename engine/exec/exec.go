@@ -654,6 +654,10 @@ func (e *Executor) Run(
 		SecretEnv: secretNames,
 		NoNet:     n.Op.NoNetwork, Daemon: daemon, Hosts: n.Op.Hosts,
 		Privileged: n.Op.Privileged,
+		// WITH RE: a service in this step's own filesystem that answers REAPI
+		// for the environment this step stands in. The path is said here rather
+		// than derived at both ends - see Daemon.Socket, which learned it.
+		Actions: actionsFor(n.Op.Actions),
 		// Observed, so the step can be reused against a base it did not run on.
 		//
 		// The only source a RUN has, and it costs: measured at **8x on a path
@@ -2272,3 +2276,12 @@ func (e *Executor) PruneStore(ctx context.Context, keep uint64) (string, error) 
 // lostGuest adds the guest's console to a connection that was lost, where the
 // sandbox keeps one.
 func (e *Executor) lostGuest(err error) error { return lostGuest(err, e.sb) }
+
+// actionsFor is the execution service a step asked for, or nothing.
+func actionsFor(want bool) *guest.Actions {
+	if !want {
+		return nil
+	}
+
+	return &guest.Actions{Socket: guest.DefaultActionSocket}
+}

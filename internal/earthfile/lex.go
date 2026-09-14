@@ -118,6 +118,7 @@ const (
 	CmdLocally        Cmd = "LOCALLY"
 	CmdOnBuild        Cmd = "ONBUILD"
 	CmdProject        Cmd = "PROJECT"
+	CmdRE             Cmd = "RE"
 	CmdRun            Cmd = "RUN"
 	CmdSaveArtifact   Cmd = "SAVE ARTIFACT"
 	CmdSaveImage      Cmd = "SAVE IMAGE"

@@ -126,6 +126,10 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 	h.Bool(n.Op.Privileged)
 	h.Bool(n.Op.Interactive)
 	h.Bool(n.Op.Docker)
+	// WITH RE, for Docker's reason: a step whose actions this engine can
+	// execute and cache, and the same line without that, are different
+	// requests.
+	h.Bool(n.Op.Actions)
 	h.Str(n.Op.DockerCache)
 
 	// **Keyed, though every step that has one is already uncacheable.** A scope

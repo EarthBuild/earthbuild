@@ -377,6 +377,16 @@ type Op struct {
 	// fails to find the command - and a cache that could not tell them apart
 	// would serve one for the other.
 	Docker bool
+	// Actions says the step runs inside a WITH RE block and is given an
+	// execution service: a socket in its own filesystem that answers REAPI for
+	// the environment this step stands in.
+	//
+	// In the key for Docker's reason, and it is the same reason: a step that
+	// can have its actions executed and cached by this engine, and the same
+	// line without one, are different requests - the second either builds
+	// everything itself or fails to reach a service - so a cache that could not
+	// tell them apart would serve one for the other.
+	Actions bool
 	// DockerCache names storage the inner daemon keeps between blocks, when the
 	// author asked for one: `WITH DOCKER --cache-id=<name>`.
 	//
@@ -817,6 +827,7 @@ func (n *Node) ID() NodeID {
 	h.Bool(n.Op.Privileged)
 	h.Bool(n.Op.Interactive)
 	h.Bool(n.Op.Docker)
+	h.Bool(n.Op.Actions)
 	h.Str(n.Op.DockerCache)
 	// Beside the cache name, and for the reason the key guard gives: identity and
 	// the chain key are two functions over one struct, and a field reaching only

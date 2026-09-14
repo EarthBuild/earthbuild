@@ -20,6 +20,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/guestd"
 	"github.com/EarthBuild/earthbuild/engine/image"
+	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/mat/overlay"
 	"github.com/EarthBuild/earthbuild/engine/timing"
 )
@@ -726,6 +727,15 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 
 	if on := os.Getenv(guestd.EnvProfileMode); on != "" {
 		args = append(args, "-e", guestd.EnvProfileMode+"="+on)
+	}
+
+	// **Both sides of the boundary must be the same ℋ.** The guest hashes what
+	// it captures and the host keys on what it is told, so a guest left on the
+	// default while the host was moved to SHA-256 files layers under names the
+	// host will never derive - and every digest that crosses is a claim about a
+	// function the other end is not using.
+	if on := os.Getenv(ir.EnvDigest); on != "" {
+		args = append(args, "-e", ir.EnvDigest+"="+on)
 	}
 
 	args = append(args, a.name, "/earth/"+filepath.Base(guestBin))

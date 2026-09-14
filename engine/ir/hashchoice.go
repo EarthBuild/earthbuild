@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"hash"
+	"os"
+	"strings"
 	"sync/atomic"
 
 	"lukechampine.com/blake3"
@@ -105,4 +107,70 @@ func assertHashWidth() {
 	}
 }
 
-func init() { assertHashWidth() }
+func init() {
+	assertHashWidth()
+	selectFromEnv()
+}
+
+// EnvDigest names the digest function a store is built with.
+//
+// Read in this package's init, which is the only place that cannot be
+// forgotten: ℋ has to be settled before anything is hashed, the engine is three
+// binaries, and a call at the top of each `main` is three chances to omit one.
+// Package initialisation runs before every `main`, and every binary links this
+// package because every binary hashes.
+const EnvDigest = "EARTH_DIGEST"
+
+// HashFromEnv reads a digest function from what the variable was set to.
+//
+// **An unrecognised value is refused, not defaulted.** Someone who writes
+// `sha-1` and silently gets BLAKE3 has a store no remote execution service will
+// read, a build that simply stops getting hits, and nothing anywhere saying
+// why. Empty is the only thing that means "the default".
+func HashFromEnv(v string) (HashFunc, error) {
+	switch normaliseHashName(v) {
+	case "":
+		return HashBLAKE3, nil
+	case "blake3", "blake3256":
+		return HashBLAKE3, nil
+	case "sha256":
+		return HashSHA256, nil
+	default:
+		return HashBLAKE3, fmt.Errorf(
+			"%s is set to %q, which is not a digest function this engine has"+
+				"\n  it is one of: blake3 (the default), sha256"+
+				"\n  sha256 is for a store a Buck2 remote execution service will read;"+
+				" Bazel accepts blake3 and needs no setting",
+			EnvDigest, v)
+	}
+}
+
+// normaliseHashName strips the punctuation people write digest names with, so
+// `SHA-256`, `sha_256` and `sha256` are one answer.
+func normaliseHashName(v string) string {
+	var out []rune
+
+	for _, r := range strings.ToLower(v) {
+		if r == '-' || r == '_' || r == ' ' {
+			continue
+		}
+
+		out = append(out, r)
+	}
+
+	return string(out)
+}
+
+// selectFromEnv settles ℋ, or refuses to start.
+//
+// A panic, which is what an unusable configuration deserves at initialisation:
+// there is no build yet to fail, no diagnostic channel open, and continuing
+// would mean building a store the author did not ask for.
+func selectFromEnv() {
+	f, err := HashFromEnv(os.Getenv(EnvDigest))
+	if err != nil {
+		panic(err.Error())
+	}
+
+	SelectHash(f)
+}

@@ -56,7 +56,9 @@ func TestAnActionOverAStepsSocketProducesALayer(t *testing.T) {
 	inputRoot := put(t, st, dirOf(member{name: "in.txt", digest: src}))
 
 	cmd := layer.EncodeCommand(layer.Command{
-		Arguments:        []string{"/bin/sh", "-c", "cat in.txt > out"},
+		Arguments: []string{"/bin/sh", "-c",
+			// Shell builtins only; see the sibling test.
+			"read l < in.txt; echo \"$l\" > out"},
 		WorkingDirectory: "/",
 		OutputPaths:      []string{"out"},
 	})

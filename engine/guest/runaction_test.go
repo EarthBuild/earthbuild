@@ -54,7 +54,10 @@ func TestAnActionRunsAndReturnsWhatItDeclared(t *testing.T) {
 	cmd := layer.EncodeCommand(layer.Command{
 		Arguments: []string{
 			"/bin/sh", "-c",
-			"cat in.txt > out && echo debris > debris && echo ran",
+			// Shell builtins only: `cat` is not on the default PATH
+			// everywhere this runs, and a test that needed one would be
+			// testing the fixture's machine.
+			"read l < in.txt; echo \"$l\" > out; echo debris > debris; echo ran",
 		},
 		WorkingDirectory: "/",
 		OutputPaths:      []string{"out"},

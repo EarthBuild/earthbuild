@@ -44,15 +44,23 @@ Three things landed on 2026-09-13/14 and are not part of this plan's cost:
   expected sharing; creating one is not, because nothing did.
 * **Sockets are not layer members** (green paper §3.3, landed). A socket is a live process's
   address and no process crosses a step.
-* **The hardlink path costs no sharing worth recovering.** `e.hardlink` is relative to the layer
-  root, so a directory holding one has a node digest that depends on a path outside it - which is
-  the position-independence subtree sharing rests on. Measured on a 45,149-file Rust output tree:
-  58 of 8,041 directories hold a hardlink, 118 counting the ancestors whose digests then depend on
-  them, so **98.5% of directories are unaffected**. The links are not diffuse - all 2,697 inode
-  groups have one end in `target/debug/deps`, and 59% of linked files sit in three directories.
-  And position-dependence only bites on *relocation*: two bases holding that directory at the same
-  path record the same string and share the node normally. The cases sharing exists for - a tree
-  rebuilt, two images with one vendor directory - are untouched. No encoding change.
+* **The hardlink path costs nothing measurable.** `e.hardlink` is relative to the layer root, so a
+  directory holding one has a node digest that depends on a path outside it - which is the
+  position-independence subtree sharing rests on. Measured, and it collapses at three removes:
+
+  * **A release build has no hardlinks at all** - 10,638 files, zero. Every hardlink in a Rust
+    output tree is rustc's incremental machinery, and cargo disables incremental for release.
+    CI builds `--release`, as does `examples/rust-layered`, so the tree this engine caches is
+    unaffected entirely.
+  * In a *debug* tree, 58 of 8,041 directories hold one, 118 counting the ancestors whose digests
+    then depend on them - 98.5% unaffected. All 2,697 inode groups share the common ancestor
+    `target/debug`, pairing `deps/*.rcgu.o` with `incremental/<crate>/s-<session>/*.o`.
+  * Those `incremental/` directories carry a per-session id in their name, so they could never
+    match across two builds whatever the hardlinks did. The only genuine loss is `deps/`, one node,
+    whose pointers name those unique paths.
+
+  And position-dependence only bites on *relocation* in any case: two bases holding a directory at
+  one path record the same string and share the node normally. No encoding change.
 
 ## What is not decided
 

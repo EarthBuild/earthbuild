@@ -3,6 +3,7 @@ package layer
 import (
 	"encoding/binary"
 	"fmt"
+	"strconv"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -641,4 +642,154 @@ func FinishedIn(b []byte) (Finished, error) {
 	}
 
 	return out, nil
+}
+
+// Member is one entry of a Directory, as a client sent it.
+type Member struct {
+	Name string
+	// Digest is a file's contents or a subdirectory's Directory message.
+	Digest ir.NodeID
+	// Target is a symlink's, and is empty for anything else.
+	Target string
+	// Executable is REAPI's single mode bit; Mode is this engine's own, where
+	// the sender was this engine and said so.
+	Executable bool
+	Mode       uint32
+}
+
+// Directory is a Directory message read back.
+type Directory struct {
+	Files []Member
+	Dirs  []Member
+	Links []Member
+}
+
+// DirectoryIn reads a Directory message.
+//
+// **Enough to write the tree out again**, which is what materialising an input
+// root is. ChildDigests reads only the subdirectories, because walking a tree
+// needs nothing else; this reads what a file is called, what it holds and
+// whether it may be run.
+func DirectoryIn(b []byte) (Directory, error) {
+	var out Directory
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		if wire != wireBytes {
+			return nil
+		}
+
+		switch field {
+		case fieldFiles:
+			m, err := memberIn(v, fieldDigest)
+			if err != nil {
+				return err
+			}
+
+			out.Files = append(out.Files, m)
+		case fieldDirectories:
+			m, err := memberIn(v, fieldDigest)
+			if err != nil {
+				return err
+			}
+
+			out.Dirs = append(out.Dirs, m)
+		case fieldSymlinks:
+			m, err := memberIn(v, 0)
+			if err != nil {
+				return err
+			}
+
+			out.Links = append(out.Links, m)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return Directory{}, err
+	}
+
+	return out, nil
+}
+
+// memberIn reads one FileNode, DirectoryNode or SymlinkNode.
+//
+// digestField is 0 for a symlink, which carries a target where the others carry
+// a digest - the two are the same field number and different meanings, which is
+// why the caller says which it is expecting rather than this guessing.
+func memberIn(b []byte, digestField int) (Member, error) {
+	var m Member
+
+	err := eachField(b, func(f, w int, v []byte) error {
+		switch {
+		case f == fieldName && w == wireBytes:
+			m.Name = string(v)
+		case digestField != 0 && f == digestField && w == wireBytes:
+			hex, err := hashOfDigest(v)
+			if err != nil {
+				return err
+			}
+
+			id, err := ir.ParseNodeID(hex)
+			if err != nil {
+				return fmt.Errorf("%q names %q, which is not a digest: %w", m.Name, hex, err)
+			}
+
+			m.Digest = id
+		case digestField == 0 && f == fieldTarget && w == wireBytes:
+			m.Target = string(v)
+		case f == fieldIsExecutable && w == wireVarint:
+			n, read := binary.Uvarint(v)
+			if read <= 0 {
+				return fmt.Errorf("is_executable is not a varint")
+			}
+
+			m.Executable = n != 0
+		case f == fieldFileProps && w == wireBytes:
+			return eachField(v, func(pf, pw int, pv []byte) error {
+				if pf != fieldProperties || pw != wireBytes {
+					return nil
+				}
+
+				name, value, err := propertyIn(pv)
+				if err != nil {
+					return err
+				}
+
+				if name == propPrefix+"mode" {
+					mode, convErr := strconv.ParseUint(value, 8, 32)
+					if convErr != nil {
+						return fmt.Errorf("%q has mode %q, which is not a mode: %w",
+							m.Name, value, convErr)
+					}
+
+					m.Mode = uint32(mode)
+				}
+
+				return nil
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return Member{}, err
+	}
+
+	return m, nil
+}
+
+// propertyIn reads one NodeProperty.
+func propertyIn(b []byte) (name, value string, err error) {
+	err = eachField(b, func(f, w int, v []byte) error {
+		switch {
+		case f == fieldPropertyName && w == wireBytes:
+			name = string(v)
+		case f == fieldPropertyValue && w == wireBytes:
+			value = string(v)
+		}
+
+		return nil
+	})
+
+	return name, value, err
 }

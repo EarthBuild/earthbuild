@@ -72,17 +72,24 @@ func decideByRunning(
 			// the build now is.
 			Dir: dir,
 			Env: base.Op.Env,
-			// **A probe's output is its value, and a cache hit reproduces a
-			// step's effects but not its observations.** `runGraph` collects
-			// these lines through the executor's Capture hook, which fires when
-			// a step runs; a step already keyed does not run, nothing is
-			// captured, and the caller reads "" as the answer.
+			// **A probe's output is its value**, which is what this says. A
+			// result now carries what its step printed, and a hit replays it
+			// through the same sink a running step's lines go to - so the
+			// collection below sees them either way.
 			//
-			// Cold, `LET v=$(ls -d helloworld*)` gave three files; every run
-			// after gave nothing, silently, because an empty string is a value
-			// and not an error. Twelve corpus targets counted their way to
-			// "found 0 files" with the files plainly in the image.
-			NoCache: true,
+			// It was `NoCache: true`, which made every command substitution
+			// re-run for ever. The reason was real: a hit reproduces a step's
+			// effects and not its observations, so `LET v=$(ls -d helloworld*)`
+			// gave three files cold and nothing on every build after, silently,
+			// an empty string being a value and not an error. Twelve corpus
+			// targets counted their way to "found 0 files" with the files
+			// plainly in the image.
+			//
+			// NeedsOutput is the narrower statement of the same fact: this step
+			// may be served from the cache, but only by an entry that kept what
+			// it printed. An entry written before that was kept, or by a step
+			// that printed past the bound, is refused and the step runs.
+			NeedsOutput: true,
 		},
 		Inputs:   []*ir.Node{base},
 		Platform: base.Platform,
@@ -405,6 +412,12 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 			Cache:    ac,
 			Blobs:    blobs,
 			Writer:   writerName,
+
+			// **A hit says what the step said.** Fed through the executor's own
+			// sink, so a `$( )` substitution and the progress display read the
+			// same lines whether the step ran or was found - which is what
+			// makes a probe cacheable at all.
+			Echo: echoOf(x),
 
 			// **This pass hangs like any other, and for longer.** An `ARG`
 			// whose value is a command substitution runs a whole build here,

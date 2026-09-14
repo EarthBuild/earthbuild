@@ -744,6 +744,10 @@ func runPlan(
 		Workers:  workers,
 		Executor: over,
 		Cache:    ac,
+		// A served step says what it said, through the same sink a running one
+		// uses. Without it a cached build's log is missing everything its steps
+		// printed, which is most of what a build log is.
+		Echo: echoOf(over),
 		// Zero is one per core, which is every build that does not ask. See
 		// EnvParallelism - a serial build is how a hang with several steps in
 		// flight is told apart from one that would hang anyway.

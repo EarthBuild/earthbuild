@@ -261,6 +261,17 @@ type Op struct {
 	// latest of something, or reads the clock, produces a result the key cannot
 	// bound - the same reasoning I7 applies to a host step.
 	NoCache bool
+
+	// NeedsOutput says this step's standard output is its value, not only its
+	// display.
+	//
+	// **A hit that cannot reproduce it is not a hit for this step.** `LET
+	// v=$(cmd)` evaluates to what cmd printed, so an entry that did not keep
+	// that output - written before it was kept, or by a step that printed more
+	// than would fit - answers with the empty string, which is a value and not
+	// an error. That is how twelve corpus targets came to count their way to
+	// "found 0 files" with the files plainly in the image.
+	NeedsOutput bool
 	// IfExists says a copy tolerates a source that is not there:
 	// `COPY --if-exists`.
 	//
@@ -778,6 +789,7 @@ func (n *Node) ID() NodeID {
 	h.Str(n.Op.User)
 	h.Bool(n.Op.AWS)
 	h.Bool(n.Op.NoCache)
+	h.Bool(n.Op.NeedsOutput)
 	h.Bool(n.Op.IfExists)
 	h.Str(n.Op.As)
 	h.Str(n.Op.Chmod)

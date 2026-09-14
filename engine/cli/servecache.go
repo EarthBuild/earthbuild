@@ -20,6 +20,13 @@ import (
 // accepting an upload would mean taking a blob on a peer's word about what it is
 // called.
 //
+// **A host-side reader, on purpose and not for ever.** This opens the layer
+// store from the host, which works while the store is a directory the host can
+// see and answers nothing once it is a device the guest owns. The service
+// belongs in the guest - beside the store, and beside the thing that is already
+// long-lived across builds (plan-remote-execution R5). This is how to try it by
+// hand in the meantime, not where it ends up.
+//
 // The address is whatever `net.Listen` accepts - `:8080` for every interface,
 // `127.0.0.1:8080` for this machine alone, which is the one to prefer since
 // this speaks no authentication at all.

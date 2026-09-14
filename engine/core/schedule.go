@@ -244,6 +244,16 @@ func noWorkerFor(n *ir.Node, workers []Worker) error {
 // at optimality. HEFT and locality scoring are Sched-2, which needs recorded
 // durations and more than one worker to place work on.
 type Scheduler struct {
+	// Echo replays what a step printed when its result came from the cache.
+	//
+	// **A hit reproduces a step's effects; this is how it reproduces what the
+	// step said.** Fed through the same sink a running step's lines go to, so
+	// every reader of them - a progress display, a `$( )` substitution -
+	// behaves the same whether the step ran or was found.
+	//
+	// Nil is the behaviour before this existed: a hit is silent.
+	Echo func(n *ir.Node, out string)
+
 	Workers  []Worker
 	Executor Executor
 
@@ -1587,7 +1597,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 		endLookup()
 
-		if hit && usableDeclaration(n.Op.Kind, e) {
+		if hit && usableDeclaration(n.Op.Kind, e) && answersFor(n, e) {
 			rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = e.Layer, e.Exit, e.Bytes, OutcomeL1Hit
 			// A fact about the step, not about this run of it: the key having
 			// matched is what says the same copy put the same bytes in the
@@ -1617,7 +1627,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		// of examples/rust-layered. See DeriveContentKey.
 		if ck, ok := DeriveContentKey(n, base, refs, s.Blobs); ok {
 			ce, chit := Lookup(s.cacheToRead(), s.Blobs, s.Trusted, ck)
-			if chit && usableDeclaration(n.Op.Kind, ce) {
+			if chit && usableDeclaration(n.Op.Kind, ce) && answersFor(n, ce) {
 				rec.Layer, rec.Exit, rec.Bytes = ce.Layer, ce.Exit, ce.Bytes
 				rec.Outcome, rec.Placements = OutcomeContentHit, ce.Placements
 				s.finish(n, base, Result{
@@ -1652,7 +1662,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 		endL2()
 
-		if hit && usableDeclaration(n.Op.Kind, e) {
+		if hit && usableDeclaration(n.Op.Kind, e) && answersFor(n, e) {
 			rec.Layer, rec.Exit, rec.Bytes, rec.Outcome = e.Layer, e.Exit, e.Bytes, OutcomeL2Hit
 			rec.Placements = e.Placements
 			s.finish(n, base, Result{
@@ -1831,6 +1841,17 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 // finish publishes a step's result and its record together, so no other step can
 // observe one without the other.
 func (s *Scheduler) finish(n *ir.Node, base []ir.NodeID, res Result, rec StepRecord) {
+	// **Before the lock**, because Echo reaches a display and a display is not
+	// this scheduler's to block on. Outside it there is nothing shared to
+	// guard: res is this step's and n is read-only.
+	//
+	// Only where the step did not run. A step that ran has already printed
+	// these lines through the same sink, and saying them twice is worse than
+	// not saying them at all.
+	if s.Echo != nil && res.Stdout != "" && rec.Outcome.Served() {
+		s.Echo(n, res.Stdout)
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

@@ -23,6 +23,23 @@ const (
 	OutcomeContentHit
 )
 
+// Served reports that this result came from the cache rather than from running
+// the step.
+//
+// Named rather than compared at each site, because the list is appended to -
+// "not a miss" would quietly include a refusal and a cancellation, neither of
+// which produced a result at all.
+func (o Outcome) Served() bool {
+	switch o {
+	case OutcomeL1Hit, OutcomeL2Hit, OutcomeContentHit:
+		return true
+	case OutcomeMiss, OutcomeRefused, OutcomeUncaptured, OutcomeCancelled:
+		return false
+	default:
+		return false
+	}
+}
+
 func (o Outcome) String() string {
 	switch o {
 	case OutcomeL1Hit:

@@ -77,6 +77,13 @@ var schedulerPorts = map[string]port{
 	// Everywhere, not somewhere: see mustSetEverywhere.
 	"OnStall": {role: mustSetEverywhere},
 
+	// **Everywhere, because a probe depends on it.** A served step replays what
+	// it printed through the executor's sink; a scheduler without this is silent
+	// on a hit, which for `LET v=$( )` means the substitution evaluates to the
+	// empty string - a value, not an error. The build's scheduler wants it for
+	// its log; the condition pass wants it for its answer.
+	"Echo": {role: mustSetEverywhere},
+
 	// The threshold is deliberately left at core.DefaultStall. A hang is not a
 	// thing a user tunes their way out of, and a knob here would be one more
 	// setting whose wrong value silences the warning that exists to catch the

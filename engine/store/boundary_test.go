@@ -39,6 +39,15 @@ const (
 )
 
 var knowsTheLayout = map[string]string{
+	// **A host-side reader, and one that this engine intends to stop being.**
+	// `-serve-cache` opens the layer store from the host to answer a remote
+	// cache request, which works while the store is a directory the host can
+	// see and answers nothing once it is a device the guest owns. The service
+	// belongs in the guest, beside the store and beside the thing that is
+	// already long-lived (plan-remote-execution R5); until it moves, this is a
+	// reader somebody decided about rather than one found later.
+	"engine/cli/servecache.go": sideHost,
+
 	// The store itself.
 	"engine/store/store.go":         sideStore,
 	"engine/store/layerstore.go":    sideStore,

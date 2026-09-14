@@ -1,6 +1,11 @@
 package exec
 
-import "os"
+import (
+	"os"
+	"strings"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
+)
 
 // maxRecordedOutput bounds what a step's standard output may cost.
 //
@@ -25,5 +30,35 @@ func recordOutput() bool {
 		return false
 	default:
 		return true
+	}
+}
+
+// Echo replays a step's recorded output through this executor's sink.
+//
+// **The same path a running step's lines take**, so every reader of them
+// behaves identically whether the step ran or was served: a progress display
+// shows the step's output, and a `$( )` substitution collects its value.
+//
+// Standard error is not replayed, because it was not recorded - `$( )` in every
+// shell captures standard output alone, and a build log wanting both is a
+// different question from a step's value.
+func (e *Executor) Echo(n *ir.Node, out string) {
+	if out == "" {
+		return
+	}
+
+	where := n.Meta.Source
+	if where == "" {
+		where = n.Op.Kind.String()
+	}
+
+	for line := range strings.SplitSeq(strings.TrimSuffix(out, "\n"), "\n") {
+		if e.Progress != nil {
+			e.Progress(where, line, n.Meta.RawOutput)
+		}
+
+		if e.Capture != nil {
+			e.Capture(n, line, false)
+		}
 	}
 }

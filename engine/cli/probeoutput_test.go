@@ -176,7 +176,7 @@ func TestASilentFailureStillSaysSomething(t *testing.T) {
 // The failure class is a cache that reproduces a step's *effects* but not its
 // *observations*, and it is invisible by construction: the answer is a value,
 // not an error, so every check downstream believes it.
-func TestAProbeRunsEveryTimeBecauseItsOutputIsItsValue(t *testing.T) {
+func TestAProbeIsServedOnlyByAnEntryThatKeptItsOutput(t *testing.T) {
 	t.Parallel()
 
 	var got *ir.Graph
@@ -198,10 +198,21 @@ func TestAProbeRunsEveryTimeBecauseItsOutputIsItsValue(t *testing.T) {
 		t.Fatal("no graph was run")
 	}
 
-	if !got.Root.Op.NoCache {
-		t.Error("the probe may be answered from cache, and a cache hit does not" +
-			" run the step - so its output, which is the whole of its value," +
-			" comes back empty and is believed")
+	// **It may be served, but only by an entry that kept what it printed.**
+	// This was `NoCache`, which made every command substitution re-run for
+	// ever. The reason was sound - a hit reproduces a step's effects and not
+	// its observations - and the narrower statement is the one that is true: a
+	// probe's output is its value, so an entry that did not keep that output
+	// cannot answer it, and one that did can.
+	if !got.Root.Op.NeedsOutput {
+		t.Error("the probe does not say its output is its value, so it may be" +
+			" answered by an entry that kept none - and the substitution then" +
+			" evaluates to the empty string, which is a value and not an error")
+	}
+
+	if got.Root.Op.NoCache {
+		t.Error("the probe is uncacheable, so it runs on every build for ever;" +
+			" NeedsOutput is what it means and costs one run rather than all of them")
 	}
 
 	// The step it stands on is untouched: only the observation is uncacheable,

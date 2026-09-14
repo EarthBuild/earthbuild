@@ -111,6 +111,7 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 	h.Str(n.Op.User)
 	h.Bool(n.Op.AWS)
 	h.Bool(n.Op.NoCache)
+	h.Bool(n.Op.NeedsOutput)
 	h.Bool(n.Op.IfExists)
 	h.Str(n.Op.As)
 	h.Str(n.Op.Chmod)
@@ -305,6 +306,18 @@ type Entry struct {
 	StdoutWhole bool
 
 	Placements []Placement
+}
+
+// answersFor reports whether a cached entry can serve this step at all.
+//
+// **A step whose output is its value needs that output.** `LET v=$(cmd)`
+// evaluates to what cmd printed, so an entry that did not keep it whole -
+// written before it was kept, or by a step that printed past the bound -
+// answers with the empty string, which is a value and not an error. Refusing
+// the hit costs one run; taking it costs a wrong answer, silently, on every
+// build after the first.
+func answersFor(n *ir.Node, e Entry) bool {
+	return !n.Op.NeedsOutput || e.StdoutWhole
 }
 
 // usableDeclaration reports whether an entry's declaration may be believed.

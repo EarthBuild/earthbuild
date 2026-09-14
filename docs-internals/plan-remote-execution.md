@@ -44,16 +44,24 @@ Three things landed on 2026-09-13/14 and are not part of this plan's cost:
   expected sharing; creating one is not, because nothing did.
 * **Sockets are not layer members** (green paper §3.3, landed). A socket is a live process's
   address and no process crosses a step.
+* **The hardlink path costs no sharing worth recovering.** `e.hardlink` is relative to the layer
+  root, so a directory holding one has a node digest that depends on a path outside it - which is
+  the position-independence subtree sharing rests on. Measured on a 45,149-file Rust output tree:
+  58 of 8,041 directories hold a hardlink, 118 counting the ancestors whose digests then depend on
+  them, so **98.5% of directories are unaffected**. The links are not diffuse - all 2,697 inode
+  groups have one end in `target/debug/deps`, and 59% of linked files sit in three directories.
+  And position-dependence only bites on *relocation*: two bases holding that directory at the same
+  path record the same string and share the node normally. The cases sharing exists for - a tree
+  rebuilt, two images with one vendor directory - are untouched. No encoding change.
 
 ## What is not decided
 
-| decision                   | what it needs                                                                                                                                                                                                                                                                                                                   |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| hand-roll the protobuf     | Proto3 defines no canonical form. REAPI works because every implementation emits ascending field number and omits defaults, and the ecosystem would collapse otherwise - but it is *de facto*. Four messages is ~100 lines to own and test; a dependency is less code and less control.                                         |
-| accepting an RE cache hit  | RE's equivalence is coarser than ours: two trees differing only in uid, xattrs or non-executable mode are one action input to them. Shipping by `re(d)` is safe; *trusting* a hit keyed on it imports their equivalence, and we hash uid because a step can observe it. An I3 question on our side, not theirs.                 |
-| hardlinks and node sharing | `e.hardlink` is a path relative to the layer root, so a directory holding one has a node digest depending on a path outside it - which is the position-independence subtree sharing rests on. ~12% of a Rust output tree's *files* carry one; how many *directories* that touches is unmeasured and decides whether it matters. |
-| symlinks as their own list | REAPI has three typed lists; 𝜈 has two, with symlinks folded in under a kind byte. Splitting them makes "one name, two kinds" unrepresentable, and costs a cache generation - cheap only while another 𝜈 change is being spent.                                                                                                 |
-| uid/gid as a tree default  | Both are constant across every tree measured. Hoisting them to a per-tree default makes `extra(d)` empty for a source tree, so 𝜈 becomes a function of the REAPI digest alone.                                                                                                                                                  |
+| decision                   | what it needs                                                                                                                                                                                                                                                                                                   |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| hand-roll the protobuf     | Proto3 defines no canonical form. REAPI works because every implementation emits ascending field number and omits defaults, and the ecosystem would collapse otherwise - but it is *de facto*. Four messages is ~100 lines to own and test; a dependency is less code and less control.                         |
+| accepting an RE cache hit  | RE's equivalence is coarser than ours: two trees differing only in uid, xattrs or non-executable mode are one action input to them. Shipping by `re(d)` is safe; *trusting* a hit keyed on it imports their equivalence, and we hash uid because a step can observe it. An I3 question on our side, not theirs. |
+| symlinks as their own list | REAPI has three typed lists; 𝜈 has two, with symlinks folded in under a kind byte. Splitting them makes "one name, two kinds" unrepresentable, and costs a cache generation - cheap only while another 𝜈 change is being spent.                                                                                 |
+| uid/gid as a tree default  | Both are constant across every tree measured. Hoisting them to a per-tree default makes `extra(d)` empty for a source tree, so 𝜈 becomes a function of the REAPI digest alone.                                                                                                                                  |
 
 ## Phase R0 - emit a REAPI `Directory` (2 weeks)
 

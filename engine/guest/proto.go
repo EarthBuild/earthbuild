@@ -533,6 +533,15 @@ type Actions struct {
 	// and its reason: two implementations of one rule disagree eventually, and
 	// present as a client that cannot reach a service running perfectly well.
 	Socket string `json:"socket"`
+	// Image is the reference this step's base was resolved from: its FROM.
+	//
+	// **Said, for Socket's reason and one of its own.** The engine resolved
+	// this reference to a stack in order to run the step at all, so an action
+	// naming a `container-image` is naming something already known - there is
+	// nothing to look up here and no table to keep. Empty where the engine
+	// could not name it, and then an action asking for an image is refused
+	// rather than run in an environment nobody can vouch for.
+	Image string `json:"image,omitempty"`
 }
 
 type Daemon struct {

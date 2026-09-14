@@ -74,7 +74,7 @@ func (s *Server) withActions(
 			// every worker that is not a sandbox: there is nothing to hold open.
 			Hold: hold,
 		},
-		Runner: stepRunner{s: s, stack: stack},
+		Runner: stepRunner{s: s, stack: stack, image: ask.Image},
 	}).Register(g)
 
 	go func() { _ = g.Serve(ln) }()
@@ -106,8 +106,9 @@ func (s *Server) baseOf(handle string) []ir.NodeID {
 type stepRunner struct {
 	s     *Server
 	stack []ir.NodeID
+	image string
 }
 
 func (r stepRunner) RunAction(ctx context.Context, action ir.NodeID) (layer.Result, error) {
-	return r.s.RunAction(ctx, action, r.stack)
+	return r.s.RunAction(ctx, action, r.stack, r.image)
 }

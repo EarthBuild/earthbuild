@@ -344,17 +344,35 @@ func (e *Executor) Ping(ctx context.Context) error {
 // baseImageOf names the image a step stands on, for a diagnosis. Empty when the
 // chain does not reach one, which a message can say better than a blank can.
 func baseImageOf(n *ir.Node) string {
+	if ref := baseImageRef(n); ref != "" {
+		return ref
+	}
+
+	return "the base image"
+}
+
+// baseImageRef is the reference a step's base was resolved from, or empty.
+//
+// **Empty means the engine cannot say, and a caller must not fill that in.**
+// baseImageOf answers the same question for a message, where a phrase reads
+// better than a blank; anything deciding on the answer needs the difference
+// between "alpine@sha256:..." and "we do not know", because the second is not a
+// name anything can be compared against.
+//
+// Pinned by the time this is asked: Θ rewrites the reference before it reaches
+// the key (I17), so this is the digest form and not whatever tag was written.
+func baseImageRef(n *ir.Node) string {
 	for _, in := range n.Inputs {
 		if in.Op.Kind == ir.OpImage && len(in.Op.Args) > 0 {
 			return in.Op.Args[0]
 		}
 
-		if name := baseImageOf(in); name != "" {
-			return name
+		if ref := baseImageRef(in); ref != "" {
+			return ref
 		}
 	}
 
-	return "the base image"
+	return ""
 }
 
 // Where the docker client and its socket live in a sandbox image that has a
@@ -657,7 +675,7 @@ func (e *Executor) Run(
 		// WITH RE: a service in this step's own filesystem that answers REAPI
 		// for the environment this step stands in. The path is said here rather
 		// than derived at both ends - see Daemon.Socket, which learned it.
-		Actions: actionsFor(n.Op.Actions),
+		Actions: actionsFor(n),
 		// Observed, so the step can be reused against a base it did not run on.
 		//
 		// The only source a RUN has, and it costs: measured at **8x on a path
@@ -2278,10 +2296,19 @@ func (e *Executor) PruneStore(ctx context.Context, keep uint64) (string, error) 
 func (e *Executor) lostGuest(err error) error { return lostGuest(err, e.sb) }
 
 // actionsFor is the execution service a step asked for, or nothing.
-func actionsFor(want bool) *guest.Actions {
-	if !want {
+//
+// **The image is the step's FROM, which is the whole of the resolution.** An
+// action may name a `container-image`; the engine already turned that reference
+// into the stack this step is running on, so the only thing the guest needs is
+// to be told which reference that was. Nothing is looked up and no table is
+// kept - see Actions.Image, and confirmable, which is the other end of it.
+func actionsFor(n *ir.Node) *guest.Actions {
+	if !n.Op.Actions {
 		return nil
 	}
 
-	return &guest.Actions{Socket: guest.DefaultActionSocket}
+	return &guest.Actions{
+		Socket: guest.DefaultActionSocket,
+		Image:  baseImageRef(n),
+	}
 }

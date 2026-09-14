@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
@@ -29,7 +30,7 @@ import (
 // asked too early is told which blob is missing, rather than having an empty
 // command succeed and be cached as this action's answer.
 func (s *Server) RunAction(
-	ctx context.Context, id ir.NodeID, stack []ir.NodeID,
+	ctx context.Context, id ir.NodeID, stack []ir.NodeID, image string,
 ) (layer.Result, error) {
 	if s.LayerDir == "" {
 		return layer.Result{}, errors.New(
@@ -43,7 +44,7 @@ func (s *Server) RunAction(
 		return layer.Result{}, err
 	}
 
-	if bad := confirmable(a.Platform); bad != nil {
+	if bad := confirmable(a.Platform, image); bad != nil {
 		return layer.Result{}, bad
 	}
 
@@ -149,35 +150,57 @@ func (s *Server) RunAction(
 // the Platform, which is part of the Action, which is the key.
 const propContainerImage = "container-image"
 
-// confirmable refuses an action whose environment this guest cannot vouch for.
+// confirmable refuses an action that asks for an environment this is not.
 //
-// **The one false hit that is a line of code away.** An action's image is part
-// of its key, so running it over whatever base the calling step happens to have
-// and filing the result under the image it *named* produces a cache entry
-// describing an environment the work never ran in - and every later build that
-// legitimately uses that image gets it (I3).
+// **Which is just the FROM line, and that is the whole mechanism.** The engine
+// already resolved a reference to the stack this step runs on - memoised on
+// (reference, platform), pinned before it reached the key (I17) - so the image
+// an action may name is the one the step it is asking from stands on, and the
+// host says which that was. There is nothing to look up and no table to keep.
 //
-// This guest holds layers by digest and has no registry, so it can confirm
-// nothing and refuses everything that asks. That is the answer rather than a
-// placeholder: there is no base it could substitute that would make the key
-// true, and the alternative is a wrong answer nothing downstream can detect.
-// When it can resolve a reference to a stack, this becomes a lookup.
-func confirmable(platform []layer.Property) error {
+// An action naming a different image is refused rather than run here, because
+// its image is part of its Platform, which is part of its Action, which is its
+// key: running it over the base to hand and filing the result under the image
+// it named produces a cache entry describing an environment the work never ran
+// in, and every later build legitimately using that image would be served it
+// (I3). There is no base this guest could substitute that would make the key
+// true - it holds layers by digest and has no registry - so a refusal is the
+// only honest answer, not a placeholder for one.
+//
+// An empty `image` is a step whose base the engine could not name, and then
+// nothing can be confirmed. Refusing is the same rule with less to say.
+func confirmable(platform []layer.Property, image string) error {
 	for _, p := range platform {
 		if p.Name != propContainerImage {
 			continue
 		}
 
+		// `docker://` is REAPI's conventional scheme on a reference that is
+		// otherwise spelled as any registry client spells it.
+		if asks := strings.TrimPrefix(p.Value, "docker://"); asks == image && image != "" {
+			continue
+		}
+
+		if image == "" {
+			return fmt.Errorf(
+				"this action asks to run in %s, and this engine cannot say what the"+
+					" step asking on its behalf stands on"+
+					"\n  so it cannot tell whether that is the same image, and running it"+
+					"\n  would file the result under a key naming an environment the work"+
+					"\n  may never have run in",
+				p.Value)
+		}
+
 		return fmt.Errorf(
-			"this action asks to run in %s, and this engine cannot confirm that"+
-				"\n  it holds layers by digest and has no registry, so it cannot tell"+
-				"\n  whether the environment it would run this in is that image"+
-				"\n  running it anyway would file the result under a key naming an"+
+			"this action asks to run in %s and this step stands on %s"+
+				"\n  they are not the same image, and this engine holds layers by digest"+
+				"\n  with no registry, so it cannot fetch the one asked for"+
+				"\n  running it in this one would file the result under a key naming an"+
 				"\n  environment the work never ran in, which every later build using"+
 				"\n  that image would then be served"+
-				"\n  send the action without a %s property to run it in the environment"+
-				"\n  of the step that is asking",
-			p.Value, propContainerImage)
+				"\n  give the target a FROM naming the image the actions want, or send"+
+				"\n  the action with no %s property to accept this one",
+			p.Value, image, propContainerImage)
 	}
 
 	return nil

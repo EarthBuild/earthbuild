@@ -70,7 +70,7 @@ func TestAnActionRunsAndReturnsWhatItDeclared(t *testing.T) {
 		InputSize:   1,
 	})
 
-	got, err := srv.RunAction(context.Background(), put(t, st, action), nil)
+	got, err := srv.RunAction(context.Background(), put(t, st, action), nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestAnActionWithNoCommandBlobIsRefused(t *testing.T) {
 		InputRoot: put(t, st, dirOf()),
 	})
 
-	_, err := srv.RunAction(context.Background(), put(t, st, action), nil)
+	_, err := srv.RunAction(context.Background(), put(t, st, action), nil, "")
 	if err == nil {
 		t.Fatal("an action whose command is not in the store was run")
 	}
@@ -189,53 +189,77 @@ func pbField(b []byte, num int, v []byte) []byte {
 	return append(b, v...)
 }
 
-// An action naming an image this guest cannot confirm is refused.
+// An action may name the image the step it is asking from stands on.
 //
-// **The false hit I3 forbids, and it is one line of code away.** An action's
-// `container-image` is part of its Platform, which is part of its Action, which
-// is its key - so running it over whatever base the calling step happens to
-// have and filing the result under the image it *named* produces a cache entry
-// describing an environment the work never ran in. Every later build that
-// legitimately uses that image gets it.
+// **Which is just the FROM line.** The engine already resolved that reference
+// to a stack in order to run the step at all - that is what FROM does, memoised
+// on (reference, platform), pinned before it reaches the key (I17). So there is
+// nothing to look up here and no table to keep: the host says which image the
+// stack it handed over came from, exactly as it says where the socket is, and
+// this compares.
 //
-// This guest holds layers by digest and has no registry, so today it can
-// confirm nothing and refuses everything that asks. That is the honest answer
-// rather than a placeholder: when it can resolve a reference the refusal
-// becomes a lookup, and until then there is no base it could substitute that
-// would make the key true.
-func TestAnActionNamingAnImageThisGuestCannotConfirmIsRefused(t *testing.T) {
+// An action naming a *different* image is refused. Its image is part of its
+// Platform, which is part of its Action, which is its key - so running it over
+// the base to hand and filing the result under the image it named produces a
+// cache entry describing an environment the work never ran in, which every
+// later build legitimately using that image would be served (I3).
+func TestAnActionMayNameTheImageItsStepStandsOn(t *testing.T) {
 	t.Parallel()
 
-	layerDir := t.TempDir()
-	st := store.DirStore(layerDir)
+	const (
+		ours   = "alpine@sha256:" + zeros + "01"
+		theirs = "ubuntu@sha256:" + zeros + "ff"
+	)
 
-	srv := &guest.Server{
-		Mat:        &fixedRootMat{root: t.TempDir()},
-		LayerDir:   layerDir,
-		Unconfined: true,
-	}
+	for name, tc := range map[string]struct {
+		asks    string
+		refused bool
+	}{
+		"the same image":             {asks: ours},
+		"the same image, prefixed":   {asks: "docker://" + ours},
+		"a different image":          {asks: theirs, refused: true},
+		"the same name, unpinned":    {asks: "alpine", refused: true},
+		"an image, but we know none": {asks: ours, refused: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	cmd := layer.EncodeCommand(layer.Command{Arguments: []string{"/bin/sh", "-c", "true"}})
+			layerDir := t.TempDir()
+			st := store.DirStore(layerDir)
 
-	const ref = "docker://alpine@sha256:0000000000000000000000000000000000000000000000000000000000000001"
+			srv := &guest.Server{
+				Mat:        &fixedRootMat{root: t.TempDir()},
+				LayerDir:   layerDir,
+				Unconfined: true,
+			}
 
-	action := layer.EncodeAction(layer.Action{
-		Command:     put(t, st, cmd),
-		CommandSize: int64(len(cmd)),
-		InputRoot:   put(t, st, dirOf()),
-		Platform:    []layer.Property{{Name: "container-image", Value: ref}},
-	})
+			cmd := layer.EncodeCommand(layer.Command{Arguments: []string{"/bin/sh", "-c", "true"}})
 
-	_, err := srv.RunAction(context.Background(), put(t, st, action), nil)
-	if err == nil {
-		t.Fatal("an action naming an image was run over whatever base was to hand," +
-			" and its result is now cached under that image's name")
-	}
+			action := layer.EncodeAction(layer.Action{
+				Command:     put(t, st, cmd),
+				CommandSize: int64(len(cmd)),
+				InputRoot:   put(t, st, dirOf()),
+				Platform:    []layer.Property{{Name: "container-image", Value: tc.asks}},
+			})
 
-	// The refusal names the image, because the author's next question is which
-	// one - and a message that does not say is one they cannot act on.
-	if !strings.Contains(err.Error(), ref) {
-		t.Errorf("the refusal does not name the image: %v", err)
+			// The last case is the one where the engine could not say what the
+			// step stands on: an unknown environment can confirm nothing.
+			know := ours
+			if name == "an image, but we know none" {
+				know = ""
+			}
+
+			_, err := srv.RunAction(context.Background(), put(t, st, action), nil, know)
+
+			switch {
+			case tc.refused && err == nil:
+				t.Errorf("an action asking for %q ran on %q", tc.asks, know)
+			case !tc.refused && err != nil:
+				t.Errorf("an action asking for the image it is running on was refused: %v", err)
+			case tc.refused && !strings.Contains(err.Error(), tc.asks):
+				t.Errorf("the refusal does not name the image asked for: %v", err)
+			}
+		})
 	}
 }
 
@@ -274,7 +298,10 @@ func TestAnActionNamingNoImageStillRuns(t *testing.T) {
 		Platform:    []layer.Property{{Name: "OSFamily", Value: "linux"}},
 	})
 
-	if _, err := srv.RunAction(context.Background(), put(t, st, action), nil); err != nil {
+	if _, err := srv.RunAction(context.Background(), put(t, st, action), nil, ""); err != nil {
 		t.Fatalf("an action naming no image was refused: %v", err)
 	}
 }
+
+// zeros is the dull part of a digest, so a table of them fits on a line.
+const zeros = "000000000000000000000000000000000000000000000000000000000000"

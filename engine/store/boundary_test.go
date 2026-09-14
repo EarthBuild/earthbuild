@@ -79,6 +79,10 @@ var knowsTheLayout = map[string]string{
 	// the service this guest runs. Same side, same directory, same reason.
 	"engine/guest/runaction.go": sideGuest,
 
+	// The service a WITH RE step talks to serves blobs out of the same store,
+	// because that is where the client put them.
+	"engine/guest/serveactions.go": sideGuest,
+
 	// PID 1 of a microVM, which mounts the device the store is on and counts
 	// what it holds at boot. As inside the sandbox as it is possible to be:
 	// the store's own filesystem does not exist until this has mounted it.

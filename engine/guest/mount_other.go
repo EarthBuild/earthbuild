@@ -65,3 +65,10 @@ func mountDevPts(string) (func(), error) { return func() {}, nil }
 
 // resolverMount is empty off Linux.
 func resolverMount() []Mount { return nil }
+
+// actionsRoomMount is empty off Linux, for the reason secretsRoomMount is.
+//
+// Nothing is mounted here, so a WITH RE step's socket really is in its delta -
+// which is why the capture half of its test is Linux-only. Inside a sandbox,
+// which is where a delta is ever committed, the mount is there.
+func actionsRoomMount(*Actions) []Mount { return nil }

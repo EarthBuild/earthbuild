@@ -213,6 +213,27 @@ accepted - it is the shape of the thing, and it removes more work than it leaves
 
 `earth-native -serve-cache` therefore stays a way to *try* this by hand, and is not the product.
 
+**Settled: the opt-in is `WITH RE`, by analogy with `WITH DOCKER`.** A block rather than a flag,
+because the thing being asked for is the same thing: something running alongside a step, for
+exactly as long as the step lasts, that the step talks to over a socket in its own filesystem. That
+analogy is not decoration - `Step.Daemon` already carries a `Socket` field, and already carries the
+lesson that the path is *said* by the host rather than derived at both ends, because two
+implementations of one rule disagree eventually and present as a client that cannot reach a service
+running perfectly well. `WITH RE` inherits that for nothing.
+
+**Settled: both sources of an action's base, in that order.** The service is given a stack by the
+step it belongs to, which is the default and needs no cooperation from the client. Where an action
+names a `container-image` this guest has recorded a stack for, that wins - because an action naming
+a toolchain image different from its caller's is ordinary Buck2 behaviour, and running it in the
+caller's environment while keying it under the image it named would admit exactly the false hit I3
+forbids. An image this guest has no stack for is a refusal, not a substitution: the guest holds
+layers by digest and has no registry, so there is nothing honest it could run instead.
+
+**The seam between them is `remote.Runner`.** Which layers an action's environment is, and whether
+a client may name one of its own, is settled where the step is started; what reaches the protocol
+code is something that can run an action. A service that resolved bases itself would be the second
+place that rule is written.
+
 ### The recursion, which is the interesting part
 
 A step runs buck2; buck2 asks the engine running that step to execute actions. Those actions are

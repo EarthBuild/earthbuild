@@ -2383,6 +2383,7 @@ func stepMounts(req Request, env []string, ownNet bool) []Mount {
 	}
 
 	out := append(deviceMounts(), secretsRoomMount()...)
+	out = append(out, actionsRoomMount(req.Actions)...)
 	out = append(out, resolver...)
 	out = append(out, hostnameMount()...)
 
@@ -3000,6 +3001,17 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		return rerr
 	}
 
+	// **Wrapped outside the daemon, so a WITH RE inside a WITH DOCKER gets
+	// both.** The two are independent: one runs a container daemon beside the
+	// step, the other answers actions for it, and a step may reasonably want
+	// either or both.
+	if req.Actions != nil {
+		ran := body
+		body = func() error {
+			return s.withActions(h.Root(), req.Actions, s.baseOf(req.Handle), ran)
+		}
+	}
+
 	if req.Daemon == nil {
 		err = body()
 	} else {
@@ -3269,6 +3281,9 @@ type Step struct {
 	// Mounts are directories bound into the step's filesystem: they outlive it,
 	// and are not part of what it produces.
 	Mounts []Mount
+	// Actions asks for an execution service reachable from this step, for as
+	// long as the step lasts. Nil for everything that is not a WITH RE.
+	Actions *Actions
 	// Daemon asks for a container daemon running inside this step, for as long
 	// as the step lasts. Nil for everything that is not a WITH DOCKER.
 	//
@@ -3363,6 +3378,7 @@ func (c *Client) RunStep(
 		Privileged: step.Privileged,
 		Trace:      step.Trace,
 		Daemon:     step.Daemon,
+		Actions:    step.Actions,
 		Hosts:      step.Hosts,
 	}
 

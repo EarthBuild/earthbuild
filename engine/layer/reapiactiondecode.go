@@ -165,3 +165,51 @@ func digestIn(b []byte) (ir.NodeID, int64, error) {
 
 	return id, size, nil
 }
+
+// ResultIn reads an ActionResult message.
+//
+// The reply half of the pair: a client that asked for an action to be executed
+// reads this to find what it produced. Written for the tests that drive this
+// engine through its own protocol, which is the only way to check the reply
+// says what a peer would read rather than what the encoder happened to write.
+func ResultIn(b []byte) (Result, error) {
+	var r Result
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		switch {
+		case field == fieldOutputDirs && wire == wireBytes:
+			return eachField(v, func(df, dw int, dv []byte) error {
+				switch {
+				case df == fieldOutDirPath && dw == wireBytes:
+					r.Path = string(dv)
+				case df == fieldOutDirRoot && dw == wireBytes:
+					id, size, err := digestIn(dv)
+					if err != nil {
+						return fmt.Errorf("an output directory's digest: %w", err)
+					}
+
+					r.Root, r.RootSize = id, size
+				}
+
+				return nil
+			})
+		case field == fieldExitCode && wire == wireVarint:
+			n, read := binary.Uvarint(v)
+			if read <= 0 {
+				return errors.New("exit_code is not a varint")
+			}
+
+			r.ExitCode = int32(n) //nolint:gosec // a process exit status
+		case field == fieldStdoutRaw && wire == wireBytes:
+			// Copied, as the salt is: `v` points into the caller's buffer.
+			r.Stdout = append([]byte(nil), v...)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return Result{}, err
+	}
+
+	return r, nil
+}

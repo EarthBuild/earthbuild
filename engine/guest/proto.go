@@ -489,6 +489,13 @@ type Request struct {
 	// asked for one and filled nothing in, which is a caller bug and is refused
 	// rather than defaulted.
 	Daemon *Daemon `json:"daemon,omitempty"`
+	// Actions asks for a remote-execution service reachable from this step, for
+	// as long as the step lasts. Nil for everything that is not a WITH RE.
+	//
+	// A pointer for Daemon's reason, and the same shape because it is the same
+	// idea: something running beside a step, that the step talks to over a
+	// socket in its own filesystem.
+	Actions *Actions `json:"actions,omitempty"`
 	// Hosts are name-to-address entries the step resolves by, as "name address".
 	//
 	// `HOST api.test 10.0.0.1`. They become an `/etc/hosts` bound into the step,
@@ -503,6 +510,22 @@ type Request struct {
 // It lives and dies with the step. That is not a simplification: a daemon
 // outliving its step is a daemon holding the step's overlay open, and the layer
 // the capture then takes is of a filesystem still being written to.
+// Actions is an execution service running beside a step: WITH RE.
+//
+// **The socket is the identity.** It is bound inside the step's own filesystem,
+// so the service a client reaches is the one holding that step's base. There is
+// no token to pass and nothing for a client to get wrong, and a step that did
+// not ask cannot find it - which is the sandbox boundary doing the work, not
+// anything invented here (plan-remote-execution R5).
+type Actions struct {
+	// Socket is where it listens, inside the step's filesystem.
+	//
+	// Said rather than derived at both ends, which is Daemon.Socket's lesson
+	// and its reason: two implementations of one rule disagree eventually, and
+	// present as a client that cannot reach a service running perfectly well.
+	Socket string `json:"socket"`
+}
+
 type Daemon struct {
 	// Root is where it keeps everything, inside the step's filesystem.
 	//

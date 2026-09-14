@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -796,6 +797,28 @@ func resolverMount() []Mount {
 // nothing in it on every image this corpus builds.
 func secretsRoomMount() []Mount {
 	return []Mount{{Ephemeral: true, Tmpfs: true, Target: "/run/secrets", Mode: 0o755}}
+}
+
+// actionsRoomMount is where a WITH RE step's socket lives.
+//
+// **Ephemeral and a tmpfs for secretsRoomMount's reason, and it is the same
+// reason.** What a step writes into its own root is captured, and a socket is
+// the one thing a layer cannot hold at all: it has no contents to digest, and
+// committing a delta containing one fails outright with a message about a mode
+// nobody chose (`cannot reproduce ... (S---------)`).
+//
+// The service is what binds it, so without this the engine would be putting a
+// file into the step's filesystem that the step is then blamed for.
+func actionsRoomMount(ask *Actions) []Mount {
+	if ask == nil {
+		return nil
+	}
+
+	return []Mount{{
+		Ephemeral: true, Tmpfs: true,
+		Target: path.Dir(path.Clean("/" + ask.Socket)),
+		Mode:   0o755,
+	}}
 }
 
 // stepDevices are the device files every step is entitled to, named once so

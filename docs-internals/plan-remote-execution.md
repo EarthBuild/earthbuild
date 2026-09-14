@@ -7,6 +7,12 @@ standardised.
 
 Durations are working weeks for one developer, and are estimates.
 
+## The order, which is not the numbering
+
+R0, R1, R2 and R2b are done or in flight. After them the dependency order is **R4 then R5**: an
+execution service must hand back named outputs and the step's stdout, which is what R4 builds. R3 -
+this engine as somebody else's client - is independent and wanted by nothing at present.
+
 ## What made this reachable
 
 Three things landed on 2026-09-13/14 and are not part of this plan's cost:
@@ -173,7 +179,67 @@ secret's name and a separate `SecretDigest`; that separation has to survive the 
 
 Costs a cache generation, which is cheap while nothing depends on the last one.
 
+## Phase R5 - execute, on one machine
+
+**The endgame, and not the hard part of it.** A client this engine did not write - buck2 - sends an
+`Action`; this engine runs it and returns the result. Distribution is explicitly out: no scheduling
+across machines, no worker pool, no queue, no fairness, no retries. One process, executing what it
+is asked for, as many at a time as the existing scheduler already runs steps.
+
+### What an action turns out to be
+
+The correspondence is tighter than it first appears, because the input root is **not** the whole
+filesystem. The practice every client follows is a `container-image` platform property -
+`docker://…@sha256:…` - with the action running inside that image and only its own inputs in the
+tree. The other reading, input-root-as-filesystem-root, is what BuildStream wants and is *not
+standardised*.
+
+| REAPI                               | this engine          |
+| ----------------------------------- | -------------------- |
+| `container-image` platform property | `FROM …@sha256:…`    |
+| input root                          | the `COPY`'d sources |
+| `Command.arguments`                 | `RUN`                |
+| `output_paths`                      | R4's `RUN --output`  |
+
+So an action is a base image, a small tree over it, and a command - three of which this engine
+already does. Materialising the input root is an overlay upper over the base's lowers, which is
+what `COPY` does today.
+
+Reproducibility rests on the image being pinned by digest, because under this model the toolchain
+reaches the key no other way. `container-image` is in the `Platform`, which is in the `Action`,
+which is Κₜ - so a moved tag is a different key. That property already holds and becomes
+load-bearing here.
+
+### What is missing
+
+* **Handing back named files as blobs.** An action returns `output_paths`; this engine captures a
+  whole delta. This is the one genuine gap, and it is narrower than "a per-file CAS" - the input
+  side needs only a small tree, and the output side needs N named files addressable by content
+  digest. R4's `RUN --output` wants the same thing.
+* **Accepting uploads**, which inverts the cache's current policy. A blob arriving under a name the
+  client chose must be verified against that name on receipt, exactly as it is on serve.
+* **Decoders** for the request messages. The encoders exist and are protoc-verified; decoding is
+  the same shape and `ChildDigests` is the pattern.
+* **gRPC**, whose dependencies are already direct. `Capabilities` advertises the one digest
+  function; `Execution` returns a `longrunning.Operation`.
+* **stdout on the result.** `ActionResult` carries it and a client displays it, so **R4's output
+  capture is a dependency of this phase** and not only a convenience. It is not a dependency of the
+  cache-only path.
+
+### What is deliberately absent
+
+Scheduling, worker pools, queue metadata, fairness, retries, and `WaitExecution` streaming beyond
+what one machine needs. These are the hard part of remote execution and none of them is on the path
+to running an action correctly.
+
+**Exit**: `buck2 --remote-execution` against this engine builds a crate, and the second build of it
+hits.
+
 ## Phase R3 - delegate a step to an RE service (unscoped)
+
+Independent of R5 and lower priority: R5 makes this engine a service, which is the stated endgame;
+R3 makes it a client of somebody else's, which nothing currently wants. Left here because the
+machinery overlaps - computing an `Action` and asking a cache about it is R2b's, whoever answers.
 
 The endgame, and the one with a design question rather than a work list. A result EarthBuild did
 not capture has no `Capture.ID`, so I8 has nothing to hash and Κ₁ keys on something it was not
@@ -184,6 +250,11 @@ invocation rather than per RUN - is a separate argument, and the reason it pays 
 nondeterminism to the action that has it rather than poisoning twenty minutes.
 
 ## Phase R4 - two things worth stealing, and not remote execution
+
+**R5 depends on both of these**, which was not obvious when they were written down. An
+`ActionResult` carries the step's stdout and a client displays it, so the output capture is a
+dependency rather than a nicety; and `output_paths` is how an action says what to hand back, which
+is `RUN --output` under another name.
 
 Both found by reading the API rather than by doing the work, both **to be done**, and neither
 blocked on a peer, a protocol or a digest function. Sequenced after the phases above only because

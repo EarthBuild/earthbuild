@@ -21,6 +21,11 @@ const (
 	fieldEnv        = 2 // Command.environment_variables
 	fieldWorkingDir = 6 // Command.working_directory
 	fieldOutputs    = 7 // Command.output_paths
+	// Deprecated since v2.1 and still sent by a client that thinks it is
+	// talking to an older service.
+	fieldOutputFilesOld  = 3 // Command.output_files
+	fieldOutputDirsOld   = 4 // Command.output_directories
+	fieldCommandPlatform = 5 // Command.platform
 
 	fieldCommandDigest = 1  // Action.command_digest
 	fieldInputRoot     = 2  // Action.input_root_digest
@@ -46,6 +51,14 @@ type Command struct {
 	Env              []Property // in name order, which REAPI requires
 	WorkingDirectory string
 	OutputPaths      []string // empty until a step can declare what it produces
+	// Platform is the deprecated home for what an Action now carries.
+	//
+	// **Read because ignoring it is unsafe, not because it is used.** An action
+	// naming a `container-image` here would otherwise run in whatever base was
+	// to hand and be filed under the image it named, which is the false hit I3
+	// forbids. Never written: this engine puts a platform where a current
+	// client looks for one.
+	Platform []Property
 }
 
 // Action is a Command over an input tree, and its digest is Κₜ.
@@ -290,12 +303,23 @@ func appendStamp(b []byte, field int, at time.Time) []byte {
 
 // Capabilities fields.
 const (
-	fieldCacheCaps    = 1 // ServerCapabilities.cache_capabilities
-	fieldLowAPI       = 3 // ServerCapabilities.low_api_version
-	fieldHighAPI      = 4 // ServerCapabilities.high_api_version
-	fieldDigestFuncs  = 1 // CacheCapabilities.digest_functions
-	fieldMaxBatchSize = 4 // CacheCapabilities.max_batch_total_size_bytes
-	fieldSemVerMajor  = 1 // SemVer.major
+	fieldCacheCaps = 1 // ServerCapabilities.cache_capabilities
+	fieldExecCaps  = 2 // ServerCapabilities.execution_capabilities
+	// **4 and 5, and they were 3 and 4 here.** Field 3 is
+	// `deprecated_api_version`, so this service was telling every client it was
+	// deprecated at 2.0, giving its low version where the high one goes, and
+	// never writing a high version at all - which reads as "supports up to
+	// v0.0". Buck2 does not look; bazel does.
+	fieldLowAPI  = 4 // ServerCapabilities.low_api_version
+	fieldHighAPI = 5 // ServerCapabilities.high_api_version
+
+	fieldExecDigestFunc = 1 // ExecutionCapabilities.digest_function
+	fieldExecEnabled    = 2 // ExecutionCapabilities.exec_enabled
+	fieldExecDigestFns  = 5 // ExecutionCapabilities.digest_functions
+	fieldDigestFuncs    = 1 // CacheCapabilities.digest_functions
+	fieldMaxBatchSize   = 4 // CacheCapabilities.max_batch_total_size_bytes
+	fieldSemVerMajor    = 1 // SemVer.major
+	fieldSemVerMinor    = 2 // SemVer.minor
 )
 
 // DigestFunctionSHA256 and DigestFunctionBLAKE3 are the two this engine has, by
@@ -328,11 +352,27 @@ func EncodeCapabilities(digestFunction int, maxBatchBytes int64) []byte {
 
 	out := appendMessage(nil, fieldCacheCaps, caps)
 
-	// v2 at both ends: this is the only version of the API there is.
-	two := appendVarintField(nil, fieldSemVerMajor, 2)
-	out = appendMessage(out, fieldLowAPI, two)
+	// **And that this service executes, or a client will only ever cache.**
+	// Bazel reads `exec_enabled` before it sends an action and refuses remote
+	// execution without it, saying the server does not support it - which is
+	// what a service advertising only its cache is in fact saying.
+	exec := appendVarintField(nil, fieldExecDigestFunc, uint64(digestFunction)) //nolint:gosec // a small constant
+	exec = appendVarintField(exec, fieldExecEnabled, 1)
+	//nolint:gosec // a small constant
+	exec = appendPackedVarints(exec, fieldExecDigestFns, []uint64{uint64(digestFunction)})
+	out = appendMessage(out, fieldExecCaps, exec)
 
-	return appendMessage(out, fieldHighAPI, two)
+	// v2.0 to v2.1. **The high end matters: `output_paths` is new in v2.1**, so
+	// a client told 2.0 concludes the field does not exist and sends the
+	// deprecated `output_files` and `output_directories` instead - asking
+	// correctly and being ignored.
+	low := appendVarintField(nil, fieldSemVerMajor, 2)
+	out = appendMessage(out, fieldLowAPI, low)
+
+	high := appendVarintField(nil, fieldSemVerMajor, 2)
+	high = appendVarintField(high, fieldSemVerMinor, 1)
+
+	return appendMessage(out, fieldHighAPI, high)
 }
 
 // appendPackedVarints writes a repeated scalar field the way proto3 does by

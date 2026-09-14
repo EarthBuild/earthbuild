@@ -24,7 +24,10 @@ import (
 
 // CommandIn reads a Command message.
 func CommandIn(b []byte) (Command, error) {
-	var c Command
+	var (
+		c   Command
+		old []string
+	)
 
 	err := eachField(b, func(field, wire int, v []byte) error {
 		if wire != wireBytes {
@@ -34,6 +37,32 @@ func CommandIn(b []byte) (Command, error) {
 		switch field {
 		case fieldArguments:
 			c.Arguments = append(c.Arguments, string(v))
+		case fieldOutputFilesOld, fieldOutputDirsOld:
+			// **Deprecated since v2.1 and still sent.** A client that believes
+			// it is talking to an older service puts its outputs here, and one
+			// reading only `output_paths` loses everything it asked for.
+			// Precedence is REAPI's own: where `output_paths` is present these
+			// are ignored, which is settled after the walk.
+			old = append(old, string(v))
+		case fieldCommandPlatform:
+			// **The older home for a platform, and ignoring it is unsafe.** An
+			// action naming a container-image here would otherwise run in
+			// whatever base was to hand and be filed under the image it named,
+			// which is the false hit I3 forbids - refusing it needs it read.
+			return eachField(v, func(pf, pw int, pv []byte) error {
+				if pf != fieldPlatformProps || pw != wireBytes {
+					return nil
+				}
+
+				name, value, err := propertyIn(pv)
+				if err != nil {
+					return fmt.Errorf("a platform property: %w", err)
+				}
+
+				c.Platform = append(c.Platform, Property{Name: name, Value: value})
+
+				return nil
+			})
 		case fieldEnv:
 			name, value, err := propertyIn(v)
 			if err != nil {
@@ -51,6 +80,12 @@ func CommandIn(b []byte) (Command, error) {
 	})
 	if err != nil {
 		return Command{}, err
+	}
+
+	// REAPI's rule: "If output_paths is used, output_files and
+	// output_directories will be ignored."
+	if len(c.OutputPaths) == 0 {
+		c.OutputPaths = old
 	}
 
 	return c, nil
@@ -212,4 +247,116 @@ func ResultIn(b []byte) (Result, error) {
 	}
 
 	return r, nil
+}
+
+// Capabilities is what a service told a client it can do.
+type Capabilities struct {
+	DigestFunctions     []uint64
+	ExecDigestFunctions []uint64
+	ExecEnabled         bool
+	MaxBatchBytes       int64
+	LowMajor, LowMinor  int64
+	HighMajor           int64
+	HighMinor           int64
+}
+
+// CapabilitiesIn reads a ServerCapabilities.
+//
+// The reply half, so a test can ask what a client would be told rather than
+// what this engine meant to say. The two were different: field 3 is
+// `deprecated_api_version` and this service was writing its low version there.
+func CapabilitiesIn(b []byte) (Capabilities, error) {
+	var out Capabilities
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		if wire != wireBytes {
+			return nil
+		}
+
+		switch field {
+		case fieldCacheCaps:
+			return eachField(v, func(cf, cw int, cv []byte) error {
+				switch {
+				case cf == fieldDigestFuncs:
+					out.DigestFunctions = append(out.DigestFunctions, varintsIn(cv, cw)...)
+				case cf == fieldMaxBatchSize && cw == wireVarint:
+					n, _ := binary.Uvarint(cv)
+					out.MaxBatchBytes = int64(n) //nolint:gosec // a length
+				}
+
+				return nil
+			})
+		case fieldExecCaps:
+			return eachField(v, func(ef, ew int, ev []byte) error {
+				switch {
+				case ef == fieldExecEnabled && ew == wireVarint:
+					n, _ := binary.Uvarint(ev)
+					out.ExecEnabled = n != 0
+				case ef == fieldExecDigestFunc && ew == wireVarint, ef == fieldExecDigestFns:
+					out.ExecDigestFunctions = append(out.ExecDigestFunctions, varintsIn(ev, ew)...)
+				}
+
+				return nil
+			})
+		case fieldLowAPI:
+			out.LowMajor, out.LowMinor = semverIn(v)
+		case fieldHighAPI:
+			out.HighMajor, out.HighMinor = semverIn(v)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return Capabilities{}, err
+	}
+
+	return out, nil
+}
+
+// varintsIn reads a repeated scalar, packed or not.
+//
+// Both, because proto3 packs by default and a conforming writer may do either -
+// a reader that understood only one form would be right about half the peers.
+func varintsIn(v []byte, wire int) []uint64 {
+	if wire == wireVarint {
+		n, _ := binary.Uvarint(v)
+
+		return []uint64{n}
+	}
+
+	var out []uint64
+
+	for len(v) > 0 {
+		n, read := binary.Uvarint(v)
+		if read <= 0 {
+			return out
+		}
+
+		out = append(out, n)
+		v = v[read:]
+	}
+
+	return out
+}
+
+// semverIn reads the major and minor of a SemVer.
+func semverIn(b []byte) (major, minor int64) {
+	_ = eachField(b, func(field, wire int, v []byte) error {
+		if wire != wireVarint {
+			return nil
+		}
+
+		n, _ := binary.Uvarint(v)
+
+		switch field {
+		case fieldSemVerMajor:
+			major = int64(n) //nolint:gosec // a version
+		case fieldSemVerMinor:
+			minor = int64(n) //nolint:gosec // a version
+		}
+
+		return nil
+	})
+
+	return major, minor
 }

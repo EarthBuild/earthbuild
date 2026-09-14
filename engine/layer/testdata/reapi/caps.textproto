@@ -2,5 +2,10 @@ cache_capabilities {
   digest_functions: 1
   max_batch_total_size_bytes: 4194304
 }
+execution_capabilities {
+  digest_function: 1
+  exec_enabled: true
+  digest_functions: 1
+}
 low_api_version { major: 2 }
-high_api_version { major: 2 }
+high_api_version { major: 2 minor: 1 }

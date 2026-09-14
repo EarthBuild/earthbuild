@@ -133,11 +133,24 @@ message CacheCapabilities {
   int32 symlink_absolute_path_strategy = 5;
 }
 
+// **Transcribed from the schema, and it was wrong.** low/high were 3 and 4
+// here; field 3 is `deprecated_api_version`, so every golden generated from
+// this agreed with an encoder that told clients it was deprecated and named no
+// high version at all. A vector built from a transcription checks the encoder
+// against the transcription and cannot check the transcription.
 message ServerCapabilities {
   CacheCapabilities cache_capabilities = 1;
-  reserved 2;
-  SemVer low_api_version = 3;
-  SemVer high_api_version = 4;
+  ExecutionCapabilities execution_capabilities = 2;
+  SemVer deprecated_api_version = 3;
+  SemVer low_api_version = 4;
+  SemVer high_api_version = 5;
+}
+
+message ExecutionCapabilities {
+  int32 digest_function = 1;
+  bool exec_enabled = 2;
+  reserved 3, 4;
+  repeated int32 digest_functions = 5;
 }
 
 message SemVer {

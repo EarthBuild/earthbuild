@@ -7,8 +7,6 @@ import (
 	"hash"
 	"io"
 	"math"
-
-	"lukechampine.com/blake3"
 )
 
 // HashSize is the width of every digest in the engine, in bytes.
@@ -26,7 +24,7 @@ const HashSize = 32
 // in the engine, so an API that may change under a v0 compatibility promise is
 // a poor place to stand.
 func NewHasher() *Hasher {
-	h := blake3.New(HashSize, nil)
+	h := newHash()
 	bw := bufio.NewWriterSize(h, hashBuffer)
 
 	return &Hasher{h: h, bw: bw, Encoder: Encoder{w: bw}}
@@ -53,7 +51,7 @@ const hashBuffer = 64 << 10
 // 2.4x - 532 MB/s against 226. Sum is ℋ over exactly the bytes written, so this
 // and DigestOf name the same content.
 func NewStreamHasher() *StreamHasher {
-	return &StreamHasher{h: blake3.New(HashSize, nil)}
+	return &StreamHasher{h: newHash()}
 }
 
 // StreamHasher is ℋ over bytes handed to it, with no encoding around them.
@@ -81,7 +79,7 @@ func (s *StreamHasher) Sum() NodeID {
 //
 // Equal to NewHasher().Fixed(b).Sum() by construction - Fixed writes raw - and
 // TestDigestOfAgreesWithAHasher holds the two together.
-func DigestOf(b []byte) NodeID { return NodeID(blake3.Sum256(b)) }
+func DigestOf(b []byte) NodeID { return sumOf(b) }
 
 // Hasher builds the injective encoding required by green paper §1.4.
 //

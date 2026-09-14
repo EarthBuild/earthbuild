@@ -6,8 +6,11 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
+
+	"google.golang.org/grpc"
 
 	"github.com/EarthBuild/earthbuild/engine/cache"
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -59,20 +62,55 @@ func serveCache(root, at string, hold func() func()) (stop func(), err error) {
 		return nil, fmt.Errorf("%s: listen on %s: %w", label(), at, err)
 	}
 
+	c := &remote.Cache{
+		Store:   store.DirStore(root),
+		Actions: ac,
+		// **A machine with a request in flight is not idle.** Idleness is
+		// measured by when a host last spoke, and a client inside a step is
+		// not the host - so without this the agent stops itself while it is
+		// busiest, and the client sees a connection close saying nothing.
+		Hold: hold,
+	}
+
+	// **Both protocols on one address, because a client is told one address.**
+	// buck2 and bazel speak REAPI over gRPC; this engine's own fleet speaks the
+	// HTTP cache. Two ports would be a second thing to plumb through the
+	// sandbox and a second variable to set, and a client pointed at the wrong
+	// one gets a connection that succeeds and then says nothing useful.
+	//
+	// They are distinguishable without guessing: gRPC is HTTP/2 carrying
+	// `application/grpc`, which nothing else here sends.
+	g := grpc.NewServer(grpc.ForceServerCodec(remote.Codec()))
+	(&remote.Service{Cache: c}).Register(g)
+
+	mux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 &&
+			strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
+			g.ServeHTTP(w, r)
+
+			return
+		}
+
+		c.ServeHTTP(w, r)
+	})
+
+	// **Unencrypted HTTP/2 as well as HTTP/1.1.** There is no TLS here and
+	// nothing for it to protect: the listener is reachable only from inside a
+	// sandbox this engine started, which is the whole of the authorisation
+	// model (plan-remote-execution R5). Without HTTP/2 a gRPC client's
+	// prior-knowledge preface is read as a malformed HTTP/1.1 request, and the
+	// error names a frame size rather than anything a reader could act on.
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
+
 	srv := &http.Server{
-		Handler: &remote.Cache{
-			Store:   store.DirStore(root),
-			Actions: ac,
-			// **A machine with a request in flight is not idle.** Idleness is
-			// measured by when a host last spoke, and a client inside a step is
-			// not the host - so without this the agent stops itself while it is
-			// busiest, and the client sees a connection close saying nothing.
-			Hold: hold,
-		},
+		Handler:           mux,
+		Protocols:         protocols,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	fmt.Fprintf(os.Stderr, "%s: remote cache on http://%s\n", label(), ln.Addr())
+	fmt.Fprintf(os.Stderr, "%s: remote cache and execution on %s\n", label(), ln.Addr())
 
 	go func() {
 		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -82,5 +120,5 @@ func serveCache(root, at string, hold func() func()) (stop func(), err error) {
 
 	serving.Store(ln.Addr().String())
 
-	return func() { _ = srv.Close() }, nil
+	return func() { g.Stop(); _ = srv.Close() }, nil
 }

@@ -152,16 +152,24 @@ What it buys: `/ac` becomes implementable and meaningful; two instances of this 
 over the real protocol rather than a bespoke one; and once a step is decomposed (R3) a Bazel or
 Buck2 client hits this cache for real, because by then we are running the same actions.
 
-**The constraint is that three of the four operation kinds are not commands.** `exec(argv)` maps
-directly; `file(ops)`, `image(ref)` and `local(path)` have no argv. Handled as a device node is
-(4.5b): synthesise a `Command` for them, keep one key shape, and **refuse at the point of handing
-such an Action to a remote execution service** - a conforming worker would try to execute the argv.
-Represent faithfully, refuse at the boundary. That refusal does not exist yet.
+**Third-party *workers* are not a goal; third-party *clients* are.** The difference decides what
+has to be true. Nothing outside this engine will execute our actions, so it does not matter that
+`file`, `image` and `local` have no argv, that `Privileged`, `Docker`, `SSH` and `User` have no
+REAPI notion, or that `output_paths` is empty and a conforming worker would therefore return
+nothing. Our own worker returns the whole delta, as it always has.
 
-Two mappings to settle rather than guess: `output_paths` is empty until R4's `RUN --output` exists,
-so a `command_digest` here differs from what a tool declaring its outputs computes for the same
-argv - which costs nothing between our own instances and is a real gap to a third party that no
-encoding closes. And π is ours where `Platform` is a key/value list.
+What *is* a goal is a client we did not write - buck2 - declaring actions that this engine
+executes. That direction is client-to-us, and it requires only that a digest we compute for an
+action equals the one it computes: hence protoc-verified encodings (R0) and SHA-256 (R1), both of
+which stay essential. A `rustc` invocation is entirely within our reach to run.
+
+Every operation field with no REAPI field goes in `Platform.properties` as `earthbuild.*`, which is
+inside the Action digest, so injectivity survives and
+`TestEveryOperationFieldReachesTheKey` enforces totality by reflection.
+
+**One constraint is not about third parties and holds regardless: a secret's value must never enter
+a `Command`.** An Action is hashed *and cached*, and our own CAS is a cache. Today the key takes a
+secret's name and a separate `SecretDigest`; that separation has to survive the move.
 
 Costs a cache generation, which is cheap while nothing depends on the last one.
 
@@ -182,6 +190,10 @@ blocked on a peer, a protocol or a digest function. Sequenced after the phases a
 those are in flight, not because they depend on them.
 
 ### `RUN --output`, narrowing a capture to what was asked for
+
+Not a prerequisite for anything. It was briefly recorded as one, on the grounds that a REAPI worker
+returns only its declared outputs - true, and irrelevant, because no worker we do not own will run
+our steps.
 
 A step's result is the whole overlay delta. `cargo build --release` writes 10,638 files and
 gigabytes into `target/`, and the capture walks, hashes and stores all of it when the only thing

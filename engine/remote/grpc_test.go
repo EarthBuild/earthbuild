@@ -1,16 +1,22 @@
 package remote_test
 
 import (
+	"bytes"
 	"context"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/remote"
 	"github.com/EarthBuild/earthbuild/engine/store"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 // dialService starts the service and returns a client speaking to it.
@@ -188,5 +194,140 @@ func TestAClientSendsBlobsAndTheWrongOneIsRefused(t *testing.T) {
 		t.Error("a blob whose bytes do not name it was filed under the name" +
 			" its sender chose, so every later reader is told these are the" +
 			" bytes it asked for")
+	}
+}
+
+// A client reads back a blob it sent, and is told plainly about one that is not
+// there.
+func TestAClientReadsBlobsAndIsToldAboutAMiss(t *testing.T) {
+	restore := ir.SelectHashForTest(t, ir.HashSHA256)
+	defer restore()
+
+	st := store.DirStore(t.TempDir())
+	conn := dialService(t, st)
+
+	body := []byte("a directory message")
+	id := ir.DigestOf(body)
+
+	if err := st.Accept(id, body); err != nil {
+		t.Fatal(err)
+	}
+
+	absent := ir.NodeID{0xab, 0x5e}
+
+	out := call(t, conn,
+		"/build.bazel.remote.execution.v2.ContentAddressableStorage/BatchReadBlobs",
+		layer.EncodeBatchReadBlobsForTest([]ir.NodeID{id, absent}))
+
+	reads, err := layer.ReadsInResponse(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(reads) != 2 {
+		t.Fatalf("%d results for two requests", len(reads))
+	}
+
+	if string(reads[0].Data) != string(body) || reads[0].Code != 0 {
+		t.Errorf("the stored blob came back as %q code %d", reads[0].Data, reads[0].Code)
+	}
+
+	// **An absent blob must say so, not merely arrive empty.** Both carry the
+	// digest and neither carries data, so without the status a client takes "I
+	// do not have it" for "it is zero bytes long" - which is a valid file, and
+	// the difference between rebuilding and using nothing.
+	if reads[1].Code != layer.StatusNotFound {
+		t.Errorf("a blob this store does not hold came back with status %d and"+
+			" %d bytes, which a client cannot tell from an empty file",
+			reads[1].Code, len(reads[1].Data))
+	}
+}
+
+// An action this engine recorded is a result a client can fetch.
+//
+// **The key is the Action digest**, so the number a client asks under is the
+// number this engine derived.
+func TestAClientFetchesAnActionResult(t *testing.T) {
+	restore := ir.SelectHashForTest(t, ir.HashSHA256)
+	defer restore()
+
+	root := t.TempDir()
+	st := store.DirStore(root)
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "out.txt"), []byte("built"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	took, err := layer.Take(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := layer.Manifest(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(store.LayerStore(root).Path(took.ID), 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	store.NoteManifest(root, took.ID, m)
+
+	key := core.Key{0x1a, 0x2b}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	g := grpc.NewServer(grpc.ForceServerCodec(remote.Codec()))
+	(&remote.Service{Cache: &remote.Cache{
+		Store: st,
+		Actions: oneEntry{key: key, e: core.Entry{
+			Layer: took.ID, Content: took.Content,
+			Stdout: "three files\n", StdoutWhole: true,
+		}},
+	}}).Register(g)
+
+	go func() { _ = g.Serve(ln) }()
+	t.Cleanup(g.Stop)
+
+	conn, err := grpc.NewClient(ln.Addr().String(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.ForceCodec(remote.Codec())))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = conn.Close() })
+
+	out := call(t, conn,
+		"/build.bazel.remote.execution.v2.ActionCache/GetActionResult",
+		layer.EncodeGetActionResultForTest(ir.NodeID(key)))
+
+	if !bytes.Contains(out, []byte(took.Content.String())) {
+		t.Errorf("the result does not name the tree the step produced: %x", out)
+	}
+
+	// **And what the step printed travels with it.** An ActionResult carries
+	// stdout and a client displays it, which is why R4's output capture is a
+	// dependency of this service and not a convenience.
+	if !bytes.Contains(out, []byte("three files")) {
+		t.Errorf("the result does not carry what the step printed, so a client"+
+			"\n  served from cache sees a step that said nothing: %x", out)
+	}
+
+	// And an action nobody ran is a miss, which this API says with NOT_FOUND.
+	var reply []byte
+
+	err = conn.Invoke(context.Background(),
+		"/build.bazel.remote.execution.v2.ActionCache/GetActionResult",
+		&[]byte{}, &reply)
+
+	if status.Code(err) != codes.NotFound {
+		t.Errorf("an unknown action answered %v, want NOT_FOUND - which is how"+
+			" this API says \"run it\"", err)
 	}
 }

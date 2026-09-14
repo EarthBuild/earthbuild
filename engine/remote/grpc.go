@@ -7,6 +7,8 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // maxBatch is how much this service will move in one message.
@@ -49,6 +51,18 @@ func (s *Service) Register(g grpc.ServiceRegistrar) {
 		}, {
 			MethodName: "BatchUpdateBlobs",
 			Handler:    unary(s.batchUpdateBlobs),
+		}, {
+			MethodName: "BatchReadBlobs",
+			Handler:    unary(s.batchReadBlobs),
+		}},
+	}, s)
+
+	g.RegisterService(&grpc.ServiceDesc{
+		ServiceName: "build.bazel.remote.execution.v2.ActionCache",
+		HandlerType: (*any)(nil),
+		Methods: []grpc.MethodDesc{{
+			MethodName: "GetActionResult",
+			Handler:    unary(s.getActionResult),
 		}},
 	}, s)
 }
@@ -135,4 +149,56 @@ func (s *Service) batchUpdateBlobs(_ context.Context, in []byte) ([]byte, error)
 	}
 
 	return layer.EncodeBatchUpdateBlobs(out), nil
+}
+
+// batchReadBlobs hands back the blobs a client asked for.
+//
+// A result per blob, as the upload side has: a client asking for twenty
+// directories and missing one wants the nineteen.
+func (s *Service) batchReadBlobs(_ context.Context, in []byte) ([]byte, error) {
+	want, err := layer.DigestsToRead(in)
+	if err != nil {
+		return nil, fmt.Errorf("read a BatchReadBlobs request: %w", err)
+	}
+
+	out := make([]layer.Read, 0, len(want))
+
+	for _, id := range want {
+		r := layer.Read{Digest: id}
+
+		// Verified on the way out as on the way in - a store that hands back
+		// bytes it has not checked against the name asked for is a store of
+		// whatever happens to be on the disk.
+		if b, err := s.Cache.Store.Node(id); err == nil {
+			r.Data = b
+		} else {
+			r.Code, r.Message = layer.StatusNotFound, err.Error()
+		}
+
+		out = append(out, r)
+	}
+
+	return layer.EncodeBatchReadBlobs(out), nil
+}
+
+// getActionResult is what the step under this key produced.
+//
+// **The key is the Action digest** (green paper 4.5a), so the number a client
+// asks under is the number this engine derived: no index between them, and
+// nowhere for the two to disagree.
+func (s *Service) getActionResult(_ context.Context, in []byte) ([]byte, error) {
+	id, err := layer.ActionDigestIn(in)
+	if err != nil {
+		return nil, fmt.Errorf("read a GetActionResult request: %w", err)
+	}
+
+	b, ok := s.Cache.ActionResult(id)
+	if !ok {
+		// **A miss is an answer, and NOT_FOUND is how this API gives it.** A
+		// client reads it as "run the action", which is correct and is what
+		// every build did before there was a cache.
+		return nil, status.Error(codes.NotFound, "no result for this action")
+	}
+
+	return b, nil
 }

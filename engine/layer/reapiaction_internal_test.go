@@ -252,3 +252,49 @@ func TestWeReadABatchUpdateBlobsRequestProtocWrote(t *testing.T) {
 		t.Errorf("the upload carries %q, want %q", got[0].Data, "hello")
 	}
 }
+
+// We read a GetActionResult request protoc wrote.
+func TestWeReadAGetActionResultRequestProtocWrote(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("testdata/reapi/getresult.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ActionDigestIn(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := hexID("00000000000000000000000000000000000000000000000000000000000000bb")
+	if got != want {
+		t.Errorf("the request asks about %v, protoc wrote %v", got, want)
+	}
+}
+
+// Our BatchReadBlobs reply is the one protoc writes.
+func TestOurBatchReadBlobsReplyIsProtocs(t *testing.T) {
+	t.Parallel()
+
+	want, err := os.ReadFile("testdata/reapi/read.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := EncodeBatchReadBlobs([]Read{
+		{
+			Digest: hexID("0000000000000000000000000000000000000000000000000000000000000099"),
+			Data:   []byte("hello"),
+		},
+		{
+			Digest:  hexID("00000000000000000000000000000000000000000000000000000000000000aa"),
+			Code:    StatusNotFound,
+			Message: "not found",
+		},
+	})
+
+	if !bytes.Equal(got, want) {
+		t.Errorf("ours is %x\n  protoc's is %x", got, want)
+	}
+}

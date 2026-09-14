@@ -177,11 +177,7 @@ func (c *Cache) serveAction(w http.ResponseWriter, r *http.Request, key ir.NodeI
 		return
 	}
 
-	b := layer.EncodeActionResult(layer.Result{
-		Root:     e.Content,
-		RootSize: size,
-		ExitCode: int32(e.Exit), //nolint:gosec // a process exit status
-	})
+	b := resultOf(e, size)
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 
@@ -233,4 +229,45 @@ func (c *Cache) rootSize(e core.Entry) (int64, error) {
 	_ = c.Store.NoteNodes(tree)
 
 	return int64(len(tree.Nodes()[tree.Root()])), nil
+}
+
+// resultOf is a cache entry as an ActionResult.
+//
+// **One conversion, two transports.** HTTP and gRPC answer the same question,
+// and a second place that turned an entry into a result would be a second
+// answer to what a step produced.
+func resultOf(e core.Entry, rootSize int64) []byte {
+	return layer.EncodeActionResult(layer.Result{
+		Root:     e.Content,
+		RootSize: rootSize,
+		ExitCode: int32(e.Exit), //nolint:gosec // a process exit status
+		// What the step printed, which a client displays. Empty where it
+		// printed nothing or printed more than was kept - a caller needing to
+		// tell those apart needs the entry, not the message.
+		Stdout: []byte(e.Stdout),
+	})
+}
+
+// ActionResult is what the step under this key produced, as a message.
+//
+// False where nothing is recorded, or where the result names a tree this store
+// cannot describe - an entry written before content digests existed, or one
+// whose layer has been collected. In both cases there is nothing to hand over,
+// which is a miss and not an error.
+func (c *Cache) ActionResult(key ir.NodeID) ([]byte, bool) {
+	if c.Actions == nil {
+		return nil, false
+	}
+
+	e, ok := c.Actions.Get(core.Key(key))
+	if !ok {
+		return nil, false
+	}
+
+	size, err := c.rootSize(e)
+	if err != nil {
+		return nil, false
+	}
+
+	return resultOf(e, size), true
 }

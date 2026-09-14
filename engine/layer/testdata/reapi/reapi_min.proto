@@ -159,3 +159,22 @@ message Status {
   int32 code = 1;
   string message = 2;
 }
+
+message BatchReadBlobsRequest {
+  string instance_name = 1;
+  repeated Digest digests = 2;
+}
+
+message BatchReadBlobsResponse {
+  repeated Response responses = 1;
+  message Response {
+    Digest digest = 1;
+    bytes data = 2;
+    Status status = 3;
+  }
+}
+
+message GetActionResultRequest {
+  string instance_name = 1;
+  Digest action_digest = 2;
+}

@@ -349,3 +349,180 @@ func EncodeBatchUpdateBlobsForTest(ups []Upload) []byte {
 
 	return out
 }
+
+// BatchReadBlobs and GetActionResult fields.
+const (
+	fieldReadDigests   = 2 // BatchReadBlobsRequest.digests
+	fieldReadResponses = 1 // BatchReadBlobsResponse.responses
+	fieldReadDigest    = 1 // ...Response.digest
+	fieldReadData      = 2 // ...Response.data
+	fieldReadStatus    = 3 // ...Response.status
+
+	fieldActionDigest = 2 // GetActionResultRequest.action_digest
+)
+
+// StatusNotFound is google.rpc.Code.NOT_FOUND.
+const StatusNotFound = 5
+
+// DigestsToRead is the blobs a client asked for.
+func DigestsToRead(b []byte) ([]ir.NodeID, error) {
+	return digestsInField(b, fieldReadDigests)
+}
+
+// ActionDigestIn is the action a client asked about.
+//
+// Zero and no error where the request named none: an empty request is a client
+// asking about nothing, which is a miss rather than a protocol failure.
+func ActionDigestIn(b []byte) (ir.NodeID, error) {
+	ids, err := digestsInField(b, fieldActionDigest)
+	if err != nil || len(ids) == 0 {
+		return ir.NodeID{}, err
+	}
+
+	return ids[0], nil
+}
+
+// digestsInField reads every Digest carried in one field of a message.
+func digestsInField(b []byte, want int) ([]ir.NodeID, error) {
+	var out []ir.NodeID
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		if field != want || wire != wireBytes {
+			return nil
+		}
+
+		hex, err := hashOfDigest(v)
+		if err != nil {
+			return err
+		}
+
+		id, err := ir.ParseNodeID(hex)
+		if err != nil {
+			return fmt.Errorf("a request names %q, which is not a digest: %w", hex, err)
+		}
+
+		out = append(out, id)
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+// Read is one blob handed back, or the reason it was not.
+type Read struct {
+	Digest  ir.NodeID
+	Data    []byte
+	Code    int
+	Message string
+}
+
+// EncodeBatchReadBlobs writes a BatchReadBlobsResponse.
+//
+// **A result per blob, as the upload side has, and for the same reason.** A
+// client asking for twenty directories and missing one wants the nineteen.
+func EncodeBatchReadBlobs(reads []Read) []byte {
+	var out []byte
+
+	for _, r := range reads {
+		one := appendMessage(nil, fieldReadDigest,
+			encodeDigest(&scratch{}, r.Digest, int64(len(r.Data))))
+		one = appendBytes(one, fieldReadData, r.Data)
+
+		if r.Code != 0 {
+			st := appendVarintField(nil, fieldStatusCode, uint64(r.Code)) //nolint:gosec // a small enum
+			st = appendString(st, fieldStatusMessage, r.Message)
+			one = appendMessage(one, fieldReadStatus, st)
+		}
+
+		out = appendMessage(out, fieldReadResponses, one)
+	}
+
+	return out
+}
+
+// EncodeGetActionResultForTest writes a request asking about one action.
+func EncodeGetActionResultForTest(id ir.NodeID) []byte {
+	return appendMessage(nil, fieldActionDigest, encodeDigest(&scratch{}, id, 0))
+}
+
+// EncodeBatchReadBlobsForTest writes a request asking for these blobs.
+func EncodeBatchReadBlobsForTest(ids []ir.NodeID) []byte {
+	var out []byte
+
+	for _, id := range ids {
+		out = appendMessage(out, fieldReadDigests, encodeDigest(&scratch{}, id, 0))
+	}
+
+	return out
+}
+
+// ReadsInResponse is what a BatchReadBlobs reply said about each blob.
+//
+// **A client must be able to tell an absent blob from an empty one**, and only
+// the status says which: both carry the digest and neither carries data. A
+// reader that looked at the bytes alone would take "I do not have it" for "it
+// is zero bytes long", which is a perfectly valid file.
+func ReadsInResponse(b []byte) ([]Read, error) {
+	var out []Read
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		if field != fieldReadResponses || wire != wireBytes {
+			return nil
+		}
+
+		var r Read
+
+		inner := eachField(v, func(f, w int, val []byte) error {
+			switch {
+			case f == fieldReadDigest && w == wireBytes:
+				hex, err := hashOfDigest(val)
+				if err != nil {
+					return err
+				}
+
+				id, err := ir.ParseNodeID(hex)
+				if err != nil {
+					return fmt.Errorf("a reply names %q, which is not a digest: %w", hex, err)
+				}
+
+				r.Digest = id
+			case f == fieldReadData && w == wireBytes:
+				r.Data = val
+			case f == fieldReadStatus && w == wireBytes:
+				return eachField(val, func(sf, sw int, sv []byte) error {
+					switch {
+					case sf == fieldStatusCode && sw == wireVarint:
+						code, n := binary.Uvarint(sv)
+						if n <= 0 {
+							return fmt.Errorf("a status code is not a varint")
+						}
+
+						r.Code = int(code) //nolint:gosec // a small enum
+					case sf == fieldStatusMessage && sw == wireBytes:
+						r.Message = string(sv)
+					}
+
+					return nil
+				})
+			}
+
+			return nil
+		})
+		if inner != nil {
+			return inner
+		}
+
+		out = append(out, r)
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}

@@ -200,35 +200,7 @@ func (c *Cache) serveAction(w http.ResponseWriter, r *http.Request, key ir.NodeI
 // whether or not anything ever asked. Deriving them here costs one fold, once,
 // for a result somebody actually wants.
 func (c *Cache) rootSize(e core.Entry) (int64, error) {
-	if b, err := c.Store.Node(e.Content); err == nil {
-		return int64(len(b)), nil
-	}
-
-	m, ok, err := store.ReadManifest(string(c.Store), e.Layer)
-	if err != nil || !ok {
-		return 0, fmt.Errorf("no manifest for the layer under %s", e.Layer)
-	}
-
-	f := layer.NewFold()
-	if !f.Add(m) {
-		return 0, fmt.Errorf("the manifest for %s could not be folded", e.Layer)
-	}
-
-	tree := f.Tree()
-
-	// **Checked, not assumed.** If the fold does not land on the digest the
-	// entry recorded then the entry describes a tree this store cannot produce,
-	// and serving a different one under the client's name is the one thing a
-	// content-addressed store may never do.
-	if tree.Root() != e.Content {
-		return 0, fmt.Errorf(
-			"the layer under %s folds to %s and the entry says %s",
-			e.Layer, tree.Root(), e.Content)
-	}
-
-	_ = c.Store.NoteNodes(tree)
-
-	return int64(len(tree.Nodes()[tree.Root()])), nil
+	return c.Store.TreeNodes(e.Layer, e.Content)
 }
 
 // resultOf is a cache entry as an ActionResult.

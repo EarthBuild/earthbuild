@@ -74,6 +74,11 @@ var knowsTheLayout = map[string]string{
 	// Inside the sandbox, which is where all of this ends up.
 	"engine/guest/guest.go": sideGuest,
 
+	// An REAPI action's blobs - its Action, its Command and its input root -
+	// are in the same store its layers are, because a client uploaded them to
+	// the service this guest runs. Same side, same directory, same reason.
+	"engine/guest/runaction.go": sideGuest,
+
 	// PID 1 of a microVM, which mounts the device the store is on and counts
 	// what it holds at boot. As inside the sandbox as it is possible to be:
 	// the store's own filesystem does not exist until this has mounted it.

@@ -194,7 +194,23 @@ func (s *Service) findMissingBlobs(_ context.Context, in []byte) ([]byte, error)
 		return nil, fmt.Errorf("read a FindMissingBlobs request: %w", err)
 	}
 
-	return layer.EncodeMissingBlobs(s.Cache.Store.MissingNodes(want)), nil
+	// **Echoed, not reconstructed.** A client compares what comes back with
+	// what it sent, and a digest is a hash *and* a size - so the reply names
+	// the blobs it was asked about, exactly as it was asked about them.
+	absent := map[ir.NodeID]bool{}
+	for _, id := range s.Cache.Store.MissingNodes(layer.IDsOf(want)) {
+		absent[id] = true
+	}
+
+	missing := make([]layer.Blob, 0, len(absent))
+
+	for _, b := range want {
+		if absent[b.ID] {
+			missing = append(missing, b)
+		}
+	}
+
+	return layer.EncodeMissingBlobs(missing), nil
 }
 
 // batchUpdateBlobs keeps the blobs a client sent.

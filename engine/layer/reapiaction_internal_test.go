@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"os"
 	"testing"
-
-	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
 // Our Command and Action encodings are protoc's, byte for byte.
@@ -183,9 +181,12 @@ func TestWeReadAFindMissingBlobsRequestProtocWrote(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := []ir.NodeID{
-		hexID("0000000000000000000000000000000000000000000000000000000000000044"),
-		hexID("0000000000000000000000000000000000000000000000000000000000000066"),
+	// Sizes included, because protoc wrote them and a digest is both. The
+	// earlier version of this read only the hashes, so the fixture's sizes went
+	// unexamined and the decoder that dropped them looked correct.
+	want := []Blob{
+		{ID: hexID("0000000000000000000000000000000000000000000000000000000000000044"), Size: 12},
+		{ID: hexID("0000000000000000000000000000000000000000000000000000000000000066"), Size: 3},
 	}
 
 	if len(got) != len(want) {
@@ -208,20 +209,18 @@ func TestOurMissingBlobsReplyIsProtocs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The fixture's first entry carries a size and ours does not, so the
-	// comparison is against the response protoc writes for what we send: a
-	// client is told which blobs to send, not how big they are.
-	got := EncodeMissingBlobs([]ir.NodeID{
-		hexID("0000000000000000000000000000000000000000000000000000000000000044"),
-		hexID("0000000000000000000000000000000000000000000000000000000000000055"),
+	// **Exactly protoc's bytes, sizes and all.** This used to allow ours to
+	// differ, on the stated grounds that "a client is told which blobs to send,
+	// not how big they are" - which is not true, and the test was written so
+	// that the untruth passed. Buck2 compares a reply against the digests it
+	// sent, whole message and all, and reported eleven of twelve as blobs it
+	// had never asked about.
+	got := EncodeMissingBlobs([]Blob{
+		{ID: hexID("0000000000000000000000000000000000000000000000000000000000000044"), Size: 12},
+		{ID: hexID("0000000000000000000000000000000000000000000000000000000000000055")},
 	})
 
-	if bytes.Equal(got, want) {
-		return // the fixture happened to match
-	}
-
-	// Otherwise it must differ only in the size protoc's fixture states.
-	if len(got) >= len(want) {
+	if !bytes.Equal(got, want) {
 		t.Errorf("ours is %x\n  protoc's is %x", got, want)
 	}
 }

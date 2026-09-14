@@ -117,16 +117,31 @@ func TestAClientIsToldOnlyWhatItMustSend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(got) != 1 || got[0] != absent {
+	// **Echoed with the size it was asked about**, which is what a client
+	// matches on: a reply naming the hash alone is a reply about a blob nobody
+	// asked for, and buck2 counts those.
+	if len(got) != 1 || got[0].ID != absent || got[0].Size != askedSize {
 		t.Errorf("told to send %v, and the store holds everything but %v"+
 			"\n  a peer told to send what it already has is a peer sending a base"+
 			"\n  where a directory would do", got, absent)
 	}
 }
 
+// askedSize is the size every digest in these tests is asked about under.
+//
+// Non-zero deliberately: proto3 omits a zero, so a size that is dropped on the
+// way back is invisible when the size is zero - which is how a reply that named
+// only hashes passed for as long as it did.
+const askedSize = 7
+
 // askFor is a FindMissingBlobs request naming these digests.
 func askFor(ids []ir.NodeID) []byte {
-	return layer.EncodeFindMissingBlobs(ids)
+	blobs := make([]layer.Blob, len(ids))
+	for i, id := range ids {
+		blobs[i] = layer.Blob{ID: id, Size: askedSize}
+	}
+
+	return layer.EncodeFindMissingBlobs(blobs)
 }
 
 // The codec calls itself what a client expects to negotiate.

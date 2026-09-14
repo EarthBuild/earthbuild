@@ -172,25 +172,41 @@ const (
 // name and a digest function; this service has one store and one function, so
 // neither changes the answer, and reading them would be reading fields to
 // ignore them.
-func DigestsInRequest(b []byte) ([]ir.NodeID, error) {
-	var out []ir.NodeID
+// Blob is a digest as REAPI defines one: a hash *and* a size.
+//
+// **Both, because a peer compares the whole message.** A reply that echoes the
+// hash and drops the size is a reply about a blob the client never asked about
+// - proto3 omits a zero, so only the empty blob ever matched. Carrying the size
+// separately from the hash is what made that possible to write.
+type Blob struct {
+	ID   ir.NodeID
+	Size int64
+}
+
+// IDsOf is the hashes of these blobs, for a store that files things by hash.
+func IDsOf(blobs []Blob) []ir.NodeID {
+	out := make([]ir.NodeID, len(blobs))
+	for i, b := range blobs {
+		out[i] = b.ID
+	}
+
+	return out
+}
+
+func DigestsInRequest(b []byte) ([]Blob, error) {
+	var out []Blob
 
 	err := eachField(b, func(field, wire int, v []byte) error {
 		if field != fieldBlobDigests || wire != wireBytes {
 			return nil
 		}
 
-		hex, err := hashOfDigest(v)
+		id, size, err := digestIn(v)
 		if err != nil {
-			return err
+			return fmt.Errorf("a request names something that is not a digest: %w", err)
 		}
 
-		id, err := ir.ParseNodeID(hex)
-		if err != nil {
-			return fmt.Errorf("a request names %q, which is not a digest: %w", hex, err)
-		}
-
-		out = append(out, id)
+		out = append(out, Blob{ID: id, Size: size})
 
 		return nil
 	})
@@ -206,11 +222,11 @@ func DigestsInRequest(b []byte) ([]ir.NodeID, error) {
 // **Sizes are not carried back.** A client knows what it asked about; the
 // answer is which of them to send, and a size this service would have to look
 // up for a blob it does not have is one it cannot state.
-func EncodeMissingBlobs(missing []ir.NodeID) []byte {
+func EncodeMissingBlobs(missing []Blob) []byte {
 	var out []byte
 
-	for _, id := range missing {
-		out = appendMessage(out, fieldMissingBlobs, encodeDigest(&scratch{}, id, 0))
+	for _, b := range missing {
+		out = appendMessage(out, fieldMissingBlobs, encodeDigest(&scratch{}, b.ID, b.Size))
 	}
 
 	return out
@@ -220,18 +236,18 @@ func EncodeMissingBlobs(missing []ir.NodeID) []byte {
 //
 // This engine is a server and not a client, so this exists for a test that has
 // to ask it something - and for the day a build asks a peer the same question.
-func EncodeFindMissingBlobs(ids []ir.NodeID) []byte {
+func EncodeFindMissingBlobs(blobs []Blob) []byte {
 	var out []byte
 
-	for _, id := range ids {
-		out = appendMessage(out, fieldBlobDigests, encodeDigest(&scratch{}, id, 0))
+	for _, b := range blobs {
+		out = appendMessage(out, fieldBlobDigests, encodeDigest(&scratch{}, b.ID, b.Size))
 	}
 
 	return out
 }
 
 // DigestsInResponse is the blobs a server said it lacks.
-func DigestsInResponse(b []byte) ([]ir.NodeID, error) { return DigestsInRequest(b) }
+func DigestsInResponse(b []byte) ([]Blob, error) { return DigestsInRequest(b) }
 
 // BatchUpdateBlobs fields.
 const (

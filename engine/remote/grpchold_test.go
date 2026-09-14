@@ -56,7 +56,7 @@ func TestEveryGRPCCallHoldsTheMachineOpen(t *testing.T) {
 
 	var out []byte
 
-	in := layer.EncodeFindMissingBlobs([]ir.NodeID{ir.DigestOf([]byte("x"))})
+	in := layer.EncodeFindMissingBlobs([]layer.Blob{{ID: ir.DigestOf([]byte("x")), Size: 1}})
 
 	err := conn.Invoke(context.Background(),
 		"/build.bazel.remote.execution.v2.ContentAddressableStorage/FindMissingBlobs",

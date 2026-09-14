@@ -49,7 +49,10 @@ import (
 //	   encoding of this engine's own (4.5b). One tree instead of two, because
 //	   two Merkle trees over one filesystem is two definitions of what a base
 //	   is - and they agree until somebody edits one.
-const cacheEpoch = 4
+//	5  Κₜ is ℋ over an REAPI Action rather than over an encoding of this
+//	   engine's own (4.5a, 4.5c). The same key, named the way the rest of the
+//	   world names it.
+const cacheEpoch = 5
 
 // DeriveObservedKey computes Κ₂ at the current epoch.
 func DeriveObservedKey(n *ir.Node, refs []ir.NodeID, obs Observation) Key {

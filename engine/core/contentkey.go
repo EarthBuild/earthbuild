@@ -1,15 +1,9 @@
 package core
 
-import "github.com/EarthBuild/earthbuild/engine/ir"
-
-// domainContent separates Κₜ from every other key derived here.
-//
-// 0x03 is the squash domain and 0x06 is the next free byte. Both derivations
-// hash the same operation, environment and platform, so without this a content
-// key and a chain key over a base whose content id equalled its own id would be
-// the same bytes - and an entry published under one would be served under the
-// other.
-const domainContent = 0x06
+import (
+	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/layer"
+)
 
 // TreeSource is a 𝔅 that can say what a stack materialises to.
 //
@@ -87,18 +81,14 @@ func DeriveContentKey(
 		return Key{}, false
 	}
 
-	h := ir.NewHasher()
-
-	h.Byte(domainContent)
-	// The generation, for cacheEpoch's reason: a wrong entry published here
-	// reaches Κ₁ by promotion, and only an epoch can retire it.
-	h.Count(cacheEpoch)
-
-	// The base, by what it holds rather than by how it was made.
-	h.Fixed(tree[:])
-
-	hashOperation(h, n, refs)
-	hashEnvAndPlatform(h, n)
-
-	return h.Sum(), true
+	// **Κₜ is the Action digest**, not a digest of our own beside one. Every
+	// part of the key has a home in the message - the argv and environment in
+	// the Command, the tree in input_root_digest, the generation in salt, and
+	// everything this API has no field for in one platform property. So a key
+	// this engine derives is the number another tool asks for, rather than a
+	// translation of it (plan-remote-execution R2b).
+	//
+	// No domain byte: an Action begins with a protobuf tag, which cannot
+	// collide with Κ₁'s or Κ₂'s leading 0x01 or 0x02 (green paper 4.5b).
+	return Key(ir.DigestOf(layer.EncodeAction(ActionOf(n, refs, tree)))), true
 }

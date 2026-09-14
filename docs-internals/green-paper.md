@@ -750,7 +750,7 @@ has just been shown to hold, so the evidence is gathered once rather than on eve
 
 ```text
 (4.5)    Κ₁(s)     ≡ ℋ("c" ‖ ζ ‖ ids(𝑏) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
-(4.5a)   Κₜ(s)     ≡ ℋ("t" ‖ ζ ‖ 𝜏(𝑏) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
+(4.5a)   Κₜ(s)     ≡ ℋ(𝒜(s))
 (4.6)    Κ₂(s, 𝑟)  ≡ ℋ("o" ‖ ζ ‖ sort(𝑅) ‖ sort(𝑁) ‖ sort(𝐷) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
 ```
 
@@ -810,6 +810,33 @@ Two things this costs, stated because they are real:
   byte - `0x01`, `0x02`, `0x06` - and a `Directory` begins with a protobuf tag, which for these
   fields is `0x0A`, `0x12` or `0x1A`. They do not collide, but by arithmetic rather than by design:
   **a domain byte added later must avoid the protobuf tags.**
+
+**𝒜(s) is the step as an `Action` message**, and Κₜ is ℋ over it - the number that API carries,
+not a translation of one:
+
+```text
+(4.5c)   𝒜(s)     ≡ Action{ command_digest: ℋ(𝒞(s)), input_root_digest: 𝜏(𝑏),
+                            salt: ζ, do_not_cache, platform: 𝒫(s) }
+         𝒞(s)     ≡ Command{ arguments: ω, environment_variables: ε,
+                             working_directory, output_paths }
+```
+
+`salt` is not a stand-in for ζ. The field exists so an implementation can retire a generation of
+entries, which is the whole of what ζ does.
+
+**𝒫(s) is the machine, and one digest for everything else.** The operating system, architecture and
+variant are properties of that name; every other component of ω that this API has no field for -
+privilege, a docker daemon, an ssh agent, a user, hosts, mounts, the names of secrets - is a single
+property, `earthbuild.operation`, holding ℋ over them. Twenty-five named properties would be a
+second encoding of the operation to keep in step with the first, which is the thing (4.5b) exists
+to have stopped doing. §5.1's coverage rule reaches every field through that one digest.
+
+A secret's **value** never enters 𝒞 or 𝒫. An `Action` is hashed and cached, and the store is a
+cache: the key takes a secret's name and the separate digest of (4.9), and that separation holds
+here unchanged.
+
+Κₜ carries no domain byte. An `Action` begins with a protobuf field tag, which cannot be `0x01` or
+`0x02`; the constraint that a domain byte added later must avoid those tags is stated in §4.4.
 
 A directory's own metadata is in its own message and not its parent's, because `DirectoryNode`
 carries a name and a digest and nothing else. Repermissioning a directory therefore changes its
@@ -1682,6 +1709,9 @@ found and fixed in the process, listed at the end.
 | Λ      | cache lookup                  | (4.4)        |
 | Κ₁     | chain key derivation          | (4.5)        |
 | Κₜ     | content key derivation        | (4.5a)       |
+| 𝒜      | a step as an Action message   | (4.5c)       |
+| 𝒞      | a step as a Command message   | (4.5c)       |
+| 𝒫      | a step's platform properties  | (4.5c)       |
 | Κ₂     | observed-input key derivation | (4.6)        |
 | Ω      | execution under observation   | §4.2         |
 | Μ      | mask consultation             | §4.2, App A  |

@@ -208,7 +208,10 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 	h.Fixed(n.Op.Content[:])
 }
 
-// hashEnvAndPlatform writes 𝒮(ε) ‖ 𝒮(π), which all three derivations end with.
+// hashEnvAndPlatform writes 𝒮(ε) ‖ 𝒮(π), which Κ₁ and Κ₂ end with.
+//
+// Κₜ does not: it is an Action digest, where the environment is the Command's
+// and the platform is the Platform's (4.5a).
 func hashEnvAndPlatform(h *ir.Hasher, n *ir.Node) {
 	keys := make([]string, 0, len(n.Op.Env))
 	for k := range n.Op.Env {

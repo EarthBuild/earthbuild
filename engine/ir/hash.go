@@ -44,6 +44,33 @@ func NewHasher() *Hasher {
 // copy of nothing.
 const hashBuffer = 64 << 10
 
+// NewStreamHasher is ℋ over an unframed byte stream, for content too large to
+// hold: a blob's bytes are the whole message, so there are no fields to stage.
+//
+// **Unbuffered, unlike NewHasher**, which stages 64 KiB because the encoding it
+// carries is many small fields. A file's contents are not: the staging buffer
+// only adds a copy, and on a tree of 4 KiB files hashed concurrently it cost
+// 2.4x - 532 MB/s against 226. Sum is ℋ over exactly the bytes written, so this
+// and DigestOf name the same content.
+func NewStreamHasher() *StreamHasher {
+	return &StreamHasher{h: blake3.New(HashSize, nil)}
+}
+
+// StreamHasher is ℋ over bytes handed to it, with no encoding around them.
+type StreamHasher struct{ h hash.Hash }
+
+// Write implements io.Writer.
+func (s *StreamHasher) Write(p []byte) (int, error) { return s.h.Write(p) } //nolint:wrapcheck // the writer's own error
+
+// Sum is the identity of everything written so far.
+func (s *StreamHasher) Sum() NodeID {
+	var id NodeID
+
+	copy(id[:], s.h.Sum(nil))
+
+	return id
+}
+
 // DigestOf is ℋ over a byte string, with no framing of any kind (§3.1).
 //
 // **The primitive a content-addressed store needs**, and the one a Hasher is

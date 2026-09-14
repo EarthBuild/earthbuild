@@ -591,7 +591,9 @@ func contentDigest(p string) (ir.NodeID, error) {
 
 	defer f.Close()
 
-	h := ir.NewHasher()
+	// Unframed: a file's contents are the whole message, so there are no fields
+	// to stage and NewHasher's buffer would only add a copy per file.
+	h := ir.NewStreamHasher()
 
 	// Streamed rather than read whole: a layer may contain a file larger than
 	// the machine's memory, and a capture that dies on one is a capture that

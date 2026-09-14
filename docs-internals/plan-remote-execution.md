@@ -133,6 +133,38 @@ rather than reachable only through the layer holding them - which this engine do
 is where a Bazel client and an EarthBuild store could genuinely meet before R3, and it is not
 scoped here.
 
+## Phase R2b - Κₜ *is* the Action digest
+
+The consolidation one level up from 4.5b's, and the same argument: one key rather than two that
+must agree. Every part of Κₜ has a home in an `Action`, including the one that looked least likely:
+
+```text
+Command { arguments: ω, environment_variables: ε, working_directory, output_paths }
+Action  { command_digest: ℋ(Command), input_root_digest: 𝜏(𝑏), platform: π,
+          do_not_cache: --no-cache, salt: ζ }
+Κₜ ≡ ℋ(Action)
+```
+
+`salt` (field 9) exists so an implementation can retire a generation. ζ is not approximated by it;
+it *is* it. `input_root_digest` is already 𝜏 exactly.
+
+What it buys: `/ac` becomes implementable and meaningful; two instances of this engine interoperate
+over the real protocol rather than a bespoke one; and once a step is decomposed (R3) a Bazel or
+Buck2 client hits this cache for real, because by then we are running the same actions.
+
+**The constraint is that three of the four operation kinds are not commands.** `exec(argv)` maps
+directly; `file(ops)`, `image(ref)` and `local(path)` have no argv. Handled as a device node is
+(4.5b): synthesise a `Command` for them, keep one key shape, and **refuse at the point of handing
+such an Action to a remote execution service** - a conforming worker would try to execute the argv.
+Represent faithfully, refuse at the boundary. That refusal does not exist yet.
+
+Two mappings to settle rather than guess: `output_paths` is empty until R4's `RUN --output` exists,
+so a `command_digest` here differs from what a tool declaring its outputs computes for the same
+argv - which costs nothing between our own instances and is a real gap to a third party that no
+encoding closes. And π is ours where `Platform` is a key/value list.
+
+Costs a cache generation, which is cheap while nothing depends on the last one.
+
 ## Phase R3 - delegate a step to an RE service (unscoped)
 
 The endgame, and the one with a design question rather than a work list. A result EarthBuild did
@@ -143,10 +175,11 @@ Not scoped here deliberately: the decomposition that makes it worth doing - one 
 invocation rather than per RUN - is a separate argument, and the reason it pays is that it isolates
 nondeterminism to the action that has it rather than poisoning twenty minutes.
 
-## Worth stealing, and not remote execution
+## Phase R4 - two things worth stealing, and not remote execution
 
-Two things found by reading the API that are worth having whether or not any of the above happens.
-Neither is blocked on a peer, a protocol or a digest function.
+Both found by reading the API rather than by doing the work, both **to be done**, and neither
+blocked on a peer, a protocol or a digest function. Sequenced after the phases above only because
+those are in flight, not because they depend on them.
 
 ### `RUN --output`, narrowing a capture to what was asked for
 

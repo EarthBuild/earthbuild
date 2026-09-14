@@ -25,7 +25,7 @@ func TestADaemonThatDoesNotComeUpIsLaunchedAgain(t *testing.T) {
 	launches := 0
 	made := []*fakeDaemon{}
 
-	launch := func(context.Context, []string, string) (daemonProcess, error) {
+	launch := func(context.Context, []string, string, string) (daemonProcess, error) {
 		launches++
 
 		d := &fakeDaemon{says: "ok"}
@@ -82,7 +82,7 @@ func TestADaemonThatNeverComesUpIsStoppedAndReported(t *testing.T) {
 	launches := 0
 	made := []*fakeDaemon{}
 
-	launch := func(context.Context, []string, string) (daemonProcess, error) {
+	launch := func(context.Context, []string, string, string) (daemonProcess, error) {
 		launches++
 
 		d := &fakeDaemon{err: errors.New("not up yet")}
@@ -121,7 +121,7 @@ func TestAMissingDockerdIsNotRetried(t *testing.T) {
 	t.Parallel()
 
 	launches := 0
-	launch := func(context.Context, []string, string) (daemonProcess, error) {
+	launch := func(context.Context, []string, string, string) (daemonProcess, error) {
 		launches++
 
 		return nil, exec.ErrNotFound

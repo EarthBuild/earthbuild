@@ -26,7 +26,9 @@ type daemonProcess interface {
 }
 
 // launchDaemon starts a daemon process with the given argv.
-type launchDaemon func(ctx context.Context, argv []string, sock string) (daemonProcess, error)
+type launchDaemon func(
+	ctx context.Context, argv []string, sock, named string,
+) (daemonProcess, error)
 
 // howOftenToAsk is the gap between attempts while waiting for a daemon.
 //
@@ -128,7 +130,7 @@ func withDaemon(
 	var proc daemonProcess
 
 	err = retry.Do(ctx, daemonPolicy(), func() error {
-		started, launchErr := launch(ctx, daemonArgs(root, listen, ownNet), listen)
+		started, launchErr := launch(ctx, daemonArgs(root, listen, ownNet), listen, d.Binary)
 		if launchErr != nil {
 			return fmt.Errorf("start a daemon for this step: %w", launchErr)
 		}

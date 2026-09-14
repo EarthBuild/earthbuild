@@ -48,16 +48,20 @@ type dockerd struct {
 type lookFn func(string) (string, error)
 
 // launchDockerd starts the guest's own dockerd with the given arguments.
-func launchDockerd(ctx context.Context, argv []string, sock string) (daemonProcess, error) {
-	return launchWith(ctx, osexec.LookPath, argv, sock, "")
+func launchDockerd(
+	ctx context.Context, argv []string, sock, named string,
+) (daemonProcess, error) {
+	return launchWith(ctx, osexec.LookPath, argv, sock, "", named)
 }
 
 // launchDockerdIn is launchDockerd for a step that has a network namespace of
 // its own, which the daemon joins so its published ports are on the loopback the
 // step will look at. See daemonEnvIn.
-func launchDockerdIn(netns string) func(context.Context, []string, string) (daemonProcess, error) {
-	return func(ctx context.Context, argv []string, sock string) (daemonProcess, error) {
-		return launchWith(ctx, osexec.LookPath, argv, sock, netns)
+func launchDockerdIn(
+	netns string,
+) func(context.Context, []string, string, string) (daemonProcess, error) {
+	return func(ctx context.Context, argv []string, sock, named string) (daemonProcess, error) {
+		return launchWith(ctx, osexec.LookPath, argv, sock, netns, named)
 	}
 }
 
@@ -68,14 +72,36 @@ func launchDockerdIn(netns string) func(context.Context, []string, string) (daem
 // exactly the wrong advice: the daemon runs beside the step (E368), so the image
 // needs a client and the machine needs the daemon.
 func launchWith(
-	_ context.Context, look lookFn, argv []string, sock, netns string,
+	_ context.Context, look lookFn, argv []string, sock, netns, named string,
 ) (daemonProcess, error) {
-	bin, err := look("dockerd")
-	if err != nil {
-		return nil, fmt.Errorf(
-			"this step asked for a daemon and the guest has no dockerd on its PATH"+
-				"\n  the daemon runs beside the step, not inside it, so this is the"+
-				"\n  machine's dockerd and not the base image's: %w", err)
+	// **Said beats found.** Where the host named the binary, that is the one -
+	// and not consulting the PATH is the point, because the PATH means
+	// different things on different backends.
+	bin := named
+
+	// **Checked here, because the failure is otherwise a shim's.** The daemon
+	// is started by re-executing this binary (see below), so a path that holds
+	// nothing fails one process later and says so in whatever terms that
+	// process has - which is a step reporting that a daemon never arrived.
+	if bin != "" {
+		if _, err := os.Stat(bin); err != nil {
+			return nil, fmt.Errorf(
+				"this step's daemon was named as %s and there is nothing there"+
+					"\n  the daemon runs beside the step, so this is a path on the"+
+					" machine the guest is on: %w", bin, err)
+		}
+	}
+
+	if bin == "" {
+		found, err := look("dockerd")
+		if err != nil {
+			return nil, fmt.Errorf(
+				"this step asked for a daemon and the guest has no dockerd on its PATH"+
+					"\n  the daemon runs beside the step, not inside it, so this is the"+
+					"\n  machine's dockerd and not the base image's: %w", err)
+		}
+
+		bin = found
 	}
 
 	// This binary, not `dockerd` - see RunDaemonShimIfAsked. `dockerd` refuses to

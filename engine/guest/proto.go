@@ -505,11 +505,6 @@ type Request struct {
 	Hosts []string `json:"hosts,omitempty"`
 }
 
-// Daemon is a container daemon a step asked to have running inside it.
-//
-// It lives and dies with the step. That is not a simplification: a daemon
-// outliving its step is a daemon holding the step's overlay open, and the layer
-// the capture then takes is of a filesystem still being written to.
 // DefaultActionSocket is where a WITH RE step's service listens.
 //
 // A default the host sends rather than a path the guest assumes: the value on
@@ -568,6 +563,11 @@ type Actions struct {
 	MaxActions int `json:"maxActions,omitempty"`
 }
 
+// Daemon is a container daemon a step asked to have running inside it.
+//
+// It lives and dies with the step. That is not a simplification: a daemon
+// outliving its step is a daemon holding the step's overlay open, and the layer
+// the capture then takes is of a filesystem still being written to.
 type Daemon struct {
 	// Root is where it keeps everything, inside the step's filesystem.
 	//
@@ -586,6 +586,20 @@ type Daemon struct {
 	// which presents as a step whose first `docker` command cannot reach a
 	// daemon that is running perfectly well.
 	Socket string `json:"socket"`
+	// Binary is where dockerd is, or empty to look on the guest's PATH.
+	//
+	// **Said for Socket's reason, and for one Socket does not have.** A lookup
+	// means two different things depending on where the guest is running:
+	// inside a VM it resolves in the sandbox image, pinned by digest, and under
+	// the native backend it resolves on the host, which is whatever is
+	// installed there. Nobody decided that - it follows from the process's
+	// location - and the two give different daemon versions for one Earthfile.
+	//
+	// Empty is what every caller sends today, and means exactly what the guest
+	// did before. It is here so the decision has somewhere to live: a host that
+	// can name the binary can name one it materialised, on either backend, from
+	// an image it pinned.
+	Binary string `json:"binary,omitempty"`
 }
 
 // Mount is a directory bound into a step's filesystem.

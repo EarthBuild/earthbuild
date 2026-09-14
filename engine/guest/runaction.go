@@ -144,11 +144,21 @@ func (s *Server) RunAction(
 		return layer.Result{}, fmt.Errorf("the tree message for this action: %w", err)
 	}
 
+	// **Named one path at a time, because that is what was asked for.** The
+	// layer already holds only what was declared (the capture was narrowed);
+	// this says which part of it is which, without which a client has the
+	// artefacts and no way to find them.
+	declared, err := namedOutputs(st, made, cmd.OutputPaths)
+	if err != nil {
+		return layer.Result{}, err
+	}
+
 	return layer.Result{
 		Root:     root,
 		RootSize: size,
 		Tree:     treeID,
 		TreeSize: treeSize,
+		Declared: declared,
 		ExitCode: int32(ran.Exit), //nolint:gosec // an exit status
 		Stdout:   []byte(ran.Output),
 	}, nil
@@ -231,4 +241,35 @@ func actionIn(st store.DirStore, id ir.NodeID) (layer.Action, error) {
 	}
 
 	return a, nil
+}
+
+// namedOutputs is each declared path, named as REAPI names it, with the Tree
+// blob of any declared directory kept where a client can fetch it.
+func namedOutputs(st store.DirStore, id ir.NodeID, paths []string) (layer.Declared, error) {
+	if len(paths) == 0 {
+		return layer.Declared{}, nil
+	}
+
+	m, ok, err := store.ReadManifest(string(st), id)
+	if err != nil || !ok {
+		return layer.Declared{}, fmt.Errorf(
+			"no manifest for the layer under %s, so what it produced cannot be named", id)
+	}
+
+	declared, err := layer.Outputs(m, paths)
+	if err != nil {
+		return layer.Declared{}, err
+	}
+
+	// A client fetches a directory's Tree by digest a moment after reading it,
+	// so it is filed now rather than rebuilt then.
+	for _, d := range declared.Dirs {
+		for blobID, b := range d.Nodes {
+			if acceptErr := st.Accept(blobID, b); acceptErr != nil {
+				return layer.Declared{}, fmt.Errorf("keep the tree for %s: %w", d.Path, acceptErr)
+			}
+		}
+	}
+
+	return declared, nil
 }

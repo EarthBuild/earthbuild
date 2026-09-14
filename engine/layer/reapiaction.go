@@ -121,9 +121,14 @@ func encodeProperty(p Property) []byte {
 
 // ActionResult fields.
 const (
-	fieldOutputDirs = 3 // ActionResult.output_directories
-	fieldExitCode   = 4 // ActionResult.exit_code
-	fieldStdoutRaw  = 5 // ActionResult.stdout_raw
+	fieldOutputFiles = 2 // ActionResult.output_files
+	fieldOutputDirs  = 3 // ActionResult.output_directories
+
+	fieldOutFilePath = 1 // OutputFile.path
+	fieldOutFileDgst = 2 // OutputFile.digest
+	fieldOutFileExec = 4 // OutputFile.is_executable
+	fieldExitCode    = 4 // ActionResult.exit_code
+	fieldStdoutRaw   = 5 // ActionResult.stdout_raw
 
 	fieldOutDirPath = 1 // OutputDirectory.path
 	fieldOutDirTree = 3 // OutputDirectory.tree_digest
@@ -171,6 +176,13 @@ type Result struct {
 	// nobody fetches; saying it once costs a client.
 	Tree     ir.NodeID
 	TreeSize int64
+	// Declared is what the action said it produces, named one path at a time.
+	//
+	// **A client asks about paths and is answered about paths.** Where this is
+	// empty the whole delta is named instead, under no path at all, which is
+	// what every ordinary step produces and what a step declaring nothing
+	// means.
+	Declared Declared
 	// ExitCode is the step's, and is omitted when zero as proto3 requires.
 	ExitCode int32
 	// Stdout is what the step printed, where it was small enough to keep.
@@ -192,6 +204,33 @@ type Result struct {
 
 // EncodeActionResult writes an ActionResult message.
 func EncodeActionResult(r Result) []byte {
+	var out []byte
+
+	for _, f := range r.Declared.Files {
+		file := appendString(nil, fieldOutFilePath, f.Path)
+		file = appendMessage(file, fieldOutFileDgst, encodeDigest(&scratch{}, f.Digest, f.Size))
+
+		if f.Executable {
+			file = appendVarintField(file, fieldOutFileExec, 1)
+		}
+
+		out = appendMessage(out, fieldOutputFiles, file)
+	}
+
+	for _, d := range r.Declared.Dirs {
+		sub := appendString(nil, fieldOutDirPath, d.Path)
+		sub = appendMessage(sub, fieldOutDirTree, encodeDigest(&scratch{}, d.Tree, d.TreeSize))
+		sub = appendMessage(sub, fieldOutDirRoot, encodeDigest(&scratch{}, d.Root, d.RootSize))
+		out = appendMessage(out, fieldOutputDirs, sub)
+	}
+
+	// **The whole delta, only where nothing was declared.** A step that named
+	// its outputs has had them named above; adding an unnamed entry beside them
+	// would offer a client a second answer to a question it asked once.
+	if len(r.Declared.Files) > 0 || len(r.Declared.Dirs) > 0 {
+		return encodeResultTail(out, r)
+	}
+
 	dir := appendString(nil, fieldOutDirPath, r.Path)
 
 	if r.Tree != (ir.NodeID{}) {
@@ -200,8 +239,14 @@ func EncodeActionResult(r Result) []byte {
 
 	dir = appendMessage(dir, fieldOutDirRoot, encodeDigest(&scratch{}, r.Root, r.RootSize))
 
-	out := appendMessage(nil, fieldOutputDirs, dir)
+	out = appendMessage(out, fieldOutputDirs, dir)
 
+	return encodeResultTail(out, r)
+}
+
+// encodeResultTail writes what every result carries, however its outputs were
+// named.
+func encodeResultTail(out []byte, r Result) []byte {
 	if r.ExitCode != 0 {
 		out = appendVarintField(out, fieldExitCode, uint64(r.ExitCode)) //nolint:gosec // a process exit status
 	}

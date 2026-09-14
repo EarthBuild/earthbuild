@@ -6,6 +6,10 @@ Companion to [rfc-post-buildkit-engine.md](rfc-post-buildkit-engine.md), which a
 The formal object model - state, the step transition function, key derivation and the numbered
 invariants this plan keeps referring to - lives in [the Green Paper](green-paper.md).
 
+Speaking the remote execution API is a separate effort with its own sequencing and its own open
+judgements: [plan-remote-execution.md](plan-remote-execution.md). It is downstream of this one and
+changes nothing here.
+
 Decisions taken (2026-08-12):
 
 * BuildKit stays a supported engine indefinitely. It is not deprecated by this plan.

@@ -31,10 +31,13 @@ client:
 # `WITH RE` is the whole of the opt-in. Without it there is no socket, buck2
 # cannot reach a service, and - because the execution platform is remote-only -
 # it fails rather than quietly building locally and reporting success.
-build:
+project:
     FROM +client
     WORKDIR /w
     COPY project .
+
+build:
+    FROM +project
     WITH RE
         RUN buck2 build //:hello --show-output
     END
@@ -45,4 +48,16 @@ reach:
     FROM +client
     WITH RE
         RUN test -S /run/earthbuild/actions.sock && echo "the socket is there"
+    END
+
+# cached asks buck2 to build the same action a second time, in a step this
+# engine is forbidden to cache.
+#
+# **The half of R5's exit criterion that is about the cache.** Without
+# `--no-cache` the step itself hits, buck2 never runs, and nothing is learned
+# about whether an action's result survives - which is the question.
+cached:
+    FROM +project
+    WITH RE
+        RUN --no-cache buck2 build //:hello --show-output
     END

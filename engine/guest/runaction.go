@@ -261,6 +261,18 @@ func namedOutputs(st store.DirStore, id ir.NodeID, paths []string) (layer.Declar
 		return layer.Declared{}, err
 	}
 
+	// **Fetchable, at the price of a link.** A client materialises the outputs
+	// it was told about by asking for them by digest, and a layer's files are
+	// not addressable that way. Done here rather than when the client asks
+	// because this is where the layer and the path are both known, and because
+	// a link costs nothing: with deferred materialisation most outputs are
+	// never fetched, and it is not worth knowing which.
+	for _, f := range declared.Files {
+		if linkErr := st.LinkBlob(id, f.Path, f.Digest); linkErr != nil {
+			return layer.Declared{}, fmt.Errorf("make %s fetchable: %w", f.Path, linkErr)
+		}
+	}
+
 	// A client fetches a directory's Tree by digest a moment after reading it,
 	// so it is filed now rather than rebuilt then.
 	for _, d := range declared.Dirs {

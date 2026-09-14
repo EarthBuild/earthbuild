@@ -83,6 +83,21 @@ func (s *Server) withActions(
 
 	go func() { _ = g.Serve(ln) }()
 
+	// **And on TCP, where the host asked for it.** A client that cannot dial a
+	// socket cannot use a service that only has one, and buck2 is such a
+	// client. The same server answers both, so there is one service however it
+	// is reached.
+	if ask.Address != "" {
+		tcp, tcpErr := net.Listen("tcp", ask.Address)
+		if tcpErr != nil {
+			return fmt.Errorf("listen for actions on %s: %w", ask.Address, tcpErr)
+		}
+
+		defer func() { _ = tcp.Close() }()
+
+		go func() { _ = g.Serve(tcp) }()
+	}
+
 	// **Stopped when the step is, not when the build is.** The service exists
 	// because a step asked for it; one outliving its step would be answering
 	// for a filesystem that has been released.

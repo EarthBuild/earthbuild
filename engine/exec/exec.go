@@ -2308,7 +2308,8 @@ func actionsFor(n *ir.Node) *guest.Actions {
 	}
 
 	return &guest.Actions{
-		Socket: guest.DefaultActionSocket,
-		Image:  baseImageRef(n),
+		Socket:  guest.DefaultActionSocket,
+		Address: guest.DefaultActionAddress,
+		Image:   baseImageRef(n),
 	}
 }

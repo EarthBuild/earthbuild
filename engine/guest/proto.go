@@ -519,6 +519,13 @@ type Request struct {
 // field, and the guest refuses a longer one.
 const DefaultActionSocket = "/run/earthbuild/actions.sock"
 
+// DefaultActionAddress is the TCP address a WITH RE step's service answers on.
+//
+// 8980 is the port REAPI implementations conventionally use, so a client
+// configured from habit rather than from this engine's documentation lands in
+// the right place.
+const DefaultActionAddress = "127.0.0.1:8980"
+
 // Actions is an execution service running beside a step: WITH RE.
 //
 // **The socket is the identity.** It is bound inside the step's own filesystem,
@@ -542,6 +549,18 @@ type Actions struct {
 	// could not name it, and then an action asking for an image is refused
 	// rather than run in an environment nobody can vouch for.
 	Image string `json:"image,omitempty"`
+	// Address is a TCP address to answer on as well, or empty for none.
+	//
+	// **Because a client may not speak to a socket.** Buck2's remote-execution
+	// client rejects a `unix://` address outright - `Invalid address: invalid
+	// format` - so a service only reachable that way is a service it cannot
+	// use, whatever else works. Bazel does accept one, which is why the socket
+	// does not go away: this is an addition, and the same server answers both.
+	//
+	// Said by the host for Socket's reason, and a fixed port rather than one
+	// chosen here, because the client is configured before the listener exists
+	// and a port it has to be told about is one more thing to plumb.
+	Address string `json:"address,omitempty"`
 	// MaxActions bounds how many of this step's actions run at once, and zero
 	// is the service's own default. See remote.Service.MaxActions: a client
 	// sizes its parallelism from the machine it thinks it is on, and this one

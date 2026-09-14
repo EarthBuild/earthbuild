@@ -30,6 +30,19 @@ def _platforms_impl(ctx):
 
 platforms = rule(impl = _platforms_impl, attrs = {})
 
+def _target_platform_impl(ctx):
+    return [
+        DefaultInfo(),
+        PlatformInfo(
+            label = str(ctx.label.raw_target()),
+            configuration = ConfigurationInfo(constraints = {}, values = {}),
+        ),
+    ]
+
+# Distinct from the execution platform above, which buck2 is strict about: one
+# says what a target is built *for*, the other says where an action *runs*.
+target_platform = rule(impl = _target_platform_impl, attrs = {})
+
 def _greeting_impl(ctx):
     out = ctx.actions.declare_output("greeting.txt")
 

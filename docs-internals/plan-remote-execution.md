@@ -179,7 +179,7 @@ secret's name and a separate `SecretDigest`; that separation has to survive the 
 
 Costs a cache generation, which is cheap while nothing depends on the last one.
 
-## Phase R5 - execute, on one machine
+## Phase R5 - execute, on one machine - **done (2026-09-14)**
 
 **The endgame, and not the hard part of it.** A client this engine did not write - buck2 - sends an
 `Action`; this engine runs it and returns the result. Distribution is explicitly out: no scheduling
@@ -356,6 +356,22 @@ to running an action correctly.
 
 **Exit**: an Earthfile target that runs buck2, whose actions execute through the engine running the
 target, and whose second build hits without recompiling.
+
+**Met.** `examples/buck2`, a released buck2 binary, a remote-only execution platform so that a
+local fallback cannot make this look like it works:
+
+```text
+=== first ===   Cache hits: 0%    Commands: 1 (cached: 0, remote: 1, local: 0)   BUILD SUCCEEDED
+=== second ===  Cache hits: 100%  Commands: 1 (cached: 1, remote: 0, local: 0)   BUILD SUCCEEDED
+```
+
+`local: 0` is the part worth reading twice: buck2 was forbidden to run the action itself, so the
+only thing that could have built it is this engine. The step is `RUN --no-cache`, or the second
+build would hit at the Earthfile level and never ask.
+
+The last two gaps closed together, and one was hiding the other: the step's service had no action
+cache at all, so every lookup missed and every action ran - correct, and not a cache. Underneath
+that, nothing wrote an action's result down.
 
 ## Phase R3 - delegate a step to an RE service (unscoped)
 

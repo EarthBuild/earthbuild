@@ -1,6 +1,10 @@
 package layer
 
-import "github.com/EarthBuild/earthbuild/engine/ir"
+import (
+	"encoding/binary"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
+)
 
 // The REAPI Command, Platform and Action messages.
 //
@@ -161,4 +165,66 @@ func EncodeActionResult(r Result) []byte {
 	out = appendBytes(out, fieldStdoutRaw, r.Stdout)
 
 	return out
+}
+
+// Capabilities fields.
+const (
+	fieldCacheCaps    = 1 // ServerCapabilities.cache_capabilities
+	fieldLowAPI       = 3 // ServerCapabilities.low_api_version
+	fieldHighAPI      = 4 // ServerCapabilities.high_api_version
+	fieldDigestFuncs  = 1 // CacheCapabilities.digest_functions
+	fieldMaxBatchSize = 4 // CacheCapabilities.max_batch_total_size_bytes
+	fieldSemVerMajor  = 1 // SemVer.major
+)
+
+// DigestFunctionSHA256 and DigestFunctionBLAKE3 are the two this engine has, by
+// the numbers `DigestFunction.Value` gives them.
+//
+// Named here rather than derived from ir.HashFunc, because these are the other
+// party's numbering and ours is ours: a value that happened to match today
+// would be a coincidence to maintain.
+const (
+	DigestFunctionSHA256 = 1
+	DigestFunctionBLAKE3 = 9
+)
+
+// EncodeCapabilities writes a ServerCapabilities message.
+//
+// **One digest function, because a store has one.** A server advertising both
+// would be offering a client a choice this engine cannot honour: every digest
+// in the store was computed with the function it was built with, and answering
+// under the other names nothing it holds.
+func EncodeCapabilities(digestFunction int, maxBatchBytes int64) []byte {
+	// **Packed, because proto3 packs a repeated scalar by default.** Written as
+	// a bare varint this is field 1 wire type 0, which a conforming reader
+	// takes for a different field shape entirely - and the very first message a
+	// client asks for is the one it cannot read. protoc's own bytes are what
+	// caught it.
+	caps := appendPackedVarints(nil, fieldDigestFuncs, []uint64{uint64(digestFunction)}) //nolint:gosec // a small constant
+	if maxBatchBytes != 0 {
+		caps = appendVarintField(caps, fieldMaxBatchSize, uint64(maxBatchBytes)) //nolint:gosec // never negative
+	}
+
+	out := appendMessage(nil, fieldCacheCaps, caps)
+
+	// v2 at both ends: this is the only version of the API there is.
+	two := appendVarintField(nil, fieldSemVerMajor, 2)
+	out = appendMessage(out, fieldLowAPI, two)
+
+	return appendMessage(out, fieldHighAPI, two)
+}
+
+// appendPackedVarints writes a repeated scalar field the way proto3 does by
+// default: one length-delimited field holding the values end to end.
+func appendPackedVarints(b []byte, field int, vs []uint64) []byte {
+	if len(vs) == 0 {
+		return b
+	}
+
+	var packed []byte
+	for _, v := range vs {
+		packed = binary.AppendUvarint(packed, v)
+	}
+
+	return appendMessage(b, field, packed)
 }

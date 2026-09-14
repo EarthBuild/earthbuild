@@ -155,3 +155,77 @@ func eachField(b []byte, fn func(field, wire int, v []byte) error) error {
 
 	return nil
 }
+
+// fieldBlobDigests is FindMissingBlobsRequest.blob_digests, and
+// fieldMissingBlobs is the response's list.
+const (
+	fieldBlobDigests  = 2
+	fieldMissingBlobs = 2
+)
+
+// DigestsInRequest is the blobs a client asked about.
+//
+// **Only the digests.** A FindMissingBlobs request also carries an instance
+// name and a digest function; this service has one store and one function, so
+// neither changes the answer, and reading them would be reading fields to
+// ignore them.
+func DigestsInRequest(b []byte) ([]ir.NodeID, error) {
+	var out []ir.NodeID
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		if field != fieldBlobDigests || wire != wireBytes {
+			return nil
+		}
+
+		hex, err := hashOfDigest(v)
+		if err != nil {
+			return err
+		}
+
+		id, err := ir.ParseNodeID(hex)
+		if err != nil {
+			return fmt.Errorf("a request names %q, which is not a digest: %w", hex, err)
+		}
+
+		out = append(out, id)
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+// EncodeMissingBlobs writes a FindMissingBlobsResponse.
+//
+// **Sizes are not carried back.** A client knows what it asked about; the
+// answer is which of them to send, and a size this service would have to look
+// up for a blob it does not have is one it cannot state.
+func EncodeMissingBlobs(missing []ir.NodeID) []byte {
+	var out []byte
+
+	for _, id := range missing {
+		out = appendMessage(out, fieldMissingBlobs, encodeDigest(&scratch{}, id, 0))
+	}
+
+	return out
+}
+
+// EncodeFindMissingBlobs writes a request naming these digests.
+//
+// This engine is a server and not a client, so this exists for a test that has
+// to ask it something - and for the day a build asks a peer the same question.
+func EncodeFindMissingBlobs(ids []ir.NodeID) []byte {
+	var out []byte
+
+	for _, id := range ids {
+		out = appendMessage(out, fieldBlobDigests, encodeDigest(&scratch{}, id, 0))
+	}
+
+	return out
+}
+
+// DigestsInResponse is the blobs a server said it lacks.
+func DigestsInResponse(b []byte) ([]ir.NodeID, error) { return DigestsInRequest(b) }

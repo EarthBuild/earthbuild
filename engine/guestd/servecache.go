@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/cache"
@@ -13,6 +14,13 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/remote"
 	"github.com/EarthBuild/earthbuild/engine/store"
 )
+
+// serving is where the last listener bound, for a test that has to reach it.
+//
+// A package variable rather than a return value, because every caller but a
+// test passes an address it already knows and a second return value would be
+// discarded at the one real call site.
+var serving atomic.Value
 
 // EnvCacheAddr is where this agent serves the remote cache protocol.
 //
@@ -31,7 +39,7 @@ const EnvCacheAddr = "EARTH_GUEST_CACHE_ADDR"
 //
 // Read-only: this store is filled by builds, and accepting an upload would mean
 // taking a blob on a client's word about what it is called.
-func serveCache(root, at string, hold func() func()) (func(), error) {
+func serveCache(root, at string, hold func() func()) (stop func(), err error) {
 	if ir.Hash() != ir.HashSHA256 {
 		return nil, fmt.Errorf(
 			"%s is set and this store is hashed with %v, where the protocol names"+
@@ -71,6 +79,8 @@ func serveCache(root, at string, hold func() func()) (func(), error) {
 			fmt.Fprintf(os.Stderr, "%s: remote cache stopped: %v\n", label(), err)
 		}
 	}()
+
+	serving.Store(ln.Addr().String())
 
 	return func() { _ = srv.Close() }, nil
 }

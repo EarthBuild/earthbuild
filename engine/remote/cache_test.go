@@ -214,3 +214,49 @@ func TestACorruptBlobIsNotServed(t *testing.T) {
 			ir.DigestOf(body), id)
 	}
 }
+
+// Serving a request holds the machine open.
+//
+// **A machine with work in flight is not idle.** A sandbox stops itself when
+// nobody has wanted it for a while, and idleness is measured by when a host
+// last spoke - which a client inside a step is not. Without the hold the
+// service has its own machine stopped underneath it mid-request, and the client
+// sees a connection close with nothing saying why.
+//
+// Held across the whole request, released after: the release is what lets the
+// countdown start, and starting it while bytes are still going out is the same
+// bug one beat later.
+func TestServingHoldsTheMachineOpen(t *testing.T) {
+	restore := ir.SelectHashForTest(t, ir.HashSHA256)
+	defer restore()
+
+	var held, released int
+
+	srv := httptest.NewServer(&remote.Cache{
+		Store: store.DirStore(t.TempDir()),
+		Hold: func() func() {
+			held++
+
+			return func() { released++ }
+		},
+	})
+
+	defer srv.Close()
+
+	// Even a miss: a request that finds nothing still occupied the machine.
+	resp, err := http.Get(srv.URL + "/cas/" + ir.NodeID{9}.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_ = resp.Body.Close()
+
+	if held != 1 {
+		t.Errorf("the machine was held %d times for one request", held)
+	}
+
+	if released != 1 {
+		t.Errorf("the hold was released %d times, so the machine never becomes"+
+			" idle again and the sandbox outlives every use of it", released)
+	}
+}

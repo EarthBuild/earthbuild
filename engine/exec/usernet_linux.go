@@ -360,6 +360,8 @@ func guestSettings() []string {
 		// layers under names the host will never derive - and every digest that
 		// crosses is a claim about a function the other end is not using.
 		ir.EnvDigest,
+		// Where the agent serves the remote cache, for a client inside a step.
+		guestd.EnvCacheAddr,
 		timing.Env,
 	} {
 		if v := os.Getenv(name); v != "" {

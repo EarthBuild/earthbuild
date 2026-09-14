@@ -228,6 +228,19 @@ func run() error {
 		},
 	}
 
+	// **The remote-execution cache, served from here because the store is
+	// here.** A client inside a step - buck2 in an `earth` target - asks this
+	// machine, not the host: the guest owns the store, is already long-lived
+	// across builds, and is what a sandbox can reach. Absent unless asked for.
+	if at := os.Getenv(EnvCacheAddr); at != "" {
+		stopServing, serveErr := serveCache(root, at, srv.Idle.Hold)
+		if serveErr != nil {
+			return serveErr
+		}
+
+		defer stopServing()
+	}
+
 	// The descriptor channel, where the engine gave us one.
 	//
 	// Named by environment rather than counted: the id gate takes fd 3 only on

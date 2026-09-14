@@ -37,6 +37,19 @@ type Cache struct {
 	// without a store behind it.
 	Actions Actions
 
+	// Hold keeps the machine this serves on from stopping while a request is
+	// in flight, and is released when it finishes.
+	//
+	// **A machine with work in flight is not idle.** A sandbox stops itself
+	// when nobody has wanted it for a while, and idleness is measured by when a
+	// host last spoke - which a client inside a step is not. A service without
+	// this would have its own machine stopped underneath it, mid-request, and
+	// the client would see a connection close with nothing to say why.
+	//
+	// Nil where there is nothing to hold open, which is every caller outside a
+	// sandbox.
+	Hold func() (release func())
+
 	// Prefix is the path the protocol lives under, if any. Bazel is happy with
 	// `--remote_cache=http://host:port/cache`, and then every path arrives
 	// under `/cache`.
@@ -58,6 +71,10 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ir.Hash(), ir.EnvDigest), http.StatusServiceUnavailable)
 
 		return
+	}
+
+	if c.Hold != nil {
+		defer c.Hold()()
 	}
 
 	kind, digest, ok := c.route(r.URL.Path)

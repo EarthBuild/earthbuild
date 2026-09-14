@@ -161,3 +161,20 @@ func (i *idle) Watch(stop func()) {
 //
 //nolint:revive // see above
 func NewIdle(after time.Duration) *idle { return newIdle(after, nil) }
+
+// Hold keeps this machine open until the returned function is called.
+//
+// **For work that arrives other than through the agent's own protocol.** A
+// client inside a step talks to the remote-execution service, not to the host,
+// so nothing touches this and the machine counts itself unused while it is
+// busiest. Exported for that service; the agent's own requests take the hold
+// through begin and end directly.
+func (i *idle) Hold() func() {
+	if i == nil {
+		return func() {}
+	}
+
+	i.begin()
+
+	return i.end
+}

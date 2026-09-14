@@ -738,6 +738,10 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 		args = append(args, "-e", ir.EnvDigest+"="+on)
 	}
 
+	if on := os.Getenv(guestd.EnvCacheAddr); on != "" {
+		args = append(args, "-e", guestd.EnvCacheAddr+"="+on)
+	}
+
 	args = append(args, a.name, "/earth/"+filepath.Base(guestBin))
 
 	cmd := osexec.CommandContext(ctx, "container", args...) //nolint:gosec // a fixed argv

@@ -47,18 +47,24 @@ func (d DirStore) Materialise(root ir.NodeID, into string) error {
 		}
 	}
 
+	for _, sub := range dir.Dirs {
+		if err := d.Materialise(sub.Digest, filepath.Join(into, sub.Name)); err != nil {
+			return err
+		}
+	}
+
+	// **Symlinks last, so nothing is ever written through one.** A member name
+	// is one path segment and appears once in a directory (layer.DirectoryIn
+	// refuses anything else), so a sibling cannot already hold the name a link
+	// takes. Writing them last means that if it ever could, the link would not
+	// be there yet - the ordering costs nothing and does not depend on the
+	// check above being right.
 	for _, l := range dir.Links {
 		// The target as given, never resolved: a symlink's meaning is the
 		// string it holds, and following it here would bake this machine's
 		// filesystem into the action's.
 		if err := os.Symlink(l.Target, filepath.Join(into, l.Name)); err != nil {
 			return fmt.Errorf("link %s: %w", l.Name, err)
-		}
-	}
-
-	for _, sub := range dir.Dirs {
-		if err := d.Materialise(sub.Digest, filepath.Join(into, sub.Name)); err != nil {
-			return err
 		}
 	}
 
@@ -90,5 +96,25 @@ func (d DirStore) writeFile(f layer.Member, at string) error {
 		mode = os.FileMode(f.Mode) & os.ModePerm
 	}
 
-	return os.WriteFile(at, b, mode) //nolint:gosec // the mode the sender asked for
+	// **O_EXCL, not truncate: the file must not be there already.** It creates
+	// nothing through a symlink, which is what makes writing into a directory
+	// an earlier action left behind safe rather than hopeful; and a name that
+	// is already taken is a tree describing two things at one path, which is
+	// a question for the sender and not something to resolve by writing last.
+	w, err := os.OpenFile(at, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode) //nolint:gosec // the mode the sender asked for
+	if err != nil {
+		return fmt.Errorf("write %s: %w", at, err)
+	}
+
+	if _, err := w.Write(b); err != nil {
+		_ = w.Close()
+
+		return fmt.Errorf("write %s: %w", at, err)
+	}
+
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("write %s: %w", at, err)
+	}
+
+	return nil
 }

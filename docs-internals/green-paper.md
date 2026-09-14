@@ -1199,6 +1199,15 @@ Normative. An implementation that violates any of these is defective, not merely
   observes the step, the nested engine's 𝑟 is absent rather than partial, and it derives no Κ₂ entry
   from an observation it could not make. It may still match entries other runs derived: an absent 𝑟
   withholds a contribution, never a lookup.
+* **I22 (A member's name is one segment of a path).** Every name in a 𝒟(𝑑) (4.5b) is a base name:
+  not empty, not `.` or `..`, holding no separator and no NUL, and appearing once across the
+  directory's three lists. A message failing any of these is refused when it is read, so a holder of
+  a 𝒟(𝑑) has one that describes a tree wholly beneath itself. The check belongs to the reader
+  because 𝜈(𝑑) says nothing about it: a directory naming a member `../../etc/whatever` hashes to the
+  name it was filed under exactly as any other does, so A5's verification passes and the member is
+  written two directories above the tree it arrived in. Uniqueness is part of the same clause rather
+  than a tidiness: a subdirectory is materialised into a path just created, so no member can be
+  reached through a symlink a sibling planted unless two members share a name.
 
 * **I19 (A secret's value is never written down).** A declared secret enters ε by identity and never
   by value, and never becomes a declaration: declarations are stored, content-addressed and shared, so
@@ -1252,6 +1261,7 @@ from the strongest form to the weakest, so a lower number is a stronger guarante
 | I19       | a secret reaches a step through the secret mechanism and has no path into a declaration; the type that carries a declaration carries no secret value; the interpreter is handed digests and never values, so a value in the graph stays unrepresentable | 1     | E742; cli secret-digest tests                                 |
 | I20       | β's object and subtree hashed into Κ₁ at both mirrors; the guest binds it read-only, from one layer or an assembled stack; a source that is neither the context nor a result is refused                                                                 |       |                                                               |
 | I21       | the nested engine reports 𝑟 incomplete when the observation source refuses it, and §3.6 yields no Κ₂ entry from an incomplete 𝑟                                                                                                                         | 2     | E706                                                          |
+| I22       | names checked where a 𝒟(𝑑) is decoded, so holding one is the guarantee; symlinks materialised last, and a file created with O_EXCL                                                                                                                      | 2     | layer member-name tests; store input-root escape tests        |
 
 An invariant with two mechanisms takes the **weaker** level, not the better one: I3 needs both the
 observation set to be closed and every field of ω to reach the key, so it is enforced only as well as

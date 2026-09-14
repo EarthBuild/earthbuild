@@ -2,8 +2,10 @@ package layer
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -673,32 +675,40 @@ type Directory struct {
 func DirectoryIn(b []byte) (Directory, error) {
 	var out Directory
 
+	// **Names are checked here, so that holding a Directory is the guarantee.**
+	// Anywhere else and every consumer has to repeat the check, and the one
+	// that forgets is the one that writes to the disk.
+	seen := map[string]bool{}
+
 	err := eachField(b, func(field, wire int, v []byte) error {
 		if wire != wireBytes {
 			return nil
 		}
 
+		if field != fieldFiles && field != fieldDirectories && field != fieldSymlinks {
+			return nil
+		}
+
+		digestField := fieldDigest
+		if field == fieldSymlinks {
+			digestField = 0
+		}
+
+		m, err := memberIn(v, digestField)
+		if err != nil {
+			return err
+		}
+
+		if err := checkName(m.Name, seen); err != nil {
+			return err
+		}
+
 		switch field {
 		case fieldFiles:
-			m, err := memberIn(v, fieldDigest)
-			if err != nil {
-				return err
-			}
-
 			out.Files = append(out.Files, m)
 		case fieldDirectories:
-			m, err := memberIn(v, fieldDigest)
-			if err != nil {
-				return err
-			}
-
 			out.Dirs = append(out.Dirs, m)
 		case fieldSymlinks:
-			m, err := memberIn(v, 0)
-			if err != nil {
-				return err
-			}
-
 			out.Links = append(out.Links, m)
 		}
 
@@ -709,6 +719,49 @@ func DirectoryIn(b []byte) (Directory, error) {
 	}
 
 	return out, nil
+}
+
+// checkName refuses a member name that is not one path segment, or one already
+// used in this directory.
+//
+// **REAPI defines a name as a single component and leaves the check to the
+// server, which is here.** The bytes of a Directory hash to the name it was
+// filed under whatever the names inside it say, so verification passes for a
+// message describing a tree that reaches outside itself: a member called
+// `../../etc/whatever` lands two directories up in anything that joins the name
+// to a path. Nothing downstream can tell, because there is nothing to see - the
+// message is well formed and says what it says.
+//
+// Uniqueness belongs with it because it is load-bearing rather than tidy.
+// Subdirectories are materialised into paths just created, so a member cannot
+// be reached through a symlink a sibling planted - unless two members share a
+// name, and the second write follows what the first one left.
+func checkName(name string, seen map[string]bool) error {
+	const sep = `/\` + "\x00"
+
+	switch {
+	case name == "":
+		return errors.New("a member of this directory has no name")
+	case name == "." || name == "..":
+		return fmt.Errorf(
+			"%q is a member name, and a name is one path segment\n"+
+				"  `.` and `..` name this directory and its parent, not anything in it",
+			name)
+	case strings.ContainsAny(name, sep):
+		return fmt.Errorf(
+			"%q is a member name, and a name is one path segment\n"+
+				"  a separator in one describes a tree reaching outside the one being sent",
+			name)
+	case seen[name]:
+		return fmt.Errorf(
+			"%q names two members of this directory\n"+
+				"  the second would be written over, or through, the first",
+			name)
+	}
+
+	seen[name] = true
+
+	return nil
 }
 
 // memberIn reads one FileNode, DirectoryNode or SymlinkNode.

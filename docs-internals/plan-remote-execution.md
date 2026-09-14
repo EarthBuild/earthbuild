@@ -107,9 +107,31 @@ The first thing another tool can use. Serves, over our store, without executing 
 * `ContentAddressableStorage`: `FindMissingBlobs`, `BatchReadBlobs`, `GetTree`
 * `ActionCache`: `GetActionResult` only. Writing is Phase R3's question.
 
-**Exit**: `bazel build --remote_cache=` against an EarthBuild store gets hits for actions an
-EarthBuild build populated. This is the milestone that is useful to somebody else without changing
-what EarthBuild means.
+**Exit**: a second EarthBuild instance, pointed at the first over this protocol, fetches the
+directories it lacks rather than rebuilding them.
+
+**Not**: `bazel build --remote_cache=` getting hits. That was this phase's exit criterion until the
+`Action` message was read properly, and it is unreachable - for a reason that has nothing to do
+with encodings. `/ac` is keyed on ℋ over an `Action`, which covers `command_digest` as well as
+`input_root_digest`, so a client hits only an action it would itself have run. An EarthBuild step's
+command is `/bin/sh -c "cargo build --release"` and a Bazel action's is `rustc --crate-name …`;
+they are never the same action, whatever their trees digest to.
+
+**What the phase is actually worth**, then, is three things, and they are worth having:
+
+* **A standard wire between our own instances.** The fleet moves layers by a protocol only this
+  engine speaks. REAPI is the same job, already specified, already implemented by other people's
+  caches - so a store can be served by something that is not us, and read by something that is not
+  us.
+* **The prerequisite for R3.** Delegating a step means computing an `Action` and asking a cache
+  about it; that machinery is this phase's, whoever ends up answering.
+* **The claim, tested.** 𝜏 being an input-root digest rather than a translation of one is only a
+  claim until two processes agree on one over a wire.
+
+Sharing *file content* with another tool needs a per-file CAS - blobs addressable by content digest
+rather than reachable only through the layer holding them - which this engine does not have. That
+is where a Bazel client and an EarthBuild store could genuinely meet before R3, and it is not
+scoped here.
 
 ## Phase R3 - delegate a step to an RE service (unscoped)
 

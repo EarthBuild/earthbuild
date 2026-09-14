@@ -392,12 +392,25 @@ type Excluder interface {
 // build directory - which otherwise put the machine into the key and stop two
 // checkouts of one commit sharing anything (E562).
 func TakeIgnoring(root string, ex Excluder) (Capture, error) {
+	return TakeIgnoringIn(root, ex, IDMap{}, IDMap{})
+}
+
+// TakeIgnoringIn is TakeIgnoring with ownership translated as TakeIn does.
+//
+// **A capture and its manifest have to be taken the same way.** They describe
+// one tree: the digest names it and the manifest attests to it, so translating
+// ownership in one and not the other produces a manifest for a layer that is
+// not the one stored - which presents as a fold landing where the entry does
+// not point, and makes the layer unservable to a peer. A build context has no
+// maps to pass and is why the untranslated form exists; a step's capture always
+// has them.
+func TakeIgnoringIn(root string, ex Excluder, uids, gids IDMap) (Capture, error) {
 	entries, size, sockets, err := walkNeeding(root, true, ex)
 	if err != nil {
 		return Capture{}, err
 	}
 
-	return capture(entries, size, sockets, IDMap{}, IDMap{}), nil
+	return capture(entries, size, sockets, uids, gids), nil
 }
 
 // walkNeeding is walk, optionally without reading any file's contents.

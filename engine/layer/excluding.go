@@ -166,7 +166,7 @@ func TakeDeclaredInManifested(
 		return TakeExcludingInManifested(root, faulted, uids, gids)
 	}
 
-	c, err := TakeIgnoring(root, only)
+	c, err := TakeIgnoringIn(root, only, uids, gids)
 	if err != nil {
 		return Capture{}, nil, err
 	}

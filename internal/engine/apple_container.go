@@ -366,19 +366,14 @@ func (e *appleEngine) PullImage(ctx context.Context, refs ...string) error {
 	for _, ref := range refs {
 		args := []string{"image", "pull"}
 
-		isLocalReg := e.Addrs.LocalRegistry != nil &&
+		isLocalReg := (e.Addrs.LocalRegistry != nil &&
 			e.Addrs.LocalRegistry.Host != "" &&
-			strings.HasPrefix(ref, e.Addrs.LocalRegistry.Host+"/")
+			strings.HasPrefix(ref, e.Addrs.LocalRegistry.Host+"/")) ||
+			strings.HasPrefix(ref, "127.0.0.1:") ||
+			strings.HasPrefix(ref, "localhost:")
 
-		if strings.HasPrefix(ref, "127.0.0.1:") || strings.HasPrefix(ref, "localhost:") || isLocalReg {
+		if isLocalReg {
 			args = append(args, "--scheme", "http")
-		} else if hostPart, _, ok := strings.Cut(ref, "/"); ok {
-			host, _, _ := net.SplitHostPort(hostPart)
-			host = cmp.Or(host, hostPart)
-
-			if ip := net.ParseIP(host); ip != nil && (ip.IsLoopback() || ip.IsPrivate()) {
-				args = append(args, "--scheme", "http")
-			}
 		}
 
 		args = append(args, ref)

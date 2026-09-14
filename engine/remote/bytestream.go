@@ -256,3 +256,33 @@ func (s *Service) getTree(_ any, stream grpc.ServerStream) error {
 
 	return stream.SendMsg(&msg)
 }
+
+// updateActionResult refuses a result a client computed elsewhere.
+//
+// **This cache is not only this service's.** An entry is keyed by Κₜ, which is
+// the Action digest, and that is the same key space the engine files its own
+// steps under (green paper 4.5a) - one store, whether the work came from an
+// Earthfile or from a client inside one. That is what makes an action's result
+// useful to a later build, and it is what makes accepting somebody else's
+// claim about one unsafe.
+//
+// The claim cannot be checked. This service can verify that the blobs a result
+// names are present and hash to their names (A5); it cannot verify that running
+// the action would produce them, because the only way to find that out is to
+// run it. Storing it anyway is a cache entry nobody verified, which is the
+// false hit I3 forbids and the miss-or-verified rule I4 states - and it would
+// be served to every later build and every other client.
+//
+// PERMISSION_DENIED rather than UNIMPLEMENTED: the method is understood and the
+// answer is no. A client is also told so in the capabilities it read first,
+// where `action_cache_update_capabilities.update_enabled` is absent and so
+// false - this is for the client that asked anyway.
+func (s *Service) updateActionResult(context.Context, []byte) ([]byte, error) {
+	return nil, status.Error(codes.PermissionDenied,
+		"this service does not accept results it did not produce"+
+			"\n  its action cache is shared with the engine's own steps, so an entry"+
+			"\n  is a claim every later build is served - and the claim that an action"+
+			"\n  produces a tree can only be checked by running it"+
+			"\n  `update_enabled` is false in the capabilities, which says the same thing"+
+			" before you ask")
+}

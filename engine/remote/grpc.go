@@ -146,6 +146,9 @@ func (s *Service) Register(g grpc.ServiceRegistrar) {
 		Methods: []grpc.MethodDesc{{
 			MethodName: "GetActionResult",
 			Handler:    s.unary(s.getActionResult),
+		}, {
+			MethodName: "UpdateActionResult",
+			Handler:    s.unary(s.updateActionResult),
 		}},
 	}, s)
 }

@@ -254,10 +254,16 @@ type Capabilities struct {
 	DigestFunctions     []uint64
 	ExecDigestFunctions []uint64
 	ExecEnabled         bool
-	MaxBatchBytes       int64
-	LowMajor, LowMinor  int64
-	HighMajor           int64
-	HighMinor           int64
+	// ActionCacheUpdates is whether a client is told it may upload results.
+	//
+	// False, and deliberately: this engine's action cache is shared with its own
+	// steps, so an entry is a claim every later build is served - and the claim
+	// that an action produces a tree can only be checked by running it.
+	ActionCacheUpdates bool
+	MaxBatchBytes      int64
+	LowMajor, LowMinor int64
+	HighMajor          int64
+	HighMinor          int64
 }
 
 // CapabilitiesIn reads a ServerCapabilities.
@@ -279,6 +285,15 @@ func CapabilitiesIn(b []byte) (Capabilities, error) {
 				switch {
 				case cf == fieldDigestFuncs:
 					out.DigestFunctions = append(out.DigestFunctions, varintsIn(cv, cw)...)
+				case cf == fieldACUpdateCaps && cw == wireBytes:
+					return eachField(cv, func(uf, uw int, uv []byte) error {
+						if uf == fieldUpdateEnabled && uw == wireVarint {
+							n, _ := binary.Uvarint(uv)
+							out.ActionCacheUpdates = n != 0
+						}
+
+						return nil
+					})
 				case cf == fieldMaxBatchSize && cw == wireVarint:
 					n, _ := binary.Uvarint(cv)
 					out.MaxBatchBytes = int64(n) //nolint:gosec // a length
@@ -437,3 +452,10 @@ func DirsInGetTreeResponse(b []byte) ([][]byte, error) {
 func EncodeGetTreeForTest(root ir.NodeID) []byte {
 	return appendMessage(nil, fieldGetTreeRoot, encodeDigest(&scratch{}, root, 0))
 }
+
+// fieldACUpdateCaps is CacheCapabilities.action_cache_update_capabilities, and
+// fieldUpdateEnabled is the flag inside it.
+const (
+	fieldACUpdateCaps  = 2 // CacheCapabilities.action_cache_update_capabilities
+	fieldUpdateEnabled = 1 // ActionCacheUpdateCapabilities.update_enabled
+)

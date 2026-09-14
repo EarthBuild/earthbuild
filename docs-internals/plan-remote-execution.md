@@ -242,6 +242,19 @@ toolchain wants the target's `FROM` to name it. Where a build genuinely needs ac
 its caller is not in, that is a second target with its own `FROM`, which is how everything else in
 an Earthfile expresses the same thing.
 
+**Settled: results this engine did not produce are refused.** Bazel uploads what it built locally
+unless told not to, so this is a thing that happens rather than a thing to worry about. The action
+cache is keyed by Κₜ and is the same key space a *step's* result is filed under - one store,
+whether the work came from an Earthfile or from a client inside one, which is exactly what makes an
+action's result useful to a later build. It is also what makes accepting somebody else's claim
+about one unsafe: the claim cannot be checked. This service can verify that the blobs a result
+names are present and hash to their names (A5); it cannot verify that running the action would
+produce them, because the only way to find that out is to run it. Storing it anyway is an entry
+nobody verified - the false hit I3 forbids, served to every later build and every other client.
+`update_enabled` is false in the capabilities so a client knows before it asks, and the RPC answers
+PERMISSION_DENIED rather than UNIMPLEMENTED for the one that asks anyway: the method is understood
+and the answer is no.
+
 **The seam between them is `remote.Runner`.** Which layers an action's environment is, and whether
 a client may name one of its own, is settled where the step is started; what reaches the protocol
 code is something that can run an action. A service that resolved bases itself would be the second

@@ -85,6 +85,8 @@ func TestEveryFieldNumberMatchesTheSchema(t *testing.T) {
 		{"fieldHighAPI", "ServerCapabilities", "high_api_version", fieldHighAPI},
 		{"fieldDigestFuncs", "CacheCapabilities", "digest_functions", fieldDigestFuncs},
 		{"fieldMaxBatchSize", "CacheCapabilities", "max_batch_total_size_bytes", fieldMaxBatchSize},
+		{"fieldACUpdateCaps", "CacheCapabilities", "action_cache_update_capabilities", fieldACUpdateCaps},
+		{"fieldUpdateEnabled", "ActionCacheUpdateCapabilities", "update_enabled", fieldUpdateEnabled},
 		{"fieldExecDigestFunc", "ExecutionCapabilities", "digest_function", fieldExecDigestFunc},
 		{"fieldExecEnabled", "ExecutionCapabilities", "exec_enabled", fieldExecEnabled},
 		{"fieldExecDigestFns", "ExecutionCapabilities", "digest_functions", fieldExecDigestFns},

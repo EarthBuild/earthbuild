@@ -542,6 +542,11 @@ type Actions struct {
 	// could not name it, and then an action asking for an image is refused
 	// rather than run in an environment nobody can vouch for.
 	Image string `json:"image,omitempty"`
+	// MaxActions bounds how many of this step's actions run at once, and zero
+	// is the service's own default. See remote.Service.MaxActions: a client
+	// sizes its parallelism from the machine it thinks it is on, and this one
+	// is inside a sandbox that is already running the step that asked.
+	MaxActions int `json:"maxActions,omitempty"`
 }
 
 type Daemon struct {

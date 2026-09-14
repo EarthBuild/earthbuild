@@ -3,6 +3,8 @@ package remote
 import (
 	"context"
 	"fmt"
+	"runtime"
+	"sync"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
@@ -37,6 +39,26 @@ type Service struct {
 	// arrives here is something that can run an action. A service that resolved
 	// bases would be the second place that rule is written.
 	Runner Runner
+
+	// MaxActions bounds how many actions run at once. NumCPU when zero.
+	//
+	// **Their own bound, never the build's.** A client decides how many actions
+	// to ask for and this one is inside a sandbox: Buck2 sizes its parallelism
+	// from the machine it thinks it is on, so a step given this service can ask
+	// for as many as it likes, and every one is a process on a machine already
+	// running the step that asked.
+	//
+	// Sharing a pool with the build's steps would be worse than unbounded. A
+	// step holds its slot while the actions it spawned wait for slots of their
+	// own, and a build that waits for itself never finishes. Two pools can
+	// oversubscribe a machine, which is slow - and prefer slow: a deadlock
+	// needs a person and a stack dump, oversubscription needs patience.
+	MaxActions int
+
+	// running admits actions up to MaxActions, and is made on first use because
+	// a zero Service has to work.
+	once    sync.Once
+	running chan struct{}
 }
 
 // Runner executes one action and reports what it produced.
@@ -301,6 +323,13 @@ func (s *Service) execute(_ any, stream grpc.ServerStream) error {
 				" action, and was not given anything that can run one")
 	}
 
+	admit, err := s.admit(stream.Context())
+	if err != nil {
+		return err
+	}
+
+	defer admit()
+
 	res, err := s.Runner.RunAction(stream.Context(), ask.Action)
 	if err != nil {
 		// **Not UNIMPLEMENTED, which means "ask somebody else".** An action
@@ -324,4 +353,28 @@ func sendDone(stream grpc.ServerStream, action ir.NodeID, result []byte, cached 
 		layer.EncodeExecuteResponse(result, cached))
 
 	return stream.SendMsg(&op)
+}
+
+// admit waits for a slot to run an action in, and hands back its release.
+//
+// **Waits rather than refuses.** A client told RESOURCE_EXHAUSTED has to decide
+// what to do about it, and what it should do is wait - so waiting here is the
+// same answer with nobody having to implement it. The context is the client's,
+// so a caller that gave up stops waiting with it.
+func (s *Service) admit(ctx context.Context) (release func(), err error) {
+	s.once.Do(func() {
+		n := s.MaxActions
+		if n <= 0 {
+			n = runtime.NumCPU()
+		}
+
+		s.running = make(chan struct{}, n)
+	})
+
+	select {
+	case s.running <- struct{}{}:
+		return func() { <-s.running }, nil
+	case <-ctx.Done():
+		return nil, status.FromContextError(ctx.Err()).Err()
+	}
 }

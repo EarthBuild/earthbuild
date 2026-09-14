@@ -75,6 +75,10 @@ func (s *Server) withActions(
 			Hold: hold,
 		},
 		Runner: stepRunner{s: s, stack: stack, image: ask.Image},
+		// Their own bound, never the build's - see Service.MaxActions. Left at
+		// the default here: the guest knows how many CPUs the sandbox has, and
+		// the step that asked is already running on one of them.
+		MaxActions: ask.MaxActions,
 	}).Register(g)
 
 	go func() { _ = g.Serve(ln) }()

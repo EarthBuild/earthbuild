@@ -128,7 +128,11 @@ const (
 	fieldOutDirPath = 1 // OutputDirectory.path
 	fieldOutDirRoot = 5 // OutputDirectory.root_directory_digest
 
-	fieldExecMetadata = 6 // ActionResult.execution_metadata
+	// **9, and the number is the whole of it.** 6 is `stdout_digest`, so a
+	// metadata message written there is read by a peer as a malformed digest
+	// and the metadata it requires is simply absent. Buck2 says "The execution
+	// metadata are not defined" and is right.
+	fieldExecMetadata = 9 // ActionResult.execution_metadata
 
 	fieldMetaWorker    = 1 // ExecutedActionMetadata.worker
 	fieldMetaStarted   = 3 // ExecutedActionMetadata.worker_start_timestamp

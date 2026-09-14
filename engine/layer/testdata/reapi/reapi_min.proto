@@ -99,8 +99,9 @@ message ActionResult {
   repeated OutputDirectory output_directories = 3;
   int32 exit_code = 4;
   bytes stdout_raw = 5;
-  ExecutedActionMetadata execution_metadata = 6;
-  reserved 7, 8, 9, 10, 11, 12;
+  reserved 6, 7, 8;
+  ExecutedActionMetadata execution_metadata = 9;
+  reserved 10, 11, 12;
 }
 
 // Only the fields this engine emits. A client may require the message to be

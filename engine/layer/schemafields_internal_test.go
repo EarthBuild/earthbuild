@@ -96,6 +96,9 @@ func TestEveryFieldNumberMatchesTheSchema(t *testing.T) {
 		{"fieldExecStage", "ExecuteOperationMetadata", "stage", fieldExecStage},
 		{"fieldExecMetaDigest", "ExecuteOperationMetadata", "action_digest", fieldExecMetaDigest},
 
+		{"fieldGetTreeRoot", "GetTreeRequest", "root_digest", fieldGetTreeRoot},
+		{"fieldTreeDirs", "GetTreeResponse", "directories", fieldTreeDirs},
+
 		{"fieldBlobDigests", "FindMissingBlobsRequest", "blob_digests", fieldBlobDigests},
 		{"fieldMissingBlobs", "FindMissingBlobsResponse", "missing_blob_digests", fieldMissingBlobs},
 

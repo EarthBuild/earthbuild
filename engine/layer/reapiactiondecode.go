@@ -360,3 +360,80 @@ func semverIn(b []byte) (major, minor int64) {
 
 	return major, minor
 }
+
+// GetTree fields.
+const (
+	fieldGetTreeRoot = 2 // GetTreeRequest.root_digest
+	fieldTreeDirs    = 1 // GetTreeResponse.directories
+)
+
+// GetTreeIn reads which tree a client wants walked.
+//
+// Page size and token are read and ignored on purpose: this service streams
+// every directory of the tree in one call, which is what the stream is for, and
+// a token it never issues is one no client can send back.
+func GetTreeIn(b []byte) (ir.NodeID, error) {
+	var (
+		root  ir.NodeID
+		found bool
+	)
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		if field != fieldGetTreeRoot || wire != wireBytes {
+			return nil
+		}
+
+		id, _, err := digestIn(v)
+		if err != nil {
+			return fmt.Errorf("a GetTree names something that is not a digest: %w", err)
+		}
+
+		root, found = id, true
+
+		return nil
+	})
+	if err != nil {
+		return ir.NodeID{}, err
+	}
+
+	if !found {
+		return ir.NodeID{}, errors.New("a GetTree names no root, so there is no tree to walk")
+	}
+
+	return root, nil
+}
+
+// EncodeGetTreeResponse writes one page of a tree walk.
+func EncodeGetTreeResponse(dirs [][]byte) []byte {
+	var out []byte
+
+	for _, d := range dirs {
+		out = appendMessage(out, fieldTreeDirs, d)
+	}
+
+	return out
+}
+
+// DirsInGetTreeResponse reads the directories a page carries, for a test that
+// asks this service the way a client does.
+func DirsInGetTreeResponse(b []byte) ([][]byte, error) {
+	var out [][]byte
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		if field == fieldTreeDirs && wire == wireBytes {
+			out = append(out, append([]byte(nil), v...))
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+// EncodeGetTreeForTest writes a GetTree request naming a root.
+func EncodeGetTreeForTest(root ir.NodeID) []byte {
+	return appendMessage(nil, fieldGetTreeRoot, encodeDigest(&scratch{}, root, 0))
+}

@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 )
 
@@ -177,4 +178,81 @@ func (s *Service) queryWriteStatus(_ context.Context, in []byte) ([]byte, error)
 	}
 
 	return layer.EncodeQueryWriteStatus(0, false), nil
+}
+
+// dirsPerPage bounds how many directories travel in one message.
+//
+// A tree can hold many thousands, and a single message carrying all of them
+// would exceed what gRPC will send whatever REAPI permits. The stream is the
+// pagination: every page goes out on this call, so no page token is ever issued
+// and none can come back.
+const dirsPerPage = 512
+
+// getTree streams every directory beneath a root.
+//
+// **What a client uses to fetch an output directory it does not hold.** The
+// alternative is asking for each node by digest and discovering the next level
+// from what comes back, which is a round trip per level of the tree; this is
+// one call. Bazel reaches for it, buck2 reads the inline Tree instead, and a
+// service that wants both answers both.
+func (s *Service) getTree(_ any, stream grpc.ServerStream) error {
+	defer s.hold()()
+
+	var in []byte
+	if err := stream.RecvMsg(&in); err != nil {
+		return err
+	}
+
+	root, err := layer.GetTreeIn(in)
+	if err != nil {
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	// Breadth-first from the root, each node visited once: a tree may name one
+	// directory from two places - that is the point of naming by content - and
+	// sending it twice would be a client assembling it twice.
+	seen := map[ir.NodeID]bool{root: true}
+	queue := []ir.NodeID{root}
+
+	var page [][]byte
+
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+
+		b, err := s.Cache.Store.Node(id)
+		if err != nil {
+			return status.Errorf(codes.NotFound, "no directory %s", id)
+		}
+
+		page = append(page, b)
+
+		kids, err := layer.ChildDigests(b)
+		if err != nil {
+			return status.Errorf(codes.Internal, "read %s: %v", id, err)
+		}
+
+		for _, k := range kids {
+			if !seen[k] {
+				seen[k] = true
+				queue = append(queue, k)
+			}
+		}
+
+		if len(page) >= dirsPerPage {
+			msg := layer.EncodeGetTreeResponse(page)
+			if err := stream.SendMsg(&msg); err != nil {
+				return err
+			}
+
+			page = page[:0]
+		}
+	}
+
+	// **At least one message, even for a tree of one empty directory.** A
+	// client waiting for a page would otherwise see the stream close having
+	// said nothing, which is indistinguishable from a service that gave up.
+	msg := layer.EncodeGetTreeResponse(page)
+
+	return stream.SendMsg(&msg)
 }

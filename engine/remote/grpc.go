@@ -98,6 +98,11 @@ func (s *Service) Register(g grpc.ServiceRegistrar) {
 			MethodName: "BatchReadBlobs",
 			Handler:    s.unary(s.batchReadBlobs),
 		}},
+		Streams: []grpc.StreamDesc{{
+			StreamName:    "GetTree",
+			Handler:       s.getTree,
+			ServerStreams: true,
+		}},
 	}, s)
 
 	g.RegisterService(&grpc.ServiceDesc{

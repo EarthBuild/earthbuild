@@ -183,8 +183,39 @@ Costs a cache generation, which is cheap while nothing depends on the last one.
 
 **The endgame, and not the hard part of it.** A client this engine did not write - buck2 - sends an
 `Action`; this engine runs it and returns the result. Distribution is explicitly out: no scheduling
-across machines, no worker pool, no queue, no fairness, no retries. One process, executing what it
-is asked for, as many at a time as the existing scheduler already runs steps.
+across machines, no worker pool, no queue, no fairness, no retries.
+
+**And the service is offered only to a target this engine is already running.** buck2 inside an
+`earth` target is supported; buck2 outside one is not. That is not a limitation reluctantly
+accepted - it is the shape of the thing, and it removes more work than it leaves:
+
+* **No authentication, and no authorisation.** The sandbox boundary is the boundary. Nothing
+  reaches the service that this engine did not itself start, so there is no tenant to isolate, no
+  token to issue and no identity to check.
+* **No exposure.** It listens where a step can reach it and nowhere else - the channel a guest
+  already has, or a socket bound into the sandbox - so it is not a port on a machine.
+* **No lifetime to manage.** It exists for the build that started it and goes when that build does.
+  There is no daemon, no state to reconcile across restarts, and no cache to invalidate on
+  shutdown.
+
+`earth-native -serve-cache` therefore stays a way to *try* this by hand, and is not the product.
+
+### The recursion, which is the interesting part
+
+A step runs buck2; buck2 asks the engine running that step to execute actions. Those actions are
+**not** steps of the Earthfile graph - nothing planned them, nothing named them, and they must not
+enter the schedule. They take the narrow path this phase describes: materialise an input root, run
+a command, hand back declared outputs.
+
+But they do want the cache, and they get it for nothing, because an inner action's key is an
+`Action` digest and so is Κₜ (4.5a). One key space, one store, whether the work came from an
+Earthfile or from a client inside one. That is what R2b bought and it is why it was worth a
+generation.
+
+**The hazard is parallelism, not correctness.** The step running buck2 holds a scheduler slot while
+the actions it spawns want slots of their own, and a budget that does not account for the second
+kind either deadlocks or oversubscribes the machine. `TestALockedCacheDoesNotSpendTheBuildsParallelism`
+already exists for the neighbouring case; this one wants its own answer before any of it runs.
 
 ### What an action turns out to be
 
@@ -232,8 +263,8 @@ Scheduling, worker pools, queue metadata, fairness, retries, and `WaitExecution`
 what one machine needs. These are the hard part of remote execution and none of them is on the path
 to running an action correctly.
 
-**Exit**: `buck2 --remote-execution` against this engine builds a crate, and the second build of it
-hits.
+**Exit**: an Earthfile target that runs buck2, whose actions execute through the engine running the
+target, and whose second build hits without recompiling.
 
 ## Phase R3 - delegate a step to an RE service (unscoped)
 

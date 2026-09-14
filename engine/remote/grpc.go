@@ -59,7 +59,7 @@ func (s *Service) Register(g grpc.ServiceRegistrar) {
 		HandlerType: (*any)(nil),
 		Methods: []grpc.MethodDesc{{
 			MethodName: "GetCapabilities",
-			Handler:    unary(s.getCapabilities),
+			Handler:    s.unary(s.getCapabilities),
 		}},
 	}, s)
 
@@ -68,13 +68,13 @@ func (s *Service) Register(g grpc.ServiceRegistrar) {
 		HandlerType: (*any)(nil),
 		Methods: []grpc.MethodDesc{{
 			MethodName: "FindMissingBlobs",
-			Handler:    unary(s.findMissingBlobs),
+			Handler:    s.unary(s.findMissingBlobs),
 		}, {
 			MethodName: "BatchUpdateBlobs",
-			Handler:    unary(s.batchUpdateBlobs),
+			Handler:    s.unary(s.batchUpdateBlobs),
 		}, {
 			MethodName: "BatchReadBlobs",
-			Handler:    unary(s.batchReadBlobs),
+			Handler:    s.unary(s.batchReadBlobs),
 		}},
 	}, s)
 
@@ -97,16 +97,23 @@ func (s *Service) Register(g grpc.ServiceRegistrar) {
 		HandlerType: (*any)(nil),
 		Methods: []grpc.MethodDesc{{
 			MethodName: "GetActionResult",
-			Handler:    unary(s.getActionResult),
+			Handler:    s.unary(s.getActionResult),
 		}},
 	}, s)
 }
 
 // unary adapts a bytes-in, bytes-out handler to gRPC's shape.
-func unary(fn func(context.Context, []byte) ([]byte, error)) grpc.MethodHandler {
+//
+// **The hold is taken here rather than in each method**, because a method that
+// forgot it would be a method that lets the machine stop underneath it, and
+// there is no way to notice from inside that method. One place to write it is
+// one place to get it right.
+func (s *Service) unary(fn func(context.Context, []byte) ([]byte, error)) grpc.MethodHandler {
 	return func(
 		_ any, ctx context.Context, dec func(any) error, _ grpc.UnaryServerInterceptor,
 	) (any, error) {
+		defer s.hold()()
+
 		var in []byte
 		if err := dec(&in); err != nil {
 			return nil, err
@@ -119,6 +126,24 @@ func unary(fn func(context.Context, []byte) ([]byte, error)) grpc.MethodHandler 
 
 		return &out, nil
 	}
+}
+
+// hold keeps the machine from stopping while this service is working.
+//
+// **A machine with a request in flight is not idle.** A sandbox stops itself
+// when nobody has wanted it for a while, and idleness is measured by when a
+// *host* last spoke - but a client inside a step is not the host. Without this
+// the machine stops itself while it is busiest, and the client sees a
+// connection close saying nothing.
+//
+// Always returns something to call, so no caller needs a nil check and none can
+// omit the release by taking the wrong branch.
+func (s *Service) hold() func() {
+	if s.Cache == nil || s.Cache.Hold == nil {
+		return func() {}
+	}
+
+	return s.Cache.Hold()
 }
 
 // getCapabilities says which digest function this store was built with.
@@ -244,6 +269,10 @@ func (s *Service) getActionResult(_ context.Context, in []byte) ([]byte, error) 
 // action it was asked about would have a cache nothing consults; one that never
 // ran anything is the cache-only service this was before there was a runner.
 func (s *Service) execute(_ any, stream grpc.ServerStream) error {
+	// **Running an action is the longest thing this service does**, so it is
+	// the request most likely to be in flight when an idle countdown expires.
+	defer s.hold()()
+
 	var in []byte
 	if err := stream.RecvMsg(&in); err != nil {
 		return err

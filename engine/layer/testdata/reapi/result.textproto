@@ -2,3 +2,4 @@ output_directories {
   root_directory_digest { hash: "0000000000000000000000000000000000000000000000000000000000000033" size_bytes: 346 }
 }
 exit_code: 2
+execution_metadata { worker: "earthbuild" }

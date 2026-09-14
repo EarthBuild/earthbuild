@@ -99,7 +99,24 @@ message ActionResult {
   repeated OutputDirectory output_directories = 3;
   int32 exit_code = 4;
   bytes stdout_raw = 5;
-  reserved 6, 7, 8, 9, 10, 11, 12;
+  ExecutedActionMetadata execution_metadata = 6;
+  reserved 7, 8, 9, 10, 11, 12;
+}
+
+// Only the fields this engine emits. A client may require the message to be
+// present before it looks at anything inside it, which is why it is here at
+// all.
+message ExecutedActionMetadata {
+  string worker = 1;
+  reserved 2;
+  Timestamp worker_start_timestamp = 3;
+  Timestamp worker_completed_timestamp = 4;
+  reserved 5, 6, 7, 8, 9, 10;
+}
+
+message Timestamp {
+  int64 seconds = 1;
+  int32 nanos = 2;
 }
 
 message OutputFile {

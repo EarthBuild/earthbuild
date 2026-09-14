@@ -2,6 +2,7 @@ package layer
 
 import (
 	"encoding/binary"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -126,6 +127,15 @@ const (
 
 	fieldOutDirPath = 1 // OutputDirectory.path
 	fieldOutDirRoot = 5 // OutputDirectory.root_directory_digest
+
+	fieldExecMetadata = 6 // ActionResult.execution_metadata
+
+	fieldMetaWorker    = 1 // ExecutedActionMetadata.worker
+	fieldMetaStarted   = 3 // ExecutedActionMetadata.worker_start_timestamp
+	fieldMetaCompleted = 4 // ExecutedActionMetadata.worker_completed_timestamp
+
+	fieldStampSeconds = 1 // google.protobuf.Timestamp.seconds
+	fieldStampNanos   = 2 // google.protobuf.Timestamp.nanos
 )
 
 // Result is what an action produced.
@@ -149,6 +159,17 @@ type Result struct {
 	// Empty means either it printed nothing or it printed too much - a caller
 	// distinguishing those needs the entry, not the message.
 	Stdout []byte
+	// Worker names what ran the action, and Started and Finished are when.
+	//
+	// **A client may require these to be there at all.** Buck2 refuses a result
+	// whose `execution_metadata` is unset - "The execution metadata are not
+	// defined" - before it looks at anything in it, so a service that omitted
+	// the message because it had nothing interesting to put in it is a service
+	// that cannot answer. An empty message is not the same bytes as no message,
+	// which is the distinction this encoding is careful about everywhere else,
+	// pointing the other way for once.
+	Worker            string
+	Started, Finished time.Time
 }
 
 // EncodeActionResult writes an ActionResult message.
@@ -163,8 +184,40 @@ func EncodeActionResult(r Result) []byte {
 	}
 
 	out = appendBytes(out, fieldStdoutRaw, r.Stdout)
+	out = appendMessage(out, fieldExecMetadata, encodeExecMetadata(r))
 
 	return out
+}
+
+// encodeExecMetadata says what ran this action and when.
+//
+// Always emitted, never nil: a client that requires the field requires it on a
+// cache hit too, where there is no worker to name and the timestamps are of a
+// run that happened on another day. Naming the engine is enough to make the
+// message present, which is what is actually being asked for.
+func encodeExecMetadata(r Result) []byte {
+	worker := r.Worker
+	if worker == "" {
+		worker = "earthbuild"
+	}
+
+	out := appendString(nil, fieldMetaWorker, worker)
+	out = appendStamp(out, fieldMetaStarted, r.Started)
+	out = appendStamp(out, fieldMetaCompleted, r.Finished)
+
+	return out
+}
+
+// appendStamp writes a google.protobuf.Timestamp, or nothing for a zero time.
+func appendStamp(b []byte, field int, at time.Time) []byte {
+	if at.IsZero() {
+		return b
+	}
+
+	stamp := appendVarintField(nil, fieldStampSeconds, uint64(at.Unix()))      //nolint:gosec // after 1970
+	stamp = appendVarintField(stamp, fieldStampNanos, uint64(at.Nanosecond())) //nolint:gosec // below a second
+
+	return appendMessage(b, field, stamp)
 }
 
 // Capabilities fields.

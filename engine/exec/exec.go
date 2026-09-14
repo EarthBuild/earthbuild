@@ -643,7 +643,7 @@ func (e *Executor) Run(
 		argv = entrypointArgv(baseCfg.Entrypoint, argv, n.Op.EntrypointShell)
 	}
 
-	write, flush := e.sinkFor(n)
+	write, flush, stdout := e.sinkFor(n)
 
 	endPrep()
 
@@ -716,12 +716,18 @@ func (e *Executor) Run(
 	// written for, and Κ₂ has nothing to look up (E217).
 	obs, observed := observedFrom(h)
 
+	printed, whole := stdout()
+
 	return core.Result{
 		Layer:   id,
 		Content: content,
 		Bytes:   bytes,
 		Exit:    step.Exit,
 		Output:  step.Output,
+		// What the step printed, so a hit can reproduce it. Distinct from
+		// Output, which the guest fills only when nobody was watching live.
+		Stdout:      printed,
+		StdoutWhole: whole,
 		// What the step spent, for a build asked to say so (E467).
 		CPU:         step.CPU,
 		MaxRSS:      step.MaxRSS,
@@ -1199,9 +1205,38 @@ func (e *Executor) noteDocker(note string) {
 // The prefix is not decoration. Steps run concurrently, so their output
 // interleaves; unattributed lines are worse than none, because a user reads one
 // step's error under another step's heading and debugs the wrong command.
-func (e *Executor) sinkFor(n *ir.Node) (write func(string, bool), done func()) {
-	if e.Progress == nil && e.Capture == nil {
-		return nil, func() {}
+func (e *Executor) sinkFor(n *ir.Node) (
+	write func(string, bool), done func(), stdout func() (string, bool),
+) {
+	// **Kept even where nobody is watching.** A step's standard output is a
+	// value as well as a display: `LET v=$(cmd)` is the command's output, and a
+	// result that does not carry it is a result a cache hit cannot reproduce
+	// (see cli.probe). Recording is bounded and switchable; watching is not the
+	// same question.
+	var (
+		held  strings.Builder
+		whole = true
+	)
+
+	record := func(line string, isErr bool) {
+		if isErr || !recordOutput() {
+			return
+		}
+
+		if held.Len()+len(line)+1 > maxRecordedOutput {
+			whole = false
+
+			return
+		}
+
+		held.WriteString(line)
+		held.WriteString("\n")
+	}
+
+	stdout = func() (string, bool) { return held.String(), whole }
+
+	if e.Progress == nil && e.Capture == nil && !recordOutput() {
+		return nil, func() {}, stdout
 	}
 
 	where := n.Meta.Source
@@ -1213,6 +1248,8 @@ func (e *Executor) sinkFor(n *ir.Node) (write func(string, bool), done func()) {
 	var pending [2]string
 
 	emit := func(line string, isErr bool) {
+		record(line, isErr)
+
 		if e.Progress != nil {
 			e.Progress(where, line, n.Meta.RawOutput)
 		}
@@ -1270,7 +1307,7 @@ func (e *Executor) sinkFor(n *ir.Node) (write func(string, bool), done func()) {
 		}
 	}
 
-	return write, done
+	return write, done, stdout
 }
 
 // hostStep runs a step on the invoking machine.
@@ -1309,7 +1346,7 @@ func (e *Executor) hostStep(ctx context.Context, n *ir.Node) (core.Result, error
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 
-	write, flush := e.sinkFor(n)
+	write, flush, stdout := e.sinkFor(n)
 
 	out, err := runHost(cmd, write)
 
@@ -1321,7 +1358,12 @@ func (e *Executor) hostStep(ctx context.Context, n *ir.Node) (core.Result, error
 
 	if exitErr, ok := errors.AsType[*osexec.ExitError](err); ok {
 		// It ran and failed. That is a result.
-		return core.Result{Exit: exitErr.ExitCode(), Output: string(out)}, nil
+		printed, whole := stdout()
+
+		return core.Result{
+			Exit: exitErr.ExitCode(), Output: string(out),
+			Stdout: printed, StdoutWhole: whole,
+		}, nil
 	}
 
 	if err != nil {
@@ -1329,7 +1371,12 @@ func (e *Executor) hostStep(ctx context.Context, n *ir.Node) (core.Result, error
 	}
 
 	// Captured is deliberately false: see above.
-	return core.Result{Exit: 0, Output: string(out)}, nil
+	printed, whole := stdout()
+
+	return core.Result{
+		Exit: 0, Output: string(out),
+		Stdout: printed, StdoutWhole: whole,
+	}, nil
 }
 
 // maxHostOutput bounds what a host step's output can cost, as for a sandboxed

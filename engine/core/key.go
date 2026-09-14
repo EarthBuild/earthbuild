@@ -297,6 +297,13 @@ type Entry struct {
 	// correspondence between a traced read and a checkout path available on the
 	// build that ran the copy and on no build after it - and a copy is the most
 	// cacheable step there is. See Placement and docs-internals/job-skipping.md.
+	// Stdout is what the step printed, and StdoutWhole whether all of it is
+	// here. Empty and not whole is what an entry written before these existed
+	// says, and a caller needing the value must re-run rather than read it -
+	// which is the same answer as for a step that printed too much.
+	Stdout      string
+	StdoutWhole bool
+
 	Placements []Placement
 }
 

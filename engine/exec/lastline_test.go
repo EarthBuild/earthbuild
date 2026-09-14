@@ -63,7 +63,7 @@ func TestOutputWithNoTrailingNewlineIsNotLost(t *testing.T) {
 
 			n := &ir.Node{Op: ir.Op{Kind: ir.OpExec}, Meta: ir.Meta{Source: "Earthfile:1"}}
 
-			write, done := e.sinkFor(n)
+			write, done, _ := e.sinkFor(n)
 			for _, c := range tc.chunks {
 				write(c, false)
 			}

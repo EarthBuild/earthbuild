@@ -41,7 +41,7 @@ func TestARawOutputStepIsReportedAsRaw(t *testing.T) {
 
 			n := &ir.Node{Op: ir.Op{Kind: ir.OpExec}, Meta: tc.meta}
 
-			write, done := e.sinkFor(n)
+			write, done, _ := e.sinkFor(n)
 			write("hello\n", false)
 			done()
 

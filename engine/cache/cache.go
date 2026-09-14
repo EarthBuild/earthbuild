@@ -102,7 +102,13 @@ type stored struct {
 	// for the reason Content is: an entry written before it existed has none,
 	// and absent must stay absent rather than becoming "this copy placed
 	// nothing".
-	Placements []placed `json:"placements,omitempty"`
+	// Stdout is what the step printed; StdoutWhole whether all of it is here.
+	// Both omitempty for the reason Content is: an entry written before they
+	// existed has neither, and absent must stay absent rather than becoming
+	// "the step printed nothing, and that is the whole of it".
+	Stdout      string   `json:"stdout,omitempty"`
+	StdoutWhole bool     `json:"stdoutWhole,omitempty"`
+	Placements  []placed `json:"placements,omitempty"`
 	// The sized fields last, so the strings above sit together (govet
 	// fieldalignment). Field order is not part of the format: JSON is read by
 	// name, and every reader here goes through these tags.
@@ -187,6 +193,7 @@ func (c *Cache) Get(k core.Key) (core.Entry, bool) {
 	return core.Entry{
 		Layer: id, Layers: layers, Content: content, Exit: s.Exit, Bytes: s.Bytes,
 		Writer: s.Writer, Declares: declares, Declared: s.Declared,
+		Stdout: s.Stdout, StdoutWhole: s.StdoutWhole,
 		Placements: places,
 	}, true
 }
@@ -266,6 +273,10 @@ func (c *Cache) Put(k core.Key, e core.Entry) {
 		Exit:   e.Exit,
 		Bytes:  e.Bytes,
 		Writer: e.Writer,
+		// What the step printed, so a hit can reproduce what it observed and
+		// not only what it did.
+		Stdout:      e.Stdout,
+		StdoutWhole: e.StdoutWhole,
 	}
 
 	if e.Content != zero {

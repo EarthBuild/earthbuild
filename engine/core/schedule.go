@@ -134,6 +134,20 @@ type Result struct {
 	// step that failed and whose message was discarded is a step nobody can
 	// diagnose - the engine would report an exit code and nothing else.
 	Output string
+	// Stdout is what the step printed on standard output, and StdoutWhole says
+	// whether all of it is here.
+	//
+	// **A cache hit reproduces a step's effects; without this it does not
+	// reproduce its observations.** `LET v=$(cmd)` is the command's output, so
+	// a result that does not carry it is one a hit cannot answer with - which
+	// is why every command substitution was marked uncacheable and re-runs
+	// forever (see cli.probe).
+	//
+	// Whole matters more than the bytes do. A caller reading a *truncated*
+	// substitution reads a wrong value rather than a partial one, and has to
+	// know to run the command again instead.
+	Stdout      string
+	StdoutWhole bool
 	// Content is the layer digest with timestamps excluded. Determinism
 	// screening (green paper §6) compares this rather than Layer: creating a
 	// directory stamps it with the wall clock, so two runs of an identical step
@@ -1582,6 +1596,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 			s.finish(n, base, Result{
 				Layer: e.Layer, Layers: e.Layers, Exit: e.Exit, Bytes: e.Bytes,
 				Declares: e.Declares, Placements: e.Placements,
+				Stdout: e.Stdout, StdoutWhole: e.StdoutWhole,
 			}, rec)
 			s.bump(&s.Stats.Hits)
 
@@ -1608,6 +1623,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 				s.finish(n, base, Result{
 					Layer: ce.Layer, Layers: ce.Layers, Exit: ce.Exit, Bytes: ce.Bytes,
 					Declares: ce.Declares, Placements: ce.Placements,
+					Stdout: ce.Stdout, StdoutWhole: ce.StdoutWhole,
 				}, rec)
 				s.bump(&s.Stats.ContentHits)
 
@@ -1642,6 +1658,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 			s.finish(n, base, Result{
 				Layer: e.Layer, Layers: e.Layers, Exit: e.Exit, Bytes: e.Bytes,
 				Declares: e.Declares, Placements: e.Placements,
+				Stdout: e.Stdout, StdoutWhole: e.StdoutWhole,
 			}, rec)
 			s.bump(&s.Stats.L2Hits)
 
@@ -1775,6 +1792,9 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 			// so whether it declares anything is known even when the answer is
 			// nothing.
 			Declares: res.Declares, Declared: true,
+			// What the step printed, so a later hit reproduces what it observed
+			// and not only what it did.
+			Stdout: res.Stdout, StdoutWhole: res.StdoutWhole,
 			// Where this step's copies put things, so a later build served
 			// this entry can still name a traced read as a checkout path.
 			Placements: res.Placements,

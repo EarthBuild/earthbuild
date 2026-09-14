@@ -26,6 +26,27 @@ const maxBatch = 4 << 20
 // binary to disagree with the one that is tested.
 type Service struct {
 	Cache *Cache
+
+	// Runner executes an action this store has no result for, and nil means
+	// this service answers only from its cache.
+	//
+	// **An interface, because the stack an action runs over is not a question
+	// about the protocol.** Which layers an action's environment is, and
+	// whether the client may have one of its own, is settled by whatever starts
+	// the step a client is running inside - so it is settled there, and what
+	// arrives here is something that can run an action. A service that resolved
+	// bases would be the second place that rule is written.
+	Runner Runner
+}
+
+// Runner executes one action and reports what it produced.
+//
+// Named by digest and nothing else: everything an action needs is reachable
+// from its Action message, and every blob of it was uploaded to this service
+// before the client asked. A runner that took the message instead would be a
+// runner that could be handed one the store does not hold.
+type Runner interface {
+	RunAction(ctx context.Context, action ir.NodeID) (layer.Result, error)
 }
 
 // Register adds this service's methods to a gRPC server.
@@ -217,14 +238,11 @@ func (s *Service) getActionResult(_ context.Context, in []byte) ([]byte, error) 
 	return b, nil
 }
 
-// execute answers with what this action produced.
+// execute answers with what this action produced, running it if it must.
 //
-// **Only from the cache, for now, and it says so when it cannot.** Running an
-// action needs the input root materialised over a base image and the declared
-// outputs handed back, which is the rest of R5. Answering UNIMPLEMENTED is the
-// honest reply: a client is told this service cannot run the action, rather
-// than being given an empty result it would take for an action that produced
-// nothing.
+// **The cache first, and the runner only on a miss.** An engine that ran every
+// action it was asked about would have a cache nothing consults; one that never
+// ran anything is the cache-only service this was before there was a runner.
 func (s *Service) execute(_ any, stream grpc.ServerStream) error {
 	var in []byte
 	if err := stream.RecvMsg(&in); err != nil {
@@ -236,26 +254,45 @@ func (s *Service) execute(_ any, stream grpc.ServerStream) error {
 		return status.Errorf(codes.InvalidArgument, "read an Execute request: %v", err)
 	}
 
-	if ask.SkipCache {
-		// **Asked for on purpose, usually to reproduce something.** Answering
-		// from the cache anyway would answer a question the client did not ask.
-		return status.Error(codes.Unimplemented,
-			"this service answers from its cache and cannot run an action,"+
-				" and skip_cache_lookup asked for it to be run")
+	if !ask.SkipCache {
+		// **Asked for on purpose when it is skipped, usually to reproduce
+		// something.** Answering from the cache anyway would answer a question
+		// the client did not ask.
+		if result, ok := s.Cache.ActionResult(ask.Action); ok {
+			// cached_result: true, because it is. A build reporting every
+			// action as executed when none of them were is a build nobody
+			// trusts.
+			return sendDone(stream, ask.Action, result, true)
+		}
 	}
 
-	result, ok := s.Cache.ActionResult(ask.Action)
-	if !ok {
+	if s.Runner == nil {
 		return status.Error(codes.Unimplemented,
 			"this service answers from its cache and holds no result for this"+
-				" action, and cannot yet run one")
+				" action, and was not given anything that can run one")
 	}
 
-	// cached_result: true, because it is. A build reporting every action as
-	// executed when none of them were is a build nobody trusts.
+	res, err := s.Runner.RunAction(stream.Context(), ask.Action)
+	if err != nil {
+		// **Not UNIMPLEMENTED, which means "ask somebody else".** An action
+		// that could not run here because its input root is incomplete cannot
+		// run anywhere, and a client told to retry elsewhere pays twice to be
+		// told the same thing.
+		return status.Errorf(codes.FailedPrecondition, "run this action: %v", err)
+	}
+
+	return sendDone(stream, ask.Action, layer.EncodeActionResult(res), false)
+}
+
+// sendDone answers with one Operation that is already finished.
+//
+// A client written for the stream must not need a second shape for the fast
+// case, so a result that was ready before the call arrived is delivered exactly
+// as one that took a minute.
+func sendDone(stream grpc.ServerStream, action ir.NodeID, result []byte, cached bool) error {
 	op := layer.EncodeDoneOperation(
-		"earthbuild/"+ask.Action.String(),
-		layer.EncodeExecuteResponse(result, true))
+		"earthbuild/"+action.String(),
+		layer.EncodeExecuteResponse(result, cached))
 
 	return stream.SendMsg(&op)
 }

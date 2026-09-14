@@ -28,14 +28,31 @@ func TestOneBuildOpensOneActionCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// **A build opens it once; a server is not a build.** The reason for the
+	// rule is that each object keeps its own conflict record, so a refused
+	// rewrite seen by one is reported by neither - which can only happen where
+	// two of them are open over one build. `serve-cache` runs no build: it
+	// reads entries and hands them over, and there is no second reader for it
+	// to disagree with.
+	//
+	// Named rather than subtracted, so that adding a file here is a decision
+	// about that file rather than an adjustment to a number.
+	const serveOnly = "servecache.go"
+
 	total := 0
-	for _, n := range found {
+
+	for f, n := range found {
+		if f == serveOnly {
+			continue
+		}
+
 		total += n
 	}
 
 	if total != 1 {
-		t.Errorf("the package opens the action cache %d times, in %v"+
+		t.Errorf("the build path opens the action cache %d times, in %v"+
 			"\n  each object keeps its own conflict record, so a refused rewrite"+
-			"\n  seen by one of them is reported by neither", total, found)
+			"\n  seen by one of them is reported by neither"+
+			"\n  %s is excluded because it runs no build", total, found, serveOnly)
 	}
 }

@@ -84,3 +84,27 @@ message Action {
   bytes salt = 9;
   Platform platform = 10;
 }
+
+message OutputDirectory {
+  string path = 1;
+  reserved 2;
+  Digest tree_digest = 3;
+  bool is_topologically_sorted = 4;
+  Digest root_directory_digest = 5;
+}
+
+message ActionResult {
+  reserved 1;
+  repeated OutputFile output_files = 2;
+  repeated OutputDirectory output_directories = 3;
+  int32 exit_code = 4;
+  bytes stdout_raw = 5;
+  reserved 6, 7, 8, 9, 10, 11, 12;
+}
+
+message OutputFile {
+  string path = 1;
+  Digest digest = 2;
+  reserved 3;
+  bool is_executable = 4;
+}

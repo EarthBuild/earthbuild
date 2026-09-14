@@ -19,14 +19,23 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/store"
 )
 
 // Cache serves a store over Bazel's HTTP remote-cache protocol.
 type Cache struct {
-	// Store is what is served. Only what it already holds: this never writes.
+	// Store is what is served.
 	Store store.DirStore
+
+	// Actions answers what a step produced, by the key it produced it under.
+	//
+	// An interface rather than the cache itself, so this package does not
+	// depend on how entries are stored - and so a test can serve one entry
+	// without a store behind it.
+	Actions Actions
 
 	// Prefix is the path the protocol lives under, if any. Bazel is happy with
 	// `--remote_cache=http://host:port/cache`, and then every path arrives
@@ -73,12 +82,7 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if kind == "ac" {
-		// Distinguished from a miss on purpose: Bazel reads 404 as "run the
-		// action", which is also what a working, empty cache says - so a front
-		// end that has not implemented this at all would be indistinguishable
-		// from one that has.
-		http.Error(w, "the action cache is not served yet; the CAS is",
-			http.StatusNotImplemented)
+		c.serveAction(w, r, digest)
 
 		return
 	}
@@ -118,4 +122,98 @@ func (c *Cache) route(p string) (kind string, digest ir.NodeID, ok bool) {
 	}
 
 	return kind, id, true
+}
+
+// Actions is what a cache of results answers.
+type Actions interface {
+	// Get is the result recorded under a key, if there is one.
+	Get(k core.Key) (core.Entry, bool)
+}
+
+// serveAction answers with what the step under this key produced.
+//
+// **The key is the Action digest** (green paper 4.5a), so the number a client
+// asks under is the number this engine derived - no index, no translation, no
+// second place for the two to disagree.
+func (c *Cache) serveAction(w http.ResponseWriter, r *http.Request, key ir.NodeID) {
+	if c.Actions == nil {
+		http.Error(w, "this cache serves content and not results", http.StatusNotImplemented)
+
+		return
+	}
+
+	e, ok := c.Actions.Get(core.Key(key))
+	if !ok {
+		http.NotFound(w, r)
+
+		return
+	}
+
+	// **A result whose tree this store cannot name is a miss, not an error.**
+	// An entry written before the content digest existed has none, and one
+	// whose layer has been collected cannot be described - in both cases the
+	// honest answer is that there is nothing here to hand over.
+	size, err := c.rootSize(e)
+	if err != nil {
+		http.NotFound(w, r)
+
+		return
+	}
+
+	b := layer.EncodeActionResult(layer.Result{
+		Root:     e.Content,
+		RootSize: size,
+		ExitCode: int32(e.Exit), //nolint:gosec // a process exit status
+	})
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+
+	if r.Method == http.MethodHead {
+		w.Header().Set("Content-Length", fmt.Sprint(len(b)))
+		w.WriteHeader(http.StatusOK)
+
+		return
+	}
+
+	_, _ = w.Write(b)
+}
+
+// rootSize is the serialised length of the Directory a result materialises to,
+// writing that Directory into the store if it is not already there.
+//
+// **Filled on being asked rather than on every capture.** Noting a tree's nodes
+// at capture time was measured at ninety times the cost of noting the manifest
+// - 54.3ms against 0.6ms on a 4,000-entry layer - and paid by every build
+// whether or not anything ever asked. Deriving them here costs one fold, once,
+// for a result somebody actually wants.
+func (c *Cache) rootSize(e core.Entry) (int64, error) {
+	if b, err := c.Store.Node(e.Content); err == nil {
+		return int64(len(b)), nil
+	}
+
+	m, ok, err := store.ReadManifest(string(c.Store), e.Layer)
+	if err != nil || !ok {
+		return 0, fmt.Errorf("no manifest for the layer under %s", e.Layer)
+	}
+
+	f := layer.NewFold()
+	if !f.Add(m) {
+		return 0, fmt.Errorf("the manifest for %s could not be folded", e.Layer)
+	}
+
+	tree := f.Tree()
+
+	// **Checked, not assumed.** If the fold does not land on the digest the
+	// entry recorded then the entry describes a tree this store cannot produce,
+	// and serving a different one under the client's name is the one thing a
+	// content-addressed store may never do.
+	if tree.Root() != e.Content {
+		return 0, fmt.Errorf(
+			"the layer under %s folds to %s and the entry says %s",
+			e.Layer, tree.Root(), e.Content)
+	}
+
+	_ = c.Store.NoteNodes(tree)
+
+	return int64(len(tree.Nodes()[tree.Root()])), nil
 }

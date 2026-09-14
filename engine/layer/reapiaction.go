@@ -113,3 +113,52 @@ func encodeProperty(p Property) []byte {
 
 	return appendString(out, fieldPropertyValue, p.Value)
 }
+
+// ActionResult fields.
+const (
+	fieldOutputDirs = 3 // ActionResult.output_directories
+	fieldExitCode   = 4 // ActionResult.exit_code
+	fieldStdoutRaw  = 5 // ActionResult.stdout_raw
+
+	fieldOutDirPath = 1 // OutputDirectory.path
+	fieldOutDirRoot = 5 // OutputDirectory.root_directory_digest
+)
+
+// Result is what an action produced.
+//
+// **The delta is an output directory rooted at nothing.** A step of this engine
+// produces a filesystem, not a declared list of files, and REAPI has a field
+// for exactly that: `root_directory_digest` points at a `Directory`, which is
+// what this engine's result content already is (4.5b). `tree_digest` - the
+// older field - would need a `Tree` message holding every child inline, which
+// says the same thing at greater length.
+type Result struct {
+	// Root is the Directory the step's delta materialises to.
+	Root ir.NodeID
+	// RootSize is that Directory's serialised length.
+	RootSize int64
+	// Path is where the directory sits, empty for a whole-filesystem delta.
+	Path string
+	// ExitCode is the step's, and is omitted when zero as proto3 requires.
+	ExitCode int32
+	// Stdout is what the step printed, where it was small enough to keep.
+	// Empty means either it printed nothing or it printed too much - a caller
+	// distinguishing those needs the entry, not the message.
+	Stdout []byte
+}
+
+// EncodeActionResult writes an ActionResult message.
+func EncodeActionResult(r Result) []byte {
+	dir := appendString(nil, fieldOutDirPath, r.Path)
+	dir = appendMessage(dir, fieldOutDirRoot, encodeDigest(&scratch{}, r.Root, r.RootSize))
+
+	out := appendMessage(nil, fieldOutputDirs, dir)
+
+	if r.ExitCode != 0 {
+		out = appendVarintField(out, fieldExitCode, uint64(r.ExitCode)) //nolint:gosec // a process exit status
+	}
+
+	out = appendBytes(out, fieldStdoutRaw, r.Stdout)
+
+	return out
+}

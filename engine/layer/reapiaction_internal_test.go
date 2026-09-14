@@ -115,3 +115,32 @@ func TestAnEmptyCommandAndPlatformEmitNothing(t *testing.T) {
 			" is %x", withNone, withEmpty)
 	}
 }
+
+// Our ActionResult encoding is protoc's, with and without an exit code.
+//
+// Two vectors for the reason the Action needed two: proto3 omits a field at its
+// zero value, and a success - exit 0, the common case - is the one an encoder
+// writing the field unconditionally gets wrong.
+func TestOurActionResultEncodingIsProtocs(t *testing.T) {
+	t.Parallel()
+
+	root := hexID("0000000000000000000000000000000000000000000000000000000000000033")
+
+	for _, tc := range []struct {
+		file string
+		exit int32
+	}{
+		{"testdata/reapi/result.bin", 2},
+		{"testdata/reapi/result_ok.bin", 0},
+	} {
+		want, err := os.ReadFile(tc.file)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got := EncodeActionResult(Result{Root: root, RootSize: 346, ExitCode: tc.exit})
+		if !bytes.Equal(got, want) {
+			t.Errorf("exit %d: ours is %x\n  protoc's is %x", tc.exit, got, want)
+		}
+	}
+}

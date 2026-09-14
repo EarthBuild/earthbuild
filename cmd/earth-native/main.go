@@ -184,6 +184,7 @@ func main() {
 		doPin  = flag.Bool("pin", false, "write each image reference's digest into the Earthfile and exit")
 		long   = flag.Bool("long", false, "with `doc`, also list what each target needs and produces")
 		prune  = flag.String("prune", "", "remove least-recently-used layers until the store fits in this size, and exit")
+		serve  = flag.String("serve-cache", "", "serve this store over the remote cache protocol at this address, and do not return")
 		// Wiring, not mechanism: engine/cli already reads all three and had no
 		// way to be told. The names are earthly's, because a flag that does the
 		// same thing under a different spelling is a compatibility gap wearing
@@ -336,6 +337,15 @@ func main() {
 		}
 
 		report(cli.Prune(cli.Options{Dir: *dir, Out: os.Stdout}, keep))
+
+		return
+	}
+
+	// **Beside prune because it is the same kind of thing**: asked for by name,
+	// does not plan or run a build, and returns only when it is stopped. Read
+	// before the target arguments are, since an address is not one.
+	if *serve != "" {
+		report(cli.ServeCache(cli.Options{Dir: *dir, Out: os.Stdout}, *serve))
 
 		return
 	}

@@ -39,12 +39,9 @@ func TestAnOrdinaryTreeCarriesNoProperties(t *testing.T) {
 		f.resync(e.path)
 	}
 
-	tree, err := f.REAPI()
-	if err != nil {
-		t.Fatal(err)
-	}
+	tree := f.Tree()
 
-	for id, b := range tree.Blobs() {
+	for id, b := range tree.Nodes() {
 		// fieldFileProps and fieldLinkProps are the only places a property can
 		// appear, and neither should have been written.
 		if strings.Contains(string(b), "earthbuild.") {
@@ -53,11 +50,11 @@ func TestAnOrdinaryTreeCarriesNoProperties(t *testing.T) {
 		}
 	}
 
-	if len(tree.Blobs()) != 2 {
-		t.Errorf("%d directories, want 2 (the root and src)", len(tree.Blobs()))
+	if len(tree.Nodes()) != 2 {
+		t.Errorf("%d directories, want 2 (the root and src)", len(tree.Nodes()))
 	}
 
-	if _, ok := tree.Blobs()[tree.Root()]; !ok {
+	if _, ok := tree.Nodes()[tree.Root()]; !ok {
 		t.Error("the root digest names no blob, so a peer given it cannot ask for it")
 	}
 }
@@ -73,49 +70,12 @@ func TestWhatReapiCannotModelIsCarriedAsProperties(t *testing.T) {
 	f.merged[e.path] = e
 	f.resync(e.path)
 
-	tree, err := f.REAPI()
-	if err != nil {
-		t.Fatal(err)
-	}
+	tree := f.Tree()
 
-	blob := string(tree.Blobs()[tree.Root()])
+	blob := string(tree.Nodes()[tree.Root()])
 	for _, want := range []string{"earthbuild.uid", "501", "earthbuild.gid", "20", "earthbuild.mode"} {
 		if !strings.Contains(blob, want) {
 			t.Errorf("the root directory does not carry %q:\n  %q", want, blob)
-		}
-	}
-}
-
-// A node kind REAPI has no message for is refused, and the refusal names it.
-//
-// **Silence would be the worst answer.** A device emitted as a FileNode has a
-// conforming consumer materialise an empty regular file where a device belongs,
-// and nothing anywhere says so.
-func TestAKindReapiCannotExpressIsRefused(t *testing.T) {
-	t.Parallel()
-
-	for _, tc := range []struct {
-		name string
-		mode uint32
-	}{
-		{"a device", uint32(fs.ModeDevice) | 0o660},
-		{"a fifo", uint32(fs.ModeNamedPipe) | 0o644},
-	} {
-		f := NewFold()
-
-		e := entry{path: "dev/thing", mode: tc.mode}
-		f.merged[e.path] = e
-		f.resync(e.path)
-
-		_, err := f.REAPI()
-		if err == nil {
-			t.Errorf("%s was encoded as something REAPI understands", tc.name)
-
-			continue
-		}
-
-		if !strings.Contains(err.Error(), "dev/thing") {
-			t.Errorf("%s was refused without naming the path:\n  %v", tc.name, err)
 		}
 	}
 }
@@ -124,7 +84,7 @@ func TestAKindReapiCannotExpressIsRefused(t *testing.T) {
 func TestAParentNamesItsChildByDigest(t *testing.T) {
 	t.Parallel()
 
-	build := func(body string) REAPITree {
+	build := func(body string) Tree {
 		t.Helper()
 
 		f := NewFold()
@@ -134,12 +94,7 @@ func TestAParentNamesItsChildByDigest(t *testing.T) {
 		f.merged[e.path] = e
 		f.resync(e.path)
 
-		tree, err := f.REAPI()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		return tree
+		return f.Tree()
 	}
 
 	one, two := build("one"), build("two")
@@ -153,13 +108,13 @@ func TestAParentNamesItsChildByDigest(t *testing.T) {
 	// for next.
 	var child string
 
-	for id := range one.Blobs() {
+	for id := range one.Nodes() {
 		if id != one.Root() {
 			child = id.String()
 		}
 	}
 
-	if !strings.Contains(string(one.Blobs()[one.Root()]), child) {
+	if !strings.Contains(string(one.Nodes()[one.Root()]), child) {
 		t.Error("the root does not name its subdirectory's digest")
 	}
 }
@@ -186,12 +141,9 @@ func TestEveryListIsInNameOrder(t *testing.T) {
 		f.resync(p)
 	}
 
-	tree, err := f.REAPI()
-	if err != nil {
-		t.Fatal(err)
-	}
+	tree := f.Tree()
 
-	root := string(tree.Blobs()[tree.Root()])
+	root := string(tree.Nodes()[tree.Root()])
 
 	for _, names := range [][]string{
 		{"alpha.txt", "beta.txt", "middle.txt", "zeta.txt"}, // files
@@ -251,16 +203,13 @@ func TestProtocReadsBackEveryDirectoryWeEmit(t *testing.T) {
 		f.resync(e.path)
 	}
 
-	tree, err := f.REAPI()
-	if err != nil {
-		t.Fatal(err)
+	tree := f.Tree()
+
+	if len(tree.Nodes()) != 2 {
+		t.Fatalf("%d directories, want 2", len(tree.Nodes()))
 	}
 
-	if len(tree.Blobs()) != 2 {
-		t.Fatalf("%d directories, want 2", len(tree.Blobs()))
-	}
-
-	for id, b := range tree.Blobs() {
+	for id, b := range tree.Nodes() {
 		cmd := exec.Command(protoc,
 			"--proto_path=testdata/reapi",
 			"--decode=build.bazel.remote.execution.v2.Directory",

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"os"
 	"testing"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
 // Our encoding of a REAPI Directory is protoc's, byte for byte.
@@ -31,16 +33,16 @@ func TestOurDirectoryEncodingIsProtocs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := encodeDirectory(
+	got := encodeDirectory(&scratch{},
 		[]reapiFile{
 			{
 				name: "a.txt",
-				hash: "0000000000000000000000000000000000000000000000000000000000000001",
+				hash: hexID("0000000000000000000000000000000000000000000000000000000000000001"),
 				size: 3,
 			},
 			{
 				name:       "run.sh",
-				hash:       "0000000000000000000000000000000000000000000000000000000000000002",
+				hash:       hexID("0000000000000000000000000000000000000000000000000000000000000002"),
 				size:       11,
 				executable: true,
 				props: []reapiProperty{
@@ -51,7 +53,7 @@ func TestOurDirectoryEncodingIsProtocs(t *testing.T) {
 		},
 		[]reapiDir{{
 			name: "sub",
-			hash: "0000000000000000000000000000000000000000000000000000000000000003",
+			hash: hexID("0000000000000000000000000000000000000000000000000000000000000003"),
 			size: 42,
 		}},
 		[]reapiSymlink{
@@ -62,6 +64,7 @@ func TestOurDirectoryEncodingIsProtocs(t *testing.T) {
 				props:  []reapiProperty{{name: "earthbuild.uid", value: "0"}},
 			},
 		},
+		nil,
 	)
 
 	if !bytes.Equal(got, want) {
@@ -72,4 +75,28 @@ func TestOurDirectoryEncodingIsProtocs(t *testing.T) {
 			"\n  compute a different digest, so nothing we name would be found",
 			len(got), len(want), got, want)
 	}
+}
+
+// hexID is a digest written the way a fixture reads best.
+func hexID(s string) ir.NodeID {
+	var id ir.NodeID
+
+	for i := 0; i < len(s) && i/2 < len(id); i += 2 {
+		var v byte
+
+		for _, c := range []byte{s[i], s[i+1]} {
+			v <<= 4
+
+			switch {
+			case c >= '0' && c <= '9':
+				v |= c - '0'
+			case c >= 'a' && c <= 'f':
+				v |= c - 'a' + 10
+			}
+		}
+
+		id[i/2] = v
+	}
+
+	return id
 }

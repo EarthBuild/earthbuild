@@ -1,6 +1,10 @@
 package layer
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
+)
 
 // The REAPI Directory message, written by hand.
 //
@@ -20,6 +24,7 @@ const (
 	fieldFiles       = 1 // Directory.files
 	fieldDirectories = 2 // Directory.directories
 	fieldSymlinks    = 3 // Directory.symlinks
+	fieldDirProps    = 5 // Directory.node_properties
 
 	fieldName          = 1 // FileNode.name, DirectoryNode.name, SymlinkNode.name
 	fieldDigest        = 2 // FileNode.digest, DirectoryNode.digest
@@ -47,8 +52,12 @@ type reapiProperty struct{ name, value string }
 // reapiFile is a FileNode: a name, the digest and size of its contents, whether
 // it is executable, and whatever else we had to say about it.
 type reapiFile struct {
-	name       string
-	hash       string // lowercase hex, as REAPI writes a digest
+	name string
+	// hash is the digest itself; REAPI writes it as lowercase hex and this
+	// encodes it straight into the output. Held as bytes because a string per
+	// file was the single largest cost of the encoding - one allocation for
+	// every file in every directory re-encoded.
+	hash       ir.NodeID
 	size       int64
 	executable bool
 	props      []reapiProperty
@@ -59,7 +68,7 @@ type reapiFile struct {
 // inside its own message, where this engine keeps them in the parent (4.5b).
 type reapiDir struct {
 	name string
-	hash string
+	hash ir.NodeID
 	size int64
 }
 
@@ -71,33 +80,54 @@ type reapiSymlink struct {
 	props  []reapiProperty
 }
 
+// scratch holds the buffers a nested message is built in.
+//
+// **Two, because the nesting is two deep and never recursive.** A Directory
+// holds FileNodes and a FileNode holds a Digest, and neither ever contains
+// another of itself - so one buffer per level, reused, replaces an allocation
+// per entry. That was nine allocations an entry and the largest cost of the
+// encoding by a wide margin.
+type scratch struct{ node, digest []byte }
+
 // encodeDirectory writes a Directory message.
 //
 // The three lists are emitted in the order given, which REAPI requires to be by
 // name - enforced by the caller, which has to sort for its own digest anyway.
-func encodeDirectory(files []reapiFile, dirs []reapiDir, links []reapiSymlink) []byte {
+func encodeDirectory(
+	sc *scratch, files []reapiFile, dirs []reapiDir, links []reapiSymlink, own []reapiProperty,
+) []byte {
 	var out []byte
 
 	for _, f := range files {
-		out = appendMessage(out, fieldFiles, encodeFileNode(f))
+		out = appendMessage(out, fieldFiles, encodeFileNode(sc, f))
 	}
 
 	for _, d := range dirs {
-		out = appendMessage(out, fieldDirectories, encodeDirectoryNode(d))
+		out = appendMessage(out, fieldDirectories, encodeDirectoryNode(sc, d))
 	}
 
 	for _, l := range links {
-		out = appendMessage(out, fieldSymlinks, encodeSymlinkNode(l))
+		out = appendMessage(out, fieldSymlinks, encodeSymlinkNode(sc, l))
+	}
+
+	// **A directory's own metadata is in its own message, not its parent's.**
+	// DirectoryNode carries a name and a digest and nothing else, so REAPI
+	// leaves no other place for it. The consequence is that repermissioning a
+	// directory changes its digest and every ancestor's - which costs nothing
+	// in practice, because every tree measured has directories at 0755 with one
+	// owner, and then this is empty and omitted.
+	if props := encodeNodeProperties(own); props != nil {
+		out = appendMessage(out, fieldDirProps, props)
 	}
 
 	return out
 }
 
-func encodeFileNode(f reapiFile) []byte {
-	var out []byte
+func encodeFileNode(sc *scratch, f reapiFile) []byte {
+	out := sc.node[:0]
 
 	out = appendString(out, fieldName, f.name)
-	out = appendMessage(out, fieldDigest, encodeDigest(f.hash, f.size))
+	out = appendMessage(out, fieldDigest, encodeDigest(sc, f.hash, f.size))
 
 	// **Omitted when false.** proto3 writes nothing for a field holding its
 	// zero value, and a peer that emitted `is_executable: false` explicitly
@@ -110,32 +140,40 @@ func encodeFileNode(f reapiFile) []byte {
 		out = appendMessage(out, fieldFileProps, props)
 	}
 
+	sc.node = out
+
 	return out
 }
 
-func encodeDirectoryNode(d reapiDir) []byte {
-	out := appendString(nil, fieldName, d.name)
+func encodeDirectoryNode(sc *scratch, d reapiDir) []byte {
+	out := appendString(sc.node[:0], fieldName, d.name)
+	out = appendMessage(out, fieldDigest, encodeDigest(sc, d.hash, d.size))
+	sc.node = out
 
-	return appendMessage(out, fieldDigest, encodeDigest(d.hash, d.size))
+	return out
 }
 
-func encodeSymlinkNode(l reapiSymlink) []byte {
-	out := appendString(nil, fieldName, l.name)
+func encodeSymlinkNode(sc *scratch, l reapiSymlink) []byte {
+	out := appendString(sc.node[:0], fieldName, l.name)
 	out = appendString(out, fieldTarget, l.target)
 
 	if props := encodeNodeProperties(l.props); props != nil {
 		out = appendMessage(out, fieldLinkProps, props)
 	}
 
+	sc.node = out
+
 	return out
 }
 
-func encodeDigest(hash string, size int64) []byte {
-	out := appendString(nil, fieldDigestHash, hash)
+func encodeDigest(sc *scratch, hash ir.NodeID, size int64) []byte {
+	out := appendHex(sc.digest[:0], fieldDigestHash, hash)
 
 	if size != 0 {
 		out = appendVarintField(out, fieldDigestSize, uint64(size)) //nolint:gosec // never negative
 	}
+
+	sc.digest = out
 
 	return out
 }
@@ -193,4 +231,23 @@ func appendVarintField(b []byte, field int, v uint64) []byte {
 	b = appendTag(b, field, wireVarint)
 
 	return binary.AppendUvarint(b, v)
+}
+
+// appendHex writes a digest as the lowercase hex REAPI carries it in, without
+// building the string first.
+//
+// **The hot path of the whole encoding.** Every file and every subdirectory
+// carries one, so a `NodeID.String()` per entry was an allocation per entry on
+// every directory re-encoded - which the incremental fold does for each layer.
+func appendHex(b []byte, field int, id ir.NodeID) []byte {
+	const hexit = "0123456789abcdef"
+
+	b = appendTag(b, field, wireBytes)
+	b = binary.AppendUvarint(b, uint64(len(id))*2)
+
+	for _, c := range id {
+		b = append(b, hexit[c>>4], hexit[c&0x0f])
+	}
+
+	return b
 }

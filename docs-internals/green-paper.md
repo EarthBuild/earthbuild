@@ -754,9 +754,7 @@ has just been shown to hold, so the evidence is gathered once rather than on eve
 (4.6)    Κ₂(s, 𝑟)  ≡ ℋ("o" ‖ ζ ‖ sort(𝑅) ‖ sort(𝑁) ‖ sort(𝐷) ‖ 𝒮(ω) ‖ 𝒮(ε) ‖ 𝒮(π))
 ```
 
-The domain-separating tag is a single fixed byte - `0x01` for Κ₁, `0x02` for Κ₂, `0x06` for Κₜ,
-and `0x07` for a tree node (4.5b), which is not a key but is ℋ over an encoding and so shares the
-space they are drawn from -
+The domain-separating tag is a single fixed byte - `0x01` for Κ₁, `0x02` for Κ₂, `0x06` for Κₜ -
 and prevents any one of them from colliding with another. The tag is not decorative here: Κ₁ and Κₜ
 hash the same ω, ε and π, and over a base whose content digest equalled its own layer id they would
 otherwise be the same bytes.
@@ -770,38 +768,53 @@ tell apart.
 later layer winning, a whiteout removing a name and everything under it, and an opaque marker
 removing what a directory inherited while leaving what its own layer puts back.
 
-**𝜏 is the root of a Merkle tree of directories, not one digest over a list.** A directory 𝑑 is
-named by
+**𝜏 is the root of a Merkle tree of directories, not one digest over a list**, and that tree is
+written in the encoding of the remote execution API rather than one of this document's own. A
+directory 𝑑 is named by
 
 ```text
-(4.5b)   𝜈(𝑑)     ≡ ℋ(0x07 ‖ 𝒮(files(𝑑)) ‖ 𝒮(dirs(𝑑)))
+(4.5b)   𝜈(𝑑)     ≡ ℋ(𝒟(𝑑))
 ```
 
-where files(𝑑) are the non-directory members of 𝑑 in name order, each encoded as §3.3's content(ℓ)
-under its **base name**, and dirs(𝑑) are the subdirectories in name order, each contributing its
-name, whether the stack records an entry for it, that entry where it does, and 𝜈 of the
-subdirectory. 𝜏(𝑏) ≡ 𝜈(root).
+where 𝒟(𝑑) is the `build.bazel.remote.execution.v2.Directory` message holding 𝑑's non-directory
+members as `FileNode`s and `SymlinkNode`s under their **base names**, its subdirectories as
+`DirectoryNode`s carrying 𝜈 of each, and 𝑑's own metadata in `node_properties`. Each list is in
+name order. 𝜏(𝑏) ≡ 𝜈(root).
 
-Three properties follow, and all three are the point:
+**One encoding, not two.** An earlier version of this defined a compact encoding of its own and
+emitted the REAPI one beside it for anything leaving the machine. Two Merkle trees over one
+filesystem are two definitions of what a base is, and they agree until somebody edits one. The
+consolidated form is also smaller - measured over a 4,000-entry tree at 0.88 of the compact
+encoding, because omitting every default-valued field saves more than a hexadecimal digest costs.
+
+Four properties follow:
 
 * **A node names what is under it and nothing about where it is.** Two bases holding one directory
-  hold one node, whatever encloses it - so a holder of that node need not be told its context to
-  know it has it.
-* **A directory's own metadata is recorded by its parent**, not by its own node, so a subtree keeps
-  its name when the directory above it is repermissioned. The root has no parent and so no metadata:
-  a stack's root is the mount point, not something the layers describe.
+  hold one node, whatever encloses it, so a holder need not be told its context to know it has it.
 * **𝜈(𝑑) is ℋ over exactly the bytes that encode 𝑑**, so a holder verifies a node against the name
-  it asked for rather than trusting whoever sent it (A5). A node is therefore an object in 𝕊,
-  addressed like any other.
+  it asked for rather than trusting whoever sent it (A5). A node is an object in 𝕊.
+* **𝜏 is an input-root digest.** It is the number an REAPI `Action` carries, not a translation of
+  one, so a cache entry this engine names is a cache entry another tool can find.
+* **What that API cannot model is carried in `node_properties`** - ownership, the mode bits below
+  `is_executable`, extended attributes, hardlink identity, and the kind of a node for which REAPI
+  has no message at all. For any tree a conforming tool would itself construct these are empty, the
+  field is omitted, and the bytes are identical to that tool's own.
 
-A change reaches only the directories containing it and those above them, which is what makes both
-the derivation of 𝜏 and the transfer of a base proportional to what changed rather than to what a
-base holds. **A tree and not a
-sequence**, which is what a first version of this got wrong: a sequence of per-layer identities
-distinguishes the stack Φ (4.8) flattened from the stack it flattened, and 𝑛ₘₐₓ is the smallest
-bound *the materialiser* is subject to - so two machines with different store paths flatten one
-target at different points and share no entry above the cut. A deep build's cache is then not
-portable, which is the property the fleet exists for.
+Two things this costs, stated because they are real:
+
+* **Injectivity (§1.4) now rests on protobuf framing**, which no specification canonicalises, rather
+  than on an encoding defined here. It holds because the encoder is deterministic and every field is
+  length-delimited; it is a property maintained by discipline where it used to be one by
+  construction.
+* **Domain separation is no longer explicit.** A key is ℋ over an encoding beginning with a domain
+  byte - `0x01`, `0x02`, `0x06` - and a `Directory` begins with a protobuf tag, which for these
+  fields is `0x0A`, `0x12` or `0x1A`. They do not collide, but by arithmetic rather than by design:
+  **a domain byte added later must avoid the protobuf tags.**
+
+A directory's own metadata is in its own message and not its parent's, because `DirectoryNode`
+carries a name and a digest and nothing else. Repermissioning a directory therefore changes its
+digest and every ancestor's - which costs nothing measured, every tree examined having its
+directories at one mode with one owner, so the field is empty and omitted.
 
 A stack element with no layer contributes nothing: a declaration is a stack element and not a tree
 (§3.2a), so it is skipped rather than refused - the same rule Φ's own squash follows.

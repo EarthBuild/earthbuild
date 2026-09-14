@@ -3,8 +3,6 @@ package layer
 import (
 	"path"
 	"strings"
-
-	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
 // Fold is a stack folded so far, extendable one layer at a time.
@@ -66,28 +64,4 @@ func (f *Fold) resync(p string) {
 	}
 
 	f.root.remove(strings.Split(path.Clean(p), "/"))
-}
-
-// Digest is 𝜏, the tree the fold has reached, and does not consume it.
-//
-// Only the directories a layer moved are named again; everything else answers
-// from the digest it was given last time. That is the whole saving - a step
-// writes tens of paths into a base of tens of thousands.
-func (f *Fold) Digest() ir.NodeID {
-	b := builder{}
-
-	return b.cached(f.root)
-}
-
-// Tree is the fold as a Merkle tree of directories, every node addressable.
-//
-// Names every node and keeps its bytes, which Digest does not: a key needs the
-// name and shipping a subtree needs the encoding, and holding 26MB of them per
-// 20k entries for every fold in the memo is not a cost a key should carry.
-func (f *Fold) Tree() Tree {
-	b := builder{nodes: map[ir.NodeID][]byte{}}
-	t := Tree{nodes: b.nodes}
-	t.root = b.digest(f.root)
-
-	return t
 }

@@ -45,7 +45,11 @@ import (
 //	3  𝜏 is a Merkle tree of directories rather than one digest over a flat
 //	   sorted list (4.5a). Every layer's content id changes with it, so every
 //	   Κₜ entry names a base by a value no engine will derive again.
-const cacheEpoch = 3
+//	4  that tree is written as REAPI Directory messages rather than in an
+//	   encoding of this engine's own (4.5b). One tree instead of two, because
+//	   two Merkle trees over one filesystem is two definitions of what a base
+//	   is - and they agree until somebody edits one.
+const cacheEpoch = 4
 
 // DeriveObservedKey computes Κ₂ at the current epoch.
 func DeriveObservedKey(n *ir.Node, refs []ir.NodeID, obs Observation) Key {

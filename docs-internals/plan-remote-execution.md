@@ -66,12 +66,11 @@ Three things landed on 2026-09-13/14 and are not part of this plan's cost:
 
 | decision                   | what it needs                                                                                                                                                                                                                                                                                                   |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| hand-roll the protobuf     | Proto3 defines no canonical form. REAPI works because every implementation emits ascending field number and omits defaults, and the ecosystem would collapse otherwise - but it is *de facto*. Four messages is ~100 lines to own and test; a dependency is less code and less control.                         |
 | accepting an RE cache hit  | RE's equivalence is coarser than ours: two trees differing only in uid, xattrs or non-executable mode are one action input to them. Shipping by `re(d)` is safe; *trusting* a hit keyed on it imports their equivalence, and we hash uid because a step can observe it. An I3 question on our side, not theirs. |
 | symlinks as their own list | REAPI has three typed lists; 𝜈 has two, with symlinks folded in under a kind byte. Splitting them makes "one name, two kinds" unrepresentable, and costs a cache generation - cheap only while another 𝜈 change is being spent.                                                                                 |
 | uid/gid as a tree default  | Both are constant across every tree measured. Hoisting them to a per-tree default makes `extra(d)` empty for a source tree, so 𝜈 becomes a function of the REAPI digest alone.                                                                                                                                  |
 
-## Phase R0 - emit a REAPI `Directory` (2 weeks)
+## Phase R0 - emit a REAPI `Directory` - **done**
 
 A tree we already hold, serialised as REAPI and digested as REAPI. No protocol, no network.
 
@@ -80,8 +79,14 @@ A tree we already hold, serialised as REAPI and digested as REAPI. No protocol, 
 * A tree holding a device, fifo or anything else without a node type is refused, naming the path
   and saying the protocol cannot carry it.
 
-**Exit**: a tree of known content digests to a constant checked against a value produced by Bazel,
-not by us. Without an external vector this phase proves only self-consistency.
+**Exit**: met, by `protoc` rather than by Bazel - the reference implementation the ecosystem's
+agreement actually rests on, and it was already installed. Twice over: the message encoding against
+bytes protoc produced from a transcription of the real field numbers, and every directory the walk
+emits decoded back by protoc against that schema. Hand-rolled rather than taken as a dependency,
+because the bytes are the contract and a library hides them.
+
+Found by mutation and not by review: files and subdirectories were emitted unsorted. REAPI requires
+name order, Go's map iteration is deliberately not, and nothing asserted it.
 
 ## Phase R1 - SHA-256 as a store's digest function (2 weeks)
 

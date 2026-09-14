@@ -114,6 +114,27 @@ func (s *Service) Register(g grpc.ServiceRegistrar) {
 		}},
 	}, s)
 
+	// **The CAS's other half.** A batch is bounded and a client splits by what
+	// it is told, so a blob larger than the limit has no way through
+	// BatchUpdateBlobs at all - which is most of what a compiler produces.
+	g.RegisterService(&grpc.ServiceDesc{
+		ServiceName: "google.bytestream.ByteStream",
+		HandlerType: (*any)(nil),
+		Methods: []grpc.MethodDesc{{
+			MethodName: "QueryWriteStatus",
+			Handler:    s.unary(s.queryWriteStatus),
+		}},
+		Streams: []grpc.StreamDesc{{
+			StreamName:    "Read",
+			Handler:       s.readBlob,
+			ServerStreams: true,
+		}, {
+			StreamName:    "Write",
+			Handler:       s.writeBlob,
+			ClientStreams: true,
+		}},
+	}, s)
+
 	g.RegisterService(&grpc.ServiceDesc{
 		ServiceName: "build.bazel.remote.execution.v2.ActionCache",
 		HandlerType: (*any)(nil),

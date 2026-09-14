@@ -91,6 +91,10 @@ func (d DirStore) MissingNodes(ids []ir.NodeID) []ir.NodeID {
 	var out []ir.NodeID
 
 	for _, id := range ids {
+		if isEmptyBlob(id) {
+			continue
+		}
+
 		if _, err := os.Stat(NodePath(string(d), id)); err != nil {
 			out = append(out, id)
 		}
@@ -106,6 +110,10 @@ func (d DirStore) MissingNodes(ids []ir.NodeID) []ir.NodeID {
 // not content-addressed. The same check catches a node corrupted on disk, which
 // is the case this can actually reach today.
 func (d DirStore) Node(id ir.NodeID) ([]byte, error) {
+	if isEmptyBlob(id) {
+		return []byte{}, nil
+	}
+
 	p := NodePath(string(d), id)
 
 	b, err := os.ReadFile(p)
@@ -154,3 +162,17 @@ func (d DirStore) Accept(id ir.NodeID, b []byte) error {
 
 	return writeNode(p, b)
 }
+
+// isEmptyBlob reports whether a digest names no bytes at all.
+//
+// **Every peer assumes this one and none of them sends it.** An action with no
+// inputs has an empty Directory as its input root, and a client does not upload
+// something it takes to be universal - so a store that waits to be told about
+// it refuses to materialise anything over it, and reports the hash of nothing
+// as a blob somebody failed to send.
+//
+// Computed rather than written down: each digest function has its own name for
+// nothing, and a constant would be right for one of them. Not stored either,
+// because there is nothing to store - a file of no bytes would be a thing to
+// collect, lose, and be surprised by.
+func isEmptyBlob(id ir.NodeID) bool { return id == ir.DigestOf(nil) }

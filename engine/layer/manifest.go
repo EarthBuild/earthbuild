@@ -48,7 +48,7 @@ func ManifestIn(root string, uids, gids IDMap) ([]byte, error) {
 func ManifestOwned(
 	root string, uids, gids IDMap, own map[string]Owner,
 ) ([]byte, error) {
-	entries, _, err := walk(root)
+	entries, _, _, err := walk(root)
 	if err != nil {
 		return nil, fmt.Errorf("read the layer at %s: %w", root, err)
 	}
@@ -117,7 +117,7 @@ func VerifyFragment(manifest []byte, root string) error {
 		return err
 	}
 
-	got, _, err := walk(root)
+	got, _, _, err := walk(root)
 	if err != nil {
 		return fmt.Errorf("read the fragment at %s: %w", root, err)
 	}

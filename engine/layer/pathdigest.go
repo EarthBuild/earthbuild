@@ -37,7 +37,7 @@ func PathDigest(p string) (ir.NodeID, error) { return PathDigestIn(p, IDMap{}, I
 // lookup, and the host keeps no idea of what a namespace is. The zero map is
 // the identity, which is what every other caller wants.
 func PathDigestIn(p string, uids, gids IDMap) (ir.NodeID, error) {
-	entries, _, err := walkOne(p)
+	entries, _, _, err := walkOne(p)
 	if err != nil {
 		return ir.NodeID{}, err
 	}

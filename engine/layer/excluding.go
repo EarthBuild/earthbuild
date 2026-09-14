@@ -38,7 +38,7 @@ func TakeExcludingIn(
 		return TakeIn(root, uids, gids)
 	}
 
-	entries, size, err := walk(root)
+	entries, size, sockets, err := walk(root)
 	if err != nil {
 		return Capture{}, err
 	}
@@ -83,7 +83,7 @@ func TakeExcludingIn(
 		}
 	}
 
-	c := capture(kept, size, uids, gids)
+	c := capture(kept, size, sockets, uids, gids)
 
 	return c, nil
 }

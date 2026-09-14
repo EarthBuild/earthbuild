@@ -31,14 +31,14 @@ func TakeManifested(root string) (Capture, []byte, error) {
 // the same way: a manifest that disagreed with its layer about ownership would
 // hash to a different layer and authenticate nothing (E313).
 func TakeManifestedIn(root string, uids, gids IDMap) (Capture, []byte, error) {
-	entries, size, err := walk(root)
+	entries, size, sockets, err := walk(root)
 	if err != nil {
 		return Capture{}, nil, err
 	}
 
 	// `capture` sorts in place, and the manifest needs the same order - so it is
 	// taken afterwards, over the slice capture has already put in order.
-	c := capture(entries, size, uids, gids)
+	c := capture(entries, size, sockets, uids, gids)
 
 	return c, encodeEntries(entries, uids, gids), nil
 }
@@ -53,7 +53,7 @@ func TakeManifestedIn(root string, uids, gids IDMap) (Capture, []byte, error) {
 func TakeOwnedKnowingManifested(
 	root string, uids, gids IDMap, own map[string]Owner, known map[string]ir.NodeID,
 ) (Capture, []byte, error) {
-	entries, size, err := walkKnowing(root, known)
+	entries, size, sockets, err := walkKnowing(root, known)
 	if err != nil {
 		return Capture{}, nil, err
 	}
@@ -64,7 +64,7 @@ func TakeOwnedKnowingManifested(
 
 	// `capture` sorts in place; the manifest needs that same order, so it is
 	// taken afterwards. See TakeManifestedIn.
-	c := capture(entries, size, uids, gids)
+	c := capture(entries, size, sockets, uids, gids)
 
 	return c, encodeEntries(entries, uids, gids), nil
 }

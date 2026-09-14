@@ -42,6 +42,14 @@ type Capture struct {
 	// that mtimes are excluded. Determinism screening (§6) compares this, so a
 	// step is judged on what it produced rather than on when it ran.
 	Content ir.NodeID
+
+	// Sockets is how many socket inodes the walk left out.
+	//
+	// **Counted rather than dropped in silence.** A socket is not a member of a
+	// layer (see the walk), and a capture that quietly discards what it was
+	// given is a capture that lies about what it saw. Nothing acts on this; it
+	// exists so a build that somehow depended on one can be told.
+	Sockets int
 	// Bytes is the total size of file contents, for the scheduler's cost model:
 	// a fleet scheduler that estimates time but not bytes places work as though
 	// transfers were free.
@@ -118,12 +126,12 @@ func TakeOwnedIn(
 func TakeOwnedKnowing(
 	root string, uids, gids IDMap, own map[string]Owner, known map[string]ir.NodeID,
 ) (Capture, error) {
-	entries, size, err := walkKnowing(root, known)
+	entries, size, sockets, err := walkKnowing(root, known)
 	if err != nil {
 		return Capture{}, err
 	}
 
-	return capture(declared(entries, own), size, uids, gids), nil
+	return capture(declared(entries, own), size, sockets, uids, gids), nil
 }
 
 // declared applies a layer's own account of who owns it.
@@ -158,7 +166,7 @@ func declared(entries []entry, own map[string]Owner) []entry {
 // second definition of what a layer *is* - and the two would agree until
 // somebody edited one. Content goes through treeOf for that reason: Fold.Digest
 // folds a whole stack and must land on this value for a stack of one layer.
-func capture(entries []entry, size int64, uids, gids IDMap) Capture {
+func capture(entries []entry, size int64, sockets int, uids, gids IDMap) Capture {
 	// Sorted, because directory iteration order is a property of the filesystem
 	// and must not reach the digest. Paths are compared as byte strings, which
 	// is locale-independent - a collation-aware sort would make identity depend
@@ -186,7 +194,8 @@ func capture(entries []entry, size int64, uids, gids IDMap) Capture {
 	}
 
 	return Capture{
-		ID: full.Sum(), Content: rootDigestOf(merged), Bytes: size, Marked: marked(entries),
+		ID: full.Sum(), Content: rootDigestOf(merged), Bytes: size,
+		Marked: marked(entries), Sockets: sockets,
 	}
 }
 
@@ -339,10 +348,10 @@ func kindOf(mode uint32) byte {
 	}
 }
 
-func walk(root string) ([]entry, int64, error) { return walkNeeding(root, true, nil) }
+func walk(root string) ([]entry, int64, int, error) { return walkNeeding(root, true, nil) }
 
 // walkKnowing is walk with some content digests supplied rather than read.
-func walkKnowing(root string, known map[string]ir.NodeID) ([]entry, int64, error) {
+func walkKnowing(root string, known map[string]ir.NodeID) ([]entry, int64, int, error) {
 	if len(known) == 0 {
 		return walk(root)
 	}
@@ -352,17 +361,17 @@ func walkKnowing(root string, known map[string]ir.NodeID) ([]entry, int64, error
 		return walkOne(root)
 	}
 
-	entries, size, err := walkMetadata(root, nil)
+	entries, size, sockets, err := walkMetadata(root, nil)
 	if err != nil {
-		return entries, size, err
+		return entries, size, sockets, err
 	}
 
 	err = fillContentsKnowing(root, entries, known)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 
-	return entries, size, nil
+	return entries, size, sockets, nil
 }
 
 // Excluder decides which paths a walk leaves out, relative to its root and
@@ -383,12 +392,12 @@ type Excluder interface {
 // build directory - which otherwise put the machine into the key and stop two
 // checkouts of one commit sharing anything (E562).
 func TakeIgnoring(root string, ex Excluder) (Capture, error) {
-	entries, size, err := walkNeeding(root, true, ex)
+	entries, size, sockets, err := walkNeeding(root, true, ex)
 	if err != nil {
 		return Capture{}, err
 	}
 
-	return capture(entries, size, IDMap{}, IDMap{}), nil
+	return capture(entries, size, sockets, IDMap{}, IDMap{}), nil
 }
 
 // walkNeeding is walk, optionally without reading any file's contents.
@@ -402,7 +411,7 @@ func TakeIgnoring(root string, ex Excluder) (Capture, error) {
 //
 // The contents of what survives the filter are filled in afterwards, by
 // `fillContents`, which is the only place that knows what survived.
-func walkNeeding(root string, contents bool, ex Excluder) ([]entry, int64, error) {
+func walkNeeding(root string, contents bool, ex Excluder) ([]entry, int64, int, error) {
 	// A root that is itself a file is handled whole by walkOne, contents
 	// included, and its entry is named by its basename rather than by a path
 	// under the root - so filling it again would look for `f/f`. The single-file
@@ -412,21 +421,21 @@ func walkNeeding(root string, contents bool, ex Excluder) ([]entry, int64, error
 		return walkOne(root)
 	}
 
-	entries, size, err := walkMetadata(root, ex)
+	entries, size, sockets, err := walkMetadata(root, ex)
 	if err != nil || !contents {
-		return entries, size, err
+		return entries, size, sockets, err
 	}
 
 	err = fillContents(root, entries)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, err
 	}
 
-	return entries, size, nil
+	return entries, size, sockets, nil
 }
 
 // walkMetadata is the ordered half: every entry, without any file's contents.
-func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
+func walkMetadata(root string, ex Excluder) ([]entry, int64, int, error) {
 	// A root that is itself a file is digested as one entry named by its base.
 	// The walk below skips its own root - correct for a directory, where the root
 	// is the layer rather than a member of it - which for a file meant hashing
@@ -439,6 +448,7 @@ func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
 	var (
 		entries []entry
 		size    int64
+		sockets int
 		// inodes maps an inode to the first path that claimed it, which is how
 		// hardlink identity is captured: two paths sharing an inode are not two
 		// independent copies, and a layer that recorded them as such would lose
@@ -475,6 +485,28 @@ func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
 		info, relErr := d.Info()
 		if relErr != nil {
 			return fmt.Errorf("stat %s: %w", p, relErr)
+		}
+
+		// **A socket is a live process's address, and no process crosses a step
+		// boundary.** `connect` with nothing listening is ECONNREFUSED, so a
+		// captured socket can never be connected to by anything - it is a
+		// zero-byte file of a type nothing can use.
+		//
+		// A FIFO is the opposite and is kept: a named pipe with no reader or
+		// writer still works, and a later step that opens it gets a pipe. tar
+		// draws the same line, having `TypeFifo` and no socket typeflag at all.
+		//
+		// Keeping one cost three ways. The guest cannot recreate a socket and
+		// substituted a FIFO, so capture, materialise and recapture did not
+		// agree and a Φ-squash (4.8) of a range holding one disagreed with the
+		// range it flattened. tar cannot carry one, so the same layer exported
+		// and re-read lost it. And whether one exists at all depends on whether
+		// a daemon ran during the step and unlinked on exit - cache-key noise
+		// for no function.
+		if info.Mode()&fs.ModeSocket != 0 {
+			sockets++
+
+			return nil
 		}
 
 		e := entry{
@@ -518,17 +550,24 @@ func walkMetadata(root string, ex Excluder) ([]entry, int64, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, 0, fmt.Errorf("capture %s: %w", root, err)
+		return nil, 0, 0, fmt.Errorf("capture %s: %w", root, err)
 	}
 
-	return entries, size, nil
+	return entries, size, sockets, nil
 }
 
 // walkOne captures a single file as a one-entry layer.
-func walkOne(p string) ([]entry, int64, error) {
+//
+// A root that is itself a socket captures to nothing, for the reason the walk
+// gives: it is an address for a process that no longer exists.
+func walkOne(p string) ([]entry, int64, int, error) {
 	fi, err := os.Lstat(p)
 	if err != nil {
-		return nil, 0, fmt.Errorf("stat %s: %w", p, err)
+		return nil, 0, 0, fmt.Errorf("stat %s: %w", p, err)
+	}
+
+	if fi.Mode()&fs.ModeSocket != 0 {
+		return nil, 0, 1, nil
 	}
 
 	e := entry{
@@ -544,7 +583,7 @@ func walkOne(p string) ([]entry, int64, error) {
 	case fi.Mode()&fs.ModeSymlink != 0:
 		target, linkErr := os.Readlink(p)
 		if linkErr != nil {
-			return nil, 0, fmt.Errorf("read symlink %s: %w", p, linkErr)
+			return nil, 0, 0, fmt.Errorf("read symlink %s: %w", p, linkErr)
 		}
 
 		e.link = target
@@ -554,7 +593,7 @@ func walkOne(p string) ([]entry, int64, error) {
 
 		e.content, err = contentDigest(p)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, 0, err
 		}
 	}
 
@@ -563,7 +602,7 @@ func walkOne(p string) ([]entry, int64, error) {
 		e.xattrs = xs
 	}
 
-	return []entry{e}, e.size, nil
+	return []entry{e}, e.size, 0, nil
 }
 
 // digested counts the files whose contents have been read.

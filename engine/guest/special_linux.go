@@ -30,6 +30,21 @@ func copySpecial(src, dst, name string, fi os.FileInfo) (placed bool, err error)
 	// produced, and os fills in `*syscall.Stat_t`; the two are layout-identical
 	// and distinct types, so the assertion for the wrong one fails at runtime
 	// on exactly the entries this function exists for.
+	// **A socket is not committed.** It is an address for a process that bound
+	// it, and no process crosses a step boundary - so one found in a delta is
+	// always dead, and `connect` on it could only ever be ECONNREFUSED. The
+	// capture walk leaves them out for the same reason (see layer.walkMetadata),
+	// and this is the other way a delta reaches the store: the two have to agree
+	// or a socket becomes a layer member by the back door.
+	//
+	// This previously wrote a FIFO in its place, "so the entry exists rather
+	// than vanishing". That made capture, materialise and recapture disagree -
+	// the digest said socket, the disk said fifo - and a Φ-squash of a range
+	// holding one no longer matched the range it flattened.
+	if fi.Mode()&os.ModeSocket != 0 {
+		return false, nil
+	}
+
 	st, ok := fi.Sys().(*syscall.Stat_t)
 	if !ok {
 		return false, fmt.Errorf("cannot read the device numbers of %s", src)
@@ -90,11 +105,6 @@ func deviceBits(m os.FileMode) uint32 {
 	case m&os.ModeDevice != 0:
 		return unix.S_IFBLK
 	case m&os.ModeNamedPipe != 0:
-		return unix.S_IFIFO
-	case m&os.ModeSocket != 0:
-		// A socket in a delta is a step's own runtime artefact and cannot be
-		// meaningfully recreated; treated as a fifo so the entry exists rather
-		// than vanishing, which is the failure this whole change is about.
 		return unix.S_IFIFO
 	default:
 		return unix.S_IFREG

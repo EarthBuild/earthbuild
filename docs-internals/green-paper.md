@@ -303,6 +303,21 @@ identity, and mtime **to nanosecond precision**. It does not record atime or cti
 alters its atime, so including it would make a layer's identity depend on who last read the source
 tree.
 
+**A socket is not a member of a layer.** A socket inode is the address at which a running process
+accepts connections, and no process survives a step (§3.4): one found at capture was bound by a
+process that has already gone, and `connect` on it can only ever fail. It is therefore excluded,
+and a capture reports how many it left out rather than discarding them in silence.
+
+A FIFO is recorded, and the difference is the point: a named pipe with no reader or writer is fully
+functional, and a later step that opens it gets a working pipe. The distinction is not this
+document's invention - `tar` carries a FIFO and has no representation for a socket at all.
+
+Excluding it is not merely tidiness. A socket cannot be recreated, so a materialiser had to put
+something else in its place, and capture, materialisation and recapture then disagreed - which
+makes Φ (4.8) unsound, since a squashed range must materialise to what the range did. Whether a
+socket exists at all depends on whether some daemon ran during the step and unlinked on exit, so
+recording one puts the timing of an unrelated process into a cache key.
+
 **content(ℓ) is id(ℓ) with the times excluded and nothing else changed.** Every other field above
 reaches it, so two layers with one content id are indistinguishable to any step that reads the
 filesystem rather than the clock. It exists because mtime is the one recorded field that is not a

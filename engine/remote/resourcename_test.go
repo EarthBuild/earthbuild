@@ -16,8 +16,11 @@ import (
 // segments; everything before the first is a name this service does not use,
 // and anything after the size is metadata a client attached for itself.
 func TestABlobNameIsFoundByItsMarkers(t *testing.T) {
+	// **No SelectHashForTest, and none is needed.** Both digest functions are
+	// 32 bytes, so a name parses the same under either - and pinning one would
+	// make this test change a process-wide choice while running beside every
+	// other, which is what TestNoParallelTestChangesTheHashFunction forbids.
 	t.Parallel()
-	t.Cleanup(ir.SelectHashForTest(t, ir.HashSHA256))
 
 	hash := ir.DigestOf([]byte("some blob"))
 
@@ -52,8 +55,11 @@ func TestABlobNameIsFoundByItsMarkers(t *testing.T) {
 
 // What cannot be served is refused by name rather than guessed at.
 func TestAnUnusableResourceNameIsRefused(t *testing.T) {
+	// **No SelectHashForTest, and none is needed.** Both digest functions are
+	// 32 bytes, so a name parses the same under either - and pinning one would
+	// make this test change a process-wide choice while running beside every
+	// other, which is what TestNoParallelTestChangesTheHashFunction forbids.
 	t.Parallel()
-	t.Cleanup(ir.SelectHashForTest(t, ir.HashSHA256))
 
 	hash := ir.DigestOf([]byte("some blob")).String()
 

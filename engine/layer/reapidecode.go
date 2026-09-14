@@ -229,3 +229,123 @@ func EncodeFindMissingBlobs(ids []ir.NodeID) []byte {
 
 // DigestsInResponse is the blobs a server said it lacks.
 func DigestsInResponse(b []byte) ([]ir.NodeID, error) { return DigestsInRequest(b) }
+
+// BatchUpdateBlobs fields.
+const (
+	fieldUploadRequests = 2 // BatchUpdateBlobsRequest.requests
+	fieldUploadDigest   = 1 // ...Request.digest
+	fieldUploadData     = 2 // ...Request.data
+
+	fieldUploadResponses = 1 // BatchUpdateBlobsResponse.responses
+	fieldResponseDigest  = 1 // ...Response.digest
+	fieldResponseStatus  = 2 // ...Response.status
+	fieldStatusCode      = 1 // Status.code
+	fieldStatusMessage   = 2 // Status.message
+)
+
+// StatusInvalidArgument is google.rpc.Code.INVALID_ARGUMENT.
+//
+// Named here rather than imported: one integer does not justify the
+// google/rpc dependency, and the number is part of the wire rather than of that
+// library.
+const StatusInvalidArgument = 3
+
+// Upload is one blob a client asked this store to keep.
+type Upload struct {
+	Digest ir.NodeID
+	Data   []byte
+}
+
+// UploadsInRequest is the blobs a client sent.
+func UploadsInRequest(b []byte) ([]Upload, error) {
+	var out []Upload
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		if field != fieldUploadRequests || wire != wireBytes {
+			return nil
+		}
+
+		var u Upload
+
+		inner := eachField(v, func(f, w int, val []byte) error {
+			switch {
+			case f == fieldUploadDigest && w == wireBytes:
+				hex, err := hashOfDigest(val)
+				if err != nil {
+					return err
+				}
+
+				id, err := ir.ParseNodeID(hex)
+				if err != nil {
+					return fmt.Errorf("an upload names %q, which is not a digest: %w", hex, err)
+				}
+
+				u.Digest = id
+			case f == fieldUploadData && w == wireBytes:
+				u.Data = val
+			}
+
+			return nil
+		})
+		if inner != nil {
+			return inner
+		}
+
+		out = append(out, u)
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+// Accepted is what became of one uploaded blob: a zero Code is success.
+type Accepted struct {
+	Digest  ir.NodeID
+	Code    int
+	Message string
+}
+
+// EncodeBatchUpdateBlobs writes a BatchUpdateBlobsResponse.
+//
+// **A result per blob, because a batch is not all-or-nothing.** One blob whose
+// bytes do not name it does not make the others unusable, and a client told
+// only "the batch failed" has to send every one of them again.
+func EncodeBatchUpdateBlobs(results []Accepted) []byte {
+	var out []byte
+
+	for _, r := range results {
+		one := appendMessage(nil, fieldResponseDigest,
+			encodeDigest(&scratch{}, r.Digest, int64(len(r.Message))*0))
+
+		if r.Code != 0 {
+			st := appendVarintField(nil, fieldStatusCode, uint64(r.Code)) //nolint:gosec // a small enum
+			st = appendString(st, fieldStatusMessage, r.Message)
+			one = appendMessage(one, fieldResponseStatus, st)
+		}
+
+		out = appendMessage(out, fieldUploadResponses, one)
+	}
+
+	return out
+}
+
+// EncodeBatchUpdateBlobsForTest writes a request sending these blobs.
+//
+// This engine receives these rather than sending them; it exists so a test can
+// ask the service something a client would, without a generated schema.
+func EncodeBatchUpdateBlobsForTest(ups []Upload) []byte {
+	var out []byte
+
+	for _, u := range ups {
+		one := appendMessage(nil, fieldUploadDigest,
+			encodeDigest(&scratch{}, u.Digest, int64(len(u.Data))))
+		one = appendBytes(one, fieldUploadData, u.Data)
+		out = appendMessage(out, fieldUploadRequests, one)
+	}
+
+	return out
+}

@@ -47,6 +47,10 @@ var knowsTheLayout = map[string]string{
 	// already long-lived (plan-remote-execution R5); until it moves, this is a
 	// reader somebody decided about rather than one found later.
 	"engine/cli/servecache.go": sideHost,
+	// The agent's own, and the side this belongs on: the guest owns the store,
+	// so a service reading it from here reads a disk it has rather than a
+	// directory it hopes somebody shared.
+	"engine/guestd/servecache.go": sideGuest,
 
 	// The store itself.
 	"engine/store/store.go":         sideStore,

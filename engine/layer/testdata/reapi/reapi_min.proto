@@ -137,3 +137,25 @@ message FindMissingBlobsRequest {
 message FindMissingBlobsResponse {
   repeated Digest missing_blob_digests = 2;
 }
+
+message BatchUpdateBlobsRequest {
+  string instance_name = 1;
+  repeated Request requests = 2;
+  message Request {
+    Digest digest = 1;
+    bytes data = 2;
+  }
+}
+
+message BatchUpdateBlobsResponse {
+  repeated Response responses = 1;
+  message Response {
+    Digest digest = 1;
+    Status status = 2;
+  }
+}
+
+message Status {
+  int32 code = 1;
+  string message = 2;
+}

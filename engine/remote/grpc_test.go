@@ -143,3 +143,50 @@ func TestTheCodecAnnouncesProto(t *testing.T) {
 			" refuse a service that sends exactly what it asked for", got)
 	}
 }
+
+// A client sends a blob and the store keeps it; a wrong one is refused by name.
+//
+// **Writes are accepted here and refused over HTTP, and that is not
+// inconsistency.** The HTTP cache is filled by builds, where an upload is a
+// stranger's claim about what a name means. This service exists for a client
+// inside a step this engine started, which must send its input root before
+// anything can run over it - and the sandbox is the only boundary there is.
+func TestAClientSendsBlobsAndTheWrongOneIsRefused(t *testing.T) {
+	restore := ir.SelectHashForTest(t, ir.HashSHA256)
+	defer restore()
+
+	st := store.DirStore(t.TempDir())
+	conn := dialService(t, st)
+
+	good := []byte("an input file")
+	goodID := ir.DigestOf(good)
+	liar := ir.NodeID{0xba, 0xd0}
+
+	out := call(t, conn,
+		"/build.bazel.remote.execution.v2.ContentAddressableStorage/BatchUpdateBlobs",
+		layer.EncodeBatchUpdateBlobsForTest([]layer.Upload{
+			{Digest: goodID, Data: good},
+			{Digest: liar, Data: good},
+		}))
+
+	if len(out) == 0 {
+		t.Fatal("no per-blob results came back, so a client cannot tell which landed")
+	}
+
+	// The honest one is there and readable.
+	back, err := st.Node(goodID)
+	if err != nil {
+		t.Fatalf("the blob that named itself was not kept: %v", err)
+	}
+
+	if string(back) != string(good) {
+		t.Errorf("kept %q, sent %q", back, good)
+	}
+
+	// The liar is not.
+	if missing := st.MissingNodes([]ir.NodeID{liar}); len(missing) != 1 {
+		t.Error("a blob whose bytes do not name it was filed under the name" +
+			" its sender chose, so every later reader is told these are the" +
+			" bytes it asked for")
+	}
+}

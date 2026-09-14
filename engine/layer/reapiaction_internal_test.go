@@ -225,3 +225,30 @@ func TestOurMissingBlobsReplyIsProtocs(t *testing.T) {
 		t.Errorf("ours is %x\n  protoc's is %x", got, want)
 	}
 }
+
+// We read an upload protoc wrote, bytes and all.
+func TestWeReadABatchUpdateBlobsRequestProtocWrote(t *testing.T) {
+	t.Parallel()
+
+	b, err := os.ReadFile("testdata/reapi/upload.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := UploadsInRequest(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(got) != 1 {
+		t.Fatalf("read %d uploads, protoc wrote 1", len(got))
+	}
+
+	if want := hexID("0000000000000000000000000000000000000000000000000000000000000077"); got[0].Digest != want {
+		t.Errorf("the upload names %v, want %v", got[0].Digest, want)
+	}
+
+	if string(got[0].Data) != "hello" {
+		t.Errorf("the upload carries %q, want %q", got[0].Data, "hello")
+	}
+}

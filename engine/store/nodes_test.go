@@ -308,3 +308,45 @@ func treeOfManifest(t *testing.T, m []byte) layer.Tree {
 
 	return f.Tree()
 }
+
+// A blob whose bytes do not name it is refused.
+//
+// **The one rule a content-addressed store has.** Filing it would tell every
+// later reader that these bytes are the ones it asked for - and the reader has
+// no way to know otherwise, because the name is all it has.
+func TestABlobIsVerifiedBeforeItIsKept(t *testing.T) {
+	t.Parallel()
+
+	st := store.DirStore(t.TempDir())
+
+	body := []byte("the real bytes")
+	right := ir.DigestOf(body)
+	wrong := ir.NodeID{0xba, 0xd0}
+
+	if err := st.Accept(wrong, body); err == nil {
+		t.Error("a blob was filed under a name its bytes do not have")
+	}
+
+	if got := st.MissingNodes([]ir.NodeID{wrong}); len(got) != 1 {
+		t.Error("the refused blob was kept anyway")
+	}
+
+	if err := st.Accept(right, body); err != nil {
+		t.Fatalf("a blob that names itself was refused: %v", err)
+	}
+
+	back, err := st.Node(right)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(back) != string(body) {
+		t.Errorf("read back %q, sent %q", back, body)
+	}
+
+	// Sent twice is not an error: the name is ℋ over the bytes, so what is
+	// there is what would go.
+	if err := st.Accept(right, body); err != nil {
+		t.Errorf("sending a blob twice failed: %v", err)
+	}
+}

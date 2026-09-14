@@ -122,3 +122,35 @@ func (d DirStore) Node(id ir.NodeID) ([]byte, error) {
 
 	return b, nil
 }
+
+// Accept keeps a blob a client sent, under the name the client gave.
+//
+// **Verified before it is kept, not after.** A store that files whatever
+// arrives under whatever name it was given is a store of whatever arrived: every
+// later reader trusts the name, and one wrong blob is a wrong answer served to
+// everybody who asks for that digest. The check costs one hash of bytes already
+// in memory.
+//
+// Idempotent, like NoteNodes and for the same reason: a blob already present is
+// already the same bytes, since its name is ℋ over them.
+func (d DirStore) Accept(id ir.NodeID, b []byte) error {
+	if got := ir.DigestOf(b); got != id {
+		return fmt.Errorf(
+			"a blob was offered as %s and its bytes name %s"+
+				"\n  a content-addressed store cannot file it: every later reader"+
+				" would be told these bytes are the ones it asked for",
+			id, got)
+	}
+
+	at := filepath.Join(string(d), "nodes")
+	if err := os.MkdirAll(at, 0o750); err != nil {
+		return fmt.Errorf("make %s: %w", at, err)
+	}
+
+	p := NodePath(string(d), id)
+	if _, err := os.Stat(p); err == nil {
+		return nil
+	}
+
+	return writeNode(p, b)
+}

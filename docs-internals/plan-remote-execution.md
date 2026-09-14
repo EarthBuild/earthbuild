@@ -296,12 +296,48 @@ reaches the key no other way. `container-image` is in the `Platform`, which is i
 which is Κₜ - so a moved tag is a different key. That property already holds and becomes
 load-bearing here.
 
+### What running buck2 against it taught (2026-09-14)
+
+An `examples/buck2` target, a released buck2 binary, and the service a `WITH RE`
+block binds. Every one of these was found by the client and by nothing in this
+repository, and each is a class rather than a typo:
+
+* **A `unix://` address is refused outright.** Buck2's client will not dial a socket, so the
+  service answers on TCP as well. Bazel does take one, so the socket stays.
+* **TLS is not optional.** There is no plaintext setting; a bare address and a `grpc://` one both
+  handshake. The certificate is made per step and lives on the ephemeral mount beside the socket.
+  It protects nothing - the sandbox is the boundary - and without it the client cannot connect.
+* **A certificate cannot be its own trust anchor.** rustls calls it `CaUsedAsEndEntity`. A CA and a
+  leaf, which is what `buildkitd/certificates.go` already built for talking to buildkit.
+* **A digest is a hash *and* a size, in replies too.** `FindMissingBlobs` echoed hashes with no
+  `size_bytes`, which proto3 omits when zero - so every non-empty blob came back as one the client
+  had never asked about. It requested twelve, recognised the one empty blob, and reported 23.
+* **`execution_metadata` is required, and is field 9.** We wrote field 6, which is `stdout_digest`.
+* **`tree_digest` is required.** The reference form this engine prefers is not read by buck2.
+
+**The golden vectors could not catch three of these, and it is worth saying why.** They are
+generated from `testdata/reapi/reapi_min.proto`, which is this repository's own transcription of
+the schema. A vector built from a transcription proves that the encoder and the transcription
+agree; it cannot prove the transcription. Two field numbers and one omitted field were wrong in
+both at once, and every test passed. The check that found them was a peer.
+
+One test was worse than silent: `TestOurMissingBlobsReplyIsProtocs` allowed ours to differ from
+protoc's fixture, on the stated grounds that "a client is told which blobs to send, not how big
+they are". That sentence is false, and the test was written so that it passed.
+
 ### What is missing
 
 * **Handing back named files as blobs.** An action returns `output_paths`; this engine captures a
   whole delta. This is the one genuine gap, and it is narrower than "a per-file CAS" - the input
   side needs only a small tree, and the output side needs N named files addressable by content
   digest. R4's `RUN --output` wants the same thing.
+
+  **Confirmed as the last one, by reaching it.** Buck2 now gets through the whole protocol and
+  fails in `extract_artifacts` with "Path is empty": it wants one `OutputFile` or `OutputDirectory`
+  per path it declared, and gets a single `OutputDirectory` with no path - the delta, entire.
+  Narrowing the *layer* to `output_paths` (R4) was necessary and is not this: the layer now holds
+  the right bytes and the result does not say which of them is which. What remains is to walk the
+  captured tree once per declared path and name it.
 * **Accepting uploads**, which inverts the cache's current policy. A blob arriving under a name the
   client chose must be verified against that name on receipt, exactly as it is on serve.
 * **Decoders** for the request messages. The encoders exist and are protoc-verified; decoding is

@@ -112,6 +112,13 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 	h.Bool(n.Op.AWS)
 	h.Bool(n.Op.NoCache)
 	h.Bool(n.Op.NeedsOutput)
+	// Counted before they are written, like every other list here: without a
+	// count, one entry "a b" and two entries "a" and "b" hash the same.
+	h.Count(len(n.Op.Outputs))
+
+	for _, o := range n.Op.Outputs {
+		h.Str(o)
+	}
 	h.Bool(n.Op.IfExists)
 	h.Str(n.Op.As)
 	h.Str(n.Op.Chmod)

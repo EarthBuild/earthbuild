@@ -44,6 +44,7 @@ type Run struct {
 	Interactive     bool     `description:"Run this command with an interactive session, without saving changes"                           long:"interactive"`      //nolint:lll
 	InteractiveKeep bool     `description:"Run this command with an interactive session, saving changes"                                   long:"interactive-keep"` //nolint:lll
 	RawOutput       bool     `description:"Do not prefix output with target. Print Raw"                                                    long:"raw-output"`       //nolint:lll
+	Outputs         []string `description:"Declare a path this step produces; anything else it writes is left out of its result"           long:"output"`           //nolint:lll
 }
 
 // From contains options for the FROM command.

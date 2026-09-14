@@ -148,3 +148,36 @@ func ContentID(body []byte) ir.NodeID {
 
 	return h.Sum()
 }
+
+// TakeDeclaredInManifested is TakeExcludingInManifested, narrowed to what a
+// step declared it produces.
+//
+// **Two exclusions, and they are not the same kind.** `faulted` leaves out what
+// the engine itself placed - paths a lazily materialised base faulted in, which
+// the step did not write and must not be recorded as having written. `declared`
+// leaves out what the step *did* write and did not claim: its debris. The first
+// is correctness, the second is an author's choice, and a step that declares
+// nothing keeps everything exactly as before.
+func TakeDeclaredInManifested(
+	root string, faulted map[string]ir.NodeID, declared []string, uids, gids IDMap,
+) (Capture, []byte, error) {
+	only := Only(declared)
+	if only == nil {
+		return TakeExcludingInManifested(root, faulted, uids, gids)
+	}
+
+	c, err := TakeIgnoring(root, only)
+	if err != nil {
+		return Capture{}, nil, err
+	}
+
+	// The manifest is taken over what was *kept*, for TakeExcludingInManifested's
+	// reason: one describing more than its layer holds attests to a different
+	// layer, and so attests to nothing.
+	m, err := ManifestOnly(root, only, uids, gids)
+	if err != nil {
+		return Capture{}, nil, err
+	}
+
+	return c, m, nil
+}

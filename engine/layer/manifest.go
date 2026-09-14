@@ -38,6 +38,23 @@ func ManifestIn(root string, uids, gids IDMap) ([]byte, error) {
 	return ManifestOwned(root, uids, gids, nil)
 }
 
+// ManifestOnly is ManifestIn over the paths an excluder keeps.
+//
+// **A manifest must describe exactly its layer.** One listing more than the
+// layer holds attests to a different layer and so attests to nothing, so a
+// narrowed capture needs a manifest narrowed the same way - by the same
+// excluder, over the same walk, rather than by filtering afterwards.
+func ManifestOnly(root string, ex Excluder, uids, gids IDMap) ([]byte, error) {
+	entries, _, _, err := walkNeeding(root, true, ex)
+	if err != nil {
+		return nil, fmt.Errorf("read the layer at %s: %w", root, err)
+	}
+
+	sort.Slice(entries, func(i, j int) bool { return entries[i].path < entries[j].path })
+
+	return encodeEntries(entries, uids, gids), nil
+}
+
 // ManifestOwned is ManifestIn with ownership taken from a declaration.
 //
 // The third of the three walks that hash ownership, and the one whose absence

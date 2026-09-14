@@ -458,6 +458,14 @@ type Request struct {
 	// and a strict build that checked only mounts would report a clean layer to
 	// somebody who echoed `$TOKEN` into a file.
 	SecretEnv []string `json:"secretEnv,omitempty"`
+	// Outputs is what the step declared it produces, and empty is every step
+	// that declares nothing.
+	//
+	// **Sent because the narrowing happens where the capture does.** The delta
+	// is the guest's - it is the upper directory of a mount only the guest has
+	// - so a host that filtered afterwards would be filtering a layer already
+	// named. See ir.Op.Outputs.
+	Outputs []string `json:"outputs,omitempty"`
 	// BaseEnv is what the base image declared, under ε.
 	//
 	// Not ambient state: it comes from the image this step stands on, which is

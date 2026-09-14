@@ -690,7 +690,7 @@ func (e *Executor) Run(
 	endFlush()
 
 	endCapture := phase("capture", n.Meta.Source)
-	id, content, bytes, leaked, err := c.Capture(ctx, h)
+	id, content, bytes, leaked, err := c.Capture(ctx, h, n.Op.Outputs)
 	e.noteLeaked(id, leaked)
 	endCapture()
 
@@ -1025,7 +1025,7 @@ func (e *Executor) copyStep(
 		return core.Result{}, fmt.Errorf("%s: %w", n.Meta.Source, err)
 	}
 
-	id, content, bytes, leaked, err := c.Capture(ctx, h)
+	id, content, bytes, leaked, err := c.Capture(ctx, h, n.Op.Outputs)
 	e.noteLeaked(id, leaked)
 	if err != nil {
 		// A guest that stopped mid-build says why on its console, exactly as

@@ -1411,6 +1411,9 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				SecretEnv:    rf.secrets,
 				SecretDigest: secretDigest,
 				AWS:          rf.aws,
+				// What the step says it produces. Empty for a step that says
+				// nothing, which keeps its whole delta as every step does.
+				Outputs: rf.outputs,
 				// What this step resolves names by. Carried like the mounts and
 				// hashed like them, because it changes what the command does
 				// rather than where it runs.

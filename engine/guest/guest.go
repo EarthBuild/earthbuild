@@ -659,8 +659,12 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		// is every build today.
 		endTake := timing.Phase("guest:capture", req.Handle)
 
-		c, manifest, err := layer.TakeExcludingInManifested(
-			h.Delta(), s.placedIn(req.Handle, h.Delta()), uids, gids)
+		// **Narrowed where the capture is, not after it.** A step that declared
+		// what it produces keeps that and leaves out what it merely disturbed;
+		// a host filtering afterwards would be filtering a layer already named,
+		// and the name is the thing being stabilised.
+		c, manifest, err := layer.TakeDeclaredInManifested(
+			h.Delta(), s.placedIn(req.Handle, h.Delta()), req.Outputs, uids, gids)
 
 		endTake()
 
@@ -3145,8 +3149,9 @@ func (s *Server) leakedBy(handle string) []string {
 // The fourth value names any secret the step wrote into what it produced. A
 // finding rather than a refusal: the host decides, at the exit point, whether
 // the layer is going anywhere. See Response.Leaked.
+// declared is what the step said it produces; empty keeps its whole delta.
 func (c *Client) Capture(
-	ctx context.Context, h core.Handle,
+	ctx context.Context, h core.Handle, declared []string,
 ) (layer, content ir.NodeID, size int64, leaked []string, err error) {
 	rh, ok := h.(*remoteHandle)
 	if !ok {
@@ -3154,7 +3159,9 @@ func (c *Client) Capture(
 			errors.New("handle did not come from this guest")
 	}
 
-	resp, err := c.do(ctx, Request{Kind: KindCapture, Handle: rh.id, Clamp: hostClamp()})
+	resp, err := c.do(ctx, Request{
+		Kind: KindCapture, Handle: rh.id, Clamp: hostClamp(), Outputs: declared,
+	})
 	if err != nil {
 		return ir.NodeID{}, ir.NodeID{}, 0, nil, err
 	}

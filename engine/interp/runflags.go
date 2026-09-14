@@ -74,8 +74,11 @@ type runOpts struct {
 	// rawOutput is `RUN --raw-output`: the step's lines are printed without the
 	// prefix naming which step they came from. Gated by `VERSION --raw-output`.
 	rawOutput bool
-	mounts    []ir.Mount
-	secrets   []string
+	// outputs is what the step declared it produces; empty means everything
+	// it wrote, which is every step that says nothing. See ir.Op.Outputs.
+	outputs []string
+	mounts  []ir.Mount
+	secrets []string
 }
 
 func runFlags(
@@ -200,6 +203,7 @@ func runFlags(
 		entrypointShell: opts.WithEntrypoint && !c.ExecMode,
 		rawOutput:       opts.RawOutput,
 		pushOnly:        opts.Push,
+		outputs:         opts.Outputs,
 	}
 
 	if len(rest) == 0 {

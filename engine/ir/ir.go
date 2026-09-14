@@ -262,6 +262,21 @@ type Op struct {
 	// bound - the same reasoning I7 applies to a host step.
 	NoCache bool
 
+	// Outputs is what this step declares it produces, and empty is every step
+	// that declares nothing.
+	//
+	// **A narrower result, for a stabler key.** A step's result is the whole
+	// filesystem delta, so it carries what the step merely disturbed - a
+	// fingerprint file, a log, a timestamp in an intermediate - and two runs
+	// that produce the same artefact are two layers. Declaring the artefact
+	// leaves the rest out, which makes the step cache-equal across runs without
+	// the tool that wrote the debris having been fixed.
+	//
+	// Opt-in, because an intermediate step's real output is the filesystem the
+	// next step sees: narrowing one that somebody builds on hides what they
+	// were building on.
+	Outputs []string
+
 	// NeedsOutput says this step's standard output is its value, not only its
 	// display.
 	//
@@ -790,6 +805,11 @@ func (n *Node) ID() NodeID {
 	h.Bool(n.Op.AWS)
 	h.Bool(n.Op.NoCache)
 	h.Bool(n.Op.NeedsOutput)
+	h.Count(len(n.Op.Outputs))
+
+	for _, o := range n.Op.Outputs {
+		h.Str(o)
+	}
 	h.Bool(n.Op.IfExists)
 	h.Str(n.Op.As)
 	h.Str(n.Op.Chmod)

@@ -177,7 +177,8 @@ func (c *Cache) serveAction(w http.ResponseWriter, r *http.Request, key ir.NodeI
 		return
 	}
 
-	b := resultOf(e, size)
+	treeID, treeSize := c.treeOf(e)
+	b := resultOf(e, size, treeID, treeSize)
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 
@@ -203,15 +204,32 @@ func (c *Cache) rootSize(e core.Entry) (int64, error) {
 	return c.Store.TreeNodes(e.Layer, e.Content)
 }
 
+// treeOf is the inline Tree for a cached result, or nothing.
+//
+// **Best effort, because a result is still a result without one.** A peer that
+// reads `root_directory_digest` needs nothing here; one that reads only
+// `tree_digest` needs it and would refuse the hit. Failing the whole lookup
+// because the inline form could not be built would deny both.
+func (c *Cache) treeOf(e core.Entry) (ir.NodeID, int64) {
+	id, size, err := c.Store.TreeMessage(e.Layer, e.Content)
+	if err != nil {
+		return ir.NodeID{}, 0
+	}
+
+	return id, size
+}
+
 // resultOf is a cache entry as an ActionResult.
 //
 // **One conversion, two transports.** HTTP and gRPC answer the same question,
 // and a second place that turned an entry into a result would be a second
 // answer to what a step produced.
-func resultOf(e core.Entry, rootSize int64) []byte {
+func resultOf(e core.Entry, rootSize int64, tree ir.NodeID, treeSize int64) []byte {
 	return layer.EncodeActionResult(layer.Result{
 		Root:     e.Content,
 		RootSize: rootSize,
+		Tree:     tree,
+		TreeSize: treeSize,
 		ExitCode: int32(e.Exit), //nolint:gosec // a process exit status
 		// What the step printed, which a client displays. Empty where it
 		// printed nothing or printed more than was kept - a caller needing to
@@ -241,5 +259,7 @@ func (c *Cache) ActionResult(key ir.NodeID) ([]byte, bool) {
 		return nil, false
 	}
 
-	return resultOf(e, size), true
+	treeID, treeSize := c.treeOf(e)
+
+	return resultOf(e, size, treeID, treeSize), true
 }

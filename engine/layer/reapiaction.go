@@ -126,7 +126,11 @@ const (
 	fieldStdoutRaw  = 5 // ActionResult.stdout_raw
 
 	fieldOutDirPath = 1 // OutputDirectory.path
+	fieldOutDirTree = 3 // OutputDirectory.tree_digest
 	fieldOutDirRoot = 5 // OutputDirectory.root_directory_digest
+
+	fieldTreeRoot     = 1 // Tree.root
+	fieldTreeChildren = 2 // Tree.children
 
 	// **9, and the number is the whole of it.** 6 is `stdout_digest`, so a
 	// metadata message written there is read by a peer as a malformed digest
@@ -157,6 +161,16 @@ type Result struct {
 	RootSize int64
 	// Path is where the directory sits, empty for a whole-filesystem delta.
 	Path string
+	// Tree and TreeSize name a `Tree` message: the root Directory with every
+	// descendant inline.
+	//
+	// **Both this and Root, because peers differ about which they read.**
+	// `root_directory_digest` says the same thing by reference and is the
+	// younger field; Buck2 reads only `tree_digest` and refuses a result
+	// without one ("Tree digest not defined"). Saying it twice costs a blob
+	// nobody fetches; saying it once costs a client.
+	Tree     ir.NodeID
+	TreeSize int64
 	// ExitCode is the step's, and is omitted when zero as proto3 requires.
 	ExitCode int32
 	// Stdout is what the step printed, where it was small enough to keep.
@@ -179,6 +193,11 @@ type Result struct {
 // EncodeActionResult writes an ActionResult message.
 func EncodeActionResult(r Result) []byte {
 	dir := appendString(nil, fieldOutDirPath, r.Path)
+
+	if r.Tree != (ir.NodeID{}) {
+		dir = appendMessage(dir, fieldOutDirTree, encodeDigest(&scratch{}, r.Tree, r.TreeSize))
+	}
+
 	dir = appendMessage(dir, fieldOutDirRoot, encodeDigest(&scratch{}, r.Root, r.RootSize))
 
 	out := appendMessage(nil, fieldOutputDirs, dir)
@@ -363,4 +382,21 @@ func EncodeDoneOperation(name string, action Blob, response []byte) []byte {
 	any = appendBytes(any, fieldAnyValue, response)
 
 	return appendMessage(out, fieldOpResponse, any)
+}
+
+// EncodeTree writes a `Tree`: one Directory and every directory beneath it.
+//
+// **The same tree the nodes already describe, said at greater length.** A
+// consumer of `root_directory_digest` fetches the nodes it does not have; a
+// consumer of `tree_digest` is handed all of them at once, whether or not it
+// holds them already. That is why the engine's own form is the former - but a
+// client that reads only this one cannot be argued with.
+func EncodeTree(root []byte, children [][]byte) []byte {
+	out := appendMessage(nil, fieldTreeRoot, root)
+
+	for _, c := range children {
+		out = appendMessage(out, fieldTreeChildren, c)
+	}
+
+	return out
 }

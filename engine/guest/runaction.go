@@ -137,9 +137,18 @@ func (s *Server) RunAction(
 		return layer.Result{}, fmt.Errorf("the tree this action produced: %w", err)
 	}
 
+	// **And the same tree again, inline.** A client that reads `tree_digest`
+	// and nothing else refuses a result without one, and cannot be argued with.
+	treeID, treeSize, err := st.TreeMessage(made, root)
+	if err != nil {
+		return layer.Result{}, fmt.Errorf("the tree message for this action: %w", err)
+	}
+
 	return layer.Result{
 		Root:     root,
 		RootSize: size,
+		Tree:     treeID,
+		TreeSize: treeSize,
 		ExitCode: int32(ran.Exit), //nolint:gosec // an exit status
 		Stdout:   []byte(ran.Output),
 	}, nil

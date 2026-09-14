@@ -251,3 +251,16 @@ func appendHex(b []byte, field int, id ir.NodeID) []byte {
 
 	return b
 }
+
+// appendBytes writes a length-delimited byte field, or nothing where it is
+// empty. Distinct from appendString only in what it takes.
+func appendBytes(b []byte, field int, v []byte) []byte {
+	if len(v) == 0 {
+		return b
+	}
+
+	b = appendTag(b, field, wireBytes)
+	b = binary.AppendUvarint(b, uint64(len(v)))
+
+	return append(b, v...)
+}

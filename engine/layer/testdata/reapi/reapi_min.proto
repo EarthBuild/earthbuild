@@ -55,3 +55,32 @@ message Directory {
   reserved 4;
   NodeProperties node_properties = 5;
 }
+
+message Platform {
+  message Property {
+    string name = 1;
+    string value = 2;
+  }
+  repeated Property properties = 1;
+}
+
+message Command {
+  message EnvironmentVariable {
+    string name = 1;
+    string value = 2;
+  }
+  repeated string arguments = 1;
+  repeated EnvironmentVariable environment_variables = 2;
+  reserved 3, 4, 5;
+  string working_directory = 6;
+  repeated string output_paths = 7;
+}
+
+message Action {
+  Digest command_digest = 1;
+  Digest input_root_digest = 2;
+  reserved 3, 4, 5, 6, 8;
+  bool do_not_cache = 7;
+  bytes salt = 9;
+  Platform platform = 10;
+}

@@ -205,7 +205,11 @@ accepted - it is the shape of the thing, and it removes more work than it leaves
   second long-lived thing, on the wrong side of the boundary, holding a copy of what the guest has.
 
   It also means the idle rule has to learn about it: a machine with an action in flight is not idle,
-  however long since a host last spoke to it.
+  however long since a host last spoke to it. **Settled: it already can.** `idle` counts work in
+  flight with `begin`/`end` and runs its countdown from the end, so a long action buys the grace
+  period afterwards exactly as a long step does. The requirement on the service is to take that
+  hold, not to invent one - and a service that forgot to would stop its own machine mid-action,
+  which is worth a test rather than a comment.
 
 `earth-native -serve-cache` therefore stays a way to *try* this by hand, and is not the product.
 
@@ -222,9 +226,17 @@ Earthfile or from a client inside one. That is what R2b bought and it is why it 
 generation.
 
 **The hazard is parallelism, not correctness.** The step running buck2 holds a scheduler slot while
-the actions it spawns want slots of their own, and a budget that does not account for the second
-kind either deadlocks or oversubscribes the machine. `TestALockedCacheDoesNotSpendTheBuildsParallelism`
-already exists for the neighbouring case; this one wants its own answer before any of it runs.
+the actions it spawns want slots of their own.
+
+**Settled: actions get their own bound, because a shared one deadlocks.** A single machine-wide
+budget shared by steps and actions can reach a state where every slot is held by a step *waiting*
+for an action that cannot start - and a build that waits for itself never finishes. Two pools can
+oversubscribe the machine, which is slow. Prefer slow: a deadlock needs a person and a stack dump,
+an oversubscription needs patience.
+
+The action pool wants a smaller default than the step pool for that reason, and neither should be
+the other's leftovers. `TestALockedCacheDoesNotSpendTheBuildsParallelism` exists for the
+neighbouring case and is the shape the test for this one takes.
 
 ### What an action turns out to be
 

@@ -20,6 +20,11 @@ execution_platforms = root//platforms:exec
 digest_algorithms = SHA256
 
 [buck2_re_client]
-engine_address = grpc://127.0.0.1:8980
-action_cache_address = grpc://127.0.0.1:8980
-cas_address = grpc://127.0.0.1:8980
+engine_address = 127.0.0.1:8980
+action_cache_address = 127.0.0.1:8980
+cas_address = 127.0.0.1:8980
+# No scheme: buck2 rejects `http` ("you should omit it") and reads `grpc` as
+# TLS, which it speaks unconditionally - there is no plaintext setting. The
+# certificate is made per step and lives beside the socket, on the ephemeral
+# mount that disappears with the step.
+tls_ca_certs = /run/earthbuild/ca.pem

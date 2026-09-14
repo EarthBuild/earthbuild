@@ -2,6 +2,7 @@ package guest
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
@@ -88,6 +89,11 @@ func (s *Server) withActions(
 	// client. The same server answers both, so there is one service however it
 	// is reached.
 	if ask.Address != "" {
+		cfg, tlsErr := actionsTLS(filepath.Join(root, ActionsCertPath(ask.Socket)))
+		if tlsErr != nil {
+			return tlsErr
+		}
+
 		tcp, tcpErr := net.Listen("tcp", ask.Address)
 		if tcpErr != nil {
 			return fmt.Errorf("listen for actions on %s: %w", ask.Address, tcpErr)
@@ -95,7 +101,10 @@ func (s *Server) withActions(
 
 		defer func() { _ = tcp.Close() }()
 
-		go func() { _ = g.Serve(tcp) }()
+		// Wrapped rather than given to the server, so one server answers both
+		// listeners: the socket has nothing to protect and the TCP port has a
+		// client that will not speak without it.
+		go func() { _ = g.Serve(tls.NewListener(tcp, cfg)) }()
 	}
 
 	// **Stopped when the step is, not when the build is.** The service exists

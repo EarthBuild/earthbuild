@@ -1062,3 +1062,42 @@ take. A fleet helps a build whose parallel work is *self-contained*; it cannot
 help one whose parallelism is bought with machine-local caches. Which of those
 a real build is, is now a question worth asking of each target rather than
 assuming.
+
+## Cache mounts can cross, and now do
+
+A cache mount was the one thing pinning this repository's own build to one
+machine. It no longer is.
+
+The argument is one the engine had already made and not followed: a cache is
+bound *over* the step's filesystem, so what goes into it is excluded from the
+layer by construction, and Κ₁ hashes the mount's declaration and never its
+contents. **Every cache hit ever served asserts that what is in there cannot
+reach the result.** A worker with its own directory of the same name therefore
+produces the same layer, more slowly the first time - or the local cache was
+already unsound and had been for every hit.
+
+The declaration crosses and the contents do not, which is the half that makes it
+safe rather than permissive: a step run without a mount it declared writes into
+its layer what it would have discarded (E433). Three mounts still refuse, each
+for its own reason - a secret is not on the wire, a persisted cache is captured
+and so *is* the result, a sandbox path names one machine's disk.
+
+End to end, two steps sharing one cache id:
+
+```text
+2 step(s) delegated, 1 here; compute-bound (91%)
+```
+
+and on the worker, `ef-store/mounts/demo` - a directory it made under the name
+the build gave, holding what the step wrote there.
+
+**What it does not yet buy.** `+all-binaries` still runs its `go build` steps on
+the invoker: they are eligible now, and placement keeps them anyway because
+locality and load say so. On that build it is probably right - the driver's
+cache mount is warm and a worker's is empty, and a cold cache is exactly what
+the mount exists to avoid. Placement models where a *layer* is and not where a
+*cache* is warm, so it cannot yet tell the difference between a worker that has
+built with `go-build` before and one that has not.
+
+That is the next piece of the same idea: a warm cache mount is a kind of
+locality, and this engine already knows how to weigh one.

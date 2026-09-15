@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/core"
@@ -82,6 +85,18 @@ func (s *Server) RunAction(
 	// exactly as a COPY does, and the writes land in the delta.
 	if matErr := st.Materialise(a.InputRoot, mat.Root); matErr != nil {
 		return layer.Result{}, fmt.Errorf("materialise the input root: %w", matErr)
+	}
+
+	// **Somewhere to put what was asked for.** REAPI: "Directories leading up
+	// to the output directories (but not the output directories themselves) are
+	// created by the worker prior to execution, even if they are not explicitly
+	// part of the input root." Bazel relies on it - a genrule writes into
+	// `bazel-out/...`, which is in no input root and which bazel never creates -
+	// and an action that only materialises what it was sent fails with the
+	// shell's `No such file or directory`, a message about the output that says
+	// nothing about whose job the directory was.
+	if dirErr := makeOutputDirs(mat.Root, cmd.WorkingDirectory, cmd.OutputPaths); dirErr != nil {
+		return layer.Result{}, dirErr
 	}
 
 	env := make([]string, 0, len(cmd.Env))
@@ -322,4 +337,28 @@ func (s *Server) recordAction(
 		// much" needs the entry, and this is the entry.
 		StdoutWhole: true,
 	})
+}
+
+// makeOutputDirs creates the directories an action's declared outputs sit in.
+//
+// The output itself is not created: its kind is the action's to decide, and a
+// directory made here would have a command that meant to write a file finding
+// one already there.
+func makeOutputDirs(root, workdir string, paths []string) error {
+	for _, p := range paths {
+		clean := path.Clean(strings.TrimPrefix(p, "/"))
+		if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+			return fmt.Errorf(
+				"%q is a declared output and reaches outside the action's tree", p)
+		}
+
+		at := filepath.Join(root, path.Clean("/"+workdir), clean)
+
+		//nolint:gosec // a directory the action writes into
+		if err := os.MkdirAll(filepath.Dir(at), 0o755); err != nil {
+			return fmt.Errorf("make somewhere for the declared output %s: %w", p, err)
+		}
+	}
+
+	return nil
 }

@@ -305,3 +305,62 @@ func TestAnActionNamingNoImageStillRuns(t *testing.T) {
 
 // zeros is the dull part of a digest, so a table of them fits on a line.
 const zeros = "000000000000000000000000000000000000000000000000000000000000"
+
+// The directories an output needs are there before the action runs.
+//
+// **The worker's job, and REAPI says so:** "Directories leading up to the
+// output directories (but not the output directories themselves) are created by
+// the worker prior to execution, even if they are not explicitly part of the
+// input root."
+//
+// Bazel relies on it. A genrule writes to `bazel-out/k8-fastbuild/bin/...`,
+// which is in no input root and which bazel never creates, so an action that
+// merely materialises what it was sent fails with `No such file or directory`
+// from the shell - a message about the output that says nothing about whose job
+// the directory was.
+func TestAnOutputsParentDirectoriesExistBeforeItRuns(t *testing.T) {
+	if !guest.NeedsIsolation(t) {
+		return
+	}
+
+	t.Parallel()
+
+	root := stepRoot(t)
+	layerDir := t.TempDir()
+	st := store.DirStore(layerDir)
+
+	srv := &guest.Server{
+		Mat:        &fixedRootMat{root: root},
+		LayerDir:   layerDir,
+		Unconfined: true,
+	}
+
+	// Writes where nothing has been created, exactly as a genrule does.
+	cmd := layer.EncodeCommand(layer.Command{
+		Arguments: []string{"/bin/sh", "-c", "echo made it > out/deep/nested/greeting.txt"},
+		// Declared but never created by the client, and not in the input root.
+		OutputPaths: []string{"out/deep/nested/greeting.txt"},
+	})
+
+	action := layer.EncodeAction(layer.Action{
+		Command:     put(t, st, cmd),
+		CommandSize: int64(len(cmd)),
+		InputRoot:   put(t, st, dirOf()),
+	})
+
+	got, err := srv.RunAction(context.Background(), put(t, st, action), nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got.ExitCode != 0 {
+		t.Fatalf("the action exited %d: %s", got.ExitCode, got.Stdout)
+	}
+
+	// And the file it wrote is named back, which is the point of having made
+	// somewhere to put it.
+	if len(got.Declared.Files) != 1 ||
+		got.Declared.Files[0].Path != "out/deep/nested/greeting.txt" {
+		t.Errorf("the action produced %v", got.Declared.Files)
+	}
+}

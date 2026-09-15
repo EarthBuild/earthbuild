@@ -20,11 +20,11 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/regproxy"
 	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/dockerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/gwclientlogger"
@@ -60,7 +60,7 @@ const (
 // Opt represent builder options.
 type Opt struct {
 	BuildkitSkipper                       bk.BuildkitSkipper
-	ContainerFrontend                     containerutil.ContainerFrontend
+	Engine                                *engine.Client
 	Parallelism                           semutil.Semaphore
 	OverridingVars                        *variables.Scope
 	GitLookup                             *buildcontext.GitLookup
@@ -181,9 +181,10 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 		return nil, false
 	}
 
-	// Podman does not support the insecure localhost
-	if b.opt.ContainerFrontend.Scheme() == containerutil.SchemePodmanContainer {
-		cons.Printf("Registry proxy not supported on Podman. Falling back to tar-based outputs.")
+	meta := b.opt.Engine.Metadata()
+
+	if !meta.Scheme.SupportsRegistryProxy() {
+		cons.Printf("Registry proxy not supported on %s. Falling back to tar-based outputs.", meta.Name)
 		return nil, false
 	}
 
@@ -195,7 +196,7 @@ func (b *Builder) startRegistryProxy(ctx context.Context, caps apicaps.CapSet) (
 
 	controller := regproxy.NewController(
 		b.s.bkClient.RegistryClient(),
-		b.opt.ContainerFrontend,
+		b.opt.Engine,
 		useProxy,
 		b.opt.DarwinProxyImage,
 		b.opt.DarwinProxyWait,
@@ -317,7 +318,7 @@ func (b *Builder) convertAndBuild(
 				LocalStateCache:                      sharedLocalStateCache,
 				BuiltinArgs:                          opt.BuiltinArgs,
 				NoCache:                              b.opt.NoCache,
-				ContainerFrontend:                    b.opt.ContainerFrontend,
+				Engine:                               b.opt.Engine,
 				UseLocalRegistry:                     (b.opt.LocalRegistryAddr != ""),
 				LocalRegistryAddr:                    b.opt.LocalRegistryAddr,
 				DoSaves:                              !opt.NoOutput,
@@ -630,7 +631,7 @@ func (b *Builder) convertAndBuild(
 			}
 
 			err := dockerutil.LoadDockerManifest(
-				ctx, b.opt.Log, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver,
+				ctx, b.opt.Log, b.opt.Engine, parentImageName, children, opt.PlatformResolver,
 			)
 			if err != nil {
 				return err
@@ -647,7 +648,7 @@ func (b *Builder) convertAndBuild(
 		eg.Go(func() error {
 			defer pipeR.Close()
 
-			err := dockerutil.LoadDockerTar(childCtx, b.opt.ContainerFrontend, pipeR)
+			err := dockerutil.LoadDockerTar(childCtx, b.opt.Engine, pipeR)
 			if err != nil {
 				return fmt.Errorf("load docker tar: %w", err)
 			}
@@ -706,7 +707,7 @@ func (b *Builder) convertAndBuild(
 			}
 		}
 
-		err := dockerutil.DockerPullLocalImages(childCtx, b.opt.ContainerFrontend, b.opt.LocalRegistryAddr, pullMap)
+		err := dockerutil.DockerPullLocalImages(childCtx, b.opt.Engine, b.opt.LocalRegistryAddr, pullMap)
 		if err != nil {
 			return err
 		}
@@ -717,7 +718,7 @@ func (b *Builder) convertAndBuild(
 			}
 
 			err = dockerutil.LoadDockerManifest(
-				ctx, b.opt.Log, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver,
+				ctx, b.opt.Log, b.opt.Engine, parentImageName, children, opt.PlatformResolver,
 			)
 			if err != nil {
 				return err
@@ -968,7 +969,7 @@ func (b *Builder) convertAndBuild(
 
 	for parentImageName, children := range manifestLists {
 		err = dockerutil.
-			LoadDockerManifest(ctx, b.opt.Log, b.opt.ContainerFrontend, parentImageName, children, opt.PlatformResolver)
+			LoadDockerManifest(ctx, b.opt.Log, b.opt.Engine, parentImageName, children, opt.PlatformResolver)
 		if err != nil {
 			return nil, err
 		}

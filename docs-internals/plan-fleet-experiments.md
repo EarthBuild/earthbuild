@@ -933,11 +933,18 @@ whose stdio the guest protocol already holds. That is the constraint `PackLayer`
 was written around in the first place: "the protocol holds the only stdio pair
 `container exec` gives".
 
-So a driver that serves a layer while running a step is asking one VM to do two
-things that were each designed assuming they were the only one. Locality did not
-cause this; it arranged for the driver to be doing both at once, which nothing
-before it did.
+**Tested, and wrong.** Packing a 40 MB layer out of a live sandbox takes 0.289s
+with it idle and 0.279s while a step is running in it. `container exec` into a
+busy sandbox does not contend with the protocol's stdio at all, so the mechanism
+this paragraph proposed does not exist.
 
-That makes it a consequence of F4 rather than of E-F2, and it is the thread to
-pull next. Locality stays reverted meanwhile: the placement is right and the
-machine underneath it is not ready for what the placement implies.
+That is three theories for one hang - an ordering bug, a store contention, and
+now this - and the evidence that survives all three is narrow: the driver's
+serve blocked writing three 40 MB layers, the worker never reported fetching
+anything, and a local step waited. The next thing to collect is the *worker's*
+goroutines, which have not been looked at once; every dump so far has been the
+driver's, and a mutual wait is invisible from one side.
+
+Locality stays reverted meanwhile. The placement is right and something under it
+is not, and shipping the first while hunting the second would mean every chain
+build risks a stall.

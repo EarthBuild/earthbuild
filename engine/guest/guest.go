@@ -437,7 +437,12 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 				"protocol version mismatch: host speaks %d, guest speaks %d", req.Version, Version)}
 		}
 
-		return Response{Version: Version}
+		// **What this machine can run that it was not built for.** Read here
+		// rather than on the host: under a VM backend the host's register is a
+		// different kernel's, and on macOS there is no register at all - so a
+		// build asked the wrong machine and either placed a step the guest
+		// could not run or refused one it could.
+		return Response{Version: Version, Emulates: emulates()}
 
 	case KindMaterialise:
 		// A base somebody already assembled, used as it is (E300). Refused
@@ -1658,6 +1663,11 @@ func (s *Server) get(id string) (core.Handle, bool) {
 type Client struct {
 	c *conn
 
+	// emulates is what the guest said its kernel can run that it was not built
+	// for, as the kernel spells the interpreters. Empty is every machine that
+	// has registered none.
+	emulates []string
+
 	// Terminals is the other end of the server's descriptor channel. Nil means
 	// this client cannot ask for an interactive step.
 	Terminals *net.UnixConn
@@ -1834,6 +1844,11 @@ func dialWithin(rw io.ReadWriter, within time.Duration) (*Client, error) {
 				"\n  rebuild earth-guestd, or point $EARTH_GUESTD at a matching one",
 			resp.Version, Version)
 	}
+
+	// **Kept from the handshake, because the guest is the machine that runs
+	// steps.** What the host can emulate is a fact about a different kernel
+	// under a VM backend, and on macOS about no kernel at all.
+	cl.emulates = resp.Emulates
 
 	go cl.read()
 
@@ -4626,3 +4641,11 @@ func (s *Server) treeFolder() *store.Folder {
 
 	return s.folder
 }
+
+// Emulates names the interpreters the guest has registered for foreign
+// binaries, as its kernel spells them.
+//
+// Names rather than platforms: mapping `x86_64` to `amd64` is the host's
+// vocabulary and lives beside the placement it informs, so that two copies of
+// it cannot disagree the day one learns a name.
+func (c *Client) Emulates() []string { return c.emulates }

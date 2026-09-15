@@ -175,7 +175,7 @@ func TestALocalConditionIsRefusedWithItsReason(t *testing.T) {
 func TestTheLocalWorkerDeclaresItsPlatform(t *testing.T) {
 	t.Parallel()
 
-	w := localWorker("linux/arm64")
+	w := localWorker("linux/arm64", nil)
 
 	if w.Platform.OS != "linux" || w.Platform.Arch != "arm64" {
 		t.Errorf("the worker declares %+v, want linux/arm64", w.Platform)
@@ -187,7 +187,7 @@ func TestTheLocalWorkerDeclaresItsPlatform(t *testing.T) {
 
 	// An unset platform falls back to this machine's, rather than to none:
 	// declaring nothing means nothing can be scheduled onto it.
-	if got := localWorker("").Platform; got == (ir.Platform{}) {
+	if got := localWorker("", nil).Platform; got == (ir.Platform{}) {
 		t.Error("with no platform given the worker declares none, so nothing with a platform can run")
 	}
 }

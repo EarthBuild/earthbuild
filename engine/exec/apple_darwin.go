@@ -283,11 +283,17 @@ func SandboxNameWith(image, guestDir, store, memory string, command []string) st
 	// request that found it - so a build asking for an hour and a build asking
 	// for the default have to be asking about two machines, or the second gets
 	// whatever the first said (E549's failure class, E555's occasion).
+	//
+	// And Rosetta, for the fourth time and the same reason. It is offered to
+	// the VM at creation and a reused machine never gains it, so a build on a
+	// Mac would go on reporting that it cannot run amd64 while every line of
+	// configuration said it could - which is exactly what happened, the failure
+	// this paragraph has now described four times.
 	return "earthbuild-" + sandboxDigest(append(
 		[]string{
 			image, guestDir, store, memory, guestFast,
 			idleSetting(), scratchTmpfsSetting(), storeSetting(), pinSetting(), digestSetting(),
-			sandboxCPUs(), shimSetting(),
+			sandboxCPUs(), shimSetting(), rosettaSetting(),
 		},
 		command...)...)
 }
@@ -1056,6 +1062,18 @@ func (a *Apple) runArgs() []string {
 	args = append(args,
 		"run", "-d",
 		"--name", a.name,
+		// **Rosetta, because the alternative is qemu and qemu is miserable.**
+		// This hands the VM Apple's x86-64 translator, which registers itself
+		// in the guest's binfmt register under the name `x86_64` - the same
+		// spelling `tonistiigi/binfmt` uses, so the engine's existing table
+		// maps it with nothing added. A Mac then builds linux/amd64 at
+		// translation speed rather than emulation speed, or refuses it as it
+		// did before on a machine where Rosetta is absent.
+		//
+		// Harmless where it is not installed: the flag asks for a share that is
+		// simply not offered, and a guest that registers nothing reports
+		// nothing and emulates nothing.
+		"--rosetta",
 		"-m", a.memory(),
 		"-c", a.cpus(),
 		"-v", a.dir+":/earth",
@@ -1411,4 +1429,40 @@ func (a *Apple) forgetBooted() {
 	defer a.bootMu.Unlock()
 
 	a.booted = false
+}
+
+// rosettaSetting names whether this engine asks for Rosetta, so that a machine
+// created without it is not reused as though it had it.
+//
+// A constant today because the flag is unconditional: Apple's CLI ignores it
+// where Rosetta is absent, and a guest that registers nothing reports nothing.
+// It is a function so that making it conditional later changes one line rather
+// than being remembered.
+func rosettaSetting() string { return "rosetta=1" }
+
+// rosettaAt is where macOS keeps the translator, when it is installed.
+//
+// Installed on demand rather than shipped: a Mac gains it the first time
+// something needs it, or when somebody runs `softwareupdate --install-rosetta`.
+// So its presence is a fact about this machine and has to be looked for.
+const rosettaAt = "/Library/Apple/usr/libexec/oah"
+
+// Offers names the interpreters this backend will give its guest.
+//
+// **A promise rather than an observation, and that is the point.** Placement
+// decides where a step can run before any VM exists, so a build that waited to
+// ask the guest would refuse an amd64 step and only afterwards discover the
+// machine could have run it. This backend knows what it passes to `container
+// run` and whether this Mac has the translator to pass, which together settle
+// the question early enough to matter.
+//
+// `x86_64` is the name Rosetta registers under inside the guest, and is also
+// what `tonistiigi/binfmt` writes - so the engine's existing table maps it and
+// nothing new is taught.
+func (a *Apple) Offers() []string {
+	if _, err := os.Stat(rosettaAt); err != nil {
+		return nil
+	}
+
+	return []string{"x86_64"}
 }

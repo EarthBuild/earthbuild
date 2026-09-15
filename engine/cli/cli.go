@@ -1065,7 +1065,7 @@ func (g *engine) fleetExec() core.Executor {
 }
 
 func (g *engine) scheduling(local core.Executor, platform string) (core.Executor, []core.Worker) {
-	workers := []core.Worker{localWorker(platform)}
+	workers := []core.Worker{localWorker(platform, local)}
 
 	fleetEx := g.fleetExec()
 	if fleetEx == nil {

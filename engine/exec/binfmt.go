@@ -114,3 +114,32 @@ func emulatedPlatforms(dir string) []ir.Platform {
 // EmulatedPlatforms is what this machine can run through emulation, read from
 // the kernel's register.
 func EmulatedPlatforms() []ir.Platform { return emulatedPlatforms(binfmtRegister) }
+
+// PlatformsNamed is what a machine that registered these interpreters can run.
+//
+// **For the answer that came from the guest.** `EmulatedPlatforms` reads this
+// machine's own register, which is the right question only when the machine
+// running steps is this one. Under a VM backend it is not: the host's register
+// belongs to a different kernel, and on macOS there is no register at all - so
+// a build either refused a step its sandbox could have run, or placed one it
+// could not. The guest reports the names; the vocabulary that turns them into
+// platforms stays here, beside the placement it informs.
+func PlatformsNamed(names []string) []ir.Platform {
+	var out []ir.Platform
+
+	for _, name := range names {
+		arch, known := archOf(name)
+		if !known {
+			continue
+		}
+
+		out = append(out, ir.Platform{OS: "linux", Arch: arch})
+	}
+
+	// Sorted for emulatedPlatforms' reason: this reaches a Worker and a Worker
+	// reaches placement, so two runs of one build must consider the same
+	// machines in the same order (I12).
+	sort.Slice(out, func(i, j int) bool { return out[i].Arch < out[j].Arch })
+
+	return out
+}

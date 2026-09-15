@@ -640,7 +640,12 @@ func (e *Executor) Run(
 	// Before anything runs: a step built for a platform this sandbox cannot
 	// execute fails with `exec format error`, which names neither the platform
 	// nor the line.
-	err = CheckRunnable(DefaultPlatform(), e.platformFor(n), n.Meta.Source)
+	// **Against what this sandbox emulates, not what this machine does.** The
+	// two differ under a VM backend, and on macOS the host has no register at
+	// all - so the check that exists to stop a step failing far from here was
+	// itself refusing steps the sandbox could run.
+	err = checkRunnableWith(
+		DefaultPlatform(), e.platformFor(n), n.Meta.Source, PlatformsNamed(e.Emulates()))
 	if err != nil {
 		return core.Result{}, err
 	}
@@ -2312,4 +2317,35 @@ func actionsFor(n *ir.Node) *guest.Actions {
 		Address: guest.DefaultActionAddress,
 		Image:   baseImageRef(n),
 	}
+}
+
+// Emulates names the interpreters this executor's sandbox has registered for
+// foreign binaries, as its kernel spells them.
+//
+// **Asked of the sandbox rather than of this machine.** Under a VM backend the
+// host's register belongs to a different kernel, and on macOS to no kernel at
+// all - so a build that read the host's answer either refused a step its
+// sandbox could have run, or placed one it could not. Empty where the sandbox
+// has not started, which is the honest answer then: nothing has been asked yet.
+func (e *Executor) Emulates() []string {
+	// **What the sandbox will offer, because placement happens before it
+	// starts.** A build decides where a step can run while the machine that
+	// would run it is still a decision, so asking the guest is asking too late
+	// - the answer arrives after the step has already been refused. A backend
+	// that knows what it will hand its guest can say so now.
+	if offers, ok := e.sb.(interface{ Offers() []string }); ok {
+		if named := offers.Offers(); len(named) > 0 {
+			return named
+		}
+	}
+
+	// And what it actually has, once there is one to ask. This is the truthful
+	// answer and the late one; it matters for a backend whose image carries an
+	// interpreter this engine did not put there.
+	c := e.startedClient()
+	if c == nil {
+		return nil
+	}
+
+	return c.Emulates()
 }

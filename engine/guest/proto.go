@@ -759,8 +759,15 @@ type Response struct {
 
 	Err     string `json:"err,omitempty"`
 	Version int    `json:"version,omitempty"`
-	Handle  string `json:"handle,omitempty"`
-	Root    string `json:"root,omitempty"`
+	// Emulates names the interpreters this guest's kernel has registered and
+	// enabled for foreign binaries, as the kernel spells them.
+	//
+	// Names rather than platforms: the vocabulary that maps `x86_64` to `amd64`
+	// lives on the host beside the placement it informs, and two copies of it
+	// would disagree the day one learnt a name.
+	Emulates []string `json:"emulates,omitempty"`
+	Handle   string   `json:"handle,omitempty"`
+	Root     string   `json:"root,omitempty"`
 	// Pruned is what a collection did, for a person who asked for one.
 	Pruned string `json:"pruned,omitempty"`
 	// Reads and Listings carry two questions of the same shape: what a step

@@ -378,7 +378,7 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 
 		g.fleetStop = stop
 
-		workers := []core.Worker{localWorker(g.o.Platform)}
+		workers := []core.Worker{localWorker(g.o.Platform, nil)}
 		if d, ok := x.(*fleet.Delegating); ok {
 			workers = append(workers, d.Remote()...)
 		}
@@ -658,7 +658,7 @@ func (g *engine) remotes(ctx context.Context) interp.Remotes {
 // A node asking for a platform this machine cannot run still fails, which is
 // the point: that is a scheduling failure that says so, rather than a silent
 // build of the wrong architecture.
-func localWorker(platform string) core.Worker {
+func localWorker(platform string, local core.Executor) core.Worker {
 	if platform == "" {
 		platform = exec.DefaultPlatform()
 	}
@@ -666,7 +666,20 @@ func localWorker(platform string) core.Worker {
 	// What this machine can run by emulating it, which placement uses only when
 	// no machine runs the step's platform natively. Empty on a machine with no
 	// binfmt registered, which is most of them, and then nothing changes.
-	w := core.Worker{ID: "local", IsInvoker: true, Emulates: exec.EmulatedPlatforms()}
+	// **The sandbox's answer where there is one.** This machine's own register
+	// is the right question only when this machine runs the steps; under a VM
+	// backend it belongs to a different kernel, and on macOS there is none - so
+	// a Mac reported that it emulated nothing while its sandbox was perfectly
+	// able to run amd64 through Rosetta.
+	emulates := exec.EmulatedPlatforms()
+
+	if sandbox, ok := local.(interface{ Emulates() []string }); ok {
+		if named := exec.PlatformsNamed(sandbox.Emulates()); len(named) > 0 {
+			emulates = named
+		}
+	}
+
+	w := core.Worker{ID: "local", IsInvoker: true, Emulates: emulates}
 
 	p, err := platforms.Parse(platform)
 	if err == nil {

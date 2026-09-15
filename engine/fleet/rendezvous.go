@@ -122,6 +122,17 @@ type Rendezvous struct {
 	// worker this build should be waiting for.
 	Reach time.Duration
 
+	// Primed receives each prime's reply, so what priming moved reaches the
+	// build's account.
+	//
+	// **A prime is a transfer with no step attached**, and its reply used to be
+	// discarded entirely. Once holders were opened early enough, the base moved
+	// during priming and a build that fetched 7.9 MiB reported moving nothing
+	// (E-F0 again, reintroduced by making the fleet faster).
+	//
+	// Nil means nobody is listening, which is every caller but the driver.
+	Primed func(Reply)
+
 	// rate is what this fleet has been measured to cost, and is what prices a
 	// fetch against a step. Its own lock, so placement's arithmetic does not
 	// queue behind the connection table.
@@ -772,7 +783,12 @@ func (r *Rendezvous) PrimeAll(ctx context.Context, a Assignment) {
 			continue
 		}
 
-		go func() { _, _ = r.ask(ctx, w.conn, a) }()
+		go func() {
+			reply, err := r.ask(ctx, w.conn, a)
+			if err == nil && r.Primed != nil {
+				r.Primed(reply)
+			}
+		}()
 	}
 }
 

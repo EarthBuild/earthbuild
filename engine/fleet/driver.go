@@ -229,6 +229,12 @@ func Driver(
 	// once it knew (E350, E351).
 	d.Remember(store)
 
+	// **What priming moves is what the fleet moves.** The rendezvous holds the
+	// connections and the delegating executor holds the account; this is where
+	// the two meet, and without it a build whose base arrived during priming
+	// reports having moved nothing.
+	r.Primed = d.NotePrimed
+
 	// The account, said once when the build is over. A fleet that was no faster
 	// than one machine has to be able to say *why* - transfer, overhead or
 	// compute - or the next attempt is a guess (E259).

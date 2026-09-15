@@ -132,6 +132,12 @@ func (d *Delegating) NoteSpend(r Reply, round time.Duration) {
 	d.rate.Observe(r.FetchedBytes, r.FetchMillis, r.DurationMillis)
 }
 
+// NotePrimed records what priming moved, for the build's account.
+//
+// Exported because the rendezvous holds the connections and this holds the
+// account, and `Driver` is where the two meet. See Rendezvous.Primed.
+func (d *Delegating) NotePrimed(r Reply) { d.acct.primed(r) }
+
 // Run places a step, delegating it when that is both possible and asked for.
 //
 // **Refusing to delegate is not refusing to build.** A step carrying a secret, a

@@ -155,6 +155,33 @@ func (a *account) delegated(round time.Duration, r Reply) {
 	}
 }
 
+// primed records what a prime moved.
+//
+// **Transfer without a step.** Priming exists so a worker holds the base before
+// a step arrives, so its bytes are the fleet's bytes and its time is the
+// fleet's time - but it is not a delegated step, and counting it as one would
+// report more steps than the build has. Opening connections early moved the
+// whole of one build's transfer in here, and the summary read `0 B in 0
+// fetch(es)` for a fleet that had moved 7.9 MiB (E-F0, E-F1).
+func (a *account) primed(r Reply) {
+	if r.FetchedBytes <= 0 {
+		return
+	}
+
+	fetch := millis(r.FetchMillis)
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	a.s.Fetching += fetch
+	a.s.Fetched += r.FetchedBytes
+	a.s.Fetches++
+
+	if fetch > a.s.Slowest {
+		a.s.Slowest = fetch
+	}
+}
+
 // local records one step that ran here.
 func (a *account) local() {
 	a.mu.Lock()

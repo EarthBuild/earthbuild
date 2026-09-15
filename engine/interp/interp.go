@@ -1119,6 +1119,18 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				rs.user = ended.user
 				rs.env = maps.Clone(ended.env)
 				rs.cfg = ended.cfg.clone()
+				// **And the platform, which decides which machines may run
+				// what follows.** A target standing on an `amd64` base was
+				// labelled with the invoker's architecture, so placement ruled
+				// out the one machine that could run the step natively and a
+				// heterogeneous fleet was offered only the steps that named a
+				// platform literally. Writing `--platform` on every `FROM` by
+				// hand took a two-machine build from 1 delegated to 7 (E-F1).
+				//
+				// No precedence to arrange: a `--platform` on this line is
+				// passed into the reference and comes back as `ended.platform`,
+				// so the written one wins by having been obeyed already.
+				rs.platform = ended.platform
 			}
 			return n, nil
 		}

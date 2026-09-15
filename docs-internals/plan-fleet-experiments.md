@@ -748,3 +748,36 @@ only ever *move* a single-platform build, never share it, until placement can
 weigh a cheap emulator against a busy native machine. E-F2 and E-F5 attack
 `base_bytes`; this attacks the term before it, which is whether a machine is
 allowed to help at all.
+
+## A translator is not an interpreter, and then: the concurrency ceiling
+
+Rosetta is admitted to the first pass, and the Mac joins:
+
+```text
+32 step(s) delegated, 32 here; compute-bound (99%)
+  transfer 0s for 0 B in 0 fetch(es)
+```
+
+A perfect split, from `64 delegated, 0 local`. And the wall clock barely moves:
+95.90s on one machine against 92.27s on two.
+
+**Because a fleet cannot run more steps at once than the driver has cores.**
+`Scheduler.Parallelism` defaults to the *driver's* `runtime.NumCPU()` and gates
+every step through one semaphore, delegated ones included. Two machines of
+sixteen cores each therefore run sixteen steps at a time, not thirty-two: the
+split is real and both machines are half idle.
+
+| Arrangement            | Wall   | Waves of 16 |
+| ---------------------- | ------ | ----------- |
+| one machine, 16 cores  | 95.90s | 4.0         |
+| fleet, 32/32 split     | 92.27s | 3.8         |
+
+Sixty-four steps, four waves either way. Adding a machine added no concurrency,
+which is the one thing adding a machine is for.
+
+That is the last structural blocker, and it is the same field that made every
+earlier comparison meaningless from the other direction. The limit means two
+things that need separating: how much work *this machine* takes at once, which
+is a property of this machine, and how much work the *build* has in flight,
+which is a property of the fleet. `Delegating.Room` already exists for the
+first.

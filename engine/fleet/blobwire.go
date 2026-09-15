@@ -99,9 +99,21 @@ func (s *PeerSource) noteRoute(c *iroh.Conn) {
 	}
 
 	s.noted.Do(func() {
-		if at := pathNote(c.Paths()); at != "" {
-			s.Note(fmt.Sprintf("fetched from %s over %s", s.Name(), at))
+		at := pathNote(c.Paths())
+		if at == "" {
+			return
 		}
+
+		// **Whether there is more than one path to choose between.** The
+		// default selector already prefers a direct path over a relay, and the
+		// direct path still carried nothing - which is what an unnegotiated
+		// multipath connection looks like from outside: the addresses are
+		// observed, and the data stays on the one the connection started on.
+		if !c.MultipathNegotiated() {
+			at += " (multipath not negotiated: no path to migrate to)"
+		}
+
+		s.Note(fmt.Sprintf("fetched from %s over %s", s.Name(), at))
 	})
 }
 

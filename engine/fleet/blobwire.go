@@ -35,6 +35,15 @@ type PeerSource struct {
 	// Peer is who to ask.
 	Peer netaddr.EndpointAddr
 
+	// Note receives one line, per connection, saying which route the bytes are
+	// taking. Nil means nobody is listening.
+	//
+	// **Once per connection, not per fetch**: the route is a property of the
+	// connection, and a worker fetching a thousand fragments would otherwise
+	// print a thousand identical lines - which is how a message stops being
+	// read (E257 makes the same argument for a fleet that has gone).
+	Note func(string)
+
 	// held is the connection to this peer, kept between requests.
 	//
 	// **A connection costs 25ms on loopback before it moves anything**, and
@@ -64,6 +73,15 @@ func (s *PeerSource) connect(ctx context.Context) (*iroh.Conn, error) {
 	}
 
 	s.held = c
+
+	// After the handshake, so there is a validated path to describe. A
+	// connection that has only probing paths says nothing rather than guessing,
+	// and the next one to this peer will have an answer.
+	if s.Note != nil {
+		if at := pathNote(c.Paths()); at != "" {
+			s.Note(fmt.Sprintf("fetching from %s over %s", s.Name(), at))
+		}
+	}
 
 	return c, nil
 }

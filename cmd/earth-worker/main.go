@@ -310,7 +310,15 @@ func dialPeer(
 			return nil, err
 		}
 
-		return &fleet.PeerSource{Endpoint: e, Peer: to, Label: at}, nil
+		return &fleet.PeerSource{
+			Endpoint: e, Peer: to, Label: at,
+			// Which route the bytes take. A relay is a detour through the
+			// public internet and was indistinguishable from a hole-punched
+			// path in every log this project has.
+			Note: func(line string) {
+				fmt.Fprintf(os.Stderr, "earth-worker: %s\n", line)
+			},
+		}, nil
 	}
 }
 

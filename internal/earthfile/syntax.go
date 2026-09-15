@@ -36,30 +36,39 @@ type SyntaxToken struct {
 // SyntaxTokens lexes text with the canonical Earthfile lexer and returns the
 // editor-facing tokens produced before EOF or the first lexical error.
 func SyntaxTokens(name, text string) []SyntaxToken {
-	lexer := lex(name, text)
+	sourceTokens, _ := SourceTokens(name, text)
 
 	var tokens []SyntaxToken
 
-	for {
-		lexItem := lexer.nextItem()
-		if lexItem.Typ == itemEOF || lexItem.Typ == itemError {
-			return tokens
-		}
-
-		start := int(lexItem.pos)
-		end := start + len(lexItem.Val)
-
-		switch {
-		case isKeywordItem(lexItem.Typ):
-			tokens = append(tokens, SyntaxToken{Start: start, End: end, Kind: SyntaxKeyword})
-		case lexItem.Typ == itemComment || lexItem.Typ == itemEOLComment:
-			tokens = append(tokens, SyntaxToken{Start: start, End: end, Kind: SyntaxComment})
-		case lexItem.Typ == itemEquals:
-			tokens = append(tokens, SyntaxToken{Start: start, End: end, Kind: SyntaxOperator})
-		case lexItem.Typ == itemAtom:
-			tokens = append(tokens, classifyAtom(lexItem.Val, start)...)
+	for _, sourceToken := range sourceTokens {
+		switch sourceToken.Kind {
+		case SourceTokenKeyword:
+			tokens = append(tokens, SyntaxToken{
+				Start: sourceToken.Start,
+				End:   sourceToken.End,
+				Kind:  SyntaxKeyword,
+			})
+		case SourceTokenComment:
+			tokens = append(tokens, SyntaxToken{
+				Start: sourceToken.Start,
+				End:   sourceToken.End,
+				Kind:  SyntaxComment,
+			})
+		case SourceTokenOperator:
+			tokens = append(tokens, SyntaxToken{
+				Start: sourceToken.Start,
+				End:   sourceToken.End,
+				Kind:  SyntaxOperator,
+			})
+		case SourceTokenArgument:
+			tokens = append(tokens, classifyAtom(sourceToken.Text, sourceToken.Start)...)
+		case SourceTokenOther, SourceTokenTarget, SourceTokenFunction,
+			SourceTokenWhitespace, SourceTokenNewline:
+			// Structural tokens are classified by the analyzer when appropriate.
 		}
 	}
+
+	return tokens
 }
 
 func isKeywordItem(typ itemType) bool {

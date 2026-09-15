@@ -27,21 +27,21 @@ const EnvDirectWait = "EARTH_FLEET_DIRECT_WAIT"
 
 // defaultDirectWait is what a connection gives hole punching.
 //
-// **Three seconds, and it now buys something.** Waiting alone did not: three
-// runs at 6.213s, 8.226s and 9.095s against 6.124s without, which is noise
-// around no improvement, because a validated direct path sat idle while the
-// relay carried everything.
+// **Zero, because the transfer was never the cost.** Splitting the two numbers
+// settled it in one run:
 //
-// What the wait is for is `redialDirect`, which needs an observed address to
-// dial and can only get one from a connection that has already punched. The
-// wait produces the address; the second connection is what actually moves the
-// bytes off the relay.
+//	fetched from fb05f586… over ip:57.151.129.40:37969
+//	  (reached in 3363ms, read in 302ms)
 //
-// Bounded and short: where hole punching cannot land - which is what relays
-// exist for (E505) - this is three seconds per peer per build and the fetch
-// proceeds on the relay having spent it. Zero disables both the wait and the
-// re-dial, which is the behaviour every build had before.
-const defaultDirectWait = 3 * time.Second
+// 7.9 MiB in 302ms is 26 MiB/s, which is what that network should do. The whole
+// of a fleet's apparent transfer cost on GitHub is *reaching the peer* -
+// discovery, handshake, hole punching - and three seconds of the 3363 above is
+// this wait, buying a route that saves nothing measurable.
+//
+// The re-dial is gated on the same setting and is off with it. Both are kept
+// because the route is genuinely better and will matter on a base where 302ms
+// becomes minutes; neither is worth a fixed three seconds today.
+const defaultDirectWait = 0
 
 // directIn reports whether any validated path is a direct one.
 //

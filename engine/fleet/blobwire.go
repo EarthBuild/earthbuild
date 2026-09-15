@@ -56,6 +56,8 @@ type PeerSource struct {
 	// again. Retrying inside would turn one slow peer into two waits.
 	heldMu sync.Mutex
 	held   *iroh.Conn
+	// noted bounds the route report to one line per source. See noteRoute.
+	noted sync.Once
 }
 
 // connect is this peer's connection, opened if it is not already.
@@ -80,16 +82,27 @@ func (s *PeerSource) connect(ctx context.Context) (*iroh.Conn, error) {
 
 	s.held = c
 
-	// After the handshake, so there is a validated path to describe. A
-	// connection that has only probing paths says nothing rather than guessing,
-	// and the next one to this peer will have an answer.
-	if s.Note != nil {
-		if at := pathNote(c.Paths()); at != "" {
-			s.Note(fmt.Sprintf("fetching from %s over %s", s.Name(), at))
-		}
+	return c, nil
+}
+
+// noteRoute says, once, which routes this peer's bytes took.
+//
+// **After a transfer rather than at connect**, because a path's byte count is
+// the only thing that distinguishes a route that is available from one that is
+// carrying anything - and at connect every count is zero. Waiting for hole
+// punching put a direct path beside the relay on every GitHub connection
+// without making the transfer faster, and that reading cannot be settled from
+// the route list alone.
+func (s *PeerSource) noteRoute(c *iroh.Conn) {
+	if s.Note == nil {
+		return
 	}
 
-	return c, nil
+	s.noted.Do(func() {
+		if at := pathNote(c.Paths()); at != "" {
+			s.Note(fmt.Sprintf("fetched from %s over %s", s.Name(), at))
+		}
+	})
 }
 
 // forget drops a connection that failed, so the next request opens a new one.
@@ -142,6 +155,9 @@ func (s *PeerSource) Fetch(
 	}
 
 	defer func() { _ = st.Close() }()
+
+	// Reported on the way out, when the paths have carried something.
+	defer s.noteRoute(conn)
 
 	// The context reaches as far as opening the stream; the reads below take
 	// none. A peer that is *alive and silent* - wedged, or serving a blob it

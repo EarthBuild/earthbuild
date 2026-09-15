@@ -40,8 +40,34 @@ func pathNote(paths []iroh.PathInfo) string {
 			at += fmt.Sprintf(" rtt %v", p.RTT.Round(100*time.Microsecond))
 		}
 
+		// **Available is not used.** Waiting for hole punching put a direct
+		// path beside the relay on every GitHub connection and the transfer did
+		// not get faster, which has two readings: the direct path is not
+		// carrying the bytes, or the relay was never the cost. A route with no
+		// bytes on it distinguishes them, and nothing else does.
+		if p.HasBytesSent {
+			at += " sent " + human(p.BytesSent)
+		}
+
 		out = append(out, at)
 	}
 
 	return strings.Join(out, ", ")
+}
+
+// human is a byte count somebody can read.
+func human(n uint64) string {
+	const unit = 1024
+
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+
+	div, exp := uint64(unit), 0
+	for n/div >= unit && exp < 4 {
+		div *= unit
+		exp++
+	}
+
+	return fmt.Sprintf("%.3g %ciB", float64(n)/float64(div), "KMGTP"[exp])
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/owenrumney/go-lsp/lsp"
+	"github.com/owenrumney/go-lsp/server"
 	"github.com/owenrumney/go-lsp/servertest"
 	"github.com/stretchr/testify/require"
 )
@@ -15,10 +16,14 @@ import (
 func TestHandlerCapabilities(t *testing.T) {
 	t.Parallel()
 
-	harness := servertest.New(t, NewHandler("test"))
+	harness := servertest.New(t, NewHandler("test"), servertest.WithServerOptions(
+		server.WithSemanticTokensOptions(semanticTokensOptions()),
+	))
 	require.NotNil(t, harness.InitResult.Capabilities.TextDocumentSync)
 	require.NotNil(t, harness.InitResult.Capabilities.HoverProvider)
 	require.NotNil(t, harness.InitResult.Capabilities.DefinitionProvider)
+	require.NotNil(t, harness.InitResult.Capabilities.SemanticTokensProvider)
+	require.Equal(t, semanticTokenTypes, harness.InitResult.Capabilities.SemanticTokensProvider.Legend.TokenTypes)
 	require.Equal(t, serverName, harness.InitResult.ServerInfo.Name)
 	require.Equal(t, "test", harness.InitResult.ServerInfo.Version)
 }
@@ -78,6 +83,28 @@ func TestDiagnosticsPublishOnOpenAndChange(t *testing.T) {
 	require.Empty(t, diagnostics)
 }
 
+func TestSemanticTokensContinueAfterNestedShellQuotes(t *testing.T) {
+	t.Parallel()
+
+	text := "VERSION 0.8\n" +
+		"LET NODE_ARCH=\"$( [ \"$TARGETARCH\" = \"amd64\" ] && echo \"x64\" || echo \"$TARGETARCH\" )\"\n" +
+		"LET NODE_URL=\"https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz\"\n" +
+		"# compile produces the binary.\n" +
+		"compile:\n" +
+		"    RUN true\n" +
+		"all:\n" +
+		"    BUILD +compile\n"
+	uri := pathURI(filepath.Join(t.TempDir(), "Earthfile"))
+	harness := servertest.New(t, NewHandler("test"), servertest.WithServerOptions(
+		server.WithSemanticTokensOptions(semanticTokensOptions()),
+	))
+	require.NoError(t, harness.DidOpen(uri, "earth", text))
+
+	tokens, err := harness.SemanticTokensFull(uri)
+	require.NoError(t, err)
+	require.Contains(t, decodedSemanticTokenTexts(text, tokens.Data), "compile")
+}
+
 func TestUTF16PositionConversion(t *testing.T) {
 	t.Parallel()
 
@@ -96,4 +123,25 @@ func TestPathURIRoundTrip(t *testing.T) {
 	got, err := uriPath(uri)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Clean(path), got)
+}
+
+func decodedSemanticTokenTexts(text string, data []int) []string {
+	line := 0
+	character := 0
+
+	lines := strings.Split(text, "\n")
+	values := make([]string, 0, len(data)/5)
+
+	for i := 0; i < len(data); i += 5 {
+		line += data[i]
+		if data[i] == 0 {
+			character += data[i+1]
+		} else {
+			character = data[i+1]
+		}
+
+		values = append(values, string([]rune(lines[line])[character:character+data[i+2]]))
+	}
+
+	return values
 }

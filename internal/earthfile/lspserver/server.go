@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/owenrumney/go-lsp/lsp"
 	"github.com/owenrumney/go-lsp/server"
 )
 
@@ -11,5 +12,16 @@ import (
 // cancelled.
 func Run(ctx context.Context, version string, rw io.ReadWriteCloser) error {
 	handler := NewHandler(version)
-	return server.NewServer(handler).Run(ctx, rw)
+	return server.NewServer(handler, server.WithSemanticTokensOptions(semanticTokensOptions())).Run(ctx, rw)
+}
+
+func semanticTokensOptions() lsp.SemanticTokensOptions {
+	return lsp.SemanticTokensOptions{
+		Legend: lsp.SemanticTokensLegend{
+			TokenTypes: semanticTokenTypes,
+			TokenModifiers: []string{
+				"declaration",
+			},
+		},
+	}
 }

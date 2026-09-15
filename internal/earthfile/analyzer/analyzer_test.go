@@ -136,6 +136,37 @@ func TestValidationDiagnosticUsesTargetLocation(t *testing.T) {
 	require.Contains(t, doc.Diagnostics[0].Message, "duplicate target")
 }
 
+func TestNestedShellQuotesDoNotHideLaterSemantics(t *testing.T) {
+	t.Parallel()
+
+	text := "VERSION 0.8\n" +
+		"LET NODE_ARCH=\"$( [ \"$TARGETARCH\" = \"amd64\" ] && echo \"x64\" || echo \"$TARGETARCH\" )\"\n" +
+		"LET NODE_URL=\"https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz\"\n" +
+		"# compile produces the binary.\n" +
+		"compile:\n" +
+		"    RUN true\n" +
+		"all:\n" +
+		"    BUILD +compile\n"
+	doc := Analyze("/workspace/Earthfile", text)
+	referenceOffset := len(text) - len("compile\n")
+
+	label, docs, ok := doc.Hover(referenceOffset, mapLoader{"/workspace/Earthfile": text})
+	require.True(t, ok)
+	require.Equal(t, "target +compile", label)
+	require.Equal(t, "compile produces the binary.", docs)
+
+	semantic := doc.SemanticTokens()
+	require.Contains(t, semantic, SemanticToken{
+		Range:       doc.Symbols[0].Selection,
+		Kind:        SemanticFunction,
+		Declaration: true,
+	})
+	require.Contains(t, semantic, SemanticToken{
+		Range: doc.References[0].Range,
+		Kind:  SemanticFunction,
+	})
+}
+
 func lineAt(text string, offset int) int {
 	line := 0
 

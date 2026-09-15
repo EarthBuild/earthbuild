@@ -21,6 +21,18 @@ import (
 
 const serverName = "earth-lsp"
 
+var semanticTokenTypes = []string{
+	"keyword",
+	"comment",
+	"string",
+	"number",
+	"operator",
+	"parameter",
+	"variable",
+	"function",
+	"namespace",
+}
+
 // Handler implements the Earthfile LSP methods.
 type Handler struct {
 	docs    *document.Store
@@ -147,6 +159,30 @@ func (h *Handler) Definition(
 	}}, nil
 }
 
+// SemanticTokensFull returns semantic highlighting derived from the canonical
+// Earthfile lexer and the protocol-neutral semantic index.
+func (h *Handler) SemanticTokensFull(
+	_ context.Context,
+	params *lsp.SemanticTokensParams,
+) (*lsp.SemanticTokens, error) {
+	doc, ok := h.docs.Get(params.TextDocument.URI)
+	if !ok {
+		return &lsp.SemanticTokens{Data: []int{}}, nil
+	}
+
+	path, err := uriPath(params.TextDocument.URI)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := encodeSemanticTokens(doc.Text(), analyzer.Analyze(path, doc.Text()).SemanticTokens())
+	if err != nil {
+		return nil, err
+	}
+
+	return &lsp.SemanticTokens{Data: data}, nil
+}
+
 // Load implements analyzer.Loader, preferring unsaved open buffers to files
 // on disk.
 func (h *Handler) Load(path string) (string, error) {
@@ -233,6 +269,82 @@ func protocolRange(text string, sourceRange analyzer.Range) (lsp.Range, error) {
 	}
 
 	return lsp.Range{Start: start, End: end}, nil
+}
+
+func encodeSemanticTokens(text string, tokens []analyzer.SemanticToken) ([]int, error) {
+	data := make([]int, 0, len(tokens)*5)
+	previous := lsp.Position{}
+
+	for _, token := range tokens {
+		for _, segment := range splitSemanticRange(text, token.Range) {
+			start, err := positionAt(text, segment.Start)
+			if err != nil {
+				return nil, err
+			}
+
+			length := utf16Length(text[segment.Start:segment.End])
+			if length == 0 {
+				continue
+			}
+
+			deltaLine := start.Line - previous.Line
+
+			deltaStart := start.Character
+			if deltaLine == 0 {
+				deltaStart -= previous.Character
+			}
+
+			modifiers := 0
+			if token.Declaration {
+				modifiers = 1
+			}
+
+			data = append(data, deltaLine, deltaStart, length, semanticTokenIndex(token.Kind), modifiers)
+			previous = start
+		}
+	}
+
+	return data, nil
+}
+
+func splitSemanticRange(text string, sourceRange analyzer.Range) []analyzer.Range {
+	var ranges []analyzer.Range
+
+	for start := sourceRange.Start; start < sourceRange.End; {
+		end := sourceRange.End
+		if newline := strings.IndexByte(text[start:end], '\n'); newline >= 0 {
+			end = start + newline
+		}
+
+		if end > start && text[end-1] == '\r' {
+			end--
+		}
+
+		if end > start {
+			ranges = append(ranges, analyzer.Range{Start: start, End: end})
+		}
+
+		if end >= sourceRange.End {
+			break
+		}
+
+		start += strings.IndexByte(text[start:sourceRange.End], '\n') + 1
+	}
+
+	return ranges
+}
+
+func utf16Length(text string) int {
+	length := 0
+	for _, r := range text {
+		length += utf16.RuneLen(r)
+	}
+
+	return length
+}
+
+func semanticTokenIndex(kind analyzer.SemanticKind) int {
+	return int(kind) - 1
 }
 
 func positionAt(text string, offset int) (lsp.Position, error) {

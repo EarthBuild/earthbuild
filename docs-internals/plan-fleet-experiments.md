@@ -948,3 +948,36 @@ driver's, and a mutual wait is invisible from one side.
 Locality stays reverted meanwhile. The placement is right and something under it
 is not, and shipping the first while hunting the second would mean every chain
 build risks a stall.
+
+## Both sides of the stall, at last
+
+The worker's goroutines during the stall, which had never been collected:
+
+```text
+fleet.(*runnerCfg).provision -> uplink -> readFragment -> readFramed
+```
+
+So the worker is not idle and never was: it is **blocked reading**, holding the
+uplink mutex that serialises its transfers, while `replyRunning` beats away
+telling the driver it is alive. The driver, at the same moment, is blocked in
+`writeFramed` on three 40 MB writes.
+
+**A fragment request answered with a whole blob is the suspect.** `readFragment`
+reads a one-byte flag and refuses anything that is not a fragment - correctly,
+because answering "here is the whole layer" to "give me these paths" would be
+I10's accepted-and-ignored. What it does not do is drain what the sender has
+already committed to writing. The driver's `guestLayers` does not implement
+`fragmenting` at all, so a driver whose store is inside the VM can only ever
+answer a fragment request with a whole layer.
+
+That is a specific, checkable claim and it is not yet checked. What is
+established is the shape: **both ends are waiting on the same transfer**, which
+no amount of reading one side's stack could have shown.
+
+**Where this leaves the fleet.** The serve is bounded now, so the driver frees
+itself after five minutes rather than never - the build still fails, but it
+fails. Locality stays reverted. The next step is to give `guestLayers` a
+`Fragment`, or to make a whole-blob answer to a fragment request something the
+asker can consume, and the choice between those is the interesting part: the
+first makes the lazy path work for a VM-backed driver, which is the point of
+F4, and the second only stops it hanging.

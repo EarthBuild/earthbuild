@@ -17,20 +17,29 @@ earth --version
 The extension runs `earth lsp`; it does not download a second language-server
 binary.
 
-To use a particular build instead of the first `earth` in the project PATH,
-configure its absolute path in Zed settings:
+Zed disables LSP semantic tokens by default. Enable them for Earthfiles in Zed
+settings. To use a particular build instead of the first `earth` in the
+project PATH, configure its absolute path there too:
 
 ~~~json
 {
+  "languages": {
+    "Earthfile": {
+      "semantic_tokens": "combined"
+    }
+  },
   "lsp": {
     "earth-lsp": {
       "binary": {
-        "path": "/absolute/path/to/earth"
+        "path": "/absolute/path/to/earth",
+        "arguments": ["lsp"]
       }
     }
   }
 }
 ~~~
+
+Restart the language server after changing `semantic_tokens`.
 
 ## Development installation
 

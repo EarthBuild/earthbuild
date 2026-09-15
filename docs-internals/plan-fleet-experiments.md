@@ -378,3 +378,44 @@ for it)
 A step is assigned before the base it stands on has arrived. `primeAll` is meant
 to prevent exactly that, so either it is not covering this case or the
 assignment does not wait on it - and with F1 in, waiting is now expressible.
+
+## The refusals were a full disk, and then they were not
+
+Two attributions of the recurring `a worker would not take …` refusal were
+wrong before the evidence was read properly. It was not a priming race, and it
+was not the collector ordering backwards (a layer a worker fetches *is* in its
+index - `OpenIndex` fills from disk). The x86 box's root filesystem was at 100%
+with 5.6 G free against `defaultStoreFree` of 8 GiB, so the guest agent emptied
+the worker's store every boot:
+
+```text
+earth-guestd: removed 2 layers, freed 1.0 GiB, 0 layers and 0 B left
+```
+
+Nothing joined that to the step which then failed for a missing layer, on
+another machine, in another log. Both now say so - `Report.Short`, and the free
+space carried in the refusal itself, which reaches the driver because the
+refusal does.
+
+**Re-measured on the box's second disk** (185 G free), with the guest agent
+collecting nothing:
+
+```text
+6 step(s) delegated, 6 here; transfer-bound (99%)
+  transfer 2m4.41s for 1.0 GiB in 1 fetch(es), slowest 1m2.191s
+  compute 0s · queue 0s · wire 43ms
+```
+
+Six delegated against four on the full disk, and the worker keeps its 1.1 G.
+
+**Still open, and now the top item.** `compute 0s` beside six delegated steps is
+not a slow fleet, it is six refusals: `DurationMillis` is only set by a reply
+that ran something, and the account counts a refusal as delegated. All six were
+refused with
+
+```text
+1 of 2 input(s) for a delegated step: some blobs could not be fetched
+```
+
+so the fleet fetched a gigabyte, refused every step, and the driver did all the
+work. Which of the two inputs could not be fetched is not yet known.

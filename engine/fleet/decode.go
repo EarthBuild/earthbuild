@@ -180,6 +180,17 @@ func (d *decoder) op() Op {
 	op.NoNetwork = d.boolean()
 	op.Scratch = d.strs()
 
+	if n := d.count(); n > 0 {
+		op.Caches = make([]Cache, 0, n)
+
+		for range n {
+			op.Caches = append(op.Caches, Cache{
+				ID: d.str(), Target: d.str(),
+				Mode: uint32(d.count()), Exclusive: d.boolean(), //nolint:gosec // a mode this engine wrote
+			})
+		}
+	}
+
 	return op
 }
 

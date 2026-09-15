@@ -106,10 +106,13 @@ func TestAStepThatCannotBeDelegatedIsStillBuilt(t *testing.T) {
 			node: &ir.Node{Op: ir.Op{Kind: ir.OpHost, Args: []string{"make"}}},
 		},
 		{
-			name: "a step with a cache mount",
+			// A cache whose contents are captured into the layer, which is
+			// the one kind still only this machine can run. An ordinary cache
+			// mount is delegable now - see ir.pinning.
+			name: "a step with a persisted cache mount",
 			node: &ir.Node{Op: ir.Op{
 				Kind: ir.OpExec, Args: []string{"make"},
-				Mounts: []ir.Mount{{ID: "m", Target: "/c"}},
+				Mounts: []ir.Mount{{ID: "m", Target: "/c", Persist: true}},
 			}},
 		},
 		{

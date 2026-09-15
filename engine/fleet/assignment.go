@@ -57,6 +57,42 @@ type Op struct {
 	// without a mount it declared writes into its output layer what it would
 	// otherwise have discarded, which is one key over two results (E433).
 	Scratch []string `json:"scratch,omitempty"`
+	// Caches are the shared cache mounts the step declared - `CACHE` without
+	// `--persist` (§3.3c).
+	//
+	// **A cache mount cannot change what a step produces, and this engine has
+	// always said so.** It is bound *over* the step's filesystem, so what goes
+	// into it is excluded from the layer by construction, and the key hashes
+	// the mount's declaration and never its contents. Every cache hit ever
+	// served asserts it. A worker therefore runs the step against its own
+	// directory of the same name and produces the same layer, more slowly the
+	// first time.
+	//
+	// Carried rather than assumed, for `Scratch`'s reason: a step run without a
+	// mount it declared writes into its layer what it would have discarded, and
+	// files it under the invoker's key (E433). What is *not* carried is the
+	// contents - those are the worker's, and the point.
+	Caches []Cache `json:"caches,omitempty"`
+}
+
+// Cache is a shared cache mount, by name and place.
+//
+// No contents and no host path: the name is what two machines agree on, and the
+// directory behind it belongs to whichever machine is running the step. That is
+// the whole difference between this and a bound view, which names an object
+// both ends can fetch.
+type Cache struct {
+	// ID is what the build calls this cache. Two steps naming the same ID share
+	// a directory, on whichever machine they run.
+	ID string `json:"id"`
+	// Target is where it appears inside the step's filesystem.
+	Target string `json:"target"`
+	// Mode is the permission bits the directory is made with, or zero for the
+	// default.
+	Mode uint32 `json:"mode,omitempty"`
+	// Exclusive is `--sharing=locked`: one step at a time in this directory.
+	// Per machine, because the directory is.
+	Exclusive bool `json:"exclusive,omitempty"`
 }
 
 // Kind is the closed set of operations expressible on the wire.

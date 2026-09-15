@@ -63,9 +63,39 @@ func pinning(mounts []Mount) string {
 			continue
 		}
 
+		// **And an ordinary cache, which somebody has now decided otherwise
+		// about.** A cache mount is bound *over* the step's filesystem, so what
+		// goes into it is excluded from the layer by construction - and the key
+		// hashes the mount's declaration and never its contents, which is that
+		// same claim said a second way. Every cache hit this engine has ever
+		// served already asserts that whatever is in there does not reach the
+		// result.
+		//
+		// So a worker running the step against its own, differently-populated
+		// cache produces the same layer, or the local cache was already unsound.
+		// Refusing to delegate it was stricter than the tier that serves it, and
+		// it cost the builds that matter: 34 cache mounts in this repository's
+		// own Earthfile, and `+all-binaries` delegating 4 of 47 steps because
+		// the `go build` under every binary carries two (E-F2).
+		//
+		// `Exclusive` rides along: `--sharing=locked` is one step at a time in
+		// *a* directory, and a worker has its own to be exclusive about.
+		if m == (Mount{Target: m.Target, ID: m.ID, Mode: m.Mode, Exclusive: m.Exclusive}) && m.ID != "" {
+			continue
+		}
+
 		switch {
 		case m.Secret:
 			return "a secret at " + m.Target
+
+		case m.Persist:
+			// The one cache whose contents *are* the result: `--persist` writes
+			// into the step's own root to be captured, which is why it is in
+			// the key.
+			return "the persisted cache " + m.ID
+
+		case m.Sandbox != "":
+			return "a file in this machine's sandbox at " + m.Sandbox
 
 		case m.ID != "":
 			return "the cache " + m.ID

@@ -1467,6 +1467,18 @@ can change no result (I5) - what it changes is *when* a transfer happens, and a 
 know it refuses as it refuses any operation it does not implement (I10), which costs the build a
 fetch it would have made anyway.
 
+A step's **cache mounts travel as declarations and never as contents**. A cache is bound over the
+step's filesystem, so what is written into it is excluded from the layer by construction, and Κ₁
+hashes a mount's declaration and not what is behind it - so the contents cannot reach the result,
+and a worker running the step against its own directory of the same name produces the same layer
+(I1). The declaration must cross, because a step run without a mount it declared writes into its
+layer what it would otherwise have discarded: one key, two results.
+
+Three mounts do not travel, each for its own reason and none of them "it is a mount". A **secret**
+is not on the wire. A **persisted** cache is captured into the layer, so its contents are the result.
+A mount naming a path in the **sandbox** names one machine's disk. A step carrying any of these is
+refused (I11) and runs on the invoker.
+
 ω may be `build(target, args)`, delegating a whole target to the worker, which then schedules the
 target's steps itself and resolves that region's unknowns. Delegation transfers the *authority to
 evaluate*; unevaluated graph structure still never crosses the wire. A scheduler is therefore a

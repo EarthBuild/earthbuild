@@ -101,10 +101,10 @@ func TestAStepThatCannotBeExpressedIsRefused(t *testing.T) {
 			want: "secret",
 		},
 		{
-			name: "a mount",
+			name: "a persisted mount",
 			op: ir.Op{
 				Kind: ir.OpExec, Args: []string{"x"},
-				Mounts: []ir.Mount{{ID: "m", Target: "/c"}},
+				Mounts: []ir.Mount{{ID: "m", Target: "/c", Persist: true}},
 			},
 			// The cache by name, not the word "mount": a step with five of them
 			// is refused for one, and the author is owed which (E433). Stricter

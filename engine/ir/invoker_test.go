@@ -27,15 +27,29 @@ func TestWhichMountsPinAStepToTheInvoker(t *testing.T) {
 		pins  bool
 		why   string
 	}{{
+		// **A reversal, and here is the argument.** A cache is bound *over* the
+		// step's filesystem, so what goes into it is excluded from the layer by
+		// construction, and the key hashes the mount's declaration and never
+		// its contents - so every cache hit this engine serves already asserts
+		// that what is in there cannot reach the result. A worker with its own
+		// directory of the same name therefore produces the same layer, more
+		// slowly the first time. The assignment carries the declaration, which
+		// is the half that makes it the same step (E433, E-F2).
 		name:  "a named cache",
 		mount: ir.Mount{Target: "/cache", ID: "cargo", Exclusive: true},
-		pins:  true,
-		why:   "its contents are on the invoking machine",
+		pins:  false,
 	}, {
 		name:  "a shared cache",
 		mount: ir.Mount{Target: "/cache", ID: "npm"},
+		pins:  false,
+	}, {
+		// The cache that is not like the others: `--persist` writes its
+		// contents into the step's own root to be captured, so they *are* the
+		// result and only the machine holding them can produce it.
+		name:  "a shared cache that persists",
+		mount: ir.Mount{Target: "/cache", ID: "npm", Persist: true},
 		pins:  true,
-		why:   "its contents are on the invoking machine",
+		why:   "persisted cache npm",
 	}, {
 		name:  "a private cache",
 		mount: ir.Mount{Target: "/cache", Ephemeral: true},
@@ -91,7 +105,7 @@ func TestThePinNamesTheMountResponsible(t *testing.T) {
 	op := ir.Op{Kind: ir.OpExec, Args: []string{"make"}}
 	op.Mounts = []ir.Mount{
 		{Target: "/scratch", Ephemeral: true},
-		{Target: "/root/.cargo", ID: "cargo-registry"},
+		{Target: "/root/.cargo", ID: "cargo-registry", Persist: true},
 	}
 
 	_, why := op.OnInvokerOnly()

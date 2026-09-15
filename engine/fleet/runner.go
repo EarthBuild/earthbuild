@@ -294,6 +294,17 @@ func operationOf(o Op) (ir.Op, error) {
 		op.Mounts = append(op.Mounts, ir.Mount{Target: target, Ephemeral: true})
 	}
 
+	// And the shared caches, which are this machine's own directories under the
+	// names the build gave them. The contents are not the invoker's and are not
+	// meant to be: what travels is the declaration, because that is all that
+	// can change the step's result and it must be identical at both ends
+	// (E433).
+	for _, c := range o.Caches {
+		op.Mounts = append(op.Mounts, ir.Mount{
+			Target: c.Target, ID: c.ID, Mode: c.Mode, Exclusive: c.Exclusive,
+		})
+	}
+
 	return op, nil
 }
 

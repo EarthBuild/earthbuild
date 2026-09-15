@@ -118,6 +118,19 @@ func encodeOp(e *ir.Encoder, op Op) {
 	for _, t := range op.Scratch {
 		e.Str(t)
 	}
+
+	// The shared caches, in the order given, for the reason above. Their
+	// *contents* are not here and are not meant to be: what has to be identical
+	// at both ends is the declaration, because that is all of a cache mount
+	// that can reach the step's result.
+	e.Count(len(op.Caches))
+
+	for _, c := range op.Caches {
+		e.Str(c.ID)
+		e.Str(c.Target)
+		e.Count(int(c.Mode))
+		e.Bool(c.Exclusive)
+	}
 }
 
 // bigEndian64 is a signed integer as B.1 wants it: fixed width, big-endian.

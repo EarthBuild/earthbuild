@@ -48,6 +48,7 @@ func Delegate(n *ir.Node, base []ir.NodeID, sources [][]ir.NodeID) (Assignment, 
 			Dir:  n.Op.Dir, User: n.Op.User,
 			NoNetwork: n.Op.NoNetwork,
 			Scratch:   scratch(n.Op.Mounts),
+			Caches:    caches(n.Op.Mounts),
 		},
 		Platform: n.Platform.String(),
 	}, nil
@@ -131,7 +132,32 @@ func scratch(mounts []ir.Mount) []string {
 	out := make([]string, 0, len(mounts))
 
 	for _, m := range mounts {
-		out = append(out, m.Target)
+		if m.Ephemeral {
+			out = append(out, m.Target)
+		}
+	}
+
+	return out
+}
+
+// caches are the shared cache mounts, by name and place.
+//
+// Separate from `scratch` because the two have different lifetimes and the
+// difference is the whole point: a private cache is made for the step and
+// removed after it, and a shared one outlives the step on whichever machine ran
+// it. Sending a shared cache as scratch would throw away exactly what makes it
+// worth having.
+func caches(mounts []ir.Mount) []Cache {
+	var out []Cache
+
+	for _, m := range mounts {
+		if m.ID == "" || m.Ephemeral || m.Secret || m.Persist {
+			continue
+		}
+
+		out = append(out, Cache{
+			ID: m.ID, Target: m.Target, Mode: m.Mode, Exclusive: m.Exclusive,
+		})
 	}
 
 	return out

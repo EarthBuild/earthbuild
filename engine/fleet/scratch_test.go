@@ -42,12 +42,26 @@ func TestAPrivateCacheDoesNotRefuseDelegation(t *testing.T) {
 // that never heard of the mount they land in the output layer. Same key, two
 // results, which is I3 - so the wire carries the targets and `expressible`
 // opens only because it does.
+// **A shared cache no longer refuses, and that is a reversal.** The paragraph
+// above is still the argument and still decides the case; what changed is that
+// the wire now carries a shared cache's *declaration* too, so the worker builds
+// the same step rather than a different one. What it does not carry is the
+// contents, which cannot reach the result: a cache is bound over the step's
+// filesystem, so what goes into it is excluded from the layer by construction,
+// and the key hashes the declaration and never the contents.
+//
+// The earlier objection - "the worker would run it against an empty directory
+// it believes is warm" - is about speed and not about the answer. It cost the
+// builds that matter: `+all-binaries` delegated 4 of 47 steps, because the `go
+// build` under every binary carries two cache mounts (E-F2).
+//
+// What still refuses is below.
 func TestASharedCacheStillRefusesDelegation(t *testing.T) {
 	t.Parallel()
 
 	for _, m := range []ir.Mount{
-		{Target: "/root/.cargo", ID: "cargo"},
-		{Target: "/c", ID: "npm", Exclusive: true},
+		{Target: "/out", ID: "built", Persist: true},
+		{Target: "/in", Sandbox: "/var/lib/earthbuild/store/x"},
 		{Target: "/run/secrets/tok", Secret: true, Ephemeral: true},
 	} {
 		op := ir.Op{Kind: ir.OpExec, Args: []string{"make"}}
@@ -56,8 +70,8 @@ func TestASharedCacheStillRefusesDelegation(t *testing.T) {
 		_, err := Delegate(&ir.Node{Op: op}, nil, nil)
 		if !errors.Is(err, ErrNotDelegable) {
 			t.Errorf("delegated a step mounting %+v: %v"+
-				"\n  the worker would run it against an empty directory it"+
-				" believes is warm", m, err)
+				"\n  a worker cannot reproduce this one: its contents are the"+
+				" step's result, or they are this machine's", m, err)
 		}
 	}
 }
@@ -75,6 +89,10 @@ func TestOnePrivateCacheAmongNamedOnesStillPins(t *testing.T) {
 	op.Mounts = []ir.Mount{
 		{Target: "/scratch", Ephemeral: true},
 		{Target: "/root/.cargo", ID: "cargo"},
+		// The one that cannot travel, among two that now can. The property is
+		// the set, and a step is delegable only when *every* mount is
+		// reproducible elsewhere.
+		{Target: "/out", ID: "built", Persist: true},
 	}
 
 	_, err := Delegate(&ir.Node{Op: op}, nil, nil)

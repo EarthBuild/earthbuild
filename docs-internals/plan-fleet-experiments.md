@@ -136,6 +136,54 @@ this buys the difference between "everything under the base" and "the files
 actually read" - which is only worth having where bases are large and reads are
 sparse. Measure before building.
 
+## E-F7 - one pool of tokens, not three
+
+**Question.** How many processes does a 32-core machine actually run?
+
+Three layers each choose a width and none of them knows about the others. A
+client picks its own - bazel's `--jobs`, buck2's threads. This service bounds
+actions at `MaxActions`, which defaults to NumCPU. And inside each action a
+compiler fans out again: cargo and rustc size themselves from the machine they
+think they are on, which is the whole machine, every time. Thirty-two actions
+each running a cargo that believes it has thirty-two cores is not slow, it is
+thrashing - and the engine's only current defence is `PidsMax`, which is a
+fork-bomb guard rather than a scheduler.
+
+`MaxActions` chose the lesser of two evils and said so: "two pools can
+oversubscribe a machine, which is slow, and prefer slow". A jobserver removes
+the choice. It is a fifo holding N tokens; anything that wants to run a process
+takes one and gives it back. GNU make defined it, and **cargo and rustc already
+speak it** - a build that finds `MAKEFLAGS=--jobserver-auth=fifo:PATH` uses the
+pool instead of inventing a width.
+
+**The shape is one this engine now has twice.** A per-machine fifo, bound into
+each step on the ephemeral mount that already carries the WITH RE socket and
+would carry a daemon's, and named in the environment. What is new is that the
+engine should draw from the same pool: if `MaxActions` and `Parallelism` and
+cargo's `-j` are all tokens from one fifo, the machine's width is one number
+held by the kernel rather than three guesses that multiply.
+
+**Instrument.** Peak process count and run queue depth against the pool size,
+for a build of many compiling actions. The failure being measured is not
+slowness but collapse: a machine at 30x oversubscription pages, and the wall
+clock stops being a function of the work.
+
+**Two hazards, both real.**
+
+A leaked token shrinks the pool permanently. A process killed between taking and
+returning one takes a slot out of the machine for the life of the fifo, and a
+build that leaks steadily ends up serialised with no error anywhere. Whatever
+takes a token must return it from a defer that a kill cannot skip - which in
+practice means the engine holds tokens on behalf of a step rather than trusting
+the step to hand them back.
+
+And injecting `MAKEFLAGS` into an action changes an environment the *client*
+specified, under a key the client computed. That is defensible only because a
+token count decides how many processes run and not what they produce - but it is
+an environment this engine added to an action it did not write, and the argument
+should be stated rather than assumed. A build that embeds its own parallelism in
+an output would break it.
+
 ## E-F6 - a gate, so none of it rots
 
 rebuck2 ends with a "perf-regression gate: asserts mesh traffic under computed

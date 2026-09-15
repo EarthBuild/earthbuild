@@ -325,3 +325,30 @@ NON-DETERMINISM: nothing in the key changed and the output did` across the
 store-in-VM boundary - the same pinned digest unpacked to two layer IDs. It may
 be an artefact of moving the store rather than of the unpack. Worth a look
 before it is quoted as a determinism failure.
+
+## E-F1 - the number, at last
+
+With F1 (liveness split from completion) and the fault-in accounting in, the
+same build that reported nothing reports this - Mac driver, cold x86 worker,
+1032 MiB `rust:1.83-alpine` base, six steps:
+
+```text
+4 step(s) delegated, 6 here; transfer-bound (99%)
+  transfer 1m49.385s for 1.0 GiB in 1 fetch(es), slowest 54.686s
+  compute 0s · queue 0s · wire 17ms
+```
+
+**The base crossed once.** That is E-F1's question answered on a base worth
+moving, and it is the number E-F6's ratchet goes on.
+
+It is also the case for everything in the v1 plan after F2. A gigabyte at
+~10 MiB/s of useful throughput against steps that cost a second each is a fleet
+that is 99% transfer-bound: correct, and useless. E-F2's locality dispatch,
+E-F3's batching and E-F5's prediction all exist to move that number, and none of
+them could be evaluated while it read zero.
+
+Two things still visible in that run and not yet chased:
+
+* `a worker would not take Earthfile:51 (1 of 2 input(s) ... some blobs could
+  not be fetched)` - only four of ten steps were delegated;
+* `compute 0s` beside four delegated steps, which no step costs.

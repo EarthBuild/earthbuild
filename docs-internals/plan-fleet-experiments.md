@@ -419,3 +419,34 @@ refused with
 
 so the fleet fetched a gigabyte, refused every step, and the driver did all the
 work. Which of the two inputs could not be fetched is not yet known.
+
+## E-F1 - the fleet builds the build
+
+With declarations movable, the same Earthfile on the same two machines:
+
+```text
+6 step(s) delegated, 0 here; transfer-bound (76%)
+  transfer 1m49.746s for 1.0 GiB in 1 fetch(es), slowest 54.873s
+  compute 33.256s · queue 0s · wire 36ms
+```
+
+**Every step ran on the worker and none were refused.** The day's progression,
+same workload throughout:
+
+| State                         | Delegated | Ran here | Compute recorded |
+| ----------------------------- | --------- | -------- | ---------------- |
+| before F1                     | 0         | all      | -                |
+| F1, on a full disk            | 4         | 6        | 0s (all refused) |
+| F1, second disk               | 6         | 6        | 0s (all refused) |
+| declarations movable          | 6         | 0        | 33.256s          |
+
+`compute 0s` was never a slow fleet: `DurationMillis` is set only by a reply
+that ran something, and the account counts a refusal as delegated. Six
+delegated steps with no compute were six refusals, and the driver quietly built
+everything itself.
+
+**Next number to attack.** 1.0 GiB in 1m49.746s is about 9.6 MiB/s, which is an
+order of magnitude under what this LAN does. Transfer is 76% of the build and
+the base is fetched once, so there is nothing left to save by fetching less
+often - the remaining win is in the transfer itself (E-F3's batching) and in not
+needing the whole base at all (E-F5's prediction).

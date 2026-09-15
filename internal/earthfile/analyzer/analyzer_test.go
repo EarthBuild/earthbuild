@@ -3,6 +3,7 @@ package analyzer
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -165,6 +166,51 @@ func TestNestedShellQuotesDoNotHideLaterSemantics(t *testing.T) {
 		Range: doc.References[0].Range,
 		Kind:  SemanticFunction,
 	})
+}
+
+func TestCanonicalIndexResolvesParameterizedCopyArtifact(t *testing.T) {
+	t.Parallel()
+
+	rootPath := filepath.Clean("/workspace/packages/app/Earthfile")
+	monorepoPath := filepath.Clean("/workspace/Earthfile")
+	rootText := "VERSION 0.8\n" +
+		"IMPORT ../../ AS monorepo\n" +
+		"test-app:\n" +
+		"    FROM monorepo+deps\n" +
+		"    COPY (monorepo+compiled-code/packages --scope=\"server\") ./packages\n"
+	monorepoText := "VERSION 0.8\n" +
+		"deps:\n" +
+		"    RUN true\n" +
+		"# compiled-code builds the workspace.\n" +
+		"compiled-code:\n" +
+		"    RUN true\n"
+	loader := mapLoader{
+		rootPath:     rootText,
+		monorepoPath: monorepoText,
+	}
+	doc := Analyze(rootPath, rootText)
+
+	require.Empty(t, doc.Diagnostics)
+	require.Len(t, doc.References, 2)
+	require.Equal(t, "monorepo+deps", doc.References[0].Raw)
+	require.Equal(t, "monorepo+compiled-code", doc.References[1].Raw)
+	require.Equal(
+		t,
+		"monorepo+compiled-code",
+		rootText[doc.References[1].Range.Start:doc.References[1].Range.End],
+	)
+
+	offset := strings.Index(rootText, "monorepo+compiled-code") + len("monorepo+")
+	location, err := doc.Definition(offset, loader)
+	require.NoError(t, err)
+	require.NotNil(t, location)
+	require.Equal(t, monorepoPath, location.Path)
+	require.Equal(t, "compiled-code", monorepoText[location.Range.Start:location.Range.End])
+
+	label, docs, ok := doc.Hover(offset, loader)
+	require.True(t, ok)
+	require.Equal(t, "target +compiled-code", label)
+	require.Equal(t, "compiled-code builds the workspace.", docs)
 }
 
 func lineAt(text string, offset int) int {

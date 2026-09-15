@@ -110,6 +110,25 @@ type Loader interface {
 // diagnostics. Indexing is line based so navigation remains available while a
 // user is in the middle of an invalid edit.
 func Analyze(path, text string) Document {
+	cleanPath := filepath.Clean(path)
+
+	tree, parseErr := earthfile.Parse(cleanPath, text, earthfile.WithSourceMap())
+	if parseErr == nil {
+		tokens, tokenErr := earthfile.SourceTokens(cleanPath, text)
+		if tokenErr == nil {
+			return analyzeCanonical(cleanPath, text, tree, tokens)
+		}
+
+		return analyzeRecovery(cleanPath, text)
+	}
+
+	doc := analyzeRecovery(cleanPath, text)
+	doc.Diagnostics = parserDiagnostics(text, parseErr)
+
+	return doc
+}
+
+func analyzeRecovery(path, text string) Document {
 	doc := Document{Path: filepath.Clean(path), Text: text}
 	lines := sourceLines(text)
 	currentScope := ""
@@ -157,11 +176,6 @@ func Analyze(path, text string) Document {
 		}
 
 		pendingDocs = nil
-	}
-
-	_, err := earthfile.Parse(doc.Path, text, earthfile.WithSourceMap())
-	if err != nil {
-		doc.Diagnostics = parserDiagnostics(text, err)
 	}
 
 	return doc

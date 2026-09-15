@@ -60,6 +60,40 @@ func TestHoverAndDefinitionUseUnsavedImportedDocument(t *testing.T) {
 	}}, locations)
 }
 
+func TestDefinitionFindsTargetInParameterizedCopyArtifact(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	rootPath := filepath.Join(tempDir, "packages", "app", "Earthfile")
+	monorepoPath := filepath.Join(tempDir, "Earthfile")
+	rootURI := pathURI(rootPath)
+	monorepoURI := pathURI(monorepoPath)
+	rootText := "VERSION 0.8\n" +
+		"IMPORT ../../ AS monorepo\n" +
+		"test-app:\n" +
+		"    COPY (monorepo+compiled-code/packages --scope=\"server\") ./packages\n"
+	monorepoText := "VERSION 0.8\n# builds the workspace.\ncompiled-code:\n    RUN true\n"
+
+	harness := servertest.New(t, NewHandler("test"))
+	require.NoError(t, harness.DidOpen(monorepoURI, "earth", monorepoText))
+	require.NoError(t, harness.DidOpen(rootURI, "earth", rootText))
+
+	locations, err := harness.Definition(rootURI, 3, 25)
+	require.NoError(t, err)
+	require.Equal(t, []lsp.Location{{
+		URI: monorepoURI,
+		Range: lsp.Range{
+			Start: lsp.Position{Line: 2, Character: 0},
+			End:   lsp.Position{Line: 2, Character: 13},
+		},
+	}}, locations)
+
+	hover, err := harness.Hover(rootURI, 3, 25)
+	require.NoError(t, err)
+	require.NotNil(t, hover)
+	require.Contains(t, hover.Contents.Value(), "builds the workspace.")
+}
+
 func TestDiagnosticsPublishOnOpenAndChange(t *testing.T) {
 	t.Parallel()
 

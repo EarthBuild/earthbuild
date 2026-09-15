@@ -127,3 +127,28 @@ func directAddr(paths []iroh.PathInfo) (netip.AddrPort, bool) {
 
 	return netip.AddrPort{}, false
 }
+
+// EnvUpgradeWait bounds how long the *background* dial waits for hole punching.
+//
+// Nothing is waiting on it - the fetch that triggered it has finished - so this
+// is patience rather than latency, and it can be generous where `EnvDirectWait`
+// cannot. See PeerSource.upgradeDirect.
+const EnvUpgradeWait = "EARTH_FLEET_UPGRADE_WAIT"
+
+// defaultUpgradeWait is what the background dial gives hole punching.
+const defaultUpgradeWait = 15 * time.Second
+
+// upgradeWait reads the bound.
+func upgradeWait() time.Duration {
+	v := os.Getenv(EnvUpgradeWait)
+	if v == "" {
+		return defaultUpgradeWait
+	}
+
+	d, err := time.ParseDuration(v)
+	if err != nil || d < 0 {
+		return defaultUpgradeWait
+	}
+
+	return d
+}

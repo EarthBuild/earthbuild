@@ -29,6 +29,22 @@ import (
 // whoever asked for the image, and a guest complaining on the terminal in the
 // middle of a build's output names nothing the reader can act on.
 func (a *Apple) PackLayer(ctx context.Context, id ir.NodeID, w io.Writer) error {
+	return a.packVia(ctx, "--pack", id, w)
+}
+
+// PackFleetLayer writes one element of this sandbox's store in the fleet's pack
+// format.
+//
+// **So a Mac can serve the base of its own build.** The fleet's blob server
+// reads a host directory, and on macOS the store is a block device inside the
+// VM - so a driver held everything a worker needed and could offer none of it
+// (F4). The same second exec `PackLayer` uses, in the format the fleet speaks.
+func (a *Apple) PackFleetLayer(ctx context.Context, id ir.NodeID, w io.Writer) error {
+	return a.packVia(ctx, "--pack-fleet", id, w)
+}
+
+// packVia runs the guest binary in a one-thing mode and pipes its stdout.
+func (a *Apple) packVia(ctx context.Context, mode string, id ir.NodeID, w io.Writer) error {
 	guestBin, err := a.guestBinary()
 	if err != nil {
 		return fmt.Errorf("pack layer %s: %w", id, err)
@@ -36,7 +52,7 @@ func (a *Apple) PackLayer(ctx context.Context, id ir.NodeID, w io.Writer) error 
 
 	cmd := osexec.CommandContext(ctx, "container", "exec", "-i", //nolint:gosec // fixed argv
 		"-e", "EARTH_GUEST_ROOT="+guestStore,
-		a.name, "/earth/"+filepath.Base(guestBin), "--pack", id.String())
+		a.name, "/earth/"+filepath.Base(guestBin), mode, id.String())
 
 	var complaint strings.Builder
 

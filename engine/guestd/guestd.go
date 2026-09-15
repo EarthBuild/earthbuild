@@ -86,10 +86,7 @@ func Main(args []string) {
 	// the store itself. One layer per invocation and nothing on stdout but the
 	// blob, so the caller is a pipe rather than a protocol (E556).
 	if len(args) > 1 && args[0] == "--pack" {
-		root := os.Getenv("EARTH_GUEST_ROOT")
-		if root == "" {
-			root = "/var/lib/earthbuild"
-		}
+		root := guestRoot()
 
 		id, err := ir.ParseNodeID(args[1])
 		if err != nil {
@@ -106,15 +103,33 @@ func Main(args []string) {
 		return
 	}
 
+	// The same journey in the fleet's pack rather than in an OCI blob. A driver
+	// whose store is inside the VM serves the base of its own build from here,
+	// and answers for a declaration as readily as for a tree (F4).
+	if len(args) > 1 && args[0] == "--pack-fleet" {
+		root := guestRoot()
+
+		id, err := ir.ParseNodeID(args[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s --pack-fleet: %v\n", label(), err)
+			os.Exit(1)
+		}
+
+		err = guest.PackFleetLayer(root, id, os.Stdout)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s --pack-fleet: %v\n", label(), err)
+			os.Exit(1)
+		}
+
+		return
+	}
+
 	// What a stack element declares, for the same host that cannot open the
 	// store to read a layer. Bytes on stdout and nothing else, exactly as
 	// `--pack`; an element that declares nothing writes none and exits clean,
 	// because most elements are trees and that is the ordinary answer.
 	if len(args) > 1 && args[0] == "--decl" {
-		root := os.Getenv("EARTH_GUEST_ROOT")
-		if root == "" {
-			root = "/var/lib/earthbuild"
-		}
+		root := guestRoot()
 
 		id, err := ir.ParseNodeID(args[1])
 		if err != nil {
@@ -165,10 +180,7 @@ func Main(args []string) {
 }
 
 func run() error {
-	root := os.Getenv("EARTH_GUEST_ROOT")
-	if root == "" {
-		root = "/var/lib/earthbuild"
-	}
+	root := guestRoot()
 
 	scratch := os.Getenv("EARTH_GUEST_SCRATCH")
 	if scratch == "" {
@@ -525,3 +537,24 @@ func reclaim(root string) {
 			label(), want>>30, budget, adviceFor(root))
 	}
 }
+
+// guestRoot is where this guest's store lives.
+//
+// **One answer, because four copies of it is four places to be wrong.** The
+// modes that read the store without serving the protocol - `--pack`,
+// `--pack-fleet`, `--decl` - each resolved it themselves, and each was one
+// edit away from disagreeing with the server about which directory the store
+// is.
+func guestRoot() string {
+	if root := os.Getenv(EnvGuestRoot); root != "" {
+		return root
+	}
+
+	return defaultGuestRoot
+}
+
+// EnvGuestRoot names the guest's store directory.
+const EnvGuestRoot = "EARTH_GUEST_ROOT"
+
+// defaultGuestRoot is where it lives when nobody says.
+const defaultGuestRoot = "/var/lib/earthbuild"

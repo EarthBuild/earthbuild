@@ -100,6 +100,12 @@ func Runner(
 			cfg.sink.Set(cfg.fragmenters(a))
 		}
 
+		// **Before the step, not before the fetch.** Getting to a holder costs
+		// more than reading from one and none of it is proportional to the
+		// bytes, so it is worth paying while something else is happening. The
+		// holders are known here and not before. See warmAll.
+		warmAll(ctx, cfg.sources(a))
+
 		var moved Transfer
 
 		if cfg.into != nil || cfg.frags != nil {

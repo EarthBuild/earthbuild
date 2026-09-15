@@ -99,6 +99,17 @@ func (s *PeerSource) connect(ctx context.Context) (*iroh.Conn, error) {
 	return c, nil
 }
 
+// Warm opens this peer's connection before anything is fetched from it.
+//
+// **Not waited for**, which is the point: the caller is about to run a step, and
+// a connection opened while it runs is one the first fetch does not have to
+// open. A failure is left alone - `Fetch` dials again and reports properly, and
+// a worker that refused an assignment because a *prefetch* failed would be
+// worse than one that never had this.
+func (s *PeerSource) Warm(ctx context.Context) {
+	go func() { _, _ = s.connect(context.WithoutCancel(ctx)) }()
+}
+
 // upgradeDirect moves later fetches onto a direct path, without delaying this
 // one.
 //

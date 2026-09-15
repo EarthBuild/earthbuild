@@ -52,6 +52,19 @@ type Declaration struct {
 // reinterpreting the old ones.
 const magic = "EBDECL1"
 
+// IsEncoded reports whether these bytes begin a declaration.
+//
+// **So a transport can tell one from a layer without a envelope of its own.**
+// The encoding already names itself - that is what `magic` is for - and a second
+// marker wrapped around it would be a second thing to keep in step with the
+// first. The fleet reads a few bytes off the wire and asks this.
+func IsEncoded(b []byte) bool {
+	return len(b) >= len(magic) && string(b[:len(magic)]) == magic
+}
+
+// Head is how many bytes IsEncoded needs.
+const Head = len(magic)
+
 // Encode is 𝒮(γ): the canonical serialisation.
 //
 // Every element is length-prefixed and every sequence is counted, so no two

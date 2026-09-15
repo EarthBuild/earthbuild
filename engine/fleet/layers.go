@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/EarthBuild/earthbuild/engine/decl"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/store"
@@ -37,11 +38,21 @@ type Layers struct {
 	proofs  map[ir.NodeID][]byte
 }
 
-// Has reports whether this store holds the layer.
+// Has reports whether this store holds the element.
+//
+// **A layer or a declaration**, because a stack is made of both. An image that
+// contributes only configuration is held as a file of a couple of hundred bytes
+// rather than a directory, the materialiser asks for either, and this asked for
+// neither: a driver holding a declaration reported that it held nothing, so no
+// source was offered for it and every worker refused every step standing on it
+// (E-F1).
 func (l *Layers) Has(id ir.NodeID) bool {
 	fi, err := os.Stat(l.at(id))
+	if err == nil && fi.IsDir() {
+		return true
+	}
 
-	return err == nil && fi.IsDir()
+	return decl.Has(l.Root, id)
 }
 
 // Get packs a layer for sending.
@@ -55,9 +66,25 @@ func (l *Layers) Get(id ir.NodeID) ([]byte, error) {
 		return nil, fmt.Errorf("no layer %v here", id)
 	}
 
+	// A declaration travels as itself. It is already a canonical encoding that
+	// names its own kind, so there is nothing to pack and nothing to wrap.
+	fi, err := os.Stat(l.at(id))
+	if err != nil || !fi.IsDir() {
+		d, held, readErr := decl.Read(l.Root, id)
+		if readErr != nil {
+			return nil, fmt.Errorf("read the declaration %v: %w", id, readErr)
+		}
+
+		if !held {
+			return nil, fmt.Errorf("no layer %v here", id)
+		}
+
+		return decl.Encode(d), nil
+	}
+
 	var buf pipeBuffer
 
-	err := layer.PackOwned(l.at(id), &buf, nil, l.owners(id))
+	err = layer.PackOwned(l.at(id), &buf, nil, l.owners(id))
 	if err != nil {
 		return nil, fmt.Errorf("pack layer %v: %w", id, err)
 	}
@@ -159,6 +186,22 @@ func (l *Layers) Put(r io.Reader) (ir.NodeID, int64, error) {
 	// about ownership produces a layer that is rejected rather than filed
 	// (§5.3). What this removes is the receiver's *own* user leaking into an
 	// identity that is supposed to be the sender's.
+	// **Read before it is unpacked, so the kind is known.** A declaration is
+	// not a pack and `UnpackOwned` would refuse it with a message about tar.
+	head := make([]byte, decl.Head)
+
+	n, err := io.ReadFull(r, head)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+		return ir.NodeID{}, 0, fmt.Errorf("read what is arriving: %w", err)
+	}
+
+	head = head[:n]
+	r = io.MultiReader(bytes.NewReader(head), r)
+
+	if decl.IsEncoded(head) {
+		return l.putDeclaration(r)
+	}
+
 	own, err := layer.UnpackOwned(r, tmp)
 	if err != nil {
 		return ir.NodeID{}, 0, fmt.Errorf("unpack an incoming layer: %w", err)
@@ -327,3 +370,37 @@ func (s *LayerSource) Fetch(
 
 	return out, nil
 }
+
+// putDeclaration files an incoming declaration under its own identity.
+//
+// **The name is derived here, never taken from the sender**, exactly as a
+// layer's is: `decl.Write` returns the identity of what it wrote, and
+// `Provision` refuses anything whose identity is not the one it asked for. So a
+// peer that sends something else is caught by the same check that catches a peer
+// that sends the wrong layer (§5.3, I6).
+func (l *Layers) putDeclaration(r io.Reader) (ir.NodeID, int64, error) {
+	body, err := io.ReadAll(io.LimitReader(r, maxDeclaration))
+	if err != nil {
+		return ir.NodeID{}, 0, fmt.Errorf("read an incoming declaration: %w", err)
+	}
+
+	d, err := decl.Decode(body)
+	if err != nil {
+		return ir.NodeID{}, 0, fmt.Errorf("decode an incoming declaration: %w", err)
+	}
+
+	id, err := decl.Write(l.Root, d)
+	if err != nil {
+		return ir.NodeID{}, 0, fmt.Errorf("file an incoming declaration: %w", err)
+	}
+
+	return id, int64(len(body)), nil
+}
+
+// maxDeclaration bounds what a peer may call a declaration.
+//
+// Declarations are environment, a working directory, a user and an entrypoint -
+// hundreds of bytes in practice, and the largest in this repository's corpus is
+// under two kilobytes. A megabyte is room for something far stranger than that
+// and still refuses a peer trying to have this allocate on request.
+const maxDeclaration = 1 << 20

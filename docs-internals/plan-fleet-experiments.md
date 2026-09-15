@@ -838,3 +838,31 @@ workers join when the build starts is a fleet in a laboratory. In CI the runners
 start together and the wait is real; on a desk the worker is a daemon that was
 already there. Both are legitimate and they are seventeen seconds apart, so a
 result quoting either without saying which is not a result.
+
+## E-F5 - a prediction is worth its round trips
+
+Every run above bumped the step's body, so no step ever had a history and the
+cache line said `6 unpredicted` each time. Run the *same* step twice with
+`--no-cache`, cold worker both times, 1032 MiB base:
+
+| Run                  | Bytes    | Fetches | Transfer | Wall    |
+| -------------------- | -------- | ------- | -------- | ------- |
+| no profile           | 1.7 MiB  | 3       | 18.534s  | 39.43s  |
+| profile, first       | 1.1 MiB  | 1       | 2.231s   | 23.31s  |
+| profile, second      | 1.1 MiB  | 1       | 2.348s   | 22.95s  |
+
+**The bytes barely move and the time falls eightfold**, which is the whole
+argument for priming: a fault is a round trip, and three of them cost 18.5s
+where one batch costs 2.3s. E292 said so and this is the number.
+
+Also worth recording: 1.7 MiB against a 1032 MiB base, on a worker that had
+never seen it. Earlier runs of this same Earthfile moved the whole gigabyte -
+not because prediction was off but because the base contains a declaration, the
+driver could not serve one, and the worker fell back to fetching whole layers.
+Fixing that turned 1.0 GiB into 1.7 MiB before any prediction was involved, and
+the two are easy to confuse: **the lazy path only pays when it is reachable at
+all.**
+
+One run without a profile, two with, and the without cannot be repeated without
+clearing the profile store - so the 18.5s is a single measurement. The fetch
+counts are structural and are the part to believe.

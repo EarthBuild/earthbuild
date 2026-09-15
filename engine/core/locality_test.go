@@ -28,35 +28,33 @@ import (
 func TestAStepGoesWhereItsBaseAlreadyIs(t *testing.T) {
 	t.Parallel()
 
-	base := ir.NodeID{1}
-
 	s := &Scheduler{
 		Workers: []Worker{
 			{ID: "a", Capacity: 4},
 			{ID: "b", Capacity: 4},
 		},
-		// Who holds what, which placement has never been able to ask.
-		Holds: func(worker string, id ir.NodeID) bool {
-			return worker == "b" && id == base
-		},
 	}
 
-	n := &ir.Node{}
-	s.stacks = map[ir.NodeID][]ir.NodeID{n.ID(): {base}}
+	// The step before this one is already going to "b", so its layer will be
+	// there and nowhere else.
+	base := &ir.Node{Op: ir.Op{Kind: ir.OpScratch}}
+	n := &ir.Node{Inputs: []*ir.Node{base}}
 
-	got, err := s.place(n, map[string]int{"a": 0, "b": 0})
+	placed := map[ir.NodeID]Worker{base.ID(): {ID: "b"}}
+
+	got, err := s.place(n, map[string]int{"a": 0, "b": 0}, placed)
 	if err != nil {
 		t.Fatalf("placing: %v", err)
 	}
 
 	if got.ID != "b" {
-		t.Errorf("placed on %q, want b - the machine that already has the base,"+
-			" so a chain ships its layer at every handoff", got.ID)
+		t.Errorf("placed on %q, want b - where its input is being made, so a"+
+			" chain ships its layer at every handoff", got.ID)
 	}
 
 	// And a holder that is far busier loses: a fan-out on one common base must
 	// still spread, or seven machines watch one work.
-	got, err = s.place(n, map[string]int{"a": 0, "b": 8})
+	got, err = s.place(n, map[string]int{"a": 0, "b": 8}, placed)
 	if err != nil {
 		t.Fatalf("placing: %v", err)
 	}
@@ -65,5 +63,18 @@ func TestAStepGoesWhereItsBaseAlreadyIs(t *testing.T) {
 		t.Errorf("placed on %q, want a - a holder eight steps deep is not worth"+
 			" waiting for, and affinity that ignored load would put an eight-way"+
 			" fan-out on one machine", got.ID)
+	}
+
+	// A step with no inputs has nowhere it belongs, and load decides.
+	rootless := &ir.Node{Op: ir.Op{Kind: ir.OpScratch}}
+
+	got, err = s.place(rootless, map[string]int{"a": 2, "b": 0}, placed)
+	if err != nil {
+		t.Fatalf("placing: %v", err)
+	}
+
+	if got.ID != "b" {
+		t.Errorf("a step standing on nothing was placed on %q, want the least"+
+			" loaded machine", got.ID)
 	}
 }

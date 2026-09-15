@@ -340,21 +340,6 @@ type Scheduler struct {
 	NoCache bool
 	// Parallelism bounds how many steps run at once. NumCPU when zero.
 	Parallelism int
-	// Holds says whether a worker already has an element of a step's base.
-	//
-	// **A chain is where a fleet loses.** Every step stands on the one before
-	// it, so a schedule that moves the work moves a layer with it, and a chain
-	// of n steps placed round-robin ships its base n-1 times (E265). Measured
-	// on an eight-step chain of 40 MB layers: `4 delegated, 4 here`, 167.9 MiB
-	// in four fetches, 86% transfer-bound against three seconds of compute.
-	//
-	// `fleet.prefer` has implemented this ordering all along and is called from
-	// tests and nowhere else; placement sorts by load and had no way to ask who
-	// held anything. This is the question it was missing.
-	//
-	// Nil means nobody knows, which is every build without a fleet and what
-	// placement did before this.
-	Holds func(worker string, id ir.NodeID) bool
 	// claims serialise steps sharing a `--sharing=locked` cache, before they
 	// take a slot rather than after (E434).
 	claims claims
@@ -613,7 +598,7 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 	placed := make(map[ir.NodeID]Worker, len(nodes))
 
 	for i, n := range nodes {
-		w, err := s.place(n, s.load)
+		w, err := s.place(n, s.load, placed)
 		if err != nil {
 			// The source location as well as the description: `schedule  (image)`
 			// is what this printed for a node whose description was empty, which
@@ -1240,7 +1225,9 @@ func stepIdent(n *ir.Node) string {
 // constraint is ineligible regardless of how attractive it looks. Among the
 // eligible, least-loaded wins, and ties are broken by worker ID so the choice
 // does not depend on slice order or map iteration.
-func (s *Scheduler) place(n *ir.Node, load map[string]int) (Worker, error) {
+func (s *Scheduler) place(
+	n *ir.Node, load map[string]int, placed map[ir.NodeID]Worker,
+) (Worker, error) {
 	eligible := make([]Worker, 0, len(s.Workers))
 
 	native := s.native()
@@ -1297,8 +1284,13 @@ func (s *Scheduler) place(n *ir.Node, load map[string]int) (Worker, error) {
 	// that is `transferCost` less busy.
 	cost := make(map[string]int, len(eligible))
 	for _, w := range eligible {
-		cost[w.ID] = load[w.ID]
-		if !s.holdsBase(w.ID, n) {
+		// **Doubled, so the price can be half a step.** A whole step was too
+		// much: with it, every child of a shared base followed the base onto
+		// one machine and two fleet tests reported that nothing crossed the
+		// network at all. `fleet.transferCost` reasoned this out in half-steps
+		// already and this is the same calibration.
+		cost[w.ID] = 2 * load[w.ID]
+		if !holdsBase(w.ID, n, placed) {
 			cost[w.ID] += transferCost
 		}
 	}
@@ -2102,41 +2094,51 @@ func predOf(p Profiles, n *ir.Node) Observation {
 	return got
 }
 
-// transferCost is what fetching a base is worth, in steps.
+// transferCost is what fetching a base is worth, in half-steps.
 //
 // The number that reconciles the two things placement has to do. A **chain**
 // must stay where its base is, or it ships that base at every handoff; a
-// **fan-out** must spread. Four means a holder wins while it is fewer than four
-// steps busier than the alternative, which on a machine of sixteen cores is a
-// quarter of a wave - long enough that a chain never leaves, short enough that
-// a fan-out does not pile onto whichever machine happened to build the base.
+// **fan-out** must spread, and almost every build starts `FROM` one common
+// image - so a price that ignored load would put every step of a parallel build
+// on whichever machine happened to make the base.
 //
-// `fleet.transferCost` says the same thing in half-steps for the driver's own
-// keep-or-delegate decision. Two numbers because the comparisons are different
-// - that one weighs *this* machine against a fleet, this one weighs machines
-// against each other - and neither is derived from the other.
-const transferCost = 4
+// **One, against doubled loads, which means a holder wins a tie and loses as
+// soon as it is one step busier.** A whole step was tried and was too much:
+// every child of a shared base followed it onto one machine, and two fleet
+// tests reported that nothing crossed the network at all. A chain is placed
+// one step at a time and its loads are level, so a tie is exactly the case it
+// needs.
+//
+// `fleet.transferCost` reaches the same calibration for the driver's own
+// keep-or-delegate decision. Two numbers because the comparisons differ - that
+// one weighs *this* machine against a fleet, this one weighs machines against
+// each other.
+const transferCost = 1
 
-// holdsBase reports whether a worker already has what this step stands on.
+// holdsBase reports whether a worker is already making everything this step
+// stands on.
 //
-// Every element, not any: a base is materialised whole, so a machine holding
-// half of one still fetches. False when nothing knows, which is every build
-// without a fleet.
-func (s *Scheduler) holdsBase(worker string, n *ir.Node) bool {
-	if s.Holds == nil {
+// **Asked of the schedule, not of any machine.** Placement happens before
+// anything runs, so no store can be asked what it holds - the layers do not
+// exist yet. What *is* known is where each input will be produced, because
+// placement walks the graph in topological order and has already decided. A
+// step placed where its inputs are being made finds them there.
+//
+// Pure, which §4.7.3 requires: a schedule must be a byte-identical function of
+// the graph and the inventory. An earlier attempt asked the executor whether a
+// worker held a layer, which on a VM backend is an exec into the sandbox - I/O
+// on the placement path, before the sandbox has started, and the build stopped
+// with a step that had been stuck for six minutes.
+//
+// Every input, not any: a base is materialised whole, so a machine that would
+// have half of it still fetches.
+func holdsBase(worker string, n *ir.Node, placed map[ir.NodeID]Worker) bool {
+	if len(n.Inputs) == 0 {
 		return false
 	}
 
-	s.mu.Lock()
-	stack := s.stacks[n.ID()]
-	s.mu.Unlock()
-
-	if len(stack) == 0 {
-		return false
-	}
-
-	for _, id := range stack {
-		if !s.Holds(worker, id) {
+	for _, in := range n.Inputs {
+		if placed[in.ID()].ID != worker {
 			return false
 		}
 	}

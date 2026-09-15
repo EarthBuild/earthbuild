@@ -135,44 +135,6 @@ func (d *Delegating) NoteSpend(r Reply, round time.Duration) {
 	d.rate.Observe(r.FetchedBytes, r.FetchMillis, r.DurationMillis)
 }
 
-// Holds reports whether a worker already has an element, for placement.
-//
-// **The question placement never had.** A chain is where a fleet loses - every
-// step stands on the one before it, so moving the work moves a layer with it -
-// and `prefer` has implemented this ordering all along while being called from
-// tests and nowhere else. Measured on an eight-step chain of 40 MB layers:
-// `4 delegated, 4 here`, 167.9 MiB in four fetches, 86% transfer-bound against
-// three seconds of compute (E265, E-F2).
-//
-// The invoker holds whatever this machine's store holds. A remote worker holds
-// what it produced or was sent, which `holders` learns from the assignment that
-// named it and from the reply that said where the result is.
-func (d *Delegating) Holds(worker string, id ir.NodeID) bool {
-	if worker == "" {
-		return false
-	}
-
-	if d.isInvoker(worker) {
-		return d.Store != nil && d.Store.Has(id)
-	}
-
-	at, ok := d.Fleet.(interface{ AddressOf(string) string })
-	if !ok {
-		return false
-	}
-
-	held := at.AddressOf(worker)
-
-	return held != "" && d.held.holder(id) == held
-}
-
-// isInvoker is whether this name is the machine running the driver.
-//
-// The scheduler's own name for it, which `localWorker` sets and nothing else
-// uses - so it is compared rather than asked for, and a fleet whose worker was
-// called "local" would be wrong about one machine and right about the rest.
-func (d *Delegating) isInvoker(worker string) bool { return worker == "local" }
-
 // NotePrimed records what priming moved, for the build's account.
 //
 // Exported because the rendezvous holds the connections and this holds the
@@ -1204,12 +1166,4 @@ func (d *Delegating) roomHere(ctx context.Context) (func(), error) {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-}
-
-// holder is where an element is known to be, or empty.
-func (h *holders) holder(id ir.NodeID) string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	return h.at[id]
 }

@@ -68,7 +68,7 @@ func TestAnInterpreterIsStillTheLastResort(t *testing.T) {
 
 	s := &Scheduler{Workers: []Worker{{ID: "mac", Platform: arm64, IsInvoker: true}, slow}}
 
-	got, err := s.place(&ir.Node{Platform: amd64}, map[string]int{})
+	got, err := s.place(&ir.Node{Platform: amd64}, map[string]int{}, nil)
 	if err != nil {
 		t.Fatalf("a step nothing can run natively was placed nowhere: %v", err)
 	}

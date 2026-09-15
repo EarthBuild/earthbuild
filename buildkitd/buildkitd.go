@@ -1524,6 +1524,8 @@ func prepareServerCertsDir(settings Settings) (string, error) {
 	return serverCertsDir, nil
 }
 
+// stopInactiveBuildkitContainers stops all running buildkit containers except the current one.
+// This is required for apple container only to reduce memory pressure.
 func stopInactiveBuildkitContainers(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
@@ -1531,8 +1533,8 @@ func stopInactiveBuildkitContainers(
 	currentContainerName string,
 	settings Settings,
 ) {
-	// Only clean up when the host is experiencing memory pressure.
-	if !engine.IsMemoryPressured() {
+	// Only clean up Apple Container instances when the host is experiencing memory pressure.
+	if eng.Metadata().Scheme != engine.SchemeApple || !engine.IsMemoryPressured() {
 		return
 	}
 
@@ -1555,12 +1557,8 @@ func stopInactiveBuildkitContainers(
 			continue
 		}
 
-		// Match any buildkit container instance
-		isBuildkit := strings.Contains(c.Image, "buildkitd") ||
-			strings.HasSuffix(containerName, "-buildkitd") ||
-			c.Labels["dev.earthly.settingshash"] != ""
-
-		if !isBuildkit {
+		// Match any EarthBuild buildkit container instance by settings hash label
+		if c.Labels["dev.earthly.settingshash"] == "" {
 			continue
 		}
 

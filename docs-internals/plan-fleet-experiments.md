@@ -224,3 +224,54 @@ open with performance instead.
 
 **First.** E-F0, then E-F1. Nothing else is worth arguing about until a fleet
 build can say how many bytes it moved.
+
+## E-F1 - first two-machine result (2026-09-15)
+
+Mac driver (arm64, Apple backend, store in the VM) and the x86 box as a worker,
+over the LAN. Three defects, in the order they have to be fixed.
+
+**1. The fleet wrapper hid the guest store.** `guestStoreAskers` was asked of
+the build's executor, which with a fleet is `fleet.Delegating` - a wrapper that
+runs steps and holds nothing. So the driver printed "this executor cannot be
+asked what it holds, so this build caches nothing" and transferred no layer into
+its own sandbox. Fixed: the question is unwrapped to the local executor, because
+which machine runs a step does not move that machine's store.
+
+**2. The blob plane reads a directory that is not the store.** The driver's
+keeper is `&fleet.Layers{Root: sb.StoreDir()}`, and on the Apple backend with
+`EARTH_STORE_IN_VM` that is a *host* path while the layers are at
+`/var/lib/earthbuild/fast/store` inside the VM. A layer a worker produced is
+therefore fetched into somewhere no step can materialise from:
+
+```text
+materialise the base for Earthfile:67: 3909d5dc… is in this step's base and
+this store holds neither a layer nor a declaration for it
+  looked for /var/lib/earthbuild/fast/store/layers/3909d5dc…
+```
+
+Open. This is the structural one: the *store questions* have already been moved
+into the guest one at a time (`StoreHas`, `StoreTree`, `ViewDigests`,
+`WhyStaleIn`), and the blob plane is the half that has not followed.
+
+**3. A liveness bound is applied to the work.** `Rendezvous.ask` gives a worker
+`defaultReach` = 10s to answer, and `askOver` sets that deadline on the stream
+it then reads the *result* off. The comment argues "a live worker answers a
+control message in milliseconds", which is true of a control message and false
+of an assignment: the worker fetches inputs and runs the step first. A step
+longer than 10s fails as `no length: deadline exceeded` and the worker is
+dropped as a corpse. Not configurable - there is no env for `Reach`.
+
+Delegating a `FROM rust:1.83-alpine` reproduced it exactly. A bigger constant
+reinstates E256; the fix is an early acknowledgement so liveness and completion
+stop sharing one timer.
+
+**Not a defect: platform eligibility.** Three runs read as "placement declines
+to delegate a saturated driver" until the variable turned out to be the
+platform - an unpinned step is the driver's arch, and the amd64 worker cannot
+take an arm64 step. With `FROM --platform=linux/amd64` and `EARTH_PARALLELISM=2`
+the same build delegated. Rosetta lets the Mac run amd64; it does not let the
+box run arm64.
+
+**Bytes moved: still unmeasured.** Every run so far reports `0 B in 0 fetch(es)`
+because the worker already held the base. The number this plan exists to reduce
+needs defect 2 fixed and a cold worker store.

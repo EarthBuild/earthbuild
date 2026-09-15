@@ -163,6 +163,26 @@ engine should draw from the same pool: if `MaxActions` and `Parallelism` and
 cargo's `-j` are all tokens from one fifo, the machine's width is one number
 held by the kernel rather than three guesses that multiply.
 
+**Settled: one instance per VM.** The tokens stand for cores and the cores
+belong to the machine, so the pool belongs there too - which is the argument
+that put the execution service in `guestd` rather than the host, and it holds
+here for the same three reasons. The VM outlives the build, so a pool scoped to
+a build would be rebuilt on a machine whose load did not change. Two builds can
+share a warm sandbox, and per-build pools would let each fan out to the whole
+machine while believing it was being polite. And in a fleet a worker *is* a VM,
+so a per-VM pool and a worker's announced `capacity` are two names for one
+number - which is an argument for making them literally one rather than two
+settings that can disagree.
+
+**And it dissolves the leak.** A pool that outlives builds is worse to leak
+into: a token lost today shrinks every build tomorrow, with nothing to notice
+it. But the guest starts and reaps every step itself, already tears its mounts
+down, and already counts work in flight for the idle rule with `begin` and
+`end`. That makes it the one party able to return a dead step's tokens without
+being asked. Holding tokens on the step's behalf stops being a precaution against a
+careless build and becomes the only accounting that can be correct, because the
+guest is the only party that sees a step end whether or not it meant to.
+
 **Instrument.** Peak process count and run queue depth against the pool size,
 for a build of many compiling actions. The failure being measured is not
 slowness but collapse: a machine at 30x oversubscription pages, and the wall

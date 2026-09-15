@@ -866,3 +866,46 @@ all.**
 One run without a profile, two with, and the without cannot be repeated without
 clearing the profile store - so the 18.5s is a single measurement. The fetch
 counts are structural and are the part to believe.
+
+## E-F2 - locality, found dead and reverted
+
+`fleet.prefer` implements holder-first ordering and its own comment calls it
+"the single most consequential ordering in the fleet". **It is called from
+tests and from nowhere else.** Placement sorts by load and has never been able
+to ask who holds anything.
+
+A chain is where that costs. Eight steps of 40 MB, each standing on the last,
+across two machines:
+
+```text
+4 delegated, 4 here; transfer-bound (86%)
+  transfer 19.446s for 167.9 MiB in 4 fetch(es)
+  compute 3.014s
+```
+
+The chain alternated and shipped a layer at every handoff - 167.9 MiB moved to
+do three seconds of work.
+
+**Two attempts, both wrong, and the second is reverted.**
+
+The first asked the executor whether a worker held a layer. Placement happens
+*before* anything runs, so the layers do not exist and the stack map is empty;
+and on a VM backend the question is an exec into the sandbox, which put I/O on
+the placement path and stopped a build with a step stuck for six minutes.
+
+The second asked the schedule instead - where each input will be *produced*,
+which is known because the walk is topological and pure, as §4.7.3 requires.
+That is the right question. It also needed the price recalibrating: a whole
+step sent every child of a shared base onto one machine and two fleet tests
+reported nothing crossing the network at all, so loads are doubled and the
+price is one half-step, a holder winning only a tie.
+
+And with it in, **the chain hangs on a fleet**: work goes local, the worker
+sits idle at 14 MB, and a local step stalls for six minutes with no progress.
+Single-machine builds are unaffected - the same chain runs in 6.35s with
+locality and 8.18s without - so it is the interaction with delegation and not
+the placement itself.
+
+Reverted. A build that does not finish is worse than one that ships a layer it
+need not, and the finding is worth more than the patch: **the ordering this
+fleet was designed around has never run.**

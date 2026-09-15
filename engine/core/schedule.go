@@ -598,7 +598,7 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 	placed := make(map[ir.NodeID]Worker, len(nodes))
 
 	for i, n := range nodes {
-		w, err := s.place(n, s.load, placed)
+		w, err := s.place(n, s.load)
 		if err != nil {
 			// The source location as well as the description: `schedule  (image)`
 			// is what this printed for a node whose description was empty, which
@@ -1225,9 +1225,7 @@ func stepIdent(n *ir.Node) string {
 // constraint is ineligible regardless of how attractive it looks. Among the
 // eligible, least-loaded wins, and ties are broken by worker ID so the choice
 // does not depend on slice order or map iteration.
-func (s *Scheduler) place(
-	n *ir.Node, load map[string]int, placed map[ir.NodeID]Worker,
-) (Worker, error) {
+func (s *Scheduler) place(n *ir.Node, load map[string]int) (Worker, error) {
 	eligible := make([]Worker, 0, len(s.Workers))
 
 	native := s.native()
@@ -1274,31 +1272,10 @@ func (s *Scheduler) place(
 		return Worker{}, noWorkerFor(n, s.Workers)
 	}
 
-	// What each machine would have to fetch, as a load it is already carrying.
-	//
-	// **Priced rather than absolute.** A chain must stay where its base is; a
-	// fan-out must spread, and almost every build starts `FROM` one common
-	// image - so affinity that ignored load would put every step of an
-	// eight-way parallel build on one machine while seven watched, which is
-	// worse than no affinity at all. A holder wins a tie and loses to a machine
-	// that is `transferCost` less busy.
-	cost := make(map[string]int, len(eligible))
-	for _, w := range eligible {
-		// **Doubled, so the price can be half a step.** A whole step was too
-		// much: with it, every child of a shared base followed the base onto
-		// one machine and two fleet tests reported that nothing crossed the
-		// network at all. `fleet.transferCost` reasoned this out in half-steps
-		// already and this is the same calibration.
-		cost[w.ID] = 2 * load[w.ID]
-		if !holdsBase(w.ID, n, placed) {
-			cost[w.ID] += transferCost
-		}
-	}
-
 	sort.Slice(eligible, func(i, j int) bool {
-		ci, cj := cost[eligible[i].ID], cost[eligible[j].ID]
-		if ci != cj {
-			return ci < cj
+		li, lj := load[eligible[i].ID], load[eligible[j].ID]
+		if li != lj {
+			return li < lj
 		}
 
 		return eligible[i].ID < eligible[j].ID
@@ -2092,56 +2069,4 @@ func predOf(p Profiles, n *ir.Node) Observation {
 	}
 
 	return got
-}
-
-// transferCost is what fetching a base is worth, in half-steps.
-//
-// The number that reconciles the two things placement has to do. A **chain**
-// must stay where its base is, or it ships that base at every handoff; a
-// **fan-out** must spread, and almost every build starts `FROM` one common
-// image - so a price that ignored load would put every step of a parallel build
-// on whichever machine happened to make the base.
-//
-// **One, against doubled loads, which means a holder wins a tie and loses as
-// soon as it is one step busier.** A whole step was tried and was too much:
-// every child of a shared base followed it onto one machine, and two fleet
-// tests reported that nothing crossed the network at all. A chain is placed
-// one step at a time and its loads are level, so a tie is exactly the case it
-// needs.
-//
-// `fleet.transferCost` reaches the same calibration for the driver's own
-// keep-or-delegate decision. Two numbers because the comparisons differ - that
-// one weighs *this* machine against a fleet, this one weighs machines against
-// each other.
-const transferCost = 1
-
-// holdsBase reports whether a worker is already making everything this step
-// stands on.
-//
-// **Asked of the schedule, not of any machine.** Placement happens before
-// anything runs, so no store can be asked what it holds - the layers do not
-// exist yet. What *is* known is where each input will be produced, because
-// placement walks the graph in topological order and has already decided. A
-// step placed where its inputs are being made finds them there.
-//
-// Pure, which §4.7.3 requires: a schedule must be a byte-identical function of
-// the graph and the inventory. An earlier attempt asked the executor whether a
-// worker held a layer, which on a VM backend is an exec into the sandbox - I/O
-// on the placement path, before the sandbox has started, and the build stopped
-// with a step that had been stuck for six minutes.
-//
-// Every input, not any: a base is materialised whole, so a machine that would
-// have half of it still fetches.
-func holdsBase(worker string, n *ir.Node, placed map[ir.NodeID]Worker) bool {
-	if len(n.Inputs) == 0 {
-		return false
-	}
-
-	for _, in := range n.Inputs {
-		if placed[in.ID()].ID != worker {
-			return false
-		}
-	}
-
-	return true
 }

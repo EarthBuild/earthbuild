@@ -352,3 +352,29 @@ Two things still visible in that run and not yet chased:
 * `a worker would not take Earthfile:51 (1 of 2 input(s) ... some blobs could
   not be fetched)` - only four of ten steps were delegated;
 * `compute 0s` beside four delegated steps, which no step costs.
+
+## F3 verified - an unpinned Earthfile now delegates
+
+The same eight-step build with `--platform` on the base **only**, which is how
+anybody would actually write it:
+
+```text
+3 step(s) delegated, 1 here; compute-bound (83%)
+  transfer 26ms for 849.2 KiB in 1 fetch(es), slowest 26ms
+```
+
+Before the inheritance fix that build delegated one step - the `FROM` itself,
+the only node that named a platform. Nothing else changed.
+
+**Next, and it is now the largest remaining refusal.** Every two-machine run so
+far has carried one of these:
+
+```text
+a worker would not take Earthfile:35 (materialise the base for : 3909d5dc… is
+in this step's base and this store holds neither a layer nor a declaration
+for it)
+```
+
+A step is assigned before the base it stands on has arrived. `primeAll` is meant
+to prevent exactly that, so either it is not covering this case or the
+assignment does not wait on it - and with F1 in, waiting is now expressible.

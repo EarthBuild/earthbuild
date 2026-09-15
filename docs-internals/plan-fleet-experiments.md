@@ -909,3 +909,35 @@ the placement itself.
 Reverted. A build that does not finish is worse than one that ships a layer it
 need not, and the finding is worth more than the patch: **the ordering this
 fleet was designed around has never run.**
+
+## The chain hang, traced: a serve and a step contend for one sandbox
+
+Goroutines on a build that had made no progress for six minutes: three stuck in
+`fleet.writeFramed`, each writing `0x2828288` bytes - one 40 MB chain layer
+apiece.
+
+**`serveBlobStream` discarded its context and set no deadline**, so a write to a
+peer that stopped reading blocked for ever. Fixed, twice: the first attempt took
+the bound from the serving context, and `fleet.Driver` serves under a cancel
+with no deadline, so it set nothing and fixed only a test whose context happened
+to have one. The serve carries its own bound now, per blob, five minutes.
+
+The bound fires - `serve e2a6e5cd…: write a message: deadline exceeded` - **and
+the build still stalls.** So the unbounded write was a real defect and not this
+one's cause.
+
+**Where the evidence points.** The stuck step runs on the driver, in the Apple
+VM. The driver is also serving blobs, and with the store inside the VM
+(`guestLayers.Get`) serving one means `container exec` into *that same sandbox*,
+whose stdio the guest protocol already holds. That is the constraint `PackLayer`
+was written around in the first place: "the protocol holds the only stdio pair
+`container exec` gives".
+
+So a driver that serves a layer while running a step is asking one VM to do two
+things that were each designed assuming they were the only one. Locality did not
+cause this; it arranged for the driver to be doing both at once, which nothing
+before it did.
+
+That makes it a consequence of F4 rather than of E-F2, and it is the thread to
+pull next. Locality stays reverted meanwhile: the placement is right and the
+machine underneath it is not ready for what the placement implies.

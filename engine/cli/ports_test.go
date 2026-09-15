@@ -72,6 +72,11 @@ var schedulerPorts = map[string]port{
 	"Record":   {role: mustSet},
 	"MaxStack": {role: mustSet},
 
+	// Where the base already is. Set by the build's scheduler, which has a
+	// fleet to ask; the condition pass has one machine and the question has one
+	// answer there.
+	"Holds": {role: mustSet},
+
 	// The front end supplies the sink, because this package writes nowhere
 	// itself and which stream a warning belongs on is the caller's decision.
 	// Everywhere, not somewhere: see mustSetEverywhere.

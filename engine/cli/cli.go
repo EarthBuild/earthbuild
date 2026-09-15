@@ -744,6 +744,11 @@ func runPlan(
 		Workers:  workers,
 		Executor: over,
 		Cache:    ac,
+		// **Where the base already is**, which placement had no way to ask. A
+		// chain of steps placed by load alone ships its layer at every handoff:
+		// 167.9 MiB across eight steps that computed for three seconds (E-F2).
+		// Nil without a fleet, and then placement is exactly what it was.
+		Holds: holdsVia(over),
 		// A served step says what it said, through the same sink a running one
 		// uses. Without it a cached build's log is missing everything its steps
 		// printed, which is most of what a build log is.
@@ -1123,4 +1128,21 @@ func askStale() bool {
 	default:
 		return true
 	}
+}
+
+// holdsVia is how placement asks who already has an element.
+//
+// Asked of the delegating executor, which is the only thing that knows both
+// what this machine's store holds and what a worker has been sent. Nil for a
+// build with no fleet, where the question has one answer and placement has one
+// machine to give it to.
+func holdsVia(over core.Executor) func(string, ir.NodeID) bool {
+	d, ok := over.(interface {
+		Holds(worker string, id ir.NodeID) bool
+	})
+	if !ok {
+		return nil
+	}
+
+	return d.Holds
 }

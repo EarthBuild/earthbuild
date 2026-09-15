@@ -1156,3 +1156,21 @@ func (r *Rendezvous) priceOf(a Assignment) int { return r.rate.Slots(a.Hints.Byt
 func (r *Rendezvous) observed(reply Reply) {
 	r.rate.Observe(reply.FetchedBytes, reply.FetchMillis, reply.DurationMillis)
 }
+
+// AddressOf is where a worker serves its layers, or empty.
+//
+// Placement asks by worker name and `holders` answers by address, because a
+// worker's blob endpoint is a second identity (E277). This is the one place
+// that knows both.
+func (r *Rendezvous) AddressOf(worker string) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for i := range r.conns {
+		if r.conns[i].id == worker {
+			return r.conns[i].at
+		}
+	}
+
+	return ""
+}

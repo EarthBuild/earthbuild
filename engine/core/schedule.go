@@ -340,6 +340,21 @@ type Scheduler struct {
 	NoCache bool
 	// Parallelism bounds how many steps run at once. NumCPU when zero.
 	Parallelism int
+	// Holds says whether a worker already has an element of a step's base.
+	//
+	// **A chain is where a fleet loses.** Every step stands on the one before
+	// it, so a schedule that moves the work moves a layer with it, and a chain
+	// of n steps placed round-robin ships its base n-1 times (E265). Measured
+	// on an eight-step chain of 40 MB layers: `4 delegated, 4 here`, 167.9 MiB
+	// in four fetches, 86% transfer-bound against three seconds of compute.
+	//
+	// `fleet.prefer` has implemented this ordering all along and is called from
+	// tests and nowhere else; placement sorts by load and had no way to ask who
+	// held anything. This is the question it was missing.
+	//
+	// Nil means nobody knows, which is every build without a fleet and what
+	// placement did before this.
+	Holds func(worker string, id ir.NodeID) bool
 	// claims serialise steps sharing a `--sharing=locked` cache, before they
 	// take a slot rather than after (E434).
 	claims claims
@@ -1272,10 +1287,26 @@ func (s *Scheduler) place(n *ir.Node, load map[string]int) (Worker, error) {
 		return Worker{}, noWorkerFor(n, s.Workers)
 	}
 
+	// What each machine would have to fetch, as a load it is already carrying.
+	//
+	// **Priced rather than absolute.** A chain must stay where its base is; a
+	// fan-out must spread, and almost every build starts `FROM` one common
+	// image - so affinity that ignored load would put every step of an
+	// eight-way parallel build on one machine while seven watched, which is
+	// worse than no affinity at all. A holder wins a tie and loses to a machine
+	// that is `transferCost` less busy.
+	cost := make(map[string]int, len(eligible))
+	for _, w := range eligible {
+		cost[w.ID] = load[w.ID]
+		if !s.holdsBase(w.ID, n) {
+			cost[w.ID] += transferCost
+		}
+	}
+
 	sort.Slice(eligible, func(i, j int) bool {
-		li, lj := load[eligible[i].ID], load[eligible[j].ID]
-		if li != lj {
-			return li < lj
+		ci, cj := cost[eligible[i].ID], cost[eligible[j].ID]
+		if ci != cj {
+			return ci < cj
 		}
 
 		return eligible[i].ID < eligible[j].ID
@@ -2069,4 +2100,46 @@ func predOf(p Profiles, n *ir.Node) Observation {
 	}
 
 	return got
+}
+
+// transferCost is what fetching a base is worth, in steps.
+//
+// The number that reconciles the two things placement has to do. A **chain**
+// must stay where its base is, or it ships that base at every handoff; a
+// **fan-out** must spread. Four means a holder wins while it is fewer than four
+// steps busier than the alternative, which on a machine of sixteen cores is a
+// quarter of a wave - long enough that a chain never leaves, short enough that
+// a fan-out does not pile onto whichever machine happened to build the base.
+//
+// `fleet.transferCost` says the same thing in half-steps for the driver's own
+// keep-or-delegate decision. Two numbers because the comparisons are different
+// - that one weighs *this* machine against a fleet, this one weighs machines
+// against each other - and neither is derived from the other.
+const transferCost = 4
+
+// holdsBase reports whether a worker already has what this step stands on.
+//
+// Every element, not any: a base is materialised whole, so a machine holding
+// half of one still fetches. False when nothing knows, which is every build
+// without a fleet.
+func (s *Scheduler) holdsBase(worker string, n *ir.Node) bool {
+	if s.Holds == nil {
+		return false
+	}
+
+	s.mu.Lock()
+	stack := s.stacks[n.ID()]
+	s.mu.Unlock()
+
+	if len(stack) == 0 {
+		return false
+	}
+
+	for _, id := range stack {
+		if !s.Holds(worker, id) {
+			return false
+		}
+	}
+
+	return true
 }

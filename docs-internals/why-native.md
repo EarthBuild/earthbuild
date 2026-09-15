@@ -27,11 +27,12 @@ not invalidate anything. Buildkit's cache is keyed on inputs as declared.
 
 ## Distribution
 
-**A fleet at all** *(measured)*. Two attempts at a distributed buildkit failed;
-the native engine delegated 64 of 64 steps across two machines today, with the
-base crossing once. That the arithmetic does not yet favour it on a 6-step build
-is a separate question, recorded honestly in
-[plan-fleet-experiments.md](plan-fleet-experiments.md).
+**A fleet that beats one machine** *(measured)*. Two attempts at a distributed
+buildkit failed. This engine builds 64 steps in 49.58s across a Mac and an x86
+box against 96.07s on the Mac alone - **1.94x from two sixteen-core machines**,
+twice each arm. The arithmetic of when that holds, and the four things it needed,
+are in [plan-fleet-experiments.md](plan-fleet-experiments.md); it does not hold
+on a small build with a large base, and that is written down there too.
 
 **Workers need no inbound address** *(structural)*. A worker dials its driver
 and the connection carries assignments back, so a machine behind any NAT can
@@ -69,8 +70,7 @@ a message that had been written to be read.
 ## Not yet true, and worth writing down
 
 * **Faster than buildkit on a cold build** - unestablished either way here.
-* **A fleet that beats one machine** - the honest arithmetic is in
-  plan-fleet-experiments.md and it does not favour a fleet on small builds.
-* **Placement across mixed architectures** - emulation is a last-resort pass,
-  so a Mac cannot help an amd64 build even where Rosetta is within noise of
-  native. Measured today; not yet fixed.
+* **A fleet that pays on a small build** - shipping a 1 GiB base over wifi
+  costs 59s, and no transport work changes that. Only prediction (E-F5) and
+  locality (E-F2) move it.
+* **More than two machines** - nothing here has been run on three.

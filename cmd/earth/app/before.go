@@ -25,6 +25,12 @@ import (
 )
 
 func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+	// The language server owns stdout for JSON-RPC and does not need config,
+	// container frontend, logging, or bootstrap initialization.
+	if cmd.Name == "lsp" || cmd.Args().First() == "lsp" {
+		return ctx, nil
+	}
+
 	flags := app.BaseCLI.Flags()
 
 	if flags.EnableProfiler {

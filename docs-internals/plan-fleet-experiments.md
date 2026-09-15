@@ -604,3 +604,39 @@ primes reporting six steps is an account that quietly does not add up (E270).
 
 Fourteen times less transfer on the critical path for the same bytes, and the
 instrument still says what crossed.
+
+## The two environments have opposite bottlenecks
+
+The same engine, the same split of reaching from reading, on the two fleets this
+project has:
+
+| Fleet                    | Reached | Read    | Payload | Rate       |
+| ------------------------ | ------- | ------- | ------- | ---------- |
+| GitHub, three runners    | 403ms   | 302ms   | 7.9 MiB | 26.2 MiB/s |
+| LAN, Mac driver plus box | 13ms    | 58418ms | 1.0 GiB | 17.5 MiB/s |
+
+**On GitHub the cost is getting to the machine; on the LAN it is the wire.** The
+work that made the CI fleet fourteen times cheaper - opening holders before a
+step needs them - is worth thirteen milliseconds here, because a worker told
+where its driver is dials it directly and there is nothing to discover. And the
+wifi link is already carrying 79% of what `scp` manages over it, so there is
+nothing left in the transport either.
+
+That is the honest state of "can a fleet beat one machine". It can, when the
+compute it moves is large against the base it has to ship. On this LAN that
+means a base of 1 GiB buys 34s of compute across one worker, which it does not:
+`transfer-bound (77%)`, 92.09s of wall clock against 85.69s this morning, inside
+the noise.
+
+**So the remaining work is all about moving less**, and it is the same list it
+was before the transport was ruled out:
+
+* E-F5, prediction: fetch the tenth of a base a step reads. The machinery exists
+  and is what moved the gigabyte; what is missing is a profile good enough to
+  predict from.
+* E-F2, locality: put the step where the base already is, which is what took
+  rebuck2's mesh traffic down sixty-fold.
+
+A wired link would raise the LAN ceiling and is worth having for measurement,
+but it changes which side of the line this workload falls on rather than
+removing the line.

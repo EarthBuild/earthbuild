@@ -77,3 +77,23 @@ ladder:
         RUN --no-cache REPS=$reps SIZES="$sizes" sh ladder/bench.sh | tee /tmp/ladder.tsv
     END
     SAVE ARTIFACT /tmp/ladder.tsv AS LOCAL ladder.tsv
+
+# warm times bazel's own startup cold against warm.
+#
+# **The ladder's intercept is a cold figure**, because every run wipes the cache
+# to measure honestly - which also throws away the bazel server, forcing a JVM
+# start and a full re-analysis. A developer pays that once. What they pay on
+# every build afterwards is the warm number, and the two say different things
+# about whether per-action overhead matters.
+warm:
+    FROM +project
+    WITH RE
+        RUN --no-cache sh -c '\
+            for phase in cold warm-1 warm-2 warm-3; do \
+              if [ "$phase" = cold ]; then rm -rf ~/.cache/bazel; fi; \
+              s=$(date +%s%N); \
+              bazel build //:hello --noshow_progress >/dev/null 2>&1 || echo "FAILED $phase"; \
+              e=$(date +%s%N); \
+              echo "$phase $(( (e-s)/1000000 ))ms"; \
+            done'
+    END

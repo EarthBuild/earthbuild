@@ -175,7 +175,7 @@ func TestALocalConditionIsRefusedWithItsReason(t *testing.T) {
 func TestTheLocalWorkerDeclaresItsPlatform(t *testing.T) {
 	t.Parallel()
 
-	w := localWorker("linux/arm64", nil)
+	w := localWorker("linux/arm64", nil, 0)
 
 	if w.Platform.OS != "linux" || w.Platform.Arch != "arm64" {
 		t.Errorf("the worker declares %+v, want linux/arm64", w.Platform)
@@ -187,7 +187,7 @@ func TestTheLocalWorkerDeclaresItsPlatform(t *testing.T) {
 
 	// An unset platform falls back to this machine's, rather than to none:
 	// declaring nothing means nothing can be scheduled onto it.
-	if got := localWorker("", nil).Platform; got == (ir.Platform{}) {
+	if got := localWorker("", nil, 0).Platform; got == (ir.Platform{}) {
 		t.Error("with no platform given the worker declares none, so nothing with a platform can run")
 	}
 }
@@ -279,5 +279,25 @@ func TestAConditionsOutcomeIsRecorded(t *testing.T) {
 	// A different line is a different site, even with the same words.
 	if _, confident := next.Predict(siteOf([]string{testCommand, "-v", testUnbuffer}, "Earthfile:99", "")); confident {
 		t.Error("history from one line was applied to another")
+	}
+}
+
+// TestTheLocalWorkerStatesItsCapacity.
+//
+// **The build's width is the sum of these now.** It used to be the invoking
+// machine's core count, gating every step including delegated ones - so two
+// sixteen-core machines ran sixteen steps at a time and both sat half idle
+// (E-F1). A machine that stated nothing would be counted as nothing, which is
+// worse than the old behaviour rather than different from it.
+func TestTheLocalWorkerStatesItsCapacity(t *testing.T) {
+	t.Parallel()
+
+	if got := localWorker("linux/arm64", nil, 4).Capacity; got != 4 {
+		t.Errorf("the worker says it runs %d steps at once, want 4", got)
+	}
+
+	if got := localWorker("linux/arm64", nil, 0).Capacity; got <= 0 {
+		t.Errorf("a machine that was given no number states %d, so the fleet's"+
+			" width does not count it at all", got)
 	}
 }

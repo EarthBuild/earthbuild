@@ -83,10 +83,13 @@ type Delegating struct {
 	// exists to avoid, arrived at from the other end (E277).
 	Self string
 
-	lost    sync.Once
-	refused sync.Once
-	kept    sync.Once
-	primed  sync.Once
+	lost     sync.Once
+	roomOnce sync.Once
+	// hereSlots bounds what runs on this machine. See roomHere.
+	hereSlots chan struct{}
+	refused   sync.Once
+	kept      sync.Once
+	primed    sync.Once
 	// flight is how many steps are with the fleet right now, here how many are
 	// running on this machine, and room the largest capacity any worker has
 	// admitted to. See fleetFull.
@@ -287,6 +290,19 @@ func (d *Delegating) noteLost(n *ir.Node, cause error) {
 func (d *Delegating) local(
 	ctx context.Context, n *ir.Node, w core.Worker, base []ir.NodeID, sources [][]ir.NodeID,
 ) (core.Result, error) {
+	// **This machine takes only what it said it would.** The scheduler's
+	// in-flight limit is the fleet's width now, not this machine's core count,
+	// so nothing else bounds what stays here - and a build allowed thirty-two
+	// steps across two machines would start all of them on whichever one kept
+	// them (E-F1). `Room` already said the number and was used only to price a
+	// transfer.
+	release, roomErr := d.roomHere(ctx)
+	if roomErr != nil {
+		return core.Result{}, roomErr
+	}
+
+	defer release()
+
 	d.acct.local()
 
 	// Whatever a worker made that this step needs. A delegated step leaves its
@@ -1127,3 +1143,27 @@ func (d *Delegating) canBringBack() bool { return d.Peers != nil }
 // ask what the layer store holds are handed the build's executor, which with a
 // fleet is this wrapper, and a wrapper holds no store. See cli.here.
 func (d *Delegating) Here() core.Executor { return d.Local }
+
+// roomHere waits for a slot on this machine and returns how to give it back.
+//
+// Zero Room is "as many as arrive", which is what a driver with no executor of
+// its own effectively has and what every build did before this.
+//
+// Made on first use rather than in a constructor: `Delegating` is assembled as
+// a literal in several places and a field nobody sets must not mean a machine
+// that can run nothing.
+func (d *Delegating) roomHere(ctx context.Context) (func(), error) {
+	if d.Room <= 0 {
+		return func() {}, nil
+	}
+
+	d.roomOnce.Do(func() { d.hereSlots = make(chan struct{}, d.Room) })
+
+	select {
+	case d.hereSlots <- struct{}{}:
+		return func() { <-d.hereSlots }, nil
+
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}

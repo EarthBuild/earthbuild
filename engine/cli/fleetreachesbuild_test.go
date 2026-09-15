@@ -34,7 +34,7 @@ func TestTheBuildSchedulesOntoTheFleet(t *testing.T) {
 
 	g := &engine{fleetEx: x}
 
-	got, workers := g.scheduling(nil, "linux/arm64")
+	got, workers := g.scheduling(nil, "linux/arm64", 0)
 
 	if got != core.Executor(x) {
 		t.Error("the build was given an executor other than the fleet's, so" +
@@ -77,7 +77,7 @@ func TestABuildWithNoFleetSchedulesLocally(t *testing.T) {
 
 	g := &engine{}
 
-	got, workers := g.scheduling(plain, "linux/arm64")
+	got, workers := g.scheduling(plain, "linux/arm64", 0)
 
 	if got != core.Executor(plain) {
 		t.Error("a build with no fleet was given something other than its own executor")

@@ -13,7 +13,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -56,6 +55,13 @@ type Worker struct {
 	// So a translator is eligible in the first pass, beside the machines of the
 	// architecture, and competes on load like any of them.
 	Translates []ir.Platform
+	// Capacity is how many steps this machine runs at once, and zero means it
+	// has not said.
+	//
+	// **What makes a build as wide as its fleet.** See inFlight: the in-flight
+	// limit was the driver's core count whatever machines had joined, so adding
+	// one added no concurrency.
+	Capacity int
 }
 
 // canEmulate reports whether this machine can run that platform under emulation.
@@ -545,10 +551,7 @@ func (s *Scheduler) Run(ctx context.Context, g *ir.Graph) (Schedule, error) {
 	// graph position rather than by which goroutine lost the race. Green paper
 	// (4.10) requires exactly this - any legal schedule yields the same
 	// artefacts, and concurrency is a legal schedule.
-	limit := s.Parallelism
-	if limit <= 0 {
-		limit = runtime.NumCPU()
-	}
+	limit := inFlight(s.Workers, s.Parallelism)
 
 	indexOf := make(map[ir.NodeID]int, len(nodes))
 	for i, n := range nodes {

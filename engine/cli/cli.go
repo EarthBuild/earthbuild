@@ -655,7 +655,7 @@ func runPlan(
 	// executor *and* the worker list, and a scheduler that does not know a
 	// worker exists never places a step on it whatever executor it holds
 	// (E500).
-	over, workers := g.scheduling(e, o.Platform)
+	over, workers := g.scheduling(e, o.Platform, parallelismFor(sb, o.env))
 
 	// What the L2 tier verifies its hits against: the store's index, with the
 	// store itself as the fallback that says when the index lagged (E542).
@@ -1064,8 +1064,13 @@ func (g *engine) fleetExec() core.Executor {
 	return g.fleetEx
 }
 
-func (g *engine) scheduling(local core.Executor, platform string) (core.Executor, []core.Worker) {
-	workers := []core.Worker{localWorker(platform, local)}
+func (g *engine) scheduling(
+	local core.Executor, platform string, room int,
+) (core.Executor, []core.Worker) {
+	// **This machine's share of the build's width.** The in-flight limit is the
+	// sum of every worker's capacity now, so the invoker has to state its own
+	// rather than being the limit by accident (E-F1).
+	workers := []core.Worker{localWorker(platform, local, room)}
 
 	fleetEx := g.fleetExec()
 	if fleetEx == nil {

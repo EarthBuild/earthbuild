@@ -518,7 +518,15 @@ func TestShippingToAMachineThatHasTheInputsIsFree(t *testing.T) {
 		Fleet: fleet,
 		Store: &mapStore{has: map[ir.NodeID]bool{base: true}},
 		Sizes: func(ir.NodeID) int64 { return 100 << 20 },
-		Room:  1,
+		// **Two, and the second is not slack.** `Room` used to price a transfer
+		// and nothing else; it bounds what runs here now, because the
+		// scheduler's in-flight limit is the fleet's width rather than this
+		// machine's core count (E-F1). With one the held step would occupy the
+		// only slot and the step this test expects to be *kept* would queue
+		// behind it for ever - which is correct behaviour and not what is being
+		// asserted. One step still occupies the machine, which is all the
+		// comparison needs.
+		Room: 2,
 	}
 
 	// A measured fleet on which that base is worth a great many steps.

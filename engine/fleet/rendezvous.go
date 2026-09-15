@@ -747,6 +747,10 @@ func (r *Rendezvous) Inventory() []core.Worker {
 			Platform:   platformOf(w.platform),
 			Emulates:   platformsOf(w.emulates),
 			Translates: platformsOf(w.translates),
+			// **What makes the build as wide as the fleet.** The in-flight
+			// limit is the sum of these; a worker that has not said is counted
+			// as nothing rather than guessed at (E-F1).
+			Capacity: w.capacity,
 		})
 	}
 

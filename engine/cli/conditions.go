@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -382,7 +383,7 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 
 		g.fleetStop = stop
 
-		workers := []core.Worker{localWorker(g.o.Platform, nil)}
+		workers := []core.Worker{localWorker(g.o.Platform, nil, parallelismFor(sb, g.o.env))}
 		if d, ok := x.(*fleet.Delegating); ok {
 			workers = append(workers, d.Remote()...)
 		}
@@ -662,7 +663,14 @@ func (g *engine) remotes(ctx context.Context) interp.Remotes {
 // A node asking for a platform this machine cannot run still fails, which is
 // the point: that is a scheduling failure that says so, rather than a silent
 // build of the wrong architecture.
-func localWorker(platform string, local core.Executor) core.Worker {
+func localWorker(platform string, local core.Executor, capacity int) core.Worker {
+	// Zero is the scheduler's old default said explicitly: one step per core.
+	// It has to be a number here, because the build's width is now the sum of
+	// these and a machine counted as nothing would not be counted at all.
+	if capacity <= 0 {
+		capacity = runtime.NumCPU()
+	}
+
 	if platform == "" {
 		platform = exec.DefaultPlatform()
 	}
@@ -695,6 +703,10 @@ func localWorker(platform string, local core.Executor) core.Worker {
 
 	w := core.Worker{
 		ID: "local", IsInvoker: true, Emulates: emulates, Translates: translates,
+		// **What this machine takes, so the build can be wider than it.** The
+		// in-flight limit is the fleet's width now rather than this machine's
+		// core count, and this is this machine's share of it (E-F1).
+		Capacity: capacity,
 	}
 
 	p, err := platforms.Parse(platform)

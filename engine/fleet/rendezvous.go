@@ -349,10 +349,7 @@ func (r *Rendezvous) ask(ctx context.Context, c *iroh.Conn, a Assignment) (Reply
 		reach = defaultReach
 	}
 
-	bounded, cancel := context.WithTimeout(ctx, reach)
-	defer cancel()
-
-	return askOver(bounded, c, a)
+	return askOver(ctx, c, a, reach)
 }
 
 // drop removes workers that could not be reached.
@@ -500,7 +497,9 @@ func Serving(held Held) JoinOpt {
 }
 
 // askOver sends one assignment over a connection a worker opened.
-func askOver(ctx context.Context, conn *iroh.Conn, a Assignment) (Reply, error) {
+func askOver(
+	ctx context.Context, conn *iroh.Conn, a Assignment, reach time.Duration,
+) (Reply, error) {
 	// A worker with no connection behind it. Reached through AddForTest, and
 	// through nothing else - but dereferencing it panicked the driver, and a
 	// comment three functions away asserted that it would not (E256).
@@ -508,21 +507,18 @@ func askOver(ctx context.Context, conn *iroh.Conn, a Assignment) (Reply, error) 
 		return Reply{}, fmt.Errorf("%w: no connection to this worker", ErrWorkerGone)
 	}
 
-	s, err := conn.OpenStreamSync(ctx)
+	// **Opening is the part a live worker does in milliseconds**, so the reach
+	// belongs here whole. Everything after it is the step, which takes as long
+	// as the step takes.
+	opening, cancel := context.WithTimeout(ctx, reach)
+	defer cancel()
+
+	s, err := conn.OpenStreamSync(opening)
 	if err != nil {
 		return Reply{}, fmt.Errorf("open a stream to a worker: %w", err)
 	}
 
 	defer func() { _ = s.Close() }()
-
-	// The context covers opening the stream and **nothing after it**: the read
-	// below takes no context, so a worker whose machine vanished after the
-	// stream was opened would block until QUIC gave up on the connection - tens
-	// of seconds, once per step, which is what the bound existed to prevent
-	// (E256). A deadline on the stream is what actually applies it.
-	if dl, ok := ctx.Deadline(); ok {
-		_ = s.SetDeadline(dl)
-	}
 
 	_, err = s.Write([]byte{kindAssign})
 	if err != nil {
@@ -534,16 +530,19 @@ func askOver(ctx context.Context, conn *iroh.Conn, a Assignment) (Reply, error) 
 		return Reply{}, err
 	}
 
-	body, err := ReadMessage(s)
+	// **The bound is between frames, not around the step.** A worker that is
+	// working says so, and each beat buys it another reach - so the deadline
+	// still catches a machine that vanished (E256) without calling a slow step
+	// a dead one (E-F1). The build's own deadline still caps it.
+	reply, err := readReply(s, func(t time.Time) {
+		if dl, ok := ctx.Deadline(); ok && dl.Before(t) {
+			t = dl
+		}
+
+		_ = s.SetDeadline(t)
+	}, reach)
 	if err != nil {
 		return Reply{}, err
-	}
-
-	var reply Reply
-
-	err = json.Unmarshal(body, &reply)
-	if err != nil {
-		return Reply{}, fmt.Errorf("%w: a reply that is not JSON: %w", ErrMalformed, err)
 	}
 
 	return reply, nil
@@ -633,19 +632,17 @@ func answer(
 
 	a, err := Decode(body)
 	if err != nil {
-		_ = replyWith(s, Reply{Version: Version, Refused: err.Error()})
+		_ = sendReply(s, Reply{Version: Version, Refused: err.Error()})
 
 		return
 	}
 
-	r, err := run(ctx, a)
+	// Beating while it works, so the driver can tell a busy worker from a dead
+	// one without bounding the step. See replyRunning.
+	err = replyRunning(ctx, s, beatEvery, func() (Reply, error) { return run(ctx, a) })
 	if err != nil {
-		_ = replyWith(s, Reply{Version: Version, Refused: err.Error()})
-
-		return
+		onError(fmt.Errorf("answer an assignment: %w", err))
 	}
-
-	_ = replyWith(s, r)
 }
 
 var _ Transport = (*Rendezvous)(nil)

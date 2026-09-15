@@ -275,3 +275,53 @@ box run arm64.
 **Bytes moved: still unmeasured.** Every run so far reports `0 B in 0 fetch(es)`
 because the worker already held the base. The number this plan exists to reduce
 needs defect 2 fixed and a cold worker store.
+
+## E-F1 - the measurement, and the two bounds that collide
+
+Mac driver, x86 box as worker, LAN. `EARTH_STORE_IN_VM=0` so the driver's blob
+keeper reads the store it actually has (defect 2 above, routed around rather
+than fixed).
+
+**The happy path works, and the central claim holds.** Eight steps on a 7.9 MiB
+amd64 base, worker cold:
+
+```text
+7 step(s) delegated, 3 here; compute-bound (87%)
+  transfer 1.95s for 7.9 MiB in 1 fetch(es), slowest 977ms
+  compute 13.886s · queue 0s · wire 77ms
+```
+
+One fetch for seven steps. `provision.go`'s "what is present is not fetched" is
+true, and a worker that keeps its store between steps is worth what it claims.
+
+**`--platform` does not reach a depending target.** `fromSpec` takes
+`opts.Platform` from the `FROM` line being read, so `FROM +common` adopts
+nothing from `common` and the node is labelled with the *driver's* architecture.
+Placement believes the label, an amd64 worker is ineligible for a step that will
+in fact run amd64 content, and the fleet is offered only the steps that name a
+platform literally. Pinning every target's `FROM` took the same build from 1
+delegated to 7, with nothing else changed.
+
+**Two bounds that cannot both be satisfied.** Repeating the run against the
+1032 MiB `rust:1.83-alpine` base:
+
+```text
+no worker took Earthfile:51 (the worker stopped answering after 1 attempt(s):
+this is not a well-formed assignment: no length: deadline exceeded)
+0 delegated, 6 local        # and the worker's store: 4.0K
+```
+
+A cold worker must fetch the base before it can run anything, and the whole
+assignment round is bounded at 10s (defect 3). A GB does not cross a LAN in ten
+seconds, so the worker is declared dead mid-fetch, its store stays empty, and
+the *next* assignment finds it just as cold. **A worker whose base does not fit
+inside the liveness bound can never warm up.** Nothing in the fleet recovers
+from this on its own; it is not a slow path but an absorbing state.
+
+That is the whole result. The mechanism is sound and the bounds are wrong.
+
+**Unexplained, low confidence.** One run reported `FROM rust:1.83-alpine
+NON-DETERMINISM: nothing in the key changed and the output did` across the
+store-in-VM boundary - the same pinned digest unpacked to two layer IDs. It may
+be an artefact of moving the store rather than of the unpack. Worth a look
+before it is quoted as a determinism failure.

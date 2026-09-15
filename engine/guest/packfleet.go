@@ -39,3 +39,23 @@ func PackFleetLayer(root string, id ir.NodeID, w io.Writer) error {
 
 	return nil
 }
+
+// UnpackFleetLayer files an element a peer sent into this guest's store.
+//
+// The return journey of `PackFleetLayer`, and the reason it exists is the same:
+// a driver whose store is inside the VM has to take back what a worker produced
+// (E274), and the host cannot write into that store any more than it can read
+// it.
+//
+// **The identity is derived here and not taken from the sender**, because
+// `fleet.Layers.Put` derives it: what arrives is captured and named by its
+// contents, and `Provision` refuses anything whose name is not the one it asked
+// for. A guest is no more trusting of a stream than a worker is (I6, §5.3).
+func UnpackFleetLayer(root string, r io.Reader) (ir.NodeID, int64, error) {
+	id, n, err := (&fleet.Layers{Root: root}).Put(r)
+	if err != nil {
+		return ir.NodeID{}, 0, fmt.Errorf("take an element for the fleet: %w", err)
+	}
+
+	return id, n, nil
+}

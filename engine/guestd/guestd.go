@@ -124,6 +124,21 @@ func Main(args []string) {
 		return
 	}
 
+	// And the return journey: an element a worker produced, on stdin, filed
+	// into this store. The identity is derived from what arrives and printed,
+	// because the caller has to check it is the one it asked for (F4).
+	if len(args) > 0 && args[0] == "--unpack-fleet" {
+		id, n, err := guest.UnpackFleetLayer(guestRoot(), os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s --unpack-fleet: %v\n", label(), err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("%s %d\n", id, n)
+
+		return
+	}
+
 	// What a stack element declares, for the same host that cannot open the
 	// store to read a layer. Bytes on stdout and nothing else, exactly as
 	// `--pack`; an element that declares nothing writes none and exits clean,

@@ -8,6 +8,7 @@ import (
 	"io"
 	osexec "os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -69,4 +70,69 @@ func (a *Apple) packVia(ctx context.Context, mode string, id ir.NodeID, w io.Wri
 	}
 
 	return nil
+}
+
+// UnpackFleetLayer files an element into this sandbox's store, from a stream.
+//
+// The return journey of `PackFleetLayer`, through the same second exec with the
+// pipe pointed the other way: a driver takes back what a worker produced (E274)
+// and cannot write into a store on the guest's own device.
+//
+// The guest prints the identity it derived and the bytes it took, because the
+// caller has to check that what arrived is what it asked for - a name taken
+// from the sender would make this the one place in the fleet that trusts one
+// (I6).
+func (a *Apple) UnpackFleetLayer(ctx context.Context, r io.Reader) (ir.NodeID, int64, error) {
+	guestBin, err := a.guestBinary()
+	if err != nil {
+		return ir.NodeID{}, 0, fmt.Errorf("take an element: %w", err)
+	}
+
+	cmd := osexec.CommandContext(ctx, "container", "exec", "-i", //nolint:gosec // fixed argv
+		"-e", "EARTH_GUEST_ROOT="+guestStore,
+		a.name, "/earth/"+filepath.Base(guestBin), "--unpack-fleet")
+
+	var (
+		said      strings.Builder
+		complaint strings.Builder
+	)
+
+	cmd.Stdin = r
+	cmd.Stdout = &said
+	cmd.Stderr = &complaint
+
+	err = cmd.Run()
+	if err != nil {
+		if why := strings.TrimSpace(complaint.String()); why != "" {
+			return ir.NodeID{}, 0, fmt.Errorf("take an element in %s: %w\n  %s",
+				a.name, err, why)
+		}
+
+		return ir.NodeID{}, 0, fmt.Errorf("take an element in %s: %w", a.name, err)
+	}
+
+	return parseTaken(said.String())
+}
+
+// parseTaken reads what the guest said it filed.
+func parseTaken(said string) (ir.NodeID, int64, error) {
+	name, size, ok := strings.Cut(strings.TrimSpace(said), " ")
+	if !ok {
+		return ir.NodeID{}, 0, fmt.Errorf("the guest filed an element and said"+
+			" %q, which is not an identity and a size", said)
+	}
+
+	id, err := ir.ParseNodeID(name)
+	if err != nil {
+		return ir.NodeID{}, 0, fmt.Errorf("the guest named what it filed %q: %w",
+			name, err)
+	}
+
+	n, err := strconv.ParseInt(size, 10, 64)
+	if err != nil {
+		return ir.NodeID{}, 0, fmt.Errorf("the guest sized what it filed %q: %w",
+			size, err)
+	}
+
+	return id, n, nil
 }

@@ -367,9 +367,13 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		// costs nothing; when it does not, the *workers it found* have to reach
 		// the scheduler too, or placement never puts a step on them and the
 		// build looks local while a fleet sits idle.
+		// **Where the layers actually are.** A store on the guest's own device
+		// is not the host directory this used to name, and a driver reading an
+		// empty directory serves nothing - so a Mac held the base of its own
+		// build and every worker refused every step (F4). See fleetStore.
 		x, stop, err := fleet.Driver(context.Background(), e,
 			func(s string) { fmt.Fprintln(g.o.Out, s) },
-			&fleet.Layers{Root: sb.StoreDir()}, g.profiles(sb.StoreDir()))
+			fleetStore(sb, e, sb.StoreDir()), g.profiles(sb.StoreDir()))
 		if err != nil {
 			g.err = err
 

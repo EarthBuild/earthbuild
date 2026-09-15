@@ -121,3 +121,40 @@ func aLayerIn(t *testing.T, root string) ir.NodeID {
 
 	return c.ID
 }
+
+// TestAnElementGoesBackIntoTheGuestStore.
+//
+// A driver takes back what a worker produced (E274), and with the store inside
+// the VM the host can no more write into it than read it. The round trip is the
+// property: what a fleet packs, a guest stores, under the same identity.
+func TestAnElementGoesBackIntoTheGuestStore(t *testing.T) {
+	t.Parallel()
+
+	theirs := t.TempDir()
+	id := aLayerIn(t, theirs)
+
+	packed, err := (&fleet.Layers{Root: theirs}).Get(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	guestStore := t.TempDir()
+
+	got, n, err := guest.UnpackFleetLayer(guestStore, bytes.NewReader(packed))
+	if err != nil {
+		t.Fatalf("filing an element into the guest's store: %v", err)
+	}
+
+	if got != id {
+		t.Fatalf("it arrived as %v, sent as %v", got, id)
+	}
+
+	if n <= 0 {
+		t.Errorf("an element of %d bytes was filed", n)
+	}
+
+	// And it is servable from there, which is what makes the driver a peer.
+	if !(&fleet.Layers{Root: guestStore}).Has(id) {
+		t.Error("the guest's store took an element and does not hold it")
+	}
+}

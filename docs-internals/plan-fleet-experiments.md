@@ -537,3 +537,41 @@ Three things were tried and are recorded because two of them failed:
 Worth stating plainly: on GitHub this is a bigger lever than prediction or
 locality. The build is 82% compute-bound *because* it is small; a real base
 over a 1.3 MiB/s route would not be.
+
+## Splitting one number into two ended the argument
+
+Three attempts to make GitHub's fleet transfer faster all missed, because
+`transfer` covered reaching a peer and moving bytes with one figure. Two
+figures, one run:
+
+```text
+fetched from fb05f586… over ip:57.151.129.40:37969
+  (reached in 3363ms, read in 302ms)
+```
+
+7.9 MiB in 302ms is 26 MiB/s. The transport was never slow. Measured both ways
+on the same workload:
+
+| Route  | Reached | Read   | Rate       |
+| ------ | ------- | ------ | ---------- |
+| relay  | 403ms   | 1394ms | 5.7 MiB/s  |
+| direct | 3363ms  | 302ms  | 26.2 MiB/s |
+
+So each route wins one half, and both of the obvious answers are wrong. The
+relay really is 4.6x slower to read from - the first theory was right about
+that - but *waiting* for a direct path costs a flat three seconds, which is
+more than the relay loses on any fetch this size. Forcing direct made the
+build slower; leaving it on the relay left 4.6x on the table.
+
+**Neither, then.** The first fetch takes whatever path is up and the punching
+happens behind it, so by the second fetch a direct connection is waiting. A
+build with one fetch is exactly as fast as before; a build with many pays the
+punching once, which is the shape of every real build - a base, then everything
+standing on it. CI: 5.941s, the best of nine runs, with no added latency.
+
+**What is left is not in the transport.** Reaching a peer costs 0.4s to 3s
+before anything moves, paid per peer. On a small build that is most of the
+fleet's cost and it is fixed rather than proportional, which is the signature
+this project has learnt to recognise (E335, E337). Warming the blob connection
+at join time, while the driver is still planning, would take it off the critical
+path entirely.

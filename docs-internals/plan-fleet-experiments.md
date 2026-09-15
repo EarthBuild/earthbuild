@@ -813,3 +813,28 @@ one machine finishes and the other still has work - `compute` says 24.1s per
 delegated step against a 96s/4-wave single-machine figure that implies the same,
 so the per-step costs are close and the loss is in the shape of the schedule
 rather than in either machine.
+
+## 1.94x, and the missing half was the harness
+
+The gap from 2x was mine. The driver waits for its fleet before running
+anything - §4.7.3 requires a schedule computed against a known inventory - so a
+worker that joins late delays the whole build. This harness slept ten seconds
+before starting one, and the worker then took its own time to boot and join.
+
+Started as soon as the driver publishes its address instead:
+
+| Arrangement           | Runs         | Mean    | Speedup   |
+| --------------------- | ------------ | ------- | --------- |
+| one machine, 16 cores | 95.90, 96.24 | 96.07s  | -         |
+| fleet, worker late    | 68.32, 65.15 | 66.73s  | 1.44x     |
+| fleet, worker ready   | 50.30, 48.86 | 49.58s  | **1.94x** |
+
+Two machines of sixteen cores, 1.94x. There is no meaningful gap left to
+explain on this workload: the split is even, the per-step costs match, and what
+remains is the one wave neither machine can avoid.
+
+**The measurement to keep is the middle row, not the bottom one.** A fleet whose
+workers join when the build starts is a fleet in a laboratory. In CI the runners
+start together and the wait is real; on a desk the worker is a daemon that was
+already there. Both are legitimate and they are seventeen seconds apart, so a
+result quoting either without saying which is not a result.

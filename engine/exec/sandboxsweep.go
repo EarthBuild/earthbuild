@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -56,7 +54,7 @@ func holdSandboxFile(dir string) (held *os.File, release func(), err error) {
 		return nil, nil, err
 	}
 
-	err = unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB)
+	err = tryFlock(f)
 	if err != nil {
 		_ = f.Close()
 

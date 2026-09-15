@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/sys/unix"
 )
 
 // claimStore takes exclusive use of a store device for as long as this process
@@ -167,7 +165,7 @@ func flockWithin(f *os.File, within time.Duration) (error, time.Duration) { //no
 	)
 
 	for {
-		err = unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB)
+		err = tryFlock(f)
 		if err == nil || time.Since(start) >= within {
 			return err, time.Since(start) //nolint:wrapcheck // the caller writes the diagnosis
 		}

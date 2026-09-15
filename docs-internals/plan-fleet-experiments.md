@@ -485,3 +485,55 @@ for a bad transport, it is paying to move a 1032 MiB base across wifi to save
 (fetch the tenth of a base a step reads) and E-F2's locality dispatch (put the
 step where the base already is). Those were always the interesting experiments;
 this says they are the only ones.
+
+## GitHub: the data plane never leaves the relay
+
+The place this most needs to work, and the first place the instrument could
+say anything about it. Three runners, driver plus two workers, `fleet-e2e`.
+
+Before today the workflow passed and reported `transfer 0s for 0 B in 0
+fetch(es)` - the fault-in accounting gap. With that fixed:
+
+```text
+4 step(s) delegated, 1 here; compute-bound (82%)
+  transfer 6.124s for 7.9 MiB in 1 fetch(es), slowest 6.124s
+```
+
+7.9 MiB in 6.124s is about 1.3 MiB/s between two machines in one datacentre.
+The route says why:
+
+```text
+fetched from 0ab2a4ec… over relay:https://use1-1.relay.n0.iroh-canary.iroh.link./,
+  ip:74.235.90.91:28737 sent 0 B received 0 B
+```
+
+**A direct path is validated, multipath is negotiated, and it carries nothing
+in either direction.** The relay does all of it, and which relay varied by run:
+`usw1`, `use1`, and once `aps1`, which is Mumbai, for two runners in the
+United States.
+
+Three things were tried and are recorded because two of them failed:
+
+* **Waiting for hole punching before transferring.** Works - the direct path is
+  validated on every connection - and changes nothing: 6.213s, 8.226s, 9.095s
+  against 6.124s without. Off by default, mechanism kept.
+* **Reading `BytesSent` to see which path carried the transfer.** Wrong
+  counter: a fetcher is a receiver, so its send counter is the size of its
+  request whatever path carries the reply. Both directions are reported now,
+  and they agree - the direct path is idle.
+* **Suspecting multipath was not negotiated.** It is. The connection has two
+  validated paths, a selector that documents a preference for direct over
+  relay, and no bytes on the direct one.
+
+**What to try next**, in order of how much is under this engine's control:
+
+1. Dial the blob connection at the peer's validated direct address with no
+   relay in the endpoint address at all, so there is nothing to fall back to.
+   The address is known - it is in the route line above.
+2. Pin the relay map to a region near the fleet, so the fallback is at least
+   not Mumbai.
+3. Ask upstream whether migration is meant to happen here.
+
+Worth stating plainly: on GitHub this is a bigger lever than prediction or
+locality. The build is 82% compute-bound *because* it is small; a real base
+over a 1.3 MiB/s route would not be.

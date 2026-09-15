@@ -3,7 +3,7 @@ package common
 // Only functions that do NOT touch the app CLI should go here!
 
 import (
-	"bytes"
+	"debug/buildinfo"
 	"fmt"
 	"os"
 	"path"
@@ -11,7 +11,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -144,25 +143,33 @@ func IfNilBoolDefault(ptr *bool, defaultValue bool) bool {
 	return *ptr
 }
 
-// IsEarthlyBinary checks whether the specified path refers to an earthbuild executable binary.
-func IsEarthlyBinary(path string) bool {
-	// apply heuristics to see if binary is a version of earth
-	data, err := os.ReadFile(path) // #nosec G304
+// earthBuildModulePath is the Go module path of the current EarthBuild binary.
+const earthBuildModulePath = "github.com/EarthBuild/earthbuild"
+
+// legacyEarthlyModulePath is the Go module path of pre-fork upstream earthly
+// binaries, which bootstrap still needs to recognise so it can replace them.
+const legacyEarthlyModulePath = "github.com/earthly/earthly"
+
+// IsEarthBinary reports whether the file at path is an earth executable, by
+// reading the Go module metadata embedded in the binary (without executing it)
+// and comparing its main module path against the EarthBuild module path and the
+// legacy upstream earthly one.
+//
+// It fails closed: anything that is not a readable Go binary built from one of
+// those modules - a missing file, a directory, a truncated or non-Go file, or a
+// permission error - reports false. Callers use this as a guard before
+// destructive operations, so a false negative is safe while a false positive is
+// not.
+func IsEarthBinary(path string) bool {
+	info, err := buildinfo.ReadFile(path)
 	if err != nil {
 		return false
 	}
 
-	if !bytes.Contains(data, []byte("docs.earthly.dev")) {
+	switch info.Main.Path {
+	case earthBuildModulePath, legacyEarthlyModulePath:
+		return true
+	default:
 		return false
 	}
-
-	if !bytes.Contains(data, []byte("api.earthly.dev")) {
-		return false
-	}
-
-	if !bytes.Contains(data, []byte(buildcontext.Earthfile)) {
-		return false
-	}
-
-	return true
 }

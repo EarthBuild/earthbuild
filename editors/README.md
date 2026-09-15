@@ -7,22 +7,28 @@ server exposed by:
 earth lsp
 ~~~
 
-The reusable language analysis is implemented in Go under
-`internal/earthfile/analyzer`. Editor adapters should launch the native
-server instead of reimplementing Earthfile semantics.
+The canonical lexer/parser and reusable language analysis are implemented in
+Go under `internal/earthfile` and `internal/earthfile/analyzer`. Editor
+adapters should launch the native server instead of reimplementing Earthfile
+semantics.
 
 ## Layout
 
-- `zed/` contains the Zed extension, language configuration, and Tree-sitter
-  queries.
+- `tree-sitter-earthfile/` contains a deliberately shallow, error-tolerant
+  structural grammar shared by editors that require Tree-sitter.
+- `zed/` contains the Zed extension, language configuration, and queries.
 - Future editor integrations should use their own sibling directories, such
   as `vscode/` and `neovim/`.
 
-Tree-sitter consumers share
-[`tree-sitter-earthfile`](https://github.com/glehmann/tree-sitter-earthfile).
-The grammar revision is pinned by each adapter so updates can be tested and
-reviewed independently. VS Code-style TextMate consumers can migrate the
-existing
+Tree-sitter recognizes target and function boundaries, commands, comments,
+and opaque argument lines. It deliberately does not reproduce shell quoting
+or other Earthfile semantics. Detailed highlighting, diagnostics, hover, and
+navigation come from `earth lsp`, backed by the canonical Go implementation.
+A parity suite ensures every valid canonical parser fixture produces an
+error-free structural tree without losing target boundaries.
+
+Adapters pin a reviewed revision of the in-repository grammar. VS Code-style
+TextMate consumers can migrate the existing
 [`earthfile-grammar`](https://github.com/EarthBuild/earthfile-grammar)
 assets into a future adapter here.
 

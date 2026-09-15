@@ -1,8 +1,9 @@
 # EarthBuild for Zed
 
-This extension recognizes `Earthfile` and `*.earth` files, provides
-Tree-sitter syntax highlighting, and launches the integrated EarthBuild
-language server.
+This extension recognizes `Earthfile` and `*.earth` files and launches the
+integrated EarthBuild language server. Its Tree-sitter grammar only provides
+error-tolerant document structure; semantic highlighting, diagnostics, hover,
+and navigation come from the canonical Go implementation behind `earth lsp`.
 
 ## Prerequisites
 
@@ -25,5 +26,5 @@ binary.
    the language-server status menu.
 
 Zed compiles procedural extensions to WebAssembly. The Rust adapter contains
-only the Zed host integration; parsing, diagnostics, hover, and navigation stay
-in the shared Go implementation.
+only the Zed host integration; language semantics stay in the shared Go
+implementation.

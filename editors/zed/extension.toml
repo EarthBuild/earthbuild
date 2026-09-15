@@ -14,5 +14,6 @@ languages = ["Earthfile"]
 Earthfile = "earth"
 
 [grammars.earthfile]
-repository = "https://github.com/glehmann/tree-sitter-earthfile"
-rev = "5baef88717ad0156fd29a8b12d0d8245bb1096a8"
+repository = "https://github.com/EarthBuild/earthbuild"
+rev = "5bf5de046029b0e4358112e0bd1572d2ea533a9f"
+path = "editors/tree-sitter-earthfile"

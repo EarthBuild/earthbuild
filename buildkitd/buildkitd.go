@@ -1453,6 +1453,10 @@ func humanizeBytes(v int64) string {
 // (ca_cert.pem, buildkit_cert.pem, and buildkit_key.pem) into a secure, isolated directory
 // for container engines (such as Apple Container) that require directory-level bind mounts.
 func prepareServerCertsDir(settings Settings) (string, error) {
+	if settings.ServerTLSCert == "" {
+		return "", errors.New("server TLS certificate path is empty")
+	}
+
 	certsDir := filepath.Dir(settings.ServerTLSCert)
 	serverCertsDir := filepath.Join(certsDir, "buildkitd")
 

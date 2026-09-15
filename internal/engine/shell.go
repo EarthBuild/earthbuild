@@ -227,8 +227,9 @@ func (e *shellEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 			args = append(args, "-p", portMapping.String())
 		}
 
-		args = append(args, "-d")
-		args = append(args, "--name", spec.NameOrID)
+		args = append(args,
+			"-d",
+			"--name", spec.NameOrID)
 		args = append(args, spec.AdditionalArgs...)
 		args = append(args, e.RunArgs...)
 		args = append(args, spec.ImageRef)

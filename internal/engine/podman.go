@@ -131,7 +131,8 @@ func (e *podmanEngine) PullImage(ctx context.Context, refs ...string) error {
 
 	for _, ref := range refs {
 		args := []string{"pull"}
-		if strings.HasPrefix(ref, e.Addrs.LocalRegistry.Host+"/") {
+
+		if e.Addrs.IsLocalRegistry(ref) {
 			// Rather than force users to add an exemption locally in /etc/containers/registries.conf, detect when we are
 			// pulling from our own internal registry and manually exempt it from TLS.
 			args = append(args, "--tls-verify=false")
@@ -204,8 +205,17 @@ func (e *podmanEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 		return nil, err
 	}
 
-	idx := strings.Index(output.String(), "Local Volumes space usage:")
-	val := output.String()[idx:] //nolint:gocritic
+	var (
+		val string
+		out = output.String()
+	)
+
+	idx := strings.Index(out, "Local Volumes space usage:")
+	if idx == -1 {
+		return nil, fmt.Errorf("'Local Volumes space usage:' not found in podman df output: %s", out)
+	}
+
+	val = out[idx:]
 	lines := strings.Split(val, "\n")[3:]
 	volumes := make([]Volume, 0, len(volumeNames))
 

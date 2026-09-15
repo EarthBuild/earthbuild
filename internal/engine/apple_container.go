@@ -269,26 +269,23 @@ func (e *appleEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 			args = append(args, "--cap-add", "ALL", "--read-only-path", "NONE", "--masked-path", "NONE")
 		}
 
-		hasCPUs := false
-		hasMemory := false
+		var hasCPUs, hasMemory bool
 
 		for _, arg := range spec.AdditionalArgs {
-			if arg == "-c" || arg == "--cpus" || strings.HasPrefix(arg, "--cpus=") {
+			switch {
+			case arg == "-c", arg == "--cpus", strings.HasPrefix(arg, "--cpus="):
 				hasCPUs = true
-			}
-
-			if arg == "-m" || arg == "--memory" || strings.HasPrefix(arg, "--memory=") {
+			case arg == "-m", arg == "--memory", strings.HasPrefix(arg, "--memory="):
 				hasMemory = true
 			}
 		}
 
-		cpus, memMB := defaultContainerResources()
-		if !hasCPUs && cpus > 0 {
-			args = append(args, "-c", strconv.Itoa(cpus))
+		if !hasCPUs {
+			args = append(args, "-c", strconv.Itoa(runtime.NumCPU()))
 		}
 
-		if !hasMemory && memMB > 0 {
-			args = append(args, "-m", fmt.Sprintf("%dM", memMB))
+		if !hasMemory {
+			args = append(args, "-m", defaultContainerMemory())
 		}
 
 		for k, v := range spec.Envs {
@@ -307,6 +304,11 @@ func (e *appleEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 		args = append(args, "--name", spec.NameOrID)
 		args = append(args, spec.AdditionalArgs...)
 		args = append(args, e.RunArgs...)
+
+		for _, portMapping := range spec.PortMappings {
+			args = append(args, "-p", portMapping.String())
+		}
+
 		args = append(args, spec.ImageRef)
 		args = append(args, spec.ContainerArgs...)
 
@@ -366,13 +368,7 @@ func (e *appleEngine) PullImage(ctx context.Context, refs ...string) error {
 	for _, ref := range refs {
 		args := []string{"image", "pull"}
 
-		isLocalReg := (e.Addrs.LocalRegistry != nil &&
-			e.Addrs.LocalRegistry.Host != "" &&
-			strings.HasPrefix(ref, e.Addrs.LocalRegistry.Host+"/")) ||
-			strings.HasPrefix(ref, "127.0.0.1:") ||
-			strings.HasPrefix(ref, "localhost:")
-
-		if isLocalReg {
+		if e.Addrs.IsLocalRegistry(ref) {
 			args = append(args, "--scheme", "http")
 		}
 

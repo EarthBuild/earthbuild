@@ -203,7 +203,7 @@ podman volume rm --force earth-cache 2>/dev/null || true
 
 # Apple Container:
 container delete -f earth-buildkitd 2>/dev/null || true
-container volume delete -f earth-cache 2>/dev/null || true
+container volume delete earth-cache 2>/dev/null || true
 ```
 
 ## Linux and WSL2 users

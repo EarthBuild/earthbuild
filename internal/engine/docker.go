@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"al.essio.dev/pkg/shellescape"
@@ -145,9 +146,10 @@ func (e *dockerEngine) LoadImage(ctx context.Context, images ...io.Reader) error
 
 // InspectVolumes returns details for the specified volume names.
 func (e *dockerEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
-	// Ignore the error. This is because one or more of the provided names could be missing.
-	// This allows for Info to report that the volume itself is missing.
-	output, _ := e.CommandOutput(ctx, "system", "df", "-v", "--format={{json  .}}")
+	output, err := e.CommandOutput(ctx, "system", "df", "-v", "--format={{json  .}}")
+	if err != nil {
+		return nil, fmt.Errorf("inspect docker volumes: %w", err)
+	}
 
 	// Anonymous struct to just pick out what we need
 	volumeInfos := struct {
@@ -158,13 +160,17 @@ func (e *dockerEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 		} `json:"Volumes"`
 	}{}
 
-	err := json.Unmarshal([]byte(output.Stdout.String()), &volumeInfos)
+	err = json.Unmarshal([]byte(output.Stdout.String()), &volumeInfos)
 	if err != nil {
 		return nil, fmt.Errorf("decode docker volume info for %v: %w", volumeNames, err)
 	}
 
-	volumes := make([]Volume, 0, len(volumeInfos.Volumes))
+	volumes := make([]Volume, 0, len(volumeNames))
 	for _, volumeInfo := range volumeInfos.Volumes {
+		if !slices.Contains(volumeNames, volumeInfo.Name) {
+			continue
+		}
+
 		bytes, parseErr := humanize.ParseBytes(volumeInfo.Size)
 		if parseErr != nil {
 			err = errors.Join(err, fmt.Errorf("parse volume size %q for %s: %w", volumeInfo.Size, volumeInfo.Name, parseErr))

@@ -3,26 +3,24 @@
 package engine
 
 import (
-	"runtime"
+	"fmt"
 
 	"golang.org/x/sys/unix"
 )
 
-// defaultContainerResources dynamically detects host resources on darwin and allocates
-// 25% of host memory and all CPU cores by default for Apple Container VMs.
-func defaultContainerResources() (cpus, memoryMB int) {
-	cpus = runtime.NumCPU()
+const mb = 1024 * 1024
 
-	memBytes, err := unix.SysctlUint64("hw.memsize")
-	if err == nil && memBytes > 0 {
-		// Allocate 25% of total system RAM by default.
-		//nolint:gosec // memory size in MB will not realistically overflow int
-		memoryMB = int((memBytes / 4) / (1024 * 1024))
+// defaultContainerMemory dynamically detects host memory on darwin and allocates
+// 25% of host memory by default for Apple Container VMs.
+func defaultContainerMemory() string {
+	var mem uint64
+
+	memsize, err := unix.SysctlUint64("hw.memsize")
+	if err == nil && memsize > 0 {
+		mem = (memsize / 4) / mb
 	}
 
-	memoryMB = max(memoryMB, 4096)
-
-	return cpus, memoryMB
+	return fmt.Sprintf("%dM", max(4096, mem))
 }
 
 // IsMemoryPressured returns true if the host is experiencing elevated memory pressure (Warning or Critical).

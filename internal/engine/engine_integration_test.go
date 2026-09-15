@@ -17,7 +17,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/engine"
-	. "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func newDocker(ctx context.Context, cfg *engine.Config) (*engine.Client, error) {
@@ -47,8 +48,8 @@ func TestEngineNew(t *testing.T) {
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
-			NotNil(t, eng)
+			require.NoError(t, err)
+			assert.NotNil(t, eng)
 		})
 	}
 }
@@ -72,10 +73,10 @@ func TestEngineScheme(t *testing.T) {
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			scheme := eng.Metadata().Scheme
-			Equal(t, tC.scheme, scheme)
+			assert.Equal(t, tC.scheme, scheme)
 		})
 	}
 }
@@ -98,10 +99,10 @@ func TestEngineIsAvailable(t *testing.T) {
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			available := eng.IsAvailable(ctx)
-			True(t, available)
+			assert.True(t, available)
 		})
 	}
 }
@@ -124,11 +125,11 @@ func TestEngineVersion(t *testing.T) {
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			info, err := eng.Version(ctx)
-			NoError(t, err)
-			NotEmpty(t, info.ClientVersion)
+			require.NoError(t, err)
+			assert.NotEmpty(t, info.ClientVersion)
 		})
 	}
 }
@@ -155,26 +156,26 @@ func TestEngineContainerInfo(t *testing.T) {
 
 			cleanup, err := spawnTestContainers(ctx, tC.binary, testContainers...)
 			t.Cleanup(cleanup)
-			NoError(t, err)
+			require.NoError(t, err)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			getInfos := append(testContainers, "missing") //nolint:gocritic
 			info, err := eng.InspectContainers(ctx, getInfos...)
-			NoError(t, err)
-			NotNil(t, info)
+			require.NoError(t, err)
+			assert.NotNil(t, info)
 
-			Len(t, info, 3)
+			assert.Len(t, info, 3)
 
-			Equal(t, getInfos[0], info[0].Name)
-			Equal(t, "docker.io/library/nginx:1.21", info[0].Image)
+			assert.Equal(t, getInfos[0], info[0].Name)
+			assert.Equal(t, "docker.io/library/nginx:1.21", info[0].Image)
 
-			Equal(t, getInfos[1], info[1].Name)
-			Equal(t, "docker.io/library/nginx:1.21", info[1].Image)
+			assert.Equal(t, getInfos[1], info[1].Name)
+			assert.Equal(t, "docker.io/library/nginx:1.21", info[1].Image)
 
-			Equal(t, getInfos[2], info[2].Name)
-			Equal(t, engine.StatusMissing, info[2].Status)
+			assert.Equal(t, getInfos[2], info[2].Name)
+			assert.Equal(t, engine.StatusMissing, info[2].Status)
 		})
 	}
 }
@@ -199,22 +200,22 @@ func TestEngineContainerRemove(t *testing.T) {
 			testContainers := []string{"remove-1", "remove-2"}
 			cleanup, err := spawnTestContainers(ctx, tC.binary, testContainers...)
 			t.Cleanup(cleanup)
-			NoError(t, err)
+			require.NoError(t, err)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
-			NoError(t, err)
-			Len(t, info, 2)
+			require.NoError(t, err)
+			assert.Len(t, info, 2)
 
 			err = eng.RemoveContainer(ctx, true, testContainers...)
-			NoError(t, err)
+			require.NoError(t, err)
 
 			info, err = eng.InspectContainers(ctx, testContainers...)
-			NoError(t, err)
-			Equal(t, engine.StatusMissing, info[0].Status)
-			Equal(t, engine.StatusMissing, info[1].Status)
+			require.NoError(t, err)
+			assert.Equal(t, engine.StatusMissing, info[0].Status)
+			assert.Equal(t, engine.StatusMissing, info[1].Status)
 		})
 	}
 }
@@ -239,21 +240,23 @@ func TestEngineContainerStop(t *testing.T) {
 			testContainers := []string{"stop-1", "stop-2"}
 			cleanup, err := spawnTestContainers(ctx, tC.binary, testContainers...)
 			t.Cleanup(cleanup)
-			NoError(t, err)
+			require.NoError(t, err)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
-			NoError(t, err)
-			Len(t, info, 2)
+			require.NoError(t, err)
+			assert.Len(t, info, 2)
 
 			err = eng.StopContainer(ctx, 0, testContainers...)
-			NoError(t, err)
+			require.NoError(t, err)
 
-			_, err = eng.InspectContainers(ctx, testContainers...)
-			NoError(t, err)
-			Len(t, info, 2)
+			info, err = eng.InspectContainers(ctx, testContainers...)
+			require.NoError(t, err)
+			assert.Len(t, info, 2)
+			assert.Equal(t, engine.StatusExited, info[0].Status)
+			assert.Equal(t, engine.StatusExited, info[1].Status)
 		})
 	}
 }
@@ -278,20 +281,20 @@ func TestEngineLogs(t *testing.T) {
 			testContainers := []string{"logs-1", "logs-2"}
 			cleanup, err := spawnTestContainers(ctx, tC.binary, testContainers...)
 			t.Cleanup(cleanup)
-			NoError(t, err)
+			require.NoError(t, err)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			logs, err := eng.ContainersLogs(ctx, testContainers...)
-			NoError(t, err)
-			Len(t, logs, 2)
+			require.NoError(t, err)
+			assert.Len(t, logs, 2)
 
-			Equal(t, "output stream\n", logs[0].Stdout)
-			Equal(t, "error stream\n", logs[0].Stderr)
+			assert.Equal(t, "output stream\n", logs[0].Stdout)
+			assert.Equal(t, "error stream\n", logs[0].Stderr)
 
-			Equal(t, "output stream\n", logs[1].Stdout)
-			Equal(t, "error stream\n", logs[1].Stderr)
+			assert.Equal(t, "output stream\n", logs[1].Stdout)
+			assert.Equal(t, "error stream\n", logs[1].Stderr)
 		})
 	}
 }
@@ -314,7 +317,7 @@ func TestEngineContainerRun(t *testing.T) {
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			testContainers := []string{"create-1", "create-2"}
 
@@ -359,17 +362,17 @@ func TestEngineContainerRun(t *testing.T) {
 			}()
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
-			NoError(t, err)
-			Equal(t, engine.StatusMissing, info[0].Status)
-			Equal(t, engine.StatusMissing, info[1].Status)
+			require.NoError(t, err)
+			assert.Equal(t, engine.StatusMissing, info[0].Status)
+			assert.Equal(t, engine.StatusMissing, info[1].Status)
 
 			err = eng.RunContainer(ctx, specs...)
-			NoError(t, err)
+			require.NoError(t, err)
 
 			info, err = eng.InspectContainers(ctx, testContainers...)
-			NoError(t, err)
-			Equal(t, engine.StatusRunning, info[0].Status)
-			Equal(t, engine.StatusRunning, info[1].Status)
+			require.NoError(t, err)
+			assert.Equal(t, engine.StatusRunning, info[0].Status)
+			assert.Equal(t, engine.StatusRunning, info[1].Status)
 		})
 	}
 }
@@ -398,17 +401,14 @@ func TestEngineImagePull(t *testing.T) {
 				LocalRegistryHost: "tcp://some-host:5309",
 				Log:               testLogger(),
 			})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			err = eng.PullImage(ctx, tC.refList...)
-			NoError(t, err)
+			require.NoError(t, err)
 
-			defer func() {
-				for _, ref := range tC.refList {
-					cmd := exec.CommandContext(ctx, "docker", "image", "rm", "-f", ref) // #nosec G204
-					_ = cmd.Run()
-				}
-			}()
+			t.Cleanup(func() {
+				_ = eng.RemoveImage(ctx, true, tC.refList...)
+			})
 		})
 	}
 }
@@ -432,19 +432,19 @@ func TestEngineImageInfo(t *testing.T) {
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
 			cleanup, err := spawnTestImages(ctx, tC.binary, tC.refList...)
-			NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(cleanup)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			info, err := eng.InspectImages(ctx, tC.refList...)
-			NoError(t, err)
+			require.NoError(t, err)
 
-			Len(t, info, 2)
+			assert.Len(t, info, 2)
 
-			Contains(t, info[0].Tags, tC.refList[0])
-			Contains(t, info[1].Tags, tC.refList[1])
+			assert.Contains(t, info[0].Tags, tC.refList[0])
+			assert.Contains(t, info[1].Tags, tC.refList[1])
 		})
 	}
 }
@@ -468,22 +468,22 @@ func TestEngineImageRemove(t *testing.T) {
 
 			refList := []string{"remove:1", "remove:2"}
 			cleanup, err := spawnTestImages(ctx, tC.binary, refList...)
-			NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(cleanup)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			info, err := eng.InspectImages(ctx, refList...)
-			NoError(t, err)
-			Len(t, info, 2)
+			require.NoError(t, err)
+			assert.Len(t, info, 2)
 
 			err = eng.RemoveImage(ctx, true, refList...)
-			NoError(t, err)
+			require.NoError(t, err)
 
 			info, err = eng.InspectImages(ctx, refList...)
-			NoError(t, err)
-			Empty(t, info)
+			require.NoError(t, err)
+			assert.Empty(t, info)
 		})
 	}
 }
@@ -508,27 +508,27 @@ func TestEngineImageTag(t *testing.T) {
 
 			ref := "tag:me"
 			cleanup, err := spawnTestImages(ctx, tC.binary, ref)
-			NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(cleanup)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			info, err := eng.InspectImage(ctx, ref)
-			NoError(t, err)
+			require.NoError(t, err)
 
 			imageID := info.ID
 
 			for _, tagName := range tC.tagList {
 				err = eng.TagImage(ctx, imageID, tagName)
-				NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			infos, err := eng.InspectImages(ctx, tC.tagList...)
-			NoError(t, err)
+			require.NoError(t, err)
 
-			Contains(t, infos[0].Tags, tC.tagList[0])
-			Contains(t, infos[1].Tags, tC.tagList[1])
+			assert.Contains(t, infos[0].Tags, tC.tagList[0])
+			assert.Contains(t, infos[1].Tags, tC.tagList[1])
 		})
 	}
 }
@@ -552,21 +552,24 @@ func TestEngineImageLoad(t *testing.T) {
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
 			cleanup, err := spawnTestImages(ctx, tC.binary, tC.ref)
-			NoError(t, err)
+			require.NoError(t, err)
 
 			imgBuffer := &bytes.Buffer{}
+			imgWriter := bufio.NewWriter(imgBuffer)
 			cmd := exec.CommandContext(ctx, tC.binary, "image", "save", tC.ref) // #nosec G204
-			cmd.Stdout = bufio.NewWriter(imgBuffer)
+			cmd.Stdout = imgWriter
 			err = cmd.Run()
-			NoError(t, err)
+			assert.NoError(t, err)
+			err = imgWriter.Flush()
+			assert.NoError(t, err)
 
 			cleanup()
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			err = eng.LoadImage(ctx, bufio.NewReader(imgBuffer))
-			NoError(t, err)
+			require.NoError(t, err)
 
 			defer func() {
 				cmd := exec.CommandContext(ctx, tC.binary, "image", "rm", "-f", tC.ref) // #nosec G204
@@ -574,8 +577,8 @@ func TestEngineImageLoad(t *testing.T) {
 			}()
 
 			info, err := eng.InspectImage(ctx, tC.ref)
-			NoError(t, err)
-			Contains(t, info.Tags, tC.ref)
+			require.NoError(t, err)
+			assert.Contains(t, info.Tags, tC.ref)
 		})
 	}
 }
@@ -599,15 +602,15 @@ func TestEngineImageLoadHybrid(t *testing.T) {
 			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			data, err := os.ReadFile("./testdata/hybrid.tar")
-			NoError(t, err)
+			require.NoError(t, err)
 
 			reader := bytes.NewReader(data)
 
 			err = eng.LoadImage(ctx, reader)
-			NoError(t, err)
+			require.NoError(t, err)
 
 			defer func() {
 				cmd := exec.CommandContext(ctx, tC.binary, "image", "rm", "-f", tC.ref) // #nosec G204
@@ -615,8 +618,8 @@ func TestEngineImageLoadHybrid(t *testing.T) {
 			}()
 
 			info, err := eng.InspectImage(ctx, tC.ref)
-			NoError(t, err)
-			Contains(t, info.Tags, tC.ref)
+			require.NoError(t, err)
+			assert.Contains(t, info.Tags, tC.ref)
 		})
 	}
 }
@@ -640,15 +643,15 @@ func TestEngineVolumeInfo(t *testing.T) {
 
 			volList := []string{"test1", "test2"}
 			cleanup, err := spawnTestVolumes(ctx, tC.binary, volList...)
-			NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(cleanup)
 
 			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			NoError(t, err)
+			require.NoError(t, err)
 
 			info, err := eng.InspectVolumes(ctx, volList...)
-			NoError(t, err)
-			Len(t, info, 2)
+			require.NoError(t, err)
+			assert.Len(t, info, 2)
 		})
 	}
 }
@@ -860,7 +863,7 @@ func spawnTestVolumes(ctx context.Context, binary string, names ...string) (func
 	}, err
 }
 
-func testLogger() conslogging.ConsoleLogger {
+func testLogger() *conslogging.ConsoleLogger {
 	var logs strings.Builder
 
 	logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)

@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -114,17 +113,20 @@ func alignContainers(namesOrIDs []string, found []Container) ([]Container, error
 
 	for _, container := range found {
 		cName := strings.TrimPrefix(container.Name, "/")
+		matched := false
 
-		idx := slices.IndexFunc(namesOrIDs, func(requested string) bool {
-			return requested == cName || requested == container.Name ||
-				requested == container.ID || strings.HasPrefix(container.ID, requested)
-		})
-		if idx < 0 {
+		for i, requested := range namesOrIDs {
+			if requested == cName || requested == container.Name ||
+				requested == container.ID || strings.HasPrefix(container.ID, requested) {
+				infos[i] = container
+				matched = true
+			}
+		}
+
+		if !matched {
 			return nil, fmt.Errorf("unmatched container in inspect output (id: %q, name: %q) against requested %v",
 				container.ID, container.Name, namesOrIDs)
 		}
-
-		infos[idx] = container
 	}
 
 	return infos, nil
@@ -208,16 +210,18 @@ func matchesImageRef(tag, ref string) bool {
 	normTag := strings.TrimPrefix(strings.TrimPrefix(tag, "docker.io/library/"), "docker.io/")
 	normRef := strings.TrimPrefix(strings.TrimPrefix(ref, "docker.io/library/"), "docker.io/")
 
-	if normTag == normRef {
+	return strings.TrimSuffix(normTag, ":latest") == strings.TrimSuffix(normRef, ":latest")
+}
+
+func matchesRef(img Image, ref string) bool {
+	if ref == img.ID || strings.HasPrefix(img.ID, ref) {
 		return true
 	}
 
-	if !strings.Contains(normTag, ":") && strings.TrimSuffix(normRef, ":latest") == normTag {
-		return true
-	}
-
-	if !strings.Contains(normRef, ":") && strings.TrimSuffix(normTag, ":latest") == normRef {
-		return true
+	for _, tag := range img.Tags {
+		if matchesImageRef(tag, ref) {
+			return true
+		}
 	}
 
 	return false
@@ -227,25 +231,19 @@ func alignImages(refs []string, found []Image) ([]Image, error) {
 	infos := make([]Image, len(refs))
 
 	for _, img := range found {
-		idx := slices.IndexFunc(refs, func(ref string) bool {
-			if ref == img.ID || strings.HasPrefix(img.ID, ref) {
-				return true
-			}
+		matched := false
 
-			for _, tag := range img.Tags {
-				if matchesImageRef(tag, ref) {
-					return true
-				}
+		for i, ref := range refs {
+			if matchesRef(img, ref) {
+				infos[i] = img
+				matched = true
 			}
+		}
 
-			return false
-		})
-		if idx < 0 {
+		if !matched {
 			return nil, fmt.Errorf("unmatched image in inspect output (id: %q, tags: %v) against requested %v",
 				img.ID, img.Tags, refs)
 		}
-
-		infos[idx] = img
 	}
 
 	return infos, nil
@@ -319,15 +317,19 @@ func alignVolumes(volumeNames []string, found []Volume) ([]Volume, error) {
 	}
 
 	for _, vol := range found {
-		idx := slices.IndexFunc(volumeNames, func(reqName string) bool {
-			return reqName == vol.Name
-		})
-		if idx < 0 {
+		matched := false
+
+		for i, reqName := range volumeNames {
+			if reqName == vol.Name {
+				results[i] = vol
+				matched = true
+			}
+		}
+
+		if !matched {
 			return nil, fmt.Errorf("unmatched volume in inspect output (name: %q) against requested %v",
 				vol.Name, volumeNames)
 		}
-
-		results[idx] = vol
 	}
 
 	return results, nil
@@ -629,6 +631,11 @@ func defaultTCPAddr(port int) string {
 type Addrs struct {
 	Buildkit      *url.URL
 	LocalRegistry *url.URL
+}
+
+// IsLocalRegistry reports whether the given reference points to the local registry.
+func (a Addrs) IsLocalRegistry(ref string) bool {
+	return strings.HasPrefix(ref, a.LocalRegistry.Host+"/")
 }
 
 // ResolveAddrs calculates and validates buildkit and registry URLs based on the given configuration.

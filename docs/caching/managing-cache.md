@@ -22,10 +22,30 @@ global:
 
 #### Checking current size of the cache volume
 
-You can check the current size of the cache volume by running:
+Depending on your container engine, you can check the current size of the cache volume by running:
+
+**Docker (Linux):**
 
 ```bash
 sudo du -h /var/lib/docker/volumes/earth-cache | tail -n 1
+```
+
+**Podman:**
+
+```bash
+# Rootless Podman
+du -h "${XDG_DATA_HOME:-$HOME/.local/share}/containers/storage/volumes/earth-cache" | tail -n 1
+
+# Rootful Podman
+sudo du -h /var/lib/containers/storage/volumes/earth-cache | tail -n 1
+```
+
+**Apple Container (macOS):**
+
+Apple Container stores volumes as sparse disk images on APFS. To check the actual disk space used (rather than the maximum virtual capacity reported by `container volume inspect`):
+
+```bash
+du -sh "$HOME/Library/Application Support/com.apple.container/volumes/earth-cache"
 ```
 
 {% endhint %}
@@ -38,7 +58,15 @@ To reset the cache, you can issue the command
 earth prune
 ```
 
-You can also safely delete the cache manually, if the daemon is not running
+EarthBuild also has a command that automates stopping the daemon and resetting the cache across all supported engines:
+
+```bash
+earth prune --reset
+```
+
+You can also safely delete the cache manually, if the daemon is not running:
+
+**Docker:**
 
 ```bash
 docker stop earth-buildkitd
@@ -46,10 +74,19 @@ docker rm earth-buildkitd
 docker volume rm earth-cache
 ```
 
-EarthBuild also has a command that automates the above:
+**Podman:**
 
 ```bash
-earth prune --reset
+podman stop earth-buildkitd
+podman rm earth-buildkitd
+podman volume rm earth-cache
+```
+
+**Apple Container (macOS):**
+
+```bash
+container delete -f earth-buildkitd
+container volume delete earth-cache
 ```
 
 ## Cache on a remote runner

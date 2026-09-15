@@ -348,7 +348,7 @@ func TestResolveAddrsLoggingNonIssues(t *testing.T) {
 				BuildkitHost:      "docker-container://127.0.0.1:8372",
 				LocalRegistryHost: "tcp://localhost:8371",
 			},
-			log: "Buildkit and Local Registry URLs are pointed at different hosts",
+			log: "Buildkit and local registry URLs are pointed at different hosts",
 		},
 		{
 			testName: "Buildkit/Debugger host mismatch, schemes differ",
@@ -604,9 +604,9 @@ func TestPortMappingString(t *testing.T) {
 
 func BenchmarkIsLocal(b *testing.B) {
 	addrs := []string{
-		"docker-container://earthly-buildkitd",
-		"podman-container://earthly-buildkitd",
-		"apple-container://earthly-buildkitd",
+		"docker-container://earth-buildkitd",
+		"podman-container://earth-buildkitd",
+		"apple-container://earth-buildkitd",
 		"tcp://127.0.0.1:8372",
 		"tcp://localhost:8372",
 		"tcp://[::1]:8372",
@@ -620,4 +620,318 @@ func BenchmarkIsLocal(b *testing.B) {
 			_ = IsLocal(addr)
 		}
 	}
+}
+
+func TestMatchesImageRef(t *testing.T) {
+	t.Parallel()
+
+	//nolint:goconst
+	tests := []struct {
+		name string
+		tag  string
+		ref  string
+		want bool
+	}{
+		{
+			name: "exact match identical",
+			tag:  "alpine:3.18",
+			ref:  "alpine:3.18",
+			want: true,
+		},
+		{
+			name: "exact match untagged",
+			tag:  "alpine",
+			ref:  "alpine",
+			want: true,
+		},
+		{
+			name: "exact match both latest",
+			tag:  "alpine:latest",
+			ref:  "alpine:latest",
+			want: true,
+		},
+		{
+			name: "tag with docker.io/library/ and ref untagged",
+			tag:  "docker.io/library/alpine",
+			ref:  "alpine",
+			want: true,
+		},
+		{
+			name: "ref with docker.io/library/ and tag untagged",
+			tag:  "alpine",
+			ref:  "docker.io/library/alpine",
+			want: true,
+		},
+		{
+			name: "tag with docker.io/ and ref untagged",
+			tag:  "docker.io/myorg/myimg",
+			ref:  "myorg/myimg",
+			want: true,
+		},
+		{
+			name: "tag latest and ref untagged",
+			tag:  "alpine:latest",
+			ref:  "alpine",
+			want: true,
+		},
+		{
+			name: "tag untagged and ref latest",
+			tag:  "alpine",
+			ref:  "alpine:latest",
+			want: true,
+		},
+		{
+			name: "tag docker.io/library/alpine:latest and ref alpine",
+			tag:  "docker.io/library/alpine:latest",
+			ref:  "alpine",
+			want: true,
+		},
+		{
+			name: "tag alpine and ref docker.io/library/alpine:latest",
+			tag:  "alpine",
+			ref:  "docker.io/library/alpine:latest",
+			want: true,
+		},
+		{
+			name: "registry with port untagged and ref latest",
+			tag:  "localhost:5000/myrepo",
+			ref:  "localhost:5000/myrepo:latest",
+			want: true,
+		},
+		{
+			name: "registry with port latest and ref untagged",
+			tag:  "localhost:5000/myrepo:latest",
+			ref:  "localhost:5000/myrepo",
+			want: true,
+		},
+		{
+			name: "registry with port exact match with version tag",
+			tag:  "localhost:5000/myrepo:v1",
+			ref:  "localhost:5000/myrepo:v1",
+			want: true,
+		},
+		{
+			name: "different tags",
+			tag:  "alpine:v1",
+			ref:  "alpine:v2",
+			want: false,
+		},
+		{
+			name: "tag v1 and ref untagged",
+			tag:  "alpine:v1",
+			ref:  "alpine",
+			want: false,
+		},
+		{
+			name: "tag untagged and ref v1",
+			tag:  "alpine",
+			ref:  "alpine:v1",
+			want: false,
+		},
+		{
+			name: "tag v1 and ref latest",
+			tag:  "alpine:v1",
+			ref:  "alpine:latest",
+			want: false,
+		},
+		{
+			name: "registry with port tag mismatch",
+			tag:  "localhost:5000/myrepo:v1",
+			ref:  "localhost:5000/myrepo:latest",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, matchesImageRef(tt.tag, tt.ref))
+		})
+	}
+}
+
+func TestAlignContainers(t *testing.T) {
+	t.Parallel()
+
+	c1 := Container{
+		ID:     "c1-id-12345",
+		Name:   "/c1",
+		Status: "running",
+	}
+	c2 := Container{
+		ID:     "c2-id-67890",
+		Name:   "/c2",
+		Status: "exited",
+	}
+
+	t.Run("unique containers", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignContainers([]string{"c1", "c2"}, []Container{c2, c1})
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, "running", res[0].Status)
+		assert.Equal(t, "exited", res[1].Status)
+	})
+
+	t.Run("non-unique container names", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignContainers([]string{"c1", "c1"}, []Container{c1})
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, c1.ID, res[0].ID)
+		assert.Equal(t, c1.ID, res[1].ID)
+	})
+
+	t.Run("non-unique name and ID prefix", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignContainers([]string{"c1", "c1-id"}, []Container{c1})
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, c1.ID, res[0].ID)
+		assert.Equal(t, c1.ID, res[1].ID)
+	})
+
+	t.Run("duplicate with missing container", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignContainers([]string{"c1", "missing", "c1"}, []Container{c1})
+		require.NoError(t, err)
+		require.Len(t, res, 3)
+		assert.Equal(t, c1.ID, res[0].ID)
+		assert.Equal(t, StatusMissing, res[1].Status)
+		assert.Equal(t, "missing", res[1].Name)
+		assert.Equal(t, c1.ID, res[2].ID)
+	})
+
+	t.Run("unmatched container in found returns error", func(t *testing.T) {
+		t.Parallel()
+
+		unmatched := Container{ID: "unmatched-id", Name: "unmatched"}
+		res, err := alignContainers([]string{"c1"}, []Container{c1, unmatched})
+		require.Error(t, err)
+		assert.Nil(t, res)
+	})
+}
+
+func TestAlignImages(t *testing.T) {
+	t.Parallel()
+
+	imgAlpine := Image{
+		ID:   "sha256:alpine123",
+		Tags: []string{"alpine:latest", "alpine:3.18"},
+	}
+	imgUbuntu := Image{
+		ID:   "sha256:ubuntu456",
+		Tags: []string{"ubuntu:latest"},
+	}
+
+	t.Run("unique images", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignImages([]string{"ubuntu", "alpine"}, []Image{imgAlpine, imgUbuntu})
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, imgUbuntu.ID, res[0].ID)
+		assert.Equal(t, imgAlpine.ID, res[1].ID)
+	})
+
+	t.Run("non-unique exact references", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignImages([]string{"alpine", "alpine"}, []Image{imgAlpine})
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, imgAlpine.ID, res[0].ID)
+		assert.Equal(t, imgAlpine.ID, res[1].ID)
+	})
+
+	t.Run("non-unique equivalent references", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignImages([]string{"alpine", "alpine:latest"}, []Image{imgAlpine})
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, imgAlpine.ID, res[0].ID)
+		assert.Equal(t, imgAlpine.ID, res[1].ID)
+	})
+
+	t.Run("non-unique tag and ID prefix", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignImages([]string{"alpine:latest", "sha256:alpine"}, []Image{imgAlpine})
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, imgAlpine.ID, res[0].ID)
+		assert.Equal(t, imgAlpine.ID, res[1].ID)
+	})
+
+	t.Run("unmatched image in found returns error", func(t *testing.T) {
+		t.Parallel()
+
+		unmatched := Image{ID: "sha256:rogue", Tags: []string{"rogue:latest"}}
+		res, err := alignImages([]string{"alpine"}, []Image{imgAlpine, unmatched})
+		require.Error(t, err)
+		assert.Nil(t, res)
+	})
+}
+
+//nolint:goconst
+func TestAlignVolumes(t *testing.T) {
+	t.Parallel()
+
+	v1 := Volume{
+		Name:       "vol1",
+		Mountpoint: "/var/lib/docker/volumes/vol1/_data",
+		SizeBytes:  1024,
+	}
+	v2 := Volume{
+		Name:       "vol2",
+		Mountpoint: "/var/lib/docker/volumes/vol2/_data",
+		SizeBytes:  2048,
+	}
+
+	t.Run("unique volumes", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignVolumes([]string{"vol2", "vol1"}, []Volume{v1, v2})
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, v2.Name, res[0].Name)
+		assert.Equal(t, v1.Name, res[1].Name)
+	})
+
+	t.Run("non-unique volume names", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignVolumes([]string{"vol1", "vol1"}, []Volume{v1})
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, v1.Mountpoint, res[0].Mountpoint)
+		assert.Equal(t, v1.Mountpoint, res[1].Mountpoint)
+	})
+
+	t.Run("duplicate with missing volume", func(t *testing.T) {
+		t.Parallel()
+
+		res, err := alignVolumes([]string{"vol1", "missing", "vol1"}, []Volume{v1})
+		require.NoError(t, err)
+		require.Len(t, res, 3)
+		assert.Equal(t, v1.Mountpoint, res[0].Mountpoint)
+		assert.Equal(t, "missing", res[1].Name)
+		assert.Empty(t, res[1].Mountpoint)
+		assert.Equal(t, v1.Mountpoint, res[2].Mountpoint)
+	})
+
+	t.Run("unmatched volume in found returns error", func(t *testing.T) {
+		t.Parallel()
+
+		unmatched := Volume{Name: "unmatched-vol"}
+		res, err := alignVolumes([]string{"vol1"}, []Volume{v1, unmatched})
+		require.Error(t, err)
+		assert.Nil(t, res)
+	})
 }

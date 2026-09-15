@@ -95,5 +95,5 @@ To reset and remove the EarthBuild daemon and cache volume in Apple Container:
 
 ```bash
 container delete -f earth-buildkitd
-container volume delete -f earth-cache
+container volume delete earth-cache
 ```

@@ -85,7 +85,7 @@ func TestAnAnnouncedWorkerIsPlaceable(t *testing.T) {
 		t.Fatal("a worker that has said nothing already has a platform")
 	}
 
-	r.note(before[0].ID, "", "linux/arm64", 4)
+	r.note(before[0].ID, "", "linux/arm64", 4, nil)
 
 	after := r.Inventory()
 	if after[0].Platform == (ir.Platform{}) {

@@ -158,6 +158,10 @@ type joined struct {
 	// ineligible for every step (E267) - so a fleet is unused until its workers
 	// have spoken, rather than used wrongly.
 	platform string
+	// emulates is what it can run that it was not built for, each as
+	// `os/arch`. Empty is every machine with no interpreter registered, which
+	// is most of them, and then placement is exactly as it was.
+	emulates []string
 }
 
 // Accept registers workers as they arrive, until the context ends.
@@ -263,7 +267,7 @@ func (r *Rendezvous) askWhatItIs(
 		return
 	}
 
-	r.note(id, said.HeldAt, said.Platform, said.Capacity)
+	r.note(id, said.HeldAt, said.Platform, said.Capacity, said.Emulates)
 }
 
 // Workers is how many have joined.
@@ -320,7 +324,7 @@ func (r *Rendezvous) Assign(ctx context.Context, a Assignment) (Reply, error) {
 			// downstream sees the same string.
 			reply.HeldAt = correctHost(reply.HeldAt, w.from)
 
-			r.note(w.id, reply.HeldAt, reply.Platform, reply.Capacity)
+			r.note(w.id, reply.HeldAt, reply.Platform, reply.Capacity, reply.Emulates)
 
 			return reply, nil
 		}
@@ -470,13 +474,18 @@ type joinCfg struct {
 // Announced at join rather than learned from a reply. A worker that had run
 // nothing had declared no platform, and placement refuses a worker that has not
 // declared one - so a fresh worker could never be given a first step (E503).
-func Runs(platform string, capacity int, heldAt string) JoinOpt {
+func Runs(platform string, capacity int, heldAt string, emulates ...string) JoinOpt {
 	return func(c *joinCfg) {
 		c.self = Reply{
 			Version:  Version,
 			Platform: platform,
 			Capacity: capacity,
 			HeldAt:   heldAt,
+			// Announced at join for the reason the platform is: placement
+			// refuses a worker that has not declared what it runs, so one that
+			// waited to be asked would never be given a first step to be asked
+			// about (E503).
+			Emulates: emulates,
 		}
 	}
 }
@@ -711,7 +720,28 @@ func (r *Rendezvous) Inventory() []core.Worker {
 
 	out := make([]core.Worker, 0, len(r.conns))
 	for _, w := range r.conns {
-		out = append(out, core.Worker{ID: w.id, Platform: platformOf(w.platform)})
+		out = append(out, core.Worker{
+			ID:       w.id,
+			Platform: platformOf(w.platform),
+			Emulates: platformsOf(w.emulates),
+		})
+	}
+
+	return out
+}
+
+// platformsOf parses what a worker said it emulates, dropping anything that is
+// not `os/arch` rather than guessing at it.
+func platformsOf(each []string) []ir.Platform {
+	var out []ir.Platform
+
+	for _, s := range each {
+		p := platformOf(s)
+		if p.OS == "" || p.Arch == "" {
+			continue
+		}
+
+		out = append(out, p)
 	}
 
 	return out
@@ -867,8 +897,8 @@ func preferFetching(
 //
 // Each field is kept only if it was given, so a reply that omits one does not
 // erase what an earlier one said.
-func (r *Rendezvous) note(id, at, platform string, capacity int) {
-	if at == "" && platform == "" && capacity < 1 {
+func (r *Rendezvous) note(id, at, platform string, capacity int, emulates []string) {
+	if at == "" && platform == "" && capacity < 1 && len(emulates) == 0 {
 		return
 	}
 
@@ -882,6 +912,10 @@ func (r *Rendezvous) note(id, at, platform string, capacity int) {
 
 		if at != "" {
 			r.conns[i].at = at
+		}
+
+		if len(emulates) > 0 {
+			r.conns[i].emulates = emulates
 		}
 
 		if platform != "" {
@@ -902,8 +936,8 @@ func (r *Rendezvous) note(id, at, platform string, capacity int) {
 // carries an announcement - a property about what the driver *remembers*, not
 // about how it came to hear it, and one that would otherwise need two endpoints
 // and a build to observe.
-func (r *Rendezvous) NoteForTest(id, at, platform string, capacity int) {
-	r.note(id, at, platform, capacity)
+func (r *Rendezvous) NoteForTest(id, at, platform string, capacity int, emulates ...string) {
+	r.note(id, at, platform, capacity, emulates)
 }
 
 // load is how many steps each worker is running, as far as this driver knows.

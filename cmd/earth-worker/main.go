@@ -246,7 +246,17 @@ func run() error {
 			// platform is the sandbox's, not this process's: a darwin worker runs
 			// `linux/<arch>` steps in a VM, and saying `darwin/<arch>` would refuse
 			// every step it can actually run.
-			fleet.Runs(exec.DefaultPlatform(), room, me.String()))
+			// **And what it can run that it was not built for.** A Mac with
+			// Rosetta runs linux/amd64 perfectly well; without saying so it
+			// joins as arm64 only, every amd64 step goes to whichever machine
+			// is natively amd64, and the Mac sits idle beside it - which is the
+			// opposite of what a fleet is for.
+			//
+			// Asked of the executor, because the answer is its sandbox's: under
+			// a VM backend this process's own register belongs to a different
+			// kernel, and on macOS to no kernel at all.
+			fleet.Runs(exec.DefaultPlatform(), room, me.String(),
+				platformStrings(exec.PlatformsNamed(x.Emulates()))...))
 	}
 
 	// Once if this worker was told where the driver is, repeatedly if it has to
@@ -333,4 +343,14 @@ func whereFrom(at netaddr.EndpointAddr) string {
 	}
 
 	return fmt.Sprint(at.Addrs()[0])
+}
+
+// platformStrings writes platforms the way the fleet carries them.
+func platformStrings(each []ir.Platform) []string {
+	out := make([]string, 0, len(each))
+	for _, p := range each {
+		out = append(out, p.String())
+	}
+
+	return out
 }

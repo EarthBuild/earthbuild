@@ -74,6 +74,19 @@ type Reply struct {
 	// never receives a step - and the build would look local while the machines
 	// idled.
 	Platform string `json:"platform,omitempty"`
+	// Emulates is what this worker can run that it was not built for, each as
+	// `os/arch`.
+	//
+	// **Announced, because otherwise a mixed fleet cannot share work.** A Mac
+	// with Rosetta runs linux/amd64 perfectly well and joins as linux/arm64, so
+	// without this every amd64 step goes to the one machine that is natively
+	// amd64 while the Mac sits idle beside it - the opposite of what a fleet is
+	// for.
+	//
+	// Platforms rather than interpreter names: the worker has already resolved
+	// what its kernel registered against what its sandbox offers, and the fleet
+	// carries the answer rather than repeating the vocabulary.
+	Emulates []string `json:"emulates,omitempty"`
 	// Capacity is how many steps this worker can run at once.
 	//
 	// Advisory, and the denominator the driver has no other way to learn. It

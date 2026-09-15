@@ -1509,6 +1509,7 @@ is: a second implementation has to know what it may act on.
 | `refused`                     | the worker declined, and why (I10, I11)                                           |
 | `heldAt`                      | where the produced layer can now be fetched                                       |
 | `platform`, `capacity`        | what this machine is and how many steps it runs at once                           |
+| `emulates`                    | what this machine can run that it was not built for, each an os and an arch       |
 | `durationMillis`              | how long the step itself took                                                     |
 | `queueMillis`                 | how long the step waited for a slot on this worker                                |
 | `fetchedBytes`, `fetchMillis` | what the worker had to move to be able to run it                                  |

@@ -489,9 +489,7 @@ func serveBlobConn(ctx context.Context, conn *iroh.Conn, held Held, onError func
 func serveBlobStream(ctx context.Context, st io.ReadWriteCloser, held Held, onError func(error)) {
 	defer func() { _ = st.Close() }()
 
-	if d, ok := st.(deadliner); ok {
-		bound(ctx, d)
-	}
+	d, canBound := st.(deadliner)
 
 	ids, want, proof, err := readRequest(st)
 	if err != nil {
@@ -501,12 +499,28 @@ func serveBlobStream(ctx context.Context, st io.ReadWriteCloser, held Held, onEr
 	}
 
 	for _, id := range ids {
+		// **Per blob, and the serve's own.** A request for several large layers
+		// is several long writes and one deadline over all of them would cut
+		// the last one off; a deadline taken from the context would be no
+		// deadline at all, since the driver serves under a cancel and nothing
+		// else. Refreshed here, a peer that stops reading costs one bound and
+		// a peer that is merely slow is never interrupted.
+		if canBound {
+			_ = d.SetDeadline(soonest(ctx, time.Now().Add(serveWait())))
+		}
+
 		err := serveOneBlob(st, held, id, want, proof)
 		if err != nil {
 			onError(fmt.Errorf("serve %v: %w", id, err))
 
 			return
 		}
+	}
+
+	// Cleared before the wait below, which is for the client's own close and
+	// has nothing to do with how long a blob takes.
+	if canBound {
+		_ = d.SetDeadline(time.Time{})
 	}
 
 	// Wait for the client to close **this stream** before tearing it down.
@@ -776,3 +790,19 @@ func bound(ctx context.Context, st deadliner) {
 
 // deadliner is what bound needs of a stream, which is one method.
 type deadliner interface{ SetDeadline(time.Time) error }
+
+// soonest is the earlier of a serve's own bound and its caller's, if the caller
+// has one.
+//
+// **The caller usually has not**, which is the whole reason the serve carries
+// its own: `fleet.Driver` serves under a cancel and no deadline. Where there is
+// one - a test, a server given a lifetime - it is an upper limit and not a
+// replacement, because a build that has finished is not waiting for this blob
+// however long the blob was promised.
+func soonest(ctx context.Context, own time.Time) time.Time {
+	if dl, ok := ctx.Deadline(); ok && dl.Before(own) {
+		return dl
+	}
+
+	return own
+}

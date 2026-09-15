@@ -52,11 +52,12 @@ func (w *wedged) SetDeadline(t time.Time) error {
 // that reported no progress for six minutes. Nothing in the fleet times a
 // serve out, and QUIC will wait as long as the peer keeps the connection.
 //
-// The bound is the serving context's, which is the driver's own lifetime: a
-// build that has finished stops serving, and a peer that has gone stops being
-// waited for.
+// The bound has to be the serve's own. `fleet.Driver` serves under a context
+// with a cancel and no deadline, so taking one from the context sets nothing at
+// all - which is what the first attempt at this did, and it passed a test whose
+// context happened to have one.
 func TestServingABlobCannotWedgeForever(t *testing.T) {
-	t.Parallel()
+	// Not parallel: it sets the bound it asserts against.
 
 	// One blob asked for, and a store that has it.
 	buf := &pipeBuffer{}
@@ -68,8 +69,16 @@ func TestServingABlobCannotWedgeForever(t *testing.T) {
 
 	st := &wedged{req: newBytesReader(buf.b)}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 150*time.Millisecond)
+	// **A context with no deadline, because that is the one production has.**
+	// `fleet.Driver` serves under `context.WithCancel(context.WithoutCancel(
+	// ctx))`, which carries a cancel and no deadline - so a bound taken from
+	// the context sets nothing, and an earlier attempt at this fixed the test
+	// and not the engine.
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
+
+	// A bound short enough to assert against; production's is five minutes.
+	t.Setenv(EnvServeWait, "150ms")
 
 	done := make(chan struct{})
 
@@ -81,7 +90,7 @@ func TestServingABlobCannotWedgeForever(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(10 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("serving a blob to a peer that stopped reading never returned," +
 			" so one client can wedge the machine that serves every build")
 	}

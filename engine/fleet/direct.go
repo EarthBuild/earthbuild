@@ -152,3 +152,36 @@ func upgradeWait() time.Duration {
 
 	return d
 }
+
+// EnvServeWait bounds how long one blob may take to write to a peer.
+//
+// **Not the context's, because the driver has no deadline to give.** It serves
+// under `context.WithCancel(context.WithoutCancel(ctx))`, so a bound taken from
+// there sets nothing, and a write to a peer that stopped reading blocked for
+// ever - three goroutines each stuck on a 40 MB layer, and a build that made no
+// progress for six minutes (E-F2).
+//
+// Per blob rather than per request, so several large layers are not sharing one
+// clock, and generous rather than tight: this is the bound on a peer that has
+// *gone*, not a budget for a slow one. A 40 MB layer at a megabyte a second is
+// forty seconds; five minutes is room for something twenty times worse and
+// still frees the goroutine the same day.
+const EnvServeWait = "EARTH_FLEET_SERVE_WAIT"
+
+// defaultServeWait is how long one blob gets.
+const defaultServeWait = 5 * time.Minute
+
+// serveWait reads the bound.
+func serveWait() time.Duration {
+	v := os.Getenv(EnvServeWait)
+	if v == "" {
+		return defaultServeWait
+	}
+
+	d, err := time.ParseDuration(v)
+	if err != nil || d <= 0 {
+		return defaultServeWait
+	}
+
+	return d
+}

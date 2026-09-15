@@ -450,3 +450,38 @@ order of magnitude under what this LAN does. Transfer is 76% of the build and
 the base is fetched once, so there is nothing left to save by fetching less
 often - the remaining win is in the transfer itself (E-F3's batching) and in not
 needing the whole base at all (E-F5's prediction).
+
+## The transfer is not slow; the link is - and the first number was the wrong unit
+
+Two corrections to the paragraph above, which read `1.0 GiB in 1m49.746s` as
+"about 9.6 MiB/s, an order of magnitude under what this LAN does".
+
+**Both machines are on wifi.** Not a gigabit LAN: the driver is 802.11ax on
+5 GHz and the worker answers on `wlp5s0`. Raw `scp` of 500 MiB over that path,
+compression off, measures **22.1 MiB/s**. That is the ceiling, and it was
+asserted rather than measured.
+
+**`transfer` is a sum over steps and was divided by one payload.** Six delegated
+steps each report their own `FetchMillis`, and five of them spent it waiting on
+the uplink lock for the one fetch that was actually happening - `uplink` counts
+that wait as transfer time deliberately, so a queue is not billed to the network
+(E336). The single fetch is `slowest`:
+
+| Reading                    | Time   | Rate         |
+| -------------------------- | ------ | ------------ |
+| slowest single fetch       | 57.5s  | 17.8 MiB/s   |
+| summed across six steps    | 115.0s | 8.9 MiB/s    |
+| raw scp, same path         | 22.7s  | 22.1 MiB/s   |
+
+So the fleet moves a gigabyte at about **80% of what scp manages** on the same
+link. There is no factor of three in the transport and no factor of ten
+anywhere; packing is not the cost either, measured at 1.066s for 847 MB
+(757.9 MiB/s).
+
+**What this redirects.** A build that is 77% transfer-bound here is not paying
+for a bad transport, it is paying to move a 1032 MiB base across wifi to save
+33s of compute. Nothing in E-F3's batching can beat a link that is already
+80% used. The remaining wins are the ones that move **less**: E-F5's prediction
+(fetch the tenth of a base a step reads) and E-F2's locality dispatch (put the
+step where the base already is). Those were always the interesting experiments;
+this says they are the only ones.

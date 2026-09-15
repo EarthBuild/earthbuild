@@ -25,11 +25,18 @@ const EnvDirectWait = "EARTH_FLEET_DIRECT_WAIT"
 
 // defaultDirectWait is what a connection gives hole punching.
 //
-// Three seconds against a transfer that is otherwise minutes. The trade is
-// asymmetric by a wide margin in both directions: on a base of any size the
-// relay costs far more than this, and where no direct path is possible the
-// whole cost is three seconds per peer per build.
-const defaultDirectWait = 3 * time.Second
+// **Zero, because waiting was measured and does not help.** The wait does what
+// it says - a direct path is validated beside the relay on every GitHub
+// connection - and the connection then sends nothing over it:
+//
+//	over relay:https://aps1-1.relay.n0.iroh-canary.iroh.link./,
+//	  ip:52.157.32.204:48160 sent 0 B
+//
+// Three runs at 6.213s, 8.226s and 9.095s for the same 7.9 MiB, which is noise
+// around no improvement. Establishing a path the data plane will not migrate to
+// is a delay bought for nothing, so it is off until something moves bytes onto
+// it - and the mechanism is kept, because that is the only change needed then.
+const defaultDirectWait = 0
 
 // directIn reports whether any validated path is a direct one.
 //

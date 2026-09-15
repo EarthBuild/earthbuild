@@ -1,0 +1,18 @@
+id = "earthbuild"
+name = "EarthBuild"
+version = "0.1.0"
+schema_version = 1
+authors = ["EarthBuild contributors"]
+description = "Earthfile language support powered by EarthBuild"
+repository = "https://github.com/EarthBuild/earthbuild"
+
+[language_servers.earth-lsp]
+name = "EarthBuild Language Server"
+languages = ["Earthfile"]
+
+[language_servers.earth-lsp.language_ids]
+Earthfile = "earth"
+
+[grammars.earthfile]
+repository = "https://github.com/glehmann/tree-sitter-earthfile"
+rev = "5baef88717ad0156fd29a8b12d0d8245bb1096a8"

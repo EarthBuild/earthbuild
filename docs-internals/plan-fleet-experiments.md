@@ -575,3 +575,32 @@ fleet's cost and it is fixed rather than proportional, which is the signature
 this project has learnt to recognise (E335, E337). Warming the blob connection
 at join time, while the driver is still planning, would take it off the critical
 path entirely.
+
+## Taking the setup off the critical path
+
+Reaching a peer costs more than reading from it, and none of it is proportional
+to the bytes. The holders are known one line after an assignment arrives, which
+on a prime is before any step needs them, so that is where the connections are
+opened now - in the background, nothing waiting on them.
+
+Same workload, same 7.9 MiB, across the day:
+
+| State                             | Transfer reported     | Compute-bound |
+| --------------------------------- | --------------------- | ------------- |
+| this morning                      | `0s for 0 B`          | 66%           |
+| fault-in accounted                | `6.124s for 7.9 MiB`  | 82%           |
+| connections opened early          | `417ms for 0 B`       | 92%           |
+| priming accounted                 | `433ms for 7.9 MiB`   | 90%           |
+
+**The third row is the interesting one.** Opening connections early worked, and
+hid the transfer: the base now arrives during the prime, a prime's reply was
+discarded, and a build that fetched 7.9 MiB reported moving nothing. E-F0's
+failure exactly, reintroduced by making the fleet faster - and a number that
+reads zero only when things go *well* is worse than one that always reads zero,
+because the first time it is believed.
+
+Counted as transfer and not as a delegated step: a build with four steps and two
+primes reporting six steps is an account that quietly does not add up (E270).
+
+Fourteen times less transfer on the critical path for the same bytes, and the
+instrument still says what crossed.

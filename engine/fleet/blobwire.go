@@ -72,6 +72,12 @@ func (s *PeerSource) connect(ctx context.Context) (*iroh.Conn, error) {
 		return nil, fmt.Errorf("connect for blobs: %w", err)
 	}
 
+	// **Before the first byte, not after it.** A connection comes up on
+	// whatever validates first, which where both ends are NAT'd is the relay,
+	// and hole punching lands a moment later - by which time the transfer is
+	// already committed to the detour. See EnvDirectWait.
+	holdForDirect(ctx, c, directWait())
+
 	s.held = c
 
 	// After the handshake, so there is a validated path to describe. A

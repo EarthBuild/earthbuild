@@ -131,6 +131,7 @@ earthbuild-script-no-stdout:
 # lint runs basic go linters against the earthbuild project.
 lint:
     FROM +go
+    BUILD +tree-sitter-parity
     RUN apk add --no-cache curl
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
     LET golangci_lint_version=2.13.2
@@ -147,6 +148,26 @@ lint:
             --mount type=cache,target=/root/.cache/golangci_lint \
             echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
     END
+
+# tree-sitter-parity ensures the shallow editor grammar accepts every valid
+# canonical parser fixture without losing target or function boundaries.
+tree-sitter-parity:
+    FROM golang:1.27.1-bookworm
+    ARG TARGETARCH
+    LET TREE_SITTER_VERSION=0.25.10
+    RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gzip && rm -rf /var/lib/apt/lists/*
+    RUN case "$TARGETARCH" in amd64) TS_ARCH=x64 ;; arm64) TS_ARCH=arm64 ;; *) exit 1 ;; esac && \
+        curl -fsSL "https://github.com/tree-sitter/tree-sitter/releases/download/v${TREE_SITTER_VERSION}/tree-sitter-linux-${TS_ARCH}.gz" | \
+        gzip -d > /usr/local/bin/tree-sitter && chmod +x /usr/local/bin/tree-sitter
+    WORKDIR /earthly
+    COPY go.mod go.sum ./
+    RUN --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod go mod download
+    COPY Earthfile ./
+    COPY internal/earthfile ./internal/earthfile
+    COPY editors/tree-sitter-earthfile ./editors/tree-sitter-earthfile
+    RUN --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        EARTH_TREE_SITTER=/usr/local/bin/tree-sitter go test ./internal/earthfile -run '^TestTreeSitterParity$'
 
 fmt:
   BUILD +fmt-go

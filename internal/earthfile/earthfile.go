@@ -26,6 +26,7 @@ type Target struct {
 type Function struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Name           string          `json:"name"`
+	Docs           string          `json:"docs,omitempty"`
 	Recipe         Block           `json:"recipe,omitempty"`
 }
 

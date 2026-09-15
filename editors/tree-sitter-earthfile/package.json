@@ -1,0 +1,20 @@
+{
+  "name": "@earthbuild/tree-sitter-earthfile",
+  "version": "0.1.0",
+  "description": "Shallow, error-tolerant Earthfile grammar for editor structure",
+  "license": "MPL-2.0",
+  "private": true,
+  "devDependencies": {
+    "tree-sitter-cli": "0.25.10"
+  },
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "test": "tree-sitter test"
+  },
+  "tree-sitter": [
+    {
+      "scope": "source.earthfile",
+      "file-types": ["Earthfile", "earth"]
+    }
+  ]
+}

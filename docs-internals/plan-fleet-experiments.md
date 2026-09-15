@@ -1020,3 +1020,45 @@ rather than lucky: the 64-step build still splits `32 delegated, 32 here` and
 runs in 51.50s against a 49.58s mean before locality and 96.07s on one machine.
 A chain that stays put and a fan-out that still spreads are the two things this
 ordering has to do at once, and it does both.
+
+## A real target: this repository's own `+all-binaries`
+
+Five Go cross-compiles from one base - the shape a fleet should be best at.
+
+**It did not build at all, on any machine.** `GOOS=windows go build ./...`
+fails: three call sites in `engine/exec` use `unix.Flock` and `syscall.Stat_t`
+directly, so `+earthly-windows-amd64` dies and takes `+all-binaries` with it.
+Nothing in this repository cross-builds for windows, which is why no test caught
+it. Fixed with the platform files the package already uses elsewhere.
+
+With that fixed it builds on the x86 box in 7.5s, and over the fleet:
+
+```text
+4 step(s) delegated, 43 here; compute-bound (99%)
+```
+
+**Four of forty-seven, and not the ones that matter.** The `go build` at the
+heart of every binary carries
+
+```text
+--mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod
+--mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build
+```
+
+and `ir.Op.OnInvokerOnly` pins any step with such a mount: *"it needs a cache
+mount, whose contents live on this machine"*. That is correct - a cache mount
+is machine-local state by definition, and an assignment has no way to carry it -
+and it means **the expensive half of this repository's own build can never be
+delegated.** Thirty-four cache mounts in one Earthfile.
+
+It is also why the numbers are small: the mounts survive `--no-cache`, so the
+compiler never actually recompiles and a 131-step "cold" build takes eight
+seconds. The workload is not cold and cannot be made cold without discarding a
+cache the build is designed around.
+
+**What this says about the fleet.** Every experiment above used steps with no
+mounts, and that was not a simplification - it was the only shape a fleet can
+take. A fleet helps a build whose parallel work is *self-contained*; it cannot
+help one whose parallelism is bought with machine-local caches. Which of those
+a real build is, is now a question worth asking of each target rather than
+assuming.

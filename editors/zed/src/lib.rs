@@ -9,18 +9,26 @@ impl zed::Extension for EarthBuildExtension {
 
     fn language_server_command(
         &mut self,
-        _language_server_id: &zed::LanguageServerId,
+        language_server_id: &zed::LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
-        let command = worktree.which("earth").ok_or_else(|| {
-            "earth was not found in PATH; install EarthBuild before enabling its language server"
+        let settings =
+            zed::settings::LspSettings::for_worktree(language_server_id.as_ref(), worktree)?;
+        let (path, arguments, env) = match settings.binary {
+            Some(binary) => (binary.path, binary.arguments, binary.env),
+            None => (None, None, None),
+        };
+        let command = path.or_else(|| worktree.which("earth")).ok_or_else(|| {
+            "earth was not found in PATH; install EarthBuild or configure lsp.earth-lsp.binary.path"
                 .to_string()
         })?;
 
         Ok(zed::Command {
             command,
-            args: vec!["lsp".to_string()],
-            env: Default::default(),
+            args: arguments.unwrap_or_else(|| vec!["lsp".to_string()]),
+            env: env
+                .map(|values| values.into_iter().collect())
+                .unwrap_or_default(),
         })
     }
 }

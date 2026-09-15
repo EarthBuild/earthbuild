@@ -17,6 +17,21 @@ earth --version
 The extension runs `earth lsp`; it does not download a second language-server
 binary.
 
+To use a particular build instead of the first `earth` in the project PATH,
+configure its absolute path in Zed settings:
+
+~~~json
+{
+  "lsp": {
+    "earth-lsp": {
+      "binary": {
+        "path": "/absolute/path/to/earth"
+      }
+    }
+  }
+}
+~~~
+
 ## Development installation
 
 1. Open Zed's Extensions page.

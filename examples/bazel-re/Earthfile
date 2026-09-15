@@ -54,3 +54,26 @@ reach:
         RUN test -S /run/earthbuild/actions.sock && test -f /run/earthbuild/ca.pem \
          && echo "the service is there"
     END
+
+# ladder times a run of N actions, remote against local, for several N.
+#
+# **The two numbers worth quoting are a slope and an intercept.** How much does
+# turning remote execution on cost at all, and how much does it cost per action?
+# One build gives their sum; a ladder separates them.
+#
+# `--no-cache` because this engine would otherwise serve the whole step, and
+# what is being measured is inside it.
+ladder:
+    FROM +client
+    WORKDIR /w
+    # **No .bazelrc.** It sets --remote_executor for every build, which would
+    # leave the local arm still consulting the remote cache - two arms differing
+    # in more than the thing being measured. bench.sh passes every flag itself.
+    COPY project/WORKSPACE .
+    COPY ladder ladder
+    ARG reps=3
+    ARG sizes="25 50 100"
+    WITH RE
+        RUN --no-cache REPS=$reps SIZES="$sizes" sh ladder/bench.sh | tee /tmp/ladder.tsv
+    END
+    SAVE ARTIFACT /tmp/ladder.tsv AS LOCAL ladder.tsv

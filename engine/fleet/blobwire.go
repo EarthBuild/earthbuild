@@ -472,8 +472,26 @@ func serveBlobConn(ctx context.Context, conn *iroh.Conn, held Held, onError func
 }
 
 // serveBlobStream answers one request.
-func serveBlobStream(_ context.Context, st io.ReadWriteCloser, held Held, onError func(error)) {
+//
+// **Bounded by the serving context, which it used to discard.** The signature
+// said `_ context.Context` and nothing set a deadline, so a write to a peer
+// that had stopped reading blocked in `writeFramed` with no way out - and a
+// driver serves the base of every build, so one such peer stops the machine
+// everybody depends on. Found on an eight-step chain across two machines:
+// three goroutines each stuck writing 0x2828288 bytes, one 40 MB layer apiece,
+// and a build reporting no progress for six minutes.
+//
+// The driver's own lifetime is the right bound and the only one available
+// here: a serve outliving the build that wanted it is waiting for nobody. A
+// context with no deadline - every in-process test, and a server meant to
+// outlive many builds - is left exactly as it was, because `bound` sets
+// nothing then.
+func serveBlobStream(ctx context.Context, st io.ReadWriteCloser, held Held, onError func(error)) {
 	defer func() { _ = st.Close() }()
+
+	if d, ok := st.(deadliner); ok {
+		bound(ctx, d)
+	}
 
 	ids, want, proof, err := readRequest(st)
 	if err != nil {

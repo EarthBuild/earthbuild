@@ -2,10 +2,12 @@ package fleet
 
 import (
 	"context"
+	"net/netip"
 	"os"
 	"time"
 
 	"github.com/tmc/go-iroh/iroh"
+	"github.com/tmc/go-iroh/netaddr"
 )
 
 // EnvDirectWait bounds how long a blob connection waits for a hole-punched path
@@ -25,20 +27,21 @@ const EnvDirectWait = "EARTH_FLEET_DIRECT_WAIT"
 
 // defaultDirectWait is what a connection gives hole punching.
 //
-// **Zero, because waiting was measured and did not help.** Three runs at
-// 6.213s, 8.226s and 9.095s for the same 7.9 MiB - noise around no
-// improvement, and the two slower ones are the ones that waited.
+// **Three seconds, and it now buys something.** Waiting alone did not: three
+// runs at 6.213s, 8.226s and 9.095s against 6.124s without, which is noise
+// around no improvement, because a validated direct path sat idle while the
+// relay carried everything.
 //
-// The reading that prompted this was wrong and is worth recording: the direct
-// path reported `sent 0 B`, which was taken as "the data is going via the
-// relay". A fetcher is a *receiver*, so its send counter is the size of its
-// request whatever path carries the reply, and `pathNote` now reports both
-// directions. What survives is the timing, which says the wait buys nothing on
-// GitHub.
+// What the wait is for is `redialDirect`, which needs an observed address to
+// dial and can only get one from a connection that has already punched. The
+// wait produces the address; the second connection is what actually moves the
+// bytes off the relay.
 //
-// The mechanism is kept: if the route ever turns out to be the cost, this is
-// the only line that changes.
-const defaultDirectWait = 0
+// Bounded and short: where hole punching cannot land - which is what relays
+// exist for (E505) - this is three seconds per peer per build and the fetch
+// proceeds on the relay having spent it. Zero disables both the wait and the
+// re-dial, which is the behaviour every build had before.
+const defaultDirectWait = 3 * time.Second
 
 // directIn reports whether any validated path is a direct one.
 //
@@ -98,4 +101,29 @@ func directWait() time.Duration {
 	}
 
 	return d
+}
+
+// directAddr is a validated direct path's address, when there is one.
+//
+// **The only place a peer's routable address appears.** A worker announces a
+// wildcard - `<id>@[::]:40682` - so nothing can be dialled from what the fleet
+// carries; the endpoints observe each other during the handshake, and the
+// result is here. A second connection made with this and nothing else has no
+// relay to fall back to.
+//
+// Validated only, for the reason `directIn` gives: a probing path may never come
+// up, and replacing a working relay connection with one that does not is worse
+// than the detour.
+func directAddr(paths []iroh.PathInfo) (netip.AddrPort, bool) {
+	for _, p := range paths {
+		if !p.Validated || !p.HasAddr {
+			continue
+		}
+
+		if ip, ok := p.Addr.(netaddr.IPAddr); ok {
+			return ip.Addr, true
+		}
+	}
+
+	return netip.AddrPort{}, false
 }

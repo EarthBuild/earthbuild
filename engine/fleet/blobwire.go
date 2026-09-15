@@ -74,15 +74,56 @@ func (s *PeerSource) connect(ctx context.Context) (*iroh.Conn, error) {
 		return nil, fmt.Errorf("connect for blobs: %w", err)
 	}
 
-	// **Before the first byte, not after it.** A connection comes up on
-	// whatever validates first, which where both ends are NAT'd is the relay,
-	// and hole punching lands a moment later - by which time the transfer is
-	// already committed to the detour. See EnvDirectWait.
+	// **A connection comes up on whatever validates first**, which where both
+	// ends are NAT'd is the relay, and it then stays there: on GitHub the
+	// direct path is validated, multipath is negotiated, and the direct path
+	// carries nothing in either direction while a relay in another region
+	// carries all of it at 1.3 MiB/s (E-F1).
+	//
+	// So the path is not selected, it is dialled. See redialDirect.
 	holdForDirect(ctx, c, directWait())
+
+	if direct := s.redialDirect(ctx, c); direct != nil {
+		c = direct
+	}
 
 	s.held = c
 
 	return c, nil
+}
+
+// redialDirect opens a second connection straight at the peer's direct address.
+//
+// **Nothing to fall back to is the point.** The endpoint address carries the
+// observed address and no relay, so this connection is direct or it does not
+// exist - and if it does not, the caller keeps the one it has and pays the
+// detour, which is what every fetch did before.
+//
+// Returns nil when there is no direct address yet, when the dial fails, or when
+// the connection this was called with is already direct.
+func (s *PeerSource) redialDirect(ctx context.Context, c *iroh.Conn) *iroh.Conn {
+	if directWait() <= 0 {
+		return nil
+	}
+
+	at, ok := directAddr(c.Paths())
+	if !ok {
+		return nil
+	}
+
+	to := netaddr.NewEndpointAddr(c.RemoteID()).WithIP(at)
+
+	direct, err := s.Endpoint.Connect(ctx, to, ALPNBlob)
+	if err != nil {
+		// The observed address is not reachable from here - a NAT that only
+		// holds the mapping for the path that punched it, most often. The relay
+		// connection is still good.
+		return nil
+	}
+
+	// The first connection is not closed: the caller may still be reading a
+	// stream on it, and QUIC keeps it cheap until the idle timeout takes it.
+	return direct
 }
 
 // noteRoute says, once, which routes this peer's bytes took.

@@ -781,3 +781,35 @@ things that need separating: how much work *this machine* takes at once, which
 is a property of this machine, and how much work the *build* has in flight,
 which is a property of the fleet. `Delegating.Room` already exists for the
 first.
+
+## The fleet beats one machine
+
+Two arms, twice each, 64 steps on a 7.9 MiB base, nothing constrained:
+
+| Arrangement            | Runs           | Mean    | Spread |
+| ---------------------- | -------------- | ------- | ------ |
+| one machine, 16 cores  | 95.90, 96.24   | 96.07s  | 0.34s  |
+| Mac plus x86 box       | 68.32, 65.15   | 66.73s  | 3.17s  |
+
+**1.44x**, and both arms are tight enough that it is not noise. `32 delegated,
+32 here` on both fleet runs.
+
+That is the question this plan opened with, answered the right way round for the
+first time. It needed four things, and only the last of them was about moving
+bytes:
+
+* a worker that is not dropped for being busy (F1);
+* a step labelled with the platform its base is, so a machine can be eligible
+  for it (F3);
+* a translator admitted to placement's first pass, so the Mac is a machine at
+  all on an amd64 build rather than a spectator;
+* a build allowed as many steps in flight as the fleet has cores, rather than as
+  many as the driver has.
+
+**The gap from 2x is the next question.** Two machines of sixteen cores and a
+perfect split should be two waves, not the ~2.8 this implies. Stragglers,
+imbalance in what Rosetta and the x86 box each cost per step, or a tail where
+one machine finishes and the other still has work - `compute` says 24.1s per
+delegated step against a 96s/4-wave single-machine figure that implies the same,
+so the per-step costs are close and the loss is in the shape of the schedule
+rather than in either machine.

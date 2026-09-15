@@ -640,3 +640,33 @@ was before the transport was ruled out:
 A wired link would raise the LAN ceiling and is worth having for measurement,
 but it changes which side of the line this workload falls on rather than
 removing the line.
+
+## F4 - a Mac can drive a fleet
+
+Every measurement above used `EARTH_STORE_IN_VM=0`, and that is the setting
+that is wrong. Darwin keeps the layer store on the guest's block device by
+default for a correctness reason: APFS is case-insensitive, so two files in a
+layer differing only in case collide on the shared mount.
+
+With the store where it belongs, `fleet.Layers` read a host directory holding
+nothing, so a driver held the base of its own build and could offer none of it.
+Now:
+
+```text
+3 step(s) delegated, 0 here; compute-bound (99%)
+  transfer 28ms for 849.2 KiB in 1 fetch(es), slowest 28ms
+  compute 5.21s · queue 0s · wire 16ms
+```
+
+No `caches nothing`, no refusals, every step on the worker.
+
+The transport was already there. `SAVE IMAGE` has carried a layer out of such a
+store since E556 - a second `container exec`, the guest binary in a mode that
+does one thing, and a pipe - as an OCI blob. The fleet speaks a different pack,
+so this is the same journey in that format and the same journey back, with
+`fleet.Layers` doing the packing at both ends rather than a second encoder for
+one wire format.
+
+**Not yet exercised:** a base of any size through this path. The pack is
+buffered whole in host memory, which is what `fleet.Layers.Get` already did, but
+849 KiB and 1 GiB are different questions about a pipe.

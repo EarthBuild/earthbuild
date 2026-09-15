@@ -103,9 +103,23 @@ func (f *Filler) Prime(ctx context.Context, want []string) error {
 // primeLayer places whatever one layer has of a predicted set.
 func (f *Filler) primeLayer(ctx context.Context, id ir.NodeID, want []string) error {
 	if !f.Store.Has(id, want) {
-		_, err := ProvisionFragments(ctx, f.Store,
+		began := time.Now()
+
+		moved, err := ProvisionFragments(ctx, f.Store,
 			Assignment{Base: []ir.NodeID{id}, Hints: Hints{ReadsPredicted: want}},
 			f.From...)
+
+		// **Counted before the error check, and counted at all.** This is the
+		// third place in one day where a `Transfer` was discarded and a build
+		// reported moving a fraction of what crossed: 814 MiB taken and 216 B
+		// reported, which is not a small error but a different story (E-F0).
+		// Every call to ProvisionFragments moves bytes, so every call has to
+		// say so.
+		took := time.Since(began)
+
+		f.own.add(moved.Bytes, took)
+		f.Tally.add(moved.Bytes, took)
+
 		if err != nil {
 			return fmt.Errorf("prime from %v: %w", id, err)
 		}

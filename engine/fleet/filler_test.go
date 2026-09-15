@@ -244,3 +244,39 @@ func TestAFaultedPathIsCountedAsTransfer(t *testing.T) {
 			before, f.Moved().Bytes)
 	}
 }
+
+// TestPrimingIsCountedToo.
+//
+// **The same discarded `Transfer`, in the function next door.** `Fill` was
+// fixed when a two-machine run moved 1.1 GiB and reported `0 B`; `Prime` kept
+// the bug, so the next run took 814 MiB and reported 216 B - which is not a
+// small error but a different story, and the flattering direction (E-F0).
+//
+// A worker with a prediction primes and barely faults, so on the path that
+// actually gets used almost every byte went through here.
+func TestPrimingIsCountedToo(t *testing.T) {
+	t.Parallel()
+
+	theirs := t.TempDir()
+	id := aBiggerLayer(t, theirs)
+
+	into := t.TempDir()
+
+	f := &fleet.Filler{
+		Into:  into,
+		Stack: []ir.NodeID{id},
+		From:  []fleet.Fragmenter{&fromStore{layers: &fleet.Layers{Root: theirs}}},
+		Store: &fleet.Fragments{Root: t.TempDir()},
+	}
+
+	err := f.Prime(context.Background(), []string{filepath.Join("etc", "hosts")})
+	if err != nil {
+		t.Fatalf("priming: %v", err)
+	}
+
+	if moved := f.Moved(); moved.Bytes <= 0 {
+		t.Errorf("a prime fetched a path and the account says %d bytes, so a"+
+			" worker that primes well reports moving almost nothing",
+			moved.Bytes)
+	}
+}

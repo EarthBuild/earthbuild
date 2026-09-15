@@ -670,3 +670,45 @@ one wire format.
 **Not yet exercised:** a base of any size through this path. The pack is
 buffered whole in host memory, which is what `fleet.Layers.Get` already did, but
 849 KiB and 1 GiB are different questions about a pipe.
+
+## The baseline was crippled, and the honest comparison is brutal
+
+Every fleet run above used `EARTH_PARALLELISM=2` on the driver, because without
+it nothing is delegated: placement is least-loaded-first and a driver with
+sixteen cores and six steps takes all six. That setting was necessary to
+exercise the fleet and it makes the comparison meaningless, which was not said
+until now.
+
+The same six steps, same base, on this Mac alone at its own parallelism:
+
+| Arrangement                       | Wall clock |
+| --------------------------------- | ---------- |
+| one machine, 16 cores             | **6.48s**  |
+| fleet, worker warm                | 33.50s     |
+| fleet, worker cold (1 GiB base)   | 95.58s     |
+
+**The fleet is five times slower warm and fifteen times slower cold**, and no
+amount of transport work changes that: shipping a 1032 MiB base over 17.5 MiB/s
+of wifi costs 59 seconds, and the entire build is 6.5 seconds of work.
+
+That is not a defect. It is the arithmetic of the thing, and it is worth writing
+down because every experiment above was implicitly asking the wrong question.
+The right one is where the line falls:
+
+```text
+one machine:  ceil(steps / cores) x duration
+fleet:        that, less what a worker takes, plus base_bytes / link
+```
+
+With sixteen cores, 5.4s steps and a 1 GiB base over wifi, a second machine
+does not repay its own base until the build is around a thousand steps deep.
+Halve the base or wire the link and that number falls by the same factor;
+neither changes the shape.
+
+**What follows for the endgame.** A fleet earns its keep when the machine is
+saturated and the base is small against the compute - which is what rebuck2's
+21-hour jobs were. Two things move the line and they are the two experiments
+left: E-F5's prediction, which makes the base cost a tenth of what it does (a
+step reads two files of 5,410 for `go version`, 1,752 for a cold `go build`),
+and E-F2's locality, which stops the base being shipped again for every chain.
+Both attack `base_bytes`, and that is the only term this engine controls.

@@ -565,12 +565,13 @@ func (m *Materialiser) classify(stack []ir.NodeID) ([]ir.NodeID, decl.Declaratio
 			continue
 		}
 
-		return nil, decl.Declaration{}, fmt.Errorf(
-			"%v is in this step's base and this store holds neither a layer nor a"+
-				" declaration for it\n  looked for %s and %s\n  a base is materialised"+
-				" from what the store has, so the element has to be fetched before the"+
-				" step can run",
-			id, m.layerDir(id), decl.Path(m.root, id))
+		// Asked here rather than remembered from the collector: one statfs, at
+		// the moment the question is asked, is both cheaper and truer than
+		// threading a flag out of housekeeping that ran minutes ago.
+		free, freeErr := freeOn(m.root)
+
+		return nil, decl.Declaration{}, missingElement(
+			id, m.layerDir(id), decl.Path(m.root, id), free, freeErr)
 	}
 
 	return trees, decl.Compose(declarations...), nil

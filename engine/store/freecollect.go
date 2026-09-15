@@ -129,6 +129,14 @@ func collectUntilFree(
 			break
 		}
 
+		if report.Kept == 0 {
+			// Everything is gone and it was not enough. Not `Stopped`: nothing
+			// gave up, there is simply nothing left to give.
+			report.Short = true
+
+			break
+		}
+
 		if now > began {
 			futile = 0
 		} else {

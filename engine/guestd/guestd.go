@@ -503,6 +503,21 @@ func reclaim(root string) {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", label(), report)
 	}
 
+	// **Two facts that are one fact.** The store emptying itself and a step
+	// failing for a layer it needed are the same event seen twice, and nothing
+	// joined them: a worker on a full disk said `0 layers and 0 B left` and
+	// then a delegated step said a layer was missing, ten lines apart (E-F1).
+	if report.Short {
+		fmt.Fprintf(os.Stderr, "%s: this store gave up every layer it had and the"+
+			" filesystem still has less than %dG free, so this build will rebuild"+
+			" or refetch everything and may still run out of room\n"+
+			"  something other than this store is using the disk, or %s is set"+
+			" higher than this filesystem can give\n",
+			label(), want>>30, EnvStoreFree)
+
+		return
+	}
+
 	if report.Stopped {
 		fmt.Fprintf(os.Stderr, "%s: the store still has less than %dG free after %s of"+
 			" collecting, and the rest is left for the next build\n"+

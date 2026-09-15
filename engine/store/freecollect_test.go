@@ -148,3 +148,64 @@ func TestASharedFilesystemIsNotEmptiedForSomeoneElsesSpace(t *testing.T) {
 			report.Removed)
 	}
 }
+
+// TestAStoreEmptiedAndStillShortSaysSo.
+//
+// **"Freed less than asked" and "there was nothing left to give" want different
+// words**, which `Report` says in its own comment and had no field for. So a
+// worker on a full disk emptied its store, reported `removed 2 layers, freed
+// 1.0 GiB, 0 layers and 0 B left`, and the next thing anybody saw was a step
+// failing because a layer it needed was not there. The two facts are one fact,
+// and nothing said so (E-F1, on a box with 5.6 G free and 8 G wanted).
+//
+// `Stopped` is the budget giving out, which is a different situation with a
+// different remedy: wait, or raise the budget. This one is remedied by freeing
+// disk or by asking for less, and neither is guessable from the other message.
+func TestAStoreEmptiedAndStillShortSaysSo(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	layers := filepath.Join(root, "layers")
+
+	if err := os.MkdirAll(layers, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{
+		"1111111111111111111111111111111111111111111111111111111111111111",
+		"2222222222222222222222222222222222222222222222222222222222222222",
+	} {
+		if err := os.MkdirAll(filepath.Join(layers, name), 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// A disk something else has filled: every removal returns a little, and it
+	// is never going to be enough.
+	reads := 0
+	free := func(string) (uint64, error) {
+		defer func() { reads++ }()
+
+		return uint64(reads), nil
+	}
+
+	report, err := collectUntilFree(root, 1000, nil, nil, free)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.Kept != 0 {
+		t.Fatalf("kept %d layers, so this is not the case under test", report.Kept)
+	}
+
+	if !report.Short {
+		t.Error("a store that gave up everything it had and is still short of" +
+			" what was asked reports nothing to distinguish it from one that" +
+			" tidied successfully")
+	}
+
+	if report.Stopped {
+		t.Error("running out of layers was reported as the budget running out," +
+			" which has a different remedy")
+	}
+}

@@ -42,8 +42,21 @@ type Report struct {
 	// ceiling, so the store is larger than was asked for and the rest is left
 	// for next time. Reported rather than inferred: "freed less than asked"
 	// also describes a store with nothing left to give, and those want
-	// different words.
+	// different words - see Short, which is the other one.
 	Stopped bool
+	// Short says the store gave up everything it had and the filesystem still
+	// has less room than was asked for.
+	//
+	// **The words the comment above promised and did not have.** A worker on a
+	// disk something else had filled emptied its store, said `removed 2 layers,
+	// freed 1.0 GiB, 0 layers and 0 B left`, and the next thing anybody saw was
+	// a delegated step failing because a layer was missing. Those are one fact,
+	// and nothing joined them (E-F1).
+	//
+	// A different remedy from Stopped, which is why it is a different field:
+	// this one is fixed by freeing disk or asking for less, and no amount of
+	// waiting helps.
+	Short bool
 }
 
 // Freed is how much the collection reclaimed.

@@ -1014,3 +1014,9 @@ The chain that hung for ever, with locality restored:
 **29x less moved and 3.4x quicker**, on the shape a fleet is worst at. E-F2 is
 no longer dead code, and `prefer`'s own claim about itself turns out to have
 been right all along.
+
+And the fan-out is unharmed, which is the half-step price being calibrated
+rather than lucky: the 64-step build still splits `32 delegated, 32 here` and
+runs in 51.50s against a 49.58s mean before locality and 96.07s on one machine.
+A chain that stays put and a fan-out that still spreads are the two things this
+ordering has to do at once, and it does both.

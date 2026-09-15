@@ -1114,3 +1114,10 @@ func (d *Delegating) fleetHolds(a Assignment) bool {
 // A driver with no peer dialler cannot fetch a worker's layer, so keeping a step
 // whose inputs are elsewhere would be keeping one it cannot run (E274).
 func (d *Delegating) canBringBack() bool { return d.Peers != nil }
+
+// Here is the executor that runs a step on this machine.
+//
+// Exported because this machine's *store* is reached through it: the tiers that
+// ask what the layer store holds are handed the build's executor, which with a
+// fleet is this wrapper, and a wrapper holds no store. See cli.here.
+func (d *Delegating) Here() core.Executor { return d.Local }

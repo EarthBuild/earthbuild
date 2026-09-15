@@ -50,6 +50,8 @@ type staleAsker interface {
 // store and fetches digests, which is what every backend did before the
 // question existed.
 func guestStoreAskers(over any) (storeAsker, staleAsker) {
+	over = here(over)
+
 	required, ok := over.(storeAsker)
 	if !ok {
 		return nil, nil
@@ -141,4 +143,36 @@ func (b askedBase) ListingDigest(dir string) (ir.NodeID, bool) {
 	id, ok := b.listings[dir]
 
 	return id, ok
+}
+
+// runsElsewhere is an executor that places a step on another machine and keeps
+// this machine's executor underneath - `fleet.Delegating`.
+type runsElsewhere interface {
+	Here() core.Executor
+}
+
+// here unwraps to the executor that holds *this* machine's store.
+//
+// **Which machine runs a step does not move that machine's store.** A build
+// with a fleet is handed a delegating executor, and asking that whether the
+// layer store is in its guest asks something that holds no store at all: the
+// first two-machine run printed "this executor cannot be asked what it holds",
+// cached nothing, and then failed to materialise a base the guest was holding.
+//
+// A loop rather than one unwrap, so a second wrapper does not reinstate the
+// bug silently.
+func here(over any) any {
+	for {
+		w, ok := over.(runsElsewhere)
+		if !ok {
+			return over
+		}
+
+		under := w.Here()
+		if under == nil {
+			return over
+		}
+
+		over = under
+	}
 }

@@ -150,3 +150,46 @@ func TestAnExecutorThatCanDoNeitherGetsNoGuestStore(t *testing.T) {
 			" holding the store in its guest")
 	}
 }
+
+// runsSomewhereElse is a fleet executor: it satisfies `core.Executor` and knows
+// nothing about a store, keeping this machine's executor underneath.
+type runsSomewhereElse struct{ here core.Executor }
+
+func (x runsSomewhereElse) Run(
+	context.Context, *ir.Node, core.Worker, []ir.NodeID, [][]ir.NodeID,
+) (core.Result, error) {
+	return core.Result{}, nil
+}
+
+func (x runsSomewhereElse) Here() core.Executor { return x.here }
+
+// holdsInGuest is `canHold` as an executor, which is what a sandbox with
+// `EARTH_STORE_IN_VM` hands the build.
+type holdsInGuest struct{ canHold }
+
+func (holdsInGuest) Run(
+	context.Context, *ir.Node, core.Worker, []ir.NodeID, [][]ir.NodeID,
+) (core.Result, error) {
+	return core.Result{}, nil
+}
+
+// TestAFleetDoesNotHideTheGuestStore.
+//
+// **Delegation wraps the executor, and the wrapper holds no store.** A build
+// with a fleet is handed `fleet.Delegating` rather than the sandbox's own
+// executor, so the assertion that decides whether the layer store lives in the
+// guest is made against something that was never going to satisfy it - and the
+// build prints "this executor cannot be asked what it holds", caches nothing,
+// and then fails to materialise a base it holds (E-F1, first two-machine run).
+//
+// The question is about *this* machine either way: which machine runs a step
+// does not move that machine's store.
+func TestAFleetDoesNotHideTheGuestStore(t *testing.T) {
+	t.Parallel()
+
+	asker, _ := guestStoreAskers(runsSomewhereElse{here: holdsInGuest{}})
+	if asker == nil {
+		t.Error("a build with a fleet was refused its guest store, so it" +
+			" caches nothing and cannot materialise a base it holds")
+	}
+}

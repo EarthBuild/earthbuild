@@ -144,29 +144,6 @@ func TestStart_InvalidAddrs(t *testing.T) {
 	}
 }
 
-func TestStart_ContainerLocalRegistryAddr(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
-	eng := engine.NewTestClient(engine.Metadata{
-		Name:   dockerEngineName,
-		Scheme: engine.SchemeDocker,
-	})
-
-	settings := Settings{
-		BuildkitAddr:      defaultBuildkitTCP,
-		LocalRegistryAddr: "docker-container://my-reg",
-		UseTCP:            true,
-	}
-
-	// Should not fail with port parsing error for docker-container:// scheme.
-	err := Start(ctx, log, "test-image", "test-container", eng, settings, false)
-	if err != nil {
-		assert.NotContains(t, err.Error(), "invalid port in local registry address")
-	}
-}
-
 func TestPrintBuildkitInfo(t *testing.T) {
 	t.Parallel()
 

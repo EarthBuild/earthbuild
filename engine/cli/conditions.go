@@ -683,7 +683,19 @@ func localWorker(platform string, local core.Executor) core.Worker {
 		}
 	}
 
-	w := core.Worker{ID: "local", IsInvoker: true, Emulates: emulates}
+	// And what it runs through a *translator*, which placement may prefer over
+	// a queue where it will not prefer an interpreter. A Mac with Rosetta is
+	// within half a percent of a native x86 box on the same work, and was ruled
+	// ineligible for every amd64 step because one rule covered both (E-F1).
+	var translates []ir.Platform
+
+	if sandbox, ok := local.(interface{ Translates() []string }); ok {
+		translates = exec.PlatformsNamed(sandbox.Translates())
+	}
+
+	w := core.Worker{
+		ID: "local", IsInvoker: true, Emulates: emulates, Translates: translates,
+	}
 
 	p, err := platforms.Parse(platform)
 	if err == nil {

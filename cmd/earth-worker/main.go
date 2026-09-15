@@ -266,7 +266,13 @@ func run() error {
 			// a VM backend this process's own register belongs to a different
 			// kernel, and on macOS to no kernel at all.
 			fleet.Runs(exec.DefaultPlatform(), room, me.String(),
-				platformStrings(exec.PlatformsNamed(x.Emulates()))...))
+				platformStrings(exec.PlatformsNamed(x.Emulates()))...),
+			// And which of those it *translates*. A Mac worker runs amd64
+			// through Rosetta within half a percent of native, and placement
+			// keeps an interpreter out of the first pass on the strength of a
+			// hundredfold that Rosetta does not pay (E-F1).
+			fleet.Translating(
+				platformStrings(exec.PlatformsNamed(x.Translates()))...))
 	}
 
 	// Once if this worker was told where the driver is, repeatedly if it has to

@@ -87,6 +87,18 @@ type Reply struct {
 	// what its kernel registered against what its sandbox offers, and the fleet
 	// carries the answer rather than repeating the vocabulary.
 	Emulates []string `json:"emulates,omitempty"`
+	// Translates is what this worker runs through a translator rather than an
+	// interpreter - Rosetta, which compiles ahead of time and caches.
+	//
+	// **Separate because the cost is a different kind.** Placement keeps an
+	// interpreter out of the first pass on the strength of a hundredfold, and a
+	// translator measured within half a percent of native was excluded by the
+	// same rule - so a Mac could not take a single step of an amd64 build and a
+	// fleet of one Mac and one x86 box moved work instead of sharing it (E-F1).
+	//
+	// Omitted when empty, so a worker built before this says nothing and is
+	// read exactly as it was.
+	Translates []string `json:"translates,omitempty"`
 	// Capacity is how many steps this worker can run at once.
 	//
 	// Advisory, and the denominator the driver has no other way to learn. It

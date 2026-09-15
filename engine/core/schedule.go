@@ -40,6 +40,22 @@ type Worker struct {
 	// machine makes the emulator the better answer. This widens what a build *can* do without
 	// changing what it does when it has the choice.
 	Emulates []ir.Platform
+	// Translates are platforms this machine runs through a *translator* rather
+	// than an interpreter - Rosetta, which compiles a binary ahead of time and
+	// caches the result.
+	//
+	// **First-class, because the cost is not the same kind of thing.** The
+	// hundred-fold above is an interpreter's cost and the rule that follows from
+	// it is right; a translator is within noise of native and the same rule
+	// excludes it from every build of the architecture it translates. Measured
+	// on 64 amd64 steps: 95.90s on an arm64 Mac through Rosetta against 95.47s
+	// native on an x86 box, and a fleet of the two therefore substituted one
+	// machine for the other instead of adding them - `64 delegated, 0 local`
+	// (E-F1).
+	//
+	// So a translator is eligible in the first pass, beside the machines of the
+	// architecture, and competes on load like any of them.
+	Translates []ir.Platform
 }
 
 // canEmulate reports whether this machine can run that platform under emulation.
@@ -53,7 +69,18 @@ type Worker struct {
 //
 // The same rule `checkRunnableWith` makes, in the other place that makes it.
 func (w Worker) canEmulate(p ir.Platform) bool {
-	for _, e := range w.Emulates {
+	return runsAny(w.Emulates, p)
+}
+
+// canTranslate reports whether this machine runs that platform through a
+// translator, which is a cost placement may weigh rather than a last resort.
+func (w Worker) canTranslate(p ir.Platform) bool {
+	return runsAny(w.Translates, p)
+}
+
+// runsAny is the OS-and-architecture comparison both of them make.
+func runsAny(each []ir.Platform, p ir.Platform) bool {
+	for _, e := range each {
 		if e.Matches(p) {
 			return true
 		}
@@ -1357,7 +1384,16 @@ func platformFits(n *ir.Node, w Worker, native ir.Platform) bool {
 	// has no variant to report, and comparing the structs whole made a
 	// `linux/arm64` machine ineligible for a step written `linux/arm64/v8` -
 	// sending it to the emulation pass on the machine that could run it (E952).
-	return w.Platform.Matches(want)
+	if w.Platform.Matches(want) {
+		return true
+	}
+
+	// **A translator is not emulation's kind of cost.** Rosetta compiles a
+	// binary ahead of time and caches it; the second pass exists for
+	// interpreters, which are a hundredfold slower and must never take work
+	// from a native machine. A machine measured within half a percent of native
+	// competes in the first pass, on load, like any other (E-F1).
+	return w.canTranslate(want)
 }
 
 // evalNode evaluates one step: lookup, execute if needed, record, publish.

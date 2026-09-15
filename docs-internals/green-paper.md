@@ -984,6 +984,14 @@ far and is extended as more are revealed.
 | host locality     | every `host` step is assigned to the invoking machine             |
 | stack depth       | no materialised stack exceeds 𝑛ₘₐₓ; Φ (4.8) is applied first      |
 
+A worker's platform **satisfies** π when it is π, or when the worker can run π by emulating or
+translating it. Which of those a worker offers is not a legality question - all three produce the
+same artefacts (I1) - but it is a cost question, and the costs differ by two orders of magnitude: an
+interpreter walks instructions, a translator compiles ahead of time and caches. An implementation
+SHOULD therefore prefer a machine that is π, admit one that translates π on the same terms, and reach
+for one that only interprets π when no other machine can run the step at all. Preferring otherwise is
+legal and slow.
+
 An implementation MUST produce only legal schedules. The property that matters is then:
 
 ```text
@@ -1510,9 +1518,17 @@ is: a second implementation has to know what it may act on.
 | `heldAt`                      | where the produced layer can now be fetched                                       |
 | `platform`, `capacity`        | what this machine is and how many steps it runs at once                           |
 | `emulates`                    | what this machine can run that it was not built for, each an os and an arch       |
+| `translates`                  | which of those it runs through a translator rather than an interpreter            |
 | `durationMillis`              | how long the step itself took                                                     |
 | `queueMillis`                 | how long the step waited for a slot on this worker                                |
 | `fetchedBytes`, `fetchMillis` | what the worker had to move to be able to run it                                  |
+
+`emulates` and `translates` are a fallback and a preference, and the difference is the cost of the
+mechanism rather than a matter of taste. An interpreter walks instructions and runs on the order of a
+hundred times slower, so no queue on a native machine makes it the better answer; a translator
+compiles ahead of time and caches the result, and is measured within half a percent of native. A
+worker naming a platform in both is saying the fast thing about it. §4.7.1 admits a translator to the
+first pass and leaves an interpreter in the second.
 
 The last six are the only measurements a driver has of a machine it does not own, and placement is
 computed from them. They are also what makes the account decomposable: a driver knows the round trip

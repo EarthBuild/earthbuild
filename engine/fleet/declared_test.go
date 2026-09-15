@@ -35,7 +35,7 @@ func TestWaitingForWorkersWaitsForOnesThatCanBeGivenWork(t *testing.T) {
 			"\n  placement refuses a worker with no platform, so this is a fleet of nobody", got)
 	}
 
-	r.note(id, "", "linux/arm64", 4, nil)
+	r.note(id, "", "linux/arm64", 4, nil, nil)
 
 	later, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel2()

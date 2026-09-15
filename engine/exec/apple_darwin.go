@@ -1481,3 +1481,18 @@ func (a *Apple) Offers() []string {
 
 	return []string{"x86_64"}
 }
+
+// Translates names the platforms this backend runs through a *translator*
+// rather than an interpreter.
+//
+// **Rosetta is not emulation's kind of cost.** It compiles a binary ahead of
+// time and caches the result, where qemu walks instructions - and placement
+// treats emulation as a last resort on the strength of a hundredfold that only
+// the second of those pays. Measured on 64 amd64 steps: 95.90s on this Mac
+// through Rosetta against 95.47s native on an x86 box, so the rule excluded a
+// machine that was within half a percent of the one it preferred (E-F1).
+//
+// The same list as Offers today, and separate from it on purpose: what a
+// backend hands its guest and how fast the result runs are two facts, and a
+// backend that one day passes qemu as well would say so here by not listing it.
+func (a *Apple) Translates() []string { return a.Offers() }

@@ -2319,6 +2319,20 @@ func actionsFor(n *ir.Node) *guest.Actions {
 	}
 }
 
+// Translates names the platforms this executor's sandbox runs through a
+// translator rather than an interpreter, as its kernel spells them.
+//
+// Asked only of the sandbox: this is a property of what the backend arranges,
+// not of what a guest happens to have registered. A sandbox that says nothing
+// translates nothing, and its foreign platforms stay emulation's business.
+func (e *Executor) Translates() []string {
+	if t, ok := e.sb.(interface{ Translates() []string }); ok {
+		return t.Translates()
+	}
+
+	return nil
+}
+
 // Emulates names the interpreters this executor's sandbox has registered for
 // foreign binaries, as its kernel spells them.
 //

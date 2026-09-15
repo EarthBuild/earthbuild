@@ -173,6 +173,9 @@ type joined struct {
 	// `os/arch`. Empty is every machine with no interpreter registered, which
 	// is most of them, and then placement is exactly as it was.
 	emulates []string
+	// translates is what it runs through a translator rather than an
+	// interpreter. See Reply.Translates.
+	translates []string
 }
 
 // Accept registers workers as they arrive, until the context ends.
@@ -278,7 +281,7 @@ func (r *Rendezvous) askWhatItIs(
 		return
 	}
 
-	r.note(id, said.HeldAt, said.Platform, said.Capacity, said.Emulates)
+	r.note(id, said.HeldAt, said.Platform, said.Capacity, said.Emulates, said.Translates)
 }
 
 // Workers is how many have joined.
@@ -335,7 +338,8 @@ func (r *Rendezvous) Assign(ctx context.Context, a Assignment) (Reply, error) {
 			// downstream sees the same string.
 			reply.HeldAt = correctHost(reply.HeldAt, w.from)
 
-			r.note(w.id, reply.HeldAt, reply.Platform, reply.Capacity, reply.Emulates)
+			r.note(w.id, reply.HeldAt, reply.Platform, reply.Capacity,
+				reply.Emulates, reply.Translates)
 
 			return reply, nil
 		}
@@ -482,6 +486,16 @@ type joinCfg struct {
 // Announced at join rather than learned from a reply. A worker that had run
 // nothing had declared no platform, and placement refuses a worker that has not
 // declared one - so a fresh worker could never be given a first step (E503).
+// Translating names what this worker runs through a translator rather than an
+// interpreter, which placement weighs where it will not weigh emulation.
+//
+// Separate from `Runs` rather than a fifth variadic on it: the two lists mean
+// different things to placement, and a variadic that silently took both would
+// be a fleet where a qemu box claimed a Mac's eligibility (E-F1).
+func Translating(platforms ...string) JoinOpt {
+	return func(c *joinCfg) { c.self.Translates = platforms }
+}
+
 func Runs(platform string, capacity int, heldAt string, emulates ...string) JoinOpt {
 	return func(c *joinCfg) {
 		c.self = Reply{
@@ -729,9 +743,10 @@ func (r *Rendezvous) Inventory() []core.Worker {
 	out := make([]core.Worker, 0, len(r.conns))
 	for _, w := range r.conns {
 		out = append(out, core.Worker{
-			ID:       w.id,
-			Platform: platformOf(w.platform),
-			Emulates: platformsOf(w.emulates),
+			ID:         w.id,
+			Platform:   platformOf(w.platform),
+			Emulates:   platformsOf(w.emulates),
+			Translates: platformsOf(w.translates),
 		})
 	}
 
@@ -910,8 +925,11 @@ func preferFetching(
 //
 // Each field is kept only if it was given, so a reply that omits one does not
 // erase what an earlier one said.
-func (r *Rendezvous) note(id, at, platform string, capacity int, emulates []string) {
-	if at == "" && platform == "" && capacity < 1 && len(emulates) == 0 {
+func (r *Rendezvous) note(
+	id, at, platform string, capacity int, emulates, translates []string,
+) {
+	if at == "" && platform == "" && capacity < 1 &&
+		len(emulates) == 0 && len(translates) == 0 {
 		return
 	}
 
@@ -929,6 +947,10 @@ func (r *Rendezvous) note(id, at, platform string, capacity int, emulates []stri
 
 		if len(emulates) > 0 {
 			r.conns[i].emulates = emulates
+		}
+
+		if len(translates) > 0 {
+			r.conns[i].translates = translates
 		}
 
 		if platform != "" {
@@ -950,7 +972,17 @@ func (r *Rendezvous) note(id, at, platform string, capacity int, emulates []stri
 // about how it came to hear it, and one that would otherwise need two endpoints
 // and a build to observe.
 func (r *Rendezvous) NoteForTest(id, at, platform string, capacity int, emulates ...string) {
-	r.note(id, at, platform, capacity, emulates)
+	r.note(id, at, platform, capacity, emulates, nil)
+}
+
+// NoteTranslatingForTest records a worker that translates a foreign platform.
+//
+// Its own entry point rather than a sixth argument on the one above, so the
+// dozen existing callers keep saying what they already said.
+func (r *Rendezvous) NoteTranslatingForTest(
+	id, at, platform string, capacity int, translates ...string,
+) {
+	r.note(id, at, platform, capacity, nil, translates)
 }
 
 // load is how many steps each worker is running, as far as this driver knows.

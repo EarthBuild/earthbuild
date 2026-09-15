@@ -169,6 +169,13 @@ func Runner(
 
 		ran := time.Now()
 
+		// **What a lazy step fetches, it fetches from inside `e.Run`.** The
+		// executor faults a path in as the step opens it, so nothing that
+		// `provision` returned describes it - and a two-machine run reported
+		// `0 B in 0 fetch(es)` against 1.1 GiB that had plainly arrived (E-F0).
+		// Read by difference because the tally is the worker's, not the step's.
+		faultedBefore := cfg.faults.Moved()
+
 		res, err := e.Run(ctx, n, as, a.Base, a.Sources)
 
 		// **A prediction that was wrong is not a step that cannot run.**
@@ -204,6 +211,10 @@ func Runner(
 		}
 
 		took := time.Since(ran)
+
+		faulted := cfg.faults.Since(faultedBefore)
+		moved.Bytes += faulted.Bytes
+		moved.Took += faulted.Took
 
 		if err != nil {
 			// The step could not be *started* - a missing binary, a sandbox
@@ -361,6 +372,9 @@ type runnerCfg struct {
 	sink *Peers
 	// fetching serialises transfers on this worker. See provision.
 	fetching sync.Mutex
+	// faults is what this worker has moved by faulting rather than by
+	// provisioning. See WithFaults.
+	faults *Tally
 }
 
 // provision brings in what this step needs, one transfer at a time.
@@ -567,6 +581,15 @@ func WithPeers(at string, dial func(string) (Source, error)) RunnerOpt {
 		c.at = at
 		c.dial = dial
 	}
+}
+
+// WithFaults is where this worker's fillers add what they move.
+//
+// Separate from `WithFragments`, which says where fragments are *kept*: a worker
+// can keep them and still not be counted, which is what every worker did while
+// the account read zero (E-F0).
+func WithFaults(t *Tally) RunnerOpt {
+	return func(c *runnerCfg) { c.faults = t }
 }
 
 // refusal is a reply that declines the step, and says what it already cost.

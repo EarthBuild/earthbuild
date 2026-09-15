@@ -184,3 +184,63 @@ func aLayerWithFile(t *testing.T, root, path, body string) ir.NodeID {
 
 	return c.ID
 }
+
+// TestAFaultedPathIsCountedAsTransfer.
+//
+// **1.1 GiB crossed a LAN and the build reported `0 B in 0 fetch(es)`.** The
+// account is fed from the reply's `FetchedBytes`, which the runner takes from
+// `provision` - and a worker running in fault-in mode does not fetch there. It
+// fetches here, one path at a time, and `fromLayer` discarded the `Transfer`
+// that `ProvisionFragments` hands back.
+//
+// A number that reads zero cannot be ratcheted, and E-F1 exists to reduce
+// exactly this number (E-F0).
+func TestAFaultedPathIsCountedAsTransfer(t *testing.T) {
+	t.Parallel()
+
+	theirs := t.TempDir()
+	id := aBiggerLayer(t, theirs)
+
+	into := t.TempDir()
+
+	f := &fleet.Filler{
+		Into:  into,
+		Stack: []ir.NodeID{id},
+		From:  []fleet.Fragmenter{&fromStore{layers: &fleet.Layers{Root: theirs}}},
+		Store: &fleet.Fragments{Root: t.TempDir()},
+	}
+
+	if moved := f.Moved(); moved.Bytes != 0 {
+		t.Errorf("a filler that has fetched nothing reports %d bytes", moved.Bytes)
+	}
+
+	err := f.Fill(context.Background(), filepath.Join(into, "etc", "hosts"))
+	if err != nil {
+		t.Fatalf("filling: %v", err)
+	}
+
+	moved := f.Moved()
+	if moved.Bytes <= 0 {
+		t.Errorf("a path was faulted in and the account says %d bytes moved,"+
+			" so a lazy worker's transfer is invisible to the build", moved.Bytes)
+	}
+
+	if moved.Took <= 0 {
+		t.Error("the fetch took no time at all, which no fetch does")
+	}
+
+	// A second read of the same path is served from the fragment store, so it
+	// costs nothing and must not be counted again - the account is what
+	// placement prices the next step with.
+	before := f.Moved().Bytes
+
+	err = f.Fill(context.Background(), filepath.Join(into, "etc", "hosts"))
+	if err != nil {
+		t.Fatalf("filling again: %v", err)
+	}
+
+	if f.Moved().Bytes != before {
+		t.Errorf("a path already held was counted again: %d then %d",
+			before, f.Moved().Bytes)
+	}
+}

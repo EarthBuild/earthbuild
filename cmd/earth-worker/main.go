@@ -171,10 +171,17 @@ func run() error {
 	peers := &fleet.Peers{}
 	from := []fleet.Fragmenter{peers}
 
+	// What this worker moves by faulting, which is everything it moves when
+	// lazy transfer is on. One tally for the worker: a filler is made per path,
+	// so a total kept in one of them is the total of one path (E-F0).
+	faults := &fleet.Tally{}
+
 	x.Prime = func(
 		ctx context.Context, stack []ir.NodeID, want []string, into string,
 	) error {
-		f := &fleet.Filler{Into: into, Stack: stack, From: from, Store: frags}
+		f := &fleet.Filler{
+			Into: into, Stack: stack, From: from, Store: frags, Tally: faults,
+		}
 
 		return f.Prime(ctx, want)
 	}
@@ -182,7 +189,9 @@ func run() error {
 	x.Fetch = func(
 		ctx context.Context, stack []ir.NodeID, into, at string,
 	) error {
-		f := &fleet.Filler{Into: into, Stack: stack, From: from, Store: frags}
+		f := &fleet.Filler{
+			Into: into, Stack: stack, From: from, Store: frags, Tally: faults,
+		}
 
 		return f.Fill(ctx, at)
 	}
@@ -233,6 +242,7 @@ func run() error {
 				fleet.WithBlobs(layers),
 				fleet.WithFragments(frags),
 				fleet.WithPeerSink(peers),
+				fleet.WithFaults(faults),
 				fleet.WithPeers(me.String(), dialPeer(ctx, e, found, os.Getenv(fleet.EnvDriver)))),
 			say,
 			// Reachable without being reachable: the driver fetches what this

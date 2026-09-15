@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -44,7 +45,31 @@ type Filler struct {
 	// Store keeps what arrives, so a second step reading the same path pays
 	// nothing.
 	Store *Fragments
+
+	// Tally, if set, also receives what this filler moves.
+	//
+	// **A lazy worker fetches nowhere else.** The runner reads what a step cost
+	// from `provision`, and a worker in fault-in mode provisions nothing: it
+	// faults, here, one path at a time. So a two-machine run moved 1.1 GiB and
+	// reported `0 B in 0 fetch(es)` - the number E-F1 exists to reduce, reading
+	// zero whatever happened (E-F0).
+	//
+	// Shared because one filler is made per fault: a total kept only in `own`
+	// is the total of a single path.
+	Tally *Tally
+
+	own Tally
 }
+
+// Moved is what this filler has fetched.
+//
+// Counted rather than timed from outside: a fault is interleaved with the step's
+// own execution, so wall-clock around the run is the step's cost and not the
+// transfer's.
+func (f *Filler) Moved() Transfer { return f.own.Moved() }
+
+// Fetches is how many round trips those bytes took.
+func (f *Filler) Fetches() int64 { return f.own.Fetches() }
 
 // Prime materialises the paths a step was predicted to read, before it starts.
 //
@@ -140,9 +165,20 @@ func (f *Filler) fromLayer(ctx context.Context, id ir.NodeID, rel string) (bool,
 	want := []string{rel}
 
 	if !f.Store.Has(id, want) {
-		_, err := ProvisionFragments(ctx,
+		began := time.Now()
+
+		moved, err := ProvisionFragments(ctx,
 			f.Store, Assignment{Base: []ir.NodeID{id}, Hints: Hints{ReadsPredicted: want}},
 			f.From...)
+
+		// **Before the error check**, because a fetch that failed still moved
+		// what it moved - the same argument `refusal` makes for a step that
+		// pulled four hundred megabytes and then could not start (E270).
+		took := time.Since(began)
+
+		f.own.add(moved.Bytes, took)
+		f.Tally.add(moved.Bytes, took)
+
 		if err != nil {
 			// Nobody could be asked. **Not the same as the layer not having
 			// it**, and the difference is a wrong build.

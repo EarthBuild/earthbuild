@@ -32,7 +32,13 @@ func TestAFetchSaysWhetherItWentDirect(t *testing.T) {
 		HasRTT: true,
 	}
 
+	direct.BytesReceived, direct.HasBytesReceived = 8<<20, true
+
 	said := pathNote([]iroh.PathInfo{direct})
+	if !strings.Contains(said, "received 8 MiB") {
+		t.Errorf("a path does not say what it carried inbound: %q", said)
+	}
+
 	if !strings.Contains(said, "10.1.0.4:41234") {
 		t.Errorf("a direct path does not name where it went: %q", said)
 	}

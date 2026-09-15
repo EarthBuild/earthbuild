@@ -40,13 +40,17 @@ func pathNote(paths []iroh.PathInfo) string {
 			at += fmt.Sprintf(" rtt %v", p.RTT.Round(100*time.Microsecond))
 		}
 
-		// **Available is not used.** Waiting for hole punching put a direct
-		// path beside the relay on every GitHub connection and the transfer did
-		// not get faster, which has two readings: the direct path is not
-		// carrying the bytes, or the relay was never the cost. A route with no
-		// bytes on it distinguishes them, and nothing else does.
+		// **Both directions, because a fetcher is a receiver.** Reading
+		// `BytesSent` alone on the machine doing the fetching reports the size
+		// of its *request* and calls a path idle when it is carrying the whole
+		// transfer the other way - which is how `sent 0 B` on a direct path was
+		// read here as "the bytes are going via the relay".
 		if p.HasBytesSent {
 			at += " sent " + human(p.BytesSent)
+		}
+
+		if p.HasBytesReceived {
+			at += " received " + human(p.BytesReceived)
 		}
 
 		out = append(out, at)

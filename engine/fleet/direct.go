@@ -25,17 +25,19 @@ const EnvDirectWait = "EARTH_FLEET_DIRECT_WAIT"
 
 // defaultDirectWait is what a connection gives hole punching.
 //
-// **Zero, because waiting was measured and does not help.** The wait does what
-// it says - a direct path is validated beside the relay on every GitHub
-// connection - and the connection then sends nothing over it:
+// **Zero, because waiting was measured and did not help.** Three runs at
+// 6.213s, 8.226s and 9.095s for the same 7.9 MiB - noise around no
+// improvement, and the two slower ones are the ones that waited.
 //
-//	over relay:https://aps1-1.relay.n0.iroh-canary.iroh.link./,
-//	  ip:52.157.32.204:48160 sent 0 B
+// The reading that prompted this was wrong and is worth recording: the direct
+// path reported `sent 0 B`, which was taken as "the data is going via the
+// relay". A fetcher is a *receiver*, so its send counter is the size of its
+// request whatever path carries the reply, and `pathNote` now reports both
+// directions. What survives is the timing, which says the wait buys nothing on
+// GitHub.
 //
-// Three runs at 6.213s, 8.226s and 9.095s for the same 7.9 MiB, which is noise
-// around no improvement. Establishing a path the data plane will not migrate to
-// is a delay bought for nothing, so it is off until something moves bytes onto
-// it - and the mechanism is kept, because that is the only change needed then.
+// The mechanism is kept: if the route ever turns out to be the cost, this is
+// the only line that changes.
 const defaultDirectWait = 0
 
 // directIn reports whether any validated path is a direct one.

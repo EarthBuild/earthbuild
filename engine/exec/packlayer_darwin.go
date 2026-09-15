@@ -52,7 +52,7 @@ func (a *Apple) packVia(ctx context.Context, mode string, id ir.NodeID, w io.Wri
 	}
 
 	cmd := osexec.CommandContext(ctx, "container", "exec", "-i", //nolint:gosec // fixed argv
-		"-e", "EARTH_GUEST_ROOT="+guestStore,
+		"-e", a.storeEnv(),
 		a.name, "/earth/"+filepath.Base(guestBin), mode, id.String())
 
 	var complaint strings.Builder
@@ -89,7 +89,7 @@ func (a *Apple) UnpackFleetLayer(ctx context.Context, r io.Reader) (ir.NodeID, i
 	}
 
 	cmd := osexec.CommandContext(ctx, "container", "exec", "-i", //nolint:gosec // fixed argv
-		"-e", "EARTH_GUEST_ROOT="+guestStore,
+		"-e", a.storeEnv(),
 		a.name, "/earth/"+filepath.Base(guestBin), "--unpack-fleet")
 
 	var (

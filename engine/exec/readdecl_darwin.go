@@ -35,7 +35,7 @@ func (a *Apple) ReadDeclaration(ctx context.Context, id ir.NodeID) ([]byte, bool
 	}
 
 	cmd := osexec.CommandContext(ctx, "container", "exec", "-i", //nolint:gosec // fixed argv
-		"-e", "EARTH_GUEST_ROOT="+guestStore,
+		"-e", a.storeEnv(),
 		a.name, "/earth/"+filepath.Base(guestBin), "--decl", id.String())
 
 	var (

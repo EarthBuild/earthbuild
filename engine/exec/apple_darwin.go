@@ -627,7 +627,7 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 	// as a step that cannot find a file that was definitely written.
 	args := []string{
 		"exec", "-i",
-		"-e", "EARTH_GUEST_ROOT=" + a.guestRoot(),
+		"-e", a.storeEnv(),
 		// Where an export is staged, which is not where the layers live once
 		// they move off the shared mount. Empty means "the same place", which
 		// is what it is until they do. See guestExportDir.
@@ -1338,6 +1338,21 @@ func (a *Apple) guestRoot() string {
 // with the store on the guest's own device, a prune of this machine's directory
 // tidies something else and reports success. See exec.StoreIsInGuest.
 func (a *Apple) StoreOutOfReach() bool { return guest.StoreInVM() }
+
+// storeEnv is how every exec into this sandbox is told where the store is.
+//
+// **There are two stores in there and only one of them is the store.**
+// `guestStore` is the host's directory over virtiofs and `guestFast/store` is
+// the volume the guest owns; with the store on the volume - the darwin default
+// - the mount still exists and still has layers on it, from whatever this
+// machine built before. So naming the wrong one does not fail, it answers about
+// a different build: 23,168 entries against 103 on a live sandbox, and a pack
+// that reported `no layer … here` about a layer the store was holding (F4).
+//
+// One expression, used by the start and by every second exec that reads the
+// store, because the bug was three copies of a constant where one of them was
+// a function.
+func (a *Apple) storeEnv() string { return "EARTH_GUEST_ROOT=" + a.guestRoot() }
 
 // guestExportDir is where the guest stages an artifact on its way out.
 //

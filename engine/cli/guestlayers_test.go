@@ -100,3 +100,60 @@ func TestAStoreThatCannotBeAskedHoldsNothing(t *testing.T) {
 // guestLayers is what the fleet wants of a store, so that the wiring cannot
 // drift from the interface it feeds.
 var _ fleet.Store = (*guestLayers)(nil)
+
+// declares is a sandbox that can say what an element declares.
+type declares struct{ has map[ir.NodeID]bool }
+
+func (d *declares) ReadDeclaration(_ context.Context, id ir.NodeID) ([]byte, bool, error) {
+	if d.has[id] {
+		return []byte("EBDECL1"), true, nil
+	}
+
+	return nil, false, nil
+}
+
+// TestADeclarationIsSomethingTheStoreHolds.
+//
+// **`StoreHas` answers about layers.** It stats a layer directory, and a stack
+// element contributing only configuration - environment, working directory,
+// user, entrypoint - is a file beside those directories. So a driver reported
+// not holding one, offered no source for it, and every worker refused every
+// step standing on it:
+//
+//	1 of 4 input(s) for a delegated step: some blobs could not be fetched
+//	  first 5623a794…, and no source was consulted at all
+//
+// The same defect the fleet's own store had this morning, one level down: the
+// element that is not a layer is the one that keeps being forgotten (E-F1).
+func TestADeclarationIsSomethingTheStoreHolds(t *testing.T) {
+	t.Parallel()
+
+	var onlyDeclared ir.NodeID
+	onlyDeclared[0] = 5
+
+	g := &guestLayers{
+		ctx:  t.Context(),
+		hold: &asksAndPacks{},
+		pack: &asksAndPacks{},
+		decl: &declares{has: map[ir.NodeID]bool{onlyDeclared: true}},
+	}
+
+	if !g.Has(onlyDeclared) {
+		t.Error("an element held as a declaration was reported absent, so no" +
+			" source is offered and every step standing on it is refused")
+	}
+
+	var neither ir.NodeID
+	neither[0] = 6
+
+	if g.Has(neither) {
+		t.Error("an element nothing holds was reported present")
+	}
+
+	// A sandbox that cannot be asked serves layers and not declarations, which
+	// is worse than this and better than refusing to start.
+	blind := &guestLayers{ctx: t.Context(), hold: &asksAndPacks{}, pack: &asksAndPacks{}}
+	if blind.Has(onlyDeclared) {
+		t.Error("a sandbox with no way to answer claimed to hold a declaration")
+	}
+}

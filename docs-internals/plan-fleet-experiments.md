@@ -867,7 +867,7 @@ One run without a profile, two with, and the without cannot be repeated without
 clearing the profile store - so the 18.5s is a single measurement. The fetch
 counts are structural and are the part to believe.
 
-## E-F2 - locality, found dead and reverted
+## E-F2 - locality, found dead
 
 `fleet.prefer` implements holder-first ordering and its own comment calls it
 "the single most consequential ordering in the fleet". **It is called from
@@ -981,3 +981,36 @@ fails. Locality stays reverted. The next step is to give `guestLayers` a
 asker can consume, and the choice between those is the interesting part: the
 first makes the lazy path work for a VM-backed driver, which is the point of
 F4, and the second only stops it hanging.
+
+## Found: a fragment request answered with a whole layer
+
+`serveOneBlob` fell through to the whole-blob path when the store could not
+fragment. `readFragment` refuses anything that is not a fragment - correctly,
+since accepting "here is the whole layer" in answer to "give me these paths"
+would be I10's accepted-and-ignored - and returns after one flag **without
+draining what the sender has already committed to writing**.
+
+Enough of those and the connection's flow-control window is gone. The sender
+cannot write even the first byte of the *next* answer and the asker waits for it
+for ever: both ends blocked on the same transfer, one in `writeFramed` and one
+in `readFragment`. That is what the two dumps showed, and what neither showed
+alone.
+
+A driver whose store is inside the VM can never fragment, so this was not an
+edge case. It was every lazy fetch from a Mac.
+
+**Answered as absent now**, in one byte, which is a word the protocol already
+has and is what it means to this asker: try the next source, then the whole-layer
+path, which is the fallback I11 asks for.
+
+The chain that hung for ever, with locality restored:
+
+| Arrangement                  | Moved     | Wall    |
+| ---------------------------- | --------- | ------- |
+| no locality                  | 167.9 MiB | 32.27s  |
+| locality, before this        | -         | hung    |
+| locality, after this         | 5.7 MiB   | 9.41s   |
+
+**29x less moved and 3.4x quicker**, on the shape a fleet is worst at. E-F2 is
+no longer dead code, and `prefer`'s own claim about itself turns out to have
+been right all along.

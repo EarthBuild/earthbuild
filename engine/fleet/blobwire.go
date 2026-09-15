@@ -556,18 +556,25 @@ func serveOneBlob(w io.Writer, held Held, id ir.NodeID, want []string, proof boo
 	// holding exactly the bytes the asker wants and nothing else would never be
 	// asked for them - so fragments came only from whoever held everything, and
 	// a fleet was a star on the one path that is supposed to be cheap (E325).
-	// A store that cannot answer says so, and the whole-blob path below runs.
-	if f, ok := held.(fragmenting); ok && len(want) > 0 && held != nil {
-		manifest, packed, err := f.Fragment(id, want)
-		if err == nil {
-			if !proof {
-				// The caller has it. Sending it again is the dominant cost of a
-				// small read set (E299).
-				manifest = nil
-			}
-
-			return writeFragment(w, manifest, packed)
+	// A store that cannot answer says so, and this answer is "not here".
+	if len(want) > 0 {
+		f, canCut := held.(fragmenting)
+		if !canCut || held == nil {
+			return notHere(w)
 		}
+
+		manifest, packed, err := f.Fragment(id, want)
+		if err != nil {
+			return notHere(w)
+		}
+
+		if !proof {
+			// The caller has it. Sending it again is the dominant cost of a
+			// small read set (E299).
+			manifest = nil
+		}
+
+		return writeFragment(w, manifest, packed)
 	}
 
 	var b []byte
@@ -806,3 +813,26 @@ func soonest(ctx context.Context, own time.Time) time.Time {
 
 	return own
 }
+
+// notHere answers a request this store cannot serve the way it was asked.
+//
+// **The whole layer is not an answer to "give me these paths".** It used to be
+// what a store that could not fragment sent, and `readFragment` refuses
+// anything that is not a fragment - by construction, because accepting it would
+// be I10's accepted-and-ignored. So the sender committed a layer to a stream the
+// asker had already decided to abandon, and the asker returned after one flag
+// without draining it.
+//
+// Enough of those and the connection's flow-control window is gone: the sender
+// cannot write even the first byte of the *next* answer and the asker waits for
+// it for ever. Both ends blocked on the same transfer, one in `writeFramed` and
+// one in `readFragment`, which is what two goroutine dumps showed and what one
+// side's stack could never have explained (E-F2).
+//
+// A driver whose store is inside the VM can never fragment, so this is not an
+// edge case: it is every lazy fetch from a Mac.
+//
+// Absent rather than an error, because absent is what it means to this asker
+// and is a word the protocol already has: the asker tries the next source, and
+// then the whole-layer path, which is exactly the fallback I11 asks for.
+func notHere(w io.Writer) error { return WriteMessage(w, []byte{0}) }

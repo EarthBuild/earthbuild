@@ -712,3 +712,39 @@ left: E-F5's prediction, which makes the base cost a tenth of what it does (a
 step reads two files of 5,410 for `go version`, 1,752 for a cold `go build`),
 and E-F2's locality, which stops the base being shipped again for every chain.
 Both attack `base_bytes`, and that is the only term this engine controls.
+
+## The fleet moved the work; it did not share it
+
+`EARTH_PARALLELISM` is one semaphore over **every** step, delegated ones
+included - so the fleet runs above were not merely measured against a crippled
+baseline, they were themselves crippled: two steps in flight while a worker sat
+with thirty-two free slots.
+
+Removed, with a workload that saturates the driver on its own - 64 steps, more
+than either machine has cores, and a 7.9 MiB base so transfer is not the story:
+
+| Arrangement                | Wall clock |
+| -------------------------- | ---------- |
+| one machine (Mac, Rosetta) | 95.90s     |
+| driver plus worker         | 95.47s     |
+
+A dead heat, and the summary says why: **`64 delegated, 0 local`**. The driver
+ran nothing at all.
+
+**Because a Mac cannot be eligible for an amd64 step.** Placement applies
+emulation as a *second pass*, considered only when no machine can run a step
+natively, and the argument for that is in the code: "emulated work runs on the
+order of a hundred times slower, because every instruction goes through an
+interpreter". So the box was always eligible and the Mac never was, and the
+fleet substituted one machine for the other rather than adding them.
+
+**The argument does not hold for Rosetta.** The same 64 amd64 steps: 95.90s on
+the Mac through Rosetta against 95.47s native on the x86 box. Not a hundred
+times; not two. The rule is right for qemu-class emulation and silently
+excludes the only second machine this fleet has.
+
+That is the finding. A heterogeneous fleet of one arm64 Mac and one x86 box can
+only ever *move* a single-platform build, never share it, until placement can
+weigh a cheap emulator against a busy native machine. E-F2 and E-F5 attack
+`base_bytes`; this attacks the term before it, which is whether a machine is
+allowed to help at all.

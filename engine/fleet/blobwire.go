@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/tmc/go-iroh/iroh"
@@ -58,6 +59,10 @@ type PeerSource struct {
 	held   *iroh.Conn
 	// noted bounds the route report to one line per source. See noteRoute.
 	noted sync.Once
+	// dialMillis is what reaching this peer cost, apart from what moving the
+	// bytes cost.
+	dialMillis atomic.Int64
+	readMillis atomic.Int64
 }
 
 // connect is this peer's connection, opened if it is not already.
@@ -154,7 +159,8 @@ func (s *PeerSource) noteRoute(c *iroh.Conn) {
 			at += " (multipath not negotiated: no path to migrate to)"
 		}
 
-		s.Note(fmt.Sprintf("fetched from %s over %s", s.Name(), at))
+		s.Note(fmt.Sprintf("fetched from %s over %s (reached in %dms, read in %dms)",
+			s.Name(), at, s.dialMillis.Load(), s.readMillis.Load()))
 	})
 }
 
@@ -195,10 +201,19 @@ func (s *PeerSource) Name() string {
 func (s *PeerSource) Fetch(
 	ctx context.Context, ids []ir.NodeID,
 ) (map[ir.NodeID]io.Reader, error) {
+	dialled := time.Now()
+
 	conn, err := s.connect(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	// **Connecting and transferring are different costs with different fixes**,
+	// and the account has only ever had one number for them. Moving a route off
+	// a relay in another region changed the route and not the wall clock, which
+	// either means the relay was never the cost or means the cost is not in the
+	// transfer at all - and those want opposite work. See noteRoute.
+	s.dialMillis.Store(time.Since(dialled).Milliseconds())
 
 	st, err := conn.OpenStreamSync(ctx)
 	if err != nil {
@@ -210,7 +225,12 @@ func (s *PeerSource) Fetch(
 	defer func() { _ = st.Close() }()
 
 	// Reported on the way out, when the paths have carried something.
-	defer s.noteRoute(conn)
+	read := time.Now()
+
+	defer func() {
+		s.readMillis.Store(time.Since(read).Milliseconds())
+		s.noteRoute(conn)
+	}()
 
 	// The context reaches as far as opening the stream; the reads below take
 	// none. A peer that is *alive and silent* - wedged, or serving a blob it

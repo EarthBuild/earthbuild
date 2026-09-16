@@ -93,6 +93,16 @@ type Cache struct {
 	// Exclusive is `--sharing=locked`: one step at a time in this directory.
 	// Per machine, because the directory is.
 	Exclusive bool `json:"exclusive,omitempty"`
+	// ImmutableExcept is the author's claim that this cache may be shared
+	// between machines, and which paths under it may not - as written, not
+	// parsed.
+	//
+	// **Carried because both ends must agree.** It is already in the step's key,
+	// so a worker sent a different claim would be running a different step; this
+	// is the same fact said on the wire, so a worker can act on it rather than
+	// infer it. Empty means no claim was made and nothing is shared, which is
+	// every cache by default.
+	ImmutableExcept string `json:"immutableExcept,omitempty"`
 }
 
 // Kind is the closed set of operations expressible on the wire.

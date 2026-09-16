@@ -217,6 +217,30 @@ type Mount struct {
 	// promise the construct makes and quietly break the one that matters - a
 	// step putting a credential somewhere it cannot be recovered from.
 	Tmpfs bool
+	// ImmutableExcept are the paths under this cache that are *not* written
+	// once - `CACHE --immutable-except 'lock,tmp/**'`.
+	//
+	// **Empty and nil are different.** Nil is a cache nobody has made a claim
+	// about, which is every cache by default and is never shared. An empty
+	// non-nil list is the claim "all of it is immutable", which is the ordinary
+	// answer for a store mounted at its own root - `registry/cache`, a Bazel
+	// disk cache - and is the useful case.
+	//
+	// **In the key**, because two machines have to agree about what may be
+	// shared. One Earthfile naming `tmp/**` and another naming nothing are not
+	// describing the same cache, and sharing them anyway has one machine
+	// fetching a path the other never promised was stable. The same reasoning
+	// as a step run without a mount it declared (E433): the declaration is
+	// identical at both ends or the two are different steps.
+	//
+	// **As written, not parsed**, so that `Mount` stays comparable: `pinning`
+	// decides delegability by comparing a mount against a constructed one, so
+	// that a field added here pins the step until somebody has considered it. A
+	// slice would have taken that guard away silently, which is the class of
+	// change it exists to catch. Two spellings of one list are two caches,
+	// which is the conservative direction and the same argument the encoder
+	// makes for not sorting mounts.
+	ImmutableExcept string
 	// Exclusive is `CACHE --sharing=locked`, the default: one step in this
 	// directory at a time.
 	//
@@ -883,6 +907,9 @@ func (n *Node) ID() NodeID {
 		h.Bool(m.Secret)
 		h.Bool(m.Ephemeral)
 		h.Bool(m.Tmpfs)
+		// In the key for the reason the field's own comment gives.
+		h.Str(m.ImmutableExcept)
+
 		h.Bool(m.Exclusive)
 		h.Bool(m.Persist)
 		h.Count(int(m.Mode))

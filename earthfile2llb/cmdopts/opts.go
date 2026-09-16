@@ -171,6 +171,10 @@ type Cache struct {
 	Mode    string `default:"0644"                                                                          description:"Apply a mode to the cache folder" long:"chmod"` //nolint:lll
 	ID      string `description:"Cache ID, to reuse the same cache across different targets and Earthfiles" long:"id"`
 	Persist bool   `description:"If should persist cache state in image"                                    long:"persist"`
+	// ImmutableExcept is the author's claim that this cache may be shared
+	// between machines: every file under it is written once and never
+	// rewritten, apart from the comma-separated patterns given.
+	ImmutableExcept string `description:"Paths under the cache that are rewritten; the rest may be shared between machines" long:"immutable-except"` //nolint:lll
 }
 
 // NewFor creates and returns a For with default separators.

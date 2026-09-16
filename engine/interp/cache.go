@@ -47,6 +47,21 @@ func cacheMount(c earthfile.Command, workdir string) (ir.Mount, error) {
 	//
 	// A word nobody has heard of is still refused, for the reason all three
 	// were: it would be a guess (E432).
+	// **Two answers to where the contents live, and an author may have only
+	// one.** `--persist` copies them into the image, which makes them part of
+	// what the target produces; `--immutable-except` offers them to other
+	// machines, which a result cannot be. Refused rather than resolved, because
+	// either resolution is a guess about which the author meant.
+	if opts.Persist && opts.ImmutableExcept != "" {
+		return ir.Mount{}, fmt.Errorf(
+			"CACHE --persist and --immutable-except cannot both be given (%s)"+
+				"\n  --persist copies the cache into the image, so its contents are"+
+				" part of what this target produces"+
+				"\n  --immutable-except offers them to other machines, which a"+
+				" result is not",
+			loc(c.SourceLocation))
+	}
+
 	exclusive, private, known := sharingMode(opts.Sharing, "locked")
 	if !known {
 		return ir.Mount{}, unsupported("CACHE --sharing="+opts.Sharing, loc(c.SourceLocation), "")
@@ -103,6 +118,7 @@ func cacheMount(c earthfile.Command, workdir string) (ir.Mount, error) {
 
 	return ir.Mount{
 		Target: target, ID: id, Exclusive: exclusive, Persist: opts.Persist, Mode: mode,
+		ImmutableExcept: opts.ImmutableExcept,
 	}, nil
 }
 
@@ -175,6 +191,14 @@ func cacheID(target string) string {
 // mountFieldTarget is where a mount appears, named because two files spell it:
 // this one reads it and dockerfile.go writes it.
 const mountFieldTarget = "target"
+
+// mountFieldImmutableExcept is the author's claim that this cache may be
+// shared between machines, and which paths under it may not.
+//
+// Spelled the same on `CACHE` and on `RUN --mount`, because it says the same
+// thing about the same directory and a second spelling would be a second thing
+// to keep in step.
+const mountFieldImmutableExcept = "immutable-except"
 
 // mountKindBind is a bound view's spelling. Named because four places test for
 // it and because the *other* bind - `bind-experimental`, an Earthfile's window
@@ -350,6 +374,7 @@ func parseMount(spec, workdir, where string) (ir.Mount, string, error) {
 	return ir.Mount{
 		Target: target, ID: id, Exclusive: exclusive,
 		ReadOnly: readOnly(fields), Mode: mode,
+		ImmutableExcept: fields[mountFieldImmutableExcept],
 	}, "", nil
 }
 
@@ -396,6 +421,7 @@ var mountFields = map[string][]string{
 	"cache": {
 		mountFieldType, mountFieldTarget, mountFieldDst, "id",
 		mountFieldRO, "ro", "sharing", mountFieldMode, mountFieldChmod,
+		mountFieldImmutableExcept,
 	},
 	mountKindSecret: {
 		mountFieldType, mountFieldTarget, mountFieldDst, "id",

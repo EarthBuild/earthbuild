@@ -189,6 +189,16 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 		h.Bool(m.Persist)
 		h.Count(int(m.Mode))
 		h.Str(m.Sandbox)
+		// The author's claim that this cache may be shared between machines.
+		//
+		// **In Κ₁ because both ends must agree on it.** A cache mount's
+		// *contents* are deliberately outside the key - a step may find one
+		// empty and must produce the same layer either way - but which paths
+		// under it are stable is a claim, and two machines holding different
+		// claims are not describing the same cache. Sharing them anyway has one
+		// fetching a path the other never promised, which is the corruption
+		// this flag exists to make impossible to ask for by accident.
+		h.Str(m.ImmutableExcept)
 		// A bound view's object and subtree. **Its contents are keyed**, unlike
 		// a cache mount's - and they are keyed by this, because From is already
 		// a key over them (I20, §3.3d). A cache mount is a function of history

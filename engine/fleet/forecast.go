@@ -128,7 +128,10 @@ func PredictAt(
 		// Priced by what this step would have to pull to run somewhere new,
 		// which is every input the cheapest machine might lack. The engine
 		// prices the same quantity from the same function (E317).
-		order := preferFetching(fleet, holdersOf(s, at), busy,
+		// No warmth here: a forecast is a function of the graph and the
+		// inventory (§4.7.3), and which machines have filled which caches is a
+		// fact about a run in progress.
+		order := preferFetching(fleet, holdersOf(s, at), nil, busy,
 			rate.Slots(inputBytes(steps, sizes, s)))
 		w := order[0]
 

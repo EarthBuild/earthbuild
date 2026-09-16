@@ -138,6 +138,12 @@ type Rendezvous struct {
 	// queue behind the connection table.
 	rate Rate
 
+	// warm is which machines have filled which cache mounts, learned from the
+	// assignments this rendezvous has placed. Beside `rate` because it is the
+	// same kind of thing: something the placer knows from watching, spent by the
+	// ordering, and carried on no wire.
+	warm warmth
+
 	mu       sync.Mutex
 	inflight map[string]int
 	conns    []joined
@@ -314,7 +320,7 @@ func (r *Rendezvous) Assign(ctx context.Context, a Assignment) (Reply, error) {
 		gone []string
 	)
 
-	for _, w := range preferFetching(order, a.Hints.Holders, r.load(), r.priceOf(a)) {
+	for _, w := range preferFetching(order, a.Hints.Holders, r.warm.of(a), r.load(), r.priceOf(a)) {
 		r.began(w.id)
 
 		reply, err := r.ask(ctx, w.conn, a)
@@ -340,6 +346,16 @@ func (r *Rendezvous) Assign(ctx context.Context, a Assignment) (Reply, error) {
 
 			r.note(w.id, reply.HeldAt, reply.Platform, reply.Capacity,
 				reply.Emulates, reply.Translates)
+
+			// **After the correction, and only on success.** A worker that ran
+			// this step made a directory for each cache it declared and now has
+			// it, so warmth is inferred from what was sent rather than asked
+			// for - the same inference `holders.also` makes about a base, and
+			// for the same reason: the fact is already in hand.
+			//
+			// Recorded under the corrected address, because a preference for a
+			// name nothing else uses is a preference for nobody (E279).
+			r.warm.also(a.Op.Caches, reply.HeldAt)
 
 			return reply, nil
 		}
@@ -838,6 +854,20 @@ func prefer(order []joined, holders []string) []joined {
 // measurement to change it to.
 const transferCost = 1
 
+// refillCost is what a cold cache mount is worth, in the same doubled step-slots.
+//
+// Deliberately the same as a fetch, and conservatively so. Refilling a Go build
+// cache can cost the whole step - that is the case the flag exists for - but
+// warmth is a claim about a *name*, not about the entries this step will look
+// up, and E-F6 measured the overlap between two caches one toolchain apart at
+// **0.00%**. So a warm machine is only probably warm for the right things, and
+// pricing that at half a step-slot says "prefer it, at the same strength as a
+// base" rather than "serialise the build onto it".
+//
+// A model rather than a measurement, like the one above it, and one line to
+// change when there is a measurement to change it to.
+const refillCost = 1
+
 // preferFree orders workers by what each would cost, holding and load together.
 //
 // A preference and not an exclusion: everybody stays in the list, because a
@@ -845,7 +875,7 @@ const transferCost = 1
 // that has to fetch is slower than the alternative and much better than a failed
 // build (I11).
 func preferFree(order []joined, holders []string, busy map[string]int) []joined {
-	return preferFetching(order, holders, busy, transferCost)
+	return preferFetching(order, holders, nil, busy, transferCost)
 }
 
 // preferFetching is preferFree with the price of a fetch stated rather than
@@ -856,7 +886,7 @@ func preferFree(order []joined, holders []string, busy map[string]int) []joined 
 // ordering uses it stays in one place - which is the same argument that keeps
 // `Predict` calling this function rather than modelling placement itself.
 func preferFetching(
-	order []joined, holders []string, busy map[string]int, fetch int,
+	order []joined, holders, warm []string, busy map[string]int, fetch int,
 ) []joined {
 	// No fast path for "nobody holds anything", though the temptation is real:
 	// with an empty rank every worker costs the same and the stable sort leaves
@@ -866,6 +896,18 @@ func preferFetching(
 	for i, at := range holders {
 		if _, seen := rank[at]; !seen && at != "" {
 			rank[at] = i
+		}
+	}
+
+	// **A second discount, not a second holder.** Holding the base and holding
+	// the cache are different facts with different remedies - one saves a
+	// transfer, the other saves a recompile - and a machine with both should
+	// beat a machine with either. Folding warmth into `rank` would have made
+	// them one fact and lost that.
+	hot := make(map[string]bool, len(warm))
+	for _, at := range warm {
+		if at != "" {
+			hot[at] = true
 		}
 	}
 
@@ -893,6 +935,10 @@ func preferFetching(
 
 		if _, held := rank[w.at]; !held || w.at == "" {
 			c += fetch
+		}
+
+		if !hot[w.at] {
+			c += refillCost
 		}
 
 		return c

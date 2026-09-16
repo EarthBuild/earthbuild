@@ -1352,3 +1352,56 @@ cost two rounds of chasing a loss that had not occurred.
 
 `f`, the working-set fraction, and native compile-against-ship. Both need an
 instrumented build rather than a directory walk.
+
+## E-F7: a warm cache mount is a kind of locality
+
+E-F3 ended by naming what placement could not see:
+
+> Placement models where a *layer* is and not where a *cache* is warm, so it
+> cannot tell the difference between a worker that has built with `go-build`
+> before and one that has not.
+
+This is that, and it needs no transport. For the builds a fleet exists to speed
+up, a cold cache is the larger of the two costs: it means recompiling what the
+machine beside it already holds, which is work rather than bytes, and no amount
+of layer affinity avoids it.
+
+**Inferred, never announced.** A worker that ran a step with cache id `k` made
+the directory and has it, so the driver learns this from the assignment it
+already sent and the reply it already received - the same inference
+`holders.also` makes about a base. Nothing crosses the wire, no message gains a
+field, and no worker is asked a question it might answer wrongly.
+
+**Held by the placer.** `Rendezvous` sees every reply and already corrects the
+address; the table lives beside `rate`, is spent by the one ordering that uses
+it, and never reaches `Delegating` - which would have had to carry it back
+across the wire as a hint in order to hand it to the machine that already knew.
+
+**A second discount, not a second holder.** Holding the base and holding the
+cache are different facts with different remedies - one saves a transfer, the
+other a recompile - so a machine with both beats a machine with either:
+
+```text
+cost(w) = 2·busy·biggest/room
+        + transferCost   if w does not hold the base
+        + refillCost     if w has not filled this cache
+```
+
+`refillCost` is 1, the same as a fetch, and deliberately conservative. Refilling
+a Go build cache can cost the whole step - that is what the flag exists for - but
+warmth is a claim about a *name*, not about the entries this step will look up,
+and E-F6 measured two caches one toolchain apart at **0.00% overlap**. Half a
+step-slot says "prefer it, as strongly as a base" rather than "serialise the
+build onto it". A model, like `transferCost`, and one line to change when there
+is a measurement to change it to.
+
+**What it is not.** Warmth is advice: absent, stale or wrong in either direction
+it changes no result (I5). A machine recorded warm that turns out cold
+recompiles, which is what would have happened anyway. It is deliberately kept out
+of `Worker` inventory and out of `Predict`: a forecast must be a function of the
+graph and the inventory (§4.7.3), and which machines have filled which caches is
+a fact about a run already in progress.
+
+Four guards, each verified by removing the term and watching it fail: a warm
+machine is preferred; a cold one is still asked; the two discounts compose; and a
+busy warm machine still loses to an idle cold one.

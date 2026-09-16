@@ -86,13 +86,13 @@ func TestABigBaseKeepsAStepWhereTheBytesAre(t *testing.T) {
 	busy := map[string]int{"a": 2}
 
 	// Small base: the idle machine wins, as it does today.
-	got := preferFetching(order, []string{"a@1"}, busy, transferCost)
+	got := preferFetching(order, []string{"a@1"}, nil, busy, transferCost)
 	if got[0].id != "b" {
 		t.Errorf("a cheap base went to %q, want the idle machine", got[0].id)
 	}
 
 	// A base worth ten steps: worth waiting for the holder.
-	got = preferFetching(order, []string{"a@1"}, busy, 20)
+	got = preferFetching(order, []string{"a@1"}, nil, busy, 20)
 	if got[0].id != "a" {
 		t.Errorf("a base worth ten steps went to %q, want the machine that"+
 			" already has it", got[0].id)

@@ -819,6 +819,7 @@ func TestAlignContainers(t *testing.T) {
 	})
 }
 
+//nolint:goconst
 func TestAlignImages(t *testing.T) {
 	t.Parallel()
 

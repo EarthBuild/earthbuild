@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json/v2"
 	"errors"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -115,6 +116,65 @@ func TestConvertAppleContainer(t *testing.T) {
 	stoppedInspect.Status.State = "stopped"
 	stoppedContainer := convertAppleContainer(stoppedInspect)
 	assert.Equal(t, StatusExited, stoppedContainer.Status)
+}
+
+//nolint:goconst
+func TestConvertAppleImage(t *testing.T) {
+	t.Parallel()
+
+	baseInspect := appleImageInspect{
+		ID: "img-123",
+	}
+
+	baseInspect.Configuration.Name = "ubuntu:latest"
+
+	t.Run("matching architecture sets OS and Architecture", func(t *testing.T) {
+		t.Parallel()
+
+		inspect := baseInspect
+
+		var v appleImageVariant
+
+		v.Platform.OS = "linux"
+		v.Platform.Architecture = runtime.GOARCH
+
+		inspect.Variants = []appleImageVariant{v}
+
+		img := convertAppleImage(inspect)
+		assert.Equal(t, "img-123", img.ID)
+		assert.Equal(t, []string{"ubuntu:latest"}, img.Tags)
+		assert.Equal(t, "linux", img.OS)
+		assert.Equal(t, runtime.GOARCH, img.Architecture)
+	})
+
+	t.Run("non-matching architecture leaves OS and Architecture empty", func(t *testing.T) {
+		t.Parallel()
+
+		inspect := baseInspect
+
+		var v appleImageVariant
+
+		v.Platform.OS = "linux"
+		v.Platform.Architecture = "nonexistent-arch"
+
+		inspect.Variants = []appleImageVariant{v}
+
+		img := convertAppleImage(inspect)
+		assert.Equal(t, "img-123", img.ID)
+		assert.Equal(t, []string{"ubuntu:latest"}, img.Tags)
+		assert.Empty(t, img.OS)
+		assert.Empty(t, img.Architecture)
+	})
+
+	t.Run("no variants leaves OS and Architecture empty", func(t *testing.T) {
+		t.Parallel()
+
+		img := convertAppleImage(baseInspect)
+		assert.Equal(t, "img-123", img.ID)
+		assert.Equal(t, []string{"ubuntu:latest"}, img.Tags)
+		assert.Empty(t, img.OS)
+		assert.Empty(t, img.Architecture)
+	})
 }
 
 func TestAppleImageInspectUnmarshal(t *testing.T) {

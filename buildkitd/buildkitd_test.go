@@ -254,7 +254,7 @@ func TestPrepareServerCertsDir(t *testing.T) {
 
 	_, err = prepareServerCertsDir(settings)
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "unexpected entry \"stray_leak.key\"")
+	require.ErrorContains(t, err, `unexpected entry "stray_leak.key"`)
 	assert.FileExists(t, strayFile)
 }
 
@@ -294,7 +294,9 @@ func TestWaitUntilStopped(t *testing.T) {
 
 	t.Run("stopped or missing container succeeds", func(t *testing.T) {
 		t.Parallel()
+
 		eng := engine.NewTestClient(engine.Metadata{})
+
 		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 		defer cancel()
 
@@ -304,6 +306,7 @@ func TestWaitUntilStopped(t *testing.T) {
 
 	t.Run("inspection error is propagated", func(t *testing.T) {
 		t.Parallel()
+
 		eng, err := engine.NewStub(&engine.Config{})
 		require.NoError(t, err)
 
@@ -312,11 +315,12 @@ func TestWaitUntilStopped(t *testing.T) {
 
 		err = WaitUntilStopped(ctx, "test-container", eng)
 		require.Error(t, err)
-		assert.ErrorContains(t, err, "inspect container test-container while waiting to stop")
+		require.ErrorContains(t, err, "inspect container test-container while waiting to stop")
 	})
 
 	t.Run("context cancellation returns error", func(t *testing.T) {
 		t.Parallel()
+
 		eng, err := engine.NewStub(&engine.Config{})
 		require.NoError(t, err)
 
@@ -325,7 +329,6 @@ func TestWaitUntilStopped(t *testing.T) {
 
 		err = WaitUntilStopped(ctx, "test-container", eng)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, context.Canceled)
+		require.ErrorIs(t, err, context.Canceled)
 	})
 }
-

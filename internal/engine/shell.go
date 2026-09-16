@@ -502,11 +502,14 @@ func isShellResourceNotFound(output *commandContextOutput, err error, resourceTy
 	msg += " " + err.Error()
 	msgLower := strings.ToLower(msg)
 
+	// Match Docker and Podman CLI error patterns for missing containers and images:
+	// - Docker (container & image):         "No such <resourceType>: <name>"
+	// - Podman (container & legacy image):   "no such <resourceType> <name>"
+	// - Modern Podman v5+ (image):           "failed to find <resourceType> <name>: <name>: <resourceType> not known"
 	needles := []string{
 		"no such " + resourceType,
-		resourceType + " not found",
-		"not found",
-		"does not exist",
+		"failed to find " + resourceType,
+		resourceType + " not known",
 	}
 
 	for _, needle := range needles {
@@ -517,4 +520,3 @@ func isShellResourceNotFound(output *commandContextOutput, err error, resourceTy
 
 	return false
 }
-

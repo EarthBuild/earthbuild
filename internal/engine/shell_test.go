@@ -75,6 +75,7 @@ func TestNormalizeContainerStatus(t *testing.T) {
 	}
 }
 
+//nolint:goconst
 func TestRedactArgs(t *testing.T) {
 	t.Parallel()
 
@@ -133,6 +134,7 @@ func TestRedactArgs(t *testing.T) {
 	}
 }
 
+//nolint:goconst
 func TestIsShellResourceNotFound(t *testing.T) {
 	t.Parallel()
 
@@ -171,7 +173,14 @@ func TestIsShellResourceNotFound(t *testing.T) {
 			want:         true,
 		},
 		{
-			name:         "podman image not found",
+			name:         "podman modern image not found",
+			outputStderr: `Error: unable to inspect "img1": failed to find image img1: img1: image not known`,
+			err:          errors.New("exit status 125"),
+			resourceType: "image",
+			want:         true,
+		},
+		{
+			name:         "podman legacy image not found",
 			outputStderr: "Error: no such image \"img1\"",
 			err:          errors.New("exit status 125"),
 			resourceType: "image",
@@ -198,16 +207,24 @@ func TestIsShellResourceNotFound(t *testing.T) {
 			resourceType: "container",
 			want:         false,
 		},
+		{
+			name:         "executable file not found in PATH",
+			outputStderr: "",
+			err:          errors.New(`exec: "docker": executable file not found in $PATH`),
+			resourceType: "container",
+			want:         false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			output := &commandContextOutput{}
 			output.Stderr.WriteString(tt.outputStderr)
+
 			got := isShellResourceNotFound(output, tt.err, tt.resourceType)
 			require.Equal(t, tt.want, got)
 		})
 	}
 }
-

@@ -221,7 +221,24 @@ func (e *appleEngine) InspectContainers(
 			return nil, err
 		}
 
-		return nil, nil
+		if len(namesOrIDs) == 1 {
+			return nil, nil
+		}
+
+		// The CLI fails the whole batch when any single name is missing,
+		// so inspect each name individually to keep the container ones.
+		var containers, container []Container
+
+		for _, nameOrID := range namesOrIDs {
+			container, err = e.InspectContainers(ctx, nameOrID)
+			if err != nil {
+				return nil, err
+			}
+
+			containers = append(containers, container...)
+		}
+
+		return containers, nil
 	}
 
 	stdout := strings.TrimSpace(output.Stdout.String())
@@ -361,7 +378,24 @@ func (e *appleEngine) InspectImages(ctx context.Context, refs ...string) ([]Imag
 			return nil, err
 		}
 
-		return nil, nil
+		if len(refs) == 1 {
+			return nil, nil
+		}
+
+		// The CLI fails the whole batch when any single reference is missing,
+		// so inspect each reference individually to keep the image ones.
+		var images, image []Image
+
+		for _, ref := range refs {
+			image, err = e.InspectImages(ctx, ref)
+			if err != nil {
+				return nil, err
+			}
+
+			images = append(images, image...)
+		}
+
+		return images, nil
 	}
 
 	stdout := strings.TrimSpace(output.Stdout.String())
@@ -374,26 +408,29 @@ func (e *appleEngine) InspectImages(ctx context.Context, refs ...string) ([]Imag
 		return nil, fmt.Errorf("decode apple image inspect output (%s): %w", stdout, err)
 	}
 
-	images := make([]Image, 0, len(inspects))
-	for _, v := range inspects {
-		info := Image{
-			ID:   v.ID,
-			Tags: []string{v.Configuration.Name},
-		}
-
-		if len(v.Variants) > 0 {
-			i := max(0, slices.IndexFunc(v.Variants, func(variant appleImageVariant) bool {
-				return variant.Platform.Architecture == runtime.GOARCH
-			}))
-
-			info.OS = v.Variants[i].Platform.OS
-			info.Architecture = v.Variants[i].Platform.Architecture
-		}
-
-		images = append(images, info)
+	images := make([]Image, len(inspects))
+	for i, v := range inspects {
+		images[i] = convertAppleImage(v)
 	}
 
 	return images, nil
+}
+
+func convertAppleImage(v appleImageInspect) Image {
+	info := Image{
+		ID:   v.ID,
+		Tags: []string{v.Configuration.Name},
+	}
+
+	i := slices.IndexFunc(v.Variants, func(variant appleImageVariant) bool {
+		return variant.Platform.Architecture == runtime.GOARCH
+	})
+	if i >= 0 {
+		info.OS = v.Variants[i].Platform.OS
+		info.Architecture = v.Variants[i].Platform.Architecture
+	}
+
+	return info
 }
 
 // PullImage downloads the specified container images.
@@ -498,7 +535,24 @@ func (e *appleEngine) InspectVolumes(ctx context.Context, volumeNames ...string)
 			return nil, err
 		}
 
-		return nil, nil
+		if len(volumeNames) == 1 {
+			return nil, nil
+		}
+
+		// The CLI fails the whole batch when any single volume is missing,
+		// so inspect each volume individually to keep the volume ones.
+		var volumes, volume []Volume
+
+		for _, name := range volumeNames {
+			volume, err = e.InspectVolumes(ctx, name)
+			if err != nil {
+				return nil, err
+			}
+
+			volumes = append(volumes, volume...)
+		}
+
+		return volumes, nil
 	}
 
 	stdout := strings.TrimSpace(output.Stdout.String())

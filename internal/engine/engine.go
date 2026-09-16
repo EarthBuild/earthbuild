@@ -218,7 +218,9 @@ func matchesImageRef(tag, ref string) bool {
 }
 
 func matchesRef(img Image, ref string) bool {
-	if ref == img.ID || strings.HasPrefix(img.ID, ref) {
+	imageID := strings.TrimPrefix(img.ID, "sha256:")
+	requestedID := strings.TrimPrefix(ref, "sha256:")
+	if imageID != "" && requestedID != "" && (requestedID == imageID || strings.HasPrefix(imageID, requestedID)) {
 		return true
 	}
 

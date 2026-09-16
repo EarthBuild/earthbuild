@@ -127,7 +127,7 @@ install_dockerd() {
             # Include iptables-legacy for environments (such as Apple Container or WSL)
             # where the VM kernel lacks nf_tables netlink rule set generation support.
             if ! iptables --wait -t nat -L -n >/dev/null 2>&1; then
-                apk add --no-cache iptables-legacy || true
+                apk add --no-cache iptables-legacy
             fi
             ;;
 
@@ -198,7 +198,7 @@ install_dockerd_amazon() {
             # Include iptables-legacy for environments (such as Apple Container or WSL)
             # where the VM kernel lacks nf_tables netlink rule set generation support.
             if ! iptables --wait -t nat -L -n >/dev/null 2>&1; then
-                dnf install -y iptables-legacy || true
+                dnf install -y iptables-legacy
             fi
         ;;
         2)

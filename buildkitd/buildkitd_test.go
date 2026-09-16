@@ -1,9 +1,11 @@
 package buildkitd
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	_ "github.com/EarthBuild/earthbuild/cmd/earth/disable_alpn"
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -245,14 +247,15 @@ func TestPrepareServerCertsDir(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), keyInfo.Mode().Perm())
 
-	// Test cleanup of extraneous files on subsequent run
+	// Test rejection of extraneous files to prevent credential leaks without deleting user files
 	strayFile := filepath.Join(serverCertsDir, "stray_leak.key")
 	require.NoError(t, os.WriteFile(strayFile, []byte("LEAKED SECRET"), 0o600)) // #nosec G306
 	assert.FileExists(t, strayFile)
 
 	_, err = prepareServerCertsDir(settings)
-	require.NoError(t, err)
-	assert.NoFileExists(t, strayFile)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "unexpected entry \"stray_leak.key\"")
+	assert.FileExists(t, strayFile)
 }
 
 func TestInstanceSettings(t *testing.T) {
@@ -285,3 +288,44 @@ func TestInstanceSettings(t *testing.T) {
 	resFallback := instanceSettings("unknown-container", base)
 	assert.Equal(t, base.TLSCA, resFallback.TLSCA)
 }
+
+func TestWaitUntilStopped(t *testing.T) {
+	t.Parallel()
+
+	t.Run("stopped or missing container succeeds", func(t *testing.T) {
+		t.Parallel()
+		eng := engine.NewTestClient(engine.Metadata{})
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+		defer cancel()
+
+		err := WaitUntilStopped(ctx, "test-container", eng)
+		require.NoError(t, err)
+	})
+
+	t.Run("inspection error is propagated", func(t *testing.T) {
+		t.Parallel()
+		eng, err := engine.NewStub(&engine.Config{})
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+		defer cancel()
+
+		err = WaitUntilStopped(ctx, "test-container", eng)
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "inspect container test-container while waiting to stop")
+	})
+
+	t.Run("context cancellation returns error", func(t *testing.T) {
+		t.Parallel()
+		eng, err := engine.NewStub(&engine.Config{})
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		err = WaitUntilStopped(ctx, "test-container", eng)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, context.Canceled)
+	})
+}
+

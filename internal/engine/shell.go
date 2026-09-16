@@ -55,7 +55,7 @@ const containerDateFormat = "2006-01-02 15:04:05.999999999 -0700 MST"
 // ListContainers lists containers using standard formatting.
 func (e *shellEngine) ListContainers(ctx context.Context) ([]Container, error) {
 	// The custom format below is supported by Docker and Podman.
-	args := []string{"ps", "--format", `{{.ID}},{{.Names}},{{.Status}},{{.Image}},{{.CreatedAt}}`}
+	args := []string{"ps", "-a", "--format", `{{.ID}},{{.Names}},{{.State}},{{.Image}},{{.CreatedAt}}`}
 
 	output, err := e.CommandOutput(ctx, args...)
 	if err != nil {
@@ -84,7 +84,7 @@ func parseContainerList(output string) ([]Container, error) {
 		ret = append(ret, Container{
 			ID:      parts[0],
 			Name:    parts[1],
-			Status:  parts[2],
+			Status:  normalizeContainerStatus(parts[2]),
 			Image:   parts[3],
 			Created: createdAt,
 		})
@@ -93,13 +93,49 @@ func parseContainerList(output string) ([]Container, error) {
 	return ret, nil
 }
 
+// normalizeContainerStatus maps container state or status strings from various container engines
+// (Docker, Podman, Apple Container) and CLI display outputs (e.g. "Up ...", "stopped")
+// to canonical Status* constants.
+func normalizeContainerStatus(state string) string {
+	state = strings.ToLower(strings.TrimSpace(state))
+	switch {
+	case state == StatusRunning || strings.HasPrefix(state, "up"):
+		return StatusRunning
+	case state == StatusExited || state == "stopped":
+		return StatusExited
+	case state == StatusDead:
+		return StatusDead
+	case state == StatusCreated:
+		return StatusCreated
+	case state == StatusPaused:
+		return StatusPaused
+	case state == StatusRestarting:
+		return StatusRestarting
+	case state == StatusRemoving:
+		return StatusRemoving
+	default:
+		return state
+	}
+}
+
 // InspectContainers returns information for the given container names or IDs.
 func (e *shellEngine) InspectContainers(ctx context.Context, namesOrIDs ...string) ([]Container, error) {
+	if len(namesOrIDs) == 0 {
+		return nil, nil
+	}
+
 	args := append([]string{"container", "inspect"}, namesOrIDs...) //nolint:goconst
 
-	// Ignore the error. This is because one or more of the provided names or IDs could be missing.
-	// This allows for Info to report that the container itself is missing.
-	output, _ := e.CommandOutput(ctx, args...)
+	output, err := e.CommandOutput(ctx, args...)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		if !isShellResourceNotFound(output, err, "container") {
+			return nil, err
+		}
+	}
 
 	stdout := strings.TrimSpace(output.Stdout.String())
 	if stdout == "" || stdout == "[]" {
@@ -108,7 +144,7 @@ func (e *shellEngine) InspectContainers(ctx context.Context, namesOrIDs ...strin
 
 	var in []containerInfoJSON
 
-	err := json.Unmarshal([]byte(stdout), &in)
+	err = json.Unmarshal([]byte(stdout), &in)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal container inspect output %s: %w", stdout, err)
 	}
@@ -246,11 +282,22 @@ func (e *shellEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 
 // InspectImages returns metadata for the given image references using CLI image inspect.
 func (e *shellEngine) InspectImages(ctx context.Context, refs ...string) ([]Image, error) {
+	if len(refs) == 0 {
+		return nil, nil
+	}
+
 	args := append([]string{"image", "inspect"}, refs...) //nolint:goconst
 
-	// Ignore the error. This is because one or more of the provided refs could be missing.
-	// This allows for Info to report that the image itself is missing.
-	output, _ := e.CommandOutput(ctx, args...)
+	output, err := e.CommandOutput(ctx, args...)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		if !isShellResourceNotFound(output, err, "image") {
+			return nil, err
+		}
+	}
 
 	stdout := strings.TrimSpace(output.Stdout.String())
 	if stdout == "" || stdout == "[]" {
@@ -266,7 +313,7 @@ func (e *shellEngine) InspectImages(ctx context.Context, refs ...string) ([]Imag
 
 	var in []imageInfoJSON
 
-	err := json.Unmarshal([]byte(stdout), &in)
+	err = json.Unmarshal([]byte(stdout), &in)
 	if err != nil {
 		return nil, fmt.Errorf("parse image info: %w", err)
 	}
@@ -347,7 +394,7 @@ func (cco *commandContextOutput) String() string {
 func (e *shellEngine) CommandOutput(ctx context.Context, args ...string) (*commandContextOutput, error) {
 	output := &commandContextOutput{}
 	cmd := e.Command(ctx, args...)
-	e.Log.VerbosePrintf("Running command: %s\n", strings.Join(cmd.Args, " "))
+	e.Log.VerbosePrintf("Running command: %s\n", redactArgs(cmd.Args))
 
 	cmd.Stdout = &output.Stdout
 	cmd.Stderr = &output.Stderr
@@ -356,13 +403,74 @@ func (e *shellEngine) CommandOutput(ctx context.Context, args ...string) (*comma
 	if err != nil {
 		out := output.String()
 		if out != "" {
-			return output, fmt.Errorf("command failed: %s (%s): %w", strings.Join(cmd.Args, " "), out, err)
+			return output, fmt.Errorf("command failed: %s (%s): %w", redactArgs(cmd.Args), out, err)
 		}
 
-		return output, fmt.Errorf("command failed: %s: %w", strings.Join(cmd.Args, " "), err)
+		return output, fmt.Errorf("command failed: %s: %w", redactArgs(cmd.Args), err)
 	}
 
 	return output, nil
+}
+
+func redactArg(flag, val string) string {
+	switch flag {
+	case "-e", "--env", "--secret":
+		if k, _, found := strings.Cut(val, "="); found {
+			return k + "=[REDACTED]"
+		}
+
+		return "[REDACTED]"
+	case "--password":
+		return "[REDACTED]"
+	default:
+		return val
+	}
+}
+
+func redactCombinedArg(arg string) (string, bool) {
+	for _, prefix := range []string{"--env=", "-e=", "--secret="} {
+		if after, ok := strings.CutPrefix(arg, prefix); ok {
+			if k, _, found := strings.Cut(after, "="); found {
+				return prefix + k + "=[REDACTED]", true
+			}
+
+			return prefix + "[REDACTED]", true
+		}
+	}
+
+	if strings.HasPrefix(arg, "--password=") {
+		return "--password=[REDACTED]", true
+	}
+
+	return arg, false
+}
+
+func redactArgs(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+
+	redacted := make([]string, 0, len(args))
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		if redactedArg, matched := redactCombinedArg(arg); matched {
+			redacted = append(redacted, redactedArg)
+			continue
+		}
+
+		if (arg == "-e" || arg == "--env" || arg == "--secret" || arg == "--password") && i+1 < len(args) {
+			redacted = append(redacted, arg, redactArg(arg, args[i+1]))
+			i++
+
+			continue
+		}
+
+		redacted = append(redacted, arg)
+	}
+
+	return strings.Join(redacted, " ")
 }
 
 // Command constructs an *exec.Cmd configured for this engine.
@@ -378,3 +486,35 @@ func (e *shellEngine) Command(ctx context.Context, args ...string) *exec.Cmd {
 func (e *shellEngine) CommandArgs(args ...string) []string {
 	return append([]string{e.BinaryName}, args...)
 }
+
+// isShellResourceNotFound reports whether the command failure was due to the requested
+// resource not being found by the container CLI (e.g. Docker or Podman).
+func isShellResourceNotFound(output *commandContextOutput, err error, resourceType string) bool {
+	if err == nil {
+		return false
+	}
+
+	var msg string
+	if output != nil {
+		msg = output.Stderr.String() + " " + output.Stdout.String()
+	}
+
+	msg += " " + err.Error()
+	msgLower := strings.ToLower(msg)
+
+	needles := []string{
+		"no such " + resourceType,
+		resourceType + " not found",
+		"not found",
+		"does not exist",
+	}
+
+	for _, needle := range needles {
+		if strings.Contains(msgLower, needle) {
+			return true
+		}
+	}
+
+	return false
+}
+

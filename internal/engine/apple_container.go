@@ -255,10 +255,7 @@ func convertAppleContainer(v appleContainerInspect) Container {
 	imageID := strings.TrimPrefix(v.Configuration.Image.Descriptor.Digest, "sha256:")
 	created, _ := time.Parse(time.RFC3339Nano, v.Configuration.CreationDate)
 
-	status := v.Status.State
-	if status == "stopped" {
-		status = StatusExited
-	}
+	status := normalizeContainerStatus(v.Status.State)
 
 	return Container{
 		ID:       v.ID,
@@ -531,11 +528,8 @@ func (e *appleEngine) RemoveVolumes(ctx context.Context, force bool, volumeNames
 	args := append([]string{volumeCmd, "delete"}, volumeNames...)
 
 	output, err := e.CommandOutput(ctx, args...)
-	if err != nil && force {
-		if strings.Contains(output.Stderr.String(), "failed to delete one or more volumes") ||
-			strings.Contains(err.Error(), "failed to delete one or more volumes") {
-			return nil
-		}
+	if err != nil && force && isAppleResourceNotFound(output, err, volumeCmd) {
+		return nil
 	}
 
 	return err

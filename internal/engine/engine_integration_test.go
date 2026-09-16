@@ -537,9 +537,10 @@ func TestEnginePullImage(t *testing.T) {
 			t.Parallel()
 
 			ctx := t.Context()
+			// Use unique images to avoid removing the shared base image (nginx:1.21) used by parallel tests.
 			refList := []string{
-				"docker.io/library/nginx:1.21",
-				"docker.io/library/alpine:3.18",
+				"quay.io/libpod/alpine:latest",
+				"quay.io/libpod/busybox:latest",
 			}
 
 			// podman pull needs some potentially valid address to check against, otherwise panic
@@ -845,7 +846,7 @@ func spawnTestContainers(ctx context.Context, eng *engine.Client, names ...strin
 func startTestContainers(ctx context.Context, eng *engine.Client, names ...string) error {
 	image := "docker.io/library/nginx:1.21"
 
-	pullErr := eng.PullImage(ctx, image)
+	pullErr := pullImageIfNecessary(ctx, eng, image)
 	if pullErr != nil {
 		return fmt.Errorf("failed to pull image %s: %w", image, pullErr)
 	}
@@ -891,7 +892,7 @@ func spawnTestImages(ctx context.Context, eng *engine.Client, refs ...string) (f
 	var err error
 	const baseImage = "docker.io/library/nginx:1.21"
 
-	pullErr := eng.PullImage(ctx, baseImage)
+	pullErr := pullImageIfNecessary(ctx, eng, baseImage)
 	if pullErr != nil {
 		return func() {}, fmt.Errorf("pull base image %s: %w", baseImage, pullErr)
 	}
@@ -907,6 +908,15 @@ func spawnTestImages(ctx context.Context, eng *engine.Client, refs ...string) (f
 	return func() {
 		_ = eng.RemoveImage(ctx, true, refs...)
 	}, err
+}
+
+func pullImageIfNecessary(ctx context.Context, eng *engine.Client, image string) error {
+	info, err := eng.InspectImage(ctx, image)
+	if err == nil && info.ID != "" {
+		return nil
+	}
+
+	return eng.PullImage(ctx, image)
 }
 
 func spawnTestVolumes(ctx context.Context, eng *engine.Client, binary string, names ...string) (func(), error) {

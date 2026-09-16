@@ -1185,8 +1185,13 @@ func WaitUntilStopped(ctx context.Context, containerName string, eng *engine.Cli
 	for {
 		select {
 		case <-timer.C:
-			isRunning, err := isContainerRunning(ctx, containerName, eng)
-			if err != nil || !isRunning {
+			info, err := eng.InspectContainer(ctx, containerName)
+			if err != nil {
+				return fmt.Errorf("inspect container %s while waiting to stop: %w", containerName, err)
+			}
+
+			switch info.Status {
+			case engine.StatusMissing, engine.StatusExited, engine.StatusDead:
 				// The container stopped or can no longer be found at all.
 				return nil
 			}
@@ -1511,13 +1516,15 @@ func prepareServerCertsDir(settings Settings) (string, error) {
 		}
 	}
 
-	// Clean up any extraneous files in the server certs directory to prevent credential leaks.
+	// Reject any extraneous files in the server certs directory to prevent credential leaks.
 	entries, readDirErr := os.ReadDir(serverCertsDir)
-	if readDirErr == nil {
-		for _, entry := range entries {
-			if _, ok := allowedNames[entry.Name()]; !ok {
-				_ = os.RemoveAll(filepath.Join(serverCertsDir, entry.Name()))
-			}
+	if readDirErr != nil {
+		return "", fmt.Errorf("read server certs directory %s: %w", serverCertsDir, readDirErr)
+	}
+
+	for _, entry := range entries {
+		if _, ok := allowedNames[entry.Name()]; !ok {
+			return "", fmt.Errorf("server certs directory %s contains unexpected entry %q", serverCertsDir, entry.Name())
 		}
 	}
 
@@ -1562,7 +1569,15 @@ func stopInactiveBuildkitContainers(
 			continue
 		}
 
-		if isBuildkitActive(ctx, log, eng, containerName, settings) {
+		active, probeErr := isBuildkitActive(ctx, log, eng, containerName, settings)
+		if probeErr != nil {
+			log.WithPrefix("buildkitd").
+				DebugPrintf("Could not probe buildkit container %s: %v; assuming active\n", containerName, probeErr)
+
+			continue
+		}
+
+		if active {
 			continue
 		}
 
@@ -1619,23 +1634,18 @@ func isBuildkitActive(
 	eng *engine.Client,
 	containerName string,
 	settings Settings,
-) bool {
+) (bool, error) {
 	probeSettings := instanceSettings(containerName, settings)
 	probeSettings.BuildkitAddr = ""
 	updateContainerAddrs(ctx, eng, containerName, &probeSettings)
 
 	if probeSettings.BuildkitAddr == "" {
-		log.WithPrefix("buildkitd").DebugPrintf("Could not resolve address for buildkit container %s\n", containerName)
-
-		return false
+		return false, fmt.Errorf("could not resolve address for buildkit container %s", containerName)
 	}
 
 	probeOpts, err := requiredOpts(probeSettings)
 	if err != nil {
-		log.WithPrefix("buildkitd").
-			DebugPrintf("Failed to configure probe options for container %s: %v\n", containerName, err)
-
-		return false
+		return false, fmt.Errorf("configure probe options for container %s: %w", containerName, err)
 	}
 
 	probeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
@@ -1643,23 +1653,17 @@ func isBuildkitActive(
 
 	bkClient, err := client.New(probeCtx, probeSettings.BuildkitAddr, probeOpts...)
 	if err != nil {
-		log.WithPrefix("buildkitd").
-			DebugPrintf("Failed to connect to buildkit container %s (%s): %v\n", containerName, probeSettings.BuildkitAddr, err)
-
-		return false
+		return false, fmt.Errorf("connect to buildkit container %s (%s): %w", containerName, probeSettings.BuildkitAddr, err)
 	}
 	defer bkClient.Close()
 
 	info, err := bkClient.Info(probeCtx)
 	if err != nil {
-		log.WithPrefix("buildkitd").
-			DebugPrintf("Failed to query Info from buildkit container %s: %v\n", containerName, err)
-
-		return false
+		return false, fmt.Errorf("query Info from buildkit container %s: %w", containerName, err)
 	}
 
 	log.WithPrefix("buildkitd").
 		DebugPrintf("Probed buildkit container %s: %d active session(s)\n", containerName, info.NumSessions)
 
-	return info.NumSessions > 0
+	return info.NumSessions > 0, nil
 }

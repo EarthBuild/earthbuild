@@ -871,6 +871,21 @@ func TestAlignImages(t *testing.T) {
 		assert.Equal(t, imgAlpine.ID, res[1].ID)
 	})
 
+	t.Run("ID matching with and without sha256 prefix", func(t *testing.T) {
+		t.Parallel()
+
+		imgCustom := Image{
+			ID:   "sha256:abcdef123456",
+			Tags: []string{"myimage:v1"},
+		}
+
+		res, err := alignImages([]string{"abcdef123", "sha256:abcdef"}, []Image{imgCustom})
+		require.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, imgCustom.ID, res[0].ID)
+		assert.Equal(t, imgCustom.ID, res[1].ID)
+	})
+
 	t.Run("unmatched image in found returns error", func(t *testing.T) {
 		t.Parallel()
 

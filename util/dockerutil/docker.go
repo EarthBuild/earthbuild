@@ -151,17 +151,14 @@ func waitForImage(ctx context.Context, eng *engine.Client, fullName string) erro
 			return ctx.Err()
 		default:
 			info, err := eng.InspectImage(ctx, fullName)
-			if err != nil {
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(100 * time.Millisecond):
-					continue // Not available. Retry.
-				}
+			if err == nil && info.ID != "" {
+				return nil
 			}
 
-			if info.ID != "" {
-				return nil
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(100 * time.Millisecond):
 			}
 		}
 	}

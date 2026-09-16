@@ -6,7 +6,7 @@ EarthBuild supports Apple Container as a native container engine on macOS (`darw
 
 ## Prerequisites
 
-- **macOS on Apple Silicon** (`arm64`, M-series chips).
+- **macOS on Apple Silicon** (`arm64`, M-series chips, macOS 26+).
 - **Apple Container CLI** installed:
   ```bash
   brew install container

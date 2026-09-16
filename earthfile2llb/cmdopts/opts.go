@@ -174,7 +174,13 @@ type Cache struct {
 	// ImmutableExcept is the author's claim that this cache may be shared
 	// between machines: every file under it is written once and never
 	// rewritten, apart from the comma-separated patterns given.
-	ImmutableExcept string `description:"Paths under the cache that are rewritten; the rest may be shared between machines" long:"immutable-except"` //nolint:lll
+	//
+	// A pointer so that `--immutable-except ''` - the claim with no exceptions,
+	// which is the strongest one and the right answer for a content-addressed
+	// store mounted at its own root - is distinguishable from not writing the
+	// flag. As a bare string both are `""` and the strongest claim is the one
+	// silently ignored.
+	ImmutableExcept *string `description:"Paths under the cache that are rewritten; the rest may be shared between machines" long:"immutable-except"` //nolint:lll
 }
 
 // NewFor creates and returns a For with default separators.

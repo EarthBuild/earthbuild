@@ -67,3 +67,39 @@ func TestTheMountsThatDoPinStillPin(t *testing.T) {
 		}
 	}
 }
+
+// TestAShareableCacheDoesNotPinAStep.
+//
+// The guard in `pinning` compares a mount against a constructed one, so any
+// field added to `Mount` pins the step until somebody has thought about it -
+// which is the right default, and which `Immutable` tripped on arrival.
+//
+// Thinking about it takes one line: a cache the author has claimed is
+// shareable is *more* delegable than an ordinary one, not less. It is the same
+// directory under the same name on whichever machine runs the step, plus a
+// promise about which paths in it are stable - and the promise is in the key,
+// so the two ends already agree or they are running different steps.
+//
+// Getting this backwards would have been quiet and expensive: the flag exists
+// to make a cache travel, and it would instead have stopped the step that
+// carries it from travelling at all.
+func TestAShareableCacheDoesNotPinAStep(t *testing.T) {
+	t.Parallel()
+
+	for _, m := range []Mount{
+		// The claim with no exceptions, which is the common one.
+		{Target: "/go/pkg/mod", ID: "go-mod", Immutable: true},
+		// And with them.
+		{Target: "/go/pkg/mod", ID: "go-mod", Immutable: true, ImmutableExcept: "cache/lock"},
+		// Still locked, still per machine.
+		{Target: "/go/pkg/mod", ID: "go-mod", Immutable: true, Exclusive: true},
+	} {
+		op := Op{Kind: OpExec, Mounts: []Mount{m}}
+
+		if only, why := op.OnInvokerOnly(); only {
+			t.Errorf("a cache claimed shareable pins the step (%q), so the flag"+
+				" that exists to make a cache travel stops the step carrying it"+
+				" from travelling", why)
+		}
+	}
+}

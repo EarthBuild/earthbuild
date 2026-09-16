@@ -52,7 +52,7 @@ func cacheMount(c earthfile.Command, workdir string) (ir.Mount, error) {
 	// what the target produces; `--immutable-except` offers them to other
 	// machines, which a result cannot be. Refused rather than resolved, because
 	// either resolution is a guess about which the author meant.
-	if opts.Persist && opts.ImmutableExcept != "" {
+	if opts.Persist && opts.ImmutableExcept != nil {
 		return ir.Mount{}, fmt.Errorf(
 			"CACHE --persist and --immutable-except cannot both be given (%s)"+
 				"\n  --persist copies the cache into the image, so its contents are"+
@@ -118,8 +118,20 @@ func cacheMount(c earthfile.Command, workdir string) (ir.Mount, error) {
 
 	return ir.Mount{
 		Target: target, ID: id, Exclusive: exclusive, Persist: opts.Persist, Mode: mode,
-		ImmutableExcept: opts.ImmutableExcept,
+		Immutable: opts.ImmutableExcept != nil, ImmutableExcept: deref(opts.ImmutableExcept),
 	}, nil
+}
+
+// deref reads an optional flag's value, and reads an absent one as empty.
+//
+// The absence is carried by `Mount.Immutable` beside it, so nothing here needs
+// to tell the two apart - which is the whole point of splitting them.
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+
+	return *s
 }
 
 // cacheChmodDefault is what the parser fills in when `--chmod` is not written.
@@ -371,10 +383,15 @@ func parseMount(spec, workdir, where string) (ir.Mount, string, error) {
 		}, "", nil
 	}
 
+	// `immutable-except=` with nothing after it is a claim with no exceptions,
+	// and a field map can say that where a bare string cannot: the key is
+	// present.
+	except, claimed := fields[mountFieldImmutableExcept]
+
 	return ir.Mount{
 		Target: target, ID: id, Exclusive: exclusive,
 		ReadOnly: readOnly(fields), Mode: mode,
-		ImmutableExcept: fields[mountFieldImmutableExcept],
+		Immutable: claimed, ImmutableExcept: except,
 	}, "", nil
 }
 

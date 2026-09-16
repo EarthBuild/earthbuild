@@ -86,3 +86,47 @@ func build(t *testing.T, src string) (any, error) {
 
 	return interp.Build(src, testMain)
 }
+
+// TestAnEmptyExclusionListIsStillAClaim.
+//
+// `--immutable-except ”` is the author saying "every path under this mount is
+// written once, with no exceptions" - which is the *strongest* form of the
+// claim, and the recommended setting for seven of the caches in
+// `docs/caching/sharing-caches.md`: Cargo's registry, pip's wheels, NuGet,
+// RubyGems and both of Bazel's stores are content-addressed with no index and
+// no bookkeeping beside the blobs.
+//
+// Stored as a bare string it is indistinguishable from the flag being absent,
+// so the strongest claim an author can make reads as no claim at all - and the
+// caches most worth sharing are the ones silently not shared. Absence and
+// emptiness are different answers and the key has to tell them apart.
+func TestAnEmptyExclusionListIsStillAClaim(t *testing.T) {
+	t.Parallel()
+
+	plain := plan(t, "VERSION 0.8\nmain:\n    FROM alpine:3.22\n"+
+		"    CACHE --id k /c\n    RUN echo hi\n")
+	nothingExcepted := plan(t, "VERSION 0.8\nmain:\n    FROM alpine:3.22\n"+
+		"    CACHE --id k --immutable-except '' /c\n    RUN echo hi\n")
+
+	if plain == nothingExcepted {
+		t.Error("a cache claimed immutable with no exceptions keys the same as" +
+			" one making no claim, so the strongest claim is the one ignored")
+	}
+}
+
+// TestTheMountFormAlsoDistinguishesAnEmptyList. The same, through
+// `RUN --mount`, where presence is a key in a field map rather than a flag.
+func TestTheMountFormAlsoDistinguishesAnEmptyList(t *testing.T) {
+	t.Parallel()
+
+	const src = "VERSION 0.8\nmain:\n    FROM alpine:3.22\n" +
+		"    RUN --mount type=cache,target=/c,id=k%s echo hi\n"
+
+	plain := plan(t, strings.ReplaceAll(src, "%s", ""))
+	empty := plan(t, strings.ReplaceAll(src, "%s", ",immutable-except="))
+
+	if plain == empty {
+		t.Error("immutable-except= in a mount keys the same as omitting it," +
+			" so the mount form cannot express a cache with no exceptions")
+	}
+}

@@ -1706,8 +1706,12 @@ Without it, a cache mount is private to the machine that filled it. With it, Ear
 
 `<patterns>` is a comma-separated list in the same syntax as `.earthignore`, matched relative to `<mountpoint>`. Files matching it are never shared and never fetched - they stay local to each machine. Almost every real cache has some: a lockfile, a `tmp/` directory for partial writes, an index that is rewritten rather than appended to.
 
+An **empty list is the strongest form of the claim**, not the absence of one: `--immutable-except ''` says every path under the mount is stable with no exceptions, which is the right answer for a content-addressed store mounted at its own root. Omitting the flag entirely is what makes a cache private.
+
+Match patterns against the path relative to the mountpoint rather than against a filename. `**/*.lock` under `/go/pkg/mod` matches eleven third-party source files - `Cargo.lock`, `Gemfile.lock`, `Pipfile.lock` - inside extracted module trees, which are as immutable as the code beside them; `cache/download/**/*.lock` matches only the transient ones.
+
 ```Dockerfile
-CACHE --id go-mod --immutable-except 'lock,**/*.lock,**/*.partial' /go/pkg/mod
+CACHE --id go-mod --immutable-except 'cache/lock,cache/download/**/*.lock,cache/download/**/*.partial,cache/download/sumdb/*/lookup/**' /go/pkg/mod
 ```
 
 [Sharing caches between machines](../caching/sharing-caches.md) lists the recommended setting for each language's caches, and explains which ones should not carry this flag at all.

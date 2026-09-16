@@ -198,6 +198,11 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 		// claims are not describing the same cache. Sharing them anyway has one
 		// fetching a path the other never promised, which is the corruption
 		// this flag exists to make impossible to ask for by accident.
+		//
+		// Both fields. A cache claimed immutable with no exceptions and one
+		// making no claim are different declarations that share an empty list,
+		// so hashing the list alone keys them the same.
+		h.Bool(m.Immutable)
 		h.Str(m.ImmutableExcept)
 		// A bound view's object and subtree. **Its contents are keyed**, unlike
 		// a cache mount's - and they are keyed by this, because From is already

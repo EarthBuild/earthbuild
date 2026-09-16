@@ -217,14 +217,24 @@ type Mount struct {
 	// promise the construct makes and quietly break the one that matters - a
 	// step putting a credential somewhere it cannot be recovered from.
 	Tmpfs bool
-	// ImmutableExcept are the paths under this cache that are *not* written
-	// once - `CACHE --immutable-except 'lock,tmp/**'`.
+	// Immutable is whether the author made the claim at all, and it is a
+	// separate field because `ImmutableExcept` cannot carry the distinction.
 	//
-	// **Empty and nil are different.** Nil is a cache nobody has made a claim
-	// about, which is every cache by default and is never shared. An empty
-	// non-nil list is the claim "all of it is immutable", which is the ordinary
-	// answer for a store mounted at its own root - `registry/cache`, a Bazel
-	// disk cache - and is the useful case.
+	// **Empty and absent are different answers.** Absent is a cache nobody has
+	// made a claim about, which is every cache by default and is never shared.
+	// Present with an empty list is the claim "all of it is immutable, with no
+	// exceptions" - the *strongest* form, and the recommended setting for seven
+	// of the caches in `docs/caching/sharing-caches.md`: a store mounted at its
+	// own root with no index beside it, such as `registry/cache`, pip's wheels
+	// or a Bazel disk cache.
+	//
+	// Held as a bare string, those two are both `""`, so the strongest claim an
+	// author can make reads as no claim at all and the caches most worth
+	// sharing are the ones silently not shared.
+	Immutable bool
+	// ImmutableExcept are the paths under this cache that are *not* written
+	// once - `CACHE --immutable-except 'lock,tmp/**'`. Meaningless unless
+	// `Immutable`.
 	//
 	// **In the key**, because two machines have to agree about what may be
 	// shared. One Earthfile naming `tmp/**` and another naming nothing are not
@@ -907,7 +917,10 @@ func (n *Node) ID() NodeID {
 		h.Bool(m.Secret)
 		h.Bool(m.Ephemeral)
 		h.Bool(m.Tmpfs)
-		// In the key for the reason the field's own comment gives.
+		// In the key for the reason the fields' own comments give. Both of
+		// them: a claim with no exceptions and no claim at all are different
+		// declarations, and hashing only the list would key them the same.
+		h.Bool(m.Immutable)
 		h.Str(m.ImmutableExcept)
 
 		h.Bool(m.Exclusive)

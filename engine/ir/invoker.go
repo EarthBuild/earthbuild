@@ -80,7 +80,18 @@ func pinning(mounts []Mount) string {
 		//
 		// `Exclusive` rides along: `--sharing=locked` is one step at a time in
 		// *a* directory, and a worker has its own to be exclusive about.
-		if m == (Mount{Target: m.Target, ID: m.ID, Mode: m.Mode, Exclusive: m.Exclusive}) && m.ID != "" {
+		//
+		// So does the author's shareability claim, which tripped this guard on
+		// arrival and is the case the guard exists for. A cache claimed
+		// shareable is *more* delegable than an ordinary one, not less: same
+		// directory, same name, plus a promise about which paths in it are
+		// stable - and the promise is in Κ₁, so the two ends agree about it or
+		// they are running different steps.
+		ordinary := Mount{
+			Target: m.Target, ID: m.ID, Mode: m.Mode, Exclusive: m.Exclusive,
+			Immutable: m.Immutable, ImmutableExcept: m.ImmutableExcept,
+		}
+		if m == ordinary && m.ID != "" {
 			continue
 		}
 

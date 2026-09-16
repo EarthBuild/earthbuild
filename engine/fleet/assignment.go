@@ -93,6 +93,12 @@ type Cache struct {
 	// Exclusive is `--sharing=locked`: one step at a time in this directory.
 	// Per machine, because the directory is.
 	Exclusive bool `json:"exclusive,omitempty"`
+	// Immutable is whether the author made the shareability claim at all.
+	//
+	// Separate from the list because the list cannot carry it: a claim with no
+	// exceptions is the strongest form and the commonest useful one, and it has
+	// the same empty list as a cache nobody claimed anything about.
+	Immutable bool `json:"immutable,omitempty"`
 	// ImmutableExcept is the author's claim that this cache may be shared
 	// between machines, and which paths under it may not - as written, not
 	// parsed.

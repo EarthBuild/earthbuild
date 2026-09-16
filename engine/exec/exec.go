@@ -538,9 +538,10 @@ func (e *Executor) Run(
 		gm := guest.Mount{
 			ID: m.ID, Target: m.Target, ReadOnly: m.ReadOnly,
 			Persist: m.Persist, Sandbox: m.Sandbox,
-			// Empty unless the author claimed this cache portable, so every
-			// cache that makes no claim keeps the directory it always had.
-			Scope: m.Scope(),
+			// Empty unless the author claimed this cache portable or the build
+			// declared a trust domain, so an ordinary build keeps the directory
+			// it always had.
+			Scope: m.Scope(trustDomain()),
 			// The sharing mode, which decides whether the guest queues steps on
 			// this directory and whether it is a directory anybody else can see
 			// (E432).

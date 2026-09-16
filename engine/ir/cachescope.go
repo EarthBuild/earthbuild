@@ -28,20 +28,34 @@ const scopeTag = "cache-scope/1"
 //     and the persisted step publishes in its image bytes that were never any
 //     step's output.
 //
-// **Empty for a cache making no claim**, which is every cache by default. That
-// is the compatibility half: scoping everything would move every cache directory
-// on every machine at once, costing a slow build for everybody and buying
-// nothing, because a cache nobody has offered has nothing to be confused with.
+// **The domain is the other half, and §5.3 calls it load bearing.** An untrusted
+// build - a pull request from a fork - reads the shared cache and writes only to
+// an isolated namespace, because signing does not help when the attacker is a
+// legitimate writer. `<mounts>/<id>` is one namespace for every build a machine
+// has ever run, so there is no such isolation today.
+//
+// A domain therefore scopes **every** cache in the build and not only the
+// offered ones. Scoping the claimed ones alone would close the hazard this
+// transport introduces and leave the one that was already there, which is the
+// wrong half: what a fork poisons on a shared worker is a directory, and whether
+// its author happened to offer it to anybody is beside the point.
+//
+// **Empty where neither applies**, which is every cache in an ordinary build.
+// That is the compatibility half: scoping everything unconditionally would move
+// every cache directory on every machine at once, costing a slow build for
+// everybody and buying nothing, because a cache nobody has offered and nobody
+// distrusts has nothing to be confused with.
 //
 // Hex, because the id beside it is already used raw and unescaped, and one
 // unescaped component per path is enough.
-func (m Mount) Scope() string {
-	if !m.Portable {
+func (m Mount) Scope(domain string) string {
+	if !m.Portable && domain == "" {
 		return ""
 	}
 
 	h := NewHasher()
 	h.Str(scopeTag)
+	h.Str(domain)
 	h.Bool(m.Portable)
 	h.Str(canonicalPatterns(m.PortableExcept))
 	// Not because the two can be written together - they refuse each other on

@@ -146,6 +146,23 @@ Both are plain content-addressed stores with no index, no database and no garbag
 
 A `.deb` or `.apk` at a given version is the same file everywhere; the repository indexes beside them are not, which is why they are excluded. Note that apt's indexes live in `/var/lib/apt/lists` and its database in `/var/lib/dpkg` - neither belongs in a cache mount at all.
 
+## Untrusted builds: `EARTH_TRUST_DOMAIN`
+
+A cache mount's directory is named by its `--id`, and that name is one namespace for every build a machine has ever run. On a shared worker that means a pull request from a fork writes into the same directory a protected-branch build reads - and signing does not help, because the attacker is a legitimate writer.
+
+Set `EARTH_TRUST_DOMAIN` to a value that is stable **per trust level**, and every cache mount in that build is isolated to it:
+
+```bash
+EARTH_TRUST_DOMAIN=trusted   # protected branches
+EARTH_TRUST_DOMAIN=fork      # pull requests from forks
+```
+
+EarthBuild cannot work this out for itself. Whether a build is trusted is a fact about your repository's policy - who may open a pull request, which branches are protected - and it lives in your CI configuration, not in anything an Earthfile can see.
+
+Unset means the single implicit domain every build has always shared, which is the right default for a machine that only ever builds your own branches.
+
+**Stable per trust level, never per run.** A value that changes every build isolates every build from every other. That is not a stricter security setting; it is a cache nobody ever hits. Use the trust level, not the run id.
+
 ## Working it out for yourself
 
 Three questions, in this order. The first decides whether the flag belongs on this cache at all; the other two only fill in the list.

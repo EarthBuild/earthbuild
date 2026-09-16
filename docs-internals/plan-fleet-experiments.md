@@ -1405,3 +1405,72 @@ a fact about a run already in progress.
 Four guards, each verified by removing the term and watching it fail: a warm
 machine is preferred; a cold one is still asked; the two discounts compose; and a
 busy warm machine still loses to an idle cold one.
+
+## E-F8: the working-set fraction, measured at last
+
+Stage 2 was gated on `f`, the fraction of a shared cache a build actually
+touches, because shipping beats compiling only above a threshold. An adversarial
+review put a real build at 3-8% and concluded the design loses. That figure came
+from a developer laptop's 27 GB `~/Library/Caches/go-build` - months of unrelated
+projects - and a fleet worker's cache is not that artefact.
+
+**Measured properly, with the only instrument that can ask the question.** A
+directory walk says what a cache *holds*, never what a build *asks for*, and
+cache-mount reads never reach an observation by design (E498). Go hands its whole
+build cache to a `GOCACHEPROG` once per action, which is the one place the
+question is asked out loud; `tools/gocacheprobe` answers it and writes down what
+it heard.
+
+Three builds of this repository against a store holding only what the first
+produced - the fleet's real case, a worker building what the driver just built:
+
+```text
+run           change          gets  hits  hit bytes      f
+1  cold       -              1550     0            -     -     17.64s, 3619 puts, 650.9 MB
+2  warm       none           2571  2551  650789576   99.99%     5.58s
+4  warm       leaf edit      2569  2548  646073270   99.26%     5.55s
+5  warm       deep edit      2568  2547  650341616   99.92%     5.47s
+```
+
+**`f` is between 99.26% and 99.99%.** A build asks for essentially the whole of a
+correctly scoped cache. The low figure was an artefact of an unscoped directory,
+which is gate 1 of the plan restated as economics: scope the store by the claim
+and `f` goes to 1 by construction.
+
+A note on run 5, which changed a file deep in the graph and still missed only 21
+actions: Go's incremental builds are **export-data scoped**, so a comment-only
+change recompiles the package and not its dependents, whose action ids depend on
+the exported API rather than on the bytes. Consistent, not anomalous.
+
+### The economics, and Go is a photo finish
+
+```text
+ship 621 MiB at 110 MiB/s                    5.64 s
+compile cold, this Mac (612% cpu, 108 cpu-s) 17.64 s
+the same 108 cpu-s across 32 threads          3.38 s   (a floor, not a time)
+```
+
+Against a modest machine, shipping wins by **3.1x**. Against the 5950X's
+theoretical floor it **loses**, and realistically ties. Which is exactly what
+should be expected of the fastest mainstream compiler there is: **Go is the
+adversarial case**, and a design that merely ties here wins comfortably in Rust,
+C++ or Scala, and against any worker weaker than the driver.
+
+### GOCACHEPROG costs nothing
+
+```text
+warm build, Go's own cache      5.32 s
+warm build, through the probe   5.13 s
+```
+
+No measurable penalty, over 2,571 actions and 650 MB. That matters because it is
+stage 2's alternative: serving the build cache per action gives demand-driven
+subsetting for free, so a worker pays for the entries it misses rather than for a
+cache. Since `f` is ~1 for a *whole* build but a worker is given part of one, per
+action is strictly better than per cache - and Go's OutputID is a SHA-256, so
+those objects are already content-addressed and need none of the machinery a
+cache-mount transport would.
+
+**What is still missing.** The native compile time on the 5950X, to replace the
+3.38 s floor with a measurement. The box was asleep on both addresses for this
+sitting.

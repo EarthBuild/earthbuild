@@ -241,7 +241,7 @@ func maybeStart(
 	eng *engine.Client,
 	settings Settings,
 	opts ...client.ClientOpt,
-) (bkClient *client.Client, cinfo *client.Info, winfo *client.WorkerInfo, err error) {
+) (*client.Client, *client.Info, *client.WorkerInfo, error) {
 	if settings.StartUpLockPath != "" {
 		var tryLockDone atomic.Bool
 
@@ -259,7 +259,7 @@ func maybeStart(
 		timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
 
-		_, err = startLock.TryLockContext(timeoutCtx, 200*time.Millisecond)
+		_, err := startLock.TryLockContext(timeoutCtx, 200*time.Millisecond)
 
 		tryLockDone.Store(true)
 
@@ -273,7 +273,6 @@ func maybeStart(
 				inErr := startLock.Unlock()
 				if inErr != nil {
 					log.Warnf("Failed to unlock %s: %v", settings.StartUpLockPath, inErr)
-					err = errors.Join(err, inErr)
 				}
 			}()
 		}
@@ -291,12 +290,12 @@ func maybeStart(
 			WithPrefix("buildkitd").
 			Printf("Found buildkit daemon on %s (%s)\n", eng.Metadata().Name, containerName)
 
-		bkClient, cinfo, winfo, err = maybeRestart(ctx, log, image, containerName, eng, settings, opts...)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("maybe restart: %w", err)
+		client, cinfo, winfo, restartErr := maybeRestart(ctx, log, image, containerName, eng, settings, opts...)
+		if restartErr != nil {
+			return nil, nil, nil, fmt.Errorf("maybe restart: %w", restartErr)
 		}
 
-		return bkClient, cinfo, winfo, nil
+		return client, cinfo, winfo, nil
 	}
 
 	log.
@@ -308,7 +307,7 @@ func maybeStart(
 		return nil, nil, nil, fmt.Errorf("start: %w", err)
 	}
 
-	cinfo, winfo, err = WaitUntilStarted(ctx, log, containerName, settings.VolumeName, settings, eng, opts...)
+	cinfo, winfo, err := WaitUntilStarted(ctx, log, containerName, settings.VolumeName, settings, eng, opts...)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("wait until started: %w", err)
 	}
@@ -322,7 +321,7 @@ func maybeStart(
 
 	opts = append(opts, reqOpts...)
 
-	bkClient, err = client.New(ctx, settings.BuildkitAddr, opts...)
+	bkClient, err := client.New(ctx, settings.BuildkitAddr, opts...)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("new buildkit client: %w", err)
 	}
@@ -985,7 +984,7 @@ func waitForConnection(
 
 			info, workerInfo, err := checkConnection(finalCtx, addr, opts...)
 			if err != nil {
-				if lastErr != nil && !errors.Is(lastErr, err) {
+				if lastErr != nil && !errors.Is(lastErr, err) && lastErr.Error() != err.Error() {
 					err = fmt.Errorf("%w (last error: %w)", err, lastErr)
 				}
 
@@ -1611,7 +1610,11 @@ func instanceSettings(containerName string, baseSettings Settings) Settings {
 	s := baseSettings
 
 	if instName, found := strings.CutSuffix(containerName, "-buildkitd"); found {
-		homeDir, _ := fileutil.HomeDir()
+		homeDir, err := fileutil.HomeDir()
+		if err != nil || homeDir == "" {
+			return s
+		}
+
 		earthDir := filepath.Join(homeDir, "."+instName)
 
 		caCert := filepath.Join(earthDir, "certs", "ca_cert.pem")

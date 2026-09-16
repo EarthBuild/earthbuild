@@ -97,7 +97,7 @@ type GlobalConfig struct {
 	BuildkitRestartTimeoutS    int           `help:"How long to wait for buildkit to (re)start, in seconds."                                                                                                                               yaml:"buildkit_restart_timeout_s"`     //nolint:lll
 	BuildkitCacheKeepDurationS int           `help:"Max age of cache, in seconds. 0 disables age-based cache expiry."                                                                                                                      yaml:"buildkit_cache_keep_duration_s"` //nolint:lll
 	CniMtu                     uint16        `help:"Override auto-detection of the default interface MTU, for all containers within buildkit"                                                                                              yaml:"cni_mtu"`                        //nolint:lll
-	TLSEnabled                 bool          `help:"If TLS should be used to communicate with Buildkit. Only honored when BuildkitScheme is 'tcp'."                                                                                        yaml:"tls_enabled"`                    //nolint:lll
+	TLSEnabled                 bool          `help:"If TLS should be used to communicate with Buildkit. Only honored when the BuildKit transport uses TCP."                                                                                yaml:"tls_enabled"`                    //nolint:lll
 }
 
 // GitConfig contains git-specific config values.

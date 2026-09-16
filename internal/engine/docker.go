@@ -87,10 +87,10 @@ func (e *dockerEngine) Version(ctx context.Context) (Version, error) {
 	}
 
 	type versionInfo struct {
-		Version    string
-		APIVersion string
-		OS         string
-		Arch       string
+		Version    string `json:"Version"`
+		APIVersion string `json:"ApiVersion"`
+		OS         string `json:"Os"`
+		Arch       string `json:"Arch"`
 	}
 
 	type info struct {
@@ -100,7 +100,7 @@ func (e *dockerEngine) Version(ctx context.Context) (Version, error) {
 
 	allInfo := info{}
 
-	err = json.Unmarshal([]byte(output.String()), &allInfo)
+	err = json.Unmarshal([]byte(output.Stdout.String()), &allInfo)
 	if err != nil {
 		return Version{}, fmt.Errorf("parse docker version output: %w", err)
 	}

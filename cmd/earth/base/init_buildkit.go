@@ -44,21 +44,9 @@ func (cli *CLI) InitBuildkit(cmd *cli.Command) error {
 
 	useTCP := engine.UsesTCP(bkURL.Scheme)
 
-	if useTCP && cli.Cfg().Global.TLSEnabled {
-		// Auto-generate mTLS certificates on first run when connecting via TCP (e.g. Apple Container
-		// or local TCP daemon) so that users do not need to run 'earth bootstrap' beforehand.
-		if exists, _ := fileutil.FileExists(cli.Cfg().Global.TLSCACert); !exists {
-			err = buildkitd.GenCerts(*cli.Cfg(), "127.0.0.1")
-			if err != nil {
-				return fmt.Errorf("auto-generate TLS certs: %w", err)
-			}
-		}
-
-		cli.Flags().BuildkitdSettings.ClientTLSCert = cli.Cfg().Global.ClientTLSCert
-		cli.Flags().BuildkitdSettings.ClientTLSKey = cli.Cfg().Global.ClientTLSKey
-		cli.Flags().BuildkitdSettings.TLSCA = cli.Cfg().Global.TLSCACert
-		cli.Flags().BuildkitdSettings.ServerTLSCert = cli.Cfg().Global.ServerTLSCert
-		cli.Flags().BuildkitdSettings.ServerTLSKey = cli.Cfg().Global.ServerTLSKey
+	err = cli.initTLS(useTCP)
+	if err != nil {
+		return err
 	}
 
 	cli.Flags().BuildkitdSettings.AdditionalArgs = cli.Cfg().Global.BuildkitAdditionalArgs
@@ -97,6 +85,35 @@ func (cli *CLI) InitBuildkit(cmd *cli.Command) error {
 	}
 
 	cli.Flags().BuildkitdSettings.StartUpLockPath = filepath.Join(earthDir, "buildkitd-startup.lock")
+
+	return nil
+}
+
+func (cli *CLI) initTLS(useTCP bool) error {
+	if !useTCP || !cli.Cfg().Global.TLSEnabled {
+		return nil
+	}
+
+	// Auto-generate mTLS certificates on first run when connecting via TCP (e.g. Apple Container
+	// or local TCP daemon) so that users do not need to run 'earth bootstrap' beforehand.
+	exists, _ := fileutil.FileExists(cli.Cfg().Global.TLSCACert)
+	if !exists {
+		if !engine.IsLocal(cli.Flags().BuildkitHost) {
+			return fmt.Errorf("remote buildkit host %s requires existing CA certificate: %s not found",
+				cli.Flags().BuildkitHost, cli.Cfg().Global.TLSCACert)
+		}
+
+		err := buildkitd.GenCerts(*cli.Cfg(), "127.0.0.1")
+		if err != nil {
+			return fmt.Errorf("auto-generate TLS certs: %w", err)
+		}
+	}
+
+	cli.Flags().BuildkitdSettings.ClientTLSCert = cli.Cfg().Global.ClientTLSCert
+	cli.Flags().BuildkitdSettings.ClientTLSKey = cli.Cfg().Global.ClientTLSKey
+	cli.Flags().BuildkitdSettings.TLSCA = cli.Cfg().Global.TLSCACert
+	cli.Flags().BuildkitdSettings.ServerTLSCert = cli.Cfg().Global.ServerTLSCert
+	cli.Flags().BuildkitdSettings.ServerTLSKey = cli.Cfg().Global.ServerTLSKey
 
 	return nil
 }

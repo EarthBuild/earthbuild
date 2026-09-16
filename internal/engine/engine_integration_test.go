@@ -18,6 +18,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/engine"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -327,17 +329,16 @@ func TestEngineInspectContainers(t *testing.T) {
 			if target.binary == "container" {
 				info, err := eng.InspectContainers(ctx, testContainers...)
 				require.NoError(t, err)
-				assert.Len(t, info, 2)
-				assert.Equal(t, testContainers[0], info[0].Name)
-				assert.Equal(t, "docker.io/library/nginx:1.21", info[0].Image)
-				assert.Equal(t, testContainers[1], info[1].Name)
-				assert.Equal(t, "docker.io/library/nginx:1.21", info[1].Image)
+				assertEqualContainers(t, []engine.Container{
+					{Name: testContainers[0], Image: "docker.io/library/nginx:1.21", Status: engine.StatusRunning},
+					{Name: testContainers[1], Image: "docker.io/library/nginx:1.21", Status: engine.StatusRunning},
+				}, info)
 
 				missingInfo, mErr := eng.InspectContainers(ctx, "missing")
 				require.NoError(t, mErr)
-				require.Len(t, missingInfo, 1)
-				assert.Equal(t, "missing", missingInfo[0].Name)
-				assert.Equal(t, engine.StatusMissing, missingInfo[0].Status)
+				assertEqualContainers(t, []engine.Container{
+					{Name: "missing", Status: engine.StatusMissing},
+				}, missingInfo)
 
 				return
 			}
@@ -347,16 +348,11 @@ func TestEngineInspectContainers(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, info)
 
-			assert.Len(t, info, 3)
-
-			assert.Equal(t, getInfos[0], info[0].Name)
-			assert.Equal(t, "docker.io/library/nginx:1.21", info[0].Image)
-
-			assert.Equal(t, getInfos[1], info[1].Name)
-			assert.Equal(t, "docker.io/library/nginx:1.21", info[1].Image)
-
-			assert.Equal(t, getInfos[2], info[2].Name)
-			assert.Equal(t, engine.StatusMissing, info[2].Status)
+			assertEqualContainers(t, []engine.Container{
+				{Name: getInfos[0], Image: "docker.io/library/nginx:1.21", Status: engine.StatusRunning},
+				{Name: getInfos[1], Image: "docker.io/library/nginx:1.21", Status: engine.StatusRunning},
+				{Name: getInfos[2], Status: engine.StatusMissing},
+			}, info)
 		})
 	}
 }
@@ -379,15 +375,20 @@ func TestEngineRemoveContainer(t *testing.T) {
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
 			require.NoError(t, err)
-			assert.Len(t, info, 2)
+			assertEqualContainers(t, []engine.Container{
+				{Name: testContainers[0], Image: "docker.io/library/nginx:1.21", Status: engine.StatusRunning},
+				{Name: testContainers[1], Image: "docker.io/library/nginx:1.21", Status: engine.StatusRunning},
+			}, info)
 
 			err = eng.RemoveContainer(ctx, true, testContainers...)
 			require.NoError(t, err)
 
 			info, err = eng.InspectContainers(ctx, testContainers...)
 			require.NoError(t, err)
-			assert.Equal(t, engine.StatusMissing, info[0].Status)
-			assert.Equal(t, engine.StatusMissing, info[1].Status)
+			assertEqualContainers(t, []engine.Container{
+				{Name: testContainers[0], Status: engine.StatusMissing},
+				{Name: testContainers[1], Status: engine.StatusMissing},
+			}, info)
 		})
 	}
 }
@@ -410,16 +411,20 @@ func TestEngineStopContainers(t *testing.T) {
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
 			require.NoError(t, err)
-			assert.Len(t, info, 2)
+			assertEqualContainers(t, []engine.Container{
+				{Name: testContainers[0], Image: "docker.io/library/nginx:1.21", Status: engine.StatusRunning},
+				{Name: testContainers[1], Image: "docker.io/library/nginx:1.21", Status: engine.StatusRunning},
+			}, info)
 
 			err = eng.StopContainer(ctx, 0, testContainers...)
 			require.NoError(t, err)
 
 			info, err = eng.InspectContainers(ctx, testContainers...)
 			require.NoError(t, err)
-			assert.Len(t, info, 2)
-			assert.Equal(t, engine.StatusExited, info[0].Status)
-			assert.Equal(t, engine.StatusExited, info[1].Status)
+			assertEqualContainers(t, []engine.Container{
+				{Name: testContainers[0], Image: "docker.io/library/nginx:1.21", Status: engine.StatusExited},
+				{Name: testContainers[1], Image: "docker.io/library/nginx:1.21", Status: engine.StatusExited},
+			}, info)
 		})
 	}
 }
@@ -442,7 +447,7 @@ func TestEngineContainersLogs(t *testing.T) {
 
 			logs, err := eng.ContainersLogs(ctx, testContainers...)
 			require.NoError(t, err)
-			assert.Len(t, logs, 2)
+			require.Len(t, logs, 2)
 
 			for _, log := range logs {
 				combined := log.Stdout + log.Stderr
@@ -502,29 +507,33 @@ func TestEngineRunContainer(t *testing.T) {
 				})
 			}
 
-			defer func() {
-				_ = eng.RemoveContainer(ctx, true, testContainers...)
+			t.Cleanup(func() {
+				_ = eng.RemoveContainer(context.WithoutCancel(ctx), true, testContainers...)
 
 				volNames := make([]string, len(testContainers))
 				for i, name := range testContainers {
 					volNames[i] = "vol-" + name
 				}
 
-				_ = eng.RemoveVolumes(ctx, true, volNames...)
-			}()
+				_ = eng.RemoveVolumes(context.WithoutCancel(ctx), true, volNames...)
+			})
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
 			require.NoError(t, err)
-			assert.Equal(t, engine.StatusMissing, info[0].Status)
-			assert.Equal(t, engine.StatusMissing, info[1].Status)
+			assertEqualContainers(t, []engine.Container{
+				{Name: testContainers[0], Status: engine.StatusMissing},
+				{Name: testContainers[1], Status: engine.StatusMissing},
+			}, info)
 
 			err = eng.RunContainer(ctx, specs...)
 			require.NoError(t, err)
 
 			info, err = eng.InspectContainers(ctx, testContainers...)
 			require.NoError(t, err)
-			assert.Equal(t, engine.StatusRunning, info[0].Status)
-			assert.Equal(t, engine.StatusRunning, info[1].Status)
+			assertEqualContainers(t, []engine.Container{
+				{Name: testContainers[0], Image: "docker.io/library/nginx:1.21", Status: engine.StatusRunning},
+				{Name: testContainers[1], Image: "docker.io/library/nginx:1.21", Status: engine.StatusRunning},
+			}, info)
 		})
 	}
 }
@@ -554,7 +563,7 @@ func TestEnginePullImage(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
-				_ = eng.RemoveImage(ctx, true, refList...)
+				_ = eng.RemoveImage(context.WithoutCancel(ctx), true, refList...)
 			})
 		})
 	}
@@ -587,7 +596,7 @@ func TestEngineInspectImages(t *testing.T) {
 			info, err := eng.InspectImages(ctx, refList...)
 			require.NoError(t, err)
 
-			assert.Len(t, info, 2)
+			require.Len(t, info, 2)
 
 			assert.Contains(t, info[0].Tags, refList[0])
 			assert.Contains(t, info[1].Tags, refList[1])
@@ -617,7 +626,7 @@ func TestEngineRemoveImage(t *testing.T) {
 
 			info, err := eng.InspectImages(ctx, refList...)
 			require.NoError(t, err)
-			assert.Len(t, info, 2)
+			require.Len(t, info, 2)
 
 			err = eng.RemoveImage(ctx, true, refList...)
 			require.NoError(t, err)
@@ -668,6 +677,7 @@ func TestEngineTagImage(t *testing.T) {
 
 			infos, err := eng.InspectImages(ctx, tagList...)
 			require.NoError(t, err)
+			require.Len(t, infos, 2)
 
 			assert.Contains(t, infos[0].Tags, tagList[0])
 			assert.Contains(t, infos[1].Tags, tagList[1])
@@ -709,9 +719,9 @@ func TestEngineLoadImage(t *testing.T) {
 
 			require.NoError(t, err)
 
-			defer func() {
-				_ = eng.RemoveImage(ctx, true, ref)
-			}()
+			t.Cleanup(func() {
+				_ = eng.RemoveImage(context.WithoutCancel(ctx), true, ref)
+			})
 
 			info, err := eng.InspectImage(ctx, ref)
 			require.NoError(t, err)
@@ -745,9 +755,9 @@ func TestEngineLoadImageHybrid(t *testing.T) {
 
 			require.NoError(t, err)
 
-			defer func() {
-				_ = eng.RemoveImage(ctx, true, ref)
-			}()
+			t.Cleanup(func() {
+				_ = eng.RemoveImage(context.WithoutCancel(ctx), true, ref)
+			})
 
 			info, err := eng.InspectImage(ctx, ref)
 			require.NoError(t, err)
@@ -832,7 +842,7 @@ func spawnTestContainers(ctx context.Context, eng *engine.Client, names ...strin
 	err := startTestContainers(ctx, eng, names...)
 
 	cleanup := func() {
-		_ = eng.RemoveContainer(ctx, true, names...) // best effort
+		_ = eng.RemoveContainer(context.WithoutCancel(ctx), true, names...) // best effort
 	}
 	if err != nil {
 		return cleanup, err
@@ -906,7 +916,7 @@ func spawnTestImages(ctx context.Context, eng *engine.Client, refs ...string) (f
 	}
 
 	return func() {
-		_ = eng.RemoveImage(ctx, true, refs...)
+		_ = eng.RemoveImage(context.WithoutCancel(ctx), true, refs...)
 	}, err
 }
 
@@ -934,7 +944,7 @@ func spawnTestVolumes(ctx context.Context, eng *engine.Client, binary string, na
 	}
 
 	return func() {
-		_ = eng.RemoveVolumes(ctx, true, names...)
+		_ = eng.RemoveVolumes(context.WithoutCancel(ctx), true, names...)
 	}, err
 }
 
@@ -944,4 +954,14 @@ func testLogger() *conslogging.ConsoleLogger {
 	logger := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 
 	return logger.WithWriter(&logs)
+}
+
+var cmpContainerOpts = cmp.Options{
+	cmpopts.IgnoreFields(engine.Container{}, "Created", "ID", "ImageID", "IPs", "Platform", "Labels"),
+}
+
+func assertEqualContainers(t *testing.T, want, got []engine.Container) {
+	t.Helper()
+	diff := cmp.Diff(want, got, cmpContainerOpts)
+	require.Empty(t, diff, "containers mismatch (-want +got):\n%s", diff)
 }

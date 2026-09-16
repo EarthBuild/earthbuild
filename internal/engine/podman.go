@@ -198,6 +198,10 @@ func (e *podmanEngine) LoadImage(ctx context.Context, images ...io.Reader) error
 
 // InspectVolumes returns details for the specified volume names.
 func (e *podmanEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
+	if len(volumeNames) == 0 {
+		return nil, nil
+	}
+
 	// Older podman versions do no support --format. This means we are stuck parsing the verbose tabular output for compat.
 	output, err := e.CommandOutput(ctx, "system", "df", "-v")
 	if err != nil {
@@ -215,7 +219,13 @@ func (e *podmanEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 	}
 
 	val = out[idx:]
-	lines := strings.Split(val, "\n")[3:]
+
+	allLines := strings.Split(val, "\n")
+	if len(allLines) <= 3 {
+		return nil, nil
+	}
+
+	lines := allLines[3:]
 	volumes := make([]Volume, 0, len(volumeNames))
 
 	for _, line := range lines {

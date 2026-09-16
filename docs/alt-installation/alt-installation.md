@@ -4,7 +4,7 @@ This page outlines alternative installation instructions for the `earth` build t
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/install/), [Podman](https://docs.podman.io/en/latest/), or [Apple Container](https://github.com/apple/container) (macOS)
+- [Docker](https://docs.docker.com/install/), [Podman](https://docs.podman.io/en/latest/), or [Apple Container](https://github.com/apple/container) (macOS on Apple Silicon, macOS 26+)
 - [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
 - (*Windows only*) [Docker WSL 2 backend](https://docs.docker.com/docker-for-windows/wsl/) or [Podman WSL2 backend](https://github.com/containers/podman/blob/main/docs/tutorials/podman-for-windows.md)
 

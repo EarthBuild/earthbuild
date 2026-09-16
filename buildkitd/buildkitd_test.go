@@ -287,6 +287,12 @@ func TestInstanceSettings(t *testing.T) {
 	// Non-matching container name falls back to base settings
 	resFallback := instanceSettings("unknown-container", base)
 	assert.Equal(t, base.TLSCA, resFallback.TLSCA)
+
+	// Empty HOME falls back to base settings without creating relative path lookups
+	t.Setenv("HOME", "")
+
+	resEmptyHome := instanceSettings("testinst-buildkitd", base)
+	assert.Equal(t, base.TLSCA, resEmptyHome.TLSCA)
 }
 
 func TestWaitUntilStopped(t *testing.T) {

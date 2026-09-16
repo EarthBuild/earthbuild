@@ -39,6 +39,7 @@ type appleContainerInspect struct {
 		Networks []struct {
 			Network     string `json:"network"`
 			IPv4Address string `json:"ipv4Address"`
+			IPv6Address string `json:"ipv6Address"`
 		} `json:"networks"`
 	} `json:"status"`
 }
@@ -263,8 +264,17 @@ func convertAppleContainer(v appleContainerInspect) Container {
 	ipAddresses := make(map[string]string, len(v.Status.Networks))
 
 	for _, net := range v.Status.Networks {
-		if net.IPv4Address != "" {
-			ip, _, _ := strings.Cut(net.IPv4Address, "/")
+		var addr string
+
+		switch {
+		case net.IPv4Address != "":
+			addr = net.IPv4Address
+		case net.IPv6Address != "":
+			addr = net.IPv6Address
+		}
+
+		if addr != "" {
+			ip, _, _ := strings.Cut(addr, "/")
 			ipAddresses[net.Network] = ip
 		}
 	}

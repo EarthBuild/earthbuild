@@ -21,7 +21,10 @@ func TestAppleContainerInspectUnmarshal(t *testing.T) {
 			"status": {
 				"state": "running",
 				"networks": [
-					{"ipv4Address": "192.168.64.2/24"}
+					{
+						"ipv4Address": "192.168.64.2/24",
+						"ipv6Address": "fd37:ce79:5ecd:fec4:fcf8:1aff:fe9b:afea/64"
+					}
 				]
 			},
 			"configuration": {
@@ -53,6 +56,7 @@ func TestAppleContainerInspectUnmarshal(t *testing.T) {
 	assert.Equal(t, "running", c.Status.State)
 	require.Len(t, c.Status.Networks, 1)
 	assert.Equal(t, "192.168.64.2/24", c.Status.Networks[0].IPv4Address)
+	assert.Equal(t, "fd37:ce79:5ecd:fec4:fcf8:1aff:fe9b:afea/64", c.Status.Networks[0].IPv6Address)
 	assert.Equal(t, expectedDigest, c.Configuration.Image.Descriptor.Digest)
 	assert.Equal(t, "value", c.Configuration.Labels["key"])
 	assert.Equal(t, "arm64", c.Configuration.Platform.Architecture)
@@ -116,6 +120,37 @@ func TestConvertAppleContainer(t *testing.T) {
 	stoppedInspect.Status.State = "stopped"
 	stoppedContainer := convertAppleContainer(stoppedInspect)
 	assert.Equal(t, StatusExited, stoppedContainer.Status)
+
+	// Verify IPv6 fallback when IPv4 is empty
+	ipv6Inspect := inspects[0]
+	ipv6Inspect.Status.Networks = []struct {
+		Network     string `json:"network"`
+		IPv4Address string `json:"ipv4Address"`
+		IPv6Address string `json:"ipv6Address"`
+	}{
+		{
+			Network:     "default",
+			IPv6Address: "fd37:ce79:5ecd:fec4:fcf8:1aff:fe9b:afea/64",
+		},
+	}
+	ipv6Container := convertAppleContainer(ipv6Inspect)
+	assert.Equal(t, "fd37:ce79:5ecd:fec4:fcf8:1aff:fe9b:afea", ipv6Container.IPs["default"])
+
+	// Verify IPv4 precedence when both IPv4 and IPv6 are present
+	dualInspect := inspects[0]
+	dualInspect.Status.Networks = []struct {
+		Network     string `json:"network"`
+		IPv4Address string `json:"ipv4Address"`
+		IPv6Address string `json:"ipv6Address"`
+	}{
+		{
+			Network:     "default",
+			IPv4Address: "192.168.64.2/24",
+			IPv6Address: "fd37:ce79:5ecd:fec4:fcf8:1aff:fe9b:afea/64",
+		},
+	}
+	dualContainer := convertAppleContainer(dualInspect)
+	assert.Equal(t, "192.168.64.2", dualContainer.IPs["default"])
 }
 
 //nolint:goconst

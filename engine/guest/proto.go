@@ -613,6 +613,19 @@ type Mount struct {
 	// its own filesystem, so the first build's cache was written somewhere that
 	// vanished with the VM and the second build found nothing.
 	ID string `json:"id"`
+	// Scope is a directory beneath ID, or empty for the directory ID has
+	// always named.
+	//
+	// **Computed by the host, because only the host has the declaration.** The
+	// claim `--portable-except` makes is a property of a *mount*; the directory
+	// is named by an *id*; and two steps naming one id share one directory
+	// however differently they declared it. So a cache offered to other machines
+	// must not land in the directory a cache nobody offered is using.
+	//
+	// A string this end interprets in no way, in keeping with this protocol
+	// being a poorer type than the IR: the guest is told where to put the
+	// directory, not what a claim is.
+	Scope string `json:"scope,omitempty"`
 	// Layer names a layer in the layer store, bound read-only: a bound view of
 	// something this build already made (green paper §3.3d).
 	//

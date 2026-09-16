@@ -200,7 +200,7 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 				"a mount needs an id, a sandbox path, contents or ephemeral, and a target")
 		}
 
-		source := filepath.Join(store, m.ID)
+		source := cacheSource(store, m)
 
 		// A bound view resolves against the *layer* store, which is a different
 		// directory from the cache store above. Read-only is not a courtesy

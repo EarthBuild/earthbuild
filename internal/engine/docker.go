@@ -9,9 +9,9 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"al.essio.dev/pkg/shellescape"
-	"github.com/dustin/go-humanize"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
 )
 
@@ -144,9 +144,51 @@ func (e *dockerEngine) LoadImage(ctx context.Context, images ...io.Reader) error
 	return err
 }
 
+// isTransientDockerDfError reports whether a docker system df failure was caused
+// by a transient daemon race condition during concurrent container deletion.
+func isTransientDockerDfError(output *commandContextOutput, err error) bool {
+	var combined string
+	if output != nil {
+		combined += output.Stderr.String()
+	}
+
+	if err != nil {
+		combined += err.Error()
+	}
+
+	return strings.Contains(combined, "rw layer snapshot not found") ||
+		strings.Contains(combined, "failed to retrieve container list")
+}
+
 // InspectVolumes returns details for the specified volume names.
 func (e *dockerEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
-	output, err := e.CommandOutput(ctx, "system", "df", "-v", "--format={{json  .}}")
+	if len(volumeNames) == 0 {
+		return nil, nil
+	}
+
+	var (
+		output *commandContextOutput
+		err    error
+	)
+
+	const maxAttempts = 3
+	for attempt := range maxAttempts {
+		output, err = e.CommandOutput(ctx, "system", "df", "-v", "--format={{json  .}}")
+		if err == nil {
+			break
+		}
+
+		if !isTransientDockerDfError(output, err) || attempt == maxAttempts-1 {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Duration(50*(attempt+1)) * time.Millisecond):
+		}
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("inspect docker volumes: %w", err)
 	}
@@ -171,7 +213,7 @@ func (e *dockerEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 			continue
 		}
 
-		bytes, parseErr := humanize.ParseBytes(volumeInfo.Size)
+		bytes, parseErr := parseVolumeSize(volumeInfo.Size)
 		if parseErr != nil {
 			err = errors.Join(err, fmt.Errorf("parse volume size %q for %s: %w", volumeInfo.Size, volumeInfo.Name, parseErr))
 			continue

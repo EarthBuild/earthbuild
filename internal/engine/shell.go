@@ -321,6 +321,19 @@ func (e *shellEngine) TagImage(ctx context.Context, source, target string) error
 	return nil
 }
 
+// RemoveVolumes removes volumes via the CLI.
+func (e *shellEngine) RemoveVolumes(ctx context.Context, force bool, volumeNames ...string) error {
+	args := []string{volumeCmd, "rm"}
+	if force {
+		args = append(args, "-f")
+	}
+
+	args = append(args, volumeNames...)
+	_, err := e.CommandOutput(ctx, args...)
+
+	return err
+}
+
 type commandContextOutput struct {
 	Stdout strings.Builder
 	Stderr strings.Builder

@@ -8,10 +8,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +22,182 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type engineTestTarget struct {
+	binary    string
+	tagPrefix string
+	newFunc   func(context.Context, *engine.Config) (*engine.Client, error)
+}
+
+var availableEngines []engineTestTarget
+
+func TestMain(m *testing.M) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	var err error
+	availableEngines, err = discoverEngines(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(availableEngines) == 0 {
+		fmt.Fprintln(os.Stderr, "warning: no container engines available for integration tests")
+	}
+
+	os.Exit(m.Run())
+}
+
+func discoverEngines(ctx context.Context) ([]engineTestTarget, error) {
+	var targets []engineTestTarget
+
+	// 1. Docker
+	if _, err := exec.LookPath("docker"); err == nil {
+		if err := ensureDockerStarted(ctx); err != nil {
+			return nil, fmt.Errorf("ensure docker started: %w", err)
+		}
+
+		targets = append(targets, engineTestTarget{
+			binary:    "docker",
+			tagPrefix: "",
+			newFunc:   newDocker,
+		})
+	}
+
+	// 2. Podman
+	if _, err := exec.LookPath("podman"); err == nil {
+		if err := ensurePodmanStarted(ctx); err != nil {
+			return nil, fmt.Errorf("ensure podman started: %w", err)
+		}
+
+		targets = append(targets, engineTestTarget{
+			binary:    "podman",
+			tagPrefix: "localhost/",
+			newFunc:   newPodman,
+		})
+	}
+
+	// 3. Apple Container
+	if runtime.GOOS == "darwin" {
+		if _, err := exec.LookPath("container"); err == nil {
+			if err := ensureAppleContainerStarted(ctx); err != nil {
+				return nil, fmt.Errorf("ensure apple container started: %w", err)
+			}
+
+			targets = append(targets, engineTestTarget{
+				binary:    "container",
+				tagPrefix: "docker.io/library/",
+				newFunc:   newApple,
+			})
+		}
+	}
+
+	return targets, nil
+}
+
+func ensureDockerStarted(ctx context.Context) error {
+	eng, err := newDocker(ctx, &engine.Config{Log: testLogger()})
+	if err == nil && eng.IsAvailable(ctx) {
+		return nil
+	}
+
+	if _, err := exec.LookPath("docker"); err != nil {
+		return fmt.Errorf("docker binary not found: %w", err)
+	}
+
+	switch runtime.GOOS {
+	case "darwin":
+		cmd := exec.CommandContext(ctx, "open", "-g", "-a", "Docker")
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("start docker desktop: %w", err)
+		}
+	case "linux":
+		cmd := exec.CommandContext(ctx, "systemctl", "--user", "start", "docker")
+		_ = cmd.Run()
+	}
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for docker to start: %w", ctx.Err())
+		case <-ticker.C:
+			if eng, err := newDocker(ctx, &engine.Config{Log: testLogger()}); err == nil && eng.IsAvailable(ctx) {
+				return nil
+			}
+		}
+	}
+}
+
+func ensurePodmanStarted(ctx context.Context) error {
+	eng, err := newPodman(ctx, &engine.Config{Log: testLogger()})
+	if err == nil && eng.IsAvailable(ctx) {
+		return nil
+	}
+
+	if _, err := exec.LookPath("podman"); err != nil {
+		return fmt.Errorf("podman binary not found: %w", err)
+	}
+
+	switch runtime.GOOS {
+	case "darwin":
+		startCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+
+		cmd := exec.CommandContext(startCtx, "podman", "machine", "start")
+		_ = cmd.Run()
+	case "linux":
+		cmd := exec.CommandContext(ctx, "systemctl", "--user", "start", "podman.socket")
+		_ = cmd.Run()
+	}
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for podman to start: %w", ctx.Err())
+		case <-ticker.C:
+			if eng, err := newPodman(ctx, &engine.Config{Log: testLogger()}); err == nil && eng.IsAvailable(ctx) {
+				return nil
+			}
+		}
+	}
+}
+
+func ensureAppleContainerStarted(ctx context.Context) error {
+	eng, err := newApple(ctx, &engine.Config{Log: testLogger()})
+	if err == nil && eng.IsAvailable(ctx) {
+		return nil
+	}
+
+	if _, err := exec.LookPath("container"); err != nil {
+		return fmt.Errorf("container binary not found: %w", err)
+	}
+
+	cmd := exec.CommandContext(ctx, "container", "system", "start")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("start apple container service: %s: %w", string(out), err)
+	}
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for apple container: %w", ctx.Err())
+		case <-ticker.C:
+			if eng, err := newApple(ctx, &engine.Config{Log: testLogger()}); err == nil && eng.IsAvailable(ctx) {
+				return nil
+			}
+		}
+	}
+}
+
 func newDocker(ctx context.Context, cfg *engine.Config) (*engine.Client, error) {
 	return engine.New(ctx, engine.Docker, cfg)
 }
@@ -29,25 +206,18 @@ func newPodman(ctx context.Context, cfg *engine.Config) (*engine.Client, error) 
 	return engine.New(ctx, engine.Podman, cfg)
 }
 
+func newApple(ctx context.Context, cfg *engine.Config) (*engine.Client, error) {
+	return engine.New(ctx, engine.AppleContainer, cfg)
+}
+
 func TestEngineNew(t *testing.T) {
 	t.Parallel()
 
-	//nolint:goconst
-	testCases := []struct {
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		binary  string
-	}{
-		{binary: "docker", newFunc: newDocker},
-		{binary: "podman", newFunc: newPodman},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
-
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			eng, err := target.newFunc(t.Context(), &engine.Config{Log: testLogger()})
 			require.NoError(t, err)
 			assert.NotNil(t, eng)
 		})
@@ -57,26 +227,20 @@ func TestEngineNew(t *testing.T) {
 func TestEngineScheme(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		binary  string
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		scheme  engine.Scheme
-	}{
-		{"docker", newDocker, engine.SchemeDocker},
-		{"podman", newPodman, engine.SchemePodman},
+	wantSchemes := map[string]engine.Scheme{
+		"docker":    engine.SchemeDocker,
+		"podman":    engine.SchemePodman,
+		"container": engine.SchemeApple,
 	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
-
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			eng, err := target.newFunc(t.Context(), &engine.Config{Log: testLogger()})
 			require.NoError(t, err)
 
-			scheme := eng.Metadata().Scheme
-			assert.Equal(t, tC.scheme, scheme)
+			assert.Equal(t, wantSchemes[target.binary], eng.Metadata().Scheme)
 		})
 	}
 }
@@ -84,21 +248,12 @@ func TestEngineScheme(t *testing.T) {
 func TestEngineIsAvailable(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		binary  string
-	}{
-		{binary: "docker", newFunc: newDocker},
-		{binary: "podman", newFunc: newPodman},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
-
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
 			require.NoError(t, err)
 
 			available := eng.IsAvailable(ctx)
@@ -110,21 +265,12 @@ func TestEngineIsAvailable(t *testing.T) {
 func TestEngineVersion(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		binary  string
-	}{
-		{binary: "docker", newFunc: newDocker},
-		{binary: "podman", newFunc: newPodman},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
-
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
 			require.NoError(t, err)
 
 			info, err := eng.Version(ctx)
@@ -134,32 +280,67 @@ func TestEngineVersion(t *testing.T) {
 	}
 }
 
-func TestEngineContainerInfo(t *testing.T) {
+func TestEngineListContainers(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		binary  string
-	}{
-		{binary: "docker", newFunc: newDocker},
-		{binary: "podman", newFunc: newPodman},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
+			require.NoError(t, err)
 
-			testContainers := make([]string, 0, 3)
-			testContainers = append(testContainers, "test-1", "test-2")
+			containers, err := eng.ListContainers(ctx)
+			require.NoError(t, err)
+			assert.NotNil(t, containers)
+		})
+	}
+}
 
-			cleanup, err := spawnTestContainers(ctx, tC.binary, testContainers...)
+func TestEngineInspectContainers(t *testing.T) {
+	t.Parallel()
+
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
+			require.NoError(t, err)
+
+			testContainers := []string{"test-1", "test-2"}
+			cleanup, err := spawnTestContainers(ctx, eng, testContainers...)
 			t.Cleanup(cleanup)
 			require.NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			single, err := eng.InspectContainer(ctx, testContainers[0])
 			require.NoError(t, err)
+			assert.Equal(t, testContainers[0], single.Name)
+			assert.Equal(t, "docker.io/library/nginx:1.21", single.Image)
+
+			missingSingle, err := eng.InspectContainer(ctx, "missing")
+			require.NoError(t, err)
+			assert.Equal(t, "missing", missingSingle.Name)
+			assert.Equal(t, engine.StatusMissing, missingSingle.Status)
+
+			if target.binary == "container" {
+				info, err := eng.InspectContainers(ctx, testContainers...)
+				require.NoError(t, err)
+				assert.Len(t, info, 2)
+				assert.Equal(t, testContainers[0], info[0].Name)
+				assert.Equal(t, "docker.io/library/nginx:1.21", info[0].Image)
+				assert.Equal(t, testContainers[1], info[1].Name)
+				assert.Equal(t, "docker.io/library/nginx:1.21", info[1].Image)
+
+				missingInfo, mErr := eng.InspectContainers(ctx, "missing")
+				require.NoError(t, mErr)
+				require.Len(t, missingInfo, 1)
+				assert.Equal(t, "missing", missingInfo[0].Name)
+				assert.Equal(t, engine.StatusMissing, missingInfo[0].Status)
+
+				return
+			}
 
 			getInfos := append(testContainers, "missing") //nolint:gocritic
 			info, err := eng.InspectContainers(ctx, getInfos...)
@@ -180,29 +361,20 @@ func TestEngineContainerInfo(t *testing.T) {
 	}
 }
 
-func TestEngineContainerRemove(t *testing.T) {
+func TestEngineRemoveContainer(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		binary  string
-	}{
-		{binary: "docker", newFunc: newDocker},
-		{binary: "podman", newFunc: newPodman},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
-
-			testContainers := []string{"remove-1", "remove-2"}
-			cleanup, err := spawnTestContainers(ctx, tC.binary, testContainers...)
-			t.Cleanup(cleanup)
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
 			require.NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			testContainers := []string{"remove-1", "remove-2"}
+			cleanup, err := spawnTestContainers(ctx, eng, testContainers...)
+			t.Cleanup(cleanup)
 			require.NoError(t, err)
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
@@ -220,29 +392,20 @@ func TestEngineContainerRemove(t *testing.T) {
 	}
 }
 
-func TestEngineContainerStop(t *testing.T) {
+func TestEngineStopContainers(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		binary  string
-	}{
-		{binary: "docker", newFunc: newDocker},
-		{binary: "podman", newFunc: newPodman},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
-
-			testContainers := []string{"stop-1", "stop-2"}
-			cleanup, err := spawnTestContainers(ctx, tC.binary, testContainers...)
-			t.Cleanup(cleanup)
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
 			require.NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			testContainers := []string{"stop-1", "stop-2"}
+			cleanup, err := spawnTestContainers(ctx, eng, testContainers...)
+			t.Cleanup(cleanup)
 			require.NoError(t, err)
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
@@ -261,71 +424,61 @@ func TestEngineContainerStop(t *testing.T) {
 	}
 }
 
-func TestEngineLogs(t *testing.T) {
+func TestEngineContainersLogs(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		binary  string
-	}{
-		{binary: "docker", newFunc: newDocker},
-		{binary: "podman", newFunc: newPodman},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
-
-			testContainers := []string{"logs-1", "logs-2"}
-			cleanup, err := spawnTestContainers(ctx, tC.binary, testContainers...)
-			t.Cleanup(cleanup)
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
 			require.NoError(t, err)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			testContainers := []string{"logs-1", "logs-2"}
+			cleanup, err := spawnTestContainers(ctx, eng, testContainers...)
+			t.Cleanup(cleanup)
 			require.NoError(t, err)
 
 			logs, err := eng.ContainersLogs(ctx, testContainers...)
 			require.NoError(t, err)
 			assert.Len(t, logs, 2)
 
-			assert.Equal(t, "output stream\n", logs[0].Stdout)
-			assert.Equal(t, "error stream\n", logs[0].Stderr)
+			for _, log := range logs {
+				combined := log.Stdout + log.Stderr
 
-			assert.Equal(t, "output stream\n", logs[1].Stdout)
-			assert.Equal(t, "error stream\n", logs[1].Stderr)
+				assert.Contains(t, combined, "output stream\n")
+				assert.Contains(t, combined, "error stream\n")
+			}
 		})
 	}
 }
 
-func TestEngineContainerRun(t *testing.T) {
+func TestEngineRunContainer(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		binary  string
-	}{
-		{binary: "docker", newFunc: newDocker},
-		{binary: "podman", newFunc: newPodman},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
-
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
 			require.NoError(t, err)
 
 			testContainers := []string{"create-1", "create-2"}
 
 			specs := make([]engine.ContainerSpec, 0, len(testContainers))
 			for _, name := range testContainers {
+				// Apple Container CLI requires an explicit, non-zero host port for -p/--publish
+				// and does not support ephemeral port allocation (port 0).
+				hostPort := 0
+				if target.binary == "container" {
+					hostPort = getFreePort(t)
+				}
+
 				specs = append(specs, engine.ContainerSpec{
 					NameOrID:       name,
-					ImageRef:       "docker.io/nginx:1.21",
+					ImageRef:       "docker.io/library/nginx:1.21",
 					Privileged:     false,
 					Envs:           map[string]string{"test": name},
 					Labels:         map[string]string{"test": name},
@@ -342,7 +495,7 @@ func TestEngineContainerRun(t *testing.T) {
 					PortMappings: []engine.PortMapping{
 						{
 							HostIP:        "127.0.0.1",
-							HostPort:      0,
+							HostPort:      hostPort,
 							ContainerPort: 5678,
 						},
 					},
@@ -350,15 +503,14 @@ func TestEngineContainerRun(t *testing.T) {
 			}
 
 			defer func() {
-				for _, name := range testContainers {
-					// Roll our own cleanup since we can't use the spawn test containers helper... since
-					// the whole point of this test is to create them with an engine. Also theres a volume
-					cmd := exec.CommandContext(ctx, tC.binary, "rm", "-f", name) // #nosec G204
-					_ = cmd.Run()                                                // Just best effort
+				_ = eng.RemoveContainer(ctx, true, testContainers...)
 
-					cmd = exec.CommandContext(ctx, tC.binary, "volume", "rm", "-f", "vol-"+name) // #nosec G204
-					_ = cmd.Run()
+				volNames := make([]string, len(testContainers))
+				for i, name := range testContainers {
+					volNames[i] = "vol-" + name
 				}
+
+				_ = eng.RemoveVolumes(ctx, true, volNames...)
 			}()
 
 			info, err := eng.InspectContainers(ctx, testContainers...)
@@ -377,102 +529,90 @@ func TestEngineContainerRun(t *testing.T) {
 	}
 }
 
-func TestEngineImagePull(t *testing.T) {
+func TestEnginePullImage(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		binary  string
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		refList []string
-	}{
-		{"docker", newDocker, []string{"nginx:1.21", "alpine:3.18"}},
-		// Podman prefers... and exports fully-qualified image tags
-		{"podman", newPodman, []string{"docker.io/nginx:1.21", "docker.io/alpine:3.18"}},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
+			ctx := t.Context()
+			refList := []string{
+				"docker.io/library/nginx:1.21",
+				"docker.io/library/alpine:3.18",
+			}
 
 			// podman pull needs some potentially valid address to check against, otherwise panic
-			eng, err := tC.newFunc(ctx, &engine.Config{
+			eng, err := target.newFunc(ctx, &engine.Config{
 				LocalRegistryHost: "tcp://some-host:5309",
 				Log:               testLogger(),
 			})
 			require.NoError(t, err)
 
-			err = eng.PullImage(ctx, tC.refList...)
+			err = eng.PullImage(ctx, refList...)
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
-				_ = eng.RemoveImage(ctx, true, tC.refList...)
+				_ = eng.RemoveImage(ctx, true, refList...)
 			})
 		})
 	}
 }
 
-func TestEngineImageInfo(t *testing.T) {
+func TestEngineInspectImages(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		binary  string
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		refList []string
-	}{
-		{"docker", newDocker, []string{"info:1", "info:2"}},
-		{"podman", newPodman, []string{"localhost/info:1", "localhost/info:2"}},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
+			ctx := t.Context()
+			refList := []string{
+				target.tagPrefix + "info:1",
+				target.tagPrefix + "info:2",
+			}
 
-			cleanup, err := spawnTestImages(ctx, tC.binary, tC.refList...)
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
+			require.NoError(t, err)
+
+			cleanup, err := spawnTestImages(ctx, eng, refList...)
 			require.NoError(t, err)
 			t.Cleanup(cleanup)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			single, err := eng.InspectImage(ctx, refList[0])
 			require.NoError(t, err)
+			assert.Contains(t, single.Tags, refList[0])
 
-			info, err := eng.InspectImages(ctx, tC.refList...)
+			info, err := eng.InspectImages(ctx, refList...)
 			require.NoError(t, err)
 
 			assert.Len(t, info, 2)
 
-			assert.Contains(t, info[0].Tags, tC.refList[0])
-			assert.Contains(t, info[1].Tags, tC.refList[1])
+			assert.Contains(t, info[0].Tags, refList[0])
+			assert.Contains(t, info[1].Tags, refList[1])
 		})
 	}
 }
 
-func TestEngineImageRemove(t *testing.T) {
+func TestEngineRemoveImage(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		binary  string
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-	}{
-		{binary: "docker", newFunc: newDocker},
-		{binary: "podman", newFunc: newPodman},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
+			require.NoError(t, err)
 
-			refList := []string{"remove:1", "remove:2"}
-			cleanup, err := spawnTestImages(ctx, tC.binary, refList...)
+			refList := []string{
+				target.tagPrefix + "remove:1",
+				target.tagPrefix + "remove:2",
+			}
+
+			cleanup, err := spawnTestImages(ctx, eng, refList...)
 			require.NoError(t, err)
 			t.Cleanup(cleanup)
-
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			require.NoError(t, err)
 
 			info, err := eng.InspectImages(ctx, refList...)
 			require.NoError(t, err)
@@ -483,80 +623,76 @@ func TestEngineImageRemove(t *testing.T) {
 
 			info, err = eng.InspectImages(ctx, refList...)
 			require.NoError(t, err)
-			assert.Empty(t, info)
+
+			for _, img := range info {
+				assert.Empty(t, img.ID)
+			}
 		})
 	}
 }
 
-func TestEngineImageTag(t *testing.T) {
+func TestEngineTagImage(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		binary  string
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		tagList []string
-	}{
-		{"docker", newDocker, []string{"tag:1", "tag:2"}},
-		{"podman", newPodman, []string{"localhost/tag:1", "localhost/tag:2"}},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
+			require.NoError(t, err)
 
-			ref := "tag:me"
-			cleanup, err := spawnTestImages(ctx, tC.binary, ref)
+			ref := target.tagPrefix + "tag:me"
+			cleanup, err := spawnTestImages(ctx, eng, ref)
 			require.NoError(t, err)
 			t.Cleanup(cleanup)
-
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			require.NoError(t, err)
 
 			info, err := eng.InspectImage(ctx, ref)
 			require.NoError(t, err)
 
-			imageID := info.ID
+			imageRef := info.ID
+			if target.binary == "container" {
+				imageRef = ref
+			}
 
-			for _, tagName := range tC.tagList {
-				err = eng.TagImage(ctx, imageID, tagName)
+			tagList := []string{
+				target.tagPrefix + "tag:1",
+				target.tagPrefix + "tag:2",
+			}
+
+			for _, tagName := range tagList {
+				err = eng.TagImage(ctx, imageRef, tagName)
 				require.NoError(t, err)
 			}
 
-			infos, err := eng.InspectImages(ctx, tC.tagList...)
+			infos, err := eng.InspectImages(ctx, tagList...)
 			require.NoError(t, err)
 
-			assert.Contains(t, infos[0].Tags, tC.tagList[0])
-			assert.Contains(t, infos[1].Tags, tC.tagList[1])
+			assert.Contains(t, infos[0].Tags, tagList[0])
+			assert.Contains(t, infos[1].Tags, tagList[1])
 		})
 	}
 }
 
-func TestEngineImageLoad(t *testing.T) {
+func TestEngineLoadImage(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		binary  string
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		ref     string
-	}{
-		{"docker", newDocker, "load:me"},
-		{"podman", newPodman, "localhost/load:me"},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
+			ctx := t.Context()
+			ref := target.tagPrefix + "load:me"
 
-			cleanup, err := spawnTestImages(ctx, tC.binary, tC.ref)
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
+			require.NoError(t, err)
+
+			cleanup, err := spawnTestImages(ctx, eng, ref)
 			require.NoError(t, err)
 
 			imgBuffer := &bytes.Buffer{}
 			imgWriter := bufio.NewWriter(imgBuffer)
-			cmd := exec.CommandContext(ctx, tC.binary, "image", "save", tC.ref) // #nosec G204
+			cmd := exec.CommandContext(ctx, target.binary, "image", "save", ref) // #nosec G204
 			cmd.Stdout = imgWriter
 			err = cmd.Run()
 			assert.NoError(t, err)
@@ -565,43 +701,35 @@ func TestEngineImageLoad(t *testing.T) {
 
 			cleanup()
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
-			require.NoError(t, err)
-
 			err = eng.LoadImage(ctx, bufio.NewReader(imgBuffer))
+			if runtime.GOOS == "darwin" && target.binary == "podman" && err != nil && strings.Contains(err.Error(), "unsupported transport docker-archive") {
+				t.Skip("podman on macOS does not support docker-archive transport")
+			}
+
 			require.NoError(t, err)
 
 			defer func() {
-				cmd := exec.CommandContext(ctx, tC.binary, "image", "rm", "-f", tC.ref) // #nosec G204
-				_ = cmd.Run()
+				_ = eng.RemoveImage(ctx, true, ref)
 			}()
 
-			info, err := eng.InspectImage(ctx, tC.ref)
+			info, err := eng.InspectImage(ctx, ref)
 			require.NoError(t, err)
-			assert.Contains(t, info.Tags, tC.ref)
+			assert.Contains(t, info.Tags, ref)
 		})
 	}
 }
 
-func TestEngineImageLoadHybrid(t *testing.T) {
+func TestEngineLoadImageHybrid(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		binary  string
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-		ref     string
-	}{
-		{"docker", newDocker, "hybrid:test"},
-		{"podman", newPodman, "localhost/hybrid:test"},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
+			ctx := t.Context()
+			ref := target.tagPrefix + "hybrid:test"
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
 			require.NoError(t, err)
 
 			data, err := os.ReadFile("./testdata/hybrid.tar")
@@ -610,241 +738,181 @@ func TestEngineImageLoadHybrid(t *testing.T) {
 			reader := bytes.NewReader(data)
 
 			err = eng.LoadImage(ctx, reader)
+			if runtime.GOOS == "darwin" && target.binary == "podman" && err != nil && strings.Contains(err.Error(), "unsupported transport docker-archive") {
+				t.Skip("podman on macOS does not support docker-archive transport")
+			}
+
 			require.NoError(t, err)
 
 			defer func() {
-				cmd := exec.CommandContext(ctx, tC.binary, "image", "rm", "-f", tC.ref) // #nosec G204
-				_ = cmd.Run()
+				_ = eng.RemoveImage(ctx, true, ref)
 			}()
 
-			info, err := eng.InspectImage(ctx, tC.ref)
+			info, err := eng.InspectImage(ctx, ref)
 			require.NoError(t, err)
-			assert.Contains(t, info.Tags, tC.ref)
+			assert.Contains(t, info.Tags, ref)
 		})
 	}
 }
 
-func TestEngineVolumeInfo(t *testing.T) {
+func TestEngineInspectVolumes(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		binary  string
-		newFunc func(context.Context, *engine.Config) (*engine.Client, error)
-	}{
-		{"docker", newDocker},
-		{"podman", newPodman},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.binary, func(t *testing.T) {
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
-			onlyIfBinaryIsInstalled(ctx, t, tC.binary)
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
+			require.NoError(t, err)
 
 			volList := []string{"test1", "test2"}
-			cleanup, err := spawnTestVolumes(ctx, tC.binary, volList...)
+			cleanup, err := spawnTestVolumes(ctx, eng, target.binary, volList...)
 			require.NoError(t, err)
 			t.Cleanup(cleanup)
 
-			eng, err := tC.newFunc(ctx, &engine.Config{Log: testLogger()})
+			single, err := eng.InspectVolume(ctx, volList[0])
 			require.NoError(t, err)
+			assert.Equal(t, volList[0], single.Name)
 
 			info, err := eng.InspectVolumes(ctx, volList...)
 			require.NoError(t, err)
 			assert.Len(t, info, 2)
+			assert.Equal(t, volList[0], info[0].Name)
+			assert.Equal(t, volList[1], info[1].Name)
 		})
 	}
 }
 
-func onlyIfBinaryIsInstalled(ctx context.Context, t *testing.T, binary string) {
-	t.Helper()
+func TestEngineRemoveVolumes(t *testing.T) {
+	t.Parallel()
 
-	if !isBinaryInstalled(ctx, binary) {
-		t.Skipf("%s is not available for tests, skipping", binary)
+	for _, target := range availableEngines {
+		t.Run(target.binary, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := t.Context()
+			eng, err := target.newFunc(ctx, &engine.Config{Log: testLogger()})
+			require.NoError(t, err)
+
+			volList := []string{"remove-vol-1", "remove-vol-2"}
+			cleanup, err := spawnTestVolumes(ctx, eng, target.binary, volList...)
+			require.NoError(t, err)
+			t.Cleanup(cleanup)
+
+			info, err := eng.InspectVolumes(ctx, volList...)
+			require.NoError(t, err)
+			assert.Len(t, info, 2)
+
+			err = eng.RemoveVolumes(ctx, true, volList...)
+			require.NoError(t, err)
+
+			info, err = eng.InspectVolumes(ctx, volList...)
+			require.NoError(t, err)
+			assert.Len(t, info, 2)
+			assert.Zero(t, info[0].SizeBytes)
+			assert.Zero(t, info[1].SizeBytes)
+		})
 	}
 }
 
-func isBinaryInstalled(ctx context.Context, binary string) bool {
-	cmd := exec.CommandContext(ctx, binary, "--help")
-	return cmd.Run() == nil
+func getFreePort(t *testing.T) int {
+	t.Helper()
+
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer l.Close()
+
+	return l.Addr().(*net.TCPAddr).Port
 }
 
-func spawnTestContainers(ctx context.Context, binary string, names ...string) (func(), error) {
-	_ = removeContainers(ctx, binary, names...) // best effort
-	err := startTestContainers(ctx, binary, names...)
+func spawnTestContainers(ctx context.Context, eng *engine.Client, names ...string) (func(), error) {
+	_ = eng.RemoveContainer(ctx, true, names...) // best effort
+	err := startTestContainers(ctx, eng, names...)
 
 	cleanup := func() {
-		_ = removeContainers(ctx, binary, names...) // best-effort
+		_ = eng.RemoveContainer(ctx, true, names...) // best effort
 	}
 	if err != nil {
 		return cleanup, err
 	}
 
-	err = waitForContainers(ctx, binary, names...)
+	err = waitForContainers(ctx, eng, names...)
 
 	return cleanup, err
 }
 
-func startTestContainers(ctx context.Context, binary string, names ...string) error {
-	var err error
-
-	m := sync.Mutex{}
-	wg := sync.WaitGroup{}
+func startTestContainers(ctx context.Context, eng *engine.Client, names ...string) error {
 	image := "docker.io/library/nginx:1.21"
 
-	pullErr := pullImageIfNecessary(ctx, binary, image)
+	pullErr := eng.PullImage(ctx, image)
 	if pullErr != nil {
 		return fmt.Errorf("failed to pull image %s: %w", image, pullErr)
 	}
 
-	for _, name := range names {
-		wg.Add(1)
-
-		go func(name string) {
-			defer wg.Done()
-
-			cmd := exec.CommandContext(ctx, binary, "run", "-d", "--rm", "--name", name, image, // #nosec G204,G702
-				"sh", "-c", `echo output stream&&>&2 echo error stream&&sleep 100`)
-			output, createErr := cmd.CombinedOutput()
-
-			m.Lock()
-			defer m.Unlock()
-
-			if createErr != nil {
-				err = errors.Join(err, fmt.Errorf("%s: %w", string(output), createErr))
-			}
-		}(name)
+	specs := make([]engine.ContainerSpec, len(names))
+	for i, name := range names {
+		specs[i] = engine.ContainerSpec{
+			NameOrID:      name,
+			ImageRef:      image,
+			ContainerArgs: []string{"sh", "-c", "echo output stream&&>&2 echo error stream&&sleep 100"},
+		}
 	}
 
-	wg.Wait()
-
-	return err
+	return eng.RunContainer(ctx, specs...)
 }
 
-func pullImageIfNecessary(ctx context.Context, binary string, image string) error {
-	cmd := exec.CommandContext(ctx, binary, "inspect", "--type=image", image) // #nosec G204,G702
+func waitForContainers(ctx context.Context, eng *engine.Client, names ...string) error {
+	const maxAttempts = 100
 
-	_, inspectErr := cmd.CombinedOutput()
-	if inspectErr == nil {
-		return nil
-	}
-
-	cmd = exec.CommandContext(ctx, binary, "pull", image) // #nosec G204,G702
-
-	_, pullErr := cmd.CombinedOutput()
-	if pullErr != nil {
-		return fmt.Errorf("failed to pull image %s: %w", image, pullErr)
-	}
-
-	return nil
-}
-
-func removeContainers(ctx context.Context, binary string, names ...string) error {
-	var err error
-
-	m := sync.Mutex{}
-
-	wg := sync.WaitGroup{}
-	for _, name := range names {
-		wg.Add(1)
-
-		go func(name string) {
-			defer wg.Done()
-
-			removeCmd := exec.CommandContext(ctx, binary, "rm", "-f", name) // #nosec G204
-			_, removeErr := removeCmd.CombinedOutput()
-
-			m.Lock()
-			defer m.Unlock()
-
-			if removeErr != nil {
-				err = errors.Join(err, fmt.Errorf("failed to remove container %s", name))
-			}
-		}(name)
-	}
-
-	wg.Wait()
-
-	return err
-}
-
-func waitForContainers(ctx context.Context, binary string, names ...string) error {
-	var err error
-
-	m := sync.Mutex{}
-	wg := sync.WaitGroup{}
-
-	for _, name := range names {
-		const maxAttempts = 100
-
-		wg.Add(1)
-
-		go func(name string) {
-			defer wg.Done()
-
-			attempts := 0
-			for attempts < maxAttempts {
-				attempts++
-				cmd := exec.CommandContext(ctx, binary, "inspect", "-f", "{{.State.Running}}", name) // #nosec G204
-
-				output, inspectErr := cmd.CombinedOutput()
-				if inspectErr != nil {
-					m.Lock()
-					err = errors.Join(err, inspectErr)
-					m.Unlock()
-					return
+	for range maxAttempts {
+		infos, err := eng.InspectContainers(ctx, names...)
+		if err == nil {
+			allRunning := true
+			for _, info := range infos {
+				if info.Status != engine.StatusRunning {
+					allRunning = false
+					break
 				}
-
-				if strings.Contains(string(output), "true") {
-					return
-				}
-
-				time.Sleep(time.Millisecond * 200)
 			}
 
-			m.Lock()
-			defer m.Unlock()
-
-			err = errors.Join(err, fmt.Errorf("failed to wait for container %s to start", name))
-		}(name)
-	}
-
-	wg.Wait()
-
-	return err
-}
-
-func spawnTestImages(ctx context.Context, binary string, refs ...string) (func(), error) {
-	var err error
-
-	for _, ref := range refs {
-		cmd := exec.CommandContext(ctx, binary, "image", "pull", "docker.io/nginx:1.21")
-
-		output, createErr := cmd.CombinedOutput()
-		if createErr != nil {
-			err = errors.Join(err, fmt.Errorf("%s: %w", string(output), createErr))
-			break
+			if allRunning {
+				return nil
+			}
 		}
 
-		cmd = exec.CommandContext(ctx, binary, "image", "tag", "docker.io/nginx:1.21", ref) // #nosec G204
+		time.Sleep(time.Millisecond * 200)
+	}
 
-		output, tagErr := cmd.CombinedOutput()
+	return fmt.Errorf("failed to wait for containers %v to start", names)
+}
+
+func spawnTestImages(ctx context.Context, eng *engine.Client, refs ...string) (func(), error) {
+	var err error
+	const baseImage = "docker.io/library/nginx:1.21"
+
+	pullErr := eng.PullImage(ctx, baseImage)
+	if pullErr != nil {
+		return func() {}, fmt.Errorf("pull base image %s: %w", baseImage, pullErr)
+	}
+
+	for _, ref := range refs {
+		tagErr := eng.TagImage(ctx, baseImage, ref)
 		if tagErr != nil {
-			err = errors.Join(err, fmt.Errorf("%s: %w", string(output), tagErr))
+			err = errors.Join(err, fmt.Errorf("tag image %s -> %s: %w", baseImage, ref, tagErr))
 			break
 		}
 	}
 
 	return func() {
-		for _, ref := range refs {
-			cmd := exec.CommandContext(ctx, binary, "image", "rm", "-f", ref) // #nosec G204
-			_ = cmd.Run()
-		}
+		_ = eng.RemoveImage(ctx, true, refs...)
 	}, err
 }
 
-func spawnTestVolumes(ctx context.Context, binary string, names ...string) (func(), error) {
+func spawnTestVolumes(ctx context.Context, eng *engine.Client, binary string, names ...string) (func(), error) {
 	var err error
+
+	_ = eng.RemoveVolumes(ctx, true, names...)
 
 	for _, name := range names {
 		cmd := exec.CommandContext(ctx, binary, "volume", "create", name) // #nosec G204
@@ -856,10 +924,7 @@ func spawnTestVolumes(ctx context.Context, binary string, names ...string) (func
 	}
 
 	return func() {
-		for _, name := range names {
-			cmd := exec.CommandContext(ctx, binary, "volume", "rm", "-f", name) // #nosec G204
-			_ = cmd.Run()
-		}
+		_ = eng.RemoveVolumes(ctx, true, names...)
 	}, err
 }
 

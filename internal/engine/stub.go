@@ -157,3 +157,8 @@ func (*stubEngine) LoadImage(context.Context, ...io.Reader) error {
 func (*stubEngine) InspectVolumes(context.Context, ...string) ([]Volume, error) {
 	return nil, ErrNotInitialized
 }
+
+// RemoveVolumes returns ErrNotInitialized.
+func (*stubEngine) RemoveVolumes(context.Context, bool, ...string) error {
+	return ErrNotInitialized
+}

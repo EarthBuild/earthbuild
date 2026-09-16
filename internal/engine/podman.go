@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"al.essio.dev/pkg/shellescape"
-	"github.com/dustin/go-humanize"
 	_ "github.com/moby/buildkit/client/connhelper/podmancontainer" // Load "podman-container://" helper.
 )
 
@@ -228,7 +227,7 @@ func (e *podmanEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 		if len(lineParts) == 3 && slices.Contains(volumeNames, lineParts[0]) {
 			volumeName := lineParts[0]
 
-			bytes, parseErr := humanize.ParseBytes(lineParts[2])
+			bytes, parseErr := parseVolumeSize(lineParts[2])
 			if parseErr != nil {
 				err = errors.Join(err, fmt.Errorf("parse volume size %q for %s: %w", lineParts[2], volumeName, parseErr))
 				continue
@@ -236,7 +235,7 @@ func (e *podmanEngine) InspectVolumes(ctx context.Context, volumeNames ...string
 
 			// The mountpoint is not included in the df output. Get that from inspect.
 			mountpoint, mountpointErr := e.
-				CommandOutput(ctx, "volume", "inspect", volumeName, "--format={{.Mountpoint}}")
+				CommandOutput(ctx, volumeCmd, "inspect", volumeName, "--format={{.Mountpoint}}")
 			if mountpointErr != nil {
 				err = errors.Join(err, fmt.Errorf("inspect mountpoint for volume %s: %w", volumeName, mountpointErr))
 				continue

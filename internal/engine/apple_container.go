@@ -97,6 +97,26 @@ func unmarshalSingleOrSlice[T any](data string) ([]T, error) {
 	return []T{single}, nil
 }
 
+// isAppleResourceNotFound reports whether the command failure was due to the requested
+// resource not being found by the Apple container CLI.
+//
+// Examples of stderr output from the CLI include:
+//   - "Error: container not found: <name>"
+//   - "Error: image not found: <reference>"
+//   - "Error: volume not found: <name>"
+func isAppleResourceNotFound(output *commandContextOutput, err error, resourceType string) bool {
+	needle := resourceType + " not found:"
+	if output != nil && strings.Contains(output.Stderr.String(), needle) {
+		return true
+	}
+
+	if err != nil && strings.Contains(err.Error(), needle) {
+		return true
+	}
+
+	return false
+}
+
 // appleEngine implements engineDriver for the Apple container CLI.
 type appleEngine struct {
 	*shellEngine
@@ -189,11 +209,20 @@ func (e *appleEngine) ListContainers(ctx context.Context) ([]Container, error) {
 func (e *appleEngine) InspectContainers(
 	ctx context.Context, namesOrIDs ...string,
 ) ([]Container, error) {
+	if len(namesOrIDs) == 0 {
+		return nil, nil
+	}
+
 	args := append([]string{"inspect"}, namesOrIDs...) //nolint:goconst
 
-	// Ignore the error because non-existent containers cause the command to exit with an error.
-	// Empty stdout will result in unmarshalSingleOrSlice returning nil, preserving StatusMissing.
-	output, _ := e.CommandOutput(ctx, args...)
+	output, err := e.CommandOutput(ctx, args...)
+	if err != nil {
+		if !isAppleResourceNotFound(output, err, "container") {
+			return nil, err
+		}
+
+		return nil, nil
+	}
 
 	stdout := strings.TrimSpace(output.Stdout.String())
 	if stdout == "" || stdout == "[]" {
@@ -323,11 +352,20 @@ func (e *appleEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) 
 
 // InspectImages returns metadata for the given image references.
 func (e *appleEngine) InspectImages(ctx context.Context, refs ...string) ([]Image, error) {
+	if len(refs) == 0 {
+		return nil, nil
+	}
+
 	args := append([]string{"image", "inspect"}, refs...) //nolint:goconst
 
-	// Ignore the error because non-existent images cause the command to exit with an error.
-	// Empty stdout will result in unmarshalSingleOrSlice returning nil.
-	output, _ := e.CommandOutput(ctx, args...)
+	output, err := e.CommandOutput(ctx, args...)
+	if err != nil {
+		if !isAppleResourceNotFound(output, err, "image") {
+			return nil, err
+		}
+
+		return nil, nil
+	}
 
 	stdout := strings.TrimSpace(output.Stdout.String())
 	if stdout == "" || stdout == "[]" {
@@ -451,11 +489,20 @@ func (e *appleEngine) LoadImage(ctx context.Context, images ...io.Reader) error 
 
 // InspectVolumes returns details for the specified volume names.
 func (e *appleEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
-	args := append([]string{"volume", "inspect"}, volumeNames...)
+	if len(volumeNames) == 0 {
+		return nil, nil
+	}
 
-	// Ignore the error because non-existent volumes cause the command to exit with an error.
-	// Empty stdout will result in unmarshalSingleOrSlice returning nil.
-	output, _ := e.CommandOutput(ctx, args...)
+	args := append([]string{volumeCmd, "inspect"}, volumeNames...)
+
+	output, err := e.CommandOutput(ctx, args...)
+	if err != nil {
+		if !isAppleResourceNotFound(output, err, volumeCmd) {
+			return nil, err
+		}
+
+		return nil, nil
+	}
 
 	stdout := strings.TrimSpace(output.Stdout.String())
 	if stdout == "" || stdout == "[]" {
@@ -477,6 +524,21 @@ func (e *appleEngine) InspectVolumes(ctx context.Context, volumeNames ...string)
 	}
 
 	return volumes, nil
+}
+
+// RemoveVolumes removes volumes via the CLI.
+func (e *appleEngine) RemoveVolumes(ctx context.Context, force bool, volumeNames ...string) error {
+	args := append([]string{volumeCmd, "delete"}, volumeNames...)
+
+	output, err := e.CommandOutput(ctx, args...)
+	if err != nil && force {
+		if strings.Contains(output.Stderr.String(), "failed to delete one or more volumes") ||
+			strings.Contains(err.Error(), "failed to delete one or more volumes") {
+			return nil
+		}
+	}
+
+	return err
 }
 
 // buildAppleMountArgs constructs CLI mount flags for Apple Container.

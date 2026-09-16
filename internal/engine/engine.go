@@ -13,7 +13,10 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/dustin/go-humanize"
 )
+
+const volumeCmd = "volume"
 
 // ErrNotInitialized is returned when the container engine is not initialized.
 var ErrNotInitialized = errors.New("container engine not initialized")
@@ -47,6 +50,7 @@ type engineDriver interface {
 	ImageLoadCommand(filename string) string
 
 	InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error)
+	RemoveVolumes(ctx context.Context, force bool, volumeNames ...string) error
 }
 
 // Client is the concrete struct used for interacting with the container engine.
@@ -310,6 +314,15 @@ func (c *Client) InspectVolumes(ctx context.Context, volumeNames ...string) ([]V
 	return alignVolumes(volumeNames, found)
 }
 
+// RemoveVolumes removes one or more volumes.
+func (c *Client) RemoveVolumes(ctx context.Context, force bool, volumeNames ...string) error {
+	if len(volumeNames) == 0 {
+		return nil
+	}
+
+	return c.driver.RemoveVolumes(ctx, force, volumeNames...)
+}
+
 func alignVolumes(volumeNames []string, found []Volume) ([]Volume, error) {
 	results := make([]Volume, len(volumeNames))
 	for i, name := range volumeNames {
@@ -333,6 +346,14 @@ func alignVolumes(volumeNames []string, found []Volume) ([]Volume, error) {
 	}
 
 	return results, nil
+}
+
+func parseVolumeSize(s string) (uint64, error) {
+	if s == "" || strings.HasPrefix(s, "-") {
+		return 0, nil
+	}
+
+	return humanize.ParseBytes(s)
 }
 
 // Config is the configuration needed to bring up a given container engine. Includes logging and needed information to

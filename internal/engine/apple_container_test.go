@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json/v2"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -364,4 +365,80 @@ func TestAppleContainerInspectUnmarshalVariants(t *testing.T) {
 		assert.Equal(t, "single-id", inspects[0].ID)
 		assert.Equal(t, "running", inspects[0].Status.State)
 	})
+}
+
+//nolint:goconst
+func TestIsAppleResourceNotFound(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		stderr       string
+		err          error
+		resourceType string
+		want         bool
+	}{
+		{
+			name:         "container not found in stderr",
+			stderr:       "Error: container not found: test-container\n",
+			resourceType: "container",
+			want:         true,
+		},
+		{
+			name:         "image not found in stderr",
+			stderr:       "Error: image not found: test-image:latest\n",
+			resourceType: "image",
+			want:         true,
+		},
+		{
+			name:         "volume not found in stderr",
+			stderr:       "Error: volume not found: test-vol\n",
+			resourceType: "volume",
+			want:         true,
+		},
+		{
+			name:         "resource not found in err",
+			err:          errors.New("command failed: container inspect test (Error: container not found: test): exit status 1"),
+			resourceType: "container",
+			want:         true,
+		},
+		{
+			name:         "unrelated error in stderr",
+			stderr:       "Error: connection refused: cannot connect to container daemon\n",
+			resourceType: "container",
+			want:         false,
+		},
+		{
+			name:         "unrelated err",
+			err:          errors.New("daemon unavailable"),
+			resourceType: "container",
+			want:         false,
+		},
+		{
+			name:         "wrong resource type",
+			stderr:       "Error: volume not found: test\n",
+			resourceType: "container",
+			want:         false,
+		},
+		{
+			name:         "nil output and nil error",
+			resourceType: "container",
+			want:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var out *commandContextOutput
+			if tt.stderr != "" {
+				out = &commandContextOutput{}
+				out.Stderr.WriteString(tt.stderr)
+			}
+
+			got := isAppleResourceNotFound(out, tt.err, tt.resourceType)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

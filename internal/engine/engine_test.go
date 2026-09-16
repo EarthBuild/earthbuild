@@ -2,6 +2,7 @@ package engine
 
 import (
 	"cmp"
+	"errors"
 	"strings"
 	"testing"
 
@@ -463,6 +464,7 @@ func TestContainerAddr(t *testing.T) {
 	})
 }
 
+//nolint:goconst
 func TestImageLoadCommand(t *testing.T) {
 	t.Parallel()
 
@@ -934,4 +936,86 @@ func TestAlignVolumes(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, res)
 	})
+}
+
+func TestParseVolumeSize(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input    string
+		expected uint64
+		hasError bool
+	}{
+		{input: "", expected: 0},
+		{input: "-1B", expected: 0},
+		{input: "-10MB", expected: 0},
+		{input: "0B", expected: 0},
+		{input: "10B", expected: 10},
+		{input: "1kB", expected: 1000},
+		{input: "1MB", expected: 1000 * 1000},
+		{input: "invalid", hasError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+
+			val, err := parseVolumeSize(tt.input)
+			if tt.hasError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, val)
+		})
+	}
+}
+
+func TestIsTransientDockerDfError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		err      error
+		name     string
+		stderr   string
+		expected bool
+	}{
+		{
+			name: "rw layer snapshot not found in stderr",
+			stderr: "Error response from daemon: failed to retrieve container list: " +
+				"rw layer snapshot not found for container abc123",
+			expected: true,
+		},
+		{
+			name:     "failed to retrieve container list in err",
+			err:      errors.New("command failed: failed to retrieve container list: error"),
+			expected: true,
+		},
+		{
+			name:     "unrelated error",
+			stderr:   "cannot connect to docker daemon",
+			err:      errors.New("exit status 1"),
+			expected: false,
+		},
+		{
+			name:     "nil outputs",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var cco *commandContextOutput
+			if tt.stderr != "" {
+				cco = &commandContextOutput{}
+				cco.Stderr.WriteString(tt.stderr)
+			}
+
+			res := isTransientDockerDfError(cco, tt.err)
+			assert.Equal(t, tt.expected, res)
+		})
+	}
 }

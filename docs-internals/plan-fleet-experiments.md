@@ -1101,3 +1101,69 @@ built with `go-build` before and one that has not.
 
 That is the next piece of the same idea: a warm cache mount is a kind of
 locality, and this engine already knows how to weigh one.
+
+## E-F4: is the claim true? Measuring `/go/pkg/mod`
+
+`--immutable-except` is an assertion the author makes and the engine cannot
+check (§3.3c). That makes the recommended settings in
+`docs/caching/sharing-caches.md` the load-bearing part, and they were written
+from each tool's documentation. This measures one of them.
+
+**Method.** Populate the same module set twice, into two `GOMODCACHE` roots
+chosen to have *different path lengths*, and compare the sha256 of every path
+present in both. Different roots are the variable that matters: a file
+embedding the directory it lives in is the commonest way a cache turns out not
+to be portable, and two runs at one path cannot show it.
+
+**Result.**
+
+```text
+paths in A: 95283   in B: 95283   shared: 95283
+shared, content differs: 1
+shared, mode differs:    0
+only in A: 0   only in B: 0
+```
+
+A third cache, populated twenty minutes later over a 25-module subset, agreed
+on all 3,871 paths it shared.
+
+The one exception is the whole answer:
+`cache/download/sumdb/sum.golang.org/lookup/<module>@<version>` carries the
+**signed tree head at the time of the lookup** - tree size 63410137 in one,
+63410388 in the other, with the signature to match. Path to content is stable
+for 95,282 paths and time-varying for one kind.
+
+**The documented glob was wrong in both directions.** It said
+`'lock,**/*.lock,**/*.partial'`:
+
+* it matched none of the 337 lookup files, which are the only mutable region;
+* `**/*.lock` matched 11 third-party *source* files - `Cargo.lock`,
+  `Gemfile.lock`, `Pipfile.lock`, `buf.lock` - inside extracted module trees,
+  which are as immutable as the code beside them;
+* bare `lock` matched `gvisor.dev/gvisor@.../pkg/sentry/fsimpl/lock`, a
+  directory;
+* there were no `.partial` files at all.
+
+Four errors in three globs, none of which would have produced a wrong build -
+they would have refused to share files that could be shared, and shared the one
+that could not. The corrected list anchors every pattern at the mount root:
+`'cache/lock,cache/download/**/*.lock,cache/download/**/*.partial,cache/download/sumdb/*/lookup/**'`.
+
+**Two findings that change the design rather than the doc.**
+
+*The mutable region is usually absent.* Go consults the checksum database only
+for a module missing from `go.sum`, so a project with a complete `go.sum`
+writes no lookup file. The 337 came from `go mod download all` walking the whole
+module graph. In the common case `/go/pkg/mod` is immutable with no exceptions
+at all.
+
+*The zips are 3.8x smaller than what they become.* `cache/download` is 299 MB
+where the extracted trees are 1.1 GiB. A fleet that ships the download cache and
+lets each machine extract moves a quarter of the bytes, and pays CPU per step
+for it. Which side wins is a measurement this has not made.
+
+**What it does not tell us.** Both caches were filled by the same Go on the same
+machine. The claim that matters for a heterogeneous fleet is that
+`linux/amd64` and `darwin/arm64` agree, and that is the next run - the module
+cache is specified to be platform-independent, which is a claim of exactly the
+kind this experiment exists to distrust.

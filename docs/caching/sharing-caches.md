@@ -24,12 +24,39 @@ Measured against each tool's own cache format. Where a cache is not listed, see 
 
 ### Go
 
-| Mountpoint              | Setting                                            |
-| ----------------------- | -------------------------------------------------- |
-| `/go/pkg/mod`           | `--immutable-except 'lock,**/*.lock,**/*.partial'` |
-| `/root/.cache/go-build` | **do not set it** - see below                      |
+| Mountpoint                   | Setting                                                                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `/go/pkg/mod`                | `--immutable-except 'cache/lock,cache/download/**/*.lock,cache/download/**/*.partial,cache/download/sumdb/*/lookup/**'` |
+| `/go/pkg/mod/cache/download` | the same list, and 3.8x smaller - see below                                                                             |
+| `/root/.cache/go-build`      | **do not set it** - see below                                                                                           |
 
-The module cache is the best case there is: a module path and version map to one content hash, enforced by the checksum database, and extracted trees are made read-only.
+The module cache is the best case there is, and it is the one setting here that has been
+measured rather than reasoned about. Two caches populated independently at deliberately
+different root paths held **95,283 paths each, of which 95,282 were byte-identical**, with
+no difference in mode and no path present in only one. A third, populated twenty minutes
+later, agreed on all 3,871 paths it shared.
+
+The single exception was a checksum-database lookup, and it is the only mutable region:
+`cache/download/sumdb/<name>/lookup/<module>@<version>` records the **signed tree head at
+the time of the lookup**, so two machines asking on either side of a database append get
+different bytes for the same path. The tiles beside it are safe - a partial tile carries its
+width in its own name (`8/1/967.p/104`), so it is as immutable as a full one.
+
+Two traps in the obvious exclusion list, both of which the measurement caught:
+
+* `**/*.lock` **over-reaches.** Of 538 `.lock` paths, 11 are third-party *source* -
+  `Cargo.lock`, `Gemfile.lock`, `Pipfile.lock`, `buf.lock` - inside extracted module trees,
+  and permanently immutable. Anchor the pattern at `cache/download/`.
+* A bare `lock` matches `gvisor.dev/gvisor@.../pkg/sentry/fsimpl/lock`, which is a
+  **directory**. Write `cache/lock`, which is the one Go actually takes.
+
+Most builds never write a lookup file at all: Go consults the checksum database only for a
+module absent from `go.sum`, so a project with a complete `go.sum` produces none. The 337
+above came from `go mod download all` walking the whole module graph.
+
+**Mounting `cache/download` alone moves 3.8x less.** The zips are 299 MB where the extracted
+trees they produce are 1.1 GiB, and Go re-extracts on demand. Prefer it where bandwidth costs
+more than CPU, and the whole mount where it does not - extraction is per-step and not cheap.
 
 The *build* cache is not. Its entries are immutable, and combining two of them is harmless - it is simply useless, because a build cache entry is keyed on an ActionID that includes absolute paths. Two machines compute different ActionIDs for the same compilation, so a shared cache is never read. Let each machine keep its own.
 
@@ -119,3 +146,39 @@ Three questions, in this order:
 3. **Is anything outside the mountpoint required to read it?** An index, a database, a manifest. If the store cannot be used without it and it cannot be shared, sharing the store buys nothing.
 
 If you cannot answer the first question, leave the flag off. A cache each machine fills for itself is slower and always correct.
+
+### Or measure it
+
+Question 1 is mechanically checkable, and answering it that way is how the Go list above got
+its two corrections. Fill the cache twice, at **deliberately different root paths**, and
+compare every shared path:
+
+```bash
+A=$PWD/cache-a B=$PWD/cache-root-deliberately-much-longer
+# ... populate both, however your tool does it ...
+python3 - "$A" "$B" <<'EOF'
+import hashlib, os, sys
+def scan(root):
+    out = {}
+    for dp, dns, fns in os.walk(root):
+        for fn in fns:
+            p = os.path.join(dp, fn)
+            if os.path.islink(p):
+                continue
+            with open(p, 'rb') as f:
+                h = hashlib.sha256()
+                for c in iter(lambda: f.read(1 << 20), b''):
+                    h.update(c)
+            out[os.path.relpath(p, root)] = h.hexdigest()
+    return out
+a, b = scan(sys.argv[1]), scan(sys.argv[2])
+for r in sorted(a.keys() & b.keys()):
+    if a[r] != b[r]:
+        print(r)
+EOF
+```
+
+Every path it prints belongs in the exclusion list, and every path it does not print must
+stay out of one. The differing root paths are the point: a file that embeds the directory it
+lives in is the commonest way a cache turns out not to be portable, and two runs at the same
+path will never show it.

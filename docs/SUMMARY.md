@@ -43,6 +43,7 @@
     - [Caching in Earthfiles](./caching/caching-in-earthfiles.md)
     - [Managing cache](./caching/managing-cache.md)
     - [Caching via remote runners](./caching/caching-via-remote-runners.md)
+    - [Sharing caches between machines](./caching/sharing-caches.md)
 - [Remote runners](remote-runners.md)
 - [Earthfile reference](earthfile/earthfile.md)
     - [Builtin args](earthfile/builtin-args.md)

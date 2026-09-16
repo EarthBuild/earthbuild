@@ -1663,7 +1663,7 @@ example:
 #### Synopsis
 
 - ```
-  CACHE [--sharing <sharing-mode>] [--chmod <octal-format>] [--id <cache-id>] [--persist] <mountpoint>
+  CACHE [--sharing <sharing-mode>] [--chmod <octal-format>] [--id <cache-id>] [--persist] [--immutable-except <patterns>] <mountpoint>
   ```
 
 #### Description
@@ -1697,6 +1697,30 @@ Make a copy of the cache available to any children that inherit from this target
 Caches were persisted by default in version 0.7, which led to bloated images being pushed to registries. Version 0.8 changed the default behavior
 to prevent copying the contents to children targets unless explicitly enabled by the newly added `--persist` flag.
 {% endhint %}
+
+##### `--immutable-except <patterns>`
+
+Declares that every file in this cache is written once and never rewritten, apart from the paths matching `<patterns>`.
+
+Without it, a cache mount is private to the machine that filled it. With it, EarthBuild may share the cache between machines: a remote worker can fetch the entries a step reads instead of rebuilding them, and two machines' caches can be combined. Nothing is shared until you say this, because whether a cache tolerates it is a fact about the tool that wrote it and not one EarthBuild can observe.
+
+`<patterns>` is a comma-separated list in the same syntax as `.earthignore`, matched relative to `<mountpoint>`. Files matching it are never shared and never fetched - they stay local to each machine. Almost every real cache has some: a lockfile, a `tmp/` directory for partial writes, an index that is rewritten rather than appended to.
+
+```Dockerfile
+CACHE --id go-mod --immutable-except 'lock,**/*.lock,**/*.partial' /go/pkg/mod
+```
+
+[Sharing caches between machines](../caching/sharing-caches.md) lists the recommended setting for each language's caches, and explains which ones should not carry this flag at all.
+
+{% hint style='warning' %}
+##### This is an assertion, and a wrong one corrupts builds
+
+EarthBuild cannot check the claim. If a path outside `<patterns>` is ever rewritten with different contents - a Maven `SNAPSHOT` jar, a rebuilt index, a log appended to - then two machines will disagree about what that path holds, and a build will read whichever arrived first. The failure is silent and looks like a compiler bug.
+
+When in doubt, leave the flag off. A cache each machine fills for itself is slower and always correct.
+{% endhint %}
+
+`--immutable-except` and `--persist` cannot be used together. `--persist` copies the cache's contents into the image, which makes them part of what the target produces; a cache whose contents are the result is not one another machine can supply.
 
 ## LOCALLY
 

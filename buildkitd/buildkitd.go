@@ -1178,6 +1178,11 @@ func GetLogs(
 
 // WaitUntilStopped waits until the buildkitd daemon has stopped.
 func WaitUntilStopped(ctx context.Context, containerName string, eng *engine.Client) error {
+	err := ctx.Err()
+	if err != nil {
+		return fmt.Errorf("wait for container %s to stop: %w", containerName, err)
+	}
+
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 

@@ -199,11 +199,11 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 		// fetching a path the other never promised, which is the corruption
 		// this flag exists to make impossible to ask for by accident.
 		//
-		// Both fields. A cache claimed immutable with no exceptions and one
+		// Both fields. A cache claimed portable with no exceptions and one
 		// making no claim are different declarations that share an empty list,
 		// so hashing the list alone keys them the same.
-		h.Bool(m.Immutable)
-		h.Str(m.ImmutableExcept)
+		h.Bool(m.Portable)
+		h.Str(m.PortableExcept)
 		// A bound view's object and subtree. **Its contents are keyed**, unlike
 		// a cache mount's - and they are keyed by this, because From is already
 		// a key over them (I20, §3.3d). A cache mount is a function of history

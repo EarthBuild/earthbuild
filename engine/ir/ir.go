@@ -217,12 +217,28 @@ type Mount struct {
 	// promise the construct makes and quietly break the one that matters - a
 	// step putting a credential somewhere it cannot be recovered from.
 	Tmpfs bool
-	// Immutable is whether the author made the claim at all, and it is a
-	// separate field because `ImmutableExcept` cannot carry the distinction.
+	// Portable is the author's claim that **another machine's copy of a path
+	// under this cache is as good as this machine's own**.
+	//
+	// Deliberately *not* immutability, which is what this field asserted when
+	// it was called that and which is neither necessary nor sufficient.
+	//
+	// Not sufficient: a file written once and never touched again can still
+	// hold this machine's home directory, and sharing it corrupts the build.
+	//
+	// Not necessary: Go's build cache is the case that settles it. Its index
+	// entries *are* immutable - `markUsed` updates mtime and never the bytes
+	// (`cmd/go/internal/cache/cache.go`) - and two machines still write
+	// different bytes at the same path, because the record embeds
+	// `time.Now().UnixNano()` at the moment of writing. The differing field
+	// decides nothing: the action id, the output id and the size all agree, and
+	// a Rosetta-emulated amd64 Mac and a native amd64 box produced 1,052 of
+	// 1,052 compiled objects byte-identical (E-F5). Immutable, not reproducible,
+	// and shareable anyway.
 	//
 	// **Empty and absent are different answers.** Absent is a cache nobody has
 	// made a claim about, which is every cache by default and is never shared.
-	// Present with an empty list is the claim "all of it is immutable, with no
+	// Present with an empty list is the claim "all of it is portable, with no
 	// exceptions" - the *strongest* form, and the recommended setting for seven
 	// of the caches in `docs/caching/sharing-caches.md`: a store mounted at its
 	// own root with no index beside it, such as `registry/cache`, pip's wheels
@@ -231,10 +247,14 @@ type Mount struct {
 	// Held as a bare string, those two are both `""`, so the strongest claim an
 	// author can make reads as no claim at all and the caches most worth
 	// sharing are the ones silently not shared.
-	Immutable bool
-	// ImmutableExcept are the paths under this cache that are *not* written
-	// once - `CACHE --immutable-except 'lock,tmp/**'`. Meaningless unless
-	// `Immutable`.
+	Portable bool
+	// PortableExcept are the paths under this cache where that is *not* true -
+	// `CACHE --portable-except 'lock,tmp/**'`. Meaningless unless `Portable`.
+	//
+	// What belongs here is a path whose *meaning* is local: an interpreter
+	// location, an index of absolute paths, a database that cannot be merged.
+	// Not merely a path that gets rewritten - Go's build cache is rewritten
+	// throughout and is portable regardless.
 	//
 	// **In the key**, because two machines have to agree about what may be
 	// shared. One Earthfile naming `tmp/**` and another naming nothing are not
@@ -250,7 +270,7 @@ type Mount struct {
 	// change it exists to catch. Two spellings of one list are two caches,
 	// which is the conservative direction and the same argument the encoder
 	// makes for not sorting mounts.
-	ImmutableExcept string
+	PortableExcept string
 	// Exclusive is `CACHE --sharing=locked`, the default: one step in this
 	// directory at a time.
 	//
@@ -920,8 +940,8 @@ func (n *Node) ID() NodeID {
 		// In the key for the reason the fields' own comments give. Both of
 		// them: a claim with no exceptions and no claim at all are different
 		// declarations, and hashing only the list would key them the same.
-		h.Bool(m.Immutable)
-		h.Str(m.ImmutableExcept)
+		h.Bool(m.Portable)
+		h.Str(m.PortableExcept)
 
 		h.Bool(m.Exclusive)
 		h.Bool(m.Persist)

@@ -302,8 +302,8 @@ func operationOf(o Op) (ir.Op, error) {
 	for _, c := range o.Caches {
 		op.Mounts = append(op.Mounts, ir.Mount{
 			Target: c.Target, ID: c.ID, Mode: c.Mode, Exclusive: c.Exclusive,
-			Immutable:       c.Immutable,
-			ImmutableExcept: c.ImmutableExcept,
+			Portable:       c.Portable,
+			PortableExcept: c.PortableExcept,
 		})
 	}
 

@@ -130,8 +130,8 @@ func encodeOp(e *ir.Encoder, op Op) {
 		e.Str(c.Target)
 		e.Count(int(c.Mode))
 		e.Bool(c.Exclusive)
-		e.Bool(c.Immutable)
-		e.Str(c.ImmutableExcept)
+		e.Bool(c.Portable)
+		e.Str(c.PortableExcept)
 	}
 }
 

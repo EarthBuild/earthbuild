@@ -187,8 +187,8 @@ func (d *decoder) op() Op {
 			op.Caches = append(op.Caches, Cache{
 				ID: d.str(), Target: d.str(),
 				Mode: uint32(d.count()), Exclusive: d.boolean(), //nolint:gosec // a mode this engine wrote
-				Immutable:       d.boolean(),
-				ImmutableExcept: d.str(),
+				Portable:       d.boolean(),
+				PortableExcept: d.str(),
 			})
 		}
 	}

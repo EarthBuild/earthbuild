@@ -49,15 +49,15 @@ func cacheMount(c earthfile.Command, workdir string) (ir.Mount, error) {
 	// were: it would be a guess (E432).
 	// **Two answers to where the contents live, and an author may have only
 	// one.** `--persist` copies them into the image, which makes them part of
-	// what the target produces; `--immutable-except` offers them to other
+	// what the target produces; `--portable-except` offers them to other
 	// machines, which a result cannot be. Refused rather than resolved, because
 	// either resolution is a guess about which the author meant.
-	if opts.Persist && opts.ImmutableExcept != nil {
+	if opts.Persist && opts.PortableExcept != nil {
 		return ir.Mount{}, fmt.Errorf(
-			"CACHE --persist and --immutable-except cannot both be given (%s)"+
+			"CACHE --persist and --portable-except cannot both be given (%s)"+
 				"\n  --persist copies the cache into the image, so its contents are"+
 				" part of what this target produces"+
-				"\n  --immutable-except offers them to other machines, which a"+
+				"\n  --portable-except offers them to other machines, which a"+
 				" result is not",
 			loc(c.SourceLocation))
 	}
@@ -118,13 +118,13 @@ func cacheMount(c earthfile.Command, workdir string) (ir.Mount, error) {
 
 	return ir.Mount{
 		Target: target, ID: id, Exclusive: exclusive, Persist: opts.Persist, Mode: mode,
-		Immutable: opts.ImmutableExcept != nil, ImmutableExcept: deref(opts.ImmutableExcept),
+		Portable: opts.PortableExcept != nil, PortableExcept: deref(opts.PortableExcept),
 	}, nil
 }
 
 // deref reads an optional flag's value, and reads an absent one as empty.
 //
-// The absence is carried by `Mount.Immutable` beside it, so nothing here needs
+// The absence is carried by `Mount.Portable` beside it, so nothing here needs
 // to tell the two apart - which is the whole point of splitting them.
 func deref(s *string) string {
 	if s == nil {
@@ -204,13 +204,13 @@ func cacheID(target string) string {
 // this one reads it and dockerfile.go writes it.
 const mountFieldTarget = "target"
 
-// mountFieldImmutableExcept is the author's claim that this cache may be
+// mountFieldPortableExcept is the author's claim that this cache may be
 // shared between machines, and which paths under it may not.
 //
 // Spelled the same on `CACHE` and on `RUN --mount`, because it says the same
 // thing about the same directory and a second spelling would be a second thing
 // to keep in step.
-const mountFieldImmutableExcept = "immutable-except"
+const mountFieldPortableExcept = "portable-except"
 
 // mountKindBind is a bound view's spelling. Named because four places test for
 // it and because the *other* bind - `bind-experimental`, an Earthfile's window
@@ -383,15 +383,15 @@ func parseMount(spec, workdir, where string) (ir.Mount, string, error) {
 		}, "", nil
 	}
 
-	// `immutable-except=` with nothing after it is a claim with no exceptions,
+	// `portable-except=` with nothing after it is a claim with no exceptions,
 	// and a field map can say that where a bare string cannot: the key is
 	// present.
-	except, claimed := fields[mountFieldImmutableExcept]
+	except, claimed := fields[mountFieldPortableExcept]
 
 	return ir.Mount{
 		Target: target, ID: id, Exclusive: exclusive,
 		ReadOnly: readOnly(fields), Mode: mode,
-		Immutable: claimed, ImmutableExcept: except,
+		Portable: claimed, PortableExcept: except,
 	}, "", nil
 }
 
@@ -438,7 +438,7 @@ var mountFields = map[string][]string{
 	"cache": {
 		mountFieldType, mountFieldTarget, mountFieldDst, "id",
 		mountFieldRO, "ro", "sharing", mountFieldMode, mountFieldChmod,
-		mountFieldImmutableExcept,
+		mountFieldPortableExcept,
 	},
 	mountKindSecret: {
 		mountFieldType, mountFieldTarget, mountFieldDst, "id",

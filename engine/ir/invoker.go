@@ -89,7 +89,7 @@ func pinning(mounts []Mount) string {
 		// they are running different steps.
 		ordinary := Mount{
 			Target: m.Target, ID: m.ID, Mode: m.Mode, Exclusive: m.Exclusive,
-			Immutable: m.Immutable, ImmutableExcept: m.ImmutableExcept,
+			Portable: m.Portable, PortableExcept: m.PortableExcept,
 		}
 		if m == ordinary && m.ID != "" {
 			continue

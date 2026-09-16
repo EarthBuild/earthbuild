@@ -433,12 +433,12 @@ With declarations movable, the same Earthfile on the same two machines:
 **Every step ran on the worker and none were refused.** The day's progression,
 same workload throughout:
 
-| State                         | Delegated | Ran here | Compute recorded |
-| ----------------------------- | --------- | -------- | ---------------- |
-| before F1                     | 0         | all      | -                |
-| F1, on a full disk            | 4         | 6        | 0s (all refused) |
-| F1, second disk               | 6         | 6        | 0s (all refused) |
-| declarations movable          | 6         | 0        | 33.256s          |
+| State                | Delegated | Ran here | Compute recorded |
+| -------------------- | --------- | -------- | ---------------- |
+| before F1            | 0         | all      | -                |
+| F1, on a full disk   | 4         | 6        | 0s (all refused) |
+| F1, second disk      | 6         | 6        | 0s (all refused) |
+| declarations movable | 6         | 0        | 33.256s          |
 
 `compute 0s` was never a slow fleet: `DurationMillis` is set only by a reply
 that ran something, and the account counts a refusal as delegated. Six
@@ -467,11 +467,11 @@ the uplink lock for the one fetch that was actually happening - `uplink` counts
 that wait as transfer time deliberately, so a queue is not billed to the network
 (E336). The single fetch is `slowest`:
 
-| Reading                    | Time   | Rate         |
-| -------------------------- | ------ | ------------ |
-| slowest single fetch       | 57.5s  | 17.8 MiB/s   |
-| summed across six steps    | 115.0s | 8.9 MiB/s    |
-| raw scp, same path         | 22.7s  | 22.1 MiB/s   |
+| Reading                 | Time   | Rate       |
+| ----------------------- | ------ | ---------- |
+| slowest single fetch    | 57.5s  | 17.8 MiB/s |
+| summed across six steps | 115.0s | 8.9 MiB/s  |
+| raw scp, same path      | 22.7s  | 22.1 MiB/s |
 
 So the fleet moves a gigabyte at about **80% of what scp manages** on the same
 link. There is no factor of three in the transport and no factor of ten
@@ -585,12 +585,12 @@ opened now - in the background, nothing waiting on them.
 
 Same workload, same 7.9 MiB, across the day:
 
-| State                             | Transfer reported     | Compute-bound |
-| --------------------------------- | --------------------- | ------------- |
-| this morning                      | `0s for 0 B`          | 66%           |
-| fault-in accounted                | `6.124s for 7.9 MiB`  | 82%           |
-| connections opened early          | `417ms for 0 B`       | 92%           |
-| priming accounted                 | `433ms for 7.9 MiB`   | 90%           |
+| State                    | Transfer reported    | Compute-bound |
+| ------------------------ | -------------------- | ------------- |
+| this morning             | `0s for 0 B`         | 66%           |
+| fault-in accounted       | `6.124s for 7.9 MiB` | 82%           |
+| connections opened early | `417ms for 0 B`      | 92%           |
+| priming accounted        | `433ms for 7.9 MiB`  | 90%           |
 
 **The third row is the interesting one.** Opening connections early worked, and
 hid the transfer: the base now arrives during the prime, a prime's reply was
@@ -681,11 +681,11 @@ until now.
 
 The same six steps, same base, on this Mac alone at its own parallelism:
 
-| Arrangement                       | Wall clock |
-| --------------------------------- | ---------- |
-| one machine, 16 cores             | **6.48s**  |
-| fleet, worker warm                | 33.50s     |
-| fleet, worker cold (1 GiB base)   | 95.58s     |
+| Arrangement                     | Wall clock |
+| ------------------------------- | ---------- |
+| one machine, 16 cores           | **6.48s**  |
+| fleet, worker warm              | 33.50s     |
+| fleet, worker cold (1 GiB base) | 95.58s     |
 
 **The fleet is five times slower warm and fifteen times slower cold**, and no
 amount of transport work changes that: shipping a 1032 MiB base over 17.5 MiB/s
@@ -767,10 +767,10 @@ every step through one semaphore, delegated ones included. Two machines of
 sixteen cores each therefore run sixteen steps at a time, not thirty-two: the
 split is real and both machines are half idle.
 
-| Arrangement            | Wall   | Waves of 16 |
-| ---------------------- | ------ | ----------- |
-| one machine, 16 cores  | 95.90s | 4.0         |
-| fleet, 32/32 split     | 92.27s | 3.8         |
+| Arrangement           | Wall   | Waves of 16 |
+| --------------------- | ------ | ----------- |
+| one machine, 16 cores | 95.90s | 4.0         |
+| fleet, 32/32 split    | 92.27s | 3.8         |
 
 Sixty-four steps, four waves either way. Adding a machine added no concurrency,
 which is the one thing adding a machine is for.
@@ -786,10 +786,10 @@ first.
 
 Two arms, twice each, 64 steps on a 7.9 MiB base, nothing constrained:
 
-| Arrangement            | Runs           | Mean    | Spread |
-| ---------------------- | -------------- | ------- | ------ |
-| one machine, 16 cores  | 95.90, 96.24   | 96.07s  | 0.34s  |
-| Mac plus x86 box       | 68.32, 65.15   | 66.73s  | 3.17s  |
+| Arrangement           | Runs         | Mean   | Spread |
+| --------------------- | ------------ | ------ | ------ |
+| one machine, 16 cores | 95.90, 96.24 | 96.07s | 0.34s  |
+| Mac plus x86 box      | 68.32, 65.15 | 66.73s | 3.17s  |
 
 **1.44x**, and both arms are tight enough that it is not noise. `32 delegated,
 32 here` on both fleet runs.
@@ -823,11 +823,11 @@ before starting one, and the worker then took its own time to boot and join.
 
 Started as soon as the driver publishes its address instead:
 
-| Arrangement           | Runs         | Mean    | Speedup   |
-| --------------------- | ------------ | ------- | --------- |
-| one machine, 16 cores | 95.90, 96.24 | 96.07s  | -         |
-| fleet, worker late    | 68.32, 65.15 | 66.73s  | 1.44x     |
-| fleet, worker ready   | 50.30, 48.86 | 49.58s  | **1.94x** |
+| Arrangement           | Runs         | Mean   | Speedup   |
+| --------------------- | ------------ | ------ | --------- |
+| one machine, 16 cores | 95.90, 96.24 | 96.07s | -         |
+| fleet, worker late    | 68.32, 65.15 | 66.73s | 1.44x     |
+| fleet, worker ready   | 50.30, 48.86 | 49.58s | **1.94x** |
 
 Two machines of sixteen cores, 1.94x. There is no meaningful gap left to
 explain on this workload: the split is even, the per-step costs match, and what
@@ -845,11 +845,11 @@ Every run above bumped the step's body, so no step ever had a history and the
 cache line said `6 unpredicted` each time. Run the *same* step twice with
 `--no-cache`, cold worker both times, 1032 MiB base:
 
-| Run                  | Bytes    | Fetches | Transfer | Wall    |
-| -------------------- | -------- | ------- | -------- | ------- |
-| no profile           | 1.7 MiB  | 3       | 18.534s  | 39.43s  |
-| profile, first       | 1.1 MiB  | 1       | 2.231s   | 23.31s  |
-| profile, second      | 1.1 MiB  | 1       | 2.348s   | 22.95s  |
+| Run             | Bytes   | Fetches | Transfer | Wall   |
+| --------------- | ------- | ------- | -------- | ------ |
+| no profile      | 1.7 MiB | 3       | 18.534s  | 39.43s |
+| profile, first  | 1.1 MiB | 1       | 2.231s   | 23.31s |
+| profile, second | 1.1 MiB | 1       | 2.348s   | 22.95s |
 
 **The bytes barely move and the time falls eightfold**, which is the whole
 argument for priming: a fault is a round trip, and three of them cost 18.5s
@@ -1005,11 +1005,11 @@ path, which is the fallback I11 asks for.
 
 The chain that hung for ever, with locality restored:
 
-| Arrangement                  | Moved     | Wall    |
-| ---------------------------- | --------- | ------- |
-| no locality                  | 167.9 MiB | 32.27s  |
-| locality, before this        | -         | hung    |
-| locality, after this         | 5.7 MiB   | 9.41s   |
+| Arrangement           | Moved     | Wall   |
+| --------------------- | --------- | ------ |
+| no locality           | 167.9 MiB | 32.27s |
+| locality, before this | -         | hung   |
+| locality, after this  | 5.7 MiB   | 9.41s  |
 
 **29x less moved and 3.4x quicker**, on the shape a fleet is worst at. E-F2 is
 no longer dead code, and `prefer`'s own claim about itself turns out to have
@@ -1104,7 +1104,7 @@ locality, and this engine already knows how to weigh one.
 
 ## E-F4: is the claim true? Measuring `/go/pkg/mod`
 
-`--immutable-except` is an assertion the author makes and the engine cannot
+`--portable-except` is an assertion the author makes and the engine cannot
 check (§3.3c). That makes the recommended settings in
 `docs/caching/sharing-caches.md` the load-bearing part, and they were written
 from each tool's documentation. This measures one of them.
@@ -1174,7 +1174,7 @@ only arm64: 1121   only amd64: 0
 ```
 
 Zero. Not one of 94,162 paths disagreed, in content or in mode. The module
-cache is portable between a Mac and a Linux box, and `--immutable-except` on
+cache is portable between a Mac and a Linux box, and `--portable-except` on
 `/go/pkg/mod` is a true claim rather than a hopeful one.
 
 The 1,121 asymmetric paths were an artefact of the procedure and are worth
@@ -1188,3 +1188,83 @@ So the sumdb asymmetry measures the harness, not the platform - and it is the
 second time in this experiment that the thing being measured turned out to be
 the measurement. It also confirms the mechanism from the other side: give Go a
 complete `go.sum` and it never touches the checksum database.
+
+## E-F5: Rosetta and native amd64 produce the same build cache
+
+E-F4 measured the Go *module* cache, which holds source. The reviewer's
+objection was the right one: two architectures agreeing about source is what
+source is for, and the interesting cache is the one holding objects.
+
+`/root/.cache/go-build` was documented as unshareable, on the argument that an
+entry is keyed by an ActionID that includes absolute paths, so two machines
+never compute the same key. **That argument assumes two machines have different
+paths, and inside a container they do not** - same image, same working
+directory, same `GOCACHE`. Which is every build this engine runs.
+
+**Method.** `go build std`, `CGO_ENABLED=0`, in one pinned image digest
+(`golang@sha256:47ce5636...`), with `GOCACHE` at the same path both ends. On a
+native `linux/amd64` box (Ryzen 9 5950X) and on an Apple-silicon Mac running the
+same image under `--platform linux/amd64`.
+
+**Result.**
+
+```text
+mac 2729 files   box 2729 files   shared: 2729
+compiled objects (-d): 1052 of 1052 byte-identical
+action entries   (-a): 1419 filenames identical, contents differ
+mode differs: 0   present in only one: 0
+```
+
+An action entry is `v1 <ActionID> <OutputID> <size> <nanotime>`:
+
+```text
+mac: v1 001c536e...c18c1  82c03be3...780191  81  1789543524065701588
+box: v1 001c536e...c18c1  82c03be3...780191  81  1789543509046931280
+```
+
+The ActionID is the filename, so identical filenames already say the keys
+agree. The OutputID and size agree. The differing field is a write time, which
+Go keeps for garbage collection and which decides nothing.
+
+So an emulated Intel x86-64 and a native AMD Zen 3 compiled 1,052 objects to
+the same bytes. Not luck: Go's code generation is a function of `GOARCH` and
+`GOAMD64` and never inspects the host, so the host executing the compiler
+cannot reach the output.
+
+**What it costs the flag.** The first reading of this was that the `-a` entries
+are rewritten, so the cache is not immutable. **That is wrong**, and Go's source
+says so: `markUsed` calls `os.Chtimes` and never rewrites the bytes, at most
+once an hour, purely so that trimming has a last-used time
+(`cmd/go/internal/cache/cache.go`). An entry's content is written once, at
+`putIndexEntry`, and never again.
+
+The cache *is* immutable. Two machines still write different bytes at the same
+path, because `putIndexEntry` embeds `time.Now().UnixNano()` in the record it
+writes.
+
+So immutability is **neither necessary nor sufficient** for sharing, which is a
+worse verdict on the old flag than "it is a lie":
+
+* not sufficient - a file written once and never touched can still hold this
+  machine's home directory, and sharing it corrupts the build;
+* not necessary - this cache is immutable, is not reproducible, and is
+  shareable regardless.
+
+Three properties had been running together, and only the third is the one a
+fleet needs:
+
+| property     | means                                         | go-build |
+| ------------ | --------------------------------------------- | -------- |
+| immutable    | content at a path never changes here          | yes      |
+| reproducible | every machine writes the same bytes at a path | no       |
+| portable     | any machine's bytes at a path will do for me  | yes      |
+
+`get` validates the entry's id, a non-negative size and a non-negative time, and
+nothing else - there is no freshness check - so a borrowed foreign timestamp can
+at worst mislead trimming, never a result.
+
+**Still to measure.** That two machines *can* share this cache does not say the
+sharing pays. `go build std` filled 169 MB; a real project's is larger, and a
+worker that fetches an object instead of compiling it has traded CPU for
+network on a link measured at 110 MiB/s. The transport does not exist yet, so
+neither does the number.

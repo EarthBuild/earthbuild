@@ -1,9 +1,9 @@
 # Sharing caches between machines
 
-A `CACHE` mount belongs to the machine that filled it. `--immutable-except` says it may be shared with others:
+A `CACHE` mount belongs to the machine that filled it. `--portable-except` says it may be shared with others:
 
 ```Dockerfile
-CACHE --id go-mod --immutable-except 'lock,**/*.lock,**/*.partial' /go/pkg/mod
+CACHE --id go-mod --portable-except 'lock,**/*.lock,**/*.partial' /go/pkg/mod
 ```
 
 EarthBuild cannot work out for itself whether a cache tolerates this. Whether two copies of `~/.m2/repository` can be combined is a fact about Maven, so you assert it and EarthBuild acts on it. A wrong assertion corrupts builds silently - see the warning in the [`CACHE` reference](../earthfile/earthfile.md#cache).
@@ -24,11 +24,11 @@ Measured against each tool's own cache format. Where a cache is not listed, see 
 
 ### Go
 
-| Mountpoint                   | Setting                                                                                                                 |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `/go/pkg/mod`                | `--immutable-except 'cache/lock,cache/download/**/*.lock,cache/download/**/*.partial,cache/download/sumdb/*/lookup/**'` |
-| `/go/pkg/mod/cache/download` | the same list, and 3.8x smaller - see below                                                                             |
-| `/root/.cache/go-build`      | **do not set it** - see below                                                                                           |
+| Mountpoint                   | Setting                                                                                                                |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `/go/pkg/mod`                | `--portable-except 'cache/lock,cache/download/**/*.lock,cache/download/**/*.partial,cache/download/sumdb/*/lookup/**'` |
+| `/go/pkg/mod/cache/download` | the same list, and 3.8x smaller - see below                                                                            |
+| `/root/.cache/go-build`      | `--portable-except 'trim.txt'`, in a container - see below                                                             |
 
 The module cache is the best case there is, and it is the one setting here that has been
 measured rather than reasoned about. Two caches populated independently at deliberately
@@ -61,14 +61,20 @@ above came from `go mod download all` walking the whole module graph.
 trees they produce are 1.1 GiB, and Go re-extracts on demand. Prefer it where bandwidth costs
 more than CPU, and the whole mount where it does not - extraction is per-step and not cheap.
 
-The *build* cache is not. Its entries are immutable, and combining two of them is harmless - it is simply useless, because a build cache entry is keyed on an ActionID that includes absolute paths. Two machines compute different ActionIDs for the same compilation, so a shared cache is never read. Let each machine keep its own.
+**The build cache was listed here as unshareable, and that was wrong.** The argument was that an entry is keyed on an ActionID including absolute paths, so two machines never compute the same key - which assumes two machines have different paths. Inside a container they do not: same image, same working directory, same `GOCACHE`.
+
+Measured, building `std` from one pinned image digest on a native `linux/amd64` box and on an Apple-silicon Mac running the same image under `--platform linux/amd64`: **1,052 of 1,052 compiled objects byte-identical, under identical ActionIDs**, with nothing present on one side only. Emulated x86-64 and native x86-64 produce the same bytes, because Go's code generation is a function of `GOARCH` and `GOAMD64` and never inspects the host.
+
+An index entry is `v1 <ActionID> <OutputID> <size> <nanotime>`, and that last field is the write time - so the entries are *immutable* (Go updates their mtime for trimming, never their bytes) and not *reproducible*. It decides nothing: the id, the output and the size all agree, and `get` performs no freshness check. Exclude `trim.txt`, which is garbage-collection bookkeeping, and share the rest.
+
+Two conditions, both of which a containerised build already meets: the machines must run the **same toolchain version**, because the compiler's own build id is in every ActionID, and they must build at the **same absolute paths**. Outside a container, expect a cache that is never read - harmless, and useless.
 
 ### Rust
 
 | Mountpoint                   | Setting                                                   |
 | ---------------------------- | --------------------------------------------------------- |
-| `$CARGO_HOME/registry/cache` | `--immutable-except ''`                                   |
-| `$CARGO_HOME/registry/src`   | `--immutable-except ''`, with care                        |
+| `$CARGO_HOME/registry/cache` | `--portable-except ''`                                    |
+| `$CARGO_HOME/registry/src`   | `--portable-except ''`, with care                         |
 | `target/`                    | **never** - absolute paths in `.d` files and fingerprints |
 
 Two warnings on `registry/src`. Cargo performs **no content verification** when reusing an extracted source tree, and unlike `vendor/` there is no `.cargo-checksum.json` there to check against - so a corrupt entry propagates silently into a build. Cargo also does not make the directories read-only, so a `build.rs` can modify one in place.
@@ -79,8 +85,8 @@ For compilation results use `sccache` with its own S3 or Redis backend rather th
 
 | Mountpoint                 | Setting                                                                    |
 | -------------------------- | -------------------------------------------------------------------------- |
-| `~/.npm/_cacache`          | `--immutable-except 'tmp/**'`                                              |
-| pnpm store (v10 and below) | `--immutable-except '**/*.lock'`                                           |
+| `~/.npm/_cacache`          | `--portable-except 'tmp/**'`                                               |
+| pnpm store (v10 and below) | `--portable-except '**/*.lock'`                                            |
 | pnpm store (v11 and above) | **do not set it** - `index.db` is a SQLite database and cannot be combined |
 
 Share the whole of `_cacache`, not just `content-v2`. The content store is genuinely content-addressed, but npm looks entries up through `index-v5`, so content without the index is never found and buys nothing. The index buckets are append-only, which is why this works - but `npm cache verify` rewrites them, so do not run it while a build is using the cache.
@@ -91,11 +97,11 @@ Yarn Berry's `.yarn/cache` zips are content-addressed, with one catch: `yarn.loc
 
 | Mountpoint                       | Setting                                              |
 | -------------------------------- | ---------------------------------------------------- |
-| `~/.gradle/caches/build-cache-1` | `--immutable-except 'gc.properties,**/*.lock'`       |
-| `~/.gradle/caches/modules-2`     | `--immutable-except 'metadata-*/**'`                 |
+| `~/.gradle/caches/build-cache-1` | `--portable-except 'gc.properties,**/*.lock'`        |
+| `~/.gradle/caches/modules-2`     | `--portable-except 'metadata-*/**'`                  |
 | `~/.m2/repository`               | **do not set it** if you use `SNAPSHOT` dependencies |
 
-A Maven `SNAPSHOT` is the exact thing this flag forbids: the same path holding different contents over time. Without snapshots the repository is safe, as `--immutable-except '**/*-SNAPSHOT/**,**/*.lastUpdated,**/resolver-status.properties,**/_remote.repositories'` - but the simpler answer is to keep it local.
+A Maven `SNAPSHOT` is the exact thing this flag forbids: the same path holding different contents over time. Without snapshots the repository is safe, as `--portable-except '**/*-SNAPSHOT/**,**/*.lastUpdated,**/resolver-status.properties,**/_remote.repositories'` - but the simpler answer is to keep it local.
 
 Gradle's build cache is content-addressed and portable. Its entries are keyed by an MD5 hash, which is a collision-resistance question rather than a sharing one, but worth knowing.
 
@@ -103,9 +109,9 @@ Gradle's build cache is content-addressed and portable. Its entries are keyed by
 
 | Mountpoint            | Setting                                    |
 | --------------------- | ------------------------------------------ |
-| `~/.cache/pip/wheels` | `--immutable-except ''`                    |
-| `~/.cache/uv`         | `--immutable-except 'interpreter-v*/**'`   |
-| `$PIPENV_CACHE_DIR`   | `--immutable-except ''`                    |
+| `~/.cache/pip/wheels` | `--portable-except ''`                     |
+| `~/.cache/uv`         | `--portable-except 'interpreter-v*/**'`    |
+| `$PIPENV_CACHE_DIR`   | `--portable-except ''`                     |
 | virtualenvs, anywhere | **never** - absolute paths in every script |
 
 `uv`'s archive cache is content-addressed and hard-links into environments. Its interpreter probe cache records where a Python interpreter is on *this* machine, which is why it is excluded.
@@ -121,10 +127,10 @@ ccache is content-addressed at the result level but its *manifests* are mutable:
 
 ### Bazel
 
-| Mountpoint               | Setting                 |
-| ------------------------ | ----------------------- |
-| `--disk_cache` directory | `--immutable-except ''` |
-| repository cache         | `--immutable-except ''` |
+| Mountpoint               | Setting                |
+| ------------------------ | ---------------------- |
+| `--disk_cache` directory | `--portable-except ''` |
+| repository cache         | `--portable-except ''` |
 
 Both are plain content-addressed stores with no index, no database and no garbage-collection metadata beside the blobs. EarthBuild also serves the remote-execution API, so a Bazel build can use it as a remote cache directly and skip the mount.
 
@@ -132,21 +138,29 @@ Both are plain content-addressed stores with no index, no database and no garbag
 
 | Mountpoint                | Setting                                                                  |
 | ------------------------- | ------------------------------------------------------------------------ |
-| `/var/cache/apt/archives` | `--immutable-except 'partial/**,lock'`                                   |
-| `/var/cache/apk`          | `--immutable-except 'APKINDEX*'`                                         |
-| `~/.nuget/packages`       | `--immutable-except ''`                                                  |
-| `~/.gem/ruby/*/cache`     | `--immutable-except ''`                                                  |
+| `/var/cache/apt/archives` | `--portable-except 'partial/**,lock'`                                    |
+| `/var/cache/apk`          | `--portable-except 'APKINDEX*'`                                          |
+| `~/.nuget/packages`       | `--portable-except ''`                                                   |
+| `~/.gem/ruby/*/cache`     | `--portable-except ''`                                                   |
 | `/var/cache/dnf`          | **do not set it** - `repodata` and the `solv` files are rebuilt in place |
 
 A `.deb` or `.apk` at a given version is the same file everywhere; the repository indexes beside them are not, which is why they are excluded. Note that apt's indexes live in `/var/lib/apt/lists` and its database in `/var/lib/dpkg` - neither belongs in a cache mount at all.
 
 ## Working it out for yourself
 
-Three questions, in this order:
+Three questions, in this order. The first decides whether the flag belongs on this cache at all; the other two only fill in the list.
 
-1. **Is a path ever written twice with different contents?** If yes, the flag is unsafe - and that is the whole test. Version-numbered artefacts pass; `SNAPSHOT`, `latest`, `nightly` and rebuilt indexes fail.
-2. **What is rewritten rather than appended to?** Lockfiles, `tmp/` and `partial/` directories, statistics, garbage-collection bookkeeping, SQLite databases. These go in the exclusion list.
-3. **Is anything outside the mountpoint required to read it?** An index, a database, a manifest. If the store cannot be used without it and it cannot be shared, sharing the store buys nothing.
+1. **Can a *part* of this cache be used on its own?** A worker fetches the paths a step actually reads, never the whole directory, so a cache that only works complete cannot be shared piecemeal however stable its contents are. A SQLite index, a repository database, a manifest every lookup passes through: each is perfectly portable and none is subsettable. If the answer is no, stop - the flag will not help, and the exclusion list cannot rescue it, because excluding the index leaves the entries unreachable.
+2. **Would another machine's copy of a path do instead of your own?** Not "are the bytes identical", which is stronger than necessary. An entry carrying a build timestamp differs on every machine and answers the same question, so it is fine to share. An entry carrying `/home/alice/.cache` is byte-stable for ever and must never be.
+3. **Which paths fail question 2?** Those go in the list: interpreter locations, absolute-path indexes, lockfiles, `tmp/` and `partial/` directories. Anything whose *meaning* is local to one machine - rather than merely anything that gets rewritten.
+
+### A portable cache is portable within a lineage
+
+Question 2 hides an assumption: "another machine's copy" means a machine running *the same step*, and a step's key covers its base image, so the toolchain and the paths are identical by construction.
+
+A cache **id** is not covered that way. It is a name you choose, and two different steps using the same id share one directory even with different base images. Whether that is safe depends on whether the tool can tell a foreign entry apart. Go can - the compiler's build id is inside every ActionID, so an entry from another toolchain never matches. Most tools cannot.
+
+So give a cache an id per lineage, not per purpose: `go-build-1.26` rather than `go-build`, if two targets in the same project build with different toolchains. The cost of being wrong is a cache that silently answers with another toolchain's work.
 
 If you cannot answer the first question, leave the flag off. A cache each machine fills for itself is slower and always correct.
 

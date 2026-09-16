@@ -157,8 +157,8 @@ func caches(mounts []ir.Mount) []Cache {
 
 		out = append(out, Cache{
 			ID: m.ID, Target: m.Target, Mode: m.Mode, Exclusive: m.Exclusive,
-			Immutable:       m.Immutable,
-			ImmutableExcept: m.ImmutableExcept,
+			Portable:       m.Portable,
+			PortableExcept: m.PortableExcept,
 		})
 	}
 

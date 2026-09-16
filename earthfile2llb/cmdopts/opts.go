@@ -171,16 +171,16 @@ type Cache struct {
 	Mode    string `default:"0644"                                                                          description:"Apply a mode to the cache folder" long:"chmod"` //nolint:lll
 	ID      string `description:"Cache ID, to reuse the same cache across different targets and Earthfiles" long:"id"`
 	Persist bool   `description:"If should persist cache state in image"                                    long:"persist"`
-	// ImmutableExcept is the author's claim that this cache may be shared
-	// between machines: every file under it is written once and never
-	// rewritten, apart from the comma-separated patterns given.
+	// PortableExcept is the author's claim that this cache may be shared
+	// between machines: another machine's copy of any path under it is as good
+	// as this machine's own, apart from the comma-separated patterns given.
 	//
-	// A pointer so that `--immutable-except ''` - the claim with no exceptions,
+	// A pointer so that `--portable-except ''` - the claim with no exceptions,
 	// which is the strongest one and the right answer for a content-addressed
 	// store mounted at its own root - is distinguishable from not writing the
 	// flag. As a bare string both are `""` and the strongest claim is the one
 	// silently ignored.
-	ImmutableExcept *string `description:"Paths under the cache that are rewritten; the rest may be shared between machines" long:"immutable-except"` //nolint:lll
+	PortableExcept *string `description:"Paths under the cache that are specific to this machine; the rest may be shared between machines" long:"portable-except"` //nolint:lll
 }
 
 // NewFor creates and returns a For with default separators.

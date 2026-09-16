@@ -72,7 +72,7 @@ func TestTheMountsThatDoPinStillPin(t *testing.T) {
 //
 // The guard in `pinning` compares a mount against a constructed one, so any
 // field added to `Mount` pins the step until somebody has thought about it -
-// which is the right default, and which `Immutable` tripped on arrival.
+// which is the right default, and which `Portable` tripped on arrival.
 //
 // Thinking about it takes one line: a cache the author has claimed is
 // shareable is *more* delegable than an ordinary one, not less. It is the same
@@ -88,11 +88,11 @@ func TestAShareableCacheDoesNotPinAStep(t *testing.T) {
 
 	for _, m := range []Mount{
 		// The claim with no exceptions, which is the common one.
-		{Target: "/go/pkg/mod", ID: "go-mod", Immutable: true},
+		{Target: "/go/pkg/mod", ID: "go-mod", Portable: true},
 		// And with them.
-		{Target: "/go/pkg/mod", ID: "go-mod", Immutable: true, ImmutableExcept: "cache/lock"},
+		{Target: "/go/pkg/mod", ID: "go-mod", Portable: true, PortableExcept: "cache/lock"},
 		// Still locked, still per machine.
-		{Target: "/go/pkg/mod", ID: "go-mod", Immutable: true, Exclusive: true},
+		{Target: "/go/pkg/mod", ID: "go-mod", Portable: true, Exclusive: true},
 	} {
 		op := Op{Kind: OpExec, Mounts: []Mount{m}}
 

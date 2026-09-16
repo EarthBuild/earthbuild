@@ -8,7 +8,7 @@ import (
 
 // TestTheRecommendedGoModuleExclusionsMatchWhatWasMeasured.
 //
-// `CACHE --immutable-except` takes patterns in this syntax, and the setting
+// `CACHE --portable-except` takes patterns in this syntax, and the setting
 // recommended for `/go/pkg/mod` was derived from a measurement rather than from
 // Go's documentation: two module caches filled at different roots agreed on
 // 95,282 of 95,283 paths, and the corrected list is the set of paths that could
@@ -17,7 +17,7 @@ import (
 // Every path below is a real one taken from that corpus, and the two directions
 // are equally load-bearing. A pattern that fails to exclude a mutable path
 // shares a file whose content depends on when it was fetched; a pattern that
-// excludes an immutable one refuses to share a file it safely could, which is
+// excludes a portable one refuses to share a file it safely could, which is
 // silent and costs the whole point of the flag.
 //
 // The eleven `.lock` files inside extracted module trees are the case that
@@ -82,7 +82,7 @@ func TestAnEmptyPatternListExcludesNothing(t *testing.T) {
 	for _, p := range []string{"a", "a/b", "cache/lock", ".hidden"} {
 		if m.Excludes(p) {
 			t.Errorf("Excludes(%q) with no patterns, so a cache claimed wholly"+
-				" immutable shares nothing", p)
+				" portable shares nothing", p)
 		}
 	}
 }

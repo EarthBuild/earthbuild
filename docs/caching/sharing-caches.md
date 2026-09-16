@@ -36,6 +36,9 @@ different root paths held **95,283 paths each, of which 95,282 were byte-identic
 no difference in mode and no path present in only one. A third, populated twenty minutes
 later, agreed on all 3,871 paths it shared.
 
+Across architectures it is exact: the same module set on `darwin/arm64` and `linux/amd64`
+shared **94,162 paths and disagreed on none of them**, in content or in mode.
+
 The single exception was a checksum-database lookup, and it is the only mutable region:
 `cache/download/sumdb/<name>/lookup/<module>@<version>` records the **signed tree head at
 the time of the lookup**, so two machines asking on either side of a database append get

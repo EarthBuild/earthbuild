@@ -1162,8 +1162,29 @@ where the extracted trees are 1.1 GiB. A fleet that ships the download cache and
 lets each machine extract moves a quarter of the bytes, and pays CPU per step
 for it. Which side wins is a measurement this has not made.
 
-**What it does not tell us.** Both caches were filled by the same Go on the same
-machine. The claim that matters for a heterogeneous fleet is that
-`linux/amd64` and `darwin/arm64` agree, and that is the next run - the module
-cache is specified to be platform-independent, which is a claim of exactly the
-kind this experiment exists to distrust.
+**Across architectures, which is the claim the fleet actually needs.** The same
+module set filled on `darwin/arm64` and on `linux/amd64` (go1.26.2 both ends,
+different root paths, different filesystems):
+
+```text
+arm64 paths: 95283  amd64 paths: 94162  shared: 94162
+shared, content differs: 0
+shared, mode differs:    0
+only arm64: 1121   only amd64: 0
+```
+
+Zero. Not one of 94,162 paths disagreed, in content or in mode. The module
+cache is portable between a Mac and a Linux box, and `--immutable-except` on
+`/go/pkg/mod` is a true claim rather than a hopeful one.
+
+The 1,121 asymmetric paths were an artefact of the procedure and are worth
+recording as a trap. `GOFLAGS=-mod=mod go mod download all` on the Mac **wrote
+650 lines to `go.sum`** - the hashes it learned from those 337 checksum-database
+lookups - and the run copied that enriched `go.sum` to the second machine, which
+therefore needed no lookups at all. 1,120 of the 1,121 are that sumdb region; the
+last is `cache/lock`, which the exclusion list already names.
+
+So the sumdb asymmetry measures the harness, not the platform - and it is the
+second time in this experiment that the thing being measured turned out to be
+the measurement. It also confirms the mechanism from the other side: give Go a
+complete `go.sum` and it never touches the checksum database.

@@ -1268,3 +1268,87 @@ sharing pays. `go build std` filled 169 MB; a real project's is larger, and a
 worker that fetches an object instead of compiling it has traded CPU for
 network on a link measured at 110 MiB/s. The transport does not exist yet, so
 neither does the number.
+
+## E-F6: prototyping the helper contract before building it
+
+Stage 0 of the cache-sharing plan: implement the proposed helper interface
+outside the engine, against three unlike caches that exist on disk, and find out
+what the contract gets wrong before any of it is load-bearing.
+`tools/cachehelper` is that prototype.
+
+**The contract as proposed.** `probe`, `ident`, `index`, `export`, `import`, over
+`$EARTH_CACHE_DIR`, with a key opaque to EarthBuild. Three implementations: Go's
+build cache, Go's module cache, and npm's cacache - chosen because the first
+embodies compute, the second embodies downloads, and the third is the one already
+known not to be union-complete.
+
+**Result: the interface carries all three, and three things about it were wrong.**
+
+### The index must not require sizes
+
+Indexing the same tree, keys only against keys-and-sizes:
+
+```text
+go-mod    (9.1 GB)    0.90 s     4,791 units   key comes from the path
+npm                   5.04 s    30,162 units   must read every bucket
+go-build  (27 GB)    11.61 s    88,114 units   must read every index record
+go-build, keys only   0.47 s    88,121 units
+bare find over the same tree    0.39 s
+```
+
+**97% of the cost was opening 88,114 files for a column nobody needs.** A Go
+build-cache key *is* the name of its index record; only the entry's size and the
+output blob it names require reading it, and both are export-time questions. Made
+optional, the index went from 11.61 s to 0.47 s - 24.7x - over the same key set.
+
+The general rule the measurement gives: **an index's cost is a function of how
+much the helper must open, not of how large the cache is.** A 9.1 GB cache indexed
+in under a second; a 27 GB one took twelve, and the difference was neither size
+nor entry count.
+
+### A key must be unique, which was not written down
+
+npm's obvious key - the record's own hash - is not unique. 155 of 30,162 entries
+in a real cacache shared one. Two causes, and only the second is interesting:
+the same digest appears in different buckets, and a bucket can hold the *same line
+twice*, because cacache re-appends an unchanged record when its key is fetched
+again.
+
+So the key became `<bucket>:<digest>`, and identical records are deduplicated -
+two identical records are one unit, which is the honest reading rather than a
+workaround. Uniqueness is now a stated requirement of the contract.
+
+### `import` has to be the helper's verb
+
+The generic importer refuses to write over a path that exists, which is right for
+a content-addressed blob and wrong for an append-only bucket: it would silently
+discard every record the sender had and the receiver did not.
+
+Measured end to end. Two caches from one source, the receiver missing 12,496
+records across 4,649 buckets and holding 500 the sender lacked:
+
+```text
+A: 29,897 units    B: 17,544 units    B lacks: 12,496
+export 12,496 units -> 11 MiB stream -> import
+A's records B still lacks:  0
+B's own records on disk:    500 of 500
+```
+
+A union at record level, not file level, and neither side lost anything.
+
+### A trap in cacache's format, found by falling into it
+
+The first run reported 357 of B's 500 records lost, and they were not: **a
+cacache bucket has no trailing newline**, so the harness's `<digest>\t<record>\n`
+was glued onto the end of the previous record. `line[:tab]` then parsed the
+previous record's digest and the harness recorded a key that did not exist. The
+merge had been correct throughout.
+
+Worth recording for its own sake: it is exactly the format knowledge that
+justifies a helper per cache rather than a file copier for all of them, and it
+cost two rounds of chasing a loss that had not occurred.
+
+### Still open
+
+`f`, the working-set fraction, and native compile-against-ship. Both need an
+instrumented build rather than a directory walk.

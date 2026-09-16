@@ -1474,3 +1474,71 @@ cache-mount transport would.
 **What is still missing.** The native compile time on the 5950X, to replace the
 3.38 s floor with a measurement. The box was asleep on both addresses for this
 sitting.
+
+## E-F9: compression turns the tie into a win
+
+E-F8 left Go as a photo finish: shipping a 639 MiB build cache costs 5.81 s on
+the wired link, against a 3.38 s floor for compiling it on 32 threads. Shipping
+loses to a fast machine and wins against everything else, which is a thin result
+to build a transport on.
+
+**It is thin because the bytes were raw.** A Go archive is export data, symbol
+names and DWARF - not the already-compressed payload a container layer is:
+
+```text
+639.2 MiB   ->  zstd -1   136.8 MiB    4.67x     6,319 MiB/s in
+            ->  zstd -3   124.9 MiB    5.12x     4,690 MiB/s in
+            ->  zstd -9   107.8 MiB    5.93x     1,051 MiB/s in
+                decompress                       1,135 MiB/s out
+```
+
+Compression and decompression are both an order of magnitude faster than the
+link, so the pipeline stays wire-bound and the ratio is taken straight off the
+transfer:
+
+```text
+ship raw               639.2 MiB / 110 MiB/s     5.81 s
+ship zstd -3           124.9 MiB                 1.14 s
+compile, this Mac      108 cpu-s / 12 threads   17.64 s
+compile, 32 threads    108 cpu-s                 3.38 s  (a floor, not a time)
+```
+
+**Against the 5950X's theoretical floor, compressed shipping wins by 3.0x** - and
+against the machine that would actually be fetching, by fifteen.
+
+### Per-object compresses as well as a batch
+
+The worry was that compression favours shipping whole caches while
+`GOCACHEPROG` favours per-action fetches, and that the two designs would pull
+apart. They do not. Over 400 objects, 89.1 MiB raw:
+
+```text
+each compressed alone   19.4 MiB   4.59x
+all as one stream       18.4 MiB   4.84x
+```
+
+**Five per cent.** Go objects are intrinsically compressible rather than
+cross-redundant, so per-action transfer gives up almost nothing, and the two
+directions compose freely.
+
+### Why the engine does not already do this
+
+`squeeze` compresses a fragment's proof and deliberately not its payload
+(`engine/fleet/blobwire.go`):
+
+> **The proof only.** A fragment's payload is file contents, and compressing an
+> archive of already-compressed files is how a transfer gets slower for the
+> trouble.
+
+Correct for a **layer**, whose entries are binaries and compressed archives.
+Wrong for a **cache object**, which is 4.6x. The rule is about what is in the
+bytes, not about whether they are a payload, and a cache-mount transport must not
+inherit the layer answer by default.
+
+### What is left
+
+The link. 124.9 MiB at 110 MiB/s is 1.14 s; on 2.5 GbE it is 0.45 s, and the box
+already has the NIC for it (E-F5's hardware note) - only the Mac's dongle and the
+switch are gigabit. Which is now a purchase with a measured payoff rather than a
+guess, and still not the bottleneck: at that point shipping is 7x faster than a
+32-thread compile and the next thing to measure is something else entirely.

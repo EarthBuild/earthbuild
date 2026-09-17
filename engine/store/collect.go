@@ -34,6 +34,15 @@ type Report struct {
 	// rebuild or a fetch. A store that reported them together would read as
 	// having thrown away far more than it did.
 	Nodes int
+	// Units is how many shared-cache blobs were swept - a portable mount's
+	// units, and the maps that named them.
+	//
+	// Counted apart from Removed and Nodes for the reason those are counted
+	// apart from each other: a unit is not a layer. Losing a layer costs a
+	// rebuild or a fetch; losing a cache unit costs whatever the tool inside
+	// does about it, which is usually one download. Reported together they
+	// would read as having thrown away far more than they did.
+	Units int
 	// Debris is how many unfinished layer writes were cleared. Counted apart
 	// from Removed because they are not layers: nothing could have used them,
 	// and losing one costs nothing where losing a layer costs a rebuild.
@@ -80,8 +89,17 @@ func (r Report) String() string {
 		freed = r.Reclaimed
 	}
 
-	return fmt.Sprintf("removed %d layers%s, freed %s, %d layers and %s left",
-		r.Removed, debris, human(freed), r.Kept, human(r.After))
+	// Cache units likewise: said when there were any, because a reader pruning
+	// a machine that shares caches is entitled to know that is where the space
+	// went, and a reader on a machine that does not should not be told about a
+	// population it has none of.
+	units := ""
+	if r.Units > 0 {
+		units = fmt.Sprintf(", swept %d shared-cache blob(s)", r.Units)
+	}
+
+	return fmt.Sprintf("removed %d layers%s%s, freed %s, %d layers and %s left",
+		r.Removed, debris, units, human(freed), r.Kept, human(r.After))
 }
 
 // candidate is one layer up for collection, with the two facts that decide its
@@ -168,6 +186,12 @@ func CollectUntil(
 	// decide a full store already fit. See sweepPartials.
 	debris, freed := sweepPartials(root)
 
+	// **And the shared-cache blobs nothing points at**, before sizing for the
+	// same reason: they are bytes at the store root that `candidates` never
+	// walks, so a collector could decide a full store already fitted.
+	units, unitBytes := sweepCacheBlobs(root)
+	freed += unitBytes
+
 	layers, total, err := candidates(root, index)
 	if err != nil {
 		return Report{}, err
@@ -178,6 +202,7 @@ func CollectUntil(
 		After:  total,
 		Kept:   len(layers),
 		Debris: debris,
+		Units:  units,
 	}
 
 	// Recoverable first, then oldest use, then by id where two are

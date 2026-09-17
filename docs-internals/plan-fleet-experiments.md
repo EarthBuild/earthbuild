@@ -2614,3 +2614,48 @@ And a share that adds nothing now says nothing. Forty steps over one cache would
 otherwise print forty identical lines, which trains the reader to skip the one
 that differs; the map is content-addressed, so an unchanged digest is an
 unchanged cache and the silence is detected rather than guessed.
+
+## E-F26: nothing collected a shared cache, and prune said so in the wrong words
+
+`Collect` sweeps `layers/` and the `nodes/` a surviving manifest implies. A
+portable cache mount files its units and its maps in 𝔅 at the store root, sharded
+`<first two hex>/<digest>` - **a third population the collector had never seen**.
+So a machine that shares caches grew without bound and `earth prune` reported
+freeing nothing, which is not a warning anybody would read as one.
+
+Reachability is the nodes argument one level longer. A pointer in
+`cachemaps/<id>/<scope>` names a map; the map names every unit. Anything else at
+the root is a map nothing points at any more - one per cache per build, which is
+what accumulates fastest - or a unit no map names.
+
+A pointer whose cache directory is gone is removed rather than followed. The
+directory is made when a step binds the mount, so its absence means the cache is
+not here, and a pointer nobody will follow again keeps a map and every unit in it
+alive for ever.
+
+**A helper's module is swept with them, deliberately.** It is filed by the
+resolver at plan time on every build that names one, so losing it costs a re-read
+of a few megabytes on a driver and a fetch from a peer on a worker. Keeping it
+would need a root of its own, and a root that is never collected is the growth
+this exists to stop. Confirmed rather than assumed: after the sweep the next
+build re-filed it and shared normally.
+
+### Measured on a store holding four builds' worth
+
+```text
+before                21 blobs, 205 MiB
+earth-native -prune   removed 0 layers, swept 4 shared-cache blob(s),
+                      freed 4.0 MiB, 5 layers and 179.4 MiB left
+after                 17 blobs
+next build            cache npmshared: 17 units shared
+```
+
+Three superseded maps and the 4 MiB helper module; the live map and its sixteen
+units untouched. The 4.0 MiB is almost entirely the module, which is the shape to
+expect - maps are 0.86% of what they index (E-F11), so on a real store the units
+dominate and the count is the number worth reading.
+
+Counted apart from `Removed` and `Nodes`, for the reason those are counted apart
+from each other: losing a layer costs a rebuild or a fetch, and losing a cache
+unit costs whatever the tool inside does about it. Reported together they would
+read as having thrown away far more than they did.

@@ -1691,6 +1691,42 @@ contents fails that check on every read.
 Worth writing down because the idea looks free and is not, and because the thing
 that forbids it is the thing that makes everything else here safe.
 
+### Considered and rejected: `GetUnchecked`, with the helper verifying
+
+The natural follow-up: give `blob.Store` an unchecked read and let the WASI
+helper confirm the hash, since the helper is where a tool's own hash function
+already lives. That is the same move that made the naming hash-agnostic, and it
+does not work here for three reasons.
+
+**A pointer blob has nothing to check against, for anybody.** Its name comes from
+a key and its content is a digest, and no relationship between the two is
+verifiable by any party - least of all the helper, which does not know ℋ. The
+check is not relocated, it is deleted.
+
+**The downstream catch is real and not universal.** Go does verify: `cmd/go`
+refuses an object whose SHA-256 is not its OutputID, so a wrong pointer is caught
+there. But `docs/caching/sharing-caches.md` already records one that does not -
+*"Cargo performs no content verification when reusing an extracted source tree
+... so a corrupt entry propagates silently into a build."* A design that leans on
+the tool checking is as safe as the least careful tool, and the survey found that
+tool before this idea existed.
+
+**The blast radius is 𝔅 rather than this feature.** The same store holds layers,
+and its stated property is that *"an attacker with total control of it can deny
+service and nothing else"*. An unchecked read turns that into "and can serve
+wrong bytes". One caller today is one autocomplete away from three.
+
+**And the alternative costs 0.86%** - see below. Weakening the property every
+other guarantee here leans on, to save 5.38 MiB and 0.049 s, is the wrong side of
+that trade by some distance.
+
+Where the instinct does hold: if a derived-key namespace is ever genuinely
+needed, it belongs in a store that **does not claim 𝔅's invariant** rather than
+in 𝔅 with the check switched off. `engine/cache` is nearly that store already -
+`Get(core.Key) -> Entry` is a key-to-value map whose key is not a content hash -
+but not free: `Open` hardcodes `actions/`, and `core.Entry` is the wrong value
+type for a digest.
+
 ### What it costs to just ship the map
 
 A map blob, content-addressed like anything else, with its digest travelling in

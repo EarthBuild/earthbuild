@@ -290,6 +290,8 @@ work in `v0.8.x`, but referencing one logs a deprecation warning pointing at the
 `EARTHLY_*` built-in arguments will be removed in `v0.9.x`. See the [built-in args
 reference](earthfile/builtin-args.md) for the full list.
 
+The obsolete `EARTHLY_CI_RUNNER` env variable and `VERSION --earthly-ci-runner-arg` feature flag have been removed.
+
 ## CI
 
 ### GitHub Actions

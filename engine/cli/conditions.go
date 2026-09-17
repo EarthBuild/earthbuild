@@ -385,7 +385,7 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		// build and every worker refused every step (F4). See fleetStore.
 		x, stop, err := fleet.Driver(context.Background(), e,
 			func(s string) { fmt.Fprintln(g.o.Out, s) },
-			fleetStore(sb, e, sb.StoreDir()), g.profiles(sb.StoreDir()))
+			fleetStore(sb, e, sb.StoreDir()), g.profiles(sb.StoreDir()), sharing.Known)
 		if err != nil {
 			g.err = err
 

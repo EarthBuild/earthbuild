@@ -1504,10 +1504,18 @@ The assignment format is a **distinct, poorer type than the IR**, deliberately:
 | `estimatedSeconds` | how long this step took last time                                       |
 | `holders`          | peers said to hold this step's inputs, nearest first                    |
 | `bytes`            | how large those inputs are, when the sender knows                       |
+| `cacheMaps`        | which map describes each portable cache mount, keyed by id and scope    |
 
   A worker that ignores every one of them fetches whole layers from the first source it can reach
   and produces the same result more slowly, which is what makes an unverified address safe to pass
   on (A5).
+
+  `cacheMaps` is the one join a worker cannot compute. A map names a cache's units by ℋ and is
+  itself a blob in 𝔅; the pointer from a cache to its latest map is mutable and therefore
+  deliberately not content-addressed, so the machine that filed one has to say which it is. It is
+  keyed by scope as well as by id, which is what keeps write-scoping load bearing (§5.3) without
+  either end comparing trust domains: two machines whose domains differ compute different scopes,
+  the key does not match, and nothing is stocked.
 
 * **`host` is not in the wire vocabulary.** A `host` op cannot be expressed in an assignment, so a
   malicious peer cannot request one. This is a property of the type, not a check that could be

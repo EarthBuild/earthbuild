@@ -231,6 +231,12 @@ func run() error {
 	nearby := &fleet.Nearby{}
 	sharing.Away(nearby)
 
+	// And which map describes each cache, which is the one thing about a shared
+	// cache this machine cannot work out: a worker that has never filled this
+	// cache holds no pointer to look up.
+	told := &fleet.Told{}
+	sharing.Told(told.Of)
+
 	// **And be told no.** A backend that cannot fault in leaves the base
 	// materialised whole, which is slower and correct - so the worker asks
 	// rather than assumes, and says so rather than silently priming a base
@@ -277,6 +283,7 @@ func run() error {
 				fleet.WithPeerSink(peers),
 				fleet.WithFaults(faults),
 				fleet.WithBlobSink(nearby),
+				fleet.WithCacheMaps(told),
 				fleet.WithPeers(me.String(), dialPeer(ctx, e, found, os.Getenv(fleet.EnvDriver)))),
 			say,
 			// Reachable without being reachable: the driver fetches what this

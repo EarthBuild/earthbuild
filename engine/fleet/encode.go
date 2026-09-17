@@ -3,6 +3,7 @@ package fleet
 import (
 	"bytes"
 	"slices"
+	"sort"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -76,6 +77,31 @@ func Encode(a Assignment) []byte {
 
 	for _, h := range a.Hints.Holders {
 		e.Str(h)
+	}
+
+	// **Late, because it was never here at all.** `Bytes` is how placement
+	// prices a step and it is used only on the driver today, so nothing looked
+	// wrong - but it is a field of a wire struct, documented as crossing and
+	// tagged as crossing, that the codec carrying it dropped. A hint nobody
+	// reads is indistinguishable from a hint nobody sent, right up until
+	// somebody reads it.
+	e.Fixed(bigEndian64(a.Hints.Bytes))
+
+	// Sorted, because two drivers with the same advice must send the same
+	// bytes: an assignment is compared by its encoding, and map order is not an
+	// order.
+	keys := make([]string, 0, len(a.Hints.CacheMaps))
+	for k := range a.Hints.CacheMaps {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	e.Count(len(keys))
+
+	for _, k := range keys {
+		e.Str(k)
+		e.Str(a.Hints.CacheMaps[k])
 	}
 
 	return buf.Bytes()

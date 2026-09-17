@@ -21,7 +21,9 @@ import (
 // the step without the directory, capturing into its result what the step meant
 // to throw away - so the version is what stops a peer answering a question it
 // cannot hear.
-const Version = 2
+// Version 3 added Hints.Bytes to the encoding - it was set, documented and
+// tagged, and carried by nothing - and Hints.CacheMaps beside it.
+const Version = 3
 
 // Op is what a worker is asked to do.
 //
@@ -210,4 +212,20 @@ type Hints struct {
 	// fetches from the driver and produces the same answer more slowly, which is
 	// what makes an unverified address safe to pass on.
 	Holders []string `json:"holders,omitempty"`
+	// CacheMaps says which map describes each portable cache this assignment
+	// declares, keyed `<id>/<scope>` and valued by the digest of the map blob.
+	//
+	// **The join a worker cannot compute.** A map names a cache's units by ℋ
+	// and is itself a blob; the *pointer* from a cache to its latest map is a
+	// mutable file beside a store, deliberately not content-addressed, and a
+	// worker has no way to derive it. So the machine that filed one says so.
+	//
+	// Keyed by the scope as well as the id, which is what keeps a trust domain
+	// load-bearing (§5.3): two machines whose domains differ compute different
+	// scopes, so the key does not match and nothing is stocked - without either
+	// end having to compare domains, or even know the other has one.
+	//
+	// Advice, like the rest of this struct (I5). A worker that ignores it fills
+	// the cache by doing the work, which is what every worker did before.
+	CacheMaps map[string]string `json:"cacheMaps,omitempty"`
 }

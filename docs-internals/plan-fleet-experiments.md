@@ -2430,3 +2430,71 @@ Stocking from a peer. `Stock` now reads its map and its units through the same
 read-through, so the mechanism is there - but the pointer from a cache to its
 latest map is a local file, and nothing tells a worker which map describes the
 cache it is about to fill. That is a hint (`Hints`, I5) and it is the next piece.
+
+## E-F23: a cold worker fills a cache from a peer, and a hint was never on the wire
+
+The last join. A map names a cache's units by ℋ and is itself a blob; the
+**pointer** from a cache to its latest map is mutable, so it is deliberately not
+content-addressed and a machine that has never filled this cache has nothing to
+look up. It has to be told, which makes it a hint (I5) - advice a worker may
+ignore, at the cost of doing the work itself.
+
+`Hints.CacheMaps` is keyed `<id>/<scope>`, and the scope is what keeps
+write-scoping load bearing (§5.3) **without either end comparing trust domains**:
+two machines whose domains differ compute different scopes, the key does not
+match, and nothing is stocked. The refusal is a consequence of the key rather
+than a check somebody has to remember.
+
+### The whole loop, measured
+
+```text
+run 1, driver alone      cache npmshared: 16 units shared, map 5d6decca…
+run 2, worker joins      2 step(s) delegated, 0 here
+  worker                 cache npmshared: 16 units stocked
+  worker                 cache npmshared: 16 units shared
+
+worker-store/mounts/npmshared/5ce3c090…/index-v5   ->  16 entries
+```
+
+The worker's store was deleted before the run. It fetched the map blob by the
+digest the driver named, then every unit the map named, then the helper module
+the step was keyed under - all by digest, all verified - imported them with that
+helper, ran the step against a warm cache, and shared what it had back.
+
+The second delegated step printed no stock line, which is right: the cache was
+already complete, so the index diff was empty and there was nothing to say.
+
+### And `Hints.Bytes` had never crossed the wire
+
+Writing the guard for the new field found the old one. `Bytes` is how placement
+prices a step, the only number it has about *bytes* rather than queueing (E317),
+and it is a field of a wire struct, documented as crossing and tagged
+`json:"bytes,omitempty"`, that the binary codec carrying it simply did not
+mention. Nothing was visibly wrong because it is read only on the driver, where
+it was set.
+
+**The existing guards could not have caught it.** `TestEveryOpFieldSurvivesTheWire`
+compares a round trip by **re-encoding** both sides, which is blind in exactly
+the place that matters: a field *neither* side carries encodes identically on
+both and round-trips as equal while crossing nothing. The new guard passed on its
+first run for that reason, and only failed once it compared the field instead of
+the encoding.
+
+So all three now compare the field, printed rather than `DeepEqual`'d - which
+still absorbs the one difference the wire genuinely cannot carry, a decoder's
+empty slice where the sender had nil. Re-checked against `Op` and `Cache`:
+nothing else was hiding.
+
+Version 3 carries both.
+
+### What the remit still owes
+
+* **Darwin and Firecracker.** Host-side export only works where the store is a
+  host directory. On a VM backend `nodes/` and 𝔅 are on the guest's device, so
+  `fleetStore` deliberately serves neither and a Mac shares nothing - honestly,
+  and E511's gap.
+* **Nothing prunes.** A map is filed per cache per build and units accumulate in
+  𝔅 for ever.
+* **`Stock` then `Share` re-exports what it just imported.** The units dedupe,
+  being the same bytes under the same names, so it costs work rather than space -
+  but a share whose index is unchanged has nothing to say.

@@ -51,6 +51,71 @@ type Sharing struct {
 	smu  sync.Mutex
 	sink *blob.Store
 	away Elsewhere
+	told func(key string) (string, bool)
+}
+
+// Told says where to find out which map describes a cache.
+//
+// **The one thing about a shared cache a machine cannot derive.** A map names a
+// cache's units by ℋ and is a blob like they are; the pointer from a cache to
+// its latest map is mutable, so it is deliberately not content-addressed and a
+// machine that has never filled this cache has nothing to look up. The driver
+// says, in a hint (I5).
+//
+// Nil is the ordinary case and means "whatever this machine filed itself",
+// which is every local build.
+func (s *Sharing) Told(of func(key string) (string, bool)) {
+	s.smu.Lock()
+	defer s.smu.Unlock()
+
+	s.told = of
+}
+
+// Known is what this machine has filed, keyed as a worker will look it up.
+//
+// Read from disk rather than remembered, because a map filed by an *earlier*
+// build is as good as one filed by this one: the units it names are still in 𝔅
+// and still describe the cache. A table built in memory would make a driver
+// that has shared nothing yet look like a driver with nothing to share.
+func (s *Sharing) Known() map[string]string {
+	at := filepath.Join(s.root, "cachemaps")
+
+	ids, err := os.ReadDir(at)
+	if err != nil {
+		return nil //nolint:nilerr // a machine that has filed nothing says nothing
+	}
+
+	var out map[string]string
+
+	for _, id := range ids {
+		if !id.IsDir() {
+			continue
+		}
+
+		scopes, scopeErr := os.ReadDir(filepath.Join(at, id.Name()))
+		if scopeErr != nil {
+			continue
+		}
+
+		for _, scope := range scopes {
+			b, readErr := os.ReadFile(filepath.Join(at, id.Name(), scope.Name())) //nolint:gosec // a path this engine wrote
+			if readErr != nil {
+				continue
+			}
+
+			if _, parseErr := ir.ParseNodeID(strings.TrimSpace(string(b))); parseErr != nil {
+				continue
+			}
+
+			if out == nil {
+				out = map[string]string{}
+			}
+
+			out[id.Name()+"/"+scope.Name()] = strings.TrimSpace(string(b))
+		}
+	}
+
+	return out
 }
 
 // Elsewhere answers for a blob this machine does not hold.
@@ -427,6 +492,24 @@ func (s *Sharing) Stock(ctx context.Context, m ir.Mount, dir string) error {
 // the store impossible to poison. So a mutable pointer lives in a plain file
 // beside the store, where nothing claims that invariant for it.
 func (s *Sharing) mapOf(m ir.Mount, dir string) (ir.NodeID, bool) {
+	// **What the driver said, before what this machine filed.** A worker that
+	// has never filled this cache has no pointer at all, which is the case the
+	// hint exists for; and where both exist the driver's is the one that has
+	// seen the whole build, while a worker's describes only what it filled
+	// itself. A unit already here is filtered out by the index either way, so
+	// the richer map costs nothing.
+	s.smu.Lock()
+	told := s.told
+	s.smu.Unlock()
+
+	if told != nil {
+		if hex, ok := told(m.ID + "/" + filepath.Base(dir)); ok {
+			if id, err := ir.ParseNodeID(hex); err == nil {
+				return id, true
+			}
+		}
+	}
+
 	b, err := os.ReadFile(s.pointer(m, dir)) //nolint:gosec // a path this engine wrote
 	if err != nil {
 		return ir.NodeID{}, false

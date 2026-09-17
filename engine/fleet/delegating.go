@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -74,6 +75,16 @@ type Delegating struct {
 	// Zero means "as many as arrive", which is what a driver with no executor
 	// of its own effectively has and what every build did before this.
 	Room int
+	// Maps is what this machine has filed for each portable cache it has
+	// filled, keyed `<id>/<scope>` and valued by the digest of the map blob.
+	//
+	// A function rather than a table, because a build fills caches as it goes:
+	// a table read once at the start describes a machine that has shared
+	// nothing yet, which is every driver at the moment it is constructed.
+	//
+	// Nil where this machine shares no caches, which is every driver that was
+	// not given somewhere to file them.
+	Maps func() map[string]string
 	// Self is where this driver serves blobs, if it does.
 	//
 	// Named **last** among a step's holders, after every peer: the driver holds
@@ -177,6 +188,13 @@ func (d *Delegating) Run(
 	// placement has that is about *bytes* rather than about queueing, and
 	// without it every base is priced the same however large it is (E317).
 	a.Hints.Bytes = d.bytesOf(a)
+
+	// And which map describes each portable cache this step declares, so a
+	// worker can fill one rather than do the work again. The pointer from a
+	// cache to its latest map is a mutable file beside a store and is therefore
+	// the one thing in this design that is not content-addressed - so the
+	// machine that filed one has to say which it is.
+	a.Hints.CacheMaps = d.mapsFor(a.Op.Caches)
 
 	// Every worker is told what this build stands on, once, before any of them
 	// is asked to do anything with it.
@@ -1166,4 +1184,49 @@ func (d *Delegating) roomHere(ctx context.Context) (func(), error) {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// mapsFor is what this machine has filed for the caches a step declares.
+//
+// **Only the caches in this assignment.** The table is what this driver has
+// filed for every cache it has ever filled, and an assignment is about one step:
+// sending the rest would tell each worker what every other one is building, for
+// no gain at all.
+//
+// Matched on the id alone and returned with the scope, because the driver cannot
+// compute a worker's scope and must not try: the scope carries the trust domain
+// (§5.3), so a worker whose domain differs finds no key that matches and stocks
+// nothing - which is exactly the refusal write-scoping is for, reached without
+// either end comparing domains.
+func (d *Delegating) mapsFor(caches []Cache) map[string]string {
+	if d.Maps == nil || len(caches) == 0 {
+		return nil
+	}
+
+	all := d.Maps()
+	if len(all) == 0 {
+		return nil
+	}
+
+	var out map[string]string
+
+	for _, c := range caches {
+		if c.ID == "" {
+			continue
+		}
+
+		for key, id := range all {
+			if before, _, found := strings.Cut(key, "/"); !found || before != c.ID {
+				continue
+			}
+
+			if out == nil {
+				out = map[string]string{}
+			}
+
+			out[key] = id
+		}
+	}
+
+	return out
 }

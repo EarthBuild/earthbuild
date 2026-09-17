@@ -109,6 +109,12 @@ func Runner(
 			cfg.away.Set(cfg.sources(a))
 		}
 
+		// And which map describes each cache this step declares, which is the
+		// one thing about a shared cache a worker cannot work out for itself.
+		if cfg.told != nil {
+			cfg.told.Set(a.Hints.CacheMaps)
+		}
+
 		// **Before the step, not before the fetch.** Getting to a holder costs
 		// more than reading from one and none of it is proportional to the
 		// bytes, so it is worth paying while something else is happening. The
@@ -404,6 +410,9 @@ type runnerCfg struct {
 	// that reads them - refreshed with the same holders as sink. See
 	// WithBlobSink.
 	away *Nearby
+	// told is which map describes each cache, as the driver said. See
+	// WithCacheMaps.
+	told *Told
 	// fetching serialises transfers on this worker. See provision.
 	fetching sync.Mutex
 	// faults is what this worker has moved by faulting rather than by
@@ -612,6 +621,17 @@ func WithPeerSink(p *Peers) RunnerOpt {
 // not the other simply does the half it was given.
 func WithBlobSink(n *Nearby) RunnerOpt {
 	return func(c *runnerCfg) { c.away = n }
+}
+
+// WithCacheMaps tells a worker where to put what the driver says about caches.
+//
+// The last of the three per-assignment sinks, and the only one carrying
+// something the worker could not have derived: `Peers` and `Nearby` are both
+// *where to ask*, which a worker could in principle discover, and this is *what
+// to ask for*, which it cannot - the pointer from a cache to its latest map is
+// mutable and deliberately not content-addressed.
+func WithCacheMaps(t *Told) RunnerOpt {
+	return func(c *runnerCfg) { c.told = t }
 }
 
 // WithPeers lets a worker fetch from other workers, and be fetched from.

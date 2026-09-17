@@ -1,7 +1,6 @@
 package fleet
 
 import (
-	"bytes"
 	"fmt"
 	"reflect"
 	"testing"
@@ -45,14 +44,20 @@ func TestEveryCacheFieldSurvivesTheWire(t *testing.T) {
 				t.Fatalf("decoding what we encoded: %v", err)
 			}
 
-			if !bytes.Equal(
-				Encode(Assignment{Version: Version, Op: got.Op}),
-				Encode(Assignment{Version: Version, Op: want}),
-			) {
-				t.Errorf("Cache.%s did not survive the wire"+
-					"\n  sent %#v\n  back %#v"+
+			// The field, not the encoding - see the note in opcoverage_test.go.
+			// Two encodings agree about a field neither side carries.
+			if len(got.Op.Caches) != 1 {
+				t.Fatalf("one cache went out and %d came back", len(got.Op.Caches))
+			}
+
+			sent := fmt.Sprintf("%v", c.Field(i).Interface())
+			back := fmt.Sprintf("%v", reflect.ValueOf(got.Op.Caches[0]).Field(i).Interface())
+
+			if sent != back {
+				t.Errorf("Cache.%s did not survive the wire: sent %s, back %s"+
 					"\n  a field in one of encodeOp/decoder.op and not the other"+
-					" shifts every field after it", f.Name, want.Caches[0], got.Op.Caches)
+					" shifts every field after it; one in neither crosses nothing"+
+					" at all", f.Name, sent, back)
 			}
 		})
 	}

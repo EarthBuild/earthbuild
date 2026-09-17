@@ -58,6 +58,15 @@ func Decode(b []byte) (Assignment, error) {
 	a.Hints.ReadsPredicted = d.strs()
 	a.Hints.EstimatedSeconds = d.int64()
 	a.Hints.Holders = d.strs()
+	a.Hints.Bytes = d.int64()
+
+	if n := d.count(); n > 0 {
+		a.Hints.CacheMaps = make(map[string]string, n)
+
+		for range n {
+			a.Hints.CacheMaps[d.str()] = d.str()
+		}
+	}
 
 	if d.err != nil {
 		return Assignment{}, d.err

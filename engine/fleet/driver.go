@@ -57,9 +57,12 @@ const defaultWait = 90 * time.Second
 // how a store is laid out - and so a caller with no store at all (a plan-only
 // build, a test) can pass nothing and get a fleet that never brings anything
 // back, which is correct for a build that never runs a step here.
+// maps is what this machine has filed for each portable cache it has filled,
+// keyed `<id>/<scope>`. Nil where this machine shares no caches. See
+// Delegating.Maps for why it is a function rather than a table.
 func Driver(
 	ctx context.Context, local core.Executor, note func(string), store Store,
-	profiles core.Profiles,
+	profiles core.Profiles, maps func() map[string]string,
 ) (core.Executor, func(), error) {
 	if note == nil {
 		note = func(string) {}
@@ -184,6 +187,7 @@ func Driver(
 
 	d := &Delegating{
 		Local:   local,
+		Maps:    maps,
 		Fleet:   r,
 		Note:    note,
 		Self:    self,

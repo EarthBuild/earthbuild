@@ -2,6 +2,7 @@ package fleet
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -46,19 +47,22 @@ func TestEveryOpFieldSurvivesTheWire(t *testing.T) {
 				t.Fatalf("decoding what we encoded: %v", err)
 			}
 
-			// Compared by re-encoding rather than by DeepEqual: a decoder
-			// returns an empty slice where the sender had nil, and the wire has
-			// no way to express that difference - so demanding it is demanding
-			// something the format cannot carry. What must hold is that what
-			// came back says the same thing.
-			if !bytes.Equal(
-				Encode(Assignment{Version: Version, Op: got.Op}),
-				Encode(Assignment{Version: Version, Op: want}),
-			) {
-				t.Errorf("Op.%s did not survive the wire"+
-					"\n  sent %#v\n  back %#v"+
+			// **The field, not the encoding.** This compared two encodings,
+			// which is blind where it matters most: a field *neither* side
+			// carries encodes identically on both and round-trips as equal
+			// while crossing nothing. `Hints.Bytes` passed its guard that way.
+			//
+			// Printed rather than DeepEqual'd, which absorbs the one difference
+			// the wire genuinely cannot carry: a decoder returns an empty slice
+			// where the sender had nil, and both print as `[]`.
+			sent := fmt.Sprintf("%v", v.Field(i).Interface())
+			back := fmt.Sprintf("%v", reflect.ValueOf(got.Op).Field(i).Interface())
+
+			if sent != back {
+				t.Errorf("Op.%s did not survive the wire: sent %s, back %s"+
 					"\n  a field in one of encodeOp/decoder.op and not the other"+
-					" shifts every field after it", f.Name, want, got.Op)
+					" shifts every field after it; one in neither crosses nothing"+
+					" at all", f.Name, sent, back)
 			}
 		})
 	}

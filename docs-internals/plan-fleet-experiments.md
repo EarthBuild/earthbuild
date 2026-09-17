@@ -1902,3 +1902,60 @@ Tier 2 was "the arithmetic says don't". It should read: **worth it exactly when 
 worker is cold or egress is slow, metered or absent** - which is CI, which is the
 target. For Go it is also cheaper to build than the build-cache route it was
 ranked below.
+
+## E-F15: the helper is an image, and it is not invoked per verb
+
+Two decisions, the second correcting the first.
+
+### An image, not a wasm blob
+
+The engine already does this. **A helper is shaped exactly like a step** - pull an
+image, resolve and pin its digest, store its layers, bind the cache directory,
+run argv, read stdout - and `CACHE --helper <image>@sha256:...` inherits digest
+pinning from Θ (I17), which matters because a helper's behaviour decides what
+lands in a cache.
+
+Wasm does not avoid the image; it adds a runtime on top of one, since a `.wasm`
+still has to be distributed, versioned and pinned.
+
+Host-provided hash functions would **repair a cost wasm creates** rather than add
+a benefit. Hashing a 628 MiB cache: 0.35 s with native sha512 - measured here at
+1,724 MiB/s, sha256 at 2,560 - around 2.5 s in pure wasm without hardware
+acceleration, and 0.35 s again with host functions. Native speed, bought back at
+the price of an ABI we would then own.
+
+And the confinement argument was hollow. One preopened directory is a real
+improvement in the abstract; in context **the author already runs arbitrary code
+in every `RUN` beside it**, so a helper image is no new trust while a runtime is
+new surface.
+
+Wasm stays the answer for a helper in the **hot path** - one called per cache
+lookup, the way `GOCACHEPROG` is per action. A container per lookup is impossible
+and a wazero call is about a millisecond.
+
+### One process per verb is the expensive shape
+
+Measured: a native `docker run` costs **492 ms** to start. Three verbs per mount
+per build is 1.5 s, and the worst of it is that **it is paid when there is
+nothing to do** - a container start to learn that this worker is already up to
+date.
+
+So a helper is a **long-lived process reading a request stream**, not a program
+invoked per verb. Which is what `GOCACHEPROG` is, and what `tools/gocacheprobe`
+already implements:
+
+```text
+per-verb process          3 x 492 ms per mount per build     1.5 s
+one process per build     1 x 492 ms                         0.49 s
+kept alive across builds  1 x 492 ms ever                    ~0
+nothing to transfer       0 invocations                      0
+```
+
+The last row is the one that matters most. **The engine decides whether anything
+needs doing from state it already holds** - the warmth table (E-F7) and the
+digest of the map it last exported - so a build with nothing to fetch starts no
+helper at all. A helper is started when there is work, not to find out whether
+there is any.
+
+This is the same correction as E-F6's, one level up: batching the units was not
+enough while the verbs still each paid a process.

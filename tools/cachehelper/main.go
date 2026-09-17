@@ -13,7 +13,8 @@
 //	  <helper> probe    exit 0 if this directory is a cache this helper knows
 //	  <helper> ident    stdout: one opaque line naming this helper and version
 //	  <helper> index    stdout: "<key>\t<bytes>\n" per unit, sorted by key
-//	  <helper> export   stdin: keys, one per line -> stdout: an opaque stream
+//	  <helper> export   stdin: keys, one per line; stdout, per unit:
+//	                    "<key> <length>\n" then <length> opaque bytes
 //	  <helper> import   stdin: that stream -> merged in; exit 0 = done
 //
 // A **key is opaque to EarthBuild**, which compares keys for equality and
@@ -27,6 +28,7 @@ package main
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -227,12 +229,29 @@ func validKey(k string) bool {
 	return true
 }
 
-// export writes a tar of the files belonging to the requested keys.
+// export writes one frame per requested unit.
 //
-// Tar because the stream is opaque to the engine, so the only requirement is
-// that this helper's import can read it. A key nobody holds is skipped in
-// silence: the receiver asked from an index that may be stale, and a miss is an
-// ordinary answer rather than an error.
+// **Framed rather than one stream, and batched rather than one call.** The
+// engine names each unit with ℋ in order to store it, which needs a boundary it
+// can find - but a process per unit is the expensive shape, and this helper's
+// own measurements say so: indexing a Go build cache went from 11.61s to 0.47s
+// purely by not opening 88,114 files, and a fork-exec each would have dwarfed
+// both. So one invocation carries as many units as are asked for, each one
+// separately addressable.
+//
+// `<key> <length>\n` then the bytes. Self-describing rather than bare lengths,
+// so a reader learns which key a frame answers without tracking the order the
+// keys went out in - which lets a helper skip one it no longer holds without the
+// reader mis-slicing everything after it.
+//
+// **The frame is the engine's and the contents are the helper's.** What is
+// inside a unit is never parsed by anything else: here it is a tar, because a Go
+// build-cache unit is two files that are not beside each other. That layering is
+// what keeps a tool's own naming - and its own hash function - out of the engine
+// entirely.
+//
+// A key nobody holds is skipped in silence: the receiver asked from an index
+// that may be stale, and a miss is an ordinary answer rather than an error.
 func export(h helper, root string, keys io.Reader, w io.Writer) error {
 	us, err := h.units(root)
 	if err != nil {
@@ -244,13 +263,11 @@ func export(h helper, root string, keys io.Reader, w io.Writer) error {
 		by[u.key] = u
 	}
 
-	tw := tar.NewWriter(w)
-	defer func() { _ = tw.Close() }()
+	out := bufio.NewWriterSize(w, 1<<20)
+	defer func() { _ = out.Flush() }()
 
 	sc := bufio.NewScanner(keys)
 	sc.Buffer(make([]byte, 0, 1<<20), 1<<20)
-
-	seen := map[string]bool{}
 
 	for sc.Scan() {
 		u, ok := by[strings.TrimSpace(sc.Text())]
@@ -258,16 +275,26 @@ func export(h helper, root string, keys io.Reader, w io.Writer) error {
 			continue
 		}
 
+		var unit bytes.Buffer
+
+		tw := tar.NewWriter(&unit)
+
 		for _, rel := range u.files {
-			if seen[rel] {
-				continue
-			}
-
-			seen[rel] = true
-
 			if err := addFile(tw, root, rel); err != nil {
 				return err
 			}
+		}
+
+		if err := tw.Close(); err != nil {
+			return err
+		}
+
+		if _, err := fmt.Fprintf(out, "%s %d\n", u.key, unit.Len()); err != nil {
+			return err
+		}
+
+		if _, err := out.Write(unit.Bytes()); err != nil {
+			return err
 		}
 	}
 
@@ -275,7 +302,52 @@ func export(h helper, root string, keys io.Reader, w io.Writer) error {
 		return err
 	}
 
-	return tw.Close()
+	return out.Flush()
+}
+
+// maxUnit bounds one frame, so a helper that writes a wrong length cannot ask
+// the reader for unbounded memory. Generous: the largest object in a real Go
+// build cache measured 12.7 MiB.
+const maxUnit = 1 << 30
+
+// eachUnit reads the framed stream and hands each unit's bytes on.
+//
+// Streaming: one unit is held at a time, so a batch of ten thousand costs one
+// unit's memory rather than the batch's. A short read is an error and not a
+// smaller stream - the position `engine/layer/unpack.go` takes, because half a
+// unit is not a smaller unit.
+func eachUnit(r io.Reader, take func(key string, body []byte) error) error {
+	br := bufio.NewReaderSize(r, 1<<20)
+
+	for {
+		line, err := br.ReadString('\n')
+		if errors.Is(err, io.EOF) && strings.TrimSpace(line) == "" {
+			return nil
+		}
+
+		if err != nil {
+			return fmt.Errorf("read a frame header: %w", err)
+		}
+
+		key, size, found := strings.Cut(strings.TrimSuffix(line, "\n"), " ")
+		if !found {
+			return fmt.Errorf("a frame header without a length: %q", line)
+		}
+
+		n, err := strconv.ParseInt(size, 10, 64)
+		if err != nil || n < 0 || n > maxUnit {
+			return fmt.Errorf("unit %s is framed as %q bytes, which is not a length this reads", key, size)
+		}
+
+		body := make([]byte, n)
+		if _, err := io.ReadFull(br, body); err != nil {
+			return fmt.Errorf("read unit %s: %w", key, err)
+		}
+
+		if err := take(key, body); err != nil {
+			return err
+		}
+	}
 }
 
 func addFile(tw *tar.Writer, root, rel string) error {
@@ -330,6 +402,14 @@ func addFile(tw *tar.Writer, root, rel string) error {
 // the check and the creation are the same operation. Two concurrent imports of
 // one cache would otherwise both find a path absent and both write it.
 func importInto(root string, r io.Reader) error {
+	return eachUnit(r, func(_ string, body []byte) error {
+		return unpackUnit(root, bytes.NewReader(body))
+	})
+}
+
+// unpackUnit places the files of one unit, atomically and never over an
+// existing path.
+func unpackUnit(root string, r io.Reader) error {
 	tr := tar.NewReader(r)
 
 	for {

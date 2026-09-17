@@ -1,0 +1,106 @@
+{
+  "name": "earthbuild",
+  "displayName": "EarthBuild",
+  "description": "Earthfile language support powered by EarthBuild",
+  "version": "0.1.0",
+  "publisher": "earthbuild",
+  "license": "MPL-2.0",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EarthBuild/earthbuild.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:earth"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "earth",
+        "aliases": [
+          "Earthfile",
+          "earth"
+        ],
+        "filenames": [
+          "Earthfile"
+        ],
+        "extensions": [
+          ".earth"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "earth",
+        "scopeName": "source.earthfile",
+        "path": "./syntaxes/earthfile.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "earthbuild.restartLanguageServer",
+        "title": "Restart Language Server",
+        "category": "EarthBuild"
+      }
+    ],
+    "configuration": {
+      "title": "EarthBuild",
+      "properties": {
+        "earthbuild.lsp.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Absolute path to the `earth` binary. When empty, the first `earth` on the PATH that VS Code inherits is used."
+        },
+        "earthbuild.lsp.arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "lsp"
+          ],
+          "description": "Arguments used to start the language server."
+        },
+        "earthbuild.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Log the traffic between VS Code and the EarthBuild language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "package": "npm run typecheck && npm run lint && npm run compile && vsce package --no-dependencies --out earthbuild.vsix"
+  },
+  "dependencies": {
+    "vscode-languageclient": "9.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.17.0",
+    "@types/node": "22.10.2",
+    "@types/vscode": "1.90.0",
+    "@typescript-eslint/eslint-plugin": "8.18.1",
+    "@typescript-eslint/parser": "8.18.1",
+    "@vscode/vsce": "3.2.1",
+    "esbuild": "0.24.2",
+    "eslint": "9.17.0",
+    "typescript": "5.7.2"
+  }
+}

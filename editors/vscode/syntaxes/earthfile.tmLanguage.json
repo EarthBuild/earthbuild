@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Earthfile",
+  "scopeName": "source.earthfile",
+  "comment": "Deliberately shallow: this grammar marks document structure only, so that an unstarted language server still shows comments and target boundaries. Highlighting of arguments, options, variables and references comes from the semantic tokens that earth lsp publishes. Keep the keyword list in step with internal/earthfile; TestTextMateKeywordParity enforces it.",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#declaration" },
+    { "include": "#command" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "#.*$",
+      "name": "comment.line.number-sign.earthfile"
+    },
+    "declaration": {
+      "match": "^(?:(COMMAND|FUNCTION)[ \\t]+)?([a-z][a-zA-Z0-9.\\-]*|[A-Z][A-Z0-9._]*)(:)",
+      "captures": {
+        "1": { "name": "keyword.control.earthfile" },
+        "2": { "name": "entity.name.function.earthfile" },
+        "3": { "name": "punctuation.separator.key-value.earthfile" }
+      }
+    },
+    "command": {
+      "match": "^[ \\t]*(FROM[ \\t]+DOCKERFILE|SAVE[ \\t]+ARTIFACT|HEALTHCHECK|ENTRYPOINT|SAVE[ \\t]+IMAGE|STOPSIGNAL|GIT[ \\t]+CLONE|FUNCTION|COMMAND|ELSE[ \\t]+IF|FINALLY|LOCALLY|ONBUILD|PROJECT|VERSION|WORKDIR|DOCKER|EXPOSE|IMPORT|VOLUME|BUILD|CACHE|CATCH|LABEL|SHELL|COPY|ELSE|FROM|HOST|LOAD|USER|WAIT|WITH|ADD|ARG|CMD|END|ENV|FOR|LET|RUN|SET|TRY|DO|IF)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.earthfile" }
+      }
+    }
+  }
+}

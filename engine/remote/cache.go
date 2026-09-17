@@ -50,6 +50,15 @@ type Cache struct {
 	// sandbox.
 	Hold func() (release func())
 
+	// Elsewhere is asked for a blob this machine does not hold, and nil where
+	// there is nobody to ask.
+	//
+	// **A read-through and not a mirror.** A blob this store has is answered
+	// without consulting anybody: a worker holds most of what its steps ask
+	// for, and a hit that paid a round trip first would make the common case
+	// expensive to make the rare one cheap.
+	Elsewhere Elsewhere
+
 	// Prefix is the path the protocol lives under, if any. Bazel is happy with
 	// `--remote_cache=http://host:port/cache`, and then every path arrives
 	// under `/cache`.
@@ -106,9 +115,17 @@ func (c *Cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	b, err := c.Store.Node(digest)
 	if err != nil {
-		http.NotFound(w, r)
+		// **Not here, but perhaps somebody knows.** A worker's store is cold
+		// for everything the driver built, and the bytes it wants are already
+		// content-addressed and already reachable - what was missing was this
+		// machine being willing to say so on somebody else's behalf.
+		var found bool
 
-		return
+		if b, found = fromElsewhere(c.Elsewhere, digest); !found {
+			http.NotFound(w, r)
+
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/octet-stream")

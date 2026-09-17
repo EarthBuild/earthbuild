@@ -132,6 +132,7 @@ earthbuild-script-no-stdout:
 lint:
     FROM +go
     BUILD +tree-sitter-parity
+    BUILD +vscode-extension
     RUN apk add --no-cache curl
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
     LET golangci_lint_version=2.13.2
@@ -168,6 +169,27 @@ tree-sitter-parity:
     RUN --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         EARTH_TREE_SITTER=/usr/local/bin/tree-sitter go test ./internal/earthfile -run '^TestTreeSitterParity$'
+
+# vscode-extension type checks, lints, bundles, and packages the VS Code
+# adapter, so a broken manifest fails here rather than when someone packages
+# it by hand.
+vscode-extension:
+    FROM node:22.12.0-bookworm-slim
+    WORKDIR /earthly/editors/vscode
+    COPY editors/vscode/package.json editors/vscode/package-lock.json ./
+    RUN --mount type=cache,target=/root/.npm,sharing=shared,id=npm npm ci
+    COPY editors/vscode/tsconfig.json editors/vscode/esbuild.mjs editors/vscode/eslint.config.mjs ./
+    COPY editors/vscode/.vscodeignore editors/vscode/README.md ./
+    COPY editors/vscode/language-configuration.json ./
+    COPY --dir editors/vscode/src editors/vscode/syntaxes ./
+    # The vsix is distributed on its own, so it carries the repository license
+    # rather than relying on the surrounding checkout.
+    COPY LICENSE ./
+    RUN npm run typecheck
+    RUN npm run lint
+    RUN npm run compile
+    RUN npx vsce package --no-dependencies --out earthbuild.vsix
+    SAVE ARTIFACT earthbuild.vsix
 
 fmt:
   BUILD +fmt-go

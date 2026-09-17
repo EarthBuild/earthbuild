@@ -399,3 +399,61 @@ func pathURI(path string) lsp.DocumentURI {
 
 	return lsp.DocumentURI((&url.URL{Scheme: "file", Path: filepath.ToSlash(path)}).String())
 }
+
+// Completion offers command keywords, target and function references, and
+// command options at the cursor.
+func (h *Handler) Completion(
+	_ context.Context,
+	params *lsp.CompletionParams,
+) (*lsp.CompletionList, error) {
+	doc, source, path, offset, err := h.documentAt(params.TextDocument.URI, params.Position)
+	if err != nil || doc == nil {
+		return &lsp.CompletionList{Items: []lsp.CompletionItem{}}, err
+	}
+
+	candidates := analyzer.Analyze(path, source).Completions(offset, h)
+
+	items := make([]lsp.CompletionItem, 0, len(candidates))
+
+	for _, candidate := range candidates {
+		rng, rangeErr := protocolRange(source, candidate.Replace)
+		if rangeErr != nil {
+			return nil, rangeErr
+		}
+
+		kind := completionItemKind(candidate.Kind)
+
+		item := lsp.CompletionItem{
+			Label:  candidate.Label,
+			Detail: candidate.Detail,
+			Kind:   &kind,
+			TextEdit: lsp.NewCompletionTextEdit(lsp.TextEdit{
+				Range:   rng,
+				NewText: candidate.Insert,
+			}),
+		}
+
+		if candidate.Docs != "" {
+			item.Documentation = &lsp.MarkupContent{Kind: lsp.Markdown, Value: candidate.Docs}
+		}
+
+		items = append(items, item)
+	}
+
+	return &lsp.CompletionList{Items: items}, nil
+}
+
+func completionItemKind(kind analyzer.CompletionItemKind) lsp.CompletionItemKind {
+	switch kind {
+	case analyzer.ItemKeyword:
+		return lsp.CompletionItemKindKeyword
+	case analyzer.ItemTarget:
+		return lsp.CompletionItemKindFunction
+	case analyzer.ItemFunction:
+		return lsp.CompletionItemKindMethod
+	case analyzer.ItemFlag:
+		return lsp.CompletionItemKindProperty
+	}
+
+	return lsp.CompletionItemKindText
+}

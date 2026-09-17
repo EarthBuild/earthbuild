@@ -179,3 +179,128 @@ func decodedSemanticTokenTexts(text string, data []int) []string {
 
 	return values
 }
+
+func completionLabels(list *lsp.CompletionList) []string {
+	labels := make([]string, 0, len(list.Items))
+	for _, item := range list.Items {
+		labels = append(labels, item.Label)
+	}
+
+	return labels
+}
+
+func TestCompletionAdvertisesTriggerCharacters(t *testing.T) {
+	t.Parallel()
+
+	harness := servertest.New(t, NewHandler("test"), servertest.WithServerOptions(
+		server.WithCompletionOptions(completionOptions()),
+	))
+	require.NotNil(t, harness.InitResult.Capabilities.CompletionProvider)
+	require.Equal(t, completionTriggerCharacters,
+		harness.InitResult.Capabilities.CompletionProvider.TriggerCharacters)
+}
+
+func TestCompletionOffersCommandKeywords(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "Earthfile")
+	uri := pathURI(path)
+	text := "VERSION 0.8\n\nbuild:\n    RU\n"
+
+	harness := servertest.New(t, NewHandler("test"))
+	require.NoError(t, harness.DidOpen(uri, "earth", text))
+
+	list, err := harness.Completion(uri, 3, 6)
+	require.NoError(t, err)
+	require.NotNil(t, list)
+	require.Equal(t, []string{"RUN"}, completionLabels(list))
+
+	item := list.Items[0]
+	require.NotNil(t, item.Kind)
+	require.Equal(t, lsp.CompletionItemKindKeyword, *item.Kind)
+	require.NotNil(t, item.TextEdit)
+	require.NotNil(t, item.TextEdit.TextEdit)
+	require.Equal(t, "RUN", item.TextEdit.TextEdit.NewText)
+	require.Equal(t, lsp.Range{
+		Start: lsp.Position{Line: 3, Character: 4},
+		End:   lsp.Position{Line: 3, Character: 6},
+	}, item.TextEdit.TextEdit.Range, "the edit must replace the typed prefix")
+}
+
+func TestCompletionOffersTargetsFromAnUnsavedImport(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	rootPath := filepath.Join(tempDir, "Earthfile")
+	libPath := filepath.Join(tempDir, "lib", "Earthfile")
+	rootURI := pathURI(rootPath)
+	rootText := "VERSION 0.8\nIMPORT ./lib AS shared\napp:\n    BUILD shared+\n"
+	libText := "VERSION 0.8\n# compile produces the binary.\ncompile:\n    RUN true\n"
+
+	harness := servertest.New(t, NewHandler("test"))
+	require.NoError(t, harness.DidOpen(pathURI(libPath), "earth", libText))
+	require.NoError(t, harness.DidOpen(rootURI, "earth", rootText))
+
+	list, err := harness.Completion(rootURI, 3, 17)
+	require.NoError(t, err)
+	require.Equal(t, []string{"compile"}, completionLabels(list))
+
+	item := list.Items[0]
+	require.NotNil(t, item.Documentation)
+	require.Contains(t, item.Documentation.Value, "compile produces the binary.")
+	require.Equal(t, lsp.CompletionItemKindFunction, *item.Kind)
+}
+
+func TestCompletionOffersCommandFlags(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "Earthfile")
+	uri := pathURI(path)
+	text := "VERSION 0.8\n\nbuild:\n    RUN --pu\n"
+
+	harness := servertest.New(t, NewHandler("test"))
+	require.NoError(t, harness.DidOpen(uri, "earth", text))
+
+	list, err := harness.Completion(uri, 3, 12)
+	require.NoError(t, err)
+	require.Equal(t, []string{"--push"}, completionLabels(list))
+	require.Equal(t, "--push", list.Items[0].TextEdit.TextEdit.NewText)
+	require.Equal(t, lsp.Range{
+		Start: lsp.Position{Line: 3, Character: 8},
+		End:   lsp.Position{Line: 3, Character: 12},
+	}, list.Items[0].TextEdit.TextEdit.Range, "the edit must replace the dashes too")
+}
+
+func TestCompletionOnAnInvalidBufferStillAnswers(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "Earthfile")
+	uri := pathURI(path)
+	// NOPE is not a command, so the canonical parser rejects this buffer.
+	text := "VERSION 0.8\n\ndeps:\n    NOPE\n\nall:\n    BUILD +\n"
+
+	harness := servertest.New(t, NewHandler("test"))
+	require.NoError(t, harness.DidOpen(uri, "earth", text))
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+
+	diagnostics, err := harness.WaitForDiagnostics(ctx, uri)
+	require.NoError(t, err)
+	require.NotEmpty(t, diagnostics, "the buffer is invalid")
+
+	list, err := harness.Completion(uri, 6, 11)
+	require.NoError(t, err)
+	require.Equal(t, []string{"deps"}, completionLabels(list))
+}
+
+func TestCompletionOutsideAnOpenDocumentIsEmpty(t *testing.T) {
+	t.Parallel()
+
+	harness := servertest.New(t, NewHandler("test"))
+
+	list, err := harness.Completion(pathURI(filepath.Join(t.TempDir(), "Earthfile")), 0, 0)
+	require.NoError(t, err)
+	require.NotNil(t, list)
+	require.Empty(t, list.Items)
+}

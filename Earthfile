@@ -151,7 +151,7 @@ lint:
 fmt:
   BUILD +fmt-go
 
-# format-go formats Go code using gofumpt. Run: earthly +fmt-go
+# fmt-go formats Go code using gofumpt.
 fmt-go:
     LOCALLY
     RUN gofumpt -w .
@@ -352,9 +352,6 @@ earthly:
         printf ' -X main.DefaultInstallationName='"$DEFAULT_INSTALLATION_NAME" >> ./build/ldflags && \
         printf ' '"$GO_EXTRA_LDFLAGS" >> ./build/ldflags && \
         echo "$(cat ./build/ldflags)"
-    # Important! If you change the go build options, you may need to also change them
-    # in https://github.com/earthly/homebrew-earthly/blob/main/Formula/earthly.rb
-    # as well as https://github.com/Homebrew/homebrew-core/blob/master/Formula/earthly.rb
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
@@ -796,7 +793,7 @@ test-no-qemu:
     BUILD --pass-args +test-no-qemu-group12
     BUILD --pass-args +test-no-qemu-slow
 
-# test-misc runs misc (non earthly-in-earthly) tests
+# test-misc runs misc (non earth-in-earth) tests
 test-misc:
     BUILD +test-ast
     BUILD +earthbuild-script-no-stdout

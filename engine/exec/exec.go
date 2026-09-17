@@ -105,6 +105,25 @@ type Executor struct {
 	// directory when empty, which is wrong on a machine whose /tmp is a
 	// different filesystem from the store - the same argument as E263's.
 	Scratch string
+	// Mounts is where the guest keeps cache mounts, or empty where nothing is
+	// collecting them. `<Mounts>/<id>/<scope>` is one cache's contents.
+	//
+	// Given rather than derived, because only the caller knows: the guest
+	// prefers a block device where it has one, and a host guessing at that
+	// reads an empty directory and reports an empty cache.
+	Mounts string
+	// Domain is the trust domain this build's caches are scoped to, and it must
+	// be the one the mount was scoped with or this reads a directory the step
+	// never wrote.
+	Domain string
+	// Share, if set, is offered each portable cache mount after a step, with
+	// the directory its contents are in.
+	//
+	// **The executor does not learn what a fleet is.** It knows where a cache
+	// mount lives and which the author offered; a helper, a blob store, a map
+	// and a peer belong to whoever set this - exactly as they do for Prime and
+	// Fetch above.
+	Share func(ctx context.Context, m ir.Mount, dir string) error
 	// ImageCache is where pulled images are kept, when they should not live
 	// with the layers.
 	//
@@ -727,6 +746,11 @@ func (e *Executor) Run(
 
 	endAfter := phase("exec:after", n.Meta.Source)
 	defer endAfter()
+
+	// **After the step and after its capture**, because a cache mount is
+	// whatever the step left in it, and because a step that failed to capture
+	// has no result worth sharing a cache for.
+	e.shareCaches(ctx, n)
 
 	if err != nil {
 		// A guest that stopped mid-build says why on its console, exactly as

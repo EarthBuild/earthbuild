@@ -2308,3 +2308,58 @@ nothing wires a worker to share or stock yet. `cmd/earth-worker` builds its
 executor through `exec.New` rather than through the CLI's `sandboxed`, so
 `Mounts`, `Stock` and `Share` are all nil there. That is the next piece, and the
 pin is its precondition rather than its substitute.
+
+## E-F21: the worker was never wired to share, and the control says why it still cannot
+
+`Share` and `Stock` are set in `engine/cli`'s `sandboxed`. `cmd/earth-worker`
+builds its executor through `exec.New` and never goes near that function, so
+**every worker in every fleet had `Mounts`, `Stock` and `Share` nil**: handed a
+step with a portable cache mount, it made an empty directory, ran the step, and
+discarded the only thing that would have made the delegation pay.
+
+So the machinery moved to `engine/cacheshare`, where both ends can reach it, and
+the worker sets both halves. A four-step fleet on the Linux box, driver and
+worker with separate stores:
+
+```text
+driver   3 delegated, 2 local
+driver   cache npmfleet1: 2 units shared   cache npmfleet3: 2 units shared
+worker   cache npmfleet2: 2 units shared   cache npmfleet4: 2 units shared
+```
+
+Two caches shared by a machine that had never shared one.
+
+### And the control says it passed for the wrong reason
+
+The worker ran from the directory the Earthfile lives in, which holds
+`cachehelper.wasm`. `--helper ./cachehelper.wasm` resolved against the worker's
+own working directory and found it - the path fallback, not the pin. Re-run from
+a directory with the worker binary and nothing else:
+
+```text
+cache npmfleet2: not shared: read the helper ./cachehelper.wasm:
+  open cachehelper.wasm: no such file or directory
+```
+
+Which is the real state: **a worker attempts to share and cannot**, because the
+pinned module is in the driver's store and nothing moves it.
+
+```text
+find worker-store -size ~4MiB  ->  (nothing)
+find driver-store -size ~4MiB  ->  driver-store/a9/a9be6410…
+```
+
+Two results in one run, and the second is the one worth having. Without the
+control this would have been written up as working, on evidence that was
+entirely a coincidence of `cd`.
+
+### What it names as next
+
+A worker needs blobs its store lacks - the helper module first, the cache's units
+after it. That is `remote.Cache.Elsewhere`'s shape applied one layer over: a
+read-through from `cacheshare`'s store to the fleet, verified by digest on
+arrival because 𝔅's rule is that a wrong answer is a miss. The transport exists
+(`earth/blob/1`, `fleet.Nodes`); nothing connects it to this store yet.
+
+The failure now says both halves, because on a worker the path is the route that
+was never going to work and the pin is the one that should have.

@@ -28,9 +28,11 @@ import (
 	"github.com/tmc/go-iroh/key"
 	"github.com/tmc/go-iroh/netaddr"
 
+	"github.com/EarthBuild/earthbuild/engine/cacheshare"
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/fleet"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
@@ -201,6 +203,26 @@ func run() error {
 	}
 
 	x.Scratch = sb.StoreDir()
+
+	// **A worker shares its caches, which is the whole point of delegating a
+	// step that has one.** Without this a worker handed a step with a portable
+	// cache mount made an empty directory, ran the step against it, and threw
+	// away the only thing that would have made the delegation pay - recompiling
+	// on every machine what one of them had already compiled.
+	//
+	// Both halves, and in that order per step: stock before, offer after. A
+	// worker that only imported would be a leaf that never repays the fleet,
+	// and one that only exported would be doing a great deal of hashing in aid
+	// of nothing.
+	//
+	// **No build directory, because a worker has no Earthfile.** An unpinned
+	// `--helper ./go.wasm` names a file on the machine that read the Earthfile
+	// and nothing here, so a helper arrives pinned - fetched from 𝔅 by the
+	// digest the driver keyed the step under - or it does not arrive, and the
+	// cache does not cross. Which is a slower build and never a wrong one.
+	x.Mounts = guest.MountStore(sb.StoreDir())
+	sharing := cacheshare.New(sb.StoreDir(), "", os.Stderr)
+	x.Stock, x.Share = sharing.Stock, sharing.Offer
 
 	// **And be told no.** A backend that cannot fault in leaves the base
 	// materialised whole, which is slower and correct - so the worker asks

@@ -1,4 +1,14 @@
-package cli
+// Package cacheshare files a portable cache mount's units where another machine
+// can have them, and fills one from what this machine already holds.
+//
+// **One copy, because both ends of a fleet do both halves.** A driver that only
+// exported and a worker that only imported would be two mechanisms sharing a
+// name, and the interesting builds are the ones where a machine does both - a
+// worker stocks from what some earlier step produced and offers what this one
+// did. This lived in `engine/cli` while only a local build used it;
+// `cmd/earth-worker` builds its executor through `exec.New` rather than through
+// the CLI, so keeping it there meant a worker could not share at all.
+package cacheshare
 
 import (
 	"bytes"
@@ -16,15 +26,15 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
 
-// shares files a portable cache mount's units so that another machine can have
-// them.
+// Sharing files a portable cache mount's units so that another machine can have
+// them, and fills one from what this machine already holds.
 //
 // **Everything expensive is per build, not per step.** A helper is compiled once
 // - about a hundred milliseconds for a four-megabyte module - and instantiated
 // per verb in under a millisecond, which is what makes a verb-per-invocation
 // contract affordable. A build touching one cache in forty steps compiles
 // nothing after the first.
-type shares struct {
+type Sharing struct {
 	root string
 	out  io.Writer
 	dir  string
@@ -35,17 +45,19 @@ type shares struct {
 	sink *blob.Store
 }
 
-// shareCache is the hook the executor offers each portable cache mount to.
+// New is what the executor offers each portable cache mount to.
 //
-// Nil where nothing can collect them - no store to file units in - because the
-// executor treats a nil hook as "this machine is not sharing", which is what
-// every build did before any of this.
-func (g *engine) shareCache(storeDir string) *shares {
-	return &shares{root: storeDir, out: g.o.Out, dir: g.o.Dir, by: map[string]*helper.Helper{}}
+// `root` is the store, where units, maps and compiled helpers all live. `dir`
+// is the build's directory, against which an unpinned `--helper` path is
+// resolved - **empty on a worker**, which has no Earthfile and no such path, so
+// a helper there arrives pinned or not at all. `out` is where a cache that did
+// not cross says so, and may be nil.
+func New(root, dir string, out io.Writer) *Sharing {
+	return &Sharing{root: root, out: out, dir: dir, by: map[string]*helper.Helper{}}
 }
 
-// offer files one cache mount's units.
-func (s *shares) offer(ctx context.Context, m ir.Mount, dir string) error {
+// Offer files one cache mount's units.
+func (s *Sharing) Offer(ctx context.Context, m ir.Mount, dir string) error {
 	// A cache the step never wrote is not an empty cache, it is no cache: the
 	// directory is made when a step binds one, so its absence means this mount
 	// was never used here.
@@ -100,7 +112,7 @@ func (s *shares) offer(ctx context.Context, m ir.Mount, dir string) error {
 // fails *silently* is a machine that looks as though it is sharing and is not.
 // This is the difference between a slower fleet somebody can diagnose and one
 // nobody can.
-func (s *shares) say(m ir.Mount, err error) error {
+func (s *Sharing) say(m ir.Mount, err error) error {
 	if s.out != nil {
 		fmt.Fprintf(s.out, "cache %s: not shared: %v\n", m.ID, err)
 	}
@@ -114,7 +126,7 @@ func (s *shares) say(m ir.Mount, err error) error {
 // every machine, so a memo under it is a memo two mounts spelling one helper
 // differently still share - and, more to the point, it is the key a worker can
 // use, which a path is not.
-func (s *shares) helperFor(ctx context.Context, m ir.Mount) (*helper.Helper, error) {
+func (s *Sharing) helperFor(ctx context.Context, m ir.Mount) (*helper.Helper, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -163,8 +175,12 @@ func (s *shares) helperFor(ctx context.Context, m ir.Mount) (*helper.Helper, err
 //
 // An unpinned mount falls back to the path, which is what every build did before
 // the pin existed and is what a plan built without a resolver still does.
-func (s *shares) moduleFor(m ir.Mount) ([]byte, error) {
+func (s *Sharing) moduleFor(m ir.Mount) ([]byte, error) {
+	var missed string
+
 	if m.HelperID != "" {
+		missed = m.HelperID
+
 		id, err := ir.ParseNodeID(m.HelperID)
 		if err == nil {
 			sink, storeErr := s.blobs()
@@ -180,7 +196,7 @@ func (s *shares) moduleFor(m ir.Mount) ([]byte, error) {
 
 	if m.Helper == "" {
 		return nil, fmt.Errorf("the helper pinned as %s is not in this store and"+
-			" this machine has no path for it", m.HelperID)
+			" this machine has no path for it", missed)
 	}
 
 	path := m.Helper
@@ -190,13 +206,25 @@ func (s *shares) moduleFor(m ir.Mount) ([]byte, error) {
 
 	module, err := os.ReadFile(path) //nolint:gosec // a path the Earthfile named
 	if err != nil {
+		// **Both halves of what was tried**, because on a worker the second is
+		// the one that was never going to work and the first is the one that
+		// should have. Reporting only the path sends a reader looking for a
+		// file on a machine that has no Earthfile, when what actually happened
+		// is that a pinned module has not reached this store.
+		if missed != "" {
+			return nil, fmt.Errorf("the helper pinned as %s is not in this store,"+
+				" and %s is not here either: %w"+
+				"\n  a machine that did not read the Earthfile has no such path,"+
+				" so the pinned module has to reach it", missed, m.Helper, err)
+		}
+
 		return nil, fmt.Errorf("read the helper %s: %w", m.Helper, err)
 	}
 
 	return module, nil
 }
 
-func (s *shares) store() (*blob.Store, error) {
+func (s *Sharing) store() (*blob.Store, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -204,7 +232,7 @@ func (s *shares) store() (*blob.Store, error) {
 }
 
 // blobs is store without the lock, for callers that already hold it.
-func (s *shares) blobs() (*blob.Store, error) {
+func (s *Sharing) blobs() (*blob.Store, error) {
 	if s.sink != nil {
 		return s.sink, nil
 	}
@@ -243,15 +271,15 @@ func encodeMap(m helper.Map) []byte {
 	return []byte(b.String())
 }
 
-// stock fills a cache mount from what this machine has already filed.
+// Stock fills a cache mount from what this machine has already filed.
 //
-// **The other half of offer, and the half a fleet needs.** A worker that exports
+// **The other half of Offer, and the half a fleet needs.** A worker that exports
 // and never imports is a great deal of hashing in aid of nothing.
 //
 // A cache nothing has filled here has no directory, which is the case worth
 // stocking - so this makes one rather than treating its absence as nothing to
 // do.
-func (s *shares) stock(ctx context.Context, m ir.Mount, dir string) error {
+func (s *Sharing) Stock(ctx context.Context, m ir.Mount, dir string) error {
 	at, ok := s.mapOf(m, dir)
 	if !ok {
 		return nil
@@ -323,7 +351,7 @@ func (s *shares) stock(ctx context.Context, m ir.Mount, dir string) error {
 // does not hash to the name it is filed under - which is the property that makes
 // the store impossible to poison. So a mutable pointer lives in a plain file
 // beside the store, where nothing claims that invariant for it.
-func (s *shares) mapOf(m ir.Mount, dir string) (ir.NodeID, bool) {
+func (s *Sharing) mapOf(m ir.Mount, dir string) (ir.NodeID, bool) {
 	b, err := os.ReadFile(s.pointer(m, dir)) //nolint:gosec // a path this engine wrote
 	if err != nil {
 		return ir.NodeID{}, false
@@ -338,7 +366,7 @@ func (s *shares) mapOf(m ir.Mount, dir string) (ir.NodeID, bool) {
 }
 
 // note records which map describes a cache as this machine last filed it.
-func (s *shares) note(m ir.Mount, dir string, id ir.NodeID) error {
+func (s *Sharing) note(m ir.Mount, dir string, id ir.NodeID) error {
 	at := s.pointer(m, dir)
 
 	if err := os.MkdirAll(filepath.Dir(at), 0o750); err != nil {
@@ -353,7 +381,7 @@ func (s *shares) note(m ir.Mount, dir string, id ir.NodeID) error {
 // Keyed by the same scope the directory is, so a claim or a trust domain that
 // separates two caches separates their maps too - otherwise a fork's map would
 // name the units a protected branch should be stocking from.
-func (s *shares) pointer(m ir.Mount, dir string) string {
+func (s *Sharing) pointer(m ir.Mount, dir string) string {
 	return filepath.Join(s.root, "cachemaps", m.ID, filepath.Base(dir))
 }
 

@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/engine/cache"
+	"github.com/EarthBuild/earthbuild/engine/cacheshare"
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/fleet"
@@ -364,8 +365,8 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		// which the host reads an empty directory and reports an empty cache,
 		// with nothing failing anywhere.
 		e.Mounts = guest.MountStore(sb.StoreDir())
-		sharing := g.shareCache(sb.StoreDir())
-		e.Stock, e.Share = sharing.stock, sharing.offer
+		sharing := cacheshare.New(sb.StoreDir(), g.o.Dir, g.o.Out)
+		e.Stock, e.Share = sharing.Stock, sharing.Offer
 
 		ac, err := g.actionCache(sb.StoreDir())
 		if err != nil {

@@ -34,6 +34,11 @@ type goBuild struct{}
 
 func (goBuild) ident() string { return "earthbuild/go-build/1" }
 
+// An action id is a hash of the step's inputs, so the output filed under one
+// never changes: Go writes a new id rather than a new body. Which makes an
+// export narrowable to the ids this machine has not filed yet.
+func (goBuild) unitsAreImmutable() {}
+
 func (goBuild) probe(root string) error {
 	// `trim.txt` is the collector's bookkeeping and the one file every populated
 	// build cache has. Its absence is how this tells a build cache from any
@@ -134,6 +139,11 @@ type goMod struct{}
 
 func (goMod) ident() string { return "earthbuild/go-mod/1" }
 
+// A module cache entry is keyed by module and version, and the proxy protocol
+// makes that immutable - a republished version is a different version or a
+// checksum mismatch, never the same key with new bytes.
+func (goMod) unitsAreImmutable() {}
+
 func (goMod) probe(root string) error {
 	at := filepath.Join(root, "cache", "download")
 	if fi, err := os.Lstat(at); err != nil || !fi.IsDir() {
@@ -233,6 +243,12 @@ func sharableModulePath(slash string) bool {
 type npmCacache struct{}
 
 func (npmCacache) ident() string { return "earthbuild/npm-cacache/1" }
+
+// **No `unitsAreImmutable`, and that is the interesting case.** An index-v5
+// bucket is append-only and holds several records, so a key this machine has
+// already filed can have gained one since - a key set that compares equal is
+// still a cache that has changed. Narrowing an export by key would file a map
+// naming last build's bytes for a unit that has grown.
 
 func (npmCacache) probe(root string) error {
 	for _, want := range []string{"index-v5", "content-v2"} {
@@ -552,6 +568,11 @@ func copyTree(from, to string, want func(rel string) bool) error {
 type cargoRegistry struct{}
 
 func (cargoRegistry) ident() string { return "earthbuild/cargo-registry/1" }
+
+// A `.crate` file is a published artefact at a version, and crates.io does not
+// let one be replaced. The registry index beside it does change, which is why
+// only `registry/cache` is shared.
+func (cargoRegistry) unitsAreImmutable() {}
 
 // cargoCacheIn finds the crate directory, wherever the author mounted.
 //

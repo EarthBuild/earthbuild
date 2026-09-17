@@ -52,6 +52,9 @@ type Sharing struct {
 	// this engine's own writers out of one cache at a time.
 	dmu   sync.Mutex
 	inUse map[string]*sync.Mutex
+	// have is what this process knows is already filed per cache directory, so
+	// an export can be narrowed to what is not. See filed.
+	have map[string]helper.Map
 
 	smu  sync.Mutex
 	sink *blob.Store
@@ -276,9 +279,34 @@ func (s *Sharing) Offer(ctx context.Context, m ir.Mount, dir, withheld string) e
 		return s.say(m, err)
 	}
 
-	units, err := helper.Export(ctx, h, dir, sink)
+	index, err := helper.Index(ctx, h, dir)
 	if err != nil {
 		return s.say(m, err)
+	}
+
+	// **Only what is not already filed, where the helper permits it.** An
+	// export otherwise reads and frames every unit in the mount to learn what
+	// the last map already records: a warm 88,000-unit cache re-read because a
+	// step touched a hundred of it. The units dedupe in 𝔅, being the same bytes
+	// under the same names, so the cost is work rather than space - which is the
+	// kind of waste that never announces itself.
+	//
+	// The permission has to come from the helper, and `helper.Needed` says why:
+	// an npm bucket is append-only, so a key present in both indexes may have
+	// gained a record and a key set that compares equal is a cache that has
+	// changed.
+	immutable := helper.Claims(helper.Props(ctx, h, dir), helper.PropImmutableUnits)
+
+	want, keep := helper.Needed(s.filed(ctx, m, dir, immutable), index, immutable)
+
+	fresh, err := helper.ExportKeys(ctx, h, dir, sink, want)
+	if err != nil {
+		return s.say(m, err)
+	}
+
+	units := keep
+	for k, id := range fresh {
+		units[k] = id
 	}
 
 	if len(units) == 0 {
@@ -295,15 +323,118 @@ func (s *Sharing) Offer(ctx context.Context, m ir.Mount, dir, withheld string) e
 		return s.say(m, err)
 	}
 
+	// **A share with nothing to add says nothing.** A build of forty steps over
+	// one cache would otherwise print forty identical lines, which trains the
+	// reader to skip the one that differs. Detected rather than guessed: the map
+	// is content-addressed, so an unchanged digest is an unchanged cache.
+	was, had := s.pointerMap(m, dir)
+	quiet := had && was == id
+
 	if err := s.note(m, dir, id); err != nil {
 		return s.say(m, err)
 	}
 
+	s.remember(dir, units)
+
+	if quiet {
+		return nil
+	}
+
 	if s.out != nil {
-		fmt.Fprintf(s.out, "cache %s: %d units shared, map %s\n", m.ID, len(units), id)
+		// Both numbers, because they answer different questions. The first is
+		// what a peer can have; the second is what this step cost to file, and
+		// a warm cache where they diverge is the whole point of the narrowing.
+		if len(fresh) != len(units) {
+			fmt.Fprintf(s.out, "cache %s: %d units shared (%d new), map %s\n",
+				m.ID, len(units), len(fresh), id)
+		} else {
+			fmt.Fprintf(s.out, "cache %s: %d units shared, map %s\n", m.ID, len(units), id)
+		}
 	}
 
 	return nil
+}
+
+// filed is what this machine already has blobs for in this cache directory.
+//
+// **Memory first, then the pointer.** What this process has filed or stocked is
+// the better answer, because after a stock the pointer is short of every unit
+// that just arrived - which is exactly the case this narrowing exists for. But a
+// build is a fresh process, so without the second source nothing carries across
+// invocations and a driver re-exports its whole cache on every run.
+//
+// **Only where units are immutable**, which is the same condition `Needed` uses
+// the result under. The pointer names a digest per key, and trusting it means
+// asserting the unit under that key still has those bytes - true by the helper's
+// claim, and not otherwise. Where the claim is absent this is not read at all,
+// which also keeps a map nobody will use off the disk queue.
+func (s *Sharing) filed(ctx context.Context, m ir.Mount, dir string, immutable bool) helper.Map {
+	if !immutable {
+		return nil
+	}
+
+	s.dmu.Lock()
+	held := s.have[dir]
+	s.dmu.Unlock()
+
+	if len(held) > 0 {
+		return held
+	}
+
+	at, ok := s.pointerMap(m, dir)
+	if !ok {
+		return nil
+	}
+
+	b, err := s.fetch(ctx, at)
+	if err != nil {
+		return nil //nolint:nilerr // a map we cannot read is a full export
+	}
+
+	return decodeMap(b)
+}
+
+// pointerMap is the map this machine last filed for a cache, ignoring hints.
+//
+// `mapOf` prefers what the driver said, which is right for stocking and wrong
+// here: the question is what *this* store already has blobs for, and another
+// machine's map answers a different one.
+func (s *Sharing) pointerMap(m ir.Mount, dir string) (ir.NodeID, bool) {
+	b, err := os.ReadFile(s.pointer(m, dir)) //nolint:gosec // a path this engine wrote
+	if err != nil {
+		return ir.NodeID{}, false
+	}
+
+	id, err := ir.ParseNodeID(strings.TrimSpace(string(b)))
+	if err != nil {
+		return ir.NodeID{}, false
+	}
+
+	return id, true
+}
+
+// remember adds what is now known to be filed for this directory.
+func (s *Sharing) remember(dir string, m helper.Map) {
+	if len(m) == 0 {
+		return
+	}
+
+	s.dmu.Lock()
+	defer s.dmu.Unlock()
+
+	if s.have == nil {
+		s.have = map[string]helper.Map{}
+	}
+
+	held := s.have[dir]
+	if held == nil {
+		held = helper.Map{}
+		s.have[dir] = held
+	}
+
+	for k, id := range m {
+		held[k] = id
+	}
 }
 
 // say reports a cache that did not cross, and returns the error unchanged.
@@ -534,6 +665,9 @@ func (s *Sharing) Stock(ctx context.Context, m ir.Mount, dir string) error {
 	if err := helper.Import(ctx, h, dir, s.units(ctx), all, want); err != nil {
 		return s.say(m, err)
 	}
+
+	// What arrived is filed, so the export after this step does not re-file it.
+	s.remember(dir, all)
 
 	if s.out != nil {
 		fmt.Fprintf(s.out, "cache %s: %d units stocked\n", m.ID, len(want))

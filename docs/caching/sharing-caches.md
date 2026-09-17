@@ -162,6 +162,67 @@ the wrong direction for a mistake to point.
 If your tool derives anything from an entry's timestamp rather than from its
 contents, say so in its helper's `import` rather than relying on the file's own.
 
+## Telling EarthBuild a unit never changes
+
+A helper may answer a `props` verb with one property per line. One is understood:
+
+```text
+units-immutable
+```
+
+It means a key's unit never changes content - a new fact gets a new key, never
+new bytes under an old one. True of a Go build cache (an action id is a hash of
+the step's inputs), a Go module cache and a cargo `.crate` file; **false of npm**,
+whose index buckets are append-only, so a key already present can have gained a
+record since.
+
+Where it holds, EarthBuild exports only the units its last map did not name. On a
+warm cache that is the difference between framing four units and framing two
+hundred and forty-five, and it grows with the cache.
+
+A helper that does not implement `props` claims nothing and everything is
+exported, which is the conservative reading and what every helper did before the
+verb existed. **Do not claim it to go faster.** A cache whose units can change
+under a stable key will share last build's bytes, and the symptom appears on
+another machine.
+
+## What a helper's `import` must promise
+
+Two things, and only the helper can promise either - they are facts about the
+cache's format, which is the whole reason a helper exists.
+
+**A unit becomes visible whole or not at all.** Stage beside the destination and
+rename. "Write it if it is absent, skip it if it is present" is the wrong rule:
+it turns an interrupted import into permanent corruption, because the
+half-written file is exactly what the skip preserves.
+
+**It may run while the tools that own the cache are reading.** EarthBuild
+serialises its own importers, one per cache directory, and cannot do more than
+that - `--sharing=shared` is you saying several steps may use the directory at
+once and the tools inside cope, which is a statement about *npm's* locking and
+*cargo's*. An importer is not one of those tools.
+
+## A step that holds a secret shares no cache
+
+`RUN --secret` or `--aws` on a step means none of its cache mounts cross, whatever
+`--portable-except` says. The build prints the reason and carries on.
+
+This is coarser than it could be and deliberately so. EarthBuild scans a step's
+*output* for a secret's bytes, and a cache mount is not the output - it has never
+been scanned, because until now its contents could not leave the machine. The
+scan cannot simply be pointed at the mount either: it needs the secret's value,
+which is staged beside the step and never reaches the part of the engine that
+shares caches, and moving it there to do the scan would put credentials somewhere
+they currently never go.
+
+So the rule is mechanical rather than clever, and that is its advantage: it holds
+for a secret the step base64'd into a config file or compiled into a binary,
+which no scan of raw bytes would catch.
+
+**If you want that cache shared, put the credential in its own step.** A
+`RUN --secret` that fetches, then a plain `RUN` that builds, is two steps and only
+the first is withheld.
+
 ## Untrusted builds: `EARTH_TRUST_DOMAIN`
 
 A cache mount's directory is named by its `--id`, and that name is one namespace for every build a machine has ever run. On a shared worker that means a pull request from a fork writes into the same directory a protected-branch build reads - and signing does not help, because the attacker is a legitimate writer.

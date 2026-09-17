@@ -60,6 +60,18 @@ func Export(ctx context.Context, h *Helper, cacheDir string, into Keeper) (Map, 
 		return nil, err
 	}
 
+	return ExportKeys(ctx, h, cacheDir, into, keys)
+}
+
+// ExportKeys files only the units named, and is what an incremental export uses.
+//
+// Separate from [Export] because the caller that can narrow the set is the one
+// holding the last map, and this package has no memory between builds. See
+// [Needed] for which keys those are and why the narrowing needs the helper's
+// permission.
+func ExportKeys(
+	ctx context.Context, h *Helper, cacheDir string, into Keeper, keys []string,
+) (Map, error) {
 	if len(keys) == 0 {
 		return Map{}, nil
 	}
@@ -78,7 +90,7 @@ func Export(ctx context.Context, h *Helper, cacheDir string, into Keeper) (Map, 
 
 	defer func() { _ = pr.Close() }()
 
-	err = eachUnit(pr, func(key string, body []byte) error {
+	err := eachUnit(pr, func(key string, body []byte) error {
 		id, _, err := into.Put(bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("file unit %s: %w", key, err)
@@ -104,6 +116,23 @@ func Export(ctx context.Context, h *Helper, cacheDir string, into Keeper) (Map, 
 // A key the store cannot answer for is skipped rather than fatal: a map may name
 // a blob this machine never fetched, and a cache short of one unit is a cache,
 // where a failed step is a failed build (I11).
+//
+// **Two obligations on the helper, and only it can meet them.**
+//
+// A unit becomes visible **whole or not at all**. An interrupted import must
+// leave a cache no worse than it found it, and "never overwrite" is the wrong
+// rule for that - extract-and-skip-if-present turns a truncated fetch into
+// permanent corruption that nothing later repairs, because the half-written file
+// is exactly what a skip preserves. Stage beside the destination and rename,
+// which is what `engine/fleet/fragments.go` does one directory over.
+//
+// And an import runs **while the tools that own this cache may be reading it**.
+// `--sharing=locked` gives the step the directory alone, but `shared` is the
+// author saying several steps use it at once and those tools cope with their own
+// locks - an assertion about npm's locking and cargo's, not about an importer.
+// The engine serialises its *own* writers (see `cacheshare.Sharing.alone`) and
+// cannot do more: whether this format tolerates a concurrent reader is a fact
+// about the format, which is the whole reason a helper exists.
 func Import(
 	ctx context.Context, h *Helper, cacheDir string, from Fetcher, m Map, keys []string,
 ) error {
@@ -211,4 +240,47 @@ func eachUnit(r io.Reader, take func(key string, body []byte) error) error {
 			return err
 		}
 	}
+}
+
+// PropImmutableUnits is a helper saying a key's unit never changes content.
+//
+// The permission [Needed] requires, and it has to come from here: the engine
+// cannot tell a Go build cache - where an action id is a hash of the inputs, so
+// the output under it is fixed - from an npm cacache, where a bucket is
+// append-only and a key's record set grows.
+const PropImmutableUnits = "units-immutable"
+
+// Props is what a helper says about its format, or nothing.
+//
+// A sixth verb, and the only optional one. A helper that does not implement it
+// exits non-zero and is read as claiming nothing, which is the conservative
+// answer and the behaviour every helper had before the verb existed.
+func Props(ctx context.Context, h *Helper, cacheDir string) []string {
+	var out bytes.Buffer
+
+	if err := h.Run(ctx, cacheDir, []string{"props"}, nil, &out); err != nil {
+		return nil
+	}
+
+	var props []string
+
+	sc := bufio.NewScanner(&out)
+	for sc.Scan() {
+		if p := strings.TrimSpace(sc.Text()); p != "" {
+			props = append(props, p)
+		}
+	}
+
+	return props
+}
+
+// Claims reports whether a helper named this property.
+func Claims(props []string, want string) bool {
+	for _, p := range props {
+		if p == want {
+			return true
+		}
+	}
+
+	return false
 }

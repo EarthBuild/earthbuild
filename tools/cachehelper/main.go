@@ -169,6 +169,18 @@ func run(h helper, root, verb string) error {
 	case "probe":
 		return h.probe(root)
 
+	case "props":
+		// **What the engine may assume, said once and costing nothing.** A
+		// property is a fact about the *format*, so it needs no per-unit work -
+		// which is the whole reason it is a property and not a column on the
+		// index, where `bytes` cost 24.7x for exactly this kind of information
+		// (E-F6).
+		for _, p := range propsOf(h) {
+			fmt.Println(p)
+		}
+
+		return nil
+
 	case "index":
 		return writeIndex(h, root, os.Stdout)
 
@@ -684,4 +696,21 @@ func atoi(s string) int64 {
 	n, _ := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
 
 	return n
+}
+
+// immutableUnits is a helper saying a key's unit never changes content.
+//
+// Optional, and absent means "it might", which is the conservative reading and
+// what every helper meant before this existed.
+type immutableUnits interface{ unitsAreImmutable() }
+
+// propsOf is what this helper claims about its format.
+func propsOf(h helper) []string {
+	var out []string
+
+	if _, ok := h.(immutableUnits); ok {
+		out = append(out, "units-immutable")
+	}
+
+	return out
 }

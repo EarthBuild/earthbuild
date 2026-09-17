@@ -2559,3 +2559,58 @@ outcomes. The helper enters Κ₁ **by the digest of its program**, which is I17
 argument applied to a second mutable reference. And I23 is new: a cache that held
 a credential stays where it is, enforced at level 1 because the machine that
 files units does not hold the value it would need to scan with.
+
+## E-F25: an export re-read the whole cache, and key equality cannot fix it
+
+A worker that stocks then shares re-exports what it has just imported. The units
+dedupe in 𝔅, being the same bytes under the same names, so it costs work rather
+than space - the kind of waste that never announces itself. Visible in E-F23's
+own log and read straight past:
+
+```text
+worker  cache npmshared: 16 units stocked
+worker  cache npmshared: 16 units shared
+```
+
+The obvious fix is unsound. "Skip the export when the key set is unchanged"
+works for a Go build cache, where an action id is a hash of the step's inputs and
+the output under it is fixed, and **breaks on npm**: a cacache bucket is
+append-only and holds several records, so a key present in both indexes can have
+gained one. A key set that compares equal is then a cache that has changed, and
+the skip would file a map naming last build's bytes for a unit that has grown.
+
+Which is the shape this whole design already has an answer for: **only the helper
+knows.** So a sixth verb, `props`, optional and free - a property is a fact about
+the *format*, so it needs no per-unit work, which is precisely where the `bytes`
+column went wrong at 24.7x (E-F6). `units-immutable` is claimed by the go-build,
+go-mod and cargo helpers and deliberately not by npm.
+
+Given it, an export narrows to the keys the last map does not name, bounded by
+the index in both directions - a key here and unnamed is exported, a key named
+and no longer here is dropped, so a tool that prunes its own cache cannot leave
+the map naming units nobody can serve.
+
+### Measured
+
+Two builds of different programs against one Go build cache, separate
+invocations:
+
+```text
+first, cold cache      cache gobuild: 241 units shared
+second, warm cache     cache gobuild: 245 units shared (4 new)
+```
+
+61x fewer units framed and hashed on the second build, and the ratio grows with
+the cache: a real 88,000-unit build cache where a step touches a hundred is the
+same arithmetic at ~880x.
+
+The first attempt showed no narrowing at all, because the memory of what was
+filed lived only in the process and a build is a fresh one each time. The pointer
+on disk is the missing source and is sound **exactly where it is used**: trusting
+it means asserting the unit under a key still has the bytes the map records,
+which is `units-immutable` restated. Where the claim is absent it is not read.
+
+And a share that adds nothing now says nothing. Forty steps over one cache would
+otherwise print forty identical lines, which trains the reader to skip the one
+that differs; the map is content-addressed, so an unchanged digest is an
+unchanged cache and the silence is detected rather than guessed.

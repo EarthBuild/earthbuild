@@ -1849,3 +1849,56 @@ darwin-only); a pointer blob named after a key (illegal in 𝔅, and the reason 
 𝔅's whole point); and the third fault `Kind` above. The agent's own comment -
 *"served from here because the store is here"* - is true of a VM and not of a
 native worker, where `cmd/earth-worker` opens that store as a host directory.
+
+## E-F14: a near network is not a far network
+
+The per-ecosystem plan put download caches in a tier not worth building, on
+E-F8's arithmetic: a cache with no compute in it has `B/C = ∞`, so sharing one
+trades network for network and a worker with egress fetches upstream itself.
+
+**That treats two networks as one price.** Measured, three real module zips from
+`proxy.golang.org`:
+
+```text
+cloud.google.com/go/aiplatform@v1.125.0     3.0 MiB   13.7 MiB/s
+github.com/aws/aws-sdk-go-v2/service/s3     0.6 MiB    7.2 MiB/s
+k8s.io/api@v0.31.0                          3.8 MiB   23.2 MiB/s
+                                            -------   ----------
+                                            7.4 MiB   15.7 MiB/s
+
+the LAN, measured (E-F5)                             110.0 MiB/s   7.0x
+```
+
+A cold worker pulling this repository's 1.4 GiB module set pays **91 s from the
+internet against 13 s from a peer**. That is larger than the compute saving the
+build-cache work chases (5.40 s against 0.29 s), and it multiplies by the fleet:
+N cold workers are N internet fetches or one.
+
+**And CI is exactly where every worker is cold.** The case this was always most
+wanted for is the case the arithmetic had dismissed.
+
+### It does not need a helper either
+
+`$GOMODCACHE/cache/download` **is** the GOPROXY layout, path for path:
+
+```text
+protocol asks   /<module>/@v/list   /<module>/@v/<ver>.info  .mod  .zip
+cache stores    cache/download/<module>/@v/<ver>.{info,mod,zip,ziphash}
+```
+
+So a static file server over that directory is a working module proxy, and
+`GOPROXY` is an environment variable a step is handed exactly as `GOCACHEPROG`
+is. Protocol-first survives the correction; only the priority changes.
+
+Two things to get right when it is built. `.lock` and `.ziphash` are not protocol
+paths and should not be served. `sumdb/` **is** one - the proxy protocol carries
+the checksum database - but its `lookup/` records hold a signed tree head that
+moves (E-F4), so serving a stale one is a consistency question that wants
+checking rather than assuming.
+
+### What this re-scores
+
+Tier 2 was "the arithmetic says don't". It should read: **worth it exactly when a
+worker is cold or egress is slow, metered or absent** - which is CI, which is the
+target. For Go it is also cheaper to build than the build-cache route it was
+ranked below.

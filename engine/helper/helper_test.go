@@ -2,6 +2,7 @@ package helper_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,13 +30,13 @@ func TestTheEngineCanAskAHelperWhoItIs(t *testing.T) {
 
 	defer func() { _ = rt.Close(ctx) }()
 
-	h, err := rt.Compile(ctx, "go-mod", helperWasm(t))
+	h, err := goModHelper(t, ctx, rt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var out bytes.Buffer
-	if err := h.Run(ctx, t.TempDir(), []string{"go-mod", "ident"}, nil, &out); err != nil {
+	if err := h.Run(ctx, t.TempDir(), []string{"ident"}, nil, &out); err != nil {
 		t.Fatalf("ask a helper its name: %v", err)
 	}
 
@@ -60,14 +61,14 @@ func TestAHelperSeesOnlyItsCache(t *testing.T) {
 
 	defer func() { _ = rt.Close(ctx) }()
 
-	h, err := rt.Compile(ctx, "go-mod", helperWasm(t))
+	h, err := goModHelper(t, ctx, rt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// An empty directory is not a module cache, and the helper says so by
 	// refusing rather than by inventing an answer.
-	err = h.Run(ctx, t.TempDir(), []string{"go-mod", "probe"}, nil, discard{})
+	err = h.Run(ctx, t.TempDir(), []string{"probe"}, nil, discard{})
 	if err == nil {
 		t.Error("a helper probed an empty directory and claimed it")
 	}
@@ -91,12 +92,12 @@ func TestAHelperProbesACacheItKnows(t *testing.T) {
 
 	defer func() { _ = rt.Close(ctx) }()
 
-	h, err := rt.Compile(ctx, "go-mod", helperWasm(t))
+	h, err := goModHelper(t, ctx, rt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := h.Run(ctx, root, []string{"go-mod", "probe"}, nil, discard{}); err != nil {
+	if err := h.Run(ctx, root, []string{"probe"}, nil, discard{}); err != nil {
 		t.Errorf("a helper refused a cache it understands: %v", err)
 	}
 }
@@ -166,13 +167,13 @@ func TestTheEngineCanIndexAndExportThroughAHelper(t *testing.T) {
 
 	defer func() { _ = rt.Close(ctx) }()
 
-	h, err := rt.Compile(ctx, "go-mod", helperWasm(t))
+	h, err := goModHelper(t, ctx, rt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var index bytes.Buffer
-	if err := h.Run(ctx, root, []string{"go-mod", "index"}, nil, &index); err != nil {
+	if err := h.Run(ctx, root, []string{"index"}, nil, &index); err != nil {
 		t.Fatalf("index: %v", err)
 	}
 
@@ -182,7 +183,7 @@ func TestTheEngineCanIndexAndExportThroughAHelper(t *testing.T) {
 	}
 
 	var unit bytes.Buffer
-	if err := h.Run(ctx, root, []string{"go-mod", "export"},
+	if err := h.Run(ctx, root, []string{"export"},
 		strings.NewReader(key+"\n"), &unit); err != nil {
 		t.Fatalf("export: %v", err)
 	}
@@ -202,4 +203,16 @@ func TestTheEngineCanIndexAndExportThroughAHelper(t *testing.T) {
 	if size == "" || size == "0" {
 		t.Errorf("the unit is framed as %q bytes", size)
 	}
+}
+
+// goModHelper compiles the prototype and points it at its go-mod format.
+func goModHelper(t *testing.T, ctx context.Context, rt *helper.Runtime) (*helper.Helper, error) {
+	t.Helper()
+
+	h, err := rt.Compile(ctx, "cachehelper", helperWasm(t))
+	if h != nil {
+		h.Prefix = []string{"go-mod"}
+	}
+
+	return h, err
 }

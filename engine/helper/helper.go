@@ -102,6 +102,12 @@ func (r *Runtime) Close(ctx context.Context) error {
 
 // Helper is one compiled helper module.
 type Helper struct {
+	// Prefix goes before the verb, for a module that serves more than one cache
+	// format. The contract is `<helper> <verb>`; a module holding several
+	// helpers needs to be told which, and that is its own business rather than
+	// the engine's.
+	Prefix []string
+
 	rt   wazero.Runtime
 	code wazero.CompiledModule
 	name string
@@ -135,7 +141,7 @@ func (h *Helper) Run(
 
 	cfg := wazero.NewModuleConfig().
 		WithFSConfig(fs).
-		WithArgs(append([]string{h.name}, args...)...).
+		WithArgs(append(append([]string{h.name}, h.Prefix...), args...)...).
 		WithEnv(EnvCacheDir, cacheDirIn).
 		// LC_ALL, so a helper that sorts its index sorts it the same way
 		// everywhere. An index ordered by one machine's locale and read by

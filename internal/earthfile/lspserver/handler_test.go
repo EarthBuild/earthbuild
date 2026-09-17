@@ -304,3 +304,95 @@ func TestCompletionOutsideAnOpenDocumentIsEmpty(t *testing.T) {
 	require.NotNil(t, list)
 	require.Empty(t, list.Items)
 }
+
+func symbolNames(symbols []lsp.DocumentSymbol) []string {
+	names := make([]string, 0, len(symbols))
+	for _, symbol := range symbols {
+		names = append(names, symbol.Name)
+	}
+
+	return names
+}
+
+func TestDocumentSymbolCapabilityIsAdvertised(t *testing.T) {
+	t.Parallel()
+
+	harness := servertest.New(t, NewHandler("test"))
+	require.NotNil(t, harness.InitResult.Capabilities.DocumentSymbolProvider)
+}
+
+func TestDocumentSymbolListsTargetsAndFunctions(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "Earthfile")
+	uri := pathURI(path)
+	text := "VERSION 0.8\n\n# deps fetches modules.\ndeps:\n    RUN one\n\nDEPLOY:\n    FUNCTION\n    RUN two\n"
+
+	harness := servertest.New(t, NewHandler("test"))
+	require.NoError(t, harness.DidOpen(uri, "earth", text))
+
+	symbols, err := harness.DocumentSymbol(uri)
+	require.NoError(t, err)
+	require.Equal(t, []string{"deps", "DEPLOY"}, symbolNames(symbols))
+
+	deps := symbols[0]
+	require.Equal(t, lsp.SymbolKindFunction, deps.Kind)
+	require.Equal(t, "target +deps", deps.Detail)
+	require.Equal(t, lsp.Range{
+		Start: lsp.Position{Line: 3, Character: 0},
+		End:   lsp.Position{Line: 4, Character: 11},
+	}, deps.Range, "the range must cover the recipe")
+	require.Equal(t, lsp.Range{
+		Start: lsp.Position{Line: 3, Character: 0},
+		End:   lsp.Position{Line: 3, Character: 4},
+	}, deps.SelectionRange, "the selection must cover the name")
+
+	require.Equal(t, lsp.SymbolKindMethod, symbols[1].Kind)
+	require.Equal(t, "function DEPLOY", symbols[1].Detail)
+}
+
+func TestDocumentSymbolSurvivesAnInvalidBuffer(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "Earthfile")
+	uri := pathURI(path)
+	// An outline must stay populated while a recipe is mid-edit.
+	text := "VERSION 0.8\n\ndeps:\n    RUN one\n\nall:\n    BUILD +\n"
+
+	harness := servertest.New(t, NewHandler("test"))
+	require.NoError(t, harness.DidOpen(uri, "earth", text))
+
+	symbols, err := harness.DocumentSymbol(uri)
+	require.NoError(t, err)
+	require.Equal(t, []string{"deps", "all"}, symbolNames(symbols))
+}
+
+func TestDocumentSymbolRangesContainTheirSelection(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "Earthfile")
+	uri := pathURI(path)
+	text := "VERSION 0.8\n\na:\n    RUN one\n\nb:\n    RUN two\n"
+
+	harness := servertest.New(t, NewHandler("test"))
+	require.NoError(t, harness.DidOpen(uri, "earth", text))
+
+	symbols, err := harness.DocumentSymbol(uri)
+	require.NoError(t, err)
+	require.Len(t, symbols, 2)
+
+	for _, symbol := range symbols {
+		require.GreaterOrEqual(t, symbol.SelectionRange.Start.Line, symbol.Range.Start.Line)
+		require.LessOrEqual(t, symbol.SelectionRange.End.Line, symbol.Range.End.Line)
+	}
+}
+
+func TestDocumentSymbolOutsideAnOpenDocumentIsEmpty(t *testing.T) {
+	t.Parallel()
+
+	harness := servertest.New(t, NewHandler("test"))
+
+	symbols, err := harness.DocumentSymbol(pathURI(filepath.Join(t.TempDir(), "Earthfile")))
+	require.NoError(t, err)
+	require.Empty(t, symbols)
+}

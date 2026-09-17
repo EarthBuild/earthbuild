@@ -358,7 +358,7 @@ func (d Document) targetCompletions(ctx CompletionContext, loader Loader) []Comp
 		items = append(items, Completion{
 			Label:   symbol.Name,
 			Insert:  symbol.Name,
-			Detail:  symbolLabel(symbol),
+			Detail:  symbol.Label(),
 			Docs:    symbol.Docs,
 			Kind:    kind,
 			Replace: ctx.Replace,

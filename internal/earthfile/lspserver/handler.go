@@ -457,3 +457,56 @@ func completionItemKind(kind analyzer.CompletionItemKind) lsp.CompletionItemKind
 
 	return lsp.CompletionItemKindText
 }
+
+// DocumentSymbol returns the target and function outline of a document. The
+// analyzer indexes declarations line by line, so an outline stays populated
+// while a recipe is mid-edit.
+func (h *Handler) DocumentSymbol(
+	_ context.Context,
+	params *lsp.DocumentSymbolParams,
+) ([]lsp.DocumentSymbol, error) {
+	doc, ok := h.docs.Get(params.TextDocument.URI)
+	if !ok {
+		return []lsp.DocumentSymbol{}, nil
+	}
+
+	path, err := uriPath(params.TextDocument.URI)
+	if err != nil {
+		return nil, err
+	}
+
+	source := doc.Text()
+	analysis := analyzer.Analyze(path, source)
+
+	symbols := make([]lsp.DocumentSymbol, 0, len(analysis.Symbols))
+
+	for _, symbol := range analysis.Symbols {
+		rng, rangeErr := protocolRange(source, symbol.Range)
+		if rangeErr != nil {
+			return nil, rangeErr
+		}
+
+		selection, selectionErr := protocolRange(source, symbol.Selection)
+		if selectionErr != nil {
+			return nil, selectionErr
+		}
+
+		symbols = append(symbols, lsp.DocumentSymbol{
+			Name:           symbol.Name,
+			Detail:         symbol.Label(),
+			Kind:           documentSymbolKind(symbol.Kind),
+			Range:          rng,
+			SelectionRange: selection,
+		})
+	}
+
+	return symbols, nil
+}
+
+func documentSymbolKind(kind analyzer.SymbolKind) lsp.SymbolKind {
+	if kind == analyzer.SymbolFunction {
+		return lsp.SymbolKindMethod
+	}
+
+	return lsp.SymbolKindFunction
+}

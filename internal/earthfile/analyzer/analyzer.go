@@ -227,7 +227,7 @@ func (d Document) Definition(offset int, loader Loader) (*Location, error) {
 func (d Document) Hover(offset int, loader Loader) (string, string, bool) {
 	for _, symbol := range d.Symbols {
 		if symbol.Selection.Contains(offset) {
-			return symbolLabel(symbol), symbol.Docs, true
+			return symbol.Label(), symbol.Docs, true
 		}
 	}
 
@@ -243,7 +243,7 @@ func (d Document) Hover(offset int, loader Loader) (string, string, bool) {
 
 	for _, symbol := range targetDoc.Symbols {
 		if symbol.Name == ref.Name && symbol.Kind == ref.Kind {
-			return symbolLabel(symbol), symbol.Docs, true
+			return symbol.Label(), symbol.Docs, true
 		}
 	}
 
@@ -491,12 +491,14 @@ func offsetForLineColumn(text string, wantedLine, wantedColumn int) int {
 	return len(text)
 }
 
-func symbolLabel(symbol Symbol) string {
-	if symbol.Kind == SymbolFunction {
-		return "function " + symbol.Name
+// Label is the one-line description of a declaration, shown by hover and as
+// the detail of an outline entry.
+func (s Symbol) Label() string {
+	if s.Kind == SymbolFunction {
+		return "function " + s.Name
 	}
 
-	return "target +" + symbol.Name
+	return "target +" + s.Name
 }
 
 func isLocalProject(project string) bool {

@@ -3,7 +3,8 @@
 This extension recognizes `Earthfile` and `*.earth` files and launches the
 integrated EarthBuild language server. Its Tree-sitter grammar only provides
 error-tolerant document structure; semantic highlighting, diagnostics, hover,
-and navigation come from the canonical Go implementation behind `earth lsp`.
+navigation, completion, and the outline come from the canonical Go
+implementation behind `earth lsp`.
 
 ## Prerequisites
 
@@ -17,7 +18,10 @@ earth --version
 The extension runs `earth lsp`; it does not download a second language-server
 binary.
 
-Zed disables LSP semantic tokens by default. Enable them for Earthfiles in Zed
+Zed prefers its own grammar over the language server by default: it disables
+LSP semantic tokens, and it builds outlines and breadcrumbs from Tree-sitter
+queries. This extension ships neither, because both come from the canonical Go
+implementation instead. Point Zed at the language server for both in Zed
 settings. To use a particular build instead of the first `earth` in the
 project PATH, configure its absolute path there too:
 
@@ -25,7 +29,8 @@ project PATH, configure its absolute path there too:
 {
   "languages": {
     "Earthfile": {
-      "semantic_tokens": "combined"
+      "semantic_tokens": "combined",
+      "document_symbols": "on"
     }
   },
   "lsp": {
@@ -39,7 +44,7 @@ project PATH, configure its absolute path there too:
 }
 ~~~
 
-Restart the language server after changing `semantic_tokens`.
+Restart the language server after changing these settings.
 
 ## Development installation
 

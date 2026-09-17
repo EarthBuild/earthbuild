@@ -1542,3 +1542,74 @@ already has the NIC for it (E-F5's hardware note) - only the Mac's dongle and th
 switch are gigabit. Which is now a purchase with a measured payoff rather than a
 guess, and still not the bottleneck: at that point shipping is 7x faster than a
 32-thread compile and the next thing to measure is something else entirely.
+
+## E-F10: the transport was already there, and so was the name
+
+E-F9 left a design for moving cache mounts: a fourth ALPN, a new store type, a
+guest request kind, a helper protocol and a WASI runtime. A reviewer asked
+whether the engine already had those shapes under other names. It does, and the
+mapping is exact rather than approximate.
+
+| designed                         | already built                                                            |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| ship an index of keys            | `FindMissingBlobs` - and better: no index ships, the asker names digests |
+| batched content fetch            | `BatchReadBlobs`, `ByteStream` past the batch limit                      |
+| a fourth ALPN                    | `earth/blob/1` moves blobs by digest, verified per chunk                 |
+| "a cache has no digest identity" | 𝔅, where every digest hashes to the bytes it names                       |
+| atomic import, symlink refusal   | the blob write path, already hardened                                    |
+| helper `export` / `import`       | REAPI `Directory` messages                                               |
+| helper `ident`, unique keys      | a digest is unique by construction                                       |
+
+`engine/remote` serves CAS, ActionCache, ByteStream and Capabilities;
+`engine/guestd/servecache.go` serves them to processes inside a step; and
+`fleet.Blobs` says in its own comment that a blob store *"needs no other wiring
+to become a place a step's faults can be answered from"*.
+
+### The fact that collapsed the rest
+
+`cmd/go/internal/cache/cache.go:290` checks `sha256.Sum256(data) != entry.OutputID`.
+**Go's OutputID is the SHA-256 of the object it names**, and an EarthBuild CAS
+blob is named by the same function. Sampled over 200 real entries from a 27 GB
+cache: **200 matched, none differed, none absent.**
+
+So a Go build-cache object and an EarthBuild CAS blob are the same object under
+the same name. Not a translation, not an encoding - the hex Go is already holding
+is the path to ask for.
+
+### End to end
+
+`tools/gocacheprobe` gained one flag. A build of this repository filled a cache,
+every object was moved into a store served by the engine's own `remote.Cache`,
+and the build was run again with the objects absent locally:
+
+```text
+shim's store after the move    15 MiB   (the index alone)
+agent's CAS                   628 MiB   (2,412 objects)
+
+gets 2571 (distinct 2571)  hits 2551 (distinct 2551)  hit-bytes 650873251
+objects read through the agent 1523
+6.35 s, against 5.5 s fully local and 17.64 s cold
+```
+
+**2,551 hits with no objects on the local disk**, fetched from EarthBuild's CAS
+by Go's own digests, with no ActionResult decoded, no Directory walked and no
+protobuf linked.
+
+### What is left, and how small it is
+
+The index. The shim needs an action id to know which object to ask for, and that
+mapping is the one thing the CAS cannot supply - a Go ActionID is not a digest of
+anything the engine holds.
+
+It is **15 MiB against 628** - 2.4% of the bytes. The hard 97.6% is solved by
+machinery that already existed; what remains is small enough that almost any
+mechanism will do, and is the only part still worth designing.
+
+### One constraint found while checking
+
+The RE surface is **read-only, deliberately**: an entry is keyed by Κₜ, the same
+key space a step's own result is filed under, so accepting a client's claim about
+one would let a peer name somebody else's result. That is why this is a
+read-through - writes stay local - and not a mirror. It also requires
+`EARTH_DIGEST=sha256`, because a BLAKE3 store cannot answer a question asked in
+SHA-256.

@@ -238,7 +238,7 @@ var Mutants = []Mutant{
 		// against reads as one nothing caught.
 		Name:        "layer: a fragment reading only the files it was asked for (E337, E338)",
 		File:        "engine/layer/pack.go",
-		Anchor:      "\tentries, _, err := walkNeeding(root, len(want) == 0, nil)",
+		Anchor:      "\tentries, _, _, err := walkNeeding(root, len(want) == 0, nil)",
 		Replacement: "\tentries, _, err := walkNeeding(root, true, nil)",
 		Package:     "./engine/fleet/",
 		OS:          "linux",
@@ -335,8 +335,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: not recording a mounted path as a base input (E222)",
 		File:        "engine/guest/sightings.go",
-		Anchor:      "\t\tif under(p, provided) {",
-		Replacement: "\t\tif false && under(p, provided) {",
+		Anchor:      "\tif under(p, provided) {",
+		Replacement: "\tif false && under(p, provided) {",
 		Package:     "./engine/guest/",
 	},
 	{
@@ -689,7 +689,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: placing a step where its base already is (E265)",
 		File:        "engine/fleet/rendezvous.go",
-		Anchor:      "\tfor _, w := range preferFetching(order, a.Hints.Holders, r.load(), r.priceOf(a)) {",
+		Anchor:      "\tfor _, w := range preferFetching(order, a.Hints.Holders, r.warm.of(a), r.load(), r.priceOf(a)) {",
 		Replacement: "\tfor _, w := range order {\n\t\t_ = preferFree",
 		Package:     "./engine/fleet/",
 	},
@@ -787,7 +787,7 @@ var Mutants = []Mutant{
 	{
 		Name: "fleet: forecasting with the same placement the engine uses (E268)",
 		File: "engine/fleet/forecast.go",
-		Anchor: "\t\torder := preferFetching(fleet, holdersOf(s, at), busy,\n" +
+		Anchor: "\t\torder := preferFetching(fleet, holdersOf(s, at), nil, busy,\n" +
 			"\t\t\trate.Slots(inputBytes(steps, sizes, s)))",
 		Replacement: "\t\torder := fleet\n" +
 			"\t\t_, _, _ = holdersOf(s, at), busy, rate.Slots(inputBytes(steps, sizes, s))",
@@ -1890,7 +1890,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "layer: packing part of a layer without reading the rest (E338)",
 		File:        "engine/layer/pack.go",
-		Anchor:      "\tentries, _, err := walkNeeding(root, len(want) == 0, nil)",
+		Anchor:      "\tentries, _, _, err := walkNeeding(root, len(want) == 0, nil)",
 		Replacement: "\tentries, _, err := walkNeeding(root, true, nil)",
 		Package:     "./engine/layer/",
 	},

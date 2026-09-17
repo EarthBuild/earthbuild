@@ -41,6 +41,14 @@ import (
 	"strings"
 )
 
+// only is the one format this build serves, stamped in at link time.
+//
+// Empty in a bundled binary, which then takes the format as an argument or
+// probes for it. A shipped helper sets it: an artefact that is several helpers
+// cannot import into a cache that does not exist yet, because there is nothing
+// there to recognise.
+var only string
+
 // unit is one thing a cache holds, under a key two machines can compare.
 //
 // Files rather than a file, because the unit that matters is rarely the unit the
@@ -90,16 +98,35 @@ func main() {
 		fatal(errors.New("EARTH_CACHE_DIR is unset, so there is no cache to speak about"))
 	}
 
-	// **The contract is `<helper> <verb>`, and this binary happens to hold
-	// three.** Named explicitly it uses that one; named with a verb alone it
-	// asks each in turn whether this is a cache it understands - which is what
-	// `probe` is for, and what makes one blob usable as any of them.
+	// **The contract is `<helper> <verb>` and a helper is one format.** This
+	// source holds several, so a build stamps in which one with
+	// `-ldflags -X main.only=npm` and the artefact is that helper.
+	//
+	// Probing is the fallback and cannot be the rule: `import` runs against a
+	// directory that may not exist yet - a cold cache is exactly what it is for
+	// - and no format is recognisable in an empty one. A bundled binary asked
+	// to import therefore refuses, having nothing to look at, which is how this
+	// was found.
 	args := os.Args[1:]
 
-	h, err := helperFor(args[0])
-	if err == nil {
-		args = args[1:]
-	} else if h, err = whichKnows(root); err != nil {
+	var (
+		h   helper
+		err error
+	)
+
+	switch {
+	case only != "":
+		h, err = helperFor(only)
+
+	default:
+		if h, err = helperFor(args[0]); err == nil {
+			args = args[1:]
+		} else {
+			h, err = whichKnows(root)
+		}
+	}
+
+	if err != nil {
 		fatal(err)
 	}
 

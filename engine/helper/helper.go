@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -139,6 +140,13 @@ func (h *Helper) Run(
 ) error {
 	fs := wazero.NewFSConfig().WithDirMount(cacheDir, cacheDirIn)
 
+	// **Kept, because "exit 1" is not a diagnosis.** A helper that refuses says
+	// why on stderr, and discarding it left a build reporting an exit code and
+	// no reason at all - a helper nobody can debug and a cache nobody can
+	// explain. Bounded, since a module in a loop must not fill memory with its
+	// own complaint.
+	var whined boundedBuffer
+
 	cfg := wazero.NewModuleConfig().
 		WithFSConfig(fs).
 		WithArgs(append(append([]string{h.name}, h.Prefix...), args...)...).
@@ -149,7 +157,7 @@ func (h *Helper) Run(
 		WithEnv("LC_ALL", "C").
 		WithStdin(in).
 		WithStdout(out).
-		WithStderr(io.Discard)
+		WithStderr(&whined)
 
 	// **No clock and no randomness, by saying nothing.** wazero grants neither
 	// unless asked, and a helper has no business with either: a unit whose bytes
@@ -170,11 +178,34 @@ func (h *Helper) Run(
 				return nil
 			}
 
-			return fmt.Errorf("helper %s %v: exit %d", h.name, args, exit.ExitCode())
+			return fmt.Errorf("helper %s %v: exit %d%s", h.name, args, exit.ExitCode(), whined.said())
 		}
 
-		return fmt.Errorf("run helper %s %v: %w", h.name, args, err)
+		return fmt.Errorf("run helper %s %v: %w%s", h.name, args, err, whined.said())
 	}
 
 	return mod.Close(ctx) //nolint:wrapcheck // the module's own error
+}
+
+// maxWhine bounds what a helper's stderr can cost.
+const maxWhine = 8 << 10
+
+// boundedBuffer keeps the first maxWhine bytes written to it and drops the rest.
+type boundedBuffer struct{ b []byte }
+
+func (w *boundedBuffer) Write(p []byte) (int, error) {
+	if room := maxWhine - len(w.b); room > 0 {
+		w.b = append(w.b, p[:min(room, len(p))]...)
+	}
+
+	return len(p), nil
+}
+
+// said is the helper's complaint, ready to append to an error, or empty.
+func (w *boundedBuffer) said() string {
+	if s := strings.TrimSpace(string(w.b)); s != "" {
+		return ": " + s
+	}
+
+	return ""
 }

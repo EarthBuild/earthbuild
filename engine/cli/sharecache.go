@@ -40,10 +40,8 @@ type shares struct {
 // Nil where nothing can collect them - no store to file units in - because the
 // executor treats a nil hook as "this machine is not sharing", which is what
 // every build did before any of this.
-func (g *engine) shareCache(storeDir string) func(context.Context, ir.Mount, string) error {
-	s := &shares{root: storeDir, out: g.o.Out, dir: g.o.Dir, by: map[string]*helper.Helper{}}
-
-	return s.offer
+func (g *engine) shareCache(storeDir string) *shares {
+	return &shares{root: storeDir, out: g.o.Out, dir: g.o.Dir, by: map[string]*helper.Helper{}}
 }
 
 // offer files one cache mount's units.
@@ -81,6 +79,10 @@ func (s *shares) offer(ctx context.Context, m ir.Mount, dir string) error {
 	// moves everything else.
 	id, _, err := sink.Put(bytes.NewReader(encodeMap(units)))
 	if err != nil {
+		return s.say(m, err)
+	}
+
+	if err := s.note(m, dir, id); err != nil {
 		return s.say(m, err)
 	}
 
@@ -189,4 +191,142 @@ func encodeMap(m helper.Map) []byte {
 	}
 
 	return []byte(b.String())
+}
+
+// stock fills a cache mount from what this machine has already filed.
+//
+// **The other half of offer, and the half a fleet needs.** A worker that exports
+// and never imports is a great deal of hashing in aid of nothing.
+//
+// A cache nothing has filled here has no directory, which is the case worth
+// stocking - so this makes one rather than treating its absence as nothing to
+// do.
+func (s *shares) stock(ctx context.Context, m ir.Mount, dir string) error {
+	at, ok := s.mapOf(m, dir)
+	if !ok {
+		return nil
+	}
+
+	sink, err := s.store()
+	if err != nil {
+		return s.say(m, err)
+	}
+
+	b, err := sink.Get(at)
+	if err != nil {
+		// The pointer names a map this store no longer holds - collected, or
+		// never fetched. Not an error: the step fills the cache itself.
+		return nil //nolint:nilerr // a map we cannot read is a cache we cannot stock
+	}
+
+	have := helper.Map{}
+
+	h, err := s.helperFor(ctx, m.Helper)
+	if err != nil {
+		return s.say(m, err)
+	}
+
+	// **An index that fails is an empty cache, not a failure.** A directory no
+	// helper recognises holds nothing this can name, and a cold one is exactly
+	// that - so the error is the answer rather than a reason to stop.
+	if held, indexErr := helper.Index(ctx, h, dir); indexErr == nil {
+		for _, k := range held {
+			have[k] = ir.NodeID{}
+		}
+	}
+
+	all := decodeMap(b)
+
+	var want []string
+
+	for k := range all {
+		if _, held := have[k]; !held {
+			want = append(want, k)
+		}
+	}
+
+	if len(want) == 0 {
+		return nil
+	}
+
+	sort.Strings(want)
+
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return s.say(m, err)
+	}
+
+	if err := helper.Import(ctx, h, dir, sink, all, want); err != nil {
+		return s.say(m, err)
+	}
+
+	if s.out != nil {
+		fmt.Fprintf(s.out, "cache %s: %d units stocked\n", m.ID, len(want))
+	}
+
+	return nil
+}
+
+// mapOf is the map this machine last filed for a cache, if any.
+//
+// **A pointer, and deliberately not a blob.** Its name would have to be derived
+// from the cache's id rather than from its contents, and 𝔅 refuses anything that
+// does not hash to the name it is filed under - which is the property that makes
+// the store impossible to poison. So a mutable pointer lives in a plain file
+// beside the store, where nothing claims that invariant for it.
+func (s *shares) mapOf(m ir.Mount, dir string) (ir.NodeID, bool) {
+	b, err := os.ReadFile(s.pointer(m, dir)) //nolint:gosec // a path this engine wrote
+	if err != nil {
+		return ir.NodeID{}, false
+	}
+
+	id, err := ir.ParseNodeID(strings.TrimSpace(string(b)))
+	if err != nil {
+		return ir.NodeID{}, false
+	}
+
+	return id, true
+}
+
+// note records which map describes a cache as this machine last filed it.
+func (s *shares) note(m ir.Mount, dir string, id ir.NodeID) error {
+	at := s.pointer(m, dir)
+
+	if err := os.MkdirAll(filepath.Dir(at), 0o750); err != nil {
+		return err
+	}
+
+	return os.WriteFile(at, []byte(id.String()), 0o600) //nolint:wrapcheck // the caller says which cache
+}
+
+// pointer names the file holding a cache's latest map.
+//
+// Keyed by the same scope the directory is, so a claim or a trust domain that
+// separates two caches separates their maps too - otherwise a fork's map would
+// name the units a protected branch should be stocking from.
+func (s *shares) pointer(m ir.Mount, dir string) string {
+	return filepath.Join(s.root, "cachemaps", m.ID, filepath.Base(dir))
+}
+
+// decodeMap reads what encodeMap wrote, skipping anything it cannot.
+//
+// A line this cannot parse is a line some later version wrote, and a map is
+// advice: reading the rest is better than refusing all of it.
+func decodeMap(b []byte) helper.Map {
+	out := helper.Map{}
+
+	for _, line := range strings.Split(string(b), "\n") {
+		key, digest, found := strings.Cut(line, "\t")
+		if !found {
+			continue
+		}
+
+		id, err := ir.ParseNodeID(strings.TrimSpace(digest))
+		if err != nil {
+			continue
+		}
+
+		out[key] = id
+	}
+
+	return out
 }

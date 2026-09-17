@@ -364,7 +364,8 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		// which the host reads an empty directory and reports an empty cache,
 		// with nothing failing anywhere.
 		e.Mounts = guest.MountStore(sb.StoreDir())
-		e.Share = g.shareCache(sb.StoreDir())
+		sharing := g.shareCache(sb.StoreDir())
+		e.Stock, e.Share = sharing.stock, sharing.offer
 
 		ac, err := g.actionCache(sb.StoreDir())
 		if err != nil {

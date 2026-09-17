@@ -700,11 +700,21 @@ debugger:
 cache-helper:
     FROM +code
     ENV CGO_ENABLED=0
-    RUN \
-        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
-        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-        GOOS=wasip1 GOARCH=wasm go build -o build/cachehelper.wasm ./tools/cachehelper/
-    SAVE ARTIFACT build/cachehelper.wasm AS LOCAL cachehelper.wasm
+    # One artefact per format, because a helper is one format. A bundled
+    # binary can probe a cache it is shown, and cannot probe one that does not
+    # exist yet - which is precisely what `import` is handed.
+    FOR kind IN go-mod go-build npm cargo
+        RUN \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+            --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+            GOOS=wasip1 GOARCH=wasm go build \
+                -ldflags "-X main.only=$kind" \
+                -o build/cachehelper-$kind.wasm ./tools/cachehelper/
+    END
+    SAVE ARTIFACT build/cachehelper-go-mod.wasm AS LOCAL cachehelper-go-mod.wasm
+    SAVE ARTIFACT build/cachehelper-go-build.wasm AS LOCAL cachehelper-go-build.wasm
+    SAVE ARTIFACT build/cachehelper-npm.wasm AS LOCAL cachehelper-npm.wasm
+    SAVE ARTIFACT build/cachehelper-cargo.wasm AS LOCAL cachehelper-cargo.wasm
 
 # earthly builds the EarthBuild CLI and docker image.
 earthly:

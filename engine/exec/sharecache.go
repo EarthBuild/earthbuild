@@ -74,3 +74,24 @@ func (e *Executor) shareCaches(ctx context.Context, n *ir.Node) {
 		_ = e.Share(ctx, s.mount, s.dir)
 	}
 }
+
+// stockCaches offers each of a step's portable cache mounts to whatever can
+// fill it, before the step runs.
+//
+// **The directory need not exist.** A cache nothing has filled here has no
+// directory, and that is exactly the case worth stocking - so unlike
+// `shareCaches`, which reads what a step left, this hands over a path and lets
+// the filler decide whether to make it.
+//
+// A failure is not a build failure, for `shareCaches`' reason said the other way
+// round: a cache that could not be filled is a step that does the work itself,
+// which is what every step did before any of this.
+func (e *Executor) stockCaches(ctx context.Context, n *ir.Node) {
+	if e.Stock == nil || e.Mounts == "" {
+		return
+	}
+
+	for _, s := range shareable(n.Op.Mounts, e.Mounts, trustDomain()) {
+		_ = e.Stock(ctx, s.mount, s.dir)
+	}
+}

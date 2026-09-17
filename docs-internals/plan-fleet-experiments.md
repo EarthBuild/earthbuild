@@ -2178,3 +2178,60 @@ request-cache:https://registry.npmjs.org/is-odd/-/is-odd-3.0.1.tgz
 request-cache:https://registry.npmjs.org/left-pad
 request-cache:https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz
 ```
+
+## E-F19: import, automatic - and why probing could not be the rule
+
+`Share` filed a cache's units after a step; nothing put them back. `Stock` is the
+other half, offered each portable mount **before** a step with the directory its
+contents belong in - which may not exist, since a cache nothing has filled here
+is exactly the one worth filling.
+
+Proved by taking it away: build once, delete the mount directory, build again.
+
+```text
+cache npmdemo: 6 units stocked
+  added 3 packages in 308ms
+```
+
+The pointer from a cache to its latest map is a plain file beside the store and
+**deliberately not a blob**: its name would have to come from the cache's id
+rather than from its contents, and 𝔅 refuses anything that does not hash to the
+name it is filed under. That is the property which makes the store impossible to
+poison, so the mutable thing lives where nothing claims it.
+
+### A helper is one format, and the cold case proves it
+
+The first attempt failed:
+
+```text
+cache npmdemo: not shared: helper cachehelper.wasm [import]: exit 1:
+  cachehelper: no helper here understands /cache
+```
+
+The prototype bundles four formats and picks by `probe`, which is a convenience
+that works when a cache exists and **cannot work when it does not**. `import` is
+handed a cold directory by definition, and no format is recognisable in an empty
+one.
+
+So a shipped helper is one format, stamped at link time
+(`-ldflags -X main.only=npm`), and `+cache-helper` now builds four artefacts
+rather than one. Probing stays as a fallback for a bundled binary shown a cache
+it can inspect.
+
+### "exit 1" was not a diagnosis
+
+That error took a second run to see, because the runtime discarded the module's
+stderr. A helper that refuses says why; throwing it away left a build reporting
+an exit code and no reason - a helper nobody can debug and a cache nobody can
+explain. Stderr is now kept, bounded at 8 KiB so a module in a loop cannot fill
+memory with its own complaint.
+
+Two diagnosability fixes in two runs, both the same shape: the mechanism worked
+and could not be asked what it had done.
+
+### Still to do
+
+A build that stocks then shares re-exports what it just imported. The units
+dedupe in 𝔅, being the same bytes under the same names, so it costs work rather
+than space - but a share whose index is unchanged since the last one has nothing
+to say and should say nothing.

@@ -112,6 +112,13 @@ type Executor struct {
 	// prefers a block device where it has one, and a host guessing at that
 	// reads an empty directory and reports an empty cache.
 	Mounts string
+	// Stock, if set, is offered each portable cache mount *before* a step, with
+	// the directory its contents belong in - which may not exist yet.
+	//
+	// The other half of Share. A machine that files its caches and never fills
+	// one from anybody else's is half a fleet: every worker would export and
+	// none would import, which is a great deal of hashing in aid of nothing.
+	Stock func(ctx context.Context, m ir.Mount, dir string) error
 	// Share, if set, is offered each portable cache mount after a step, with
 	// the directory its contents are in.
 	//
@@ -688,6 +695,12 @@ func (e *Executor) Run(
 	write, flush, stdout := e.sinkFor(n)
 
 	endPrep()
+
+	// **Before the step and after everything is chosen.** A cache mount this
+	// machine has not filled is a step that recompiles or re-downloads what
+	// some other machine already has; this is the moment the directory can be
+	// stocked and the last one before the step would notice it was empty.
+	e.stockCaches(ctx, n)
 
 	endRun := phase("run", n.Meta.Source)
 

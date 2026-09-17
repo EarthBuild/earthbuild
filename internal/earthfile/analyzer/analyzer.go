@@ -178,6 +178,8 @@ func analyzeRecovery(path, text string) Document {
 		pendingDocs = nil
 	}
 
+	extendSymbolRanges(text, doc.Symbols)
+
 	return doc
 }
 
@@ -623,4 +625,52 @@ func tokens(line string) []sourceToken {
 	}
 
 	return result
+}
+
+// extendSymbolRanges grows each declaration's range from its header line to
+// the whole recipe, so that an editor outline can nest commands under the
+// target they belong to and track the enclosing declaration while scrolling.
+//
+// Symbols must be ordered by declaration position, which both the canonical
+// and the recovery index guarantee.
+func extendSymbolRanges(text string, symbols []Symbol) {
+	if len(symbols) == 0 {
+		return
+	}
+
+	lines := sourceLines(text)
+
+	for i := range symbols {
+		boundary := len(text)
+		if i+1 < len(symbols) {
+			boundary = symbols[i+1].Range.Start
+		}
+
+		if end := recipeEnd(lines, symbols[i].Range.End, boundary); end > symbols[i].Range.End {
+			symbols[i].Range.End = end
+		}
+	}
+}
+
+// recipeEnd returns the end of the last line of recipe body before boundary.
+// Blank lines and unindented comments are excluded because they introduce the
+// next declaration rather than closing the current one.
+func recipeEnd(lines []sourceLine, min, boundary int) int {
+	end := min
+
+	for _, line := range lines {
+		if line.start >= boundary {
+			break
+		}
+
+		if strings.TrimSpace(line.text) == "" || strings.HasPrefix(line.text, "#") {
+			continue
+		}
+
+		if lineEnd := line.start + len(line.text); lineEnd > end {
+			end = lineEnd
+		}
+	}
+
+	return end
 }

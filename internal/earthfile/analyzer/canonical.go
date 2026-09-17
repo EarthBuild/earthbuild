@@ -49,6 +49,8 @@ func analyzeCanonical(
 		return doc.Symbols[i].Selection.Start < doc.Symbols[j].Selection.Start
 	})
 
+	extendSymbolRanges(text, doc.Symbols)
+
 	for _, item := range canonicalCommands(tree) {
 		args := commandArguments(item.command.SourceLocation, tokens)
 		if item.command.Name == earthfile.CmdImport {

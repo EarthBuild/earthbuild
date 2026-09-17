@@ -1662,3 +1662,97 @@ one would let a peer name somebody else's result. That is why this is a
 read-through - writes stay local - and not a mirror. It also requires
 `EARTH_DIGEST=sha256`, because a BLAKE3 store cannot answer a question asked in
 SHA-256.
+
+## E-F11: the join, and a dead end worth recording
+
+E-F10 left one piece: a Go ActionID is not a digest of anything the engine holds,
+so something has to map a helper's key to the digest of the unit it names. With
+the hash correction that is not a Go quirk - it is the general join, `key ->
+ℋ(unit)`, and it is what lets the engine and the tool disagree about hash
+functions without either noticing.
+
+### Considered and rejected: a pointer blob
+
+The tempting shape needs no new surface at all. Name a tiny blob
+`ℋ(tag ‖ cache-id ‖ scope ‖ key)`, put the unit's digest in it, and every
+question is already answered by machinery that exists: a lookup is a CAS fetch,
+a batched lookup is `FindMissingBlobs`, the read-through in `remote.Cache`
+carries it, and the fleet moves it.
+
+**It is illegal in this store, and the reason is the store's whole point.**
+`blob.Store.Get` recomputes ℋ over what it read and refuses anything that does
+not hash to the name it was filed under - equation 2.2, the property that makes
+𝔅 impossible to poison. A blob whose name comes from a key rather than from its
+contents fails that check on every read.
+
+Worth writing down because the idea looks free and is not, and because the thing
+that forbids it is the thing that makes everything else here safe.
+
+### What it costs to just ship the map
+
+A map blob, content-addressed like anything else, with its digest travelling in
+the assignment hints that already carry `Holders` and `Bytes`. For the 27 GB
+cache measured in E-F6, at 88,114 units:
+
+```text
+binary, 32-byte key + 32-byte digest     5.38 MiB
+the same, zstd -3                        5.38 MiB   (1.00x - digests are random)
+the units it indexes                   628.00 MiB
+the map as a share of them                0.86%
+on the wire at 110 MiB/s                 0.049 s    (units: 5.71 s)
+```
+
+**Under one per cent, and incompressible**, which settles it: there is no case
+for a query endpoint. Ship the map, and every question about it is answered
+locally thereafter.
+
+Being a blob, it inherits the rest for nothing - dedup between builds whose cache
+state matches, verification on read, and the fleet's existing transport. An
+incremental build writes a new map because a few rows changed, which is 5.4 MiB
+per build and not worth chunking until something says otherwise.
+
+## E-F12: the native number, and the photo finish was not one
+
+E-F8 left the economics resting on a *floor* rather than a measurement: 108
+CPU-seconds divided by 32 threads, 3.38 s, against 5.64 s to ship a cache. That
+made Go look like a tie and the whole design marginal.
+
+The floor was two things wrong. It divided the **earthbuild repository's**
+CPU-seconds while the shipping figure was for **`go build std`**, and a floor is
+not a time - a real build does not scale linearly to 32 threads.
+
+Measured on the 5950X, native `linux/amd64`, cold cache, in the same pinned image
+as E-F5, three runs:
+
+```text
+cold run 1   5399 ms
+cold run 2   5407 ms
+cold run 3   5421 ms      169 MB of cache produced
+```
+
+**5.40 s, within 0.4%.** Amdahl takes 60% back off the floor, which is what a
+floor is for.
+
+Like for like on one workload and its own artefact:
+
+```text
+go build std
+  compile, Mac under Rosetta                  54.20 s
+  compile, 5950X native, 32 threads            5.40 s
+  ship the 169 MB cache it produces, raw       1.47 s   at 110 MiB/s
+  ship it compressed (E-F9's measured 5.12x)   0.29 s
+```
+
+**3.7x against the fastest machine in the fleet, raw. About 18x compressed.**
+Against the machine that would actually be doing the fetching, 37x and 187x.
+
+So Go is not a photo finish after all, and it is still the adversarial case: the
+fastest mainstream compiler there is, beaten by a factor of four before
+compression and by more than an order of magnitude after it. A design that wins
+here wins by more in every slower language.
+
+Two notes for whoever repeats this. The image's `sh` has no `time` and the host
+has no `bc`, so the measurement is taken with `date +%s%3N` around `docker run`.
+And the cache directory is written by root inside the container, so a second run
+that only calls `rm -rf` on the host silently reuses a warm cache and reports 669
+ms - which is what the first attempt did.

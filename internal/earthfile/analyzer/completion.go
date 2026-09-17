@@ -178,6 +178,12 @@ func commandBefore(line string, limit int) string {
 		words = append(words, token.text)
 	}
 
+	// WITH introduces a block whose options belong to the command it wraps,
+	// as in WITH DOCKER --load.
+	if len(words) >= 2 && words[0] == string(earthfile.CmdWith) {
+		words = words[1:]
+	}
+
 	if len(words) == 0 {
 		return ""
 	}
@@ -252,6 +258,8 @@ const (
 	ItemTarget
 	// ItemFunction is a reusable FUNCTION or COMMAND.
 	ItemFunction
+	// ItemFlag is a command option.
+	ItemFlag
 )
 
 // Completion is an editor-neutral completion candidate.
@@ -282,9 +290,11 @@ func (d Document) Completions(offset int, loader Loader) []Completion {
 		return commandCompletions(ctx)
 	case CompletionTarget:
 		return d.targetCompletions(ctx, loader)
-	case CompletionNone, CompletionArtifact, CompletionFlag:
+	case CompletionFlag:
+		return flagCompletions(ctx)
+	case CompletionNone, CompletionArtifact:
 		// Artifact candidates need a SAVE ARTIFACT index that the analyzer
-		// does not build yet; flags are served by flagCompletions.
+		// does not build yet.
 		return nil
 	}
 

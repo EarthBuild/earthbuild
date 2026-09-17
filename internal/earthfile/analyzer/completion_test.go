@@ -358,3 +358,48 @@ func TestCompletionsCarryTheReplaceRange(t *testing.T) {
 	require.Len(t, items, 1)
 	require.Equal(t, "de", source[items[0].Replace.Start:items[0].Replace.End])
 }
+
+func TestCompletionsOfferCommandFlags(t *testing.T) {
+	t.Parallel()
+
+	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\tRUN --pu|\n")
+
+	items := Analyze("Earthfile", source).Completions(offset, nil)
+	require.Equal(t, []string{"--push"}, completionLabels(items))
+	require.Equal(t, ItemFlag, items[0].Kind)
+	require.Equal(t, "--push", items[0].Insert, "a bool option inserts no trailing =")
+	require.Equal(t, "--pu", source[items[0].Replace.Start:items[0].Replace.End])
+}
+
+func TestCompletionsInsertAnEqualsForValueFlags(t *testing.T) {
+	t.Parallel()
+
+	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\tRUN --secr|\n")
+
+	items := Analyze("Earthfile", source).Completions(offset, nil)
+	require.Equal(t, []string{"--secret"}, completionLabels(items))
+	require.Equal(t, "--secret=", items[0].Insert)
+}
+
+func TestCompletionsOfferFlagsOnAMultiWordCommand(t *testing.T) {
+	t.Parallel()
+
+	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\tSAVE ARTIFACT ./out --if|\n")
+
+	require.Equal(t, []string{"--if-exists"},
+		completionLabels(Analyze("Earthfile", source).Completions(offset, nil)))
+}
+
+func TestCompletionsOfferFlagsInsideAWithBlock(t *testing.T) {
+	t.Parallel()
+
+	// WITH DOCKER carries DOCKER's options, so the block prefix must not be
+	// mistaken for the command that owns them.
+	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\tWITH DOCKER --loa|\n")
+
+	ctx := Analyze("Earthfile", source).CompletionContext(offset)
+	require.Equal(t, "DOCKER", ctx.Command)
+
+	require.Equal(t, []string{"--load"},
+		completionLabels(Analyze("Earthfile", source).Completions(offset, nil)))
+}

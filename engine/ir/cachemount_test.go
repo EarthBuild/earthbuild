@@ -93,6 +93,13 @@ func TestAShareableCacheDoesNotPinAStep(t *testing.T) {
 		{Target: "/go/pkg/mod", ID: "go-mod", Portable: true, PortableExcept: "cache/lock"},
 		// Still locked, still per machine.
 		{Target: "/go/pkg/mod", ID: "go-mod", Portable: true, Exclusive: true},
+		// And with the program that reads it, named by the digest of its
+		// module rather than by the path one machine keeps it at. A helper
+		// pinned this way is the thing that makes the claim above mean
+		// anything on the far end: the worker can fetch exactly the module
+		// the driver ran, where it could not fetch `./go-mod.wasm`.
+		{Target: "/go/pkg/mod", ID: "go-mod", Portable: true,
+			Helper: "./go-mod.wasm", HelperID: "9f86d081884c7d659a2feaa0c55ad015"},
 	} {
 		op := Op{Kind: OpExec, Mounts: []Mount{m}}
 

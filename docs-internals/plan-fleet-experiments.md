@@ -2235,3 +2235,76 @@ A build that stocks then shares re-exports what it just imported. The units
 dedupe in 𝔅, being the same bytes under the same names, so it costs work rather
 than space - but a share whose index is unchanged since the last one has nothing
 to say and should say nothing.
+
+## E-F20: a helper was pinned by its path, which is a name and not an identity
+
+`Mount.Helper` is in Κ₁, and the comment beside it says why: a helper decides
+what a unit is, what it is called and what bytes go in each frame, so two
+machines running different helpers over one cache produce units that are not the
+same units. What was hashed was `./go.wasm` - a string two machines can hold
+identically over entirely different bytes. **The agreement being enforced was an
+agreement about spelling.**
+
+The delegability guard stated it outright, and was wrong in the same place:
+
+```go
+// A helper does not pin a step either: it is a program both ends
+// run, not a path only one machine has.
+Helper: m.Helper,
+```
+
+It is a path only one machine has. A worker sent `--helper ./cachehelper.wasm`
+has no such file, so the step it was delegated could not have shared a thing.
+
+### Θ's argument, one construct over
+
+An image reference has the same shape and this engine already solved it: resolve
+once per build, before the key is taken, and key what it resolved to (I17). So
+`ResolveHelper` joins `ResolveImage` as a seam the caller supplies, `Mount`
+gains `HelperID`, and Κ₁ hashes both - the spelling, because it is what the
+author wrote, and the digest, because it is what two machines can actually agree
+about.
+
+Absent, the reference is left as written and **no pin is claimed**, which is
+`WithImageResolver`'s position and for its reason: `ls`, `doc` and corpus
+analysis must produce a graph without reading anything, and a coarser key is a
+better failure than a refused build.
+
+### Resolving files the module, and that is the point
+
+The one way this differs from Θ. A pinned image reference is a name a registry
+will answer for; a pinned helper is a name **nobody** can answer for until the
+bytes are somewhere both ends read. So the CLI's resolver puts the module in 𝔅
+and returns its digest, and a worker then fetches a helper by exactly the route
+it fetches everything else - digest-named, verified on read, unpoisonable.
+
+Verified on a real build:
+
+```text
+cache npmdemo: 6 units shared, map 08f42d19ba5bc466f6d8563451a47ac10997ae6e0a3e2ee1b4da8cb95445dae8
+$ cmp cachehelper.wasm store/a9/a9be64100683cf492c861c006a6cdb365d75be402363ad3765ee62954049c58a
+  (identical)
+```
+
+`helperFor` now reads 𝔅 first and falls back to the path, which also closes a
+smaller hole: re-reading the path gets whatever is there *now*, and on a long
+build that is not necessarily the file the key was taken over.
+
+### Two coverage guards that were not there
+
+`TestEveryOpFieldSurvivesTheWire` varies `Op.Caches` as a slice, which proves the
+slice is carried and says nothing about the element - the same blind spot
+`engine/ir` was given `TestEveryMountFieldReachesTheIdentity` for. So every field
+of a `fleet.Cache` is now checked twice: that it survives the wire, and that it
+reaches the mount `operationOf` rebuilds. A field that crosses and is dropped
+there is a worker running a declaration nobody sent.
+
+### What this does not yet buy
+
+On the driver the pin adds integrity and nothing else: the path still has to be
+readable, because that is where the bytes are read from in the first place. The
+payoff is entirely on the far end - a machine that never saw the Earthfile - and
+nothing wires a worker to share or stock yet. `cmd/earth-worker` builds its
+executor through `exec.New` rather than through the CLI's `sandboxed`, so
+`Mounts`, `Stock` and `Share` are all nil there. That is the next piece, and the
+pin is its precondition rather than its substitute.

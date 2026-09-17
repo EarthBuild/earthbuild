@@ -206,7 +206,13 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 		h.Str(m.PortableExcept)
 		// And which program reads it. A claim about *which paths* cross is
 		// worth nothing if the two ends disagree about what a unit is.
+		//
+		// Both the spelling and what it resolved to. A path is a name two
+		// machines can hold identically over different bytes, so keying it
+		// alone asserted the agreement this hash exists to enforce while
+		// checking only that both ends typed the same thing.
 		h.Str(m.Helper)
+		h.Str(m.HelperID)
 		// A bound view's object and subtree. **Its contents are keyed**, unlike
 		// a cache mount's - and they are keyed by this, because From is already
 		// a key over them (I20, §3.3d). A cache mount is a function of history

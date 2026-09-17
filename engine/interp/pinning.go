@@ -1,6 +1,10 @@
 package interp
 
-import "time"
+import (
+	"time"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
+)
 
 // ResolveImage answers what a mutable reference names right now.
 //
@@ -81,4 +85,92 @@ func (p *Plan) pin(ref, platform string) string {
 	p.Pinned[ref] = to
 
 	return to
+}
+
+// ResolveHelper answers what a cache helper's module actually is.
+//
+// It is given the reference as the author wrote it - `./go.wasm`, resolved
+// against the build's directory by whoever supplies this - and returns a digest
+// naming the module's bytes.
+//
+// **Resolving is expected to file the module somewhere both ends can read**,
+// which is the one way this differs from [ResolveImage]. A pinned image
+// reference is a name a registry will answer for; a pinned helper is a name only
+// this machine can answer for until somebody puts the bytes in 𝔅. The seam
+// returns a digest and says nothing about where it went, because the caller that
+// resolved it is the caller that owns the store.
+type ResolveHelper func(ref string) (string, error)
+
+// WithHelperResolver pins the program that reads a portable cache.
+//
+// **A path is a name and not an identity.** A helper decides what a unit is,
+// what it is called and what bytes are inside each frame, so two machines
+// running different helpers over one cache produce units that are not the same
+// units. Κ₁ hashed the path, which two machines can hold identically over
+// different bytes, so the agreement it was enforcing was an agreement about
+// spelling.
+//
+// Absent leaves the reference as written and claims no pin, exactly as
+// [WithImageResolver] does and for the same reason: `ls`, `doc` and corpus
+// analysis must produce a graph without reading anything, and a coarser key is a
+// better failure than a refused build.
+func WithHelperResolver(fn ResolveHelper) Option {
+	return func(o *options) { o.resolveHelper = fn }
+}
+
+// pinHelper resolves a helper reference, once per build.
+//
+// Memoised on the reference alone, where [Plan.pin] memoises on the pair: a
+// helper is one module and runs the same everywhere, which is the whole reason
+// it is a wasm module rather than a binary per platform.
+//
+// A resolver that fails leaves the mount unpinned rather than failing the build.
+// A cache that cannot be shared is a slower build on some other machine; a
+// refused step is no build at all, and the pinning is not worth that (I11).
+func (p *Plan) pinHelper(ref string) string {
+	if p.opt.resolveHelper == nil || ref == "" {
+		return ""
+	}
+
+	if to, ok := p.pinnedHelpers[ref]; ok {
+		return to
+	}
+
+	started := time.Now()
+	to, err := p.opt.resolveHelper(ref)
+	p.PinCost += time.Since(started)
+
+	if err != nil || to == "" {
+		return ""
+	}
+
+	if p.pinnedHelpers == nil {
+		p.pinnedHelpers = map[string]string{}
+	}
+
+	p.pinnedHelpers[ref] = to
+
+	// **Not recorded in [Plan.Pinned]**, which is Θ's record and carries advice
+	// with it: `recordPinning` tells the reader that `--pin` writes these into
+	// the Earthfile, which is true of an image reference and nonsense for a
+	// path on disk. The mount carries the digest, so the provenance is already
+	// where anything asking the question would look.
+	return to
+}
+
+// pinHelpers resolves every cache helper these mounts name, in place.
+//
+// Called where a step's mounts are assembled rather than where a flag is
+// parsed: `CACHE --helper` and `RUN --mount=...,helper=` are two parsers over
+// one idea, and pinning in each would let two paths of one build resolve the
+// same reference twice - which is the divergence [Plan.pin]'s memo exists to
+// make impossible for images.
+func (p *Plan) pinHelpers(ms []ir.Mount) {
+	if p.opt.resolveHelper == nil {
+		return
+	}
+
+	for i := range ms {
+		ms[i].HelperID = p.pinHelper(ms[i].Helper)
+	}
 }

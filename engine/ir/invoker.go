@@ -91,8 +91,10 @@ func pinning(mounts []Mount) string {
 			Target: m.Target, ID: m.ID, Mode: m.Mode, Exclusive: m.Exclusive,
 			Portable: m.Portable, PortableExcept: m.PortableExcept,
 			// A helper does not pin a step either: it is a program both ends
-			// run, not a path only one machine has.
-			Helper: m.Helper,
+			// run, named by the digest of its module so that "both ends" is a
+			// fact rather than a hope - a worker fetches the pinned module out
+			// of 𝔅, where it could not fetch a path only this machine has.
+			Helper: m.Helper, HelperID: m.HelperID,
 		}
 		if m == ordinary && m.ID != "" {
 			continue

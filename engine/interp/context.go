@@ -63,6 +63,10 @@ type options struct {
 	// reference is left as written - not refused, unlike the seams above it:
 	// see WithImageResolver for why FROM is the exception.
 	resolveImage ResolveImage
+	// resolveHelper pins a cache helper to the digest of its module. Nil means
+	// the reference is left as written, for WithImageResolver's reason: a
+	// plan-only caller must produce a graph without reading the disk.
+	resolveHelper ResolveHelper
 	// secrets are the names the invocation supplied. Only the *names* are kept
 	// here: the interpreter needs to know a secret exists so it can refuse one
 	// that does not, and needs the value for nothing at all.

@@ -114,6 +114,16 @@ type Cache struct {
 	// helper decides what a unit is, so two that differ share nothing and may
 	// import each other's units wrongly.
 	Helper string `json:"helper,omitempty"`
+	// HelperID is the digest of that helper's module, or empty where the
+	// driver pinned none.
+	//
+	// **The field that makes `Helper` mean anything here.** A worker sent
+	// `./go.wasm` has no such file: the path names a module on the machine that
+	// read the Earthfile and nothing on this one. A digest names the bytes, so
+	// a worker can fetch exactly the module the driver ran out of 𝔅 - which is
+	// what "both ends must run the same one" requires and what comparing two
+	// spellings of a path never gave.
+	HelperID string `json:"helperID,omitempty"`
 }
 
 // Kind is the closed set of operations expressible on the wire.

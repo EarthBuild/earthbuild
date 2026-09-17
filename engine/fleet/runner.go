@@ -305,6 +305,7 @@ func operationOf(o Op) (ir.Op, error) {
 			Portable:       c.Portable,
 			PortableExcept: c.PortableExcept,
 			Helper:         c.Helper,
+			HelperID:       c.HelperID,
 		})
 	}
 

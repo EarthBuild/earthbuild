@@ -280,7 +280,30 @@ type Mount struct {
 	// each frame, so two machines running different helpers over one cache
 	// produce units that are not the same units - filed under digests that do
 	// not match, and importable into each other.
+	//
+	// **As written, which is a name and not an identity.** What keys and what
+	// travels is [Mount.HelperID] beside it; this is kept so that a build
+	// reporting a cache can say what its author wrote.
 	Helper string
+	// HelperID is the digest of the helper's module, or empty where nothing
+	// resolved one.
+	//
+	// **The field that makes the claim above true.** `Helper` alone is a path,
+	// and two machines can hold the same path over different bytes - so a key
+	// over it asserted that both ends run the same helper while checking only
+	// that they spell it the same way. It is also the only name for a helper
+	// that means anything on the far end: a worker handed `./go.wasm` has no
+	// such file, and a worker handed a digest can fetch the module out of 𝔅
+	// and run exactly what the driver ran.
+	//
+	// Resolved once per build, before the key is taken, by the same argument
+	// Θ makes for an image reference (I17). Empty is "not stated", never
+	// "any": a build with no resolver keys as written and claims no pin, which
+	// is a coarser key rather than a wrong one.
+	//
+	// A string rather than a [NodeID], because it is a value the wire carries
+	// and compares and never a blob this package reads.
+	HelperID string
 	// Exclusive is `CACHE --sharing=locked`, the default: one step in this
 	// directory at a time.
 	//
@@ -953,6 +976,11 @@ func (n *Node) ID() NodeID {
 		h.Bool(m.Portable)
 		h.Str(m.PortableExcept)
 		h.Str(m.Helper)
+		// And which helper that is, by its contents. The line above hashes
+		// the author's spelling; this hashes what the spelling resolved to,
+		// which is the part two machines can disagree about while agreeing on
+		// the path.
+		h.Str(m.HelperID)
 
 		h.Bool(m.Exclusive)
 		h.Bool(m.Persist)

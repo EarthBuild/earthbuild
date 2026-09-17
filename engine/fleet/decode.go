@@ -190,6 +190,7 @@ func (d *decoder) op() Op {
 				Portable:       d.boolean(),
 				PortableExcept: d.str(),
 				Helper:         d.str(),
+				HelperID:       d.str(),
 			})
 		}
 	}

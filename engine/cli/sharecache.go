@@ -53,7 +53,7 @@ func (s *shares) offer(ctx context.Context, m ir.Mount, dir string) error {
 		return nil //nolint:nilerr // nothing to share is not a failure
 	}
 
-	h, err := s.helperFor(ctx, m.Helper)
+	h, err := s.helperFor(ctx, m)
 	if err != nil {
 		return s.say(m, err)
 	}
@@ -110,11 +110,18 @@ func (s *shares) say(m ir.Mount, err error) error {
 
 // helperFor compiles a helper once and returns it thereafter.
 //
-// The path is resolved against the build's directory, so `--helper ./go.wasm`
-// means what an author reading the Earthfile thinks it means.
-func (s *shares) helperFor(ctx context.Context, at string) (*helper.Helper, error) {
+// **Keyed on the pin, not on the path.** The digest is what names a module on
+// every machine, so a memo under it is a memo two mounts spelling one helper
+// differently still share - and, more to the point, it is the key a worker can
+// use, which a path is not.
+func (s *shares) helperFor(ctx context.Context, m ir.Mount) (*helper.Helper, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	at := m.HelperID
+	if at == "" {
+		at = m.Helper
+	}
 
 	if h, ok := s.by[at]; ok {
 		return h, nil
@@ -131,17 +138,12 @@ func (s *shares) helperFor(ctx context.Context, at string) (*helper.Helper, erro
 		s.rt = rt
 	}
 
-	path := at
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(s.dir, at)
-	}
-
-	module, err := os.ReadFile(path) //nolint:gosec // a path the Earthfile named
+	module, err := s.moduleFor(m)
 	if err != nil {
-		return nil, fmt.Errorf("read the helper %s: %w", at, err)
+		return nil, err
 	}
 
-	h, err := s.rt.Compile(ctx, filepath.Base(at), module)
+	h, err := s.rt.Compile(ctx, filepath.Base(m.Helper), module)
 	if err != nil {
 		return nil, err
 	}
@@ -151,10 +153,58 @@ func (s *shares) helperFor(ctx context.Context, at string) (*helper.Helper, erro
 	return h, nil
 }
 
+// moduleFor is the helper's bytes, out of 𝔅 where the build pinned them.
+//
+// **𝔅 first, and the path only as a fallback.** A pinned helper is in the store
+// under a digest that hashes its bytes, so reading it there gets exactly the
+// module the key was taken over - where reading the path again gets whatever is
+// at that path *now*, which on a long build is not necessarily the same file.
+// It is also the only route a machine that never saw the Earthfile has.
+//
+// An unpinned mount falls back to the path, which is what every build did before
+// the pin existed and is what a plan built without a resolver still does.
+func (s *shares) moduleFor(m ir.Mount) ([]byte, error) {
+	if m.HelperID != "" {
+		id, err := ir.ParseNodeID(m.HelperID)
+		if err == nil {
+			sink, storeErr := s.blobs()
+			if storeErr != nil {
+				return nil, storeErr
+			}
+
+			if b, getErr := sink.Get(id); getErr == nil {
+				return b, nil
+			}
+		}
+	}
+
+	if m.Helper == "" {
+		return nil, fmt.Errorf("the helper pinned as %s is not in this store and"+
+			" this machine has no path for it", m.HelperID)
+	}
+
+	path := m.Helper
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(s.dir, m.Helper)
+	}
+
+	module, err := os.ReadFile(path) //nolint:gosec // a path the Earthfile named
+	if err != nil {
+		return nil, fmt.Errorf("read the helper %s: %w", m.Helper, err)
+	}
+
+	return module, nil
+}
+
 func (s *shares) store() (*blob.Store, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	return s.blobs()
+}
+
+// blobs is store without the lock, for callers that already hold it.
+func (s *shares) blobs() (*blob.Store, error) {
 	if s.sink != nil {
 		return s.sink, nil
 	}
@@ -221,7 +271,7 @@ func (s *shares) stock(ctx context.Context, m ir.Mount, dir string) error {
 
 	have := helper.Map{}
 
-	h, err := s.helperFor(ctx, m.Helper)
+	h, err := s.helperFor(ctx, m)
 	if err != nil {
 		return s.say(m, err)
 	}

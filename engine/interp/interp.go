@@ -133,6 +133,10 @@ type Plan struct {
 	// pinned memoises Θ on (reference, platform), which is what makes it once
 	// per build rather than once per use (I17).
 	pinned map[string]string
+	// pinnedHelpers memoises the same for cache helpers, on the reference
+	// alone: a helper is one module and runs the same everywhere, which is why
+	// it is a module rather than a binary per platform.
+	pinnedHelpers map[string]string
 
 	// dockerCache is the shared daemon storage the WITH DOCKER block being
 	// planned right now asked for, and empty outside one. See withStatement.
@@ -1338,6 +1342,12 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// graph are. `mounts` is copied first because the resolution writes
 		// From into it, and rf's slice is the caller's (§3.3d).
 		mounts := append(append([]ir.Mount{}, rs.mounts...), rf.mounts...)
+
+		// And each cache helper is pinned to the module it names, here rather
+		// than where the flag is parsed - this is the one place `CACHE` lines
+		// and `RUN --mount` specs come together, and a helper resolved twice by
+		// two parsers is a helper two paths of one build can disagree about.
+		p.pinHelpers(mounts)
 
 		views, err := p.resolveViews(mounts[len(rs.mounts):], rf.views, rs, loc(c.SourceLocation))
 		if err != nil {

@@ -100,6 +100,15 @@ func Runner(
 			cfg.sink.Set(cfg.fragmenters(a))
 		}
 
+		// And where a whole blob comes from, which is what a shared cache is
+		// made of. The same holders, in the same order, set at the same moment
+		// and for the same reason: a helper module and a cache's units are
+		// named by ℋ and fetched by name, and until this there was nowhere for a
+		// step to ask.
+		if cfg.away != nil {
+			cfg.away.Set(cfg.sources(a))
+		}
+
 		// **Before the step, not before the fetch.** Getting to a holder costs
 		// more than reading from one and none of it is proportional to the
 		// bytes, so it is worth paying while something else is happening. The
@@ -391,6 +400,10 @@ type runnerCfg struct {
 	// sink is where this worker's executor faults in from, refreshed with the
 	// holders of every assignment. See WithPeerSink.
 	sink *Peers
+	// away is where a whole blob comes from - a cache's units and the helper
+	// that reads them - refreshed with the same holders as sink. See
+	// WithBlobSink.
+	away *Nearby
 	// fetching serialises transfers on this worker. See provision.
 	fetching sync.Mutex
 	// faults is what this worker has moved by faulting rather than by
@@ -588,6 +601,17 @@ func WithFragments(into *Fragments, from ...Fragmenter) RunnerOpt {
 // refreshes it (E329).
 func WithPeerSink(p *Peers) RunnerOpt {
 	return func(c *runnerCfg) { c.sink = p }
+}
+
+// WithBlobSink tells a worker where to fetch a whole blob it does not hold.
+//
+// `WithPeerSink`'s sibling, and the distinction is the point: that one carries
+// *fragments*, which is what faulting a base in needs, and this one carries
+// whole blobs named by ℋ, which is what a shared cache mount is made of. Both
+// are refreshed from the same holders at the same moment; a worker given one and
+// not the other simply does the half it was given.
+func WithBlobSink(n *Nearby) RunnerOpt {
+	return func(c *runnerCfg) { c.away = n }
 }
 
 // WithPeers lets a worker fetch from other workers, and be fetched from.

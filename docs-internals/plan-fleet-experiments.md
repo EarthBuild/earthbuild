@@ -2363,3 +2363,70 @@ arrival because 𝔅's rule is that a wrong answer is a miss. The transport exis
 
 The failure now says both halves, because on a worker the path is the route that
 was never going to work and the pin is the one that should have.
+
+## E-F22: a helper crosses the fleet, and the store was two stores
+
+E-F21 left a worker attempting to share and unable to: the pinned module sat in
+the driver's 𝔅 and nothing moved it. Three things were missing, and the third
+was not the one this expected.
+
+**`fleet.Nearby`** - `Peers`' sibling. That one is refreshed per assignment and
+carries *fragments*, which is what faulting a base in needs; a cache's units and
+the module that reads them are whole blobs named by ℋ, and nothing held a live
+list of who to ask for one. Set from the same holders at the same moment, one
+line beside `sink.Set`.
+
+**A read-through in `cacheshare`** - local 𝔅 first, then the fleet, verified
+before it is kept. Kept, because a helper is asked for once per cache mount per
+step and a worker runs many; verified, because filing a peer's answer under a
+name it does not hash to would poison the one store in this engine that cannot
+be poisoned. A mismatch is a miss (I4) and nothing is written down.
+
+**And the driver never served its nodes.** `fleet.Nodes` existed and only
+`cmd/earth-worker` built one, so the machine holding the helper module and every
+cache's units answered nothing about them.
+
+### Which uncovered the real fault: one namespace, two directories
+
+Fixing all three and re-running still gave:
+
+```text
+cache npmfleet2: not shared: the helper pinned as a9be6410… is not in this
+  store, and ./cachehelper.wasm is not here either
+```
+
+`store.NoteNodes` writes REAPI `Directory` messages under `nodes/<digest>`.
+`blob.Store` writes everything else - a cache's units, a helper's module - under
+`<first two hex>/<digest>`. Both are content addressed by ℋ over their own
+bytes; `fleet.Nodes` knew only the first.
+
+So **`fleet.Nodes` has never been able to serve anything a shared cache is made
+of**, and the plan's claim that it could was wrong from the day it was written.
+It was serving a real population - Directory messages - which is why nothing
+looked broken. A digest belongs to at most one of the two directories, so looking
+in both is completeness rather than ambiguity.
+
+### The proof
+
+Worker in a directory holding two binaries and nothing else:
+
+```text
+ls ~/git/big/fleetworker/  ->  earth-guestd  earth-worker
+
+driver   3 delegated, 2 local
+driver   cache npmfleet1: 2 units shared   cache npmfleet3: 2 units shared
+worker   cache npmfleet2: 2 units shared   cache npmfleet4: 2 units shared
+
+worker-store/a9/a9be64100683cf492c861c006a6cdb365d75be402363ad3765ee62954049c58a
+cmp cachehelper.wasm <that>  ->  identical
+```
+
+A machine that never saw the Earthfile fetched the module by the digest the
+driver keyed the step under, verified it, kept it, ran it, and shared two caches.
+
+### Still owed
+
+Stocking from a peer. `Stock` now reads its map and its units through the same
+read-through, so the mechanism is there - but the pointer from a cache to its
+latest map is a local file, and nothing tells a worker which map describes the
+cache it is about to fill. That is a hint (`Hints`, I5) and it is the next piece.

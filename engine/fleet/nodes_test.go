@@ -1,11 +1,13 @@
 package fleet
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/engine/blob"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/store"
 )
@@ -151,5 +153,74 @@ func TestTheNodeLayoutIsTheStoresLayout(t *testing.T) {
 	if got, want := (&Nodes{Root: root}).at(id), store.NodePath(root, id); got != want {
 		t.Errorf("fleet files a node at %q and the store reads it at %q"+
 			"\n  the fleet would serve nothing and nothing would say so", got, want)
+	}
+}
+
+// And the other place a store keeps content-addressed bytes.
+//
+// **One namespace, two directories.** `store.NoteNodes` writes REAPI Directory
+// messages under `nodes/`; `blob.Store` writes everything else - a cache's
+// units, a helper's module - under `<hh>/<digest>`. Both are named by ℋ over
+// their own bytes, so both are nodes, and a server that knew only the first
+// answered "no peer served it" for every blob a shared cache is made of.
+//
+// This was measured rather than reasoned: a worker asking the driver for a
+// pinned helper module got nothing from the one machine that had it, because the
+// module was filed at `store/a9/a9be6410…` and looked for at `store/nodes/`.
+func TestAWorkerServesTheBlobsItHolds(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	body := []byte("a unit, filed by the blob store rather than beside a tree")
+
+	st, err := blob.New(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id, _, err := st.Put(bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	n := &Nodes{Root: root}
+
+	if !n.Has(id) {
+		t.Fatal("a blob this worker holds is not claimed, so nobody will ask for it")
+	}
+
+	got, err := n.Get(id)
+	if err != nil {
+		t.Fatalf("get a held blob: %v", err)
+	}
+
+	if string(got) != string(body) {
+		t.Errorf("served %q, want %q", got, body)
+	}
+}
+
+// A blob whose bytes have rotted is not served either.
+func TestARottedBlobIsNotServed(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+
+	st, err := blob.New(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id, _, err := st.Put(bytes.NewReader([]byte("what it was filed as")))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	at := filepath.Join(root, id.String()[:2], id.String())
+	if err := os.WriteFile(at, []byte("what it is now"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := (&Nodes{Root: root}).Get(id); err == nil {
+		t.Error("served bytes that do not hash to the name they are filed under")
 	}
 }

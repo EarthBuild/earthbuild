@@ -123,8 +123,20 @@ func (g *guestLayers) Put(r io.Reader) (ir.NodeID, int64, error) {
 // a build that works badly rather than one that does not start.
 func fleetStore(sb exec.Sandbox, over any, root string) fleet.Store {
 	if !storeInGuest(sb) {
-		return &fleet.Layers{Root: root}
+		// **And the nodes beside the layers**, which is where a shared cache
+		// lives. A worker has served its own since `fleet.Nodes` existed; a
+		// driver served only layers, and the driver is the machine holding the
+		// helper module every worker has to run and the units of every cache it
+		// has filled. A worker asking for one got "no peer served it" from the
+		// one peer that certainly had it.
+		return fleet.WithNodes(&fleet.Layers{Root: root}, root)
 	}
+
+	// **Not when the store is on the guest's device.** `nodes/` is then inside
+	// the VM and a reader rooted at the host's path would claim nothing and
+	// serve nothing - honestly, but a cache that crosses on Linux and silently
+	// does not on a Mac is worse than one that does neither. Sharing from a
+	// guest-side store is E511's gap and is not closed here.
 
 	pack, canPack := sb.(guestPacker)
 	hold, canAsk := here(over).(storeHolder)

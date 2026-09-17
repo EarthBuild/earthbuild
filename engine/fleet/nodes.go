@@ -11,10 +11,12 @@ import (
 // Nodes serves a store's content-addressed nodes.
 //
 // **The gap between what the fleet moves and what a shared cache is made of.**
-// Layers and fragments of layers have always crossed; a store's `nodes/` - REAPI
-// `Directory` messages, and anything else filed under ℋ over its own bytes - has
-// not. A cache shared between machines is exactly those, so without this the
-// read-through in `remote.Cache` has nobody to read through to.
+// Layers and fragments of layers have always crossed; a store's content-addressed
+// blobs - REAPI `Directory` messages under `nodes/`, and everything `blob.Store`
+// files beside them - have not. A cache shared between machines is exactly those,
+// so without this the read-through in `remote.Cache` has nobody to read through
+// to. See places: there are two directories and knowing only one of them made
+// this serve nothing a cache is made of.
 //
 // Nothing is invented for it. A node is a whole blob, `Held` is the interface
 // the blob server already asks, and `earth/blob/1` already carries whole blobs
@@ -32,9 +34,13 @@ type Nodes struct {
 // asked once per id per request, and a store that read the bytes to answer it
 // would read every blob twice.
 func (n *Nodes) Has(id ir.NodeID) bool {
-	fi, err := os.Lstat(n.at(id))
+	for _, at := range n.places(id) {
+		if fi, err := os.Lstat(at); err == nil && fi.Mode().IsRegular() {
+			return true
+		}
+	}
 
-	return err == nil && fi.Mode().IsRegular()
+	return false
 }
 
 // Get is the node, verified against the name it is filed under.
@@ -45,24 +51,51 @@ func (n *Nodes) Has(id ir.NodeID) bool {
 // wrong bytes is detected on read and the read becomes a miss (I4) - so an
 // attacker with total control of one can deny service and nothing else.
 func (n *Nodes) Get(id ir.NodeID) ([]byte, error) {
-	b, err := os.ReadFile(n.at(id)) //nolint:gosec // a path built from a digest
-	if err != nil {
-		return nil, fmt.Errorf("%w: no node %v here", ErrNotFetched, id)
+	for _, at := range n.places(id) {
+		b, err := os.ReadFile(at) //nolint:gosec // a path built from a digest
+		if err != nil {
+			continue
+		}
+
+		if got := ir.DigestOf(b); got != id {
+			return nil, fmt.Errorf("%w: node stored as %v hashes to %v", ErrNotFetched, id, got)
+		}
+
+		return b, nil
 	}
 
-	if got := ir.DigestOf(b); got != id {
-		return nil, fmt.Errorf("%w: node stored as %v hashes to %v", ErrNotFetched, id, got)
-	}
-
-	return b, nil
+	return nil, fmt.Errorf("%w: no node %v here", ErrNotFetched, id)
 }
 
-// at is where a node lives, which is `store.DirStore`'s layout said again.
+// places is where a store keeps something named by ℋ over its own bytes.
+//
+// **One namespace, two directories, and knowing only one of them made this
+// serve nothing that mattered.** `store.NoteNodes` writes REAPI `Directory`
+// messages under `nodes/`; `blob.Store` writes everything else - a cache's
+// units, a helper's module - under `<first two hex>/<digest>`. Both are content
+// addressed and a digest belongs to at most one of them, so looking in both is
+// not ambiguity, it is completeness.
+//
+// Measured rather than reasoned: a worker asking the driver for a pinned helper
+// module got "no peer served it" from the one machine that certainly had it,
+// because the module was filed at `store/a9/a9be6410…` and looked for at
+// `store/nodes/a9be6410…`.
+func (n *Nodes) places(id ir.NodeID) [2]string {
+	h := id.String()
+
+	return [2]string{
+		filepath.Join(n.Root, "nodes", h),
+		filepath.Join(n.Root, h[:2], h),
+	}
+}
+
+// at is where a tree's node lives, which is `store.DirStore`'s layout said
+// again.
 //
 // Restated rather than imported: `engine/store` depends on `engine/layer`, and
 // a fleet that pulled that in for one `filepath.Join` would carry the whole
 // layer stack into a package whose job is to move bytes. The layout is one line
 // and a test holds both ends of it.
 func (n *Nodes) at(id ir.NodeID) string {
-	return filepath.Join(n.Root, "nodes", id.String())
+	return n.places(id)[0]
 }

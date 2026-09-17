@@ -224,6 +224,13 @@ func run() error {
 	sharing := cacheshare.New(sb.StoreDir(), "", os.Stderr)
 	x.Stock, x.Share = sharing.Stock, sharing.Offer
 
+	// And where to get what this store lacks. Refreshed per assignment from the
+	// same holders the fragment sink gets, because a cache's units and the
+	// module that reads them are blobs like any other and the driver already
+	// says who has this build's.
+	nearby := &fleet.Nearby{}
+	sharing.Away(nearby)
+
 	// **And be told no.** A backend that cannot fault in leaves the base
 	// materialised whole, which is slower and correct - so the worker asks
 	// rather than assumes, and says so rather than silently priming a base
@@ -269,6 +276,7 @@ func run() error {
 				fleet.WithFragments(frags),
 				fleet.WithPeerSink(peers),
 				fleet.WithFaults(faults),
+				fleet.WithBlobSink(nearby),
 				fleet.WithPeers(me.String(), dialPeer(ctx, e, found, os.Getenv(fleet.EnvDriver)))),
 			say,
 			// Reachable without being reachable: the driver fetches what this

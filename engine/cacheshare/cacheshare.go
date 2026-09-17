@@ -39,10 +39,90 @@ type Sharing struct {
 	out  io.Writer
 	dir  string
 
-	mu   sync.Mutex
-	rt   *helper.Runtime
-	by   map[string]*helper.Helper
+	// mu guards the compilation memo, and is held across a compile so that a
+	// build touching one cache in forty steps compiles the module once.
+	mu sync.Mutex
+	rt *helper.Runtime
+	by map[string]*helper.Helper
+
+	// smu guards where blobs come from. **A separate lock, because `fetch` is
+	// called from under `mu`**: a module is fetched while choosing a helper, and
+	// one mutex for both would be asked to be reentrant.
+	smu  sync.Mutex
 	sink *blob.Store
+	away Elsewhere
+}
+
+// Elsewhere answers for a blob this machine does not hold.
+//
+// **Nil is the ordinary case and means "this machine is on its own".** A local
+// build has no fleet, and a worker before an assignment has no holders; both
+// then behave as every build did before any of this - the cache does not cross,
+// which is a slower build somewhere else and never a wrong one.
+//
+// Shaped after `fleet.Nearby.Node`, which is the implementation, and after
+// `remote.Elsewhere` one layer over, which is the same idea for the REAPI
+// surface. Declared here rather than imported so that this package does not
+// depend on the fleet to know a cache can be shared over one.
+type Elsewhere interface {
+	// Node is the blob under this digest, or an error meaning "not from me".
+	Node(ctx context.Context, id ir.NodeID) ([]byte, error)
+}
+
+// Away says where to look for a blob this store lacks.
+func (s *Sharing) Away(e Elsewhere) {
+	s.smu.Lock()
+	defer s.smu.Unlock()
+
+	s.away = e
+}
+
+// fetch is the blob under this digest: locally, or from the fleet, or not.
+//
+// **Kept when it arrives**, which is the difference between a read-through and a
+// round trip per use. A helper is asked for once per cache mount per step and a
+// worker runs many, so re-fetching four megabytes each time would make the pin
+// more expensive than the path it replaced.
+//
+// **Verified before it is kept.** 𝔅's whole property is that a name hashes its
+// contents, so filing a peer's answer under a name it does not hash to would
+// poison the one store in this engine that cannot be poisoned. A mismatch is a
+// miss (I4): the cache does not cross and nothing is written down.
+func (s *Sharing) fetch(ctx context.Context, id ir.NodeID) ([]byte, error) {
+	sink, err := s.store()
+	if err != nil {
+		return nil, err
+	}
+
+	if b, getErr := sink.Get(id); getErr == nil {
+		return b, nil
+	}
+
+	s.smu.Lock()
+	away := s.away
+	s.smu.Unlock()
+
+	if away == nil {
+		return nil, fmt.Errorf("%s is not in this store and there is nobody to ask", id)
+	}
+
+	b, err := away.Node(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("fetch %s: %w", id, err)
+	}
+
+	if ir.DigestOf(b) != id {
+		return nil, fmt.Errorf("what arrived for %s does not hash to that name,"+
+			" so it is not what was asked for", id)
+	}
+
+	if _, _, putErr := sink.Put(bytes.NewReader(b)); putErr != nil {
+		// Kept is an optimisation and failing to keep it is not a reason to
+		// refuse: the bytes are in hand and verified.
+		_ = putErr
+	}
+
+	return b, nil
 }
 
 // New is what the executor offers each portable cache mount to.
@@ -150,7 +230,7 @@ func (s *Sharing) helperFor(ctx context.Context, m ir.Mount) (*helper.Helper, er
 		s.rt = rt
 	}
 
-	module, err := s.moduleFor(m)
+	module, err := s.moduleFor(ctx, m)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +255,7 @@ func (s *Sharing) helperFor(ctx context.Context, m ir.Mount) (*helper.Helper, er
 //
 // An unpinned mount falls back to the path, which is what every build did before
 // the pin existed and is what a plan built without a resolver still does.
-func (s *Sharing) moduleFor(m ir.Mount) ([]byte, error) {
+func (s *Sharing) moduleFor(ctx context.Context, m ir.Mount) ([]byte, error) {
 	var missed string
 
 	if m.HelperID != "" {
@@ -183,12 +263,7 @@ func (s *Sharing) moduleFor(m ir.Mount) ([]byte, error) {
 
 		id, err := ir.ParseNodeID(m.HelperID)
 		if err == nil {
-			sink, storeErr := s.blobs()
-			if storeErr != nil {
-				return nil, storeErr
-			}
-
-			if b, getErr := sink.Get(id); getErr == nil {
+			if b, getErr := s.fetch(ctx, id); getErr == nil {
 				return b, nil
 			}
 		}
@@ -225,14 +300,9 @@ func (s *Sharing) moduleFor(m ir.Mount) ([]byte, error) {
 }
 
 func (s *Sharing) store() (*blob.Store, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.smu.Lock()
+	defer s.smu.Unlock()
 
-	return s.blobs()
-}
-
-// blobs is store without the lock, for callers that already hold it.
-func (s *Sharing) blobs() (*blob.Store, error) {
 	if s.sink != nil {
 		return s.sink, nil
 	}
@@ -285,15 +355,11 @@ func (s *Sharing) Stock(ctx context.Context, m ir.Mount, dir string) error {
 		return nil
 	}
 
-	sink, err := s.store()
+	b, err := s.fetch(ctx, at)
 	if err != nil {
-		return s.say(m, err)
-	}
-
-	b, err := sink.Get(at)
-	if err != nil {
-		// The pointer names a map this store no longer holds - collected, or
-		// never fetched. Not an error: the step fills the cache itself.
+		// The pointer names a map this store no longer holds and no peer will
+		// answer for - collected, or never filed here at all. Not an error: the
+		// step fills the cache itself, which is what it did before any of this.
 		return nil //nolint:nilerr // a map we cannot read is a cache we cannot stock
 	}
 
@@ -333,7 +399,16 @@ func (s *Sharing) Stock(ctx context.Context, m ir.Mount, dir string) error {
 		return s.say(m, err)
 	}
 
-	if err := helper.Import(ctx, h, dir, sink, all, want); err != nil {
+	// **Through the fleet, not just out of this store.** The map names units by
+	// digest and a machine stocking a cold cache holds none of them, so a
+	// fetcher reading only what is here would find the map, want everything in
+	// it, and import nothing - which is the shape E-F21 measured for the helper
+	// one level up.
+	//
+	// A unit no peer will answer for is skipped rather than fatal, which is
+	// `helper.Import`'s own rule: a cache short of one unit is a cache, where a
+	// failed step is a failed build (I11).
+	if err := helper.Import(ctx, h, dir, s.units(ctx), all, want); err != nil {
 		return s.say(m, err)
 	}
 
@@ -408,3 +483,20 @@ func decodeMap(b []byte) helper.Map {
 
 	return out
 }
+
+// units is the store as `helper.Import` wants it, reading through to the fleet.
+//
+// The context is carried here because `helper.Fetcher` has none: it is the
+// interface a helper's units are handed over, and threading a context through it
+// would put "where might this come from" into a contract that is deliberately
+// about nothing but bytes and names.
+func (s *Sharing) units(ctx context.Context) helper.Fetcher {
+	return fetching{s: s, ctx: ctx}
+}
+
+type fetching struct {
+	s   *Sharing
+	ctx context.Context //nolint:containedctx // see Sharing.units
+}
+
+func (f fetching) Get(id ir.NodeID) ([]byte, error) { return f.s.fetch(f.ctx, id) }

@@ -259,14 +259,21 @@ func (d Document) referenceAt(offset int) *Reference {
 }
 
 func (d Document) resolveReference(ref Reference, loader Loader) (*Document, error) {
-	if ref.Project == "" {
+	return d.resolveProject(ref.Project, ref.Scope, loader)
+}
+
+// resolveProject analyzes the Earthfile a reference prefix names, resolving an
+// IMPORT alias visible in scope before falling back to treating the prefix as
+// a path. It returns a nil document when the project is not local, which a
+// workspace cannot read.
+func (d Document) resolveProject(project, scope string, loader Loader) (*Document, error) {
+	if project == "" {
 		return &d, nil
 	}
 
-	project := ref.Project
 	if !isLocalProject(project) {
 		for _, imp := range slices.Backward(d.Imports) {
-			if imp.Alias == project && (imp.Scope == "" || imp.Scope == ref.Scope) {
+			if imp.Alias == project && (imp.Scope == "" || imp.Scope == scope) {
 				project = imp.Path
 				break
 			}

@@ -1,12 +1,13 @@
-package analyzer_test
+package analyzer
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/EarthBuild/earthbuild/internal/earthfile/analyzer"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 // cursorSource splits a fixture on the "|" cursor marker and returns the
@@ -27,7 +28,7 @@ func TestCompletionContext(t *testing.T) {
 	tests := []struct {
 		name    string
 		source  string
-		kind    analyzer.CompletionKind
+		kind    CompletionKind
 		prefix  string
 		project string
 		target  string
@@ -39,14 +40,14 @@ func TestCompletionContext(t *testing.T) {
 		{
 			name:    "command at start of indented line",
 			source:  "VERSION 0.8\n\nbuild:\n\t|\n",
-			kind:    analyzer.CompletionCommand,
+			kind:    CompletionCommand,
 			replace: "",
 			scope:   "build",
 		},
 		{
 			name:    "partial command keyword",
 			source:  "VERSION 0.8\n\nbuild:\n\tRU|\n",
-			kind:    analyzer.CompletionCommand,
+			kind:    CompletionCommand,
 			prefix:  "RU",
 			replace: "RU",
 			scope:   "build",
@@ -54,14 +55,14 @@ func TestCompletionContext(t *testing.T) {
 		{
 			name:    "command in the base recipe is unindented",
 			source:  "VERSION 0.8\nFRO|\n",
-			kind:    analyzer.CompletionCommand,
+			kind:    CompletionCommand,
 			prefix:  "FRO",
 			replace: "FRO",
 		},
 		{
 			name:    "local target after plus",
 			source:  "VERSION 0.8\n\nbuild:\n\tBUILD +|\n",
-			kind:    analyzer.CompletionTarget,
+			kind:    CompletionTarget,
 			command: "BUILD",
 			replace: "",
 			scope:   "build",
@@ -69,7 +70,7 @@ func TestCompletionContext(t *testing.T) {
 		{
 			name:    "partial local target",
 			source:  "VERSION 0.8\n\nbuild:\n\tBUILD +te|\n",
-			kind:    analyzer.CompletionTarget,
+			kind:    CompletionTarget,
 			command: "BUILD",
 			prefix:  "te",
 			replace: "te",
@@ -78,7 +79,7 @@ func TestCompletionContext(t *testing.T) {
 		{
 			name:    "imported function after alias",
 			source:  "VERSION 0.8\nIMPORT ./other AS other\n\nbuild:\n\tDO other+|\n",
-			kind:    analyzer.CompletionTarget,
+			kind:    CompletionTarget,
 			command: "DO",
 			project: "other",
 			replace: "",
@@ -87,7 +88,7 @@ func TestCompletionContext(t *testing.T) {
 		{
 			name:    "target in a relative path reference",
 			source:  "VERSION 0.8\n\nbuild:\n\tBUILD ./sub+|\n",
-			kind:    analyzer.CompletionTarget,
+			kind:    CompletionTarget,
 			command: "BUILD",
 			project: "./sub",
 			replace: "",
@@ -96,7 +97,7 @@ func TestCompletionContext(t *testing.T) {
 		{
 			name:    "artifact after target slash",
 			source:  "VERSION 0.8\n\nbuild:\n\tCOPY +deps/|\n",
-			kind:    analyzer.CompletionArtifact,
+			kind:    CompletionArtifact,
 			project: "",
 			target:  "deps",
 			command: "COPY",
@@ -106,7 +107,7 @@ func TestCompletionContext(t *testing.T) {
 		{
 			name:    "flag after double dash",
 			source:  "VERSION 0.8\n\nbuild:\n\tRUN --|\n",
-			kind:    analyzer.CompletionFlag,
+			kind:    CompletionFlag,
 			command: "RUN",
 			replace: "--",
 			scope:   "build",
@@ -114,7 +115,7 @@ func TestCompletionContext(t *testing.T) {
 		{
 			name:    "partial flag",
 			source:  "VERSION 0.8\n\nbuild:\n\tRUN --pu|\n",
-			kind:    analyzer.CompletionFlag,
+			kind:    CompletionFlag,
 			command: "RUN",
 			prefix:  "pu",
 			replace: "--pu",
@@ -123,7 +124,7 @@ func TestCompletionContext(t *testing.T) {
 		{
 			name:    "flag on a two word command",
 			source:  "VERSION 0.8\n\nbuild:\n\tSAVE ARTIFACT --|\n",
-			kind:    analyzer.CompletionFlag,
+			kind:    CompletionFlag,
 			command: "SAVE ARTIFACT",
 			replace: "--",
 			scope:   "build",
@@ -131,13 +132,13 @@ func TestCompletionContext(t *testing.T) {
 		{
 			name:   "no completion inside a comment",
 			source: "VERSION 0.8\n\nbuild:\n\t# build the |\n",
-			kind:   analyzer.CompletionNone,
+			kind:   CompletionNone,
 			scope:  "build",
 		},
 		{
 			name:    "no completion in a target declaration",
 			source:  "VERSION 0.8\n\nbui|\n",
-			kind:    analyzer.CompletionCommand,
+			kind:    CompletionCommand,
 			prefix:  "bui",
 			replace: "bui",
 		},
@@ -148,7 +149,7 @@ func TestCompletionContext(t *testing.T) {
 			t.Parallel()
 
 			source, offset := cursorSource(t, test.source)
-			doc := analyzer.Analyze("Earthfile", source)
+			doc := Analyze("Earthfile", source)
 			ctx := doc.CompletionContext(offset)
 
 			require.Equal(t, test.kind, ctx.Kind, "kind")
@@ -158,7 +159,7 @@ func TestCompletionContext(t *testing.T) {
 			require.Equal(t, test.command, ctx.Command, "command")
 			require.Equal(t, test.scope, ctx.Scope, "scope")
 
-			if test.kind != analyzer.CompletionNone {
+			if test.kind != CompletionNone {
 				require.Equal(t, test.replace, source[ctx.Replace.Start:ctx.Replace.End], "replaced text")
 			}
 		})
@@ -172,11 +173,11 @@ func TestCompletionContextOnInvalidBuffer(t *testing.T) {
 	// completion runs. The recovery index must still supply the scope.
 	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\tRUN echo hi\n\ndeploy:\n\tBUILD +|\n")
 
-	doc := analyzer.Analyze("Earthfile", source)
+	doc := Analyze("Earthfile", source)
 	require.Empty(t, doc.References, "an incomplete reference is not indexable")
 
 	ctx := doc.CompletionContext(offset)
-	require.Equal(t, analyzer.CompletionTarget, ctx.Kind)
+	require.Equal(t, CompletionTarget, ctx.Kind)
 	require.Equal(t, "deploy", ctx.Scope)
 	require.Equal(t, "BUILD", ctx.Command)
 }
@@ -184,10 +185,10 @@ func TestCompletionContextOnInvalidBuffer(t *testing.T) {
 func TestCompletionContextOutOfRangeOffsets(t *testing.T) {
 	t.Parallel()
 
-	doc := analyzer.Analyze("Earthfile", "VERSION 0.8\n")
+	doc := Analyze("Earthfile", "VERSION 0.8\n")
 
 	for _, offset := range []int{-1, len(doc.Text) + 1} {
-		require.Equal(t, analyzer.CompletionNone, doc.CompletionContext(offset).Kind,
+		require.Equal(t, CompletionNone, doc.CompletionContext(offset).Kind,
 			"offset %d must not panic or classify", offset)
 	}
 }
@@ -197,8 +198,8 @@ func TestCompletionContextAtEndOfFileWithoutNewline(t *testing.T) {
 
 	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\tRU|")
 
-	ctx := analyzer.Analyze("Earthfile", source).CompletionContext(offset)
-	require.Equal(t, analyzer.CompletionCommand, ctx.Kind)
+	ctx := Analyze("Earthfile", source).CompletionContext(offset)
+	require.Equal(t, CompletionCommand, ctx.Kind)
 	require.Equal(t, "RU", ctx.Prefix)
 }
 
@@ -209,7 +210,151 @@ func TestCompletionContextIgnoresQuotedHash(t *testing.T) {
 	// still completable after it.
 	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\tRUN echo \"a#b\" --|\n")
 
-	ctx := analyzer.Analyze("Earthfile", source).CompletionContext(offset)
-	require.Equal(t, analyzer.CompletionFlag, ctx.Kind)
+	ctx := Analyze("Earthfile", source).CompletionContext(offset)
+	require.Equal(t, CompletionFlag, ctx.Kind)
 	require.Equal(t, "RUN", ctx.Command)
+}
+
+func completionLabels(items []Completion) []string {
+	labels := make([]string, 0, len(items))
+	for _, item := range items {
+		labels = append(labels, item.Label)
+	}
+
+	return labels
+}
+
+func TestCompletionsOfferCanonicalCommands(t *testing.T) {
+	t.Parallel()
+
+	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\t|\n")
+
+	items := Analyze("Earthfile", source).Completions(offset, nil)
+	require.Len(t, items, len(earthfile.Commands()))
+	require.Contains(t, completionLabels(items), "RUN")
+	require.Contains(t, completionLabels(items), "SAVE ARTIFACT")
+
+	for _, item := range items {
+		require.Equal(t, ItemKeyword, item.Kind)
+	}
+}
+
+func TestCompletionsFilterCommandsByPrefix(t *testing.T) {
+	t.Parallel()
+
+	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\tCO|\n")
+
+	labels := completionLabels(Analyze("Earthfile", source).Completions(offset, nil))
+	require.ElementsMatch(t, []string{"COPY", "COMMAND"}, labels)
+}
+
+func TestCompletionsMatchCommandPrefixCaseInsensitively(t *testing.T) {
+	t.Parallel()
+
+	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\tru|\n")
+
+	require.Equal(t, []string{"RUN"}, completionLabels(Analyze("Earthfile", source).Completions(offset, nil)))
+}
+
+func TestCompletionsOfferLocalTargets(t *testing.T) {
+	t.Parallel()
+
+	source, offset := cursorSource(t,
+		"VERSION 0.8\n\n# deps fetches modules.\ndeps:\n\tRUN true\n\ntest:\n\tRUN true\n\nall:\n\tBUILD +|\n")
+
+	items := Analyze("Earthfile", source).Completions(offset, nil)
+	require.ElementsMatch(t, []string{"deps", "test"}, completionLabels(items))
+
+	for _, item := range items {
+		if item.Label == "deps" {
+			require.Equal(t, ItemTarget, item.Kind)
+			require.Equal(t, "target +deps", item.Detail)
+			require.Equal(t, "deps fetches modules.", item.Docs)
+		}
+	}
+}
+
+func TestCompletionsExcludeTheEnclosingTarget(t *testing.T) {
+	t.Parallel()
+
+	// A target that builds itself is always a cycle, so it is never a useful
+	// candidate in its own recipe.
+	source, offset := cursorSource(t, "VERSION 0.8\n\ndeps:\n\tRUN true\n\nall:\n\tBUILD +|\n")
+
+	labels := completionLabels(Analyze("Earthfile", source).Completions(offset, nil))
+	require.Equal(t, []string{"deps"}, labels)
+	require.NotContains(t, labels, "all")
+}
+
+func TestCompletionsRestrictCandidatesByCommand(t *testing.T) {
+	t.Parallel()
+
+	doTarget, doOffset := cursorSource(t, "VERSION 0.8\n\nDEPLOY:\n\tFUNCTION\n\ndeps:\n\tRUN true\n\nall:\n\tDO +|\n")
+	require.Equal(t, []string{"DEPLOY"},
+		completionLabels(Analyze("Earthfile", doTarget).Completions(doOffset, nil)),
+		"DO takes a function")
+
+	buildTarget, buildOffset := cursorSource(t,
+		"VERSION 0.8\n\nDEPLOY:\n\tFUNCTION\n\ndeps:\n\tRUN true\n\nall:\n\tBUILD +|\n")
+	require.Equal(t, []string{"deps"},
+		completionLabels(Analyze("Earthfile", buildTarget).Completions(buildOffset, nil)),
+		"BUILD takes a target")
+}
+
+func TestCompletionsAcrossLocalImport(t *testing.T) {
+	t.Parallel()
+
+	rootPath := filepath.Clean("/workspace/Earthfile")
+	libPath := filepath.Clean("/workspace/lib/Earthfile")
+	libText := "VERSION 0.8\n# compile produces the binary.\ncompile:\n\tRUN true\n"
+
+	rootText, offset := cursorSource(t, "VERSION 0.8\nIMPORT ./lib AS shared\n\napp:\n\tBUILD shared+|\n")
+	loader := mapLoader{rootPath: rootText, libPath: libText}
+
+	items := Analyze(rootPath, rootText).Completions(offset, loader)
+	require.Equal(t, []string{"compile"}, completionLabels(items))
+	require.Equal(t, "compile produces the binary.", items[0].Docs)
+}
+
+func TestCompletionsAcrossInlineLocalPath(t *testing.T) {
+	t.Parallel()
+
+	rootPath := filepath.Clean("/workspace/Earthfile")
+	libPath := filepath.Clean("/workspace/lib/build.earth")
+	libText := "VERSION 0.8\ncompile:\n\tRUN true\n"
+
+	rootText, offset := cursorSource(t, "VERSION 0.8\n\napp:\n\tBUILD ./lib+|\n")
+	loader := mapLoader{rootPath: rootText, libPath: libText}
+
+	require.Equal(t, []string{"compile"},
+		completionLabels(Analyze(rootPath, rootText).Completions(offset, loader)))
+}
+
+func TestCompletionsForUnresolvableProjectAreEmpty(t *testing.T) {
+	t.Parallel()
+
+	// A remote import cannot be read from the workspace, so completion stays
+	// silent rather than failing the request.
+	rootText, offset := cursorSource(t,
+		"VERSION 0.8\nIMPORT github.com/example/lib AS remote\n\napp:\n\tBUILD remote+|\n")
+
+	require.Empty(t, Analyze("Earthfile", rootText).Completions(offset, mapLoader{}))
+}
+
+func TestCompletionsAreEmptyWithoutAContext(t *testing.T) {
+	t.Parallel()
+
+	source, offset := cursorSource(t, "VERSION 0.8\n\nbuild:\n\t# a comment |\n")
+
+	require.Empty(t, Analyze("Earthfile", source).Completions(offset, nil))
+}
+
+func TestCompletionsCarryTheReplaceRange(t *testing.T) {
+	t.Parallel()
+
+	source, offset := cursorSource(t, "VERSION 0.8\n\ndeps:\n\tRUN true\n\nall:\n\tBUILD +de|\n")
+
+	items := Analyze("Earthfile", source).Completions(offset, nil)
+	require.Len(t, items, 1)
+	require.Equal(t, "de", source[items[0].Replace.Start:items[0].Replace.End])
 }

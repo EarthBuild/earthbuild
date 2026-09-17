@@ -241,3 +241,147 @@ func commentStart(line string) int {
 
 	return -1
 }
+
+// CompletionItemKind identifies the sort of candidate a completion offers.
+type CompletionItemKind int
+
+const (
+	// ItemKeyword is a canonical Earthfile command keyword.
+	ItemKeyword CompletionItemKind = iota + 1
+	// ItemTarget is a build target.
+	ItemTarget
+	// ItemFunction is a reusable FUNCTION or COMMAND.
+	ItemFunction
+)
+
+// Completion is an editor-neutral completion candidate.
+type Completion struct {
+	// Label is the text shown in the completion list.
+	Label string
+	// Insert is the text written into the buffer over Replace.
+	Insert string
+	// Detail is a short one-line description, such as a declaration label.
+	Detail string
+	// Docs is the documentation comment attached to the declaration.
+	Docs string
+	// Kind categorizes the candidate.
+	Kind CompletionItemKind
+	// Replace is the byte range the candidate overwrites.
+	Replace Range
+}
+
+// Completions returns the candidates for the cursor at offset. A nil loader
+// restricts results to the current document. Candidates whose project cannot
+// be read are omitted rather than reported as an error, because completion
+// runs continuously while a user types.
+func (d Document) Completions(offset int, loader Loader) []Completion {
+	ctx := d.CompletionContext(offset)
+
+	switch ctx.Kind {
+	case CompletionCommand:
+		return commandCompletions(ctx)
+	case CompletionTarget:
+		return d.targetCompletions(ctx, loader)
+	case CompletionNone, CompletionArtifact, CompletionFlag:
+		// Artifact candidates need a SAVE ARTIFACT index that the analyzer
+		// does not build yet; flags are served by flagCompletions.
+		return nil
+	}
+
+	return nil
+}
+
+func commandCompletions(ctx CompletionContext) []Completion {
+	var items []Completion
+
+	for _, cmd := range earthfile.Commands() {
+		name := string(cmd)
+		if !hasFoldedPrefix(name, ctx.Prefix) {
+			continue
+		}
+
+		items = append(items, Completion{
+			Label:   name,
+			Insert:  name,
+			Detail:  "command",
+			Kind:    ItemKeyword,
+			Replace: ctx.Replace,
+		})
+	}
+
+	return items
+}
+
+func (d Document) targetCompletions(ctx CompletionContext, loader Loader) []Completion {
+	target, err := d.resolveProject(ctx.Project, ctx.Scope, loader)
+	if err != nil || target == nil {
+		return nil
+	}
+
+	wantTargets, wantFunctions := candidateKindsFor(ctx.Command)
+
+	var items []Completion
+
+	for _, symbol := range target.Symbols {
+		if symbol.Kind == SymbolTarget && !wantTargets {
+			continue
+		}
+
+		if symbol.Kind == SymbolFunction && !wantFunctions {
+			continue
+		}
+
+		// A declaration cannot usefully reference itself.
+		if ctx.Project == "" && symbol.Name == ctx.Scope {
+			continue
+		}
+
+		if !hasFoldedPrefix(symbol.Name, ctx.Prefix) {
+			continue
+		}
+
+		kind := ItemTarget
+		if symbol.Kind == SymbolFunction {
+			kind = ItemFunction
+		}
+
+		items = append(items, Completion{
+			Label:   symbol.Name,
+			Insert:  symbol.Name,
+			Detail:  symbolLabel(symbol),
+			Docs:    symbol.Docs,
+			Kind:    kind,
+			Replace: ctx.Replace,
+		})
+	}
+
+	return items
+}
+
+// candidateKindsFor reports which declaration kinds a command accepts. DO
+// invokes a function, while the build commands take a target. Anything else,
+// including an unrecognized command, accepts both rather than hiding a
+// candidate a user meant to pick.
+func candidateKindsFor(command string) (targets, functions bool) {
+	cmd := earthfile.Cmd(command)
+
+	if cmd == earthfile.CmdDo {
+		return false, true
+	}
+
+	if cmd == earthfile.CmdBuild || cmd == earthfile.CmdFrom || cmd == earthfile.CmdCopy {
+		return true, false
+	}
+
+	return true, true
+}
+
+// hasFoldedPrefix reports whether value starts with prefix, ignoring case so
+// that a lowercase keystroke still matches an uppercase command.
+func hasFoldedPrefix(value, prefix string) bool {
+	if len(prefix) > len(value) {
+		return false
+	}
+
+	return strings.EqualFold(value[:len(prefix)], prefix)
+}

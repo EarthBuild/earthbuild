@@ -138,7 +138,11 @@ func run() error {
 	// fragment comes from whoever holds everything, which is the driver, and
 	// lazy transfer is a star on its cheapest path (E325, E331).
 	frags := &fleet.Fragments{Root: sb.StoreDir()}
-	served := &fleet.Parts{Whole: layers, Some: frags}
+	// And the store's content-addressed nodes, which is where a shared cache
+	// lives. The fleet has always moved layers and parts of layers; `nodes/` it
+	// had never been shown, so a cache made of them had nobody to fetch from.
+	nodes := &fleet.Nodes{Root: sb.StoreDir()}
+	served := &fleet.Parts{Whole: layers, Some: frags, Nodes: nodes}
 
 	go func() {
 		_ = fleet.ServeBlobs(ctx, blobs, served,

@@ -21,6 +21,12 @@ import (
 type Parts struct {
 	Whole *Layers
 	Some  *Fragments
+	// Nodes is the store's content-addressed nodes, where a shared cache lives.
+	//
+	// A third place to look rather than a third way to look: a node is a whole
+	// blob, so it answers `Has` and `Get` exactly as a whole layer does and the
+	// fragment path never asks about one.
+	Nodes *Nodes
 }
 
 // Has answers about the **whole** layer, and only that.
@@ -29,10 +35,27 @@ type Parts struct {
 // sending a layer, and a worker holding one file of a base must not claim it.
 // The fragment path asks its own question (see Fragment), which is what the
 // server used to conflate with this one (E325).
-func (p *Parts) Has(id ir.NodeID) bool { return p.Whole != nil && p.Whole.Has(id) }
+func (p *Parts) Has(id ir.NodeID) bool {
+	if p.Whole != nil && p.Whole.Has(id) {
+		return true
+	}
+
+	return p.Nodes != nil && p.Nodes.Has(id)
+}
 
 // Get is the whole layer, if this worker has the whole layer.
 func (p *Parts) Get(id ir.NodeID) ([]byte, error) {
+	// Layers first, because that is what most ids are and what `Has` answered
+	// for before nodes existed. A collision between the two is a hash collision
+	// and not an ordering question.
+	if p.Whole != nil && p.Whole.Has(id) {
+		return p.Whole.Get(id) //nolint:wrapcheck // the store's own error
+	}
+
+	if p.Nodes != nil {
+		return p.Nodes.Get(id) //nolint:wrapcheck // likewise
+	}
+
 	if p.Whole == nil {
 		return nil, fmt.Errorf("%w: no layer %v here", ErrNotFetched, id)
 	}

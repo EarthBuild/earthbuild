@@ -66,9 +66,10 @@ func TestEveryMeasuredMechanismIsWiredIn(t *testing.T) {
 				" opened is right there (E279, E347)",
 		},
 		{
-			"cmd/earth-worker/main.go", "&fleet.Parts{Whole: layers, Some: frags}",
+			"cmd/earth-worker/main.go", "&fleet.Parts{Whole: layers, Some: frags, Nodes: nodes}",
 			"a worker serving only whole layers cannot pass on the part of a" +
-				" base it just fetched, so lazy transfer is a star (E325, E331)",
+				" base it just fetched, so lazy transfer is a star (E325, E331)" +
+				" - and one serving no nodes has nothing a shared cache is made of",
 		},
 	} {
 		b, err := os.ReadFile(filepath.Join("..", "..", c.file))

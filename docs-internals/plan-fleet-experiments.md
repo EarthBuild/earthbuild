@@ -1447,7 +1447,7 @@ the exported API rather than on the bytes. Consistent, not anomalous.
 ```text
 ship 621 MiB at 110 MiB/s                    5.64 s
 compile cold, this Mac (612% cpu, 108 cpu-s) 17.64 s
-the same 108 cpu-s across 32 threads          3.38 s   (a floor, not a time)
+the same 108 cpu-s across 32 threads          3.38 s   (a floor; see E-F12)
 ```
 
 Against a modest machine, shipping wins by **3.1x**. Against the 5950X's
@@ -1471,9 +1471,12 @@ action is strictly better than per cache - and Go's OutputID is a SHA-256, so
 those objects are already content-addressed and need none of the machinery a
 cache-mount transport would.
 
-**What is still missing.** The native compile time on the 5950X, to replace the
-3.38 s floor with a measurement. The box was asleep on both addresses for this
-sitting.
+**Measured since, and it changes the verdict (E-F12).** `go build std` on the
+5950X, native amd64, 32 threads, cold, three runs: 5399, 5407, 5421 ms. The
+3.38 s figure was a *floor* and wrong twice over - it divided this repository's
+CPU-seconds while the shipping figure was for `go build std`, and a real build
+does not scale linearly to 32 threads. Like for like, shipping wins by 3.7x raw
+and about 18x compressed.
 
 ## E-F9: compression turns the tie into a win
 
@@ -1500,7 +1503,7 @@ transfer:
 ship raw               639.2 MiB / 110 MiB/s     5.81 s
 ship zstd -3           124.9 MiB                 1.14 s
 compile, this Mac      108 cpu-s / 12 threads   17.64 s
-compile, 32 threads    108 cpu-s                 3.38 s  (a floor, not a time)
+compile, 32 threads    108 cpu-s                 3.38 s  (a floor; see E-F12)
 ```
 
 **Against the 5950X's theoretical floor, compressed shipping wins by 3.0x** - and

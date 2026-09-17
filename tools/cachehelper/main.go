@@ -368,10 +368,27 @@ func addFile(tw *tar.Writer, root, rel string) error {
 	}
 
 	hdr.Name = rel
-	// Nothing downstream reads these and they would make two exports of one
-	// cache differ, which a test cannot then compare.
+	// **A unit's bytes are a function of the cache, never of what read it.**
+	// The engine names a unit by ℋ over these bytes, so anything here that
+	// varies by machine varies the digest - and two workers holding the same
+	// entry would file it under two names and dedup nothing.
+	//
+	// Modes are the case that proves it rather than an abundance of caution:
+	// WASI cannot report a file's real mode, so the same cache exported through
+	// a wasm runtime says 0600 where a native run says 0644. Measured, byte 147
+	// of the first unit.
+	//
+	// So the mode is reduced to the one bit that changes what a file *is* -
+	// whether it can be executed - and everything else is fixed. Owners and
+	// times likewise: nothing downstream reads them and every one of them
+	// differs between two machines that hold identical bytes.
 	hdr.Uid, hdr.Gid, hdr.Uname, hdr.Gname = 0, 0, "", ""
-	hdr.AccessTime, hdr.ChangeTime = zeroTime, zeroTime
+	hdr.AccessTime, hdr.ChangeTime, hdr.ModTime = zeroTime, zeroTime, zeroTime
+	hdr.Mode = 0o644
+
+	if fi.Mode().Perm()&0o111 != 0 {
+		hdr.Mode = 0o755
+	}
 
 	if err := tw.WriteHeader(hdr); err != nil {
 		return err

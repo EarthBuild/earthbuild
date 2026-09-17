@@ -1959,3 +1959,25 @@ there is any.
 
 This is the same correction as E-F6's, one level up: batching the units was not
 enough while the verbs still each paid a process.
+
+### A long-lived wasm instance does not change the answer
+
+Making **both** long-lived is the fair comparison, and it removes wasm's only
+clear advantage while leaving its disadvantage untouched:
+
+|                 | container       | wasm instance             |
+| --------------- | --------------- | ------------------------- |
+| start, once     | 492 ms          | ~1 ms                     |
+| per request     | microseconds    | microseconds              |
+| hashing 628 MiB | 0.35 s          | ~2.5 s                    |
+| 88k file opens  | native syscalls | the WASI ABI, 2-5x slower |
+| distribution    | the image       | still needs an image      |
+| we maintain     | nothing new     | a runtime and a host ABI  |
+
+**Startup amortises and throughput does not.** A cache helper walks directories
+and hashes bytes - exactly where wasm is slow, and exactly what a long-lived
+instance does nothing about. It would pay 492 ms once to save about two seconds
+on every export.
+
+So long-lived is right, and it is an argument for the image: the 492 ms was the
+only number favouring wasm, and making both long-lived deletes it.

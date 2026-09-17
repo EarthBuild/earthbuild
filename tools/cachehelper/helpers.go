@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -348,20 +350,36 @@ func (npmCacache) entries(root string) ([]entry, error) {
 	return out, err
 }
 
-// contentPath is cacache's layout for an integrity string: `content-v2/<alg>/
-// <first two>/<next two>/<rest>`, with the base64 made filesystem-safe.
+// contentPath is cacache's layout for an integrity string:
+// `content-v2/<alg>/<first two>/<next two>/<rest>` over the **hex** digest.
+//
+// **Hex, not the base64 the integrity is written in.** An SRI string carries
+// base64 and cacache addresses by `ssri.parse(integrity).hexDigest()`, so a path
+// built from the base64 - however carefully its `/` and `+` are made
+// filesystem-safe - names a file that is not there. It produced
+// `content-v2/sha512/XI/5M/...` where the store holds
+// `content-v2/sha512/5c/8e/...`, and every content blob was quietly left behind:
+// index records crossed, the tarballs they name did not, and a receiver would
+// have had an index that missed on every lookup.
 func contentPath(integrity string) string {
-	alg, hash, ok := strings.Cut(strings.Fields(integrity)[0], "-")
-	if !ok || len(hash) < 5 {
+	fields := strings.Fields(integrity)
+	if len(fields) == 0 {
 		return ""
 	}
 
-	safe := strings.NewReplacer("/", "", "+", "-", "=", "").Replace(hash)
-	if len(safe) < 5 {
+	alg, b64, ok := strings.Cut(fields[0], "-")
+	if !ok {
 		return ""
 	}
 
-	return path.Join("content-v2", alg, safe[:2], safe[2:4], safe[4:])
+	raw, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil || len(raw) < 3 {
+		return ""
+	}
+
+	hex := hex.EncodeToString(raw)
+
+	return path.Join("content-v2", alg, hex[:2], hex[2:4], hex[4:])
 }
 
 // merge is npm's own import, and the reason `import` is a verb rather than a

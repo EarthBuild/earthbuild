@@ -2119,3 +2119,62 @@ older than everything built from it - which reads as *already fresh, no rebuild
 needed*, the wrong direction for a mistake to point. Go does not care, being
 content-hashed throughout. It is now deliberate in the code and in the docs
 rather than true by omission.
+
+## E-F18: npm, and the test that a tool accepts what we moved
+
+The third ecosystem run for real, and the first where the receiving tool was
+asked to use the result rather than the store merely inspected.
+
+A step ran `npm install left-pad is-odd` into a shared mount; the helper made six
+units of it - three packuments and three tarballs - and the engine filed them.
+The units were then rebuilt from the blobs into an empty directory and handed to
+npm with the network switched off:
+
+```text
+docker run --network=none ... npm install --offline
+  added 3 packages in 324ms
+  is-number  is-odd  left-pad
+```
+
+**Two bugs that only a real run could find**, and the second is why the first
+survived so long.
+
+### The content path was base64 where cacache uses hex
+
+An SRI integrity is written in base64 and cacache addresses content by
+`ssri.parse(integrity).hexDigest()`. The helper built
+`content-v2/sha512/XI/5M/...` where the store holds
+`content-v2/sha512/5c/8e/...`, so **every content blob was left behind**: index
+records crossed, the tarballs they named did not, and a receiver would have had
+an index that missed on every lookup while appearing to hold six entries.
+
+### A unit shipped missing half of itself, silently
+
+`addFile` swallowed a file it could not stat, so the wrong path above produced a
+unit containing the bucket and nothing else - and said so nowhere. A unit is now
+all of its files or none of them: a unit the sender cannot produce whole is a
+unit it does not have.
+
+That pairing is the general lesson rather than an npm one. A helper that names
+several files as one unit must be unable to ship a subset of them, or the
+receiver holds an index pointing at content nobody sent.
+
+### What it took to be sure
+
+The first offline attempt failed with `ENOTCACHED` and the transport was
+innocent: `npm_config_cache` names the cache *root* and npm puts `_cacache`
+inside it, so pointing it at the cacache directory made npm look in
+`_cacache/_cacache`. The tell was `_logs/` appearing beside the buckets. Worth
+recording because "the tool rejected it" was the wrong conclusion and was one
+command away from being written down as a finding.
+
+Keys crossed exactly, checked before the install was blamed:
+
+```text
+request-cache:https://registry.npmjs.org/is-number
+request-cache:https://registry.npmjs.org/is-number/-/is-number-6.0.0.tgz
+request-cache:https://registry.npmjs.org/is-odd
+request-cache:https://registry.npmjs.org/is-odd/-/is-odd-3.0.1.tgz
+request-cache:https://registry.npmjs.org/left-pad
+request-cache:https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz
+```

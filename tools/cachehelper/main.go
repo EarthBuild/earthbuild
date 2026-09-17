@@ -314,14 +314,32 @@ func export(h helper, root string, keys io.Reader, w io.Writer) error {
 
 		tw := tar.NewWriter(&unit)
 
+		whole := true
+
 		for _, rel := range u.files {
-			if err := addFile(tw, root, rel); err != nil {
+			added, err := addFile(tw, root, rel)
+			if err != nil {
 				return err
+			}
+
+			// **A unit is all of its files or none of them.** Skipping one and
+			// shipping the rest is how an index record crosses without the
+			// content it names - a receiver that then misses on every lookup
+			// and cannot tell why. A unit the sender cannot produce whole is a
+			// unit it does not have.
+			if !added {
+				whole = false
+
+				break
 			}
 		}
 
 		if err := tw.Close(); err != nil {
 			return err
+		}
+
+		if !whole {
+			continue
 		}
 
 		if _, err := fmt.Fprintf(out, "%s %d\n", u.key, unit.Len()); err != nil {
@@ -385,21 +403,26 @@ func eachUnit(r io.Reader, take func(key string, body []byte) error) error {
 	}
 }
 
-func addFile(tw *tar.Writer, root, rel string) error {
+// addFile writes one of a unit's files, and says whether it was there.
+//
+// The boolean is load-bearing: an absent file used to be swallowed here, which
+// let a unit ship missing half of itself. The caller decides what that means,
+// and decides the unit is not one.
+func addFile(tw *tar.Writer, root, rel string) (bool, error) {
 	at := filepath.Join(root, filepath.FromSlash(rel))
 
 	fi, err := os.Lstat(at)
 	if err != nil {
-		return nil //nolint:nilerr // a unit that has gone is a miss, not a failure
+		return false, nil //nolint:nilerr // absent is an answer, not a failure
 	}
 
 	if !fi.Mode().IsRegular() {
-		return nil
+		return false, nil
 	}
 
 	hdr, err := tar.FileInfoHeader(fi, "")
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	hdr.Name = rel
@@ -426,19 +449,19 @@ func addFile(tw *tar.Writer, root, rel string) error {
 	}
 
 	if err := tw.WriteHeader(hdr); err != nil {
-		return err
+		return false, err
 	}
 
 	f, err := os.Open(at) //nolint:gosec // a path resolved under the cache root
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	defer func() { _ = f.Close() }()
 
 	_, err = io.Copy(tw, f)
 
-	return err
+	return err == nil, err
 }
 
 // importInto merges a stream into the cache.

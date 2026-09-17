@@ -113,7 +113,7 @@ func TestDocRecipeBlockFixture(t *testing.T) {
 	require.Equal(t, []string{"bar.txt", "baz.txt"}, docIdentifiers(td.artifacts))
 	require.Equal(
 		t,
-		[]string{"baz.txt -> out/baz.txt", "bacon.txt -> out/eggs.txt"},
+		[]string{"baz.txt → out/baz.txt", "bacon.txt → out/eggs.txt"},
 		docIdentifiers(td.localArtifacts),
 	)
 	require.Equal(t, []string{"baz", "bar", "bacon, eggs"}, docIdentifiers(td.images))
@@ -175,8 +175,15 @@ build:
 	require.Equal(t, "Database connection URL", td.args[1].Description)
 	require.True(t, td.args[1].Required)
 
-	out, err := captureDoc(func(d *Doc) error {
+	outCompact, err := captureDoc(func(d *Doc) error {
 		return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, false)
+	})
+	require.NoError(t, err)
+	require.Contains(t, outCompact, "+build --DB_URL [--ENV=prod]\n")
+	require.NotContains(t, outCompact, "ARG")
+
+	out, err := captureDoc(func(d *Doc) error {
+		return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, true)
 	})
 	require.NoError(t, err)
 
@@ -218,7 +225,7 @@ deploy:
 	tgt := mustFindDocTarget(t, ef, "deploy")
 
 	out, err := captureDoc(func(d *Doc) error {
-		return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, false)
+		return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, true)
 	})
 	require.NoError(t, err)
 
@@ -260,8 +267,17 @@ ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 	require.Equal(t, "REGISTRY_BASE", td.args[2].Name)
 	require.Equal(t, "IMAGE_REGISTRY", td.args[3].Name)
 
-	out, err := captureDoc(func(d *Doc) error {
+	outCompact, err := captureDoc(func(d *Doc) error {
 		return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, false)
+	})
+	require.NoError(t, err)
+
+	expectedCompact := `+base [--CR_ORG="earthbuild"] [--CR_REPO="earthbuild"] ` +
+		`[--REGISTRY_BASE="ghcr.io"] [--IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO]`
+	require.Contains(t, outCompact, expectedCompact)
+
+	out, err := captureDoc(func(d *Doc) error {
+		return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, true)
 	})
 	require.NoError(t, err)
 
@@ -341,11 +357,8 @@ bravo:
 	require.NoError(t, err)
 
 	expected := `TARGETS:
-  +base
+  +base [--FOO=bar]
       base contains shared setup
-
-    ARG    DEFAULT  DESCRIPTION
-    --FOO  bar
 
   +alpha
       alpha is the first target
@@ -441,7 +454,7 @@ build:
 		t.Parallel()
 
 		out, err := captureDoc(func(d *Doc) error {
-			return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, false)
+			return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, true)
 		})
 		require.NoError(t, err)
 		require.NotContains(t, out, "\x1b[")
@@ -453,7 +466,7 @@ build:
 		out, err := captureDoc(func(d *Doc) error {
 			d.forceColor = true
 
-			return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, false)
+			return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, true)
 		})
 		require.NoError(t, err)
 
@@ -501,7 +514,7 @@ status:
 		t.Parallel()
 
 		out, err := captureDoc(func(d *Doc) error {
-			return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, false)
+			return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, true)
 		})
 		require.NoError(t, err)
 
@@ -528,7 +541,7 @@ status:
 		out, err := captureDoc(func(d *Doc) error {
 			d.forceColor = true
 
-			return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, false)
+			return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, true)
 		})
 		require.NoError(t, err)
 
@@ -563,7 +576,7 @@ build:
 	tgt := mustFindDocTarget(t, ef, "build")
 
 	out, err := captureDoc(func(d *Doc) error {
-		return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, false)
+		return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, true)
 	})
 	require.NoError(t, err)
 
@@ -594,7 +607,7 @@ build:
 	tgt := mustFindDocTarget(t, ef, "build")
 
 	out, err := captureDoc(func(d *Doc) error {
-		return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, false)
+		return d.documentSingleTarget(d.writer(), "", ftrs, ef.BaseRecipe, tgt, true)
 	})
 	require.NoError(t, err)
 

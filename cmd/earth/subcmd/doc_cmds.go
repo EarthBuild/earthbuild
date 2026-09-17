@@ -403,6 +403,51 @@ func (d *targetDoc) printArgsTable(w io.Writer, currIndent string, st docStyler)
 	}
 }
 
+func (d *targetDoc) optionsSynopsis() string {
+	var sb strings.Builder
+
+	for _, arg := range d.args {
+		if !arg.Required {
+			continue
+		}
+
+		if sb.Len() > 0 {
+			sb.WriteByte(' ')
+		}
+
+		sb.WriteString("--")
+		sb.WriteString(arg.Name)
+
+		if arg.DefaultVal != nil {
+			sb.WriteByte('=')
+			sb.WriteString(*arg.DefaultVal)
+		}
+	}
+
+	for _, arg := range d.args {
+		if arg.Required {
+			continue
+		}
+
+		if sb.Len() > 0 {
+			sb.WriteByte(' ')
+		}
+
+		sb.WriteByte('[')
+		sb.WriteString("--")
+		sb.WriteString(arg.Name)
+
+		if arg.DefaultVal != nil {
+			sb.WriteByte('=')
+			sb.WriteString(*arg.DefaultVal)
+		}
+
+		sb.WriteByte(']')
+	}
+
+	return sb.String()
+}
+
 func (d *targetDoc) hasSections() bool {
 	return len(d.artifacts) > 0 || len(d.localArtifacts) > 0 || len(d.images) > 0
 }
@@ -651,7 +696,7 @@ func parseDocSections(ft *features.Features, baseRcp, cmds earthfile.Block, isBa
 				body:       docs,
 			}
 			if localName != nil {
-				artDoc.identifier += " -> " + *localName
+				artDoc.identifier += " → " + *localName
 				d.localArtifacts = append(d.localArtifacts, artDoc)
 
 				continue
@@ -706,7 +751,16 @@ func (a *Doc) documentSingleTarget(
 
 	const scopeIndent = "  "
 
-	usage := indent(currIndent, st.style(colorTarget, "+"+tgt.Name))
+	targetTitle := st.style(colorTarget, "+"+tgt.Name)
+
+	if !includeBlockDocs {
+		opts := td.optionsSynopsis()
+		if opts != "" {
+			targetTitle += " " + opts
+		}
+	}
+
+	usage := indent(currIndent, targetTitle)
 
 	fmt.Fprintln(w, usage)
 
@@ -714,13 +768,13 @@ func (a *Doc) documentSingleTarget(
 	indented := indent(docIndent, docs)
 	fmt.Fprintln(w, strings.Trim(indented, "\n"))
 
+	if !includeBlockDocs {
+		return nil
+	}
+
 	if len(td.args) > 0 {
 		fmt.Fprintln(w)
 		td.printArgsTable(w, currIndent+scopeIndent, st)
-	}
-
-	if !includeBlockDocs {
-		return nil
 	}
 
 	if td.hasSections() {

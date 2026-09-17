@@ -422,16 +422,13 @@ tidy:
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 ```
 
-##### Print the doc comments for all documented targets:
+##### Print the doc comments for all documented targets (compact view):
 
 ```
 $ earth doc
 TARGETS:
-  +build
+  +build [--output=./build/something]
       build runs 'go build' and saves the artifact locally.
-
-    ARG       DEFAULT            DESCRIPTION
-    --output  ./build/something  Output path for build artifacts
 
   +tidy
       tidy runs 'go mod tidy' and saves go.mod/go.sum locally.
@@ -440,6 +437,28 @@ TARGETS:
 Note that, unlike `earth ls`, `earth doc` does not mention the `deps`
 target. Since it has no documentation, the `deps` target is not included in the
 output.
+
+##### Print full documentation for all targets:
+
+```
+$ earth doc --long
+TARGETS:
+  +build
+      build runs 'go build' and saves the artifact locally.
+
+    ARG       DEFAULT            DESCRIPTION
+    --output  ./build/something  Output path for build artifacts
+
+    LOCAL ARTIFACTS:
+      /bin/something → ./build/something
+
+  +tidy
+      tidy runs 'go mod tidy' and saves go.mod/go.sum locally.
+
+    LOCAL ARTIFACTS:
+      go.mod → go.mod
+      go.sum → go.sum
+```
 
 ##### Print the doc comments for a specific target:
 
@@ -452,7 +471,7 @@ $ earth doc +build
   --output  ./build/something  Output path for build artifacts
 
   LOCAL ARTIFACTS:
-    /bin/something -> ./build/something
+    /bin/something → ./build/something
 ```
 
 

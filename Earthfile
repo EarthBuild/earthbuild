@@ -337,7 +337,7 @@ earthly:
     #     --GO_GCFLAGS='all=-N -l'
     ARG GO_GCFLAGS
     ARG EXECUTABLE_NAME="earthly"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
     ARG EARTH_GIT_HASH
@@ -387,7 +387,7 @@ earthly-linux-amd64:
     # buildkitd-dev-<tag> image the local +for-* targets actually build.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=linux \
@@ -407,7 +407,7 @@ earthly-linux-arm64:
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=linux \
@@ -427,7 +427,7 @@ earthly-darwin-amd64:
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=darwin \
@@ -447,7 +447,7 @@ earthly-darwin-arm64:
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=darwin \
@@ -467,7 +467,7 @@ earthly-windows-amd64:
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=windows \
@@ -493,7 +493,7 @@ all-binaries:
     # all binaries. See earthly-linux-amd64 for details.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly-linux-amd64/earthly \
         --VERSION="${VERSION}" \

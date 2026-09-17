@@ -22,7 +22,6 @@ const (
 	EarthLocally                    = "EARTH_LOCALLY"
 	EarthPush                       = "EARTH_PUSH"
 	EarthCI                         = "EARTH_CI"
-	EarthCIRunner                   = "EARTH_CI_RUNNER"
 	EarthTarget                     = "EARTH_TARGET"
 	EarthTargetName                 = "EARTH_TARGET_NAME"
 	EarthTargetProject              = "EARTH_TARGET_PROJECT"
@@ -94,7 +93,6 @@ func init() {
 		EarthLocally:                    {},
 		EarthPush:                       {},
 		EarthCI:                         {},
-		EarthCIRunner:                   {},
 		EarthTarget:                     {},
 		EarthTargetName:                 {},
 		EarthTargetProject:              {},
@@ -120,7 +118,6 @@ func init() {
 		EarthlyLocally:                  {},
 		EarthlyPush:                     {},
 		EarthlyCI:                       {},
-		EarthlyCIRunner:                 {},
 		EarthlySourceDateEpoch:          {},
 		EarthlyTarget:                   {},
 		EarthlyTargetName:               {},

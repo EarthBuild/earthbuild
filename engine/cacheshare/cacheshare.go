@@ -56,6 +56,11 @@ type Sharing struct {
 	// an export can be narrowed to what is not. See filed.
 	have map[string]helper.Map
 
+	// blind is why this machine cannot read its own cache mounts, and said is
+	// the guard that says it once. See Blind.
+	blind string
+	said  sync.Once
+
 	smu  sync.Mutex
 	sink *blob.Store
 	away Elsewhere
@@ -209,6 +214,41 @@ func New(root, dir string, out io.Writer) *Sharing {
 	return &Sharing{root: root, out: out, dir: dir, by: map[string]*helper.Helper{}}
 }
 
+// Blind says this machine cannot read its own cache mounts, and why.
+//
+// **A missing directory means two different things and only one of them is
+// ordinary.** A cache mount's directory is made when a step binds one, so its
+// absence usually means this mount was never used here - nothing to share, and
+// nothing to say. On a VM backend the store is on the guest's block device and
+// `<store>/mounts/<id>/<scope>` is a host path that does not exist at all, so
+// every portable mount reads as never used and a build shares nothing, silently.
+//
+// An author writes `--portable-except` and `--helper`, gets no sharing and no
+// indication of why. Told once, that is a known limitation; untold, it is an
+// afternoon.
+//
+// Empty is the ordinary case and means this machine can look.
+func (s *Sharing) Blind(why string) { s.blind = why }
+
+// cannotLook reports the limitation once, and whether there is one.
+//
+// Once per build rather than once per mount per step: forty steps over two
+// caches is eighty identical lines about a property of the machine, and a
+// reader who learns to scroll past those misses the line that differs.
+func (s *Sharing) cannotLook() bool {
+	if s.blind == "" {
+		return false
+	}
+
+	s.said.Do(func() {
+		if s.out != nil {
+			fmt.Fprintf(s.out, "caches are not shared from here: %s\n", s.blind)
+		}
+	})
+
+	return true
+}
+
 // alone takes this cache directory and gives back its release.
 //
 // **The gate `--sharing=shared` does not cover.** `core.ClaimOrder` and
@@ -257,6 +297,10 @@ func (s *Sharing) Offer(ctx context.Context, m ir.Mount, dir, withheld string) e
 			fmt.Fprintf(s.out, "cache %s: not shared: %s\n", m.ID, withheld)
 		}
 
+		return nil
+	}
+
+	if s.cannotLook() {
 		return nil
 	}
 
@@ -602,6 +646,10 @@ func encodeMap(m helper.Map) []byte {
 // stocking - so this makes one rather than treating its absence as nothing to
 // do.
 func (s *Sharing) Stock(ctx context.Context, m ir.Mount, dir string) error {
+	if s.cannotLook() {
+		return nil
+	}
+
 	defer s.alone(dir)()
 
 	at, ok := s.mapOf(m, dir)

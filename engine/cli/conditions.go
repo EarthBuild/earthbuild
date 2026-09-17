@@ -368,6 +368,16 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		sharing := cacheshare.New(sb.StoreDir(), g.o.Dir, g.o.Out)
 		e.Stock, e.Share = sharing.Stock, sharing.Offer
 
+		// **And on a VM backend it cannot look.** The store is on the guest's
+		// device, so the mount directory is a host path that does not exist -
+		// which reads identically to a mount the step never used, and a build
+		// that shares nothing says nothing. Told once rather than left to be
+		// discovered, which is E511's gap reported rather than closed.
+		if storeInGuest(sb) {
+			sharing.Blind("the store is on the guest's device," +
+				" and a cache mount can only be read from the side it is on")
+		}
+
 		ac, err := g.actionCache(sb.StoreDir())
 		if err != nil {
 			g.err = err

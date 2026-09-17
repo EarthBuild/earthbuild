@@ -202,6 +202,23 @@ that - `--sharing=shared` is you saying several steps may use the directory at
 once and the tools inside cope, which is a statement about *npm's* locking and
 *cargo's*. An importer is not one of those tools.
 
+## Caches are not shared from a microVM yet
+
+On macOS, and on Linux with the Firecracker backend, the layer store lives on the
+guest's own block device. A cache mount can only be read from the side it is on,
+and EarthBuild's sharing runs on the host - so a build there prints
+
+```text
+caches are not shared from here: the store is on the guest's device,
+  and a cache mount can only be read from the side it is on
+```
+
+once, and carries on. Builds are correct and no slower than they were; they just
+do not fill or use a peer's cache.
+
+Native Linux (`EARTH_VM=0`, and the default on a worker without Firecracker)
+shares normally.
+
 ## A step that holds a secret shares no cache
 
 `RUN --secret` or `--aws` on a step means none of its cache mounts cross, whatever

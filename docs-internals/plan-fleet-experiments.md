@@ -2659,3 +2659,57 @@ Counted apart from `Removed` and `Nodes`, for the reason those are counted apart
 from each other: losing a layer costs a rebuild or a fetch, and losing a cache
 unit costs whatever the tool inside does about it. Reported together they would
 read as having thrown away far more than they did.
+
+## E-F27: a Mac shares nothing, and until now did not say so
+
+On a VM backend the store lives on the guest's block device. `Apple.StoreDir`
+and `Firecracker.StoreDir` both return a **host** path - where the device image
+sits - so `<store>/mounts/<id>/<scope>` does not exist on this side at all.
+
+Which reads, to `Offer`, exactly like a mount the step never used:
+
+```go
+// A cache the step never wrote is not an empty cache, it is no cache
+if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+    return nil
+}
+```
+
+Both readings are right, and only one of them is ordinary. An author on a Mac
+writes `--portable-except` and `--helper`, gets no sharing, and gets no
+indication of why - the third time this design has grown a silent degrade, after
+the helper's discarded stderr and the unreported share failure.
+
+Said once per build now, not once per mount per step. Exercised through
+`EARTH_STORE_IN_VM=1` on the Linux box, which is the same branch:
+
+```text
+caches are not shared from here: the store is on the guest's device,
+  and a cache mount can only be read from the side it is on
+```
+
+and no `cache ...: N units shared` line after it.
+
+### What closing it would take
+
+The host cannot read the mount, and streaming the mount out to the host per step
+defeats the economics - the whole point is that a cache stays put and only units
+move. So the work goes to the side the cache is on.
+
+| piece                      | where it is now              | where it would have to be              |
+| -------------------------- | ---------------------------- | -------------------------------------- |
+| the wasm runtime           | `engine/helper`, host-side   | `cmd/earth-guestd`                     |
+| 𝔅, for units and maps      | `engine/cacheshare`, host    | guest-side, beside the layer store     |
+| the pointer in `cachemaps` | host store                   | guest store                            |
+| `Elsewhere`                | `fleet.Nearby` on the host   | proxied out through the guest protocol |
+| the helper's module        | filed by the host's resolver | streamed in, or fetched by the proxy   |
+
+Two requests on the guest protocol - stock this mount from this map, share this
+mount - and the rest is moving code that already exists to a binary that already
+exists. The proxy is the only genuinely new part: the guest has no fleet
+connection and must not grow one, so a blob it lacks is a request the host
+answers from `Nearby`.
+
+Not attempted here. It is a day's work rather than an hour's, it is confined to
+one platform, and the honest refusal above is what makes leaving it safe: a Mac
+now says it shares nothing rather than appearing to.

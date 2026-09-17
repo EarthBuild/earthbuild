@@ -118,7 +118,7 @@ func main() {
 // same one - an answer that depended on map iteration would be a cache exported
 // one way today and another tomorrow.
 func whichKnows(root string) (helper, error) {
-	for _, kind := range []string{"go-build", "go-mod", "npm"} {
+	for _, kind := range []string{"go-build", "go-mod", "npm", "cargo"} {
 		h, err := helperFor(kind)
 		if err != nil {
 			continue
@@ -176,6 +176,9 @@ func helperFor(kind string) (helper, error) {
 
 	case "npm":
 		return npmCacache{}, nil
+
+	case "cargo":
+		return cargoRegistry{}, nil
 
 	default:
 		return nil, fmt.Errorf("no helper for %q", kind)
@@ -509,6 +512,19 @@ func inside(root, name string) (string, error) {
 }
 
 // placeOne writes one entry beside its destination and links it in.
+//
+// **The arriving file keeps the time it arrived, and that is deliberate.**
+// `addFile` zeroes every timestamp on the way out, because a unit's bytes are
+// its name and a time that differed between machines would give one entry two
+// digests. Restoring those zeros here would be the obvious symmetry and is
+// wrong: mtime is not part of a unit's *content*, it is a fact about this
+// machine's copy, and several ecosystems read it.
+//
+// Cargo is the one that proves it. Its fingerprints compare mtimes, so a crate
+// or a source tree stamped 1970 looks older than everything built from it -
+// which reads as "already fresh, no rebuild needed", the wrong direction for a
+// mistake to point. A file that has just arrived is new, and saying so costs
+// nothing.
 func placeOne(root, rel string, hdr *tar.Header, body io.Reader) error {
 	at := filepath.Join(root, filepath.FromSlash(rel))
 

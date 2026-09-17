@@ -146,6 +146,22 @@ Both are plain content-addressed stores with no index, no database and no garbag
 
 A `.deb` or `.apk` at a given version is the same file everywhere; the repository indexes beside them are not, which is why they are excluded. Note that apt's indexes live in `/var/lib/apt/lists` and its database in `/var/lib/dpkg` - neither belongs in a cache mount at all.
 
+## Timestamps do not travel, and should not
+
+A unit's bytes are its name, so a shared cache normalises every timestamp on the
+way out - two machines holding identical entries must agree on a digest, and an
+mtime never does.
+
+**On the way in, the arriving file keeps the time it arrived.** That asymmetry is
+deliberate. An mtime is not part of an entry's content; it is a fact about this
+machine's copy, and several tools read it. Cargo compares mtimes in its
+fingerprints, so a crate or source tree stamped 1970 would look older than
+everything built from it - which reads as "already fresh, no rebuild needed",
+the wrong direction for a mistake to point.
+
+If your tool derives anything from an entry's timestamp rather than from its
+contents, say so in its helper's `import` rather than relying on the file's own.
+
 ## Untrusted builds: `EARTH_TRUST_DOMAIN`
 
 A cache mount's directory is named by its `--id`, and that name is one namespace for every build a machine has ever run. On a shared worker that means a pull request from a fork writes into the same directory a protected-branch build reads - and signing does not help, because the attacker is a legitimate writer.

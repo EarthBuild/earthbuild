@@ -2064,3 +2064,58 @@ share says nothing rather than claiming to.
 It was also predicted, twice, and assumed past twice - which is the third time
 this session that "the store is here" turned out to be true of one backend and
 read as a rule.
+
+## E-F17: a third ecosystem, and what it cost
+
+The claim under test: a new language is a helper and nothing else. Cargo, added
+to the prototype:
+
+```text
+tools/cachehelper/helpers.go   +57   the helper
+tools/cachehelper/main.go       +5   registering it
+everything else                  0
+```
+
+A real build on the native box, `cargo fetch` into a shared mount:
+
+```text
+cache cargodemo: 1 units shared, map 6692afb5...
+
+map   index.crates.io-1949cf8c6b5b557f/libc-0.2.189 -> c076fcdd...
+unit  a tar of cache/index.crates.io-.../libc-0.2.189.crate, 851502 bytes
+      the crate inside still gzip-valid; both blobs hash to their names
+```
+
+The helper also recognised a Cargo registry **without being told which format it
+was** - `probe`, asked in turn, is what lets one artefact serve every format it
+knows - and indexed the real 8,285-crate, 1.3 GiB cache in 0.05 s, because a
+crate's key is its filename and nothing has to be opened.
+
+### Two things the run found that the tests had not
+
+**A mount point can mask the toolchain.** `CACHE ... /usr/local/cargo` hid the
+`cargo` binary that lives there and the step died with `cargo: not found`.
+`docs/caching/sharing-caches.md` already said to mount
+`$CARGO_HOME/registry/cache` rather than the home; the advice was written and
+then not followed. The helper now finds the crate directory under either mount
+point rather than assuming one, and keys relative to it, so the same units are
+readable whichever an author chose.
+
+**A share that failed said nothing at all.** The executor discards the hook's
+error deliberately - a cache that did not cross is not a build failure - and the
+CLI, which was supposed to report it, did not. So the first Cargo run printed no
+units and no reason, which is indistinguishable from a cache with nothing in it.
+I11 is *degrade if you must, but say so*, and the "say so" half was missing.
+
+### Timestamps, which is where Rust is unlike Go
+
+Export zeroes every timestamp, because a unit's bytes are its name and an mtime
+never agrees between machines. **Import restores none of them**, so an arriving
+file carries the time it arrived.
+
+That asymmetry looked like an oversight and is the correct answer. Cargo compares
+mtimes in its fingerprints, so a crate or a source tree stamped 1970 would look
+older than everything built from it - which reads as *already fresh, no rebuild
+needed*, the wrong direction for a mistake to point. Go does not care, being
+content-hashed throughout. It is now deliberate in the code and in the docs
+rather than true by omission.

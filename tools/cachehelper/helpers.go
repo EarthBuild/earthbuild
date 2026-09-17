@@ -518,3 +518,91 @@ func copyTree(from, to string, want func(rel string) bool) error {
 		return nil
 	})
 }
+
+// cargoRegistry is Cargo's downloaded crates, and the simplest cache here.
+//
+// One `.crate` file is one unit: a gzip tarball of a published crate at a
+// published version, which cannot be rewritten because crates.io does not permit
+// it. No index beside it, no bookkeeping, nothing to merge - which is what makes
+// it **union-complete** where npm's is not.
+//
+// `registry/cache` and not `registry/src`. The extracted sources are derived
+// from these and Cargo re-extracts on demand, so shipping the trees moves
+// several times the bytes to save an unpack; and Cargo performs no content
+// verification when reusing an extracted tree, where a `.crate` is checked
+// against the lockfile.
+type cargoRegistry struct{}
+
+func (cargoRegistry) ident() string { return "earthbuild/cargo-registry/1" }
+
+// cargoCacheIn finds the crate directory, wherever the author mounted.
+//
+// **Two mount points are both sensible and a helper must take either.**
+// `$CARGO_HOME` is what an author reaches for; `$CARGO_HOME/registry` is what
+// they should mount, because mounting the home masks the toolchain living in it
+// - `cargo: not found` is what that looks like, and it cost a build here.
+//
+// So the layout is found rather than assumed. Empty where this is neither.
+func cargoCacheIn(root string) string {
+	for _, at := range []string{
+		filepath.Join(root, "registry", "cache"), // CARGO_HOME
+		filepath.Join(root, "cache"),             // CARGO_HOME/registry
+	} {
+		if fi, err := os.Lstat(at); err == nil && fi.IsDir() {
+			return at
+		}
+	}
+
+	return ""
+}
+
+func (cargoRegistry) probe(root string) error {
+	if cargoCacheIn(root) == "" {
+		return fmt.Errorf("no cache of crates under %s: not a Cargo registry", root)
+	}
+
+	return nil
+}
+
+func (cargoRegistry) units(root string) ([]unit, error) {
+	var out []unit
+
+	cache := cargoCacheIn(root)
+	if cache == "" {
+		return nil, nil
+	}
+
+	err := filepath.WalkDir(cache, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), ".crate") {
+			return nil //nolint:nilerr // an unreadable entry is one fewer unit
+		}
+
+		rel, relErr := filepath.Rel(root, p)
+		if relErr != nil {
+			return nil //nolint:nilerr // outside the root is not ours
+		}
+
+		slash := filepath.ToSlash(rel)
+
+		// Keyed by registry and crate rather than by crate alone: two registries
+		// may both publish `serde-1.0.0`, and a key that could not tell them
+		// apart would import one machine's private crate over another's public
+		// one. The registry directory is a hash of its URL, so it is the same
+		// name on every machine.
+		// Relative to the crate directory, so the key is the same whichever of
+		// the two mount points the author chose - a key that moved with the
+		// mount would make one machine's units unreadable by another's.
+		under, relErr2 := filepath.Rel(cache, p)
+		if relErr2 != nil {
+			return nil //nolint:nilerr // outside the cache is not ours
+		}
+
+		key := strings.TrimSuffix(filepath.ToSlash(under), ".crate")
+
+		out = append(out, unit{key: key, files: []string{slash}, bytes: sizeOf(p)})
+
+		return nil
+	})
+
+	return out, err
+}

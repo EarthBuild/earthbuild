@@ -57,17 +57,17 @@ func (s *shares) offer(ctx context.Context, m ir.Mount, dir string) error {
 
 	h, err := s.helperFor(ctx, m.Helper)
 	if err != nil {
-		return err
+		return s.say(m, err)
 	}
 
 	sink, err := s.store()
 	if err != nil {
-		return err
+		return s.say(m, err)
 	}
 
 	units, err := helper.Export(ctx, h, dir, sink)
 	if err != nil {
-		return fmt.Errorf("export the cache %s: %w", m.ID, err)
+		return s.say(m, err)
 	}
 
 	if len(units) == 0 {
@@ -81,7 +81,7 @@ func (s *shares) offer(ctx context.Context, m ir.Mount, dir string) error {
 	// moves everything else.
 	id, _, err := sink.Put(bytes.NewReader(encodeMap(units)))
 	if err != nil {
-		return fmt.Errorf("file the map for %s: %w", m.ID, err)
+		return s.say(m, err)
 	}
 
 	if s.out != nil {
@@ -89,6 +89,21 @@ func (s *shares) offer(ctx context.Context, m ir.Mount, dir string) error {
 	}
 
 	return nil
+}
+
+// say reports a cache that did not cross, and returns the error unchanged.
+//
+// **Degrade if you must, but say so** (I11). A share that fails is not a build
+// failure - the executor discards the error deliberately - and a share that
+// fails *silently* is a machine that looks as though it is sharing and is not.
+// This is the difference between a slower fleet somebody can diagnose and one
+// nobody can.
+func (s *shares) say(m ir.Mount, err error) error {
+	if s.out != nil {
+		fmt.Fprintf(s.out, "cache %s: not shared: %v\n", m.ID, err)
+	}
+
+	return err
 }
 
 // helperFor compiles a helper once and returns it thereafter.

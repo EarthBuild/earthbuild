@@ -874,20 +874,33 @@ func lexKeyValueCommandArgs(l *lexer) stateFn {
 
 	// 2. Check for flags (atoms starting with '-')
 	if l.peek() == '-' {
-		// Lex flag as itemAtom
 		for {
 			r := l.peek()
-			if isSpace(r) || isEndOfLine(r) || r == eof || r == '#' || r == '=' {
-				break
+			switch {
+			case isSpace(r) || isEndOfLine(r) || r == eof || r == '#':
+				l.emit(itemAtom)
+
+				return lexKeyValueCommandArgs
+			case r == '\\':
+				lexConsumeEscapeOrContinuation(l)
+			case r == '"':
+				l.next()
+
+				err := lexDoubleQuoteBody(l)
+				if err != nil {
+					return l.errorf("%v", err)
+				}
+			case r == '\'':
+				l.next()
+
+				err := lexSingleQuoteBody(l)
+				if err != nil {
+					return l.errorf("%v", err)
+				}
+			default:
+				l.next()
 			}
-
-			l.next()
 		}
-
-		l.emit(itemAtom)
-
-		// After the flag, continue in lexKeyValueCommandArgs to expect more flags or the key
-		return lexKeyValueCommandArgs
 	}
 
 	// 3. We are now expecting the key (the env variable name)

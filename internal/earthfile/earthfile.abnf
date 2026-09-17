@@ -305,7 +305,7 @@ pchar               = %x21 / %x23-26 / %x28-3A / %x3C-5B / %x5D-7E / "*" / "?"
 
 arg-instr           = "ARG" WSP *( arg-option WSP ) arg-name [ "=" arg-default ]
 
-arg-option          = "--required" / "--global"
+arg-option          = "--required" / "--global" / ( "--description" "=" ( WORD / QUOTED-STRING ) )
 
 arg-name            = 1*( ALPHA / DIGIT / "_" )
 

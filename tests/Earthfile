@@ -1401,7 +1401,8 @@ doc-recipe-block:
     # Detailed recipe block output coverage lives in cmd/earth/subcmd/doc_cmds_test.go.
     # Keep this as a full CLI smoke test for the --long path.
     DO +RUN_EARTH --earthfile=doc-recipe-block.earth --extra_args="doc --long" --target="" --post_command=">output.txt"
-    RUN grep 'REQUIRED ARGS:' output.txt
+    RUN grep 'ARG' output.txt
+    RUN grep 'DEFAULT' output.txt
     RUN grep 'IMAGES:' output.txt
 
 ls:

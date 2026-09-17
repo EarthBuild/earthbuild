@@ -152,7 +152,6 @@ func TestAvailableFlags(t *testing.T) {
 
 		// 0.7
 		{"check-duplicate-images", "CheckDuplicateImages"},
-		{"ci-arg", "EarthlyCIArg"},
 		{"earthly-git-author-args", "EarthlyGitAuthorArgs"},
 		{"earthly-locally-arg", "EarthlyLocallyArg"},
 		{"earthly-version-arg", "EarthlyVersionArg"},
@@ -325,7 +324,6 @@ func TestProcessFlags(t *testing.T) {
 			name: "version v0.7: exist warning message",
 			f: &Features{
 				CheckDuplicateImages:     true,
-				EarthlyCIArg:             true,
 				EarthlyGitAuthorArgs:     true,
 				EarthlyLocallyArg:        true,
 				EarthlyVersionArg:        true,
@@ -347,7 +345,6 @@ func TestProcessFlags(t *testing.T) {
 			},
 			expectedWarnings: []string{
 				"--check-duplicate-images",
-				"--ci-arg",
 				"--earthly-git-author-args",
 				"--earthly-locally-arg",
 				"--earthly-version-arg",
@@ -375,7 +372,6 @@ func TestProcessFlags(t *testing.T) {
 				RequireForceForUnsafeSaves: true,
 				UseCopyIncludePatterns:     true,
 				CheckDuplicateImages:       true,
-				EarthlyCIArg:               true,
 				EarthlyGitAuthorArgs:       true,
 				EarthlyLocallyArg:          true,
 				EarthlyVersionArg:          true,
@@ -413,7 +409,6 @@ func TestProcessFlags(t *testing.T) {
 				RequireForceForUnsafeSaves: true,
 				UseCopyIncludePatterns:     true,
 				CheckDuplicateImages:       true,
-				EarthlyCIArg:               true,
 				EarthlyGitAuthorArgs:       true,
 				EarthlyLocallyArg:          true,
 				EarthlyVersionArg:          true,

@@ -608,7 +608,6 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	buildOpts := builder.BuildOpt{
 		PrintPhases:                true,
 		Push:                       b.cli.Flags().Push,
-		CI:                         b.cli.Flags().CI,
 		NoOutput:                   b.cli.Flags().NoOutput,
 		OnlyFinalTargetImages:      b.cli.Flags().ImageMode,
 		PlatformResolver:           platr,
@@ -890,7 +889,6 @@ func (b *Build) initAutoSkip(
 	targetHash, stats, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
 		Log:            b.cli.Log(),
-		CI:             b.cli.Flags().CI,
 		BuiltinArgs:    variables.DefaultArgs{EarthVersion: b.cli.Version(), EarthBuildSha: b.cli.GitSHA()},
 		OverridingVars: overridingVars,
 	})

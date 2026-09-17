@@ -116,7 +116,6 @@ type BuildOpt struct {
 	OnlyFinalTargetImages      bool
 	NoOutput                   bool
 	EnableGatewayClientLogging bool
-	CI                         bool
 	GlobalWaitBlockFtr         bool
 	Push                       bool
 	PrintPhases                bool
@@ -323,7 +322,6 @@ func (b *Builder) convertAndBuild(
 				DoSaves:                              !opt.NoOutput,
 				OnlyFinalTargetImages:                opt.OnlyFinalTargetImages,
 				DoPushes:                             opt.Push,
-				IsCI:                                 opt.CI,
 				ExportCoordinator:                    exportCoordinator,
 				LocalArtifactWhiteList:               opt.LocalArtifactWhiteList,
 				InternalSecretStore:                  b.opt.InternalSecretStore,

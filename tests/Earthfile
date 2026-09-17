@@ -68,7 +68,6 @@ ga-no-qemu-group4:
     BUILD +required-arg-test
     BUILD +push-test
     BUILD +push-arg-test
-    BUILD +ci-arg-test
     BUILD +gen-dockerfile-test
     BUILD +chown-test
     BUILD +env-test
@@ -782,12 +781,6 @@ push-arg-indirect-test:
         --output_contains="shoop"
     DO +RUN_EARTH --earthfile=push-arg.earth --extra_args="--push" --target=+indirect-test \
         --output_contains="shoop"
-
-ci-arg-test:
-    DO +RUN_EARTH --earthfile=ci-arg.earth --target=+ci-test \
-        --output_contains="local environment"
-    DO +RUN_EARTH --earthfile=ci-arg.earth --extra_args="--ci" --target=+ci-test \
-        --output_contains="CI environment"
 
 private-image-test:
     # NOTE(jhorsts): I assume any private image is good - use dindtest.

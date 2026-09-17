@@ -1981,3 +1981,36 @@ on every export.
 
 So long-lived is right, and it is an argument for the image: the 492 ms was the
 only number favouring wasm, and making both long-lived deletes it.
+
+### Correction: the hashing was on the wrong side of the boundary
+
+The table above charges wasm 2.5 s to hash 628 MiB. **Neither side pays that**,
+and the row should be struck rather than equalised.
+
+`tools/cachehelper` hashes nothing, and the design is why: a helper's key comes
+from what its tool already wrote - a `-a` filename for a Go build-cache entry,
+`module@version` for a module, the record digest npm put in its own bucket line -
+and **ℋ over a unit is the engine's work** (E-F11), native whichever language the
+helper is written in.
+
+So the objection that host-provided hash functions answer was one this design
+never had. The honest comparison, with that row gone:
+
+|                       | container        | wasm instance                     |
+| --------------------- | ---------------- | --------------------------------- |
+| start, once           | 492 ms           | ~1 ms, amortised either way       |
+| hashing               | **neither**      | **neither** - it is the engine's  |
+| directory walk, reads | native syscalls  | the WASI ABI, **unmeasured**      |
+| distribution          | the image        | still needs an image or a URL     |
+| confinement           | the step sandbox | one preopened directory, tighter  |
+| we maintain           | nothing new      | a runtime, and a host ABI if used |
+
+**"2-5x slower" was a guess and should not have been tabulated.** What a helper
+actually does is walk a directory and copy bytes out; how much the WASI ABI costs
+for 88,114 entries and 628 MiB is not known here, and a wazero benchmark against
+a real cache would settle it.
+
+The decision stands on the rows that survive - nothing new to maintain, and no
+distribution question - rather than on throughput. **That is a thinner case than
+the one first made**, and worth saying so: with hashing struck and traversal
+unmeasured, the gap between the two is smaller than this document claimed.

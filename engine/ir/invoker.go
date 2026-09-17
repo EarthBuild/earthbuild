@@ -90,6 +90,9 @@ func pinning(mounts []Mount) string {
 		ordinary := Mount{
 			Target: m.Target, ID: m.ID, Mode: m.Mode, Exclusive: m.Exclusive,
 			Portable: m.Portable, PortableExcept: m.PortableExcept,
+			// A helper does not pin a step either: it is a program both ends
+			// run, not a path only one machine has.
+			Helper: m.Helper,
 		}
 		if m == ordinary && m.ID != "" {
 			continue

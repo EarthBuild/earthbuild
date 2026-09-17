@@ -109,6 +109,11 @@ type Cache struct {
 	// infer it. Empty means no claim was made and nothing is shared, which is
 	// every cache by default.
 	PortableExcept string `json:"portableExcept,omitempty"`
+	// Helper names the program that understands this cache's format, as the
+	// author wrote it. Carried because both ends must run the same one: a
+	// helper decides what a unit is, so two that differ share nothing and may
+	// import each other's units wrongly.
+	Helper string `json:"helper,omitempty"`
 }
 
 // Kind is the closed set of operations expressible on the wire.

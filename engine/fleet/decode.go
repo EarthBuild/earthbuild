@@ -189,6 +189,7 @@ func (d *decoder) op() Op {
 				Mode: uint32(d.count()), Exclusive: d.boolean(), //nolint:gosec // a mode this engine wrote
 				Portable:       d.boolean(),
 				PortableExcept: d.str(),
+				Helper:         d.str(),
 			})
 		}
 	}

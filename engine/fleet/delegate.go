@@ -159,6 +159,7 @@ func caches(mounts []ir.Mount) []Cache {
 			ID: m.ID, Target: m.Target, Mode: m.Mode, Exclusive: m.Exclusive,
 			Portable:       m.Portable,
 			PortableExcept: m.PortableExcept,
+			Helper:         m.Helper,
 		})
 	}
 

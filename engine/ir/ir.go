@@ -271,6 +271,16 @@ type Mount struct {
 	// which is the conservative direction and the same argument the encoder
 	// makes for not sorting mounts.
 	PortableExcept string
+	// Helper names a program that understands this cache's format - what a unit
+	// is, what it is called, and how two of them merge.
+	//
+	// **In the key, and for a stronger reason than the claim beside it.**
+	// `PortableExcept` says which paths may cross; this says what crossing
+	// *means*. A helper chooses the boundaries, the keys and the bytes inside
+	// each frame, so two machines running different helpers over one cache
+	// produce units that are not the same units - filed under digests that do
+	// not match, and importable into each other.
+	Helper string
 	// Exclusive is `CACHE --sharing=locked`, the default: one step in this
 	// directory at a time.
 	//
@@ -942,6 +952,7 @@ func (n *Node) ID() NodeID {
 		// declarations, and hashing only the list would key them the same.
 		h.Bool(m.Portable)
 		h.Str(m.PortableExcept)
+		h.Str(m.Helper)
 
 		h.Bool(m.Exclusive)
 		h.Bool(m.Persist)

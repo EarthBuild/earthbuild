@@ -687,6 +687,25 @@ debugger:
             cmd/debugger/*.go
     SAVE ARTIFACT build/earth_debugger
 
+# cache-helper builds the cache helper as a WASI module.
+#
+# **One artefact for every machine in a fleet.** A cache helper has to run where
+# the cache is, and a fleet is deliberately unlike itself - an arm64 Mac driving
+# amd64 steps, a worker of either. A `wasip1/wasm` build is the same bytes
+# everywhere, so the thing an Earthfile names with `CACHE --helper` is one file
+# rather than a manifest of them.
+#
+# CGO_ENABLED=0 for the reason every other Go target here sets it, and because
+# `wasip1` has no C toolchain to offer anyway.
+cache-helper:
+    FROM +code
+    ENV CGO_ENABLED=0
+    RUN \
+        --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+        --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+        GOOS=wasip1 GOARCH=wasm go build -o build/cachehelper.wasm ./tools/cachehelper/
+    SAVE ARTIFACT build/cachehelper.wasm AS LOCAL cachehelper.wasm
+
 # earthly builds the EarthBuild CLI and docker image.
 earthly:
     FROM +code

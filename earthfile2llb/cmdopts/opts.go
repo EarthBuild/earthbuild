@@ -181,6 +181,13 @@ type Cache struct {
 	// flag. As a bare string both are `""` and the strongest claim is the one
 	// silently ignored.
 	PortableExcept *string `description:"Paths under the cache that are specific to this machine; the rest may be shared between machines" long:"portable-except"` //nolint:lll
+	// Helper names a program that understands this cache's format: what a unit
+	// is, what it is called, and how two of them are merged.
+	//
+	// **The per-language knowledge, delegated.** The engine moves bytes and
+	// names them by ℋ; which bytes belong together and what a tool calls them
+	// is a fact about that tool, and it lives here rather than in the engine.
+	Helper string `description:"A program that understands this cache's format" long:"helper"`
 }
 
 // NewFor creates and returns a For with default separators.

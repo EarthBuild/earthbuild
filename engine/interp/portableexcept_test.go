@@ -130,3 +130,54 @@ func TestTheMountFormAlsoDistinguishesAnEmptyList(t *testing.T) {
 			" so the mount form cannot express a cache with no exceptions")
 	}
 }
+
+// TestTheHelperIsPartOfTheCachesIdentity.
+//
+// **The helper decides what a unit is.** It chooses the boundaries, the keys and
+// the bytes inside each frame, so two machines running different helpers over
+// one cache produce units that are not the same units - filed under digests that
+// do not match, sharing nothing, and worse, importable into each other.
+//
+// So it is in the key for the reason `--portable-except` is, only more so: that
+// flag says which paths may cross, this one says what crossing *means*.
+func TestTheHelperIsPartOfTheCachesIdentity(t *testing.T) {
+	t.Parallel()
+
+	const src = "VERSION 0.8\nmain:\n    FROM alpine:3.22\n" +
+		"    CACHE --id k --portable-except ''%s /c\n    RUN echo hi\n"
+
+	plain := plan(t, strings.ReplaceAll(src, "%s", ""))
+	helped := plan(t, strings.ReplaceAll(src, "%s", " --helper ./go-blob"))
+	other := plan(t, strings.ReplaceAll(src, "%s", " --helper ./npm-blob"))
+
+	if plain == helped {
+		t.Error("a cache read by a helper keys the same as one read by nobody," +
+			" so two machines can disagree about what a unit is and share anyway")
+	}
+
+	if helped == other {
+		t.Error("two different helpers key the same, so one machine's units" +
+			" are imported by a helper that did not make them")
+	}
+}
+
+// TestTheMountFormTakesAHelperToo. Both spellings of a cache reach the same
+// mount, or an author who used `RUN --mount` gets a cache nothing can read.
+func TestTheMountFormTakesAHelperToo(t *testing.T) {
+	t.Parallel()
+
+	const src = "VERSION 0.8\nmain:\n    FROM alpine:3.22\n" +
+		"    RUN --mount type=cache,target=/c,id=k,portable-except=%s echo hi\n"
+
+	plain := plan(t, strings.ReplaceAll(src, "%s", ""))
+	helped := plain
+
+	if got := plan(t, strings.ReplaceAll(src, "%s", ",helper=./go-blob")); got != helped {
+		helped = got
+	}
+
+	if plain == helped {
+		t.Error("helper= in a mount changed nothing, so the mount form of the" +
+			" flag is accepted and ignored")
+	}
+}

@@ -304,6 +304,7 @@ func operationOf(o Op) (ir.Op, error) {
 			Target: c.Target, ID: c.ID, Mode: c.Mode, Exclusive: c.Exclusive,
 			Portable:       c.Portable,
 			PortableExcept: c.PortableExcept,
+			Helper:         c.Helper,
 		})
 	}
 

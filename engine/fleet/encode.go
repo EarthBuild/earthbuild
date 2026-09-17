@@ -132,6 +132,7 @@ func encodeOp(e *ir.Encoder, op Op) {
 		e.Bool(c.Exclusive)
 		e.Bool(c.Portable)
 		e.Str(c.PortableExcept)
+		e.Str(c.Helper)
 	}
 }
 

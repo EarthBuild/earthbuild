@@ -119,6 +119,7 @@ func cacheMount(c earthfile.Command, workdir string) (ir.Mount, error) {
 	return ir.Mount{
 		Target: target, ID: id, Exclusive: exclusive, Persist: opts.Persist, Mode: mode,
 		Portable: opts.PortableExcept != nil, PortableExcept: deref(opts.PortableExcept),
+		Helper: opts.Helper,
 	}, nil
 }
 
@@ -211,6 +212,9 @@ const mountFieldTarget = "target"
 // thing about the same directory and a second spelling would be a second thing
 // to keep in step.
 const mountFieldPortableExcept = "portable-except"
+
+// mountFieldHelper names the program that understands this cache's format.
+const mountFieldHelper = "helper"
 
 // mountKindBind is a bound view's spelling. Named because four places test for
 // it and because the *other* bind - `bind-experimental`, an Earthfile's window
@@ -392,6 +396,7 @@ func parseMount(spec, workdir, where string) (ir.Mount, string, error) {
 		Target: target, ID: id, Exclusive: exclusive,
 		ReadOnly: readOnly(fields), Mode: mode,
 		Portable: claimed, PortableExcept: except,
+		Helper: fields[mountFieldHelper],
 	}, "", nil
 }
 
@@ -439,6 +444,7 @@ var mountFields = map[string][]string{
 		mountFieldType, mountFieldTarget, mountFieldDst, "id",
 		mountFieldRO, "ro", "sharing", mountFieldMode, mountFieldChmod,
 		mountFieldPortableExcept,
+		mountFieldHelper,
 	},
 	mountKindSecret: {
 		mountFieldType, mountFieldTarget, mountFieldDst, "id",

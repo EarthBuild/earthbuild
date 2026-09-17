@@ -1595,6 +1595,51 @@ objects read through the agent 1523
 by Go's own digests, with no ActionResult decoded, no Directory walked and no
 protobuf linked.
 
+### The coincidence is not the mechanism
+
+**Stated too strongly above, and corrected here.** That result needs *two*
+contingencies to hold, and one of them is not the default:
+
+* Go's build cache happens to name objects by SHA-256;
+* the engine was run with `EARTH_DIGEST=sha256`, which it is not normally - ℋ is
+  **BLAKE3-256** by default, and SHA-256 exists for a Buck2-flavoured remote
+  execution service.
+
+And the wider world does not agree with either. Counted here:
+
+| cache                  | names units by                  |
+| ---------------------- | ------------------------------- |
+| npm cacache            | **sha512** (523 of 523 sampled) |
+| Go build cache         | sha256                          |
+| Go module cache        | sha256, base64 dirhash (`h1:`)  |
+| Cargo                  | sha256                          |
+| Gradle `build-cache-1` | md5                             |
+| EarthBuild 𝔅           | BLAKE3-256, SHA-256 opt-in      |
+
+Four hash functions across five caches, and the engine's default matches none of
+them. A design resting on two of them coinciding would work for Go under one
+setting and for nothing else.
+
+### The general form: a unit is a blob, and the hash is nobody's business
+
+What the fast path was standing in for:
+
+* the **helper** names a unit in whatever scheme its tool uses - `sha512-...`,
+  an md5, an ActionID, `name@version` - and the engine never parses it;
+* the **engine** stores a unit's bytes and names them with ℋ, whatever ℋ is;
+* the **index** is the join, `key -> ℋ(unit)`, and it is the only thing besides
+  the bytes that has to travel.
+
+So neither end needs to know the other's hash function. The tool's own naming
+lives in the helper - in the WASI blob, where the rest of that tool's knowledge
+already lives - and the engine's content addressing stays exactly what it is.
+Dedup, verification and transport come from 𝔅 as before, because a unit is a
+blob like any other.
+
+That also refines the contract the prototype tested: `export` must emit units
+**individually addressable** rather than as one opaque stream, because the engine
+has to be able to hash each one. One unit, one blob, one row in the index.
+
 ### What is left, and how small it is
 
 The index. The shim needs an action id to know which object to ask for, and that
@@ -1603,7 +1648,11 @@ anything the engine holds.
 
 It is **15 MiB against 628** - 2.4% of the bytes. The hard 97.6% is solved by
 machinery that already existed; what remains is small enough that almost any
-mechanism will do, and is the only part still worth designing.
+mechanism will do.
+
+And it is not a Go quirk. The index is exactly the join described above, so the
+thing still to be designed is the same thing that makes the hash functions
+irrelevant. That is a better place to arrive than a coincidence.
 
 ### One constraint found while checking
 

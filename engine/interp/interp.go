@@ -133,9 +133,10 @@ type Plan struct {
 	// pinned memoises Θ on (reference, platform), which is what makes it once
 	// per build rather than once per use (I17).
 	pinned map[string]string
-	// pinnedHelpers memoises the same for cache helpers, on the reference
-	// alone: a helper is one module and runs the same everywhere, which is why
-	// it is a module rather than a binary per platform.
+	// pinnedHelpers memoises the same for cache helpers, on the reference and
+	// the directory it was written in: a helper is one module and runs the same
+	// everywhere, so there is no platform here - but two Earthfiles may each say
+	// `./h.wasm` and mean different files.
 	pinnedHelpers map[string]string
 
 	// dockerCache is the shared daemon storage the WITH DOCKER block being
@@ -1347,7 +1348,12 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// than where the flag is parsed - this is the one place `CACHE` lines
 		// and `RUN --mount` specs come together, and a helper resolved twice by
 		// two parsers is a helper two paths of one build can disagree about.
-		p.pinHelpers(mounts)
+		// **This Earthfile's directory, not the invocation's.** A relative path
+		// in an Earthfile means that Earthfile's directory - `unit.dir` says so
+		// - and every example here is built as `BUILD ./examples/x+y` from the
+		// root, so the other reading made the construct unusable in exactly the
+		// place it is demonstrated.
+		p.pinHelpers(mounts, p.here.dir)
 
 		views, err := p.resolveViews(mounts[len(rs.mounts):], rf.views, rs, loc(c.SourceLocation))
 		if err != nil {

@@ -1,0 +1,15 @@
+VERSION 0.8
+
+# Cargo's downloaded crates, shared between machines.
+#
+# **Only `registry/cache`**, which holds `.crate` files - published artefacts at
+# a version that crates.io will not let be replaced. The registry index beside it
+# does change, and `registry/src` is extracted source whose mtimes cargo compares
+# in its fingerprints, so neither is offered.
+fetch:
+    FROM rust:1.83-alpine
+    WORKDIR /w
+    CACHE --id eg-cargo --portable-except '' \
+        --helper ./cachehelper-cargo.wasm /usr/local/cargo/registry/cache
+    COPY --dir src Cargo.toml Cargo.lock .
+    RUN cargo fetch --locked

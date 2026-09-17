@@ -1,0 +1,14 @@
+VERSION 0.8
+
+# A Go build cache, shared between machines.
+#
+# The action ids Go files objects under are hashes of the step's inputs, so an
+# object never changes under its id - which is what lets the helper claim
+# `units-immutable` and lets an export ship only what the last one did not.
+compile:
+    FROM golang:1.25-alpine
+    WORKDIR /w
+    CACHE --id eg-go-build --portable-except '' \
+        --helper ./cachehelper-go-build.wasm /root/.cache/go-build
+    COPY main.go go.mod .
+    RUN go build -o /dev/null ./...

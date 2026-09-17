@@ -24,8 +24,8 @@ const guestBinaryName = "earth-guestd"
 // Looked for, in order:
 //
 //  1. $EARTH_GUESTD, for development and for tests in stripped containers;
-//  2. beside the running executable, which is how the Apple backend gets a
-//     linux agent for its VM.
+//  2. beside the running executable - and beside what it points at, if it is a
+//     symlink - which is how the Apple backend gets a linux agent for its VM.
 //
 // A third answer, the running executable itself, is [findGuestCommand]'s and
 // not this function's: it holds only where the sandbox runs the host's own kind
@@ -43,12 +43,12 @@ func findGuestBinary() (string, error) {
 		return p, nil
 	}
 
-	exe, err := os.Executable()
-	if err == nil {
-		beside := filepath.Join(filepath.Dir(exe), guestBinaryName)
-		_, err := os.Stat(beside)
-		if err == nil {
-			return beside, nil
+	if exe, err := os.Executable(); err == nil {
+		for _, dir := range besideExecutable(exe) {
+			beside := filepath.Join(dir, guestBinaryName)
+			if _, statErr := os.Stat(beside); statErr == nil {
+				return beside, nil
+			}
 		}
 	}
 
@@ -136,3 +136,53 @@ var selfIsGuest atomic.Bool
 // Called by the mains that dispatch it. Anything that does not call it gets the
 // old behaviour, which is what a test binary and an embedding program want.
 func SelfServesAsGuest() { selfIsGuest.Store(true) }
+
+// besideExecutable is where to look for something shipped with this binary.
+//
+// **Two places, because a symlinked install is the ordinary one.** `ln -s
+// ~/src/build/earth ~/bin/arth` puts one build on PATH without copying it, so a
+// rebuild is live immediately - and `os.Executable()` on darwin answers with the
+// *link*, not what it points at (it reads the path the process was started with;
+// only Linux's `/proc/self/exe` is already resolved). Looking only there finds no
+// agent, and the diagnosis then tells you to put the file somewhere it already
+// is.
+//
+// The link's own directory stays a candidate and comes first: an agent dropped
+// beside the link is as deliberate as one built beside the binary, and a
+// packaged installation has no symlink at all.
+//
+// Deduplicated, so an ordinary binary is not stated twice - a diagnosis that
+// prints one path twice reads as a bug in the tool rather than in the setup.
+func besideExecutable(exe string) []string {
+	paths := []string{exe}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		paths = append(paths, resolved)
+	}
+
+	var (
+		dirs []string
+		seen = map[string]bool{}
+	)
+
+	for _, p := range paths {
+		at := filepath.Dir(p)
+
+		// **Compared resolved, returned as written.** On macOS `/var` is itself
+		// a symlink to `/private/var`, so an ordinary binary under a temporary
+		// directory yields two spellings of one place - and a list that stats
+		// the same directory twice prints the same path twice when it fails,
+		// which reads as a bug in the tool rather than in the setup.
+		key := at
+		if real, err := filepath.EvalSymlinks(at); err == nil {
+			key = real
+		}
+
+		if !seen[key] {
+			seen[key] = true
+
+			dirs = append(dirs, at)
+		}
+	}
+
+	return dirs
+}

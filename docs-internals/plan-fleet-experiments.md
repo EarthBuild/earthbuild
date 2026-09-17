@@ -2713,3 +2713,50 @@ answers from `Nearby`.
 Not attempted here. It is a day's work rather than an hour's, it is confined to
 one platform, and the honest refusal above is what makes leaving it safe: a Mac
 now says it shares nothing rather than appearing to.
+
+## E-F28: writing the examples found two things the feature could not survive
+
+Every demonstration of portable caches so far lived in a scratch directory on one
+machine. Putting them in `examples/cache-helpers/` - one per ecosystem, beside
+`examples/cache-command` - broke twice before it ran.
+
+### A helper path meant the wrong directory
+
+`unit.dir` is documented as *"this Earthfile's directory: its build context, and
+the root that its relative references are resolved against"*. `--helper` was
+resolved against the **invocation's** directory instead, so
+`--helper ./h.wasm` in `examples/npm/Earthfile` named a file at the repository
+root - and every example here is built as `BUILD ./examples/x+y` from the root.
+
+**The construct was unusable in exactly the place it is meant to be shown off**,
+and the symptom is a cache that quietly does not share. The same bug class as
+`TestAReferencedTargetReadsItsOwnDirectory`, one construct over; `ResolveHelper`
+now takes the Earthfile's directory alongside the reference, and the memo is on
+the pair, because two Earthfiles may each say `./h.wasm` and mean different files.
+
+Proved by the examples themselves: four sub-Earthfiles, four distinct modules in
+𝔅, each matching the blob in its own subdirectory.
+
+### A symlinked binary could not find its agent
+
+`ln -s ~/src/build/earth ~/bin/arth` is how a developer puts one build on PATH,
+and `os.Executable()` on darwin answers with the **link**, not what it points at,
+since only Linux's `/proc/self/exe` is already resolved. So `findGuestBinary` looked
+in `~/bin`, found nothing, and printed advice telling the reader to put the file
+somewhere it already was.
+
+Both directories are candidates now, deduplicated by their resolved form - on
+macOS `/var` is itself a symlink to `/private/var`, so an ordinary binary yields
+two spellings of one place, and a diagnosis that prints one path twice reads as a
+bug in the tool rather than in the setup.
+
+### And one limitation that is not a bug
+
+A `--helper` is a host path read when the build is **planned**, so it must exist
+before the invocation that names it starts: a build cannot produce its own
+helper in one pass. Hence two commands, and hence these examples are **not** in
+the `examples-1`/`examples-2` CI targets - a `BUILD` is one invocation.
+
+`--helper +target/artifact`, resolved the way `COPY` resolves one, would close
+that. Not implemented, and worth more than it looks: it would make a helper an
+ordinary build input rather than a file somebody has to remember to build.

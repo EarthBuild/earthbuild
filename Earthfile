@@ -716,6 +716,35 @@ cache-helper:
     SAVE ARTIFACT build/cachehelper-npm.wasm AS LOCAL cachehelper-npm.wasm
     SAVE ARTIFACT build/cachehelper-cargo.wasm AS LOCAL cachehelper-cargo.wasm
 
+# cache-helper-examples puts a helper beside each example that names one.
+#
+# **A `--helper` is a host path read when the build is planned**, so it has to be
+# on disk before the build that names it starts - a build cannot produce its own
+# helper in one pass. Hence a target of its own, run once:
+#
+#     earth +cache-helper-examples
+#     earth ./examples/cache-helpers+all
+#
+# Run from the root rather than from the example directory, so that every
+# transitively built target's `SAVE ARTIFACT ... AS LOCAL` lands where it was
+# written to land. Invoked from the subdirectory it drops this repository's own
+# go.mod into `examples/`, which is confusing for exactly the reader the examples
+# are for.
+cache-helper-examples:
+    FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+    COPY +cache-helper/build/cachehelper-go-build.wasm .
+    COPY +cache-helper/build/cachehelper-go-mod.wasm .
+    COPY +cache-helper/build/cachehelper-npm.wasm .
+    COPY +cache-helper/build/cachehelper-cargo.wasm .
+    SAVE ARTIFACT cachehelper-go-build.wasm AS LOCAL \
+        examples/cache-helpers/go-build/cachehelper-go-build.wasm
+    SAVE ARTIFACT cachehelper-go-mod.wasm AS LOCAL \
+        examples/cache-helpers/go-mod/cachehelper-go-mod.wasm
+    SAVE ARTIFACT cachehelper-npm.wasm AS LOCAL \
+        examples/cache-helpers/npm/cachehelper-npm.wasm
+    SAVE ARTIFACT cachehelper-cargo.wasm AS LOCAL \
+        examples/cache-helpers/cargo/cachehelper-cargo.wasm
+
 # earthly builds the EarthBuild CLI and docker image.
 earthly:
     FROM +code

@@ -1,0 +1,16 @@
+VERSION 0.8
+
+# An npm cacache, shared between machines.
+#
+# **The hard case, and the one that proves the helper is necessary.** cacache's
+# index-v5 buckets are append-only and hold several records each, so importing
+# one is a *union* of records rather than a copy of a file - no file-level
+# transport can do it. It is also why this helper does not claim
+# `units-immutable`: a key already present can have gained a record.
+install:
+    FROM node:24-alpine
+    WORKDIR /w
+    CACHE --id eg-npm --portable-except 'tmp/**' \
+        --helper ./cachehelper-npm.wasm /root/.npm/_cacache
+    COPY package.json .
+    RUN npm install --no-fund --no-audit

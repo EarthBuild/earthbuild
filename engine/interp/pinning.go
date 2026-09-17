@@ -89,9 +89,16 @@ func (p *Plan) pin(ref, platform string) string {
 
 // ResolveHelper answers what a cache helper's module actually is.
 //
-// It is given the reference as the author wrote it - `./go.wasm`, resolved
-// against the build's directory by whoever supplies this - and returns a digest
-// naming the module's bytes.
+// It is given the reference as the author wrote it - `./go.wasm` - and the
+// directory of the Earthfile that wrote it, and returns a digest naming the
+// module's bytes.
+//
+// **Both, because a path in an Earthfile means that Earthfile's directory.**
+// `unit.dir` says so of every other relative reference, and resolving a helper
+// against the *invocation's* directory instead made `--helper ./h.wasm` in
+// `examples/npm/Earthfile` name a file at the repository root - which is how
+// every example here is built (`BUILD ./examples/x+y`), so the construct was
+// unusable in the place it is meant to be shown off.
 //
 // **Resolving is expected to file the module somewhere both ends can read**,
 // which is the one way this differs from [ResolveImage]. A pinned image
@@ -99,7 +106,7 @@ func (p *Plan) pin(ref, platform string) string {
 // this machine can answer for until somebody puts the bytes in 𝔅. The seam
 // returns a digest and says nothing about where it went, because the caller that
 // resolved it is the caller that owns the store.
-type ResolveHelper func(ref string) (string, error)
+type ResolveHelper func(ref, dir string) (string, error)
 
 // WithHelperResolver pins the program that reads a portable cache.
 //
@@ -120,24 +127,29 @@ func WithHelperResolver(fn ResolveHelper) Option {
 
 // pinHelper resolves a helper reference, once per build.
 //
-// Memoised on the reference alone, where [Plan.pin] memoises on the pair: a
-// helper is one module and runs the same everywhere, which is the whole reason
-// it is a wasm module rather than a binary per platform.
+// Memoised on the reference *and* the directory it was written in. A helper is
+// one module and runs the same everywhere - which is why there is no platform in
+// this key, where [Plan.pin] needs one - but two Earthfiles may each say
+// `./h.wasm` and mean different files.
 //
 // A resolver that fails leaves the mount unpinned rather than failing the build.
 // A cache that cannot be shared is a slower build on some other machine; a
 // refused step is no build at all, and the pinning is not worth that (I11).
-func (p *Plan) pinHelper(ref string) string {
+func (p *Plan) pinHelper(ref, dir string) string {
 	if p.opt.resolveHelper == nil || ref == "" {
 		return ""
 	}
 
-	if to, ok := p.pinnedHelpers[ref]; ok {
+	// Memoised on the pair, because the same spelling in two Earthfiles is two
+	// different files - which is the whole point of resolving against the
+	// Earthfile's own directory, and would be undone by a memo that ignored it.
+	key := dir + "\x00" + ref
+	if to, ok := p.pinnedHelpers[key]; ok {
 		return to
 	}
 
 	started := time.Now()
-	to, err := p.opt.resolveHelper(ref)
+	to, err := p.opt.resolveHelper(ref, dir)
 	p.PinCost += time.Since(started)
 
 	if err != nil || to == "" {
@@ -148,7 +160,7 @@ func (p *Plan) pinHelper(ref string) string {
 		p.pinnedHelpers = map[string]string{}
 	}
 
-	p.pinnedHelpers[ref] = to
+	p.pinnedHelpers[key] = to
 
 	// **Not recorded in [Plan.Pinned]**, which is Θ's record and carries advice
 	// with it: `recordPinning` tells the reader that `--pin` writes these into
@@ -165,12 +177,12 @@ func (p *Plan) pinHelper(ref string) string {
 // one idea, and pinning in each would let two paths of one build resolve the
 // same reference twice - which is the divergence [Plan.pin]'s memo exists to
 // make impossible for images.
-func (p *Plan) pinHelpers(ms []ir.Mount) {
+func (p *Plan) pinHelpers(ms []ir.Mount, dir string) {
 	if p.opt.resolveHelper == nil {
 		return
 	}
 
 	for i := range ms {
-		ms[i].HelperID = p.pinHelper(ms[i].Helper)
+		ms[i].HelperID = p.pinHelper(ms[i].Helper, dir)
 	}
 }

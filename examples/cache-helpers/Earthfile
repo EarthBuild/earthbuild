@@ -1,0 +1,13 @@
+VERSION 0.8
+
+# Every ecosystem, once the helpers are built.
+#
+# **`earth +cache-helper-examples` first**, from the repository root. A
+# `--helper` is a host path read when the build is planned, so it has to be on
+# disk before the build that names it starts - a build cannot produce its own
+# helper in one pass.
+all:
+    BUILD ./go-build+compile
+    BUILD ./go-mod+deps
+    BUILD ./npm+install
+    BUILD ./cargo+fetch

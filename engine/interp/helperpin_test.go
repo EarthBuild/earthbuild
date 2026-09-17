@@ -104,7 +104,7 @@ func TestAHelperThatCannotBeReadDoesNotFailTheBuild(t *testing.T) {
 
 	_, err := interp.Build("VERSION 0.8\nmain:\n    FROM alpine:3.22\n"+
 		"    CACHE --id k --portable-except '' --helper ./gone.wasm /c\n    RUN echo hi\n",
-		testMain, interp.WithHelperResolver(func(string) (string, error) {
+		testMain, interp.WithHelperResolver(func(string, string) (string, error) {
 			return "", errors.New("no such file")
 		}))
 	if err != nil {
@@ -115,7 +115,7 @@ func TestAHelperThatCannotBeReadDoesNotFailTheBuild(t *testing.T) {
 // fixedHelper is a resolver answering with one module's digest, whatever it is
 // asked.
 func fixedHelper(body string) interp.ResolveHelper {
-	return func(string) (string, error) { return ir.DigestOf([]byte(body)).String(), nil }
+	return func(_, _ string) (string, error) { return ir.DigestOf([]byte(body)).String(), nil }
 }
 
 // keyWith is plan's sibling for the cases that need an option.

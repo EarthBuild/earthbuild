@@ -37,7 +37,7 @@ const maxHelper = 64 << 20
 // the build, which is what `imageResolver` does for an unreachable registry and
 // for the same reason: a cache that does not cross is a slower build somewhere
 // else, and a refused step is no build at all.
-func (g *engine) helperResolver(dir, storeDir string) interp.ResolveHelper {
+func (g *engine) helperResolver(storeDir string) interp.ResolveHelper {
 	// **No store, no pin.** `storeDir` failing is a machine that cannot keep
 	// blobs at all, and a digest naming bytes nowhere is worse than no digest:
 	// it keys the step as pinned and leaves the far end unable to fetch what it
@@ -48,9 +48,12 @@ func (g *engine) helperResolver(dir, storeDir string) interp.ResolveHelper {
 
 	var sink *blob.Store
 
-	return func(ref string) (string, error) {
+	return func(ref, dir string) (string, error) {
 		at := ref
 		if !filepath.IsAbs(at) {
+			// The Earthfile's own directory, which the interpreter supplies:
+			// a relative path in an Earthfile means that Earthfile's directory,
+			// wherever the build happened to be started from.
 			at = filepath.Join(dir, at)
 		}
 

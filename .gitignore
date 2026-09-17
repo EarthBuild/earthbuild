@@ -42,3 +42,8 @@
 # visible, which is the lesser problem.
 /tests/go.mod
 /tests/go.sum
+
+# Built by +cache-helper: four megabytes each, reproducible from
+# tools/cachehelper, and one artefact per cache format.
+/cachehelper-*.wasm
+/cachehelper

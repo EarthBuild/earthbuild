@@ -16,6 +16,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/core"
 	"github.com/EarthBuild/earthbuild/engine/exec"
 	"github.com/EarthBuild/earthbuild/engine/fleet"
+	"github.com/EarthBuild/earthbuild/engine/guest"
 	"github.com/EarthBuild/earthbuild/engine/interp"
 	"github.com/EarthBuild/earthbuild/engine/ir"
 	"github.com/EarthBuild/earthbuild/engine/store"
@@ -356,6 +357,14 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		if err == nil {
 			e.ImageCache = imageRoot
 		}
+
+		// Where the guest keeps cache mounts, and what to do with one the author
+		// offered. `MountStore` is the guest's own function rather than this
+		// side's guess at it: two implementations of that path is a drift in
+		// which the host reads an empty directory and reports an empty cache,
+		// with nothing failing anywhere.
+		e.Mounts = guest.MountStore(sb.StoreDir())
+		e.Share = g.shareCache(sb.StoreDir())
 
 		ac, err := g.actionCache(sb.StoreDir())
 		if err != nil {

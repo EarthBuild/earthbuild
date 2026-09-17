@@ -112,10 +112,6 @@ type Executor struct {
 	// prefers a block device where it has one, and a host guessing at that
 	// reads an empty directory and reports an empty cache.
 	Mounts string
-	// Domain is the trust domain this build's caches are scoped to, and it must
-	// be the one the mount was scoped with or this reads a directory the step
-	// never wrote.
-	Domain string
 	// Share, if set, is offered each portable cache mount after a step, with
 	// the directory its contents are in.
 	//

@@ -3459,7 +3459,16 @@ const EnvFast = "EARTH_GUEST_FAST"
 //
 // Resolved here rather than sent by the host, since the host and the guest see
 // the store at different paths.
-func (s *Server) mountStore() string {
+func (s *Server) mountStore() string { return MountStore(s.LayerDir) }
+
+// MountStore is where cache mounts live, given a store root.
+//
+// **Exported because two sides now need the same answer.** The guest binds a
+// cache mount here; the host reads one here when it offers a portable cache to
+// another machine. Two implementations of that path is a drift in which the
+// host finds an empty directory and reports an empty cache, with nothing
+// failing anywhere - so there is one, and both call it.
+func MountStore(layerDir string) string {
 	// Checked for rather than trusted: the environment says a volume was
 	// attached and the filesystem is the authority on whether it arrived. A
 	// sandbox that started without its mount would otherwise put a build's
@@ -3474,15 +3483,14 @@ func (s *Server) mountStore() string {
 		}
 	}
 
-	if s.LayerDir == "" {
+	if layerDir == "" {
 		return filepath.Join(os.TempDir(), "earthbuild-mounts")
 	}
 
-	// LayerDir is the store *root* - the materialiser puts layers at
-	// <root>/layers - so mounts sit beside those rather than one level further
-	// up, which is outside the directory shared into this machine and vanishes
-	// with it.
-	return filepath.Join(s.LayerDir, "mounts")
+	// The store *root* - the materialiser puts layers at <root>/layers - so
+	// mounts sit beside those rather than one level further up, which is
+	// outside the directory shared into this machine and vanishes with it.
+	return filepath.Join(layerDir, "mounts")
 }
 
 // declaresHome reports whether anything above the floor set HOME.

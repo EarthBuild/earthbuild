@@ -66,7 +66,11 @@ func (e *Executor) shareCaches(ctx context.Context, n *ir.Node) {
 		return
 	}
 
-	for _, s := range shareable(n.Op.Mounts, e.Mounts, e.Domain) {
+	// **The same function that scoped the mount**, not a value passed in beside
+	// it. A domain read twice is a domain that can differ twice, and the failure
+	// is an export reading a directory the step never wrote - which looks
+	// exactly like a cache that is empty.
+	for _, s := range shareable(n.Op.Mounts, e.Mounts, trustDomain()) {
 		_ = e.Share(ctx, s.mount, s.dir)
 	}
 }

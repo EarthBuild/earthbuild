@@ -81,13 +81,8 @@ type keying interface {
 }
 
 func main() {
-	if len(os.Args) < 3 {
-		fatal(errors.New("usage: cachehelper <go-build|go-mod|npm> <probe|ident|index|export|import>"))
-	}
-
-	h, err := helperFor(os.Args[1])
-	if err != nil {
-		fatal(err)
+	if len(os.Args) < 2 {
+		fatal(errors.New("usage: cachehelper [go-build|go-mod|npm] <probe|ident|index|export|import>"))
 	}
 
 	root := os.Getenv("EARTH_CACHE_DIR")
@@ -95,9 +90,46 @@ func main() {
 		fatal(errors.New("EARTH_CACHE_DIR is unset, so there is no cache to speak about"))
 	}
 
-	if err := run(h, root, os.Args[2]); err != nil {
+	// **The contract is `<helper> <verb>`, and this binary happens to hold
+	// three.** Named explicitly it uses that one; named with a verb alone it
+	// asks each in turn whether this is a cache it understands - which is what
+	// `probe` is for, and what makes one blob usable as any of them.
+	args := os.Args[1:]
+
+	h, err := helperFor(args[0])
+	if err == nil {
+		args = args[1:]
+	} else if h, err = whichKnows(root); err != nil {
 		fatal(err)
 	}
+
+	if len(args) == 0 {
+		fatal(errors.New("no verb: expected probe, ident, index, export or import"))
+	}
+
+	if err := run(h, root, args[0]); err != nil {
+		fatal(err)
+	}
+}
+
+// whichKnows is the helper that recognises this cache, or none.
+//
+// Ordered, so a directory two helpers would both accept is always read by the
+// same one - an answer that depended on map iteration would be a cache exported
+// one way today and another tomorrow.
+func whichKnows(root string) (helper, error) {
+	for _, kind := range []string{"go-build", "go-mod", "npm"} {
+		h, err := helperFor(kind)
+		if err != nil {
+			continue
+		}
+
+		if h.probe(root) == nil {
+			return h, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no helper here understands %s", root)
 }
 
 func run(h helper, root, verb string) error {

@@ -2014,3 +2014,53 @@ The decision stands on the rows that survive - nothing new to maintain, and no
 distribution question - rather than on throughput. **That is a thinner case than
 the one first made**, and worth saying so: with hashing struck and traversal
 unmeasured, the gap between the two is smaller than this document claimed.
+
+## E-F16: a real build shares a real cache
+
+The first end-to-end run. An Earthfile with
+
+```text
+CACHE --id sharedemo --portable-except '' --helper ./cachehelper.wasm /c
+```
+
+and a step that writes a Go module layout into it. On the native Linux box:
+
+```text
+cache sharedemo: 1 units shared, map 1d26608f7c6e835f...
+```
+
+Verified in the store rather than believed from the line:
+
+```text
+map blob 1d26608f...   example.com/m@v1.0.0 -> 3d9f1257...
+unit blob 3d9f1257...  a tar of
+   cache/download/example.com/m/@v/v1.0.0.{info,mod,zip}
+both blobs hash to the names they are filed under
+```
+
+A wasm helper decided those three files were one unit and what it was called;
+the engine filed it under ℋ of its bytes and wrote a map naming it. **The engine
+does not know what `@v` means.** The tar shows the normalisation working too -
+`1970-01-01`, mode 0644, uid and gid 0 - which is what lets two machines agree on
+a digest.
+
+`helpers/` appeared in the store beside it: the wazero compilation cache
+persisted, so the next build on that machine compiles nothing.
+
+### On darwin it did nothing, correctly
+
+The same build on the Mac shared nothing and was right to. On the Apple backend
+the store is a block device the guest owns (E511), so
+`~/Library/Caches/earthbuild/store/` is empty from the host and the hook found no
+directory to export.
+
+**Host-side export works where the store is a host directory**, which is the
+native backend - a fleet's workers, and not a Mac driver. For darwin and
+Firecracker the export has to run guest-side, where `cmd/earth-guestd` is a Go
+binary of ours and could link the same runtime. That is a real gap and not a bug:
+the hook is nil-safe, the directory check is honest, and a machine that cannot
+share says nothing rather than claiming to.
+
+It was also predicted, twice, and assumed past twice - which is the third time
+this session that "the store is here" turned out to be true of one backend and
+read as a rule.

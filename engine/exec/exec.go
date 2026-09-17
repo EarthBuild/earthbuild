@@ -126,7 +126,12 @@ type Executor struct {
 	// mount lives and which the author offered; a helper, a blob store, a map
 	// and a peer belong to whoever set this - exactly as they do for Prime and
 	// Fetch above.
-	Share func(ctx context.Context, m ir.Mount, dir string) error
+	//
+	// `withheld` is empty where the cache may cross, and otherwise says why it
+	// must not. Carried rather than acted on here, because the executor has
+	// nowhere to report it and whoever set the hook does - the same division
+	// `say` already makes for a share that fails.
+	Share func(ctx context.Context, m ir.Mount, dir, withheld string) error
 	// ImageCache is where pulled images are kept, when they should not live
 	// with the layers.
 	//

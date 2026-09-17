@@ -70,8 +70,44 @@ func (e *Executor) shareCaches(ctx context.Context, n *ir.Node) {
 	// it. A domain read twice is a domain that can differ twice, and the failure
 	// is an export reading a directory the step never wrote - which looks
 	// exactly like a cache that is empty.
+	withheld := heldBack(n.Op)
+
 	for _, s := range shareable(n.Op.Mounts, e.Mounts, trustDomain()) {
-		_ = e.Share(ctx, s.mount, s.dir)
+		_ = e.Share(ctx, s.mount, s.dir, withheld)
+	}
+}
+
+// heldBack says why this step's caches must not cross, or nothing.
+//
+// **The guarantee this design removed, restored the only way the host can.**
+// §C.3 said a cache's contents never leave the machine, so nothing has ever
+// scanned one for a credential: `noteSecretLeak` scans a step's *delta*, and
+// only for a secret's bytes as the step was handed them. A portable cache breaks
+// that promise, and a mount is not a delta.
+//
+// The host cannot do the scan. `layer.FindSecrets` needs the secret's value,
+// which is staged inside the guest and deliberately never reaches this side -
+// plumbing it out here to scan with would widen a credential's blast radius to
+// fix a problem about credentials. What the host knows is that the step was
+// given one, and that is enough for the conservative answer.
+//
+// Over-cautious for `go build` with a registry token, deliberately. An author
+// who wants that cache shared can put the secret in a different step, and "a
+// cache from a step that held a credential stays here" is a rule a reader can
+// hold in their head, where "we scanned it and think it is fine" is not. The
+// cost is a slower build on another machine (I11).
+func heldBack(op ir.Op) string {
+	switch {
+	case len(op.SecretEnv) > 0:
+		return "this step was given a secret, and a cache's contents have never" +
+			" been scanned for one"
+
+	case op.AWS:
+		return "this step was given AWS credentials, and a cache's contents have" +
+			" never been scanned for them"
+
+	default:
+		return ""
 	}
 }
 

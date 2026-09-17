@@ -488,6 +488,52 @@ waiting, and the steps that would have used it are the ones needing no cache at 
 acquisitions are ordered - cache, then share - which is also what makes them safe: a share is held
 only by a step that already holds its caches, so no share ever waits for one.
 
+### 3.3c-i Portable cache mounts
+
+A cache mount's contents are a function of history and not of the graph, so they stay out of Κ₁
+(§3.3c) and a step is entitled to find one empty. That is also what makes them shareable: a copy
+filled on another machine changes no result, because no result was ever a function of what was in
+there.
+
+An author may say so, and must say two things rather than one. A mount carries a **portability
+claim** ξ:
+
+```text
+(3.13)   ξ ≡ (claim, helper)
+```
+
+The **claim** names the paths under the mount for which a peer's copy is as good as this machine's
+own. The **helper** is a program that says what *crossing* means for this format: what a unit is,
+what it is called, and how two of them merge. A claim with no helper is a directory nothing can
+take apart; a helper with no claim is a directory whose author never offered it. Neither crosses.
+
+Both components of ξ are in ω and enter Κ₁ by (4.5), for the reason μ does: two machines holding
+different claims are not describing the same cache, and two running different helpers do not
+produce the same units. The helper enters **by the digest of its program**, not by the name it was
+written as - a path is a name two machines can hold identically over different bytes, so keying the
+name asserts an agreement about spelling (I17's argument, applied to a second mutable reference).
+
+A shared cache is decomposed into **units**. The helper names each one in its tool's own scheme;
+the engine names its bytes with ℋ and files them in 𝔅; and the **map** is the join between the two,
+itself a blob. Neither end learns the other's naming, which is what keeps a tool's hash function
+out of this document.
+
+The directory a mount resolves to is keyed by ξ and by the machine's **trust domain** (§5.3),
+through Ξ:
+
+```text
+(3.14)   Ξ(m) ≡ ℋ(portable ‖ claim ‖ persist ‖ domain)
+```
+
+so a cache making no claim in no domain has an empty Ξ and no existing directory moves. Two machines
+whose domains differ compute different scopes and share nothing, without either of them comparing
+domains - the separation is a consequence of the name rather than a check that could be forgotten.
+
+**Two outcomes, as everywhere else** (I4). A cache that cannot cross - no helper, a module this
+machine cannot obtain, a unit no peer will answer for - leaves the step to do the work, which is
+what every step did before any of this. A share that does not happen is reported (I11); a share
+that happens silently changing a result is not a case, because no result depends on it.
+
 ### 3.3d Bound views
 
 A step may also mount, **read-only**, a subtree of an object this build already produces: the
@@ -1217,6 +1263,17 @@ Normative. An implementation that violates any of these is defective, not merely
   than a tidiness: a subdirectory is materialised into a path just created, so no member can be
   reached through a symlink a sibling planted unless two members share a name.
 
+* **I23 (A cache that held a credential stays where it is).** A step given a secret or AWS
+  credentials shares no cache mount, whatever its author claimed. §C.3 guaranteed a cache's contents
+  never left the machine, so nothing has ever scanned one for a credential - `noteSecretLeak` scans a
+  step's *delta*, and only for a secret's bytes as the step was handed them - and §3.3c-i removes
+  that guarantee. The scan cannot be moved: it needs the secret's value, which is staged beside the
+  step and never reaches the machinery that files units, and carrying it there to scan with would
+  widen a credential's reach in order to guard it. So the conservative rule holds instead, and it is
+  deliberately coarser than a scan: it is mechanical, it cannot be defeated by a value the step
+  encoded or compiled, and an author who wants that cache shared can put the credential in a step of
+  its own. The cost is a slower build on another machine (I11).
+
 * **I19 (A secret's value is never written down).** A declared secret enters ε by identity and never
   by value, and never becomes a declaration: declarations are stored, content-addressed and shared, so
   a secret in one is a secret published to every machine that materialises the stack (§3.2a).
@@ -1270,6 +1327,7 @@ from the strongest form to the weakest, so a lower number is a stronger guarante
 | I20       | β's object and subtree hashed into Κ₁ at both mirrors; the guest binds it read-only, from one layer or an assembled stack; a source that is neither the context nor a result is refused                                                                 |       |                                                               |
 | I21       | the nested engine reports 𝑟 incomplete when the observation source refuses it, and §3.6 yields no Κ₂ entry from an incomplete 𝑟                                                                                                                         | 2     | E706                                                          |
 | I22       | names checked where a 𝒟(𝑑) is decoded, so holding one is the guarantee; symlinks materialised last, and a file created with O_EXCL                                                                                                                      | 2     | layer member-name tests; store input-root escape tests        |
+| I23       | the machine that files units never holds a secret's value, so the scan it would need is unrepresentable there; a step declaring one withholds every portable mount                                                                                      | 1     | exec secret-cache tests                                       |
 
 An invariant with two mechanisms takes the **weaker** level, not the better one: I3 needs both the
 observation set to be closed and every field of ω to reach the key, so it is enforced only as well as
@@ -1467,12 +1525,18 @@ can change no result (I5) - what it changes is *when* a transfer happens, and a 
 know it refuses as it refuses any operation it does not implement (I10), which costs the build a
 fetch it would have made anyway.
 
-A step's **cache mounts travel as declarations and never as contents**. A cache is bound over the
+A step's **cache mounts travel as declarations and never as contents** *in an assignment*. A cache is bound over the
 step's filesystem, so what is written into it is excluded from the layer by construction, and Κ₁
 hashes a mount's declaration and not what is behind it - so the contents cannot reach the result,
 and a worker running the step against its own directory of the same name produces the same layer
 (I1). The declaration must cross, because a step run without a mount it declared writes into its
 layer what it would otherwise have discarded: one key, two results.
+
+Contents of a **portable** mount (§3.3c-i) may cross, and by a different route: as content-addressed
+blobs in 𝔅, fetched by digest over C.4 like anything else, joined by a map the driver names in a
+hint. Nothing about the assignment changes - it still carries the declaration and only the
+declaration - and nothing about the result changes either, which is the same clause said twice: Κ₁
+hashes the declaration, so a worker that fetches nothing produces the same layer more slowly.
 
 Three mounts do not travel, each for its own reason and none of them "it is a mount". A **secret**
 is not on the wire. A **persisted** cache is captured into the layer, so its contents are the result.
@@ -1713,39 +1777,40 @@ found and fixed in the process, listed at the end.
 
 ### E.3 Values
 
-| Symbol | Meaning                                  | Introduced     |
-| ------ | ---------------------------------------- | -------------- |
-| ℓ      | a layer                                  | (3.1)          |
-| γ      | a declaration                            | (3.8), (3.10)  |
-| ζ      | the cache generation                     | (4.5), (4.6)   |
-| s      | a step                                   | (3.2)          |
-| 𝑏      | a base stack                             | (3.2)          |
-| ω      | an operation                             | (3.2)          |
-| ε      | ambient state a step may observe         | (3.2), §4.4    |
-| π      | a platform                               | (3.2)          |
-| ρ      | a result                                 | (3.3)          |
-| δ      | a container daemon's provenance          | (3.5), §3.4b   |
-| μ      | a cache mount's sharing mode             | (3.6), §3.3c   |
-| β      | a bound view                             | (3.12), §3.3d  |
-| ν      | what a bound view is a view of           | (3.12)         |
-| 𝑢      | the subtree a bound view exposes         | (3.12)         |
-| 𝑚      | where a bound view appears in the step   | (3.12)         |
-| 𝑒      | an exit code                             | (3.3)          |
-| 𝑟      | an observation set                       | (3.4)          |
-| 𝑅      | paths read, with digests                 | (3.4)          |
-| 𝑁      | negative lookups                         | (3.4)          |
-| 𝐷      | directories listed, with listing digests | (3.4)          |
-| 𝑟̂      | a *predicted* observation set            | §4.5           |
-| κ      | a cache key                              | (4.5), (4.6)   |
-| 𝑑      | a digest                                 | §3.1           |
-| 𝑤      | a writer identity                        | (2.3)          |
-| 𝑝      | provenance                               | (2.3), App B.3 |
-| 𝑘      | a cryptographic key                      | (C.1)          |
-| ℰ      | an Earthfile                             | (4.1)          |
-| 𝐀      | the artefacts a build yields             | (4.1)          |
-| 𝑡      | a target                                 | (4.1)          |
-| 𝑐      | a local context                          | (4.1)          |
-| 𝑛ₘₐₓ   | the maximum stack depth                  | (4.8)          |
+| Symbol | Meaning                                  | Introduced      |
+| ------ | ---------------------------------------- | --------------- |
+| ℓ      | a layer                                  | (3.1)           |
+| γ      | a declaration                            | (3.8), (3.10)   |
+| ζ      | the cache generation                     | (4.5), (4.6)    |
+| s      | a step                                   | (3.2)           |
+| 𝑏      | a base stack                             | (3.2)           |
+| ω      | an operation                             | (3.2)           |
+| ε      | ambient state a step may observe         | (3.2), §4.4     |
+| π      | a platform                               | (3.2)           |
+| ρ      | a result                                 | (3.3)           |
+| δ      | a container daemon's provenance          | (3.5), §3.4b    |
+| μ      | a cache mount's sharing mode             | (3.6), §3.3c    |
+| ξ      | a cache mount's portability claim        | (3.13), §3.3c-i |
+| β      | a bound view                             | (3.12), §3.3d   |
+| ν      | what a bound view is a view of           | (3.12)          |
+| 𝑢      | the subtree a bound view exposes         | (3.12)          |
+| 𝑚      | where a bound view appears in the step   | (3.12)          |
+| 𝑒      | an exit code                             | (3.3)           |
+| 𝑟      | an observation set                       | (3.4)           |
+| 𝑅      | paths read, with digests                 | (3.4)           |
+| 𝑁      | negative lookups                         | (3.4)           |
+| 𝐷      | directories listed, with listing digests | (3.4)           |
+| 𝑟̂      | a *predicted* observation set            | §4.5            |
+| κ      | a cache key                              | (4.5), (4.6)    |
+| 𝑑      | a digest                                 | §3.1            |
+| 𝑤      | a writer identity                        | (2.3)           |
+| 𝑝      | provenance                               | (2.3), App B.3  |
+| 𝑘      | a cryptographic key                      | (C.1)           |
+| ℰ      | an Earthfile                             | (4.1)           |
+| 𝐀      | the artefacts a build yields             | (4.1)           |
+| 𝑡      | a target                                 | (4.1)           |
+| 𝑐      | a local context                          | (4.1)           |
+| 𝑛ₘₐₓ   | the maximum stack depth                  | (4.8)           |
 
 ### E.4 Functions
 
@@ -1767,6 +1832,7 @@ found and fixed in the process, listed at the end.
 | ℋ      | the hash, BLAKE3-256          | §3.1         |
 | 𝒮      | canonical serialisation       | App B.1      |
 | Θ      | reference resolution          | (3.7), §3.4d |
+| Ξ      | a cache mount's scope         | (3.14)       |
 | id(ℓ)  | a layer's identity            | (3.1)        |
 
 ### E.5 Operators

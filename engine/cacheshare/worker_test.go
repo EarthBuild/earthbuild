@@ -95,7 +95,7 @@ func TestAnAbsentCacheDirectoryIsNothingToShare(t *testing.T) {
 
 	err := s.Offer(context.Background(),
 		ir.Mount{ID: "k", Portable: true, Helper: "./go.wasm"},
-		filepath.Join(t.TempDir(), "never-made"))
+		filepath.Join(t.TempDir(), "never-made"), "")
 	if err != nil {
 		t.Errorf("a cache the step never wrote reported %v, want nothing to do", err)
 	}
@@ -106,7 +106,7 @@ func TestAnAbsentCacheDirectoryIsNothingToShare(t *testing.T) {
 func offer(t *testing.T, root string, m ir.Mount) error {
 	t.Helper()
 
-	return cacheshare.New(root, "", nil).Offer(context.Background(), m, t.TempDir())
+	return cacheshare.New(root, "", nil).Offer(context.Background(), m, t.TempDir(), "")
 }
 
 func put(t *testing.T, root string, body []byte) ir.NodeID {

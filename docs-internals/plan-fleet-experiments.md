@@ -2498,3 +2498,64 @@ Version 3 carries both.
 * **`Stock` then `Share` re-exports what it just imported.** The units dedupe,
   being the same bytes under the same names, so it costs work rather than space -
   but a share whose index is unchanged has nothing to say.
+
+## E-F24: gates 5 and 6, and the specification saying the opposite
+
+Two gates the plan marked "none optional" were still open, and both are about
+what a *writer other than the step* may do to a cache mount.
+
+### Gate 5: `--sharing=shared` was never permission for this
+
+`core.ClaimOrder` and `guest.LockOrder` serialise steps declaring
+`--sharing=locked`, so a stock-run-share sequence over one of those is already
+alone in the directory. `shared` is the author saying several steps may use it at
+once and the tools inside cope with their own locks - and that is an assertion
+about *npm's* locking and *cargo's*. **An importer writing raw files is not one
+of those tools.**
+
+So this engine serialises its own writers, per directory rather than per machine.
+Four concurrent stocks of one cache now overlap at most one at a time, and four
+stocks of four caches still overlap - measured both ways, because a lock over
+every cache rather than over one is a build serialised for nothing.
+
+The rest belongs to the helper contract: `import` must be safe against a reader,
+because only the helper knows whether this format tolerates one.
+
+### Gate 6: the host cannot do the scan, and should not be able to
+
+`noteSecretLeak` scans a step's **delta** for a secret's bytes as the step was
+handed them. A cache mount is not a delta and has never been scanned, because
+§C.3 guaranteed its contents never left the machine.
+
+`layer.FindSecrets` needs the secret's *value*, which is staged beside the step
+and never reaches the machinery that files units. Plumbing it there to scan with
+would widen a credential's reach in order to guard it - so the scan is not moved,
+and the conservative rule holds instead: **a step given a secret or AWS
+credentials shares no cache mount, whatever its author claimed.**
+
+Deliberately coarser than a scan, and better in two ways: it is mechanical, and
+it cannot be defeated by a value the step encoded, compressed or compiled - which
+`noteSecretLeak`'s own comment admits it cannot catch. Over-cautious for
+`go build` with a registry token, and the author's remedy is to put the credential
+in a step of its own. Said rather than swallowed, so the remedy is discoverable.
+
+### And the specification asserted the opposite
+
+§C.3: *"a step's cache mounts travel as declarations and never as contents"*.
+That was true when it was written and this work made it false, which is the
+condition this project resolves rather than tolerates.
+
+The reconciliation turned out to be a clarification rather than a retraction. The
+sentence is about the **assignment**, and remains exactly true of it: an
+assignment carries the declaration and only the declaration. Contents of a
+portable mount cross by a *different* route - content-addressed blobs in 𝔅,
+fetched by digest over C.4, joined by a map named in a hint - and change no
+result, because Κ₁ hashes the declaration and a worker that fetches nothing
+produces the same layer more slowly.
+
+So §3.3c-i now specifies the construct: ξ (the claim and the helper), Ξ (the
+scope, over the claim and the trust domain), units, the map, and the two
+outcomes. The helper enters Κ₁ **by the digest of its program**, which is I17's
+argument applied to a second mutable reference. And I23 is new: a cache that held
+a credential stays where it is, enforced at level 1 because the machine that
+files units does not hold the value it would need to scan with.

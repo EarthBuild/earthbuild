@@ -48,6 +48,11 @@ type Sharing struct {
 	// smu guards where blobs come from. **A separate lock, because `fetch` is
 	// called from under `mu`**: a module is fetched while choosing a helper, and
 	// one mutex for both would be asked to be reentrant.
+	// dmu guards the per-directory locks below, which are what keeps two of
+	// this engine's own writers out of one cache at a time.
+	dmu   sync.Mutex
+	inUse map[string]*sync.Mutex
+
 	smu  sync.Mutex
 	sink *blob.Store
 	away Elsewhere
@@ -201,14 +206,65 @@ func New(root, dir string, out io.Writer) *Sharing {
 	return &Sharing{root: root, out: out, dir: dir, by: map[string]*helper.Helper{}}
 }
 
+// alone takes this cache directory and gives back its release.
+//
+// **The gate `--sharing=shared` does not cover.** `core.ClaimOrder` and
+// `guest.LockOrder` serialise steps declaring `--sharing=locked`, so one of
+// those is already alone here. `shared` is the author saying several steps may
+// use the directory at once and the tools inside cope with their own locks -
+// which is an assertion about *npm's* locking and *cargo's*, and an importer
+// writing raw files is not one of those tools. So this engine serialises its own
+// writers rather than reading permission into a claim that was never about them.
+//
+// Per directory, not per `Sharing`, for `mountLocks`' reason: steps using
+// unrelated caches waiting on each other is a real cost paid for nothing.
+//
+// One at a time and released before the next, so a step with two portable caches
+// never holds both - which is the whole of the deadlock argument here, where
+// `mountLocks` needs a sort because it holds a set.
+func (s *Sharing) alone(dir string) func() {
+	s.dmu.Lock()
+
+	if s.inUse == nil {
+		s.inUse = map[string]*sync.Mutex{}
+	}
+
+	m, ok := s.inUse[dir]
+	if !ok {
+		m = &sync.Mutex{}
+		s.inUse[dir] = m
+	}
+
+	s.dmu.Unlock()
+
+	m.Lock()
+
+	return m.Unlock
+}
+
 // Offer files one cache mount's units.
-func (s *Sharing) Offer(ctx context.Context, m ir.Mount, dir string) error {
+func (s *Sharing) Offer(ctx context.Context, m ir.Mount, dir, withheld string) error {
+	// **Said, not swallowed** (I11). A cache that could have crossed and did not
+	// is a slower build on some other machine, which is fine; a cache silently
+	// not crossing is a fleet nobody can explain. Reported once per mount per
+	// step, which is where the author can act on it - by moving the secret to a
+	// step of its own.
+	if withheld != "" {
+		if s.out != nil {
+			fmt.Fprintf(s.out, "cache %s: not shared: %s\n", m.ID, withheld)
+		}
+
+		return nil
+	}
+
 	// A cache the step never wrote is not an empty cache, it is no cache: the
 	// directory is made when a step binds one, so its absence means this mount
 	// was never used here.
 	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 		return nil //nolint:nilerr // nothing to share is not a failure
 	}
+
+	defer s.alone(dir)()
 
 	h, err := s.helperFor(ctx, m)
 	if err != nil {
@@ -415,6 +471,8 @@ func encodeMap(m helper.Map) []byte {
 // stocking - so this makes one rather than treating its absence as nothing to
 // do.
 func (s *Sharing) Stock(ctx context.Context, m ir.Mount, dir string) error {
+	defer s.alone(dir)()
+
 	at, ok := s.mapOf(m, dir)
 	if !ok {
 		return nil

@@ -27,7 +27,7 @@ func TestAHelperThisMachineLacksComesFromTheFleet(t *testing.T) {
 	s.Away(&away{has: map[ir.NodeID][]byte{id: module}})
 
 	err := s.Offer(context.Background(),
-		ir.Mount{ID: "k", Portable: true, HelperID: id.String()}, t.TempDir())
+		ir.Mount{ID: "k", Portable: true, HelperID: id.String()}, t.TempDir(), "")
 	if err == nil {
 		t.Fatal("garbage compiled as a helper module")
 	}
@@ -55,7 +55,7 @@ func TestAFetchedHelperIsKept(t *testing.T) {
 	s.Away(src)
 
 	m := ir.Mount{ID: "k", Portable: true, HelperID: id.String()}
-	_ = s.Offer(context.Background(), m, t.TempDir())
+	_ = s.Offer(context.Background(), m, t.TempDir(), "")
 
 	if src.asked != 1 {
 		t.Fatalf("the fleet was asked %d times for the first fetch, want 1", src.asked)
@@ -88,7 +88,7 @@ func TestABadAnswerFromTheFleetIsAMiss(t *testing.T) {
 	s.Away(&away{has: map[ir.NodeID][]byte{id: []byte("something else")}})
 
 	err := s.Offer(context.Background(),
-		ir.Mount{ID: "k", Portable: true, HelperID: id.String()}, t.TempDir())
+		ir.Mount{ID: "k", Portable: true, HelperID: id.String()}, t.TempDir(), "")
 	if err == nil {
 		t.Fatal("bytes that do not hash to their name were run as a helper")
 	}
@@ -115,7 +115,7 @@ func TestWithoutAFleetAMissIsAMiss(t *testing.T) {
 
 	err := s.Offer(context.Background(),
 		ir.Mount{ID: "k", Portable: true, HelperID: ir.DigestOf([]byte("gone")).String()},
-		t.TempDir())
+		t.TempDir(), "")
 	if err == nil {
 		t.Fatal("a helper nobody holds was run")
 	}

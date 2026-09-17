@@ -538,7 +538,7 @@ earthly-docker:
     # its config dir, its buildkitd container and its cache volume.
     #
     # Unlike the +earthly-* binary targets this does not default to
-    # "earthly-dev": that default exists to keep a dev binary's config dir and
+    # "earth-dev": that default exists to keep a dev binary's config dir and
     # buildkitd container off a developer's real ones, which is moot inside a
     # container, so the image build uses the release name instead.
     ARG DEFAULT_INSTALLATION_NAME="earth"

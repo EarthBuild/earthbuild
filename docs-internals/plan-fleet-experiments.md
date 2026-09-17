@@ -1795,3 +1795,57 @@ has no `bc`, so the measurement is taken with `date +%s%3N` around `docker run`.
 And the cache directory is written by root inside the container, so a second run
 that only calls `rm -rf` on the host silently reuses a warm cache and reports 669
 ms - which is what the first attempt did.
+
+## E-F13: the hop that was not needed
+
+E-F12 left one piece of genuinely new protocol surface: a worker's in-guest cache
+agent missing a blob and asking the host, which the fault channel is the only
+reverse path for. A third `Kind` beside `""` and `"progress"` looked like the
+cheap way.
+
+**It is not one more case, it is a second contract in one envelope.** The fault
+channel exists to keep two answers apart:
+
+> "Absent" and "unreachable" must not flatten into each other. An empty `Error`
+> means the host looked and the file is genuinely not in the base, so the step
+> gets its honest ENOENT; a non-empty one means the host could not find out, and
+> the step is failed rather than told a file it may well need does not exist.
+
+That distinction is load-bearing because a wrong answer produces a layer keyed on
+a lie (E289). **A cache blob has no such hazard** - contents are outside Κ₁, so
+"nobody could answer" and "nobody has it" are the same answer and the step
+recompiles either way. `Handle` would also be meaningless, and the sender would
+not be the tracer.
+
+### The route was already there
+
+`isolationFlags` (`engine/guest/isolate_linux.go`) adds `CLONE_NEWNET` **only for
+`--network=none`**. Otherwise a step shares the guest's network namespace - and
+on the native backend guestd runs on the host, in the host's. So:
+
+```text
+a step on a native Linux worker can reach 127.0.0.1 on the host already.
+```
+
+Which inverts the design. Rather than teaching the in-guest agent to reach the
+fleet, **run the agent where the fleet already is** - `cmd/earth-worker`, the one
+process holding `fleet.Blobs` and `fleet.Layers` - and hand the step its address
+through `EARTH_GUEST_CACHE_ADDR`, which exists to carry exactly that.
+
+`Cache.Elsewhere` then needs no transport of its own: it is a struct field set in
+the process that already has a fleet.
+
+For the VM backends the route exists too and is also not a new message: the
+usernet stack the *host* runs answers on `192.168.127.1`
+(`engine/exec/usernet_linux.go`), which is how a guest reaches anything outside
+itself. Unverified for this purpose, and it is a network question rather than a
+protocol one.
+
+### What this cost to find
+
+Three wrong turns, each rejected for a reason worth keeping: a guest request kind
+mirroring `KindUnpackLayer` (the precedent turned out to be a subcommand re-exec,
+darwin-only); a pointer blob named after a key (illegal in 𝔅, and the reason is
+𝔅's whole point); and the third fault `Kind` above. The agent's own comment -
+*"served from here because the store is here"* - is true of a VM and not of a
+native worker, where `cmd/earth-worker` opens that store as a host directory.

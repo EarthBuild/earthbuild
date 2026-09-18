@@ -112,7 +112,7 @@ func (p *Plan) fromDockerfile(c earthfile.Command, prev *ir.Node, rs *state) (*i
 				where, opt.path, from, opt.context, ErrNotProvided)
 		}
 
-		made, artifactsErr := p.opt.artifacts(from, where)
+		made, artifactsErr := p.opt.artifacts(absRef(from, p.here.dir), where)
 		if artifactsErr != nil {
 			return nil, fmt.Errorf(
 				"FROM DOCKERFILE at %s: %s produces the Dockerfile, and: %w",

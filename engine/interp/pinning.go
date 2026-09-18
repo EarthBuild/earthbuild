@@ -232,16 +232,23 @@ func (p *Plan) helperFile(ref, dir, where string) (at, in string) {
 
 	target = ref[:plus] + target
 
-	// Memoised on the target, so an Earthfile with a cache mount in forty steps
-	// builds the helper once rather than forty times - which is what `FROM
-	// DOCKERFILE` does for the same call and for the same reason. On the target
-	// rather than the reference, because two helpers out of one target are one
-	// build.
-	made, known := p.builtHelpers[target]
+	// Memoised, so an Earthfile with a cache mount in forty steps builds the
+	// helper once rather than forty times - which is what `FROM DOCKERFILE`
+	// does for the same call and for the same reason.
+	//
+	// **On the whole reference, not on the target.** The builder stages the one
+	// artifact that was asked for, under the name it was asked for, so two
+	// helpers out of one target are two stagings - and the second nested build
+	// is every step a cache hit, which is what makes that affordable. Keyed on
+	// the target instead, the second helper read a directory holding only the
+	// first.
+	ref = absRef(ref, dir)
+
+	made, known := p.builtHelpers[ref]
 	if !known {
 		var err error
 
-		made, err = p.opt.artifacts(target+"/", where)
+		made, err = p.opt.artifacts(ref, where)
 		if err != nil {
 			// **Degrade, but say why.** An unpinned helper is a cache that does
 			// not cross, which is a slower build somewhere else - and one that
@@ -257,7 +264,7 @@ func (p *Plan) helperFile(ref, dir, where string) (at, in string) {
 			p.builtHelpers = map[string]string{}
 		}
 
-		p.builtHelpers[target] = made
+		p.builtHelpers[ref] = made
 	}
 
 	if made == "" {
@@ -267,4 +274,44 @@ func (p *Plan) helperFile(ref, dir, where string) (at, in string) {
 	// The path inside what the target produced - all of it, not its last
 	// segment: an artifact may live several directories down its own output.
 	return filepath.Join(made, filepath.FromSlash(within)), ""
+}
+
+// absRef makes a target reference's directory part absolute, against the
+// directory of the Earthfile that wrote it.
+//
+// **The seam this exists for.** [Artifacts] is supplied by the caller and runs
+// outside the interpreter, so it cannot know which of a build's Earthfiles
+// wrote the reference it is handed. A relative one therefore meant whatever the
+// *invocation's* directory happened to be, and every example in
+// `examples/cache-helpers` - each naming `../../..+cache-helper` - was looked
+// up as a target of itself:
+//
+//	note: ../../..+cache-helper was not built, so the cache it reads is not
+//	shared: planning ../../..+cache-helper (Earthfile:14): no such target
+//
+// Which is [TestAHelperPathMeansItsOwnEarthfilesDirectory]'s bug one form over:
+// a helper *path* was already resolved against `unit.dir`, and a helper *target
+// reference* was not resolved at all.
+//
+// Only a local path is rewritten. `+gen` names a target of the Earthfile being
+// planned, which the caller already has; `github.com/org/repo+gen` and an
+// `IMPORT` alias are not directories and joining one onto a path would mangle
+// it. The test is the language's own - a local reference begins with `.` or
+// `/`, which is what the command line refuses a remote one by.
+func absRef(ref, dir string) string {
+	plus := strings.Index(ref, "+")
+	if plus <= 0 {
+		return ref
+	}
+
+	path := ref[:plus]
+	if !strings.HasPrefix(path, ".") && !strings.HasPrefix(path, "/") {
+		return ref
+	}
+
+	if filepath.IsAbs(path) {
+		return ref
+	}
+
+	return filepath.Join(dir, path) + ref[plus:]
 }

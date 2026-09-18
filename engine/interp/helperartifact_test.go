@@ -60,10 +60,13 @@ main:
 		t.Fatal(err)
 	}
 
-	// The **target**, not the whole reference: the first `/` after the `+`
-	// divides one from the path within its output, which is where `COPY` cuts.
-	if len(asked) != 1 || asked[0] != "+gen/" {
-		t.Fatalf("the builder was asked for %v, want [+gen/]", asked)
+	// The whole reference. The builder stages the one artifact that was asked
+	// for, under the name it was asked for, so the reader finds it where it
+	// asked - which a whole-output request cannot offer, because an artifact's
+	// recorded path is absolute inside the step and the reference is relative
+	// to that step's working directory.
+	if len(asked) != 1 || asked[0] != "+gen/h.wasm" {
+		t.Fatalf("the builder was asked for %v, want [+gen/h.wasm]", asked)
 	}
 
 	m, ok := cacheMountOf(p.Graph.Root)
@@ -223,9 +226,11 @@ main:
 		t.Fatal(err)
 	}
 
-	if len(asked) != 1 || asked[0] != "+gen/" {
-		t.Fatalf("the builder was asked for %v, want [+gen/]"+
-			"\n  everything after the first slash is the path within the output", asked)
+	if len(asked) != 1 || asked[0] != "+gen/build/h.wasm" {
+		t.Fatalf("the builder was asked for %v, want [+gen/build/h.wasm]"+
+			"\n  the target is cut at the first slash after the `+`, and the rest"+
+			" is the path within the output - which the builder needs, because"+
+			" it stages that one artifact under that name", asked)
 	}
 
 	m, _ := cacheMountOf(p.Graph.Root)

@@ -118,6 +118,12 @@ var schedulerPorts = map[string]port{
 	// empty-observation rule is stated on the base rather than the opcode, so a
 	// profile naming nothing about a base it stood on is refused on both sides.
 	"Profiles": {role: mustSet},
+	// How long each class of step took, so a fleet can price one before running
+	// it. The input `Hints.EstimatedSeconds` was declared for and never had:
+	// until this, placement knew only the size of a step's *inputs*, so a base
+	// worth shipping for a ten-minute compile and one worth keeping for a
+	// two-second step were priced the same.
+	"Costs": {role: mustSet},
 	// The other half: both are required for L2 to run at all.
 	// store.LayerStore.View reads the merged stack without mounting it (E114),
 	// and its digests are asserted to equal the ones an observer records inside

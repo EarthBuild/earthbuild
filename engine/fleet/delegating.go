@@ -65,6 +65,19 @@ type Delegating struct {
 	//
 	// Nil means this driver has nothing to say, which is what a first build has.
 	Predict func(*ir.Node) []string
+	// Cost says how long this kind of step took when it last ran.
+	//
+	// **The input `Hints.EstimatedSeconds` was declared for and never had.**
+	// Until now the only thing placement knew about a step's cost was `Bytes`,
+	// the size of its *inputs* - so a base worth shipping for a ten-minute
+	// compile and one worth keeping for a two-second step were priced the same,
+	// against a fleet-wide average step (`Rate.Slots`).
+	//
+	// A hint like the rest of this struct (I5): a worker that ignores it, or a
+	// driver with no history, produces the same artefacts by a worse route.
+	//
+	// Nil means this driver has nothing to say, which is what a first build has.
+	Cost func(*ir.Node) (time.Duration, bool)
 	// Room is how many steps this machine runs at once.
 	//
 	// What stops E320 from moving a queue instead of removing one: keeping a
@@ -188,6 +201,11 @@ func (d *Delegating) Run(
 	// placement has that is about *bytes* rather than about queueing, and
 	// without it every base is priced the same however large it is (E317).
 	a.Hints.Bytes = d.bytesOf(a)
+
+	// And what running it is likely to be worth, which is the other half of
+	// that comparison: bytes alone say what delegating costs and nothing about
+	// what it buys.
+	a.Hints.EstimatedSeconds = d.estimated(n)
 
 	// And which map describes each portable cache this step declares, so a
 	// worker can fill one rather than do the work again. The pointer from a
@@ -381,6 +399,11 @@ func resultOf(r Reply) core.Result {
 		Content: r.Content,
 		Exit:    r.Exit,
 		Bytes:   r.Bytes,
+		// What the *step* took, as the worker measured it - not the round trip.
+		// A delegated step waits for a slot and for its base, and neither says
+		// anything about what the step costs to run: a cost that priced them in
+		// would learn that a step is expensive because the fleet was busy.
+		Duration: time.Duration(r.DurationMillis) * time.Millisecond,
 		// Captured, because a worker runs a step confined - that is what makes
 		// it a worker rather than a shell. A delegate that could not confine
 		// would have refused (I10).
@@ -1229,4 +1252,24 @@ func (d *Delegating) mapsFor(caches []Cache) map[string]string {
 	}
 
 	return out
+}
+
+// estimated is how long this step is expected to take, in seconds, or zero.
+//
+// **Seconds because the wire says seconds**, and rounded up rather than down: a
+// step measured at 1.4s is worth a second of somebody's transfer budget, and
+// rounding it to one loses the half that would have tipped the comparison.
+// Anything under half a second reports zero, which is "not worth pricing" rather
+// than "instant" - the reading `Slots` already gives an unstated size.
+func (d *Delegating) estimated(n *ir.Node) int64 {
+	if d.Cost == nil {
+		return 0
+	}
+
+	took, ok := d.Cost(n)
+	if !ok || took <= 0 {
+		return 0
+	}
+
+	return int64((took + time.Second/2) / time.Second)
 }

@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
 )
@@ -20,6 +21,23 @@ import (
 type Profiles interface {
 	Get(class Key) (Observation, bool)
 	Put(class Key, obs Observation)
+}
+
+// Costs remembers how long each class of step took, so a later build can price
+// one before it runs.
+//
+// **The measurement placement has never had.** `fleet.Hints.EstimatedSeconds`
+// has been declared, encoded and decoded since the protocol was written and
+// nothing ever set it, so a driver's only input about a step's cost is the size
+// of its *inputs* - and a base worth shipping for a ten-minute compile is priced
+// exactly like one worth keeping for a two-second step.
+//
+// A hint, on the same standing as a profile: absent, stale or wrong, it costs a
+// placement and never an artefact. Every implementation may therefore degrade to
+// "no idea" rather than to an error.
+type Costs interface {
+	Get(class Key) (time.Duration, bool)
+	Put(class Key, took time.Duration)
 }
 
 // ViewSource answers questions about a stack without materialising it.

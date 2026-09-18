@@ -656,6 +656,12 @@ func runPlan(
 		return nil, nil, err
 	}
 
+	// And how long each class of step takes. Softer than the profile store
+	// above: a missing profile costs a rebuild, where a missing cost costs a
+	// placement decision - so this degrades to no history rather than failing
+	// the build.
+	costs := g.costs(sb.StoreDir())
+
 	// The executor and the workers the build schedules over.
 	//
 	// Both, together, and from one place: a fleet reaches a build through the
@@ -780,7 +786,11 @@ func runPlan(
 		// and every lookup for them misses: the tier costs one absent file read
 		// per step and applies only where something actually watched.
 		Profiles: profiles,
-		Views:    views,
+		// And how long each class of step took, which is what a fleet needs to
+		// price one before running it - the input `Hints.EstimatedSeconds` has
+		// been declared for and never had.
+		Costs: costs,
+		Views: views,
 		// On. See EnvAskStale for what changed and what would change it back.
 		AskStale: askStale(),
 

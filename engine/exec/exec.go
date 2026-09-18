@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
@@ -708,6 +709,10 @@ func (e *Executor) Run(
 	e.stockCaches(ctx, n)
 
 	endRun := phase("run", n.Meta.Source)
+	// **The step alone**, which is what a cost is about. The phase timer above
+	// is for the build's account and brackets rather more; this brackets the
+	// call that runs the command and nothing else.
+	began := time.Now()
 
 	step, err := c.RunStep(ctx, h, guest.Step{
 		Dir: n.Op.Dir, User: n.Op.User, Argv: argv, Env: env, Mounts: mounts,
@@ -736,6 +741,8 @@ func (e *Executor) Run(
 		// make each of them the sole holder of it (E192).
 		Terminal: terminalFor(n, e.Terminal),
 	}, write)
+
+	ran := time.Since(began)
 
 	endRun()
 
@@ -800,6 +807,7 @@ func (e *Executor) Run(
 		// What the step spent, for a build asked to say so (E467).
 		CPU:         step.CPU,
 		MaxRSS:      step.MaxRSS,
+		Duration:    ran,
 		Observation: obs,
 		Observed:    observed,
 		Placements:  core.PlacementsOf(h),

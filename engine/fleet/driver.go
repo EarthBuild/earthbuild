@@ -62,7 +62,7 @@ const defaultWait = 90 * time.Second
 // Delegating.Maps for why it is a function rather than a table.
 func Driver(
 	ctx context.Context, local core.Executor, note func(string), store Store,
-	profiles core.Profiles, maps func() map[string]string,
+	profiles core.Profiles, costs core.Costs, maps func() map[string]string,
 ) (core.Executor, func(), error) {
 	if note == nil {
 		note = func(string) {}
@@ -193,6 +193,7 @@ func Driver(
 		Self:    self,
 		Store:   store,
 		Predict: readsFrom(profiles),
+		Cost:    costFrom(costs),
 		// A worker's layer, fetched the same way a worker fetches one from a
 		// peer: the driver is a peer for this purpose, and the address is a
 		// claim the worker made about itself (E274).
@@ -414,4 +415,17 @@ func announcement(id, addr string, wait time.Duration, want int) string {
 
 	return fmt.Sprintf("%s\n  workers join with %s=%s and the same %s",
 		line, EnvDriver, addr, EnvSecret)
+}
+
+// costFrom turns a cost store into the lookup a driver hints from.
+//
+// Keyed by class, which is `readsFrom`'s key and for its reason: a class is a
+// prediction key, so a step keeps its history across an edit to the source it
+// reads. Nil in, nil out - a driver with no store has nothing to say.
+func costFrom(costs core.Costs) func(*ir.Node) (time.Duration, bool) {
+	if costs == nil {
+		return nil
+	}
+
+	return func(n *ir.Node) (time.Duration, bool) { return costs.Get(core.StepClass(n)) }
 }

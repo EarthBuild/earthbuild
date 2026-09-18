@@ -417,7 +417,7 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		// build and every worker refused every step (F4). See fleetStore.
 		x, stop, err := fleet.Driver(context.Background(), e,
 			func(s string) { fmt.Fprintln(g.o.Out, s) },
-			fleetStore(sb, e, sb.StoreDir()), g.profiles(sb.StoreDir()), sharing.Known)
+			fleetStore(sb, e, sb.StoreDir()), g.profiles(sb.StoreDir()), g.costs(sb.StoreDir()), sharing.Known)
 		if err != nil {
 			g.err = err
 
@@ -486,6 +486,19 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 // A driver with no profiles predicts nothing and sends whole layers, which is
 // slower and not wrong - so a store that will not open is a reason to say
 // nothing rather than to fail a build (E287).
+// costs is where how long each class of step took is remembered.
+//
+// Nil where the store cannot be opened, which is a build that places without
+// history - slower decisions, never wrong ones (I5).
+func (g *engine) costs(store string) core.Costs {
+	c, err := cache.OpenCosts(store)
+	if err != nil || c == nil {
+		return nil
+	}
+
+	return c
+}
+
 func (g *engine) profiles(store string) core.Profiles {
 	p, err := g.profileStore(store)
 	if err != nil || p == nil {

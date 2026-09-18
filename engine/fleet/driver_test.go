@@ -33,7 +33,7 @@ func (c *countingExecutor) Run(
 func TestNoFleetConfiguredLeavesTheBuildExactlyAsItWas(t *testing.T) {
 	local := &countingExecutor{}
 
-	got, stop, err := fleet.Driver(t.Context(), local, nil, nil, nil, nil)
+	got, stop, err := fleet.Driver(t.Context(), local, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("no fleet configured must not be an error: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestADriverWithNoWorkersDegradesToLocalAndSaysSo(t *testing.T) {
 	start := time.Now()
 
 	got, stop, err := fleet.Driver(t.Context(), local,
-		func(s string) { said = append(said, s) }, nil, nil, nil)
+		func(s string) { said = append(said, s) }, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("a fleet nobody joined must not fail the build: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestAnUnreadableWorkerCountIsRefused(t *testing.T) {
 	t.Setenv(fleet.EnvSecret, "shared-secret")
 	t.Setenv(fleet.EnvWorkers, "lots")
 
-	_, _, err := fleet.Driver(t.Context(), &countingExecutor{}, nil, nil, nil, nil)
+	_, _, err := fleet.Driver(t.Context(), &countingExecutor{}, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Fatal("an unreadable worker count was accepted")
 	}
@@ -125,7 +125,7 @@ func TestASecretWithoutAWorkerCountIsStillALocalBuild(t *testing.T) {
 
 	local := &countingExecutor{}
 
-	got, stop, err := fleet.Driver(t.Context(), local, nil, nil, nil, nil)
+	got, stop, err := fleet.Driver(t.Context(), local, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

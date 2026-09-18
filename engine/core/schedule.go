@@ -157,6 +157,19 @@ type Result struct {
 	// or the backend cannot say (E467).
 	CPU    time.Duration
 	MaxRSS uint64
+	// Duration is how long the step itself took - not how long the build waited
+	// for it.
+	//
+	// **Queueing and transfer are deliberately outside it.** A delegated step
+	// may wait for a slot and for its base to arrive, and neither says anything
+	// about what the step costs to run: a placement that priced them in would
+	// learn that a step is expensive because the fleet was busy the day it last
+	// ran. The fleet reports the three apart already (`Reply.DurationMillis`,
+	// `QueueMillis`, `FetchMillis`) and this is the first of them.
+	//
+	// Zero where nothing measured it, which is "could not say" and never
+	// "instant" - the same reading CPU and MaxRSS get.
+	Duration time.Duration
 	// Bytes is the output layer's size, which the cost model needs and which a
 	// scheduler that estimates only time will get wrong on a fleet.
 	Bytes int64
@@ -302,7 +315,10 @@ type Scheduler struct {
 	// L2 to run at all: without a prediction there is nothing to check, and
 	// without a view there is no way to check it.
 	Profiles Profiles
-	Views    ViewSource
+	// Costs is where how long each class of step took is remembered, so a later
+	// build can price one before running it. Nil where nothing is recording.
+	Costs Costs
+	Views ViewSource
 	// AskStale asks a store that holds itself elsewhere whether an observation
 	// is still true, rather than fetching the digests and comparing here. Off,
 	// because the answers disagree - see whyStaleVia. A field rather than a
@@ -1884,6 +1900,14 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 		// can say or cannot.
 		if ck, ok := DeriveContentKey(n, base, refs, s.Blobs); ok {
 			s.Cache.Put(ck, e)
+		}
+
+		// **Recorded whatever the observation was worth.** A step that ran took
+		// however long it took, and whether its *reads* were usable says
+		// nothing about that - so this sits outside the switch below rather
+		// than sharing its guard.
+		if s.Costs != nil {
+			s.Costs.Put(StepClass(n), res.Duration)
 		}
 
 		switch {

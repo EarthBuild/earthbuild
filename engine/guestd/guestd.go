@@ -292,6 +292,9 @@ func run() error {
 	// The fault-in channel over a socket, where the engine reaches this guest
 	// through a VM and has no descriptor to pass. See guest.EnvFillSocket.
 	//
+	// And what fills a portable cache mount, because this guest owns the store.
+	srv.Caches = sharesCaches(srv.LayerDir)
+
 	// Accepted in the background: a guest must serve steps whether or not
 	// anything ever dials, and a host that starts its relay late is ordinary
 	// rather than an error.

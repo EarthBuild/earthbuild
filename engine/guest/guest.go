@@ -52,6 +52,9 @@ type Server struct {
 	// Nil for every build today: nothing lazily materialises yet, and a nil one
 	// makes the capture exactly what it was.
 	Fills *Fills
+	// Caches fills and offers a portable cache mount, because this guest owns
+	// the store. Nil where this guest was not given one. See CacheSharing.
+	Caches CacheSharing
 	// fillsMu guards Fills, which arrives when a host dials rather than when
 	// this server is built. See SetFills.
 	fillsMu sync.Mutex
@@ -784,6 +787,12 @@ func (s *Server) handle(ctx context.Context, req Request, c *conn) Response {
 		}
 
 		return Response{}
+
+	case KindStockCache:
+		return s.stockCache(ctx, req)
+
+	case KindShareCache:
+		return s.shareCache(ctx, req)
 
 	case KindPrune:
 		// The guest is the only party that can: on a microVM the store is a

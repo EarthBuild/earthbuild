@@ -27,6 +27,14 @@ var wireVocabulary = map[Kind]string{
 	KindTreeMissing: "report which tree nodes the store lacks; reads, never runs",
 	KindStoreTree:   "report what a stack materialises to; reads, never runs",
 	KindStoreHas:    "report which of these layer ids the store holds; reads, never runs",
+	// **The one entry that runs a program, and it is confined harder than a
+	// step.** A helper is a `wasip1` module under wazero with the cache
+	// directory as its only preopened path: no network, no other file, no
+	// clock, no randomness. That is a narrower grant than `KindExec` already
+	// makes, and the module itself is named by a digest the host pinned, so a
+	// peer cannot choose what runs - only which cache it runs over.
+	KindStockCache: "fill a cache mount from a map, running the pinned helper over that directory alone",
+	KindShareCache: "file a cache mount's units, running the pinned helper over that directory alone",
 	KindPrune: "collect the store down to a size; deletes layers this store holds," +
 		" names nothing outside it and never runs anything",
 	KindSquash:    "merge a range of the stack into one layer in the store; reads and writes layers, never runs",

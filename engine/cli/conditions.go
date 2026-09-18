@@ -368,14 +368,36 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 		sharing := cacheshare.New(sb.StoreDir(), g.o.Dir, g.o.Out)
 		e.Stock, e.Share = sharing.Stock, sharing.Offer
 
-		// **And on a VM backend it cannot look.** The store is on the guest's
-		// device, so the mount directory is a host path that does not exist -
-		// which reads identically to a mount the step never used, and a build
-		// that shares nothing says nothing. Told once rather than left to be
-		// discovered, which is E511's gap reported rather than closed.
+		// **And on a VM backend the guest does it.** The store is on a device
+		// nothing outside has mounted, so the mount is a path this side cannot
+		// read, a unit is a file it cannot write, and the helper that knows
+		// what a unit is has to run where the cache is. Asked rather than done,
+		// which is `KindPrune`'s argument and `KindUnpackLayer`'s.
+		//
+		// The host still decides *what* and *whether*: which map describes the
+		// cache is a hint it holds, and whether the step may share at all is a
+		// fact about the operation (I23). Only the doing moves.
 		if storeInGuest(sb) {
-			sharing.Blind("the store is on the guest's device," +
-				" and a cache mount can only be read from the side it is on")
+			e.Stock = func(ctx context.Context, m ir.Mount, dir string) error {
+				at, _ := sharing.MapFor(m, filepath.Base(dir))
+
+				return e.StockCacheIn(ctx, m, filepath.Base(dir), at)
+			}
+			e.Share = func(ctx context.Context, m ir.Mount, dir, withheld string) error {
+				scope := filepath.Base(dir)
+
+				at, err := e.ShareCacheIn(ctx, m, scope, withheld)
+				if err != nil {
+					return err
+				}
+
+				// Remembered on this side, because the driver's hints are made
+				// here: the guest filed the map and only the host will ever be
+				// asked which one it is.
+				sharing.Note(m, scope, at)
+
+				return nil
+			}
 		}
 
 		ac, err := g.actionCache(sb.StoreDir())

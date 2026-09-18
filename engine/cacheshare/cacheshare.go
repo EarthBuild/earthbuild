@@ -823,3 +823,73 @@ type fetching struct {
 }
 
 func (f fetching) Get(id ir.NodeID) ([]byte, error) { return f.s.fetch(f.ctx, id) }
+
+// MapFor is which map describes a cache, for a caller that will do the stocking
+// elsewhere.
+//
+// **The host keeps the question even when the guest does the work.** Which map
+// describes a cache is a hint the driver sent here, and a guest has no fleet and
+// no assignment to learn it from - so the host looks it up and passes the
+// answer in the request.
+//
+// `scope` is the directory name beneath the cache's id, which is what the
+// pointer is keyed by.
+func (s *Sharing) MapFor(m ir.Mount, scope string) (string, bool) {
+	id, ok := s.mapOf(m, filepath.Join("x", scope))
+	if !ok {
+		return "", false
+	}
+
+	return id.String(), true
+}
+
+// Note records which map describes a cache, for a caller that filed it
+// elsewhere.
+//
+// The guest files the units and writes its own pointer; this side keeps the
+// digest because this side is where a driver's hints are made, and a map nobody
+// here knows about is a cache no peer will ever be told to stock from.
+//
+// An unparseable digest is ignored rather than filed: the guest answering
+// nothing is a cache it did not share, which is not a failure.
+func (s *Sharing) Note(m ir.Mount, scope, at string) {
+	id, err := ir.ParseNodeID(strings.TrimSpace(at))
+	if err != nil {
+		return
+	}
+
+	_ = s.note(m, filepath.Join("x", scope), id)
+}
+
+// Accept files a helper's module that arrived from somewhere else.
+//
+// **The guest cannot fetch it and must not be sent it twice.** A module is
+// filed in 𝔅 on the machine that resolved the reference, and on a VM backend
+// that is the host, whose store is a different device. So the host stages the
+// bytes where this side can read them and says so once; kept here, the next step
+// finds it by digest like any other unit.
+//
+// Verified before it is kept, which is 𝔅's whole property: filing bytes under a
+// name they do not hash to would poison the one store that cannot be poisoned.
+func (s *Sharing) Accept(hex string, body []byte) error {
+	id, err := ir.ParseNodeID(strings.TrimSpace(hex))
+	if err != nil {
+		return fmt.Errorf("the helper is pinned as %q, which is not a digest: %w", hex, err)
+	}
+
+	if ir.DigestOf(body) != id {
+		return fmt.Errorf("what arrived for %s does not hash to that name,"+
+			" so it is not the helper the step was keyed on", id)
+	}
+
+	sink, err := s.store()
+	if err != nil {
+		return err
+	}
+
+	if _, _, err := sink.Put(bytes.NewReader(body)); err != nil {
+		return fmt.Errorf("keep the helper %s: %w", id, err)
+	}
+
+	return nil
+}

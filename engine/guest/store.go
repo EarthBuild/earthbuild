@@ -393,3 +393,39 @@ func (c *Client) WhyStaleIn(
 
 	return resp.Stale, nil
 }
+
+// StockCache asks the guest to fill a portable cache mount.
+//
+// **Because the guest owns the store.** The mount lives on a device nothing
+// outside the VM has mounted, so a host that tried found an empty path, read it
+// as a mount no step had used, and shared nothing (E-F27).
+//
+// `at` is the map describing the cache, or empty where nobody knows of one -
+// which is a cold cache and an ordinary one.
+func (c *Client) StockCache(ctx context.Context, m Mount, at, helper string) error {
+	_, err := c.do(ctx, Request{
+		Kind: KindStockCache, Mounts: []Mount{m}, CacheMap: at, Blob: helper,
+	})
+
+	return err
+}
+
+// ShareCache asks the guest to file a cache mount's units, and says which map it
+// filed.
+//
+// The digest comes back because the pointer naming it lives beside the store:
+// a host that cannot learn it has a cache no peer will ever be told about.
+//
+// `withheld` is why the cache must not cross, or empty. Decided by the host
+// because only the host knows - a step given a secret shares no cache mount
+// (I23), and whether it was given one is a fact about the operation.
+func (c *Client) ShareCache(ctx context.Context, m Mount, withheld, helper string) (string, error) {
+	resp, err := c.do(ctx, Request{
+		Kind: KindShareCache, Mounts: []Mount{m}, Withheld: withheld, Blob: helper,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return resp.CacheMap, nil
+}

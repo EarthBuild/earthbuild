@@ -154,6 +154,24 @@ const (
 	// second and a perfectly good place for the first.
 	KindUnpackLayer Kind = "unpack-layer"
 
+	// KindStockCache asks the guest to fill a portable cache mount from the map
+	// the host names, and KindShareCache to file what is in one.
+	//
+	// **Because the guest owns the store**, which is `KindPrune`'s argument and
+	// `KindUnpackLayer`'s. On a microVM the store is a device nothing outside
+	// has mounted, so the host cannot read the mount, cannot file a unit, and
+	// cannot run the helper that knows what a unit is. It tried: it looked for
+	// `<store>/mounts/<id>/<scope>` on its own filesystem, found nothing, read
+	// that as a mount no step had used, and shared nothing at all.
+	//
+	// The mount travels in Mounts, one entry, because a cache request is about
+	// one cache - and the declaration has to cross whole, for E433's reason: a
+	// helper decides what a unit is, so two ends running different ones share
+	// nothing and may import each other's units wrongly.
+	KindStockCache Kind = "stock-cache"
+	// KindShareCache is KindStockCache's other half. See it.
+	KindShareCache Kind = "share-cache"
+
 	// KindPrune asks the guest to collect its own store down to a size.
 	//
 	// **Because the host cannot reach it.** `earth prune` collects the host's
@@ -304,6 +322,22 @@ type Request struct {
 	Growing int64 `json:"growing,omitempty"`
 	// Keep is the size a prune should bring the store down to, in bytes.
 	Keep uint64 `json:"keep,omitempty"`
+
+	// CacheMap names the map describing a cache this guest is asked to stock,
+	// as a digest. Stock-cache only, and empty means the host knows of none -
+	// which is a cold cache and an ordinary one.
+	//
+	// **The one thing about a shared cache nobody can derive.** A map names a
+	// cache's units by ℋ and is a blob like they are; the pointer from a cache
+	// to its latest map is mutable, so it is deliberately not content-addressed.
+	CacheMap string `json:"cacheMap,omitempty"`
+	// Withheld says why this cache must not cross, or is empty where it may.
+	// Share-cache only.
+	//
+	// Decided by the host because only the host knows: a step given a secret
+	// shares no cache mount (I23), and whether it was given one is a fact about
+	// the operation rather than about the directory.
+	Withheld string `json:"withheld,omitempty"`
 
 	// As is the name to file the unpacked layer under, when the caller has
 	// already decided it.
@@ -626,6 +660,15 @@ type Mount struct {
 	// being a poorer type than the IR: the guest is told where to put the
 	// directory, not what a claim is.
 	Scope string `json:"scope,omitempty"`
+	// Helper names the program that understands this cache's format, as the
+	// author wrote it, and HelperID is the digest of its module.
+	//
+	// Both, and the digest is the one that means anything here: a guest has no
+	// Earthfile and no such path, so a helper arrives pinned or the cache does
+	// not cross. See ir.Mount.HelperID.
+	Helper string `json:"helper,omitempty"`
+	// HelperID is the digest of the helper's module. See Helper.
+	HelperID string `json:"helperID,omitempty"`
 	// Layer names a layer in the layer store, bound read-only: a bound view of
 	// something this build already made (green paper §3.3d).
 	//
@@ -783,6 +826,13 @@ type Response struct {
 	Root     string   `json:"root,omitempty"`
 	// Pruned is what a collection did, for a person who asked for one.
 	Pruned string `json:"pruned,omitempty"`
+
+	// CacheMap is the map a share-cache request filed, as a digest.
+	//
+	// Answered rather than read, because the pointer naming it lives beside the
+	// store and the store is the guest's. A share the host cannot learn the map
+	// of is a cache no peer will ever be told about.
+	CacheMap string `json:"cacheMap,omitempty"`
 	// Reads and Listings carry two questions of the same shape: what a step
 	// looked at, and - for a view-digests request - what a base holds at the
 	// paths it was asked about. One pair of fields rather than two, because two

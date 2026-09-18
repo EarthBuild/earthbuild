@@ -877,7 +877,7 @@ func lexKeyValueCommandArgs(l *lexer) stateFn {
 		for {
 			r := l.peek()
 			switch {
-			case isSpace(r) || isEndOfLine(r) || r == eof || r == '#':
+			case isSpace(r) || isEndOfLine(r) || r == eof || (r == '#' && isCommentStart(l)):
 				l.emit(itemAtom)
 
 				return lexKeyValueCommandArgs

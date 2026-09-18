@@ -10,6 +10,6 @@ fetch:
     FROM rust:1.83-alpine
     WORKDIR /w
     CACHE --id eg-cargo --portable-except '' \
-        --helper ./cachehelper-cargo.wasm /usr/local/cargo/registry/cache
+        --helper ../../..+cache-helper/build/cachehelper-cargo.wasm /usr/local/cargo/registry/cache
     COPY --dir src Cargo.toml Cargo.lock .
     RUN cargo fetch --locked

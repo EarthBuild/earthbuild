@@ -9,6 +9,6 @@ compile:
     FROM golang:1.25-alpine
     WORKDIR /w
     CACHE --id eg-go-build --portable-except '' \
-        --helper ./cachehelper-go-build.wasm /root/.cache/go-build
+        --helper ../../..+cache-helper/build/cachehelper-go-build.wasm /root/.cache/go-build
     COPY main.go go.mod .
     RUN go build -o /dev/null ./...

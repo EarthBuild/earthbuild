@@ -1,6 +1,8 @@
 package interp
 
 import (
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/ir"
@@ -177,12 +179,69 @@ func (p *Plan) pinHelper(ref, dir string) string {
 // one idea, and pinning in each would let two paths of one build resolve the
 // same reference twice - which is the divergence [Plan.pin]'s memo exists to
 // make impossible for images.
-func (p *Plan) pinHelpers(ms []ir.Mount, dir string) {
+func (p *Plan) pinHelpers(ms []ir.Mount, dir, where string) {
 	if p.opt.resolveHelper == nil {
 		return
 	}
 
 	for i := range ms {
-		ms[i].HelperID = p.pinHelper(ms[i].Helper, dir)
+		at, in := p.helperFile(ms[i].Helper, dir, where)
+		ms[i].HelperID = p.pinHelper(at, in)
 	}
+}
+
+// helperFile is where a helper's module can actually be read, and the directory
+// a relative one is relative to.
+//
+// **A helper may be something this build produces.** `--helper ./h.wasm` names a
+// file somebody had to build already, which is why an Earthfile using one cannot
+// be built in a single invocation: the module is read while the plan is made.
+// `+target/artifact` closes that, resolved the way `COPY` resolves one - the
+// target is built while planning, exactly as `FROM DOCKERFILE` builds the target
+// that writes its Dockerfile.
+//
+// **Where planning stops being a pure function of the source**, which is the
+// same boundary `WithArtifacts` already names and is worth naming twice.
+//
+// Empty where the module cannot be got at all, which leaves the mount unpinned.
+// Degrade rather than refuse, for every other `--helper` failure's reason: a
+// plan-only caller has nowhere to build anything and must still produce a graph,
+// and a cache that does not cross is a slower build somewhere else where a
+// refused step is no build at all (I11).
+func (p *Plan) helperFile(ref, dir, where string) (at, in string) {
+	if ref == "" || !strings.Contains(ref, "+") {
+		return ref, dir
+	}
+
+	if p.opt.artifacts == nil {
+		return "", ""
+	}
+
+	// Memoised on the reference, so an Earthfile with a cache mount in forty
+	// steps builds the helper once rather than forty times - which is what
+	// `FROM DOCKERFILE` does for the same call and for the same reason.
+	made, known := p.builtHelpers[ref]
+	if !known {
+		var err error
+
+		made, err = p.opt.artifacts(ref, where)
+		if err != nil {
+			made = ""
+		}
+
+		if p.builtHelpers == nil {
+			p.builtHelpers = map[string]string{}
+		}
+
+		p.builtHelpers[ref] = made
+	}
+
+	if made == "" {
+		return "", ""
+	}
+
+	// The name inside what the target produced, which is `FROM DOCKERFILE`'s
+	// rule said again: the reference names an artifact and the builder hands
+	// back the directory it landed in.
+	return filepath.Join(made, filepath.Base(ref)), ""
 }

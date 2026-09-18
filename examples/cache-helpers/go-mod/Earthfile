@@ -11,6 +11,6 @@ deps:
     FROM golang:1.25-alpine
     WORKDIR /w
     CACHE --id eg-go-mod --portable-except '' \
-        --helper ./cachehelper-go-mod.wasm /go/pkg/mod/cache/download
+        --helper ../../..+cache-helper/build/cachehelper-go-mod.wasm /go/pkg/mod/cache/download
     COPY go.mod .
     RUN go mod download golang.org/x/text

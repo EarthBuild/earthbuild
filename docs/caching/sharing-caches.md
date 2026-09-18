@@ -162,6 +162,31 @@ the wrong direction for a mistake to point.
 If your tool derives anything from an entry's timestamp rather than from its
 contents, say so in its helper's `import` rather than relying on the file's own.
 
+## Where the helper comes from
+
+`--helper` takes either a path or an artifact of this build:
+
+```Earthfile
+--helper ./cachehelper-npm.wasm                  # beside this Earthfile
+--helper +helpers/build/cachehelper-npm.wasm     # built by +helpers
+```
+
+A path means the directory of the Earthfile that wrote it, wherever the build
+was started from - the same rule `COPY` follows.
+
+An artifact reference is resolved while the plan is made, so the target that
+produces the helper is built first and you need no separate command. That is what
+lets an Earthfile using a shared cache be built in one invocation, and what lets
+`examples/cache-helpers` run in CI beside every other example.
+
+Either way, what goes in the step's key is the **digest of the module**, not the
+spelling: two machines running different helpers over one cache produce units
+that are not the same units, and a path is a name two machines can hold
+identically over different bytes.
+
+If the helper cannot be obtained, whether that is no such file, no builder, or a
+target that fails, the cache is simply not shared. The build is correct and no slower than it was.
+
 ## Telling EarthBuild a unit never changes
 
 A helper may answer a `props` verb with one property per line. One is understood:

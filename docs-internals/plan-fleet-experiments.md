@@ -2760,3 +2760,52 @@ the `examples-1`/`examples-2` CI targets - a `BUILD` is one invocation.
 `--helper +target/artifact`, resolved the way `COPY` resolves one, would close
 that. Not implemented, and worth more than it looks: it would make a helper an
 ordinary build input rather than a file somebody has to remember to build.
+
+## E-F29: a helper is an ordinary build input
+
+E-F28 recorded a limitation and called it not-a-bug: a `--helper` is a host path
+read when the build is **planned**, so it must exist before the invocation that
+names it starts. Hence two commands to run the examples, and hence they could
+not join the `examples-N` CI targets - a `BUILD` is one invocation.
+
+It was a bug in the sense that matters: the construct was awkward in the one
+place a reader meets it.
+
+`--helper +target/artifact` closes it, and cost almost nothing because the seam
+already existed. `interp.Artifacts` builds a target while planning and hands back
+the directory its output landed in - *"the point at which planning stops being a
+pure function of the source"* - and until now only `FROM DOCKERFILE` used it, to
+build the target that writes the Dockerfile it is about to parse. A helper is the
+same shape: something this build produces that the plan needs to read.
+
+```Earthfile
+CACHE --portable-except 'tmp/**' \
+    --helper ../../..+cache-helper/build/cachehelper-npm.wasm /root/.npm/_cacache
+```
+
+Memoised on the reference, so an Earthfile with a cache mount in forty steps
+builds the helper once rather than forty times - which is what `FROM DOCKERFILE`
+does for the same call and for the same reason.
+
+**Degrade, not refuse**, where there is nowhere to build it. That is every other
+`--helper` failure's rule and it is what keeps `ls`, `doc` and the corpus sweep
+working: they supply no builder, so the mount is left unpinned and the cache
+does not cross. A refusal there would have made the construct unplannable
+without a running engine.
+
+### What it bought
+
+```text
+before   earth +cache-helper-examples     # and remember to, or nothing shares
+         earth ./examples/cache-helpers+all
+after    earth ./examples/cache-helpers+all
+```
+
+The scaffolding target is gone, the `.gitignore` for blobs beside the examples is
+gone, and `BUILD ./examples/cache-helpers+all` now sits in `examples-2` beside
+every other example. Verified with no `.wasm` anywhere on disk: four targets,
+`21 hit, 0 miss`, and all four modules filed in 𝔅 under the digests the steps
+were keyed on.
+
+A plain path still means the directory of the Earthfile that wrote it, which is
+the right thing for a module that is committed or built outside the build.

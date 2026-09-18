@@ -138,6 +138,10 @@ type Plan struct {
 	// everywhere, so there is no platform here - but two Earthfiles may each say
 	// `./h.wasm` and mean different files.
 	pinnedHelpers map[string]string
+	// builtHelpers memoises a helper named as `+target/artifact`, so an
+	// Earthfile with a cache mount in forty steps builds it once. Empty string
+	// means the target could not be built and the mount stays unpinned.
+	builtHelpers map[string]string
 
 	// dockerCache is the shared daemon storage the WITH DOCKER block being
 	// planned right now asked for, and empty outside one. See withStatement.
@@ -1353,7 +1357,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// - and every example here is built as `BUILD ./examples/x+y` from the
 		// root, so the other reading made the construct unusable in exactly the
 		// place it is demonstrated.
-		p.pinHelpers(mounts, p.here.dir)
+		p.pinHelpers(mounts, p.here.dir, loc(c.SourceLocation))
 
 		views, err := p.resolveViews(mounts[len(rs.mounts):], rf.views, rs, loc(c.SourceLocation))
 		if err != nil {

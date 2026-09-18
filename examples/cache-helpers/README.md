@@ -18,23 +18,26 @@ Either way the contents stay put, which is what every cache mount did before.
 
 ## Running these
 
-The helper is read when the build is *planned*, so it has to be on disk first -
-a build cannot produce its own helper in one pass:
-
 ```bash
-earth +cache-helper-examples             # once, from the repository root
 earth ./examples/cache-helpers+all
 ```
 
-The four `.wasm` blobs land beside each example's Earthfile and are gitignored.
-The first command is run from the root so that every target it builds on the way
-writes its own outputs where they belong - from here it drops this repository's
-`go.mod` into `examples/`.
+Nothing to build first. Each `--helper` names an artifact of the repository's
+`+cache-helper` target:
 
-These are not in the `examples-1` / `examples-2` CI targets, and cannot be: a
-`BUILD` is one invocation, and the helper has to exist on disk before the
-invocation that names it is planned. `--helper +target/artifact`, resolved the
-way `COPY` resolves one, would close that - it is not implemented.
+```Earthfile
+CACHE --portable-except 'tmp/**' \
+    --helper ../../..+cache-helper/build/cachehelper-npm.wasm /root/.npm/_cacache
+```
+
+which is resolved while the plan is made, the way `COPY +target/artifact` is -
+so a helper is an ordinary build input rather than a file somebody has to
+remember to produce. These run in CI beside every other example for the same
+reason.
+
+A plain path still works and means the directory of the Earthfile that wrote it:
+`--helper ./h.wasm` is the right thing when the module is committed or built
+outside the build.
 
 ## What each one shows
 

@@ -11,6 +11,6 @@ install:
     FROM node:24-alpine
     WORKDIR /w
     CACHE --id eg-npm --portable-except 'tmp/**' \
-        --helper ./cachehelper-npm.wasm /root/.npm/_cacache
+        --helper ../../..+cache-helper/build/cachehelper-npm.wasm /root/.npm/_cacache
     COPY package.json .
     RUN npm install --no-fund --no-audit

@@ -8,7 +8,14 @@
             "args": [
               "alpine:3.24.1"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 3,
+              "file": "push-build.earth",
+              "startColumn": 5,
+              "startLine": 3
+            }
           }
         },
         {
@@ -16,7 +23,14 @@
             "args": [
               "+run1"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 4,
+              "file": "push-build.earth",
+              "startColumn": 5,
+              "startLine": 4
+            }
           }
         },
         {
@@ -26,10 +40,24 @@
               "echo",
               "\"0\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 5,
+              "file": "push-build.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 7,
+        "file": "push-build.earth",
+        "startColumn": 1,
+        "startLine": 2
+      }
     },
     {
       "name": "run1",
@@ -39,7 +67,14 @@
             "args": [
               "alpine:3.24.1"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 8,
+              "file": "push-build.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -47,7 +82,14 @@
             "args": [
               "+run2"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 9,
+              "file": "push-build.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -57,10 +99,24 @@
               "echo",
               "\"1\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 10,
+              "file": "push-build.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 12,
+        "file": "push-build.earth",
+        "startColumn": 1,
+        "startLine": 7
+      }
     },
     {
       "name": "run2",
@@ -70,7 +126,14 @@
             "args": [
               "alpine:3.24.1"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 13,
+              "file": "push-build.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -80,15 +143,36 @@
               "echo",
               "\"2\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 14,
+              "file": "push-build.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 15,
+        "file": "push-build.earth",
+        "startColumn": 1,
+        "startLine": 12
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "push-build.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

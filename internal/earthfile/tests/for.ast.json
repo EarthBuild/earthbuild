@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "for.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     },
     {
@@ -16,7 +23,14 @@
           "def",
           "ghi",
           "jkl"
-        ]
+        ],
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 5,
+          "file": "for.earth",
+          "startColumn": 1,
+          "startLine": 4
+        }
       }
     },
     {
@@ -34,10 +48,24 @@
                 "echo",
                 "xyz"
               ],
-              "name": "RUN"
+              "name": "RUN",
+              "sourceLocation": {
+                "endColumn": 17,
+                "endLine": 8,
+                "file": "for.earth",
+                "startColumn": 5,
+                "startLine": 8
+              }
             }
           }
-        ]
+        ],
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 9,
+          "file": "for.earth",
+          "startColumn": 1,
+          "startLine": 7
+        }
       }
     },
     {
@@ -65,13 +93,34 @@
                       "echo",
                       "abc"
                     ],
-                    "name": "RUN"
+                    "name": "RUN",
+                    "sourceLocation": {
+                      "endColumn": 21,
+                      "endLine": 13,
+                      "file": "for.earth",
+                      "startColumn": 9,
+                      "startLine": 13
+                    }
                   }
                 }
-              ]
+              ],
+              "sourceLocation": {
+                "endColumn": 8,
+                "endLine": 14,
+                "file": "for.earth",
+                "startColumn": 5,
+                "startLine": 12
+              }
             }
           }
-        ]
+        ],
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 15,
+          "file": "for.earth",
+          "startColumn": 1,
+          "startLine": 11
+        }
       }
     },
     {
@@ -109,16 +158,44 @@
                             "echo",
                             "\"yes\""
                           ],
-                          "name": "RUN"
+                          "name": "RUN",
+                          "sourceLocation": {
+                            "endColumn": 27,
+                            "endLine": 20,
+                            "file": "for.earth",
+                            "startColumn": 13,
+                            "startLine": 20
+                          }
                         }
                       }
-                    ]
+                    ],
+                    "sourceLocation": {
+                      "endColumn": 12,
+                      "endLine": 21,
+                      "file": "for.earth",
+                      "startColumn": 9,
+                      "startLine": 19
+                    }
                   }
                 }
-              ]
+              ],
+              "sourceLocation": {
+                "endColumn": 8,
+                "endLine": 22,
+                "file": "for.earth",
+                "startColumn": 5,
+                "startLine": 18
+              }
             }
           }
-        ]
+        ],
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 23,
+          "file": "for.earth",
+          "startColumn": 1,
+          "startLine": 17
+        }
       }
     },
     {
@@ -135,10 +212,24 @@
                 "echo",
                 "quotes"
               ],
-              "name": "RUN"
+              "name": "RUN",
+              "sourceLocation": {
+                "endColumn": 20,
+                "endLine": 26,
+                "file": "for.earth",
+                "startColumn": 5,
+                "startLine": 26
+              }
             }
           }
-        ]
+        ],
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 27,
+          "file": "for.earth",
+          "startColumn": 1,
+          "startLine": 25
+        }
       }
     },
     {
@@ -157,10 +248,24 @@
                 "in",
                 "quotes"
               ],
-              "name": "RUN"
+              "name": "RUN",
+              "sourceLocation": {
+                "endColumn": 27,
+                "endLine": 30,
+                "file": "for.earth",
+                "startColumn": 5,
+                "startLine": 30
+              }
             }
           }
-        ]
+        ],
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 31,
+          "file": "for.earth",
+          "startColumn": 1,
+          "startLine": 29
+        }
       }
     },
     {
@@ -179,10 +284,24 @@
                 "no",
                 "exec"
               ],
-              "name": "RUN"
+              "name": "RUN",
+              "sourceLocation": {
+                "endColumn": 28,
+                "endLine": 34,
+                "file": "for.earth",
+                "startColumn": 5,
+                "startLine": 34
+              }
             }
           }
-        ]
+        ],
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 35,
+          "file": "for.earth",
+          "startColumn": 1,
+          "startLine": 33
+        }
       }
     },
     {
@@ -200,10 +319,24 @@
                 "echo",
                 "flag"
               ],
-              "name": "RUN"
+              "name": "RUN",
+              "sourceLocation": {
+                "endColumn": 18,
+                "endLine": 38,
+                "file": "for.earth",
+                "startColumn": 5,
+                "startLine": 38
+              }
             }
           }
-        ]
+        ],
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 39,
+          "file": "for.earth",
+          "startColumn": 1,
+          "startLine": 37
+        }
       }
     }
   ],
@@ -219,7 +352,14 @@
               "def",
               "ghi",
               "jkl"
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 43,
+              "file": "for.earth",
+              "startColumn": 5,
+              "startLine": 42
+            }
           }
         },
         {
@@ -237,10 +377,24 @@
                     "echo",
                     "xyz"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 21,
+                    "endLine": 46,
+                    "file": "for.earth",
+                    "startColumn": 9,
+                    "startLine": 46
+                  }
                 }
               }
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 47,
+              "file": "for.earth",
+              "startColumn": 5,
+              "startLine": 45
+            }
           }
         },
         {
@@ -268,13 +422,34 @@
                           "echo",
                           "abc"
                         ],
-                        "name": "RUN"
+                        "name": "RUN",
+                        "sourceLocation": {
+                          "endColumn": 25,
+                          "endLine": 51,
+                          "file": "for.earth",
+                          "startColumn": 13,
+                          "startLine": 51
+                        }
                       }
                     }
-                  ]
+                  ],
+                  "sourceLocation": {
+                    "endColumn": 12,
+                    "endLine": 52,
+                    "file": "for.earth",
+                    "startColumn": 9,
+                    "startLine": 50
+                  }
                 }
               }
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 53,
+              "file": "for.earth",
+              "startColumn": 5,
+              "startLine": 49
+            }
           }
         },
         {
@@ -312,16 +487,44 @@
                                 "echo",
                                 "\"yes\""
                               ],
-                              "name": "RUN"
+                              "name": "RUN",
+                              "sourceLocation": {
+                                "endColumn": 31,
+                                "endLine": 58,
+                                "file": "for.earth",
+                                "startColumn": 17,
+                                "startLine": 58
+                              }
                             }
                           }
-                        ]
+                        ],
+                        "sourceLocation": {
+                          "endColumn": 16,
+                          "endLine": 59,
+                          "file": "for.earth",
+                          "startColumn": 13,
+                          "startLine": 57
+                        }
                       }
                     }
-                  ]
+                  ],
+                  "sourceLocation": {
+                    "endColumn": 12,
+                    "endLine": 60,
+                    "file": "for.earth",
+                    "startColumn": 9,
+                    "startLine": 56
+                  }
                 }
               }
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 61,
+              "file": "for.earth",
+              "startColumn": 5,
+              "startLine": 55
+            }
           }
         },
         {
@@ -338,10 +541,24 @@
                     "echo",
                     "quotes"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 24,
+                    "endLine": 64,
+                    "file": "for.earth",
+                    "startColumn": 9,
+                    "startLine": 64
+                  }
                 }
               }
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 65,
+              "file": "for.earth",
+              "startColumn": 5,
+              "startLine": 63
+            }
           }
         },
         {
@@ -360,10 +577,24 @@
                     "in",
                     "quotes"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 31,
+                    "endLine": 68,
+                    "file": "for.earth",
+                    "startColumn": 9,
+                    "startLine": 68
+                  }
                 }
               }
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 69,
+              "file": "for.earth",
+              "startColumn": 5,
+              "startLine": 67
+            }
           }
         },
         {
@@ -382,10 +613,24 @@
                     "no",
                     "exec"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 32,
+                    "endLine": 72,
+                    "file": "for.earth",
+                    "startColumn": 9,
+                    "startLine": 72
+                  }
                 }
               }
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 73,
+              "file": "for.earth",
+              "startColumn": 5,
+              "startLine": 71
+            }
           }
         },
         {
@@ -403,18 +648,46 @@
                     "echo",
                     "flag"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 22,
+                    "endLine": 76,
+                    "file": "for.earth",
+                    "startColumn": 9,
+                    "startLine": 76
+                  }
                 }
               }
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 77,
+              "file": "for.earth",
+              "startColumn": 5,
+              "startLine": 75
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 78,
+        "file": "for.earth",
+        "startColumn": 1,
+        "startLine": 41
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "for.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

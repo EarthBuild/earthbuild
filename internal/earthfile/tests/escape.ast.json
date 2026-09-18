@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "escape.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     },
     {
@@ -13,7 +20,14 @@
         "args": [
           "/test"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 14,
+          "endLine": 3,
+          "file": "escape.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     }
   ],
@@ -26,7 +40,14 @@
             "args": [
               "+test-copy-build-context"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 6,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -39,7 +60,14 @@
               "+test-copy-build-arg"
             ],
             "docs": "TODO: FILE_IN_RUN shouldn't need to be different. This is a bug.\n",
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 11,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -49,7 +77,14 @@
               "FILE=\"regular-file.txt\"",
               "+test-copy-build-arg"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 67,
+              "endLine": 12,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -57,7 +92,14 @@
             "args": [
               "+test-copy-artifact1"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 13,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -65,7 +107,14 @@
             "args": [
               "+test-copy-artifact2"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 14,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -73,7 +122,14 @@
             "args": [
               "+test-copy-artifact3"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 15,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -86,7 +142,14 @@
               "+test-copy-artifact-with-plus-build-arg"
             ],
             "docs": "TODO: FILE_IN_RUN shouldn't need to be different. This is a bug.\n",
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 20,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         },
         {
@@ -96,10 +159,24 @@
               "FILE=\"file.txt\"",
               "+test-copy-artifact-without-plus-build-arg"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 81,
+              "endLine": 21,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 23,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 5
+      }
     },
     {
       "name": "test-copy-build-context",
@@ -110,7 +187,14 @@
               "file-with-\\+.txt",
               "./"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 24,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 24
+            }
           }
         },
         {
@@ -121,10 +205,24 @@
               "==",
               "\"$(cat file-with-+.txt)\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 51,
+              "endLine": 25,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 25
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 27,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 23
+      }
     },
     {
       "name": "test-copy-build-arg",
@@ -134,7 +232,14 @@
             "args": [
               "FILE"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 13,
+              "endLine": 28,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 28
+            }
           }
         },
         {
@@ -144,7 +249,14 @@
               "=",
               "$FILE"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 29,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 29
+            }
           }
         },
         {
@@ -153,7 +265,14 @@
               "${FILE}",
               "./"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 30,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 30
+            }
           }
         },
         {
@@ -164,10 +283,24 @@
               "==",
               "\"$(cat $FILE_IN_RUN)\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 31,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 31
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 33,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 27
+      }
     },
     {
       "name": "test-copy-artifact1",
@@ -178,7 +311,14 @@
               "+artifact-with-plus1/another-file-with-\\+.txt",
               "./"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 58,
+              "endLine": 34,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 34
+            }
           }
         },
         {
@@ -189,10 +329,24 @@
               "==",
               "\"$(cat another-file-with-+.txt)\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 56,
+              "endLine": 35,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 35
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 37,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 33
+      }
     },
     {
       "name": "test-copy-artifact2",
@@ -203,7 +357,14 @@
               "+artifact-with-plus2/yet-another-file-with-\\+.txt",
               "./"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 62,
+              "endLine": 38,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 38
+            }
           }
         },
         {
@@ -214,10 +375,24 @@
               "==",
               "\"$(cat yet-another-file-with-+.txt)\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 60,
+              "endLine": 39,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 39
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 41,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 37
+      }
     },
     {
       "name": "test-copy-artifact3",
@@ -227,10 +402,24 @@
             "args": [
               "+artifact-with-plus3"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 42,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 42
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 44,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 41
+      }
     },
     {
       "name": "artifact-with-plus1",
@@ -242,7 +431,14 @@
               "\"test\"",
               ">another-file-with-+.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 47,
+              "endLine": 45,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 45
+            }
           }
         },
         {
@@ -250,10 +446,24 @@
             "args": [
               "./another-file-with-+.txt"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 44,
+              "endLine": 46,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 46
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 48,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 44
+      }
     },
     {
       "name": "artifact-with-plus2",
@@ -265,7 +475,14 @@
               "\"test\"",
               ">file.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 49,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 49
+            }
           }
         },
         {
@@ -274,10 +491,24 @@
               "./file.txt",
               "./yet-another-file-with-+.txt"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 59,
+              "endLine": 50,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 50
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 52,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 48
+      }
     },
     {
       "name": "artifact-with-plus3",
@@ -289,7 +520,14 @@
               "\"test\"",
               ">file.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 53,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 53
+            }
           }
         },
         {
@@ -300,10 +538,24 @@
               "LOCAL",
               "./still-+.txt"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 52,
+              "endLine": 54,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 54
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 56,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 52
+      }
     },
     {
       "name": "test-copy-artifact-with-plus-build-arg",
@@ -313,7 +565,14 @@
             "args": [
               "FILE"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 13,
+              "endLine": 57,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 57
+            }
           }
         },
         {
@@ -323,7 +582,14 @@
               "=",
               "$FILE"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 58,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 58
+            }
           }
         },
         {
@@ -332,7 +598,14 @@
               "+artifact-with-plus1/${FILE}",
               "./"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 41,
+              "endLine": 59,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 59
+            }
           }
         },
         {
@@ -343,10 +616,24 @@
               "==",
               "\"$(cat $FILE_IN_RUN)\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 45,
+              "endLine": 60,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 60
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 62,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 56
+      }
     },
     {
       "name": "test-copy-artifact-without-plus-build-arg",
@@ -356,7 +643,14 @@
             "args": [
               "FILE"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 13,
+              "endLine": 63,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 63
+            }
           }
         },
         {
@@ -365,7 +659,14 @@
               "+artifact-without-plus/${FILE}",
               "./"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 43,
+              "endLine": 64,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 64
+            }
           }
         },
         {
@@ -376,10 +677,24 @@
               "==",
               "\"$(cat $FILE)\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 65,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 65
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 67,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 62
+      }
     },
     {
       "name": "artifact-without-plus",
@@ -391,7 +706,14 @@
               "\"test\"",
               ">file.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 68,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 68
+            }
           }
         },
         {
@@ -399,15 +721,36 @@
             "args": [
               "./file.txt"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 69,
+              "file": "escape.earth",
+              "startColumn": 5,
+              "startLine": 69
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 70,
+        "file": "escape.earth",
+        "startColumn": 1,
+        "startLine": 67
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "escape.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

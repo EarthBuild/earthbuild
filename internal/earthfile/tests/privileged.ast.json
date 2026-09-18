@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "privileged.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     },
     {
@@ -16,7 +23,14 @@
           "--no-cache",
           "libcap"
         ],
-        "name": "RUN"
+        "name": "RUN",
+        "sourceLocation": {
+          "endColumn": 31,
+          "endLine": 3,
+          "file": "privileged.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     }
   ],
@@ -36,7 +50,14 @@
               "grep",
               "00000000a80425fb"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 68,
+              "endLine": 6,
+              "file": "privileged.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -47,15 +68,36 @@
               "--has-p=cap_sys_admin"
             ],
             "docs": "when running under podman CapEff is not always 0000003fffffffff; but might instead be 000001ffffffffff\nuse the capsh tool (which reads from /proc/self/status) to check if the sys_admin capability is permitted\n",
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 49,
+              "endLine": 10,
+              "file": "privileged.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 11,
+        "file": "privileged.earth",
+        "startColumn": 1,
+        "startLine": 5
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "privileged.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 3,
+          "file": "new-args.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     }
   ],
@@ -18,7 +25,14 @@
             "args": [
               "+test-build"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 6,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -26,7 +40,14 @@
             "args": [
               "+test-copy"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 7,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -34,10 +55,24 @@
             "args": [
               "+test-from"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 8,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 10,
+        "file": "new-args.earth",
+        "startColumn": 1,
+        "startLine": 5
+      }
     },
     {
       "name": "test-build",
@@ -48,10 +83,24 @@
               "+something-build",
               "--arg1=foo"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 11,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 13,
+        "file": "new-args.earth",
+        "startColumn": 1,
+        "startLine": 10
+      }
     },
     {
       "name": "test-copy",
@@ -63,7 +112,14 @@
               "--file=bar)",
               "./"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 45,
+              "endLine": 14,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -73,10 +129,24 @@
               "-f",
               "./bar"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 15,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 17,
+        "file": "new-args.earth",
+        "startColumn": 1,
+        "startLine": 13
+      }
     },
     {
       "name": "test-from",
@@ -87,7 +157,14 @@
               "+something-from",
               "--file=bar"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 18,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 18
+            }
           }
         },
         {
@@ -97,10 +174,24 @@
               "-f",
               "./bar"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 19,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 21,
+        "file": "new-args.earth",
+        "startColumn": 1,
+        "startLine": 17
+      }
     },
     {
       "name": "something-build",
@@ -112,7 +203,14 @@
               "=",
               "default"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 22,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 22
+            }
           }
         },
         {
@@ -123,10 +221,24 @@
               "=",
               "\"foo\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 23,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 23
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 25,
+        "file": "new-args.earth",
+        "startColumn": 1,
+        "startLine": 21
+      }
     },
     {
       "name": "something-copy",
@@ -138,7 +250,14 @@
               "=",
               "default"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 26,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 26
+            }
           }
         },
         {
@@ -147,7 +266,14 @@
               "touch",
               "$file"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 27,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 27
+            }
           }
         },
         {
@@ -155,10 +281,24 @@
             "args": [
               "$file"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 28,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 28
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 30,
+        "file": "new-args.earth",
+        "startColumn": 1,
+        "startLine": 25
+      }
     },
     {
       "name": "something-from",
@@ -170,7 +310,14 @@
               "=",
               "default"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 31,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 31
+            }
           }
         },
         {
@@ -179,15 +326,36 @@
               "touch",
               "$file"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 32,
+              "file": "new-args.earth",
+              "startColumn": 5,
+              "startLine": 32
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 33,
+        "file": "new-args.earth",
+        "startColumn": 1,
+        "startLine": 30
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "new-args.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

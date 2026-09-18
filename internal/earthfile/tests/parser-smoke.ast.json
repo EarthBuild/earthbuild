@@ -6,7 +6,14 @@
           "alpine:3.24.1"
         ],
         "docs": "This is a smoke test for parsing. We don't actually check that the config was\nset correctly.\n",
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 4,
+          "file": "parser-smoke.earth",
+          "startColumn": 1,
+          "startLine": 4
+        }
       }
     }
   ],
@@ -27,7 +34,14 @@
               "=",
               "fff"
             ],
-            "name": "LABEL"
+            "name": "LABEL",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 6,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -37,7 +51,14 @@
               "=",
               "y"
             ],
-            "name": "LABEL"
+            "name": "LABEL",
+            "sourceLocation": {
+              "endColumn": 14,
+              "endLine": 7,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -47,7 +68,14 @@
               "=",
               "jkl"
             ],
-            "name": "LABEL"
+            "name": "LABEL",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 8,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -56,7 +84,14 @@
               "8080",
               "123/tcp"
             ],
-            "name": "EXPOSE"
+            "name": "EXPOSE",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 9,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -64,7 +99,14 @@
             "args": [
               "8081"
             ],
-            "name": "EXPOSE"
+            "name": "EXPOSE",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 10,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -73,7 +115,14 @@
               "xyz",
               "abc"
             ],
-            "name": "ENTRYPOINT"
+            "name": "ENTRYPOINT",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 11,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -83,7 +132,14 @@
               "x2"
             ],
             "execMode": true,
-            "name": "ENTRYPOINT"
+            "name": "ENTRYPOINT",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 12,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -91,7 +147,14 @@
             "args": [
               "/abc"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 13,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -102,7 +165,14 @@
               "def"
             ],
             "execMode": true,
-            "name": "CMD"
+            "name": "CMD",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 14,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -112,7 +182,14 @@
               "abc",
               "def"
             ],
-            "name": "CMD"
+            "name": "CMD",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 15,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -122,7 +199,14 @@
               "/another/volume"
             ],
             "execMode": true,
-            "name": "VOLUME"
+            "name": "VOLUME",
+            "sourceLocation": {
+              "endColumn": 50,
+              "endLine": 16,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         },
         {
@@ -131,7 +215,14 @@
               "/tmp/earthbuild2",
               "/another/volume2"
             ],
-            "name": "VOLUME"
+            "name": "VOLUME",
+            "sourceLocation": {
+              "endColumn": 45,
+              "endLine": 17,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         },
         {
@@ -139,7 +230,14 @@
             "args": [
               "NONE"
             ],
-            "name": "HEALTHCHECK"
+            "name": "HEALTHCHECK",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 18,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 18
+            }
           }
         },
         {
@@ -148,7 +246,14 @@
               "CMD",
               "true"
             ],
-            "name": "HEALTHCHECK"
+            "name": "HEALTHCHECK",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 19,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         },
         {
@@ -170,7 +275,14 @@
               "two",
               "three"
             ],
-            "name": "HEALTHCHECK"
+            "name": "HEALTHCHECK",
+            "sourceLocation": {
+              "endColumn": 119,
+              "endLine": 20,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 20
+            }
           }
         },
         {
@@ -178,15 +290,36 @@
             "args": [
               "jack"
             ],
-            "name": "USER"
+            "name": "USER",
+            "sourceLocation": {
+              "endColumn": 14,
+              "endLine": 21,
+              "file": "parser-smoke.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 22,
+        "file": "parser-smoke.earth",
+        "startColumn": 1,
+        "startLine": 5
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "parser-smoke.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "star.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     },
     {
@@ -13,7 +20,14 @@
         "args": [
           "/test"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 14,
+          "endLine": 3,
+          "file": "star.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     }
   ],
@@ -27,7 +41,14 @@
               "*.txt",
               "./"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 5,
+              "file": "star.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -37,7 +58,14 @@
               "-f",
               "a.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 6,
+              "file": "star.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -47,7 +75,14 @@
               "-f",
               "b.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 7,
+              "file": "star.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -58,15 +93,36 @@
               "-f",
               "c.nottxt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 8,
+              "file": "star.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 9,
+        "file": "star.earth",
+        "startColumn": 1,
+        "startLine": 4
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "star.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

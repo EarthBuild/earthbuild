@@ -242,7 +242,7 @@ func (r *Resolver) Resolve(
 		d.Earthfile, err = r.parseCache.Load(
 			ctx, path,
 			func(_ context.Context) (earthfile.Tree, error) {
-				return earthfile.ParseFile(path, earthfile.WithSourceMap())
+				return earthfile.ParseFile(path)
 			},
 		)
 		if err != nil {

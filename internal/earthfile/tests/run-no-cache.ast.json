@@ -8,7 +8,14 @@
             "args": [
               "alpine:3.24.1"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 3,
+              "file": "run-no-cache.earth",
+              "startColumn": 5,
+              "startLine": 3
+            }
           }
         },
         {
@@ -24,7 +31,14 @@
               ">",
               "motd1"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 43,
+              "endLine": 5,
+              "file": "run-no-cache.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -35,7 +49,14 @@
               "LOCAL",
               "motd1"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 39,
+              "endLine": 6,
+              "file": "run-no-cache.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -45,7 +66,14 @@
               "echo",
               "\"Hello!\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 8,
+              "file": "run-no-cache.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -61,7 +89,14 @@
               ">",
               "motd2"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 43,
+              "endLine": 10,
+              "file": "run-no-cache.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -72,10 +107,24 @@
               "LOCAL",
               "motd2"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 39,
+              "endLine": 11,
+              "file": "run-no-cache.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 13,
+        "file": "run-no-cache.earth",
+        "startColumn": 1,
+        "startLine": 2
+      }
     },
     {
       "name": "test-from",
@@ -85,7 +134,14 @@
             "args": [
               "alpine:3.24.1"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 14,
+              "file": "run-no-cache.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -94,7 +150,14 @@
               "+test/motd1",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 15,
+              "file": "run-no-cache.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -103,15 +166,36 @@
               "+test/motd2",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 16,
+              "file": "run-no-cache.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 17,
+        "file": "run-no-cache.earth",
+        "startColumn": 1,
+        "startLine": 13
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "run-no-cache.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

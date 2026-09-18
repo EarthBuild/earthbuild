@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "if-exists.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -21,7 +28,14 @@
               ">",
               "ok"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 5,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -30,7 +44,14 @@
               "mkdir",
               "testdir"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 7,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -41,7 +62,14 @@
               ">",
               "testdir/1"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 8,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -52,7 +80,14 @@
               ">",
               "testdir/2"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 9,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -60,7 +95,14 @@
             "args": [
               "ok"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 11,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -69,7 +111,14 @@
               "--if-exists",
               "not_ok"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 12,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -77,10 +126,24 @@
             "args": [
               "testdir/*"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 14,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 16,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 4
+      }
     },
     {
       "name": "save-exist-local",
@@ -90,7 +153,14 @@
             "args": [
               "+save"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 15,
+              "endLine": 17,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         },
         {
@@ -99,7 +169,14 @@
               "+save/ok",
               "ok"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 19,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         },
         {
@@ -109,7 +186,14 @@
               "+save/not_ok",
               "not_ok"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 41,
+              "endLine": 20,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 20
+            }
           }
         },
         {
@@ -118,7 +202,14 @@
               "+save/1",
               "1"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 22,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 22
+            }
           }
         },
         {
@@ -127,7 +218,14 @@
               "+save/2",
               "2"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 23,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 23
+            }
           }
         },
         {
@@ -137,7 +235,14 @@
               "+save/3",
               "3"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 24,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 24
+            }
           }
         },
         {
@@ -148,7 +253,14 @@
               "LOCAL",
               "ok"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 26,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 26
+            }
           }
         },
         {
@@ -160,7 +272,14 @@
               "LOCAL",
               "not_ok"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 53,
+              "endLine": 27,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 27
+            }
           }
         },
         {
@@ -171,7 +290,14 @@
               "LOCAL",
               "1"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 29,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 29
+            }
           }
         },
         {
@@ -182,7 +308,14 @@
               "LOCAL",
               "2"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 30,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 30
+            }
           }
         },
         {
@@ -194,10 +327,24 @@
               "LOCAL",
               "3"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 43,
+              "endLine": 31,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 31
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 33,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 16
+      }
     },
     {
       "name": "save-not-exist",
@@ -207,7 +354,14 @@
             "args": [
               "+save"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 15,
+              "endLine": 34,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 34
+            }
           }
         },
         {
@@ -218,10 +372,24 @@
               "LOCAL",
               "not_ok"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 41,
+              "endLine": 35,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 35
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 37,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 33
+      }
     },
     {
       "name": "copy-not-exist",
@@ -231,7 +399,14 @@
             "args": [
               "+save"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 15,
+              "endLine": 38,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 38
+            }
           }
         },
         {
@@ -240,10 +415,24 @@
               "+save/not_ok",
               "not_ok"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 39,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 39
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 41,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 37
+      }
     },
     {
       "name": "bad-wildcard-copy",
@@ -253,7 +442,14 @@
             "args": [
               "+save"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 15,
+              "endLine": 42,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 42
+            }
           }
         },
         {
@@ -262,10 +458,24 @@
               "+save/baddir/*",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 43,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 43
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 45,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 41
+      }
     },
     {
       "name": "bad-wildcard-save",
@@ -275,7 +485,14 @@
             "args": [
               "+save"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 15,
+              "endLine": 46,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 46
+            }
           }
         },
         {
@@ -286,10 +503,24 @@
               "LOCAL",
               "baddir"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 43,
+              "endLine": 47,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 47
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 49,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 45
+      }
     },
     {
       "name": "classic-copy-exists",
@@ -301,7 +532,14 @@
               "./in/this-file-does-exist",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 49,
+              "endLine": 50,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 50
+            }
           }
         },
         {
@@ -311,7 +549,14 @@
               "so-does-this-one",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 40,
+              "endLine": 51,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 51
+            }
           }
         },
         {
@@ -321,7 +566,14 @@
               "-f",
               "this-file-does-exist"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 52,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 52
+            }
           }
         },
         {
@@ -331,10 +583,24 @@
               "-f",
               "so-does-this-one"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 53,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 53
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 55,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 49
+      }
     },
     {
       "name": "classic-copy-not-exist",
@@ -346,7 +612,14 @@
               "./in/this-file-does-not-exist",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 53,
+              "endLine": 56,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 56
+            }
           }
         },
         {
@@ -357,10 +630,24 @@
               "-f",
               "this-file-does-not-exist"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 43,
+              "endLine": 57,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 57
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 59,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 55
+      }
     },
     {
       "name": "artifact-copy-exists",
@@ -372,7 +659,14 @@
               "+save/ok",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 60,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 60
+            }
           }
         },
         {
@@ -382,10 +676,24 @@
               "-f",
               "ok"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 61,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 61
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 63,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 59
+      }
     },
     {
       "name": "artifact-copy-not-exist",
@@ -397,7 +705,14 @@
               "+save/not_ok",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 64,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 64
+            }
           }
         },
         {
@@ -408,10 +723,24 @@
               "-f",
               "not_ok"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 65,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 65
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 67,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 63
+      }
     },
     {
       "name": "artifact-copy-not-exist-wildcard",
@@ -423,7 +752,14 @@
               "+save/*_ok",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 34,
+              "endLine": 68,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 68
+            }
           }
         },
         {
@@ -434,15 +770,36 @@
               "-f",
               "not_ok"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 69,
+              "file": "if-exists.earth",
+              "startColumn": 5,
+              "startLine": 69
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 70,
+        "file": "if-exists.earth",
+        "startColumn": 1,
+        "startLine": 67
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "if-exists.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

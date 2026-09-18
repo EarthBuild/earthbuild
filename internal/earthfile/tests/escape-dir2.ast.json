@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "escape-dir2.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -20,7 +27,14 @@
               "\"test\"",
               ">file.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 5,
+              "file": "escape-dir2.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -28,15 +42,36 @@
             "args": [
               "file.txt"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 6,
+              "file": "escape-dir2.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 7,
+        "file": "escape-dir2.earth",
+        "startColumn": 1,
+        "startLine": 4
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "escape-dir2.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

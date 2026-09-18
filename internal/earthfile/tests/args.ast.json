@@ -8,7 +8,14 @@
           "--jkl",
           "mno"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 30,
+          "endLine": 3,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     },
     {
@@ -19,7 +26,14 @@
               "args": [
                 "true"
               ],
-              "name": "RUN"
+              "name": "RUN",
+              "sourceLocation": {
+                "endColumn": 13,
+                "endLine": 6,
+                "file": "args.earth",
+                "startColumn": 5,
+                "startLine": 6
+              }
             }
           }
         ],
@@ -29,7 +43,21 @@
             "--foo=fooval",
             "--bar=barval)"
           ],
-          "name": "DOCKER"
+          "name": "DOCKER",
+          "sourceLocation": {
+            "endColumn": 58,
+            "endLine": 5,
+            "file": "args.earth",
+            "startColumn": 6,
+            "startLine": 5
+          }
+        },
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 7,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 5
         }
       }
     },
@@ -41,7 +69,14 @@
               "args": [
                 "true"
               ],
-              "name": "RUN"
+              "name": "RUN",
+              "sourceLocation": {
+                "endColumn": 13,
+                "endLine": 9,
+                "file": "args.earth",
+                "startColumn": 5,
+                "startLine": 9
+              }
             }
           }
         ],
@@ -49,7 +84,21 @@
           "args": [
             "--load=\"(+something --foo=fooval --bar barval)\""
           ],
-          "name": "DOCKER"
+          "name": "DOCKER",
+          "sourceLocation": {
+            "endColumn": 60,
+            "endLine": 8,
+            "file": "args.earth",
+            "startColumn": 6,
+            "startLine": 8
+          }
+        },
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 10,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 8
         }
       }
     },
@@ -61,7 +110,14 @@
               "args": [
                 "true"
               ],
-              "name": "RUN"
+              "name": "RUN",
+              "sourceLocation": {
+                "endColumn": 13,
+                "endLine": 12,
+                "file": "args.earth",
+                "startColumn": 5,
+                "startLine": 12
+              }
             }
           }
         ],
@@ -73,7 +129,21 @@
             "--bar",
             "barval)"
           ],
-          "name": "DOCKER"
+          "name": "DOCKER",
+          "sourceLocation": {
+            "endColumn": 69,
+            "endLine": 11,
+            "file": "args.earth",
+            "startColumn": 6,
+            "startLine": 11
+          }
+        },
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 13,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 11
         }
       }
     },
@@ -85,7 +155,14 @@
               "args": [
                 "true"
               ],
-              "name": "RUN"
+              "name": "RUN",
+              "sourceLocation": {
+                "endColumn": 13,
+                "endLine": 15,
+                "file": "args.earth",
+                "startColumn": 5,
+                "startLine": 15
+              }
             }
           }
         ],
@@ -93,7 +170,21 @@
           "args": [
             "--load=\"abc:latest=(+something --foo=fooval --bar barval)\""
           ],
-          "name": "DOCKER"
+          "name": "DOCKER",
+          "sourceLocation": {
+            "endColumn": 71,
+            "endLine": 14,
+            "file": "args.earth",
+            "startColumn": 6,
+            "startLine": 14
+          }
+        },
+        "sourceLocation": {
+          "endColumn": 4,
+          "endLine": 16,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 14
         }
       }
     },
@@ -106,7 +197,14 @@
           "barval)",
           "/some/path"
         ],
-        "name": "COPY"
+        "name": "COPY",
+        "sourceLocation": {
+          "endColumn": 59,
+          "endLine": 18,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 18
+        }
       }
     },
     {
@@ -115,7 +213,14 @@
           "\"(+some/artifact --foo=fooval --bar barval)\"",
           "/some/path"
         ],
-        "name": "COPY"
+        "name": "COPY",
+        "sourceLocation": {
+          "endColumn": 61,
+          "endLine": 19,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 19
+        }
       }
     },
     {
@@ -126,7 +231,14 @@
           "--ghi",
           "jkl"
         ],
-        "name": "FROM DOCKERFILE"
+        "name": "FROM DOCKERFILE",
+        "sourceLocation": {
+          "endColumn": 44,
+          "endLine": 21,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 21
+        }
       }
     },
     {
@@ -139,7 +251,14 @@
           "--ghi",
           "jkl"
         ],
-        "name": "FROM DOCKERFILE"
+        "name": "FROM DOCKERFILE",
+        "sourceLocation": {
+          "endColumn": 63,
+          "endLine": 22,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 22
+        }
       }
     },
     {
@@ -153,7 +272,14 @@
           "+target",
           "--abc=def"
         ],
-        "name": "FROM DOCKERFILE"
+        "name": "FROM DOCKERFILE",
+        "sourceLocation": {
+          "endColumn": 81,
+          "endLine": 23,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 23
+        }
       }
     },
     {
@@ -164,13 +290,27 @@
           "+target",
           "--abc=def"
         ],
-        "name": "FROM DOCKERFILE"
+        "name": "FROM DOCKERFILE",
+        "sourceLocation": {
+          "endColumn": 83,
+          "endLine": 24,
+          "file": "args.earth",
+          "startColumn": 1,
+          "startLine": 24
+        }
       }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "args.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

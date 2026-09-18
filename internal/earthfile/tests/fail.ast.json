@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "fail.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -23,10 +30,24 @@
               "false"
             ],
             "docs": "intentionally cause a failure (this test is to ensure failures are caught)\nThe following needs to be on line number 10.\n",
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 73,
+              "endLine": 10,
+              "file": "fail.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 12,
+        "file": "fail.earth",
+        "startColumn": 1,
+        "startLine": 7
+      }
     },
     {
       "name": "test-copy",
@@ -38,7 +59,14 @@
               "./"
             ],
             "docs": "The following needs to be on line number 14.\n",
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 14,
+              "file": "fail.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -47,10 +75,24 @@
               "echo",
               "\"Should not be reached\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 15,
+              "file": "fail.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 17,
+        "file": "fail.earth",
+        "startColumn": 1,
+        "startLine": 12
+      }
     },
     {
       "name": "test-push",
@@ -63,15 +105,36 @@
               "/this-too-will-fail"
             ],
             "docs": "intentionally cause a failure (this test is to ensure failures are caught)\n",
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 19,
+              "file": "fail.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 20,
+        "file": "fail.earth",
+        "startColumn": 1,
+        "startLine": 17
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "fail.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

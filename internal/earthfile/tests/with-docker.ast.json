@@ -8,7 +8,14 @@
           "=",
           "earthbuild/dind:alpine-3.24-docker-29.5.3-r1"
         ],
-        "name": "ARG"
+        "name": "ARG",
+        "sourceLocation": {
+          "endColumn": 69,
+          "endLine": 3,
+          "file": "with-docker.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     },
     {
@@ -16,7 +23,14 @@
         "args": [
           "$DIND_IMAGE"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 17,
+          "endLine": 4,
+          "file": "with-docker.earth",
+          "startColumn": 1,
+          "startLine": 4
+        }
       }
     }
   ],
@@ -29,7 +43,14 @@
             "args": [
               "+empty-test"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 7,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -37,7 +58,14 @@
             "args": [
               "+docker-load-test"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 8,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -45,7 +73,14 @@
             "args": [
               "+docker-load-shellout-test"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 9,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -53,7 +88,14 @@
             "args": [
               "+docker-load-arg-test"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 10,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -61,7 +103,14 @@
             "args": [
               "+docker-load-multi-test"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 34,
+              "endLine": 11,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -69,7 +118,14 @@
             "args": [
               "+docker-pull-test"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 12,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -77,7 +133,14 @@
             "args": [
               "+docker-pull-test-long"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 13,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -85,7 +148,14 @@
             "args": [
               "+docker-load-test-long"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 14,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -93,7 +163,14 @@
             "args": [
               "+load-parallel-test"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 30,
+              "endLine": 15,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -101,7 +178,14 @@
             "args": [
               "+one-target-many-names"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 16,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         },
         {
@@ -109,7 +193,14 @@
             "args": [
               "+if-after"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 17,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         },
         {
@@ -117,7 +208,14 @@
             "args": [
               "+cgroup-v2-test-all"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 30,
+              "endLine": 18,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 18
+            }
           }
         },
         {
@@ -125,10 +223,24 @@
             "args": [
               "+pre-script-test"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 19,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 21,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 6
+      }
     },
     {
       "name": "empty-test",
@@ -142,16 +254,44 @@
                     "echo",
                     "\"dummy\""
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 25,
+                    "endLine": 23,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 23
+                  }
                 }
               }
             ],
             "command": {
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 16,
+                "endLine": 22,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 22
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 24,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 22
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 26,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 21
+      }
     },
     {
       "name": "a-test-image",
@@ -161,7 +301,14 @@
             "args": [
               "alpine:3.24.1"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 27,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 27
+            }
           }
         },
         {
@@ -171,7 +318,14 @@
               "=",
               "abc"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 28,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 28
+            }
           }
         },
         {
@@ -181,7 +335,14 @@
               "=",
               "def"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 29,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 29
+            }
           }
         },
         {
@@ -190,7 +351,14 @@
               "mkdir",
               "/$name"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 30,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 30
+            }
           }
         },
         {
@@ -198,7 +366,14 @@
             "args": [
               "/$name"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 31,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 31
+            }
           }
         },
         {
@@ -208,7 +383,14 @@
               "\"hello $var\"",
               ">def.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 32,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 32
+            }
           }
         },
         {
@@ -219,7 +401,14 @@
               "&&",
               "pwd"
             ],
-            "name": "ENTRYPOINT"
+            "name": "ENTRYPOINT",
+            "sourceLocation": {
+              "endColumn": 41,
+              "endLine": 33,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 33
+            }
           }
         },
         {
@@ -227,10 +416,24 @@
             "args": [
               "test-${name}-img:xyz"
             ],
-            "name": "SAVE IMAGE"
+            "name": "SAVE IMAGE",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 34,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 34
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 36,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 26
+      }
     },
     {
       "name": "another-test-image",
@@ -240,7 +443,14 @@
             "args": [
               "alpine:3.24.1"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 37,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 37
+            }
           }
         },
         {
@@ -248,7 +458,14 @@
             "args": [
               "/work"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 38,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 38
+            }
           }
         },
         {
@@ -258,7 +475,14 @@
               "=",
               "0"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 39,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 39
+            }
           }
         },
         {
@@ -268,7 +492,14 @@
               "\"hello another test img $INDEX\"",
               ">file.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 55,
+              "endLine": 40,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 40
+            }
           }
         },
         {
@@ -277,7 +508,14 @@
               "cat",
               "/work/file.txt"
             ],
-            "name": "ENTRYPOINT"
+            "name": "ENTRYPOINT",
+            "sourceLocation": {
+              "endColumn": 34,
+              "endLine": 41,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 41
+            }
           }
         },
         {
@@ -285,10 +523,24 @@
             "args": [
               "another-test-img:i${INDEX}"
             ],
-            "name": "SAVE IMAGE"
+            "name": "SAVE IMAGE",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 42,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 42
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 44,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 36
+      }
     },
     {
       "name": "a-test-image-with-shell-out",
@@ -298,7 +550,14 @@
             "args": [
               "alpine:3.24.1"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 45,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 45
+            }
           }
         },
         {
@@ -309,7 +568,14 @@
               ">",
               "data"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 34,
+              "endLine": 46,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 46
+            }
           }
         },
         {
@@ -320,7 +586,14 @@
               ">",
               "version"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 47,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 47
+            }
           }
         },
         {
@@ -329,7 +602,14 @@
               "echo",
               "\"you found me\""
             ],
-            "name": "ENTRYPOINT"
+            "name": "ENTRYPOINT",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 48,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 48
+            }
           }
         },
         {
@@ -337,10 +617,24 @@
             "args": [
               "\"test-img-with-$(cat data | base64 -d)\":\"$(cat version)\""
             ],
-            "name": "SAVE IMAGE"
+            "name": "SAVE IMAGE",
+            "sourceLocation": {
+              "endColumn": 72,
+              "endLine": 49,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 49
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 51,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 44
+      }
     },
     {
       "name": "docker-load-test",
@@ -353,7 +647,14 @@
               "0"
             ],
             "docs": "Index is used to create parallel tests.\n",
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 53,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 53
+            }
           }
         },
         {
@@ -362,7 +663,14 @@
               "echo",
               "\"$INDEX\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 54,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 54
+            }
           }
         },
         {
@@ -379,7 +687,14 @@
                     "run",
                     "hello-world"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 35,
+                    "endLine": 59,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 58
+                  }
                 }
               }
             ],
@@ -390,11 +705,32 @@
                 "--load",
                 "+a-test-image"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 33,
+                "endLine": 57,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 55
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 60,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 55
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 62,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 51
+      }
     },
     {
       "name": "docker-load-shellout-test",
@@ -412,7 +748,14 @@
                     "grep",
                     "\"you found me\""
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 74,
+                    "endLine": 64,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 64
+                  }
                 }
               }
             ],
@@ -420,11 +763,32 @@
               "args": [
                 "--load=+a-test-image-with-shell-out"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 52,
+                "endLine": 63,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 63
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 65,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 63
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 67,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 62
+      }
     },
     {
       "name": "docker-load-arg-test",
@@ -442,7 +806,14 @@
                     "grep",
                     "\"hello bar\""
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 59,
+                    "endLine": 69,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 69
+                  }
                 }
               }
             ],
@@ -453,7 +824,21 @@
                 "--var",
                 "bar)"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 60,
+                "endLine": 68,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 68
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 70,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 68
             }
           }
         },
@@ -470,7 +855,14 @@
                     "grep",
                     "\"hello bar\""
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 59,
+                    "endLine": 75,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 75
+                  }
                 }
               }
             ],
@@ -481,7 +873,21 @@
                 "--var",
                 "bar)"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 17,
+                "endLine": 74,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 71
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 76,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 71
             }
           }
         },
@@ -498,7 +904,14 @@
                     "grep",
                     "\"hello buz\""
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 59,
+                    "endLine": 78,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 78
+                  }
                 }
               }
             ],
@@ -506,7 +919,21 @@
               "args": [
                 "--load=\"(+a-test-image --name=bar --var buz)\""
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 62,
+                "endLine": 77,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 77
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 79,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 77
             }
           }
         },
@@ -523,7 +950,14 @@
                     "grep",
                     "\"hello buz\""
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 60,
+                    "endLine": 81,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 81
+                  }
                 }
               }
             ],
@@ -534,7 +968,21 @@
                 "--var",
                 "buz)"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 78,
+                "endLine": 80,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 80
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 82,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 80
             }
           }
         },
@@ -551,7 +999,14 @@
                     "grep",
                     "\"hello buz\""
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 60,
+                    "endLine": 87,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 87
+                  }
                 }
               }
             ],
@@ -562,7 +1017,21 @@
                 "--var",
                 "buz)"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 17,
+                "endLine": 86,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 83
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 88,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 83
             }
           }
         },
@@ -579,7 +1048,14 @@
                     "grep",
                     "\"hello buz\""
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 60,
+                    "endLine": 90,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 90
+                  }
                 }
               }
             ],
@@ -587,7 +1063,21 @@
               "args": [
                 "--load=\"other-name:latest=(+a-test-image --name=bar --var buz)\""
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 80,
+                "endLine": 89,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 89
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 91,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 89
             }
           }
         },
@@ -604,7 +1094,14 @@
                     "grep",
                     "\"hello buz\""
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 60,
+                    "endLine": 93,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 93
+                  }
                 }
               }
             ],
@@ -612,11 +1109,32 @@
               "args": [
                 "--load=other-name:latest=\"(+a-test-image --name=bar --var buz)\""
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 80,
+                "endLine": 92,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 92
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 94,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 92
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 96,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 67
+      }
     },
     {
       "name": "docker-load-multi-test",
@@ -652,7 +1170,14 @@
                     "--rm",
                     "another-test-img:i5"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 48,
+                    "endLine": 107,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 103
+                  }
                 }
               }
             ],
@@ -669,11 +1194,32 @@
                 "--load=(+another-test-image",
                 "--INDEX=5)"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 47,
+                "endLine": 102,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 97
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 108,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 97
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 110,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 96
+      }
     },
     {
       "name": "docker-pull-test",
@@ -694,7 +1240,14 @@
                     "run",
                     "hello-world"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 35,
+                    "endLine": 113,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 112
+                  }
                 }
               }
             ],
@@ -703,11 +1256,32 @@
                 "--pull",
                 "hello-world"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 35,
+                "endLine": 111,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 111
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 114,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 111
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 116,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 110
+      }
     },
     {
       "name": "docker-pull-test-long",
@@ -724,7 +1298,14 @@
                     "grep",
                     "earthly/earthly"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 49,
+                    "endLine": 118,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 118
+                  }
                 }
               }
             ],
@@ -734,11 +1315,32 @@
                 "--pull",
                 "earthly/earthly:v0.6.17"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 70,
+                "endLine": 117,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 117
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 119,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 117
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 121,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 116
+      }
     },
     {
       "name": "docker-load-test-long",
@@ -758,7 +1360,14 @@
                     "grep",
                     "abc"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 68,
+                    "endLine": 123,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 123
+                  }
                 }
               }
             ],
@@ -767,11 +1376,32 @@
                 "--load",
                 "foo.example.com/bar/buz:abc=+a-test-image"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 65,
+                "endLine": 122,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 122
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 124,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 122
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 126,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 121
+      }
     },
     {
       "name": "load-parallel-test",
@@ -786,10 +1416,24 @@
               "--INDEX=4",
               "--INDEX=5"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 133,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 127
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 135,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 126
+      }
     },
     {
       "name": "multi-from-one",
@@ -799,10 +1443,24 @@
             "args": [
               "hello-world"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 136,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 136
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 138,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 135
+      }
     },
     {
       "name": "multi-from-two",
@@ -812,10 +1470,24 @@
             "args": [
               "alpine:latest"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 139,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 139
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 141,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 138
+      }
     },
     {
       "name": "one-target-many-names",
@@ -849,7 +1521,14 @@
                     "uname",
                     "-a"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 41,
+                    "endLine": 151,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 146
+                  }
                 }
               }
             ],
@@ -862,11 +1541,32 @@
                 "--load",
                 "c:latest=+multi-from-two"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 48,
+                "endLine": 145,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 142
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 152,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 142
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 154,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 141
+      }
     },
     {
       "name": "if-after",
@@ -881,7 +1581,14 @@
                     "run",
                     "a:latest"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 32,
+                    "endLine": 156,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 156
+                  }
                 }
               }
             ],
@@ -890,7 +1597,21 @@
                 "--load",
                 "a:latest=+multi-from-one"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 48,
+                "endLine": 155,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 155
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 157,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 155
             }
           }
         },
@@ -909,13 +1630,34 @@
                   "args": [
                     "true"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 17,
+                    "endLine": 160,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 160
+                  }
                 }
               }
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 161,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 159
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 163,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 154
+      }
     },
     {
       "name": "cgroup-v2-test-all",
@@ -927,10 +1669,24 @@
               "--DIND_IMG=$DIND_IMAGE",
               "--DIND_IMG=earthbuild/dind:ubuntu-26.04-docker-29.8.1-1"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 64,
+              "endLine": 166,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 164
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 168,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 163
+      }
     },
     {
       "name": "cgroup-v2-test",
@@ -941,7 +1697,14 @@
               "--required",
               "DIND_IMG"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 169,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 169
+            }
           }
         },
         {
@@ -949,7 +1712,14 @@
             "args": [
               "$DIND_IMG"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 170,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 170
+            }
           }
         },
         {
@@ -959,7 +1729,14 @@
               "test-cgroup-v2-inside-container.sh",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 64,
+              "endLine": 171,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 171
+            }
           }
         },
         {
@@ -969,7 +1746,14 @@
               "=",
               "26.04"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 172,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 172
+            }
           }
         },
         {
@@ -980,7 +1764,14 @@
                   "args": [
                     "./test-cgroup-v2.sh"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 32,
+                    "endLine": 174,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 174
+                  }
                 }
               }
             ],
@@ -989,11 +1780,32 @@
                 "--pull",
                 "ubuntu:$ubuntu_img_tag"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 46,
+                "endLine": 173,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 173
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 175,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 173
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 177,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 168
+      }
     },
     {
       "name": "pre-script-test",
@@ -1004,7 +1816,14 @@
               "pre-script.sh",
               "/usr/share/earthly/dockerd-wrapper-pre-script"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 69,
+              "endLine": 178,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 178
+            }
           }
         },
         {
@@ -1017,21 +1836,56 @@
                     "-f",
                     "/the-prescript-was-run"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 43,
+                    "endLine": 180,
+                    "file": "with-docker.earth",
+                    "startColumn": 9,
+                    "startLine": 180
+                  }
                 }
               }
             ],
             "command": {
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 16,
+                "endLine": 179,
+                "file": "with-docker.earth",
+                "startColumn": 10,
+                "startLine": 179
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 181,
+              "file": "with-docker.earth",
+              "startColumn": 5,
+              "startLine": 179
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 182,
+        "file": "with-docker.earth",
+        "startColumn": 1,
+        "startLine": 177
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "with-docker.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

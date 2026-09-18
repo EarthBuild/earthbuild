@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 3,
+          "file": "gen-dockerfile.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     },
     {
@@ -13,7 +20,14 @@
         "args": [
           "/test"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 14,
+          "endLine": 4,
+          "file": "gen-dockerfile.earth",
+          "startColumn": 1,
+          "startLine": 4
+        }
       }
     }
   ],
@@ -26,7 +40,14 @@
             "args": [
               "+test"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 7,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -34,10 +55,24 @@
             "args": [
               "+test-f"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 8,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 10,
+        "file": "gen-dockerfile.earth",
+        "startColumn": 1,
+        "startLine": 6
+      }
     },
     {
       "name": "gen-dockerfile",
@@ -50,7 +85,14 @@
               ">",
               "bc.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 43,
+              "endLine": 11,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -61,7 +103,14 @@
               ">",
               "Dockerfile"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 45,
+              "endLine": 12,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -72,7 +121,14 @@
               ">>",
               "Dockerfile"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 44,
+              "endLine": 13,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -83,7 +139,14 @@
               ">>",
               "Dockerfile"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 44,
+              "endLine": 14,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -94,7 +157,14 @@
               ">>",
               "Dockerfile"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 64,
+              "endLine": 15,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -102,10 +172,24 @@
             "args": [
               "./*"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 16,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 18,
+        "file": "gen-dockerfile.earth",
+        "startColumn": 1,
+        "startLine": 10
+      }
     },
     {
       "name": "test",
@@ -115,7 +199,14 @@
             "args": [
               "+gen-dockerfile/"
             ],
-            "name": "FROM DOCKERFILE"
+            "name": "FROM DOCKERFILE",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 19,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         },
         {
@@ -123,7 +214,14 @@
             "args": [
               "--entrypoint"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 20,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 20
+            }
           }
         },
         {
@@ -131,10 +229,24 @@
             "args": [
               "test-gen-dockerfile:latest"
             ],
-            "name": "SAVE IMAGE"
+            "name": "SAVE IMAGE",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 21,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 23,
+        "file": "gen-dockerfile.earth",
+        "startColumn": 1,
+        "startLine": 18
+      }
     },
     {
       "name": "gen-dockerfile-f",
@@ -147,7 +259,14 @@
               ">",
               "other.Dockerfile"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 51,
+              "endLine": 24,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 24
+            }
           }
         },
         {
@@ -158,7 +277,14 @@
               ">>",
               "other.Dockerfile"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 50,
+              "endLine": 25,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 25
+            }
           }
         },
         {
@@ -169,7 +295,14 @@
               ">>",
               "other.Dockerfile"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 50,
+              "endLine": 26,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 26
+            }
           }
         },
         {
@@ -180,7 +313,14 @@
               ">>",
               "other.Dockerfile"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 70,
+              "endLine": 27,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 27
+            }
           }
         },
         {
@@ -188,10 +328,24 @@
             "args": [
               "./other.Dockerfile"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 28,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 28
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 30,
+        "file": "gen-dockerfile.earth",
+        "startColumn": 1,
+        "startLine": 23
+      }
     },
     {
       "name": "gen-build-context-f",
@@ -204,7 +358,14 @@
               ">",
               "bc.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 43,
+              "endLine": 31,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 31
+            }
           }
         },
         {
@@ -212,10 +373,24 @@
             "args": [
               "./bc.txt"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 32,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 32
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 34,
+        "file": "gen-dockerfile.earth",
+        "startColumn": 1,
+        "startLine": 30
+      }
     },
     {
       "name": "test-f",
@@ -227,7 +402,14 @@
               "+gen-dockerfile-f/other.Dockerfile",
               "+gen-build-context-f/"
             ],
-            "name": "FROM DOCKERFILE"
+            "name": "FROM DOCKERFILE",
+            "sourceLocation": {
+              "endColumn": 80,
+              "endLine": 35,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 35
+            }
           }
         },
         {
@@ -235,7 +417,14 @@
             "args": [
               "--entrypoint"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 36,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 36
+            }
           }
         },
         {
@@ -243,15 +432,36 @@
             "args": [
               "test-gen-dockerfile:latest"
             ],
-            "name": "SAVE IMAGE"
+            "name": "SAVE IMAGE",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 37,
+              "file": "gen-dockerfile.earth",
+              "startColumn": 5,
+              "startLine": 37
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 38,
+        "file": "gen-dockerfile.earth",
+        "startColumn": 1,
+        "startLine": 34
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "gen-dockerfile.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "file-copying.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     },
     {
@@ -13,7 +20,14 @@
         "args": [
           "base"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 13,
+          "endLine": 3,
+          "file": "file-copying.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     }
   ],
@@ -26,7 +40,14 @@
             "args": [
               "+test-glob"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 6,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -34,7 +55,14 @@
             "args": [
               "+test-dot"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 7,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -42,7 +70,14 @@
             "args": [
               "+test-dot-slash"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 8,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -50,7 +85,14 @@
             "args": [
               "+test-sub"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 9,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -58,7 +100,14 @@
             "args": [
               "+test-sub-glob"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 10,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -66,7 +115,14 @@
             "args": [
               "+test-dot-single"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 11,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -74,7 +130,14 @@
             "args": [
               "+test-rel-single"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 12,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -82,7 +145,14 @@
             "args": [
               "+test-src-dest-file-rename"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 13,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -90,10 +160,24 @@
             "args": [
               "+test-src-dest-dir-rename"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 14,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 16,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 5
+      }
     },
     {
       "name": "setup",
@@ -106,7 +190,14 @@
               "sub/1",
               "sub/2"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 30,
+              "endLine": 17,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         },
         {
@@ -132,7 +223,14 @@
               ">",
               "sub/2/2-file"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 30,
+              "endLine": 21,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 18
+            }
           }
         },
         {
@@ -140,10 +238,24 @@
             "args": [
               "./*"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 22,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 22
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 24,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 16
+      }
     },
     {
       "name": "setup-scratch",
@@ -153,7 +265,14 @@
             "args": [
               "scratch"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 25,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 25
+            }
           }
         },
         {
@@ -162,10 +281,24 @@
               "+setup/*",
               "./"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 26,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 26
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 28,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 24
+      }
     },
     {
       "name": "test-dot-scratch",
@@ -176,7 +309,14 @@
               "+setup-scratch"
             ],
             "docs": "Note: This is a negative test (should fail).\n",
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 30,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 30
+            }
           }
         },
         {
@@ -187,10 +327,24 @@
               "LOCAL",
               "out-dot-scratch/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 46,
+              "endLine": 31,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 31
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 33,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 28
+      }
     },
     {
       "name": "test-glob",
@@ -200,7 +354,14 @@
             "args": [
               "+setup"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 34,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 34
+            }
           }
         },
         {
@@ -211,7 +372,14 @@
               "LOCAL",
               "out-glob/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 41,
+              "endLine": 35,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 35
+            }
           }
         },
         {
@@ -222,7 +390,14 @@
               ">",
               "expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 43,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 36
+            }
           }
         },
         {
@@ -233,10 +408,24 @@
               "LOCAL",
               "expected-glob"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 52,
+              "endLine": 44,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 44
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 46,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 33
+      }
     },
     {
       "name": "test-dot",
@@ -246,7 +435,14 @@
             "args": [
               "+setup"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 47,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 47
+            }
           }
         },
         {
@@ -257,7 +453,14 @@
               "LOCAL",
               "out-dot/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 48,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 48
+            }
           }
         },
         {
@@ -268,7 +471,14 @@
               ">",
               "expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 57,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 49
+            }
           }
         },
         {
@@ -279,10 +489,24 @@
               "LOCAL",
               "expected-dot"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 51,
+              "endLine": 58,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 58
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 60,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 46
+      }
     },
     {
       "name": "test-dot-slash",
@@ -292,7 +516,14 @@
             "args": [
               "+setup"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 61,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 61
+            }
           }
         },
         {
@@ -303,7 +534,14 @@
               "LOCAL",
               "out-dot-slash/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 45,
+              "endLine": 62,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 62
+            }
           }
         },
         {
@@ -314,7 +552,14 @@
               ">",
               "expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 71,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 63
+            }
           }
         },
         {
@@ -325,10 +570,24 @@
               "LOCAL",
               "expected-dot-slash"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 57,
+              "endLine": 72,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 72
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 74,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 60
+      }
     },
     {
       "name": "test-sub",
@@ -338,7 +597,14 @@
             "args": [
               "+setup"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 75,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 75
+            }
           }
         },
         {
@@ -349,7 +615,14 @@
               "LOCAL",
               "out-sub/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 76,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 76
+            }
           }
         },
         {
@@ -360,7 +633,14 @@
               ">",
               "expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 83,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 77
+            }
           }
         },
         {
@@ -371,10 +651,24 @@
               "LOCAL",
               "expected-sub"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 51,
+              "endLine": 84,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 84
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 86,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 74
+      }
     },
     {
       "name": "test-sub-glob",
@@ -384,7 +678,14 @@
             "args": [
               "+setup"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 87,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 87
+            }
           }
         },
         {
@@ -395,7 +696,14 @@
               "LOCAL",
               "out-sub-glob/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 49,
+              "endLine": 88,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 88
+            }
           }
         },
         {
@@ -406,7 +714,14 @@
               ">",
               "expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 94,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 89
+            }
           }
         },
         {
@@ -417,10 +732,24 @@
               "LOCAL",
               "expected-sub-glob"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 56,
+              "endLine": 95,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 95
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 97,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 86
+      }
     },
     {
       "name": "test-dot-single",
@@ -430,7 +759,14 @@
             "args": [
               "+setup"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 98,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 98
+            }
           }
         },
         {
@@ -441,7 +777,14 @@
               "LOCAL",
               "out-dot-single/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 58,
+              "endLine": 99,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 99
+            }
           }
         },
         {
@@ -452,7 +795,14 @@
               ">",
               "expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 101,
+              "file": "file-copying.earth",
+              "startColumn": 9,
+              "startLine": 100
+            }
           }
         },
         {
@@ -463,10 +813,24 @@
               "LOCAL",
               "expected-dot-single"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 58,
+              "endLine": 102,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 102
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 104,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 97
+      }
     },
     {
       "name": "test-rel-single",
@@ -476,7 +840,14 @@
             "args": [
               "+setup"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 105,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 105
+            }
           }
         },
         {
@@ -487,7 +858,14 @@
               "LOCAL",
               "out-rel-single/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 56,
+              "endLine": 106,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 106
+            }
           }
         },
         {
@@ -498,7 +876,14 @@
               ">",
               "expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 108,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 107
+            }
           }
         },
         {
@@ -509,10 +894,24 @@
               "LOCAL",
               "expected-rel-single"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 58,
+              "endLine": 109,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 109
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 111,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 104
+      }
     },
     {
       "name": "test-src-dest-file-rename",
@@ -522,7 +921,14 @@
             "args": [
               "+setup"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 112,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 112
+            }
           }
         },
         {
@@ -534,7 +940,14 @@
               "LOCAL",
               "out-src-dest-file-rename/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 81,
+              "endLine": 113,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 113
+            }
           }
         },
         {
@@ -545,7 +958,14 @@
               ">",
               "expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 115,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 114
+            }
           }
         },
         {
@@ -556,10 +976,24 @@
               "LOCAL",
               "expected-src-dest-file-rename"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 68,
+              "endLine": 116,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 116
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 118,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 111
+      }
     },
     {
       "name": "test-src-dest-dir-rename",
@@ -569,7 +1003,14 @@
             "args": [
               "+setup"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 119,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 119
+            }
           }
         },
         {
@@ -581,7 +1022,14 @@
               "LOCAL",
               "out-src-dest-dir-rename/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 63,
+              "endLine": 120,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 120
+            }
           }
         },
         {
@@ -592,7 +1040,14 @@
               ">",
               "expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 127,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 121
+            }
           }
         },
         {
@@ -603,15 +1058,36 @@
               "LOCAL",
               "expected-src-dest-dir-rename"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 67,
+              "endLine": 128,
+              "file": "file-copying.earth",
+              "startColumn": 5,
+              "startLine": 128
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 129,
+        "file": "file-copying.earth",
+        "startColumn": 1,
+        "startLine": 118
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "file-copying.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

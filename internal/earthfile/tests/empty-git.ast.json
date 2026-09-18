@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 3,
+          "file": "empty-git.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     }
   ],
@@ -18,7 +25,14 @@
             "args": [
               "EARTHLY_TARGET_PROJECT"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 6,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -26,7 +40,14 @@
             "args": [
               "EARTHLY_TARGET"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 7,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -34,7 +55,14 @@
             "args": [
               "EARTHLY_TARGET_NAME"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 8,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -42,7 +70,14 @@
             "args": [
               "EARTHLY_TARGET_TAG"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 9,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -50,7 +85,14 @@
             "args": [
               "EARTHLY_GIT_HASH"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 10,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -58,7 +100,14 @@
             "args": [
               "EARTHLY_GIT_ORIGIN_URL"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 11,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -66,7 +115,14 @@
             "args": [
               "EARTHLY_GIT_PROJECT_NAME"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 12,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -75,7 +131,14 @@
               "echo",
               "\"project=$EARTHLY_TARGET_PROJECT\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 47,
+              "endLine": 13,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -84,7 +147,14 @@
               "echo",
               "\"target=$EARTHLY_TARGET\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 14,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -93,7 +163,14 @@
               "echo",
               "\"target name=$EARTHLY_TARGET_NAME\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 15,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -102,7 +179,14 @@
               "echo",
               "\"target tag=$EARTHLY_TARGET_TAG\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 46,
+              "endLine": 16,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         },
         {
@@ -111,7 +195,14 @@
               "echo",
               "\"git hash=$EARTHLY_GIT_HASH\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 17,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         },
         {
@@ -120,7 +211,14 @@
               "echo",
               "\"git origin url=$EARTHLY_GIT_ORIGIN_URL\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 54,
+              "endLine": 18,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 18
+            }
           }
         },
         {
@@ -129,7 +227,14 @@
               "echo",
               "\"git project=$EARTHLY_GIT_PROJECT_NAME\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 53,
+              "endLine": 19,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         },
         {
@@ -140,7 +245,14 @@
               "==",
               "\"+test-empty\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 20,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 20
+            }
           }
         },
         {
@@ -151,10 +263,24 @@
               "==",
               "\"test-empty\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 52,
+              "endLine": 21,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 23,
+        "file": "empty-git.earth",
+        "startColumn": 1,
+        "startLine": 5
+      }
     },
     {
       "name": "test-origin-no-hash",
@@ -164,7 +290,14 @@
             "args": [
               "EARTHLY_TARGET_PROJECT"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 24,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 24
+            }
           }
         },
         {
@@ -172,7 +305,14 @@
             "args": [
               "EARTHLY_TARGET"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 25,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 25
+            }
           }
         },
         {
@@ -180,7 +320,14 @@
             "args": [
               "EARTHLY_TARGET_NAME"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 26,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 26
+            }
           }
         },
         {
@@ -188,7 +335,14 @@
             "args": [
               "EARTHLY_TARGET_TAG"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 27,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 27
+            }
           }
         },
         {
@@ -196,7 +350,14 @@
             "args": [
               "EARTHLY_GIT_HASH"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 28,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 28
+            }
           }
         },
         {
@@ -204,7 +365,14 @@
             "args": [
               "EARTHLY_GIT_ORIGIN_URL"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 29,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 29
+            }
           }
         },
         {
@@ -212,7 +380,14 @@
             "args": [
               "EARTHLY_GIT_PROJECT_NAME"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 30,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 30
+            }
           }
         },
         {
@@ -221,7 +396,14 @@
               "echo",
               "\"project=$EARTHLY_TARGET_PROJECT\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 47,
+              "endLine": 31,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 31
+            }
           }
         },
         {
@@ -230,7 +412,14 @@
               "echo",
               "\"target=$EARTHLY_TARGET\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 32,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 32
+            }
           }
         },
         {
@@ -239,7 +428,14 @@
               "echo",
               "\"target name=$EARTHLY_TARGET_NAME\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 33,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 33
+            }
           }
         },
         {
@@ -248,7 +444,14 @@
               "echo",
               "\"target tag=$EARTHLY_TARGET_TAG\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 46,
+              "endLine": 34,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 34
+            }
           }
         },
         {
@@ -257,7 +460,14 @@
               "echo",
               "\"git hash=$EARTHLY_GIT_HASH\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 35,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 35
+            }
           }
         },
         {
@@ -266,7 +476,14 @@
               "echo",
               "\"git origin url=$EARTHLY_GIT_ORIGIN_URL\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 54,
+              "endLine": 36,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 36
+            }
           }
         },
         {
@@ -275,7 +492,14 @@
               "echo",
               "\"git project=$EARTHLY_GIT_PROJECT_NAME\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 53,
+              "endLine": 37,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 37
+            }
           }
         },
         {
@@ -286,7 +510,14 @@
               "==",
               "\"github.com/earthly/earthly+test-origin-no-hash\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 83,
+              "endLine": 38,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 38
+            }
           }
         },
         {
@@ -297,7 +528,14 @@
               "==",
               "\"github.com/earthly/earthly\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 71,
+              "endLine": 39,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 39
+            }
           }
         },
         {
@@ -308,7 +546,14 @@
               "==",
               "\"test-origin-no-hash\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 61,
+              "endLine": 40,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 40
+            }
           }
         },
         {
@@ -319,7 +564,14 @@
               "==",
               "\"https://github.com/earthly/earthly.git\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 83,
+              "endLine": 41,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 41
+            }
           }
         },
         {
@@ -330,7 +582,14 @@
               "==",
               "\"earthly/earthly\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 62,
+              "endLine": 42,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 42
+            }
           }
         },
         {
@@ -341,15 +600,36 @@
               "==",
               "\"\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 39,
+              "endLine": 43,
+              "file": "empty-git.earth",
+              "startColumn": 5,
+              "startLine": 43
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 44,
+        "file": "empty-git.earth",
+        "startColumn": 1,
+        "startLine": 23
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "empty-git.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

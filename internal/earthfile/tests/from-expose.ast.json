@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "from-expose.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -19,7 +26,14 @@
               "touch",
               "hello.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 5,
+              "file": "from-expose.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -27,10 +41,24 @@
             "args": [
               "hello.txt"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 6,
+              "file": "from-expose.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 8,
+        "file": "from-expose.earth",
+        "startColumn": 1,
+        "startLine": 4
+      }
     },
     {
       "name": "test",
@@ -40,7 +68,14 @@
             "args": [
               "ubuntu:26.04"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 9,
+              "file": "from-expose.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -49,7 +84,14 @@
               "+dep/hello.txt",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 10,
+              "file": "from-expose.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -57,7 +99,14 @@
             "args": [
               "8080"
             ],
-            "name": "EXPOSE"
+            "name": "EXPOSE",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 11,
+              "file": "from-expose.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -65,15 +114,36 @@
             "args": [
               "hello-image"
             ],
-            "name": "SAVE IMAGE"
+            "name": "SAVE IMAGE",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 12,
+              "file": "from-expose.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 13,
+        "file": "from-expose.earth",
+        "startColumn": 1,
+        "startLine": 8
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "from-expose.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

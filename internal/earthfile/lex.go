@@ -153,8 +153,15 @@ func (i item) String() string {
 		return "EOF"
 	case itemError:
 		return i.Val
-	case itemNL, itemIndent, itemDedent, itemWS, itemComment, itemEOLComment,
-		itemFrom, itemFromDockerfile, itemLocally, itemCopy, itemSaveArtifact,
+	case itemNL, itemEOLComment:
+		return "newline"
+	case itemIndent:
+		return "indent"
+	case itemDedent:
+		return "dedent"
+	case itemWS:
+		return "whitespace"
+	case itemComment, itemFrom, itemFromDockerfile, itemLocally, itemCopy, itemSaveArtifact,
 		itemSaveImage, itemRun, itemExpose, itemVolume, itemEnv, itemArg,
 		itemSet, itemLet, itemLabel, itemBuild, itemWorkdir, itemIf,
 		itemElseIf, itemElse, itemEnd, itemCmd, itemEntrypoint, itemGitClone,
@@ -163,10 +170,14 @@ func (i item) String() string {
 		itemHost, itemProject, itemUser, itemWith, itemDocker, itemTry,
 		itemCatch, itemFinally, itemFor, itemWait, itemTarget, itemUserCommand,
 		itemFunction, itemAtom, itemEquals:
-		return fmt.Sprintf("%q", i.Val)
-	}
+		if i.Val != "" {
+			return i.Val
+		}
 
-	return fmt.Sprintf("%q", i.Val)
+		return fmt.Sprintf("token(%d)", i.Typ)
+	default:
+		return fmt.Sprintf("token(%d)", i.Typ)
+	}
 }
 
 // stateFn represents the state of the scanner as a function that returns the next state.

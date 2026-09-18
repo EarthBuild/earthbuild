@@ -6,15 +6,20 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 )
 
-// errUnsupportedVersion is what the version validator emits for every
-// unsupported VERSION value. Spelled out rather than derived from
-// getValidVersionsFormatted so these tests pin the user-facing wording.
-const errUnsupportedVersion = "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8"
+const (
+	testEarthfile = "Earthfile"
 
-func TestParseOpts(t *testing.T) {
+	// errUnsupportedVersion is what the version validator emits for every
+	// unsupported VERSION value. Spelled out rather than derived from
+	// getValidVersionsFormatted so these tests pin the user-facing wording.
+	errUnsupportedVersion = "Earthfile:1:1: invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8"
+)
+
+func TestParse_Statements(t *testing.T) {
 	t.Parallel()
 
 	//nolint:goconst
@@ -1663,84 +1668,10 @@ build:
 				t.Fatalf("Parse failed: %v", err)
 			}
 
-			zeroSourceLocations(&actual)
-			zeroSourceLocations(&tc.want)
-
-			if diff := cmp.Diff(tc.want, actual); diff != "" {
+			if diff := cmp.Diff(tc.want, actual, cmpopts.IgnoreTypes(&SourceLocation{})); diff != "" {
 				t.Errorf("AST mismatch (-want +got):\n%s", diff)
 			}
 		})
-	}
-}
-
-func zeroSourceLocations(ef *Tree) {
-	ef.SourceLocation = nil
-	if ef.Version != nil {
-		ef.Version.SourceLocation = nil
-	}
-
-	for i := range ef.Targets {
-		ef.Targets[i].SourceLocation = nil
-		zeroBlockSourceLocations(ef.Targets[i].Recipe)
-	}
-
-	for i := range ef.Functions {
-		ef.Functions[i].SourceLocation = nil
-		zeroBlockSourceLocations(ef.Functions[i].Recipe)
-	}
-
-	zeroBlockSourceLocations(ef.BaseRecipe)
-}
-
-func zeroBlockSourceLocations(block Block) {
-	for i := range block {
-		block[i].SourceLocation = nil
-		if block[i].Command != nil {
-			block[i].Command.SourceLocation = nil
-		}
-
-		if block[i].If != nil {
-			block[i].If.SourceLocation = nil
-			zeroBlockSourceLocations(block[i].If.IfBody)
-
-			for j := range block[i].If.ElseIf {
-				block[i].If.ElseIf[j].SourceLocation = nil
-				zeroBlockSourceLocations(block[i].If.ElseIf[j].Body)
-			}
-
-			if block[i].If.ElseBody != nil {
-				zeroBlockSourceLocations(*block[i].If.ElseBody)
-			}
-		}
-
-		if block[i].For != nil {
-			block[i].For.SourceLocation = nil
-			zeroBlockSourceLocations(block[i].For.Body)
-		}
-
-		if block[i].Try != nil {
-			block[i].Try.SourceLocation = nil
-			zeroBlockSourceLocations(block[i].Try.TryBody)
-
-			if block[i].Try.CatchBody != nil {
-				zeroBlockSourceLocations(*block[i].Try.CatchBody)
-			}
-
-			if block[i].Try.FinallyBody != nil {
-				zeroBlockSourceLocations(*block[i].Try.FinallyBody)
-			}
-		}
-
-		if block[i].With != nil {
-			block[i].With.SourceLocation = nil
-			block[i].With.Command.SourceLocation = nil
-			zeroBlockSourceLocations(block[i].With.Body)
-		}
-
-		if block[i].Wait != nil {
-			block[i].Wait.SourceLocation = nil
-			zeroBlockSourceLocations(block[i].Wait.Body)
-		}
 	}
 }
 
@@ -1820,6 +1751,36 @@ build:
 			name:      "flag after version number",
 			input:     "VERSION 0.8 --try\n", // flags must precede the version number
 			wantError: errUnsupportedVersion,
+		},
+		{
+			name:      "empty version args",
+			input:     "VERSION\n",
+			wantError: "Earthfile:1:1: unexpected VERSION arguments",
+		},
+		{
+			name: "invalid version with leading comment",
+			input: `# A comment
+VERSION 99.0
+`,
+			wantError: "Earthfile:2:1: invalid VERSION in Earthfile",
+		},
+		{
+			name: "duplicate target",
+			input: `VERSION 0.8
+build:
+  RUN echo 1
+build:
+  RUN echo 2
+`,
+			wantError: "Earthfile:4:1: duplicate target \"build\"",
+		},
+		{
+			name: "reserved target",
+			input: `VERSION 0.8
+base:
+  RUN echo 1
+`,
+			wantError: "Earthfile:2:1: invalid target \"base\": base is a reserved target name",
 		},
 	}
 
@@ -1906,21 +1867,165 @@ func BenchmarkParse(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.Run("WithoutSourceMap", func(b *testing.B) {
-		for range b.N {
-			_, err := Parse("Earthfile", string(content))
-			if err != nil {
-				b.Fatal(err)
-			}
+	for range b.N {
+		_, err := Parse("Earthfile", string(content))
+		if err != nil {
+			b.Fatal(err)
 		}
-	})
+	}
+}
 
-	b.Run("WithSourceMap", func(b *testing.B) {
-		for range b.N {
-			_, err := Parse("Earthfile", string(content), WithSourceMap())
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
+func TestSourceLocation_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		loc  *SourceLocation
+		name string
+		want string
+	}{
+		{
+			name: "nil location",
+			loc:  nil,
+			want: "",
+		},
+		{
+			name: "empty location",
+			loc:  &SourceLocation{},
+			want: "",
+		},
+		{
+			name: "valid location",
+			loc: &SourceLocation{
+				File:        testEarthfile,
+				StartLine:   10,
+				StartColumn: 5,
+			},
+			want: "Earthfile:10:5",
+		},
+		{
+			name: "line only (zero column)",
+			loc: &SourceLocation{
+				File:      testEarthfile,
+				StartLine: 10,
+			},
+			want: "Earthfile:10",
+		},
+		{
+			name: "line only (negative column)",
+			loc: &SourceLocation{
+				File:        testEarthfile,
+				StartLine:   10,
+				StartColumn: -1,
+			},
+			want: "Earthfile:10",
+		},
+		{
+			name: "non-positive line",
+			loc: &SourceLocation{
+				File:        testEarthfile,
+				StartLine:   0,
+				StartColumn: 5,
+			},
+			want: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tc.want, tc.loc.String())
+		})
+	}
+}
+
+func TestParse_IfSourceLocation(t *testing.T) {
+	t.Parallel()
+
+	input := `VERSION 0.8
+build:
+  IF [ "$VAR" = "1" ]
+    RUN echo "yes"
+  END
+`
+	tree, err := Parse(testEarthfile, input)
+	require.NoError(t, err)
+	require.Len(t, tree.Targets, 1)
+	require.Len(t, tree.Targets[0].Recipe, 1)
+
+	ifStmt := tree.Targets[0].Recipe[0].If
+	require.NotNil(t, ifStmt)
+	require.Equal(t, &SourceLocation{
+		File:        testEarthfile,
+		StartLine:   3,
+		StartColumn: 3,
+		EndLine:     5,
+		EndColumn:   6,
+	}, ifStmt.SourceLocation)
+}
+
+func TestParse_FunctionSourceLocation(t *testing.T) {
+	t.Parallel()
+
+	input := `VERSION 0.8
+FUNCTION my-func
+  FROM alpine:3.18
+  RUN echo "func"
+`
+	tree, err := Parse(testEarthfile, input)
+	require.NoError(t, err)
+	require.Len(t, tree.Functions, 1)
+
+	fn := tree.Functions[0]
+	require.Equal(t, &SourceLocation{
+		File:        testEarthfile,
+		StartLine:   2,
+		StartColumn: 1,
+		EndLine:     5,
+		EndColumn:   1,
+	}, fn.SourceLocation)
+}
+
+func TestParse_ElseIfSourceLocation(t *testing.T) {
+	t.Parallel()
+
+	input := `VERSION 0.8
+build:
+  IF [ "$VAR" = "1" ]
+    RUN echo "yes"
+  ELSE IF [ "$VAR" = "2" ]
+    RUN echo "two"
+  ELSE IF [ "$VAR" = "3" ]
+  END
+`
+	tree, err := Parse(testEarthfile, input)
+	require.NoError(t, err)
+	require.Len(t, tree.Targets, 1)
+	require.Len(t, tree.Targets[0].Recipe, 1)
+
+	ifStmt := tree.Targets[0].Recipe[0].If
+	require.NotNil(t, ifStmt)
+	require.Equal(t, &SourceLocation{
+		File:        testEarthfile,
+		StartLine:   3,
+		StartColumn: 3,
+		EndLine:     8,
+		EndColumn:   6,
+	}, ifStmt.SourceLocation)
+	require.Len(t, ifStmt.ElseIf, 2)
+
+	require.Equal(t, &SourceLocation{
+		File:        testEarthfile,
+		StartLine:   5,
+		StartColumn: 3,
+		EndLine:     7,
+		EndColumn:   3,
+	}, ifStmt.ElseIf[0].SourceLocation)
+
+	require.Equal(t, &SourceLocation{
+		File:        testEarthfile,
+		StartLine:   7,
+		StartColumn: 3,
+		EndLine:     7,
+		EndColumn:   27,
+	}, ifStmt.ElseIf[1].SourceLocation)
 }

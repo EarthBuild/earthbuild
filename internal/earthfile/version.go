@@ -6,22 +6,17 @@ import (
 )
 
 // ParseVersionFile reads the VERSION command for an Earthfile from the given file path and returns Version.
-func ParseVersionFile(filePath string, opts ...ParseOption) (*Version, error) {
+func ParseVersionFile(filePath string) (*Version, error) {
 	b, err := os.ReadFile(filePath) // #nosec G304
 	if err != nil {
 		return nil, fmt.Errorf("earthfile: unable to open file '%v': %w", filePath, err)
 	}
 
-	return parseVersion(string(b), filePath, opts...)
+	return parseVersion(string(b), filePath)
 }
 
 // parseVersion reads the VERSION command for an Earthfile from text and returns Version.
-func parseVersion(text string, name string, opts ...ParseOption) (*Version, error) {
-	var cfg parseConfig
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-
+func parseVersion(text string, name string) (*Version, error) {
 	l := lex(name, text)
 
 	var version Version
@@ -55,12 +50,8 @@ func parseVersion(text string, name string, opts ...ParseOption) (*Version, erro
 				case itemWS:
 					// ignore whitespace
 				case itemNL, itemComment, itemEOLComment, itemEOF:
-					if cfg.enableSourceMap {
-						version.SourceLocation.EndLine = argTok.Line
-						version.SourceLocation.EndColumn = argTok.Col
-					} else {
-						version.SourceLocation = nil
-					}
+					version.SourceLocation.EndLine = argTok.Line
+					version.SourceLocation.EndColumn = argTok.Col
 
 					return &version, nil
 				default:

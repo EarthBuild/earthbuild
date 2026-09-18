@@ -1,6 +1,8 @@
 // Package earthfile defines the core Earthfile AST structure and provides parsing entry points.
 package earthfile
 
+import "fmt"
+
 // TargetBase is the name of the default target which is used when an
 // Earthfile is parsed which does not have any targets.
 const TargetBase = "base"
@@ -121,11 +123,24 @@ type WaitStatement struct {
 	Body           Block           `json:"body,omitempty"`
 }
 
-// SourceLocation is an optional reference to the original source code location.
+// SourceLocation represents a position in an Earthfile source file.
 type SourceLocation struct {
 	File        string `json:"file,omitempty"`
 	StartLine   int    `json:"startLine"`
 	StartColumn int    `json:"startColumn"`
 	EndLine     int    `json:"endLine"`
 	EndColumn   int    `json:"endColumn"`
+}
+
+// String returns the standard "file:line:column" representation of the source location.
+func (sl *SourceLocation) String() string {
+	if sl == nil || sl.File == "" || sl.StartLine <= 0 {
+		return ""
+	}
+
+	if sl.StartColumn <= 0 {
+		return fmt.Sprintf("%s:%d", sl.File, sl.StartLine)
+	}
+
+	return fmt.Sprintf("%s:%d:%d", sl.File, sl.StartLine, sl.StartColumn)
 }

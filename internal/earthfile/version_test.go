@@ -11,12 +11,19 @@ import (
 func TestParseVersion(t *testing.T) {
 	t.Parallel()
 
-	ver, err := parseVersion("VERSION 0.6", "Earthfile")
+	ver, err := parseVersion("VERSION 0.6", testEarthfile)
 	r := require.New(t)
 	r.NoError(err)
-	r.Len(ver.Args, 1)
-	r.Equal("0.6", ver.Args[0])
-	r.Nil(ver.SourceLocation)
+	r.Equal(&Version{
+		SourceLocation: &SourceLocation{
+			File:        testEarthfile,
+			StartLine:   1,
+			StartColumn: 1,
+			EndLine:     1,
+			EndColumn:   12,
+		},
+		Args: []string{version06},
+	}, ver)
 }
 
 func TestParseVersionFile_Error(t *testing.T) {
@@ -31,7 +38,7 @@ func TestParseVersionFile_Error(t *testing.T) {
 func TestParseFile_Version(t *testing.T) {
 	t.Parallel()
 
-	path := filepath.Join(t.TempDir(), "Earthfile")
+	path := filepath.Join(t.TempDir(), testEarthfile)
 	require.NoError(t, os.WriteFile(path, []byte("VERSION 0.8\n"), 0o600))
 
 	tree, err := ParseFile(path)
@@ -51,7 +58,7 @@ func TestVersionVariants(t *testing.T) {
 	requireVersion := func(t *testing.T, input string, wantArgs ...string) {
 		t.Helper()
 
-		tree, err := Parse("Earthfile", input)
+		tree, err := Parse(testEarthfile, input)
 		r := require.New(t)
 		r.NoError(err)
 		r.NotNil(tree.Version)

@@ -45,11 +45,7 @@ func validateAst(ef Tree) error {
 		err = errors.Join(err, v(ef))
 	}
 
-	if err != nil {
-		return fmt.Errorf("validation issues: %w", err)
-	}
-
-	return nil
+	return err
 }
 
 func getValidVersionsFormatted() string {
@@ -79,7 +75,7 @@ func validVersion(ef Tree) error {
 
 	// if VERSION is specified, it's invalid to have no args
 	if len(ef.Version.Args) == 0 {
-		return errUnexpectedVersionArgs
+		return fmt.Errorf("%s%w", locationPrefix(ef.Version.SourceLocation), errUnexpectedVersionArgs)
 	}
 
 	// version is always last in VERSION command
@@ -88,10 +84,19 @@ func validVersion(ef Tree) error {
 	isVersionValid := slices.Contains(validEarthfileVersions, earthFileVersion)
 
 	if !isVersionValid {
-		return fmt.Errorf("invalid VERSION in Earthfile, supported versions are %s", getValidVersionsFormatted())
+		return fmt.Errorf("%sinvalid VERSION in Earthfile, supported versions are %s",
+			locationPrefix(ef.Version.SourceLocation), getValidVersionsFormatted())
 	}
 
 	return nil
+}
+
+func locationPrefix(l *SourceLocation) string {
+	if s := l.String(); s != "" {
+		return s + ": "
+	}
+
+	return ""
 }
 
 func noTargetsWithSameName(ef Tree) error {
@@ -101,19 +106,7 @@ func noTargetsWithSameName(ef Tree) error {
 
 	for _, t := range ef.Targets {
 		if _, seen := seenTargets[t.Name]; seen {
-			var (
-				file      string
-				line, col int
-			)
-
-			if t.SourceLocation != nil {
-				file = t.SourceLocation.File
-				line = t.SourceLocation.StartLine
-				col = t.SourceLocation.StartColumn
-			}
-
-			duplicateTargetErr := fmt.Errorf("%s line %v:%v duplicate target \"%s\"",
-				file, line, col, t.Name)
+			duplicateTargetErr := fmt.Errorf("%sduplicate target %q", locationPrefix(t.SourceLocation), t.Name)
 			err = errors.Join(err, duplicateTargetErr)
 		}
 
@@ -128,19 +121,8 @@ func noTargetsWithKeywords(ef Tree) error {
 
 	for _, t := range ef.Targets {
 		if t.Name == TargetBase {
-			var (
-				file      string
-				line, col int
-			)
-
-			if t.SourceLocation != nil {
-				file = t.SourceLocation.File
-				line = t.SourceLocation.StartLine
-				col = t.SourceLocation.StartColumn
-			}
-
-			reservedTargetErr := fmt.Errorf("%s line %v:%v invalid target \"%s\": %s is a reserved target name",
-				file, line, col, t.Name, t.Name)
+			reservedTargetErr := fmt.Errorf("%sinvalid target %q: %s is a reserved target name",
+				locationPrefix(t.SourceLocation), t.Name, t.Name)
 			err = errors.Join(err, reservedTargetErr)
 		}
 	}

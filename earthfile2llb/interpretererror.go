@@ -61,15 +61,16 @@ func (ie InterpreterError) Error() string {
 	}
 
 	loc := ie.SourceLocation.String()
-	ret := loc
+
 	if errStr != "" {
-		ret = loc + ": " + errStr
-	}
-	if ie.stack != "" {
-		ret = fmt.Sprintf("%s\nin\t\t%s", ret, ie.stack)
+		loc += ": " + errStr
 	}
 
-	return ret
+	if ie.stack != "" {
+		return fmt.Sprintf("%s\nin\t\t%s", loc, ie.stack)
+	}
+
+	return loc
 }
 
 // Unwrap unwraps the error.

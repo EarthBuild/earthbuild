@@ -11,25 +11,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testEarthfile = "Earthfile"
+const (
+	testEarthfile    = "Earthfile"
+	errFailedToParse = "failed to parse"
+)
 
 func TestError_Error(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		err  *Error
+		err  error
 		name string
 		want string
 	}{
 		{
 			name: "nil receiver",
-			err:  nil,
+			err:  (*Error)(nil),
 			want: "",
 		},
 		{
 			name: "message only",
-			err:  &Error{msg: "failed to parse"},
-			want: "failed to parse",
+			err:  &Error{msg: errFailedToParse},
+			want: errFailedToParse,
 		},
 		{
 			name: "underlying error only",
@@ -54,7 +57,7 @@ func TestError_Error(t *testing.T) {
 					StartLine:   12,
 					StartColumn: 4,
 				},
-				msg: "failed to parse",
+				msg: errFailedToParse,
 			},
 			want: "Earthfile:12:4: failed to parse",
 		},
@@ -100,7 +103,7 @@ func TestError_Error(t *testing.T) {
 				File:        testEarthfile,
 				StartLine:   12,
 				StartColumn: 4,
-			}, "syntax error").(*Error),
+			}, "syntax error"),
 			want: "Earthfile:12:4: syntax error",
 		},
 		{
@@ -109,7 +112,7 @@ func TestError_Error(t *testing.T) {
 				File:        testEarthfile,
 				StartLine:   5,
 				StartColumn: 1,
-			}, "unexpected eof").(*Error),
+			}, "unexpected eof"),
 			want: "Earthfile:5:1: unexpected eof: EOF",
 		},
 		{
@@ -117,7 +120,7 @@ func TestError_Error(t *testing.T) {
 			err: addErrorSrc(errors.New("base failure"), earthfile.SourceLocation{
 				File:      testEarthfile,
 				StartLine: 20,
-			}).(*Error),
+			}),
 			want: "Earthfile:20: base failure",
 		},
 	}

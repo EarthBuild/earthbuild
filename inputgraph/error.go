@@ -21,6 +21,7 @@ func (e *Error) Error() string {
 	}
 
 	var text string
+
 	switch {
 	case e.msg != "" && e.err != nil:
 		text = e.msg + ": " + e.err.Error()

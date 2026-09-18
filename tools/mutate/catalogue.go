@@ -447,8 +447,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: deadlining the control stream, not only the dial (E256)",
 		File:        "engine/fleet/rendezvous.go",
-		Anchor:      "\tif dl, ok := ctx.Deadline(); ok {\n\t\t_ = s.SetDeadline(dl)\n\t}",
-		Replacement: "\tif dl, ok := ctx.Deadline(); false {\n\t\t_, _ = dl, ok\n\t}",
+		Anchor:      "\t\t_ = s.SetDeadline(t)\n\t}, reach)",
+		Replacement: "\t\t_ = t\n\t}, reach)",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -517,8 +517,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: separating transfer from compute in the account (E259)",
 		File:        "engine/fleet/account.go",
-		Anchor:      "\ta.s.Fetching += fetch",
-		Replacement: "\ta.s.Computing += fetch",
+		Anchor:      "\ta.s.Delegated++\n\ta.s.Fetching += fetch",
+		Replacement: "\ta.s.Delegated++\n\ta.s.Computing += fetch",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -703,7 +703,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: learning where each worker serves from (E265)",
 		File:        "engine/fleet/rendezvous.go",
-		Anchor:      "\t\t\tr.note(w.id, reply.HeldAt, reply.Platform, reply.Capacity)\n",
+		Anchor:      "\t\t\tr.note(w.id, reply.HeldAt, reply.Platform, reply.Capacity,\n\t\t\t\treply.Emulates, reply.Translates)\n",
 		Replacement: "",
 		Package:     "./engine/fleet/",
 	},
@@ -745,8 +745,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "core: refusing a worker whose platform is unknown (E267)",
 		File:        "engine/core/schedule.go",
-		Anchor:      "\treturn w.Platform.Matches(want)\n}",
-		Replacement: "\treturn w.Platform.Matches(want) || w.Platform == (ir.Platform{})\n}",
+		Anchor:      "\tif w.Platform.Matches(want) {\n\t\treturn true\n\t}",
+		Replacement: "\tif w.Platform.Matches(want) || w.Platform == (ir.Platform{}) {\n\t\treturn true\n\t}",
 		Package:     "./engine/core/",
 	},
 	{
@@ -780,8 +780,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: the inventory carrying each worker's platform (E267)",
 		File:        "engine/fleet/rendezvous.go",
-		Anchor:      "\t\tout = append(out, core.Worker{ID: w.id, Platform: platformOf(w.platform)})",
-		Replacement: "\t\tout = append(out, core.Worker{ID: w.id})",
+		Anchor:      "\t\t\tPlatform:   platformOf(w.platform),\n",
+		Replacement: "",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -1051,8 +1051,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: a fragment travelling with its manifest (E286)",
 		File:        "engine/fleet/blobwire.go",
-		Anchor:      "\t\t\treturn writeFragment(w, manifest, packed)",
-		Replacement: "\t\t\t_ = manifest\n\t\t\treturn WriteBlobMessage(w, packed)",
+		Anchor:      "\t\treturn writeFragment(w, manifest, packed)",
+		Replacement: "\t\t_ = manifest\n\t\treturn WriteBlobMessage(w, packed)",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -1117,8 +1117,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: sending a fragment when paths were asked for (E286)",
 		File:        "engine/fleet/blobwire.go",
-		Anchor:      "\tif f, ok := held.(fragmenting); ok \u0026\u0026 len(want) > 0 \u0026\u0026 held != nil {",
-		Replacement: "\tif f, ok := held.(fragmenting); ok \u0026\u0026 false {\n\t\t_ = f",
+		Anchor:      "\tif len(want) > 0 {\n\t\tf, canCut := held.(fragmenting)",
+		Replacement: "\tif false {\n\t\tf, canCut := held.(fragmenting)",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -1450,8 +1450,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: omitting a proof the caller says it has (E299)",
 		File:        "engine/fleet/blobwire.go",
-		Anchor:      "\t\t\tif !proof {",
-		Replacement: "\t\t\tif false {",
+		Anchor:      "\t\tif !proof {",
+		Replacement: "\t\tif false {",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -1640,8 +1640,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "worker: serving the parts of layers it holds (E331)",
 		File:        "cmd/earth-worker/main.go",
-		Anchor:      "\tserved := \u0026fleet.Parts{Whole: layers, Some: frags}",
-		Replacement: "\tserved := \u0026fleet.Parts{Whole: layers}",
+		Anchor:      "\tserved := \u0026fleet.Parts{Whole: layers, Some: frags, Nodes: nodes}",
+		Replacement: "\tserved := \u0026fleet.Parts{Whole: layers, Nodes: nodes}",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -1731,7 +1731,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: not claiming a whole layer this worker has in parts (E325)",
 		File:        "engine/fleet/parts.go",
-		Anchor:      "func (p *Parts) Has(id ir.NodeID) bool { return p.Whole != nil \u0026\u0026 p.Whole.Has(id) }",
+		Anchor:      "func (p *Parts) Has(id ir.NodeID) bool {\n\tif p.Whole != nil \u0026\u0026 p.Whole.Has(id) {\n\t\treturn true\n\t}\n\n\treturn p.Nodes != nil \u0026\u0026 p.Nodes.Has(id)\n}",
 		Replacement: "func (p *Parts) Has(id ir.NodeID) bool { return true }",
 		Package:     "./engine/fleet/",
 	},
@@ -2023,8 +2023,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "fleet: a relayed layer keeping the ownership it was sent (E313)",
 		File:        "engine/fleet/layers.go",
-		Anchor:      "\terr := layer.PackOwned(l.at(id), \u0026buf, nil, l.owners(id))",
-		Replacement: "\terr := layer.Pack(l.at(id), \u0026buf)",
+		Anchor:      "\terr = layer.PackOwned(l.at(id), \u0026buf, nil, l.owners(id))",
+		Replacement: "\terr = layer.Pack(l.at(id), \u0026buf)",
 		Package:     "./engine/fleet/",
 	},
 	{
@@ -2128,8 +2128,8 @@ var Mutants = []Mutant{
 	{
 		Name:        "guest: a daemon told the guest's paths, not the step's (E370)",
 		File:        "engine/guest/withdaemon.go",
-		Anchor:      "\t\tstarted, launchErr := launch(ctx, daemonArgs(root, listen, ownNet), listen)",
-		Replacement: "\t\tstarted, launchErr := launch(ctx, daemonArgs(d.Root, listen, ownNet), listen)",
+		Anchor:      "\t\tstarted, launchErr := launch(ctx, daemonArgs(root, listen, ownNet), listen, d.Binary)",
+		Replacement: "\t\tstarted, launchErr := launch(ctx, daemonArgs(d.Root, listen, ownNet), listen, d.Binary)",
 		Package:     "./engine/guest/",
 	},
 	{

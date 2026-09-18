@@ -57,7 +57,7 @@ func (a *List) Cmds() []*cli.Command {
 	}
 }
 
-func (a *List) action(ctx context.Context, cmd *cli.Command) error {
+func (a *List) action(_ context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("listTargets")
 
 	if cmd.NArg() > 1 {
@@ -87,7 +87,7 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 	// branch and tags, and remote references are refused above.
 	path := filepath.Join(cmp.Or(targetToParse, "."), "Earthfile")
 
-	src, err := os.ReadFile(path)
+	src, err := os.ReadFile(path) // #nosec G304 -- the directory the caller named
 	if err != nil {
 		return fmt.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 	}

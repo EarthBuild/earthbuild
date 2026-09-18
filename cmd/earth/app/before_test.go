@@ -55,7 +55,7 @@ func TestAutoSkipDeprecationWarning(t *testing.T) {
 // Anything unrecognised is answered yes, which is what every invocation did
 // before the gate existed.
 func TestNeedsFrontend(t *testing.T) {
-	cmds := []*cli.Command{{Name: "build"}, {Name: "ls"}, {Name: "prune"}}
+	cmds := []*cli.Command{{Name: "build"}, {Name: "ls"}, {Name: "doc"}, {Name: "prune"}}
 
 	for _, c := range []struct {
 		args []string
@@ -64,6 +64,7 @@ func TestNeedsFrontend(t *testing.T) {
 		{[]string{"ls"}, false},
 		{[]string{"ls", "./examples"}, false},
 		{[]string{"ls", "--args"}, false},
+		{[]string{"doc"}, false},
 		{[]string{"build", "+all"}, true},
 		{[]string{"+all"}, true},
 		{[]string{"prune"}, true},

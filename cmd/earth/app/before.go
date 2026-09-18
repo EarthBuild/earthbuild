@@ -349,20 +349,24 @@ func defaultConfigPath(installName string) string {
 	return newConfig
 }
 
-// noFrontend are the subcommands that start no container, so probing for one
-// before them is time spent on something they never use.
-var noFrontend = map[string]bool{"ls": true}
+// noFrontend are the subcommands that never ask for a container: none of them
+// mentions ContainerFrontend, directly or otherwise.
+var noFrontend = map[string]bool{
+	"ls":     true, // reads an Earthfile
+	"doc":    true, // reads an Earthfile
+	"init":   true, // writes an Earthfile
+	"config": true, // reads and writes the config file
+}
 
 // needsFrontend reports whether this invocation should probe for docker or
 // podman. It reads the raw arguments because it runs before the subcommand's
-// flags are parsed; anything unrecognised is answered yes, as it always was.
+// flags are parsed, so anything it does not recognise is answered yes, as every
+// invocation was before.
 func needsFrontend(args []string, cmds []*cli.Command) bool {
 	for _, a := range args {
 		for _, c := range cmds {
-			for _, name := range append([]string{c.Name}, c.Aliases...) {
-				if a == name {
-					return !noFrontend[c.Name]
-				}
+			if a == c.Name {
+				return !noFrontend[c.Name]
 			}
 		}
 	}

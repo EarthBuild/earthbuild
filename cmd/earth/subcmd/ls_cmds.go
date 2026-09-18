@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -82,20 +83,16 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 		targetToDisplay = "current directory"
 	}
 
-	// Parsed rather than resolved: resolving a build context runs git for the
-	// remote, hash, branch and tags, and remote references are refused above,
-	// so none of it can affect the answer.
-	dir := targetToParse
-	if dir == "" {
-		dir = "."
-	}
+	// Parsed rather than resolved: resolving runs git for the remote, hash,
+	// branch and tags, and remote references are refused above.
+	path := filepath.Join(cmp.Or(targetToParse, "."), "Earthfile")
 
-	src, err := os.ReadFile(filepath.Join(dir, "Earthfile"))
+	src, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 	}
 
-	ef, err := earthfile.Parse(filepath.Join(dir, "Earthfile"), string(src), earthfile.WithSourceMap())
+	ef, err := earthfile.Parse(path, string(src), earthfile.WithSourceMap())
 	if err != nil {
 		return err
 	}

@@ -351,7 +351,7 @@ func defaultConfigPath(installName string) string {
 
 // noFrontend are the subcommands that never ask for a container: none of them
 // mentions ContainerFrontend, directly or otherwise.
-var noFrontend = map[string]bool{
+var noFrontend = map[string]struct{}{
 	"ls":     true, // reads an Earthfile
 	"doc":    true, // reads an Earthfile
 	"init":   true, // writes an Earthfile

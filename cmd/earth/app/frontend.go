@@ -35,12 +35,18 @@ func needsContainerFrontend(args, commands []string, engineEnv string) bool {
 		return true
 	}
 
-	// A subcommand other than `build` may want a daemon for its own reasons -
-	// `bootstrap` and `prune` are about the daemon - so only a build qualifies.
+	// A subcommand may want a daemon for its own reasons - `bootstrap` and
+	// `prune` are *about* the daemon - so a named one needs it unless it is one
+	// of the few that provably does not.
+	// **The first recognised subcommand decides**, rather than only being able
+	// to vote yes. A file-only command that merely declined to return true fell
+	// through to the target check below and was answered "detect" anyway,
+	// because `ls ./examples` names no target - which is exactly right for a
+	// build and meaningless for a command that does not take one.
 	for _, a := range args {
 		for _, c := range commands {
-			if a == c && c != "build" {
-				return true
+			if a == c {
+				return !readsOnlyFiles[c]
 			}
 		}
 	}
@@ -55,6 +61,23 @@ func needsContainerFrontend(args, commands []string, engineEnv string) bool {
 	}
 
 	return true
+}
+
+// readsOnlyFiles are the subcommands that touch no daemon, so detecting one
+// before them is time spent on a capability they never reach.
+//
+// **Named rather than inferred, and short on purpose.** Everything this does not
+// recognise keeps today's behaviour, which is to detect - the safe error for a
+// decision made in `before`, where the subcommand's own flags are not parsed
+// yet and all there is to go on is the raw argument list.
+//
+// `build` has been here since E871, where detecting a frontend cost 116ms of a
+// 380ms cached native build. `ls` is the same argument: it reads an Earthfile,
+// parses it and prints target names, and detection was 96ms of a 140ms
+// invocation - two thirds of the command, for something it never touches.
+var readsOnlyFiles = map[string]bool{
+	"build": true,
+	"ls":    true,
 }
 
 // engineFromArgs finds `--engine <name>` or `--engine=<name>`, reporting whether

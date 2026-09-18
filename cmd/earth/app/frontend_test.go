@@ -32,6 +32,16 @@ func TestWhenAContainerFrontendCanBeSkipped(t *testing.T) {
 		{"the command line beats the environment", []string{"--engine=buildkit", "+b"}, "native", true},
 		{"and the other way round", []string{"--engine=native", "+b"}, "buildkit", false},
 
+		// **A command that only reads files needs no daemon.** `ls` parses an
+		// Earthfile and prints target names; detecting a frontend for it cost
+		// 96ms of a 140ms invocation, for a capability it never touches.
+		{"ls reads a file and nothing else", []string{"ls"}, "", false},
+		{"ls with a path", []string{"ls", "./examples"}, "", false},
+		{"ls with its own flags", []string{"ls", "--args"}, "", false},
+		// But an engine asked for by name still wins: somebody who says
+		// `--engine buildkit` has asked for the daemon, whatever the command.
+		{"ls with buildkit asked for outright", []string{"--engine=buildkit", "ls"}, "", true},
+
 		{"another command entirely", []string{"prune"}, "", true},
 		{"bootstrap, which is about the daemon", []string{"bootstrap"}, "", true},
 		{"no arguments at all", nil, "", true},

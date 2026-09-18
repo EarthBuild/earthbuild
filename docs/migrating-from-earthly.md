@@ -194,7 +194,7 @@ The buildkitd cache volume name has changed from `earthly-cache` to `earth-cache
 ## Detailed CLI Diff
 
 Here is a `diff` of the CLI help output to highlight the changes. The `+` side below is captured from
-EarthBuild `v0.8.18`.
+EarthBuild `v0.8.19`.
 
 > Note: this diff is a verbatim capture, so environment-variable bindings still appear with the
 > `EARTHLY_*` prefix. Every binding shown also accepts the `EARTH_*` spelling, which is the one to
@@ -266,7 +266,7 @@ GLOBAL OPTIONS:
    --interactive, -i                Enable interactive debugging [$EARTHLY_INTERACTIVE]
    --strict                         Disallow usage of features that may create unrepeatable builds [$EARTHLY_STRICT]
    --auto-skip-db-path string       use a local database for auto-skip [$EARTHLY_AUTO_SKIP_DB_PATH]
-   --buildkit-image string          The docker image to use for the buildkit daemon (default: "docker.io/earthbuild/buildkitd:v0.8.18") [$EARTHLY_BUILDKIT_IMAGE]
+   --buildkit-image string          The docker image to use for the buildkit daemon (default: "docker.io/earthbuild/buildkitd:v0.8.19") [$EARTHLY_BUILDKIT_IMAGE]
    --remote-cache string            A remote docker image tag use as explicit cache and optionally additional attributes to set in the image (Format: "<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]") [$EARTHLY_REMOTE_CACHE]
    --disable-remote-registry-proxy  Don't use the Docker registry proxy when transferring images [$EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY]
    --no-auto-skip                   Disable auto-skip functionality [$EARTHLY_NO_AUTO_SKIP]
@@ -336,7 +336,7 @@ Concrete examples as they apply to `v0.8.18`:
 
 # Pulling the all-in-one image in CI
 - docker pull docker.io/earthly/earthly:v0.8.16
-+ docker pull docker.io/earthbuild/earthbuild:v0.8.18
++ docker pull docker.io/earthbuild/earthbuild:v0.8.19
 
 # A dind base image (WITH DOCKER)
 - FROM docker.io/earthly/dind:alpine

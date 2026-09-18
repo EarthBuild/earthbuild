@@ -385,6 +385,12 @@ func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns /
 		return err
 	}
 
+	// Said once, where a reader can act on it: a helper that could not be
+	// obtained is a cache that will not cross, and nothing else reports it.
+	for _, note := range plan.HelperNotes {
+		fmt.Fprintf(o.Out, "note: %s\n", note)
+	}
+
 	// Kept for the deferred record above: what this build needed is attributed
 	// to the conditions it decided along the way.
 	g.images = imageRefs(plan)

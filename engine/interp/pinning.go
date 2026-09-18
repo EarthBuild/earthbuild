@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -217,15 +218,38 @@ func (p *Plan) helperFile(ref, dir, where string) (at, in string) {
 		return "", ""
 	}
 
-	// Memoised on the reference, so an Earthfile with a cache mount in forty
-	// steps builds the helper once rather than forty times - which is what
-	// `FROM DOCKERFILE` does for the same call and for the same reason.
-	made, known := p.builtHelpers[ref]
+	// **Cut where `COPY` cuts**: the first `/` after the `+` divides the target
+	// from the path within its output. Handing the whole reference over cut it
+	// at the *last* `/` instead, so `+cache-helper/build/h.wasm` asked for a
+	// target called `+cache-helper/build` - which works for a one-segment
+	// artifact and fails for every deeper one, silently, as an unshared cache.
+	plus := strings.Index(ref, "+")
+
+	target, within, ok := strings.Cut(ref[plus:], "/")
+	if !ok || within == "" {
+		return "", ""
+	}
+
+	target = ref[:plus] + target
+
+	// Memoised on the target, so an Earthfile with a cache mount in forty steps
+	// builds the helper once rather than forty times - which is what `FROM
+	// DOCKERFILE` does for the same call and for the same reason. On the target
+	// rather than the reference, because two helpers out of one target are one
+	// build.
+	made, known := p.builtHelpers[target]
 	if !known {
 		var err error
 
-		made, err = p.opt.artifacts(ref, where)
+		made, err = p.opt.artifacts(target+"/", where)
 		if err != nil {
+			// **Degrade, but say why.** An unpinned helper is a cache that does
+			// not cross, which is a slower build somewhere else - and one that
+			// degrades in silence is a build nobody can explain. The reason is
+			// the target's, and it is the only place it will ever be seen.
+			p.HelperNotes = append(p.HelperNotes, fmt.Sprintf(
+				"%s was not built, so the cache it reads is not shared: %v", target, err))
+
 			made = ""
 		}
 
@@ -233,15 +257,14 @@ func (p *Plan) helperFile(ref, dir, where string) (at, in string) {
 			p.builtHelpers = map[string]string{}
 		}
 
-		p.builtHelpers[ref] = made
+		p.builtHelpers[target] = made
 	}
 
 	if made == "" {
 		return "", ""
 	}
 
-	// The name inside what the target produced, which is `FROM DOCKERFILE`'s
-	// rule said again: the reference names an artifact and the builder hands
-	// back the directory it landed in.
-	return filepath.Join(made, filepath.Base(ref)), ""
+	// The path inside what the target produced - all of it, not its last
+	// segment: an artifact may live several directories down its own output.
+	return filepath.Join(made, filepath.FromSlash(within)), ""
 }

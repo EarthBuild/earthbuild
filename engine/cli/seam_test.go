@@ -29,6 +29,10 @@ func TestEveryPlanOutputIsConsumed(t *testing.T) {
 		"Pinned":    "recordPinning: printed as provenance, and the digests are already in the graph",
 		"PinCost":   "recordPinning: quoted in the note, so the advice carries what it is worth",
 		"Advice":    "Run: printed as warnings after the build, beside the unbounded and unmounted notes",
+		// A helper that could not be obtained is a cache that will not cross,
+		// and nothing else reports it - so this is the one place a reader ever
+		// learns why a build that names a helper shared nothing.
+		"HelperNotes": "Run: printed once, before the build, naming the target and why",
 	}
 
 	plan := reflect.TypeFor[interp.Plan]()

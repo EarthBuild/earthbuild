@@ -60,8 +60,10 @@ main:
 		t.Fatal(err)
 	}
 
-	if len(asked) != 1 || asked[0] != "+gen/h.wasm" {
-		t.Fatalf("the builder was asked for %v, want [+gen/h.wasm]", asked)
+	// The **target**, not the whole reference: the first `/` after the `+`
+	// divides one from the path within its output, which is where `COPY` cuts.
+	if len(asked) != 1 || asked[0] != "+gen/" {
+		t.Fatalf("the builder was asked for %v, want [+gen/]", asked)
 	}
 
 	m, ok := cacheMountOf(p.Graph.Root)
@@ -166,5 +168,69 @@ main:
 
 	if built != 1 {
 		t.Errorf("the helper's target was built %d times, want once per plan", built)
+	}
+}
+
+// An artifact several directories down its own output is found.
+//
+// **The case a real build caught and the first test did not.** `+cache-helper`
+// saves `build/cachehelper-npm.wasm`, and handing the whole reference to the
+// builder cut it at the *last* `/` - asking for a target called
+// `+cache-helper/build`, which does not exist. It worked for a one-segment
+// artifact and failed for every deeper one, silently, as a cache that simply
+// did not share.
+func TestAHelperDeepInATargetsOutputIsFound(t *testing.T) {
+	t.Parallel()
+
+	made := t.TempDir()
+	module := []byte("a module several directories down")
+
+	if err := os.MkdirAll(filepath.Join(made, "build"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(made, "build", "h.wasm"), module, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var asked []string
+
+	p, err := interp.Build(`VERSION 0.8
+main:
+    FROM alpine:3.22
+    CACHE --id k --portable-except '' --helper +gen/build/h.wasm /c
+    RUN echo hi
+`, testMain,
+		interp.WithArtifacts(func(ref, _ string) (string, error) {
+			asked = append(asked, ref)
+
+			return made, nil
+		}),
+		interp.WithHelperResolver(func(ref, dir string) (string, error) {
+			at := ref
+			if !filepath.IsAbs(at) {
+				at = filepath.Join(dir, ref)
+			}
+
+			b, readErr := os.ReadFile(at) //nolint:gosec // a test fixture
+			if readErr != nil {
+				return "", readErr
+			}
+
+			return ir.DigestOf(b).String(), nil
+		}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(asked) != 1 || asked[0] != "+gen/" {
+		t.Fatalf("the builder was asked for %v, want [+gen/]"+
+			"\n  everything after the first slash is the path within the output", asked)
+	}
+
+	m, _ := cacheMountOf(p.Graph.Root)
+	if want := ir.DigestOf(module).String(); m.HelperID != want {
+		t.Errorf("pinned %q, want %s - the artifact is two directories down and"+
+			" must still be found", m.HelperID, want)
 	}
 }

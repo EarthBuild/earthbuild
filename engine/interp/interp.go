@@ -133,6 +133,11 @@ type Plan struct {
 	// pinned memoises Θ on (reference, platform), which is what makes it once
 	// per build rather than once per use (I17).
 	pinned map[string]string
+	// HelperNotes say which helpers could not be obtained, and why. A cache
+	// whose helper is missing is simply not shared, and this is where the
+	// reason is - the alternative is a build that shares nothing and says
+	// nothing.
+	HelperNotes []string
 	// pinnedHelpers memoises the same for cache helpers, on the reference and
 	// the directory it was written in: a helper is one module and runs the same
 	// everywhere, so there is no platform here - but two Earthfiles may each say

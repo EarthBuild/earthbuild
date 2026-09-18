@@ -99,7 +99,13 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	app.BaseCLI.SetCfg(&cfg)
 	app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 
-	err = app.parseFrontend(ctx)
+	// **Skipped for a command that starts no container.** Detecting a frontend
+	// runs `docker ps` and then asks it about rootless mode, user namespaces
+	// and security options, because a buildkit container has to be launched
+	// differently depending on the answers. `ls` launches nothing, and the
+	// probe was 96ms of its 270ms.
+	err = app.parseFrontend(ctx, needsContainerFrontend(
+		os.Args[1:], commandNames(app.BaseCLI.App().Commands)))
 	if err != nil {
 		return ctx, err
 	}
@@ -128,7 +134,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	return ctx, nil
 }
 
-func (app *EarthApp) parseFrontend(ctx context.Context) error {
+func (app *EarthApp) parseFrontend(ctx context.Context, detect bool) error {
 	log := app.BaseCLI.Log().WithPrefix("frontend")
 	feCfg := &containerutil.FrontendConfig{
 		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
@@ -137,6 +143,23 @@ func (app *EarthApp) parseFrontend(ctx context.Context) error {
 		LocalContainerName:         app.BaseCLI.Flags().ContainerName,
 		DefaultPort:                8372 + config.PortOffset(app.BaseCLI.Flags().InstallationName),
 		Log:                        log,
+	}
+
+	// **The stub, chosen rather than fallen back to.** It is already what this
+	// function settles on when no runtime can be found; a command that will
+	// never ask one for anything wants the same answer without paying to
+	// discover it.
+	if !detect {
+		stub, err := containerutil.NewStubFrontend(feCfg)
+		if err != nil {
+			return fmt.Errorf("failed stub frontend initialization: %w", err)
+		}
+
+		app.BaseCLI.Flags().ContainerFrontend = stub
+
+		log.VerbosePrintf("no container frontend detected: this command does not use one\n")
+
+		return nil
 	}
 
 	fe, err := containerutil.FrontendForSetting(ctx, app.BaseCLI.Cfg().Global.ContainerFrontend, feCfg)

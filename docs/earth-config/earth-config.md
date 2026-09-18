@@ -13,32 +13,33 @@ The earth config file is a [YAML](https://yaml.org/) formatted file that looks l
 global:
   cache_size_mb: <cache_size_mb>
 git:
-    global:
-        url_instead_of: <url_instead_of>
-    <site>:
-        auth: https|ssh
-        user: <username>
-        password: <password>
-    <site2>:
-        ...
+  global:
+    url_instead_of: <url_instead_of>
+  <site>:
+    auth: https|ssh
+    user: <username>
+    password: <password>
+  <site2>: ...
 ```
 
 Example:
 
 ```yaml
 global:
-    cache_size_mb: 20000
+  cache_size_mb: 20000
 git:
-    global:
-        url_instead_of: "git@example.com:=https://localmirror.example.com/"
-    github.com:
-        auth: https
-        user: alice
-        password: itsasecret
+  global:
+    url_instead_of: "git@example.com:=https://localmirror.example.com/"
+  github.com:
+    auth: https
+    user: alice
+    password: itsasecret
 ```
 
 {% hint style='info' %}
+
 ##### Tip
+
 To quickly change a configuration item via the `earth` command, you can use [`earth config`](../earth-command/earth-command.md#earth-config).
 
 ```bash
@@ -50,6 +51,7 @@ For example
 ```bash
 earth config global.cache_size_mb 20000
 ```
+
 {% endhint %}
 
 ## Global configuration reference
@@ -101,6 +103,7 @@ RUN --secret mysecret echo "the passphrase is $mysecret."
 earth will request the secret for `mysecret` by calling `my-secret_provider mysecret`.
 
 {% hint style='info' %}
+
 ##### Note
 
 All stdout data will be used as the secret value, including whitespace (and newlines).
@@ -121,6 +124,7 @@ The number of concurrent converters for speeding up build targets that use block
 The maximum parallelism configured for the BuildKit daemon workers. The default is 20.
 
 {% hint style='info' %}
+
 ##### Note
 
 Set this configuration to a lower value if your machine is resource constrained and performs poorly when running too many builds in parallel.
@@ -129,7 +133,7 @@ Set this configuration to a lower value if your machine is resource constrained 
 
 ### buildkit_additional_args
 
-This option allows you to pass additional options to Docker when starting up the EarthBuild BuildKit daemon. 
+This option allows you to pass additional options to Docker when starting up the EarthBuild BuildKit daemon.
 Note that changes to these values will trigger earth to restart BuildKit on the next run.
 
 #### Bypass User Namespacing
@@ -159,14 +163,14 @@ This can be useful in cases where long-lived interactive sessions are used.
 This option allows you to pass additional options to BuildKit.
 Note that changes to these values will trigger earth to restart BuildKit on the next run.
 
-
 #### Additional CA Certificates
 
 Additional CA certificates can be passed in to BuildKit. This also requires a corresponding change in `buildkit_additional_args`.
 
 ```yaml
 global:
-  buildkit_additional_args: ["-v", "<absolute-path-to-ca-file>:/etc/config/add.ca"]
+  buildkit_additional_args:
+    ["-v", "<absolute-path-to-ca-file>:/etc/config/add.ca"]
   buildkit_additional_config: |
     [registry."<registry-hostname>"]
       ca=["/etc/config/add.ca"]
@@ -190,29 +194,41 @@ Allows to override the image used to run internal `git` commands (e.g. during `G
 
 ### Frontend configuration
 
-This option allows you to specify what supported frontend you are using (Docker / Podman).
-By default, EarthBuild will attempt to discover the frontend in this order: Docker -> Podman -> None
+This option allows you to specify what supported container engine you are using (`docker` / `podman` / `apple-container`).
+By default, EarthBuild will attempt to automatically discover the container engine in this order: Docker -> Podman -> Apple Container -> None (Stub).
 
 For Docker:
+
 ```yaml
 global:
-  container_frontend: docker-shell
+  container_frontend: docker
 ```
 
 For Podman:
+
 ```yaml
 global:
-  container_frontend: podman-shell
+  container_frontend: podman
 ```
 
-You can use the following command to set the configuration option using the earth CLI:
+For Apple Container (macOS):
+
+```yaml
+global:
+  container_frontend: apple-container
+```
+
+You can use the following command to set the configuration option using the `earth` CLI:
 
 ```bash
 # Docker
-earth config 'global.container_frontend' 'docker-shell'
+earth config 'global.container_frontend' 'docker'
 
 # Podman
-earth config 'global.container_frontend' 'podman-shell'
+earth config 'global.container_frontend' 'podman'
+
+# Apple Container (macOS)
+earth config 'global.container_frontend' 'apple-container'
 ```
 
 ## Git configuration reference
@@ -249,13 +265,16 @@ Strict host key checking is enabled by default, setting it to `false` disables h
 This setting is only used when auth is `ssh`.
 
 {% hint style='info' %}
+
 ##### Tip
+
 Disabling strict host key checking is a bad security practice (as it makes a man-in-the-middle attack possible).
 Instead, it's recommended to record the host's ssh key to `~/.ssh/known_hosts`; this can be done by running
 
 ```bash
 ssh-keyscan <hostname> >> ~/.ssh/known_hosts
 ```
+
 {% endhint %}
 
 #### ssh_command
@@ -279,7 +298,6 @@ match `github.com/<user>/<repo>`.
 See the [Authentication guide](../guides/auth.md) for a guide on setting up authentication with self-hosted git repositories.
 
 See the [RE2 docs](https://github.com/google/re2/wiki/Syntax) for a complete definition of the supported regular expression syntax.
-
 
 #### substitute
 

@@ -9,7 +9,7 @@ ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 go:
     FROM golang:1.27.1-alpine3.24
     RUN apk add --no-cache git
-    WORKDIR /earthly
+    WORKDIR /earth
 
 node:
     FROM node:26.8.2-alpine3.24
@@ -52,7 +52,7 @@ code:
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go \
         buildkitd/with_docker_env_test.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
-    SAVE ARTIFACT /earthly
+    SAVE ARTIFACT /earth
 
 # update-buildkit updates earthbuild's buildkit dependency.
 update-buildkit:
@@ -138,14 +138,14 @@ lint:
         sh /tmp/golangci-install.sh -b $(go env GOPATH)/bin v$golangci_lint_version && \
         rm /tmp/golangci-install.sh
     COPY ./.golangci.yaml .
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
         ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
         RUN \
             --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
             --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
             --mount type=cache,target=/root/.cache/golangci_lint \
-            echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
+            echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earth/.golangci.yaml
     END
 
 fmt:
@@ -162,7 +162,7 @@ govulncheck:
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
     ENV govulncheck_version=1.8.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
         ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
         RUN \
@@ -206,7 +206,7 @@ unit-test-parser:
 # unit-test runs unit tests
 unit-test:
     FROM +go
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     COPY +unit-test-parser/testparser .
 
     ARG testname # when specified, only run specific unit-test, otherwise run all.
@@ -233,7 +233,7 @@ unit-test-scripts:
 # fuzz-test runs fuzz tests
 fuzz-test:
     FROM +go
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     RUN --push \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
@@ -243,7 +243,7 @@ fuzz-test:
 integration-test:
     FROM +go
     RUN apk add --no-cache podman fuse-overlayfs crun
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     COPY +unit-test-parser/testparser .
     COPY run-integration-tests.sh .
 

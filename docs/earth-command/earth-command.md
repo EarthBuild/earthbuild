@@ -379,8 +379,19 @@ Show full, canonical target references (includes the project part of the referen
 #### Description
 
 Prints documentation comments for documented targets in an `Earthfile` in a
-project. Documentation on a target is any comment block that ends on the line
+project, including any documented build arguments, artifacts, and images.
+
+Documentation on a target is any comment block that ends on the line
 immediately above the target definition and begins with the name of the target.
+Documentation on build arguments is supplied either inline using the
+`ARG --description="..."` flag (introduced in EarthBuild v0.8.20), or via a comment block directly above the `ARG`
+whose first word matches the argument name.
+
+#### Options
+
+##### `--long|-l`
+
+Show full details for all target inputs (arguments) and outputs (artifacts and images).
 
 #### Examples
 
@@ -398,7 +409,7 @@ deps:
 build:
     FROM +deps
     COPY . .
-    ARG output=./build/something
+    ARG --description="Output path for build artifacts" output=./build/something
     RUN go build -o /bin/something
     SAVE ARTIFACT /bin/something AS LOCAL $output
 
@@ -411,27 +422,56 @@ tidy:
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 ```
 
-##### Print the doc comments for all documented targets:
+##### Print the doc comments for all documented targets (compact view):
 
 ```
 $ earth doc
 TARGETS:
-  +build
-    build runs 'go build' and saves the artifact locally.
+  +build [--output=./build/something]
+      build runs 'go build' and saves the artifact locally.
+
   +tidy
-    tidy runs 'go mod tidy' and saves go.mod/go.sum locally.
+      tidy runs 'go mod tidy' and saves go.mod/go.sum locally.
 ```
 
 Note that, unlike `earth ls`, `earth doc` does not mention the `deps`
 target. Since it has no documentation, the `deps` target is not included in the
 output.
 
+##### Print full documentation for all targets:
+
+```
+$ earth doc --long
+TARGETS:
+  +build
+      build runs 'go build' and saves the artifact locally.
+
+    ARG       DEFAULT            DESCRIPTION
+    --output  ./build/something  Output path for build artifacts
+
+    LOCAL ARTIFACTS:
+      /bin/something → ./build/something
+
+  +tidy
+      tidy runs 'go mod tidy' and saves go.mod/go.sum locally.
+
+    LOCAL ARTIFACTS:
+      go.mod → go.mod
+      go.sum → go.sum
+```
+
 ##### Print the doc comments for a specific target:
 
 ```
 $ earth doc +build
 +build
-  build runs 'go build' and saves the artifact locally.
+    build runs 'go build' and saves the artifact locally.
+
+  ARG       DEFAULT            DESCRIPTION
+  --output  ./build/something  Output path for build artifacts
+
+  LOCAL ARTIFACTS:
+    /bin/something → ./build/something
 ```
 
 

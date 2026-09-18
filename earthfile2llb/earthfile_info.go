@@ -47,62 +47,90 @@ func GetTargetArgs(
 		return nil, fmt.Errorf("resolve build context for target %s: %w", target.String(), err)
 	}
 
-	var t *earthfile.Target
-
-	for _, tt := range bc.Earthfile.Targets {
-		if tt.Name == target.Target {
-			t = &tt
-			break
-		}
+	args, err := TargetArgs(bc.Earthfile, target.Target)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find %s: %w", target.String(), err)
 	}
 
-	if t == nil {
-		return nil, fmt.Errorf("failed to find %s", target.String())
+	return args, nil
+}
+
+// TargetArgs returns a list of build argument names defined in the recipe for targetName within ef.
+func TargetArgs(ef earthfile.Tree, targetName string) ([]string, error) {
+	recipe, isBase, found := targetRecipe(ef, targetName)
+	if !found {
+		return nil, fmt.Errorf("target %q not found", targetName)
 	}
 
 	var args []string
 
-	for _, stmt := range t.Recipe {
-		if stmt.Command != nil && stmt.Command.Name == "ARG" {
-			isBase := t.Name == earthfile.TargetBase
-			// since Arg opts are ignored (and feature flags are not available) we set explicitGlobalArgFlag as false
-			explicitGlobal := false
-
-			_, argName, _, err := flagutil.ParseArgArgs(*stmt.Command, isBase, explicitGlobal)
+	for _, stmt := range recipe {
+		if stmt.Command != nil && stmt.Command.Name == earthfile.CmdArg {
+			info, err := ParseArg(*stmt.Command, isBase, false)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse ARG arguments %v: %w", stmt.Command.Args, err)
 			}
 
-			args = append(args, argName)
+			args = append(args, info.Name)
 		}
 	}
 
 	return args, nil
 }
 
-// ArgName returns the parsed name of an ARG command, the default value (if
-// any), and the state of the --required and --global flags.
-func ArgName(
-	cmd earthfile.Command, isBase, explicitGlobal bool,
-) (_ string, _ *string, isRequired, isGlobal bool, _ error) {
-	if cmd.Name != "ARG" {
-		return "", nil, false, false, fmt.Errorf("ArgName was called with non-arg command type '%v'", cmd.Name)
+func targetRecipe(ef earthfile.Tree, name string) (earthfile.Block, bool, bool) {
+	if name == earthfile.TargetBase {
+		return ef.BaseRecipe, true, true
+	}
+
+	for _, tgt := range ef.Targets {
+		if tgt.Name == name {
+			return tgt.Recipe, false, true
+		}
+	}
+
+	return nil, false, false
+}
+
+// ArgInfo contains metadata describing an ARG command.
+type ArgInfo struct {
+	DefaultVal  *string
+	Name        string
+	Description string
+	Required    bool
+	Global      bool
+}
+
+// ParseArg returns the parsed metadata of an ARG command.
+func ParseArg(cmd earthfile.Command, isBase, explicitGlobal bool) (ArgInfo, error) {
+	if cmd.Name != earthfile.CmdArg {
+		return ArgInfo{}, fmt.Errorf("ParseArg was called with non-arg command type '%v'", cmd.Name)
 	}
 
 	opts, argName, dflt, err := flagutil.ParseArgArgs(cmd, isBase, explicitGlobal)
 	if err != nil {
-		return "", nil, false, false, fmt.Errorf("could not parse opts for ARG [%v]: %w", cmd, err)
+		return ArgInfo{}, fmt.Errorf("could not parse opts for ARG [%v]: %w", cmd, err)
 	}
 
-	return argName, dflt, opts.Required, opts.Global, nil
+	return ArgInfo{
+		DefaultVal:  dflt,
+		Name:        argName,
+		Description: opts.Description,
+		Required:    opts.Required,
+		Global:      opts.Global,
+	}, nil
 }
 
 // ArtifactName returns the parsed name of a SAVE ARTIFACT command and its local
 // name (if any).
 func ArtifactName(cmd earthfile.Command) (string, *string, error) {
+	if cmd.Name != earthfile.CmdSaveArtifact {
+		return "", nil, fmt.Errorf("ArtifactName was called with non-save-artifact command type '%v'", cmd.Name)
+	}
+
 	from, to, asLocal, ok := parseSaveArtifactArgs(cmd.Args)
 	if !ok {
-		return "", nil, fmt.Errorf("could not parse opts for SAVE TARGET [%v]", cmd)
+		return "", nil, fmt.Errorf("could not parse opts for SAVE ARTIFACT [%v]", cmd)
 	}
 
 	if to == "./" {
@@ -118,9 +146,13 @@ func ArtifactName(cmd earthfile.Command) (string, *string, error) {
 
 // ImageNames returns the parsed names of a SAVE IMAGE command.
 func ImageNames(cmd earthfile.Command) ([]string, error) {
+	if cmd.Name != earthfile.CmdSaveImage {
+		return nil, fmt.Errorf("ImageNames was called with non-save-image command type '%v'", cmd.Name)
+	}
+
 	var opts cmdopts.SaveImage
 
-	args, err := flagutil.ParseArgs("SAVE IMAGE", &opts, flagutil.GetArgsCopy(cmd))
+	args, err := flagutil.ParseArgs(string(earthfile.CmdSaveImage), &opts, flagutil.GetArgsCopy(cmd))
 	if err != nil {
 		return nil, fmt.Errorf("invalid SAVE IMAGE arguments %v: %w", cmd.Args, err)
 	}

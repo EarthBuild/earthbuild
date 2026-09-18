@@ -149,8 +149,9 @@ type Import struct {
 
 // Arg contains options for the ARG command.
 type Arg struct {
-	Required bool `description:"Require argument to be non-empty"                       long:"required"`
-	Global   bool `description:"Global argument to make available to all other targets" long:"global"`
+	Description string `description:"Description of the argument"                            long:"description"`
+	Required    bool   `description:"Require argument to be non-empty"                       long:"required"`
+	Global      bool   `description:"Global argument to make available to all other targets" long:"global"`
 }
 
 // Project contains options for the PROJECT command.

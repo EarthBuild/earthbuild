@@ -137,8 +137,6 @@ type ConvertOpt struct {
 	NoCache bool
 	// EnableInteractiveDebugger is set to true when earth is run with the --interactive cli flag
 	InteractiveDebuggerEnabled bool
-	// IsCI determines whether it is running from a CI environment.
-	IsCI bool
 	// GlobalWaitBlockFtr, when true, forces all Earthfiles to add entries into the WAIT/END block
 	// this is to facilitate de-duplicating code from builder.go
 	GlobalWaitBlockFtr bool

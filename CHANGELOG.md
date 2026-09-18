@@ -50,6 +50,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 ### Removed
 
 - `EARTHLY_IMAGE` and `EARTHLY_GIT_CONFIG`, which had no reader and no writer respectively.
+- Obsolete `EARTHLY_CI` builtin ARG and `--ci-arg` feature flag.
 
 ## v0.8.16 - 2025-07-16
 

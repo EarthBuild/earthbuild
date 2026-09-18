@@ -99,7 +99,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	app.BaseCLI.SetCfg(&cfg)
 	app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 
-	err = app.parseFrontend(ctx, needsFrontend(os.Args[1:], app.BaseCLI.App().Commands))
+	err = app.parseFrontend(ctx, needsFrontend(cmd))
 	if err != nil {
 		return ctx, err
 	}
@@ -359,17 +359,11 @@ var noFrontend = map[string]bool{
 }
 
 // needsFrontend reports whether this invocation should probe for docker or
-// podman. It reads the raw arguments because it runs before the subcommand's
-// flags are parsed, so anything it does not recognise is answered yes, as every
-// invocation was before.
-func needsFrontend(args []string, cmds []*cli.Command) bool {
-	for _, a := range args {
-		for _, c := range cmds {
-			if a == c.Name {
-				return !noFrontend[c.Name]
-			}
-		}
-	}
-
-	return true
+// podman. It asks urfave which subcommand it parsed rather than scanning
+// os.Args, because a global flag's value is a word like any other: scanned,
+// `--git-username doc build +all` names doc, and the build then runs against a
+// stub frontend.
+// Anything unrecognised is answered yes, as every invocation was before.
+func needsFrontend(cmd *cli.Command) bool {
+	return !noFrontend[cmd.Args().First()]
 }

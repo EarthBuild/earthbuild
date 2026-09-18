@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "excludes.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -18,7 +25,14 @@
             "args": [
               "/test"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 4,
+              "file": "excludes.earth",
+              "startColumn": 5,
+              "startLine": 4
+            }
           }
         },
         {
@@ -27,7 +41,14 @@
               ".",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 13,
+              "endLine": 5,
+              "file": "excludes.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -35,7 +56,14 @@
             "args": [
               "ls"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 11,
+              "endLine": 6,
+              "file": "excludes.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -45,7 +73,14 @@
               "-f",
               "do-not-exclude-me.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 7,
+              "file": "excludes.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -56,15 +91,36 @@
               "-f",
               "exclude-me.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 8,
+              "file": "excludes.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 9,
+        "file": "excludes.earth",
+        "startColumn": 1,
+        "startLine": 3
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "excludes.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

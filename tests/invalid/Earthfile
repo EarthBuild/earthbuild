@@ -9,7 +9,7 @@ test-trailing-backslash:
     DO --pass-args +RUN_EARTH_ARGS --earthfile=trailing-backslash.earth --should_fail=true --target=+base
 
 test-leading-whitespace:
-    DO --pass-args +RUN_EARTH_ARGS --earthfile=leading-whitespace.earth --should_fail=true --target=+base --output_contains="syntax error"
+    DO --pass-args +RUN_EARTH_ARGS --earthfile=leading-whitespace.earth --should_fail=true --target=+base --output_contains="unexpected token at top level"
 
 test-all:
     BUILD +test-trailing-backslash

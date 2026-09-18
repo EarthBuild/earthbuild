@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "non-transitive-args1.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -18,7 +25,14 @@
             "args": [
               "+intermediate"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 4,
+              "file": "non-transitive-args1.earth",
+              "startColumn": 5,
+              "startLine": 4
+            }
           }
         },
         {
@@ -27,10 +41,24 @@
               "+intermediate",
               "--SOMEARG=abc"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 5,
+              "file": "non-transitive-args1.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 6,
+        "file": "non-transitive-args1.earth",
+        "startColumn": 1,
+        "startLine": 3
+      }
     },
     {
       "name": "intermediate",
@@ -40,10 +68,24 @@
             "args": [
               "./subdir+arg-target"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 30,
+              "endLine": 7,
+              "file": "non-transitive-args1.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 8,
+        "file": "non-transitive-args1.earth",
+        "startColumn": 1,
+        "startLine": 6
+      }
     },
     {
       "name": "direct",
@@ -54,15 +96,36 @@
               "./subdir+arg-target",
               "--SOMEARG=direct"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 47,
+              "endLine": 9,
+              "file": "non-transitive-args1.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 10,
+        "file": "non-transitive-args1.earth",
+        "startColumn": 1,
+        "startLine": 8
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "non-transitive-args1.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

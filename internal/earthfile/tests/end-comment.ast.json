@@ -5,7 +5,14 @@
         "args": [
           "busybox:1.38.0"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 20,
+          "endLine": 2,
+          "file": "end-comment.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -19,15 +26,36 @@
               "echo",
               "'Hello, world!'"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 5,
+              "file": "end-comment.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 7,
+        "file": "end-comment.earth",
+        "startColumn": 1,
+        "startLine": 4
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "end-comment.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

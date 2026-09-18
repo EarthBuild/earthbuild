@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "transitive-args.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -18,7 +25,14 @@
             "args": [
               "+intermediate"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 4,
+              "file": "transitive-args.earth",
+              "startColumn": 5,
+              "startLine": 4
+            }
           }
         },
         {
@@ -27,10 +41,24 @@
               "+intermediate",
               "--SOMEARG=abc"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 5,
+              "file": "transitive-args.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 6,
+        "file": "transitive-args.earth",
+        "startColumn": 1,
+        "startLine": 3
+      }
     },
     {
       "name": "intermediate",
@@ -40,10 +68,24 @@
             "args": [
               "+arg-target"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 7,
+              "file": "transitive-args.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 8,
+        "file": "transitive-args.earth",
+        "startColumn": 1,
+        "startLine": 6
+      }
     },
     {
       "name": "arg-target",
@@ -55,7 +97,14 @@
               "=",
               "default"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 9,
+              "file": "transitive-args.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -65,7 +114,14 @@
               "\"$SOMEARG\"",
               ">file.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 34,
+              "endLine": 10,
+              "file": "transitive-args.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -76,15 +132,36 @@
               "LOCAL",
               "\"$SOMEARG\""
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 47,
+              "endLine": 11,
+              "file": "transitive-args.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 12,
+        "file": "transitive-args.earth",
+        "startColumn": 1,
+        "startLine": 8
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "transitive-args.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

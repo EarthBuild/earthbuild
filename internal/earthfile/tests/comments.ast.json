@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 20,
+          "endLine": 3,
+          "file": "comments.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     },
     {
@@ -13,7 +20,14 @@
         "args": [
           "/test"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 15,
+          "endLine": 4,
+          "file": "comments.earth",
+          "startColumn": 1,
+          "startLine": 4
+        }
       }
     }
   ],
@@ -27,7 +41,14 @@
               "echo",
               "hello"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 7,
+              "file": "comments.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -38,7 +59,14 @@
               ">",
               "/should-exist"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 44,
+              "endLine": 8,
+              "file": "comments.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -47,7 +75,14 @@
               "cat",
               "/should-exist"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 9,
+              "file": "comments.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -57,7 +92,14 @@
               "-f",
               "/should-exist"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 30,
+              "endLine": 10,
+              "file": "comments.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -68,7 +110,14 @@
               "-f",
               "/should-not-exist"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 11,
+              "file": "comments.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -79,7 +128,14 @@
               "=",
               "\"hello #world\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 53,
+              "endLine": 12,
+              "file": "comments.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -91,7 +147,14 @@
               "\"64a72f8aac4bbabf28c23384c15e8a78  /should-exist\""
             ],
             "docs": "this test is to prevent a bug where the parser might extract \"#world\" from all cases of the earthfile\nwhich would cause the above test command to pass since it would have been removed from both sides of the equation\n",
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 91,
+              "endLine": 16,
+              "file": "comments.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         },
         {
@@ -107,15 +170,36 @@
               "\"Done.\""
             ],
             "docs": "Test that you can write a novel\n",
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 26,
+              "file": "comments.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 27,
+        "file": "comments.earth",
+        "startColumn": 1,
+        "startLine": 6
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "comments.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

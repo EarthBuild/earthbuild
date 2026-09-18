@@ -5,7 +5,14 @@
         "args": [
           "github.com/EarthBuild/earthly-command-example:main"
         ],
-        "name": "IMPORT"
+        "name": "IMPORT",
+        "sourceLocation": {
+          "endColumn": 58,
+          "endLine": 3,
+          "file": "import.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     },
     {
@@ -15,7 +22,14 @@
           "AS",
           "command-import"
         ],
-        "name": "IMPORT"
+        "name": "IMPORT",
+        "sourceLocation": {
+          "endColumn": 78,
+          "endLine": 4,
+          "file": "import.earth",
+          "startColumn": 1,
+          "startLine": 4
+        }
       }
     },
     {
@@ -25,7 +39,14 @@
           "AS",
           "hello-dolly"
         ],
-        "name": "IMPORT"
+        "name": "IMPORT",
+        "sourceLocation": {
+          "endColumn": 61,
+          "endLine": 5,
+          "file": "import.earth",
+          "startColumn": 1,
+          "startLine": 5
+        }
       }
     }
   ],
@@ -38,7 +59,14 @@
             "args": [
               "+test-command"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 8,
+              "file": "import.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -46,7 +74,14 @@
             "args": [
               "+test-target"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 9,
+              "file": "import.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -54,10 +89,24 @@
             "args": [
               "+test-command-import"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 10,
+              "file": "import.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 12,
+        "file": "import.earth",
+        "startColumn": 1,
+        "startLine": 7
+      }
     },
     {
       "name": "test-command",
@@ -67,7 +116,14 @@
             "args": [
               "alpine:3.24.1"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 13,
+              "file": "import.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -76,7 +132,14 @@
               "earthly-command-example+TOUCH",
               "--file=foo"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 14,
+              "file": "import.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -86,10 +149,24 @@
               "-f",
               "./foo"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 15,
+              "file": "import.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 17,
+        "file": "import.earth",
+        "startColumn": 1,
+        "startLine": 12
+      }
     },
     {
       "name": "test-target",
@@ -99,10 +176,24 @@
             "args": [
               "hello-dolly+hello"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 18,
+              "file": "import.earth",
+              "startColumn": 5,
+              "startLine": 18
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 20,
+        "file": "import.earth",
+        "startColumn": 1,
+        "startLine": 17
+      }
     },
     {
       "name": "test-command-import",
@@ -112,15 +203,36 @@
             "args": [
               "command-import+FROM_HELLO_WORLD"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 39,
+              "endLine": 21,
+              "file": "import.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 22,
+        "file": "import.earth",
+        "startColumn": 1,
+        "startLine": 20
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "import.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

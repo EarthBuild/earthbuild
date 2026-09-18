@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "cache2.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -21,7 +28,14 @@
               "-f",
               "/cache-test/test.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 75,
+              "endLine": 5,
+              "file": "cache2.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -31,10 +45,24 @@
               "cat",
               "/cache-test/test.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 71,
+              "endLine": 6,
+              "file": "cache2.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 8,
+        "file": "cache2.earth",
+        "startColumn": 1,
+        "startLine": 4
+      }
     },
     {
       "name": "test-no-bust-on-change",
@@ -48,15 +76,36 @@
               "run",
               ">>/cache-test/test.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 85,
+              "endLine": 9,
+              "file": "cache2.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 10,
+        "file": "cache2.earth",
+        "startColumn": 1,
+        "startLine": 8
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "cache2.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

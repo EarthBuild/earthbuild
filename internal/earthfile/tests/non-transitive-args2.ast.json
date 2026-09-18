@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "non-transitive-args2.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -20,7 +27,14 @@
               "=",
               "default"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 4,
+              "file": "non-transitive-args2.earth",
+              "startColumn": 5,
+              "startLine": 4
+            }
           }
         },
         {
@@ -30,7 +44,14 @@
               "content",
               ">file.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 5,
+              "file": "non-transitive-args2.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -41,15 +62,36 @@
               "LOCAL",
               "\"$SOMEARG\""
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 47,
+              "endLine": 6,
+              "file": "non-transitive-args2.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 7,
+        "file": "non-transitive-args2.earth",
+        "startColumn": 1,
+        "startLine": 3
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "non-transitive-args2.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

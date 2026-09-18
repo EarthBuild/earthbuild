@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 3,
+          "file": "host.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     }
   ],
@@ -19,7 +26,14 @@
               "example.com",
               "1.2.3.4"
             ],
-            "name": "HOST"
+            "name": "HOST",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 6,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -31,10 +45,24 @@
               "grep",
               "\"1.2.3.4\\W*example.com\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 54,
+              "endLine": 7,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 9,
+        "file": "host.earth",
+        "startColumn": 1,
+        "startLine": 5
+      }
     },
     {
       "name": "add-multiple-host",
@@ -45,7 +73,14 @@
               "example.com",
               "1.2.3.4"
             ],
-            "name": "HOST"
+            "name": "HOST",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 10,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -54,7 +89,14 @@
               "taco.org",
               "5.6.7.8"
             ],
-            "name": "HOST"
+            "name": "HOST",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 11,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -66,7 +108,14 @@
               "grep",
               "\"1.2.3.4\\W*example.com\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 54,
+              "endLine": 12,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -78,10 +127,24 @@
               "grep",
               "\"5.6.7.8\\W*taco.org\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 51,
+              "endLine": 13,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 15,
+        "file": "host.earth",
+        "startColumn": 1,
+        "startLine": 9
+      }
     },
     {
       "name": "add-ipv6",
@@ -92,7 +155,14 @@
               "cool.website",
               "dead:beef::cafe"
             ],
-            "name": "HOST"
+            "name": "HOST",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 16,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         },
         {
@@ -104,10 +174,24 @@
               "grep",
               "\"dead:beef::cafe\\W*cool.website\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 63,
+              "endLine": 17,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 19,
+        "file": "host.earth",
+        "startColumn": 1,
+        "startLine": 15
+      }
     },
     {
       "name": "expand-args",
@@ -119,7 +203,14 @@
               "=",
               "example.com"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 30,
+              "endLine": 20,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 20
+            }
           }
         },
         {
@@ -129,7 +220,14 @@
               "=",
               "1.2"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 21,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         },
         {
@@ -138,7 +236,14 @@
               "$fake_host",
               "$target_ip.3.4"
             ],
-            "name": "HOST"
+            "name": "HOST",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 22,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 22
+            }
           }
         },
         {
@@ -150,10 +255,24 @@
               "grep",
               "\"1.2.3.4\\W*example.com\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 54,
+              "endLine": 23,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 23
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 25,
+        "file": "host.earth",
+        "startColumn": 1,
+        "startLine": 19
+      }
     },
     {
       "name": "invalid-ip",
@@ -164,10 +283,24 @@
               "example.com",
               "1.2.3.4.5.6.7.8.9.10"
             ],
-            "name": "HOST"
+            "name": "HOST",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 26,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 26
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 28,
+        "file": "host.earth",
+        "startColumn": 1,
+        "startLine": 25
+      }
     },
     {
       "name": "only-host",
@@ -177,10 +310,24 @@
             "args": [
               "my.website"
             ],
-            "name": "HOST"
+            "name": "HOST",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 29,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 29
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 31,
+        "file": "host.earth",
+        "startColumn": 1,
+        "startLine": 28
+      }
     },
     {
       "name": "only-ip",
@@ -190,15 +337,36 @@
             "args": [
               "42.42.42.42"
             ],
-            "name": "HOST"
+            "name": "HOST",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 32,
+              "file": "host.earth",
+              "startColumn": 5,
+              "startLine": 32
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 33,
+        "file": "host.earth",
+        "startColumn": 1,
+        "startLine": 31
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "host.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

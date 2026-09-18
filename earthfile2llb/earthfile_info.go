@@ -47,17 +47,24 @@ func GetTargetArgs(
 		return nil, fmt.Errorf("resolve build context for target %s: %w", target.String(), err)
 	}
 
+	return TargetArgs(bc.Earthfile, target.Target)
+}
+
+// TargetArgs returns the build arguments of one target of a parsed Earthfile.
+// Unlike GetTargetArgs it needs no build context, which is what makes it usable
+// where resolving one would cost more than the answer.
+func TargetArgs(ef earthfile.Tree, name string) ([]string, error) {
 	var t *earthfile.Target
 
-	for _, tt := range bc.Earthfile.Targets {
-		if tt.Name == target.Target {
+	for _, tt := range ef.Targets {
+		if tt.Name == name {
 			t = &tt
 			break
 		}
 	}
 
 	if t == nil {
-		return nil, fmt.Errorf("failed to find %s", target.String())
+		return nil, fmt.Errorf("failed to find %s", name)
 	}
 
 	var args []string

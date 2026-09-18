@@ -352,10 +352,10 @@ func defaultConfigPath(installName string) string {
 // noFrontend are the subcommands that never ask for a container: none of them
 // mentions ContainerFrontend, directly or otherwise.
 var noFrontend = map[string]struct{}{
-	"ls":     true, // reads an Earthfile
-	"doc":    true, // reads an Earthfile
-	"init":   true, // writes an Earthfile
-	"config": true, // reads and writes the config file
+	"ls":     {}, // reads an Earthfile
+	"doc":    {}, // reads an Earthfile
+	"init":   {}, // writes an Earthfile
+	"config": {}, // reads and writes the config file
 }
 
 // needsFrontend reports whether this invocation should probe for docker or
@@ -365,5 +365,7 @@ var noFrontend = map[string]struct{}{
 // stub frontend.
 // Anything unrecognised is answered yes, as every invocation was before.
 func needsFrontend(cmd *cli.Command) bool {
-	return !noFrontend[cmd.Args().First()]
+	_, skip := noFrontend[cmd.Args().First()]
+
+	return !skip
 }

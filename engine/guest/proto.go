@@ -876,6 +876,15 @@ type Response struct {
 	// degrade-and-say-so, and a build whose steps all ran without the ceiling
 	// they asked for has to learn that while it can still act on it (E123).
 	Degraded string `json:"degraded,omitempty"`
+	// OutOfMemory says the kernel killed this step for memory, from cgroup v2's
+	// own counter rather than from the exit status.
+	//
+	// **A flag rather than prose, because something has to act on it.** The
+	// note in a failing step's output has said this for a while and only a
+	// person could read it: a step killed for memory exits like any other, so a
+	// driver could not tell it from a compiler that found an error and failed
+	// the build rather than trying elsewhere.
+	OutOfMemory bool `json:"outOfMemory,omitempty"`
 	// Unmounted is why a step's filesystem was not fully built - a /sys or
 	// cgroup mount that could not be made. Separate from Degraded, which is
 	// about resource limits: a reader who sees one and acts on the other is

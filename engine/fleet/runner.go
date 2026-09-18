@@ -333,6 +333,24 @@ func operationOf(o Op) (ir.Op, error) {
 // and the driver should fail the build with its output rather than try the step
 // somewhere else (E232). Only a step that could not run at all is a refusal.
 func replyOf(res core.Result) Reply {
+	// **The one non-zero exit that is not a result.** A step the kernel killed
+	// for memory said nothing; the machine ran out of room. Sent as a refusal,
+	// which is the answer this protocol already has for "this worker could not
+	// take this step" - so the driver places it elsewhere or runs it here (I11,
+	// E235) and an OOM becomes a slower build rather than a failed one.
+	//
+	// Only where the kill is *known*, from cgroup v2's own counter. Refusing
+	// every non-zero exit would retry a compile error on every machine in the
+	// fleet and fail anyway, having spent the fleet on it.
+	if res.OutOfMemory {
+		return Reply{
+			Version: Version,
+			Refused: fmt.Sprintf(
+				"this worker ran out of memory running the step, so the kernel"+
+					" killed it%s", exitedWith(res.Exit)),
+		}
+	}
+
 	return Reply{
 		Version: Version,
 		Layer:   res.Layer, Content: res.Content,
@@ -902,4 +920,16 @@ func wrongMachine(worker ir.Platform, step string) bool {
 	}
 
 	return !worker.Matches(platformOf(step))
+}
+
+// exitedWith names the exit status a kill produced, where there is one to name.
+//
+// A reader chasing this in a worker's log has the number in front of them, and a
+// refusal that omitted it would look like a different event.
+func exitedWith(exit int) string {
+	if exit == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf(" (exit %d)", exit)
 }

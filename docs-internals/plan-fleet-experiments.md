@@ -2809,3 +2809,63 @@ were keyed on.
 
 A plain path still means the directory of the Earthfile that wrote it, which is
 the right thing for a module that is committed or built outside the build.
+
+## E-F30: an OOM kill was a build failure, and it is the one exit that is not a result
+
+§C.3 draws a sharp line: a non-zero exit is a **result** - *"the step ran and
+said no"* - and the build fails with its output rather than trying elsewhere.
+Only a step that could not run at all is a refusal. That is exactly right for a
+compiler that found an error, and exactly wrong for a step the OOM killer took:
+nothing about the step said no, the machine ran out of room.
+
+So one worker under memory pressure failed a whole build, and the step would
+have run perfectly well on the machine beside it.
+
+### The detection already existed
+
+`oomKillsIn` reads cgroup v2's `memory.events`, which the kernel writes at the
+moment of the kill, and a failing step's note has said so for a while:
+
+> *A process killed for running out of memory prints `Compiling foo` and stops.
+> Nothing in its output says the kernel killed it.*
+
+What was missing is that **only a person could read it**. The note is prose in
+the step's output; the driver saw an exit code indistinguishable from any other
+and did the one thing that cannot be recovered from.
+
+So the count becomes a flag - `Response.OutOfMemory`, beside `Degraded` and
+`Unmounted` - carried through `guest.Step` into `core.Result`, and `replyOf`
+turns it into a **refusal**. No new mechanism: a refusal is what the protocol
+already says for "this worker could not take this step", and the driver already
+places one elsewhere or runs it here (I11, E235).
+
+The other half is load-bearing and is a separate test: a rule that refused every
+non-zero exit would retry a compile error on every machine in the fleet and fail
+anyway, having spent the fleet on it.
+
+### What is not proved
+
+**The end-to-end kill was not reproduced.** `EARTH_GUEST_MEMORY_MAX=64M` with a
+step writing 512 MiB ran to completion on the Linux box, for two reasons that
+both need fixing before the experiment means anything:
+
+* the run was unprivileged, so the cgroup degraded - *"mount /sys/fs/cgroup for
+  the step: operation not permitted"* - and no limit was enforced;
+* `dd` into `/dev/shm` is page cache on a tmpfs, not the anonymous memory a
+  memory ceiling is about.
+
+Both ends are covered by tests - the detection against a real `memory.events`
+fixture, the classification against a result carrying the flag - and the three
+assignments between them are not. That is the honest state: the logic is right
+and the wire has not been watched carrying it.
+
+The experiment wants root and a step that allocates anonymous memory, something
+like `RUN python3 -c 'x = bytearray(512 << 20)'` under `sudo -E`.
+
+### What it does not do yet
+
+Retry *here*, later, under lower pressure. On a fleet the refusal is enough,
+because somewhere else is available now. On one machine a refusal has nowhere to
+go, and the scheduler has no notion of memory pressure to wait for - which is the
+next piece, and the one that wants `Result.MaxRSS` fed back the way this build
+now feeds back `Result.Duration` (E-F29).

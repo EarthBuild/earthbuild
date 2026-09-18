@@ -808,6 +808,7 @@ func (e *Executor) Run(
 		CPU:         step.CPU,
 		MaxRSS:      step.MaxRSS,
 		Duration:    ran,
+		OutOfMemory: step.OutOfMemory,
 		Observation: obs,
 		Observed:    observed,
 		Placements:  core.PlacementsOf(h),

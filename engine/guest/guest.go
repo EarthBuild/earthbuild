@@ -3081,6 +3081,11 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 			Unmounted: s.Unmounted(),
 			SharedNet: s.SharedNet(),
 			CPUNanos:  cpu.Nanoseconds(), MaxRSS: rss,
+			// **Said as a flag as well as in the note.** The note is for a
+			// person; this is for the driver, which otherwise cannot tell a
+			// step the kernel killed from a compiler that found an error - and
+			// fails the build rather than trying elsewhere.
+			OutOfMemory: oomKillsIn(cgroupPathOf(cg)) > 0,
 		}
 	}
 
@@ -3376,6 +3381,9 @@ type StepOutcome struct {
 	// the platform cannot state one honestly.
 	CPU    time.Duration
 	MaxRSS uint64
+	// OutOfMemory says the kernel killed this step for memory rather than the
+	// step deciding anything. See Response.OutOfMemory.
+	OutOfMemory bool
 }
 
 // RunStep runs a step, including anything mounted into it.
@@ -3442,6 +3450,7 @@ func (c *Client) RunStep(
 	return StepOutcome{
 		Exit: resp.Exit, Output: resp.Output,
 		CPU: time.Duration(resp.CPUNanos), MaxRSS: resp.MaxRSS,
+		OutOfMemory: resp.OutOfMemory,
 	}, nil
 }
 

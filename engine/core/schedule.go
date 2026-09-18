@@ -170,6 +170,21 @@ type Result struct {
 	// Zero where nothing measured it, which is "could not say" and never
 	// "instant" - the same reading CPU and MaxRSS get.
 	Duration time.Duration
+	// OutOfMemory says the kernel killed this step for memory rather than the
+	// step deciding anything.
+	//
+	// **The one non-zero exit that is not a result.** §C.3 draws the line: an
+	// exit code is a *result* - the step ran and said no - and the build fails
+	// with its output rather than trying elsewhere. That is right for a compiler
+	// that found an error and wrong for a step the OOM killer took, where
+	// nothing about the step said no and the machine simply ran out of room.
+	//
+	// Read from cgroup v2's `memory.events`, which the kernel writes at the
+	// moment of the kill. Nothing else records it: the process is gone, its
+	// output is whatever it had flushed, and its exit status is
+	// indistinguishable from an ordinary one - which is why this is a field and
+	// not something a reader can infer from Exit.
+	OutOfMemory bool
 	// Bytes is the output layer's size, which the cost model needs and which a
 	// scheduler that estimates only time will get wrong on a fleet.
 	Bytes int64

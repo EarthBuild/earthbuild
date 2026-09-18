@@ -82,18 +82,28 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 		targetToDisplay = "current directory"
 	}
 
-	// **Read and parsed, not resolved.** Resolving a build context shells out
-	// to git for the remote, the hash, the short hash, the branch and the tags -
-	// 183ms of this command on this repository's own Earthfile, against about a
-	// millisecond to parse the 78 KB it is listing. None of it says anything
-	// about what targets a file declares, and remote references are refused a
-	// few lines above, so the one thing a resolver is for here cannot happen.
-	tree, err := readEarthfile(targetToParse)
-	if err != nil {
-		return fmt.Errorf("unable to locate Earthfile under %s: %w", targetToDisplay, err)
+	// Parsed rather than resolved: resolving a build context runs git for the
+	// remote, hash, branch and tags, and remote references are refused above,
+	// so none of it can affect the answer.
+	dir := targetToParse
+	if dir == "" {
+		dir = "."
 	}
 
-	targets := earthfile2llb.TargetsIn(tree)
+	src, err := os.ReadFile(filepath.Join(dir, "Earthfile"))
+	if err != nil {
+		return fmt.Errorf("unable to locate Earthfile under %s", targetToDisplay)
+	}
+
+	ef, err := earthfile.Parse(filepath.Join(dir, "Earthfile"), string(src), earthfile.WithSourceMap())
+	if err != nil {
+		return err
+	}
+
+	targets := make([]string, 0, len(ef.Targets))
+	for _, t := range ef.Targets {
+		targets = append(targets, t.Name)
+	}
 
 	targets = append(targets, earthfile.TargetBase)
 	sort.Strings(targets)
@@ -101,13 +111,8 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 	for _, t := range targets {
 		var args []string
 
-		// **Only when somebody asked for them.** `GetTargetArgs` resolves the
-		// build context afresh for each target, so this ran a resolution per
-		// target and discarded the result unless `--args` was given: 86 targets
-		// in this repository's own Earthfile, 0.33s against 0.05s of process
-		// startup, for output nobody had asked to see.
 		if a.showArgs && t != earthfile.TargetBase {
-			args, err = earthfile2llb.TargetArgsIn(tree, t)
+			args, err = earthfile2llb.TargetArgs(ef, t)
 			if err != nil {
 				return err
 			}
@@ -127,29 +132,4 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	return nil
-}
-
-// readEarthfile parses the Earthfile of a directory, defaulting to this one.
-//
-// The path is in the error because "no Earthfile" is a question about *where*:
-// the answer is almost always that the directory is not the one the author
-// meant.
-func readEarthfile(dir string) (earthfile.Tree, error) {
-	if dir == "" {
-		dir = "."
-	}
-
-	path := filepath.Join(dir, "Earthfile")
-
-	src, err := os.ReadFile(path) //nolint:gosec // the directory the caller named
-	if err != nil {
-		return earthfile.Tree{}, fmt.Errorf("looked for %s", path)
-	}
-
-	tree, err := earthfile.Parse(path, string(src), earthfile.WithSourceMap())
-	if err != nil {
-		return earthfile.Tree{}, fmt.Errorf("parse %s: %w", path, err)
-	}
-
-	return tree, nil
 }

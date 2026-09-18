@@ -99,13 +99,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	app.BaseCLI.SetCfg(&cfg)
 	app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 
-	// **Skipped for a command that starts no container.** Detecting a frontend
-	// runs `docker ps` and then asks it about rootless mode, user namespaces
-	// and security options, because a buildkit container has to be launched
-	// differently depending on the answers. `ls` launches nothing, and the
-	// probe was 96ms of its 270ms.
-	err = app.parseFrontend(ctx, needsContainerFrontend(
-		os.Args[1:], commandNames(app.BaseCLI.App().Commands)))
+	err = app.parseFrontend(ctx, needsFrontend(os.Args[1:], app.BaseCLI.App().Commands))
 	if err != nil {
 		return ctx, err
 	}
@@ -145,10 +139,8 @@ func (app *EarthApp) parseFrontend(ctx context.Context, detect bool) error {
 		Log:                        log,
 	}
 
-	// **The stub, chosen rather than fallen back to.** It is already what this
-	// function settles on when no runtime can be found; a command that will
-	// never ask one for anything wants the same answer without paying to
-	// discover it.
+	// The stub is already what this settles on when no runtime is found, so a
+	// command that will never use one can have it without the probe.
 	if !detect {
 		stub, err := containerutil.NewStubFrontend(feCfg)
 		if err != nil {
@@ -157,7 +149,7 @@ func (app *EarthApp) parseFrontend(ctx context.Context, detect bool) error {
 
 		app.BaseCLI.Flags().ContainerFrontend = stub
 
-		log.VerbosePrintf("no container frontend detected: this command does not use one\n")
+		log.VerbosePrintf("this command uses no container frontend\n")
 
 		return nil
 	}
@@ -355,4 +347,25 @@ func defaultConfigPath(installName string) string {
 	}
 
 	return newConfig
+}
+
+// noFrontend are the subcommands that start no container, so probing for one
+// before them is time spent on something they never use.
+var noFrontend = map[string]bool{"ls": true}
+
+// needsFrontend reports whether this invocation should probe for docker or
+// podman. It reads the raw arguments because it runs before the subcommand's
+// flags are parsed; anything unrecognised is answered yes, as it always was.
+func needsFrontend(args []string, cmds []*cli.Command) bool {
+	for _, a := range args {
+		for _, c := range cmds {
+			for _, name := range append([]string{c.Name}, c.Aliases...) {
+				if a == name {
+					return !noFrontend[c.Name]
+				}
+			}
+		}
+	}
+
+	return true
 }

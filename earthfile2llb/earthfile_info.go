@@ -28,23 +28,12 @@ func GetTargets(
 		return nil, fmt.Errorf("resolve build context for target %s: %w", target.String(), err)
 	}
 
-	return TargetsIn(bc.Earthfile), nil
-}
-
-// TargetsIn lists the targets of an Earthfile that is already parsed.
-//
-// **Separate from GetTargets because resolving is the expensive half and
-// listing does not need it.** A build context resolution shells out to git for
-// the remote, the hash, the short hash, the branch and the tags, which is 183ms
-// of `earth ls` on this repository - and none of it says anything about what
-// targets an Earthfile declares.
-func TargetsIn(ef earthfile.Tree) []string {
-	targets := make([]string, 0, len(ef.Targets))
-	for _, target := range ef.Targets {
+	targets := make([]string, 0, len(bc.Earthfile.Targets))
+	for _, target := range bc.Earthfile.Targets {
 		targets = append(targets, target.Name)
 	}
 
-	return targets
+	return targets, nil
 }
 
 // GetTargetArgs returns a list of build arguments for a specified target.
@@ -58,17 +47,13 @@ func GetTargetArgs(
 		return nil, fmt.Errorf("resolve build context for target %s: %w", target.String(), err)
 	}
 
-	args, err := TargetArgsIn(bc.Earthfile, target.Target)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", target.String(), err)
-	}
-
-	return args, nil
+	return TargetArgs(bc.Earthfile, target.Target)
 }
 
-// TargetArgsIn lists one target's build arguments from an Earthfile that is
-// already parsed. See TargetsIn for why this exists apart from GetTargetArgs.
-func TargetArgsIn(ef earthfile.Tree, name string) ([]string, error) {
+// TargetArgs returns the build arguments of one target of a parsed Earthfile.
+// Unlike GetTargetArgs it needs no build context, which is what makes it usable
+// where resolving one would cost more than the answer.
+func TargetArgs(ef earthfile.Tree, name string) ([]string, error) {
 	var t *earthfile.Target
 
 	for _, tt := range ef.Targets {
@@ -79,7 +64,7 @@ func TargetArgsIn(ef earthfile.Tree, name string) ([]string, error) {
 	}
 
 	if t == nil {
-		return nil, fmt.Errorf("failed to find target %s", name)
+		return nil, fmt.Errorf("failed to find %s", name)
 	}
 
 	var args []string

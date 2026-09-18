@@ -7,6 +7,7 @@ import (
 	"iter"
 	"os"
 	"strings"
+	"unicode/utf8"
 )
 
 // ParseFile parses the Earthfile at the given path into an AST.
@@ -75,9 +76,29 @@ func (p *parser) peek() item {
 	return p.token[0]
 }
 
-// errorf formats an error and terminates processing.
-func (p *parser) errorf(pos pos, format string, args ...any) error {
-	return fmt.Errorf("syntax error at pos %d: %s", pos, fmt.Sprintf(format, args...))
+// tokenLocation returns the SourceLocation corresponding to a token.
+func tokenLocation(file string, tok item) SourceLocation {
+	loc := SourceLocation{
+		File:        file,
+		StartLine:   tok.Line,
+		StartColumn: tok.Col,
+		EndLine:     tok.Line,
+		EndColumn:   tok.Col,
+	}
+
+	if tok.Typ != itemError && tok.Val != "" && !strings.Contains(tok.Val, "\n") {
+		loc.EndColumn = tok.Col + utf8.RuneCountInString(tok.Val)
+	}
+
+	return loc
+}
+
+// errorf formats an Error and terminates processing.
+func (p *parser) errorf(tok item, format string, args ...any) error {
+	return &Error{
+		Location: tokenLocation(p.lex.name, tok),
+		Msg:      fmt.Sprintf(format, args...),
+	}
 }
 
 // parseEarthfile is the top-level entry point for recursive descent.
@@ -126,7 +147,7 @@ func (p *parser) parseEarthfile() (Tree, error) {
 			return ef, nil
 		case itemError:
 			p.next()
-			return ef, p.errorf(token.pos, "%s", token.Val)
+			return ef, p.errorf(token, "%s", token.Val)
 		case itemNL, itemWS, itemEOLComment:
 			tok := p.next()
 			if tok.Typ == itemNL {
@@ -146,7 +167,7 @@ func (p *parser) parseEarthfile() (Tree, error) {
 			pendingDocsTokens = nil
 
 			if token.Col > 1 {
-				return ef, p.errorf(token.pos, "VERSION command must start at the beginning of the line")
+				return ef, p.errorf(token, "VERSION command must start at the beginning of the line")
 			}
 
 			version, err := p.parseVersion()
@@ -159,7 +180,7 @@ func (p *parser) parseEarthfile() (Tree, error) {
 			sawNL = false
 
 			if token.Col > 1 {
-				return ef, p.errorf(token.pos, "target must start at the beginning of the line")
+				return ef, p.errorf(token, "target must start at the beginning of the line")
 			}
 
 			target, err := p.parseTarget()
@@ -177,7 +198,7 @@ func (p *parser) parseEarthfile() (Tree, error) {
 			sawNL = false
 
 			if token.Col > 1 {
-				return ef, p.errorf(token.pos, "function/command must start at the beginning of the line")
+				return ef, p.errorf(token, "function/command must start at the beginning of the line")
 			}
 
 			fn, err := p.parseFunction()
@@ -230,7 +251,7 @@ func (p *parser) parseEarthfile() (Tree, error) {
 		default:
 			if isCommandToken(token.Typ) {
 				if token.Col > 1 {
-					return ef, p.errorf(token.pos, "command at top level must start at the beginning of the line")
+					return ef, p.errorf(token, "command at top level must start at the beginning of the line")
 				}
 
 				cmd, err := p.parseCommand()
@@ -245,11 +266,7 @@ func (p *parser) parseEarthfile() (Tree, error) {
 
 				ef.BaseRecipe = append(ef.BaseRecipe, Statement{Command: &cmd})
 			} else {
-				return ef, p.errorf(
-					token.pos,
-					"unexpected token at top level: type %d (%s) at line %d",
-					token.Typ, token.Val, token.Line,
-				)
+				return ef, p.errorf(token, "unexpected token at top level: %s", token)
 			}
 		}
 	}
@@ -280,7 +297,7 @@ func (p *parser) parseVersion() (Version, error) {
 	var v Version
 
 	token := p.next() // consume itemVersion
-	v.SourceLocation = &SourceLocation{
+	v.SourceLocation = SourceLocation{
 		File:        p.lex.name,
 		StartLine:   token.Line,
 		StartColumn: token.Col,
@@ -311,9 +328,13 @@ func (p *parser) parseVersion() (Version, error) {
 			v.SourceLocation.EndColumn = tok.Col
 
 			return v, nil
+		case itemError:
+			p.next()
+
+			return v, p.errorf(tok, "%s", tok.Val)
 		default:
 			p.next()
-			return v, p.errorf(tok.pos, "unexpected token in VERSION command: %s", tok.Val)
+			return v, p.errorf(tok, "unexpected token in VERSION command: %s", tok)
 		}
 	}
 }
@@ -324,7 +345,7 @@ func (p *parser) parseTarget() (Target, error) {
 
 	tok := p.next() // consume itemTarget
 	target.Name = strings.TrimSuffix(tok.Val, ":")
-	target.SourceLocation = &SourceLocation{
+	target.SourceLocation = SourceLocation{
 		File:        p.lex.name,
 		StartLine:   tok.Line,
 		StartColumn: tok.Col,
@@ -349,7 +370,7 @@ func (p *parser) parseFunction() (Function, error) {
 	tok := p.next() // consume itemFunction or itemUserCommand
 	fn := Function{
 		Name: tok.Val,
-		SourceLocation: &SourceLocation{
+		SourceLocation: SourceLocation{
 			File:        p.lex.name,
 			StartLine:   tok.Line,
 			StartColumn: tok.Col,
@@ -383,7 +404,7 @@ func (p *parser) parseStmts() (Block, error) {
 		switch tok.Typ {
 		case itemError:
 			p.next()
-			return block, p.errorf(tok.pos, "%s", tok.Val)
+			return block, p.errorf(tok, "%s", tok.Val)
 		case itemDedent, itemEOF, itemEnd, itemElseIf, itemElse, itemCatch, itemFinally:
 			return block, nil
 		case itemNL, itemWS, itemEOLComment, itemIndent:
@@ -458,10 +479,8 @@ func (p *parser) parseStmts() (Block, error) {
 			}
 
 			block = append(block, Statement{Command: &cmd})
-		case itemTarget, itemUserCommand:
-			return block, p.errorf(tok.pos, "unexpected token in recipe block: type %d (%s)", tok.Typ, tok.Val)
 		default:
-			return block, p.errorf(tok.pos, "unexpected token in recipe block: type %d (%s)", tok.Typ, tok.Val)
+			return block, p.errorf(tok, "unexpected token in recipe block: %s", tok)
 		}
 	}
 }
@@ -501,7 +520,7 @@ func (p *parser) parseBlock() (Block, error) {
 			return nil, nil
 		}
 
-		return nil, p.errorf(t.pos, "expected block indentation, got %s", t.Val)
+		return nil, p.errorf(t, "expected block indentation, got %s", t)
 	}
 
 	for {
@@ -514,7 +533,7 @@ func (p *parser) parseBlock() (Block, error) {
 		case itemError:
 			p.next()
 
-			return block, p.errorf(tok.pos, "%s", tok.Val)
+			return block, p.errorf(tok, "%s", tok.Val)
 
 		case itemDedent, itemEOF:
 			if tok.Typ == itemDedent {
@@ -623,7 +642,7 @@ func (p *parser) parseBlock() (Block, error) {
 			block = append(block, Statement{Command: &cmd})
 
 		default:
-			return block, p.errorf(tok.pos, "unexpected token in recipe block: type %d (%s)", tok.Typ, tok.Val)
+			return block, p.errorf(tok, "unexpected token in recipe block: %s", tok)
 		}
 	}
 }
@@ -633,7 +652,7 @@ func (p *parser) parseCommand() (Command, error) {
 
 	tok := p.next()
 	cmd.Name = Cmd(tok.Val)
-	cmd.SourceLocation = &SourceLocation{
+	cmd.SourceLocation = SourceLocation{
 		File:        p.lex.name,
 		StartLine:   tok.Line,
 		StartColumn: tok.Col,
@@ -722,14 +741,14 @@ func (p *parser) parseArgsUntilNL() ([]string, SourceLocation, error) {
 			endLoc.EndColumn = t.Col
 
 			return args, endLoc, nil
+		case itemError:
+			p.next()
+
+			return nil, endLoc, p.errorf(t, "%s", t.Val)
 		default:
 			p.next()
 
-			if t.Typ == itemError {
-				return nil, endLoc, p.errorf(t.pos, "%s", t.Val)
-			}
-
-			return nil, endLoc, p.errorf(t.pos, "unexpected token in args: %s", t.Val)
+			return nil, endLoc, p.errorf(t, "unexpected token in args: %s", t)
 		}
 	}
 }
@@ -763,7 +782,7 @@ func (p *parser) parseKeyValueCommandArgs() ([]string, SourceLocation, error) {
 		if t.Typ == itemError {
 			p.next()
 
-			return nil, endLoc, p.errorf(t.pos, "%s", t.Val)
+			return nil, endLoc, p.errorf(t, "%s", t.Val)
 		}
 
 		p.next()
@@ -909,7 +928,7 @@ func (p *parser) parseIf() (IfStatement, error) {
 	ifStmt := IfStatement{}
 
 	t := p.next()
-	ifStmt.SourceLocation = &SourceLocation{File: p.lex.name, StartLine: t.Line, StartColumn: t.Col}
+	ifStmt.SourceLocation = SourceLocation{File: p.lex.name, StartLine: t.Line, StartColumn: t.Col}
 
 	args, _, err := p.parseArgsUntilNL()
 	if err != nil {
@@ -953,7 +972,7 @@ func (p *parser) parseIf() (IfStatement, error) {
 
 			elseIf := ElseIfStatement{
 				Expression: args,
-				SourceLocation: &SourceLocation{
+				SourceLocation: SourceLocation{
 					File:        p.lex.name,
 					StartLine:   tok.Line,
 					StartColumn: tok.Col,
@@ -1002,7 +1021,7 @@ func (p *parser) parseIf() (IfStatement, error) {
 
 			return ifStmt, nil
 		default:
-			return ifStmt, p.errorf(tok.pos, "expected END to close IF statement, got %s", tok.Val)
+			return ifStmt, p.errorf(tok, "expected END to close IF statement, got %s", tok)
 		}
 	}
 }
@@ -1011,7 +1030,7 @@ func (p *parser) parseFor() (ForStatement, error) {
 	forStmt := ForStatement{}
 
 	t := p.next()
-	forStmt.SourceLocation = &SourceLocation{File: p.lex.name, StartLine: t.Line, StartColumn: t.Col}
+	forStmt.SourceLocation = SourceLocation{File: p.lex.name, StartLine: t.Line, StartColumn: t.Col}
 
 	args, _, err := p.parseArgsUntilNL()
 	if err != nil {
@@ -1033,7 +1052,7 @@ func (p *parser) parseFor() (ForStatement, error) {
 
 	tok := p.peek()
 	if tok.Typ != itemEnd {
-		return forStmt, p.errorf(tok.pos, "expected END to close FOR statement, got %s", tok.Val)
+		return forStmt, p.errorf(tok, "expected END to close FOR statement, got %s", tok)
 	}
 
 	p.next()
@@ -1053,7 +1072,7 @@ func (p *parser) parseTry() (TryStatement, error) {
 	tryStmt := TryStatement{}
 
 	t := p.next()
-	tryStmt.SourceLocation = &SourceLocation{File: p.lex.name, StartLine: t.Line, StartColumn: t.Col}
+	tryStmt.SourceLocation = SourceLocation{File: p.lex.name, StartLine: t.Line, StartColumn: t.Col}
 
 	_, _, err := p.parseArgsUntilNL()
 	if err != nil {
@@ -1117,7 +1136,7 @@ func (p *parser) parseTry() (TryStatement, error) {
 
 			return tryStmt, nil
 		default:
-			return tryStmt, p.errorf(tok.pos, "expected END to close TRY statement, got %s", tok.Val)
+			return tryStmt, p.errorf(tok, "expected END to close TRY statement, got %s", tok)
 		}
 	}
 }
@@ -1126,7 +1145,7 @@ func (p *parser) parseWith() (WithStatement, error) {
 	withStmt := WithStatement{}
 
 	t := p.next()
-	withStmt.SourceLocation = &SourceLocation{File: p.lex.name, StartLine: t.Line, StartColumn: t.Col}
+	withStmt.SourceLocation = SourceLocation{File: p.lex.name, StartLine: t.Line, StartColumn: t.Col}
 
 	for p.peek().Typ == itemWS {
 		p.next()
@@ -1152,7 +1171,7 @@ func (p *parser) parseWith() (WithStatement, error) {
 
 	tok := p.peek()
 	if tok.Typ != itemEnd {
-		return withStmt, p.errorf(tok.pos, "expected END to close WITH statement, got %s", tok.Val)
+		return withStmt, p.errorf(tok, "expected END to close WITH statement, got %s", tok)
 	}
 
 	p.next()
@@ -1172,7 +1191,7 @@ func (p *parser) parseWait() (WaitStatement, error) {
 	waitStmt := WaitStatement{}
 
 	t := p.next()
-	waitStmt.SourceLocation = &SourceLocation{File: p.lex.name, StartLine: t.Line, StartColumn: t.Col}
+	waitStmt.SourceLocation = SourceLocation{File: p.lex.name, StartLine: t.Line, StartColumn: t.Col}
 
 	_, _, err := p.parseArgsUntilNL()
 	if err != nil {
@@ -1192,7 +1211,7 @@ func (p *parser) parseWait() (WaitStatement, error) {
 
 	tok := p.peek()
 	if tok.Typ != itemEnd {
-		return waitStmt, p.errorf(tok.pos, "expected END to close WAIT statement, got %s", tok.Val)
+		return waitStmt, p.errorf(tok, "expected END to close WAIT statement, got %s", tok)
 	}
 
 	p.next()

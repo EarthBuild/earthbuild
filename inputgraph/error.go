@@ -1,65 +1,85 @@
 package inputgraph
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
-// Error represents an auto-skip error that can include the source file name and
-// associated line number.
+// Error represents an error that occurred while loading an Earthfile target graph,
+// with an associated source location.
 type Error struct {
 	err    error
-	srcLoc *earthfile.SourceLocation
 	msg    string
+	srcLoc earthfile.SourceLocation
 }
 
-// Error implements [error] interface.
+// Error implements [error] interface, formatting the source location and message.
 func (e *Error) Error() string {
-	parts := []string{}
-	if e.msg != "" {
-		parts = append(parts, e.msg)
+	if e == nil {
+		return ""
 	}
 
-	if e.err != nil {
-		parts = append(parts, e.err.Error())
+	var text string
+	switch {
+	case e.msg != "" && e.err != nil:
+		text = e.msg + ": " + e.err.Error()
+	case e.msg != "":
+		text = e.msg
+	case e.err != nil:
+		text = e.err.Error()
 	}
 
-	return strings.Join(parts, ": ")
+	if e.srcLoc.IsZero() {
+		return text
+	}
+
+	loc := e.srcLoc.String()
+	if text == "" {
+		return loc
+	}
+
+	return loc + ": " + text
 }
 
-// FormatError looks for a wrapped instance of Error in the error list. If one
-// is found, it will prefix the error message with source file information
-// associated with the error.
-func FormatError(err error) string {
-	if e, ok := errors.AsType[*Error](err); ok {
-		return fmt.Sprintf("%s:%d:%d %s", e.srcLoc.File, e.srcLoc.StartLine, e.srcLoc.StartColumn, err)
+// Unwrap returns the underlying cause of the error.
+func (e *Error) Unwrap() error {
+	if e == nil {
+		return nil
 	}
 
-	return err.Error()
+	return e.err
 }
 
-func newError(srcLoc *earthfile.SourceLocation, format string, args ...any) error {
+func newError(srcLoc earthfile.SourceLocation, format string, args ...any) error {
+	msg := format
+	if len(args) > 0 {
+		msg = fmt.Sprintf(format, args...)
+	}
+
 	return &Error{
 		srcLoc: srcLoc,
-		msg:    fmt.Sprintf(format, args...),
+		msg:    msg,
 	}
 }
 
-func wrapError(err error, srcLoc *earthfile.SourceLocation, format string, args ...any) error {
-	e := &Error{
+func wrapError(err error, srcLoc earthfile.SourceLocation, format string, args ...any) error {
+	if err == nil {
+		return nil
+	}
+
+	msg := format
+	if len(args) > 0 {
+		msg = fmt.Sprintf(format, args...)
+	}
+
+	return &Error{
 		srcLoc: srcLoc,
 		err:    err,
+		msg:    msg,
 	}
-	if format != "" {
-		e.msg = fmt.Sprintf(format, args...)
-	}
-
-	return e
 }
 
-func addErrorSrc(err error, srcLoc *earthfile.SourceLocation) error {
+func addErrorSrc(err error, srcLoc earthfile.SourceLocation) error {
 	return wrapError(err, srcLoc, "")
 }

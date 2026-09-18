@@ -29,11 +29,14 @@ func parseVersion(text string, name string) (*Version, error) {
 		case itemEOF:
 			return nil, nil
 		case itemError:
-			return nil, fmt.Errorf("read earthfile %s: %s", name, tok.Val)
+			return nil, &Error{
+				Location: tokenLocation(name, tok),
+				Msg:      tok.Val,
+			}
 		case itemNL, itemWS, itemComment, itemEOLComment:
 			continue
 		case itemVersion:
-			version.SourceLocation = &SourceLocation{
+			version.SourceLocation = SourceLocation{
 				File:        name,
 				StartLine:   tok.Line,
 				StartColumn: tok.Col,
@@ -54,8 +57,16 @@ func parseVersion(text string, name string) (*Version, error) {
 					version.SourceLocation.EndColumn = argTok.Col
 
 					return &version, nil
+				case itemError:
+					return nil, &Error{
+						Location: tokenLocation(name, argTok),
+						Msg:      argTok.Val,
+					}
 				default:
-					return nil, fmt.Errorf("unexpected token in VERSION command: %s", argTok.Val)
+					return nil, &Error{
+						Location: tokenLocation(name, argTok),
+						Msg:      fmt.Sprintf("unexpected token in VERSION command: %s", argTok),
+					}
 				}
 			}
 		default:

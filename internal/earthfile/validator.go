@@ -25,10 +25,6 @@ var validEarthfileVersions = []string{
 	version08,
 }
 
-var errUnexpectedVersionArgs = errors.New(
-	"unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>",
-)
-
 type astValidator func(Tree) error
 
 var astValidations = []astValidator{
@@ -73,9 +69,14 @@ func validVersion(ef Tree) error {
 		return nil
 	}
 
+	loc := ef.Version.SourceLocation
+
 	// if VERSION is specified, it's invalid to have no args
 	if len(ef.Version.Args) == 0 {
-		return fmt.Errorf("%s%w", locationPrefix(ef.Version.SourceLocation), errUnexpectedVersionArgs)
+		return &Error{
+			Location: loc,
+			Msg:      "unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>",
+		}
 	}
 
 	// version is always last in VERSION command
@@ -84,29 +85,26 @@ func validVersion(ef Tree) error {
 	isVersionValid := slices.Contains(validEarthfileVersions, earthFileVersion)
 
 	if !isVersionValid {
-		return fmt.Errorf("%sinvalid VERSION in Earthfile, supported versions are %s",
-			locationPrefix(ef.Version.SourceLocation), getValidVersionsFormatted())
+		return &Error{
+			Location: loc,
+			Msg:      "invalid VERSION in Earthfile, supported versions are " + getValidVersionsFormatted(),
+		}
 	}
 
 	return nil
 }
 
-func locationPrefix(l *SourceLocation) string {
-	if s := l.String(); s != "" {
-		return s + ": "
-	}
-
-	return ""
-}
-
 func noTargetsWithSameName(ef Tree) error {
 	var err error
 
-	seenTargets := map[string]struct{}{}
+	seenTargets := make(map[string]struct{}, len(ef.Targets))
 
 	for _, t := range ef.Targets {
 		if _, seen := seenTargets[t.Name]; seen {
-			duplicateTargetErr := fmt.Errorf("%sduplicate target %q", locationPrefix(t.SourceLocation), t.Name)
+			duplicateTargetErr := &Error{
+				Location: t.SourceLocation,
+				Msg:      fmt.Sprintf("duplicate target %q", t.Name),
+			}
 			err = errors.Join(err, duplicateTargetErr)
 		}
 
@@ -121,8 +119,10 @@ func noTargetsWithKeywords(ef Tree) error {
 
 	for _, t := range ef.Targets {
 		if t.Name == TargetBase {
-			reservedTargetErr := fmt.Errorf("%sinvalid target %q: %s is a reserved target name",
-				locationPrefix(t.SourceLocation), t.Name, t.Name)
+			reservedTargetErr := &Error{
+				Location: t.SourceLocation,
+				Msg:      fmt.Sprintf("invalid target %q: %s is a reserved target name", t.Name, t.Name),
+			}
 			err = errors.Join(err, reservedTargetErr)
 		}
 	}

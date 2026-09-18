@@ -14,20 +14,20 @@ var _ error = &InterpreterError{}
 
 // note this regex should be updated in case the error format changes in Errorf.
 var regex = regexp.
-	MustCompile(`(?P<file_path>.*?):(?P<line>\d+):(?P<column>\d+) (?P<error>.+?)($|\nin\t\t(?P<stack>.+?)$)`)
+	MustCompile(`(?P<file_path>.*?):(?P<line>\d+):(?P<column>\d+):? (?P<error>.+?)($|\nin\t\t(?P<stack>.+?)$)`)
 
 // InterpreterError is an error of the interpreter, which contains optional references to the original
 // source code location.
 type InterpreterError struct {
-	SourceLocation *earthfile.SourceLocation
 	TargetID       string
-	text           string
 	cause          error
+	text           string
 	stack          string
+	SourceLocation earthfile.SourceLocation
 }
 
 // Errorf creates a new interpreter error.
-func Errorf(sl *earthfile.SourceLocation, targetID, stack string, format string, args ...any) *InterpreterError {
+func Errorf(sl earthfile.SourceLocation, targetID, stack string, format string, args ...any) *InterpreterError {
 	return &InterpreterError{
 		SourceLocation: sl,
 		TargetID:       targetID,
@@ -38,7 +38,7 @@ func Errorf(sl *earthfile.SourceLocation, targetID, stack string, format string,
 
 // WrapError wraps another error into a new interpreter error.
 func WrapError(
-	cause error, sl *earthfile.SourceLocation, targetID, stack string, format string, args ...any,
+	cause error, sl earthfile.SourceLocation, targetID, stack string, format string, args ...any,
 ) *InterpreterError {
 	return &InterpreterError{
 		cause:          cause,
@@ -51,22 +51,20 @@ func WrapError(
 
 // Error implements [error] interface.
 func (ie InterpreterError) Error() string {
-	var err error
+	errStr := ie.text
 	if ie.cause != nil {
-		err = fmt.Errorf("%s: %w", ie.text, ie.cause)
-	} else {
-		err = errors.New(ie.text)
+		errStr = ie.text + ": " + ie.cause.Error()
 	}
 
-	if ie.SourceLocation == nil {
-		return err.Error()
+	if ie.SourceLocation.IsZero() {
+		return errStr
 	}
 
-	ret := fmt.Sprintf(
-		"%s:%d:%d %s",
-		ie.SourceLocation.File, ie.SourceLocation.StartLine, ie.SourceLocation.StartColumn,
-		err.Error(),
-	)
+	loc := ie.SourceLocation.String()
+	ret := loc
+	if errStr != "" {
+		ret = loc + ": " + errStr
+	}
 	if ie.stack != "" {
 		ret = fmt.Sprintf("%s\nin\t\t%s", ret, ie.stack)
 	}
@@ -130,7 +128,7 @@ func FromError(err error) *InterpreterError {
 	}
 
 	return Errorf(
-		&earthfile.SourceLocation{
+		earthfile.SourceLocation{
 			File:        filePath,
 			StartLine:   line,
 			StartColumn: column,

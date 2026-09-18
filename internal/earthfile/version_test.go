@@ -15,7 +15,7 @@ func TestParseVersion(t *testing.T) {
 	r := require.New(t)
 	r.NoError(err)
 	r.Equal(&Version{
-		SourceLocation: &SourceLocation{
+		SourceLocation: SourceLocation{
 			File:        testEarthfile,
 			StartLine:   1,
 			StartColumn: 1,

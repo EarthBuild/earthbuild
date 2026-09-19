@@ -27,7 +27,8 @@ func TestWhatOnlyThisMachineHasOutlivesWhatTheFleetHolds(t *testing.T) {
 	usedAt(t, root, onlyHere, -72*time.Hour)
 	usedAt(t, root, onPeer, -time.Minute)
 
-	got, err := store.CollectWith(root, 4096, func(id ir.NodeID) bool { return id == onPeer })
+	got, err := store.CollectWith(root, layerBytes(t, root, onlyHere),
+		func(id ir.NodeID) bool { return id == onPeer })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func TestWithoutTheFleetItIsStillLeastRecentlyUsed(t *testing.T) {
 	usedAt(t, root, old, -72*time.Hour)
 	usedAt(t, root, recent, -time.Minute)
 
-	got, err := store.CollectWith(root, 4096, nil)
+	got, err := store.CollectWith(root, layerBytes(t, root, recent), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,6 +102,30 @@ func usedAt(t *testing.T, root string, id ir.NodeID, ago time.Duration) {
 	if err := os.Chtimes(filepath.Join(root, "index", id.String()), when, when); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// layerBytes is what one layer costs *this* filesystem, which is the only
+// budget a collection test may use.
+//
+// **Content size is not occupancy and the collector says so.** `occupies`
+// counts blocks, deliberately - "a one-byte file still takes a block, and a
+// layer store is mostly small files", and directories count too because each
+// is a block that `rm` gives back. A 4096-byte file in its own directory is
+// therefore 8192 bytes on ext4 and 4096 on APFS, where a directory occupies no
+// data blocks.
+//
+// Budgeting these tests at the content size passed on darwin and removed *both*
+// layers on linux, which read as the collector over-collecting. It was the
+// tests assuming a filesystem.
+func layerBytes(t *testing.T, root string, id ir.NodeID) uint64 {
+	t.Helper()
+
+	n := store.SizeAll(filepath.Join(root, "layers", id.String()))
+	if n == 0 {
+		t.Fatalf("layer %v occupies nothing, so a budget from it means nothing", id)
+	}
+
+	return n
 }
 
 func stillThere(root string, id ir.NodeID) bool {

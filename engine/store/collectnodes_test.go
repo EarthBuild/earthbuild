@@ -78,11 +78,12 @@ func TestCollectingRemovesUnreferencedNodes(t *testing.T) {
 		t.Fatal("the layer about to be collected had no nodes filed")
 	}
 
-	// Keep enough for the big layer and not both. Which one goes is decided
+	// Keep exactly what the big layer costs this filesystem - not a number, see
+	// layerBytes. Which one goes is decided
 	// rather than left to age: `elsewhere` names the small layer recoverable,
 	// and a recoverable layer sorts ahead of an unrecoverable one whatever its
 	// age - so the sweep is being tested, not the eviction order.
-	if _, err := store.CollectWith(root, 41*1024, func(id ir.NodeID) bool {
+	if _, err := store.CollectWith(root, layerBytes(t, root, kept), func(id ir.NodeID) bool {
 		return id == gone
 	}); err != nil {
 		t.Fatal(err)

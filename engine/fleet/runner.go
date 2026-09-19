@@ -2,6 +2,7 @@ package fleet
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -351,7 +352,7 @@ func replyOf(res core.Result) Reply {
 		}
 	}
 
-	return Reply{
+	return fit(Reply{
 		Version: Version,
 		Layer:   res.Layer, Content: res.Content,
 		// What the step said about how the steps after it should run. Dropped
@@ -366,7 +367,38 @@ func replyOf(res core.Result) Reply {
 			Listings:   res.Observation.Listings,
 			Incomplete: res.Observation.Incomplete,
 		},
+	})
+}
+
+// fit gives up a reply's observation rather than the result it describes.
+//
+// **An observation is unbounded and a control message is not.** `Reads` carries
+// one entry per path the step touched, and a Go build touches thousands: the
+// reply for one link step encoded to 1,293,465 bytes against a `maxMessage` of
+// 1,048,576. The worker could not send it, the stream died with it, and the
+// driver reported `the worker stopped answering` - a machine blamed for a
+// message this engine built.
+//
+// The step ran. Its layer, its exit status and its duration are all still true,
+// and an observation is advice that reaches Κ₂ only through the driver's own
+// rules (I5). So the advice is what is given up, and `Incomplete` says so -
+// which is the field a worker already has for knowing it missed something, and
+// the driver already refuses to derive Κ₂ from an observation wearing it.
+//
+// Encoded to be measured, because the limit is on bytes and the alternative is
+// a count standing in for a size - which is the same guess that would put a
+// short path and a long one at the same price.
+func fit(r Reply) Reply {
+	body, err := json.Marshal(r)
+	if err == nil && len(body) <= maxMessage {
+		return r
 	}
+
+	// Everything that is not the observation is digests and integers, so what
+	// remains is bounded by construction and needs no second attempt.
+	r.Observation = Observation{Incomplete: true}
+
+	return r
 }
 
 // platformName writes a platform, and writes an unknown one as nothing.

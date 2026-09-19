@@ -28,6 +28,22 @@ func derivations() []struct {
 			return core.DeriveObservedKey(n, nil, core.Observation{Reads: map[string]ir.NodeID{"/x": {1}}})
 		}},
 		{"the step class", core.StepClass},
+		// **Κₜ, and the one whose construction is not ours.** The three above
+		// are hashed by this engine over the same struct; this one is the
+		// digest of a REAPI Action, so a field reaches it only by finding a
+		// home in somebody else's message - argv and environment in the
+		// Command, the stack in input_root_digest, and everything the API has
+		// no field for folded into one platform property. A field that lands
+		// in none of those is in no key, and a step over a rebuilt base is
+		// served another step's result.
+		//
+		// Derivable by construction here: the store answers for any stack, so
+		// what this measures is the operation and not the store's willingness.
+		{"the content key", func(n *ir.Node) core.Key {
+			k, _ := core.DeriveContentKey(n, nil, nil, oneTree{})
+
+			return k
+		}},
 	}
 }
 

@@ -1596,6 +1596,7 @@ is: a second implementation has to know what it may act on.
 | ----------------------------- | --------------------------------------------------------------------------------- |
 | `version`                     | which version of this protocol the worker speaks                                  |
 | `layer`, `content`, `bytes`   | what the step produced (§3.3)                                                     |
+| `declares`                    | the declaration the result carries (§3.2a), or zero where it carries none         |
 | `exit`                        | the step's own exit status, which is a **result** and not a failure of the worker |
 | `observation`                 | ω as the worker saw it (§3.4), from which Κ₂ is derived                           |
 | `refused`                     | the worker declined, and why (I10, I11)                                           |
@@ -1606,6 +1607,13 @@ is: a second implementation has to know what it may act on.
 | `durationMillis`              | how long the step itself took                                                     |
 | `queueMillis`                 | how long the step waited for a slot on this worker                                |
 | `fetchedBytes`, `fetchMillis` | what the worker had to move to be able to run it                                  |
+
+A stack element need not be a layer, so a reply that names only one is incomplete: an image
+contributing configuration alone is held as a declaration, and a result carrying one is the *only*
+place the steps above it learn the environment they run in. A reply omitting it yields a stack with
+no declaration, and the step above runs without what its image sets - the failure §3.2a names,
+reached over the wire rather than through the cache. The declaration is fetched by this identity
+like any other object and verified against it (I2).
 
 `emulates` and `translates` are a fallback and a preference, and the difference is the cost of the
 mechanism rather than a matter of taste. An interpreter walks instructions and runs on the order of a

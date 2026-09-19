@@ -397,8 +397,12 @@ func resultOf(r Reply) core.Result {
 	return core.Result{
 		Layer:   r.Layer,
 		Content: r.Content,
-		Exit:    r.Exit,
-		Bytes:   r.Bytes,
+		// A claim like the rest, and one the driver verifies the same way: it
+		// fetches the declaration by this identity and the bytes either hash
+		// to it or they do not (I2).
+		Declares: r.Declares,
+		Exit:     r.Exit,
+		Bytes:    r.Bytes,
 		// What the *step* took, as the worker measured it - not the round trip.
 		// A delegated step waits for a slot and for its base, and neither says
 		// anything about what the step costs to run: a cost that priced them in

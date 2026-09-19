@@ -30,6 +30,22 @@ type Reply struct {
 	// Content is the same result with timestamps excluded, so determinism
 	// screening can judge a step on what it produced rather than when it ran.
 	Content ir.NodeID `json:"content,omitzero"`
+	// Declares is the declaration this step's result carries - what the steps
+	// after it should run with: environment, working directory, user,
+	// entrypoint (§3.2a).
+	//
+	// **A stack element need not be a layer**, and this is the one that is not.
+	// Carried as a digest like everything else here: the driver fetches the
+	// declaration itself on `earth/blob/1`, where `Layers.Get` already serves
+	// one and `putDeclaration` already files it. Nothing new moves; the wire
+	// simply had no way to say which identity to ask for.
+	//
+	// Zero means the step declares nothing, which is an ordinary answer for
+	// every step that is not a FROM. Omitted by a worker built before this
+	// field, whose silence reads the same - the cost of which is the
+	// environment being lost rather than wrong, and a build that says so at
+	// the first command that needed it.
+	Declares ir.NodeID `json:"declares,omitzero"`
 	// Exit is the step's exit code. A non-zero one is a **result**, not a
 	// transport failure: the step ran and said no.
 	Exit int `json:"exit,omitempty"`

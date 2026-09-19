@@ -354,7 +354,12 @@ func replyOf(res core.Result) Reply {
 	return Reply{
 		Version: Version,
 		Layer:   res.Layer, Content: res.Content,
-		Exit: res.Exit, Bytes: res.Bytes,
+		// What the step said about how the steps after it should run. Dropped
+		// here, a delegated FROM returned its layers and not its environment,
+		// and the first command reachable only through the image's own PATH
+		// failed with "not found in the image".
+		Declares: res.Declares,
+		Exit:     res.Exit, Bytes: res.Bytes,
 		Observation: Observation{
 			Reads:      res.Observation.Reads,
 			Negative:   res.Observation.Negative,

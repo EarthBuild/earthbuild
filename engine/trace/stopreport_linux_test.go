@@ -26,7 +26,22 @@ func TestStoppedIsReportedWhenItHappens(t *testing.T) {
 
 	defer func() { _ = r.Close(); _ = w.Close() }()
 
-	tr := NewTracer(int(r.Fd()))
+	// **One descriptor, one owner.** `NewTracer` takes a number, so this held
+	// the pipe twice: `tr.Close()` raw-closed it and the deferred `r.Close()`
+	// closed it again. Between the two, any parallel test in this package could
+	// be handed that number - and `Tracer.Close` says what happens then in its
+	// own words: "closing it twice can take away somebody else's file".
+	//
+	// Seen as an unrelated test failing in its cleanup, which is what a stolen
+	// descriptor looks like from the far end:
+	//
+	//	TestAStaleMemoryFileIsReopenedRatherThanBelieved
+	//	  TempDir RemoveAll cleanup: readdirent 001: bad file descriptor
+	//
+	// `fromFile` hands the file over instead, and the tracer then closes
+	// through it - so the second close is the no-op `*os.File` guarantees
+	// rather than a raw close of a number somebody else now holds.
+	tr := fromFile(r)
 	defer func() { _ = tr.Close() }()
 
 	var out strings.Builder

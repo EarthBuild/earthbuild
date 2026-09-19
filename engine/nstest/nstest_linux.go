@@ -84,9 +84,9 @@ func In(t *testing.T) bool {
 		// failed. Both arrive here as a non-zero exit, and telling them apart
 		// is the difference between "this container has no user namespaces" and
 		// twelve failing tests in engine/guest, none of which ran (E158).
-		if unstartable(out) {
+		if Unstartable(out) {
 			t.Skipf("this machine will not make a user namespace, so nothing ran: %s",
-				whyUnstartable(err))
+				WhyUnstartable(err))
 		}
 
 		if strings.Contains(string(out), "SKIP") {
@@ -117,7 +117,13 @@ func trimOutput(b []byte) string {
 	return s
 }
 
-// unstartable reports whether the child never got as far as running a test.
+// Unstartable reports whether the child never got as far as running a test.
+//
+// Exported because this decision must have one definition. A second copy is how
+// E158 came back: `engine/guest` grew its own re-exec helper for a *network*
+// namespace, which this one does not make, and that copy called any failure a
+// test failure - so a container without user namespaces reported failing tests
+// rather than an absent capability.
 //
 // `go test` announces itself: a binary that ran says `=== RUN`, `--- FAIL`,
 // `PASS` or `FAIL`. None of that means nothing executed, so the exit status is
@@ -128,7 +134,7 @@ func trimOutput(b []byte) string {
 // a different kernel, a seccomp filter or a sandbox will phrase its refusal
 // differently, and a test harness that recognises one wording turns every other
 // into a false failure.
-func unstartable(out []byte) bool {
+func Unstartable(out []byte) bool {
 	for _, sign := range []string{"=== RUN", "--- FAIL", "--- PASS", "--- SKIP", "\nPASS", "\nFAIL"} {
 		if strings.Contains(string(out), sign) {
 			return false
@@ -138,8 +144,8 @@ func unstartable(out []byte) bool {
 	return true
 }
 
-// whyUnstartable is the refusal, for a skip message that names its cause.
-func whyUnstartable(err error) string {
+// WhyUnstartable is the refusal, for a skip message that names its cause.
+func WhyUnstartable(err error) string {
 	if err == nil {
 		return "no reason given"
 	}

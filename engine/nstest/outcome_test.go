@@ -48,15 +48,15 @@ func TestAnUnstartableChildIsNotAFailingTest(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := unstartable([]byte(tc.out)); got != tc.unstarted {
-				t.Errorf("unstartable(%q) = %v, want %v", tc.out, got, tc.unstarted)
+			if got := Unstartable([]byte(tc.out)); got != tc.unstarted {
+				t.Errorf("Unstartable(%q) = %v, want %v", tc.out, got, tc.unstarted)
 			}
 		})
 	}
 
 	// And the error is carried through, because "this machine cannot" is only
 	// useful with the reason attached.
-	if reason := whyUnstartable(errors.New("operation not permitted")); reason == "" {
+	if reason := WhyUnstartable(errors.New("operation not permitted")); reason == "" {
 		t.Error("the refusal is reported without saying what refused")
 	}
 }

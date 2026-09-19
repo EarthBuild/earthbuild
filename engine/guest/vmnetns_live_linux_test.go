@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/EarthBuild/earthbuild/engine/nstest"
 )
 
 // A namespace made without `ip` outlives the call and can be entered again.
@@ -120,6 +122,18 @@ func reexecInUserns(t *testing.T) {
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		// **A child that never started is a machine that cannot, not a test
+		// that failed.** Both arrive as a non-zero exit, and this helper called
+		// them both failures - so the repository's own `+unit-test` target,
+		// which runs `go test` in a container without privilege, reported these
+		// as broken rather than as unavailable. That is E158 exactly, which
+		// `nstest` was written to end; this file has its own re-exec because it
+		// needs a *network* namespace, and inherited the bug along with it.
+		if nstest.Unstartable(out) {
+			t.Skipf("this machine will not make a user namespace, so nothing ran: %s",
+				nstest.WhyUnstartable(err))
+		}
+
 		t.Fatalf("in a user namespace: %v\n%s", err, out)
 	}
 }

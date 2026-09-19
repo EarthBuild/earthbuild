@@ -1295,3 +1295,100 @@ every layer back.
 
 Set it to `0` to fetch digests instead. Do that if a build loses cache hits it used to have, or if
 the two views disagree about a path on a store known to be intact.
+
+## `EARTH_TRUST_DOMAIN`
+
+The set of writers this build's cache entries belong to. Unset by default, which is the single
+implicit domain every build has always shared.
+
+**The engine cannot work this out and must not guess.** Whether a build is trusted is a fact about
+a repository's policy - who may open a pull request, which branches are protected - and it lives in
+the CI configuration, not in anything an Earthfile or a sandbox can see. So it is told, and an
+untold domain is not approximated (I10).
+
+A domain scopes cache mounts as well as entries: an untrusted build reads the shared cache and
+writes only into its own namespace. Write-scoping is what carries the weight here, because signing
+does not help when the attacker is a legitimate writer.
+
+```sh
+# in a workflow, keyed on what the trust level actually is
+export EARTH_TRUST_DOMAIN="${{ github.event_name == 'pull_request' && 'fork' || 'main' }}"
+```
+
+Set it to something stable per trust level and **not** per run. A value that changed every build
+would isolate every build from every other, which is a cache nobody ever hits rather than a
+security property.
+
+## `EARTH_DIGEST`
+
+Which function ℋ is for this store. Default: BLAKE3-256.
+
+The green paper fixes ℋ and says it is not configurable; this is the one exception, and it is for
+remote execution. Buck2 sends SHA-256 to a remote execution service and declines to make that
+configurable, so a store to be read by one has to be built in SHA-256. Bazel accepts BLAKE3
+(`DigestFunction` 9) and needs nothing here.
+
+```sh
+export EARTH_DIGEST=sha256
+```
+
+Safe to change because the two never meet: a key derived under one function is not a key under the
+other, so a store holding both generations yields a miss rather than a wrong answer. There is
+nothing to stamp and nothing to migrate, and collection removes whichever stops being used.
+
+## `EARTH_LAYER_COMPRESSION`
+
+What an image's layers are compressed with: `gzip`, `zstd` or `none`. Default: `gzip`.
+
+**`gzip`, because everything reads it.** Measured on the base layer of a `rust:slim-bookworm`
+image: 898 MB packed, 305 MB gzipped, 286 MB under zstd - and zstd took 0.94s for the whole 898 MB,
+so speed is not the consideration either way. What decides it is that a gzipped layer is readable
+by every registry, runtime and `docker load` in existence.
+
+**`zstd`** is worth asking for where both ends are yours: another 7% off, and several times faster
+to decompress on every pull that follows.
+
+**`none`** writes the tar as it lies, and moves three times the bytes.
+
+## `EARTH_STEP_OUTPUT`
+
+Keeps what a step printed on its result, so a cache hit can reproduce it. Default: on.
+
+Off is for a caller who would rather a build log showed only what this run did. Leave it on where
+anything reads a step's output: a `LET v=$(cmd)` served from a cache that did not keep the output
+gives nothing, which is how that construct came to produce three files cold and none ever after.
+
+## Fleet timings
+
+Three bounds on how a worker and a driver move blobs between them. All three have defaults that
+suit an ordinary network, and none needs setting for a fleet that works.
+
+### `EARTH_FLEET_DIRECT_WAIT`
+
+How long a blob connection waits for a hole-punched path before transferring over a relay.
+
+**A relay is a detour and the transfer does not have to take it.** Two runners in the same
+datacentre fetched through a relay in another region and moved 7.9 MiB at about 1.2 MiB/s: the
+relayed connection was up in milliseconds, the direct path arrived shortly after, and the fetch had
+already started on whichever was validated first.
+
+Short, because where hole punching cannot land - which is the case relays exist for - this is pure
+delay, once per peer. Set it to `0` to transfer on whatever is available.
+
+### `EARTH_FLEET_UPGRADE_WAIT`
+
+How long the *background* dial waits for hole punching. Nothing is waiting on it - the fetch that
+triggered it has already finished - so this is patience rather than latency, and it can be
+generous where `EARTH_FLEET_DIRECT_WAIT` cannot.
+
+### `EARTH_FLEET_SERVE_WAIT`
+
+How long one blob may take to write to a peer.
+
+**Not taken from the context, because the driver has no deadline to give.** It serves under a
+cancel-only context, so a bound read from there sets nothing - and a write to a peer that stopped
+reading blocked for ever: three goroutines each stuck on a 40 MB layer, and a build that made no
+progress for six minutes.
+
+Per blob rather than per request, so several large layers do not share one clock, and generous
+rather than tight: this is the bound on a peer that has *gone*, not a budget for a slow one.

@@ -31,6 +31,7 @@ const (
 var internalSettings = map[string]string{
 	"EARTH_CORPUS_DIR":          "the corpus test's tree",
 	"EARTH_EXPORT_DIR":          hostToGuest,
+	"EARTH_GUEST_CACHE_ADDR":    hostToGuest,
 	"EARTH_FLEET_ATTEMPT":       setByDriver,
 	"EARTH_FLEET_CAPACITY":      setByDriver,
 	"EARTH_FLEET_DRIVER":        setByDriver,

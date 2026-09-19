@@ -168,7 +168,22 @@ func TestTheFilterSurvivesExecAndTracesTheStep(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tr := trace.NewTracer(int(listener.Fd()))
+	// **The listener has to be owned, not borrowed** - which is what
+	// `FromListener` is for, and E215 is the case it was written for: an
+	// `*os.File` dropped after `NewTracer(int(f.Fd()))` closes the descriptor
+	// from a finaliser, and the kernel then has no supervisor for the filter.
+	// Every trapped syscall in the step returns ENOSYS from that moment.
+	//
+	// Which is what this test was doing, and it failed four runs in five:
+	//
+	//	cat: error while loading shared libraries: libgmp.so.10: Error 38
+	//	the exec'd step failed: exit status 127
+	//
+	// Error 38 is ENOSYS - the loader's own `openat` answered by nobody. The
+	// arrangement here is exactly the one `FromListener` documents: a shim
+	// installed the filter and sent the listener back, so the step is the sole
+	// carrier and its hang-up is the step exiting rather than a fault.
+	tr := trace.FromListener(listener)
 
 	done := make(chan struct{})
 

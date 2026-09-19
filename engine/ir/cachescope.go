@@ -48,7 +48,7 @@ const scopeTag = "cache-scope/1"
 //
 // Hex, because the id beside it is already used raw and unescaped, and one
 // unescaped component per path is enough.
-func (m Mount) Scope(domain string) string {
+func (m Mount) Scope(domain string, p Platform) string {
 	if !m.Portable && domain == "" {
 		return ""
 	}
@@ -56,6 +56,23 @@ func (m Mount) Scope(domain string) string {
 	h := NewHasher()
 	h.Str(scopeTag)
 	h.Str(domain)
+	// **π, because this scope is also the key a map is exchanged under.**
+	// `cachemaps/<id>/<scope>` is what a worker files its map as and what a
+	// driver looks one up by, so two machines agreeing on a scope agree to
+	// exchange units. Without this an amd64 worker and an arm64 driver agreed,
+	// and the driver imported a cache another architecture filled.
+	//
+	// Whether the units then collide is the *tool's* business - Go keys its
+	// objects by GOARCH and would miss them harmlessly - and that is exactly
+	// the reasoning this must not rest on. `--portable` is an author saying
+	// these bytes are stable across machines; it is not an author saying they
+	// are stable across instruction sets, and nothing asks which they meant.
+	//
+	// Whole, not only the architecture: a linux cache is not a darwin one, and
+	// armv6 is not armv7 - which §4.7.1 already treats as different machines.
+	h.Str(p.OS)
+	h.Str(p.Arch)
+	h.Str(p.Variant)
 	h.Bool(m.Portable)
 	h.Str(canonicalPatterns(m.PortableExcept))
 	// Not because the two can be written together - they refuse each other on

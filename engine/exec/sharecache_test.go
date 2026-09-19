@@ -34,7 +34,7 @@ func TestOnlyAnOfferedAndReadableCacheIsShared(t *testing.T) {
 		// the result and travel as one.
 		{"persisted", ir.Mount{ID: "k", Target: "/c", Persist: true, Helper: "./h.wasm"}, false},
 	} {
-		got := shareable([]ir.Mount{c.mount}, "/s/mounts", "")
+		got := shareable([]ir.Mount{c.mount}, "/s/mounts", "", ir.Platform{OS: "linux", Arch: "amd64"})
 
 		if (len(got) == 1) != c.want {
 			t.Errorf("%s: shared=%v, want %v", c.name, len(got) == 1, c.want)
@@ -54,12 +54,12 @@ func TestASharedCacheIsFoundWhereTheGuestPutIt(t *testing.T) {
 
 	m := ir.Mount{ID: "go-mod", Target: "/c", Portable: true, Helper: "./h.wasm"}
 
-	got := shareable([]ir.Mount{m}, "/s/mounts", "")
+	got := shareable([]ir.Mount{m}, "/s/mounts", "", ir.Platform{OS: "linux", Arch: "amd64"})
 	if len(got) != 1 {
 		t.Fatalf("a portable cache with a helper was not shared")
 	}
 
-	if want := filepath.Join("/s/mounts", "go-mod", m.Scope("")); got[0].dir != want {
+	if want := filepath.Join("/s/mounts", "go-mod", m.Scope("", ir.Platform{OS: "linux", Arch: "amd64"})); got[0].dir != want {
 		t.Errorf("looked in %q, want %q", got[0].dir, want)
 	}
 }
@@ -73,8 +73,8 @@ func TestTheDomainReachesTheLookup(t *testing.T) {
 
 	m := ir.Mount{ID: "k", Target: "/c", Portable: true, Helper: "./h.wasm"}
 
-	plain := shareable([]ir.Mount{m}, "/s/mounts", "")
-	fork := shareable([]ir.Mount{m}, "/s/mounts", "fork")
+	plain := shareable([]ir.Mount{m}, "/s/mounts", "", ir.Platform{OS: "linux", Arch: "amd64"})
+	fork := shareable([]ir.Mount{m}, "/s/mounts", "fork", ir.Platform{OS: "linux", Arch: "amd64"})
 
 	if len(plain) != 1 || len(fork) != 1 {
 		t.Fatal("a portable cache was not shared")
@@ -90,7 +90,7 @@ func TestTheDomainReachesTheLookup(t *testing.T) {
 func TestNothingToShareIsNothing(t *testing.T) {
 	t.Parallel()
 
-	if got := shareable(nil, "/s/mounts", ""); len(got) != 0 {
+	if got := shareable(nil, "/s/mounts", "", ir.Platform{OS: "linux", Arch: "amd64"}); len(got) != 0 {
 		t.Errorf("a step with no mounts offered %d caches", len(got))
 	}
 }

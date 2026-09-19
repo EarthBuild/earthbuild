@@ -16,7 +16,7 @@ func TestAnUnclaimedCacheHasNoScope(t *testing.T) {
 		{Target: "/c", ID: "k", Exclusive: true},
 		{Target: "/c", ID: "k", Persist: true},
 	} {
-		if got := m.Scope(""); got != "" {
+		if got := m.Scope("", Platform{OS: "linux", Arch: "amd64"}); got != "" {
 			t.Errorf("a cache making no claim is scoped to %q, which moves every"+
 				" existing cache directory for nothing", got)
 		}
@@ -40,7 +40,7 @@ func TestAClaimedCacheIsNeverInAnUnclaimedDirectory(t *testing.T) {
 	plain := Mount{Target: "/c", ID: "k"}
 	claimed := Mount{Target: "/c", ID: "k", Portable: true}
 
-	if plain.Scope("") == claimed.Scope("") {
+	if plain.Scope("", Platform{OS: "linux", Arch: "amd64"}) == claimed.Scope("", Platform{OS: "linux", Arch: "amd64"}) {
 		t.Error("a cache claimed portable shares a directory with one making no" +
 			" claim, so a fetch fills a cache whose author never offered it")
 	}
@@ -57,7 +57,7 @@ func TestDifferentExclusionsAreDifferentDirectories(t *testing.T) {
 	one := Mount{Target: "/c", ID: "k", Portable: true, PortableExcept: "tmp/**"}
 	two := Mount{Target: "/c", ID: "k", Portable: true, PortableExcept: "lock"}
 
-	if one.Scope("") == two.Scope("") {
+	if one.Scope("", Platform{OS: "linux", Arch: "amd64"}) == two.Scope("", Platform{OS: "linux", Arch: "amd64"}) {
 		t.Error("two different exclusion lists share a directory, so one" +
 			" machine serves paths another never promised were stable")
 	}
@@ -74,10 +74,10 @@ func TestDifferentExclusionsAreDifferentDirectories(t *testing.T) {
 func TestOneListSpelledFourWaysIsOneDirectory(t *testing.T) {
 	t.Parallel()
 
-	want := Mount{Target: "/c", ID: "k", Portable: true, PortableExcept: "a,b"}.Scope("")
+	want := Mount{Target: "/c", ID: "k", Portable: true, PortableExcept: "a,b"}.Scope("", Platform{OS: "linux", Arch: "amd64"})
 
 	for _, spelling := range []string{"b,a", " a , b ", "a,,b", ",a,b,"} {
-		got := Mount{Target: "/c", ID: "k", Portable: true, PortableExcept: spelling}.Scope("")
+		got := Mount{Target: "/c", ID: "k", Portable: true, PortableExcept: spelling}.Scope("", Platform{OS: "linux", Arch: "amd64"})
 		if got != want {
 			t.Errorf("%q scopes to %s, want %s\n  two spellings of one matcher"+
 				" halve the cache and buy nothing", spelling, got, want)
@@ -98,7 +98,7 @@ func TestAPersistedCacheIsNotAPortableOne(t *testing.T) {
 	portable := Mount{Target: "/c", ID: "k", Portable: true}
 	persisted := Mount{Target: "/c", ID: "k", Persist: true}
 
-	if portable.Scope("") == persisted.Scope("") {
+	if portable.Scope("", Platform{OS: "linux", Arch: "amd64"}) == persisted.Scope("", Platform{OS: "linux", Arch: "amd64"}) {
 		t.Error("a persisted cache shares a directory with a portable one, so" +
 			" another machine's bytes are published in an image")
 	}
@@ -112,7 +112,7 @@ func TestAPersistedCacheIsNotAPortableOne(t *testing.T) {
 func TestAScopeIsASafePathComponent(t *testing.T) {
 	t.Parallel()
 
-	got := Mount{Target: "/c", ID: "k", Portable: true, PortableExcept: "../../etc,a/b"}.Scope("")
+	got := Mount{Target: "/c", ID: "k", Portable: true, PortableExcept: "../../etc,a/b"}.Scope("", Platform{OS: "linux", Arch: "amd64"})
 
 	if got == "" {
 		t.Fatal("a claimed cache has no scope")
@@ -142,11 +142,11 @@ func TestATrustDomainScopesEveryCache(t *testing.T) {
 
 	plain := Mount{Target: "/c", ID: "k"}
 
-	if plain.Scope("") != "" {
+	if plain.Scope("", Platform{OS: "linux", Arch: "amd64"}) != "" {
 		t.Fatal("the no-domain case has stopped being free")
 	}
 
-	if plain.Scope("fork-pr-412") == "" {
+	if plain.Scope("fork-pr-412", Platform{OS: "linux", Arch: "amd64"}) == "" {
 		t.Error("a cache in an untrusted domain is unscoped, so a fork's build" +
 			" writes into the namespace every other build reads")
 	}
@@ -161,7 +161,7 @@ func TestTwoDomainsNeverShareADirectory(t *testing.T) {
 		{Target: "/c", ID: "k", Portable: true},
 		{Target: "/c", ID: "k", Portable: true, PortableExcept: "tmp/**"},
 	} {
-		if m.Scope("trusted") == m.Scope("fork-pr-412") {
+		if m.Scope("trusted", Platform{OS: "linux", Arch: "amd64"}) == m.Scope("fork-pr-412", Platform{OS: "linux", Arch: "amd64"}) {
 			t.Errorf("%+v shares a directory across trust domains, so a fork's"+
 				" entry is installed wherever the trusted build reads", m)
 		}
@@ -188,7 +188,7 @@ func TestTheDomainAndTheClaimAreIndependent(t *testing.T) {
 		{"trusted, unclaimed", "main", Mount{ID: "k"}},
 		{"trusted, claimed", "main", Mount{ID: "k", Portable: true}},
 	} {
-		got := c.m.Scope(c.domain)
+		got := c.m.Scope(c.domain, Platform{OS: "linux", Arch: "amd64"})
 		if was, clash := seen[got]; clash {
 			t.Errorf("%q and %q resolve to one directory", c.name, was)
 		}

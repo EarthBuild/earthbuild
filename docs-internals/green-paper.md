@@ -518,12 +518,18 @@ the engine names its bytes with ℋ and files them in 𝔅; and the **map** is t
 itself a blob. Neither end learns the other's naming, which is what keeps a tool's hash function
 out of this document.
 
-The directory a mount resolves to is keyed by ξ and by the machine's **trust domain** (§5.3),
-through Ξ:
+The directory a mount resolves to is keyed by ξ, by the machine's **trust domain** (§5.3) and by
+π, through Ξ:
 
 ```text
-(3.14)   Ξ(m) ≡ ℋ(portable ‖ claim ‖ persist ‖ domain)
+(3.14)   Ξ(m) ≡ ℋ(portable ‖ claim ‖ persist ‖ domain ‖ 𝒮(π))
 ```
+
+π is in Ξ because Ξ is also the key a cache map is exchanged under: two machines computing one Ξ
+agree to exchange units, so an unscoped Ξ has a worker of one architecture answering a driver of
+another. Whether the units then collide is the tool's business and not something this engine may
+rest on - `portable` is an author asserting that bytes are stable across machines, which is not an
+assertion that they are stable across instruction sets.
 
 so a cache making no claim in no domain has an empty Ξ and no existing directory moves. Two machines
 whose domains differ compute different scopes and share nothing, without either of them comparing

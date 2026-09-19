@@ -36,7 +36,7 @@ type shared struct {
 // said from this side of the boundary - the scope included, because an unclaimed
 // cache has none and a claimed one does, and a reader using the wrong rule finds
 // an empty directory and reports an empty cache.
-func shareable(mounts []ir.Mount, root, domain string) []shared {
+func shareable(mounts []ir.Mount, root, domain string, p ir.Platform) []shared {
 	var out []shared
 
 	for _, m := range mounts {
@@ -44,7 +44,7 @@ func shareable(mounts []ir.Mount, root, domain string) []shared {
 			continue
 		}
 
-		out = append(out, shared{mount: m, dir: filepath.Join(root, m.ID, m.Scope(domain))})
+		out = append(out, shared{mount: m, dir: filepath.Join(root, m.ID, m.Scope(domain, p))})
 	}
 
 	return out
@@ -76,7 +76,7 @@ func (e *Executor) shareCaches(ctx context.Context, n *ir.Node) {
 	// exactly like a cache that is empty.
 	withheld := heldBack(n.Op)
 
-	for _, s := range shareable(n.Op.Mounts, e.Mounts, trustDomain()) {
+	for _, s := range shareable(n.Op.Mounts, e.Mounts, trustDomain(), n.Platform) {
 		_ = e.Share(ctx, s.mount, s.dir, withheld)
 	}
 }
@@ -131,7 +131,7 @@ func (e *Executor) stockCaches(ctx context.Context, n *ir.Node) {
 		return
 	}
 
-	for _, s := range shareable(n.Op.Mounts, e.Mounts, trustDomain()) {
+	for _, s := range shareable(n.Op.Mounts, e.Mounts, trustDomain(), n.Platform) {
 		_ = e.Stock(ctx, s.mount, s.dir)
 	}
 }

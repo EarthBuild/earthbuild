@@ -231,6 +231,12 @@ func TestEachSyscallsPathArgumentIsTheOneRecovered(t *testing.T) {
 		{unix.SYS_LGETXATTR, target, func() {
 			_, _ = unix.Lgetxattr(target, "user.nothing", nil)
 		}},
+		{unix.SYS_LISTXATTR, target, func() {
+			_, _ = unix.Listxattr(target, nil)
+		}},
+		{unix.SYS_LLISTXATTR, target, func() {
+			_, _ = unix.Llistxattr(target, nil)
+		}},
 		{unix.SYS_STATFS, target, func() {
 			var buf unix.Statfs_t
 

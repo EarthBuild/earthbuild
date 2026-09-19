@@ -52,6 +52,15 @@ var traced = []uint32{
 	// step looked for and did not find is not optional under I3.
 	unix.SYS_GETXATTR,
 	unix.SYS_LGETXATTR,
+	// `listxattr` and `llistxattr` beside them, because they are what a reader
+	// reaches for *first*. GNU coreutils' `copy_attr` enumerates the names and
+	// only fetches the ones it finds, so a tree with no extended attributes is
+	// a `llistxattr` returning zero and not a single `lgetxattr` - and tracing
+	// the fetch alone cannot tell "nothing was read" from "read through a call
+	// this engine does not trap". The set of names is base state a step can
+	// branch on, which is the whole test for belonging here.
+	unix.SYS_LISTXATTR,
+	unix.SYS_LLISTXATTR,
 	// `statfs` names a path and answers from the filesystem under it. A step
 	// that branches on the answer - configure scripts do - has read something
 	// about its base.
@@ -106,9 +115,11 @@ var pathArgs = map[int32]int{
 	unix.SYS_EXECVE:   0,
 	unix.SYS_EXECVEAT: 1,
 	// Path first, like the older forms beside them: no directory descriptor.
-	unix.SYS_GETXATTR:  0,
-	unix.SYS_LGETXATTR: 0,
-	unix.SYS_STATFS:    0,
+	unix.SYS_GETXATTR:   0,
+	unix.SYS_LGETXATTR:  0,
+	unix.SYS_LISTXATTR:  0,
+	unix.SYS_LLISTXATTR: 0,
+	unix.SYS_STATFS:     0,
 }
 
 // openAt2NR is the one opener whose flags are not a plain argument: openat2
@@ -135,6 +146,8 @@ var callNames = map[uint32]string{
 	unix.SYS_EXECVEAT:       "execveat",
 	unix.SYS_GETXATTR:       "getxattr",
 	unix.SYS_LGETXATTR:      "lgetxattr",
+	unix.SYS_LISTXATTR:      "listxattr",
+	unix.SYS_LLISTXATTR:     "llistxattr",
 	unix.SYS_STATFS:         "statfs",
 	unix.SYS_IO_URING_SETUP: "io_uring_setup",
 }

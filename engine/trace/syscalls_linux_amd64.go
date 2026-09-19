@@ -44,6 +44,32 @@ var traced = []uint32{
 	// all (E219, E220).
 	unix.SYS_EXECVE,
 	unix.SYS_EXECVEAT,
+	// **Extended attributes, because this engine hashes them into a layer.**
+	// `layer/meta_unix.go` reads a path's xattrs when it captures a tree, so
+	// two bases differing only in an xattr are two different layers - and a
+	// step branching on one was reading base content nothing recorded. A
+	// metadata call like the ones above it, and here for 𝑁's reason: what a
+	// step looked for and did not find is not optional under I3.
+	unix.SYS_GETXATTR,
+	unix.SYS_LGETXATTR,
+	// `statfs` names a path and answers from the filesystem under it. A step
+	// that branches on the answer - configure scripts do - has read something
+	// about its base.
+	unix.SYS_STATFS,
+	// **io_uring, which is not a path-reading syscall and is how a step avoids
+	// them.** A ring submits opens and reads through shared memory, so a step
+	// using one reads its base without issuing a single call above. The filter
+	// allows what it does not name, so those reads were not merely unrecorded -
+	// they were unrecorded *silently*, and an observation that has lost part of
+	// what a step read is one Κ₂ must not be derived from (I3).
+	//
+	// Trapped at `setup` rather than at `enter`: a ring is created once and
+	// entered thousands of times, so this costs one notification per ring and
+	// not one per operation. Deliberately absent from `pathArgs` - the tracer
+	// then reports `a trapped syscall this engine reads no path from`, marks
+	// the observation incomplete, and the step is denied an L2 hit rather than
+	// given a wrong one. Slower where a build uses a ring, never wrong.
+	unix.SYS_IO_URING_SETUP,
 }
 
 // openers are the traced syscalls that open a path rather than interrogate one.
@@ -79,6 +105,10 @@ var pathArgs = map[int32]int{
 	// form and takes a descriptor before it.
 	unix.SYS_EXECVE:   0,
 	unix.SYS_EXECVEAT: 1,
+	// Path first, like the older forms beside them: no directory descriptor.
+	unix.SYS_GETXATTR:  0,
+	unix.SYS_LGETXATTR: 0,
+	unix.SYS_STATFS:    0,
 }
 
 // openAt2NR is the one opener whose flags are not a plain argument: openat2

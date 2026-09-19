@@ -220,6 +220,22 @@ func TestEachSyscallsPathArgumentIsTheOneRecovered(t *testing.T) {
 		{unix.SYS_READLINKAT, link, func() {
 			_, _ = unix.Readlinkat(unix.AT_FDCWD, link, buf)
 		}},
+		// The metadata calls added for xattrs and for the filesystem: their
+		// path is the first argument, where the `*at` forms take a descriptor
+		// first. An index one out here reads a pointer as a path and recovers
+		// a plausible-looking string, which is the whole reason this table is
+		// asserted against the syscalls rather than against a manual page.
+		{unix.SYS_GETXATTR, target, func() {
+			_, _ = unix.Getxattr(target, "user.nothing", nil)
+		}},
+		{unix.SYS_LGETXATTR, target, func() {
+			_, _ = unix.Lgetxattr(target, "user.nothing", nil)
+		}},
+		{unix.SYS_STATFS, target, func() {
+			var buf unix.Statfs_t
+
+			_ = unix.Statfs(target, &buf)
+		}},
 		{unix.SYS_STATX, target, func() {
 			var x unix.Statx_t
 

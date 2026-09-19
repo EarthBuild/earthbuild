@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/EarthBuild/earthbuild/engine/trace"
 )
@@ -81,7 +82,27 @@ func TestAChildForkedFromAFilteredThreadIsTraced(t *testing.T) {
 		park()
 	}()
 
-	got := <-out
+	// **With a deadline, because the failure that matters does not fail.** The
+	// goroutine above sends only once `cmd.Run()` has returned, and a filtered
+	// child that stalls never lets it. Then this waits for a result that is not
+	// coming, and the context meant to stop the child is `t.Context()` - which
+	// is cancelled when the test ends, and the test is what is waiting.
+	//
+	// Unbounded, that is the whole `go test` timeout spent on one test and
+	// attributed to none: `Test killed with quit: ran too long (3m30s)`, with
+	// every parallel test in the package parked behind it. Measured at roughly
+	// one run in twenty-five. E587 and E607 are the same lesson learned on the
+	// exec test next door, which says it in those words.
+	var got result
+
+	select {
+	case got = <-out:
+	case <-time.After(30 * time.Second):
+		t.Fatal("a filtered child neither finished nor failed within 30s" +
+			"\n  the tracer is not answering its traps, and a hang here is" +
+			" a whole suite with no test named")
+	}
+
 	if got.err != nil {
 		t.Skipf("could not run a filtered child: %v", got.err)
 	}
@@ -158,6 +179,8 @@ func TestTheEnginesOwnThreadIsNotTheStep(t *testing.T) {
 	case err := <-fail:
 		t.Skipf("no seccomp user notification here: %v", err)
 	case tr = <-out:
+	case <-time.After(30 * time.Second):
+		t.Fatal("the engine's own thread neither reported nor failed within 30s")
 	}
 
 	if slices.Contains(tr.Sightings().Paths, own) {

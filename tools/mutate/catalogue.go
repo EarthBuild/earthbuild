@@ -3068,10 +3068,15 @@ var Mutants = []Mutant{
 		OS:          "darwin",
 	},
 	{
-		Name:        "cli: a produced Dockerfile exported to the engine's own directory (E490)",
-		File:        "engine/cli/dockerfileartifact.go",
-		Anchor:      "\t\t\terr := e.ExportInternal(ctx, stack, a.Path,\n\t\t\t\tdockerfileDest(into, a.Path), a.IfExists)\n\t\t\tif err != nil {",
-		Replacement: "\t\t\tif err := e.Export(ctx, stack, a.Path, dest, a.IfExists); err != nil {",
+		Name: "cli: a produced Dockerfile exported to the engine's own directory (E490)",
+		File: "engine/cli/dockerfileartifact.go",
+		// Re-anchored: the staging destination became a variable when a helper
+		// reference learned to name one artifact of a target, so the call is a
+		// line rather than two. The mechanism is unchanged - this still asks
+		// whether the *external* Export, which refuses a write outside the
+		// project, is caught standing in for the internal one.
+		Anchor:      "\t\t\terr := e.ExportInternal(ctx, stack, a.Path, dest, a.IfExists)",
+		Replacement: "\t\t\terr := e.Export(ctx, stack, a.Path, dest, a.IfExists, false)",
 		Package:     "./engine/cli/",
 	},
 	{
@@ -3081,6 +3086,53 @@ var Mutants = []Mutant{
 		Replacement: "\t\tif g.caseNote != \"\" && o.Out != nil {",
 		Package:     "./engine/cli/",
 		OS:          "darwin",
+	},
+	// **Λ and the Κ₂ gate, which 486 mutants did not reach.** These are the
+	// functions a wrong answer would come *through*: Λ promises exactly two
+	// outcomes and `usableObservation` decides whether a tracer's account may
+	// become a key. A sweep that mutates the diagnostics around them and not
+	// the gates themselves is testing the parts where being wrong is cheap.
+	{
+		Name:        "core: Lookup serving an entry whose result is not held (I4)",
+		File:        "engine/core/key.go",
+		Anchor:      "\tif bs != nil && !held(bs, e) {",
+		Replacement: "\tif false {",
+		Package:     "./engine/core/",
+	},
+	{
+		Name:        "core: Lookup serving an entry from an untrusted writer (§5.3)",
+		File:        "engine/core/key.go",
+		Anchor:      "\tif allowed != nil && !allowed[e.Writer] {",
+		Replacement: "\tif false {",
+		Package:     "./engine/core/",
+	},
+	{
+		Name:        "core: held checking the first layer and trusting the stack",
+		File:        "engine/core/key.go",
+		Anchor:      "\tfor _, l := range e.Layers {",
+		Replacement: "\tfor _, l := range e.Layers[:0] {",
+		Package:     "./engine/core/",
+	},
+	{
+		Name:        "core: Κ₂ derived from an observation the source lost part of",
+		File:        "engine/core/schedule.go",
+		Anchor:      "\tif !res.Observed || res.Observation.Incomplete {",
+		Replacement: "\tif !res.Observed {",
+		Package:     "./engine/core/",
+	},
+	{
+		Name:        "core: Κ₂ derived from an observation saying nothing of the base (I3)",
+		File:        "engine/core/schedule.go",
+		Anchor:      "\treturn ObservesSomething(n, base, res.Observation)",
+		Replacement: "\treturn true",
+		Package:     "./engine/core/",
+	},
+	{
+		Name:        "core: Κₜ guessed where the fold is unavailable",
+		File:        "engine/core/contentkey.go",
+		Anchor:      "\ttree, ok := treeOf(blobs, base)\n\tif !ok {",
+		Replacement: "\ttree, ok := treeOf(blobs, base)\n\tif ok && false {",
+		Package:     "./engine/core/",
 	},
 	{
 		Name:        "core: a stale prediction naming both digests (E493)",

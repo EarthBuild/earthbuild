@@ -26,6 +26,26 @@ func TestEveryMountFieldReachesTheKey(t *testing.T) {
 
 	typ := reflect.TypeFor[ir.Mount]()
 
+	// **Every key a result is filed under, not only Κ₁.** A mount is reached
+	// through `Op.Mounts`, and the walk over `ir.Op` varies that slice whole -
+	// which proves the slice reaches each key and says nothing about the fields
+	// inside it. This is the same guard one level down, and applied to the
+	// same four derivations, because a mount decides what a step *sees*: two
+	// steps differing only in one that no key covers would be served each
+	// other's results.
+	for _, d := range derivations() {
+		t.Run(d.name, func(t *testing.T) {
+			t.Parallel()
+			mountFieldsReach(t, typ, d.of, d.name)
+		})
+	}
+}
+
+func mountFieldsReach(
+	t *testing.T, typ reflect.Type, of func(*ir.Node) core.Key, name string,
+) {
+	t.Helper()
+
 	for i := range typ.NumField() {
 		f := typ.Field(i)
 
@@ -61,13 +81,13 @@ func TestEveryMountFieldReachesTheKey(t *testing.T) {
 					Mounts: []ir.Mount{mount},
 				}
 
-				keys[which] = core.DeriveChainKey(&ir.Node{Op: op}, nil, nil)
+				keys[which] = of(&ir.Node{Op: op})
 			}
 
 			if keys[0] == keys[1] {
-				t.Errorf("changing Mount.%s does not change the chain key"+
+				t.Errorf("changing Mount.%s does not change %s"+
 					"\n  a step whose result depends on it would hit the cache after"+
-					" it changed", f.Name)
+					" it changed", f.Name, name)
 			}
 		})
 	}

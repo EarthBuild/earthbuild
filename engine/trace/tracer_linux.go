@@ -147,6 +147,21 @@ type Tracer struct {
 	// loop that increments it is a different goroutine (E689).
 	handled atomic.Int64
 
+	// byCall counts those notifications per syscall, so the aggregate above can
+	// say *which* calls a build actually makes.
+	//
+	// **The number the cost argument needs.** `getxattr` was added to the
+	// traced set because this engine hashes extended attributes into a layer's
+	// identity, so a step branching on one reads base content - and the
+	// objection to tracing it is that `tar`, `cp -a` and anything SELinux-aware
+	// call it once per file. Whether that matters is a count, and counting it
+	// is thirty lines against an argument that has otherwise been conducted on
+	// microbenchmarks.
+	//
+	// A slice indexed by `slotOf`, allocated once: a map in the notification
+	// loop would be a lookup per trap, which is the thing being measured.
+	byCall []atomic.Int64
+
 	// hungUp records that Run stopped on POLLHUP rather than for another
 	// reason. See Tracer.HungUp for why the caller, not the tracer, decides
 	// whether that is a failure.
@@ -196,6 +211,7 @@ func NewTracer(fd int) *Tracer {
 		fd: fd, stopR: -1, stopW: -1,
 		paths: map[string]bool{}, why: map[string]bool{},
 		servicing: make(chan struct{}),
+		byCall:    make([]atomic.Int64, len(traced)),
 	}
 
 	var p [2]int
@@ -243,6 +259,10 @@ func (t *Tracer) Run() {
 		}
 
 		t.handled.Add(1)
+
+		if i, ok := slotOf[n.Data.NR]; ok {
+			t.byCall[i].Add(1)
+		}
 
 		t.handle(n)
 
@@ -754,6 +774,24 @@ func pollEvents(r int16) string {
 // the ones whose path could not be read: the question it exists to answer is
 // what the round trip was paid for, and it was paid for all of them.
 func (t *Tracer) Handled() int { return int(t.handled.Load()) }
+
+// Calls is how many notifications each traced syscall accounted for.
+//
+// Named rather than numbered, because "191" is a number somebody then has to
+// look up - the same argument `pollEvents` makes one file over. Only the calls
+// that happened: a step that opened files and read no extended attributes says
+// so by `getxattr` being absent, not by a column of zeroes.
+func (t *Tracer) Calls() map[string]int {
+	out := make(map[string]int, len(t.byCall))
+
+	for i := range t.byCall {
+		if n := t.byCall[i].Load(); n > 0 {
+			out[callName(traced[i])] = int(n)
+		}
+	}
+
+	return out
+}
 
 // stillOutstanding reports whether the kernel still holds this notification.
 //

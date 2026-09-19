@@ -103,3 +103,21 @@ var pathArgs = map[int32]int{
 // takes a pointer to a `struct open_how`, so the word at that index is an
 // address rather than a set of flags.
 const openAt2NR = unix.SYS_OPENAT2
+
+// callNames writes this architecture's traced syscalls the way a manual page
+// does. See callName.
+var callNames = map[uint32]string{
+	unix.SYS_OPENAT:         "openat",
+	unix.SYS_OPENAT2:        "openat2",
+	unix.SYS_NEWFSTATAT:     "newfstatat",
+	unix.SYS_STATX:          "statx",
+	unix.SYS_FACCESSAT:      "faccessat",
+	unix.SYS_FACCESSAT2:     "faccessat2",
+	unix.SYS_READLINKAT:     "readlinkat",
+	unix.SYS_EXECVE:         "execve",
+	unix.SYS_EXECVEAT:       "execveat",
+	unix.SYS_GETXATTR:       "getxattr",
+	unix.SYS_LGETXATTR:      "lgetxattr",
+	unix.SYS_STATFS:         "statfs",
+	unix.SYS_IO_URING_SETUP: "io_uring_setup",
+}

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -148,7 +150,8 @@ func runObserved(
 		//
 		// Only when asked: it is one line per step and a build has many.
 		if os.Getenv(timing.Env) != "" {
-			fmt.Fprintf(os.Stderr, "earth: traced %d path calls\n", tr.Handled())
+			fmt.Fprintf(os.Stderr, "earth: traced %d path calls%s\n",
+				tr.Handled(), breakdown(tr.Calls()))
 		}
 
 		// **A file this engine could not obtain fails the step**, and it has to
@@ -416,7 +419,8 @@ func runObservedViaShim(
 	r := <-done
 
 	if os.Getenv(timing.Env) != "" {
-		fmt.Fprintf(os.Stderr, "earth: traced %d path calls\n", tr.Handled())
+		fmt.Fprintf(os.Stderr, "earth: traced %d path calls%s\n",
+			tr.Handled(), breakdown(tr.Calls()))
 	}
 
 	runErr := r.err
@@ -468,4 +472,41 @@ func finishUnobserved(done <-chan stepResult, why error) ([]byte, trace.Sighting
 	r := <-done
 
 	return r.out, trace.Unobserved(why), r.err
+}
+
+// breakdown names which calls a step made, busiest first.
+//
+// **The aggregate alone cannot settle the argument it was added for.** A
+// thousand traps is an ordinary build if they are `openat`, and a reason to
+// look again if they are `getxattr` - which is traced because this engine
+// hashes extended attributes into a layer's identity, and objected to because
+// `tar` and `cp -a` call it once per file. Which of those happened is the whole
+// question, and the aggregate cannot tell them apart.
+//
+// Sorted by count and then by name, because a diagnostic that reorders itself
+// between two runs of one build is one nobody can diff.
+func breakdown(calls map[string]int) string {
+	if len(calls) == 0 {
+		return ""
+	}
+
+	names := make([]string, 0, len(calls))
+	for name := range calls {
+		names = append(names, name)
+	}
+
+	sort.Slice(names, func(i, j int) bool {
+		if calls[names[i]] != calls[names[j]] {
+			return calls[names[i]] > calls[names[j]]
+		}
+
+		return names[i] < names[j]
+	})
+
+	parts := make([]string, 0, len(names))
+	for _, name := range names {
+		parts = append(parts, fmt.Sprintf("%s %d", name, calls[name]))
+	}
+
+	return " (" + strings.Join(parts, ", ") + ")"
 }

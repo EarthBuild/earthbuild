@@ -14,7 +14,14 @@ import (
 
 // settingsHostOnly are guestd settings that deliberately do not cross into a
 // guest, with the reason. Anything not listed has to cross.
-var settingsHostOnly = map[string]string{}
+var settingsHostOnly = map[string]string{
+	// Stated where the crossing list is built, and restated here because this
+	// is the place that enforces it: the store is a fact about the machine, and
+	// `earth-vmboot` tells the guest which directory it is. Passing it from the
+	// host as well would be two sources for one answer, which is the thing
+	// `guestRoot` was collapsed into one function to stop.
+	"EnvGuestRoot": "the store is a fact about the machine; earth-vmboot states it",
+}
 
 // Every setting the agent reads reaches a guest that cannot read the host's
 // environment.

@@ -71,6 +71,33 @@ func TestTheTracerIsHandedTheFiller(t *testing.T) {
 
 	t.Logf("sightings: paths=%v incomplete=%v why=%v", seen.Paths, seen.Incomplete, seen.Why)
 
+	// **A step this engine is already tracing cannot host a second tracer.**
+	// The kernel allows one notifier per task, so installing a filter with a
+	// listener where one is already installed is EBUSY - "device or resource
+	// busy" - and that is the kernel stating a fact rather than anything here
+	// being wrong.
+	//
+	// Which is exactly this repository's own `+unit-test` target: it runs
+	// `go test` inside a build step, and the engine traces its steps to observe
+	// what they read. Probed from inside one, `/proc/self/status` says
+	// `Seccomp: 2` and `Seccomp_filters: 1`. So this test ran everywhere except
+	// in the harness that runs it, and reported a missing filler for a tracer
+	// that was never allowed to exist.
+	//
+	// Skipped rather than failed, on nstest's rule: a machine that cannot is
+	// not a test that failed. Unprivileged Docker installs a filter without a
+	// listener, so a second one is permitted there and this still runs - 15 of
+	// 15 - which is what stops this being a skip that fires everywhere.
+	// Evidence rather than wording: a tracer that ran saw *something* - a step
+	// that executed a program read its own executable before anything else - so
+	// an incomplete observation naming no paths at all is one that never
+	// started. The same test `Unstartable` makes, and for the same reason: a
+	// kernel phrases its refusals differently and a harness matching one turns
+	// every other into a false failure.
+	if seen.Incomplete && len(seen.Paths) == 0 {
+		t.Skipf("no tracer could be installed here, so nothing was observed: %v", seen.Why)
+	}
+
 	mu.Lock()
 	defer mu.Unlock()
 

@@ -174,7 +174,6 @@ func TestAvailableFlags(t *testing.T) {
 		{"try", "TryFinally"},
 		{"no-network", "NoNetwork"},
 		{"arg-scope-and-set", "ArgScopeSet"},
-		{"earthly-ci-runner-arg", "EarthlyCIRunnerArg"},
 		{"use-docker-ignore", "UseDockerIgnore"},
 	} {
 		t.Run(tt.flag, func(t *testing.T) {

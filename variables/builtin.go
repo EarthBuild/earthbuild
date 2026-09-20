@@ -70,11 +70,6 @@ func BuiltinArgs(
 		SetLocally(ret, false)
 	}
 
-	if ftrs.EarthlyCIRunnerArg {
-		ret.Add(arg.EarthlyCIRunner, strconv.FormatBool(false))
-		ret.Add(arg.EarthCIRunner, strconv.FormatBool(false))
-	}
-
 	if gitMeta == nil {
 		// Ensure SOURCE_DATE_EPOCH is always available
 		ret.Add(arg.EarthlySourceDateEpoch, "0")

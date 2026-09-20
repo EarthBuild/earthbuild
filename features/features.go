@@ -20,7 +20,6 @@ import (
 type Features struct {
 	// Never enabled by default
 	NoUseRegistryForWithDocker bool `description:"disable use-registry-for-with-docker" long:"no-use-registry-for-with-docker"` //nolint:lll // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
-	EarthlyCIRunnerArg         bool `description:"includes EARTHLY_CI_RUNNER ARG"       long:"earthly-ci-runner-arg"`           //nolint:lll // earthly CI was discontinued, no reason to enable this by default
 
 	// VERSION 0.5
 	ExecAfterParallel        bool `description:"force execution after parallel conversion"                    enabled_in_version:"0.5" long:"exec-after-parallel"`          //nolint:lll

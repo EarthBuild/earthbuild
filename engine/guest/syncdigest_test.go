@@ -58,9 +58,33 @@ func storeLayer(t *testing.T, layerDir string, files map[string]string) ir.NodeI
 		t.Fatal(err)
 	}
 
+	at := filepath.Join(layerDir, "layers", took.ID.String())
+
+	// **The same tree twice is the same layer, and storing it twice is a
+	// no-op.** A test wanting a copy that needs no bytes moved stores identical
+	// content as both source and base - which is the point of it - and the id
+	// is the manifest digest, so the two collide whenever the trees land on one
+	// mtime. `os.Rename` onto the directory already there is `file exists`, and
+	// the test that asked for two identical layers failed for having got them.
+	//
+	// Measured at 7 and 6 failures in ten runs of a *single* test, so this was
+	// never the interaction it looked like from the package: a content-addressed
+	// store behaving correctly, and a fixture that could not say so.
+	_, err = os.Stat(at)
+	if err == nil {
+		err = os.RemoveAll(scratch)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		store.NoteManifest(layerDir, took.ID, manifest)
+
+		return took.ID
+	}
+
 	// Renamed rather than copied: the manifest describes the tree that was
 	// walked, down to its mtimes, and a second copy of it is a different tree.
-	err = os.Rename(scratch, filepath.Join(layerDir, "layers", took.ID.String()))
+	err = os.Rename(scratch, at)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +299,21 @@ func TestASyncCopyWithNoManifestsFallsBackToTheBytes(t *testing.T) {
 	src := storeLayer(t, dir, map[string]string{"a.txt": "hello"})
 	base := storeLayer(t, dir, map[string]string{"a.txt": "hello"})
 
+	// **Deduplicated, because the two may be one.** `src` and `base` hold the
+	// same tree on purpose - that is what makes this a copy needing no bytes -
+	// and the id is the content, so the store quite correctly files them as one
+	// layer whenever their mtimes agree. Removing "both" manifests then removes
+	// the same path twice and the second fails with ENOENT, which is the test
+	// complaining about having got exactly what it asked for.
+	seen := map[ir.NodeID]bool{}
+
 	for _, id := range []ir.NodeID{src, base} {
+		if seen[id] {
+			continue
+		}
+
+		seen[id] = true
+
 		err := os.Remove(store.ManifestPath(dir, id))
 		if err != nil {
 			t.Fatal(err)

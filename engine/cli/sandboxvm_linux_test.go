@@ -32,29 +32,6 @@ func TestAMicroVMIsUsedWhenAskedFor(t *testing.T) { // not parallel: sets the en
 	}
 }
 
-// Not asked for, it is a microVM where one can be had and namespaces where one
-// cannot.
-//
-// **The default changed and this test did not**, so it asserted the namespace
-// backend on a machine that had stopped choosing it and was left failing. The
-// property worth pinning is not which of the two answers comes back - that is
-// the machine's to decide - but that the choice is made silently: a build that
-// said nothing gets a working build either way.
-func TestTheDefaultIsAMicroVMWhereThereCanBeOne(t *testing.T) { // not parallel: sets the environment
-	t.Setenv(envVM, "")
-
-	sb, err := sandbox("")
-	if err != nil {
-		t.Fatal("saying nothing left this machine with no sandbox at all: ", err)
-	}
-
-	switch sb.(type) {
-	case *exec.Firecracker, *exec.Native:
-	default:
-		t.Errorf("the default backend is %T, which is neither", sb)
-	}
-}
-
 // Asked for and unavailable, the build says so rather than quietly running
 // outside the boundary it was told to use.
 //

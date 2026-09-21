@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"uuid"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -27,7 +28,6 @@ import (
 	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/EarthBuild/earthbuild/variables/reserved"
 	"github.com/docker/go-connections/nat"
-	"github.com/google/uuid"
 	"github.com/jessevdk/go-flags"
 )
 
@@ -36,7 +36,7 @@ const maxCommandRenameWarnings = 3
 var errCannotAsync = errors.New("cannot run async operation")
 
 // use as default to differentiate between an un specified string flag and a specified flag with empty value.
-var defaultZeroStringFlag = uuid.NewString()
+var defaultZeroStringFlag = uuid.New().String()
 
 // Interpreter interprets earth AST's into calls to the converter.
 type Interpreter struct {

@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"time"
+	"uuid"
 
 	"github.com/EarthBuild/earthbuild/engine/timing"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/google/uuid"
 	"github.com/urfave/cli/v3"
 )
 
@@ -68,7 +68,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		flags.DisplayExecStats,
 		app.BaseCLI.Flags().InteractiveDebugging,
 		flags.LogstreamDebugFile,
-		uuid.NewString(),
+		uuid.New().String(),
 		execStatsTracker,
 		flags.GithubAnnotations,
 	)

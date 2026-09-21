@@ -72,6 +72,29 @@ whatever the native engine owed has been paid.
 | 38  | `f4ee556ea` | `51efbca9e` | nothing; aws config, same go.mod resolution                  |
 | 39  | `f36324182` | `11d22f870` | nothing; an ECR docker tag                                   |
 | 40  | `9a6a43636` | `a98c4f159` | nothing; an example's ruby                                   |
+| 41  | `085fc5650` | `35649763d` | nothing; an aws-cli docker tag                               |
+| 42  | `965f3b630` | `067419c1f` | nothing; an example's maven plugin                           |
+| 43  | `b64532c89` | `85212586b` | nothing; an example's maven plugin                           |
+| 44  | `b4bae887d` | `1ff76fcc8` | nothing; lock file maintenance                               |
+| 45  | `6a6179ebc` | `71973bd7b` | nothing; lock file maintenance                               |
+| 46  | `59442edcf` | `06f26c7b2` | nothing; docker/cli to v29.8.1                               |
+| 47  | `aa4e0d964` | `d46eb4b7e` | nothing; an example's bundler                                |
+| 48  | `ee6be11dc` | `91b4ddc0c` | nothing; an ubuntu dind tag                                  |
+| 49  | `e90b2d72a` | `795614ca3` | **check cleared**: engine/ reads no installation name at all |
+| 50  | `99c767ebf` | `5ba714c7c` | nothing; an earthbuild version bump                          |
+| 51  | `bde5e5f9b` | `03fe9a4b9` | **ported** in `188761cab`: the CI-runner builtin retired     |
+| 52  | `aad7dae16` | `4f8e4c724` | nothing; an alpine ARG in tests/local                         |
+| 53  | `eb2d44c0f` | `3293f5536` | nothing; an ECR docker tag                                   |
+| 54  | `0776f5f67` | `ca5cd843a` | nothing; an ECR docker tag                                   |
+| 55  | `90c544fca` | `8cc5bd412` | nothing; a vale docker tag                                   |
+| 56  | `f6f3e1f58` | `f49edac3a` | nothing; go-humanize to v1.1.0                               |
+| 57  | `5316a944d` | `44701c060` | nothing; grpc to v1.84.0                                     |
+| 58  | `26037eeb1` | `90bdb1328` | **not done after all** - and it held a live bug, see below   |
+| 59  | `15389c1b6` | `1ed6f6919` | **check cleared**: engine/ imports no opentelemetry          |
+| 60  | `9562129dc` | `c705fb0db` | **check cleared** in code; the Earthfile and prose moved     |
+| 61  | `38320254f` | `773b8a6f9` | **ported** in the merge: `Options.NoImageOutput`             |
+| 62  | `e87deb594` | `254da6858` | nothing; amazonlinux tags                                    |
+| 63  | `1dad4e797` | `9cadd8346` | nothing; an example's joda-time                              |
 
 ## The ledger
 
@@ -174,6 +197,53 @@ main's text goes in.
 Main pins some base images itself - python's digest is renovate-maintained on
 main - so pinning main's newly bumped tag is this repository's own practice
 extended, not a local deviation.
+
+## Done
+
+`git rev-list --count HEAD..origin/main` is 0: every one of the sixty-three is
+an ancestor. `go build ./...` for linux/amd64 and `go test ./...` both pass,
+seventy-nine packages.
+
+### What the ledger got wrong, which is the part worth keeping
+
+**All three `port` verdicts were right and all three `check` verdicts were
+wrong** - each `check` turned out to owe nothing, for a reason worth writing
+down rather than rediscovering:
+
+* `e90b2d72a`: `engine/` contains no reference to an installation name or a
+  config path. Its whole settings surface is `EARTH_*`, and `storeDir` is a
+  fixed string, so renaming the installation cannot move a cache.
+* `15389c1b6`: `engine/` imports no opentelemetry package at all, so dropping
+  otel's internal logger leaves the native engine nothing to lose.
+* `9562129dc`: no Go code reads the build workdir. The Earthfile did, in
+  targets main does not have, and six comments named it - both moved.
+
+**The one line marked `done` was the only one that was wrong in the other
+direction.** `26037eeb1` was skipped on the grounds that this branch is where
+the idea came from, which was true and irrelevant: main's own commit still had
+to be merged, and merging it showed that the two implementations each had
+something the other lacked, and that main's test documented a defect *this
+branch still had* - `needsContainerFrontend` reading a global flag's value as
+the subcommand. Fixed in `323202639`.
+
+A `done` that means "we had this idea first" is not the same as a `done` that
+means "nothing to merge", and only the second is safe to skip.
+
+### Four guards earned their keep
+
+None of these were found by reading; each was a test refusing to pass.
+
+| guard | what it caught |
+| ------------------------------- | ------------------------------------------------------ |
+| `TestEveryFlagIsClassified` | a new flag arriving with no native decision made about it |
+| `TestEveryOptionIsAccountedFor` | a new Option no test exercised |
+| the corpus ratchet | two fixtures added and one deleted, on both platforms |
+| `TestEveryAnchorStillMatchesItsSource` | two mutation anchors left pointing at code retired at line 51 |
+
+That last one was missed when line 51 landed, because it was verified with
+`./engine/...` and `tools/mutate` is not under it. The ratchet was measured on
+linux in a container rather than inferred, twice, because `ratchetSlice` fails
+in both directions.
 
 ## The three that need porting
 

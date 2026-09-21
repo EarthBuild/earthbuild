@@ -48,7 +48,7 @@ type Op struct {
 	// User is who the step runs as.
 	User string `json:"user,omitempty"`
 	// NoNetwork is `RUN --network=none`.
-	NoNetwork bool `json:"noNetwork,omitempty"`
+	NoNetwork bool `json:"noNetwork,omitzero"`
 	// Scratch are directories the worker makes for the step and removes after
 	// it - `CACHE --sharing=private` (§3.3c).
 	//
@@ -91,17 +91,17 @@ type Cache struct {
 	Target string `json:"target"`
 	// Mode is the permission bits the directory is made with, or zero for the
 	// default.
-	Mode uint32 `json:"mode,omitempty"`
+	Mode uint32 `json:"mode,omitzero"`
 	// Exclusive is `--sharing=locked`: one step at a time in this directory.
 	// Per machine, because the directory is.
-	Exclusive bool `json:"exclusive,omitempty"`
+	Exclusive bool `json:"exclusive,omitzero"`
 	// Portable is whether the author claimed that another machine's copy of a
 	// path under this cache is as good as this machine's own.
 	//
 	// Separate from the list because the list cannot carry it: a claim with no
 	// exceptions is the strongest form and the commonest useful one, and it has
 	// the same empty list as a cache nobody claimed anything about.
-	Portable bool `json:"portable,omitempty"`
+	Portable bool `json:"portable,omitzero"`
 	// PortableExcept names the paths under this cache where that is not true -
 	// as written, not parsed.
 	//
@@ -175,7 +175,7 @@ type Assignment struct {
 	// An absolute instant rather than a duration: a duration would start when
 	// the message was written, was read or was queued depending on who was
 	// asked, and the three differ by exactly the amount that matters.
-	DeadlineUnix int64 `json:"deadlineUnix,omitempty"`
+	DeadlineUnix int64 `json:"deadlineUnix,omitzero"`
 	// Hints are advisory and **may be dropped by any participant without
 	// affecting the result** (I5) - masks, a predicted read set, an estimated
 	// duration. A worker that ignores every hint produces the same answer more
@@ -190,7 +190,7 @@ type Hints struct {
 	// ReadsPredicted are paths the step is expected to look at.
 	ReadsPredicted []string `json:"readsPredicted,omitempty"`
 	// EstimatedSeconds is how long this took last time.
-	EstimatedSeconds int64 `json:"estimatedSeconds,omitempty"`
+	EstimatedSeconds int64 `json:"estimatedSeconds,omitzero"`
 	// Bytes is how large this step's inputs are, when the driver knows.
 	//
 	// Placement's only measure of what delegating would *cost*: a base worth
@@ -199,7 +199,7 @@ type Hints struct {
 	//
 	// Zero means "not stated", never "free" - a fleet that priced an unknown
 	// base at nothing would prefer whichever machine had the most to fetch.
-	Bytes int64 `json:"bytes,omitempty"`
+	Bytes int64 `json:"bytes,omitzero"`
 	// Holders are peers said to hold this step's inputs, nearest first.
 	//
 	// The mechanism that keeps a fleet from being a star: a worker that just

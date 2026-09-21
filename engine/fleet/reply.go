@@ -48,9 +48,9 @@ type Reply struct {
 	Declares ir.NodeID `json:"declares,omitzero"`
 	// Exit is the step's exit code. A non-zero one is a **result**, not a
 	// transport failure: the step ran and said no.
-	Exit int `json:"exit,omitempty"`
+	Exit int `json:"exit,omitzero"`
 	// Bytes is the size of the result, for the driver's transfer-cost estimates.
-	Bytes int64 `json:"bytes,omitempty"`
+	Bytes int64 `json:"bytes,omitzero"`
 	// Observation is what the worker says the step looked at.
 	//
 	// A claim like the rest. It reaches Κ₂ only through the driver's own rules -
@@ -60,7 +60,7 @@ type Reply struct {
 	Observation Observation `json:"observation,omitzero"`
 	// DurationMillis is how long the step took, as the worker measured it.
 	// Advisory: it feeds scheduling estimates and nothing else (I5).
-	DurationMillis int64 `json:"durationMillis,omitempty"`
+	DurationMillis int64 `json:"durationMillis,omitzero"`
 	// FetchedBytes and FetchMillis are what this worker had to move before it
 	// could start, and how long that took.
 	//
@@ -78,10 +78,10 @@ type Reply struct {
 	// is neither transfer nor step lands in the same number as the wire - and an
 	// account that cannot tell a busy fleet from a slow one cannot say whether
 	// adding machines would help (E336).
-	QueueMillis int64 `json:"queueMillis,omitempty"`
+	QueueMillis int64 `json:"queueMillis,omitzero"`
 	// FetchedBytes and FetchMillis are what this worker had to move.
-	FetchedBytes int64 `json:"fetchedBytes,omitempty"`
-	FetchMillis  int64 `json:"fetchMillis,omitempty"`
+	FetchedBytes int64 `json:"fetchedBytes,omitzero"`
+	FetchMillis  int64 `json:"fetchMillis,omitzero"`
 	// Platform is what this worker is, as `ir.Platform.String` writes it.
 	//
 	// **The driver cannot derive it**: a worker is the only party that knows
@@ -121,7 +121,7 @@ type Reply struct {
 	// balances on how *full* a machine is rather than on how many steps it is
 	// running, because otherwise a sixty-four core machine and a four core one
 	// get an equal share and the build finishes when the small one does (E272).
-	Capacity int `json:"capacity,omitempty"`
+	Capacity int `json:"capacity,omitzero"`
 	// HeldAt is where this worker can be reached for what it just produced.
 	//
 	// **Advisory, and self-announced.** The worker knows its own address; the
@@ -159,5 +159,5 @@ type Observation struct {
 	// Incomplete says the worker knows it missed something. A worker that
 	// reports this honestly costs itself an L2 hit, which is why the field is
 	// worth having: the alternative is a claim the driver cannot check.
-	Incomplete bool `json:"incomplete,omitempty"`
+	Incomplete bool `json:"incomplete,omitzero"`
 }

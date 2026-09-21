@@ -107,14 +107,14 @@ type stored struct {
 	// existed has neither, and absent must stay absent rather than becoming
 	// "the step printed nothing, and that is the whole of it".
 	Stdout      string   `json:"stdout,omitempty"`
-	StdoutWhole bool     `json:"stdoutWhole,omitempty"`
+	StdoutWhole bool     `json:"stdoutWhole,omitzero"`
 	Placements  []placed `json:"placements,omitempty"`
 	// The sized fields last, so the strings above sit together (govet
 	// fieldalignment). Field order is not part of the format: JSON is read by
 	// name, and every reader here goes through these tags.
 	Exit     int   `json:"exit"`
 	Bytes    int64 `json:"bytes"`
-	Declared bool  `json:"declared,omitempty"`
+	Declared bool  `json:"declared,omitzero"`
 }
 
 // placed is core.Placement on the wire. Three strings, named rather than

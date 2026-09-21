@@ -48,7 +48,7 @@ type faultIn struct {
 	Kind string `json:"kind,omitempty"`
 	// Have is how much the asker has already read. The host answers when there
 	// is more than this, so the guest waits on a wakeup rather than a poll.
-	Have int64 `json:"have,omitempty"`
+	Have int64 `json:"have,omitzero"`
 }
 
 // filled is the answer, and the empty Error is load-bearing.
@@ -62,7 +62,7 @@ type filled struct {
 	ID    uint64 `json:"id"`
 	Error string `json:"error,omitempty"`
 	// Bytes answers a progress question: how much of the blob is written.
-	Bytes int64 `json:"bytes,omitempty"`
+	Bytes int64 `json:"bytes,omitzero"`
 }
 
 // Fills asks the host to fault a path in.

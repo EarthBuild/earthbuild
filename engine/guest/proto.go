@@ -250,7 +250,7 @@ type Request struct {
 	// A separate field from ID, because a cancel is itself a request with its
 	// own id and its own reply: conflating the two would leave the caller
 	// unable to tell "the cancel arrived" from "the step it named finished".
-	Cancel uint64 `json:"cancel,omitempty"`
+	Cancel uint64 `json:"cancel,omitzero"`
 
 	Kind Kind `json:"kind"`
 
@@ -319,9 +319,9 @@ type Request struct {
 	// The length has to travel because the guest cannot ask the filesystem for
 	// it - the answer across a shared mount is cached, which is what made a
 	// growing file unreadable in the first place (E683).
-	Growing int64 `json:"growing,omitempty"`
+	Growing int64 `json:"growing,omitzero"`
 	// Keep is the size a prune should bring the store down to, in bytes.
-	Keep uint64 `json:"keep,omitempty"`
+	Keep uint64 `json:"keep,omitzero"`
 
 	// CacheMap names the map describing a cache this guest is asked to stock,
 	// as a digest. Stock-cache only, and empty means the host knows of none -
@@ -363,9 +363,9 @@ type Request struct {
 	//
 	// Absent means zero, which is what an older host sends and what a first page
 	// asks for, so the two are the same request.
-	FromEntry int `json:"fromEntry,omitempty"`
+	FromEntry int `json:"fromEntry,omitzero"`
 
-	Version int      `json:"version,omitempty"`
+	Version int      `json:"version,omitzero"`
 	Stack   []string `json:"stack,omitempty"`  // layer ids, hex, oldest first
 	Handle  string   `json:"handle,omitempty"` // returned by materialise
 	Argv    []string `json:"argv,omitempty"`   // exec only
@@ -389,7 +389,7 @@ type Request struct {
 	From []string `json:"from,omitempty"` // copy only: the layers to copy out of, oldest first
 	// Interactive says a terminal is being sent on the descriptor channel and
 	// this step is to run on it. Exec only.
-	Interactive bool `json:"interactive,omitempty"`
+	Interactive bool `json:"interactive,omitzero"`
 	// Clamp is the timestamp everything this operation writes should carry.
 	//
 	// Unix seconds, and nil for "keep what the file has", which is what a build
@@ -414,7 +414,7 @@ type Request struct {
 	// and memory, so a per-build decision left on one is answered from whatever
 	// the first build wanted (E555). Off by default, so a host that has not
 	// heard of sharing is served the bytes.
-	MayShare bool `json:"mayshare,omitempty"`
+	MayShare bool `json:"mayshare,omitzero"`
 
 	// Trace asks for the step's reads to be observed.
 	//
@@ -423,10 +423,10 @@ type Request struct {
 	// or asks about, and `cat` alone names fifty-five (E210). What it buys is
 	// the only observation source a RUN has, so a step that is not traced can be
 	// built and cached and can never be reused against a different base.
-	Trace bool `json:"trace,omitempty"`
+	Trace bool `json:"trace,omitzero"`
 	// NoNet is `RUN --network=none`: run this step in an empty network
 	// namespace. Exec only.
-	NoNet bool `json:"noNet,omitempty"`
+	NoNet bool `json:"noNet,omitzero"`
 	// Privileged is `RUN --privileged`.
 	//
 	// Every step here is root in a user namespace and holds every capability
@@ -434,19 +434,19 @@ type Request struct {
 	// one thing for a step with a `User`: whether those capabilities survive the
 	// `setuid`, which is what privilege means for a non-root uid and what
 	// buildkit gives such a step (E940).
-	Privileged bool `json:"privileged,omitempty"`
+	Privileged bool `json:"privileged,omitzero"`
 	// DirCopy is `COPY --dir`: the directory itself rather than its contents.
 	// Without it a directory source contributes what is in it, which is the rule
 	// everywhere else and one a trailing separator cannot express.
-	DirCopy bool `json:"dirCopy,omitempty"`
+	DirCopy bool `json:"dirCopy,omitzero"`
 	// Sync is `COPY --sync`: leave a destination whose bytes already
 	// match, so it keeps its mtime and stays out of the step's delta.
-	Sync bool `json:"syncCopy,omitempty"`
+	Sync bool `json:"syncCopy,omitzero"`
 	// IfExists is `COPY --if-exists`: a source that is not there is not a
 	// failure. Carried over the wire because only this side can answer it for
 	// an artifact - `SAVE ARTIFACT --if-exists` declares one the producer may
 	// not have made, and the plan cannot know which.
-	IfExists bool `json:"ifExists,omitempty"`
+	IfExists bool `json:"ifExists,omitzero"`
 
 	// LandsAs is the name the copy lands under inside a destination directory,
 	// when the reference asked for one the stored path does not carry. See
@@ -463,9 +463,9 @@ type Request struct {
 	// did not know this field would ignore it and dereference where the author
 	// asked for a link - a wrong build reported as a success. The handshake
 	// refuses the pairing instead.
-	NoFollow bool `json:"noFollow,omitempty"`
+	NoFollow bool `json:"noFollow,omitzero"`
 	// KeepOwn is `COPY --keep-own`: uid and gid travel with the copy.
-	KeepOwn bool `json:"keepOwn,omitempty"`
+	KeepOwn bool `json:"keepOwn,omitzero"`
 	// Chown is `COPY --chown=user[:group]`: what the copied files belong to.
 	//
 	// The specification rather than a pair of numbers, because the names are
@@ -474,7 +474,7 @@ type Request struct {
 	// Stream asks for the step's output as it appears, rather than only at the
 	// end. Requested by the host so the guest does not pay for framing nobody is
 	// listening to.
-	Stream bool `json:"stream,omitempty"`
+	Stream bool `json:"stream,omitzero"`
 	// Dir is the working directory inside the step's filesystem: WORKDIR.
 	Dir string `json:"dir,omitempty"`
 	// User is who the step runs as: USER. Empty keeps the identity the guest
@@ -594,7 +594,7 @@ type Actions struct {
 	// is the service's own default. See remote.Service.MaxActions: a client
 	// sizes its parallelism from the machine it thinks it is on, and this one
 	// is inside a sandbox that is already running the step that asked.
-	MaxActions int `json:"maxActions,omitempty"`
+	MaxActions int `json:"maxActions,omitzero"`
 }
 
 // Daemon is a container daemon a step asked to have running inside it.
@@ -691,7 +691,7 @@ type Mount struct {
 	// Target is where it appears inside the step's filesystem, absolute.
 	Target string `json:"target"`
 	// ReadOnly binds it so the step cannot write through it.
-	ReadOnly bool `json:"readOnly,omitempty"`
+	ReadOnly bool `json:"readOnly,omitzero"`
 	// Persist copies the directory in and out instead of binding it.
 	//
 	// A bind is invisible to the capture - what a step writes into it goes to
@@ -699,11 +699,11 @@ type Mount struct {
 	// what makes an ordinary cache stay out of the image. `--persist` asks for
 	// the contents to be *in* the image, so they have to be written into the
 	// step's own root, which means copying.
-	Persist bool `json:"persist,omitempty"`
+	Persist bool `json:"persist,omitzero"`
 	// Exclusive asks for `--sharing=locked`: one step in this directory at a
 	// time. The alternative is `shared`, where several use it at once and the
 	// tools inside cope with their own locks (E432).
-	Exclusive bool `json:"exclusive,omitempty"`
+	Exclusive bool `json:"exclusive,omitzero"`
 	// Ephemeral asks the guest to make a directory for this step and remove it
 	// when the step is over.
 	//
@@ -717,10 +717,10 @@ type Mount struct {
 	// The daemon a WITH DOCKER step starts for itself is what needs it: its
 	// storage must be out of the image and must not outlive the step, and a
 	// named cache differs only in the second.
-	Ephemeral bool `json:"ephemeral,omitempty"`
+	Ephemeral bool `json:"ephemeral,omitzero"`
 	// Tmpfs makes the ephemeral directory memory rather than disk: the step
 	// writes into it and nothing reaches a filesystem that outlives the step.
-	Tmpfs bool `json:"tmpfs,omitempty"`
+	Tmpfs bool `json:"tmpfs,omitzero"`
 	// Secret is the credential's value, present only for a secret mount.
 	//
 	// It travels on the wire and never reaches a layer: the guest writes it to
@@ -741,7 +741,7 @@ type Mount struct {
 	// inside the guest, so they are not in a request today. A refactor that put
 	// them there would silently make the hosts file a credential and fail builds
 	// for a reason nobody could act on. Said rather than deduced.
-	Credential bool `json:"credential,omitempty"`
+	Credential bool `json:"credential,omitzero"`
 
 	// Sandbox names a path in the sandbox's own filesystem to bind, rather than
 	// something in the layer store.
@@ -756,7 +756,7 @@ type Mount struct {
 	// Mode is the permission the mount point is created with, when one has to
 	// be created. Zero means the default, which is right for a secret and wrong
 	// for a device: a step that cannot open /dev/null has no /dev/null.
-	Mode uint32 `json:"mode,omitempty"`
+	Mode uint32 `json:"mode,omitzero"`
 }
 
 // Response is what the guest returns.
@@ -787,7 +787,7 @@ type Response struct {
 	// wrong" must not be the same answer: treating them alike turns a broken
 	// export into a silently skipped artifact. The guest sets this only from
 	// the two checks that precede any copying, never from a copy that failed.
-	Absent bool `json:"absent,omitempty"`
+	Absent bool `json:"absent,omitzero"`
 
 	// Chunk is a piece of a running step's output.
 	//
@@ -798,23 +798,23 @@ type Response struct {
 	Chunk string `json:"chunk,omitempty"`
 	// Streaming marks such a frame. A separate flag rather than "Chunk is
 	// non-empty", because a step legitimately prints an empty line.
-	Streaming bool `json:"streaming,omitempty"`
+	Streaming bool `json:"streaming,omitzero"`
 	// Stderr says the chunk came from the step's standard error.
 	//
 	// The log wants both streams interleaved, and a `$( )` substitution wants
 	// stdout alone as every shell gives it - which cannot be recovered from a
 	// merged stream afterwards (E725). Absent from an older guest, which reads
 	// as stdout: exactly the behaviour before this existed.
-	Stderr bool `json:"stderr,omitempty"`
+	Stderr bool `json:"stderr,omitzero"`
 
 	// More says this observe reply is a page and further entries remain.
 	//
 	// Absent from an older guest, which is exactly right: it answers with
 	// everything it has and there is nothing further to ask for.
-	More bool `json:"more,omitempty"`
+	More bool `json:"more,omitzero"`
 
 	Err     string `json:"err,omitempty"`
-	Version int    `json:"version,omitempty"`
+	Version int    `json:"version,omitzero"`
 	// Emulates names the interpreters this guest's kernel has registered and
 	// enabled for foreign binaries, as the kernel spells them.
 	//
@@ -865,7 +865,7 @@ type Response struct {
 	// source that knows it is lossy has no way to say so, and the host decodes
 	// a partial observation as a complete one - which is the false hit Κ₂
 	// exists to prevent (green paper §3.4, I3).
-	Incomplete bool `json:"incomplete,omitempty"`
+	Incomplete bool `json:"incomplete,omitzero"`
 	// Why names each distinct reason the guest missed something. Diagnostic,
 	// and the thing that turns "this step never earns an L2 hit" from a mystery
 	// into a sentence.
@@ -884,7 +884,7 @@ type Response struct {
 	// person could read it: a step killed for memory exits like any other, so a
 	// driver could not tell it from a compiler that found an error and failed
 	// the build rather than trying elsewhere.
-	OutOfMemory bool `json:"outOfMemory,omitempty"`
+	OutOfMemory bool `json:"outOfMemory,omitzero"`
 	// Unmounted is why a step's filesystem was not fully built - a /sys or
 	// cgroup mount that could not be made. Separate from Degraded, which is
 	// about resource limits: a reader who sees one and acts on the other is
@@ -953,15 +953,15 @@ type Response struct {
 
 	Layer   string `json:"layer,omitempty"`
 	Content string `json:"content,omitempty"`
-	Bytes   int64  `json:"bytes,omitempty"`
+	Bytes   int64  `json:"bytes,omitzero"`
 	// CPUNanos and MaxRSS are what the step's process spent, for `--exec-stats`.
 	//
 	// Reported by the guest because the kernel reports usage to the parent at
 	// wait, and by the time a result reaches the host the process is gone
 	// (E467). Zero where the platform cannot state one honestly rather than
 	// converted with a guess.
-	CPUNanos int64  `json:"cpuNanos,omitempty"`
-	MaxRSS   uint64 `json:"maxRSS,omitempty"`
+	CPUNanos int64  `json:"cpuNanos,omitzero"`
+	MaxRSS   uint64 `json:"maxRSS,omitzero"`
 
 	// Exit is the step's exit code. A non-zero exit is a *result*, not a
 	// protocol error: the step ran and failed, which the engine records and

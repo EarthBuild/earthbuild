@@ -61,7 +61,7 @@ type storedRecord struct {
 	// Absent in records written before this existed, which decodes to zero, and
 	// zero is not the current rule - the right answer for a record whose engine
 	// named layers some other way.
-	Identity int `json:"identity,omitempty"`
+	Identity int `json:"identity,omitzero"`
 }
 
 // recordVersion is the on-disk format. Bump it when a field changes meaning.

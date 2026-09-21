@@ -1,7 +1,7 @@
 VERSION 0.8
 
 test-fedora:
-    ARG version=45
+    ARG version=46
     FROM fedora:$version
     RUN dnf -y install dnf-plugins-core
     RUN --no-cache dnf config-manager \

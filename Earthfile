@@ -15,7 +15,7 @@ go:
     # tree that changes for reasons no build caused, which is the shape that
     # costs a hit the day something does read it. Off, so it cannot. See E698.
     RUN go telemetry off
-    WORKDIR /earthly
+    WORKDIR /earth
 
 node:
     FROM node:26.8.2-alpine3.24@sha256:ef24c5053d50fdc3e4e56eb4e7ddb7861874ab0fdc797046ba897581deb8e868
@@ -80,7 +80,7 @@ code:
     COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go \
         buildkitd/with_docker_env_test.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
-    SAVE ARTIFACT /earthly
+    SAVE ARTIFACT /earth
 
 # update-buildkit updates earthbuild's buildkit dependency.
 update-buildkit:
@@ -166,7 +166,7 @@ lint:
         sh /tmp/golangci-install.sh -b $(go env GOPATH)/bin v$golangci_lint_version && \
         rm /tmp/golangci-install.sh
     COPY ./.golangci.yaml .
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     # `-n1` because `dirname` in this image is busybox's, which takes exactly one
     # argument. With several modules `xargs` passed them all at once, dirname
     # printed its usage and exited 1, and the reference engine iterated over the
@@ -184,7 +184,7 @@ lint:
             --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
             --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
             --mount type=cache,target=/root/.cache/golangci_lint \
-            echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
+            echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earth/.golangci.yaml
     END
 
 fmt:
@@ -201,7 +201,7 @@ govulncheck:
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
     ENV govulncheck_version=1.8.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
         ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
         RUN \
@@ -245,7 +245,7 @@ unit-test-parser:
 # unit-test runs unit tests
 unit-test:
     FROM +go
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     COPY +unit-test-parser/testparser .
 
     ARG testname # when specified, only run specific unit-test, otherwise run all.
@@ -281,7 +281,7 @@ engine-race:
     FROM +go
     # -race needs a C compiler; the base image has none.
     RUN apk add --no-cache build-base
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     ENV CGO_ENABLED=1
     # How many tests may skip here before the run stops being evidence.
     #
@@ -515,7 +515,7 @@ engine-daemon:
     # docker brings dockerd and the client; util-linux brings unshare, which the
     # tests use to clean up what a namespaced daemon wrote as root.
     RUN apk add --no-cache docker util-linux
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
@@ -529,7 +529,7 @@ engine-daemon:
     # turns "no daemon here" from a green run into a red one.
     # **Six, and the seventh is deliberate rather than lost.** The list below
     # named `HowManyEarthTestsBuild`, which sweeps `tests/*.earth` - and
-    # `+code`, which this target mounts at /earthly, does not carry `tests/`. So
+    # `+code`, which this target mounts at /earth, does not carry `tests/`. So
     # it skipped every time this step has ever run, and the floor counted on a
     # test that could not start.
     #
@@ -556,7 +556,7 @@ engine-daemon:
     # EARTH_TEST_NETWORK because the build test pulls a base image; the guest's
     # tests need none.
     # **The daemon binary runs from its own package directory.** `go test -c`
-    # relocates the binary and this ran it from `/earthly`, where several of
+    # relocates the binary and this ran it from `/earth`, where several of
     # `engine/guest`'s tests cannot find what they read: the wire-vocabulary
     # guard opens `proto.go` to enumerate the request kinds, and the isolation
     # gate reads source too. `go test` guarantees the package directory as the
@@ -565,8 +565,8 @@ engine-daemon:
     # (E629).
     RUN --privileged \
         --mount type=cache,target=/scratch,id=engine-daemon-scratch \
-        sh -c "(cd /earthly/engine/guest && /tmp/daemon.test -test.v); \
-               TMPDIR=/scratch EARTH_TEST_NETWORK=1 EARTH_CORPUS_DIR=/earthly /tmp/build.test -test.v \
+        sh -c "(cd /earth/engine/guest && /tmp/daemon.test -test.v); \
+               TMPDIR=/scratch EARTH_TEST_NETWORK=1 EARTH_CORPUS_DIR=/earth /tmp/build.test -test.v \
                    -test.run 'ABuildWithADockerBlockRuns|ABuildInsideABuild'" \
             > /tmp/d.log 2>&1; \
         rc=$?; \
@@ -601,7 +601,7 @@ unit-test-scripts:
 # fuzz-test runs fuzz tests
 fuzz-test:
     FROM +go
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     RUN --push \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
@@ -611,7 +611,7 @@ fuzz-test:
 integration-test:
     FROM +go
     RUN apk add --no-cache podman fuse-overlayfs crun
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     COPY +unit-test-parser/testparser .
     COPY run-integration-tests.sh .
 
@@ -1245,7 +1245,7 @@ mutate:
     FROM +code
     RUN --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
-        cd /earthly && go run ./tools/mutate
+        cd /earth && go run ./tools/mutate
 
 # lint-gating runs the linting checks that gate a merge.
 #

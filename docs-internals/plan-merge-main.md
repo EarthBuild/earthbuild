@@ -25,6 +25,16 @@ oldest first, and each line carries a verdict rather than a diff.
 
 Three `port`, three `check`, one `done`, fifty-six `merge`.
 
+## Progress
+
+Oldest first, one merge commit per line. A line is done when the merge is in and
+whatever the native engine owed has been paid.
+
+| #   | commit      | merge       | what the engine owed                                        |
+| --- | ----------- | ----------- | ----------------------------------------------------------- |
+| 1   | `a898b66ff` | `18b76d1d7` | nothing; go.mod and go.sum only                              |
+| 2   | `6dca1d306` | `76337f175` | 59 scalar tags renamed `omitzero` (`ede3a0b9b`) - see below  |
+
 ## The ledger
 
 | #   | commit      | verdict | change                                                                                                                                                                                 |
@@ -95,21 +105,30 @@ Three `port`, three `check`, one `done`, fifty-six `merge`.
 
 ## The three that need porting
 
-### `6dca1d306` encoding/json to encoding/json/v2 (#883)
+### `6dca1d306` encoding/json to encoding/json/v2 (#883) - settled
 
-The largest, and the only one with a soundness edge. **Thirty files under
-`engine/` use `encoding/json`**, and one of them is the fleet wire: `Reply` is
-`json.Marshal`ed, which is why adding a field to it needs no encoder change and
-why `TestEveryReplyFieldIsSpecified` guards the vocabulary instead.
+**Merged, and the engine did not follow.** The commit touches no file under
+`engine/`, so there was nothing to take with the merge; the thirty `encoding/json`
+users in the engine are this branch's own and the port was a separate decision.
 
-`json/v2` is not a drop-in at the margins that matter here. `omitempty` changes
-meaning, `omitzero` is the new spelling, and unmarshalling errors on unknown
-fields become configurable rather than ignored. A worker and a driver built from
-different sides of this change must still understand each other, so the wire is
-the part to reason about first and the part a compiler will not check.
+The fear recorded here was that the fleet wire would stop round-tripping. It
+would not. Nothing in `engine/core` or `engine/ir` imports `encoding/json` and no
+`json.Marshal` in the engine feeds a hash, so no cache key can move; and on the
+wire v2 only stops omitting zeros, which a decoder reads identically to an absent
+field. A driver and a worker built from different sides still understand each
+other.
 
-Do not take this one with the merge. Take it deliberately, and run the
-two-machine fleet afterwards.
+What is real is narrower and was paid: **v2 redefines `omitempty` to mean
+"encodes to an empty JSON value", and `false` and `0` are not empty.** Every
+scalar field spelled `omitempty` starts emitting the moment the package is
+switched. Main paid this on eight fields by spelling them `omitzero`; the engine
+had 59. They are renamed in `ede3a0b9b`, while v1 `omitempty`, v1 `omitzero` and
+v2 `omitzero` all still mean the same thing for a bool, an integer or a
+`time.Duration` - so it changed no byte and the migration, if it ever happens, is
+a one-line import swap rather than a silent format change.
+
+Strings, slices, maps and pointers keep `omitempty` deliberately: for those the
+two tags differ, and renaming them would be the behaviour change this avoids.
 
 ### `38320254f` --no-image-output (#858)
 

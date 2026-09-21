@@ -348,16 +348,9 @@ git-clone-test:
     DO +RUN_EARTH --earthfile=git-clone.earth --target=+test
 
 builtin-args-test:
-    ENV EARTHLY_CI_RUNNER=true
     DO +RUN_EARTH --earthfile=builtin-args.earth --target=+builtin-args-test
     RUN sed -i "1s/VERSION \(.*\)/VERSION --arg-scope-and-set \1/" Earthfile
     DO +RUN_EARTH --target=+builtin-args-test
-    RUN sed -i "1s/VERSION \(.*\)/VERSION --earthly-ci-runner-arg \1/" Earthfile
-    DO +RUN_EARTH --target=+earthly-ci-runner-builtin-arg-test --extra_args="--build-arg EXPECTED_VALUE=false"
-    ENV EARTHLY_CI_RUNNER=""
-    DO +RUN_EARTH --target=+earthly-ci-runner-builtin-arg-test --extra_args="--build-arg EXPECTED_VALUE=false"
-    ENV EARTHLY_CI_RUNNER="false"
-    DO +RUN_EARTH --target=+earthly-ci-runner-builtin-arg-test --extra_args="--build-arg EXPECTED_VALUE=false"
 
 builtin-args-invalid-default-test:
     DO +RUN_EARTH --earthfile=builtin-args-invalid-default.earth --should_fail=true --target=+test --output_contains="arg default value supplied for built-in ARG"

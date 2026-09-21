@@ -19,7 +19,6 @@ require (
 	github.com/dustin/go-humanize v1.1.0
 	github.com/elastic/go-sysinfo v1.15.5
 	github.com/fatih/color v1.19.0
-	github.com/go-logr/stdr v1.2.2
 	github.com/gofrs/flock v0.13.1
 	github.com/google/go-cmp v0.7.0
 	github.com/jdxcode/netrc v1.0.0
@@ -95,6 +94,7 @@ require (
 	github.com/elastic/go-windows v1.0.2 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/googleapis v1.4.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect

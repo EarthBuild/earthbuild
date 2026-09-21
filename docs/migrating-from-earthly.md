@@ -340,7 +340,7 @@ Concrete examples as they apply to `v0.8.18`:
 
 # A dind base image (WITH DOCKER)
 - FROM docker.io/earthly/dind:alpine
-+ FROM docker.io/earthbuild/dind:alpine-3.23-docker-29.5.2-r0
++ FROM docker.io/earthbuild/dind:alpine-3.24-docker-29.5.3-r1
 ```
 
 For most users the BuildKit daemon image does not need to be set explicitly — `earth` defaults to the

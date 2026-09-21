@@ -23,7 +23,7 @@ const (
 {{- if .Prefix }}{{.Prefix}}base:
 {{ end -}}
 {{$indent}}LET go_version = 1.26
-{{$indent}}LET distro = alpine3.23
+{{$indent}}LET distro = alpine3.24
 
 {{$indent}}FROM golang:${go_version}-${distro}
 {{$indent}}WORKDIR /go-workdir`

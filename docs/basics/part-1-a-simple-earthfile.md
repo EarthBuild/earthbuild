@@ -112,7 +112,7 @@ build:
     SAVE ARTIFACT output/example AS LOCAL local-output/go-example
 
 npm:
-    FROM node:26.1.0-alpine3.23
+    FROM node:26.1.0-alpine3.24
     WORKDIR /src
     RUN npm install
     COPY assets/ .
@@ -169,7 +169,7 @@ earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+pa
 
 ```Dockerfile
 VERSION 0.8
-FROM node:26.1.0-alpine3.23
+FROM node:26.1.0-alpine3.24
 WORKDIR /js-example
 
 build:

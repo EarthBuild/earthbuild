@@ -58,7 +58,7 @@ func GetTargetArgs(
 		return nil, fmt.Errorf("resolve build context for target %s: %w", target.String(), err)
 	}
 
-	args, err := TargetArgsIn(bc.Earthfile, target.Target)
+	args, err := TargetArgs(bc.Earthfile, target.Target)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", target.String(), err)
 	}
@@ -66,9 +66,9 @@ func GetTargetArgs(
 	return args, nil
 }
 
-// TargetArgsIn lists one target's build arguments from an Earthfile that is
+// TargetArgs lists one target's build arguments from an Earthfile that is
 // already parsed. See TargetsIn for why this exists apart from GetTargetArgs.
-func TargetArgsIn(ef earthfile.Tree, name string) ([]string, error) {
+func TargetArgs(ef earthfile.Tree, name string) ([]string, error) {
 	var t *earthfile.Target
 
 	for _, tt := range ef.Targets {

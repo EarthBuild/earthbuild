@@ -1,9 +1,11 @@
 package subcmd
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -56,7 +58,7 @@ func (a *List) Cmds() []*cli.Command {
 	}
 }
 
-func (a *List) action(ctx context.Context, cmd *cli.Command) error {
+func (a *List) action(_ context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("listTargets")
 
 	if cmd.NArg() > 1 {
@@ -82,18 +84,27 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 		targetToDisplay = "current directory"
 	}
 
-	// **Read and parsed, not resolved.** Resolving a build context shells out
-	// to git for the remote, the hash, the short hash, the branch and the tags -
-	// 183ms of this command on this repository's own Earthfile, against about a
-	// millisecond to parse the 78 KB it is listing. None of it says anything
-	// about what targets a file declares, and remote references are refused a
-	// few lines above, so the one thing a resolver is for here cannot happen.
-	tree, err := readEarthfile(targetToParse)
+	// Parsed rather than resolved: resolving runs git for the remote, hash,
+	// branch and tags, and remote references are refused above.
+	path, err := findBuildFile(targetToParse)
 	if err != nil {
-		return fmt.Errorf("unable to locate Earthfile under %s: %w", targetToDisplay, err)
+		return fmt.Errorf("unable to locate Earthfile under %s", targetToDisplay)
 	}
 
-	targets := earthfile2llb.TargetsIn(tree)
+	src, err := os.ReadFile(path) // #nosec G304 -- the directory the caller named
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+
+	ef, err := earthfile.Parse(path, string(src), earthfile.WithSourceMap())
+	if err != nil {
+		return err
+	}
+
+	targets := make([]string, 0, len(ef.Targets))
+	for _, t := range ef.Targets {
+		targets = append(targets, t.Name)
+	}
 
 	targets = append(targets, earthfile.TargetBase)
 	sort.Strings(targets)
@@ -101,13 +112,8 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 	for _, t := range targets {
 		var args []string
 
-		// **Only when somebody asked for them.** `GetTargetArgs` resolves the
-		// build context afresh for each target, so this ran a resolution per
-		// target and discarded the result unless `--args` was given: 86 targets
-		// in this repository's own Earthfile, 0.33s against 0.05s of process
-		// startup, for output nobody had asked to see.
 		if a.showArgs && t != earthfile.TargetBase {
-			args, err = earthfile2llb.TargetArgsIn(tree, t)
+			args, err = earthfile2llb.TargetArgs(ef, t)
 			if err != nil {
 				return err
 			}
@@ -129,27 +135,69 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-// readEarthfile parses the Earthfile of a directory, defaulting to this one.
+// buildFileNames are the names a project's build file may have, in the order
+// buildcontext.detectBuildFile tries them.
+var buildFileNames = []string{"Earthfile", "build.earth"}
+
+// findBuildFile locates the file ls should read, given the directory the caller
+// named, or "" for none.
 //
-// The path is in the error because "no Earthfile" is a question about *where*:
-// the answer is almost always that the directory is not the one the author
-// meant.
-func readEarthfile(dir string) (earthfile.Tree, error) {
-	if dir == "" {
-		dir = "."
+// Two things the resolver did that <dir>/Earthfile does not, both restored
+// here. A caller who names no directory is searched upwards, because ls is run
+// from inside a project at least as often as from its root - the same walk
+// build does, in buildcontext.resolveLocalRootEarthfile. And a project may
+// still call its build file build.earth, which detectBuildFile accepts and
+// nothing has deprecated.
+func findBuildFile(named string) (string, error) {
+	dir := cmp.Or(named, ".")
+
+	// Only a caller who named no directory, matching resolveLocalRootEarthfile:
+	// a named one is where the caller says the project is.
+	if filepath.Clean(dir) == "." {
+		if up, ok := nearestEarthfileDir(); ok {
+			dir = up
+		}
 	}
 
-	path := filepath.Join(dir, "Earthfile")
+	for _, name := range buildFileNames {
+		p := filepath.Join(dir, name)
 
-	src, err := os.ReadFile(path) //nolint:gosec // the directory the caller named
+		fi, err := os.Stat(p)
+		if err == nil && !fi.IsDir() {
+			return p, nil
+		}
+	}
+
+	return "", fs.ErrNotExist
+}
+
+// nearestEarthfileDir is the closest directory at or above the working
+// directory holding an Earthfile, relative to the working directory.
+//
+// Earthfile and not build.earth, because that is what the walk it mirrors
+// stops on; a directory reached this way is then offered both names.
+func nearestEarthfileDir() (string, bool) {
+	cwd, err := os.Getwd()
 	if err != nil {
-		return earthfile.Tree{}, fmt.Errorf("looked for %s", path)
+		return "", false
 	}
 
-	tree, err := earthfile.Parse(path, string(src), earthfile.WithSourceMap())
-	if err != nil {
-		return earthfile.Tree{}, fmt.Errorf("parse %s: %w", path, err)
-	}
+	for curr := cwd; ; {
+		fi, err := os.Stat(filepath.Join(curr, buildFileNames[0]))
+		if err == nil && !fi.IsDir() {
+			rel, err := filepath.Rel(cwd, curr)
+			if err != nil {
+				return "", false
+			}
 
-	return tree, nil
+			return rel, true
+		}
+
+		parent := filepath.Dir(curr)
+		if parent == curr {
+			return "", false
+		}
+
+		curr = parent
+	}
 }

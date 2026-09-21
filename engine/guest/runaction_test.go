@@ -206,6 +206,16 @@ func pbField(b []byte, num int, v []byte) []byte {
 func TestAnActionMayNameTheImageItsStepStandsOn(t *testing.T) {
 	t.Parallel()
 
+	// Two of these cases actually run the action, which mounts /proc, and a
+	// machine that will not let this process do that is not a machine where
+	// this test failed. Asked of the engine's own probe rather than by matching
+	// the kernel's wording: "operation not permitted" is what this kernel says
+	// today, and a harness that recognises one phrasing turns every other into a
+	// false failure - the argument `nstest.Unstartable` already makes.
+	if err := guest.CanIsolate(); err != nil {
+		t.Skipf("this machine will not isolate a step, so nothing ran: %v", err)
+	}
+
 	const (
 		ours   = "alpine@sha256:" + zeros + "01"
 		theirs = "ubuntu@sha256:" + zeros + "ff"

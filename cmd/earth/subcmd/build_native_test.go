@@ -258,6 +258,7 @@ func TestEveryOptionIsAccountedFor(t *testing.T) {
 		push:            true,
 		strict:          true,
 		noOutput:        true,
+		noImageOutput:   true,
 		execStats:       true,
 		argFile:         "f",
 		emitInputs:      "e",

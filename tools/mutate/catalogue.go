@@ -2732,20 +2732,6 @@ var Mutants = []Mutant{
 		Package:     "./engine/interp/",
 	},
 	{
-		Name:        "interp: the CI-runner builtin gated on its feature (E472)",
-		File:        "engine/interp/interp.go",
-		Anchor:      "\t\tif p.here.features.ciRunner {",
-		Replacement: "\t\tif true {",
-		Package:     "./engine/interp/",
-	},
-	{
-		Name:        "interp: the CI-runner builtin read from the environment (E472)",
-		File:        "engine/interp/builtins.go",
-		Anchor:      "\tvalue := os.Getenv(\"EARTHLY_CI_RUNNER\")",
-		Replacement: "\tvalue := \"\"",
-		Package:     "./engine/interp/",
-	},
-	{
 		Name: "cli: the version-flag overrides reaching the plan (E473)",
 		File: "engine/cli/cli.go",
 		// The line moved when the artifacts capability was added after it

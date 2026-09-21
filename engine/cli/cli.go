@@ -49,6 +49,15 @@ type Options struct {
 	// and strict is what this engine already is - it refuses what it cannot
 	// reproduce (I10) - so this is the half that needed building.
 	NoOutput bool
+	// NoImageOutput leaves `SAVE IMAGE` unwritten.
+	//
+	// The other half of NoOutput, and separate because a build may want one
+	// without the other: pushing an image while declining to keep a copy on the
+	// machine that built it is an ordinary thing to want, and so is producing
+	// artifacts without a multi-gigabyte layout beside them. Upstream spells the
+	// same knob as skipping a load into a local daemon; this engine writes an
+	// OCI layout, which is the same write to the same filesystem.
+	NoImageOutput bool
 	// Dir holds the Earthfile and is the build context.
 	Dir string
 	// Target to build.

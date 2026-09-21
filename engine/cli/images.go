@@ -98,6 +98,13 @@ func writeImages(
 		return nil
 	}
 
+	// **Before anything is looked up, not per image**, exactly as exportAll
+	// treats NoOutput: the steps still ran and the cache is still filled, and
+	// the only thing withheld is the write.
+	if o.NoImageOutput {
+		return nil
+	}
+
 	store := e.Sandbox().StoreDir()
 
 	root, err := storeDir()

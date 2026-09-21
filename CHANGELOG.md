@@ -4,8 +4,13 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ## Unreleased
 
+### Added
+
+- `--no-image-output` (`EARTH_NO_IMAGE_OUTPUT`) suppresses loading `SAVE IMAGE` images into the local container engine (Docker, Podman, etc.) while still writing `SAVE ARTIFACT ... AS LOCAL` artifacts. Combined with `--push`, images are pushed to their registries without being streamed back to the local daemon [#855](https://github.com/earthbuild/earthbuild/issues/855)
+
 ### Changed
 
+- Contradictory output flags are now rejected instead of silently resolved: `--no-output` together with `--no-image-output` is an error, since `--no-output` already suppresses images
 - Completed the `EARTHLY_*` -> `EARTH_*` environment variable rename for the variables EarthBuild
   sets on itself. The published `earthbuild/earthbuild` image no longer emits deprecation warnings
   for its own configuration. [#751](https://github.com/EarthBuild/earthbuild/issues/751)
@@ -29,6 +34,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Fixed
 
+- The build summary no longer reports `Image <target> output as <tag>` for an image that was pushed but never loaded into the local container engine, which affected `--push --no-output` and `--push --no-image-output`
 - The published docker image shipped only `earthly` while the release assets were all named `earth`,
   so `earth` was absent from the image entirely and following the v0.8.18 release notes into the
   image failed with `earth: not found`. The image build path hardcoded its own

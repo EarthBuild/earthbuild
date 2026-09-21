@@ -158,6 +158,7 @@ func (b *Build) nativeOptionsFor(
 		push:            b.cli.Flags().Push,
 		strict:          b.cli.Flags().Strict || b.cli.Flags().CI,
 		noOutput:        b.cli.Flags().NoOutput,
+		noImageOutput:   b.cli.Flags().NoImageOutput,
 		execStats:       b.cli.Flags().DisplayExecStats,
 		argFile:         argFile,
 		autoSkip:        b.cli.Flags().SkipBuildkit && !b.cli.Flags().NoAutoSkip,
@@ -186,6 +187,7 @@ type nativeInput struct {
 	push            bool
 	strict          bool
 	noOutput        bool
+	noImageOutput   bool
 	execStats       bool
 	argFile         string
 	// autoSkip and autoSkipDB are `--auto-skip` and `--auto-skip-db-path`,
@@ -217,6 +219,7 @@ func nativeOptions(in nativeInput) enginecli.Options {
 		Push:            in.push,
 		Strict:          in.strict,
 		NoOutput:        in.noOutput,
+		NoImageOutput:   in.noImageOutput,
 		ExecStats:       in.execStats,
 		ArgFile:         in.argFile,
 		AutoSkip:        in.autoSkip,

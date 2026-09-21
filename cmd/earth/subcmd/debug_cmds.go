@@ -2,7 +2,8 @@ package subcmd
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"os"
@@ -141,7 +142,7 @@ func (a *Debug) actionBuildkitSessionHistory(ctx context.Context, cmd *cli.Comma
 		return fmt.Errorf("get buildkit session history: %w", err)
 	}
 
-	byt, _ := json.MarshalIndent(history, "", "  ")
+	byt, _ := json.Marshal(history, jsontext.WithIndent("  "))
 	fmt.Println(string(byt))
 
 	return nil

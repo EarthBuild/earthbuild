@@ -1,6 +1,6 @@
 module github.com/EarthBuild/earthbuild
 
-go 1.26.0
+go 1.27.0
 
 require (
 	al.essio.dev/pkg/shellescape v1.6.1

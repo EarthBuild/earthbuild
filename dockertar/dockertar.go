@@ -4,7 +4,7 @@ package dockertar
 import (
 	"archive/tar"
 	"bufio"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"os"

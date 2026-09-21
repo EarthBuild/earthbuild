@@ -3,7 +3,7 @@ package statsstreamparser
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"

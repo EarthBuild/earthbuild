@@ -11,7 +11,7 @@ type Tree struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Targets        []Target        `json:"targets,omitempty"`
 	Functions      []Function      `json:"functions,omitempty"`
-	BaseRecipe     Block           `json:"baseRecipe"`
+	BaseRecipe     Block           `json:"baseRecipe,omitempty"`
 }
 
 // Target is the AST representation of an Earthfile target.
@@ -19,14 +19,14 @@ type Target struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Name           string          `json:"name"`
 	Docs           string          `json:"docs,omitempty"`
-	Recipe         Block           `json:"recipe"`
+	Recipe         Block           `json:"recipe,omitempty"`
 }
 
 // Function is the AST representation of an Earthfile function definition.
 type Function struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Name           string          `json:"name"`
-	Recipe         Block           `json:"recipe"`
+	Recipe         Block           `json:"recipe,omitempty"`
 }
 
 // Version is the AST representation of an Earthfile version definition.
@@ -56,7 +56,7 @@ type Command struct {
 	Docs           string          `json:"docs,omitempty"`
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Args           []string        `json:"args,omitempty"`
-	ExecMode       bool            `json:"execMode,omitempty"`
+	ExecMode       bool            `json:"execMode,omitzero"`
 }
 
 // Clone returns a deep copy of the command.
@@ -77,7 +77,7 @@ func (c Command) Clone() Command {
 // WithStatement is the AST representation of a "WITH" statement.
 type WithStatement struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
-	Body           Block           `json:"body"`
+	Body           Block           `json:"body,omitempty"`
 	Command        Command         `json:"command"`
 }
 
@@ -87,8 +87,8 @@ type IfStatement struct {
 	SourceLocation *SourceLocation   `json:"sourceLocation,omitempty"`
 	Expression     []string          `json:"expression"`
 	ElseIf         []ElseIfStatement `json:"elseIf,omitempty"`
-	IfBody         Block             `json:"ifBody"`
-	ExecMode       bool              `json:"execMode,omitempty"`
+	IfBody         Block             `json:"ifBody,omitempty"`
+	ExecMode       bool              `json:"execMode,omitzero"`
 }
 
 // TryStatement is the AST representation of a "TRY" statement.
@@ -96,29 +96,29 @@ type TryStatement struct {
 	CatchBody      *Block          `json:"catchBody,omitempty"`
 	FinallyBody    *Block          `json:"finallyBody,omitempty"`
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
-	TryBody        Block           `json:"tryBody"`
+	TryBody        Block           `json:"tryBody,omitempty"`
 }
 
 // ElseIfStatement is the AST representation of an "ELSE IF" clause.
 type ElseIfStatement struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Expression     []string        `json:"expression"`
-	Body           Block           `json:"body"`
-	ExecMode       bool            `json:"execMode,omitempty"`
+	Body           Block           `json:"body,omitempty"`
+	ExecMode       bool            `json:"execMode,omitzero"`
 }
 
 // ForStatement is the AST representation of a "FOR" statement.
 type ForStatement struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Args           []string        `json:"args"`
-	Body           Block           `json:"body"`
+	Body           Block           `json:"body,omitempty"`
 }
 
 // WaitStatement is the AST representation of a "WAIT" statement.
 type WaitStatement struct {
 	SourceLocation *SourceLocation `json:"sourceLocation,omitempty"`
 	Args           []string        `json:"args"`
-	Body           Block           `json:"body"`
+	Body           Block           `json:"body,omitempty"`
 }
 
 // SourceLocation is an optional reference to the original source code location.

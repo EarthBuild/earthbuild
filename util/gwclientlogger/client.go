@@ -2,7 +2,8 @@ package gwclientlogger
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 
 	"github.com/EarthBuild/earthbuild/util/stringutil"
@@ -65,9 +66,9 @@ func safeResultFrom(res *gwclient.Result) *safeResult {
 
 // Solve wraps gwclient.Solve.
 func (vc *verboseClient) Solve(ctx context.Context, req gwclient.SolveRequest) (*gwclient.Result, error) {
-	reqStr, _ := json.MarshalIndent(req, "", "\t")
+	reqStr, _ := json.Marshal(req, jsontext.WithIndent("\t"))
 	res, err := vc.c.Solve(ctx, req)
-	resStr, _ := json.MarshalIndent(safeResultFrom(res), "", "\t")
+	resStr, _ := json.Marshal(safeResultFrom(res), jsontext.WithIndent("\t"))
 	msg := fmt.Sprintf("Solve req=%s res=%s; err=%v\n", reqStr, resStr, err)
 	fmt.Print(stringutil.ScrubCredentialsAll(msg))
 
@@ -76,7 +77,7 @@ func (vc *verboseClient) Solve(ctx context.Context, req gwclient.SolveRequest) (
 
 // Export wraps gwclient.Export.
 func (vc *verboseClient) Export(ctx context.Context, req gwclient.ExportRequest) error {
-	reqStr, _ := json.MarshalIndent(req, "", "\t")
+	reqStr, _ := json.Marshal(req, jsontext.WithIndent("\t"))
 	err := vc.c.Export(ctx, req)
 	msg := fmt.Sprintf("Export req=%s; err=%v\n", reqStr, err)
 	fmt.Print(stringutil.ScrubCredentialsAll(msg))
@@ -88,7 +89,7 @@ func (vc *verboseClient) Export(ctx context.Context, req gwclient.ExportRequest)
 func (vc *verboseClient) ResolveImageConfig(
 	ctx context.Context, ref string, opt llb.ResolveImageConfigOpt,
 ) (string, digest.Digest, []byte, error) {
-	s, _ := json.MarshalIndent(opt, "", "\t")
+	s, _ := json.Marshal(opt, jsontext.WithIndent("\t"))
 	msg := fmt.Sprintf("ResolveImageConfig %s %s\n", ref, string(s))
 	fmt.Print(stringutil.ScrubCredentialsAll(msg))
 
@@ -117,7 +118,7 @@ func (vc *verboseClient) Inputs(ctx context.Context) (map[string]llb.State, erro
 func (vc *verboseClient) NewContainer(
 	ctx context.Context, req gwclient.NewContainerRequest,
 ) (gwclient.Container, error) {
-	s, _ := json.MarshalIndent(req, "", "\t")
+	s, _ := json.Marshal(req, jsontext.WithIndent("\t"))
 	container, err := vc.c.NewContainer(ctx, req)
 	msg := fmt.Sprintf("NewContainer req=%s container=%v err=%v\n", string(s), container, err)
 	fmt.Print(stringutil.ScrubCredentialsAll(msg))

@@ -37,7 +37,7 @@ require (
 	github.com/tetratelabs/wazero v1.12.0
 	github.com/tmc/go-iroh v0.1.0
 	github.com/tonistiigi/fsutil v0.0.0-20260819142231-83cac42c1c52
-	github.com/urfave/cli/v3 v3.11.0
+	github.com/urfave/cli/v3 v3.12.0
 	go.etcd.io/bbolt v1.5.0
 	go.opentelemetry.io/contrib/exporters/autoexport v0.70.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0

@@ -60,6 +60,8 @@ type Runtime struct {
 // first did. Empty dir keeps it in memory, which is right for a test and for a
 // one-shot command.
 func Open(ctx context.Context, dir string) (*Runtime, error) {
+	warmWazero(ctx)
+
 	var (
 		cache wazero.CompilationCache
 		err   error
@@ -77,7 +79,7 @@ func Open(ctx context.Context, dir string) (*Runtime, error) {
 		cfg = cfg.WithCompilationCache(cache)
 	}
 
-	rt := newRuntime(ctx, cfg)
+	rt := wazero.NewRuntimeWithConfig(ctx, cfg)
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, rt); err != nil {
 		_ = rt.Close(ctx)
 
@@ -87,34 +89,33 @@ func Open(ctx context.Context, dir string) (*Runtime, error) {
 	return &Runtime{rt: rt, cache: cache}, nil
 }
 
-// firstRuntime serialises the construction of the very first wazero runtime.
+// warmWazero initialises wazero's version global exactly once, under a Once.
 //
 // **Not our race, but ours to avoid.** wazero v1.12.0's
 // `internal/version.GetWazeroVersion` memoises the module version into a
-// package-level variable with no synchronisation, and `NewRuntimeWithConfig`
-// reaches it on every call - so two goroutines opening a helper at the same
-// time read and write that variable concurrently. Go's race detector fails the
-// whole test binary when it sees it, which is how one upstream global took four
-// packages red.
+// package-level variable with no synchronisation. Two goroutines opening a
+// helper at the same time read and write it concurrently, and Go's race
+// detector fails the whole test binary when it sees it - which is how one
+// upstream global took four packages red in CI.
+//
+// **Warmed here rather than guarded at the call**, because there is more than
+// one call: both `NewCompilationCacheWithDir` and `NewRuntimeWithConfig` reach
+// it, and a guard on the second alone left the first racing - which is how this
+// was fixed once already and still failed. A Once around a throwaway runtime
+// touches the global before any caller can, and gives every later reader the
+// happens-before it needs, whatever entry point a future version adds.
 //
 // Serialising every construction would be the obvious fix and the wrong one: a
 // helper is opened per cache mount, and making that a global bottleneck to work
 // around somebody else's unsynchronised variable trades a real property for a
-// borrowed bug. One pass through the mutex is enough, because the variable is
-// written once and only ever read afterwards.
-var firstRuntime sync.Once
+// borrowed bug.
+var warm sync.Once
 
-// newRuntime builds the runtime, warming wazero's version global exactly once.
-func newRuntime(ctx context.Context, cfg wazero.RuntimeConfig) wazero.Runtime {
-	var rt wazero.Runtime
-
-	firstRuntime.Do(func() { rt = wazero.NewRuntimeWithConfig(ctx, cfg) })
-
-	if rt != nil {
-		return rt
-	}
-
-	return wazero.NewRuntimeWithConfig(ctx, cfg)
+func warmWazero(ctx context.Context) {
+	warm.Do(func() {
+		rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig())
+		_ = rt.Close(ctx)
+	})
 }
 
 // Close releases the runtime and its compiled modules.

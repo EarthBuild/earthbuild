@@ -27,6 +27,14 @@ on:
       - cmd/earth-native/**
       - tests/fleet/**
       - .github/workflows/fleet-e2e.yml
+      # And the dependencies, because the transport is mostly somebody else's
+      # code. A worker reaches a driver over QUIC and fetches blobs over a TLS
+      # session whose identity checking lives in x/crypto, not here: bumping it
+      # changed whether a blob could be fetched at all, and no file above was
+      # touched. A trigger list that names only our own packages tests only our
+      # own mistakes.
+      - go.mod
+      - go.sum
 
 permissions:
   contents: read

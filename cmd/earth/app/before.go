@@ -105,8 +105,8 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	// costs 116ms of a 380ms cached build to run the candidate binaries and ask
 	// which of them answers (E871).
 	endFrontend := timing.Phase("frontend:detect", "")
-	err = app.parseFrontend(ctx, needsContainerFrontend(
-		os.Args[1:], commandNames(app.BaseCLI.App().Commands), engineEnv()))
+	err = app.parseFrontend(ctx, needsContainerFrontend(os.Args[1:],
+		cmd.Args().First(), commandNames(app.BaseCLI.App().Commands), engineEnv()))
 	endFrontend()
 	if err != nil {
 		return ctx, err

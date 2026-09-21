@@ -20,12 +20,18 @@ const nativeEngineName = "native"
 // native engine never consults the result: `engine/` contains no reference to a
 // container frontend at all, and every consumer is on the buildkit path (E871).
 //
-// This runs from `before`, where the build subcommand's flags have not been
-// parsed, so it reads the raw arguments. That makes it a guess, and it is
-// deliberately a timid one: anything unrecognised - an unknown engine, another
-// subcommand, no arguments - keeps the detection. The cost of guessing wrong in
+// This runs from `before`, where the *build subcommand's* flags have not been
+// parsed - `--engine` is one of them - so the engine is read from the raw
+// arguments. That makes that half a guess, and deliberately a timid one:
+// anything unrecognised keeps the detection, and the cost of guessing wrong in
 // that direction is the 116ms that was always being spent.
-func needsContainerFrontend(args, commands []string, engineEnv string) bool {
+//
+// **The subcommand is not guessed at**, because a scan cannot do it correctly.
+// Root flags *are* parsed by the time this runs, so `subcommand` comes from the
+// parser; looking for a command name among the raw arguments reads a global
+// flag's value as a command, and the first match wins. `--git-username ls
+// prune` answered for `ls` and handed `prune` a stub frontend.
+func needsContainerFrontend(args []string, subcommand string, commands []string, engineEnv string) bool {
 	engine := engineEnv
 	if named, ok := engineFromArgs(args); ok {
 		engine = named // the command line beats the environment, as everywhere else
@@ -38,16 +44,14 @@ func needsContainerFrontend(args, commands []string, engineEnv string) bool {
 	// A subcommand may want a daemon for its own reasons - `bootstrap` and
 	// `prune` are *about* the daemon - so a named one needs it unless it is one
 	// of the few that provably does not.
-	// **The first recognised subcommand decides**, rather than only being able
-	// to vote yes. A file-only command that merely declined to return true fell
-	// through to the target check below and was answered "detect" anyway,
-	// because `ls ./examples` names no target - which is exactly right for a
-	// build and meaningless for a command that does not take one.
-	for _, a := range args {
-		for _, c := range commands {
-			if a == c {
-				return !readsOnlyFiles[c]
-			}
+	// **The named subcommand decides**, rather than only being able to vote yes.
+	// A file-only command that merely declined to return true fell through to
+	// the target check below and was answered "detect" anyway, because
+	// `ls ./examples` names no target - which is exactly right for a build and
+	// meaningless for a command that does not take one.
+	for _, c := range commands {
+		if subcommand == c {
+			return !readsOnlyFiles[c]
 		}
 	}
 

@@ -53,6 +53,25 @@ whatever the native engine owed has been paid.
 | 19  | `95f940c3a` | `dc8bb17d4` | nothing; aws sdk again, same go.mod resolution               |
 | 20  | `98b6ce68c` | `bcd1519b0` | nothing; an ubuntu dind tag                                  |
 | 21  | `ead75d9fc` | `58bdee771` | nothing; pinned github-actions bumps                         |
+| 22  | `5457128ab` | `30ad8b873` | nothing; a curl probe in a test fixture                      |
+| 23  | `8c3016fff` | `e0f13cfe5` | nothing; an example's psycopg2                               |
+| 24  | `6530ea12b` | `f5769c2e1` | nothing; node example deps                                   |
+| 25  | `db6f05e36` | `845063ef3` | nothing; golang, node and zizmor re-pinned - see below       |
+| 26  | `8e0213f33` | `d92186b6b` | nothing; a fedora docker tag                                 |
+| 27  | `b9989ece2` | `12077925d` | nothing; this branch's docs already say EarthBuild           |
+| 28  | `7a8318789` | `0c061ae3b` | nothing; the dind tag, already at r1 here                    |
+| 29  | `113ec9d11` | `5ee0919a0` | nothing; the staging release workflow                        |
+| 30  | `fddc4b372` | `626e3e6fc` | the three stale docs URLs it fixes are the only ones we had  |
+| 31  | `f94310444` | `c9c922e42` | nothing; ruby example deps                                   |
+| 32  | `afc8ebf37` | `0d498da38` | nothing; a `next` bump in an example                         |
+| 33  | `1ebfdcda9` | `c4d938b56` | nothing; dockerfile deps, pins held                          |
+| 34  | `519d93fe9` | `1888f4953` | nothing; lock file maintenance                               |
+| 35  | `54ab73cfa` | `a900e7ed6` | nothing; an example's sbt                                    |
+| 36  | `1398a0a5e` | `cbac3787d` | nothing; an example's webpack                                |
+| 37  | `9d83e8bef` | `7a20e8a88` | nothing; urfave/cli to v3.12.0, no API change reached us     |
+| 38  | `f4ee556ea` | `51efbca9e` | nothing; aws config, same go.mod resolution                  |
+| 39  | `f36324182` | `11d22f870` | nothing; an ECR docker tag                                   |
+| 40  | `9a6a43636` | `a98c4f159` | nothing; an example's ruby                                   |
 
 ## The ledger
 
@@ -144,6 +163,17 @@ taken against, silently and correctly. Both manifests are still pullable.
 tree and no docs lint in the Earthfile, so merges carrying main's docs fail a
 personal pre-commit ruleset the project never adopted. Those merges are
 committed with `--no-verify` rather than widened into a docs cleanup.
+
+A fourth rule, learned at line 27: where main's change lands on a line this
+branch also touched, the answer is usually **both**, not either. The rename hit
+a diagnostics step this branch had added a warning to, and a glossary this
+branch had only re-aligned. Taking a whole hunk from either side would have
+dropped real work in both files; `align-tables.py` puts the table back after
+main's text goes in.
+
+Main pins some base images itself - python's digest is renovate-maintained on
+main - so pinning main's newly bumped tag is this repository's own practice
+extended, not a local deviation.
 
 ## The three that need porting
 

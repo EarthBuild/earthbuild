@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -76,7 +77,7 @@ func Open(ctx context.Context, dir string) (*Runtime, error) {
 		cfg = cfg.WithCompilationCache(cache)
 	}
 
-	rt := wazero.NewRuntimeWithConfig(ctx, cfg)
+	rt := newRuntime(ctx, cfg)
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, rt); err != nil {
 		_ = rt.Close(ctx)
 
@@ -84,6 +85,36 @@ func Open(ctx context.Context, dir string) (*Runtime, error) {
 	}
 
 	return &Runtime{rt: rt, cache: cache}, nil
+}
+
+// firstRuntime serialises the construction of the very first wazero runtime.
+//
+// **Not our race, but ours to avoid.** wazero v1.12.0's
+// `internal/version.GetWazeroVersion` memoises the module version into a
+// package-level variable with no synchronisation, and `NewRuntimeWithConfig`
+// reaches it on every call - so two goroutines opening a helper at the same
+// time read and write that variable concurrently. Go's race detector fails the
+// whole test binary when it sees it, which is how one upstream global took four
+// packages red.
+//
+// Serialising every construction would be the obvious fix and the wrong one: a
+// helper is opened per cache mount, and making that a global bottleneck to work
+// around somebody else's unsynchronised variable trades a real property for a
+// borrowed bug. One pass through the mutex is enough, because the variable is
+// written once and only ever read afterwards.
+var firstRuntime sync.Once
+
+// newRuntime builds the runtime, warming wazero's version global exactly once.
+func newRuntime(ctx context.Context, cfg wazero.RuntimeConfig) wazero.Runtime {
+	var rt wazero.Runtime
+
+	firstRuntime.Do(func() { rt = wazero.NewRuntimeWithConfig(ctx, cfg) })
+
+	if rt != nil {
+		return rt
+	}
+
+	return wazero.NewRuntimeWithConfig(ctx, cfg)
 }
 
 // Close releases the runtime and its compiled modules.

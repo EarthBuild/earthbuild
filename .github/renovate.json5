@@ -279,6 +279,22 @@
       allowedVersions: '/^ubuntu-26\\.04-.*/',
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
+    {
+      // rule to update Amazon Linux 2023 images
+      matchPackageNames: [
+        'public.ecr.aws/amazonlinux/amazonlinux',
+      ],
+      matchCurrentVersion: '/^2023\\..*/',
+      allowedVersions: '/^2023\\..*/',
+    },
+    {
+      // rule to update Amazon Linux 2027 images
+      matchPackageNames: [
+        'public.ecr.aws/amazonlinux/amazonlinux',
+      ],
+      matchCurrentVersion: '/^2027\\..*/',
+      allowedVersions: '/^2027\\..*/',
+    },
     // group all examples and docs dependency updates together (except EarthBuild/earthbuild and earthbuild/dind)
     {
       matchFileNames: [

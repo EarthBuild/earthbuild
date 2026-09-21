@@ -1,0 +1,157 @@
+# Merging main into the native engine
+
+`main` has moved 63 commits since `8bf6bd972` (2026-09-01), which is where this
+branch last met it. This branch has moved 1,613.
+
+**A commit on main is a question, not a patch.** Most of what lands there is a
+dependency bump or an example's lockfile, and a merge carries those without
+anyone thinking. A few change what the *engine* does - and this branch has a
+second engine that main knows nothing about, so "the merge applied cleanly" says
+only that the text did not conflict. Where main taught the old engine something,
+the question is whether the native one has been taught it too, and nothing in
+git will ask that.
+
+So: one commit, one line. The ledger below is the whole of main's divergence,
+oldest first, and each line carries a verdict rather than a diff.
+
+## Verdicts
+
+| verdict | meaning                                                                   |
+| ------- | ------------------------------------------------------------------------- |
+| `merge` | no native question. Dependencies, examples, docs, workflows, fixtures     |
+| `check` | touches something the native engine reimplements; confirm nothing is owed |
+| `port`  | main gained a behaviour the native engine must gain too                   |
+| `done`  | already here, usually because this branch is where it came from           |
+
+Three `port`, three `check`, one `done`, fifty-six `merge`.
+
+## The ledger
+
+| #   | commit      | verdict | change                                                                                                                                                                                 |
+| --- | ----------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `a898b66ff` | merge   | fix(deps): update module al.essio.dev/pkg/shellescape to v1.6.1 (#888)                                                                                                                 |
+| 2   | `6dca1d306` | port    | encoding/json -> encoding/json/v2 across 27 files. **30 files under engine/ use encoding/json**, including the fleet wire, where v2 changes `omitempty`/`omitzero` and error behaviour |
+| 3   | `b08a1df18` | merge   | chore(deps): update dependency bundler to v4.0.20 (#889)                                                                                                                               |
+| 4   | `f476e5b5e` | merge   | std `uuid`; no usage inside engine/, so the merge carries it                                                                                                                           |
+| 5   | `8c0d880bf` | merge   | fix(deps): update dependency org.clojure:clojure to v1.12.6 (#891)                                                                                                                     |
+| 6   | `7b7643070` | merge   | fix(deps): update module golang.org/x/crypto to v0.56.0 (#892)                                                                                                                         |
+| 7   | `f29ff5af8` | merge   | chore(deps): update dependency org.apache.maven.plugins:maven-compiler-plugin to v3.16.0 (#893)                                                                                        |
+| 8   | `2b87a4dec` | merge   | chore(deps): update jdkato/vale docker tag to v3.20.0 (#894)                                                                                                                           |
+| 9   | `82915a224` | merge   | chore(deps): update public.ecr.aws/amazonlinux/amazonlinux docker tag to v2027 (#895)                                                                                                  |
+| 10  | `636f58f56` | merge   | chore(deps): update dependency org.apache.maven.plugins:maven-surefire-plugin to v3.6.0 (#896)                                                                                         |
+| 11  | `77100d1e4` | merge   | fix(deps): update module github.com/docker/cli to v29.8.0+incompatible (#897)                                                                                                          |
+| 12  | `d7e536699` | merge   | fix(deps): update aws sdk (#898)                                                                                                                                                       |
+| 13  | `40efb4605` | merge   | fix(deps): update x (#900)                                                                                                                                                             |
+| 14  | `7d8b9f467` | merge   | chore(deps): update earthbuild/dind docker tag to alpine-3.24-docker-29.5.3-r1 (#902)                                                                                                  |
+| 15  | `d87c3e3d6` | merge   | fix(deps): update dependency next to v16.3.3 [security] (#903)                                                                                                                         |
+| 16  | `2d40dc8cb` | merge   | chore(deps): update earthbuild/dind docker tag to ubuntu-26.04-docker-29.8.0-1 (#904)                                                                                                  |
+| 17  | `9f47c669e` | merge   | chore(deps): update public.ecr.aws/amazonlinux/amazonlinux docker tag to v2023.12.20260909.0 (#905)                                                                                    |
+| 18  | `ad012176d` | merge   | chore(deps): update jdkato/vale docker tag to v3.21.0 (#906)                                                                                                                           |
+| 19  | `95f940c3a` | merge   | fix(deps): update aws sdk (#907)                                                                                                                                                       |
+| 20  | `98b6ce68c` | merge   | chore(deps): update earthbuild/dind docker tag to ubuntu-24.04-docker-29.8.0-1 (#909)                                                                                                  |
+| 21  | `ead75d9fc` | merge   | chore(deps): update github-actions (#910)                                                                                                                                              |
+| 22  | `5457128ab` | merge   | a test fixture probes curl support                                                                                                                                                     |
+| 23  | `8c3016fff` | merge   | chore(deps): update dependency psycopg2 to v2.9.13 (#911)                                                                                                                              |
+| 24  | `6530ea12b` | merge   | fix(deps): update nodejs-examples-dependencies (#915)                                                                                                                                  |
+| 25  | `db6f05e36` | merge   | chore(deps): update dockerfile-dependencies (#913)                                                                                                                                     |
+| 26  | `8e0213f33` | merge   | chore(deps): update fedora docker tag to v46 (#916)                                                                                                                                    |
+| 27  | `b9989ece2` | merge   | docs rename                                                                                                                                                                            |
+| 28  | `7a8318789` | merge   | chore(deps): update earthbuild/dind docker tag to alpine-3.24-docker-29.5.3-r1 (#918)                                                                                                  |
+| 29  | `113ec9d11` | merge   | release workflow only                                                                                                                                                                  |
+| 30  | `fddc4b372` | merge   | docs links                                                                                                                                                                             |
+| 31  | `f94310444` | merge   | chore(deps): update ruby-examples-dependencies (#923)                                                                                                                                  |
+| 32  | `afc8ebf37` | merge   | fix(deps): update dependency next to v16.3.5 (#924)                                                                                                                                    |
+| 33  | `1ebfdcda9` | merge   | chore(deps): update dockerfile-dependencies (#925)                                                                                                                                     |
+| 34  | `519d93fe9` | merge   | chore(deps): lock file maintenance (#926)                                                                                                                                              |
+| 35  | `54ab73cfa` | merge   | chore(deps): update dependency sbt/sbt to v2.0.9 (#927)                                                                                                                                |
+| 36  | `1398a0a5e` | merge   | chore(deps): update dependency webpack to v5.111.0 (#928)                                                                                                                              |
+| 37  | `9d83e8bef` | merge   | fix(deps): update module github.com/urfave/cli/v3 to v3.12.0 (#929)                                                                                                                    |
+| 38  | `f4ee556ea` | merge   | fix(deps): update module github.com/aws/aws-sdk-go-v2/config to v1.33.5 (#930)                                                                                                         |
+| 39  | `f36324182` | merge   | chore(deps): update public.ecr.aws/amazonlinux/amazonlinux docker tag to v2023.12.20260914.0 (#931)                                                                                    |
+| 40  | `9a6a43636` | merge   | chore(deps): update dependency ruby to v4.0.7 (#932)                                                                                                                                   |
+| 41  | `085fc5650` | merge   | chore(deps): update amazon/aws-cli docker tag to v2.36.45 (#933)                                                                                                                       |
+| 42  | `965f3b630` | merge   | chore(deps): update dependency org.apache.maven.plugins:maven-deploy-plugin to v3.2.0 (#934)                                                                                           |
+| 43  | `b64532c89` | merge   | chore(deps): update dependency org.apache.maven.plugins:maven-install-plugin to v3.2.0 (#935)                                                                                          |
+| 44  | `b4bae887d` | merge   | chore(deps): lock file maintenance (#936)                                                                                                                                              |
+| 45  | `6a6179ebc` | merge   | chore(deps): lock file maintenance (#937)                                                                                                                                              |
+| 46  | `59442edcf` | merge   | fix(deps): update module github.com/docker/cli to v29.8.1+incompatible (#938)                                                                                                          |
+| 47  | `aa4e0d964` | merge   | chore(deps): update dependency bundler to v4.0.21 (#940)                                                                                                                               |
+| 48  | `ee6be11dc` | merge   | chore(deps): update earthbuild/dind docker tag to ubuntu-26.04-docker-29.8.1-1 (#941)                                                                                                  |
+| 49  | `e90b2d72a` | check   | default installation name -> `earth-dev`; native reads an installation name for its store and config paths                                                                             |
+| 50  | `99c767ebf` | merge   | chore(deps): update dependency earthbuild/earthbuild to v0.8.19 (#950)                                                                                                                 |
+| 51  | `bde5e5f9b` | port    | a feature flag retired. `engine/interp` gates a builtin on it and `TestTheCIRunnerArgumentIsGatedOnItsFeature` asserts the gate                                                        |
+| 52  | `aad7dae16` | merge   | chore(deps): update alpine docker tag to v3.24.2 (#951)                                                                                                                                |
+| 53  | `eb2d44c0f` | merge   | chore(deps): update public.ecr.aws/amazonlinux/amazonlinux docker tag to v2023.12.20260917.1 (#952)                                                                                    |
+| 54  | `0776f5f67` | merge   | chore(deps): update public.ecr.aws/amazonlinux/amazonlinux docker tag to v2027.0.20260914.0 (#953)                                                                                     |
+| 55  | `90c544fca` | merge   | chore(deps): update jdkato/vale docker tag to v3.22.0 (#955)                                                                                                                           |
+| 56  | `f6f3e1f58` | merge   | fix(deps): update module github.com/dustin/go-humanize to v1.1.0 (#956)                                                                                                                |
+| 57  | `5316a944d` | merge   | fix(deps): update module google.golang.org/grpc to v1.84.0 (#957)                                                                                                                      |
+| 58  | `26037eeb1` | done    | this branch is where it came from - `92cde118a` and `fcb82ec05` are the native half, already here                                                                                      |
+| 59  | `15389c1b6` | check   | drops the stdr logger; native links its own telemetry path                                                                                                                             |
+| 60  | `9562129dc` | check   | the repo Earthfile workdir moves `/earthly` -> `/earth`; nine references in engine/ are comments and one is an artifact path                                                           |
+| 61  | `38320254f` | port    | a second output knob: `--no-image-output` skips *loading images*, which is not `--no-output` (artifacts). Native has the latter only                                                   |
+| 62  | `e87deb594` | merge   | chore(deps): update amazonlinux (#963)                                                                                                                                                 |
+| 63  | `1dad4e797` | merge   | fix(deps): update dependency joda-time:joda-time to v2.14.4 (#964)                                                                                                                     |
+
+## The three that need porting
+
+### `6dca1d306` encoding/json to encoding/json/v2 (#883)
+
+The largest, and the only one with a soundness edge. **Thirty files under
+`engine/` use `encoding/json`**, and one of them is the fleet wire: `Reply` is
+`json.Marshal`ed, which is why adding a field to it needs no encoder change and
+why `TestEveryReplyFieldIsSpecified` guards the vocabulary instead.
+
+`json/v2` is not a drop-in at the margins that matter here. `omitempty` changes
+meaning, `omitzero` is the new spelling, and unmarshalling errors on unknown
+fields become configurable rather than ignored. A worker and a driver built from
+different sides of this change must still understand each other, so the wire is
+the part to reason about first and the part a compiler will not check.
+
+Do not take this one with the merge. Take it deliberately, and run the
+two-machine fleet afterwards.
+
+### `38320254f` --no-image-output (#858)
+
+A second output knob, and distinct from the one native has. `--no-output`
+withholds `SAVE ARTIFACT ... AS LOCAL`; this withholds *loading images locally*,
+which is the `SAVE IMAGE` half. `engine/cli` has `NoOutput` for the first and
+nothing for the second.
+
+Native's image path is `engine/cli/images.go`, so the equivalent is a second
+option honoured there. Worth doing for the same reason main did it: an image
+loaded into a local daemon is a write to somebody's machine that a build may not
+want to make.
+
+### `bde5e5f9b` retire the earthly-ci-runner-arg flag (#946)
+
+Main removed an obsolete feature flag and the builtin behind it. The native
+interpreter gates the same builtin on the same flag and
+`TestTheCIRunnerArgumentIsGatedOnItsFeature` asserts that gate, so the removal
+has a native half: the gate, the builtin, and the test that pins it.
+
+Note the corpus: `tests/builtin-args.earth` asserts both halves, so it moves
+with them.
+
+## The three to check
+
+* `9562129dc` the repository's own build workdir `/earthly` -> `/earth`. Nine
+  references under `engine/` - eight are comments naming the old path and one is
+  an artifact path in a test. None is load-bearing; all are wrong after the
+  merge.
+* `e90b2d72a` default installation name -> `earth-dev`. Native reads an
+  installation name to find its store and config, so confirm which name a build
+  resolves to after the merge rather than assuming the two agree.
+* `15389c1b6` the stdr logger goes. Native links its own telemetry; confirm
+  nothing under `engine/` depended on the dropped dependency.
+
+## How to work it
+
+One commit at a time, in the order below, and a merge commit per line rather
+than one merge for all 63. That is slower and it is the point: a bisect that
+lands between two of these lands somewhere that means something, and a single
+merge of 63 commits is a single opaque step in the history of a branch that has
+1,613 of its own.
+
+A `port` line is not finished when the merge is clean. It is finished when the
+native engine does the thing, with a test that fails without it.

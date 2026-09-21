@@ -101,7 +101,14 @@ func TestAMachineHandsOutASocketForItsTap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer func() { _ = held.Close() }()
+	// **Cleanup, not defer, and registered before listenAt.** A test's defers
+	// run when it returns; its cleanups run after that, so a deferred close
+	// fires while the serving goroutine is still inside `dupOf` reading this
+	// file's descriptor - which the race detector calls, correctly, a data race
+	// between `os.(*File).Close` and `os.(*File).Fd`. Cleanups are LIFO, so
+	// registering this one first means listenAt's - which stops the listener
+	// and waits for the goroutine - runs before it.
+	t.Cleanup(func() { _ = held.Close() })
 
 	at := listenAt(t, dupOf(t, held))
 
@@ -127,7 +134,7 @@ func TestEveryBuildGetsItsOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer func() { _ = held.Close() }()
+	t.Cleanup(func() { _ = held.Close() }) // see above: cleanup, not defer
 
 	at := listenAt(t, dupOf(t, held))
 

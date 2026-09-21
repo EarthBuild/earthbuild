@@ -941,14 +941,6 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		builtin := builtinArgs(p.targetPlatform(rs), p.opt.nativePlatform(),
 			rs.target, p.here.dir, p.rootDir, rs.host, p.opt.push)
 
-		// One builtin is gated on the dialect rather than always present, and is
-		// added here rather than inside builtinArgs: the file this comes from
-		// asserts the *absence* too, and a fifth parameter would be a signature
-		// growing one field per fact (E472).
-		if p.here.features.ciRunner {
-			addCIRunner(builtin)
-		}
-
 		err := rs.args.declare(declScope, c.Args, rs.supplied, where, expand,
 			builtin, rs.globals, rs.declared, rs.target != "")
 		if err != nil {

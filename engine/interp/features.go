@@ -46,12 +46,6 @@ type features struct {
 	// the flag makes something *illegal* rather than legal, because it renames a
 	// keyword rather than adding one.
 	functionKeyword bool
-	// ciRunner is `--earthly-ci-runner-arg`, which adds the builtin argument of
-	// that name. Gated because `tests/builtin-args.earth` asserts *both* halves:
-	// the name is empty under a plain VERSION line and answered under this one,
-	// so a builtin supplied regardless would answer a question the file never
-	// asked (E472).
-	ciRunner bool
 	// rawOutput is `--raw-output`, which RUN --raw-output needs. Gated rather
 	// than ignored because the flag changes what the *build prints*, and a file
 	// whose fold markers land at the start of a line here and mid-line
@@ -84,9 +78,6 @@ var knownFeatures = map[string]func(*features){
 	"--sync":                 func(f *features) { f.syncCopy = true },
 	"--use-project-secrets":  func(f *features) { f.projectSecrets = true },
 	"--use-function-keyword": func(f *features) { f.functionKeyword = true },
-	// The builtin argument of the same name, which is a value rather than a
-	// construct - the third thing a feature flag can gate.
-	"--earthly-ci-runner-arg": func(f *features) { f.ciRunner = true },
 	// `RUN --aws`, which hands the invoking user's AWS credentials to a step.
 	// A capability rather than a spelling, so a file that uses it says so.
 	"--run-with-aws": func(f *features) { f.runWithAWS = true },

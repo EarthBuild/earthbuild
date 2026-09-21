@@ -275,24 +275,6 @@ func engineBuildSHA() string {
 	return "unknown"
 }
 
-// addCIRunner adds the builtin `EARTHLY_CI_RUNNER`, which exists only where the
-// dialect asked for it - see features.ciRunner.
-//
-// The value is a fact about the machine, taken from the environment: a CI runner
-// sets it, and where nothing set it the honest answer is `false` rather than
-// empty. `tests/builtin-args.earth` asserts the pair from both directions
-// (E472).
-func addCIRunner(into map[string]string) {
-	value := os.Getenv("EARTHLY_CI_RUNNER")
-	if value == "" {
-		value = boolArg(false)
-	}
-
-	for _, name := range []string{"EARTH_CI_RUNNER", "EARTHLY_CI_RUNNER"} {
-		into[name] = value
-	}
-}
-
 // dockerTag is a reference's tag as a docker tag: valid, and never empty.
 //
 // A tag has to be usable where an image is named, and a branch is not: `/` is
@@ -328,21 +310,13 @@ func dockerTag(tag string) string {
 // family once and mirrors it.
 //
 // Computed with empty inputs because only the keys are wanted; the values are
-// per-target and per-machine and nothing here reads them. `addCIRunner`'s two
-// names are added because it is called conditionally, and a name whose presence
-// depends on a VERSION flag would make this set depend on the file being built.
+// per-target and per-machine and nothing here reads them.
 var builtinNames = builtinNameSet()
 
 func builtinNameSet() map[string]bool {
 	out := map[string]bool{}
 
 	for name := range builtinArgs("", "", "", "", "", false, false) {
-		out[name] = true
-	}
-
-	addCIRunner(map[string]string{})
-
-	for _, name := range []string{"EARTH_CI_RUNNER", "EARTHLY_CI_RUNNER"} {
 		out[name] = true
 	}
 

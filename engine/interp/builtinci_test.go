@@ -135,47 +135,42 @@ func TestThePushArgumentSaysTrueOrFalse(t *testing.T) {
 	}
 }
 
-// `EARTHLY_CI_RUNNER` exists only where the dialect asks for it.
+// The CI-runner builtin is retired, and the flag that gated it is refused.
 //
-// `tests/builtin-args.earth` asserts both halves: `test -z "$EARTHLY_CI_RUNNER"`
-// under a plain VERSION line, and the value under
-// `VERSION --earthly-ci-runner-arg`. A builtin that appeared regardless would
-// answer a question the file never asked (E472).
+// `EARTHLY_CI_RUNNER` and `EARTH_CI_RUNNER` were builtins gated on
+// `VERSION --earthly-ci-runner-arg`, answering whether the invocation was a CI
+// runner. The flag is retired upstream, so both names are ordinary arguments
+// again and the flag names nothing.
 //
-// Its value says whether *this runner* is a CI runner, which is a fact about the
-// invocation: read from the environment, `false` when nothing set it.
-func TestTheCIRunnerArgumentIsGatedOnItsFeature(t *testing.T) {
+// Asserted rather than deleted because a retirement has two halves and only one
+// of them is visible in a diff: the builtin stops being supplied, *and* the
+// dialect stops accepting the flag. An engine that quietly ignored an unknown
+// VERSION flag would pass the first half and silently build files no other
+// engine accepts, which is how a compatible implementation stops being one.
+func TestTheRetiredCIRunnerFlagIsRefused(t *testing.T) {
 	t.Parallel()
 
-	// Without the flag it is an ordinary argument, and an ordinary argument
-	// nobody supplied is empty.
-	got := commandOfFirstExec(t, versioned+
-		"\nmain:\n    FROM alpine:3.22\n    ARG EARTHLY_CI_RUNNER\n"+
-		"    RUN echo [$EARTHLY_CI_RUNNER]\n")
+	const body = "\nmain:\n    FROM alpine:3.22\n    ARG EARTHLY_CI_RUNNER\n" +
+		"    RUN echo [$EARTHLY_CI_RUNNER]\n"
 
-	if !strings.HasSuffix(got, "[]") {
-		t.Errorf("the step runs %q, and the file did not ask for the builtin", got)
+	_, err := interp.Build("VERSION --earthly-ci-runner-arg 0.8\n"+body, "main")
+	if err == nil {
+		t.Fatal("the retired flag was accepted, so this file builds nowhere else")
 	}
 
-	// With it, the engine answers.
-	got = commandOfFirstExec(t, "VERSION --earthly-ci-runner-arg 0.8\n"+
-		"\nmain:\n    FROM alpine:3.22\n    ARG EARTHLY_CI_RUNNER\n"+
-		"    RUN echo [$EARTHLY_CI_RUNNER]\n")
-
-	if !strings.HasSuffix(got, "[false]") {
-		t.Errorf("the step runs %q, and nothing here is a CI runner", got)
+	if !strings.Contains(err.Error(), "--earthly-ci-runner-arg") {
+		t.Errorf("the refusal does not name the flag it refused:\n%v", err)
 	}
-}
 
-// And the environment is where the answer comes from.
-func TestTheCIRunnerArgumentFollowsTheEnvironment(t *testing.T) {
-	t.Setenv("EARTHLY_CI_RUNNER", "true")
+	// And with the flag gone, the name is an ordinary argument nobody supplied.
+	for _, name := range []string{"EARTHLY_CI_RUNNER", "EARTH_CI_RUNNER"} {
+		got := commandOfFirstExec(t, versioned+
+			"\nmain:\n    FROM alpine:3.22\n    ARG "+name+"\n"+
+			"    RUN echo ["+"$"+name+"]\n")
 
-	got := commandOfFirstExec(t, "VERSION --earthly-ci-runner-arg 0.8\n"+
-		"\nmain:\n    FROM alpine:3.22\n    ARG EARTHLY_CI_RUNNER\n"+
-		"    RUN echo [$EARTHLY_CI_RUNNER]\n")
-
-	if !strings.HasSuffix(got, "[true]") {
-		t.Errorf("the step runs %q with EARTHLY_CI_RUNNER=true set", got)
+		if !strings.HasSuffix(got, "[]") {
+			t.Errorf("the step runs %q, so %s is still supplied as a builtin",
+				got, name)
+		}
 	}
 }

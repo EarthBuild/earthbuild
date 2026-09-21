@@ -21,7 +21,6 @@ const (
 	EarthBuildSha                   = "EARTH_BUILD_SHA"
 	EarthLocally                    = "EARTH_LOCALLY"
 	EarthPush                       = "EARTH_PUSH"
-	EarthCI                         = "EARTH_CI"
 	EarthTarget                     = "EARTH_TARGET"
 	EarthTargetName                 = "EARTH_TARGET_NAME"
 	EarthTargetProject              = "EARTH_TARGET_PROJECT"
@@ -46,7 +45,6 @@ const (
 	EarthlyGitRefs                  = "EARTHLY_GIT_REFS"
 	EarthlyLocally                  = "EARTHLY_LOCALLY"
 	EarthlyPush                     = "EARTHLY_PUSH"
-	EarthlyCI                       = "EARTHLY_CI"
 	EarthlySourceDateEpoch          = "EARTHLY_SOURCE_DATE_EPOCH"
 	EarthlyTarget                   = "EARTHLY_TARGET"
 	EarthlyTargetName               = "EARTHLY_TARGET_NAME"
@@ -92,7 +90,6 @@ func init() {
 		EarthBuildSha:                   {},
 		EarthLocally:                    {},
 		EarthPush:                       {},
-		EarthCI:                         {},
 		EarthTarget:                     {},
 		EarthTargetName:                 {},
 		EarthTargetProject:              {},
@@ -117,7 +114,6 @@ func init() {
 		EarthlyGitRefs:                  {},
 		EarthlyLocally:                  {},
 		EarthlyPush:                     {},
-		EarthlyCI:                       {},
 		EarthlySourceDateEpoch:          {},
 		EarthlyTarget:                   {},
 		EarthlyTargetName:               {},

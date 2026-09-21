@@ -116,7 +116,6 @@ type BuildOpt struct {
 	Export                     earthfile2llb.Export
 	OnlyFinalTargetImages      bool
 	EnableGatewayClientLogging bool
-	CI                         bool
 	GlobalWaitBlockFtr         bool
 	Push                       bool
 	PrintPhases                bool
@@ -356,7 +355,6 @@ func (b *Builder) convertAndBuild(
 				SaveReferenced:                       true,
 				OnlyFinalTargetImages:                opt.OnlyFinalTargetImages,
 				DoPushes:                             opt.Push,
-				IsCI:                                 opt.CI,
 				ExportCoordinator:                    exportCoordinator,
 				LocalArtifactWhiteList:               opt.LocalArtifactWhiteList,
 				InternalSecretStore:                  b.opt.InternalSecretStore,

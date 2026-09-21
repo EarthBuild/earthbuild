@@ -136,7 +136,6 @@ func NewConverter(
 		Log:              opt.Log,
 		Target:           target,
 		Push:             opt.DoPushes,
-		CI:               opt.IsCI,
 		PlatformResolver: opt.PlatformResolver,
 		GitMeta:          bc.GitMetadata,
 		BuiltinArgs:      opt.BuiltinArgs,
@@ -2362,7 +2361,6 @@ func (c *Converter) checkAutoSkip(
 	targetHash, _, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
 		Log:            c.opt.Log,
-		CI:             c.opt.IsCI,
 		BuiltinArgs:    c.opt.BuiltinArgs,
 		OverridingVars: overriding,
 	})

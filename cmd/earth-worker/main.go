@@ -319,7 +319,7 @@ func run() error {
 	// Once if this worker was told where the driver is, repeatedly if it has to
 	// find it: an endpoint publishes where it is seconds after it binds, and a
 	// single dial at startup loses that race nearly every time (E505).
-	return fleet.KeepJoining(ctx, fleet.DefaultPatience, 3*time.Second, join, say)
+	return fleet.KeepJoining(ctx, fleet.Patience(), 3*time.Second, join, say)
 }
 
 // dialPeer turns a holder hint into somewhere to fetch from.

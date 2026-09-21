@@ -54,6 +54,14 @@ env:
   # Relays and endpoint discovery. Off by default because a fleet on one LAN
   # needs neither; mandatory here, where no two machines can reach each other.
   EARTH_FLEET_DISCOVER: "1"
+  # **Both sides read this, which is the point of it being here.** The driver
+  # waits this long for workers; a worker waits at least this long for the
+  # driver. Set on the driver alone, the two numbers were unrelated - a worker
+  # gave up after a constant two minutes while the driver, which is
+  # systematically slower to appear because it builds the engine and the guest
+  # first, was still four minutes from listening. That cost this workflow
+  # roughly one run in five.
+  EARTH_FLEET_WAIT: 8m
 
 jobs:
   driver:
@@ -79,7 +87,6 @@ jobs:
           # Both workers, and long enough for two cold runners to boot, build
           # the binaries and publish where they are.
           EARTH_FLEET_WORKERS: "2"
-          EARTH_FLEET_WAIT: 8m
         # As root. A stock runner refuses the overlay mount a step's root
         # filesystem is made of - `mount overlay ...: permission denied` - and
         # refuses a procfs in the guest's namespace, both wanting CAP_SYS_ADMIN

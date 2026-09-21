@@ -3,6 +3,7 @@ package fleet
 import (
 	"context"
 	"errors"
+	"os"
 	"time"
 
 	"github.com/tmc/go-iroh/iroh"
@@ -15,6 +16,44 @@ import (
 // cost of not waiting long enough is a fleet that never forms. A worker started
 // before its driver is the normal case in CI, where the jobs start together.
 const DefaultPatience = 2 * time.Minute
+
+// Patience is how long this worker should wait for a driver it cannot yet find.
+//
+// **The driver's own willingness to wait, where it has said so.** A worker
+// giving up before the driver has stopped looking is a fleet that never forms
+// for no reason but arithmetic, and the two numbers were unrelated: a driver
+// waits `EARTH_FLEET_WAIT` for workers, a worker waited a constant two minutes
+// for the driver, and nothing tied them together.
+//
+// The asymmetry is not symmetrical in practice either. The driver is
+// systematically the slower side to appear - it builds the engine *and* the
+// guest before it can listen - so the side with the shorter fuse is reliably
+// the one waiting. In CI that cost a fleet roughly one run in five: measured at
+// 8 failures in 40 on this branch, seven of them "both workers did not join",
+// and in one the worker gave up four minutes before the driver began listening.
+//
+// Falls back to DefaultPatience when nothing is configured, so a fleet on a LAN
+// is unchanged.
+func Patience() time.Duration {
+	v := os.Getenv(EnvWait)
+	if v == "" {
+		return DefaultPatience
+	}
+
+	d, err := time.ParseDuration(v)
+	if err != nil || d <= 0 {
+		// Not this function's error to report: the driver parses the same
+		// variable and refuses the build with a message naming it. A worker
+		// that cannot read it waits the default rather than not at all.
+		return DefaultPatience
+	}
+
+	if d < DefaultPatience {
+		return DefaultPatience
+	}
+
+	return d
+}
 
 // KeepJoining runs join until it succeeds, fails for a reason that will not
 // improve, or patience runs out.

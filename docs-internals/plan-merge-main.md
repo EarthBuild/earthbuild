@@ -34,6 +34,12 @@ whatever the native engine owed has been paid.
 | --- | ----------- | ----------- | ----------------------------------------------------------- |
 | 1   | `a898b66ff` | `18b76d1d7` | nothing; go.mod and go.sum only                              |
 | 2   | `6dca1d306` | `76337f175` | 59 scalar tags renamed `omitzero` (`ede3a0b9b`) - see below  |
+| 3   | `b08a1df18` | `515ab62f2` | nothing; one line of an example Earthfile                    |
+| 4   | `f476e5b5e` | `9fccfc513` | nothing; no engine file imports uuid. go.sum retidied        |
+| 5   | `8c0d880bf` | `de609de84` | nothing; an example's project.clj                            |
+| 6   | `7b7643070` | `cb3c18eff` | nothing; x/crypto to v0.56.0, go.mod and go.sum only         |
+| 7   | `f29ff5af8` | `7fec2fc12` | nothing; an example's pom.xml                                |
+| 8   | `2b87a4dec` | `cdd7f9e46` | nothing; a docker tag in the root Earthfile                  |
 
 ## The ledger
 

@@ -1287,7 +1287,7 @@ For information on using `WITH DOCKER` with podman see the [Podman guide](../gui
 
 For performance reasons, it is recommended to use a Docker image that already contains `dockerd`. If `dockerd` is not found, earth will attempt to install it.
 
-Earth provides officially supported images such as `earthbuild/dind:alpine-3.24-docker-29.5.3-r1` and `earthbuild/dind:ubuntu-26.04-docker-29.4.0-1` to be used together with `WITH DOCKER`.
+Earth provides officially supported images such as `earthbuild/dind:alpine-3.24-docker-29.5.3-r1` and `earthbuild/dind:ubuntu-26.04-docker-29.8.0-1` to be used together with `WITH DOCKER`.
 {% endhint %}
 
 {% hint style='info' %}

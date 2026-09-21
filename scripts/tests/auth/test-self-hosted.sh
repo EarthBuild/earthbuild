@@ -20,6 +20,7 @@ if [ -z ${GITHUB_ACTIONS+x} ]; then
     exit 1
 fi
 
+SSH_PORT="${SSH_PORT:-2222}"
 earthly=${earthly:=earthly}
 earthly=$(realpath "$earthly")
 echo "running tests with $earthly"
@@ -54,10 +55,12 @@ mkdir -p ~/.ssh
 cat ~/.ssh/known_hosts
 
 echo "setup passwordless login"
-sshpass -p "root" ssh root@$sshhost -p "$SSH_PORT" "/bin/sh -c \"echo $pubkey > /root/.ssh/authorized_keys\""
+sshpass -p "root" ssh root@$sshhost -p "$SSH_PORT" "/bin/sh -c \"mkdir -p -m 700 /root/.ssh && echo '$pubkey' >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys\""
 
 echo "setup a non-standard self-hosted git repo under the root user"
-ssh root@$sshhost -p "$SSH_PORT" "/bin/sh -c \"apt-get update && apt-get install -y git\""
+if ! ssh root@$sshhost -p "$SSH_PORT" "command -v git >/dev/null 2>&1"; then
+	ssh root@$sshhost -p "$SSH_PORT" "/bin/sh -c \"command -v apk >/dev/null 2>&1 && apk add --no-cache git || (apt-get update && apt-get install -y git)\""
+fi
 ssh root@$sshhost -p "$SSH_PORT" "/bin/sh -c \"mkdir -p /root/my/really/weird/path/project.git\""
 ssh root@$sshhost -p "$SSH_PORT" "/bin/sh -c \"cd /root/my/really/weird/path/project.git; git init --bare \""
 

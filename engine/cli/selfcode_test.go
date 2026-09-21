@@ -9,7 +9,7 @@ import (
 
 // Every directory of Go source reaches the image the repository lints and tests.
 //
-// `+code` copies a hand-written list of directories into /earthly, and `+lint`,
+// `+code` copies a hand-written list of directories into /earth, and `+lint`,
 // `+unit-test` and every binary target build from that image. A directory
 // missing from the list is not linted, not tested and not compiled by any of
 // them - and nothing says so, because the targets pass. They are passing on a

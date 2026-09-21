@@ -268,10 +268,10 @@ probe:
 			// Where a *directory* artifact lands, which the rules above do not
 			// settle.
 			//
-			// `COPY --dir +code/earthly /` is the repository's own Earthfile,
+			// `COPY --dir +code/earth /` is the repository's own Earthfile,
 			// and `+lint` two lines later looks for go.mod at the working
 			// directory - so the two readings are not academic: one leaves the
-			// tree at /earthly and the other spreads it across /. E32 settled
+			// tree at /earth and the other spreads it across /. E32 settled
 			// that `--dir` itself means nothing to an artifact, which leaves the
 			// question of the destination unanswered rather than answered.
 			//

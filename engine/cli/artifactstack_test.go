@@ -20,7 +20,7 @@ import (
 // at first are there, and what is missing is missing quietly.
 //
 // Found in the repository's own Earthfile. `+code` copies fourteen source
-// directories in three COPY steps and saves /earthly; the image holds all of
+// directories in three COPY steps and saves /earth; the image holds all of
 // them and the artifact held `inputgraph`, the last one written. Two targets
 // downstream that surfaces as `find . -name go.mod` returning nothing, which is
 // not a sentence anybody can trace back to a copy.

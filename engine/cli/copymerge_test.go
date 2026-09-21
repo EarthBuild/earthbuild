@@ -18,14 +18,14 @@ import (
 // overlayfs's rule for directories and it is what the reference engine does.
 //
 // This engine replaced it, but only in one shape: when the copied directory
-// exists in a layer the destination *also* stands on. `+code` gets `/earthly`
+// exists in a layer the destination *also* stands on. `+code` gets `/earth`
 // from `+go`'s WORKDIR and writes into it, so its delta holds a copy-up rather
 // than a creation; a destination built on the same base then lost everything it
 // had put there. Where each target makes the directory itself, the merge was
 // correct, which is why this went unnoticed.
 //
 // Found by running this repository's own CI line, `earth --ci +lint`, which
-// fails with `open /earthly/.golangci.yaml: no such file or directory` - the
+// fails with `open /earth/.golangci.yaml: no such file or directory` - the
 // config is copied in and then destroyed by the COPY after it. The reference
 // engine gets past that point and fails on lint findings instead.
 //

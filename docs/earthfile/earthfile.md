@@ -48,7 +48,7 @@ Each recipe contains a series of commands, which are defined below. For an intro
 
 #### Description
 
-The `FROM` command initializes a new build environment and sets the base image for subsequent instructions. It works similarly to the classical [Dockerfile `FROM` instruction](https://docs.docker.com/engine/reference/builder/#from), but it has the added ability to use another [target](https://docs.earthly.dev/docs/guides/target-ref#target-reference)'s image as the base image.
+The `FROM` command initializes a new build environment and sets the base image for subsequent instructions. It works similarly to the classical [Dockerfile `FROM` instruction](https://docs.docker.com/engine/reference/builder/#from), but it has the added ability to use another [target](../guides/target-ref.md#target-reference)'s image as the base image.
 
 Examples:
 
@@ -56,7 +56,7 @@ Examples:
 - Local reference: `FROM +another-target`
 - Relative reference: `FROM ./subdirectory+some-target` or `FROM ../otherdirectory+some-target`
 - Absolute reference: `FROM /absolute/path+some-target`
-- Remote reference from a public or [private](https://docs.earthly.dev/docs/guides/auth) git repository: `FROM github.com/example/project+remote-target`
+- Remote reference from a public or [private](../guides/auth.md) git repository: `FROM github.com/example/project+remote-target`
 
 The `FROM` command does not mark any saved images or artifacts of the referenced target for output, nor does it mark any push commands of the referenced target for pushing. For that, please use [`BUILD`](#build).
 

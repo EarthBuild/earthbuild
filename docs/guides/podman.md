@@ -6,8 +6,8 @@ Podman also works on Mac using a [podman machine](https://docs.podman.io/en/late
 ## Prerequisites
  - [Install podman](https://podman.io/getting-started/installation)
  - Mac: ensure a [podman machine](https://docs.podman.io/en/latest/markdown/podman-machine.1.html) is running.
- - Linux: for [multi-platform builds](https://docs.earthly.dev/docs/guides/multi-platform), install [qemu-user-static](https://github.com/multiarch/qemu-user-static).
- - [WITH DOCKER](https://docs.earthly.dev/docs/earthfile#with-docker) requires rootful mode.
+ - Linux: for [multi-platform builds](./multi-platform.md), install [qemu-user-static](https://github.com/multiarch/qemu-user-static).
+ - [WITH DOCKER](../earthfile/earthfile.md#with-docker) requires rootful mode.
    - Linux: run with `sudo` (i.e., `sudo earth -P +with-docker-target`)
    - Mac: run a [rootful machine](https://docs.podman.io/en/latest/markdown/podman-machine-set.1.html#rootful).
 
@@ -120,13 +120,13 @@ Ensure you have correctly installed podman and, if you are using a Mac, the podm
 
 ### Rootless podman
 Running podman in rootless mode is not supported due to the [earthbuild/dind](https://hub.docker.com/r/earthbuild/dind) and 
-[earthbuild/buildkitd](https://hub.docker.com/r/earthbuild/buildkitd) because they [require privileged access](https://docs.earthly.dev/docs/guides/using-the-earth-docker-images/buildkit-standalone#requirements).
-Specifically, [WITH DOCKER](https://docs.earthly.dev/docs/earthfile#with-docker) will fail.
-You must use `sudo` on Linux or [set your podman machine to rootful mode on Mac](https://docs.podman.io/en/latest/markdown/podman-machine-set.1.html#rootful) to use [WITH DOCKER](https://docs.earthly.dev/docs/earthfile#with-docker).
+[earthbuild/buildkitd](https://hub.docker.com/r/earthbuild/buildkitd) because they [require privileged access](../docker-images/buildkit-standalone.md#requirements).
+Specifically, [WITH DOCKER](../earthfile/earthfile.md#with-docker) will fail.
+You must use `sudo` on Linux or [set your podman machine to rootful mode on Mac](https://docs.podman.io/en/latest/markdown/podman-machine-set.1.html#rootful) to use [WITH DOCKER](../earthfile/earthfile.md#with-docker).
 
 ### Podman within WITH DOCKER
-[WITH DOCKER](https://docs.earthly.dev/docs/earthfile#with-docker) starts a container with a docker installation. 
-You can only use the podman CLI in the RUN statement if you specify [LOCALLY](https://docs.earthly.dev/best-practices#pattern-optionally-locally)
+[WITH DOCKER](../earthfile/earthfile.md#with-docker) starts a container with a docker installation. 
+You can only use the podman CLI in the RUN statement if you specify [LOCALLY](./best-practices.md#pattern-optionally-locally)
 to run it on the host machine; otherwise, you will need to use the docker CLI.
 
 ```bash

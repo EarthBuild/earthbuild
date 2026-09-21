@@ -24,7 +24,7 @@ func NewEarthApp(cliInstance *base.CLI, rootApp *subcmd.Root, buildApp *subcmd.B
 		"   \t" + earth + " [options] --artifact <target-ref>/<artifact-path> [<dest-path>]\n" +
 		"   \t" + earth + " [options] command [command options]\n" +
 		"\n" +
-		"Executes earth builds. For more information see https://docs.earthbuild.dev/docs/earthly-command.\n" +
+		"Executes earth builds. For more information see https://docs.earthbuild.dev/docs/earth-command.\n" +
 		"To get started with using earth check out the getting started guide at https://docs.earthbuild.dev/basics.\n" +
 		"\n" +
 		"For help on build-specific flags try \n" +

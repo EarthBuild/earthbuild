@@ -4,6 +4,16 @@ We host a rpm repository which fedora and CentOS users can use to install earth.
 
 ## Setup for Fedora
 
+> [!WARNING]
+> **These repositories are not currently available.**
+>
+> They were hosted at `pkg.earthly.dev`, which was decommissioned along with the
+> rest of the Earthly infrastructure; that hostname no longer resolves. EarthBuild
+> has not yet stood up replacement package repositories, so the setup steps below
+> do not work. Install the binary directly or build from source instead — see
+> [Alternative installation](../../docs/alt-installation/alt-installation.md).
+
+
 TODO: move these notes elsewhere, this readme should only be notes on how to release to our repo, and is only intended for those with
 access to EarthBuild credentials.
 

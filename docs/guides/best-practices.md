@@ -1208,7 +1208,7 @@ base:
     RUN apt-get install pandoc  pandocfilters -y
 
     # Manually cache the base image by pushing it to a registry
-    SAVE IMAGE –push earthbuild/blog-base-image:latest
+    SAVE IMAGE --push earthbuild/blog-base-image:latest
 
 build:
     # Use the cached base image for builds

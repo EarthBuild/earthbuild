@@ -40,10 +40,10 @@ Don't forget to run `earth bootstrap` when you are done to finish configuration!
 
 If a local installation isn't possible, EarthBuild currently offers two official images:
 
-- [`earthbuild/earthbuild`](https://hub.docker.com/r/earthbuild/earthbuild), which is a 1-stop shop. It includes a built-in `earthbuild-buildkitd` daemon, and accepts a target to be built as a parameter. It requires a mount for your source code, and an accessible `DOCKER_HOST`.
-- [`earthbuild/buildkitd`](https://hub.docker.com/r/earthbuild/buildkitd), which is the same `earthbuild-buildkitd` container that `earthbuild` will run on your host. This is useful in more advanced configurations, such as [remotely sharing](./remote-buildkit.md) a single `buildkitd` machine across many workers, or isolating the privileged parts of builds. This feature is experimental.
+- [`earthbuild/earthbuild`](https://hub.docker.com/r/earthbuild/earthbuild), which is a 1-stop shop. It includes a built-in `earth-buildkitd` daemon, and accepts a target to be built as a parameter. It requires a mount for your source code, and an accessible `DOCKER_HOST`.
+- [`earthbuild/buildkitd`](https://hub.docker.com/r/earthbuild/buildkitd), which is the same `earth-buildkitd` container that `earth` will run on your host. This is useful in more advanced configurations, such as [remotely sharing](./remote-buildkit.md) a single `buildkitd` machine across many workers, or isolating the privileged parts of builds. This feature is experimental.
 
-If you need to provide additional configuration or tools, [consider building your own image for CI](build-an-earthly-ci-image.md).
+If you need to provide additional configuration or tools, [consider building your own image for CI](build-an-earthbuild-ci-image.md).
 
 ## Configuration
 
@@ -57,15 +57,15 @@ If you plan to build any private, or otherwise secure repositories, `git` will n
 
 Like `git`, `docker` also needs to be configured to have access to any private repositories referenced in the `Earthfiles` you want to build. Please our [documentation for how to log in](../guides/auth.md#docker-authentication), and our examples for pushing to many popular repositories.
 
-If your private registry can use a [credential helper](https://docs.docker.com/engine/reference/commandline/login/#credential-helpers), configure it according to your vendor's instructions. `earth` can also make use of these to provide access when needed. If you need help configuring `docker` for use with EarthBuild, see our [guides on configuring many popular registries](https://docs.earthly.dev/docs/guides/configuring-registries) for details.
+If your private registry can use a [credential helper](https://docs.docker.com/engine/reference/commandline/login/#credential-helpers), configure it according to your vendor's instructions. `earth` can also make use of these to provide access when needed. If you need help configuring `docker` for use with EarthBuild, see our [documentation on authenticating image registries](../guides/auth.md#docker-authentication) for details.
 
 Finally, the `earth-buildkitd` daemon requires running in `--privileged` mode, which means that the `docker` daemon needs to be configured to allow this as well. Rootless configurations are currently unsupported.
 
 ### EarthBuild
 
-`earth` has quite a few configuration options that can either be set through a configuration file or environment variables. See our [configuration reference](../earthly-config/earthly-config.md) for a complete list of options.
+`earth` has quite a few configuration options that can either be set through a configuration file or environment variables. See our [configuration reference](../earth-config/earth-config.md) for a complete list of options.
 
-You can also configure `earth` by using the [`earth config` command](../earthly-command/earthly-command.md#earthly-config) from within a script. This can be useful for some dynamic configuration.
+You can also configure `earth` by using the [`earth config` command](../earth-command/earth-command.md#earth-config) from within a script. This can be useful for some dynamic configuration.
 
 Some options that may make sense in a CI environment are:
 
@@ -75,7 +75,7 @@ Some options that may make sense in a CI environment are:
 | `NO_COLOR` / `FORCE_COLOR` | Lets you force on/off the ANSI color codes. Use this when `earth` misinterprets the presence of a terminal. Set either one to `1` to enable or disable colors.                                                                                 |
 | `EARTH_BUILDKIT_HOST`      | Use this when you have an external BuildKit instance you would like to use instead of the one `earth` manages.                                                                                                                                 |
 
-EarthBuild also has some special command-line switches to ensure best practices are followed within your CI. These come *highly* recommended. Enable these with the [`--ci`](../earthly-command/earthly-command.md#--ci) option, which is shorthand for [`--save-inline-cache`](../earthly-command/earthly-command.md#save-inline-cache) [`--strict`](../earthly-command/earthly-command.md#strict) [`--no-output`](../earthly-command/earthly-command.md#no-output).
+EarthBuild also has some special command-line switches to ensure best practices are followed within your CI. These come *highly* recommended. Enable these with the [`--ci`](../earth-command/earth-command.md#--ci) option, which is shorthand for [`--save-inline-cache`](../earth-command/earth-command.md#save-inline-cache) [`--strict`](../earth-command/earth-command.md#strict) [`--no-output`](../earth-command/earth-command.md#no-output).
 
 EarthBuild also has a special [`--push`](../earthfile/earthfile.md#push) option that can be used when invoking a target. In a CI, you may want to ensure this flag is present to push images or run commands that are not typically done as part of a normal development workflow.
 
@@ -85,11 +85,11 @@ To share secrets with `earth`, use the [`--secret`](../earthfile/earthfile.md#se
 
 ### Networking & Security
 
-Upon invocation, `earth` depends on the availability of an `earth-buildkit` daemon to perform its build. This daemon has some networking and security considerations.
+Upon invocation, `earth` depends on the availability of an `earth-buildkitd` daemon to perform its build. This daemon has some networking and security considerations.
 
 Large builds can generate many `docker` pull requests for certain images. You can set up and use a [pull through cache](pull-through-cache.md) to circumvent this.
 
-If `earth` is running on a dedicated host, the only consideration to take is the ability to run the container in a `--privileged` mode. Typical installations *should* support this out of the box. We also support running under user namespaces, [when `earth` is configured to start the `earth-buildkit` container with the `--userns host` option](../earthly-config/earthly-config.md#buildkit_additional_args). Rootless configurations are currently unsupported.
+If `earth` is running on a dedicated host, the only consideration to take is the ability to run the container in a `--privileged` mode. Typical installations *should* support this out of the box. We also support running under user namespaces, [when `earth` is configured to start the `earth-buildkitd` container with the `--userns host` option](../earth-config/earth-config.md#buildkit_additional_args). Rootless configurations are currently unsupported.
 
 If `earth` is connecting to a remote `earth-buildkitd`, then you will need to take additional steps. See this article for [running a remote BuildKit instance](remote-buildkit.md).
 

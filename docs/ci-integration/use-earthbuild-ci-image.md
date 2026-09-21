@@ -1,4 +1,4 @@
-# Building An EarthBuild CI Image
+# Using The EarthBuild CI Image
 
 ## Introduction
 

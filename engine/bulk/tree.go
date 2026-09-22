@@ -293,7 +293,53 @@ func within(root, name string) (string, error) {
 			" of this a build chooses", name, root)
 	}
 
-	return filepath.Join(root, filepath.FromSlash(path.Clean(slashed))), nil
+	at := filepath.Join(root, filepath.FromSlash(path.Clean(slashed)))
+
+	// **And where the name lands, not only what it says.** Everything above is
+	// about the entry's own text, and an archive that plants `esc -> ../..` and
+	// then writes `esc/file` says nothing suspicious in the second entry: the
+	// escape is in the first, and only following it finds that out. That is the
+	// vector a `..` check cannot see, and `engine/image` guards layers against
+	// it already - this is the same guard for the export path, which had none.
+	err := insideAfterLinks(root, at)
+	if err != nil {
+		return "", err
+	}
+
+	return at, nil
+}
+
+// insideAfterLinks refuses a target whose parent resolves out of root.
+//
+// The *parent*, because the target itself does not exist yet - it is about to
+// be created. A parent that does not exist either cannot be a planted symlink,
+// so there is nothing to follow and nothing to refuse; `unpackEntry` makes it
+// with `MkdirAll`, which creates real directories.
+func insideAfterLinks(root, at string) error {
+	parent := filepath.Dir(at)
+
+	real, err := filepath.EvalSymlinks(parent)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return fmt.Errorf("resolve %s: %w", parent, err)
+	}
+
+	base, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return fmt.Errorf("resolve %s: %w", root, err)
+	}
+
+	rel, err := filepath.Rel(base, real)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("the archive writes into %s, which is outside %s"+
+			"\n  a symlink in the archive points out of the directory and an entry"+
+			" was written through it", real, base)
+	}
+
+	return nil
 }
 
 // counter counts what passes through it, so a caller learns the archive's size

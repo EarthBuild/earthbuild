@@ -87,6 +87,23 @@ runs:
       # every run, and on fork PRs also the earth binary + tag-suffix.txt.
       # Loading the local tarball avoids a per-job ghcr pull of the staging
       # image.
+      #
+      # **Tried twice, because this runs in every job of a 76-job matrix.**
+      # A single ECONNRESET against the artifact API failed a whole suite in
+      # 393ms, and at even a 1% transient rate an unretried call here loses a
+      # job more often than not: 1-(1-0.01)^76 is 53%. One retry takes that to
+      # under a percent. The action has no retry of its own and this composite
+      # already uses continue-on-error, so the second attempt is a second step.
+      id: fetch-artifacts
+      continue-on-error: true
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+      with:
+        name: earth-build-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        path: ./build-artifacts
+    - name: Download build-earth artifacts (second attempt)
+      # Only when the first failed, and this one is not forgiven: a job that
+      # cannot fetch the binary it is about to test has nothing to test.
+      if: steps.fetch-artifacts.outcome == 'failure'
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
         name: earth-build-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}

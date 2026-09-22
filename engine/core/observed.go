@@ -52,7 +52,12 @@ import (
 //	5  Κₜ is ℋ over an REAPI Action rather than over an encoding of this
 //	   engine's own (4.5a, 4.5c). The same key, named the way the rest of the
 //	   world names it.
-const cacheEpoch = 5
+//	6  `COPY --sync` of a directory several layers built pruned against each
+//	   layer in turn and kept only the last one's entries; and its results
+//	   were served over other bases by Κ₂ and Κₜ, although a file it writes
+//	   must be newer than the base it lands on. Both wrote wrong entries under
+//	   keys that did not change with the fix.
+const cacheEpoch = 6
 
 // DeriveObservedKey computes Κ₂ at the current epoch.
 func DeriveObservedKey(n *ir.Node, refs []ir.NodeID, obs Observation) Key {

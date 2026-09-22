@@ -913,7 +913,7 @@ func (s *Scheduler) maxStack() int {
 // Stated for OpExec rather than for everything, because a step with no base
 // reads nothing from one and refusing it would be the mirror mistake.
 func usableObservation(n *ir.Node, base []ir.NodeID, res Result) bool {
-	if !res.Observed || res.Observation.Incomplete {
+	if !res.Observed || res.Observation.Incomplete || ReadsTheBaseClock(n) {
 		return false
 	}
 
@@ -1927,6 +1927,9 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 
 		switch {
 		case s.Profiles == nil:
+		// Not an unobserved step: watched fine, and barred from Κ₂ for what
+		// its result depends on. See ReadsTheBaseClock.
+		case ReadsTheBaseClock(n):
 		case usableObservation(n, base, res):
 			s.Profiles.Put(StepClass(n), res.Observation)
 			s.Cache.Put(DeriveObservedKey(n, refs, res.Observation), e)

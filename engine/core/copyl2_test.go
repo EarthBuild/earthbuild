@@ -15,10 +15,19 @@ func copyRun(t *testing.T, profiles core.Profiles, shared *memCache, e *observin
 ) int {
 	t.Helper()
 
+	return copyRunWith(t, profiles, shared, e, base, view, false)
+}
+
+// copyRunWith is copyRun, as `COPY --sync --dir` when sync is set.
+func copyRunWith(t *testing.T, profiles core.Profiles, shared *memCache, e *observingExec,
+	base ir.NodeID, view core.ViewSource, sync bool,
+) int {
+	t.Helper()
+
 	before := e.runs
 
 	n := &ir.Node{
-		Op:     ir.Op{Kind: ir.OpFile, Args: []string{"a.txt", "/w/"}},
+		Op:     ir.Op{Kind: ir.OpFile, Args: []string{"a.txt", "/w/"}, Sync: sync, DirCopy: sync},
 		Inputs: []*ir.Node{{Op: ir.Op{Kind: ir.OpImage, Args: []string{base.String()}}}},
 	}
 

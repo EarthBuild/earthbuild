@@ -31,6 +31,19 @@ func treeOf(b BlobStore, stack []ir.NodeID) (ir.NodeID, bool) {
 	return source.TreeOf(stack)
 }
 
+// ReadsTheBaseClock reports a step whose result depends on the mtimes in its
+// base, which only Κ₁ names.
+//
+// `COPY --sync` is the one: a file it writes must come out newer than
+// everything already in the base - cargo's `target/` above all - or an
+// incremental compiler calls the edit fresh and ships the build from before
+// it. Κₜ takes the clock out of the base on purpose and Κ₂ keys on the paths a
+// step read, so both would replay a delta stamped over another base: a wrong
+// build, not a slow one. Refused at lookup and at publish, in both tiers.
+func ReadsTheBaseClock(n *ir.Node) bool {
+	return n.Op.Kind == ir.OpFile && n.Op.Sync
+}
+
 // DeriveContentKey is Κₜ, green paper (4.5a): the chain key with the clock
 // taken out of the base.
 //
@@ -63,7 +76,7 @@ func treeOf(b BlobStore, stack []ir.NodeID) (ir.NodeID, bool) {
 func DeriveContentKey(
 	n *ir.Node, base, refs []ir.NodeID, blobs BlobStore,
 ) (Key, bool) {
-	if blobs == nil {
+	if blobs == nil || ReadsTheBaseClock(n) {
 		return Key{}, false
 	}
 

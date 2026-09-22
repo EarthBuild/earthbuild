@@ -88,7 +88,7 @@ func viewOf(
 // An implementation that skips this entirely is conforming: slower, never
 // wrong.
 func (s *Scheduler) tryL2(ctx context.Context, n *ir.Node, base, refs []ir.NodeID) (Entry, bool) {
-	if s.Profiles == nil || s.Views == nil {
+	if s.Profiles == nil || s.Views == nil || ReadsTheBaseClock(n) {
 		return Entry{}, false
 	}
 

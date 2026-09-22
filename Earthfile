@@ -1438,17 +1438,24 @@ examples-2:
     BUILD ./examples/clojure+docker
     BUILD ./examples/cobol+docker
     BUILD ./examples/rust+docker
-    BUILD ./examples/rust-layered+build
+    # Not ./examples/rust-layered: it is `VERSION --sync 0.8`, and `--sync` is a
+    # native-engine construct the reference has no equivalent of - so this suite,
+    # which is the reference building every example, cannot build it. It fails
+    # with `unknown flag 'sync'` while resolving the build context, before a
+    # single step runs. Built by the native suites instead.
     BUILD ./examples/multiplatform+all
     BUILD ./examples/multiplatform-cross-compile+build-all-platforms
     BUILD github.com/EarthBuild/hello-world:main+hello
     BUILD ./examples/cache-command/npm+docker
     BUILD ./examples/cache-command/mvn+docker
-    # Sharing a cache mount between machines, one ecosystem each. These can be
-    # built like any other example now that a helper is an ordinary build input:
-    # `--helper +target/artifact` is resolved while planning, so there is no
-    # file anybody has to remember to build first.
-    BUILD ./examples/cache-helpers+all
+    # Nor ./examples/cache-helpers, for the same reason one line up: it is built
+    # on `CACHE --helper` and `--portable-except`, neither of which the
+    # reference knows. Sharing a cache mount between machines is the thing these
+    # demonstrate and it is a native-engine capability, so the reference has
+    # nothing to demonstrate it with.
+    #
+    # Named here rather than swept, because this list is explicit and a reader
+    # asking "where did it go" should find the answer where it used to be.
 
 examples-3:
     BUILD ./examples/python+docker

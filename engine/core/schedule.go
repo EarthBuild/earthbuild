@@ -913,7 +913,7 @@ func (s *Scheduler) maxStack() int {
 // Stated for OpExec rather than for everything, because a step with no base
 // reads nothing from one and refusing it would be the mirror mistake.
 func usableObservation(n *ir.Node, base []ir.NodeID, res Result) bool {
-	if !res.Observed || res.Observation.Incomplete || ReadsTheBaseClock(n) {
+	if !res.Observed || res.Observation.Incomplete {
 		return false
 	}
 

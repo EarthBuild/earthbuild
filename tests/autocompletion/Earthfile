@@ -5,9 +5,11 @@ ENV EARTHLY_SHOW_HIDDEN=0
 
 test-root-commands:
     RUN echo "bootstrap 
+check-inputs 
 config 
 doc 
 docker-build 
+emit-inputs 
 init 
 ls 
 prune " > expected
@@ -18,11 +20,13 @@ test-hidden-root-commands:
     RUN echo "no-cache"
     RUN echo "bootstrap 
 build 
+check-inputs 
 config 
 debug 
 doc 
 docker-build 
 docker2earthly 
+emit-inputs 
 init 
 ls 
 prune " > expected

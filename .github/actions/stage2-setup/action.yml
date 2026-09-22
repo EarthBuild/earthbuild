@@ -305,7 +305,23 @@ runs:
         echo "Extracting earth binary from stage1 of build"
         export TAG=${GITHUB_SHA}-latest
         if [ "${INPUTS_USE_NEXT}" = "true" ]; then export TAG="$TAG-ticktock"; fi
-        ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" ./earthly upgrade
+        # **Retried, for the reason the artifact download above is.** This is a
+        # GHCR pull, made by every job in the matrix, and a blob read that dies
+        # mid-transfer fails the whole suite:
+        #   failed to copy: httpReadSeeker: failed open: failed to do request
+        # `earthly upgrade` re-fetches from scratch, so a second attempt is a
+        # second attempt and not a resume of a broken one.
+        for attempt in 1 2 3; do
+            if ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" ./earthly upgrade; then
+                break
+            fi
+            if [ "$attempt" = 3 ]; then
+                echo "::error::could not fetch the staging binary from GHCR in 3 attempts"
+                exit 1
+            fi
+            echo "GHCR fetch attempt $attempt failed; retrying"
+            sleep $((attempt * 5))
+        done
         ${INPUTS_SUDO} chown -R $USER ~/.earthly # restore non-sudo user ownership
         test -n "${INPUTS_BUILT_EARTH_PATH}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
         mkdir -p "$(dirname "${INPUTS_BUILT_EARTH_PATH}")"

@@ -252,6 +252,15 @@ func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error 
 			return fmt.Errorf("read the layer archive: %w", err)
 		}
 
+		// **Braces to `safePath`'s belt**, and the one form of the check CodeQL's
+		// go/zipslip recognises: inline, on the header's own name. `.` and
+		// `./x` are local, so the layers that name their root still unpack.
+		if !filepath.IsLocal(h.Name) {
+			return fmt.Errorf("layer entry %q is not a path inside the layer"+
+				"\n  an empty or absolute name, or one that climbs out with `..`,"+
+				" writes outside the root it is unpacked into", h.Name)
+		}
+
 		target, err := res.path(h.Name)
 		if err != nil {
 			return err
@@ -276,12 +285,11 @@ func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error 
 		// unpack stops, which is the right outcome for a disagreement about
 		// whether a write leaves the layer.
 		//
-		// **It does not satisfy CodeQL, and this comment used to imply it
-		// would.** `go/zipslip` and `go/unsafe-unzip-symlink` are still
-		// reported here on every run. The assertion earns its place by being
-		// true and by dominating the sink; convincing the analyser is a
-		// separate problem and not one worth weakening the guard for. What
-		// makes the property checkable is the tests -
+		// **It did not satisfy CodeQL.** `go/zipslip` wants its guard inline on
+		// the header's name, which the `filepath.IsLocal` check at the top of
+		// this loop now is. `go/unsafe-unzip-symlink` is about link *targets*,
+		// which a layer keeps as-is on purpose; what stops a write through one
+		// is `safePath`, and the tests are what make that checkable -
 		// TestNoLayerEntryCanEscapeItsRoot, TestPathTraversalIsRefused,
 		// TestWritesThroughSymlinksAreRefused and
 		// TestALayerCannotWriteThroughAPlantedSymlink cover `..` at any depth,

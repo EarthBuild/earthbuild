@@ -181,6 +181,17 @@ func UnpackTree(r io.Reader, into string) error {
 			return fmt.Errorf("read the archive: %w", err)
 		}
 
+		// **Braces to `within`'s belt.** Everything this refuses, `within`
+		// refuses too; it is here, inline, because it is the guard CodeQL's
+		// go/zipslip recognises, and a check a function away is invisible to it.
+		// It also names an empty entry correctly, where `within` resolved it to
+		// the root and blamed a symlink.
+		if !filepath.IsLocal(hdr.Name) {
+			return fmt.Errorf("the archive names %q, which is not a path inside %s"+
+				"\n  an export is written by the sandbox, so its names are the part"+
+				" of this a build chooses", hdr.Name, into)
+		}
+
 		at, err := within(into, hdr.Name)
 		if err != nil {
 			return err

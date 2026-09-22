@@ -543,6 +543,12 @@ func unpackUnit(root string, r io.Reader) error {
 			continue
 		}
 
+		// Braces to `inside`'s belt, inline because that is where CodeQL's
+		// go/zipslip looks for a guard.
+		if !filepath.IsLocal(hdr.Name) {
+			return fmt.Errorf("the stream names %q, which is outside the cache", hdr.Name)
+		}
+
 		rel, err := inside(root, hdr.Name)
 		if err != nil {
 			return err

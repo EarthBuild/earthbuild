@@ -295,7 +295,7 @@ func copyTree(src, dst string, opts copyOpts) error {
 	// is about to be overwritten anyway is removed and rewritten rather than
 	// compared, which costs one file and removes a whole class of ordering
 	// question.
-	if opts.Sync {
+	if opts.Sync && !opts.pruned {
 		endPrune := timing.Phase("guest:copy:prune", dst)
 
 		err := pruneToMatch(src, dst)
@@ -895,6 +895,12 @@ func cloneLayers() bool {
 // A destination that is not there is nothing to prune, which is the ordinary
 // first copy.
 func pruneToMatch(src, dst string) error {
+	return pruneToMatchAny([]string{src}, dst)
+}
+
+// pruneToMatchAny is pruneToMatch against a source several layers built: an
+// entry stays if any of them has it, which is what the copy is about to write.
+func pruneToMatchAny(srcs []string, dst string) error {
 	_, err := os.Lstat(dst)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
@@ -923,9 +929,11 @@ func pruneToMatch(src, dst string) error {
 			return relErr
 		}
 
-		_, statErr := os.Lstat(filepath.Join(src, rel))
-		if !errors.Is(statErr, fs.ErrNotExist) {
-			return statErr
+		for _, src := range srcs {
+			_, statErr := os.Lstat(filepath.Join(src, rel))
+			if !errors.Is(statErr, fs.ErrNotExist) {
+				return statErr
+			}
 		}
 
 		extra = append(extra, p)
@@ -943,13 +951,13 @@ func pruneToMatch(src, dst string) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("compare %s with %s: %w", dst, src, err)
+		return fmt.Errorf("compare %s with its source: %w", dst, err)
 	}
 
 	for _, p := range extra {
 		err = os.RemoveAll(p)
 		if err != nil {
-			return fmt.Errorf("remove %s, which %s no longer has: %w", p, src, err)
+			return fmt.Errorf("remove %s, which the source no longer has: %w", p, err)
 		}
 	}
 

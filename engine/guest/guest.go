@@ -980,6 +980,9 @@ type copyOpts struct {
 	// is left as it is, so it keeps its mtime and is not copied up into the
 	// step's delta. See copyFileUnlessSame.
 	Sync bool
+	// pruned says the destination was already pruned against the whole
+	// source stack, so a per-layer pass must not prune it again. See copyIn.
+	pruned bool
 	// digests lets `--sync` answer "the same" from what the store already
 	// recorded instead of reading both files. Empty is the fallback, and is
 	// what every copy did before manifests were kept beside layers.
@@ -1188,6 +1191,27 @@ func (s *Server) copyIn(h core.Handle, from []string, src, dest string, opts cop
 	err = mkdirAllStamped(filepath.Dir(dstPath), 0o755, opts.Clamp)
 	if err != nil {
 		return fmt.Errorf("create the destination directory for %s: %w", dest, err)
+	}
+
+	// **`--sync` prunes once, against the whole stack.** A directory the
+	// source built in several steps is one entry per layer below, and each pass
+	// pruning to *its* layer deleted what the passes before it had placed:
+	// `COPY --sync --dir +src/w /` landed only the last layer's entry, or
+	// nothing when the newest layer was a RUN that merely touched the
+	// directory. An entry stays if any layer has it, because the loop below is
+	// about to write it.
+	if opts.Sync && fi.IsDir() && len(srcPaths) > 1 {
+		dirs := make([]string, len(srcPaths))
+		for i, p := range srcPaths {
+			dirs[i] = p.path
+		}
+
+		err = pruneToMatchAny(dirs, dstPath)
+		if err != nil {
+			return err
+		}
+
+		opts.pruned = true
 	}
 
 	// Oldest first, so a newer layer's version of an entry lands last and wins.

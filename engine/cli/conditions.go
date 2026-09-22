@@ -388,6 +388,23 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 
 				at, err := e.ShareCacheIn(ctx, m, scope, withheld)
 				if err != nil {
+					// **Said here, because nowhere else will.** `shareCaches`
+					// discards what this returns - deliberately, a share that
+					// fails is not a build that fails - and says reporting
+					// belongs to whoever set the hook, on the grounds that the
+					// hook is the one with somewhere to report to. This is that
+					// hook, and it was returning the error into the discard.
+					//
+					// Everything between the host deciding to share and the
+					// guest looking at the directory went that way: no client,
+					// a helper that could not be staged, a request the guest
+					// refused. A build then shared nothing and said nothing,
+					// which is the whole failure mode `say` exists to prevent
+					// one function further in (I11).
+					if g.o.Out != nil {
+						fmt.Fprintf(g.o.Out, "cache %s: not shared: %v\n", m.ID, err)
+					}
+
 					return err
 				}
 

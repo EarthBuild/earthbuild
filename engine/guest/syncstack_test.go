@@ -94,3 +94,48 @@ func TestSyncOfADirectoryBuiltAcrossLayersKeepsEveryLayer(t *testing.T) {
 			"\n  pruning against one of them deletes what the others placed", got, want)
 	}
 }
+
+// And from a single layer, through the whole copy rather than the prune alone.
+//
+// The prune tests call `pruneToMatch` directly, so a copy that never reached
+// it passed every one of them - a mutation that disabled pruning in `copyTree`
+// survived the package. This goes in at the front door.
+func TestSyncOfADirectoryFromOneLayerRemovesWhatItNoLongerHas(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	for _, p := range []string{
+		filepath.Join(dir, "layers", "l1", "w", "kept"),
+		filepath.Join(dir, "root", "w", "kept"),
+		filepath.Join(dir, "root", "w", "stale"),
+	} {
+		err := os.MkdirAll(filepath.Dir(p), 0o750)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = os.WriteFile(p, []byte("x\n"), 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	s := &Server{LayerDir: dir}
+
+	err := s.copyIn(fixedHandle{root: filepath.Join(dir, "root")}, []string{"l1"}, "/w", "/",
+		copyOpts{AsDir: true, Sync: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = os.Lstat(filepath.Join(dir, "root", "w", "stale"))
+	if !os.IsNotExist(err) {
+		t.Errorf("/w/stale survived a --sync copy of a source without it (%v)", err)
+	}
+
+	_, err = os.Lstat(filepath.Join(dir, "root", "w", "kept"))
+	if err != nil {
+		t.Errorf("/w/kept, which the source has, is gone: %v", err)
+	}
+}

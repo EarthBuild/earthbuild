@@ -75,3 +75,71 @@ func TestASyncCopyDerivesNoContentKey(t *testing.T) {
 		t.Error("a plain copy derived no content key; the control is broken")
 	}
 }
+
+// syncCopyNode is the node copyRunWith builds, so a test can derive its keys.
+func syncCopyNode(base ir.NodeID) *ir.Node {
+	return &ir.Node{
+		Op:     ir.Op{Kind: ir.OpFile, Args: []string{"a.txt", "/w/"}, Sync: true, DirCopy: true},
+		Inputs: []*ir.Node{{Op: ir.Op{Kind: ir.OpImage, Args: []string{base.String()}}}},
+	}
+}
+
+// The lookup refuses a Κ₂ entry for a `--sync` copy even when one exists.
+//
+// **Each half on its own.** The publish side never writes this entry, so a test
+// that only runs builds cannot tell whether the lookup guard is there - and an
+// entry does exist wherever an engine before the fix wrote one, or a peer that
+// has not got it serves one. Planted here as either would have left it.
+func TestASyncCopyIgnoresAnObservedEntryAlreadyInTheCache(t *testing.T) {
+	t.Parallel()
+
+	profiles, err := cache.OpenProfiles(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	obs := core.Observation{Reads: map[string]ir.NodeID{"/w": digest(7)}}
+	view := fixedView{fakeBase{files: map[string]ir.NodeID{"/w": digest(7)}}}
+
+	n := syncCopyNode(digest(10))
+	profiles.Put(core.StepClass(n), obs)
+
+	shared := newMemCache()
+	shared.Put(core.DeriveObservedKey(n, nil, obs), core.Entry{Layer: digest(99)})
+
+	if ran := copyRunWith(t, profiles, shared, &observingExec{obs: obs}, digest(20), view, true); ran != 2 {
+		t.Errorf("ran %d steps, want 2 - the copy was served from a planted Κ₂ entry"+
+			"\n  a --sync copy's writes must be newer than the base they land on,"+
+			"\n  which no observed key can say", ran)
+	}
+}
+
+// And a `--sync` copy publishes nothing to Κ₂: no profile, no observed key.
+//
+// The other half, tested without the lookup guard's help.
+func TestASyncCopyPublishesNoObservedKey(t *testing.T) {
+	t.Parallel()
+
+	profiles, err := cache.OpenProfiles(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	obs := core.Observation{Reads: map[string]ir.NodeID{"/w": digest(7)}}
+	view := fixedView{fakeBase{files: map[string]ir.NodeID{"/w": digest(7)}}}
+
+	shared := newMemCache()
+	if ran := copyRunWith(t, profiles, shared, &observingExec{obs: obs}, digest(10), view, true); ran == 0 {
+		t.Fatal("the build ran nothing")
+	}
+
+	n := syncCopyNode(digest(10))
+
+	if _, ok := profiles.Get(core.StepClass(n)); ok {
+		t.Error("a --sync copy recorded a profile, so a later build can predict it into Κ₂")
+	}
+
+	if _, ok := shared.Get(core.DeriveObservedKey(n, nil, obs)); ok {
+		t.Error("a --sync copy published a Κ₂ entry, which names its base without the clock")
+	}
+}

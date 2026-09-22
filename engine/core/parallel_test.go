@@ -219,10 +219,21 @@ func TestTheReportedFailureIsDeterministic(t *testing.T) {
 	for range 5 {
 		g, _ := fan(4)
 
+		// **Every leaf runs, or the question is a different one.** The build
+		// stops starting work at its first failure, so a leaf still waiting
+		// for a slot - or merely slow to be scheduled, on a loaded runner under
+		// -race - never runs and is never reported. Which failures *happened*
+		// is timing and no engine can promise it; how the ones that happened
+		// are reported is what this asks. So the slots cover the fan and the
+		// leaves meet before any of them fails.
+		ready := &sync.WaitGroup{}
+		ready.Add(4)
+
 		s := &core.Scheduler{
-			Workers:  []core.Worker{{ID: "w", IsInvoker: true}},
-			Executor: flakyOrder{},
-			Blobs:    allBlobs{},
+			Workers:     []core.Worker{{ID: "w", IsInvoker: true}},
+			Executor:    flakyOrder{ready: ready},
+			Blobs:       allBlobs{},
+			Parallelism: 4,
 		}
 
 		_, err := s.Run(context.Background(), g)
@@ -233,6 +244,15 @@ func TestTheReportedFailureIsDeterministic(t *testing.T) {
 		if seen == "" {
 			seen = err.Error()
 
+			// **Agreeing is not enough: in graph order.** The leaves finish in
+			// reverse, so a report in completion order is *also* the same
+			// every run - and deleting the sort in reportFailures passed this
+			// test until it said which order it meant.
+			first, last := strings.Index(seen, "(Earthfile:2)"), strings.Index(seen, "(Earthfile:5)")
+			if first < 0 || last < 0 || first > last {
+				t.Fatalf("the failures are not reported in graph order:\n%s", seen)
+			}
+
 			continue
 		}
 
@@ -242,14 +262,22 @@ func TestTheReportedFailureIsDeterministic(t *testing.T) {
 	}
 }
 
-// flakyOrder fails every leaf, at randomly varying speeds.
-type flakyOrder struct{}
+// flakyOrder fails every leaf, in the reverse of graph order.
+//
+// ready, when set, holds each leaf until all of them have started, so none is
+// skipped for arriving after another had already failed.
+type flakyOrder struct{ ready *sync.WaitGroup }
 
-func (flakyOrder) Run(
+func (f flakyOrder) Run(
 	_ context.Context, n *ir.Node, _ core.Worker, _ []ir.NodeID, _ [][]ir.NodeID,
 ) (core.Result, error) {
 	if n.Op.Kind != ir.OpExec {
 		return core.Result{Layer: n.ID(), Captured: true}, nil
+	}
+
+	if f.ready != nil {
+		f.ready.Done()
+		f.ready.Wait()
 	}
 
 	// Later leaves finish sooner, so completion order is the reverse of graph

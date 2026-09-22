@@ -377,7 +377,28 @@ engine-race:
     # a different cause with a different reason. It is the one this is raised
     # for, and it is the only one: 176 + 1, verified against the run's own list
     # rather than deduced.
-    ARG SKIP_CEILING=177
+    # 177 -> 189, and this raise is the one the paragraph above is suspicious
+    # of, so here is the evidence rather than the number alone.
+    #
+    # CI's own counts, which is the only series that may set this: 177 of 3518
+    # on 2026-09-07, 188 of 4457 on 2026-09-21 before anything was changed for
+    # it, 189 of 4458 after. So eleven of the twelve arrived with the branch's
+    # own work over that fortnight - 939 tests were added in it - and one is
+    # `TestAnActionMayNameTheImageItsStepStandsOn`, which previously *failed*
+    # here for want of a mount and now skips saying so. That one is coverage
+    # gained, not lost: a red test verified nothing either.
+    #
+    # Checked the way the paragraph above asks, against the run's own output
+    # rather than deduced. Every skip resolves to an environment capability -
+    # 52 no user namespace, 38 no network, then cgroups, skopeo,
+    # case-sensitivity and the rest - and the newly skipping tests are all
+    # tests that did not exist in the 177 run: the action service, namespace
+    # lifetime, a worker's microVM store, a real module cache.
+    #
+    # It was also being exceeded silently. The ceiling is only checked when the
+    # suite passes, and this job had been failing for other reasons, so 188 went
+    # unreported until the last of those was fixed.
+    ARG SKIP_CEILING=189
     # Nothing is excluded. Every test needing a privilege this container does
     # not grant - a user namespace, an overlay mount, a device node - now skips
     # with the reason, because each asks whether the *operation* works rather

@@ -216,7 +216,20 @@ func (e *Executor) stageHelper(
 		return "", clean, nil //nolint:nilerr // the module is not here to send
 	}
 
-	f, err := os.CreateTemp("", "earth-helper-*.wasm")
+	// **Inside the store, because that is what the guest can see.** A sandbox
+	// that shares rather than copies maps exactly the store and the build
+	// directory into the guest (see GuestPath), so a module staged in the
+	// host's own temporary directory is handed over as a path that resolves to
+	// nothing there - and `placeBlob` refuses it, correctly and late.
+	//
+	// `<store>/blobs` rather than the store root, following the context
+	// tarball, and dot-prefixed like every other piece of scratch beside it.
+	scratch := filepath.Join(e.sb.StoreDir(), "blobs")
+	if err := os.MkdirAll(scratch, 0o755); err != nil {
+		return "", clean, fmt.Errorf("stage the helper: %w", err)
+	}
+
+	f, err := os.CreateTemp(scratch, ".earth-helper-*.wasm")
 	if err != nil {
 		return "", clean, fmt.Errorf("stage the helper: %w", err)
 	}

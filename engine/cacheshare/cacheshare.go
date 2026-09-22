@@ -61,6 +61,11 @@ type Sharing struct {
 	blind string
 	said  sync.Once
 
+	// nmu guards mute, which is the set of cache directories whose reason for
+	// sharing nothing has already been given. See nothing.
+	nmu  sync.Mutex
+	mute map[string]bool
+
 	smu  sync.Mutex
 	sink *blob.Store
 	away Elsewhere
@@ -304,11 +309,22 @@ func (s *Sharing) Offer(ctx context.Context, m ir.Mount, dir, withheld string) e
 		return nil
 	}
 
-	// A cache the step never wrote is not an empty cache, it is no cache: the
-	// directory is made when a step binds one, so its absence means this mount
-	// was never used here.
-	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
-		return nil //nolint:nilerr // nothing to share is not a failure
+	// **A cache the step never wrote is not an empty cache, it is no cache** -
+	// the directory is made when a step binds one, so its absence means this
+	// mount was never used here.
+	//
+	// Read rather than stat-ed, because a directory that exists and holds
+	// nothing is a different story from one that is not there, and it costs one
+	// syscall to tell them apart. Reading it here also keeps a helper from
+	// being fetched and compiled for a mount with nothing in it.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		// **Silent on purpose, and the only one of these that is.** A mount no
+		// step bound has no directory, and that is most mounts on most builds:
+		// saying so would put a line on every build about a cache nobody asked
+		// for. A machine that cannot see a directory it *should* see is the
+		// other reading of the same absence, and `Blind` is where that is said.
+		return nil //nolint:nilerr // a mount nobody bound is not a failure
 	}
 
 	defer s.alone(dir)()
@@ -354,7 +370,16 @@ func (s *Sharing) Offer(ctx context.Context, m ir.Mount, dir, withheld string) e
 	}
 
 	if len(units) == 0 {
-		return nil
+		// **Not short-circuited earlier on an empty directory**, tempting as
+		// that is: resolving the helper can fail, and a helper this machine
+		// cannot get is an error an author needs whether or not there was
+		// anything to give it. Reported here, where both facts are known.
+		if len(entries) == 0 {
+			return s.nothing(m, dir, "a step bound this mount and wrote nothing into it")
+		}
+
+		return s.nothing(m, dir, fmt.Sprintf("the helper recognised no units among the"+
+			" %d entr%s here", len(entries), plural(len(entries), "y", "ies")))
 	}
 
 	// **The map is a blob like the units are.** It is the one part of a cache
@@ -479,6 +504,54 @@ func (s *Sharing) remember(dir string, m helper.Map) {
 	for k, id := range m {
 		held[k] = id
 	}
+}
+
+// nothing says why a mount produced no units, once per directory.
+//
+// **Four silences, four different fixes.** A mount shares nothing when the
+// directory is absent, when it is empty, when the helper recognises none of
+// what is in it, and when everything in it is already filed. Returning quietly
+// from all four is indistinguishable from not having the feature at all, and it
+// is what `Blind` was written to prevent - and was never wired to prevent, so
+// in practice an author who writes `--portable-except` and `--helper` got no
+// sharing and no reason.
+//
+// Once per directory rather than once per step, for `cannotLook`'s reason:
+// forty steps over one cache is forty identical lines, and a reader who learns
+// to scroll past those misses the one that differs.
+//
+// Never an error. A cache that did not cross is a slower build somewhere else
+// (I11), and the whole construct is a hint.
+func (s *Sharing) nothing(m ir.Mount, dir, why string) error {
+	if s.out == nil {
+		return nil
+	}
+
+	s.nmu.Lock()
+	defer s.nmu.Unlock()
+
+	if s.mute[dir] {
+		return nil
+	}
+
+	if s.mute == nil {
+		s.mute = map[string]bool{}
+	}
+
+	s.mute[dir] = true
+
+	fmt.Fprintf(s.out, "cache %s: nothing to share from %s: %s\n", m.ID, dir, why)
+
+	return nil
+}
+
+// plural picks a suffix, because "1 entries" reads as a bug in the message.
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+
+	return many
 }
 
 // say reports a cache that did not cross, and returns the error unchanged.

@@ -5,13 +5,19 @@ import (
 	"testing"
 )
 
-// A local destination that is a directory receives the artifact inside it.
+// A local destination written as a directory receives the artifact inside it.
 //
 // `SAVE ARTIFACT ./package.json package.json AS LOCAL ./` means "put it here",
-// and writing the artifact *as* `./` failed with "is a directory" - the same
-// rule COPY needed, arriving from the other end: a trailing separator, or a
-// path that is already a directory, names somewhere to put a thing rather than
-// the thing's new name.
+// and writing the artifact *as* `./` failed with "is a directory". A trailing
+// separator, `.` or `..` names somewhere to put a thing.
+//
+// **What is already on disk does not decide it.** This used to join the name
+// onto any destination that already existed as a directory, `cp -r` style, so
+// `SAVE ARTIFACT /dist AS LOCAL dist` landed at `dist` once and `dist/dist` on
+// every run after - the second build of a checkout wrote somewhere the first
+// had not. The reference, measured on both engines: without a trailing
+// separator the destination is the artifact's new name, and replaces whatever
+// was there, directory or not.
 func TestALocalDestinationThatIsADirectoryTakesTheName(t *testing.T) {
 	t.Parallel()
 
@@ -22,7 +28,8 @@ func TestALocalDestinationThatIsADirectoryTakesTheName(t *testing.T) {
 		{".", testManifest, testManifest},
 		{"out/", testJar, filepath.Join("out", testJar)},
 		{"build/app-renamed.jar", testJar, filepath.Join("build", "app-renamed.jar")},
-		{dir, testJar, filepath.Join(dir, testJar)},
+		{dir, testJar, dir},
+		{dir + "/", testJar, filepath.Join(dir, testJar)},
 	} {
 		t.Run(tc.dest, func(t *testing.T) {
 			t.Parallel()

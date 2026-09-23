@@ -375,6 +375,20 @@ var Mutants = []Mutant{
 		Package:     "./engine/image/",
 	},
 	{
+		Name:        "exec: an export replaces its destination rather than merging",
+		File:        "engine/exec/export.go",
+		Anchor:      "\terr = os.RemoveAll(dst)",
+		Replacement: "\terr = nil",
+		Package:     "./engine/exec/",
+	},
+	{
+		Name:        "exec: an export never clears the project",
+		File:        "engine/exec/export.go",
+		Anchor:      "\t\tif err == nil && (rel == \".\" || !strings.HasPrefix(rel, \"..\")) {",
+		Replacement: "\t\tif false && err == nil && rel != \"\" {",
+		Package:     "./engine/exec/",
+	},
+	{
 		Name:        "core: refusing an observation that names nothing (I3)",
 		File:        "engine/core/schedule.go",
 		Anchor:      "\treturn len(obs.Reads) > 0 || len(obs.Listings) > 0 || len(obs.Negative) > 0",

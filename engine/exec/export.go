@@ -116,6 +116,13 @@ func (e *Executor) exportTo(
 				return err
 			}
 
+			if !isPattern(path) {
+				err = clearForExport(project, localDest)
+				if err != nil {
+					return err
+				}
+			}
+
 			return copyOut(filepath.Join(e.sb.StoreDir(), rel), localDest)
 		}
 	}
@@ -230,6 +237,14 @@ func (e *Executor) exportTo(
 
 	endOut := phase("export:copyout", localDest)
 	defer endOut()
+
+	// A pattern writes a set of files into a directory it does not own.
+	if !isPattern(path) {
+		err = clearForExport(project, localDest)
+		if err != nil {
+			return err
+		}
+	}
 
 	err = copyOut(at, localDest)
 	if err != nil {
@@ -653,6 +668,43 @@ func copyLink(src, dst string) error {
 	err = os.Symlink(target, dst)
 	if err != nil {
 		return fmt.Errorf("write the link %s: %w", dst, err)
+	}
+
+	return nil
+}
+
+// clearForExport removes what a previous build left where an artifact is about
+// to be written, so the export replaces it rather than merging into it.
+//
+// **Replaced, as the reference does.** `SAVE ARTIFACT /a AS LOCAL out` writes
+// `out` as `/a` is now; merging kept every file any earlier build exported
+// there, and a file artifact written over a directory was put inside it.
+//
+// Never the project, nor anything holding it: a destination that names one is
+// refused and nothing is removed. `os.RemoveAll` does not follow a link at the
+// destination itself, so a symlink there is replaced, not what it points at.
+func clearForExport(project, dst string) error {
+	dst = filepath.Clean(dst)
+	if dst == string(filepath.Separator) || dst == "." {
+		return fmt.Errorf("refusing to replace %s with an artifact", dst)
+	}
+
+	if project != "" {
+		rel, err := filepath.Rel(dst, filepath.Clean(project))
+		if err == nil && (rel == "." || !strings.HasPrefix(rel, "..")) {
+			return fmt.Errorf("refusing to replace %s with an artifact: it holds the project %s"+
+				"\n  name a path inside the project, e.g. AS LOCAL ./out", dst, project)
+		}
+	}
+
+	_, err := os.Lstat(dst)
+	if os.IsNotExist(err) {
+		return nil
+	}
+
+	err = os.RemoveAll(dst)
+	if err != nil {
+		return fmt.Errorf("replace %s with the new artifact: %w", dst, err)
 	}
 
 	return nil

@@ -996,8 +996,8 @@ var _ = ir.NodeID{}
 
 // localPath is where an artifact lands on this machine.
 //
-// A destination that ends in a separator, or is already a directory, names
-// somewhere to *put* the artifact rather than the artifact's new name:
+// A destination that ends in a separator, `.` or `..` names somewhere to *put*
+// the artifact rather than the artifact's new name:
 // `SAVE ARTIFACT ./package.json package.json AS LOCAL ./` means "put it here",
 // and writing it as `./` failed with "is a directory". The same rule COPY
 // needed, arriving from the other end.
@@ -1025,11 +1025,8 @@ func localPath(dest, name string) string {
 		return filepath.Join(dest, name)
 	}
 
-	fi, err := os.Stat(dest)
-	if err == nil && fi.IsDir() {
-		return filepath.Join(dest, name)
-	}
-
+	// Not "or already a directory": what the last build left on disk must not
+	// decide where this one writes. See TestALocalDestinationThatIsADirectoryTakesTheName.
 	return dest
 }
 

@@ -14,7 +14,7 @@ go:
 node:
     FROM node:26.8.2-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=12.0.2
+    LET npm_version=12.1.0
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version

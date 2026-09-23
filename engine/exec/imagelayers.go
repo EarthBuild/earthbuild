@@ -106,7 +106,7 @@ func (e *Executor) materialiseImageApart(
 	keep := newBlobKeeper(root, apart)
 
 	pulled, cfg, err := image.PullApart(ctx, n.Op.Args[0], apart, image.Options{
-		Platform: platform, Challenges: imageRoot,
+		Platform: platform, Challenges: imageRoot, Local: e.SavedImages,
 		Mirrors: image.MirrorsFromEnv(),
 		Stream:  os.Getenv(EnvImageStream) != "",
 		Retain:  keep.retain,

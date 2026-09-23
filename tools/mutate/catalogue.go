@@ -389,6 +389,20 @@ var Mutants = []Mutant{
 		Package:     "./engine/exec/",
 	},
 	{
+		Name:        "image: a saved manifest is verified against the pinned digest",
+		File:        "engine/image/local.go",
+		Anchor:      "\tif err != nil || verify(body, digest) != nil {",
+		Replacement: "\tif err != nil {",
+		Package:     "./engine/image/",
+	},
+	{
+		Name:        "image: only a pinned reference is served from the saved images",
+		File:        "engine/image/registry.go",
+		Anchor:      "\tif r.Digest != \"\" {\n\t\tif body := localManifest(opt.Local, r.Digest); body != nil {",
+		Replacement: "\tif r.Digest != \"\" || opt.Local != \"\" {\n\t\tif body := localManifest(opt.Local, r.Digest); body != nil || r.Digest == \"\" {",
+		Package:     "./engine/image/",
+	},
+	{
 		Name:        "core: refusing an observation that names nothing (I3)",
 		File:        "engine/core/schedule.go",
 		Anchor:      "\treturn len(obs.Reads) > 0 || len(obs.Listings) > 0 || len(obs.Negative) > 0",
@@ -1335,6 +1349,7 @@ var Mutants = []Mutant{
 		File:        "engine/cli/images.go",
 		Anchor:      "\t\tp = platforms.DefaultSpec()",
 		Replacement: "\t\tp = ocispec.Platform{}",
+
 		Package:     "./engine/cli/",
 	},
 	{

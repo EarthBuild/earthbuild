@@ -49,6 +49,17 @@ func storeDir() (string, error) {
 // platform and is identical for every project on the machine. Pointing several
 // build caches at one image cache is how a machine stops fetching alpine once
 // per project.
+// savedImagesDir is where SAVE IMAGE writes, or "" where there is no store.
+// See image.SaveLocal.
+func savedImagesDir() string {
+	root, err := storeDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(root, "images")
+}
+
 func imageCacheDir() (string, error) {
 	if p := os.Getenv(envImageCacheDir); p != "" {
 		return p, nil

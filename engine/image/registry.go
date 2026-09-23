@@ -116,6 +116,9 @@ type Options struct {
 	Plain bool
 	// Client is the HTTP client. A default one is used when nil.
 	Client *http.Client
+	// Local is where SAVE IMAGE keeps what it wrote. A pinned reference whose
+	// manifest is there is pulled from it; a tag never is. See local.go.
+	Local string
 	// Platform is "os/arch". Defaults to this machine's.
 	Platform string
 	// Index keeps a multi-platform tag's *index* digest rather than descending
@@ -342,6 +345,18 @@ func fetchHosts(r Ref, opt Options) []string {
 // Shared by Pull and PullApart, which differ only in where the layers land:
 // one directory between them, or one each.
 func prepare(ctx context.Context, ref string, opt Options) (prepared, error) {
+	p, err := prepareRemote(ctx, ref, opt)
+	if err != nil {
+		if r, perr := ParseRef(ref); perr == nil && r.Digest == "" {
+			return prepared{}, tagHint(ref, opt, err)
+		}
+	}
+
+	return p, err
+}
+
+// prepareRemote is prepare without the explanation a saved tag gets.
+func prepareRemote(ctx context.Context, ref string, opt Options) (prepared, error) {
 	r, err := ParseRef(ref)
 	if err != nil {
 		return prepared{}, err
@@ -350,6 +365,17 @@ func prepare(ctx context.Context, ref string, opt Options) (prepared, error) {
 	client := opt.Client
 	if client == nil {
 		client = http.DefaultClient
+	}
+
+	// **A pinned image this machine saved needs no registry.** Its manifest is
+	// verified against the digest before anything reads it, and every blob
+	// after it is verified by the same code a registry's are - the store is
+	// one more place bytes come from. Tags never take this route: they move.
+	if r.Digest != "" {
+		if body := localManifest(opt.Local, r.Digest); body != nil {
+			return manifestFrom(ctx, ref, opt, &http.Client{Transport: localTransport{opt.Local}},
+				"", "http://saved.invalid/v2/"+r.Repository, body)
+		}
 	}
 
 	target := r.Tag
@@ -417,8 +443,17 @@ func prepare(ctx context.Context, ref string, opt Options) (prepared, error) {
 		}
 	}
 
+	return manifestFrom(ctx, ref, opt, client, tok, base, body)
+}
+
+// manifestFrom is the rest of prepare once a manifest is in hand, from
+// whichever place it came.
+func manifestFrom(
+	ctx context.Context, ref string, opt Options, client *http.Client, tok, base string, body []byte,
+) (prepared, error) {
 	var m manifest
-	err = json.Unmarshal(body, &m)
+
+	err := json.Unmarshal(body, &m)
 	if err != nil {
 		return prepared{}, fmt.Errorf("parse the manifest for %s: %w", ref, err)
 	}

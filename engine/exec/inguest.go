@@ -196,6 +196,7 @@ func (e *Executor) materialiseImageInGuest(
 
 	opts := image.Options{
 		Platform: platform, Challenges: imageRoot, Mirrors: image.MirrorsFromEnv(),
+		Local: e.SavedImages,
 	}
 	// **Only where the guest reads the host's own file.** Streaming announces a
 	// layer before its bytes have landed, so the guest can unpack it as it

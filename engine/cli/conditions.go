@@ -359,6 +359,8 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 			e.ImageCache = imageRoot
 		}
 
+		e.SavedImages = savedImagesDir()
+
 		// Where the guest keeps cache mounts, and what to do with one the author
 		// offered. `MountStore` is the guest's own function rather than this
 		// side's guess at it: two implementations of that path is a drift in

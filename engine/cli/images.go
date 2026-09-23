@@ -145,7 +145,7 @@ func writeImages(
 		// Named after the reference so two images from one build do not land on
 		// each other, and sanitised because a reference holds slashes and colons
 		// that a directory name cannot.
-		dir := filepath.Join(root, "images", refDir(img.Ref))
+		dir := filepath.Join(root, "images", image.LayoutName(img.Ref))
 		err := os.RemoveAll(dir)
 		if err != nil {
 			return fmt.Errorf("clear the previous %s: %w", img.Ref, err)
@@ -159,8 +159,16 @@ func writeImages(
 			return fmt.Errorf("write %s (%s): %w", img.Ref, img.Source, err)
 		}
 
+		// Filed by digest as well, so `FROM <ref>@<digest>` needs no registry;
+		// the digest is printed because it is what an Earthfile pins to.
+		digest, err := image.SaveLocal(dir, filepath.Join(root, "images"))
+		if err != nil {
+			return fmt.Errorf("%s (%s): %w", img.Ref, img.Source, err)
+		}
+
 		fmt.Fprintf(o.Out, "  %-14s %s -> %s%s\n", img.Source, img.Ref, dir,
 			pushNote(img.Push, o.Push))
+		fmt.Fprintf(o.Out, "  %-14s pin it as %s@%s\n", "", image.Untagged(img.Ref), digest)
 
 		// **Both have to say so.** `SAVE IMAGE --push` is the Earthfile
 		// declaring that this image is one worth publishing; `earth --push` is
@@ -182,18 +190,6 @@ func writeImages(
 	}
 
 	return nil
-}
-
-// refDir turns an image reference into one directory name.
-func refDir(ref string) string {
-	out := []rune(ref)
-	for i, r := range out {
-		if r == '/' || r == ':' || r == os.PathSeparator {
-			out[i] = '_'
-		}
-	}
-
-	return string(out)
 }
 
 // pushNote says why an image declared for publishing is not being published.

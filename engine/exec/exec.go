@@ -141,6 +141,10 @@ type Executor struct {
 	// every project, and fetching alpine once per project is bandwidth spent on
 	// nothing.
 	ImageCache string
+	// SavedImages is where SAVE IMAGE files what it writes. A FROM pinned to
+	// one of those digests is pulled from here with no registry; a tag never
+	// is. Empty turns that off.
+	SavedImages string
 	// Terminal is the caller's terminal, for `RUN --interactive`.
 	//
 	// Held here rather than in the graph for the reason Secrets are: the IR says
@@ -874,7 +878,7 @@ func (e *Executor) materialiseImage(ctx context.Context, n *ir.Node) (core.Resul
 
 	pull := func(ctx context.Context, ref, into string) (ocispec.ImageConfig, error) {
 		return image.Pull(ctx, ref, into, image.Options{
-			Platform: platform,
+			Platform: platform, Local: e.SavedImages,
 			// Beside the images, because where a registry issues tokens is the
 			// same answer for every project on this machine (E535).
 			Challenges: imageRoot,

@@ -43,6 +43,7 @@ func (g *engine) imageEnv(ctx context.Context) interp.ImageEnv {
 		h.once.Do(func() {
 			cfg, err := image.Config(ctx, ref, image.Options{
 				Platform: resolveFor(platform), Challenges: challenges,
+				Local: savedImagesDir(),
 			})
 			if err != nil {
 				h.err = err

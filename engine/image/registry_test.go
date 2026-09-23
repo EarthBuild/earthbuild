@@ -537,6 +537,12 @@ func TestAZstdLayerPullsEndToEnd(t *testing.T) {
 
 // enterBlob records a blob request arriving, and holds it long enough that a
 // concurrent one has somewhere to overlap.
+//
+// **Held until a second request arrives, not for a fixed time.** A bare
+// `blobDelay` sleep let a loaded machine start the second fetch after the first
+// had finished - a pull issuing both at once measured "one in flight" about one
+// package run in eight under the full suite. Waiting for company makes overlap
+// a fact about the requests; the cap keeps a serial pull failing, only slower.
 func (f *fakeRegistry) enterBlob() {
 	f.blobMu.Lock()
 	f.served++
@@ -548,9 +554,19 @@ func (f *fakeRegistry) enterBlob() {
 
 	f.blobMu.Unlock()
 
-	if f.blobDelay > 0 {
-		time.Sleep(f.blobDelay)
+	if f.blobDelay <= 0 {
+		return
 	}
+
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+		if f.peakBlobs() >= 2 {
+			break
+		}
+
+		time.Sleep(time.Millisecond)
+	}
+
+	time.Sleep(f.blobDelay)
 }
 
 func (f *fakeRegistry) leaveBlob() {

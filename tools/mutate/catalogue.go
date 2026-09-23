@@ -361,6 +361,20 @@ var Mutants = []Mutant{
 		Package:     "./engine/core/",
 	},
 	{
+		Name:        "image: plain HTTP only for a registry on this machine",
+		File:        "engine/image/loopback.go",
+		Anchor:      "\treturn ip != nil && ip.IsLoopback()",
+		Replacement: "\treturn ip == nil || ip != nil",
+		Package:     "./engine/image/",
+	},
+	{
+		Name:        "image: a TLS registry is never downgraded to HTTP",
+		File:        "engine/image/loopback.go",
+		Anchor:      "\tif answeredInHTTP(err) {",
+		Replacement: "\tif true {",
+		Package:     "./engine/image/",
+	},
+	{
 		Name:        "core: refusing an observation that names nothing (I3)",
 		File:        "engine/core/schedule.go",
 		Anchor:      "\treturn len(obs.Reads) > 0 || len(obs.Listings) > 0 || len(obs.Negative) > 0",

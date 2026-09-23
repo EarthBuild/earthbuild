@@ -34,10 +34,7 @@ func Warm(ctx context.Context, ref string, opt Options) {
 		client = http.DefaultClient
 	}
 
-	scheme := schemeHTTPS
-	if opt.Plain {
-		scheme = schemePlain
-	}
+	scheme := schemeOf(ctx, client, registryHost(r.Registry), opt.Plain)
 
 	// The manifest URL is what the challenge is issued against, so it must be
 	// the URL the pull will use. A pinned reference names its digest here and

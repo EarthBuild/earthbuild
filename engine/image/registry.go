@@ -110,9 +110,9 @@ func registryHost(domain string) string {
 
 // Options configure a pull.
 type Options struct {
-	// Plain uses http rather than https. For a local registry and for tests;
-	// never a default, because a plaintext pull is one an intermediary can
-	// rewrite.
+	// Plain uses http rather than https without asking. Rarely needed: a
+	// registry on this machine that answers in HTTP is found by schemeOf. Never
+	// a default, because a plaintext pull is one an intermediary can rewrite.
 	Plain bool
 	// Client is the HTTP client. A default one is used when nil.
 	Client *http.Client
@@ -352,11 +352,6 @@ func prepare(ctx context.Context, ref string, opt Options) (prepared, error) {
 		client = http.DefaultClient
 	}
 
-	scheme := schemeHTTPS
-	if opt.Plain {
-		scheme = schemePlain
-	}
-
 	target := r.Tag
 	if r.Digest != "" {
 		target = r.Digest
@@ -374,7 +369,8 @@ func prepare(ctx context.Context, ref string, opt Options) (prepared, error) {
 	)
 
 	for i, host := range hosts {
-		base = fmt.Sprintf("%s://%s/v2/%s", scheme, host, r.Repository)
+		// Per host: a mirror and the origin need not agree on a scheme.
+		base = fmt.Sprintf("%s://%s/v2/%s", schemeOf(ctx, client, host, opt.Plain), host, r.Repository)
 		last := i == len(hosts)-1
 
 		// Registries answer an anonymous request with 401 and a challenge naming

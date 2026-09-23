@@ -27,9 +27,9 @@ type PushOptions struct {
 	// Challenges is where a registry's token endpoint is remembered between
 	// builds, as it is for pulls. Empty disables the memory, not the auth.
 	Challenges string
-	// Plain talks HTTP rather than HTTPS. For a registry on this machine, and
-	// for the tests here; a remote registry over plain HTTP would hand the
-	// credential to anything on the path.
+	// Plain talks HTTP rather than HTTPS without asking. A registry on this
+	// machine that answers in HTTP is found by schemeOf; a remote registry over
+	// plain HTTP would hand the credential to anything on the path.
 	Plain bool
 }
 
@@ -71,7 +71,7 @@ func Push(ctx context.Context, layout, ref string, opt PushOptions) (string, err
 
 	p := &pusher{
 		client: client,
-		base:   fmt.Sprintf("%s://%s/v2/%s", schemeFor(opt.Plain), r.Registry, r.Repository),
+		base:   fmt.Sprintf("%s://%s/v2/%s", schemeOf(ctx, client, r.Registry, opt.Plain), r.Registry, r.Repository),
 		opt:    opt,
 	}
 
@@ -95,14 +95,6 @@ func Push(ctx context.Context, layout, ref string, opt PushOptions) (string, err
 	}
 
 	return string(desc.Digest), nil
-}
-
-func schemeFor(plain bool) string {
-	if plain {
-		return "http"
-	}
-
-	return "https"
 }
 
 // manifestOfLayout reads which manifest a layout holds, and its bytes.

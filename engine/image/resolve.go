@@ -43,10 +43,7 @@ func Resolve(ctx context.Context, ref string, opt Options) (string, error) {
 		client = http.DefaultClient
 	}
 
-	scheme := schemeHTTPS
-	if opt.Plain {
-		scheme = schemePlain
-	}
+	scheme := schemeOf(ctx, client, registryHost(r.Registry), opt.Plain)
 
 	base := fmt.Sprintf("%s://%s/v2/%s", scheme, registryHost(r.Registry), r.Repository)
 

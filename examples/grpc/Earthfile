@@ -3,7 +3,7 @@ FROM node:26.8.2-alpine3.24
 
 WORKDIR /example-grpc
 
-# This example shows how to use earthly to compile a protobuf grpc definition
+# This example shows how to use earth to compile a protobuf grpc definition
 # into protobuf code for both a Go-based server, and a python-based client.
 #
 # This example spans 5 different git repositories, each containing an Earthfile:

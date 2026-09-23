@@ -154,7 +154,7 @@ promote-artifacts-to-gh:
     # Built-ins: Full commit SHA, First 8 of commit SHA
     ARG EARTH_GIT_HASH
 
-    # Default to earthly-inferred commit SHA but accept an override
+    # Default to earth-inferred commit SHA but accept an override
     ARG COMMIT_SHA="$EARTH_GIT_HASH"
 
     # Trim COMMIT_SHA to first 8 chars
@@ -180,7 +180,7 @@ promote-to-dockerhub:
     # Built-ins: First 8 of commit SHA
     ARG EARTHLY_GIT_SHORT_HASH
 
-    # Default to earthly-inferred commit SHA short but accept an override
+    # Default to earth-inferred commit SHA short but accept an override
     ARG COMMIT_SHA_SHORT="$EARTHLY_GIT_SHORT_HASH"
 
     # The release tag (vX.X.X) that we're running for

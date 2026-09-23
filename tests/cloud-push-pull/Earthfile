@@ -63,7 +63,7 @@ azure-container-registry:
 #         --secret AZ_PASSWORD=azure/ci-cd-password \
 #         (test -n "$AZ_USERNAME" || (echo "ERROR: AZ_USERNAME not set"; exit 1)) && \
 #         (test -n "$AZ_PASSWORD" || (echo "ERROR: AZ_PASSWORD not set"; exit 1)) && \
-#         docker login earthlyintegrationtest.azurecr.io --username "$AZ_USERNAME" --password "$AZ_PASSWORD"
+#         docker login earthintegrationtest.azurecr.io --username "$AZ_USERNAME" --password "$AZ_PASSWORD"
 
 #     RUN --privileged \
 #     --entrypoint \

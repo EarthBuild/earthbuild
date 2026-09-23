@@ -22,7 +22,7 @@ all:
 #
 # Then try this example:
 #
-#     earthly +all
+#     earth +all
 #     docker run --rm earthbuild/examples:multiplatform
 #     docker run --rm earthbuild/examples:multiplatform_linux_amd64
 #     docker run --rm earthbuild/examples:multiplatform_linux_arm64

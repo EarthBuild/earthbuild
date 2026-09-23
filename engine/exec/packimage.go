@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/containerd/platforms"
@@ -228,7 +227,12 @@ func (e *Executor) BaseDeclarationVia(ctx context.Context, root string, base []i
 func ConfigWithBase(base decl.Declaration, declared ocispec.ImageConfig) ocispec.ImageConfig {
 	out := declared
 
-	out.Env = mergedEnv(base.Env, declared.Env)
+	// **Folded, as every step's environment is.** A declaration stores `ENV`
+	// text unexpanded; an OCI config is read literally. Overlaying the one on
+	// the other wrote `PATH=/usr/local/cargo/bin:${PATH}` into the image, and a
+	// FROM of it lost the base's PATH. The base arrives expanded (Compose), so
+	// it is Literal: its own `$` is a character.
+	out.Env = decl.Fold(nil, decl.Literal(base.Env), decl.Declaration{Env: declared.Env})
 
 	if out.WorkingDir == "" {
 		out.WorkingDir = base.WorkingDir
@@ -244,40 +248,6 @@ func ConfigWithBase(base decl.Declaration, declared ocispec.ImageConfig) ocispec
 
 	if len(out.Cmd) == 0 {
 		out.Cmd = base.Cmd
-	}
-
-	return out
-}
-
-// mergedEnv is the base's environment with the target's laid over it.
-//
-// In place rather than appended, so a variable set by both appears once. Two
-// entries for one name is a file whose meaning depends on which end a reader
-// starts from, and readers differ.
-func mergedEnv(base, over []string) []string {
-	out := slices.Clone(base)
-
-	for _, e := range over {
-		name, _, ok := strings.Cut(e, "=")
-		if !ok {
-			out = append(out, e)
-
-			continue
-		}
-
-		at := slices.IndexFunc(out, func(had string) bool {
-			was, _, _ := strings.Cut(had, "=")
-
-			return was == name
-		})
-
-		if at < 0 {
-			out = append(out, e)
-
-			continue
-		}
-
-		out[at] = e
 	}
 
 	return out

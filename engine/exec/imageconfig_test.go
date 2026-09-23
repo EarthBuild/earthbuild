@@ -61,3 +61,37 @@ func TestAPackedImageKeepsWhatItsBaseDeclared(t *testing.T) {
 		t.Errorf("Cmd = %v, want the base's", got.Cmd)
 	}
 }
+
+// An image's environment is written expanded, as the steps that built it saw it.
+//
+// **A config is literal; an ENV line is not.** `ENV PATH=/usr/local/cargo/bin:${PATH}`
+// ran every step with the base's PATH behind cargo's, and the image SAVE IMAGE
+// wrote said `${PATH}` in so many characters - so a FROM of it lost the base's
+// PATH and `cargo` was exit 127. Found on midnight-node's warm build. Steps
+// compose with decl.Fold; the config merged without expanding, which is the two
+// rules for one question the fold exists to prevent.
+func TestAnImageConfigHoldsTheExpandedEnvironment(t *testing.T) {
+	t.Parallel()
+
+	base := decl.Declaration{Env: []string{
+		"PATH=/usr/local/sbin:/usr/bin",
+		"PRICE=5$", // a base's own dollar is a character, not a reference
+	}}
+
+	got := ConfigWithBase(base, ocispec.ImageConfig{Env: []string{
+		"PATH=/usr/local/cargo/bin:${PATH}",
+		"CARGO_HOME=/usr/local/cargo",
+	}}).Env
+
+	want := []string{
+		"PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/bin",
+		"PRICE=5$",
+		"CARGO_HOME=/usr/local/cargo",
+	}
+
+	if !slices.Equal(got, want) {
+		t.Errorf("config Env is %q, want %q"+
+			"\n  an OCI config is read literally, so a reference left in it is a"+
+			" PATH nobody meant", got, want)
+	}
+}

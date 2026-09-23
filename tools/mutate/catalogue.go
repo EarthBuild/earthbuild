@@ -403,6 +403,13 @@ var Mutants = []Mutant{
 		Package:     "./engine/image/",
 	},
 	{
+		Name:        "exec: an image config holds the environment expanded",
+		File:        "engine/exec/packimage.go",
+		Anchor:      "\tout.Env = decl.Fold(nil, decl.Literal(base.Env), decl.Declaration{Env: declared.Env})",
+		Replacement: "\tout.Env = append(append([]string{}, base.Env...), declared.Env...)",
+		Package:     "./engine/exec/",
+	},
+	{
 		Name:        "core: refusing an observation that names nothing (I3)",
 		File:        "engine/core/schedule.go",
 		Anchor:      "\treturn len(obs.Reads) > 0 || len(obs.Listings) > 0 || len(obs.Negative) > 0",

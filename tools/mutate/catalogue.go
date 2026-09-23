@@ -1347,7 +1347,7 @@ var Mutants = []Mutant{
 	{
 		Name:        "cli: an image always naming a platform (E793)",
 		File:        "engine/cli/images.go",
-		Anchor:      "\t\tp = platforms.DefaultSpec()",
+		Anchor:      "\t\tp, _ = platforms.Parse(exec.DefaultPlatform())",
 		Replacement: "\t\tp = ocispec.Platform{}",
 
 		Package:     "./engine/cli/",

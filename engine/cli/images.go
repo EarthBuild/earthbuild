@@ -57,9 +57,14 @@ func specFor(
 	// because an image nothing can place is not the better failure - but the
 	// string reaching this function unparsed is a separate defect, and this is
 	// deliberately not the place that hides it.
+	//
+	// **Linux, not this machine.** The default was `platforms.DefaultSpec()`,
+	// which is the *host* - so on a Mac every image saved without a platform
+	// was labelled darwin, and pulling one back by digest refused it. `""` and
+	// `native` fail to parse and land here too.
 	p, err := platforms.Parse(platform)
 	if err != nil {
-		p = platforms.DefaultSpec()
+		p, _ = platforms.Parse(exec.DefaultPlatform())
 	}
 
 	spec.Platform = ocispec.Platform{OS: p.OS, Architecture: p.Architecture, Variant: p.Variant}

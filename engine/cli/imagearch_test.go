@@ -53,3 +53,24 @@ func TestAnImageAlwaysNamesItsPlatform(t *testing.T) {
 			spec.Platform.OS, spec.Platform.Architecture)
 	}
 }
+
+// And a default is Linux, whatever machine is running the build.
+//
+// **Every image this engine builds is a Linux filesystem**, made in a Linux
+// sandbox. The fallback used the host's own platform, so on a Mac an image
+// saved with no `--platform` was labelled darwin/arm64 - and pulling it back by
+// digest refused it for not being linux/arm64, which is what it actually was.
+// Non-empty was the only thing checked above, and darwin is not empty.
+func TestAnImageDefaultsToLinux(t *testing.T) {
+	t.Parallel()
+
+	for _, platform := range []string{"", "native", "not a platform"} {
+		spec := specFor(interp.Image{Ref: "probe:tag"}, platform,
+			[]image.LayerSource{}, decl.Declaration{}, time.Time{})
+
+		if spec.Platform.OS != "linux" {
+			t.Errorf("platform %q gave os=%q; an image built here is Linux whatever the host",
+				platform, spec.Platform.OS)
+		}
+	}
+}

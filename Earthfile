@@ -584,10 +584,16 @@ engine-daemon:
     # working directory and compiling the binary out of the tree took that away,
     # so two guards failed for having been moved rather than for being wrong
     # (E629).
+    #
+    # **`-test.timeout`, because a compiled test binary has none.** `go test`
+    # passes 10m by default; run directly, a hung test waits for the job's own
+    # limit. 3bd43e527 sat here for six hours with no output - the step's log is
+    # buffered - and the panic a timeout prints, with every goroutine's stack, is
+    # the only record a hang leaves.
     RUN --privileged \
         --mount type=cache,target=/scratch,id=engine-daemon-scratch \
-        sh -c "(cd /earth/engine/guest && /tmp/daemon.test -test.v); \
-               TMPDIR=/scratch EARTH_TEST_NETWORK=1 EARTH_CORPUS_DIR=/earth /tmp/build.test -test.v \
+        sh -c "(cd /earth/engine/guest && /tmp/daemon.test -test.v -test.timeout 20m); \
+               TMPDIR=/scratch EARTH_TEST_NETWORK=1 EARTH_CORPUS_DIR=/earth /tmp/build.test -test.v -test.timeout 20m \
                    -test.run 'ABuildWithADockerBlockRuns|ABuildInsideABuild'" \
             > /tmp/d.log 2>&1; \
         rc=$?; \

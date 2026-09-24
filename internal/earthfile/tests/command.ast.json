@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 3,
+          "file": "command.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     },
     {
@@ -13,7 +20,14 @@
         "args": [
           "/test"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 14,
+          "endLine": 4,
+          "file": "command.earth",
+          "startColumn": 1,
+          "startLine": 4
+        }
       }
     },
     {
@@ -24,7 +38,14 @@
           "=",
           "default"
         ],
-        "name": "ARG"
+        "name": "ARG",
+        "sourceLocation": {
+          "endColumn": 32,
+          "endLine": 6,
+          "file": "command.earth",
+          "startColumn": 1,
+          "startLine": 6
+        }
       }
     }
   ],
@@ -34,7 +55,14 @@
       "recipe": [
         {
           "command": {
-            "name": "COMMAND"
+            "name": "COMMAND",
+            "sourceLocation": {
+              "endColumn": 12,
+              "endLine": 77,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 77
+            }
           }
         },
         {
@@ -43,17 +71,38 @@
               "touch",
               "a.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 78,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 78
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 80,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 76
+      }
     },
     {
       "name": "COMMANDCEPTION",
       "recipe": [
         {
           "command": {
-            "name": "COMMAND"
+            "name": "COMMAND",
+            "sourceLocation": {
+              "endColumn": 12,
+              "endLine": 81,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 81
+            }
           }
         },
         {
@@ -61,17 +110,38 @@
             "args": [
               "+ANOTHER_COMMAND"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 82,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 82
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 84,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 80
+      }
     },
     {
       "name": "ANOTHER_COMMAND",
       "recipe": [
         {
           "command": {
-            "name": "COMMAND"
+            "name": "COMMAND",
+            "sourceLocation": {
+              "endColumn": 12,
+              "endLine": 85,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 85
+            }
           }
         },
         {
@@ -79,17 +149,38 @@
             "args": [
               "+TOUCH"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 14,
+              "endLine": 86,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 86
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 88,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 84
+      }
     },
     {
       "name": "COMMAND_ARGS",
       "recipe": [
         {
           "command": {
-            "name": "COMMAND"
+            "name": "COMMAND",
+            "sourceLocation": {
+              "endColumn": 12,
+              "endLine": 89,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 89
+            }
           }
         },
         {
@@ -99,7 +190,14 @@
               "=",
               "default"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 90,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 90
+            }
           }
         },
         {
@@ -108,17 +206,38 @@
               "touch",
               "\"./$arg1\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 91,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 91
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 93,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 88
+      }
     },
     {
       "name": "RECURSIVE",
       "recipe": [
         {
           "command": {
-            "name": "COMMAND"
+            "name": "COMMAND",
+            "sourceLocation": {
+              "endColumn": 12,
+              "endLine": 94,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 94
+            }
           }
         },
         {
@@ -128,7 +247,14 @@
               "=",
               "5"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 95,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 95
+            }
           }
         },
         {
@@ -147,7 +273,14 @@
                     "touch",
                     "$level"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 25,
+                    "endLine": 97,
+                    "file": "command.earth",
+                    "startColumn": 9,
+                    "startLine": 97
+                  }
                 }
               },
               {
@@ -157,7 +290,14 @@
                     "=",
                     "\"$(echo $((level-1)))\""
                   ],
-                  "name": "ARG"
+                  "name": "ARG",
+                  "sourceLocation": {
+                    "endColumn": 44,
+                    "endLine": 98,
+                    "file": "command.earth",
+                    "startColumn": 9,
+                    "startLine": 98
+                  }
                 }
               },
               {
@@ -166,20 +306,48 @@
                     "+RECURSIVE",
                     "--level=$newlevel"
                   ],
-                  "name": "DO"
+                  "name": "DO",
+                  "sourceLocation": {
+                    "endColumn": 40,
+                    "endLine": 99,
+                    "file": "command.earth",
+                    "startColumn": 9,
+                    "startLine": 99
+                  }
                 }
               }
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 100,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 96
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 102,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 93
+      }
     },
     {
       "name": "TEST_SCOPE",
       "recipe": [
         {
           "command": {
-            "name": "COMMAND"
+            "name": "COMMAND",
+            "sourceLocation": {
+              "endColumn": 12,
+              "endLine": 103,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 103
+            }
           }
         },
         {
@@ -189,7 +357,14 @@
               "=",
               "true"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 104,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 104
+            }
           }
         },
         {
@@ -200,7 +375,14 @@
               "=",
               "\"true\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 105,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 105
+            }
           }
         },
         {
@@ -212,7 +394,14 @@
               "=",
               "\"true\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 40,
+              "endLine": 106,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 106
+            }
           }
         },
         {
@@ -223,17 +412,38 @@
               "=",
               "\"true\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 107,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 107
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 109,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 102
+      }
     },
     {
       "name": "TEST_BUILTIN",
       "recipe": [
         {
           "command": {
-            "name": "COMMAND"
+            "name": "COMMAND",
+            "sourceLocation": {
+              "endColumn": 12,
+              "endLine": 110,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 110
+            }
           }
         },
         {
@@ -241,7 +451,14 @@
             "args": [
               "EARTHLY_TARGET_NAME"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 111,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 111
+            }
           }
         },
         {
@@ -252,17 +469,38 @@
               "=",
               "\"test-builtin\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 53,
+              "endLine": 112,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 112
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 114,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 109
+      }
     },
     {
       "name": "TOUCH_GLOBAL",
       "recipe": [
         {
           "command": {
-            "name": "COMMAND"
+            "name": "COMMAND",
+            "sourceLocation": {
+              "endColumn": 12,
+              "endLine": 115,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 115
+            }
           }
         },
         {
@@ -273,7 +511,14 @@
               "!=",
               "\"\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 116,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 116
+            }
           }
         },
         {
@@ -282,17 +527,38 @@
               "touch",
               "$global_var"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 117,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 117
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 119,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 114
+      }
     },
     {
       "name": "TEST_FUNCTION_FAILS",
       "recipe": [
         {
           "command": {
-            "name": "FUNCTION"
+            "name": "FUNCTION",
+            "sourceLocation": {
+              "endColumn": 13,
+              "endLine": 120,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 120
+            }
           }
         },
         {
@@ -305,10 +571,24 @@
               "be",
               "printed"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 40,
+              "endLine": 121,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 121
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 122,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 119
+      }
     }
   ],
   "targets": [
@@ -320,7 +600,14 @@
             "args": [
               "+test-basic"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 9,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -328,7 +615,14 @@
             "args": [
               "+test-remote-no-context"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 34,
+              "endLine": 10,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -336,7 +630,14 @@
             "args": [
               "+test-nested"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 11,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -344,7 +645,14 @@
             "args": [
               "+test-args"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 12,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -352,7 +660,14 @@
             "args": [
               "+test-recursive"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 13,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -360,7 +675,14 @@
             "args": [
               "+test-remote-touch"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 14,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -368,7 +690,14 @@
             "args": [
               "+test-scope"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 15,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -376,7 +705,14 @@
             "args": [
               "+test-builtin"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 16,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         },
         {
@@ -384,7 +720,14 @@
             "args": [
               "+test-global-default"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 17,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         },
         {
@@ -392,10 +735,24 @@
             "args": [
               "+test-global-override"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 18,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 18
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 20,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 8
+      }
     },
     {
       "name": "test-basic",
@@ -405,7 +762,14 @@
             "args": [
               "+TOUCH"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 14,
+              "endLine": 21,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         },
         {
@@ -415,10 +779,24 @@
               "-f",
               "a.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 22,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 22
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 24,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 20
+      }
     },
     {
       "name": "test-remote-no-context",
@@ -428,7 +806,14 @@
             "args": [
               "github.com/EarthBuild/earthly-command-example:main+COPY_CAT"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 67,
+              "endLine": 25,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 25
+            }
           }
         },
         {
@@ -438,10 +823,24 @@
               "-f",
               "message.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 26,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 26
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 28,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 24
+      }
     },
     {
       "name": "test-nested",
@@ -451,7 +850,14 @@
             "args": [
               "+COMMANDCEPTION"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 29,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 29
+            }
           }
         },
         {
@@ -461,10 +867,24 @@
               "-f",
               "a.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 30,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 30
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 32,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 28
+      }
     },
     {
       "name": "test-args",
@@ -475,7 +895,14 @@
               "+COMMAND_ARGS",
               "--arg1=foo"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 33,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 33
+            }
           }
         },
         {
@@ -485,7 +912,14 @@
               "-f",
               "./foo"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 34,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 34
+            }
           }
         },
         {
@@ -496,7 +930,14 @@
               "-f",
               "./default"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 35,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 35
+            }
           }
         },
         {
@@ -504,7 +945,14 @@
             "args": [
               "+COMMAND_ARGS"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 36,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 36
+            }
           }
         },
         {
@@ -514,10 +962,24 @@
               "-f",
               "./default"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 37,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 37
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 39,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 32
+      }
     },
     {
       "name": "test-recursive",
@@ -527,7 +989,14 @@
             "args": [
               "+RECURSIVE"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 40,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 40
+            }
           }
         },
         {
@@ -537,7 +1006,14 @@
               "-f",
               "./5"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 41,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 41
+            }
           }
         },
         {
@@ -547,7 +1023,14 @@
               "-f",
               "./4"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 42,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 42
+            }
           }
         },
         {
@@ -557,7 +1040,14 @@
               "-f",
               "./3"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 43,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 43
+            }
           }
         },
         {
@@ -567,7 +1057,14 @@
               "-f",
               "./2"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 44,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 44
+            }
           }
         },
         {
@@ -577,7 +1074,14 @@
               "-f",
               "./1"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 45,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 45
+            }
           }
         },
         {
@@ -588,10 +1092,24 @@
               "-f",
               "./0"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 46,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 46
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 48,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 39
+      }
     },
     {
       "name": "test-remote-touch",
@@ -602,7 +1120,14 @@
               "github.com/EarthBuild/earthly-command-example:main+TOUCH",
               "--file=something"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 81,
+              "endLine": 49,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 49
+            }
           }
         },
         {
@@ -612,7 +1137,14 @@
               "-f",
               "./something"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 50,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 50
+            }
           }
         },
         {
@@ -623,7 +1155,14 @@
               "-f",
               "./touched"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 51,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 51
+            }
           }
         },
         {
@@ -631,7 +1170,14 @@
             "args": [
               "github.com/EarthBuild/earthly-command-example:main+TOUCH"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 64,
+              "endLine": 52,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 52
+            }
           }
         },
         {
@@ -641,10 +1187,24 @@
               "-f",
               "./touched"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 53,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 53
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 55,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 48
+      }
     },
     {
       "name": "test-scope",
@@ -656,7 +1216,14 @@
               "=",
               "true"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 56,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 56
+            }
           }
         },
         {
@@ -666,7 +1233,14 @@
               "=",
               "true"
             ],
-            "name": "ENV"
+            "name": "ENV",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 57,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 57
+            }
           }
         },
         {
@@ -677,7 +1251,14 @@
               "=",
               "\"true\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 58,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 58
+            }
           }
         },
         {
@@ -688,7 +1269,14 @@
               "=",
               "\"true\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 59,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 59
+            }
           }
         },
         {
@@ -696,10 +1284,24 @@
             "args": [
               "+TEST_SCOPE"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 60,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 60
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 62,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 55
+      }
     },
     {
       "name": "test-builtin",
@@ -709,10 +1311,24 @@
             "args": [
               "+TEST_BUILTIN"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 63,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 63
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 65,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 62
+      }
     },
     {
       "name": "test-global-default",
@@ -722,7 +1338,14 @@
             "args": [
               "+TOUCH_GLOBAL"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 66,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 66
+            }
           }
         },
         {
@@ -732,10 +1355,24 @@
               "-f",
               "./default"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 67,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 67
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 69,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 65
+      }
     },
     {
       "name": "test-global-override",
@@ -746,7 +1383,14 @@
               "+TOUCH_GLOBAL",
               "--global_var=override"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 43,
+              "endLine": 70,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 70
+            }
           }
         },
         {
@@ -756,10 +1400,24 @@
               "-f",
               "./override"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 71,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 71
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 73,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 69
+      }
     },
     {
       "name": "test-function-fails",
@@ -769,15 +1427,36 @@
             "args": [
               "+TEST_FUNCTION_FAILS"
             ],
-            "name": "DO"
+            "name": "DO",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 74,
+              "file": "command.earth",
+              "startColumn": 5,
+              "startLine": 74
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 76,
+        "file": "command.earth",
+        "startColumn": 1,
+        "startLine": 73
+      }
     }
   ],
   "version": {
     "args": [
       "0.7"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 13,
+      "endLine": 1,
+      "file": "command.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

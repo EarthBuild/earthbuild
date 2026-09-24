@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 3,
+          "file": "chown.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     },
     {
@@ -13,7 +20,14 @@
         "args": [
           "/test"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 14,
+          "endLine": 4,
+          "file": "chown.earth",
+          "startColumn": 1,
+          "startLine": 4
+        }
       }
     }
   ],
@@ -28,7 +42,14 @@
               "-S",
               "testgroup"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 30,
+              "endLine": 7,
+              "file": "chown.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -40,7 +61,14 @@
               "testgroup",
               "testuser"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 41,
+              "endLine": 8,
+              "file": "chown.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -50,7 +78,14 @@
               "./a.txt",
               "./"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 47,
+              "endLine": 9,
+              "file": "chown.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -59,7 +94,14 @@
               "ls",
               "-al"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 15,
+              "endLine": 10,
+              "file": "chown.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -70,7 +112,14 @@
               "==",
               "$(stat -c %U ./a.txt)"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 47,
+              "endLine": 11,
+              "file": "chown.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -81,7 +130,14 @@
               "==",
               "$(stat -c %G ./a.txt)"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 12,
+              "file": "chown.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -89,7 +145,14 @@
             "args": [
               "testuser"
             ],
-            "name": "USER"
+            "name": "USER",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 13,
+              "file": "chown.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -98,7 +161,14 @@
               "ls",
               "-al"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 15,
+              "endLine": 14,
+              "file": "chown.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -108,7 +178,14 @@
               "-O",
               "./a.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 15,
+              "file": "chown.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -118,15 +195,36 @@
               "-G",
               "./a.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 16,
+              "file": "chown.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 17,
+        "file": "chown.earth",
+        "startColumn": 1,
+        "startLine": 6
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "chown.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

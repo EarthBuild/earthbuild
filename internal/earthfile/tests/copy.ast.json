@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 3,
+          "file": "copy.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     },
     {
@@ -13,7 +20,14 @@
         "args": [
           "/test"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 14,
+          "endLine": 4,
+          "file": "copy.earth",
+          "startColumn": 1,
+          "startLine": 4
+        }
       }
     }
   ],
@@ -26,7 +40,14 @@
             "args": [
               "+copy-no-exist"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 7,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -34,7 +55,14 @@
             "args": [
               "+copy-trailing-slash"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 8,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -42,7 +70,14 @@
             "args": [
               "+copy-existing"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 9,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -50,7 +85,14 @@
             "args": [
               "+copy-multi-no-exist"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 10,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -58,7 +100,14 @@
             "args": [
               "+copy-multi-trailing-slash"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 11,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -66,7 +115,14 @@
             "args": [
               "+copy-multi-existing"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 12,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -74,7 +130,14 @@
             "args": [
               "+copy-art-no-exist"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 13,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -82,7 +145,14 @@
             "args": [
               "+copy-art-trailing-slash"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 14,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -90,7 +160,14 @@
             "args": [
               "+copy-art-existing"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 15,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -98,7 +175,14 @@
             "args": [
               "+copy-art-multi-no-exist"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 16,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         },
         {
@@ -106,7 +190,14 @@
             "args": [
               "+copy-art-multi-trailing-slash"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 41,
+              "endLine": 17,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         },
         {
@@ -114,7 +205,14 @@
             "args": [
               "+copy-art-multi-existing"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 18,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 18
+            }
           }
         },
         {
@@ -122,7 +220,14 @@
             "args": [
               "+copy-invalid-symlink"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 19,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         },
         {
@@ -130,7 +235,14 @@
             "args": [
               "+copy-dir-containing-invalid-symlink"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 47,
+              "endLine": 20,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 20
+            }
           }
         },
         {
@@ -138,10 +250,24 @@
             "args": [
               "+copy-chmod"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 21,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 23,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 6
+      }
     },
     {
       "name": "artifact",
@@ -153,7 +279,14 @@
               "in",
               "in"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 24,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 24
+            }
           }
         },
         {
@@ -161,10 +294,24 @@
             "args": [
               "in"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 25,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 25
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 27,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 23
+      }
     },
     {
       "name": "copy-no-exist",
@@ -176,7 +323,14 @@
               "in",
               "copied"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 28,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 28
+            }
           }
         },
         {
@@ -190,7 +344,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 29,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 29
+            }
           }
         },
         {
@@ -200,7 +361,14 @@
               "\"copied\ncopied/root\ncopied/sub\ncopied/sub/1\ncopied/sub/1/file\ncopied/sub/2\ncopied/sub/2/file\ncopied/sub/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 37,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 30
+            }
           }
         },
         {
@@ -211,10 +379,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 38,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 38
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 40,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 27
+      }
     },
     {
       "name": "copy-trailing-slash",
@@ -226,7 +408,14 @@
               "in",
               "copied/"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 41,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 41
+            }
           }
         },
         {
@@ -240,7 +429,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 42,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 42
+            }
           }
         },
         {
@@ -250,7 +446,14 @@
               "\"copied\ncopied/in\ncopied/in/root\ncopied/in/sub\ncopied/in/sub/1\ncopied/in/sub/1/file\ncopied/in/sub/2\ncopied/in/sub/2/file\ncopied/in/sub/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 51,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 43
+            }
           }
         },
         {
@@ -261,10 +464,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 52,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 52
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 54,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 40
+      }
     },
     {
       "name": "copy-existing",
@@ -275,7 +492,14 @@
               "mkdir",
               "copied"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 55,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 55
+            }
           }
         },
         {
@@ -285,7 +509,14 @@
               "in",
               "copied"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 56,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 56
+            }
           }
         },
         {
@@ -299,7 +530,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 57,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 57
+            }
           }
         },
         {
@@ -309,7 +547,14 @@
               "\"copied\ncopied/in\ncopied/in/root\ncopied/in/sub\ncopied/in/sub/1\ncopied/in/sub/1/file\ncopied/in/sub/2\ncopied/in/sub/2/file\ncopied/in/sub/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 66,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 58
+            }
           }
         },
         {
@@ -320,10 +565,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 67,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 67
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 69,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 54
+      }
     },
     {
       "name": "copy-multi-no-exist",
@@ -336,7 +595,14 @@
               "in/sub/2",
               "copied"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 40,
+              "endLine": 70,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 70
+            }
           }
         },
         {
@@ -350,7 +616,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 71,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 71
+            }
           }
         },
         {
@@ -360,7 +633,14 @@
               "\"copied\ncopied/1\ncopied/1/file\ncopied/2\ncopied/2/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 76,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 72
+            }
           }
         },
         {
@@ -371,10 +651,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 77,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 77
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 79,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 69
+      }
     },
     {
       "name": "copy-multi-trailing-slash",
@@ -387,7 +681,14 @@
               "in/sub/2",
               "copied/"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 41,
+              "endLine": 80,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 80
+            }
           }
         },
         {
@@ -401,7 +702,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 81,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 81
+            }
           }
         },
         {
@@ -411,7 +719,14 @@
               "\"copied\ncopied/1\ncopied/1/file\ncopied/2\ncopied/2/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 86,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 82
+            }
           }
         },
         {
@@ -422,10 +737,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 87,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 87
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 89,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 79
+      }
     },
     {
       "name": "copy-multi-existing",
@@ -436,7 +765,14 @@
               "mkdir",
               "copied"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 90,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 90
+            }
           }
         },
         {
@@ -447,7 +783,14 @@
               "in/sub/2",
               "copied"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 40,
+              "endLine": 91,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 91
+            }
           }
         },
         {
@@ -461,7 +804,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 92,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 92
+            }
           }
         },
         {
@@ -471,7 +821,14 @@
               "\"copied\ncopied/1\ncopied/1/file\ncopied/2\ncopied/2/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 97,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 93
+            }
           }
         },
         {
@@ -482,10 +839,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 98,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 98
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 100,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 89
+      }
     },
     {
       "name": "copy-art-no-exist",
@@ -497,7 +868,14 @@
               "+artifact/in",
               "copied"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 101,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 101
+            }
           }
         },
         {
@@ -511,7 +889,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 102,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 102
+            }
           }
         },
         {
@@ -521,7 +906,14 @@
               "\"copied\ncopied/root\ncopied/sub\ncopied/sub/1\ncopied/sub/1/file\ncopied/sub/2\ncopied/sub/2/file\ncopied/sub/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 29,
+              "endLine": 110,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 103
+            }
           }
         },
         {
@@ -532,10 +924,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 111,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 111
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 113,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 100
+      }
     },
     {
       "name": "copy-art-trailing-slash",
@@ -547,7 +953,14 @@
               "+artifact/in",
               "copied/"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 114,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 114
+            }
           }
         },
         {
@@ -561,7 +974,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 115,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 115
+            }
           }
         },
         {
@@ -571,7 +991,14 @@
               "\"copied\ncopied/in\ncopied/in/root\ncopied/in/sub\ncopied/in/sub/1\ncopied/in/sub/1/file\ncopied/in/sub/2\ncopied/in/sub/2/file\ncopied/in/sub/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 124,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 116
+            }
           }
         },
         {
@@ -582,10 +1009,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 125,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 125
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 127,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 113
+      }
     },
     {
       "name": "copy-art-existing",
@@ -596,7 +1037,14 @@
               "mkdir",
               "copied"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 128,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 128
+            }
           }
         },
         {
@@ -606,7 +1054,14 @@
               "+artifact/in",
               "copied"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 129,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 129
+            }
           }
         },
         {
@@ -620,7 +1075,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 130,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 130
+            }
           }
         },
         {
@@ -630,7 +1092,14 @@
               "\"copied\ncopied/in\ncopied/in/root\ncopied/in/sub\ncopied/in/sub/1\ncopied/in/sub/1/file\ncopied/in/sub/2\ncopied/in/sub/2/file\ncopied/in/sub/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 139,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 131
+            }
           }
         },
         {
@@ -641,10 +1110,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 140,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 140
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 142,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 127
+      }
     },
     {
       "name": "copy-art-multi-no-exist",
@@ -657,7 +1140,14 @@
               "+artifact/in/sub/2",
               "copied"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 60,
+              "endLine": 143,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 143
+            }
           }
         },
         {
@@ -671,7 +1161,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 144,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 144
+            }
           }
         },
         {
@@ -681,7 +1178,14 @@
               "\"copied\ncopied/1\ncopied/1/file\ncopied/2\ncopied/2/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 149,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 145
+            }
           }
         },
         {
@@ -692,10 +1196,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 150,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 150
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 152,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 142
+      }
     },
     {
       "name": "copy-art-multi-trailing-slash",
@@ -708,7 +1226,14 @@
               "+artifact/in/sub/2",
               "copied/"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 61,
+              "endLine": 153,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 153
+            }
           }
         },
         {
@@ -722,7 +1247,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 154,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 154
+            }
           }
         },
         {
@@ -732,7 +1264,14 @@
               "\"copied\ncopied/1\ncopied/1/file\ncopied/2\ncopied/2/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 159,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 155
+            }
           }
         },
         {
@@ -743,10 +1282,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 160,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 160
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 162,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 152
+      }
     },
     {
       "name": "copy-art-multi-existing",
@@ -757,7 +1310,14 @@
               "mkdir",
               "copied"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 163,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 163
+            }
           }
         },
         {
@@ -768,7 +1328,14 @@
               "+artifact/in/sub/2",
               "copied"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 60,
+              "endLine": 164,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 164
+            }
           }
         },
         {
@@ -782,7 +1349,14 @@
               "tee",
               "./actual"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 165,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 165
+            }
           }
         },
         {
@@ -792,7 +1366,14 @@
               "\"copied\ncopied/1\ncopied/1/file\ncopied/2\ncopied/2/file\"",
               ">./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 170,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 166
+            }
           }
         },
         {
@@ -803,10 +1384,24 @@
               "./actual",
               "./expected"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 171,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 171
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 173,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 162
+      }
     },
     {
       "name": "copy-invalid-symlink-base",
@@ -819,7 +1414,14 @@
               "nonexistenttarget",
               "symlink"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 40,
+              "endLine": 174,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 174
+            }
           }
         },
         {
@@ -828,10 +1430,24 @@
               "--symlink-no-follow",
               "symlink"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 46,
+              "endLine": 175,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 175
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 177,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 173
+      }
     },
     {
       "name": "copy-invalid-symlink",
@@ -843,7 +1459,14 @@
               "+copy-invalid-symlink-base/symlink",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 66,
+              "endLine": 178,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 178
+            }
           }
         },
         {
@@ -856,7 +1479,14 @@
               "grep",
               "nonexistenttarget"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 179,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 179
+            }
           }
         },
         {
@@ -869,10 +1499,24 @@
               "grep",
               "'No such file or directory'"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 59,
+              "endLine": 180,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 180
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 182,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 177
+      }
     },
     {
       "name": "copy-dir-containing-invalid-symlink-base",
@@ -884,7 +1528,14 @@
               "-p",
               "/symlinks"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 183,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 183
+            }
           }
         },
         {
@@ -894,7 +1545,14 @@
               "-p",
               "/data"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 184,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 184
+            }
           }
         },
         {
@@ -905,7 +1563,14 @@
               ">",
               "/data/hello.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 185,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 185
+            }
           }
         },
         {
@@ -916,7 +1581,14 @@
               "/data/hello.txt",
               "/symlinks/symlink"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 186,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 186
+            }
           }
         },
         {
@@ -925,10 +1597,24 @@
               "/symlinks/",
               "/symlinks/"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 40,
+              "endLine": 187,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 187
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 189,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 182
+      }
     },
     {
       "name": "copy-dir-containing-invalid-symlink",
@@ -940,7 +1626,14 @@
               "+copy-dir-containing-invalid-symlink-base/*",
               "/"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 75,
+              "endLine": 190,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 190
+            }
           }
         },
         {
@@ -953,7 +1646,14 @@
               "grep",
               "hello.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 50,
+              "endLine": 191,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 191
+            }
           }
         },
         {
@@ -966,7 +1666,14 @@
               "grep",
               "'No such file or directory'"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 69,
+              "endLine": 192,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 192
+            }
           }
         },
         {
@@ -975,7 +1682,14 @@
               "mkdir",
               "/data"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 193,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 193
+            }
           }
         },
         {
@@ -986,7 +1700,14 @@
               ">",
               "/data/hello.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 34,
+              "endLine": 194,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 194
+            }
           }
         },
         {
@@ -999,10 +1720,24 @@
               "-w",
               "hi"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 43,
+              "endLine": 195,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 195
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 197,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 189
+      }
     },
     {
       "name": "copy-chmod",
@@ -1013,7 +1748,14 @@
               "echo",
               "\"no chmod - -rw-r-r-\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 198,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 198
+            }
           }
         },
         {
@@ -1022,7 +1764,14 @@
               "in/root",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 199,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 199
+            }
           }
         },
         {
@@ -1031,7 +1780,14 @@
               "echo",
               "\"./root file-mode=$(stat -c %a ./root)\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 53,
+              "endLine": 200,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 200
+            }
           }
         },
         {
@@ -1042,7 +1798,14 @@
               "=",
               "\"644\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 44,
+              "endLine": 201,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 201
+            }
           }
         },
         {
@@ -1051,7 +1814,14 @@
               "echo",
               "\"777 - everyone can RWX\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 203,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 203
+            }
           }
         },
         {
@@ -1061,7 +1831,14 @@
               "in/root",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 204,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 204
+            }
           }
         },
         {
@@ -1070,7 +1847,14 @@
               "echo",
               "\"./root file-mode=$(stat -c %a ./root)\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 53,
+              "endLine": 205,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 205
+            }
           }
         },
         {
@@ -1081,7 +1865,14 @@
               "=",
               "\"777\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 44,
+              "endLine": 206,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 206
+            }
           }
         },
         {
@@ -1090,7 +1881,14 @@
               "echo",
               "\"600 - user can RW\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 208,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 208
+            }
           }
         },
         {
@@ -1100,7 +1898,14 @@
               "in/root",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 209,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 209
+            }
           }
         },
         {
@@ -1109,7 +1914,14 @@
               "echo",
               "\"./root file-mode=$(stat -c %a ./root)\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 53,
+              "endLine": 210,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 210
+            }
           }
         },
         {
@@ -1120,7 +1932,14 @@
               "=",
               "\"600\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 44,
+              "endLine": 211,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 211
+            }
           }
         },
         {
@@ -1129,7 +1948,14 @@
               "echo",
               "\"666 - everyone can RW\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 213,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 213
+            }
           }
         },
         {
@@ -1139,7 +1965,14 @@
               "in/root",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 214,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 214
+            }
           }
         },
         {
@@ -1148,7 +1981,14 @@
               "echo",
               "\"./root file-mode=$(stat -c %a ./root)\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 53,
+              "endLine": 215,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 215
+            }
           }
         },
         {
@@ -1159,10 +1999,24 @@
               "=",
               "\"666\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 44,
+              "endLine": 216,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 216
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 218,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 197
+      }
     },
     {
       "name": "copy-empty-src",
@@ -1174,7 +2028,14 @@
               "=",
               "\"\""
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 15,
+              "endLine": 219,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 219
+            }
           }
         },
         {
@@ -1183,10 +2044,24 @@
               "$SRC",
               "$SRC"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 220,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 220
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 222,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 218
+      }
     },
     {
       "name": "copy-empty-src-if-exists",
@@ -1198,7 +2073,14 @@
               "=",
               "\"\""
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 15,
+              "endLine": 223,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 223
+            }
           }
         },
         {
@@ -1208,10 +2090,24 @@
               "$SRC",
               "$SRC"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 224,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 224
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 226,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 222
+      }
     },
     {
       "name": "copy-if-exists-wildcard",
@@ -1223,10 +2119,24 @@
               "non_existing_folder/*",
               "/"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 45,
+              "endLine": 227,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 227
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 229,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 226
+      }
     },
     {
       "name": "copy-if-exists-wildcard-exists-empty",
@@ -1238,7 +2148,14 @@
               "existing_folder/*",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 41,
+              "endLine": 230,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 230
+            }
           }
         },
         {
@@ -1249,10 +2166,24 @@
               "-f",
               "foo"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 231,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 231
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 233,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 229
+      }
     },
     {
       "name": "copy-if-exists-wildcard-exists",
@@ -1264,7 +2195,14 @@
               "existing_folder/*",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 41,
+              "endLine": 234,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 234
+            }
           }
         },
         {
@@ -1274,10 +2212,24 @@
               "-f",
               "foo"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 235,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 235
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 237,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 233
+      }
     },
     {
       "name": "copy-wildcard",
@@ -1289,15 +2241,36 @@
               "prefix-*",
               "/"
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 238,
+              "file": "copy.earth",
+              "startColumn": 5,
+              "startLine": 238
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 239,
+        "file": "copy.earth",
+        "startColumn": 1,
+        "startLine": 237
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "copy.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

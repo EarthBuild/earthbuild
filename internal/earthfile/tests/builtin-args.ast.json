@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "builtin-args.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -18,7 +25,14 @@
             "args": [
               "EARTHLY_TARGET"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 4,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 4
+            }
           }
         },
         {
@@ -26,7 +40,14 @@
             "args": [
               "EARTHLY_TARGET_PROJECT"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 5,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -34,7 +55,14 @@
             "args": [
               "EARTHLY_TARGET_NAME"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 6,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -42,7 +70,14 @@
             "args": [
               "EARTHLY_TARGET_TAG"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 7,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -50,7 +85,14 @@
             "args": [
               "EARTHLY_SOURCE_DATE_EPOCH"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 34,
+              "endLine": 8,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -58,7 +100,14 @@
             "args": [
               "EARTHLY_GIT_COMMIT_TIMESTAMP"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 9,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -66,7 +115,14 @@
             "args": [
               "EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 44,
+              "endLine": 10,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -74,7 +130,14 @@
             "args": [
               "EARTHLY_GIT_BRANCH"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 11,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -82,7 +145,14 @@
             "args": [
               "EARTHLY_GIT_REFS"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 12,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -90,7 +160,14 @@
             "args": [
               "EARTHLY_VERSION"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 13,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -98,7 +175,14 @@
             "args": [
               "EARTHLY_BUILD_SHA"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 14,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -106,7 +190,14 @@
             "args": [
               "EARTHLY_LOCALLY"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 15,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -115,7 +206,14 @@
               "echo",
               "\"$EARTHLY_TARGET\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 16,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         },
         {
@@ -124,7 +222,14 @@
               "echo",
               "\"$EARTHLY_TARGET_PROJECT\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 39,
+              "endLine": 17,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         },
         {
@@ -133,7 +238,14 @@
               "echo",
               "\"$EARTHLY_TARGET_NAME\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 18,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 18
+            }
           }
         },
         {
@@ -142,7 +254,14 @@
               "echo",
               "\"$EARTHLY_TARGET_TAG\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 19,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         },
         {
@@ -151,7 +270,14 @@
               "echo",
               "\"$EARTHLY_VERSION\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 20,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 20
+            }
           }
         },
         {
@@ -160,7 +286,14 @@
               "echo",
               "\"$EARTHLY_BUILD_SHA\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 34,
+              "endLine": 21,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         },
         {
@@ -171,7 +304,14 @@
               "==",
               "\"+builtin-args-test\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 55,
+              "endLine": 22,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 22
+            }
           }
         },
         {
@@ -181,7 +321,14 @@
               "-z",
               "\"$EARTHLY_TARGET_PROJECT\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 23,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 23
+            }
           }
         },
         {
@@ -192,7 +339,14 @@
               "==",
               "\"builtin-args-test\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 59,
+              "endLine": 24,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 24
+            }
           }
         },
         {
@@ -202,7 +356,14 @@
               "-z",
               "\"$EARTHLY_TARGET_TAG\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 25,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 25
+            }
           }
         },
         {
@@ -213,7 +374,14 @@
               "=",
               "\"0\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 26,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 26
+            }
           }
         },
         {
@@ -223,7 +391,14 @@
               "-z",
               "\"$EARTHLY_GIT_COMMIT_TIMESTAMP\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 48,
+              "endLine": 27,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 27
+            }
           }
         },
         {
@@ -233,7 +408,14 @@
               "-z",
               "\"$EARTHLY_GIT_COMMIT_AUTHOR_TIMESTAMP\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 55,
+              "endLine": 28,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 28
+            }
           }
         },
         {
@@ -243,7 +425,14 @@
               "-z",
               "\"$EARTHLY_GIT_BRANCH\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 29,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 29
+            }
           }
         },
         {
@@ -253,7 +442,14 @@
               "-z",
               "\"$EARTHLY_GIT_REFS\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 30,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 30
+            }
           }
         },
         {
@@ -263,7 +459,14 @@
               "-n",
               "\"$EARTHLY_VERSION\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 35,
+              "endLine": 31,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 31
+            }
           }
         },
         {
@@ -273,7 +476,14 @@
               "-n",
               "\"$EARTHLY_BUILD_SHA\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 32,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 32
+            }
           }
         },
         {
@@ -284,15 +494,36 @@
               "=",
               "\"false\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 42,
+              "endLine": 33,
+              "file": "builtin-args.earth",
+              "startColumn": 5,
+              "startLine": 33
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 35,
+        "file": "builtin-args.earth",
+        "startColumn": 1,
+        "startLine": 3
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "builtin-args.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

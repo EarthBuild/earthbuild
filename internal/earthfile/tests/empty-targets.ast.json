@@ -5,13 +5,27 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "empty-targets.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
   "targets": [
     {
-      "name": "empty"
+      "name": "empty",
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 6,
+        "file": "empty-targets.earth",
+        "startColumn": 1,
+        "startLine": 4
+      }
     },
     {
       "name": "test",
@@ -21,13 +35,34 @@
             "args": [
               "true"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 13,
+              "endLine": 7,
+              "file": "empty-targets.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 9,
+        "file": "empty-targets.earth",
+        "startColumn": 1,
+        "startLine": 6
+      }
     },
     {
-      "name": "empty-with-comment"
+      "name": "empty-with-comment",
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 12,
+        "file": "empty-targets.earth",
+        "startColumn": 1,
+        "startLine": 9
+      }
     },
     {
       "name": "test2",
@@ -37,13 +72,34 @@
             "args": [
               "true"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 13,
+              "endLine": 13,
+              "file": "empty-targets.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 15,
+        "file": "empty-targets.earth",
+        "startColumn": 1,
+        "startLine": 12
+      }
     },
     {
-      "name": "empty-tight"
+      "name": "empty-tight",
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 16,
+        "file": "empty-targets.earth",
+        "startColumn": 1,
+        "startLine": 15
+      }
     },
     {
       "name": "test3",
@@ -53,18 +109,46 @@
             "args": [
               "true"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 13,
+              "endLine": 17,
+              "file": "empty-targets.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 19,
+        "file": "empty-targets.earth",
+        "startColumn": 1,
+        "startLine": 16
+      }
     },
     {
-      "name": "eof"
+      "name": "eof",
+      "sourceLocation": {
+        "endColumn": 5,
+        "endLine": 19,
+        "file": "empty-targets.earth",
+        "startColumn": 1,
+        "startLine": 19
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "empty-targets.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

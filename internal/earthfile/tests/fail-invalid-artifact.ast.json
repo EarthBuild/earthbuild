@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "fail-invalid-artifact.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     },
     {
@@ -13,7 +20,14 @@
         "args": [
           "/usr/build"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 3,
+          "file": "fail-invalid-artifact.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     }
   ],
@@ -27,7 +41,14 @@
               "touch",
               "hi"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 6,
+              "file": "fail-invalid-artifact.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -35,15 +56,36 @@
             "args": [
               "hi"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 7,
+              "file": "fail-invalid-artifact.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 8,
+        "file": "fail-invalid-artifact.earth",
+        "startColumn": 1,
+        "startLine": 5
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "fail-invalid-artifact.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

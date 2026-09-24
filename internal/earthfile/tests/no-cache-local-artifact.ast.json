@@ -8,7 +8,14 @@
             "args": [
               "alpine:3.24.1"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 4,
+              "file": "no-cache-local-artifact.earth",
+              "startColumn": 5,
+              "startLine": 4
+            }
           }
         },
         {
@@ -22,7 +29,14 @@
               "cat",
               "file.txt"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 7,
+              "file": "no-cache-local-artifact.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -33,15 +47,36 @@
               "LOCAL",
               "file.txt"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 45,
+              "endLine": 9,
+              "file": "no-cache-local-artifact.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 10,
+        "file": "no-cache-local-artifact.earth",
+        "startColumn": 1,
+        "startLine": 3
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "no-cache-local-artifact.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

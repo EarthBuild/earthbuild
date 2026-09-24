@@ -5,7 +5,14 @@
         "args": [
           "golang:1.27-alpine3.24"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 28,
+          "endLine": 3,
+          "file": "documentation.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     }
   ],
@@ -20,15 +27,36 @@
               "documentedArg"
             ],
             "docs": "documented-arg is an arg with documentation comments\nabove it.\n",
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 22,
+              "endLine": 10,
+              "file": "documentation.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 11,
+        "file": "documentation.earth",
+        "startColumn": 1,
+        "startLine": 7
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "documentation.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

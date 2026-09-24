@@ -105,7 +105,7 @@ func (run *Run) Target(targetID string) (*Target, bool) {
 func (run *Run) NewCommand(
 	commandID, command, targetID, category, platform string,
 	cached, local, interactive bool,
-	sourceLocation *earthfile.SourceLocation,
+	sourceLocation earthfile.SourceLocation,
 	repoURL, repoHash, fileRelToRepo string,
 ) (*Command, error) {
 	run.mu.Lock()
@@ -241,9 +241,9 @@ func gitSSHToURL(repoURL string) string {
 
 func sourceLocationToProto(
 	repoURL, repoHash, fileRelToRepo string,
-	sl *earthfile.SourceLocation,
+	sl earthfile.SourceLocation,
 ) *logstream.SourceLocation {
-	if sl == nil {
+	if sl.IsZero() {
 		return nil
 	}
 

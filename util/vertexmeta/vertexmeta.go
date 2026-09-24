@@ -18,22 +18,22 @@ const targetInternal = "internal"
 // VertexMeta is metadata associated with the vertex. This is passed from the
 // converter to the solver monitor via BuildKit.
 type VertexMeta struct {
-	SourceLocation      *earthfile.SourceLocation `json:"sl,omitempty"`
-	OverridingArgs      map[string]string         `json:"args,omitempty"`
-	CommandID           string                    `json:"cid,omitempty"`
-	RepoGitURL          string                    `json:"rgu,omitempty"`
-	RepoGitHash         string                    `json:"rgh,omitempty"`
-	TargetID            string                    `json:"tid,omitempty"`
-	TargetName          string                    `json:"tnm,omitempty"`
-	CanonicalTargetName string                    `json:"ctnm,omitempty"`
-	Platform            string                    `json:"plt,omitempty"`
-	Runner              string                    `json:"runner,omitempty"`
-	RepoFileRelToRepo   string                    `json:"rfr,omitempty"`
-	Secrets             []string                  `json:"secrets,omitempty"`
-	Interactive         bool                      `json:"itrctv,omitzero"`
-	Local               bool                      `json:"lcl,omitzero"`
-	Internal            bool                      `json:"itrnl,omitzero"`
-	NonDefaultPlatform  bool                      `json:"defplt,omitzero"`
+	OverridingArgs      map[string]string        `json:"args,omitempty"`
+	CommandID           string                   `json:"cid,omitempty"`
+	RepoGitURL          string                   `json:"rgu,omitempty"`
+	RepoGitHash         string                   `json:"rgh,omitempty"`
+	TargetID            string                   `json:"tid,omitempty"`
+	TargetName          string                   `json:"tnm,omitempty"`
+	CanonicalTargetName string                   `json:"ctnm,omitempty"`
+	Platform            string                   `json:"plt,omitempty"`
+	Runner              string                   `json:"runner,omitempty"`
+	RepoFileRelToRepo   string                   `json:"rfr,omitempty"`
+	Secrets             []string                 `json:"secrets,omitempty"`
+	SourceLocation      earthfile.SourceLocation `json:"sl,omitzero"`
+	Interactive         bool                     `json:"itrctv,omitzero"`
+	Local               bool                     `json:"lcl,omitzero"`
+	Internal            bool                     `json:"itrnl,omitzero"`
+	NonDefaultPlatform  bool                     `json:"defplt,omitzero"`
 }
 
 var vertexRegexp = regexp.MustCompile(`(?s)^\[([^\]]*)\] (.*)$`)

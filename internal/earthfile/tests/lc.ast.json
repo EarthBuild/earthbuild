@@ -5,7 +5,14 @@
         "args": [
           "alpine:3.24.1"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 19,
+          "endLine": 2,
+          "file": "lc.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     },
     {
@@ -13,7 +20,14 @@
         "args": [
           "/test"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 14,
+          "endLine": 3,
+          "file": "lc.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     }
   ],
@@ -26,7 +40,14 @@
             "args": [
               "+test1"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 6,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -34,7 +55,14 @@
             "args": [
               "+test2"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 7,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -42,7 +70,14 @@
             "args": [
               "+test3"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 8,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         },
         {
@@ -50,7 +85,14 @@
             "args": [
               "+test4"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 9,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -58,7 +100,14 @@
             "args": [
               "+test5"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 10,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -66,7 +115,14 @@
             "args": [
               "+test6"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 11,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -74,7 +130,14 @@
             "args": [
               "+test7"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 12,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -82,7 +145,14 @@
             "args": [
               "+test8"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 13,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -90,10 +160,24 @@
             "args": [
               "+test9"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 14,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 16,
+        "file": "lc.earth",
+        "startColumn": 1,
+        "startLine": 5
+      }
     },
     {
       "name": "test1",
@@ -121,10 +205,24 @@
               ";",
               "fi"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 7,
+              "endLine": 22,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 24,
+        "file": "lc.earth",
+        "startColumn": 1,
+        "startLine": 16
+      }
     },
     {
       "name": "test2",
@@ -152,10 +250,24 @@
               ";",
               "fi"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 7,
+              "endLine": 31,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 25
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 33,
+        "file": "lc.earth",
+        "startColumn": 1,
+        "startLine": 24
+      }
     },
     {
       "name": "test3",
@@ -184,10 +296,24 @@
               ";",
               "fi"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 7,
+              "endLine": 40,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 34
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 42,
+        "file": "lc.earth",
+        "startColumn": 1,
+        "startLine": 33
+      }
     },
     {
       "name": "test4",
@@ -215,10 +341,24 @@
               ";",
               "fi"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 11,
+              "endLine": 48,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 43
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 50,
+        "file": "lc.earth",
+        "startColumn": 1,
+        "startLine": 42
+      }
     },
     {
       "name": "test5",
@@ -243,10 +383,24 @@
               "1",
               ";fi"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 7,
+              "endLine": 56,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 51
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 58,
+        "file": "lc.earth",
+        "startColumn": 1,
+        "startLine": 50
+      }
     },
     {
       "name": "test6",
@@ -261,7 +415,14 @@
               "b",
               ";"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 10,
+              "endLine": 63,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 59
+            }
           }
         },
         {
@@ -272,10 +433,24 @@
               "=",
               "\"a b\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 37,
+              "endLine": 64,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 64
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 66,
+        "file": "lc.earth",
+        "startColumn": 1,
+        "startLine": 58
+      }
     },
     {
       "name": "test7",
@@ -303,10 +478,24 @@
               ";",
               "fi"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 11,
+              "endLine": 73,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 67
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 75,
+        "file": "lc.earth",
+        "startColumn": 1,
+        "startLine": 66
+      }
     },
     {
       "name": "test8",
@@ -320,7 +509,14 @@
               "output",
               "\\\\"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 76,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 76
+            }
           }
         },
         {
@@ -329,7 +525,14 @@
               "echo",
               "pass"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 77,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 77
+            }
           }
         },
         {
@@ -340,10 +543,24 @@
               "=",
               "\"XA==\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 47,
+              "endLine": 78,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 78
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 80,
+        "file": "lc.earth",
+        "startColumn": 1,
+        "startLine": 75
+      }
     },
     {
       "name": "test9",
@@ -371,15 +588,36 @@
               ";",
               "fi"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 11,
+              "endLine": 86,
+              "file": "lc.earth",
+              "startColumn": 5,
+              "startLine": 81
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 87,
+        "file": "lc.earth",
+        "startColumn": 1,
+        "startLine": 80
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "lc.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

@@ -3,24 +3,15 @@
 package engine
 
 import (
-	"fmt"
-
 	"golang.org/x/sys/unix"
 )
 
-const mb = 1024 * 1024
-
-// defaultContainerMemory dynamically detects host memory on darwin and allocates
-// 25% of host memory by default for Apple Container VMs.
+// defaultContainerMemory is this host's ceiling for a BuildKit VM. See
+// containerMemoryFor for the rule and why.
 func defaultContainerMemory() string {
-	var mem uint64
+	memsize, _ := unix.SysctlUint64("hw.memsize")
 
-	memsize, err := unix.SysctlUint64("hw.memsize")
-	if err == nil && memsize > 0 {
-		mem = (memsize / 4) / mb
-	}
-
-	return fmt.Sprintf("%dM", max(4096, mem))
+	return containerMemoryFor(memsize)
 }
 
 // IsMemoryPressured returns true if the host is experiencing elevated memory pressure (Warning or Critical).

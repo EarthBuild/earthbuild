@@ -3,7 +3,7 @@
 package engine
 
 func defaultContainerMemory() string {
-	return "4096M"
+	return containerMemoryFor(0)
 }
 
 // IsMemoryPressured returns true if the host is experiencing elevated memory pressure.

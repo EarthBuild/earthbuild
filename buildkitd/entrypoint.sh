@@ -4,6 +4,8 @@ set -e
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=earth-env.sh
 . /usr/bin/earth-env.sh
+# shellcheck source=idle.sh
+. /usr/bin/buildkit-idle.sh
 
 # The EARTH_* variables below are the documented interface of this image; the
 # EARTHLY_ spellings are still accepted, with a deprecation warning.
@@ -320,10 +322,25 @@ stop_buildkit() {
 
 trap stop_buildkit TERM QUIT INT
 
+# Seconds without a client before buildkitd stops itself; 0 never. Set by earth
+# for Apple Container, where only a stopped VM gives its memory back. See idle.sh.
+IDLE_TIMEOUT="${BUILDKIT_IDLE_EXIT_SECONDS:-0}"
+if [ "$IDLE_TIMEOUT" -gt 0 ]; then
+    echo "buildkitd will stop after ${IDLE_TIMEOUT}s with no client"
+fi
+
 # quit if buildkit dies
 set +x
 while true
 do
+    if idle_tick "$(date +%s)"; then
+        echo "No client for ${IDLE_TIMEOUT}s: stopping buildkitd so the VM can give its memory back."
+        echo "The cache is on the volume; the next build starts it again."
+        stop_buildkit
+        wait "$execpid"
+        exit 0
+    fi
+
     if ! kill -0 "$execpid" >/dev/null 2>&1; then
         wait "$execpid"
         code="$?"

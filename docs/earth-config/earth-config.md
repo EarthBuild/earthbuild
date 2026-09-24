@@ -131,6 +131,10 @@ Set this configuration to a lower value if your machine is resource constrained 
 
 {% endhint %}
 
+### buildkit_idle_timeout_s
+
+Apple Container only. How many seconds BuildKit waits with no client before stopping itself, so that its VM gives its memory back to macOS; a running Apple Container VM keeps whatever memory it has used. The default is 1800 (30 minutes), and `0` keeps BuildKit running. The cache survives on its volume, so the next build restarts BuildKit rather than rebuilding.
+
 ### buildkit_additional_args
 
 This option allows you to pass additional options to Docker when starting up the EarthBuild BuildKit daemon.

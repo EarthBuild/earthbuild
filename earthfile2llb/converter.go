@@ -541,24 +541,14 @@ func (c *Converter) FromDockerfile(
 	if err != nil {
 		return fmt.Errorf("dockerfile2llb %s: %w", dfPath, err)
 	}
-	// Convert dockerfile2llb image into earthfile2llb image via JSON.
-	imgDt, err := json.Marshal(dfImg)
-	if err != nil {
-		return fmt.Errorf("marshal dockerfile image: %w", err)
-	}
 
-	var img image.Image
+	var envs *variables.Scope
 
-	err = json.Unmarshal(imgDt, &img)
-	if err != nil {
-		return fmt.Errorf("unmarshal dockerfile image: %w", err)
-	}
+	c.mts.Final.MainState, c.mts.Final.MainImage, envs = c.applyFromImage(
+		pllb.FromRawState(*state), image.FromBuildKit(dfImg))
 
-	state2, img2, envVars := c.applyFromImage(pllb.FromRawState(*state), &img)
-	c.mts.Final.MainState = state2
-	c.mts.Final.MainImage = img2
 	c.mts.Final.RanFromLike = true
-	c.varCollection.ResetEnvVars(envVars)
+	c.varCollection.ResetEnvVars(envs)
 
 	return nil
 }

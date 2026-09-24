@@ -3,11 +3,18 @@
 package image
 
 import (
+	jsonv1 "encoding/json"
+	"encoding/json/v2"
 	"maps"
 
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/moby/buildkit/exporter/containerimage/image"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
+)
+
+var (
+	_ json.Marshaler   = (*Config)(nil)
+	_ json.Unmarshaler = (*Config)(nil)
 )
 
 // Image is a partial of the standard Image struct defined as part of the image opencontainers spec
@@ -78,10 +85,46 @@ func (img *Image) Clone() *Image {
 	return clone
 }
 
+// FromBuildKit converts a BuildKit image representation into an EarthBuild Image.
+func FromBuildKit(bkImg *image.Image) *Image {
+	if bkImg == nil {
+		return nil
+	}
+
+	img := &Image{
+		Architecture: bkImg.Architecture,
+		OS:           bkImg.OS,
+		Config: Config{
+			ImageConfig: bkImg.Config.ImageConfig,
+			Healthcheck: bkImg.Config.Healthcheck,
+		},
+	}
+
+	return img.Clone()
+}
+
 // Config is a docker compatible config for an image.
 //
 //nolint:embeddedstructfieldcheck // fieldalignment takes precedence over embeddedstructfieldcheck
 type Config struct {
 	Healthcheck *image.HealthConfig `json:",omitempty"`
 	specs.ImageConfig
+}
+
+type rawConfig Config
+
+// MarshalJSON implements [json.Marshaler], encoding [Config] to JSON while formatting
+// [time.Duration] fields as integer nanoseconds for Docker and OCI compatibility.
+func (c *Config) MarshalJSON() ([]byte, error) {
+	if c == nil {
+		return []byte("null"), nil
+	}
+
+	return json.Marshal((*rawConfig)(c), jsonv1.FormatDurationAsNano(true))
+}
+
+// UnmarshalJSON implements [json.Unmarshaler], decoding [Config] from JSON while interpreting
+// integer nanoseconds as [time.Duration].
+func (c *Config) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, (*rawConfig)(c), jsonv1.FormatDurationAsNano(true))
 }

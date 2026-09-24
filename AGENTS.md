@@ -22,6 +22,14 @@ comments, docs or commit messages:
 * Use the concepts and capabilities of Go version declared in `go.mod`. Read more here: <https://go.dev/blog/go1.26>
 * Prefer std packages over 3rd party packages, where possible.
 * Ensure all exposed interfaces and types are documented.
+* **JSON Serialization (`encoding/json/v2` vs external v1 ecosystem):**
+  * EarthBuild uses standard library `encoding/json/v2`. However, external ecosystem dependencies (BuildKit, Moby, containerd, OCI) are authored against legacy `encoding/json` (v1).
+  * Be alert to fundamental semantic divergence at integration boundaries:
+    * **Strict typing & explicit representation:** `v2` refuses to guess ambiguous representations (e.g. `time.Duration`, non-string map keys) and yields semantic errors instead of falling back to implicit formats.
+    * **Tag semantics (`omitempty` vs `omitzero`):** In `v2`, `omitempty` only omits empty containers (strings, slices, maps, pointers). Omitting zero-value scalars (`false`, `0`, structs) requires `omitzero`. External structs with v1 `omitempty` tags may serialize unexpected fields.
+    * **Decoding & key rules:** `v2` adheres to RFC 7396 merge semantics for objects and enforces stricter duplicate and case-matching rules.
+    * **Error hierarchy:** Errors are structured (`json.SemanticError`, `json.SyntacticError`) rather than legacy v1 error types (`*json.UnmarshalTypeError`, `*json.SyntaxError`).
+  * **Boundary Rule:** Never assume external structs serialize identically under `v2`. When passing payloads across gateway, daemon, or OCI boundaries, explicitly adapt types via custom `json.Marshaler`/`json.Unmarshaler` implementations, bridge options, or dedicated wire representations.
 
 ## Naming & Terminology
 

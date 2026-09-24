@@ -1,0 +1,2871 @@
+# Plan: making a fleet move less
+
+A fleet is worth having when the work is bigger than one machine. Whether it *is*
+worth having comes down to one quantity: how many bytes have to move before a
+step can run. Everything here is aimed at that number.
+
+The prior art is rebuck2, which reached distributed Buck2 over an iroh mesh and
+wrote down what it cost. Two of its findings decide the shape of this plan
+before any experiment is designed.
+
+**The work is not the problem.** "A warm build's buck2 critical path is ~2
+seconds - the minutes are almost entirely distributed-system overhead." So an
+experiment that measures compute measures the wrong thing. Every question below
+is about movement, waiting, or a round trip.
+
+**Wall-clock cannot answer any of it.** "Same code ran 17m and 46m." rebuck2's
+answer was deterministic counters and a regression gate that fails in seconds,
+not a stopwatch. This engine already emits the counter that matters -
+`fetchedBytes` and `fetchMillis` are in every reply (C.3.1) - so the instrument
+exists and has never been read in anger.
+
+## E-F0 - the instrument, before any question
+
+**Question.** Can two variants be compared at all?
+
+An in-process fleet over loopback, data placed asymmetrically on purpose, run
+from a test rather than a CI lap. rebuck2's `bench-fleet` "proved locality
+(146x) and hot-CAS (584x) before any CI lap", which is the point: a finding that
+needs a CI run to see is a finding nobody will iterate on.
+
+**Reports** bytes moved, round trips, and steps delegated. Not seconds.
+
+**Exit.** A harness that fails in seconds when mesh traffic rises above a
+computed baseline. Everything after this is measured with it, and nothing before
+it is believed.
+
+## E-F1 - what does a fleet move today?
+
+**Question.** Layer-granular or fragment-granular, in practice?
+
+The machinery for the smaller answer exists: `Fragmenter` sends part of a layer
+with the manifest as its proof, because a layer's digest authenticates no subset
+of itself (E284); `TreeMissing` asks which *directories* are absent rather than
+which layers; `𝜈(𝑑)` names a directory by its contents so two bases holding one
+directory hold one node. What is unknown is which of these a real delegation
+uses.
+
+**Instrument.** `fetchedBytes` per step against the size of the base it stood
+on. A ratio near 1 means layers are moving whole.
+
+**Why first.** Every later experiment is a claim about reducing this number, and
+none of them can be believed without knowing it.
+
+## E-F2 - locality dispatch
+
+**Question.** Does placement know who already holds the inputs?
+
+rebuck2's largest single win, and it is not close: "Mesh traffic -60x (5-11 GiB
+-> 0.07 GiB)", "146x less mesh traffic, 3.2x faster at 4 workers". The mechanism
+is to score each worker against the heaviest inputs of the step and prefer the
+holder, with "a 500ms patience window (delay scheduling)" - a step waits briefly
+for the machine that has its data rather than starting immediately on one that
+does not.
+
+This engine places by platform and capacity. Whether it considers holdings at
+all is the question; if it does not, this is the highest-value change available
+and the number above says by how much.
+
+**Careful.** Patience is a scheduling change and this engine has an invariant
+about it: two runs of one build must consider the same machines in the same
+order (I12). A delay window must not make placement depend on arrival timing.
+
+## E-F3 - staging, and how many round trips it takes
+
+**Question.** Does a worker fetch its inputs one at a time?
+
+rebuck2 calls this "the single biggest invisible bottleneck": "materialize()
+fetched one blob per awaited round-trip (~12/s peer-bound); big substrate crate
+forests spent 10-22 min staging before rustc started". The fix was "a
+level-by-level tree walk with one batched prefetch per depth, then one batch over
+all file blobs and 64-wide concurrent writes".
+
+This engine's fault-in is a request in the direction nothing else travels - the
+guest asking the host for a file it touched. It is exactly right for
+correctness and is, by construction, one file per round trip. `fills.go` closes
+its listener "as soon as it has its connection".
+
+**Instrument.** Round trips per step, and staging start-to-finish. rebuck2 also
+found that logging those two timestamps made the stalls "diagnose themselves".
+
+## E-F4 - materialise by link, not by copy
+
+**Question.** How much of a step's setup is spent copying bytes that are
+already on the disk?
+
+rebuck2 measured it on 2,220 files / 385 MB: **ext4 306ms -> 68ms (4.5x),
+APFS 1,222ms -> 384ms (3.2x), NTFS 1,172ms -> 469ms (2.5x)**. This engine
+copies: `DirStore.Materialise` opens each output with `O_CREATE|O_EXCL` and
+writes it.
+
+Today's ladder puts ~12ms of the 17.6ms per-action remote overhead in setup and
+teardown, so this is aimed at the right half.
+
+**The hazard is named and this engine has it.** rebuck2's two blockers were CAS
+blobs not marked read-only, and "`set_exec()` performs `chmod 0o755` on
+hardlinked files, stomping the read-only protection and leaking to all
+concurrent actions sharing that blob". `engine/guest/copy.go` calls
+`os.Chmod(dst, mode)`. A naive switch to hardlinks reproduces that bug exactly.
+
+Their remedies transfer: encode the executable bit in the stored blob's own
+permissions (`0o555` vs `0o444`) so nothing has to chmod afterwards, and mark
+blobs read-only at store time so a careless write fails with EACCES rather than
+corrupting silently. Note the policy they state: "the target is careless actions
+... rather than adversarial same-user code."
+
+Also transferable: on APFS `fs::copy` already clones copy-on-write, which gives
+mutation safety with no read-only enforcement at all; and hardlinks across a
+tmpfs/ext4 boundary fail with `EXDEV`, which decides where an exec directory may
+live.
+
+## E-F5 - send what the step will read, before it asks
+
+**Question.** Can staging be one transfer instead of many faults?
+
+The engine already records ω, what each step actually read, because Κ₂ needs it.
+That is a per-step list of exactly which files mattered, from last time. Combined
+with `Fragmenter`, a driver could send one authenticated fragment holding
+precisely those files, and a step would fault on nothing.
+
+This is the one lever here that is this engine's own rather than borrowed: the
+observation set was built for cache correctness and happens to be the answer to
+"what should I have sent?".
+
+**Kill criterion.** If E-F3's batched staging already collapses the round trips,
+this buys the difference between "everything under the base" and "the files
+actually read" - which is only worth having where bases are large and reads are
+sparse. Measure before building.
+
+## E-F7 - one pool of tokens, not three
+
+**Question.** How many processes does a 32-core machine actually run?
+
+Three layers each choose a width and none of them knows about the others. A
+client picks its own - bazel's `--jobs`, buck2's threads. This service bounds
+actions at `MaxActions`, which defaults to NumCPU. And inside each action a
+compiler fans out again: cargo and rustc size themselves from the machine they
+think they are on, which is the whole machine, every time. Thirty-two actions
+each running a cargo that believes it has thirty-two cores is not slow, it is
+thrashing - and the engine's only current defence is `PidsMax`, which is a
+fork-bomb guard rather than a scheduler.
+
+`MaxActions` chose the lesser of two evils and said so: "two pools can
+oversubscribe a machine, which is slow, and prefer slow". A jobserver removes
+the choice. It is a fifo holding N tokens; anything that wants to run a process
+takes one and gives it back. GNU make defined it, and **cargo and rustc already
+speak it** - a build that finds `MAKEFLAGS=--jobserver-auth=fifo:PATH` uses the
+pool instead of inventing a width.
+
+**The shape is one this engine now has twice.** A per-machine fifo, bound into
+each step on the ephemeral mount that already carries the WITH RE socket and
+would carry a daemon's, and named in the environment. What is new is that the
+engine should draw from the same pool: if `MaxActions` and `Parallelism` and
+cargo's `-j` are all tokens from one fifo, the machine's width is one number
+held by the kernel rather than three guesses that multiply.
+
+**Settled: one instance per VM.** The tokens stand for cores and the cores
+belong to the machine, so the pool belongs there too - which is the argument
+that put the execution service in `guestd` rather than the host, and it holds
+here for the same three reasons. The VM outlives the build, so a pool scoped to
+a build would be rebuilt on a machine whose load did not change. Two builds can
+share a warm sandbox, and per-build pools would let each fan out to the whole
+machine while believing it was being polite. And in a fleet a worker *is* a VM,
+so a per-VM pool and a worker's announced `capacity` are two names for one
+number - which is an argument for making them literally one rather than two
+settings that can disagree.
+
+**And it dissolves the leak.** A pool that outlives builds is worse to leak
+into: a token lost today shrinks every build tomorrow, with nothing to notice
+it. But the guest starts and reaps every step itself, already tears its mounts
+down, and already counts work in flight for the idle rule with `begin` and
+`end`. That makes it the one party able to return a dead step's tokens without
+being asked. Holding tokens on the step's behalf stops being a precaution against a
+careless build and becomes the only accounting that can be correct, because the
+guest is the only party that sees a step end whether or not it meant to.
+
+**Instrument.** Peak process count and run queue depth against the pool size,
+for a build of many compiling actions. The failure being measured is not
+slowness but collapse: a machine at 30x oversubscription pages, and the wall
+clock stops being a function of the work.
+
+**Two hazards, both real.**
+
+A leaked token shrinks the pool permanently. A process killed between taking and
+returning one takes a slot out of the machine for the life of the fifo, and a
+build that leaks steadily ends up serialised with no error anywhere. Whatever
+takes a token must return it from a defer that a kill cannot skip - which in
+practice means the engine holds tokens on behalf of a step rather than trusting
+the step to hand them back.
+
+And injecting `MAKEFLAGS` into an action changes an environment the *client*
+specified, under a key the client computed. That is defensible only because a
+token count decides how many processes run and not what they produce - but it is
+an environment this engine added to an action it did not write, and the argument
+should be stated rather than assumed. A build that embeds its own parallelism in
+an output would break it.
+
+## E-F6 - a gate, so none of it rots
+
+rebuck2 ends with a "perf-regression gate: asserts mesh traffic under computed
+baseline and driver-local reads beat relay >=2x. Fails regression in seconds."
+
+This engine's equivalent is a ratchet, which it already uses for the corpus and
+which already caught a silent improvement going unrecorded. A bytes-moved
+ratchet is the same idea pointed at the number this plan exists to reduce.
+
+## What is deliberately not here
+
+Correctness fixes of the kind rebuck2 needed first - it served "17k invalid AC
+hits -> 34k client failures" before hardening. This engine started from the
+other end: I3 forbids a false hit, I4 gives Λ no error variant, and every blob
+is verified against the name it was fetched under (A5, I2). That is the debt
+rebuck2 paid down and this engine has not taken on, and it is why the plan can
+open with performance instead.
+
+**First.** E-F0, then E-F1. Nothing else is worth arguing about until a fleet
+build can say how many bytes it moved.
+
+## E-F1 - first two-machine result (2026-09-15)
+
+Mac driver (arm64, Apple backend, store in the VM) and the x86 box as a worker,
+over the LAN. Three defects, in the order they have to be fixed.
+
+**1. The fleet wrapper hid the guest store.** `guestStoreAskers` was asked of
+the build's executor, which with a fleet is `fleet.Delegating` - a wrapper that
+runs steps and holds nothing. So the driver printed "this executor cannot be
+asked what it holds, so this build caches nothing" and transferred no layer into
+its own sandbox. Fixed: the question is unwrapped to the local executor, because
+which machine runs a step does not move that machine's store.
+
+**2. The blob plane reads a directory that is not the store.** The driver's
+keeper is `&fleet.Layers{Root: sb.StoreDir()}`, and on the Apple backend with
+`EARTH_STORE_IN_VM` that is a *host* path while the layers are at
+`/var/lib/earthbuild/fast/store` inside the VM. A layer a worker produced is
+therefore fetched into somewhere no step can materialise from:
+
+```text
+materialise the base for Earthfile:67: 3909d5dc… is in this step's base and
+this store holds neither a layer nor a declaration for it
+  looked for /var/lib/earthbuild/fast/store/layers/3909d5dc…
+```
+
+Open. This is the structural one: the *store questions* have already been moved
+into the guest one at a time (`StoreHas`, `StoreTree`, `ViewDigests`,
+`WhyStaleIn`), and the blob plane is the half that has not followed.
+
+**3. A liveness bound is applied to the work.** `Rendezvous.ask` gives a worker
+`defaultReach` = 10s to answer, and `askOver` sets that deadline on the stream
+it then reads the *result* off. The comment argues "a live worker answers a
+control message in milliseconds", which is true of a control message and false
+of an assignment: the worker fetches inputs and runs the step first. A step
+longer than 10s fails as `no length: deadline exceeded` and the worker is
+dropped as a corpse. Not configurable - there is no env for `Reach`.
+
+Delegating a `FROM rust:1.83-alpine` reproduced it exactly. A bigger constant
+reinstates E256; the fix is an early acknowledgement so liveness and completion
+stop sharing one timer.
+
+**Not a defect: platform eligibility.** Three runs read as "placement declines
+to delegate a saturated driver" until the variable turned out to be the
+platform - an unpinned step is the driver's arch, and the amd64 worker cannot
+take an arm64 step. With `FROM --platform=linux/amd64` and `EARTH_PARALLELISM=2`
+the same build delegated. Rosetta lets the Mac run amd64; it does not let the
+box run arm64.
+
+**Bytes moved: still unmeasured.** Every run so far reports `0 B in 0 fetch(es)`
+because the worker already held the base. The number this plan exists to reduce
+needs defect 2 fixed and a cold worker store.
+
+## E-F1 - the measurement, and the two bounds that collide
+
+Mac driver, x86 box as worker, LAN. `EARTH_STORE_IN_VM=0` so the driver's blob
+keeper reads the store it actually has (defect 2 above, routed around rather
+than fixed).
+
+**The happy path works, and the central claim holds.** Eight steps on a 7.9 MiB
+amd64 base, worker cold:
+
+```text
+7 step(s) delegated, 3 here; compute-bound (87%)
+  transfer 1.95s for 7.9 MiB in 1 fetch(es), slowest 977ms
+  compute 13.886s · queue 0s · wire 77ms
+```
+
+One fetch for seven steps. `provision.go`'s "what is present is not fetched" is
+true, and a worker that keeps its store between steps is worth what it claims.
+
+**`--platform` does not reach a depending target.** `fromSpec` takes
+`opts.Platform` from the `FROM` line being read, so `FROM +common` adopts
+nothing from `common` and the node is labelled with the *driver's* architecture.
+Placement believes the label, an amd64 worker is ineligible for a step that will
+in fact run amd64 content, and the fleet is offered only the steps that name a
+platform literally. Pinning every target's `FROM` took the same build from 1
+delegated to 7, with nothing else changed.
+
+**Two bounds that cannot both be satisfied.** Repeating the run against the
+1032 MiB `rust:1.83-alpine` base:
+
+```text
+no worker took Earthfile:51 (the worker stopped answering after 1 attempt(s):
+this is not a well-formed assignment: no length: deadline exceeded)
+0 delegated, 6 local        # and the worker's store: 4.0K
+```
+
+A cold worker must fetch the base before it can run anything, and the whole
+assignment round is bounded at 10s (defect 3). A GB does not cross a LAN in ten
+seconds, so the worker is declared dead mid-fetch, its store stays empty, and
+the *next* assignment finds it just as cold. **A worker whose base does not fit
+inside the liveness bound can never warm up.** Nothing in the fleet recovers
+from this on its own; it is not a slow path but an absorbing state.
+
+That is the whole result. The mechanism is sound and the bounds are wrong.
+
+**Unexplained, low confidence.** One run reported `FROM rust:1.83-alpine
+NON-DETERMINISM: nothing in the key changed and the output did` across the
+store-in-VM boundary - the same pinned digest unpacked to two layer IDs. It may
+be an artefact of moving the store rather than of the unpack. Worth a look
+before it is quoted as a determinism failure.
+
+## E-F1 - the number, at last
+
+With F1 (liveness split from completion) and the fault-in accounting in, the
+same build that reported nothing reports this - Mac driver, cold x86 worker,
+1032 MiB `rust:1.83-alpine` base, six steps:
+
+```text
+4 step(s) delegated, 6 here; transfer-bound (99%)
+  transfer 1m49.385s for 1.0 GiB in 1 fetch(es), slowest 54.686s
+  compute 0s · queue 0s · wire 17ms
+```
+
+**The base crossed once.** That is E-F1's question answered on a base worth
+moving, and it is the number E-F6's ratchet goes on.
+
+It is also the case for everything in the v1 plan after F2. A gigabyte at
+~10 MiB/s of useful throughput against steps that cost a second each is a fleet
+that is 99% transfer-bound: correct, and useless. E-F2's locality dispatch,
+E-F3's batching and E-F5's prediction all exist to move that number, and none of
+them could be evaluated while it read zero.
+
+Two things still visible in that run and not yet chased:
+
+* `a worker would not take Earthfile:51 (1 of 2 input(s) ... some blobs could
+  not be fetched)` - only four of ten steps were delegated;
+* `compute 0s` beside four delegated steps, which no step costs.
+
+## F3 verified - an unpinned Earthfile now delegates
+
+The same eight-step build with `--platform` on the base **only**, which is how
+anybody would actually write it:
+
+```text
+3 step(s) delegated, 1 here; compute-bound (83%)
+  transfer 26ms for 849.2 KiB in 1 fetch(es), slowest 26ms
+```
+
+Before the inheritance fix that build delegated one step - the `FROM` itself,
+the only node that named a platform. Nothing else changed.
+
+**Next, and it is now the largest remaining refusal.** Every two-machine run so
+far has carried one of these:
+
+```text
+a worker would not take Earthfile:35 (materialise the base for : 3909d5dc… is
+in this step's base and this store holds neither a layer nor a declaration
+for it)
+```
+
+A step is assigned before the base it stands on has arrived. `primeAll` is meant
+to prevent exactly that, so either it is not covering this case or the
+assignment does not wait on it - and with F1 in, waiting is now expressible.
+
+## The refusals were a full disk, and then they were not
+
+Two attributions of the recurring `a worker would not take …` refusal were
+wrong before the evidence was read properly. It was not a priming race, and it
+was not the collector ordering backwards (a layer a worker fetches *is* in its
+index - `OpenIndex` fills from disk). The x86 box's root filesystem was at 100%
+with 5.6 G free against `defaultStoreFree` of 8 GiB, so the guest agent emptied
+the worker's store every boot:
+
+```text
+earth-guestd: removed 2 layers, freed 1.0 GiB, 0 layers and 0 B left
+```
+
+Nothing joined that to the step which then failed for a missing layer, on
+another machine, in another log. Both now say so - `Report.Short`, and the free
+space carried in the refusal itself, which reaches the driver because the
+refusal does.
+
+**Re-measured on the box's second disk** (185 G free), with the guest agent
+collecting nothing:
+
+```text
+6 step(s) delegated, 6 here; transfer-bound (99%)
+  transfer 2m4.41s for 1.0 GiB in 1 fetch(es), slowest 1m2.191s
+  compute 0s · queue 0s · wire 43ms
+```
+
+Six delegated against four on the full disk, and the worker keeps its 1.1 G.
+
+**Still open, and now the top item.** `compute 0s` beside six delegated steps is
+not a slow fleet, it is six refusals: `DurationMillis` is only set by a reply
+that ran something, and the account counts a refusal as delegated. All six were
+refused with
+
+```text
+1 of 2 input(s) for a delegated step: some blobs could not be fetched
+```
+
+so the fleet fetched a gigabyte, refused every step, and the driver did all the
+work. Which of the two inputs could not be fetched is not yet known.
+
+## E-F1 - the fleet builds the build
+
+With declarations movable, the same Earthfile on the same two machines:
+
+```text
+6 step(s) delegated, 0 here; transfer-bound (76%)
+  transfer 1m49.746s for 1.0 GiB in 1 fetch(es), slowest 54.873s
+  compute 33.256s · queue 0s · wire 36ms
+```
+
+**Every step ran on the worker and none were refused.** The day's progression,
+same workload throughout:
+
+| State                | Delegated | Ran here | Compute recorded |
+| -------------------- | --------- | -------- | ---------------- |
+| before F1            | 0         | all      | -                |
+| F1, on a full disk   | 4         | 6        | 0s (all refused) |
+| F1, second disk      | 6         | 6        | 0s (all refused) |
+| declarations movable | 6         | 0        | 33.256s          |
+
+`compute 0s` was never a slow fleet: `DurationMillis` is set only by a reply
+that ran something, and the account counts a refusal as delegated. Six
+delegated steps with no compute were six refusals, and the driver quietly built
+everything itself.
+
+**Next number to attack.** 1.0 GiB in 1m49.746s is about 9.6 MiB/s, which is an
+order of magnitude under what this LAN does. Transfer is 76% of the build and
+the base is fetched once, so there is nothing left to save by fetching less
+often - the remaining win is in the transfer itself (E-F3's batching) and in not
+needing the whole base at all (E-F5's prediction).
+
+## The transfer is not slow; the link is - and the first number was the wrong unit
+
+Two corrections to the paragraph above, which read `1.0 GiB in 1m49.746s` as
+"about 9.6 MiB/s, an order of magnitude under what this LAN does".
+
+**Both machines are on wifi.** Not a gigabit LAN: the driver is 802.11ax on
+5 GHz and the worker answers on `wlp5s0`. Raw `scp` of 500 MiB over that path,
+compression off, measures **22.1 MiB/s**. That is the ceiling, and it was
+asserted rather than measured.
+
+**`transfer` is a sum over steps and was divided by one payload.** Six delegated
+steps each report their own `FetchMillis`, and five of them spent it waiting on
+the uplink lock for the one fetch that was actually happening - `uplink` counts
+that wait as transfer time deliberately, so a queue is not billed to the network
+(E336). The single fetch is `slowest`:
+
+| Reading                 | Time   | Rate       |
+| ----------------------- | ------ | ---------- |
+| slowest single fetch    | 57.5s  | 17.8 MiB/s |
+| summed across six steps | 115.0s | 8.9 MiB/s  |
+| raw scp, same path      | 22.7s  | 22.1 MiB/s |
+
+So the fleet moves a gigabyte at about **80% of what scp manages** on the same
+link. There is no factor of three in the transport and no factor of ten
+anywhere; packing is not the cost either, measured at 1.066s for 847 MB
+(757.9 MiB/s).
+
+**What this redirects.** A build that is 77% transfer-bound here is not paying
+for a bad transport, it is paying to move a 1032 MiB base across wifi to save
+33s of compute. Nothing in E-F3's batching can beat a link that is already
+80% used. The remaining wins are the ones that move **less**: E-F5's prediction
+(fetch the tenth of a base a step reads) and E-F2's locality dispatch (put the
+step where the base already is). Those were always the interesting experiments;
+this says they are the only ones.
+
+## GitHub: the data plane never leaves the relay
+
+The place this most needs to work, and the first place the instrument could
+say anything about it. Three runners, driver plus two workers, `fleet-e2e`.
+
+Before today the workflow passed and reported `transfer 0s for 0 B in 0
+fetch(es)` - the fault-in accounting gap. With that fixed:
+
+```text
+4 step(s) delegated, 1 here; compute-bound (82%)
+  transfer 6.124s for 7.9 MiB in 1 fetch(es), slowest 6.124s
+```
+
+7.9 MiB in 6.124s is about 1.3 MiB/s between two machines in one datacentre.
+The route says why:
+
+```text
+fetched from 0ab2a4ec… over relay:https://use1-1.relay.n0.iroh-canary.iroh.link./,
+  ip:74.235.90.91:28737 sent 0 B received 0 B
+```
+
+**A direct path is validated, multipath is negotiated, and it carries nothing
+in either direction.** The relay does all of it, and which relay varied by run:
+`usw1`, `use1`, and once `aps1`, which is Mumbai, for two runners in the
+United States.
+
+Three things were tried and are recorded because two of them failed:
+
+* **Waiting for hole punching before transferring.** Works - the direct path is
+  validated on every connection - and changes nothing: 6.213s, 8.226s, 9.095s
+  against 6.124s without. Off by default, mechanism kept.
+* **Reading `BytesSent` to see which path carried the transfer.** Wrong
+  counter: a fetcher is a receiver, so its send counter is the size of its
+  request whatever path carries the reply. Both directions are reported now,
+  and they agree - the direct path is idle.
+* **Suspecting multipath was not negotiated.** It is. The connection has two
+  validated paths, a selector that documents a preference for direct over
+  relay, and no bytes on the direct one.
+
+**What to try next**, in order of how much is under this engine's control:
+
+1. Dial the blob connection at the peer's validated direct address with no
+   relay in the endpoint address at all, so there is nothing to fall back to.
+   The address is known - it is in the route line above.
+2. Pin the relay map to a region near the fleet, so the fallback is at least
+   not Mumbai.
+3. Ask upstream whether migration is meant to happen here.
+
+Worth stating plainly: on GitHub this is a bigger lever than prediction or
+locality. The build is 82% compute-bound *because* it is small; a real base
+over a 1.3 MiB/s route would not be.
+
+## Splitting one number into two ended the argument
+
+Three attempts to make GitHub's fleet transfer faster all missed, because
+`transfer` covered reaching a peer and moving bytes with one figure. Two
+figures, one run:
+
+```text
+fetched from fb05f586… over ip:57.151.129.40:37969
+  (reached in 3363ms, read in 302ms)
+```
+
+7.9 MiB in 302ms is 26 MiB/s. The transport was never slow. Measured both ways
+on the same workload:
+
+| Route  | Reached | Read   | Rate       |
+| ------ | ------- | ------ | ---------- |
+| relay  | 403ms   | 1394ms | 5.7 MiB/s  |
+| direct | 3363ms  | 302ms  | 26.2 MiB/s |
+
+So each route wins one half, and both of the obvious answers are wrong. The
+relay really is 4.6x slower to read from - the first theory was right about
+that - but *waiting* for a direct path costs a flat three seconds, which is
+more than the relay loses on any fetch this size. Forcing direct made the
+build slower; leaving it on the relay left 4.6x on the table.
+
+**Neither, then.** The first fetch takes whatever path is up and the punching
+happens behind it, so by the second fetch a direct connection is waiting. A
+build with one fetch is exactly as fast as before; a build with many pays the
+punching once, which is the shape of every real build - a base, then everything
+standing on it. CI: 5.941s, the best of nine runs, with no added latency.
+
+**What is left is not in the transport.** Reaching a peer costs 0.4s to 3s
+before anything moves, paid per peer. On a small build that is most of the
+fleet's cost and it is fixed rather than proportional, which is the signature
+this project has learnt to recognise (E335, E337). Warming the blob connection
+at join time, while the driver is still planning, would take it off the critical
+path entirely.
+
+## Taking the setup off the critical path
+
+Reaching a peer costs more than reading from it, and none of it is proportional
+to the bytes. The holders are known one line after an assignment arrives, which
+on a prime is before any step needs them, so that is where the connections are
+opened now - in the background, nothing waiting on them.
+
+Same workload, same 7.9 MiB, across the day:
+
+| State                    | Transfer reported    | Compute-bound |
+| ------------------------ | -------------------- | ------------- |
+| this morning             | `0s for 0 B`         | 66%           |
+| fault-in accounted       | `6.124s for 7.9 MiB` | 82%           |
+| connections opened early | `417ms for 0 B`      | 92%           |
+| priming accounted        | `433ms for 7.9 MiB`  | 90%           |
+
+**The third row is the interesting one.** Opening connections early worked, and
+hid the transfer: the base now arrives during the prime, a prime's reply was
+discarded, and a build that fetched 7.9 MiB reported moving nothing. E-F0's
+failure exactly, reintroduced by making the fleet faster - and a number that
+reads zero only when things go *well* is worse than one that always reads zero,
+because the first time it is believed.
+
+Counted as transfer and not as a delegated step: a build with four steps and two
+primes reporting six steps is an account that quietly does not add up (E270).
+
+Fourteen times less transfer on the critical path for the same bytes, and the
+instrument still says what crossed.
+
+## The two environments have opposite bottlenecks
+
+The same engine, the same split of reaching from reading, on the two fleets this
+project has:
+
+| Fleet                    | Reached | Read    | Payload | Rate       |
+| ------------------------ | ------- | ------- | ------- | ---------- |
+| GitHub, three runners    | 403ms   | 302ms   | 7.9 MiB | 26.2 MiB/s |
+| LAN, Mac driver plus box | 13ms    | 58418ms | 1.0 GiB | 17.5 MiB/s |
+
+**On GitHub the cost is getting to the machine; on the LAN it is the wire.** The
+work that made the CI fleet fourteen times cheaper - opening holders before a
+step needs them - is worth thirteen milliseconds here, because a worker told
+where its driver is dials it directly and there is nothing to discover. And the
+wifi link is already carrying 79% of what `scp` manages over it, so there is
+nothing left in the transport either.
+
+That is the honest state of "can a fleet beat one machine". It can, when the
+compute it moves is large against the base it has to ship. On this LAN that
+means a base of 1 GiB buys 34s of compute across one worker, which it does not:
+`transfer-bound (77%)`, 92.09s of wall clock against 85.69s this morning, inside
+the noise.
+
+**So the remaining work is all about moving less**, and it is the same list it
+was before the transport was ruled out:
+
+* E-F5, prediction: fetch the tenth of a base a step reads. The machinery exists
+  and is what moved the gigabyte; what is missing is a profile good enough to
+  predict from.
+* E-F2, locality: put the step where the base already is, which is what took
+  rebuck2's mesh traffic down sixty-fold.
+
+A wired link would raise the LAN ceiling and is worth having for measurement,
+but it changes which side of the line this workload falls on rather than
+removing the line.
+
+## F4 - a Mac can drive a fleet
+
+Every measurement above used `EARTH_STORE_IN_VM=0`, and that is the setting
+that is wrong. Darwin keeps the layer store on the guest's block device by
+default for a correctness reason: APFS is case-insensitive, so two files in a
+layer differing only in case collide on the shared mount.
+
+With the store where it belongs, `fleet.Layers` read a host directory holding
+nothing, so a driver held the base of its own build and could offer none of it.
+Now:
+
+```text
+3 step(s) delegated, 0 here; compute-bound (99%)
+  transfer 28ms for 849.2 KiB in 1 fetch(es), slowest 28ms
+  compute 5.21s · queue 0s · wire 16ms
+```
+
+No `caches nothing`, no refusals, every step on the worker.
+
+The transport was already there. `SAVE IMAGE` has carried a layer out of such a
+store since E556 - a second `container exec`, the guest binary in a mode that
+does one thing, and a pipe - as an OCI blob. The fleet speaks a different pack,
+so this is the same journey in that format and the same journey back, with
+`fleet.Layers` doing the packing at both ends rather than a second encoder for
+one wire format.
+
+**Not yet exercised:** a base of any size through this path. The pack is
+buffered whole in host memory, which is what `fleet.Layers.Get` already did, but
+849 KiB and 1 GiB are different questions about a pipe.
+
+## The baseline was crippled, and the honest comparison is brutal
+
+Every fleet run above used `EARTH_PARALLELISM=2` on the driver, because without
+it nothing is delegated: placement is least-loaded-first and a driver with
+sixteen cores and six steps takes all six. That setting was necessary to
+exercise the fleet and it makes the comparison meaningless, which was not said
+until now.
+
+The same six steps, same base, on this Mac alone at its own parallelism:
+
+| Arrangement                     | Wall clock |
+| ------------------------------- | ---------- |
+| one machine, 16 cores           | **6.48s**  |
+| fleet, worker warm              | 33.50s     |
+| fleet, worker cold (1 GiB base) | 95.58s     |
+
+**The fleet is five times slower warm and fifteen times slower cold**, and no
+amount of transport work changes that: shipping a 1032 MiB base over 17.5 MiB/s
+of wifi costs 59 seconds, and the entire build is 6.5 seconds of work.
+
+That is not a defect. It is the arithmetic of the thing, and it is worth writing
+down because every experiment above was implicitly asking the wrong question.
+The right one is where the line falls:
+
+```text
+one machine:  ceil(steps / cores) x duration
+fleet:        that, less what a worker takes, plus base_bytes / link
+```
+
+With sixteen cores, 5.4s steps and a 1 GiB base over wifi, a second machine
+does not repay its own base until the build is around a thousand steps deep.
+Halve the base or wire the link and that number falls by the same factor;
+neither changes the shape.
+
+**What follows for the endgame.** A fleet earns its keep when the machine is
+saturated and the base is small against the compute - which is what rebuck2's
+21-hour jobs were. Two things move the line and they are the two experiments
+left: E-F5's prediction, which makes the base cost a tenth of what it does (a
+step reads two files of 5,410 for `go version`, 1,752 for a cold `go build`),
+and E-F2's locality, which stops the base being shipped again for every chain.
+Both attack `base_bytes`, and that is the only term this engine controls.
+
+## The fleet moved the work; it did not share it
+
+`EARTH_PARALLELISM` is one semaphore over **every** step, delegated ones
+included - so the fleet runs above were not merely measured against a crippled
+baseline, they were themselves crippled: two steps in flight while a worker sat
+with thirty-two free slots.
+
+Removed, with a workload that saturates the driver on its own - 64 steps, more
+than either machine has cores, and a 7.9 MiB base so transfer is not the story:
+
+| Arrangement                | Wall clock |
+| -------------------------- | ---------- |
+| one machine (Mac, Rosetta) | 95.90s     |
+| driver plus worker         | 95.47s     |
+
+A dead heat, and the summary says why: **`64 delegated, 0 local`**. The driver
+ran nothing at all.
+
+**Because a Mac cannot be eligible for an amd64 step.** Placement applies
+emulation as a *second pass*, considered only when no machine can run a step
+natively, and the argument for that is in the code: "emulated work runs on the
+order of a hundred times slower, because every instruction goes through an
+interpreter". So the box was always eligible and the Mac never was, and the
+fleet substituted one machine for the other rather than adding them.
+
+**The argument does not hold for Rosetta.** The same 64 amd64 steps: 95.90s on
+the Mac through Rosetta against 95.47s native on the x86 box. Not a hundred
+times; not two. The rule is right for qemu-class emulation and silently
+excludes the only second machine this fleet has.
+
+That is the finding. A heterogeneous fleet of one arm64 Mac and one x86 box can
+only ever *move* a single-platform build, never share it, until placement can
+weigh a cheap emulator against a busy native machine. E-F2 and E-F5 attack
+`base_bytes`; this attacks the term before it, which is whether a machine is
+allowed to help at all.
+
+## A translator is not an interpreter, and then: the concurrency ceiling
+
+Rosetta is admitted to the first pass, and the Mac joins:
+
+```text
+32 step(s) delegated, 32 here; compute-bound (99%)
+  transfer 0s for 0 B in 0 fetch(es)
+```
+
+A perfect split, from `64 delegated, 0 local`. And the wall clock barely moves:
+95.90s on one machine against 92.27s on two.
+
+**Because a fleet cannot run more steps at once than the driver has cores.**
+`Scheduler.Parallelism` defaults to the *driver's* `runtime.NumCPU()` and gates
+every step through one semaphore, delegated ones included. Two machines of
+sixteen cores each therefore run sixteen steps at a time, not thirty-two: the
+split is real and both machines are half idle.
+
+| Arrangement           | Wall   | Waves of 16 |
+| --------------------- | ------ | ----------- |
+| one machine, 16 cores | 95.90s | 4.0         |
+| fleet, 32/32 split    | 92.27s | 3.8         |
+
+Sixty-four steps, four waves either way. Adding a machine added no concurrency,
+which is the one thing adding a machine is for.
+
+That is the last structural blocker, and it is the same field that made every
+earlier comparison meaningless from the other direction. The limit means two
+things that need separating: how much work *this machine* takes at once, which
+is a property of this machine, and how much work the *build* has in flight,
+which is a property of the fleet. `Delegating.Room` already exists for the
+first.
+
+## The fleet beats one machine
+
+Two arms, twice each, 64 steps on a 7.9 MiB base, nothing constrained:
+
+| Arrangement           | Runs         | Mean   | Spread |
+| --------------------- | ------------ | ------ | ------ |
+| one machine, 16 cores | 95.90, 96.24 | 96.07s | 0.34s  |
+| Mac plus x86 box      | 68.32, 65.15 | 66.73s | 3.17s  |
+
+**1.44x**, and both arms are tight enough that it is not noise. `32 delegated,
+32 here` on both fleet runs.
+
+That is the question this plan opened with, answered the right way round for the
+first time. It needed four things, and only the last of them was about moving
+bytes:
+
+* a worker that is not dropped for being busy (F1);
+* a step labelled with the platform its base is, so a machine can be eligible
+  for it (F3);
+* a translator admitted to placement's first pass, so the Mac is a machine at
+  all on an amd64 build rather than a spectator;
+* a build allowed as many steps in flight as the fleet has cores, rather than as
+  many as the driver has.
+
+**The gap from 2x is the next question.** Two machines of sixteen cores and a
+perfect split should be two waves, not the ~2.8 this implies. Stragglers,
+imbalance in what Rosetta and the x86 box each cost per step, or a tail where
+one machine finishes and the other still has work - `compute` says 24.1s per
+delegated step against a 96s/4-wave single-machine figure that implies the same,
+so the per-step costs are close and the loss is in the shape of the schedule
+rather than in either machine.
+
+## 1.94x, and the missing half was the harness
+
+The gap from 2x was mine. The driver waits for its fleet before running
+anything - §4.7.3 requires a schedule computed against a known inventory - so a
+worker that joins late delays the whole build. This harness slept ten seconds
+before starting one, and the worker then took its own time to boot and join.
+
+Started as soon as the driver publishes its address instead:
+
+| Arrangement           | Runs         | Mean   | Speedup   |
+| --------------------- | ------------ | ------ | --------- |
+| one machine, 16 cores | 95.90, 96.24 | 96.07s | -         |
+| fleet, worker late    | 68.32, 65.15 | 66.73s | 1.44x     |
+| fleet, worker ready   | 50.30, 48.86 | 49.58s | **1.94x** |
+
+Two machines of sixteen cores, 1.94x. There is no meaningful gap left to
+explain on this workload: the split is even, the per-step costs match, and what
+remains is the one wave neither machine can avoid.
+
+**The measurement to keep is the middle row, not the bottom one.** A fleet whose
+workers join when the build starts is a fleet in a laboratory. In CI the runners
+start together and the wait is real; on a desk the worker is a daemon that was
+already there. Both are legitimate and they are seventeen seconds apart, so a
+result quoting either without saying which is not a result.
+
+## E-F5 - a prediction is worth its round trips
+
+Every run above bumped the step's body, so no step ever had a history and the
+cache line said `6 unpredicted` each time. Run the *same* step twice with
+`--no-cache`, cold worker both times, 1032 MiB base:
+
+| Run             | Bytes   | Fetches | Transfer | Wall   |
+| --------------- | ------- | ------- | -------- | ------ |
+| no profile      | 1.7 MiB | 3       | 18.534s  | 39.43s |
+| profile, first  | 1.1 MiB | 1       | 2.231s   | 23.31s |
+| profile, second | 1.1 MiB | 1       | 2.348s   | 22.95s |
+
+**The bytes barely move and the time falls eightfold**, which is the whole
+argument for priming: a fault is a round trip, and three of them cost 18.5s
+where one batch costs 2.3s. E292 said so and this is the number.
+
+Also worth recording: 1.7 MiB against a 1032 MiB base, on a worker that had
+never seen it. Earlier runs of this same Earthfile moved the whole gigabyte -
+not because prediction was off but because the base contains a declaration, the
+driver could not serve one, and the worker fell back to fetching whole layers.
+Fixing that turned 1.0 GiB into 1.7 MiB before any prediction was involved, and
+the two are easy to confuse: **the lazy path only pays when it is reachable at
+all.**
+
+One run without a profile, two with, and the without cannot be repeated without
+clearing the profile store - so the 18.5s is a single measurement. The fetch
+counts are structural and are the part to believe.
+
+## E-F2 - locality, found dead
+
+`fleet.prefer` implements holder-first ordering and its own comment calls it
+"the single most consequential ordering in the fleet". **It is called from
+tests and from nowhere else.** Placement sorts by load and has never been able
+to ask who holds anything.
+
+A chain is where that costs. Eight steps of 40 MB, each standing on the last,
+across two machines:
+
+```text
+4 delegated, 4 here; transfer-bound (86%)
+  transfer 19.446s for 167.9 MiB in 4 fetch(es)
+  compute 3.014s
+```
+
+The chain alternated and shipped a layer at every handoff - 167.9 MiB moved to
+do three seconds of work.
+
+**Two attempts, both wrong, and the second is reverted.**
+
+The first asked the executor whether a worker held a layer. Placement happens
+*before* anything runs, so the layers do not exist and the stack map is empty;
+and on a VM backend the question is an exec into the sandbox, which put I/O on
+the placement path and stopped a build with a step stuck for six minutes.
+
+The second asked the schedule instead - where each input will be *produced*,
+which is known because the walk is topological and pure, as §4.7.3 requires.
+That is the right question. It also needed the price recalibrating: a whole
+step sent every child of a shared base onto one machine and two fleet tests
+reported nothing crossing the network at all, so loads are doubled and the
+price is one half-step, a holder winning only a tie.
+
+And with it in, **the chain hangs on a fleet**: work goes local, the worker
+sits idle at 14 MB, and a local step stalls for six minutes with no progress.
+Single-machine builds are unaffected - the same chain runs in 6.35s with
+locality and 8.18s without - so it is the interaction with delegation and not
+the placement itself.
+
+Reverted. A build that does not finish is worse than one that ships a layer it
+need not, and the finding is worth more than the patch: **the ordering this
+fleet was designed around has never run.**
+
+## The chain hang, traced: a serve and a step contend for one sandbox
+
+Goroutines on a build that had made no progress for six minutes: three stuck in
+`fleet.writeFramed`, each writing `0x2828288` bytes - one 40 MB chain layer
+apiece.
+
+**`serveBlobStream` discarded its context and set no deadline**, so a write to a
+peer that stopped reading blocked for ever. Fixed, twice: the first attempt took
+the bound from the serving context, and `fleet.Driver` serves under a cancel
+with no deadline, so it set nothing and fixed only a test whose context happened
+to have one. The serve carries its own bound now, per blob, five minutes.
+
+The bound fires - `serve e2a6e5cd…: write a message: deadline exceeded` - **and
+the build still stalls.** So the unbounded write was a real defect and not this
+one's cause.
+
+**Where the evidence points.** The stuck step runs on the driver, in the Apple
+VM. The driver is also serving blobs, and with the store inside the VM
+(`guestLayers.Get`) serving one means `container exec` into *that same sandbox*,
+whose stdio the guest protocol already holds. That is the constraint `PackLayer`
+was written around in the first place: "the protocol holds the only stdio pair
+`container exec` gives".
+
+**Tested, and wrong.** Packing a 40 MB layer out of a live sandbox takes 0.289s
+with it idle and 0.279s while a step is running in it. `container exec` into a
+busy sandbox does not contend with the protocol's stdio at all, so the mechanism
+this paragraph proposed does not exist.
+
+That is three theories for one hang - an ordering bug, a store contention, and
+now this - and the evidence that survives all three is narrow: the driver's
+serve blocked writing three 40 MB layers, the worker never reported fetching
+anything, and a local step waited. The next thing to collect is the *worker's*
+goroutines, which have not been looked at once; every dump so far has been the
+driver's, and a mutual wait is invisible from one side.
+
+Locality stays reverted meanwhile. The placement is right and something under it
+is not, and shipping the first while hunting the second would mean every chain
+build risks a stall.
+
+## Both sides of the stall, at last
+
+The worker's goroutines during the stall, which had never been collected:
+
+```text
+fleet.(*runnerCfg).provision -> uplink -> readFragment -> readFramed
+```
+
+So the worker is not idle and never was: it is **blocked reading**, holding the
+uplink mutex that serialises its transfers, while `replyRunning` beats away
+telling the driver it is alive. The driver, at the same moment, is blocked in
+`writeFramed` on three 40 MB writes.
+
+**A fragment request answered with a whole blob is the suspect.** `readFragment`
+reads a one-byte flag and refuses anything that is not a fragment - correctly,
+because answering "here is the whole layer" to "give me these paths" would be
+I10's accepted-and-ignored. What it does not do is drain what the sender has
+already committed to writing. The driver's `guestLayers` does not implement
+`fragmenting` at all, so a driver whose store is inside the VM can only ever
+answer a fragment request with a whole layer.
+
+That is a specific, checkable claim and it is not yet checked. What is
+established is the shape: **both ends are waiting on the same transfer**, which
+no amount of reading one side's stack could have shown.
+
+**Where this leaves the fleet.** The serve is bounded now, so the driver frees
+itself after five minutes rather than never - the build still fails, but it
+fails. Locality stays reverted. The next step is to give `guestLayers` a
+`Fragment`, or to make a whole-blob answer to a fragment request something the
+asker can consume, and the choice between those is the interesting part: the
+first makes the lazy path work for a VM-backed driver, which is the point of
+F4, and the second only stops it hanging.
+
+## Found: a fragment request answered with a whole layer
+
+`serveOneBlob` fell through to the whole-blob path when the store could not
+fragment. `readFragment` refuses anything that is not a fragment - correctly,
+since accepting "here is the whole layer" in answer to "give me these paths"
+would be I10's accepted-and-ignored - and returns after one flag **without
+draining what the sender has already committed to writing**.
+
+Enough of those and the connection's flow-control window is gone. The sender
+cannot write even the first byte of the *next* answer and the asker waits for it
+for ever: both ends blocked on the same transfer, one in `writeFramed` and one
+in `readFragment`. That is what the two dumps showed, and what neither showed
+alone.
+
+A driver whose store is inside the VM can never fragment, so this was not an
+edge case. It was every lazy fetch from a Mac.
+
+**Answered as absent now**, in one byte, which is a word the protocol already
+has and is what it means to this asker: try the next source, then the whole-layer
+path, which is the fallback I11 asks for.
+
+The chain that hung for ever, with locality restored:
+
+| Arrangement           | Moved     | Wall   |
+| --------------------- | --------- | ------ |
+| no locality           | 167.9 MiB | 32.27s |
+| locality, before this | -         | hung   |
+| locality, after this  | 5.7 MiB   | 9.41s  |
+
+**29x less moved and 3.4x quicker**, on the shape a fleet is worst at. E-F2 is
+no longer dead code, and `prefer`'s own claim about itself turns out to have
+been right all along.
+
+And the fan-out is unharmed, which is the half-step price being calibrated
+rather than lucky: the 64-step build still splits `32 delegated, 32 here` and
+runs in 51.50s against a 49.58s mean before locality and 96.07s on one machine.
+A chain that stays put and a fan-out that still spreads are the two things this
+ordering has to do at once, and it does both.
+
+## A real target: this repository's own `+all-binaries`
+
+Five Go cross-compiles from one base - the shape a fleet should be best at.
+
+**It did not build at all, on any machine.** `GOOS=windows go build ./...`
+fails: three call sites in `engine/exec` use `unix.Flock` and `syscall.Stat_t`
+directly, so `+earthly-windows-amd64` dies and takes `+all-binaries` with it.
+Nothing in this repository cross-builds for windows, which is why no test caught
+it. Fixed with the platform files the package already uses elsewhere.
+
+With that fixed it builds on the x86 box in 7.5s, and over the fleet:
+
+```text
+4 step(s) delegated, 43 here; compute-bound (99%)
+```
+
+**Four of forty-seven, and not the ones that matter.** The `go build` at the
+heart of every binary carries
+
+```text
+--mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod
+--mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build
+```
+
+and `ir.Op.OnInvokerOnly` pins any step with such a mount: *"it needs a cache
+mount, whose contents live on this machine"*. That is correct - a cache mount
+is machine-local state by definition, and an assignment has no way to carry it -
+and it means **the expensive half of this repository's own build can never be
+delegated.** Thirty-four cache mounts in one Earthfile.
+
+It is also why the numbers are small: the mounts survive `--no-cache`, so the
+compiler never actually recompiles and a 131-step "cold" build takes eight
+seconds. The workload is not cold and cannot be made cold without discarding a
+cache the build is designed around.
+
+**What this says about the fleet.** Every experiment above used steps with no
+mounts, and that was not a simplification - it was the only shape a fleet can
+take. A fleet helps a build whose parallel work is *self-contained*; it cannot
+help one whose parallelism is bought with machine-local caches. Which of those
+a real build is, is now a question worth asking of each target rather than
+assuming.
+
+## Cache mounts can cross, and now do
+
+A cache mount was the one thing pinning this repository's own build to one
+machine. It no longer is.
+
+The argument is one the engine had already made and not followed: a cache is
+bound *over* the step's filesystem, so what goes into it is excluded from the
+layer by construction, and Κ₁ hashes the mount's declaration and never its
+contents. **Every cache hit ever served asserts that what is in there cannot
+reach the result.** A worker with its own directory of the same name therefore
+produces the same layer, more slowly the first time - or the local cache was
+already unsound and had been for every hit.
+
+The declaration crosses and the contents do not, which is the half that makes it
+safe rather than permissive: a step run without a mount it declared writes into
+its layer what it would have discarded (E433). Three mounts still refuse, each
+for its own reason - a secret is not on the wire, a persisted cache is captured
+and so *is* the result, a sandbox path names one machine's disk.
+
+End to end, two steps sharing one cache id:
+
+```text
+2 step(s) delegated, 1 here; compute-bound (91%)
+```
+
+and on the worker, `ef-store/mounts/demo` - a directory it made under the name
+the build gave, holding what the step wrote there.
+
+**What it does not yet buy.** `+all-binaries` still runs its `go build` steps on
+the invoker: they are eligible now, and placement keeps them anyway because
+locality and load say so. On that build it is probably right - the driver's
+cache mount is warm and a worker's is empty, and a cold cache is exactly what
+the mount exists to avoid. Placement models where a *layer* is and not where a
+*cache* is warm, so it cannot yet tell the difference between a worker that has
+built with `go-build` before and one that has not.
+
+That is the next piece of the same idea: a warm cache mount is a kind of
+locality, and this engine already knows how to weigh one.
+
+## E-F4: is the claim true? Measuring `/go/pkg/mod`
+
+`--portable-except` is an assertion the author makes and the engine cannot
+check (§3.3c). That makes the recommended settings in
+`docs/caching/sharing-caches.md` the load-bearing part, and they were written
+from each tool's documentation. This measures one of them.
+
+**Method.** Populate the same module set twice, into two `GOMODCACHE` roots
+chosen to have *different path lengths*, and compare the sha256 of every path
+present in both. Different roots are the variable that matters: a file
+embedding the directory it lives in is the commonest way a cache turns out not
+to be portable, and two runs at one path cannot show it.
+
+**Result.**
+
+```text
+paths in A: 95283   in B: 95283   shared: 95283
+shared, content differs: 1
+shared, mode differs:    0
+only in A: 0   only in B: 0
+```
+
+A third cache, populated twenty minutes later over a 25-module subset, agreed
+on all 3,871 paths it shared.
+
+The one exception is the whole answer:
+`cache/download/sumdb/sum.golang.org/lookup/<module>@<version>` carries the
+**signed tree head at the time of the lookup** - tree size 63410137 in one,
+63410388 in the other, with the signature to match. Path to content is stable
+for 95,282 paths and time-varying for one kind.
+
+**The documented glob was wrong in both directions.** It said
+`'lock,**/*.lock,**/*.partial'`:
+
+* it matched none of the 337 lookup files, which are the only mutable region;
+* `**/*.lock` matched 11 third-party *source* files - `Cargo.lock`,
+  `Gemfile.lock`, `Pipfile.lock`, `buf.lock` - inside extracted module trees,
+  which are as immutable as the code beside them;
+* bare `lock` matched `gvisor.dev/gvisor@.../pkg/sentry/fsimpl/lock`, a
+  directory;
+* there were no `.partial` files at all.
+
+Four errors in three globs, none of which would have produced a wrong build -
+they would have refused to share files that could be shared, and shared the one
+that could not. The corrected list anchors every pattern at the mount root:
+`'cache/lock,cache/download/**/*.lock,cache/download/**/*.partial,cache/download/sumdb/*/lookup/**'`.
+
+**Two findings that change the design rather than the doc.**
+
+*The mutable region is usually absent.* Go consults the checksum database only
+for a module missing from `go.sum`, so a project with a complete `go.sum`
+writes no lookup file. The 337 came from `go mod download all` walking the whole
+module graph. In the common case `/go/pkg/mod` is immutable with no exceptions
+at all.
+
+*The zips are 3.8x smaller than what they become.* `cache/download` is 299 MB
+where the extracted trees are 1.1 GiB. A fleet that ships the download cache and
+lets each machine extract moves a quarter of the bytes, and pays CPU per step
+for it. Which side wins is a measurement this has not made.
+
+**Across architectures, which is the claim the fleet actually needs.** The same
+module set filled on `darwin/arm64` and on `linux/amd64` (go1.26.2 both ends,
+different root paths, different filesystems):
+
+```text
+arm64 paths: 95283  amd64 paths: 94162  shared: 94162
+shared, content differs: 0
+shared, mode differs:    0
+only arm64: 1121   only amd64: 0
+```
+
+Zero. Not one of 94,162 paths disagreed, in content or in mode. The module
+cache is portable between a Mac and a Linux box, and `--portable-except` on
+`/go/pkg/mod` is a true claim rather than a hopeful one.
+
+The 1,121 asymmetric paths were an artefact of the procedure and are worth
+recording as a trap. `GOFLAGS=-mod=mod go mod download all` on the Mac **wrote
+650 lines to `go.sum`** - the hashes it learned from those 337 checksum-database
+lookups - and the run copied that enriched `go.sum` to the second machine, which
+therefore needed no lookups at all. 1,120 of the 1,121 are that sumdb region; the
+last is `cache/lock`, which the exclusion list already names.
+
+So the sumdb asymmetry measures the harness, not the platform - and it is the
+second time in this experiment that the thing being measured turned out to be
+the measurement. It also confirms the mechanism from the other side: give Go a
+complete `go.sum` and it never touches the checksum database.
+
+## E-F5: Rosetta and native amd64 produce the same build cache
+
+E-F4 measured the Go *module* cache, which holds source. The reviewer's
+objection was the right one: two architectures agreeing about source is what
+source is for, and the interesting cache is the one holding objects.
+
+`/root/.cache/go-build` was documented as unshareable, on the argument that an
+entry is keyed by an ActionID that includes absolute paths, so two machines
+never compute the same key. **That argument assumes two machines have different
+paths, and inside a container they do not** - same image, same working
+directory, same `GOCACHE`. Which is every build this engine runs.
+
+**Method.** `go build std`, `CGO_ENABLED=0`, in one pinned image digest
+(`golang@sha256:47ce5636...`), with `GOCACHE` at the same path both ends. On a
+native `linux/amd64` box (Ryzen 9 5950X) and on an Apple-silicon Mac running the
+same image under `--platform linux/amd64`.
+
+**Result.**
+
+```text
+mac 2729 files   box 2729 files   shared: 2729
+compiled objects (-d): 1052 of 1052 byte-identical
+action entries   (-a): 1419 filenames identical, contents differ
+mode differs: 0   present in only one: 0
+```
+
+An action entry is `v1 <ActionID> <OutputID> <size> <nanotime>`:
+
+```text
+mac: v1 001c536e...c18c1  82c03be3...780191  81  1789543524065701588
+box: v1 001c536e...c18c1  82c03be3...780191  81  1789543509046931280
+```
+
+The ActionID is the filename, so identical filenames already say the keys
+agree. The OutputID and size agree. The differing field is a write time, which
+Go keeps for garbage collection and which decides nothing.
+
+So an emulated Intel x86-64 and a native AMD Zen 3 compiled 1,052 objects to
+the same bytes. Not luck: Go's code generation is a function of `GOARCH` and
+`GOAMD64` and never inspects the host, so the host executing the compiler
+cannot reach the output.
+
+**What it costs the flag.** The first reading of this was that the `-a` entries
+are rewritten, so the cache is not immutable. **That is wrong**, and Go's source
+says so: `markUsed` calls `os.Chtimes` and never rewrites the bytes, at most
+once an hour, purely so that trimming has a last-used time
+(`cmd/go/internal/cache/cache.go`). An entry's content is written once, at
+`putIndexEntry`, and never again.
+
+The cache *is* immutable. Two machines still write different bytes at the same
+path, because `putIndexEntry` embeds `time.Now().UnixNano()` in the record it
+writes.
+
+So immutability is **neither necessary nor sufficient** for sharing, which is a
+worse verdict on the old flag than "it is a lie":
+
+* not sufficient - a file written once and never touched can still hold this
+  machine's home directory, and sharing it corrupts the build;
+* not necessary - this cache is immutable, is not reproducible, and is
+  shareable regardless.
+
+Three properties had been running together, and only the third is the one a
+fleet needs:
+
+| property     | means                                         | go-build |
+| ------------ | --------------------------------------------- | -------- |
+| immutable    | content at a path never changes here          | yes      |
+| reproducible | every machine writes the same bytes at a path | no       |
+| portable     | any machine's bytes at a path will do for me  | yes      |
+
+`get` validates the entry's id, a non-negative size and a non-negative time, and
+nothing else - there is no freshness check - so a borrowed foreign timestamp can
+at worst mislead trimming, never a result.
+
+**Still to measure.** That two machines *can* share this cache does not say the
+sharing pays. `go build std` filled 169 MB; a real project's is larger, and a
+worker that fetches an object instead of compiling it has traded CPU for
+network on a link measured at 110 MiB/s. The transport does not exist yet, so
+neither does the number.
+
+## E-F6: prototyping the helper contract before building it
+
+Stage 0 of the cache-sharing plan: implement the proposed helper interface
+outside the engine, against three unlike caches that exist on disk, and find out
+what the contract gets wrong before any of it is load-bearing.
+`tools/cachehelper` is that prototype.
+
+**The contract as proposed.** `probe`, `ident`, `index`, `export`, `import`, over
+`$EARTH_CACHE_DIR`, with a key opaque to EarthBuild. Three implementations: Go's
+build cache, Go's module cache, and npm's cacache - chosen because the first
+embodies compute, the second embodies downloads, and the third is the one already
+known not to be union-complete.
+
+**Result: the interface carries all three, and three things about it were wrong.**
+
+### The index must not require sizes
+
+Indexing the same tree, keys only against keys-and-sizes:
+
+```text
+go-mod    (9.1 GB)    0.90 s     4,791 units   key comes from the path
+npm                   5.04 s    30,162 units   must read every bucket
+go-build  (27 GB)    11.61 s    88,114 units   must read every index record
+go-build, keys only   0.47 s    88,121 units
+bare find over the same tree    0.39 s
+```
+
+**97% of the cost was opening 88,114 files for a column nobody needs.** A Go
+build-cache key *is* the name of its index record; only the entry's size and the
+output blob it names require reading it, and both are export-time questions. Made
+optional, the index went from 11.61 s to 0.47 s - 24.7x - over the same key set.
+
+The general rule the measurement gives: **an index's cost is a function of how
+much the helper must open, not of how large the cache is.** A 9.1 GB cache indexed
+in under a second; a 27 GB one took twelve, and the difference was neither size
+nor entry count.
+
+### A key must be unique, which was not written down
+
+npm's obvious key - the record's own hash - is not unique. 155 of 30,162 entries
+in a real cacache shared one. Two causes, and only the second is interesting:
+the same digest appears in different buckets, and a bucket can hold the *same line
+twice*, because cacache re-appends an unchanged record when its key is fetched
+again.
+
+So the key became `<bucket>:<digest>`, and identical records are deduplicated -
+two identical records are one unit, which is the honest reading rather than a
+workaround. Uniqueness is now a stated requirement of the contract.
+
+### `import` has to be the helper's verb
+
+The generic importer refuses to write over a path that exists, which is right for
+a content-addressed blob and wrong for an append-only bucket: it would silently
+discard every record the sender had and the receiver did not.
+
+Measured end to end. Two caches from one source, the receiver missing 12,496
+records across 4,649 buckets and holding 500 the sender lacked:
+
+```text
+A: 29,897 units    B: 17,544 units    B lacks: 12,496
+export 12,496 units -> 11 MiB stream -> import
+A's records B still lacks:  0
+B's own records on disk:    500 of 500
+```
+
+A union at record level, not file level, and neither side lost anything.
+
+### A trap in cacache's format, found by falling into it
+
+The first run reported 357 of B's 500 records lost, and they were not: **a
+cacache bucket has no trailing newline**, so the harness's `<digest>\t<record>\n`
+was glued onto the end of the previous record. `line[:tab]` then parsed the
+previous record's digest and the harness recorded a key that did not exist. The
+merge had been correct throughout.
+
+Worth recording for its own sake: it is exactly the format knowledge that
+justifies a helper per cache rather than a file copier for all of them, and it
+cost two rounds of chasing a loss that had not occurred.
+
+### Still open
+
+`f`, the working-set fraction, and native compile-against-ship. Both need an
+instrumented build rather than a directory walk.
+
+## E-F7: a warm cache mount is a kind of locality
+
+E-F3 ended by naming what placement could not see:
+
+> Placement models where a *layer* is and not where a *cache* is warm, so it
+> cannot tell the difference between a worker that has built with `go-build`
+> before and one that has not.
+
+This is that, and it needs no transport. For the builds a fleet exists to speed
+up, a cold cache is the larger of the two costs: it means recompiling what the
+machine beside it already holds, which is work rather than bytes, and no amount
+of layer affinity avoids it.
+
+**Inferred, never announced.** A worker that ran a step with cache id `k` made
+the directory and has it, so the driver learns this from the assignment it
+already sent and the reply it already received - the same inference
+`holders.also` makes about a base. Nothing crosses the wire, no message gains a
+field, and no worker is asked a question it might answer wrongly.
+
+**Held by the placer.** `Rendezvous` sees every reply and already corrects the
+address; the table lives beside `rate`, is spent by the one ordering that uses
+it, and never reaches `Delegating` - which would have had to carry it back
+across the wire as a hint in order to hand it to the machine that already knew.
+
+**A second discount, not a second holder.** Holding the base and holding the
+cache are different facts with different remedies - one saves a transfer, the
+other a recompile - so a machine with both beats a machine with either:
+
+```text
+cost(w) = 2·busy·biggest/room
+        + transferCost   if w does not hold the base
+        + refillCost     if w has not filled this cache
+```
+
+`refillCost` is 1, the same as a fetch, and deliberately conservative. Refilling
+a Go build cache can cost the whole step - that is what the flag exists for - but
+warmth is a claim about a *name*, not about the entries this step will look up,
+and E-F6 measured two caches one toolchain apart at **0.00% overlap**. Half a
+step-slot says "prefer it, as strongly as a base" rather than "serialise the
+build onto it". A model, like `transferCost`, and one line to change when there
+is a measurement to change it to.
+
+**What it is not.** Warmth is advice: absent, stale or wrong in either direction
+it changes no result (I5). A machine recorded warm that turns out cold
+recompiles, which is what would have happened anyway. It is deliberately kept out
+of `Worker` inventory and out of `Predict`: a forecast must be a function of the
+graph and the inventory (§4.7.3), and which machines have filled which caches is
+a fact about a run already in progress.
+
+Four guards, each verified by removing the term and watching it fail: a warm
+machine is preferred; a cold one is still asked; the two discounts compose; and a
+busy warm machine still loses to an idle cold one.
+
+## E-F8: the working-set fraction, measured at last
+
+Stage 2 was gated on `f`, the fraction of a shared cache a build actually
+touches, because shipping beats compiling only above a threshold. An adversarial
+review put a real build at 3-8% and concluded the design loses. That figure came
+from a developer laptop's 27 GB `~/Library/Caches/go-build` - months of unrelated
+projects - and a fleet worker's cache is not that artefact.
+
+**Measured properly, with the only instrument that can ask the question.** A
+directory walk says what a cache *holds*, never what a build *asks for*, and
+cache-mount reads never reach an observation by design (E498). Go hands its whole
+build cache to a `GOCACHEPROG` once per action, which is the one place the
+question is asked out loud; `tools/gocacheprobe` answers it and writes down what
+it heard.
+
+Three builds of this repository against a store holding only what the first
+produced - the fleet's real case, a worker building what the driver just built:
+
+```text
+run           change          gets  hits  hit bytes      f
+1  cold       -              1550     0            -     -     17.64s, 3619 puts, 650.9 MB
+2  warm       none           2571  2551  650789576   99.99%     5.58s
+4  warm       leaf edit      2569  2548  646073270   99.26%     5.55s
+5  warm       deep edit      2568  2547  650341616   99.92%     5.47s
+```
+
+**`f` is between 99.26% and 99.99%.** A build asks for essentially the whole of a
+correctly scoped cache. The low figure was an artefact of an unscoped directory,
+which is gate 1 of the plan restated as economics: scope the store by the claim
+and `f` goes to 1 by construction.
+
+A note on run 5, which changed a file deep in the graph and still missed only 21
+actions: Go's incremental builds are **export-data scoped**, so a comment-only
+change recompiles the package and not its dependents, whose action ids depend on
+the exported API rather than on the bytes. Consistent, not anomalous.
+
+### The economics, and Go is a photo finish
+
+```text
+ship 621 MiB at 110 MiB/s                    5.64 s
+compile cold, this Mac (612% cpu, 108 cpu-s) 17.64 s
+the same 108 cpu-s across 32 threads          3.38 s   (a floor; see E-F12)
+```
+
+Against a modest machine, shipping wins by **3.1x**. Against the 5950X's
+theoretical floor it **loses**, and realistically ties. Which is exactly what
+should be expected of the fastest mainstream compiler there is: **Go is the
+adversarial case**, and a design that merely ties here wins comfortably in Rust,
+C++ or Scala, and against any worker weaker than the driver.
+
+### GOCACHEPROG costs nothing
+
+```text
+warm build, Go's own cache      5.32 s
+warm build, through the probe   5.13 s
+```
+
+No measurable penalty, over 2,571 actions and 650 MB. That matters because it is
+stage 2's alternative: serving the build cache per action gives demand-driven
+subsetting for free, so a worker pays for the entries it misses rather than for a
+cache. Since `f` is ~1 for a *whole* build but a worker is given part of one, per
+action is strictly better than per cache - and Go's OutputID is a SHA-256, so
+those objects are already content-addressed and need none of the machinery a
+cache-mount transport would.
+
+**Measured since, and it changes the verdict (E-F12).** `go build std` on the
+5950X, native amd64, 32 threads, cold, three runs: 5399, 5407, 5421 ms. The
+3.38 s figure was a *floor* and wrong twice over - it divided this repository's
+CPU-seconds while the shipping figure was for `go build std`, and a real build
+does not scale linearly to 32 threads. Like for like, shipping wins by 3.7x raw
+and about 18x compressed.
+
+## E-F9: compression turns the tie into a win
+
+E-F8 left Go as a photo finish: shipping a 639 MiB build cache costs 5.81 s on
+the wired link, against a 3.38 s floor for compiling it on 32 threads. Shipping
+loses to a fast machine and wins against everything else, which is a thin result
+to build a transport on.
+
+**It is thin because the bytes were raw.** A Go archive is export data, symbol
+names and DWARF - not the already-compressed payload a container layer is:
+
+```text
+639.2 MiB   ->  zstd -1   136.8 MiB    4.67x     6,319 MiB/s in
+            ->  zstd -3   124.9 MiB    5.12x     4,690 MiB/s in
+            ->  zstd -9   107.8 MiB    5.93x     1,051 MiB/s in
+                decompress                       1,135 MiB/s out
+```
+
+Compression and decompression are both an order of magnitude faster than the
+link, so the pipeline stays wire-bound and the ratio is taken straight off the
+transfer:
+
+```text
+ship raw               639.2 MiB / 110 MiB/s     5.81 s
+ship zstd -3           124.9 MiB                 1.14 s
+compile, this Mac      108 cpu-s / 12 threads   17.64 s
+compile, 32 threads    108 cpu-s                 3.38 s  (a floor; see E-F12)
+```
+
+**Against the 5950X's theoretical floor, compressed shipping wins by 3.0x** - and
+against the machine that would actually be fetching, by fifteen.
+
+### Per-object compresses as well as a batch
+
+The worry was that compression favours shipping whole caches while
+`GOCACHEPROG` favours per-action fetches, and that the two designs would pull
+apart. They do not. Over 400 objects, 89.1 MiB raw:
+
+```text
+each compressed alone   19.4 MiB   4.59x
+all as one stream       18.4 MiB   4.84x
+```
+
+**Five per cent.** Go objects are intrinsically compressible rather than
+cross-redundant, so per-action transfer gives up almost nothing, and the two
+directions compose freely.
+
+### Why the engine does not already do this
+
+`squeeze` compresses a fragment's proof and deliberately not its payload
+(`engine/fleet/blobwire.go`):
+
+> **The proof only.** A fragment's payload is file contents, and compressing an
+> archive of already-compressed files is how a transfer gets slower for the
+> trouble.
+
+Correct for a **layer**, whose entries are binaries and compressed archives.
+Wrong for a **cache object**, which is 4.6x. The rule is about what is in the
+bytes, not about whether they are a payload, and a cache-mount transport must not
+inherit the layer answer by default.
+
+### What is left
+
+The link. 124.9 MiB at 110 MiB/s is 1.14 s; on 2.5 GbE it is 0.45 s, and the box
+already has the NIC for it (E-F5's hardware note) - only the Mac's dongle and the
+switch are gigabit. Which is now a purchase with a measured payoff rather than a
+guess, and still not the bottleneck: at that point shipping is 7x faster than a
+32-thread compile and the next thing to measure is something else entirely.
+
+## E-F10: the transport was already there, and so was the name
+
+E-F9 left a design for moving cache mounts: a fourth ALPN, a new store type, a
+guest request kind, a helper protocol and a WASI runtime. A reviewer asked
+whether the engine already had those shapes under other names. It does, and the
+mapping is exact rather than approximate.
+
+| designed                         | already built                                                            |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| ship an index of keys            | `FindMissingBlobs` - and better: no index ships, the asker names digests |
+| batched content fetch            | `BatchReadBlobs`, `ByteStream` past the batch limit                      |
+| a fourth ALPN                    | `earth/blob/1` moves blobs by digest, verified per chunk                 |
+| "a cache has no digest identity" | 𝔅, where every digest hashes to the bytes it names                       |
+| atomic import, symlink refusal   | the blob write path, already hardened                                    |
+| helper `export` / `import`       | REAPI `Directory` messages                                               |
+| helper `ident`, unique keys      | a digest is unique by construction                                       |
+
+`engine/remote` serves CAS, ActionCache, ByteStream and Capabilities;
+`engine/guestd/servecache.go` serves them to processes inside a step; and
+`fleet.Blobs` says in its own comment that a blob store *"needs no other wiring
+to become a place a step's faults can be answered from"*.
+
+### The fact that collapsed the rest
+
+`cmd/go/internal/cache/cache.go:290` checks `sha256.Sum256(data) != entry.OutputID`.
+**Go's OutputID is the SHA-256 of the object it names**, and an EarthBuild CAS
+blob is named by the same function. Sampled over 200 real entries from a 27 GB
+cache: **200 matched, none differed, none absent.**
+
+So a Go build-cache object and an EarthBuild CAS blob are the same object under
+the same name. Not a translation, not an encoding - the hex Go is already holding
+is the path to ask for.
+
+### End to end
+
+`tools/gocacheprobe` gained one flag. A build of this repository filled a cache,
+every object was moved into a store served by the engine's own `remote.Cache`,
+and the build was run again with the objects absent locally:
+
+```text
+shim's store after the move    15 MiB   (the index alone)
+agent's CAS                   628 MiB   (2,412 objects)
+
+gets 2571 (distinct 2571)  hits 2551 (distinct 2551)  hit-bytes 650873251
+objects read through the agent 1523
+6.35 s, against 5.5 s fully local and 17.64 s cold
+```
+
+**2,551 hits with no objects on the local disk**, fetched from EarthBuild's CAS
+by Go's own digests, with no ActionResult decoded, no Directory walked and no
+protobuf linked.
+
+### The coincidence is not the mechanism
+
+**Stated too strongly above, and corrected here.** That result needs *two*
+contingencies to hold, and one of them is not the default:
+
+* Go's build cache happens to name objects by SHA-256;
+* the engine was run with `EARTH_DIGEST=sha256`, which it is not normally - ℋ is
+  **BLAKE3-256** by default, and SHA-256 exists for a Buck2-flavoured remote
+  execution service.
+
+And the wider world does not agree with either. Counted here:
+
+| cache                  | names units by                  |
+| ---------------------- | ------------------------------- |
+| npm cacache            | **sha512** (523 of 523 sampled) |
+| Go build cache         | sha256                          |
+| Go module cache        | sha256, base64 dirhash (`h1:`)  |
+| Cargo                  | sha256                          |
+| Gradle `build-cache-1` | md5                             |
+| EarthBuild 𝔅           | BLAKE3-256, SHA-256 opt-in      |
+
+Four hash functions across five caches, and the engine's default matches none of
+them. A design resting on two of them coinciding would work for Go under one
+setting and for nothing else.
+
+### The general form: a unit is a blob, and the hash is nobody's business
+
+What the fast path was standing in for:
+
+* the **helper** names a unit in whatever scheme its tool uses - `sha512-...`,
+  an md5, an ActionID, `name@version` - and the engine never parses it;
+* the **engine** stores a unit's bytes and names them with ℋ, whatever ℋ is;
+* the **index** is the join, `key -> ℋ(unit)`, and it is the only thing besides
+  the bytes that has to travel.
+
+So neither end needs to know the other's hash function. The tool's own naming
+lives in the helper - in the WASI blob, where the rest of that tool's knowledge
+already lives - and the engine's content addressing stays exactly what it is.
+Dedup, verification and transport come from 𝔅 as before, because a unit is a
+blob like any other.
+
+That also refines the contract the prototype tested: `export` must emit units
+**individually addressable** rather than as one opaque stream, because the engine
+has to be able to hash each one. One unit, one blob, one row in the index.
+
+### What is left, and how small it is
+
+The index. The shim needs an action id to know which object to ask for, and that
+mapping is the one thing the CAS cannot supply - a Go ActionID is not a digest of
+anything the engine holds.
+
+It is **15 MiB against 628** - 2.4% of the bytes. The hard 97.6% is solved by
+machinery that already existed; what remains is small enough that almost any
+mechanism will do.
+
+And it is not a Go quirk. The index is exactly the join described above, so the
+thing still to be designed is the same thing that makes the hash functions
+irrelevant. That is a better place to arrive than a coincidence.
+
+### One constraint found while checking
+
+The RE surface is **read-only, deliberately**: an entry is keyed by Κₜ, the same
+key space a step's own result is filed under, so accepting a client's claim about
+one would let a peer name somebody else's result. That is why this is a
+read-through - writes stay local - and not a mirror. It also requires
+`EARTH_DIGEST=sha256`, because a BLAKE3 store cannot answer a question asked in
+SHA-256.
+
+## E-F11: the join, and a dead end worth recording
+
+E-F10 left one piece: a Go ActionID is not a digest of anything the engine holds,
+so something has to map a helper's key to the digest of the unit it names. With
+the hash correction that is not a Go quirk - it is the general join, `key ->
+ℋ(unit)`, and it is what lets the engine and the tool disagree about hash
+functions without either noticing.
+
+### Considered and rejected: a pointer blob
+
+The tempting shape needs no new surface at all. Name a tiny blob
+`ℋ(tag ‖ cache-id ‖ scope ‖ key)`, put the unit's digest in it, and every
+question is already answered by machinery that exists: a lookup is a CAS fetch,
+a batched lookup is `FindMissingBlobs`, the read-through in `remote.Cache`
+carries it, and the fleet moves it.
+
+**It is illegal in this store, and the reason is the store's whole point.**
+`blob.Store.Get` recomputes ℋ over what it read and refuses anything that does
+not hash to the name it was filed under - equation 2.2, the property that makes
+𝔅 impossible to poison. A blob whose name comes from a key rather than from its
+contents fails that check on every read.
+
+Worth writing down because the idea looks free and is not, and because the thing
+that forbids it is the thing that makes everything else here safe.
+
+### Considered and rejected: `GetUnchecked`, with the helper verifying
+
+The natural follow-up: give `blob.Store` an unchecked read and let the WASI
+helper confirm the hash, since the helper is where a tool's own hash function
+already lives. That is the same move that made the naming hash-agnostic, and it
+does not work here for three reasons.
+
+**A pointer blob has nothing to check against, for anybody.** Its name comes from
+a key and its content is a digest, and no relationship between the two is
+verifiable by any party - least of all the helper, which does not know ℋ. The
+check is not relocated, it is deleted.
+
+**The downstream catch is real and not universal.** Go does verify: `cmd/go`
+refuses an object whose SHA-256 is not its OutputID, so a wrong pointer is caught
+there. But `docs/caching/sharing-caches.md` already records one that does not -
+*"Cargo performs no content verification when reusing an extracted source tree
+... so a corrupt entry propagates silently into a build."* A design that leans on
+the tool checking is as safe as the least careful tool, and the survey found that
+tool before this idea existed.
+
+**The blast radius is 𝔅 rather than this feature.** The same store holds layers,
+and its stated property is that *"an attacker with total control of it can deny
+service and nothing else"*. An unchecked read turns that into "and can serve
+wrong bytes". One caller today is one autocomplete away from three.
+
+**And the alternative costs 0.86%** - see below. Weakening the property every
+other guarantee here leans on, to save 5.38 MiB and 0.049 s, is the wrong side of
+that trade by some distance.
+
+Where the instinct does hold: if a derived-key namespace is ever genuinely
+needed, it belongs in a store that **does not claim 𝔅's invariant** rather than
+in 𝔅 with the check switched off. `engine/cache` is nearly that store already -
+`Get(core.Key) -> Entry` is a key-to-value map whose key is not a content hash -
+but not free: `Open` hardcodes `actions/`, and `core.Entry` is the wrong value
+type for a digest.
+
+### What it costs to just ship the map
+
+A map blob, content-addressed like anything else, with its digest travelling in
+the assignment hints that already carry `Holders` and `Bytes`. For the 27 GB
+cache measured in E-F6, at 88,114 units:
+
+```text
+binary, 32-byte key + 32-byte digest     5.38 MiB
+the same, zstd -3                        5.38 MiB   (1.00x - digests are random)
+the units it indexes                   628.00 MiB
+the map as a share of them                0.86%
+on the wire at 110 MiB/s                 0.049 s    (units: 5.71 s)
+```
+
+**Under one per cent, and incompressible**, which settles it: there is no case
+for a query endpoint. Ship the map, and every question about it is answered
+locally thereafter.
+
+Being a blob, it inherits the rest for nothing - dedup between builds whose cache
+state matches, verification on read, and the fleet's existing transport. An
+incremental build writes a new map because a few rows changed, which is 5.4 MiB
+per build and not worth chunking until something says otherwise.
+
+## E-F12: the native number, and the photo finish was not one
+
+E-F8 left the economics resting on a *floor* rather than a measurement: 108
+CPU-seconds divided by 32 threads, 3.38 s, against 5.64 s to ship a cache. That
+made Go look like a tie and the whole design marginal.
+
+The floor was two things wrong. It divided the **earthbuild repository's**
+CPU-seconds while the shipping figure was for **`go build std`**, and a floor is
+not a time - a real build does not scale linearly to 32 threads.
+
+Measured on the 5950X, native `linux/amd64`, cold cache, in the same pinned image
+as E-F5, three runs:
+
+```text
+cold run 1   5399 ms
+cold run 2   5407 ms
+cold run 3   5421 ms      169 MB of cache produced
+```
+
+**5.40 s, within 0.4%.** Amdahl takes 60% back off the floor, which is what a
+floor is for.
+
+Like for like on one workload and its own artefact:
+
+```text
+go build std
+  compile, Mac under Rosetta                  54.20 s
+  compile, 5950X native, 32 threads            5.40 s
+  ship the 169 MB cache it produces, raw       1.47 s   at 110 MiB/s
+  ship it compressed (E-F9's measured 5.12x)   0.29 s
+```
+
+**3.7x against the fastest machine in the fleet, raw. About 18x compressed.**
+Against the machine that would actually be doing the fetching, 37x and 187x.
+
+So Go is not a photo finish after all, and it is still the adversarial case: the
+fastest mainstream compiler there is, beaten by a factor of four before
+compression and by more than an order of magnitude after it. A design that wins
+here wins by more in every slower language.
+
+Two notes for whoever repeats this. The image's `sh` has no `time` and the host
+has no `bc`, so the measurement is taken with `date +%s%3N` around `docker run`.
+And the cache directory is written by root inside the container, so a second run
+that only calls `rm -rf` on the host silently reuses a warm cache and reports 669
+ms - which is what the first attempt did.
+
+## E-F13: the hop that was not needed
+
+E-F12 left one piece of genuinely new protocol surface: a worker's in-guest cache
+agent missing a blob and asking the host, which the fault channel is the only
+reverse path for. A third `Kind` beside `""` and `"progress"` looked like the
+cheap way.
+
+**It is not one more case, it is a second contract in one envelope.** The fault
+channel exists to keep two answers apart:
+
+> "Absent" and "unreachable" must not flatten into each other. An empty `Error`
+> means the host looked and the file is genuinely not in the base, so the step
+> gets its honest ENOENT; a non-empty one means the host could not find out, and
+> the step is failed rather than told a file it may well need does not exist.
+
+That distinction is load-bearing because a wrong answer produces a layer keyed on
+a lie (E289). **A cache blob has no such hazard** - contents are outside Κ₁, so
+"nobody could answer" and "nobody has it" are the same answer and the step
+recompiles either way. `Handle` would also be meaningless, and the sender would
+not be the tracer.
+
+### The route was already there
+
+`isolationFlags` (`engine/guest/isolate_linux.go`) adds `CLONE_NEWNET` **only for
+`--network=none`**. Otherwise a step shares the guest's network namespace - and
+on the native backend guestd runs on the host, in the host's. So:
+
+```text
+a step on a native Linux worker can reach 127.0.0.1 on the host already.
+```
+
+Which inverts the design. Rather than teaching the in-guest agent to reach the
+fleet, **run the agent where the fleet already is** - `cmd/earth-worker`, the one
+process holding `fleet.Blobs` and `fleet.Layers` - and hand the step its address
+through `EARTH_GUEST_CACHE_ADDR`, which exists to carry exactly that.
+
+`Cache.Elsewhere` then needs no transport of its own: it is a struct field set in
+the process that already has a fleet.
+
+For the VM backends the route exists too and is also not a new message: the
+usernet stack the *host* runs answers on `192.168.127.1`
+(`engine/exec/usernet_linux.go`), which is how a guest reaches anything outside
+itself. Unverified for this purpose, and it is a network question rather than a
+protocol one.
+
+### What this cost to find
+
+Three wrong turns, each rejected for a reason worth keeping: a guest request kind
+mirroring `KindUnpackLayer` (the precedent turned out to be a subcommand re-exec,
+darwin-only); a pointer blob named after a key (illegal in 𝔅, and the reason is
+𝔅's whole point); and the third fault `Kind` above. The agent's own comment -
+*"served from here because the store is here"* - is true of a VM and not of a
+native worker, where `cmd/earth-worker` opens that store as a host directory.
+
+## E-F14: a near network is not a far network
+
+The per-ecosystem plan put download caches in a tier not worth building, on
+E-F8's arithmetic: a cache with no compute in it has `B/C = ∞`, so sharing one
+trades network for network and a worker with egress fetches upstream itself.
+
+**That treats two networks as one price.** Measured, three real module zips from
+`proxy.golang.org`:
+
+```text
+cloud.google.com/go/aiplatform@v1.125.0     3.0 MiB   13.7 MiB/s
+github.com/aws/aws-sdk-go-v2/service/s3     0.6 MiB    7.2 MiB/s
+k8s.io/api@v0.31.0                          3.8 MiB   23.2 MiB/s
+                                            -------   ----------
+                                            7.4 MiB   15.7 MiB/s
+
+the LAN, measured (E-F5)                             110.0 MiB/s   7.0x
+```
+
+A cold worker pulling this repository's 1.4 GiB module set pays **91 s from the
+internet against 13 s from a peer**. That is larger than the compute saving the
+build-cache work chases (5.40 s against 0.29 s), and it multiplies by the fleet:
+N cold workers are N internet fetches or one.
+
+**And CI is exactly where every worker is cold.** The case this was always most
+wanted for is the case the arithmetic had dismissed.
+
+### It does not need a helper either
+
+`$GOMODCACHE/cache/download` **is** the GOPROXY layout, path for path:
+
+```text
+protocol asks   /<module>/@v/list   /<module>/@v/<ver>.info  .mod  .zip
+cache stores    cache/download/<module>/@v/<ver>.{info,mod,zip,ziphash}
+```
+
+So a static file server over that directory is a working module proxy, and
+`GOPROXY` is an environment variable a step is handed exactly as `GOCACHEPROG`
+is. Protocol-first survives the correction; only the priority changes.
+
+Two things to get right when it is built. `.lock` and `.ziphash` are not protocol
+paths and should not be served. `sumdb/` **is** one - the proxy protocol carries
+the checksum database - but its `lookup/` records hold a signed tree head that
+moves (E-F4), so serving a stale one is a consistency question that wants
+checking rather than assuming.
+
+### What this re-scores
+
+Tier 2 was "the arithmetic says don't". It should read: **worth it exactly when a
+worker is cold or egress is slow, metered or absent** - which is CI, which is the
+target. For Go it is also cheaper to build than the build-cache route it was
+ranked below.
+
+## E-F15: the helper is an image, and it is not invoked per verb
+
+Two decisions, the second correcting the first.
+
+### An image, not a wasm blob
+
+The engine already does this. **A helper is shaped exactly like a step** - pull an
+image, resolve and pin its digest, store its layers, bind the cache directory,
+run argv, read stdout - and `CACHE --helper <image>@sha256:...` inherits digest
+pinning from Θ (I17), which matters because a helper's behaviour decides what
+lands in a cache.
+
+Wasm does not avoid the image; it adds a runtime on top of one, since a `.wasm`
+still has to be distributed, versioned and pinned.
+
+Host-provided hash functions would **repair a cost wasm creates** rather than add
+a benefit. Hashing a 628 MiB cache: 0.35 s with native sha512 - measured here at
+1,724 MiB/s, sha256 at 2,560 - around 2.5 s in pure wasm without hardware
+acceleration, and 0.35 s again with host functions. Native speed, bought back at
+the price of an ABI we would then own.
+
+And the confinement argument was hollow. One preopened directory is a real
+improvement in the abstract; in context **the author already runs arbitrary code
+in every `RUN` beside it**, so a helper image is no new trust while a runtime is
+new surface.
+
+Wasm stays the answer for a helper in the **hot path** - one called per cache
+lookup, the way `GOCACHEPROG` is per action. A container per lookup is impossible
+and a wazero call is about a millisecond.
+
+### One process per verb is the expensive shape
+
+Measured: a native `docker run` costs **492 ms** to start. Three verbs per mount
+per build is 1.5 s, and the worst of it is that **it is paid when there is
+nothing to do** - a container start to learn that this worker is already up to
+date.
+
+So a helper is a **long-lived process reading a request stream**, not a program
+invoked per verb. Which is what `GOCACHEPROG` is, and what `tools/gocacheprobe`
+already implements:
+
+```text
+per-verb process          3 x 492 ms per mount per build     1.5 s
+one process per build     1 x 492 ms                         0.49 s
+kept alive across builds  1 x 492 ms ever                    ~0
+nothing to transfer       0 invocations                      0
+```
+
+The last row is the one that matters most. **The engine decides whether anything
+needs doing from state it already holds** - the warmth table (E-F7) and the
+digest of the map it last exported - so a build with nothing to fetch starts no
+helper at all. A helper is started when there is work, not to find out whether
+there is any.
+
+This is the same correction as E-F6's, one level up: batching the units was not
+enough while the verbs still each paid a process.
+
+### A long-lived wasm instance does not change the answer
+
+Making **both** long-lived is the fair comparison, and it removes wasm's only
+clear advantage while leaving its disadvantage untouched:
+
+|                 | container       | wasm instance             |
+| --------------- | --------------- | ------------------------- |
+| start, once     | 492 ms          | ~1 ms                     |
+| per request     | microseconds    | microseconds              |
+| hashing 628 MiB | 0.35 s          | ~2.5 s                    |
+| 88k file opens  | native syscalls | the WASI ABI, 2-5x slower |
+| distribution    | the image       | still needs an image      |
+| we maintain     | nothing new     | a runtime and a host ABI  |
+
+**Startup amortises and throughput does not.** A cache helper walks directories
+and hashes bytes - exactly where wasm is slow, and exactly what a long-lived
+instance does nothing about. It would pay 492 ms once to save about two seconds
+on every export.
+
+So long-lived is right, and it is an argument for the image: the 492 ms was the
+only number favouring wasm, and making both long-lived deletes it.
+
+### Correction: the hashing was on the wrong side of the boundary
+
+The table above charges wasm 2.5 s to hash 628 MiB. **Neither side pays that**,
+and the row should be struck rather than equalised.
+
+`tools/cachehelper` hashes nothing, and the design is why: a helper's key comes
+from what its tool already wrote - a `-a` filename for a Go build-cache entry,
+`module@version` for a module, the record digest npm put in its own bucket line -
+and **ℋ over a unit is the engine's work** (E-F11), native whichever language the
+helper is written in.
+
+So the objection that host-provided hash functions answer was one this design
+never had. The honest comparison, with that row gone:
+
+|                       | container        | wasm instance                     |
+| --------------------- | ---------------- | --------------------------------- |
+| start, once           | 492 ms           | ~1 ms, amortised either way       |
+| hashing               | **neither**      | **neither** - it is the engine's  |
+| directory walk, reads | native syscalls  | the WASI ABI, **unmeasured**      |
+| distribution          | the image        | still needs an image or a URL     |
+| confinement           | the step sandbox | one preopened directory, tighter  |
+| we maintain           | nothing new      | a runtime, and a host ABI if used |
+
+**"2-5x slower" was a guess and should not have been tabulated.** What a helper
+actually does is walk a directory and copy bytes out; how much the WASI ABI costs
+for 88,114 entries and 628 MiB is not known here, and a wazero benchmark against
+a real cache would settle it.
+
+The decision stands on the rows that survive - nothing new to maintain, and no
+distribution question - rather than on throughput. **That is a thinner case than
+the one first made**, and worth saying so: with hashing struck and traversal
+unmeasured, the gap between the two is smaller than this document claimed.
+
+## E-F16: a real build shares a real cache
+
+The first end-to-end run. An Earthfile with
+
+```text
+CACHE --id sharedemo --portable-except '' --helper ./cachehelper.wasm /c
+```
+
+and a step that writes a Go module layout into it. On the native Linux box:
+
+```text
+cache sharedemo: 1 units shared, map 1d26608f7c6e835f...
+```
+
+Verified in the store rather than believed from the line:
+
+```text
+map blob 1d26608f...   example.com/m@v1.0.0 -> 3d9f1257...
+unit blob 3d9f1257...  a tar of
+   cache/download/example.com/m/@v/v1.0.0.{info,mod,zip}
+both blobs hash to the names they are filed under
+```
+
+A wasm helper decided those three files were one unit and what it was called;
+the engine filed it under ℋ of its bytes and wrote a map naming it. **The engine
+does not know what `@v` means.** The tar shows the normalisation working too -
+`1970-01-01`, mode 0644, uid and gid 0 - which is what lets two machines agree on
+a digest.
+
+`helpers/` appeared in the store beside it: the wazero compilation cache
+persisted, so the next build on that machine compiles nothing.
+
+### On darwin it did nothing, correctly
+
+The same build on the Mac shared nothing and was right to. On the Apple backend
+the store is a block device the guest owns (E511), so
+`~/Library/Caches/earthbuild/store/` is empty from the host and the hook found no
+directory to export.
+
+**Host-side export works where the store is a host directory**, which is the
+native backend - a fleet's workers, and not a Mac driver. For darwin and
+Firecracker the export has to run guest-side, where `cmd/earth-guestd` is a Go
+binary of ours and could link the same runtime. That is a real gap and not a bug:
+the hook is nil-safe, the directory check is honest, and a machine that cannot
+share says nothing rather than claiming to.
+
+It was also predicted, twice, and assumed past twice - which is the third time
+this session that "the store is here" turned out to be true of one backend and
+read as a rule.
+
+## E-F17: a third ecosystem, and what it cost
+
+The claim under test: a new language is a helper and nothing else. Cargo, added
+to the prototype:
+
+```text
+tools/cachehelper/helpers.go   +57   the helper
+tools/cachehelper/main.go       +5   registering it
+everything else                  0
+```
+
+A real build on the native box, `cargo fetch` into a shared mount:
+
+```text
+cache cargodemo: 1 units shared, map 6692afb5...
+
+map   index.crates.io-1949cf8c6b5b557f/libc-0.2.189 -> c076fcdd...
+unit  a tar of cache/index.crates.io-.../libc-0.2.189.crate, 851502 bytes
+      the crate inside still gzip-valid; both blobs hash to their names
+```
+
+The helper also recognised a Cargo registry **without being told which format it
+was** - `probe`, asked in turn, is what lets one artefact serve every format it
+knows - and indexed the real 8,285-crate, 1.3 GiB cache in 0.05 s, because a
+crate's key is its filename and nothing has to be opened.
+
+### Two things the run found that the tests had not
+
+**A mount point can mask the toolchain.** `CACHE ... /usr/local/cargo` hid the
+`cargo` binary that lives there and the step died with `cargo: not found`.
+`docs/caching/sharing-caches.md` already said to mount
+`$CARGO_HOME/registry/cache` rather than the home; the advice was written and
+then not followed. The helper now finds the crate directory under either mount
+point rather than assuming one, and keys relative to it, so the same units are
+readable whichever an author chose.
+
+**A share that failed said nothing at all.** The executor discards the hook's
+error deliberately - a cache that did not cross is not a build failure - and the
+CLI, which was supposed to report it, did not. So the first Cargo run printed no
+units and no reason, which is indistinguishable from a cache with nothing in it.
+I11 is *degrade if you must, but say so*, and the "say so" half was missing.
+
+### Timestamps, which is where Rust is unlike Go
+
+Export zeroes every timestamp, because a unit's bytes are its name and an mtime
+never agrees between machines. **Import restores none of them**, so an arriving
+file carries the time it arrived.
+
+That asymmetry looked like an oversight and is the correct answer. Cargo compares
+mtimes in its fingerprints, so a crate or a source tree stamped 1970 would look
+older than everything built from it - which reads as *already fresh, no rebuild
+needed*, the wrong direction for a mistake to point. Go does not care, being
+content-hashed throughout. It is now deliberate in the code and in the docs
+rather than true by omission.
+
+## E-F18: npm, and the test that a tool accepts what we moved
+
+The third ecosystem run for real, and the first where the receiving tool was
+asked to use the result rather than the store merely inspected.
+
+A step ran `npm install left-pad is-odd` into a shared mount; the helper made six
+units of it - three packuments and three tarballs - and the engine filed them.
+The units were then rebuilt from the blobs into an empty directory and handed to
+npm with the network switched off:
+
+```text
+docker run --network=none ... npm install --offline
+  added 3 packages in 324ms
+  is-number  is-odd  left-pad
+```
+
+**Two bugs that only a real run could find**, and the second is why the first
+survived so long.
+
+### The content path was base64 where cacache uses hex
+
+An SRI integrity is written in base64 and cacache addresses content by
+`ssri.parse(integrity).hexDigest()`. The helper built
+`content-v2/sha512/XI/5M/...` where the store holds
+`content-v2/sha512/5c/8e/...`, so **every content blob was left behind**: index
+records crossed, the tarballs they named did not, and a receiver would have had
+an index that missed on every lookup while appearing to hold six entries.
+
+### A unit shipped missing half of itself, silently
+
+`addFile` swallowed a file it could not stat, so the wrong path above produced a
+unit containing the bucket and nothing else - and said so nowhere. A unit is now
+all of its files or none of them: a unit the sender cannot produce whole is a
+unit it does not have.
+
+That pairing is the general lesson rather than an npm one. A helper that names
+several files as one unit must be unable to ship a subset of them, or the
+receiver holds an index pointing at content nobody sent.
+
+### What it took to be sure
+
+The first offline attempt failed with `ENOTCACHED` and the transport was
+innocent: `npm_config_cache` names the cache *root* and npm puts `_cacache`
+inside it, so pointing it at the cacache directory made npm look in
+`_cacache/_cacache`. The tell was `_logs/` appearing beside the buckets. Worth
+recording because "the tool rejected it" was the wrong conclusion and was one
+command away from being written down as a finding.
+
+Keys crossed exactly, checked before the install was blamed:
+
+```text
+request-cache:https://registry.npmjs.org/is-number
+request-cache:https://registry.npmjs.org/is-number/-/is-number-6.0.0.tgz
+request-cache:https://registry.npmjs.org/is-odd
+request-cache:https://registry.npmjs.org/is-odd/-/is-odd-3.0.1.tgz
+request-cache:https://registry.npmjs.org/left-pad
+request-cache:https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz
+```
+
+## E-F19: import, automatic - and why probing could not be the rule
+
+`Share` filed a cache's units after a step; nothing put them back. `Stock` is the
+other half, offered each portable mount **before** a step with the directory its
+contents belong in - which may not exist, since a cache nothing has filled here
+is exactly the one worth filling.
+
+Proved by taking it away: build once, delete the mount directory, build again.
+
+```text
+cache npmdemo: 6 units stocked
+  added 3 packages in 308ms
+```
+
+The pointer from a cache to its latest map is a plain file beside the store and
+**deliberately not a blob**: its name would have to come from the cache's id
+rather than from its contents, and 𝔅 refuses anything that does not hash to the
+name it is filed under. That is the property which makes the store impossible to
+poison, so the mutable thing lives where nothing claims it.
+
+### A helper is one format, and the cold case proves it
+
+The first attempt failed:
+
+```text
+cache npmdemo: not shared: helper cachehelper.wasm [import]: exit 1:
+  cachehelper: no helper here understands /cache
+```
+
+The prototype bundles four formats and picks by `probe`, which is a convenience
+that works when a cache exists and **cannot work when it does not**. `import` is
+handed a cold directory by definition, and no format is recognisable in an empty
+one.
+
+So a shipped helper is one format, stamped at link time
+(`-ldflags -X main.only=npm`), and `+cache-helper` now builds four artefacts
+rather than one. Probing stays as a fallback for a bundled binary shown a cache
+it can inspect.
+
+### "exit 1" was not a diagnosis
+
+That error took a second run to see, because the runtime discarded the module's
+stderr. A helper that refuses says why; throwing it away left a build reporting
+an exit code and no reason - a helper nobody can debug and a cache nobody can
+explain. Stderr is now kept, bounded at 8 KiB so a module in a loop cannot fill
+memory with its own complaint.
+
+Two diagnosability fixes in two runs, both the same shape: the mechanism worked
+and could not be asked what it had done.
+
+### Still to do
+
+A build that stocks then shares re-exports what it just imported. The units
+dedupe in 𝔅, being the same bytes under the same names, so it costs work rather
+than space - but a share whose index is unchanged since the last one has nothing
+to say and should say nothing.
+
+## E-F20: a helper was pinned by its path, which is a name and not an identity
+
+`Mount.Helper` is in Κ₁, and the comment beside it says why: a helper decides
+what a unit is, what it is called and what bytes go in each frame, so two
+machines running different helpers over one cache produce units that are not the
+same units. What was hashed was `./go.wasm` - a string two machines can hold
+identically over entirely different bytes. **The agreement being enforced was an
+agreement about spelling.**
+
+The delegability guard stated it outright, and was wrong in the same place:
+
+```go
+// A helper does not pin a step either: it is a program both ends
+// run, not a path only one machine has.
+Helper: m.Helper,
+```
+
+It is a path only one machine has. A worker sent `--helper ./cachehelper.wasm`
+has no such file, so the step it was delegated could not have shared a thing.
+
+### Θ's argument, one construct over
+
+An image reference has the same shape and this engine already solved it: resolve
+once per build, before the key is taken, and key what it resolved to (I17). So
+`ResolveHelper` joins `ResolveImage` as a seam the caller supplies, `Mount`
+gains `HelperID`, and Κ₁ hashes both - the spelling, because it is what the
+author wrote, and the digest, because it is what two machines can actually agree
+about.
+
+Absent, the reference is left as written and **no pin is claimed**, which is
+`WithImageResolver`'s position and for its reason: `ls`, `doc` and corpus
+analysis must produce a graph without reading anything, and a coarser key is a
+better failure than a refused build.
+
+### Resolving files the module, and that is the point
+
+The one way this differs from Θ. A pinned image reference is a name a registry
+will answer for; a pinned helper is a name **nobody** can answer for until the
+bytes are somewhere both ends read. So the CLI's resolver puts the module in 𝔅
+and returns its digest, and a worker then fetches a helper by exactly the route
+it fetches everything else - digest-named, verified on read, unpoisonable.
+
+Verified on a real build:
+
+```text
+cache npmdemo: 6 units shared, map 08f42d19ba5bc466f6d8563451a47ac10997ae6e0a3e2ee1b4da8cb95445dae8
+$ cmp cachehelper.wasm store/a9/a9be64100683cf492c861c006a6cdb365d75be402363ad3765ee62954049c58a
+  (identical)
+```
+
+`helperFor` now reads 𝔅 first and falls back to the path, which also closes a
+smaller hole: re-reading the path gets whatever is there *now*, and on a long
+build that is not necessarily the file the key was taken over.
+
+### Two coverage guards that were not there
+
+`TestEveryOpFieldSurvivesTheWire` varies `Op.Caches` as a slice, which proves the
+slice is carried and says nothing about the element - the same blind spot
+`engine/ir` was given `TestEveryMountFieldReachesTheIdentity` for. So every field
+of a `fleet.Cache` is now checked twice: that it survives the wire, and that it
+reaches the mount `operationOf` rebuilds. A field that crosses and is dropped
+there is a worker running a declaration nobody sent.
+
+### What this does not yet buy
+
+On the driver the pin adds integrity and nothing else: the path still has to be
+readable, because that is where the bytes are read from in the first place. The
+payoff is entirely on the far end - a machine that never saw the Earthfile - and
+nothing wires a worker to share or stock yet. `cmd/earth-worker` builds its
+executor through `exec.New` rather than through the CLI's `sandboxed`, so
+`Mounts`, `Stock` and `Share` are all nil there. That is the next piece, and the
+pin is its precondition rather than its substitute.
+
+## E-F21: the worker was never wired to share, and the control says why it still cannot
+
+`Share` and `Stock` are set in `engine/cli`'s `sandboxed`. `cmd/earth-worker`
+builds its executor through `exec.New` and never goes near that function, so
+**every worker in every fleet had `Mounts`, `Stock` and `Share` nil**: handed a
+step with a portable cache mount, it made an empty directory, ran the step, and
+discarded the only thing that would have made the delegation pay.
+
+So the machinery moved to `engine/cacheshare`, where both ends can reach it, and
+the worker sets both halves. A four-step fleet on the Linux box, driver and
+worker with separate stores:
+
+```text
+driver   3 delegated, 2 local
+driver   cache npmfleet1: 2 units shared   cache npmfleet3: 2 units shared
+worker   cache npmfleet2: 2 units shared   cache npmfleet4: 2 units shared
+```
+
+Two caches shared by a machine that had never shared one.
+
+### And the control says it passed for the wrong reason
+
+The worker ran from the directory the Earthfile lives in, which holds
+`cachehelper.wasm`. `--helper ./cachehelper.wasm` resolved against the worker's
+own working directory and found it - the path fallback, not the pin. Re-run from
+a directory with the worker binary and nothing else:
+
+```text
+cache npmfleet2: not shared: read the helper ./cachehelper.wasm:
+  open cachehelper.wasm: no such file or directory
+```
+
+Which is the real state: **a worker attempts to share and cannot**, because the
+pinned module is in the driver's store and nothing moves it.
+
+```text
+find worker-store -size ~4MiB  ->  (nothing)
+find driver-store -size ~4MiB  ->  driver-store/a9/a9be6410…
+```
+
+Two results in one run, and the second is the one worth having. Without the
+control this would have been written up as working, on evidence that was
+entirely a coincidence of `cd`.
+
+### What it names as next
+
+A worker needs blobs its store lacks - the helper module first, the cache's units
+after it. That is `remote.Cache.Elsewhere`'s shape applied one layer over: a
+read-through from `cacheshare`'s store to the fleet, verified by digest on
+arrival because 𝔅's rule is that a wrong answer is a miss. The transport exists
+(`earth/blob/1`, `fleet.Nodes`); nothing connects it to this store yet.
+
+The failure now says both halves, because on a worker the path is the route that
+was never going to work and the pin is the one that should have.
+
+## E-F22: a helper crosses the fleet, and the store was two stores
+
+E-F21 left a worker attempting to share and unable to: the pinned module sat in
+the driver's 𝔅 and nothing moved it. Three things were missing, and the third
+was not the one this expected.
+
+**`fleet.Nearby`** - `Peers`' sibling. That one is refreshed per assignment and
+carries *fragments*, which is what faulting a base in needs; a cache's units and
+the module that reads them are whole blobs named by ℋ, and nothing held a live
+list of who to ask for one. Set from the same holders at the same moment, one
+line beside `sink.Set`.
+
+**A read-through in `cacheshare`** - local 𝔅 first, then the fleet, verified
+before it is kept. Kept, because a helper is asked for once per cache mount per
+step and a worker runs many; verified, because filing a peer's answer under a
+name it does not hash to would poison the one store in this engine that cannot
+be poisoned. A mismatch is a miss (I4) and nothing is written down.
+
+**And the driver never served its nodes.** `fleet.Nodes` existed and only
+`cmd/earth-worker` built one, so the machine holding the helper module and every
+cache's units answered nothing about them.
+
+### Which uncovered the real fault: one namespace, two directories
+
+Fixing all three and re-running still gave:
+
+```text
+cache npmfleet2: not shared: the helper pinned as a9be6410… is not in this
+  store, and ./cachehelper.wasm is not here either
+```
+
+`store.NoteNodes` writes REAPI `Directory` messages under `nodes/<digest>`.
+`blob.Store` writes everything else - a cache's units, a helper's module - under
+`<first two hex>/<digest>`. Both are content addressed by ℋ over their own
+bytes; `fleet.Nodes` knew only the first.
+
+So **`fleet.Nodes` has never been able to serve anything a shared cache is made
+of**, and the plan's claim that it could was wrong from the day it was written.
+It was serving a real population - Directory messages - which is why nothing
+looked broken. A digest belongs to at most one of the two directories, so looking
+in both is completeness rather than ambiguity.
+
+### The proof
+
+Worker in a directory holding two binaries and nothing else:
+
+```text
+ls ~/git/big/fleetworker/  ->  earth-guestd  earth-worker
+
+driver   3 delegated, 2 local
+driver   cache npmfleet1: 2 units shared   cache npmfleet3: 2 units shared
+worker   cache npmfleet2: 2 units shared   cache npmfleet4: 2 units shared
+
+worker-store/a9/a9be64100683cf492c861c006a6cdb365d75be402363ad3765ee62954049c58a
+cmp cachehelper.wasm <that>  ->  identical
+```
+
+A machine that never saw the Earthfile fetched the module by the digest the
+driver keyed the step under, verified it, kept it, ran it, and shared two caches.
+
+### Still owed
+
+Stocking from a peer. `Stock` now reads its map and its units through the same
+read-through, so the mechanism is there - but the pointer from a cache to its
+latest map is a local file, and nothing tells a worker which map describes the
+cache it is about to fill. That is a hint (`Hints`, I5) and it is the next piece.
+
+## E-F23: a cold worker fills a cache from a peer, and a hint was never on the wire
+
+The last join. A map names a cache's units by ℋ and is itself a blob; the
+**pointer** from a cache to its latest map is mutable, so it is deliberately not
+content-addressed and a machine that has never filled this cache has nothing to
+look up. It has to be told, which makes it a hint (I5) - advice a worker may
+ignore, at the cost of doing the work itself.
+
+`Hints.CacheMaps` is keyed `<id>/<scope>`, and the scope is what keeps
+write-scoping load bearing (§5.3) **without either end comparing trust domains**:
+two machines whose domains differ compute different scopes, the key does not
+match, and nothing is stocked. The refusal is a consequence of the key rather
+than a check somebody has to remember.
+
+### The whole loop, measured
+
+```text
+run 1, driver alone      cache npmshared: 16 units shared, map 5d6decca…
+run 2, worker joins      2 step(s) delegated, 0 here
+  worker                 cache npmshared: 16 units stocked
+  worker                 cache npmshared: 16 units shared
+
+worker-store/mounts/npmshared/5ce3c090…/index-v5   ->  16 entries
+```
+
+The worker's store was deleted before the run. It fetched the map blob by the
+digest the driver named, then every unit the map named, then the helper module
+the step was keyed under - all by digest, all verified - imported them with that
+helper, ran the step against a warm cache, and shared what it had back.
+
+The second delegated step printed no stock line, which is right: the cache was
+already complete, so the index diff was empty and there was nothing to say.
+
+### And `Hints.Bytes` had never crossed the wire
+
+Writing the guard for the new field found the old one. `Bytes` is how placement
+prices a step, the only number it has about *bytes* rather than queueing (E317),
+and it is a field of a wire struct, documented as crossing and tagged
+`json:"bytes,omitempty"`, that the binary codec carrying it simply did not
+mention. Nothing was visibly wrong because it is read only on the driver, where
+it was set.
+
+**The existing guards could not have caught it.** `TestEveryOpFieldSurvivesTheWire`
+compares a round trip by **re-encoding** both sides, which is blind in exactly
+the place that matters: a field *neither* side carries encodes identically on
+both and round-trips as equal while crossing nothing. The new guard passed on its
+first run for that reason, and only failed once it compared the field instead of
+the encoding.
+
+So all three now compare the field, printed rather than `DeepEqual`'d - which
+still absorbs the one difference the wire genuinely cannot carry, a decoder's
+empty slice where the sender had nil. Re-checked against `Op` and `Cache`:
+nothing else was hiding.
+
+Version 3 carries both.
+
+### What the remit still owes
+
+* **Darwin and Firecracker.** Host-side export only works where the store is a
+  host directory. On a VM backend `nodes/` and 𝔅 are on the guest's device, so
+  `fleetStore` deliberately serves neither and a Mac shares nothing - honestly,
+  and E511's gap.
+* **Nothing prunes.** A map is filed per cache per build and units accumulate in
+  𝔅 for ever.
+* **`Stock` then `Share` re-exports what it just imported.** The units dedupe,
+  being the same bytes under the same names, so it costs work rather than space -
+  but a share whose index is unchanged has nothing to say.
+
+## E-F24: gates 5 and 6, and the specification saying the opposite
+
+Two gates the plan marked "none optional" were still open, and both are about
+what a *writer other than the step* may do to a cache mount.
+
+### Gate 5: `--sharing=shared` was never permission for this
+
+`core.ClaimOrder` and `guest.LockOrder` serialise steps declaring
+`--sharing=locked`, so a stock-run-share sequence over one of those is already
+alone in the directory. `shared` is the author saying several steps may use it at
+once and the tools inside cope with their own locks - and that is an assertion
+about *npm's* locking and *cargo's*. **An importer writing raw files is not one
+of those tools.**
+
+So this engine serialises its own writers, per directory rather than per machine.
+Four concurrent stocks of one cache now overlap at most one at a time, and four
+stocks of four caches still overlap - measured both ways, because a lock over
+every cache rather than over one is a build serialised for nothing.
+
+The rest belongs to the helper contract: `import` must be safe against a reader,
+because only the helper knows whether this format tolerates one.
+
+### Gate 6: the host cannot do the scan, and should not be able to
+
+`noteSecretLeak` scans a step's **delta** for a secret's bytes as the step was
+handed them. A cache mount is not a delta and has never been scanned, because
+§C.3 guaranteed its contents never left the machine.
+
+`layer.FindSecrets` needs the secret's *value*, which is staged beside the step
+and never reaches the machinery that files units. Plumbing it there to scan with
+would widen a credential's reach in order to guard it - so the scan is not moved,
+and the conservative rule holds instead: **a step given a secret or AWS
+credentials shares no cache mount, whatever its author claimed.**
+
+Deliberately coarser than a scan, and better in two ways: it is mechanical, and
+it cannot be defeated by a value the step encoded, compressed or compiled - which
+`noteSecretLeak`'s own comment admits it cannot catch. Over-cautious for
+`go build` with a registry token, and the author's remedy is to put the credential
+in a step of its own. Said rather than swallowed, so the remedy is discoverable.
+
+### And the specification asserted the opposite
+
+§C.3: *"a step's cache mounts travel as declarations and never as contents"*.
+That was true when it was written and this work made it false, which is the
+condition this project resolves rather than tolerates.
+
+The reconciliation turned out to be a clarification rather than a retraction. The
+sentence is about the **assignment**, and remains exactly true of it: an
+assignment carries the declaration and only the declaration. Contents of a
+portable mount cross by a *different* route - content-addressed blobs in 𝔅,
+fetched by digest over C.4, joined by a map named in a hint - and change no
+result, because Κ₁ hashes the declaration and a worker that fetches nothing
+produces the same layer more slowly.
+
+So §3.3c-i now specifies the construct: ξ (the claim and the helper), Ξ (the
+scope, over the claim and the trust domain), units, the map, and the two
+outcomes. The helper enters Κ₁ **by the digest of its program**, which is I17's
+argument applied to a second mutable reference. And I23 is new: a cache that held
+a credential stays where it is, enforced at level 1 because the machine that
+files units does not hold the value it would need to scan with.
+
+## E-F25: an export re-read the whole cache, and key equality cannot fix it
+
+A worker that stocks then shares re-exports what it has just imported. The units
+dedupe in 𝔅, being the same bytes under the same names, so it costs work rather
+than space - the kind of waste that never announces itself. Visible in E-F23's
+own log and read straight past:
+
+```text
+worker  cache npmshared: 16 units stocked
+worker  cache npmshared: 16 units shared
+```
+
+The obvious fix is unsound. "Skip the export when the key set is unchanged"
+works for a Go build cache, where an action id is a hash of the step's inputs and
+the output under it is fixed, and **breaks on npm**: a cacache bucket is
+append-only and holds several records, so a key present in both indexes can have
+gained one. A key set that compares equal is then a cache that has changed, and
+the skip would file a map naming last build's bytes for a unit that has grown.
+
+Which is the shape this whole design already has an answer for: **only the helper
+knows.** So a sixth verb, `props`, optional and free - a property is a fact about
+the *format*, so it needs no per-unit work, which is precisely where the `bytes`
+column went wrong at 24.7x (E-F6). `units-immutable` is claimed by the go-build,
+go-mod and cargo helpers and deliberately not by npm.
+
+Given it, an export narrows to the keys the last map does not name, bounded by
+the index in both directions - a key here and unnamed is exported, a key named
+and no longer here is dropped, so a tool that prunes its own cache cannot leave
+the map naming units nobody can serve.
+
+### Measured
+
+Two builds of different programs against one Go build cache, separate
+invocations:
+
+```text
+first, cold cache      cache gobuild: 241 units shared
+second, warm cache     cache gobuild: 245 units shared (4 new)
+```
+
+61x fewer units framed and hashed on the second build, and the ratio grows with
+the cache: a real 88,000-unit build cache where a step touches a hundred is the
+same arithmetic at ~880x.
+
+The first attempt showed no narrowing at all, because the memory of what was
+filed lived only in the process and a build is a fresh one each time. The pointer
+on disk is the missing source and is sound **exactly where it is used**: trusting
+it means asserting the unit under a key still has the bytes the map records,
+which is `units-immutable` restated. Where the claim is absent it is not read.
+
+And a share that adds nothing now says nothing. Forty steps over one cache would
+otherwise print forty identical lines, which trains the reader to skip the one
+that differs; the map is content-addressed, so an unchanged digest is an
+unchanged cache and the silence is detected rather than guessed.
+
+## E-F26: nothing collected a shared cache, and prune said so in the wrong words
+
+`Collect` sweeps `layers/` and the `nodes/` a surviving manifest implies. A
+portable cache mount files its units and its maps in 𝔅 at the store root, sharded
+`<first two hex>/<digest>` - **a third population the collector had never seen**.
+So a machine that shares caches grew without bound and `earth prune` reported
+freeing nothing, which is not a warning anybody would read as one.
+
+Reachability is the nodes argument one level longer. A pointer in
+`cachemaps/<id>/<scope>` names a map; the map names every unit. Anything else at
+the root is a map nothing points at any more - one per cache per build, which is
+what accumulates fastest - or a unit no map names.
+
+A pointer whose cache directory is gone is removed rather than followed. The
+directory is made when a step binds the mount, so its absence means the cache is
+not here, and a pointer nobody will follow again keeps a map and every unit in it
+alive for ever.
+
+**A helper's module is swept with them, deliberately.** It is filed by the
+resolver at plan time on every build that names one, so losing it costs a re-read
+of a few megabytes on a driver and a fetch from a peer on a worker. Keeping it
+would need a root of its own, and a root that is never collected is the growth
+this exists to stop. Confirmed rather than assumed: after the sweep the next
+build re-filed it and shared normally.
+
+### Measured on a store holding four builds' worth
+
+```text
+before                21 blobs, 205 MiB
+earth-native -prune   removed 0 layers, swept 4 shared-cache blob(s),
+                      freed 4.0 MiB, 5 layers and 179.4 MiB left
+after                 17 blobs
+next build            cache npmshared: 17 units shared
+```
+
+Three superseded maps and the 4 MiB helper module; the live map and its sixteen
+units untouched. The 4.0 MiB is almost entirely the module, which is the shape to
+expect - maps are 0.86% of what they index (E-F11), so on a real store the units
+dominate and the count is the number worth reading.
+
+Counted apart from `Removed` and `Nodes`, for the reason those are counted apart
+from each other: losing a layer costs a rebuild or a fetch, and losing a cache
+unit costs whatever the tool inside does about it. Reported together they would
+read as having thrown away far more than they did.
+
+## E-F27: a Mac shares nothing, and until now did not say so
+
+On a VM backend the store lives on the guest's block device. `Apple.StoreDir`
+and `Firecracker.StoreDir` both return a **host** path - where the device image
+sits - so `<store>/mounts/<id>/<scope>` does not exist on this side at all.
+
+Which reads, to `Offer`, exactly like a mount the step never used:
+
+```go
+// A cache the step never wrote is not an empty cache, it is no cache
+if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+    return nil
+}
+```
+
+Both readings are right, and only one of them is ordinary. An author on a Mac
+writes `--portable-except` and `--helper`, gets no sharing, and gets no
+indication of why - the third time this design has grown a silent degrade, after
+the helper's discarded stderr and the unreported share failure.
+
+Said once per build now, not once per mount per step. Exercised through
+`EARTH_STORE_IN_VM=1` on the Linux box, which is the same branch:
+
+```text
+caches are not shared from here: the store is on the guest's device,
+  and a cache mount can only be read from the side it is on
+```
+
+and no `cache ...: N units shared` line after it.
+
+### What closing it would take
+
+The host cannot read the mount, and streaming the mount out to the host per step
+defeats the economics - the whole point is that a cache stays put and only units
+move. So the work goes to the side the cache is on.
+
+| piece                      | where it is now              | where it would have to be              |
+| -------------------------- | ---------------------------- | -------------------------------------- |
+| the wasm runtime           | `engine/helper`, host-side   | `cmd/earth-guestd`                     |
+| 𝔅, for units and maps      | `engine/cacheshare`, host    | guest-side, beside the layer store     |
+| the pointer in `cachemaps` | host store                   | guest store                            |
+| `Elsewhere`                | `fleet.Nearby` on the host   | proxied out through the guest protocol |
+| the helper's module        | filed by the host's resolver | streamed in, or fetched by the proxy   |
+
+Two requests on the guest protocol - stock this mount from this map, share this
+mount - and the rest is moving code that already exists to a binary that already
+exists. The proxy is the only genuinely new part: the guest has no fleet
+connection and must not grow one, so a blob it lacks is a request the host
+answers from `Nearby`.
+
+Not attempted here. It is a day's work rather than an hour's, it is confined to
+one platform, and the honest refusal above is what makes leaving it safe: a Mac
+now says it shares nothing rather than appearing to.
+
+## E-F28: writing the examples found two things the feature could not survive
+
+Every demonstration of portable caches so far lived in a scratch directory on one
+machine. Putting them in `examples/cache-helpers/` - one per ecosystem, beside
+`examples/cache-command` - broke twice before it ran.
+
+### A helper path meant the wrong directory
+
+`unit.dir` is documented as *"this Earthfile's directory: its build context, and
+the root that its relative references are resolved against"*. `--helper` was
+resolved against the **invocation's** directory instead, so
+`--helper ./h.wasm` in `examples/npm/Earthfile` named a file at the repository
+root - and every example here is built as `BUILD ./examples/x+y` from the root.
+
+**The construct was unusable in exactly the place it is meant to be shown off**,
+and the symptom is a cache that quietly does not share. The same bug class as
+`TestAReferencedTargetReadsItsOwnDirectory`, one construct over; `ResolveHelper`
+now takes the Earthfile's directory alongside the reference, and the memo is on
+the pair, because two Earthfiles may each say `./h.wasm` and mean different files.
+
+Proved by the examples themselves: four sub-Earthfiles, four distinct modules in
+𝔅, each matching the blob in its own subdirectory.
+
+### A symlinked binary could not find its agent
+
+`ln -s ~/src/build/earth ~/bin/arth` is how a developer puts one build on PATH,
+and `os.Executable()` on darwin answers with the **link**, not what it points at,
+since only Linux's `/proc/self/exe` is already resolved. So `findGuestBinary` looked
+in `~/bin`, found nothing, and printed advice telling the reader to put the file
+somewhere it already was.
+
+Both directories are candidates now, deduplicated by their resolved form - on
+macOS `/var` is itself a symlink to `/private/var`, so an ordinary binary yields
+two spellings of one place, and a diagnosis that prints one path twice reads as a
+bug in the tool rather than in the setup.
+
+### And one limitation that is not a bug
+
+A `--helper` is a host path read when the build is **planned**, so it must exist
+before the invocation that names it starts: a build cannot produce its own
+helper in one pass. Hence two commands, and hence these examples are **not** in
+the `examples-1`/`examples-2` CI targets - a `BUILD` is one invocation.
+
+`--helper +target/artifact`, resolved the way `COPY` resolves one, would close
+that. Not implemented, and worth more than it looks: it would make a helper an
+ordinary build input rather than a file somebody has to remember to build.
+
+## E-F29: a helper is an ordinary build input
+
+E-F28 recorded a limitation and called it not-a-bug: a `--helper` is a host path
+read when the build is **planned**, so it must exist before the invocation that
+names it starts. Hence two commands to run the examples, and hence they could
+not join the `examples-N` CI targets - a `BUILD` is one invocation.
+
+It was a bug in the sense that matters: the construct was awkward in the one
+place a reader meets it.
+
+`--helper +target/artifact` closes it, and cost almost nothing because the seam
+already existed. `interp.Artifacts` builds a target while planning and hands back
+the directory its output landed in - *"the point at which planning stops being a
+pure function of the source"* - and until now only `FROM DOCKERFILE` used it, to
+build the target that writes the Dockerfile it is about to parse. A helper is the
+same shape: something this build produces that the plan needs to read.
+
+```Earthfile
+CACHE --portable-except 'tmp/**' \
+    --helper ../../..+cache-helper/build/cachehelper-npm.wasm /root/.npm/_cacache
+```
+
+Memoised on the reference, so an Earthfile with a cache mount in forty steps
+builds the helper once rather than forty times - which is what `FROM DOCKERFILE`
+does for the same call and for the same reason.
+
+**Degrade, not refuse**, where there is nowhere to build it. That is every other
+`--helper` failure's rule and it is what keeps `ls`, `doc` and the corpus sweep
+working: they supply no builder, so the mount is left unpinned and the cache
+does not cross. A refusal there would have made the construct unplannable
+without a running engine.
+
+### What it bought
+
+```text
+before   earth +cache-helper-examples     # and remember to, or nothing shares
+         earth ./examples/cache-helpers+all
+after    earth ./examples/cache-helpers+all
+```
+
+The scaffolding target is gone, the `.gitignore` for blobs beside the examples is
+gone, and `BUILD ./examples/cache-helpers+all` now sits in `examples-2` beside
+every other example. Verified with no `.wasm` anywhere on disk: four targets,
+`21 hit, 0 miss`, and all four modules filed in 𝔅 under the digests the steps
+were keyed on.
+
+A plain path still means the directory of the Earthfile that wrote it, which is
+the right thing for a module that is committed or built outside the build.
+
+## E-F30: an OOM kill was a build failure, and it is the one exit that is not a result
+
+§C.3 draws a sharp line: a non-zero exit is a **result** - *"the step ran and
+said no"* - and the build fails with its output rather than trying elsewhere.
+Only a step that could not run at all is a refusal. That is exactly right for a
+compiler that found an error, and exactly wrong for a step the OOM killer took:
+nothing about the step said no, the machine ran out of room.
+
+So one worker under memory pressure failed a whole build, and the step would
+have run perfectly well on the machine beside it.
+
+### The detection already existed
+
+`oomKillsIn` reads cgroup v2's `memory.events`, which the kernel writes at the
+moment of the kill, and a failing step's note has said so for a while:
+
+> *A process killed for running out of memory prints `Compiling foo` and stops.
+> Nothing in its output says the kernel killed it.*
+
+What was missing is that **only a person could read it**. The note is prose in
+the step's output; the driver saw an exit code indistinguishable from any other
+and did the one thing that cannot be recovered from.
+
+So the count becomes a flag - `Response.OutOfMemory`, beside `Degraded` and
+`Unmounted` - carried through `guest.Step` into `core.Result`, and `replyOf`
+turns it into a **refusal**. No new mechanism: a refusal is what the protocol
+already says for "this worker could not take this step", and the driver already
+places one elsewhere or runs it here (I11, E235).
+
+The other half is load-bearing and is a separate test: a rule that refused every
+non-zero exit would retry a compile error on every machine in the fleet and fail
+anyway, having spent the fleet on it.
+
+### What is not proved
+
+**The end-to-end kill was not reproduced.** `EARTH_GUEST_MEMORY_MAX=64M` with a
+step writing 512 MiB ran to completion on the Linux box, for two reasons that
+both need fixing before the experiment means anything:
+
+* the run was unprivileged, so the cgroup degraded - *"mount /sys/fs/cgroup for
+  the step: operation not permitted"* - and no limit was enforced;
+* `dd` into `/dev/shm` is page cache on a tmpfs, not the anonymous memory a
+  memory ceiling is about.
+
+Both ends are covered by tests - the detection against a real `memory.events`
+fixture, the classification against a result carrying the flag - and the three
+assignments between them are not. That is the honest state: the logic is right
+and the wire has not been watched carrying it.
+
+The experiment wants root and a step that allocates anonymous memory, something
+like `RUN python3 -c 'x = bytearray(512 << 20)'` under `sudo -E`.
+
+### What it does not do yet
+
+Retry *here*, later, under lower pressure. On a fleet the refusal is enough,
+because somewhere else is available now. On one machine a refusal has nowhere to
+go, and the scheduler has no notion of memory pressure to wait for - which is the
+next piece, and the one that wants `Result.MaxRSS` fed back the way this build
+now feeds back `Result.Duration` (E-F29).

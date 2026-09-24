@@ -46,11 +46,281 @@ linters:
     - varnamelen
     - wrapcheck
     - wsl # deprecated
+    # Renamed, not removed: golangci-lint v2 calls the same linter wsl_v5, so
+    # the line above stopped disabling anything and `default: all` switched it
+    # back on. It reported two files nobody had touched since #609, and the
+    # tool gives no warning that a disabled name no longer exists. Disabling
+    # both keeps the decision the line above was making.
+    - wsl_v5
   exclusions:
     generated: lax
+    rules:
+      # `contextcheck` traces call graphs, and a call graph differs between
+      # platforms - so a `//nolint` at the call site is used on one matrix and
+      # reported as unused on the other, which is a rule that cannot be obeyed
+      # twice. Stated once here instead.
+      #
+      # Both roots are a `sync.Once` over a resource everything afterwards shares:
+      # `Executor.client`, the connection to the guest, and `engine.sandboxed`, the
+      # sandbox itself. A context threaded into either would be whichever caller
+      # happened to be first, and cancelling that one caller would take the
+      # connection - or the whole sandbox - away from every caller after it. Each
+      # function says so where it is defined.
+      #
+      # Cancellation still reaches the work: every step carries the caller's
+      # context, and it is the step that is cancelled rather than the machine.
+      - path: engine/(cli|exec)/
+        linters:
+          - contextcheck
+      # `G703` traces a remote reference into a path and reports the `Stat`,
+      # `RemoveAll` and `MkdirAll` that follow. The containment check it cannot
+      # see is three lines above the first of them:
+      #
+      #     if !within(root, dest) { return "", fmt.Errorf(...) }
+      #
+      # `filepath.Join` has already cleaned any `..` out of the reference, and
+      # `within` compares absolute paths anchored on a separator, so a name that
+      # climbs out of the cache is refused before anything is removed. The
+      # comment beside the check says why it is there rather than left to the
+      # interpreter: "the path is removed and recreated below, so being sure it
+      # is inside the cache is the difference between clearing a checkout and
+      # deleting something else".
+      #
+      # Stated here rather than five times in the file, and scoped to the rule
+      # as well as the file: excluding gosec wholesale here retired an unrelated
+      # `//nolint:gosec // a fixed argv` in the same file, which is the linter
+      # pointing out that the exclusion was wider than the reasoning behind it.
+      - path: engine/cli/remote\.go
+        text: G703
+        linters:
+          - gosec
+      # `unparam` on a test helper reports the fixture vocabulary, not dead
+      # flexibility. `fill(t, dir, 4096)` and `aLayerWithFile(t, "etc/hosts")`
+      # name a size and a path that the reader of the test wants to see; moving
+      # them inside the helper hides the number the assertion is about, and a
+      # second caller wanting a different one then has to put the parameter back.
+      #
+      # Production is not excluded. There a parameter that never varies is a
+      # claim about an interface that nothing keeps true, and the findings there
+      # are answered one at a time.
+      - path: _test\.go
+        linters:
+          - unparam
+      # `SA4023` reads one build tag at a time and calls the result a tautology.
+      # `newMaterialiser` has two implementations: the Linux one can fail, and the
+      # `!linux` one *always* fails, because assembling layers without overlayfs
+      # would produce results that look like layers and are not (mat_other.go). So
+      # on the darwin build `err != nil` is indeed always true - and on the build
+      # that ships, it is a real check.
+      #
+      # `//nolint` cannot express that: the directive is unused on Linux, so
+      # nolintlint then fails the Linux run. A rule that is right on one GOOS and
+      # wrong on the other belongs in configuration, where it says so once, rather
+      # than at the call site twice.
+      # `copySpecial` is the same shape: a device node or a fifo cannot be
+      # reproduced off Linux, so the `!linux` implementation always refuses and
+      # the check on its error reads as always-true there.
+      - path: engine/(guestd/guestd|guest/copy)\.go
+        text: SA4023
+        linters:
+          - staticcheck
+      # `tools/mutate/catalogue.go` is a data table: one entry per deliberate
+      # defect, naming the file it belongs to, the package that should notice
+      # it, and the snippet it replaces. Its repetition *is* its content -
+      # 164 mutants live in `./engine/fleet/`, and that string appearing 164
+      # times is the catalogue saying so.
+      #
+      # Extracting sixty-five constants would put a layer of names between a
+      # reader and a table whose whole value is being read literally against
+      # the source it mutates. `TestEveryAnchorStillMatchesItsSource` is what
+      # keeps the strings honest, and it checks the thing a constant would be
+      # hiding.
+      - path: tools/mutate/catalogue\.go
+        linters:
+          - goconst
+      # `goconst` in a test reports the fixture vocabulary. The strings it names
+      # here are `make` (32 occurrences), `FROM`, `COPY`, `BUILD`, `+main`,
+      # `peer` - Earthfile keywords and the words the fixtures are built from,
+      # three to five characters each. In a test that literal *is* the
+      # specification: `const make = "make"` puts a name in front of the thing
+      # being specified and a reader then has to look it up to know what the
+      # test says.
+      #
+      # Where a repeated string in a test is long or semantic - an explanation
+      # given nine times, a path - naming it is worth doing and has been done
+      # (see `setByDriver` in docs-internals/check). This excludes the noise,
+      # not the judgement.
+      #
+      # Production is not excluded: those nine findings are fixed, and `http`
+      # against `https` is exactly the case where one character decides whether
+      # a credential goes out in clear.
+      - path: _test\.go
+        linters:
+          - goconst
+      # **Excluded because the reason is the same everywhere, which is the test
+      # for whether a rule belongs in this file at all.**
+      #
+      # `goconst` above earns its place the same way. Where a reason differs per
+      # site it belongs on the line - the two production G304s each carry their
+      # own, because one is a store path this engine derived and the other is a
+      # mount target the guest chose, and those are different sentences.
+      #
+      # These four say the same sentence every time they fire in a test: the
+      # path, the argv, the discarded error and the walk callback all come from
+      # `t.TempDir()` or from this repository's own tree, because **a test binary
+      # has no untrusted input**. Fifty-odd copies of one sentence is not
+      # documentation, and the cost of writing them was demonstrated when a
+      # blanket exclusion orphaned fifty-two `goconst` directives that had been
+      # written one at a time.
+      #
+      # Deliberately not the whole of `gosec`: G301 and G306 are file modes, and
+      # a mode in a test is sometimes a fixture and sometimes a value mirroring
+      # what a shell writes. Excluding those would have hidden E632.
+      #
+      # G703 is the same family as G304 - a path that reached an open from a
+      # variable rather than a literal - and in a test the variable is the
+      # test's own `t.TempDir` or a fixture name it wrote a moment earlier.
+      # There is no untrusted input in a test binary; the taint it traces is
+      # the fixture.
+      - path: _test\.go
+        text: "(G304|G204|G104|G122|G703):"
+        linters:
+          - gosec
+      # G115 in a test is nearly always a kernel identifier being converted to
+      # the type the kernel's own struct uses - `uint32(os.Getpid())`,
+      # `int32(traced[0])` from a fixed syscall table, `uint32(os.Getuid())`. A
+      # pid is not negative and a syscall number is from a list in this
+      # repository; the conversion is the shape of the API, not a risk.
+      #
+      # **Production is deliberately not excluded.** G115 has found five real
+      # defects in this sweep - a sign-extending cast in internal/vary, three
+      # truncating fixture indices in engine/cache, and a seccomp filter bounded
+      # on the kernel's limit rather than its own encoding - and the sixth was in
+      # a test: a fixture whose layer ids wrapped at 256 and would have started
+      # agreeing with itself. That one is fixed rather than excluded, which is
+      # what this rule is for and why it stays on where it earns its keep.
+      - path: _test\.go
+        text: "G115:"
+        linters:
+          - gosec
+      # `engine/mat/overlay` walks trees this engine has just placed and joins
+      # their entries onto directories it owns, so G703 fires on nearly every
+      # line that touches a path - eleven of the eighteen in production.
+      #
+      # **Excluded after auditing them rather than instead of auditing them**,
+      # which is the distinction that matters for a security rule. Reading the
+      # eleven one at a time is how E630 was found: a `.wh...` marker stripped to
+      # `..` and let a layer name the directory above the one being translated.
+      # That one is fixed and has three tests; the rest join a walk's own output
+      # onto the walk's own root, which is the same sentence eleven times.
+      #
+      # A new path-joining mechanism in this package is not covered by this rule
+      # having been written - it is covered by somebody reading it, exactly as
+      # these were.
+      - path: engine/mat/overlay/
+        text: "G703:"
+        linters:
+          - gosec
+      # `paralleltest` asks why a test is not parallel, and in these packages the
+      # answer is a property of the test rather than an oversight.
+      #
+      # `engine/trace` installs a seccomp filter on a thread it has locked, and a
+      # filter cannot be removed - which is why `SkipIfAlreadyFiltered` exists.
+      # `engine/nstest` re-executes the test binary into a new user and pid
+      # namespace and waits for it. Running either alongside its own siblings is
+      # not a speed-up, it is the tests interfering with each other.
+      #
+      # This is not a blanket answer for the rest: the subtests that could be
+      # parallel have been made parallel, and the top-level tests that are not
+      # are left for a reading each - several drive real builds against a shared
+      # cache directory, where parallel is a question about the cache and not
+      # about the test.
+      # `paralleltest` asks why a test is not parallel, and in these the answer is
+      # a property of the test rather than an oversight.
+      #
+      # `engine/trace` installs a seccomp filter on a thread it has locked, and a
+      # filter cannot be removed - which is why `SkipIfAlreadyFiltered` exists.
+      # `engine/nstest` re-executes the test binary into a new user and pid
+      # namespace and waits for it. `engine/guest`'s `*_internal_linux_test.go`
+      # run inside a user namespace and unshare pid, uts, ipc and network
+      # namespaces or chroot - process-wide state, by definition shared with
+      # every sibling that might run beside them. `engine/cli`'s e2e sandbox
+      # tests boot a VM each.
+      #
+      # Running any of them alongside their own siblings is not a speed-up, it is
+      # the tests interfering with each other - and this suite has already lost
+      # time to a fixture race under parallelism (E616).
+      - path: (engine/trace/|engine/nstest/|engine/guest/.*_internal_linux_test\.go|engine/cli/e2e_sandbox_test\.go)
+        linters:
+          - paralleltest
+      # The catalogue's anchors are source snippets quoted verbatim, and a
+      # snippet is one line because the line it quotes is one line. Wrapping the
+      # literal would change the string, and the string is the thing that has to
+      # match the source it mutates - `TestEveryAnchorStillMatchesItsSource`
+      # would say so immediately.
+      - path: tools/mutate/catalogue\.go
+        linters:
+          - lll
+      # The long lines left in these two are *inside* raw string literals: the
+      # CLI's help text, and a fixture Earthfile quoted in a test. A line-level
+      # directive cannot go in one - it would print, which was demonstrated by
+      # putting it there - and wrapping the string changes what a user reads or
+      # what the fixture builds.
+      - path: (cmd/earth/subcmd/(config|prune)_cmds\.go|engine/cli/oracle_test\.go)
+        linters:
+          - lll
   settings:
+    goconst:
+      # A boolean written down is not a magic constant. `"false"` appears
+      # wherever this engine reads or writes a flag as text - an environment
+      # variable, an Earthfile argument, a docker daemon setting - and
+      # `const falseValue = "false"` puts a name in front of the one string
+      # whose meaning nobody has to look up.
+      ignore-strings: '^(true|false)$'
+    exhaustive:
+      # A `default` arm is an exhaustive switch, because some of these types
+      # cannot be enumerated by anybody: `syscall.Errno` and `reflect.Kind`
+      # have hundreds of members and a switch listing them all would be wrong
+      # the next time the standard library grows one. Where a type IS small
+      # and closed - core.Cause, earthfile.Cmd - the check still fires on a
+      # switch with no default, which is where it earns its keep: those are
+      # the switches that must be revisited when a member is added.
+      default-signifies-exhaustive: true
+    misspell:
+      # `hardlinked` is what a hard link is called here and in every filesystem
+      # manual; misspell believes it is a typo for `hardline` and rewrites it.
+      # Its --fix did exactly that once, turning a correct sentence into a
+      # wrong one - which is the failure mode of an autofixing dictionary and
+      # the reason this is configured rather than suppressed at the line.
+      ignore-rules:
+        - hardlinked
     govet:
       enable-all: true
+      disable:
+        # **Measured before disabling, which is why it is disabled.**
+        # `fieldalignment` reported 207 findings: 91 in tests, where field order
+        # is a table's column order, and 116 in production. Those 116 are two
+        # different claims - 17 that a struct is larger than it needs to be, and
+        # 99 that the collector scans further than it needs to - and both are
+        # worth something only in proportion to how often the type is allocated.
+        #
+        # So the types were counted rather than argued about. Two are allocated
+        # in volume: `layer.entry`, one per file in a layer, and `store.linkJob`,
+        # one per entry placed. Both were reordered by hand and now carry tests
+        # asserting `unsafe.Sizeof`, because there the arithmetic is real - eight
+        # bytes a hundred thousand times on a real base, and a size class in the
+        # second case.
+        #
+        # The rest are singletons or near enough: `Executor`, `Server`, `Plan`
+        # and `engine` are one per build; `ir.Op` is one per graph node, and a
+        # large corpus graph is hundreds of nodes, so its sixteen bytes is tens
+        # of kilobytes. Against that, these are the types this engine documents
+        # most heavily and whose field order groups things a reader needs
+        # together.
+        #
+        # An unmeasured win against a certain cost is not a trade worth taking,
+        # and the two places it *was* worth taking are done.
+        - fieldalignment
 formatters:
   enable:
     - gofumpt

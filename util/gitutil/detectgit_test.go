@@ -67,7 +67,7 @@ func TestDetectGitContentHash(t *testing.T) {
 	run := func(args ...string) string {
 		t.Helper()
 
-		cmd := exec.CommandContext(context.Background(), args[0], args[1:]...) //nolint:gosec // test helper
+		cmd := exec.CommandContext(context.Background(), args[0], args[1:]...)
 		cmd.Dir = dir
 
 		cmd.Env = append(

@@ -44,6 +44,7 @@ type Run struct {
 	Interactive     bool     `description:"Run this command with an interactive session, without saving changes"                           long:"interactive"`      //nolint:lll
 	InteractiveKeep bool     `description:"Run this command with an interactive session, saving changes"                                   long:"interactive-keep"` //nolint:lll
 	RawOutput       bool     `description:"Do not prefix output with target. Print Raw"                                                    long:"raw-output"`       //nolint:lll
+	Outputs         []string `description:"Declare a path this step produces; anything else it writes is left out of its result"           long:"output"`           //nolint:lll
 }
 
 // From contains options for the FROM command.
@@ -77,6 +78,7 @@ type Copy struct {
 	SymlinkNoFollow bool     `description:"Do not follow symlinks"                                                  long:"symlink-no-follow"` //nolint:lll
 	AllowPrivileged bool     `description:"Allow targets to assume privileged mode"                                 long:"allow-privileged"`  //nolint:lll
 	PassArgs        bool     `description:"Pass arguments to external targets"                                      long:"pass-args"`         //nolint:lll
+	Sync            bool     `description:"Leave a destination file whose bytes already match"                      long:"sync"`              //nolint:lll
 }
 
 // SaveArtifact contains options for the SAVE ARTIFACT command.
@@ -124,15 +126,16 @@ type HealthCheck struct {
 
 // WithDocker contains options for the WITH DOCKER command.
 type WithDocker struct {
-	Platform        string   `description:"The platform to use"                                             long:"platform"` //nolint:lll
-	CacheID         string   `description:"When specified, layer data will be persisted to specified cache" long:"cache-id"` //nolint:lll
-	ComposeFiles    []string `description:"A compose file used to bring up services from"                   long:"compose"`  //nolint:lll
-	ComposeServices []string `description:"A compose service to bring up"                                   long:"service"`  //nolint:lll
-	Loads           []string `description:"An image produced by earth which is loaded as a Docker image"    long:"load"`
-	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target"     long:"build-arg"` //nolint:lll
-	Pulls           []string `description:"An image which is pulled and made available in the docker cache" long:"pull"`
-	AllowPrivileged bool     `description:"Allow targets referenced by load to assume privileged mode"      long:"allow-privileged"` //nolint:lll
-	PassArgs        bool     `description:"Pass arguments to external targets"                              long:"pass-args"`        //nolint:lll
+	Platform        string   `description:"The platform to use"                                                long:"platform"` //nolint:lll
+	CacheID         string   `description:"When specified, layer data will be persisted to specified cache"    long:"cache-id"` //nolint:lll
+	ComposeFiles    []string `description:"A compose file used to bring up services from"                      long:"compose"`  //nolint:lll
+	ComposeServices []string `description:"A compose service to bring up"                                      long:"service"`  //nolint:lll
+	Loads           []string `description:"An image produced by earth which is loaded as a Docker image"       long:"load"`
+	BuildArgs       []string `description:"A build arg override passed on to a referenced earth target"        long:"build-arg"` //nolint:lll
+	Pulls           []string `description:"An image which is pulled and made available in the docker cache"    long:"pull"`
+	AllowPrivileged bool     `description:"Allow targets referenced by load to assume privileged mode"         long:"allow-privileged"` //nolint:lll
+	PassArgs        bool     `description:"Pass arguments to external targets"                                 long:"pass-args"`        //nolint:lll
+	Isolate         bool     `description:"Start a daemon of this step's own rather than sharing an outer one" long:"isolate"`          //nolint:lll
 }
 
 // Do contains options for the DO command.
@@ -168,6 +171,23 @@ type Cache struct {
 	Mode    string `default:"0644"                                                                          description:"Apply a mode to the cache folder" long:"chmod"` //nolint:lll
 	ID      string `description:"Cache ID, to reuse the same cache across different targets and Earthfiles" long:"id"`
 	Persist bool   `description:"If should persist cache state in image"                                    long:"persist"`
+	// PortableExcept is the author's claim that this cache may be shared
+	// between machines: another machine's copy of any path under it is as good
+	// as this machine's own, apart from the comma-separated patterns given.
+	//
+	// A pointer so that `--portable-except ''` - the claim with no exceptions,
+	// which is the strongest one and the right answer for a content-addressed
+	// store mounted at its own root - is distinguishable from not writing the
+	// flag. As a bare string both are `""` and the strongest claim is the one
+	// silently ignored.
+	PortableExcept *string `description:"Paths under the cache that are specific to this machine; the rest may be shared between machines" long:"portable-except"` //nolint:lll
+	// Helper names a program that understands this cache's format: what a unit
+	// is, what it is called, and how two of them are merged.
+	//
+	// **The per-language knowledge, delegated.** The engine moves bytes and
+	// names them by ℋ; which bytes belong together and what a tool calls them
+	// is a fact about that tool, and it lives here rather than in the engine.
+	Helper string `description:"A program that understands this cache's format" long:"helper"`
 }
 
 // NewFor creates and returns a For with default separators.

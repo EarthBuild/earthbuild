@@ -26,7 +26,6 @@ func TestBuildArgMatrix(t *testing.T) {
 
 	r := require.New(t)
 
-	//nolint:goconst
 	tests := []struct {
 		testName string
 		args     parsedCLIVals
@@ -126,7 +125,7 @@ func TestBuildArgMatrix(t *testing.T) {
 		logger = logger.WithWriter(&logs)
 
 		frontend, err := NewStubFrontend(&FrontendConfig{
-			LocalContainerName: "test-stub", //nolint:goconst
+			LocalContainerName: "test-stub",
 		})
 		r.NoError(err)
 
@@ -137,7 +136,7 @@ func TestBuildArgMatrix(t *testing.T) {
 			BuildkitHostCLIValue:       tt.args.buildkit,
 			BuildkitHostFileValue:      tt.config.BuildkitHost,
 			LocalRegistryHostFileValue: tt.config.LocalRegistryHost,
-			LocalContainerName:         "test", //nolint:goconst
+			LocalContainerName:         "test",
 			DefaultPort:                8372,
 			Log:                        logger,
 		})
@@ -154,7 +153,6 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 
 	r := require.New(t)
 
-	//nolint:goconst
 	tests := []struct {
 		testName string
 		log      string

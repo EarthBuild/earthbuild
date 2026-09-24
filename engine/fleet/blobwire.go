@@ -1,0 +1,838 @@
+package fleet
+
+import (
+	"bytes"
+	"compress/flate"
+	"context"
+	"fmt"
+	"io"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/tmc/go-iroh/iroh"
+	"github.com/tmc/go-iroh/netaddr"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
+)
+
+// PeerSource fetches blobs from one peer over C.2's `earth/blob/1`.
+//
+// It **dials**, which is right for exactly one direction: a worker reaching the
+// driver, or anything reaching a machine that is listening. The driver reaching
+// a worker cannot dial - a worker is behind whatever NAT its operator has - and
+// must ask over the connection the worker opened (E249, E250).
+//
+// One stream for the whole batch, not one per blob: "one stream per blob does
+// not survive a thousand-blob synchronisation" (C.4). The request is the ids;
+// the answer is each blob in the **order they were asked for**, so the receiver
+// knows what it is reading without a lookup, and an absent blob is a flag rather
+// than a gap.
+type PeerSource struct {
+	// Label names this peer in diagnostics.
+	Label string
+	// Endpoint is this participant's own.
+	Endpoint *iroh.Endpoint
+	// Peer is who to ask.
+	Peer netaddr.EndpointAddr
+
+	// Note receives one line, per connection, saying which route the bytes are
+	// taking. Nil means nobody is listening.
+	//
+	// **Once per connection, not per fetch**: the route is a property of the
+	// connection, and a worker fetching a thousand fragments would otherwise
+	// print a thousand identical lines - which is how a message stops being
+	// read (E257 makes the same argument for a fleet that has gone).
+	Note func(string)
+
+	// held is the connection to this peer, kept between requests.
+	//
+	// **A connection costs 25ms on loopback before it moves anything**, and
+	// loopback has no network to blame; between machines it is most of what a
+	// small fetch costs (E337). One stream per request on one connection is what
+	// QUIC is for.
+	//
+	// Dropped on any failure rather than retried here: a caller that gets an
+	// error asks the next source (I6), and the next request to this one dials
+	// again. Retrying inside would turn one slow peer into two waits.
+	heldMu sync.Mutex
+	held   *iroh.Conn
+	// noted bounds the route report to one line per source. See noteRoute.
+	noted sync.Once
+	// dialMillis is what reaching this peer cost, apart from what moving the
+	// bytes cost.
+	dialMillis atomic.Int64
+	readMillis atomic.Int64
+	// upgrading bounds the background dial to one at a time.
+	upgrading atomic.Bool
+}
+
+// connect is this peer's connection, opened if it is not already.
+func (s *PeerSource) connect(ctx context.Context) (*iroh.Conn, error) {
+	s.heldMu.Lock()
+	defer s.heldMu.Unlock()
+
+	if s.held != nil {
+		return s.held, nil
+	}
+
+	c, err := s.Endpoint.Connect(ctx, s.Peer, ALPNBlob)
+	if err != nil {
+		return nil, fmt.Errorf("connect for blobs: %w", err)
+	}
+
+	// **A connection comes up on whatever validates first**, which where both
+	// ends are NAT'd is the relay, and it then stays there: on GitHub the
+	// direct path is validated, multipath is negotiated, and the direct path
+	// carries nothing in either direction while a relay in another region
+	// carries all of it at 1.3 MiB/s (E-F1).
+	//
+	// So the path is not selected, it is dialled. See redialDirect.
+	holdForDirect(ctx, c, directWait())
+
+	if direct := s.redialDirect(ctx, c); direct != nil {
+		c = direct
+	}
+
+	s.held = c
+
+	return c, nil
+}
+
+// Warm opens this peer's connection before anything is fetched from it.
+//
+// **Not waited for**, which is the point: the caller is about to run a step, and
+// a connection opened while it runs is one the first fetch does not have to
+// open. A failure is left alone - `Fetch` dials again and reports properly, and
+// a worker that refused an assignment because a *prefetch* failed would be
+// worse than one that never had this.
+func (s *PeerSource) Warm(ctx context.Context) {
+	go func() { _, _ = s.connect(context.WithoutCancel(ctx)) }()
+}
+
+// upgradeDirect moves later fetches onto a direct path, without delaying this
+// one.
+//
+// **Both routes were measured and each wins one half.** Reading 7.9 MiB took
+// 302ms direct and 1394ms over a relay - 26 MiB/s against 5.7 - while *waiting*
+// for the direct path to exist cost a flat three seconds, which is more than
+// the relay ever loses on a fetch that size. So the first fetch takes whatever
+// is up, and by the second there is a direct connection waiting.
+//
+// A build with one fetch is exactly as fast as before. A build with many pays
+// the punching once and reads 4.6 times faster after it, which is the shape of
+// every real build: a base, then everything that stands on it.
+func (s *PeerSource) upgradeDirect(ctx context.Context, c *iroh.Conn) {
+	if directIn(c.Paths()) || !s.upgrading.CompareAndSwap(false, true) {
+		return
+	}
+
+	// Detached from the fetch's context, which is about to be done with.
+	go func() {
+		defer s.upgrading.Store(false)
+
+		held := context.WithoutCancel(ctx)
+
+		holdForDirect(held, c, upgradeWait())
+
+		direct := s.redialDirect(held, c)
+		if direct == nil {
+			return
+		}
+
+		s.heldMu.Lock()
+		defer s.heldMu.Unlock()
+
+		// Only if nothing else has changed it: a connection that failed in the
+		// meantime was dropped by `forget`, and replacing that with this would
+		// resurrect a source the caller has already given up on.
+		if s.held == c {
+			s.held = direct
+		}
+	}()
+}
+
+// redialDirect opens a second connection straight at the peer's direct address.
+//
+// **Nothing to fall back to is the point.** The endpoint address carries the
+// observed address and no relay, so this connection is direct or it does not
+// exist - and if it does not, the caller keeps the one it has and pays the
+// detour, which is what every fetch did before.
+//
+// Returns nil when there is no direct address yet, when the dial fails, or when
+// the connection this was called with is already direct.
+func (s *PeerSource) redialDirect(ctx context.Context, c *iroh.Conn) *iroh.Conn {
+	at, ok := directAddr(c.Paths())
+	if !ok {
+		return nil
+	}
+
+	to := netaddr.NewEndpointAddr(c.RemoteID()).WithIP(at)
+
+	direct, err := s.Endpoint.Connect(ctx, to, ALPNBlob)
+	if err != nil {
+		// The observed address is not reachable from here - a NAT that only
+		// holds the mapping for the path that punched it, most often. The relay
+		// connection is still good.
+		return nil
+	}
+
+	// The first connection is not closed: the caller may still be reading a
+	// stream on it, and QUIC keeps it cheap until the idle timeout takes it.
+	return direct
+}
+
+// noteRoute says, once, which routes this peer's bytes took.
+//
+// **After a transfer rather than at connect**, because a path's byte count is
+// the only thing that distinguishes a route that is available from one that is
+// carrying anything - and at connect every count is zero. Waiting for hole
+// punching put a direct path beside the relay on every GitHub connection
+// without making the transfer faster, and that reading cannot be settled from
+// the route list alone.
+func (s *PeerSource) noteRoute(c *iroh.Conn) {
+	if s.Note == nil {
+		return
+	}
+
+	s.noted.Do(func() {
+		at := pathNote(c.Paths())
+		if at == "" {
+			return
+		}
+
+		// **Whether there is more than one path to choose between.** The
+		// default selector already prefers a direct path over a relay, and the
+		// direct path still carried nothing - which is what an unnegotiated
+		// multipath connection looks like from outside: the addresses are
+		// observed, and the data stays on the one the connection started on.
+		if !c.MultipathNegotiated() {
+			at += " (multipath not negotiated: no path to migrate to)"
+		}
+
+		s.Note(fmt.Sprintf("fetched from %s over %s (reached in %dms, read in %dms)",
+			s.Name(), at, s.dialMillis.Load(), s.readMillis.Load()))
+	})
+}
+
+// forget drops a connection that failed, so the next request opens a new one.
+func (s *PeerSource) forget(c *iroh.Conn) {
+	s.heldMu.Lock()
+	defer s.heldMu.Unlock()
+
+	if s.held == c {
+		s.held = nil
+	}
+
+	_ = c.CloseWithError(0, "")
+}
+
+// Name is this source's label.
+func (s *PeerSource) Name() string {
+	if s.Label == "" {
+		return "peer"
+	}
+
+	return s.Label
+}
+
+// Fetch asks one peer for these blobs.
+//
+// The readers are over buffers rather than the live stream, and that is a
+// deliberate limitation with a stated cost: a peer serving a gigabyte of rubbish
+// is detected after the gigabyte has crossed the network, not after a chunk. The
+// *verification* is still per-chunk - `Fetch.Get` runs `VerifiedCopy` over what
+// arrives - so nothing wrong is ever handed to a caller; what is lost is the
+// early hang-up.
+//
+// Streaming it properly needs the readers to outlive this call and be consumed
+// in order, which makes the source's contract "read these in sequence before the
+// connection closes" - a contract every future source would have to honour. It
+// is worth doing and it is not free, so it is written down rather than assumed.
+func (s *PeerSource) Fetch(
+	ctx context.Context, ids []ir.NodeID,
+) (map[ir.NodeID]io.Reader, error) {
+	dialled := time.Now()
+
+	conn, err := s.connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// **Connecting and transferring are different costs with different fixes**,
+	// and the account has only ever had one number for them. Moving a route off
+	// a relay in another region changed the route and not the wall clock, which
+	// either means the relay was never the cost or means the cost is not in the
+	// transfer at all - and those want opposite work. See noteRoute.
+	s.dialMillis.Store(time.Since(dialled).Milliseconds())
+
+	st, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		s.forget(conn)
+
+		return nil, fmt.Errorf("open a blob stream: %w", err)
+	}
+
+	defer func() { _ = st.Close() }()
+
+	// Reported on the way out, when the paths have carried something.
+	read := time.Now()
+
+	defer func() {
+		s.readMillis.Store(time.Since(read).Milliseconds())
+		s.noteRoute(conn)
+
+		// After the read, so the punching happens while nothing is waiting on
+		// it. See upgradeDirect.
+		s.upgradeDirect(ctx, conn)
+	}()
+
+	// The context reaches as far as opening the stream; the reads below take
+	// none. A peer that is *alive and silent* - wedged, or serving a blob it
+	// cannot find - therefore never times out at all, because QUIC sees a
+	// healthy connection and waits for a message that is not coming. Unbounded,
+	// not merely slow, and a fetch tries its sources in order, so one such peer
+	// stops the fallback that exists to survive it (E256).
+	if dl, ok := ctx.Deadline(); ok {
+		_ = st.SetDeadline(dl)
+	}
+
+	err = writeRequest(st, ids, nil, true)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(map[ir.NodeID]io.Reader, len(ids))
+
+	for _, id := range ids {
+		body, present, err := readBlob(st)
+		if err != nil {
+			// What arrived is still useful and is returned - the caller asks
+			// somebody else for the rest. **The error comes with it**, because
+			// a connection that stopped answering and a peer that genuinely
+			// lacks a blob are different things, and reporting them alike makes
+			// a network that went away look like a peer with nothing (E311).
+			return out, fmt.Errorf("%s stopped answering: %w", s.Name(), err)
+		}
+
+		if present {
+			out[id] = bytes.NewReader(body)
+		}
+	}
+
+	return out, nil
+}
+
+// writeRequest asks for a batch of blobs, or for part of them.
+//
+// **One request format, not two.** An empty path list means the whole of each
+// blob, which is what every caller wanted until fragments existed; a non-empty
+// one means those paths of each layer, with the manifest that authenticates them
+// (E286). A second request type would be a second thing to keep in step with the
+// first, and the difference between them is one list.
+func writeRequest(w io.Writer, ids []ir.NodeID, want []string, proof bool) error {
+	var buf bytes.Buffer
+
+	e := ir.NewEncoder(&buf)
+	e.Count(len(ids))
+
+	for _, id := range ids {
+		e.Fixed(id[:])
+	}
+
+	e.Count(len(want))
+
+	for _, p := range want {
+		e.Str(p)
+	}
+
+	e.Bool(proof)
+
+	return WriteMessage(w, buf.Bytes())
+}
+
+// readRequest reads one, refusing a count a peer invented.
+func readRequest(r io.Reader) ([]ir.NodeID, []string, bool, error) {
+	body, err := ReadMessage(r)
+	if err != nil {
+		return nil, nil, false, err
+	}
+
+	d := &decoder{b: body}
+
+	ids := d.ids()
+	want := d.strs()
+	proof := d.boolean()
+
+	if d.err != nil {
+		return nil, nil, false, d.err
+	}
+
+	return ids, want, proof, nil
+}
+
+// readBlob reads one answer: a flag, the sender's root, then the encoding.
+//
+// Returns the **plain bytes**, verified against the root as they are decoded.
+// That is the `Source` contract - a source hands back what was asked for, having
+// checked it survived the journey - and it is what lets a caller treat a peer's
+// answer and a local store's answer the same way. Identity is the caller's
+// business and is checked where the thing is stored (E264).
+func readBlob(r io.Reader) (body []byte, present bool, err error) {
+	flag, err := ReadMessage(r)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if len(flag) != 1 || flag[0] == 0 {
+		return nil, false, nil
+	}
+
+	raw, err := ReadMessage(r)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var root ir.NodeID
+
+	if len(raw) != len(root) {
+		return nil, false, fmt.Errorf("%w: a root of %d bytes, want %d",
+			ErrMalformed, len(raw), len(root))
+	}
+
+	copy(root[:], raw)
+
+	stream, err := ReadBlobMessage(r)
+	if err != nil {
+		return nil, false, err
+	}
+
+	var out bytes.Buffer
+
+	err = VerifiedCopy(&out, bytes.NewReader(stream), root)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return out.Bytes(), true, nil
+}
+
+// ServeBlobs answers `earth/blob/1` from what this machine holds.
+//
+// Verified encodings, which is the sender's obligation: a receiver cannot check
+// chunks against a tree nobody sent. A blob this store believes is corrupt is
+// answered as **absent** rather than served - the sender's own check, which is
+// one of the two on this path and catches an honest peer with a bad disk (E240).
+func ServeBlobs(ctx context.Context, e *iroh.Endpoint, held Held, onError func(error)) error {
+	if onError == nil {
+		onError = func(error) {}
+	}
+
+	for {
+		conn, err := e.Accept(ctx)
+		if err != nil {
+			// A refusal to accept *because this build is over* is the loop
+			// ending, not a fault: the caller cancelled and there is nothing
+			// left to serve. Reported as an error it would fail builds that
+			// succeeded (nilerr reads the shape, not the condition).
+			if ctx.Err() != nil {
+				return nil //nolint:nilerr // cancellation, not failure
+			}
+
+			return fmt.Errorf("accept for blobs: %w", err)
+		}
+
+		go serveBlobConn(ctx, conn, held, onError)
+	}
+}
+
+// serveBlobConn answers every request on one connection.
+//
+// **A stream per request, not a connection per request.** The first version
+// served one stream and hung up, which forced the other end to dial again for
+// every fetch - 25ms of handshake on loopback, where there is no network to
+// blame, and most of what a small fetch costs between machines (E337).
+//
+// Streams are served concurrently: a fetch of a large layer must not delay a
+// question about a small one, and QUIC's whole shape is that they need not.
+func serveBlobConn(ctx context.Context, conn *iroh.Conn, held Held, onError func(error)) {
+	defer func() { _ = conn.CloseWithError(0, "") }()
+
+	for {
+		st, err := conn.AcceptStream(ctx)
+		if err != nil {
+			// The peer is done with this connection, or has gone. Neither is
+			// worth reporting: a caller that finished asking closes, and that
+			// is what finishing looks like from here.
+			return
+		}
+
+		go serveBlobStream(ctx, st, held, onError)
+	}
+}
+
+// serveBlobStream answers one request.
+//
+// **Bounded by the serving context, which it used to discard.** The signature
+// said `_ context.Context` and nothing set a deadline, so a write to a peer
+// that had stopped reading blocked in `writeFramed` with no way out - and a
+// driver serves the base of every build, so one such peer stops the machine
+// everybody depends on. Found on an eight-step chain across two machines:
+// three goroutines each stuck writing 0x2828288 bytes, one 40 MB layer apiece,
+// and a build reporting no progress for six minutes.
+//
+// The driver's own lifetime is the right bound and the only one available
+// here: a serve outliving the build that wanted it is waiting for nobody. A
+// context with no deadline - every in-process test, and a server meant to
+// outlive many builds - is left exactly as it was, because `bound` sets
+// nothing then.
+func serveBlobStream(ctx context.Context, st io.ReadWriteCloser, held Held, onError func(error)) {
+	defer func() { _ = st.Close() }()
+
+	d, canBound := st.(deadliner)
+
+	ids, want, proof, err := readRequest(st)
+	if err != nil {
+		onError(fmt.Errorf("read a blob request: %w", err))
+
+		return
+	}
+
+	for _, id := range ids {
+		// **Per blob, and the serve's own.** A request for several large layers
+		// is several long writes and one deadline over all of them would cut
+		// the last one off; a deadline taken from the context would be no
+		// deadline at all, since the driver serves under a cancel and nothing
+		// else. Refreshed here, a peer that stops reading costs one bound and
+		// a peer that is merely slow is never interrupted.
+		if canBound {
+			_ = d.SetDeadline(soonest(ctx, time.Now().Add(serveWait())))
+		}
+
+		err := serveOneBlob(st, held, id, want, proof)
+		if err != nil {
+			onError(fmt.Errorf("serve %v: %w", id, err))
+
+			return
+		}
+	}
+
+	// Cleared before the wait below, which is for the client's own close and
+	// has nothing to do with how long a blob takes.
+	if canBound {
+		_ = d.SetDeadline(time.Time{})
+	}
+
+	// Wait for the client to close **this stream** before tearing it down.
+	//
+	// Justified on its own terms and **not** as a fix for anything observed:
+	// closing a QUIC connection can discard what has not been acknowledged, so
+	// a server that returns the moment it has written is racing its own last
+	// write. This waits for the client's own close, which means it has read
+	// everything.
+	//
+	// It was added while chasing a "1 of 3 blobs arrived" failure and claimed as
+	// the cure. Deleting it again passes five runs in five, so it was not - the
+	// failure has not reproduced since and its cause is unknown (E248). The line
+	// stays because the reasoning above is sound; the claim that it fixed
+	// something did not survive being checked.
+	//
+	// Per stream since E337: the connection now outlives the request, so this
+	// waits for the end of an answer rather than the end of a conversation.
+	_, _ = io.Copy(io.Discard, st)
+}
+
+// fragmenting is a store that can send part of a layer with its proof.
+type fragmenting interface {
+	Fragment(id ir.NodeID, want []string) (manifest, packed []byte, err error)
+}
+
+func serveOneBlob(w io.Writer, held Held, id ir.NodeID, want []string, proof bool) error {
+	// Part of a layer, when that is what was asked for and this store can do it.
+	// The manifest travels with it, because a fragment whose proof arrives
+	// separately has a state in which it is here and unverifiable - and the only
+	// safe thing to do in that state is throw it away (E286).
+	// **Not gated on `Has`.** That answers about the *whole* layer, and a worker
+	// holding exactly the bytes the asker wants and nothing else would never be
+	// asked for them - so fragments came only from whoever held everything, and
+	// a fleet was a star on the one path that is supposed to be cheap (E325).
+	// A store that cannot answer says so, and this answer is "not here".
+	if len(want) > 0 {
+		f, canCut := held.(fragmenting)
+		if !canCut || held == nil {
+			return notHere(w)
+		}
+
+		manifest, packed, err := f.Fragment(id, want)
+		if err != nil {
+			return notHere(w)
+		}
+
+		if !proof {
+			// The caller has it. Sending it again is the dominant cost of a
+			// small read set (E299).
+			manifest = nil
+		}
+
+		return writeFragment(w, manifest, packed)
+	}
+
+	var b []byte
+
+	if held != nil && held.Has(id) {
+		got, err := held.Get(id)
+		if err != nil {
+			// **Held and unreadable is not absent.** The two send the caller in
+			// opposite directions - an absence to another peer, a store that
+			// cannot read what it holds to a person - and this returned the
+			// same byte for both. It cost five two-machine experiments to tell
+			// them apart by hand (E312).
+			//
+			// An error rather than a flag: there is no room on the wire for a
+			// third answer, and `serveBlobConn` reports it and drops the
+			// connection, which the caller reads as a source that failed. That
+			// is the state it is in.
+			return fmt.Errorf("held but unreadable: %w", err)
+		}
+
+		b = got
+	}
+
+	if b == nil {
+		return WriteMessage(w, []byte{0})
+	}
+
+	err := WriteMessage(w, []byte{1})
+	if err != nil {
+		return err
+	}
+
+	stream, root := EncodeBlob(b)
+
+	// The root first, because the receiver cannot check chunks against a tree
+	// nobody sent.
+	//
+	// **It is the sender's claim, and it is still worth having.** For a blob the
+	// receiver knows the digest already and could ignore this; for a **layer** it
+	// does not - a layer is named by the digest of its tree and the bytes
+	// carrying it bear no relation to that name (E263). Checking the stream
+	// against the root the sender declared catches corruption on the way, within
+	// a group rather than after a gigabyte, and identity is established
+	// afterwards by unpacking and capturing. Two checks answering two questions:
+	// "did this arrive intact" and "is this the thing I asked for".
+	err = WriteMessage(w, root[:])
+	if err != nil {
+		return err
+	}
+
+	return WriteBlobMessage(w, stream)
+}
+
+var _ Source = (*PeerSource)(nil)
+
+// writeFragment answers with part of a layer and the proof it belongs.
+func writeFragment(w io.Writer, manifest, packed []byte) error {
+	err := WriteMessage(w, []byte{2})
+	if err != nil {
+		return err
+	}
+
+	small, err := squeeze(manifest)
+	if err != nil {
+		return err
+	}
+
+	err = WriteBlobMessage(w, small)
+	if err != nil {
+		return err
+	}
+
+	return WriteBlobMessage(w, packed)
+}
+
+// squeeze compresses a proof for the wire.
+//
+// **The most regular thing this engine sends.** A manifest is a few thousand
+// entries differing in little: paths sharing prefixes, mode and ownership and
+// device bytes repeating exactly. It is 2.6x the fragment it authenticates and
+// crosses once per worker per layer, so a fleet of ten pays for ten copies of
+// the same bytes (E339, E340).
+//
+// This does not remove the O(n): only making a layer's identity a Merkle root
+// over its entries does that, and that is a change to what a layer *is* rather
+// than to a message (§3.2, E339). It removes the constant, which is large.
+//
+// **The proof only.** A fragment's payload is file contents, and compressing an
+// archive of already-compressed files is how a transfer gets slower for the
+// trouble.
+func squeeze(b []byte) ([]byte, error) {
+	var out bytes.Buffer
+
+	w, err := flate.NewWriter(&out, flate.BestSpeed)
+	if err != nil {
+		return nil, fmt.Errorf("compress a proof: %w", err)
+	}
+
+	_, err = w.Write(b)
+	if err != nil {
+		return nil, fmt.Errorf("compress a proof: %w", err)
+	}
+
+	err = w.Close()
+	if err != nil {
+		return nil, fmt.Errorf("compress a proof: %w", err)
+	}
+
+	return out.Bytes(), nil
+}
+
+// unsqueeze reads a compressed proof, refusing one that does not decompress.
+//
+// Bounded by `maxBlob`, as every length on this wire is: the compressed size a
+// peer sends says nothing about what it expands to, and a few kilobytes that
+// become a terabyte is a denial of service that costs the sender nothing.
+func unsqueeze(b []byte, limit int64) ([]byte, error) {
+	r := flate.NewReader(bytes.NewReader(b))
+	defer func() { _ = r.Close() }()
+
+	// **One byte past the limit**, so passing it is detectable. `io.LimitReader`
+	// alone truncates in silence, which turns a bomb into a proof that is merely
+	// wrong - refused later, by a check that would report corruption rather than
+	// an attack.
+	out, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return nil, fmt.Errorf("%w: a proof that does not decompress: %w",
+			ErrMalformed, err)
+	}
+
+	if int64(len(out)) > limit {
+		return nil, fmt.Errorf("%w: a proof expanding past %d bytes",
+			ErrMalformed, limit)
+	}
+
+	return out, nil
+}
+
+// Fragment asks a peer for part of a layer, and for the manifest that
+// authenticates it.
+//
+// Separate from Fetch because the answers are different shapes: a blob is bytes
+// the caller already knows the digest of, and a fragment is bytes plus the proof
+// that they belong to a layer whose digest says nothing about any subset (E284).
+func (s *PeerSource) Fragment(
+	ctx context.Context, id ir.NodeID, want []string, proof bool,
+) (manifest, packed []byte, err error) {
+	conn, err := s.connect(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	st, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		s.forget(conn)
+
+		return nil, nil, fmt.Errorf("open a fragment stream: %w", err)
+	}
+
+	defer func() { _ = st.Close() }()
+
+	bound(ctx, st)
+
+	err = writeRequest(st, []ir.NodeID{id}, want, proof)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return readFragment(st, id)
+}
+
+// readFragment reads an answer that should be a fragment.
+func readFragment(r io.Reader, id ir.NodeID) (manifest, packed []byte, err error) {
+	flag, err := ReadMessage(r)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(flag) != 1 || flag[0] != 2 {
+		// Absent, or a whole blob from a peer that cannot fragment. Either way
+		// this caller asked for part and did not get it, and saying so is better
+		// than quietly returning something else (I10).
+		return nil, nil, fmt.Errorf("%w: no fragment of %v here", ErrMalformed, id)
+	}
+
+	small, err := ReadBlobMessage(r)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	manifest, err = unsqueeze(small, maxBlob)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	packed, err = ReadBlobMessage(r)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return manifest, packed, nil
+}
+
+// bound applies a context's deadline to a stream.
+//
+// The context covers opening the stream and **nothing after it**: the reads take
+// no context, so a peer whose machine vanished after the stream was opened would
+// block until QUIC gave up on the connection - tens of seconds, once per step
+// (E256). A deadline on the stream is what actually applies it.
+// Takes what it needs rather than the concrete stream, so that the rule can be
+// asserted without a peer: a mutant that stopped calling SetDeadline survived a
+// full sweep, because nothing here could observe the call. An interface with one
+// method is the smallest thing that makes "it applied the deadline" a question a
+// test can ask.
+func bound(ctx context.Context, st deadliner) {
+	if dl, ok := ctx.Deadline(); ok {
+		_ = st.SetDeadline(dl)
+	}
+}
+
+// deadliner is what bound needs of a stream, which is one method.
+type deadliner interface{ SetDeadline(time.Time) error }
+
+// soonest is the earlier of a serve's own bound and its caller's, if the caller
+// has one.
+//
+// **The caller usually has not**, which is the whole reason the serve carries
+// its own: `fleet.Driver` serves under a cancel and no deadline. Where there is
+// one - a test, a server given a lifetime - it is an upper limit and not a
+// replacement, because a build that has finished is not waiting for this blob
+// however long the blob was promised.
+func soonest(ctx context.Context, own time.Time) time.Time {
+	if dl, ok := ctx.Deadline(); ok && dl.Before(own) {
+		return dl
+	}
+
+	return own
+}
+
+// notHere answers a request this store cannot serve the way it was asked.
+//
+// **The whole layer is not an answer to "give me these paths".** It used to be
+// what a store that could not fragment sent, and `readFragment` refuses
+// anything that is not a fragment - by construction, because accepting it would
+// be I10's accepted-and-ignored. So the sender committed a layer to a stream the
+// asker had already decided to abandon, and the asker returned after one flag
+// without draining it.
+//
+// Enough of those and the connection's flow-control window is gone: the sender
+// cannot write even the first byte of the *next* answer and the asker waits for
+// it for ever. Both ends blocked on the same transfer, one in `writeFramed` and
+// one in `readFragment`, which is what two goroutine dumps showed and what one
+// side's stack could never have explained (E-F2).
+//
+// A driver whose store is inside the VM can never fragment, so this is not an
+// edge case: it is every lazy fetch from a Mac.
+//
+// Absent rather than an error, because absent is what it means to this asker
+// and is a word the protocol already has: the asker tries the next source, and
+// then the whole-layer path, which is exactly the fallback I11 asks for.
+func notHere(w io.Writer) error { return WriteMessage(w, []byte{0}) }

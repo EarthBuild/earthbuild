@@ -1,0 +1,1149 @@
+// Package cli is the front end: a directory and a target name in, a built
+// artifact and a readable account of what happened out.
+//
+// It is a library rather than a main package so that the whole path - parse,
+// plan, schedule, export, report - is testable without a process boundary. What
+// remains in main is argument parsing and an exit code.
+package cli
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+
+	"github.com/EarthBuild/earthbuild/engine/core"
+	"github.com/EarthBuild/earthbuild/engine/exec"
+	"github.com/EarthBuild/earthbuild/engine/fleet"
+	"github.com/EarthBuild/earthbuild/engine/interp"
+	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/pin"
+	"github.com/EarthBuild/earthbuild/engine/store"
+	"github.com/EarthBuild/earthbuild/engine/timing"
+)
+
+// Options configure a build.
+// writerName is what this engine calls itself in a build record.
+//
+// One place, because a record's writer is how a later reader knows which engine
+// produced it - a build recorded under two spellings is two engines as far as
+// anything reading the record is concerned.
+const writerName = "earthbuild"
+
+// Options is a build, as a caller describes it.
+//
+// Everything the engine needs to run one and nothing about how: the fields say
+// what to build and where to report, and the choices - which engine, how many
+// workers, what to trace - are read from the environment or decided by the
+// engine itself. A caller that had to answer those would be a caller that has
+// to be updated whenever the engine learns a new one.
+type Options struct {
+	// NoOutput leaves `SAVE ARTIFACT ... AS LOCAL` unwritten.
+	//
+	// What `--ci` is for: a build machine wants the steps run and the cache
+	// filled, not the working tree changed. `--ci` means `--no-output --strict`,
+	// and strict is what this engine already is - it refuses what it cannot
+	// reproduce (I10) - so this is the half that needed building.
+	NoOutput bool
+	// NoImageOutput leaves `SAVE IMAGE` unwritten.
+	//
+	// The other half of NoOutput, and separate because a build may want one
+	// without the other: pushing an image while declining to keep a copy on the
+	// machine that built it is an ordinary thing to want, and so is producing
+	// artifacts without a multi-gigabyte layout beside them. Upstream spells the
+	// same knob as skipping a load into a local daemon; this engine writes an
+	// OCI layout, which is the same write to the same filesystem.
+	NoImageOutput bool
+	// Dir holds the Earthfile and is the build context.
+	Dir string
+	// Target to build.
+	Target string
+	// Platform is "os/arch". The guest's own when empty.
+	Platform string
+	// Out receives progress. Diagnostics go to the returned error, not here.
+	Out io.Writer
+	// Args are build argument values, overriding the Earthfile's defaults.
+	Args map[string]string
+	// Secrets are credentials a step may mount, by name.
+	//
+	// Never written to the graph, the key, or a printed plan: the interpreter is
+	// told only which names exist so it can refuse a step asking for one that
+	// does not, and the executor is the single place a value is read.
+	Secrets map[string]string
+	// DryRun resolves the plan and prints it without running anything.
+	//
+	// Useful on a machine with no sandbox, and useful as a check: it does all
+	// the work that can fail for reasons in the Earthfile - parsing, target
+	// resolution, context digests, capability refusals - and none of the work
+	// that can fail for reasons in the environment.
+	DryRun bool
+	// AllowPrivileged accepts `RUN --privileged` rather than refusing it. The
+	// flag buys nothing here - a step already holds every capability inside its
+	// namespace - and a caller who asks for it anyway is taken at their word
+	// (interp.WithAllowPrivileged).
+	AllowPrivileged bool
+	// UnsafeAllowUnpinnedRemoteLocally accepts a `LOCALLY` reached through a
+	// reference nobody pinned to a commit
+	// (interp.WithUnsafeUnpinnedRemoteLocally).
+	UnsafeAllowUnpinnedRemoteLocally bool
+	// Push says this build is a push, so `RUN --push` steps run rather than
+	// being planned away (interp.WithPush).
+	Push bool
+	// Strict withholds the constructs that make a build unrepeatable - a host
+	// step, an interactive one. `--ci` implies it (interp.WithStrict).
+	Strict bool
+	// NoCache builds every step, reading no cache entry that is already there.
+	//
+	// Two of the corpus's own invocations pass `--no-cache` and the gate could
+	// not, because the engine had no such option (E462).
+	NoCache bool
+	// Env is this invocation's own environment, consulted before the process's.
+	//
+	// A build reads a few variables - which file its build arguments live in,
+	// for one - and a caller that drives several builds at once cannot say so
+	// with `os.Setenv` without deciding it for all of them. Nil means the
+	// process's environment alone, which is what a terminal gives (E475).
+	Env map[string]string
+	// Long asks the reading commands for everything they have rather than a
+	// summary: `doc --long` adds what a target needs and what it produces.
+	Long bool
+	// VersionFlags are features turned on for every file in the build, whatever
+	// its VERSION line says: `--version-flag-overrides`.
+	//
+	// Seven of the corpus's invocations pass it, and the gate could not attempt
+	// any of them because the engine had nowhere to put the answer (E473).
+	VersionFlags []string
+	// ArgFile and SecretFile name the files a project keeps its build arguments
+	// and secrets in, empty for the usual `.arg` and `.secret` beside the
+	// Earthfile.
+	//
+	// Named explicitly, a missing file is an error: the author asked for that
+	// path (E465).
+	ArgFile    string
+	SecretFile string
+	// SecretFiles are `NAME=path` entries: one secret whose value is a file's
+	// contents.
+	//
+	// Distinct from SecretFile, which is where the project keeps *many* - the
+	// two were conflated once and the engine looked for a file called
+	// `SECRET3=~/my-secret-file` (E469).
+	SecretFiles []string
+	// ExecStats asks the build to say what it spent: total CPU across its steps
+	// and the largest peak any one of them reached (E467).
+	ExecStats bool
+	// EmitInputs writes the plan's input fingerprint to this path and runs
+	// nothing. See Inputs.
+	EmitInputs string
+	// CheckInputs compares this plan against a fingerprint written earlier and
+	// runs nothing, returning ErrInputsChanged where the build must run.
+	//
+	// **What a CI job restores from its cache and asks before spending a
+	// runner.** Planning costs the context digest - seconds on a large tree -
+	// against the job.
+	CheckInputs string
+	// AutoSkip is `--auto-skip`: a target whose plan this machine has built
+	// before is not built again.
+	//
+	// The same promise buildkit's flag makes, kept from the plan rather than
+	// from a second implementation of it - so a moved base image is a different
+	// plan here, where `inputgraph` hashes the tag and skips. See autoskip.go.
+	AutoSkip bool
+	// AutoSkipDB is `--auto-skip-db-path`. The plan store sits beside it rather
+	// than in it: see planSkipSuffix.
+	AutoSkipDB string
+}
+
+// platformOrDefault is the platform the build runs on.
+//
+// The sandbox's own when the invocation named none, which is what `ARG
+// NATIVEARCH` answers and what an unqualified target is built for.
+func (o Options) platformOrDefault() string {
+	if o.Platform != "" {
+		return o.Platform
+	}
+
+	return exec.DefaultPlatform()
+}
+
+// Run builds a target.
+// The result is named because a deferred check reads it: see the case note
+// below, which belongs to a *failed* build and cannot know that from a local
+// variable. `return build(...)` assigns the named result before defers run, so
+// every exit is covered by the one check - which was worth confirming rather
+// than assuming, and a mutant that survived is what asked the question (E491).
+func Run(ctx context.Context, o Options) (err error) { //nolint:nonamedreturns // the deferred case note reads it
+	if o.Out == nil {
+		o.Out = io.Discard
+	}
+
+	// **A target may name the directory it lives in.** `./dir+target` is how the
+	// language refers to a target elsewhere and the interpreter has always
+	// resolved it; only the command line refused it, which put this
+	// repository's own corpus out of reach of its own engine. See splitTargetRef.
+	o.Dir, o.Target = splitTargetRef(o.Dir, o.Target)
+
+	path := filepath.Join(o.Dir, "Earthfile")
+
+	src, err := os.ReadFile(path) //nolint:gosec // the user named this directory
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("no Earthfile in %s\n  looked for %s", o.Dir, path)
+		}
+
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+
+	// The engine is created before the plan because making the plan may need
+	// it: a condition the interpreter cannot decide is answered by running it,
+	// which needs a sandbox. It builds one lazily, so a plan that decides all
+	// its conditions - which is nearly all of them - still boots nothing.
+	// Absolute, and resolved once: a prediction site is qualified with this, and
+	// `filepath.Join(".", "Earthfile:10")` is `Earthfile:10` again - which is
+	// the collision the qualification exists to remove (E732).
+	root, rootErr := filepath.Abs(o.Dir)
+	if rootErr != nil {
+		// Not a reason to refuse a build. An unqualified site is what every
+		// build had before this, so the cost is speculation that is too eager
+		// rather than a build that does not run.
+		root = ""
+	}
+
+	g := &engine{o: o, root: root, contexts: &interp.ContextCache{}}
+
+	defer g.close()
+
+	// What earlier builds observed about each condition. A hint, so a machine
+	// with no history and a history that cannot be read are the same case:
+	// build anyway.
+	dir, err := storeDir()
+	if err == nil {
+		// Said once, at the start, because it explains failures that arrive much
+		// later and look like something else entirely.
+		// Both, because they are the same directory by default and
+		// EARTH_IMAGE_CACHE_DIR separates them - and an image is unpacked into
+		// whichever one it lands in.
+		images, imageErr := imageCacheDir()
+		if imageErr != nil {
+			images = ""
+		}
+
+		// Kept, not printed. See explainCase: this note belongs to a failure,
+		// and printing it before anything has happened is what made it read as
+		// the diagnosis of whatever failed next (E491).
+		//
+		// **And not kept at all when nothing is unpacked here.** The note is
+		// about directories an image is unpacked into; with the unpack in the
+		// guest - which a store on the guest's device implies - these are not
+		// those. The guest's volume is ext4 and case-sensitive, measured, so
+		// the case this warns about cannot arise there. Advising an `hdiutil`
+		// image for a directory the layers have left is the same true and
+		// irrelevant paragraph E491 removed, arriving by a different route.
+		g.caseNote = caseNoteFor(
+			cacheDir{path: dir, env: envCacheDir},
+			cacheDir{path: images, env: envImageCacheDir})
+
+		learned, imageErr := loadPredictions(dir)
+		if imageErr == nil {
+			g.learned = learned
+
+			// What confidently-predicted branches needed last time, fetched
+			// beside the interpretation rather than in front of it - so the
+			// pull overlaps the work that leads to the condition selecting the
+			// branch that wants it. A hint throughout: it cannot fail the
+			// build, and an image it did not fetch is pulled normally by
+			// whatever needs it.
+			platform := o.Platform
+			if platform == "" {
+				platform = exec.DefaultPlatform()
+			}
+
+			// Waited for on the way out, so no pull outlives the build that
+			// speculated on it.
+			defer prefetch(ctx, root, learned, intoImageCache(dir, platform))()
+
+			// Started for every build, not only one whose history says a
+			// condition will need it. A build that runs *any* step needs the
+			// machine, which is nearly all of them, and the boot then overlaps
+			// parsing, digesting the build context and resolving what `FROM`
+			// means - about half a second of registry round trip that the
+			// machine has no reason to wait behind.
+			//
+			// Nothing waits for it, so a build that turns out to need no machine
+			// is not slowed: it finishes and exits while the boot is in flight,
+			// and leaves behind the VM the next build would have had to boot
+			// anyway (E537).
+			g.warm(ctx)
+
+			defer func() {
+				recordNeeds(learned, g.decided, g.images)
+
+				_ = savePredictions(dir, learned)
+			}()
+		}
+	}
+
+	// The terminal an interactive step would run on, if this invocation has one.
+	//
+	// Found before planning, because whether it exists decides whether
+	// `RUN --interactive` is accepted at all - and refusing at plan time is the
+	// difference between a build that says so and one that fails halfway
+	// through with a prompt nobody can answer.
+	tty := callersTerminal()
+	if tty != nil {
+		defer func() { _ = tty.Close() }()
+	}
+
+	// The project's own defaults, under whatever this invocation was given.
+	//
+	// A `.arg` beside the Earthfile is how a project keeps values out of its
+	// source without typing them every time, and `.secret` the same for
+	// credentials. Read before planning, because an argument decides what the
+	// graph *is* (E465).
+	args, secrets, err := o.withProjectFiles()
+	if err != nil {
+		return err
+	}
+
+	// **The step gets what the plan was checked against.** These are the
+	// merged secrets; handing the executor `o.Secrets` instead gave it the
+	// flags alone, so a build supplying `--secret-file MY=sec.txt` planned
+	// fine and then failed inside the step naming a secret the caller had
+	// plainly supplied.
+	g.secrets = secrets
+
+	// From here on a failure is the caller's news, and the store's case
+	// behaviour may be part of why (E491).
+	defer func() {
+		if err != nil && g.caseNote != "" && o.Out != nil {
+			fmt.Fprint(o.Out, g.caseNote)
+		}
+	}()
+
+	// **The three stages a build has, timed at the top.** Every phase inside
+	// them was instrumented and their sum came to about half the wall clock of
+	// a fully cached build - so the rest was being attributed to whichever
+	// mechanism happened to be measured next to it, which is how a scan that
+	// ran concurrently with the real work looked like the answer for a while
+	// (E561, E565).
+	endPlan := timing.Phase("plan", o.Target)
+
+	// **Started before the walk, because the walk is what makes them serial.**
+	// The interpreter resolves each `FROM` as it reaches it, so two distinct
+	// images cost the sum of two round trips - 0.336s measured against 0.197s
+	// for one, on a build whose every step was already cached. Nothing about
+	// resolving one image depends on another.
+	//
+	// The scan is the same one `--pin` uses, so a reference it misses resolves
+	// inline exactly as it did before; this changes when the lookups happen and
+	// not how many (`Plan.pin`'s memo is still what makes it one per reference).
+	resolver := newPrefetchResolver(g.imageResolver(ctx))
+	resolver.start(pin.References(src), o.platformOrDefault())
+
+	// A fleet key makes a step holding a secret cacheable, by putting a keyed
+	// digest of the value into its key instead of nothing at all. Computed
+	// here because this is where both the key and the credentials already are:
+	// the interpreter is handed digests and still never a value, which is what
+	// keeps a credential in the graph impossible rather than merely avoided.
+	secretDigest, err := secretDigests(os.Getenv(EnvSecretHMAC), secrets)
+	if err != nil {
+		return err
+	}
+
+	// **Before planning, which is the whole point of the flag.** The shape needs
+	// no plan and the inputs it names are read from the checkout, so a job that
+	// need not run costs a parse, a hash and a few file reads - rather than a
+	// machine, a registry round trip and a digest of the whole build context.
+	shape, skip, err := askAutoSkip(o, src, args, secretDigest, secrets)
+	if err != nil {
+		return err
+	}
+
+	if skip {
+		return nil
+	}
+
+	plan, err := interp.Build(string(src), o.Target,
+		interp.WithContextCache(g.contexts),
+		interp.WithTerminal(tty != nil),
+		interp.WithContext(o.Dir), interp.WithArgs(args),
+		interp.WithCommands(g.commands(ctx)),
+		interp.WithRemotes(g.remotes(ctx)),
+		interp.WithSecrets(secrets),
+		interp.WithSecretDigests(secretDigest),
+		interp.WithVersionFlags(o.VersionFlags),
+		interp.WithAllowPrivileged(o.AllowPrivileged),
+		interp.WithPush(o.Push),
+		interp.WithStrict(o.Strict),
+		interp.WithUnsafeUnpinnedRemoteLocally(o.UnsafeAllowUnpinnedRemoteLocally),
+		interp.WithPlatform(o.platformOrDefault()),
+		interp.WithGitClone(g.gitClone(ctx)),
+		interp.WithImageResolver(resolver.Resolve),
+		interp.WithHelperResolver(g.helperResolver(dir)),
+		interp.WithImageEnv(g.imageEnv(ctx)),
+		// Withheld from a dry run, which promises to run nothing: a plan that
+		// needs a target built to exist is refused there, saying so (E488).
+		interp.WithArtifacts(artifactsFor(ctx, o, g, string(src))))
+
+	endPlan()
+
+	if err != nil {
+		return err
+	}
+
+	// Said once, where a reader can act on it: a helper that could not be
+	// obtained is a cache that will not cross, and nothing else reports it.
+	for _, note := range plan.HelperNotes {
+		fmt.Fprintf(o.Out, "note: %s\n", note)
+	}
+
+	// Kept for the deferred record above: what this build needed is attributed
+	// to the conditions it decided along the way.
+	g.images = imageRefs(plan)
+
+	if o.DryRun {
+		return report(o.Out, plan)
+	}
+
+	if o.EmitInputs != "" || o.CheckInputs != "" {
+		return answerAboutInputs(o, plan)
+	}
+
+	// **The coarse gate, which needs the plan the fine one did not.** Κ_job is
+	// over what a build read and is asked before anything is interpreted; the
+	// plan fingerprint is over what it declares, so it cannot be had until
+	// there is a plan. A build that watched nothing leaves only the second, and
+	// without this it would leave it for nobody.
+	//
+	// Still far cheaper than building: an interpretation and a context digest
+	// against a machine, a registry and a compile.
+	if o.AutoSkip && skippedByPlan(o, plan) {
+		return nil
+	}
+
+	sched, err := build(ctx, o, plan, g, tty)
+	if err != nil {
+		return err
+	}
+
+	if o.AutoSkip {
+		noteBuild(o, plan, sched, shape)
+	}
+
+	return nil
+}
+
+// needsSandbox reports whether any step must run somewhere other than here.
+func needsSandbox(plan *interp.Plan) bool {
+	for _, n := range plan.Graph.Nodes() {
+		if n.Op.Kind != ir.OpHost {
+			return true
+		}
+	}
+
+	return false
+}
+
+// report prints what would happen, in Earthfile order.
+func report(w io.Writer, plan *interp.Plan) error {
+	fmt.Fprintf(w, "plan:\n")
+
+	for _, n := range plan.Graph.Nodes() {
+		desc := n.Meta.Description
+		if desc == "" {
+			desc = n.Op.Kind.String()
+		}
+
+		fmt.Fprintf(w, "  %-14s %s\n", n.Meta.Source, desc)
+	}
+
+	if len(plan.Artifacts) == 0 {
+		return nil
+	}
+
+	fmt.Fprintf(w, "produces:\n")
+
+	for _, a := range plan.Artifacts {
+		if a.LocalDest == "" {
+			fmt.Fprintf(w, "  %s\n", a.Path)
+
+			continue
+		}
+
+		fmt.Fprintf(w, "  %s -> %s\n", a.Path, a.LocalDest)
+	}
+
+	return nil
+}
+
+func build(
+	ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os.File,
+) (*core.Scheduler, error) {
+	// The scheduler is handed back for its record: what every step observed and
+	// where its copies put things, which is what `--auto-skip` writes down. The
+	// rest of what ran the plan is finished with - `runPlan` both exports and
+	// writes the images before it returns.
+	_, sched, err := runPlan(ctx, o, plan, g, tty)
+
+	// **`runPlan` has already exported, and has already written the images.**
+	// There were two calls of each, with identical arguments, one here and one
+	// at the end of the run - so every artifact was written out twice and the
+	// second write was invisible because it produced the same bytes as the
+	// first.
+	//
+	// Found by timing, not by reading: the export phase logged its whole
+	// sequence twice in one build, 0.37s a time for a 45MB binary, on a build
+	// whose total was 1.6s (E566). Two calls that agree are the hardest kind of
+	// duplicate to see, because nothing about the result is wrong.
+	//
+	// The image half of it outlived that fix, directly under this comment, and
+	// stayed invisible for the same reason: writing one layout twice produces
+	// the same directory. It stopped being invisible when `--push` began doing
+	// something, because the second write is then a second upload - every blob
+	// offered to the registry again, and the tag republished.
+	return sched, err
+}
+
+// answerAboutInputs is `emit-inputs` and `check-inputs`: a statement about the
+// plan, with nothing run.
+func answerAboutInputs(o Options, plan *interp.Plan) error {
+	in := inputsOf(plan, o.Target, o.platformOrDefault())
+
+	if o.EmitInputs != "" {
+		err := writeInputs(o.EmitInputs, in)
+		if err != nil {
+			return err
+		}
+	}
+
+	if o.CheckInputs == "" {
+		return nil
+	}
+
+	err := checkInputs(o.CheckInputs, in)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(o.Out, "unchanged: %s needs no build\n", o.Target)
+
+	return nil
+}
+
+// skippedByPlan asks whether a record left by a build that watched nothing
+// still describes this one.
+//
+// Only reached when the reads did not answer: either there were none recorded,
+// or they have moved. See wouldSkipPlan.
+func skippedByPlan(o Options, plan *interp.Plan) bool {
+	store, err := skipRecordStoreFor(o.AutoSkipDB)
+	if err != nil {
+		return false
+	}
+
+	rec, ok := store.get(o.Target, o.platformOrDefault())
+	if !ok {
+		return false
+	}
+
+	if !rec.planHolds(inputsOf(plan, o.Target, o.platformOrDefault()).Fingerprint) {
+		return false
+	}
+
+	fmt.Fprintf(o.Out, "auto-skip: %s was built with these inputs before\n", o.Target)
+
+	return true
+}
+
+// askAutoSkip answers `--auto-skip` before anything is planned.
+//
+// Hands back the shape it computed, so a build that does run can record itself
+// under it, and whether there is anything left to do.
+func askAutoSkip(
+	o Options, src []byte, args, secretDigest, secrets map[string]string,
+) (ir.NodeID, bool, error) {
+	if !o.AutoSkip {
+		return ir.NodeID{}, false, nil
+	}
+
+	asked := shapeFor(o, src, args, secretDigest, secrets)
+
+	// Said once, where it can be acted on. A weaker key that nobody is told
+	// about is one nobody can decide to strengthen.
+	if secretsAreKeyedByName(asked) {
+		fmt.Fprintf(o.Out, "auto-skip: no %s is set, so this build is keyed on"+
+			" which secrets it reads and not on their values\n", EnvSecretHMAC)
+	}
+
+	store, storeErr := skipRecordStoreFor(o.AutoSkipDB)
+	if storeErr != nil {
+		// Nowhere to remember is a reason to build, not to fail: this flag is
+		// an optimisation and an optimisation that cannot be had must degrade
+		// to work rather than to failure.
+		//nolint:nilerr // see above
+		return ir.NodeID{}, false, nil
+	}
+
+	skip, shape, why, err := wouldSkip(asked, o.Dir, store)
+	if err != nil {
+		return ir.NodeID{}, false, err
+	}
+
+	switch {
+	case skip:
+		fmt.Fprintf(o.Out, "auto-skip: %s was built with these inputs before\n", o.Target)
+
+	case why != "":
+		// Said once, with the remedy, because a flag that quietly does nothing
+		// is one nobody can act on.
+		fmt.Fprintf(o.Out, "auto-skip: this build cannot be keyed, so it will run\n  %s\n", why)
+	}
+
+	return shape, skip, nil
+}
+
+// runPlan runs a plan and gives back what ran it.
+//
+// Separated from `build` so a *second* caller can read what a plan produced
+// without also exporting it where the invocation asked: planning a
+// `FROM DOCKERFILE +gen/` needs the file `+gen` writes, which means running that
+// target and reading one file out of it - not exporting its artifacts into the
+// project (E488).
+//
+// The reporting stays here rather than in `build`, so a sub-build's steps appear
+// in the output like any others. A target that ran and printed nothing is one
+// the reader cannot account for.
+func runPlan(
+	ctx context.Context, o Options, plan *interp.Plan, g *engine, tty *os.File,
+) (*exec.Executor, *core.Scheduler, error) {
+	// Everything between a plan and the first step: the executor, the action
+	// cache, the profile store, the blob question. Timed because it is the span
+	// the stage timings left out, and a span nobody has measured is one that
+	// gets blamed on its neighbours (E566).
+	endSetup := timing.Phase("setup", o.Target)
+
+	// A build whose every step runs on this machine needs no sandbox, and must
+	// not require one: a LOCALLY target is precisely what someone without a
+	// container runtime can run, so demanding one to run it is backwards. It
+	// also booted a VM, used it for nothing, and tore it down.
+	e, err := g.executorFor(plan)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// The same terminal the plan was built against. An interactive step reaches
+	// the executor only if the interpreter accepted it, and it accepted it only
+	// because this was not nil - so the two must be the same decision or a step
+	// would be planned to prompt and given nowhere to do it.
+	e.Terminal = tty
+
+	// Printed as it happens. A build that goes quiet for four minutes and then
+	// prints everything is indistinguishable from one that has hung.
+	e.Progress = func(step, line string, raw bool) {
+		fmt.Fprint(o.Out, progressLine(step, line, raw))
+	}
+
+	sb := e.Sandbox()
+
+	// The same cache the conditions were answered against, not a second one over
+	// the same directory: see actionCache.
+	ac, err := g.actionCache(sb.StoreDir())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	rec := &core.Record{Identity: core.LayerRule}
+
+	// A profile store that cannot be opened is reported rather than skipped: a
+	// build quietly running without a cache tier is a build whose speed nobody
+	// can account for (I11).
+	profiles, err := g.profileStore(sb.StoreDir())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// And how long each class of step takes. Softer than the profile store
+	// above: a missing profile costs a rebuild, where a missing cost costs a
+	// placement decision - so this degrades to no history rather than failing
+	// the build.
+	costs := g.costs(sb.StoreDir())
+
+	// The executor and the workers the build schedules over.
+	//
+	// Both, together, and from one place: a fleet reaches a build through the
+	// executor *and* the worker list, and a scheduler that does not know a
+	// worker exists never places a step on it whatever executor it holds
+	// (E500).
+	over, workers := g.scheduling(e, o.Platform, parallelismFor(sb, o.env))
+
+	// What the L2 tier verifies its hits against: the store's index, with the
+	// store itself as the fallback that says when the index lagged (E542).
+	//
+	// A store that cannot be asked is reported and the build carries on against
+	// the store alone - the tier this feeds turns every one of its own failures
+	// into a rebuild rather than a wrong answer (I4), so a missing index costs
+	// time and nothing else.
+	blobs, err := store.OpenBlobs(sb.StoreDir())
+	if err != nil {
+		fmt.Fprintf(o.Out, "earth: the layer store's index could not be opened,"+
+			" so this build verifies its cache against the store directly: %v\n", err)
+	}
+
+	// **A store on the guest's device is answered for by the guest.** Stat'ing
+	// the host's own root reads an empty answer, `Lookup` turns that into a
+	// miss, and the build rebuilds everything it already had - which is what
+	// `KindStoreHas` was written for.
+	//
+	// A separate variable because the index below is still the host's - it
+	// closes gaps in a directory the host owns, which is not where the layers
+	// are, and only the *lookup* needs to move.
+	var (
+		present core.BlobStore = blobs
+		views                  = viewsFor(sb)
+	)
+
+	if storeInGuest(sb) {
+		// Two assertions, deliberately. See guestStoreAskers: fusing them is
+		// how a method only one executor had switched the guest store off
+		// entirely.
+		asker, faster := guestStoreAskers(over)
+		if asker != nil {
+			gb := &guestBlobs{
+				ask: func(ids []ir.NodeID) ([]ir.NodeID, error) {
+					return asker.StoreHas(ctx, ids)
+				},
+				Why: func(err error) {
+					fmt.Fprintf(o.Out, "earth: the layer store is inside the sandbox"+
+						" and could not be asked what it holds, so this build caches"+
+						" nothing: %v\n", err)
+				},
+			}
+
+			// Asserted apart from storeAsker, never fused with it: an executor
+			// that cannot say what a layer holds keeps its guest store and
+			// loses only Κₜ, where requiring it would lose the store.
+			if tree, ok := over.(treeAsker); ok {
+				gb.askTree = func(ids []ir.NodeID) (ir.NodeID, error) {
+					return tree.StoreTree(ctx, ids)
+				}
+			}
+
+			present = gb
+
+			gv := &guestViews{ask: asker.ViewDigests}
+			if faster != nil {
+				gv.stale = faster.WhyStaleIn
+			}
+
+			views = gv
+		} else {
+			fmt.Fprintln(o.Out, "earth: the layer store is inside the sandbox and"+
+				" this executor cannot be asked what it holds, so this build"+
+				" caches nothing")
+		}
+	}
+
+	// **The writer asks the same question the reader does.** `Lookup` refuses an
+	// entry whose result the store no longer holds, and `Put` leaves an
+	// existing entry alone - so without this a store that has lost a layer
+	// leaves that key permanently unhittable, the step rerunning and its fresh
+	// claim discarded every time (E974).
+	//
+	// After `present` is decided, so a store held inside the guest is asked of
+	// the guest rather than of a host directory the layers were never in.
+	ac.Held = func(e core.Entry) bool { return core.Held(present, e) }
+
+	blobs.Gap = func(id ir.NodeID) {
+		fmt.Fprintf(o.Out, "earth: layer %s is in the store and was not in its"+
+			" index, which means something filed it without recording it;"+
+			" the index has been corrected\n", id)
+	}
+
+	s := &core.Scheduler{
+		Workers:  workers,
+		Executor: over,
+		Cache:    ac,
+		// A served step says what it said, through the same sink a running one
+		// uses. Without it a cached build's log is missing everything its steps
+		// printed, which is most of what a build log is.
+		Echo: echoOf(over),
+		// Zero is one per core, which is every build that does not ask. See
+		// EnvParallelism - a serial build is how a hang with several steps in
+		// flight is told apart from one that would hang anyway.
+		Parallelism: parallelismFor(sb, o.env),
+		// The invocation saying "redo it all": reads nothing already there and
+		// writes everything it produces, so the *next* build is warm (E462).
+		NoCache: o.NoCache,
+		Blobs:   present,
+		Writer:  writerName,
+		Record:  rec,
+		// What the mount can take, not what overlayfs allows: the option page
+		// runs out an order of magnitude sooner (E49), and Φ exists for exactly
+		// this.
+		MaxStack: store.MountableStackDepth,
+
+		// The L2 tier, switched on now that a real observation source exists
+		// (E119) and the empty-observation trap is closed on the base rather
+		// than on the opcode (E125). A COPY over a bumped base image is reused
+		// when its destination is unchanged, which is the common expensive miss
+		// this tier was designed for.
+		//
+		// Steps with no source still report nothing, so they publish no profile
+		// and every lookup for them misses: the tier costs one absent file read
+		// per step and applies only where something actually watched.
+		Profiles: profiles,
+		// And how long each class of step took, which is what a fleet needs to
+		// price one before running it - the input `Hints.EstimatedSeconds` has
+		// been declared for and never had.
+		Costs: costs,
+		Views: views,
+		// On. See EnvAskStale for what changed and what would change it back.
+		AskStale: askStale(),
+
+		// **Said to stderr, because a hung build's stdout may be a pipe nobody
+		// is reading.** The one failure the rest of the reporting cannot
+		// describe: an outcome is recorded when a step finishes, so a step that
+		// never finishes is indistinguishable from a build that is working -
+		// see core.stalled.
+		OnStall: stallReporter(os.Stderr, sb),
+	}
+
+	endSetup()
+
+	// The registry handshake beside the boot rather than behind it.
+	//
+	// Here rather than beside `warm`, because that runs before anything has
+	// been parsed and the references are not known until the plan exists. The
+	// boot still has most of its 1.48s to run at this point, which is ample for
+	// an exchange that takes 0.46s (E907).
+	//
+	// Nothing waits for it, and a backend with nothing to warm says nothing -
+	// the same shape as Prewarm.
+	if w, ok := over.(interface {
+		WarmImages(context.Context, []string, string)
+	}); ok {
+		w.WarmImages(ctx, imageRefs(plan), o.Platform)
+	}
+
+	endSchedule := timing.Phase("schedule", o.Target)
+	_, runErr := s.Run(ctx, plan.Graph)
+	endSchedule()
+
+	// Said while it can still be acted on, and once: the guest carries the
+	// reason back with each step and the first one is kept (E123).
+	// What interpretation noticed and did not stop for. Said after the build
+	// rather than before it: a note printed while the plan is still being read
+	// arrives before the reader knows which target it belongs to.
+	for _, note := range plan.Advice {
+		fmt.Fprintf(o.Out, "warning: %s\n", note)
+	}
+
+	warnUnbounded(o.Out, e.Degraded())
+
+	// And why a step's filesystem was not fully built, on the same rule: said
+	// where it can be acted on rather than left for whoever meets `no cgroup
+	// mount found in mountinfo` from a nested runtime (E834a).
+	warnIncomplete(o.Out, e.Unmounted())
+
+	// And why steps shared one network, on the same rule. Sharing is no longer
+	// what was asked for, so a build that did it silently would leave two steps
+	// colliding on a port with nothing saying why (E923).
+	warnSharedNet(o.Out, e.SharedNet())
+
+	// Said before the reader meets `docker: not found` from a step, rather than
+	// after (E146).
+	warnNoDockerClient(o.Out, e.DockerNote())
+
+	// And before they conclude a change they made is not working (E499).
+	if note := e.GuestNote(); note != "" && o.Out != nil {
+		fmt.Fprint(o.Out, note)
+	}
+
+	// A tolerated failure has already let everything downstream run, and what a
+	// FINALLY declared still has to be exported - which is the entire point of
+	// TRY. Returning here would fail the build correctly and throw away the one
+	// thing it exists to keep.
+	var tolerated *core.ToleratedFailureError
+
+	if runErr != nil && !errors.As(runErr, &tolerated) {
+		// **What the failure stopped, before the failure itself.** The per-step
+		// table below is never reached by a failed build, so the work abandoned
+		// beside the fault went unmentioned entirely - on a wide fan that is
+		// most of the build. Printed here rather than added to the error,
+		// because it is context for the diagnostic and not part of it (E969).
+		fmt.Fprint(o.Out, stoppedSummary(rec.Steps))
+
+		// The step's own diagnostic is the useful part and already names the
+		// line; wrapping it in "build failed" would only push it further from
+		// the top of the message.
+		return nil, nil, runErr
+	}
+
+	for _, r := range rec.Steps {
+		// Ten wide because "uncaptured" is ten: an outcome column narrower than
+		// its widest outcome shunts the description out of line on exactly the
+		// steps whose outcome most needs reading.
+		fmt.Fprint(o.Out, stepRow(r.Meta.Source, r.Outcome.String(), r.Meta.Description))
+	}
+
+	// After the steps, because these are about the build as a whole and belong
+	// where a reader has finished reading the per-step lines.
+	fmt.Fprint(o.Out, cacheSummary(s.Stats))
+
+	// What each mutable reference resolved to (§3.4d): the one input a key
+	// cannot be closed over, so the one worth naming.
+	recordPinning(o.Out, plan.Pinned, plan.PinCost)
+
+	// Whether the fleet this build waited for did anything (E505).
+	if d, ok := g.fleetExec().(*fleet.Delegating); ok {
+		fmt.Fprint(o.Out, fleetSummary(d.Spend()))
+	}
+
+	// What the build spent, where the invocation asked for it (E467).
+	if o.ExecStats {
+		fmt.Fprint(o.Out, usageSummary(s.Stats))
+	}
+	fmt.Fprint(o.Out, whyItReran(sb.StoreDir(), o.Target, rec))
+	fmt.Fprint(o.Out, conflictWarning(ac.Conflicts(), ac.ConflictCount(), rec))
+
+	// Written after it has been compared against, and best-effort: a record
+	// that could not be saved costs the *next* build its explanation and this
+	// one nothing, so failing here would trade a working build for a
+	// diagnostic.
+	_ = saveRecord(sb.StoreDir(), o.Target, rec)
+
+	endExport := timing.Phase("export", o.Target)
+	err = exportAll(ctx, o, e, s, plan)
+	endExport()
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// After the artifacts, because a build that produced both should keep the
+	// artifacts even if writing an image fails.
+	err = writeImages(ctx, o, e, s.StackFor, s.Declared, plan.Images, scheduled(plan.Graph))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// The run's own failure comes back with what ran it, not instead of it: a
+	// tolerated failure has already let a FINALLY run, and the caller still has
+	// to export what the build produced.
+	return e, s, runErr
+}
+
+func exportAll(ctx context.Context, o Options, e *exec.Executor, s *core.Scheduler, plan *interp.Plan) error {
+	// **Before anything is looked up, not per artifact.** The steps still ran
+	// and the cache is still filled; the only thing withheld is the write to
+	// somebody's working tree.
+	if o.NoOutput {
+		return nil
+	}
+
+	if w := exportWidth(); w > 1 {
+		return exportConcurrently(ctx, o, e, s, plan, w)
+	}
+
+	// One target read with different arguments is read more than once, and each
+	// reading appends its `AS LOCAL`. Only the readings the graph reaches run, so
+	// an unscheduled one has nothing to copy - see scheduled().
+	inGraph := scheduled(plan.Graph)
+
+	for _, a := range plan.Artifacts {
+		if a.LocalDest == "" {
+			continue
+		}
+
+		if a.From != nil && !inGraph[a.From.ID()] {
+			continue
+		}
+
+		stack := s.StackFor(a.From)
+		if len(stack) == 0 {
+			return fmt.Errorf("%s: the step producing %s did not run", a.Source, a.Path)
+		}
+
+		// Relative to the project directory, not to wherever the process happens
+		// to have been started.
+		dest := filepath.Join(o.Dir, localPath(a.LocalDest, a.Name))
+
+		// The interpreter already decides whether a destination may leave the
+		// project, and this is the layer that does the writing. A check here
+		// does not depend on that one having been right - but it reads the same
+		// answer, because `--force` on an Earthfile this machine owns is the
+		// caller permitting exactly this and refusing it here would override a
+		// decision already made rather than double-check it.
+		if !a.Force && !within(o.Dir, dest) {
+			return fmt.Errorf("%s: %q is not inside the project", a.Source, a.LocalDest)
+		}
+
+		err := e.Export(ctx, stack, a.Path, dest, a.IfExists, a.Force)
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintf(o.Out, "  %-14s %s -> %s\n", a.Source, a.Path, dest)
+	}
+
+	return nil
+}
+
+var _ = ir.NodeID{}
+
+// localPath is where an artifact lands on this machine.
+//
+// A destination that ends in a separator, `.` or `..` names somewhere to *put*
+// the artifact rather than the artifact's new name:
+// `SAVE ARTIFACT ./package.json package.json AS LOCAL ./` means "put it here",
+// and writing it as `./` failed with "is a directory". The same rule COPY
+// needed, arriving from the other end.
+func localPath(dest, name string) string {
+	if name == "" {
+		return dest
+	}
+
+	// **A pattern names however many files the build made**, so the destination
+	// is where they go rather than what they are called. Joined the way a
+	// single file is, `SAVE ARTIFACT /output/* AS LOCAL .` wrote to
+	// `./output/*` - a path with a star in it, which nothing is called - and
+	// the build reported success having written nothing.
+	//
+	// This was refused until the *staging* was fixed, and the refusal was
+	// right: returning the destination alone once made `exportTo` stage into
+	// the exports root and copy thirteen unrelated files into the project.
+	// `exec.stagingFor` gives a pattern a directory of its own, which is what
+	// makes this the correct half of the pair rather than the dangerous one.
+	if strings.ContainsAny(path.Base(name), "*?[") {
+		return dest
+	}
+
+	if strings.HasSuffix(dest, "/") || dest == "." || dest == ".." {
+		return filepath.Join(dest, name)
+	}
+
+	// Not "or already a directory": what the last build left on disk must not
+	// decide where this one writes. See TestALocalDestinationThatIsADirectoryTakesTheName.
+	return dest
+}
+
+// artifactsFor is the build capability, or nothing where the caller must not
+// have it.
+func artifactsFor(ctx context.Context, o Options, g *engine, src string) interp.Artifacts {
+	if o.DryRun {
+		return nil
+	}
+
+	return g.artifacts(ctx, o, src)
+}
+
+// viewsFor reads the layer store the way this sandbox presents it.
+//
+// A sandbox that shares the store into a VM shows it owned by root, and the
+// guest's observations are digested that way; a view reading the store's own
+// ownership can then never match one, which is why Κ₂ served no RUN on darwin
+// (E494).
+//
+// An optional interface rather than a method on `Sandbox`: three
+// implementations and every test double would have to answer a question only
+// one of them has an interesting answer to. `TestTheDarwinSandboxSaysHowItShares`
+// is what stops that being a rule nobody notices going missing.
+func viewsFor(sb exec.Sandbox) core.ViewSource {
+	store := store.LayerStore(sb.StoreDir())
+
+	shared, ok := sb.(interface{ SharesStoreAsRoot() bool })
+	if !ok || !shared.SharesStoreAsRoot() {
+		return store
+	}
+
+	return store.SeenAsRoot(uint32(os.Getuid()), uint32(os.Getgid())) //nolint:gosec // ids are small
+}
+
+// scheduling is what a build schedules over: the fleet if one was joined, this
+// machine otherwise.
+//
+// `EARTH_FLEET_WORKERS` made the driver wait for workers, announce them, and
+// hand back a `fleet.Delegating` whose `Remote()` names them - and that reached
+// the scheduler used to answer *conditions* and not the one that runs the build.
+// A fleet was joined, printed, and never used (E500).
+//
+// The invoker is always in the list. It runs steps too, and a build that placed
+// nothing locally would be slower on a one-worker fleet than with no fleet.
+// A method rather than a function taking the fleet: a free function let the
+// *call site* pass nil and no test noticed, which is the seam E465 named -
+// something set and then not read is indistinguishable from something never set.
+// fleetExec is the fleet executor the sandbox built, or nil.
+//
+// Behind the lock because it is written on the prewarm goroutine and read here,
+// and the `sync.Once` that writes it only synchronises with callers of `Do` -
+// which this is not (E610).
+func (g *engine) fleetExec() core.Executor {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	return g.fleetEx
+}
+
+func (g *engine) scheduling(
+	local core.Executor, platform string, room int,
+) (core.Executor, []core.Worker) {
+	// **This machine's share of the build's width.** The in-flight limit is the
+	// sum of every worker's capacity now, so the invoker has to state its own
+	// rather than being the limit by accident (E-F1).
+	workers := []core.Worker{localWorker(platform, local, room)}
+
+	fleetEx := g.fleetExec()
+	if fleetEx == nil {
+		return local, workers
+	}
+
+	if d, ok := fleetEx.(*fleet.Delegating); ok {
+		workers = append(workers, d.Remote()...)
+	}
+
+	return fleetEx, workers
+}
+
+// EnvAskStale asks a store held inside a guest whether an observation is still
+// true, rather than fetching its digests and comparing here.
+//
+// **On, and it was off for a reason that turned out to be someone else's.** It
+// was switched off after a build went from 61 cache hits to none, reporting
+// `/bin/busybox is gone from the base` for paths the fetched view found. That
+// commit landed one before the one that stopped a microVM being killed with its
+// store still mounted - and a torn store is exactly what "a file the base
+// should have is not there" looks like. The symptom and the numbers in the two
+// commit messages are the same symptom and the same numbers.
+//
+// Re-measured on the repaired engine, with the question actually reaching the
+// guest (it had not been: the view source had no WhyStaleIn, so the setting
+// turned on and changed nothing):
+//
+//   - ten edit-and-rebuild cycles, 60 hits and 3 misses every time;
+//   - the edit reverted, and both later builds back to 94 hits and no misses,
+//     which a view disagreeing with the host's could not produce;
+//   - 24 corpus targets built under a microVM, 24 built and none failed, the
+//     same as with it off;
+//   - the L2 tier for a 6303-path step at 0.239s against 4.409s, which is the
+//     0.222s the host manages reading its own store.
+//
+// Set it to `0` to go back to fetching. What would justify that: a build losing
+// cache hits it had, or the two views disagreeing about a path where the store
+// is known to be intact.
+const EnvAskStale = "EARTH_ASK_STALE"
+
+// askStale reads the setting, defaulting to on.
+//
+// Spelled as "off unless said otherwise" rather than `!= "0"`, so an empty or
+// misspelled value takes the default rather than being read as a decision.
+func askStale() bool {
+	switch os.Getenv(EnvAskStale) {
+	case "0", "false", "no":
+		return false
+	default:
+		return true
+	}
+}

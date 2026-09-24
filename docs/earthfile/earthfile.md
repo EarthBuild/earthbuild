@@ -1244,7 +1244,7 @@ This does not apply to Dockerfile's [RUN --security](https://docs.docker.com/ref
 
 ```Dockerfile
 WITH DOCKER [--pull <image-name>] [--load [<image-name>=]<target-ref>] [--compose <compose-file>]
-            [--service <compose-service>] [--platform <platform>] [--allow-privileged]
+            [--service <compose-service>] [--platform <platform>] [--allow-privileged] [--isolate]
   <commands>
   ...
 END
@@ -1298,6 +1298,20 @@ Note that the cleanup phase (after the `RUN` command has finished), does not occ
 {% endhint %}
 
 #### Options
+
+##### `--isolate` (native engine only)
+
+Gives the block a Docker daemon of its own, rather than the one it would otherwise share.
+
+By default, a `WITH DOCKER` block running inside another container - a build invoked from within a `WITH DOCKER` step, for example - uses the daemon it is already inside. That is almost always what is wanted: images an outer step loaded are visible, and nothing has to be built twice. It also means the block's result depends on what that daemon already contained, so a shared block is never cached.
+
+`--isolate` asks for the opposite. The block gets a daemon started for it, whose storage lives inside the step and is discarded with it, so the block starts from an empty daemon every time. That makes the result a function of the block's inputs, and an isolated block **is** cached.
+
+Use it when a build must not be affected by images that happen to be lying around - most often when testing caching behaviour itself, where being handed a cache hit is the failure being looked for.
+
+`--isolate` and `--cache-id` are refused together: one says the daemon's storage is discarded with the step, the other names storage that outlives it.
+
+This option is not supported by the buildkit engine, which refuses it rather than ignoring it.
 
 ##### `--pull <image-name>`
 
@@ -1649,7 +1663,7 @@ example:
 #### Synopsis
 
 - ```
-  CACHE [--sharing <sharing-mode>] [--chmod <octal-format>] [--id <cache-id>] [--persist] <mountpoint>
+  CACHE [--sharing <sharing-mode>] [--chmod <octal-format>] [--id <cache-id>] [--persist] [--portable-except <patterns>] <mountpoint>
   ```
 
 #### Description
@@ -1683,6 +1697,38 @@ Make a copy of the cache available to any children that inherit from this target
 Caches were persisted by default in version 0.7, which led to bloated images being pushed to registries. Version 0.8 changed the default behavior
 to prevent copying the contents to children targets unless explicitly enabled by the newly added `--persist` flag.
 {% endhint %}
+
+##### `--portable-except <patterns>`
+
+Declares two things about this cache: that a **part** of it is usable on its own, and that another machine's copy of any path in it is **as good as your own** - apart from the paths matching `<patterns>`.
+
+Without it, a cache mount is private to the machine that filled it. With it, EarthBuild may share the cache between machines: a remote worker can fetch the entries a step reads instead of rebuilding them, and two machines' caches can be combined. Nothing is shared until you say this, because whether a cache tolerates it is a fact about the tool that wrote it and not one EarthBuild can observe.
+
+Note what is *not* claimed. The bytes need not be identical between machines, only interchangeable - Go's build cache records a write timestamp in every index entry and is shareable regardless, because the timestamp decides nothing. Conversely a file that never changes is still private if what it holds is a local path. Immutability is neither sufficient nor necessary; usefulness of the other machine's copy is the whole test.
+
+`<patterns>` is a comma-separated list in the same syntax as `.earthignore`, matched relative to `<mountpoint>`. Files matching it are never shared and never fetched - they stay local to each machine. Almost every real cache has some: a lockfile, a `tmp/` directory for partial writes, an interpreter location, an index of absolute paths.
+
+An **empty list is the strongest form of the claim**, not the absence of one: `--portable-except ''` says every path under the mount may come from anywhere, with no exceptions, which is the right answer for a content-addressed store mounted at its own root. Omitting the flag entirely is what makes a cache private.
+
+Match patterns against the path relative to the mountpoint rather than against a filename. `**/*.lock` under `/go/pkg/mod` matches eleven third-party source files - `Cargo.lock`, `Gemfile.lock`, `Pipfile.lock` - inside extracted module trees, which are as immutable as the code beside them; `cache/download/**/*.lock` matches only the transient ones.
+
+```Dockerfile
+CACHE --id go-mod --portable-except 'cache/lock,cache/download/**/*.lock,cache/download/**/*.partial,cache/download/sumdb/*/lookup/**' /go/pkg/mod
+```
+
+[Sharing caches between machines](../caching/sharing-caches.md) lists the recommended setting for each language's caches, and explains which ones should not carry this flag at all.
+
+{% hint style='warning' %}
+##### This is an assertion, and a wrong one corrupts builds
+
+EarthBuild cannot check the claim. If a path outside `<patterns>` holds something different on another machine in a way that *matters* - a Maven `SNAPSHOT` jar, a rebuilt index, an absolute path into someone's home directory - then a build will read whichever arrived first. The failure is silent and looks like a compiler bug.
+
+`--id` is where the claim is scoped, and it is easy to get wrong. Two targets using the same id share one directory even with different base images, so an entry built with one toolchain can answer a step built with another. Go's own keying prevents this - the compiler's build id is inside every ActionID - and most tools have no such defence. Give a cache an id per lineage rather than per purpose.
+
+When in doubt, leave the flag off. A cache each machine fills for itself is slower and always correct.
+{% endhint %}
+
+`--portable-except` and `--persist` cannot be used together. `--persist` copies the cache's contents into the image, which makes them part of what the target produces; a cache whose contents are the result is not one another machine can supply.
 
 ## LOCALLY
 
@@ -2004,6 +2050,16 @@ The classical [`ADD` Dockerfile command](https://docs.docker.com/engine/referenc
 
 The classical [`ONBUILD` Dockerfile command](https://docs.docker.com/engine/reference/builder/#onbuild) is not supported.
 
-## STOPSIGNAL (not supported)
+## STOPSIGNAL (native engine only)
 
-The classical [`STOPSIGNAL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#stopsignal) is not yet supported.
+#### Synopsis
+
+- `STOPSIGNAL <signal>`
+
+#### Description
+
+The `STOPSIGNAL` command sets the system call signal that will be sent to the container to exit. The signal may be given by name (`SIGKILL`) or by number (`9`), and is recorded on the image exactly as written - the same value the classical [`STOPSIGNAL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#stopsignal) records.
+
+An image that declares a stop signal is a different image from the same layers without one, so changing it rebuilds whatever stands on it.
+
+This command is supported by the native engine (`--engine=native`) only, which also accepts it inside a `FROM DOCKERFILE`. The BuildKit engine refuses it.

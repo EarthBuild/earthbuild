@@ -1,0 +1,12 @@
+VERSION 0.8
+
+# Every ecosystem sharing its own kind of cache.
+#
+# Nothing to build first: each `--helper` names an artifact of `+cache-helper`,
+# resolved while the plan is made, so a helper is an ordinary build input rather
+# than a file somebody has to remember to produce.
+all:
+    BUILD ./go-build+compile
+    BUILD ./go-mod+deps
+    BUILD ./npm+install
+    BUILD ./cargo+fetch

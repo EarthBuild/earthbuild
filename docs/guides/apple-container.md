@@ -9,8 +9,10 @@ EarthBuild supports Apple Container as a native container engine on macOS (`darw
 - **macOS on Apple Silicon** (`arm64`, M-series chips, macOS 26+).
 - **Apple Container CLI 1.2.1 or later** installed (BuildKit runs privileged, and `--read-only-path`/`--masked-path` first appeared in 1.2.1; EarthBuild refuses an older CLI by name):
 
+  Install the signed package from [apple/container releases](https://github.com/apple/container/releases). The Homebrew formula lags behind - it was still 0.9.0 when 1.4.1 shipped - so `brew install container` can install a CLI EarthBuild refuses. Check with:
+
   ```bash
-  brew install container
+  container --version
   ```
 
 - **Start the container system service**:

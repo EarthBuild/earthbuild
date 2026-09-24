@@ -3,6 +3,7 @@
 package gatewaycrafter
 
 import (
+	jsonv1 "encoding/json"
 	"encoding/json/v2"
 	"fmt"
 	"strconv"
@@ -39,7 +40,10 @@ func (gc *GatewayCrafter) AddPushImageEntry(
 	imageConfig *image.Image,
 	platformStr []byte,
 ) (string, error) {
-	config, err := json.Marshal(imageConfig)
+	// Format with legacy v1 options because imageConfig.Config embeds third-party
+	// structs (specs.ImageConfig and image.HealthConfig) that require v1 semantics
+	// (integer nanoseconds for time.Duration and omitempty on scalar zero values).
+	config, err := json.Marshal(imageConfig, jsonv1.DefaultOptionsV1())
 	if err != nil {
 		return "", fmt.Errorf("marshal save image config: %w", err)
 	}

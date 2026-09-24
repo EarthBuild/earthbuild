@@ -7,6 +7,7 @@ import (
 	"crypto/sha1" // #nosec G505
 	"encoding/binary"
 	"encoding/hex"
+	jsonv1 "encoding/json"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
@@ -3143,7 +3144,10 @@ func (c *Converter) internalFromClassical(
 
 	var img image.Image
 
-	err = json.Unmarshal(dt, &img)
+	// Unmarshal with legacy v1 options because image configs from external registries
+	// embed third-party structs (specs.ImageConfig and image.HealthConfig) that
+	// adhere to Docker/OCI v1 JSON conventions (duration parsing and case matching).
+	err = json.Unmarshal(dt, &img, jsonv1.DefaultOptionsV1())
 	if err != nil {
 		return pllb.State{}, nil, nil, fmt.Errorf("unmarshal image config for %s: %w", imageName, err)
 	}

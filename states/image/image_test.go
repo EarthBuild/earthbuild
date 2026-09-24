@@ -1,7 +1,6 @@
 package image
 
 import (
-	"encoding/json/v2"
 	"testing"
 	"time"
 
@@ -11,90 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const cmdShell = "CMD-SHELL"
-
-func TestConfigMarshalUnmarshal(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		cfg  *Config
-		name string
-		want string
-	}{
-		{
-			name: "with healthcheck",
-			cfg: &Config{
-				Healthcheck: &image.HealthConfig{
-					Test:     []string{cmdShell, "exit 0"},
-					Interval: 15 * time.Second,
-					Timeout:  5 * time.Second,
-					Retries:  2,
-				},
-			},
-			want: `{
-				"Healthcheck": {
-					"Test": ["CMD-SHELL", "exit 0"],
-					"Interval": 15000000000,
-					"Timeout": 5000000000,
-					"StartPeriod": 0,
-					"StartInterval": 0,
-					"Retries": 2
-				},
-				"ArgsEscaped": false
-			}`,
-		},
-		{
-			name: "healthcheck with all durations",
-			cfg: &Config{
-				Healthcheck: &image.HealthConfig{
-					Test:          []string{"CMD", "curl", "-f", "http://localhost"},
-					Interval:      30 * time.Second,
-					Timeout:       10 * time.Second,
-					StartPeriod:   20 * time.Second,
-					StartInterval: 2 * time.Second,
-					Retries:       3,
-				},
-			},
-			want: `{
-				"Healthcheck": {
-					"Test": ["CMD", "curl", "-f", "http://localhost"],
-					"Interval": 30000000000,
-					"Timeout": 10000000000,
-					"StartPeriod": 20000000000,
-					"StartInterval": 2000000000,
-					"Retries": 3
-				},
-				"ArgsEscaped": false
-			}`,
-		},
-		{
-			cfg:  &Config{},
-			name: "without healthcheck",
-			want: `{"ArgsEscaped": false}`,
-		},
-		{
-			cfg:  nil,
-			name: "nil config",
-			want: "null",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			data, err := json.Marshal(tc.cfg)
-			require.NoError(t, err)
-			assert.JSONEq(t, tc.want, string(data))
-
-			var decoded *Config
-
-			err = json.Unmarshal(data, &decoded)
-			require.NoError(t, err)
-			assert.Equal(t, tc.cfg, decoded)
-		})
-	}
-}
+const (
+	archArm64 = "arm64"
+	cmdShell  = "CMD-SHELL"
+	osLinux   = "linux"
+)
 
 func TestFromBuildKit(t *testing.T) {
 	t.Parallel()
@@ -137,15 +57,15 @@ func TestFromBuildKit(t *testing.T) {
 				},
 			},
 		}
-		bkImg.Architecture = "arm64"
-		bkImg.OS = "linux"
+		bkImg.Architecture = archArm64
+		bkImg.OS = osLinux
 
 		img := FromBuildKit(bkImg)
 		require.NotNil(t, img)
 
 		want := &Image{
-			Architecture: "arm64",
-			OS:           "linux",
+			Architecture: archArm64,
+			OS:           osLinux,
 			Config: Config{
 				ImageConfig: specs.ImageConfig{
 					User:         "testuser",

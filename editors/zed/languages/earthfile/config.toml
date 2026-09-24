@@ -1,0 +1,13 @@
+name = "Earthfile"
+grammar = "earthfile"
+path_suffixes = ["Earthfile", "earth"]
+line_comments = ["# "]
+tab_size = 4
+hard_tabs = false
+code_fence_block_name = "earth"
+autoclose_before = "}])"
+brackets = [
+    { start = "{", end = "}", close = true, newline = true },
+    { start = "[", end = "]", close = true, newline = true },
+    { start = "\"", end = "\"", close = true, newline = false, not_in = ["string"] },
+]

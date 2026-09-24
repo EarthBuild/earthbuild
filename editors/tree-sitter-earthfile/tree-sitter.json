@@ -1,0 +1,21 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "earthfile",
+      "camelcase": "Earthfile",
+      "title": "Earthfile",
+      "scope": "source.earthfile",
+      "file-types": ["Earthfile", "earth"],
+      "class-name": "TreeSitterEarthfile"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MPL-2.0",
+    "description": "Shallow, error-tolerant Earthfile grammar for editor structure"
+  },
+  "bindings": {
+    "c": true
+  }
+}

@@ -8,6 +8,29 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+func TestBeforeSkipsInitializationForLSP(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	called := false
+	root := &cli.Command{
+		Name:   "earth",
+		Before: (&EarthApp{}).before,
+		Commands: []*cli.Command{{
+			Name: "lsp",
+			Action: func(context.Context, *cli.Command) error {
+				called = true
+
+				return nil
+			},
+		}},
+	}
+
+	err := root.Run(ctx, []string{"earth", "lsp"})
+	require.NoError(t, err)
+	require.True(t, called)
+}
+
 func TestAutoSkipDeprecationWarning(t *testing.T) {
 	t.Parallel()
 

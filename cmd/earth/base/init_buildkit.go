@@ -58,6 +58,7 @@ func (cli *CLI) InitBuildkit(cmd *cli.Command) error {
 	cli.Flags().BuildkitdSettings.UseTCP = useTCP
 	cli.Flags().BuildkitdSettings.UseTLS = cli.Cfg().Global.TLSEnabled
 	cli.Flags().BuildkitdSettings.MaxParallelism = cli.Cfg().Global.BuildkitMaxParallelism
+	cli.Flags().BuildkitdSettings.IdleTimeoutS = cli.Cfg().Global.BuildkitIdleTimeoutS
 	cli.Flags().BuildkitdSettings.CacheSizeMb = cli.Cfg().Global.BuildkitCacheSizeMb
 	cli.Flags().BuildkitdSettings.CacheSizePct = cli.Cfg().Global.BuildkitCacheSizePct
 	cli.Flags().BuildkitdSettings.CacheKeepDuration = cli.Cfg().Global.BuildkitCacheKeepDurationS

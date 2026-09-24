@@ -7,11 +7,14 @@ EarthBuild supports Apple Container as a native container engine on macOS (`darw
 ## Prerequisites
 
 - **macOS on Apple Silicon** (`arm64`, M-series chips, macOS 26+).
-- **Apple Container CLI** installed:
+- **Apple Container CLI 1.2.1 or later** installed (BuildKit runs privileged, and `--read-only-path`/`--masked-path` first appeared in 1.2.1; EarthBuild refuses an older CLI by name):
+
   ```bash
   brew install container
   ```
+
 - **Start the container system service**:
+
   ```bash
   container system start --enable-kernel-install
   ```
@@ -47,7 +50,7 @@ earth github.com/EarthBuild/hello-world:main+hello
 
 You should see BuildKit start up inside Apple Container:
 
-```
+```text
  1. Init 🚀
 ————————————————————————————————————————————————————————————————————————————————
 
@@ -63,7 +66,13 @@ Apple Container runs containers with `--rosetta` enabled by default. This allows
 
 ### Automatic Resource Sizing
 
-On macOS, EarthBuild automatically probes host hardware and allocates **25% of system RAM** (minimum 4GB) and **all CPU cores** to the BuildKit daemon VM container, ensuring high performance without manual VM tuning.
+On macOS, EarthBuild gives the BuildKit VM **half of system RAM** (minimum 16GB) and **all CPU cores**. Every build step runs inside that one VM, so its memory limit is the whole build's: a compile that exceeds it is killed by the VM's kernel, and the build reports only that the compiler was "terminated by a deadly signal". The figure is a ceiling, not a reservation - an idle VM holds about half a gigabyte - so the minimum costs nothing until a build uses it.
+
+### Idle Shutdown and Memory
+
+Apple Container does not return memory from a running VM to macOS: memory a build used stays with the VM until the VM stops, even after the build has finished and freed it. So BuildKit stops itself after **30 minutes with no client**, which stops the VM and gives its memory back. The cache is kept on the `earth-cache` volume, so the next build restarts BuildKit and rebuilds nothing.
+
+Set [`buildkit_idle_timeout_s`](../earth-config/earth-config.md#buildkit_idle_timeout_s) to change the wait, or to `0` to keep BuildKit running. To give memory back immediately, stop it with `container stop earth-buildkitd`.
 
 ## Troubleshooting
 

@@ -40,7 +40,9 @@ func TestSettingsHash(t *testing.T) {
 	baseHash, err := base.Hash()
 	require.NoError(t, err, "unexpected error hashing base settings")
 
-	const wantBaseHash = "90891425e8e43a1"
+	// Changed when IdleTimeoutS joined the hash: every running BuildKit
+	// restarts once on upgrade, which is also how it learns the timeout.
+	const wantBaseHash = "d9f4c18167b15861"
 	assert.Equal(t, wantBaseHash, baseHash, "base settings hash has changed")
 
 	tests := []struct {
@@ -179,6 +181,14 @@ func TestSettingsHash(t *testing.T) {
 			name: "MaxParallelism change",
 			modify: func(s *Settings) {
 				s.MaxParallelism = 8
+			},
+			wantChanged: true,
+			wantVerify:  false,
+		},
+		{
+			name: "IdleTimeoutS change",
+			modify: func(s *Settings) {
+				s.IdleTimeoutS = 600
 			},
 			wantChanged: true,
 			wantVerify:  false,

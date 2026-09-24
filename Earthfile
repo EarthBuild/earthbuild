@@ -75,7 +75,7 @@ lint-scripts-base:
 
 lint-scripts-misc:
     FROM +lint-scripts-base
-    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/entrypoint.sh ./earth-entrypoint.sh \
+    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/idle.sh ./buildkitd/idle-test.sh ./buildkitd/entrypoint.sh ./earth-entrypoint.sh \
         ./buildkitd/dockerd-wrapper.sh ./buildkitd/docker-auto-install.sh ./buildkitd/oom-adjust.sh.template \
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
@@ -227,8 +227,9 @@ unit-test:
 unit-test-scripts:
     FROM alpine:3.24.1
     WORKDIR /shell_scripts
-    COPY ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./
+    COPY ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/idle.sh ./buildkitd/idle-test.sh ./
     RUN sh ./earth-env-test.sh
+    RUN sh ./idle-test.sh
 
 # fuzz-test runs fuzz tests
 fuzz-test:

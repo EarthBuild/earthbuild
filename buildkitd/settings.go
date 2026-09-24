@@ -30,6 +30,9 @@ type Settings struct {
 	CacheSizePct      int
 	Timeout           time.Duration // Timeout is not included in hash.
 	MaxParallelism    int
+	// IdleTimeoutS is how long an Apple Container BuildKit waits with no client
+	// before stopping itself, so its VM gives the host its memory back; 0 never.
+	IdleTimeoutS      int
 	CacheKeepDuration int
 	CniMtu            uint16
 	UseTLS            bool
@@ -109,6 +112,7 @@ func (s Settings) Hash() (string, error) {
 	sh.writeInt(s.CacheSizeMb)
 	sh.writeInt(s.CacheSizePct)
 	sh.writeInt(s.MaxParallelism)
+	sh.writeInt(s.IdleTimeoutS)
 	sh.writeInt(s.CacheKeepDuration)
 	sh.writeInt(int(s.CniMtu))
 

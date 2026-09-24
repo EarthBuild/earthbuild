@@ -1371,7 +1371,7 @@ var Mutants = []Mutant{
 		Anchor:      "\t\tp, _ = platforms.Parse(exec.DefaultPlatform())",
 		Replacement: "\t\tp = ocispec.Platform{}",
 
-		Package:     "./engine/cli/",
+		Package: "./engine/cli/",
 	},
 	{
 		Name:        "interp: WITH DOCKER flags expanded before parsing (E799)",

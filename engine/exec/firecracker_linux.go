@@ -12,6 +12,7 @@ import (
 	osexec "os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,6 +39,9 @@ import (
 type Firecracker struct {
 	// Binary is the firecracker executable. EARTH_FIRECRACKER overrides it.
 	Binary string
+	// Version is the Firecracker release Binary is, as "1.17.0". Empty means
+	// ask the binary, once; a test sets it to choose what the config offers.
+	Version string
 	// Kernel is an uncompressed ELF vmlinux. Firecracker cannot boot a bzImage,
 	// which is what a distribution ships, so this is a deliberate artefact
 	// rather than something found on the machine.
@@ -734,6 +738,10 @@ func (f *Firecracker) writeConfig(at, vsock string) error {
 	// No rate limiter. One is available and is for a host running many guests
 	// that might starve each other; this host runs one per build.
 	cfg["entropy"] = object{}
+
+	if balloon, ok := balloonFor(f.version()); ok {
+		cfg["balloon"] = balloon
+	}
 
 	// **Only where there is a tap.** A guest with an interface and no peer is
 	// slower to fail than one with no interface: it waits out a connect timeout
@@ -1511,3 +1519,91 @@ func envInt(name string) int {
 // a machine with no entropy device still boots, and a key generated without
 // seeded randomness looks exactly like a key.
 func (f *Firecracker) WriteConfigForTest(at, vsock string) error { return f.writeConfig(at, vsock) }
+
+// version is the Firecracker release this machine will boot, asked of the
+// binary once and remembered. Empty when it cannot be told, which offers
+// nothing a release might refuse.
+func (f *Firecracker) version() string {
+	if f.Version != "" || f.Binary == "" {
+		return f.Version
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	out, err := osexec.CommandContext(ctx, f.Binary, "--version").Output() //nolint:gosec // the configured firecracker
+	if err != nil {
+		return ""
+	}
+
+	f.Version = firecrackerVersion(string(out))
+
+	return f.Version
+}
+
+var firecrackerVersionRE = regexp.MustCompile(`v?(\d+)\.(\d+)\.(\d+)`)
+
+// firecrackerVersion reads "Firecracker v1.13.1" as "1.13.1", or "".
+func firecrackerVersion(out string) string {
+	m := firecrackerVersionRE.FindStringSubmatch(out)
+	if m == nil {
+		return ""
+	}
+
+	return m[1] + "." + m[2] + "." + m[3]
+}
+
+// freePageReportingSince is the first Firecracker whose balloon can report
+// freed pages (firecracker-microvm/firecracker#5491).
+var freePageReportingSince = [3]int{1, 14, 0}
+
+// balloonFor is the balloon a Firecracker of this version is given, if any.
+//
+// **A channel, not a squeeze.** Firecracker maps guest memory up front, and the
+// pages a build touched stay resident in its process however much the guest
+// frees - for as long as the VM lives, which is most of the time, because it is
+// kept warm between builds. With free page reporting the guest names ranges it
+// has freed about two seconds after freeing them, and Firecracker `madvise`s
+// them MADV_DONTNEED: the host's memory follows the guest's down with no policy
+// of ours to tune. The guest kernel already has CONFIG_PAGE_REPORTING, from
+// Firecracker's own config.
+//
+// `amount_mib: 0`, so a step starts with all the memory it was given, and
+// `deflate_on_oom` in case anything ever inflates it: a guest about to kill a
+// compiler takes the memory back first. Stats are off - nothing reads them.
+//
+// **None before 1.14.** A balloon there is a target nobody here moves, so it
+// does nothing, and `free_page_reporting` is a field an older Firecracker
+// rejects - a VM that does not boot. An unknown version is treated as old.
+//
+// Reported ranges are at least `page_reporting_order` pages (default: a
+// pageblock, 2 MiB with 4 KiB pages), which sits well with the guest's THP.
+func balloonFor(version string) (map[string]any, bool) {
+	var have [3]int
+
+	m := firecrackerVersionRE.FindStringSubmatch(version)
+	if m == nil {
+		return nil, false
+	}
+
+	for i := range have {
+		have[i], _ = strconv.Atoi(m[i+1])
+	}
+
+	for i := range have {
+		if have[i] != freePageReportingSince[i] {
+			if have[i] < freePageReportingSince[i] {
+				return nil, false
+			}
+
+			break
+		}
+	}
+
+	return map[string]any{
+		"amount_mib":               0,
+		"deflate_on_oom":           true,
+		"stats_polling_interval_s": 0,
+		"free_page_reporting":      true,
+	}, true
+}

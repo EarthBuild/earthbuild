@@ -410,6 +410,20 @@ var Mutants = []Mutant{
 		Package:     "./engine/exec/",
 	},
 	{
+		Name:        "exec: a microVM reports the memory it frees (balloon)",
+		File:        "engine/exec/firecracker_linux.go",
+		Anchor:      "\tif balloon, ok := balloonFor(f.version()); ok {",
+		Replacement: "\tif balloon, ok := balloonFor(\"\"); ok {",
+		Package:     "./engine/exec/",
+	},
+	{
+		Name:        "exec: an older Firecracker is given no balloon it would refuse",
+		File:        "engine/exec/firecracker_linux.go",
+		Anchor:      "\t\t\tif have[i] < freePageReportingSince[i] {",
+		Replacement: "\t\t\tif false {",
+		Package:     "./engine/exec/",
+	},
+	{
 		Name:        "core: refusing an observation that names nothing (I3)",
 		File:        "engine/core/schedule.go",
 		Anchor:      "\treturn len(obs.Reads) > 0 || len(obs.Listings) > 0 || len(obs.Negative) > 0",

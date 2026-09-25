@@ -9,6 +9,7 @@ import (
 	osexec "os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -429,7 +430,7 @@ func askTheService() error {
 		return fmt.Errorf("`container system status` failed - is the service running? %w: %s", err, out)
 	}
 
-	if !strings.Contains(string(out), "apiserver is running") {
+	if !ContainerServiceRunning(string(out)) {
 		return fmt.Errorf("the container apiserver is not running: %s", out)
 	}
 
@@ -1074,6 +1075,9 @@ func (a *Apple) runArgs() []string {
 		// simply not offered, and a guest that registers nothing reports
 		// nothing and emulates nothing.
 		"--rosetta",
+	)
+	args = append(args, AppleCapArgs(appleCLIVersion())...)
+	args = append(args,
 		"-m", a.memory(),
 		"-c", a.cpus(),
 		"-v", a.dir+":/earth",
@@ -1496,3 +1500,64 @@ func (a *Apple) Offers() []string {
 // backend hands its guest and how fast the result runs are two facts, and a
 // backend that one day passes qemu as well would say so here by not listing it.
 func (a *Apple) Translates() []string { return a.Offers() }
+
+// ContainerServiceRunning reads `container system status` output.
+//
+// **Two generations of the report.** 0.9.0 said `apiserver is running` in a
+// sentence; from 0.12 it is a table with a `status` row whose value is
+// `running`, `not running` or `unregistered`. Looking for the sentence alone
+// reported the service down on every current CLI, with the service up. Both are
+// accepted, and nothing else: a row that merely contains the word does not count.
+func ContainerServiceRunning(out string) bool {
+	for line := range strings.SplitSeq(out, "\n") {
+		if strings.TrimSpace(line) == "apiserver is running" {
+			return true
+		}
+
+		f := strings.Fields(line)
+		if len(f) == 2 && f[0] == "status" && f[1] == "running" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// AppleCapArgs is what `container run` needs to grant the guest its
+// capabilities, given what `container --version` printed.
+//
+// **0.12.0 reduced the default set** (apple/container#1260), and the guest
+// agent mounts filesystems and makes namespaces, which a Docker-shaped default
+// does not allow. Before 0.12.0 every container had everything and `--cap-add`
+// is an option the CLI refuses, so it is asked for only where it exists. A
+// version that does not parse asks for nothing: the older CLI is still the
+// commoner install, because Homebrew's formula lags.
+func AppleCapArgs(versionOutput string) []string {
+	m := appleVersionRE.FindStringSubmatch(versionOutput)
+	if m == nil {
+		return nil
+	}
+
+	var v [3]int
+	for i := range v {
+		v[i], _ = strconv.Atoi(m[i+1])
+	}
+
+	if v[0] == 0 && v[1] < 12 {
+		return nil
+	}
+
+	return []string{"--cap-add", "ALL"}
+}
+
+var appleVersionRE = regexp.MustCompile(`version\s+(\d+)\.(\d+)\.(\d+)`)
+
+// appleCLIVersion is `container --version`, asked once per process.
+var appleCLIVersion = sync.OnceValue(func() string {
+	ctx, cancel := briefly()
+	defer cancel()
+
+	out, _ := osexec.CommandContext(ctx, "container", "--version").Output() //nolint:gosec // fixed argv
+
+	return string(out)
+})

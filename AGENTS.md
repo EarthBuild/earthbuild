@@ -22,6 +22,8 @@ comments, docs or commit messages:
 * Use the concepts and capabilities of Go version declared in `go.mod`. Read more here: <https://go.dev/blog/go1.26>
 * Prefer std packages over 3rd party packages, where possible.
 * Ensure all exposed interfaces and types are documented.
+* **JSON Serialization:** Use standard library `encoding/json/v2`. Only pass `jsonv1.DefaultOptionsV1()` (accompanied by an explanatory comment) when marshaling or unmarshaling structs where we have no control over field tags (such as external types from BuildKit, Moby, or OCI).
+* **Testing:** Use `want` instead of `expected` in tests.
 
 ## Naming & Terminology
 

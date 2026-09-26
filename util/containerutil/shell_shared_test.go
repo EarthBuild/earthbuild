@@ -1,6 +1,7 @@
 package containerutil
 
 import (
+	"encoding/json/v2"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,4 +42,30 @@ func Test_parseContainerList_empty(t *testing.T) {
 	r := require.New(t)
 	r.NoError(err)
 	r.Empty(ret)
+}
+
+func Test_formatPorts(t *testing.T) {
+	t.Parallel()
+
+	rawJSON := `[{
+		"NetworkSettings": {
+			"Ports": {
+				"80/tcp": [
+					{
+						"HostIp": "127.0.0.1",
+						"HostPort": "8080"
+					}
+				]
+			}
+		}
+	}]`
+
+	var containers []containerInfo
+
+	err := json.Unmarshal([]byte(rawJSON), &containers)
+	require.NoError(t, err)
+	require.Len(t, containers, 1)
+
+	ports := formatPorts(containers[0])
+	require.Equal(t, []string{"127.0.0.1:8080:80/tcp"}, ports)
 }

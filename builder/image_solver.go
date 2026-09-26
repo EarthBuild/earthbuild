@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	jsonv1 "encoding/json"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
@@ -46,7 +47,10 @@ type tarImageSolver struct {
 }
 
 func (s *tarImageSolver) newSolveOpt(img *image.Image, dockerTag string, w io.WriteCloser) (*client.SolveOpt, error) {
-	imgJSON, err := json.Marshal(img)
+	// Format with legacy v1 options because img.Config embeds third-party structs
+	// (specs.ImageConfig and image.HealthConfig) that require v1 semantics
+	// (integer nanoseconds for time.Duration and omitempty on scalar zero values).
+	imgJSON, err := json.Marshal(img, jsonv1.DefaultOptionsV1())
 	if err != nil {
 		return nil, fmt.Errorf("image json marshal: %w", err)
 	}

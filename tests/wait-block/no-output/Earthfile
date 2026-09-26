@@ -1,14 +1,14 @@
 VERSION 0.8
 
 myimg:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     RUN echo foo > bar
     SAVE ARTIFACT bar
     SAVE IMAGE myimg:623cb5fb1b8c4cff8693281095724bb0
 
 copy:
     WAIT
-        FROM alpine:3.24.1
+        FROM alpine:3.24.2
         COPY +myimg/bar .
     END
     RUN ls -la bar
@@ -21,7 +21,7 @@ build:
 # Saves both an image and a local artifact, so the two output kinds can be
 # distinguished: --no-image-output suppresses only the image. See #855.
 img-and-artifact:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     RUN echo foo > bar
     SAVE ARTIFACT bar AS LOCAL output/bar
     SAVE IMAGE myimg:623cb5fb1b8c4cff8693281095724bb0
@@ -41,7 +41,7 @@ from-img-and-artifact:
     RUN echo "reached by FROM, so this target has no SAVE IMAGE of its own"
 
 build-img-and-artifact-via-from:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WAIT
         BUILD +from-img-and-artifact
         IF --no-cache sleep 5 # wait here so +from-img-and-artifact runs first

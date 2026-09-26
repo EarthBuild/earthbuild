@@ -8,12 +8,12 @@ all:
     BUILD +test-with-labels
 
 myimage-without-labels:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     COPY file /
     SAVE IMAGE --without-earthly-labels myimage:test
 
 myimage-with-labels:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     COPY file /
     SAVE IMAGE myimage:test
 

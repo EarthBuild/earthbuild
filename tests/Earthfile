@@ -253,7 +253,7 @@ experimental:
     BUILD --pass-args ./dind-auto-install+all
 
 ast-test-input:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     COPY ./*.earth ./
     COPY ./with-docker/Earthfile ./with-docker.earth
     COPY ./with-docker-compose/Earthfile ./with-docker-compose.earth
@@ -885,7 +885,7 @@ escape-dir-test:
     DO +RUN_EARTH --earthfile=escape-dir1.earth --extra_args="--no-output" --target=+test
 
 eine-test-base:
-    FROM docker:29.8.0-dind
+    FROM docker:29.8.1-dind
     RUN apk --no-cache add git
     COPY ../..+earthly/earthly /usr/local/bin/earth
     ENV EARTHLY_BUILDKIT_IMAGE=earthly/buildkitd:dind-test
@@ -1654,7 +1654,7 @@ test-ssh-command-config-via-git-clone-earthfile-command:
 
     RUN echo "VERSION 0.8
 test:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     GIT CLONE ssh://git@github.com/earthly/earthly.git ./earthly_repo # the command we are testing
 " > Earthfile
 

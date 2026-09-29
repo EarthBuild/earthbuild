@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM alpine:3.24.1
+FROM alpine:3.24.2
 RUN apk add --no-cache libcap # for capsh
 
 reject-privileged-in-remote-repo-triggered-by-from-locally:

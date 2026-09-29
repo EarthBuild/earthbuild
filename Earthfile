@@ -12,7 +12,7 @@ go:
     WORKDIR /earth
 
 node:
-    FROM node:26.8.2-alpine3.24
+    FROM node:26.10.0-alpine3.24
     # renovate: datasource=npm packageName=npm
     LET npm_version=12.1.0
     RUN \
@@ -69,7 +69,7 @@ update-buildkit:
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
 lint-scripts-base:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     RUN apk add --no-cache shellcheck
     WORKDIR /shell_scripts
 
@@ -225,7 +225,7 @@ unit-test:
 
 # unit-test-scripts runs unit tests for the shell scripts baked into the images.
 unit-test-scripts:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /shell_scripts
     COPY ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./
     RUN sh ./earth-env-test.sh
@@ -292,7 +292,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.7-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6
+    FROM python:3.14.7-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -368,7 +368,7 @@ earthly:
 
 # earthly-linux-amd64 builds the earthly artifact  for linux amd64
 earthly-linux-amd64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # Release metadata baked into the binary via ldflags in +earthly. These are
@@ -398,7 +398,7 @@ earthly-linux-amd64:
 
 # earthly-linux-arm64 builds the earthly artifact  for linux arm64
 earthly-linux-arm64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -418,7 +418,7 @@ earthly-linux-arm64:
 
 # earthly-darwin-amd64 builds the earthly artifact  for darwin amd64
 earthly-darwin-amd64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -438,7 +438,7 @@ earthly-darwin-amd64:
 
 # earthly-darwin-arm64 builds the earthly artifact for darwin arm64
 earthly-darwin-arm64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -458,7 +458,7 @@ earthly-darwin-arm64:
 
 # earthly-windows-arm64 builds the earthly artifact  for windows arm64
 earthly-windows-amd64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
@@ -483,7 +483,7 @@ earthly-windows-amd64:
 # Darwin amd64 and arm64
 # Windows amd64
 all-binaries:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     # Release metadata, forwarded to every per-platform target so that callers
     # such as release+signed-release can set it once here and have it baked into
@@ -626,7 +626,7 @@ earthbuild-integration-test-base:
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
 prerelease:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
@@ -637,7 +637,7 @@ prerelease:
 
 # prerelease-script copies the earthly folder and saves it as an artifact
 prerelease-script:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     COPY ./earthly ./
     # This script is useful in other repos too.
     SAVE ARTIFACT ./earthly
@@ -645,7 +645,7 @@ prerelease-script:
 # ci-release builds earthly for linux/amd64 in a container and pushes wtth the tag
 # EARTH_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
 ci-release:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
     ARG BUILDKIT_PROJECT
@@ -666,7 +666,7 @@ ci-release:
 # for-own builds earthly-buildkitd and the earthly CLI for the current system
 # and saves the final CLI binary locally at ./build/own/earthly
 for-own:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. See
@@ -680,7 +680,7 @@ for-own:
 # build-ticktock is used for building the ticktock version of buildkit
 # it is only used when BUILDKIT_PROJECT is not overridden
 build-ticktock:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     ARG BUILDKIT_PROJECT
     IF [ -z "$BUILDKIT_PROJECT" ]
         COPY earthly-next .
@@ -693,7 +693,7 @@ build-ticktock:
 # for-linux builds earthly-buildkitd and the earthly CLI for the a linux amd64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -705,7 +705,7 @@ for-linux:
 # for-linux-arm64 builds earthly-buildkitd and the earthly CLI for the a linux arm64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux-arm64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -718,7 +718,7 @@ for-linux-arm64:
 # and saves the final CLI binary locally in the ./build/darwin folder.
 # For arm64 use +for-darwin-m1
 for-darwin:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -730,7 +730,7 @@ for-darwin:
 # for-darwin-m1 builds earthly-buildkitd and the earthly CLI for the a darwin m1 system
 # and saves the final CLI binary locally.
 for-darwin-m1:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
@@ -742,7 +742,7 @@ for-darwin-m1:
 # for-windows builds earthly-buildkitd and the earthly CLI for the a windows system
 # and saves the final CLI binary locally in the ./build/windows folder.
 for-windows:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # BUILD --platform=linux/amd64 ./buildkitd+buildkitd
@@ -908,7 +908,7 @@ examples:
     BUILD +examples-5
 
 examples-1:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     ARG TARGETARCH
     BUILD ./examples/c+docker
     BUILD ./examples/cpp+docker
@@ -961,7 +961,7 @@ examples-5:
 
 # license copies the license file and saves it as an artifact
 license:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     COPY LICENSE ./
     SAVE ARTIFACT LICENSE
@@ -990,7 +990,7 @@ npm-update-all:
 
 # merge-main-to-docs merges the main branch into docs-0.8
 merge-main-to-docs:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     RUN apk add --no-cache github-cli ca-certificates
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \
@@ -1058,7 +1058,7 @@ check-broken-links:
 
 # open-pr-for-fork creates a new PR based on the given pr_number
 open-pr-for-fork:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     RUN apk add --no-cache github-cli ca-certificates curl
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \
@@ -1093,7 +1093,7 @@ open-pr-for-fork:
     END
 
 check-broken-links-pr:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /tmp
     RUN apk add --no-cache ca-certificates git github-cli
     ARG BRANCH

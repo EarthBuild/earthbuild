@@ -1,7 +1,10 @@
 name: Bug report
 description: Report an unexpected problem
 labels: ["type:bug"]
-assignees: ["fork-admins"]
+assignees:
+  - gilescope
+  - janishorsts
+  - kmannislands
 body:
   - type: textarea
     id: what-went-wrong

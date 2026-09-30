@@ -2,7 +2,10 @@ name: Feature proposal
 description: Submit an idea for a new feature
 title: "proposal: "
 labels: ["type:proposal"]
-assignees: ["fork-admins"]
+assignees:
+  - gilescope
+  - janishorsts
+  - kmannislands
 body:
   - type: textarea
     id: use-case

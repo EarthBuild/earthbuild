@@ -1,7 +1,10 @@
 name: Documentation
 description: Report missing, unclear, or incorrect documentation
 labels: ["type:documentation"]
-assignees: ["fork-admins"]
+assignees:
+  - gilescope
+  - janishorsts
+  - kmannislands
 body:
   - type: input
     id: existing-documentation

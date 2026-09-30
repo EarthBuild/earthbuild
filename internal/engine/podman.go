@@ -82,28 +82,6 @@ func (e *podmanEngine) Version(ctx context.Context) (Version, error) {
 		}
 	}
 
-	type versionInfoJSON struct {
-		Client struct {
-			Version    string `json:"Version"`
-			APIVersion string `json:"APIVersion"`
-			Os         string `json:"Os"`
-			Arch       string `json:"Arch"`
-		} `json:"Client"`
-		Server struct {
-			Version    string `json:"Version"`
-			APIVersion string `json:"APIVersion"`
-			Os         string `json:"Os"`
-			Arch       string `json:"Arch"`
-		} `json:"Server"`
-	}
-
-	v := versionInfoJSON{}
-
-	err = json.Unmarshal([]byte(output.Stdout.String()), &v)
-	if err != nil {
-		return Version{}, fmt.Errorf("parse podman version output %s: %w", output.Stdout.String(), err)
-	}
-
 	remoteAddr := ""
 
 	if hasRemote {
@@ -113,14 +91,36 @@ func (e *podmanEngine) Version(ctx context.Context) (Version, error) {
 		}
 	}
 
+	return parsePodmanVersion(output.Stdout.String(), remoteAddr)
+}
+
+func parsePodmanVersion(rawJSON, host string) (Version, error) {
+	type versionInfo struct {
+		Version    string `json:"Version"`
+		APIVersion string `json:"APIVersion"`
+		OSArch     string `json:"OsArch"`
+	}
+
+	type info struct {
+		Client versionInfo `json:"Client"`
+		Server versionInfo `json:"Server"`
+	}
+
+	allInfo := info{}
+
+	err := json.Unmarshal([]byte(rawJSON), &allInfo)
+	if err != nil {
+		return Version{}, fmt.Errorf("parse podman version output %s: %w", rawJSON, err)
+	}
+
 	return Version{
-		ClientVersion:    v.Client.Version,
-		ClientAPIVersion: v.Client.APIVersion,
-		ClientPlatform:   fmt.Sprintf("%s/%s", v.Client.Os, v.Client.Arch),
-		ServerVersion:    v.Server.Version,
-		ServerAPIVersion: v.Server.APIVersion,
-		ServerPlatform:   fmt.Sprintf("%s/%s", v.Server.Os, v.Server.Arch),
-		ServerAddress:    remoteAddr,
+		ClientVersion:    allInfo.Client.Version,
+		ClientAPIVersion: allInfo.Client.APIVersion,
+		ClientPlatform:   allInfo.Client.OSArch,
+		ServerVersion:    allInfo.Server.Version,
+		ServerAPIVersion: allInfo.Server.APIVersion,
+		ServerPlatform:   allInfo.Server.OSArch,
+		ServerAddress:    host,
 	}, nil
 }
 

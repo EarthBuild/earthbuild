@@ -1,0 +1,50 @@
+VERSION 0.8
+FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r1
+
+all:
+    BUILD +test-default
+    BUILD +test-options
+    BUILD +test-none
+
+healthcheck-default:
+    FROM alpine:3.24.1
+    HEALTHCHECK CMD true
+    SAVE IMAGE test-default:latest
+
+healthcheck-options:
+    FROM alpine:3.24.1
+    HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --start-interval=2s --retries=3 CMD curl -f http://localhost/ || exit 1
+    SAVE IMAGE test-options:latest
+
+healthcheck-none:
+    FROM alpine:3.24.1
+    HEALTHCHECK NONE
+    SAVE IMAGE test-none:latest
+
+test-default:
+    WITH DOCKER --load=+healthcheck-default
+        RUN docker inspect test-default:latest | jq '.[0].Config.Healthcheck' > actual && \
+            cat actual && \
+            jq -e '.Test == ["CMD-SHELL", "true"]' actual
+    END
+
+test-options:
+    WITH DOCKER --load=+healthcheck-options
+        RUN docker inspect test-options:latest | jq '.[0].Config.Healthcheck' > actual && \
+            cat actual && \
+            jq -e '
+                .Test == ["CMD-SHELL", "curl -f http://localhost/ || exit 1"] and
+                .Interval == 30000000000 and
+                .Timeout == 5000000000 and
+                .StartPeriod == 10000000000 and
+                .StartInterval == 2000000000 and
+                .Retries == 3
+            ' actual
+    END
+
+test-none:
+    WITH DOCKER --load=+healthcheck-none
+        RUN docker inspect test-none:latest | jq '.[0].Config.Healthcheck' > actual && \
+            cat actual && \
+            jq -e '.Test == ["NONE"]' actual
+    END

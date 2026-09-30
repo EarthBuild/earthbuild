@@ -113,14 +113,45 @@ type BuildOpt struct {
 	BuiltinArgs                variables.DefaultArgs
 	OnlyArtifactDestPath       string
 	Runner                     string
+	Export                     earthfile2llb.Export
 	OnlyFinalTargetImages      bool
-	NoOutput                   bool
 	EnableGatewayClientLogging bool
-	CI                         bool
 	GlobalWaitBlockFtr         bool
 	Push                       bool
 	PrintPhases                bool
 	AllowPrivileged            bool
+}
+
+// imagePlan is what happens to one SAVE IMAGE: whether it is loaded into the
+// local container engine, and whether it is pushed to its registry.
+type imagePlan struct {
+	export bool
+	push   bool
+}
+
+// planImage decides the fate of one SAVE IMAGE.
+//
+// This is the only place that decision is made. The build phase acts on it and
+// the end-of-build summary reports on it, so the summary cannot claim an export
+// or a push that did not happen - which it previously could, by recomputing the
+// conditions separately and then not applying them.
+func planImage(opt BuildOpt, sts *states.SingleTarget, isFinal bool, saveImage states.SaveImage) imagePlan {
+	// An untagged image has no name to be loaded or pushed under.
+	tagged := saveImage.DockerTag != ""
+	doSave := sts.GetDoSaves() || saveImage.ForceSave
+
+	return imagePlan{
+		export: tagged &&
+			doSave &&
+			opt.Export.Images() &&
+			opt.OnlyArtifact == nil &&
+			(!opt.OnlyFinalTargetImages || isFinal),
+		push: tagged &&
+			opt.Push &&
+			saveImage.Push &&
+			!sts.Target.IsRemote() &&
+			sts.GetDoPushes(),
+	}
 }
 
 // Builder executes earth builds.
@@ -321,10 +352,10 @@ func (b *Builder) convertAndBuild(
 				Engine:                               b.opt.Engine,
 				UseLocalRegistry:                     (b.opt.LocalRegistryAddr != ""),
 				LocalRegistryAddr:                    b.opt.LocalRegistryAddr,
-				DoSaves:                              !opt.NoOutput,
+				Export:                               opt.Export,
+				SaveReferenced:                       true,
 				OnlyFinalTargetImages:                opt.OnlyFinalTargetImages,
 				DoPushes:                             opt.Push,
-				IsCI:                                 opt.CI,
 				ExportCoordinator:                    exportCoordinator,
 				LocalArtifactWhiteList:               opt.LocalArtifactWhiteList,
 				InternalSecretStore:                  b.opt.InternalSecretStore,
@@ -377,7 +408,7 @@ func (b *Builder) convertAndBuild(
 			gwCrafter.AddRef("main", ref)
 		}
 
-		if !opt.NoOutput && opt.OnlyArtifact != nil && !opt.OnlyFinalTargetImages {
+		if opt.Export.Artifacts() && opt.OnlyArtifact != nil && !opt.OnlyFinalTargetImages {
 			ref, err := b.stateToRef(childCtx, gwClient, mts.Final.ArtifactsState, mts.Final.PlatformResolver)
 			if err != nil {
 				return nil, err
@@ -435,17 +466,8 @@ func (b *Builder) convertAndBuild(
 			}
 
 			for _, saveImage := range b.targetPhaseImages(sts) {
-				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
-				shouldExport := !opt.NoOutput &&
-					opt.OnlyArtifact == nil &&
-					(!opt.OnlyFinalTargetImages || sts == mts.Final) &&
-					saveImage.DockerTag != "" &&
-					doSave
-				shouldPush := opt.Push &&
-					saveImage.Push &&
-					!sts.Target.IsRemote() &&
-					saveImage.DockerTag != "" &&
-					sts.GetDoPushes()
+				plan := planImage(opt, sts, sts == mts.Final, saveImage)
+				shouldExport, shouldPush := plan.export, plan.push
 
 				useCacheHint := saveImage.CacheHint && b.opt.CacheExport != ""
 				if (saveImage.SkipBuilder || !shouldPush && !shouldExport && !useCacheHint) ||
@@ -554,7 +576,7 @@ func (b *Builder) convertAndBuild(
 				}
 			}
 
-			performSaveLocals := (!opt.NoOutput &&
+			performSaveLocals := (opt.Export.Artifacts() &&
 				!opt.OnlyFinalTargetImages &&
 				opt.OnlyArtifact == nil &&
 				sts.GetDoSaves())
@@ -774,7 +796,7 @@ func (b *Builder) convertAndBuild(
 	outputPhaseSpecial := ""
 
 	switch {
-	case opt.NoOutput:
+	case !opt.Export.Artifacts():
 		// noop
 	case opt.OnlyArtifact != nil:
 		if mts.Final.GetDoSaves() {
@@ -798,10 +820,9 @@ func (b *Builder) convertAndBuild(
 		outputPhaseSpecial = "single image"
 
 		for _, saveImage := range mts.Final.SaveImages {
-			doSave := (mts.Final.GetDoSaves() || saveImage.ForceSave)
-			shouldExport := !opt.NoOutput && saveImage.DockerTag != "" && doSave
+			plan := planImage(opt, mts.Final, true, saveImage)
+			shouldExport, shouldPush := plan.export, plan.push
 
-			shouldPush := opt.Push && saveImage.Push && saveImage.DockerTag != "" && mts.Final.GetDoPushes()
 			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
 				continue
 			}
@@ -816,8 +837,10 @@ func (b *Builder) convertAndBuild(
 					AddPushedImageSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Log.Salt(), false)
 			}
 
-			exportCoordinator.
-				AddLocalOutputSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Log.Salt())
+			if shouldExport {
+				exportCoordinator.
+					AddLocalOutputSummary(mts.Final.Target.StringCanonical(), saveImage.DockerTag, b.opt.Log.Salt())
+			}
 		}
 	default:
 		// This needs to match with the same index used during output.
@@ -826,10 +849,9 @@ func (b *Builder) convertAndBuild(
 
 		for _, sts := range mts.All() {
 			for _, saveImage := range sts.SaveImages {
-				doSave := (sts.GetDoSaves() || saveImage.ForceSave)
-				shouldPush := opt.Push && saveImage.Push && !sts.Target.IsRemote() && saveImage.DockerTag != "" && sts.GetDoPushes()
+				plan := planImage(opt, sts, sts == mts.Final, saveImage)
+				shouldExport, shouldPush := plan.export, plan.push
 
-				shouldExport := !opt.NoOutput && saveImage.DockerTag != "" && doSave
 				if saveImage.SkipBuilder || !shouldPush && !shouldExport {
 					continue
 				}
@@ -842,7 +864,9 @@ func (b *Builder) convertAndBuild(
 					exportCoordinator.AddPushedImageSummary(sts.Target.StringCanonical(), saveImage.DockerTag, sts.ID, false)
 				}
 
-				exportCoordinator.AddLocalOutputSummary(sts.Target.StringCanonical(), saveImage.DockerTag, sts.ID)
+				if shouldExport {
+					exportCoordinator.AddLocalOutputSummary(sts.Target.StringCanonical(), saveImage.DockerTag, sts.ID)
+				}
 			}
 
 			if sts.GetDoSaves() {
@@ -962,7 +986,7 @@ func (b *Builder) convertAndBuild(
 
 	if opt.PrintPhases {
 		b.opt.Log.PrintPhaseFooter(PhasePush)
-		b.opt.Log.PrintPhaseHeader(PhaseOutput, opt.NoOutput, outputPhaseSpecial)
+		b.opt.Log.PrintPhaseHeader(PhaseOutput, !opt.Export.Artifacts(), outputPhaseSpecial)
 	}
 
 	outputConsole.Flush()

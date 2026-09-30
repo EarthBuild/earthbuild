@@ -100,7 +100,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	app.BaseCLI.SetCfg(&cfg)
 	app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 
-	err = app.parseEngine(ctx)
+	err = app.parseEngine(ctx, needsFrontend(cmd))
 	if err != nil {
 		return ctx, err
 	}
@@ -129,7 +129,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	return ctx, nil
 }
 
-func (app *EarthApp) parseEngine(ctx context.Context) error {
+func (app *EarthApp) parseEngine(ctx context.Context, detect bool) error {
 	log := app.BaseCLI.Log().WithPrefix("frontend")
 	engCfg := &engine.Config{
 		BuildkitHost:      cmp.Or(app.BaseCLI.Flags().BuildkitHost, app.BaseCLI.Cfg().Global.BuildkitHost),
@@ -137,6 +137,21 @@ func (app *EarthApp) parseEngine(ctx context.Context) error {
 		ContainerName:     app.BaseCLI.Flags().ContainerName,
 		DefaultPort:       engine.DefaultBuildkitPort + config.PortOffset(app.BaseCLI.Flags().InstallationName),
 		Log:               log,
+	}
+
+	// The stub is already what this settles on when no runtime is found, so a
+	// command that will never use one can have it without the probe.
+	if !detect {
+		stub, err := engine.NewStub(engCfg)
+		if err != nil {
+			return fmt.Errorf("failed stub container engine initialization: %w", err)
+		}
+
+		app.BaseCLI.Flags().Engine = stub
+
+		log.VerbosePrintf("this command uses no container frontend\n")
+
+		return nil
 	}
 
 	eng, err := engine.New(ctx, engine.Driver(app.BaseCLI.Cfg().Global.ContainerFrontend), engCfg)
@@ -332,4 +347,25 @@ func defaultConfigPath(installName string) string {
 	}
 
 	return newConfig
+}
+
+// noFrontend are the subcommands that never ask for a container: none of them
+// mentions ContainerFrontend, directly or otherwise.
+var noFrontend = map[string]struct{}{
+	"ls":     {}, // reads an Earthfile
+	"doc":    {}, // reads an Earthfile
+	"init":   {}, // writes an Earthfile
+	"config": {}, // reads and writes the config file
+}
+
+// needsFrontend reports whether this invocation should probe for docker or
+// podman. It asks urfave which subcommand it parsed rather than scanning
+// os.Args, because a global flag's value is a word like any other: scanned,
+// `--git-username doc build +all` names doc, and the build then runs against a
+// stub frontend.
+// Anything unrecognised is answered yes, as every invocation was before.
+func needsFrontend(cmd *cli.Command) bool {
+	_, skip := noFrontend[cmd.Args().First()]
+
+	return !skip
 }

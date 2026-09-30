@@ -26,7 +26,7 @@ type containerInfoJSON struct {
 			IPAddress string `json:"IPAddress"`
 		} `json:"Networks"`
 		Ports map[string][]struct {
-			HostIP   string `json:"HostIP"`
+			HostIP   string `json:"HostIp"`
 			HostPort string `json:"HostPort"`
 		} `json:"Ports"`
 	} `json:"NetworkSettings"`

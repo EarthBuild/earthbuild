@@ -56,7 +56,6 @@ type loader struct {
 	target         domain.Target
 	builtinArgs    variables.DefaultArgs
 	baseProcessed  bool
-	ci             bool
 	primaryTarget  bool
 }
 
@@ -69,7 +68,6 @@ func newLoader(opt HashOpt) *loader {
 		target:         opt.Target,
 		visited:        map[string]struct{}{},
 		hasher:         h,
-		ci:             opt.CI,
 		builtinArgs:    opt.BuiltinArgs,
 		overridingVars: opt.OverridingVars,
 		globalImports:  map[string]domain.ImportTrackerVal{},
@@ -991,7 +989,6 @@ func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (
 		target:         target,
 		visited:        visited,
 		hasher:         hasher.New(),
-		ci:             l.ci,
 		builtinArgs:    l.builtinArgs,
 		overridingVars: overriding,
 		hashCache:      l.hashCache,
@@ -1106,7 +1103,6 @@ func (l *loader) load(ctx context.Context) ([]byte, error) {
 	collOpt := variables.NewCollectionOpt{
 		Log:            l.log,
 		Target:         l.target,
-		CI:             l.ci,
 		BuiltinArgs:    l.builtinArgs,
 		OverridingVars: l.overridingVars,
 		GitMeta:        buildCtx.GitMetadata,

@@ -29,7 +29,7 @@ func BuiltinArgs(
 	gitMeta *gitutil.GitMetadata,
 	defaultArgs DefaultArgs,
 	ftrs *features.Features,
-	push, ci bool,
+	push bool,
 ) *Scope {
 	ret := NewScope()
 	ret.Add(arg.EarthlyTarget, target.StringCanonical())
@@ -66,18 +66,8 @@ func BuiltinArgs(
 		ret.Add(arg.EarthBuildSha, defaultArgs.EarthBuildSha)
 	}
 
-	if ftrs.EarthlyCIArg {
-		ret.Add(arg.EarthlyCI, strconv.FormatBool(ci))
-		ret.Add(arg.EarthCI, strconv.FormatBool(ci))
-	}
-
 	if ftrs.EarthlyLocallyArg {
 		SetLocally(ret, false)
-	}
-
-	if ftrs.EarthlyCIRunnerArg {
-		ret.Add(arg.EarthlyCIRunner, strconv.FormatBool(false))
-		ret.Add(arg.EarthCIRunner, strconv.FormatBool(false))
 	}
 
 	if gitMeta == nil {

@@ -86,6 +86,15 @@ func (e *dockerEngine) Version(ctx context.Context) (Version, error) {
 		return Version{}, err
 	}
 
+	host, exists := os.LookupEnv("DOCKER_HOST")
+	if !exists {
+		host = "/var/run/docker.sock"
+	}
+
+	return parseDockerVersion(output.Stdout.String(), host)
+}
+
+func parseDockerVersion(rawJSON, host string) (Version, error) {
 	type versionInfo struct {
 		Version    string `json:"Version"`
 		APIVersion string `json:"ApiVersion"`
@@ -94,20 +103,15 @@ func (e *dockerEngine) Version(ctx context.Context) (Version, error) {
 	}
 
 	type info struct {
-		Client versionInfo
-		Server versionInfo
+		Client versionInfo `json:"Client"`
+		Server versionInfo `json:"Server"`
 	}
 
 	allInfo := info{}
 
-	err = json.Unmarshal([]byte(output.Stdout.String()), &allInfo)
+	err := json.Unmarshal([]byte(rawJSON), &allInfo)
 	if err != nil {
 		return Version{}, fmt.Errorf("parse docker version output: %w", err)
-	}
-
-	host, exists := os.LookupEnv("DOCKER_HOST")
-	if !exists {
-		host = "/var/run/docker.sock"
 	}
 
 	return Version{

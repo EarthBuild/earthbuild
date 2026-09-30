@@ -1,19 +1,19 @@
 # Test for --without-earthly-labels feature
 VERSION --allow-without-earthly-labels 0.8
 
-ARG --global DIND_IMAGE="earthbuild/dind:ubuntu-26.04-docker-29.8.0-1"
+ARG --global DIND_IMAGE="earthbuild/dind:ubuntu-26.04-docker-29.8.1-1"
 
 all:
     BUILD +test-without-labels
     BUILD +test-with-labels
 
 myimage-without-labels:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     COPY file /
     SAVE IMAGE --without-earthly-labels myimage:test
 
 myimage-with-labels:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     COPY file /
     SAVE IMAGE myimage:test
 

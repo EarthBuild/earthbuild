@@ -11,7 +11,7 @@ build:
     FROM +deps
     COPY src src
 
-    # make sure you have /bin and /obj in .earthlyignore, as their content from context might cause problems
+    # make sure you have /bin and /obj in .earthignore, as their content from context might cause problems
     RUN dotnet publish --no-restore src/HelloEarthly -o publish
 
     SAVE ARTIFACT publish AS LOCAL publish

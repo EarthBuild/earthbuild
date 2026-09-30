@@ -7,6 +7,7 @@ import (
 	"crypto/sha1" // #nosec G505
 	"encoding/binary"
 	"encoding/hex"
+	jsonv1 "encoding/json"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
@@ -541,24 +542,14 @@ func (c *Converter) FromDockerfile(
 	if err != nil {
 		return fmt.Errorf("dockerfile2llb %s: %w", dfPath, err)
 	}
-	// Convert dockerfile2llb image into earthfile2llb image via JSON.
-	imgDt, err := json.Marshal(dfImg)
-	if err != nil {
-		return fmt.Errorf("marshal dockerfile image: %w", err)
-	}
 
-	var img image.Image
+	var envs *variables.Scope
 
-	err = json.Unmarshal(imgDt, &img)
-	if err != nil {
-		return fmt.Errorf("unmarshal dockerfile image: %w", err)
-	}
+	c.mts.Final.MainState, c.mts.Final.MainImage, envs = c.applyFromImage(
+		pllb.FromRawState(*state), image.FromBuildKit(dfImg))
 
-	state2, img2, envVars := c.applyFromImage(pllb.FromRawState(*state), &img)
-	c.mts.Final.MainState = state2
-	c.mts.Final.MainImage = img2
 	c.mts.Final.RanFromLike = true
-	c.varCollection.ResetEnvVars(envVars)
+	c.varCollection.ResetEnvVars(envs)
 
 	return nil
 }
@@ -3153,7 +3144,10 @@ func (c *Converter) internalFromClassical(
 
 	var img image.Image
 
-	err = json.Unmarshal(dt, &img)
+	// Unmarshal with legacy v1 options because image configs from external registries
+	// embed third-party structs (specs.ImageConfig and image.HealthConfig) that
+	// adhere to Docker/OCI v1 JSON conventions (duration parsing and case matching).
+	err = json.Unmarshal(dt, &img, jsonv1.DefaultOptionsV1())
 	if err != nil {
 		return pllb.State{}, nil, nil, fmt.Errorf("unmarshal image config for %s: %w", imageName, err)
 	}

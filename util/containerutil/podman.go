@@ -109,23 +109,7 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 		}
 	}
 
-	type versionInfo struct {
-		Version    string
-		APIVersion string
-		OSArch     string
-	}
-
-	type info struct {
-		Client versionInfo
-		Server versionInfo
-	}
-
-	allInfo := info{}
-
-	err = json.Unmarshal([]byte(output.string()), &allInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse version output %s: %w", output.string(), err)
-	}
+	versionOutput := output.string()
 
 	host := "daemonless"
 
@@ -136,6 +120,28 @@ func (psf *podmanShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 		}
 
 		host = output.string()
+	}
+
+	return parsePodmanVersion(versionOutput, host)
+}
+
+func parsePodmanVersion(rawJSON, host string) (*FrontendInfo, error) {
+	type versionInfo struct {
+		Version    string `json:"Version"`
+		APIVersion string `json:"APIVersion"`
+		OSArch     string `json:"OsArch"`
+	}
+
+	type info struct {
+		Client versionInfo `json:"Client"`
+		Server versionInfo `json:"Server"`
+	}
+
+	allInfo := info{}
+
+	err := json.Unmarshal([]byte(rawJSON), &allInfo)
+	if err != nil {
+		return nil, fmt.Errorf("parse version output %s: %w", rawJSON, err)
 	}
 
 	return &FrontendInfo{

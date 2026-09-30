@@ -1,7 +1,7 @@
 name: Question
 description: Ask a general question
 labels: ["type:question"]
-assignees: []
+assignees: ["fork-admins"]
 body:
   - type: textarea
     id: question

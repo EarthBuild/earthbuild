@@ -1,7 +1,7 @@
 name: Documentation
 description: Report missing, unclear, or incorrect documentation
 labels: ["type:documentation"]
-assignees: []
+assignees: ["fork-admins"]
 body:
   - type: input
     id: existing-documentation

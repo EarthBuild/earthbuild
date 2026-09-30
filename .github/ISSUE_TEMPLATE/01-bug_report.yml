@@ -1,7 +1,7 @@
 name: Bug report
 description: Report an unexpected problem
 labels: ["type:bug"]
-assignees: []
+assignees: ["fork-admins"]
 body:
   - type: textarea
     id: what-went-wrong
@@ -18,10 +18,10 @@ body:
     validations:
       required: true
   - type: textarea
-    id: earthly-version
+    id: earth-version
     attributes:
-      label: What earthly version?
-      description: Please include the output of `earthly --version`
+      label: What earth version?
+      description: Please include the output of `earth --version`
     validations:
       required: true
   - type: textarea

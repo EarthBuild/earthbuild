@@ -1,8 +1,8 @@
 name: Feature proposal
 description: Submit an idea for a new feature
-title: 'proposal: '
+title: "proposal: "
 labels: ["type:proposal"]
-assignees: []
+assignees: ["fork-admins"]
 body:
   - type: textarea
     id: use-case

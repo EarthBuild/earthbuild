@@ -141,8 +141,8 @@ jobs:
           retention-days: 1
 
       # --- Build Next EarthBuild ---
-      - name: Update Buildkit to earthly-next
-        run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
+      - name: Update Buildkit to earth-next
+        run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earth-next)"
       - name: Build latest earth (next) using released earth
         run: earth --use-inline-cache --artifact +earthly-linux-amd64/earthly ./build/linux/amd64/earthly
       - name: Build and push +ci-release (next) using latest earth build

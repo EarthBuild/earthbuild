@@ -196,7 +196,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Usage: "Apply additional flags after each VERSION command across all Earthfiles, " +
 				"multiple flags can be separated by commas",
 			Destination: &global.FeatureFlagOverrides,
-			Hidden:      true, // used for feature-flipping from ./earthly dev script
+			Hidden:      true, // used for feature-flipping from ./earth dev script
 		},
 		&cli.StringFlag{
 			Name:    EnvFileFlag,

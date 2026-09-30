@@ -61,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earth upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
           mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Compute release tag
@@ -104,11 +104,11 @@ jobs:
 
           echo "Computed version: $VERSION (highest base: ${highest_base_version:-none})"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-      - name: Read earthly-next sha
+      - name: Read earth-next sha
         id: read-next
         run: |-
           set -euo pipefail
-          echo "earthly_next=$(cat earthly-next)" >> "$GITHUB_OUTPUT"
+          echo "earthly_next=$(cat earth-next)" >> "$GITHUB_OUTPUT"
 
   release-image:
     name: release dockerhub (main)
@@ -144,7 +144,7 @@ jobs:
         run: |-
           set -euo pipefail
           TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earth upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
           mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Release to DockerHub (main)
@@ -208,7 +208,7 @@ jobs:
         run: |-
           set -euo pipefail
           TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earth upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
           mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Release to DockerHub (ticktock)
@@ -258,7 +258,7 @@ jobs:
         run: |-
           set -euo pipefail
           TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earth upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
           mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Copy buildkitd from GHCR to DockerHub
@@ -309,7 +309,7 @@ jobs:
         run: |-
           set -euo pipefail
           TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earth upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
           mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       # This step creates earthly binaries for all platforms plus signature files for them under

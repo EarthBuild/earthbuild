@@ -100,7 +100,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	app.BaseCLI.SetCfg(&cfg)
 	app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 
-	err = app.parseEngine(ctx, needsFrontend(cmd))
+	err = app.parseEngine(ctx, needsEngine(cmd))
 	if err != nil {
 		return ctx, err
 	}
@@ -154,7 +154,7 @@ func (app *EarthApp) parseEngine(ctx context.Context, detect bool) error {
 		return nil
 	}
 
-	eng, err := engine.New(ctx, engine.Driver(app.BaseCLI.Cfg().Global.ContainerFrontend), engCfg)
+	eng, err := engine.New(ctx, engine.Driver(app.BaseCLI.Cfg().Global.Engine), engCfg)
 	if err != nil {
 		origErr := err
 
@@ -170,7 +170,7 @@ func (app *EarthApp) parseEngine(ctx context.Context, detect bool) error {
 		}
 
 		log.VerbosePrintf("%s container engine initialization failed due to %s",
-			app.BaseCLI.Cfg().Global.ContainerFrontend, origErr.Error())
+			app.BaseCLI.Cfg().Global.Engine, origErr.Error())
 
 		return nil
 	}
@@ -349,23 +349,23 @@ func defaultConfigPath(installName string) string {
 	return newConfig
 }
 
-// noFrontend are the subcommands that never ask for a container: none of them
-// mentions ContainerFrontend, directly or otherwise.
-var noFrontend = map[string]struct{}{
+// noEngine are the subcommands that never ask for a container: none of them
+// mentions Engine, directly or otherwise.
+var noEngine = map[string]struct{}{
 	"ls":     {}, // reads an Earthfile
 	"doc":    {}, // reads an Earthfile
 	"init":   {}, // writes an Earthfile
 	"config": {}, // reads and writes the config file
 }
 
-// needsFrontend reports whether this invocation should probe for docker or
+// needsEngine reports whether this invocation should probe for docker or
 // podman. It asks urfave which subcommand it parsed rather than scanning
 // os.Args, because a global flag's value is a word like any other: scanned,
 // `--git-username doc build +all` names doc, and the build then runs against a
-// stub frontend.
+// stub engine.
 // Anything unrecognised is answered yes, as every invocation was before.
-func needsFrontend(cmd *cli.Command) bool {
-	_, skip := noFrontend[cmd.Args().First()]
+func needsEngine(cmd *cli.Command) bool {
+	_, skip := noEngine[cmd.Args().First()]
 
 	return !skip
 }

@@ -56,9 +56,9 @@ const (
 	// DefaultServerTLSKey is the default path to use when looking for the Buildkit TLS key.
 	DefaultServerTLSKey = "./certs/buildkit_key.pem"
 
-	// DefaultContainerFrontend is the default frontend program or interfacing with
+	// DefaultEngine is the default container engine or interfacing with
 	// the running containers and saved images.
-	DefaultContainerFrontend = "auto"
+	DefaultEngine = "auto"
 )
 
 var (
@@ -79,7 +79,7 @@ type GlobalConfig struct {
 	SecretProvider             string        `help:"Command to execute to retrieve secret."                                                                                                                                                yaml:"secret_provider"`                //nolint:lll
 	BuildkitAdditionalConfig   string        `help:"Additional config to use when starting the buildkit container; like using custom/self-signed certificates."                                                                            yaml:"buildkit_additional_config"`     //nolint:lll
 	IPTables                   string        `help:"Which iptables binary to use. Valid values are iptables-legacy or iptables-nft. Bypasses any autodetection."                                                                           yaml:"ip_tables"`                      //nolint:lll
-	ContainerFrontend          string        `help:"What program should be used to start and stop buildkitd, save images. Default is 'docker'. Valid options are 'docker', 'podman' (experimental), and 'apple-container' (experimental)." yaml:"container_frontend"`             //nolint:lll
+	Engine                     string        `help:"What program should be used to start and stop buildkitd, save images. Default is 'docker'. Valid options are 'docker', 'podman' (experimental), and 'apple-container' (experimental)." yaml:"container_frontend"`             //nolint:lll
 	ServerTLSCert              string        `help:"The path to the server cert for verification. Relative paths are interpreted as relative to the config path. Only used when earth manages buildkit."                                   yaml:"buildkitd_tlscert"`              //nolint:lll
 	BuildkitHost               string        `help:"The URL of your buildkit, remote or local."                                                                                                                                            yaml:"buildkit_host"`                  //nolint:lll
 	TLSCACert                  string        `help:"The path to the CA cert for verification. Relative paths are interpreted as relative to the config path."                                                                              yaml:"tlsca"`                          //nolint:lll
@@ -161,7 +161,7 @@ func ParseYAML(yamlData []byte, installationName string) (Config, error) {
 			ClientTLSKey:            DefaultClientTLSKey,
 			ServerTLSCert:           DefaultServerTLSCert,
 			ServerTLSKey:            DefaultServerTLSKey,
-			ContainerFrontend:       DefaultContainerFrontend,
+			Engine:                  DefaultEngine,
 		},
 	}
 

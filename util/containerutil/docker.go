@@ -102,28 +102,32 @@ func (dsf *dockerShellFrontend) Information(ctx context.Context) (*FrontendInfo,
 		return nil, err
 	}
 
+	host, exists := os.LookupEnv("DOCKER_HOST")
+	if !exists {
+		host = "/var/run/docker.sock"
+	}
+
+	return parseDockerVersion(output.string(), host)
+}
+
+func parseDockerVersion(rawJSON, host string) (*FrontendInfo, error) {
 	type versionInfo struct {
-		Version    string
-		APIVersion string
-		OS         string
-		Arch       string
+		Version    string `json:"Version"`
+		APIVersion string `json:"ApiVersion"`
+		OS         string `json:"Os"`
+		Arch       string `json:"Arch"`
 	}
 
 	type info struct {
-		Client versionInfo
-		Server versionInfo
+		Client versionInfo `json:"Client"`
+		Server versionInfo `json:"Server"`
 	}
 
 	allInfo := info{}
 
-	err = json.Unmarshal([]byte(output.string()), &allInfo)
+	err := json.Unmarshal([]byte(rawJSON), &allInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse docker version output: %w", err)
-	}
-
-	host, exists := os.LookupEnv("DOCKER_HOST")
-	if !exists {
-		host = "/var/run/docker.sock"
 	}
 
 	return &FrontendInfo{

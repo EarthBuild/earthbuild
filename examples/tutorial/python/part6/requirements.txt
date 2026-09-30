@@ -1,2 +1,2 @@
-Markdown==3.10.3
+Markdown==3.11
 psycopg2==2.9.13

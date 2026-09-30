@@ -280,7 +280,17 @@
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
     {
+      // rule to update Amazon Linux 2 images
+      groupName: 'amazonlinux',
+      matchPackageNames: [
+        'public.ecr.aws/amazonlinux/amazonlinux',
+      ],
+      matchCurrentVersion: '/^2(\\..*)?$/',
+      allowedVersions: '/^2(\\..*)?$/',
+    },
+    {
       // rule to update Amazon Linux 2023 images
+      groupName: 'amazonlinux',
       matchPackageNames: [
         'public.ecr.aws/amazonlinux/amazonlinux',
       ],
@@ -289,6 +299,7 @@
     },
     {
       // rule to update Amazon Linux 2027 images
+      groupName: 'amazonlinux',
       matchPackageNames: [
         'public.ecr.aws/amazonlinux/amazonlinux',
       ],

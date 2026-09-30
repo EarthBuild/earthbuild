@@ -56,6 +56,8 @@ func GetTargetArgs(
 }
 
 // TargetArgs returns a list of build argument names defined in the recipe for targetName within ef.
+// Unlike GetTargetArgs it needs no build context, which is what makes it usable
+// where resolving one would cost more than the answer.
 func TargetArgs(ef earthfile.Tree, targetName string) ([]string, error) {
 	recipe, isBase, found := targetRecipe(ef, targetName)
 	if !found {

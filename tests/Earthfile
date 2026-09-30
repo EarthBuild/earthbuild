@@ -68,7 +68,6 @@ ga-no-qemu-group4:
     BUILD +required-arg-test
     BUILD +push-test
     BUILD +push-arg-test
-    BUILD +ci-arg-test
     BUILD +gen-dockerfile-test
     BUILD +chown-test
     BUILD +env-test
@@ -204,6 +203,7 @@ ga-no-qemu-group10:
 ga-no-qemu-group11:
     BUILD +save-artifact-dont-overwrite
     BUILD --pass-args ./with-docker-expose+all
+    BUILD --pass-args ./with-docker-healthcheck+all
     BUILD --pass-args ./logbus+test-all
     # Autoskip not currently available so don't test it
     # BUILD --pass-args ./autoskip+test-group3
@@ -254,7 +254,7 @@ experimental:
     BUILD --pass-args ./dind-auto-install+all
 
 ast-test-input:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     COPY ./*.earth ./
     COPY ./with-docker/Earthfile ./with-docker.earth
     COPY ./with-docker-compose/Earthfile ./with-docker-compose.earth
@@ -348,16 +348,9 @@ git-clone-test:
     DO +RUN_EARTH --earthfile=git-clone.earth --target=+test
 
 builtin-args-test:
-    ENV EARTHLY_CI_RUNNER=true
     DO +RUN_EARTH --earthfile=builtin-args.earth --target=+builtin-args-test
     RUN sed -i "1s/VERSION \(.*\)/VERSION --arg-scope-and-set \1/" Earthfile
     DO +RUN_EARTH --target=+builtin-args-test
-    RUN sed -i "1s/VERSION \(.*\)/VERSION --earthly-ci-runner-arg \1/" Earthfile
-    DO +RUN_EARTH --target=+earthly-ci-runner-builtin-arg-test --extra_args="--build-arg EXPECTED_VALUE=false"
-    ENV EARTHLY_CI_RUNNER=""
-    DO +RUN_EARTH --target=+earthly-ci-runner-builtin-arg-test --extra_args="--build-arg EXPECTED_VALUE=false"
-    ENV EARTHLY_CI_RUNNER="false"
-    DO +RUN_EARTH --target=+earthly-ci-runner-builtin-arg-test --extra_args="--build-arg EXPECTED_VALUE=false"
 
 builtin-args-invalid-default-test:
     DO +RUN_EARTH --earthfile=builtin-args-invalid-default.earth --should_fail=true --target=+test --output_contains="arg default value supplied for built-in ARG"
@@ -783,12 +776,6 @@ push-arg-indirect-test:
     DO +RUN_EARTH --earthfile=push-arg.earth --extra_args="--push" --target=+indirect-test \
         --output_contains="shoop"
 
-ci-arg-test:
-    DO +RUN_EARTH --earthfile=ci-arg.earth --target=+ci-test \
-        --output_contains="local environment"
-    DO +RUN_EARTH --earthfile=ci-arg.earth --extra_args="--ci" --target=+ci-test \
-        --output_contains="CI environment"
-
 private-image-test:
     # NOTE(jhorsts): I assume any private image is good - use dindtest.
     FROM ghcr.io/earthbuild/dindtest:alpine-3.22-docker-28.3.0-r0
@@ -899,7 +886,7 @@ escape-dir-test:
     DO +RUN_EARTH --earthfile=escape-dir1.earth --extra_args="--no-output" --target=+test
 
 eine-test-base:
-    FROM docker:29.8.0-dind
+    FROM docker:29.8.1-dind
     RUN apk --no-cache add git
     COPY ../..+earthly/earthly /usr/local/bin/earth
     ENV EARTHLY_BUILDKIT_IMAGE=earthly/buildkitd:dind-test
@@ -1669,7 +1656,7 @@ test-ssh-command-config-via-git-clone-earthfile-command:
 
     RUN echo "VERSION 0.8
 test:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     GIT CLONE ssh://git@github.com/earthly/earthly.git ./earthly_repo # the command we are testing
 " > Earthfile
 

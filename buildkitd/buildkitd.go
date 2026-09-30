@@ -591,10 +591,20 @@ func Start(
 		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
 	}
 
+	if idle, ok := idleExitEnv(eng.Metadata().Scheme, settings); ok {
+		envs["BUILDKIT_IDLE_EXIT_SECONDS"] = idle
+	}
+
 	labels := map[string]string{
 		"dev.earthly.settingshash": settingsHash,
 	}
 
+	// **One writer per volume, and on Apple Container that is load bearing.**
+	// There a volume is a block device, and two VMs attaching one writably
+	// corrupt its filesystem with no error from Virtualization.framework, which
+	// has no lock to offer. Safe today because the volume is named per
+	// installation and a restart waits for the old container to stop
+	// (WaitUntilStopped) before this one starts - keep both true.
 	mounts := []engine.Mount{
 		{
 			Type:     engine.MountVolume,
@@ -1674,4 +1684,22 @@ func isBuildkitActive(
 		DebugPrintf("Probed buildkit container %s: %d active session(s)\n", containerName, info.NumSessions)
 
 	return info.NumSessions > 0, nil
+}
+
+// idleExitEnv is the BUILDKIT_IDLE_EXIT_SECONDS value to start BuildKit with,
+// if any.
+//
+// **Apple Container only.** `container` gives its VM no balloon device, so the
+// memory a build touched stays with the VM until the VM stops, however much
+// the guest frees: an unattended BuildKit holds its high-water mark for as
+// long as it runs. Stopping BuildKit stops the container and so the VM, and
+// the cache is on a volume, so the next build pays a restart and nothing it
+// built. Docker and Podman return memory without this, and a daemon vanishing
+// under them would only surprise somebody.
+func idleExitEnv(scheme engine.Scheme, settings Settings) (string, bool) {
+	if scheme != engine.SchemeApple || settings.IdleTimeoutS <= 0 {
+		return "", false
+	}
+
+	return strconv.Itoa(settings.IdleTimeoutS), true
 }

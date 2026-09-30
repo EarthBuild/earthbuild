@@ -54,6 +54,7 @@ buildkitd:
 
     # Add the config templates and our own wrapper script.
     COPY ./earth-env.sh /usr/bin/earth-env.sh
+    COPY ./idle.sh /usr/bin/buildkit-idle.sh
     COPY ./entrypoint.sh /usr/bin/entrypoint.sh
     COPY ./buildkitd.toml.template /etc/buildkitd.toml.template
     COPY ./buildkitd.cache.template /etc/buildkitd.cache.template

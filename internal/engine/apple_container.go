@@ -141,6 +141,17 @@ func newAppleEngine(ctx context.Context, cfg *Config) (*appleEngine, error) {
 		return nil, errors.New("empty output from system status")
 	}
 
+	// Asked here, before anything is started: an older CLI fails the first
+	// privileged `run` with its own "unknown option", which names a flag and
+	// not the fix.
+	version, err := e.CommandOutput(ctx, "--version")
+	if err == nil {
+		err = checkAppleContainerVersion(version.Stdout.String())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	e.Addrs, err = resolveAddrs(e, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)

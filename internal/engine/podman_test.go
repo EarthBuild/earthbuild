@@ -1,4 +1,4 @@
-package containerutil
+package engine
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ func Test_parsePodmanVersion(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		want    *FrontendInfo
+		want    Version
 		name    string
 		rawJSON string
 		host    string
@@ -47,7 +47,7 @@ func Test_parsePodmanVersion(t *testing.T) {
 				}
 			}`,
 			host: daemonlessHost,
-			want: &FrontendInfo{
+			want: Version{
 				ClientVersion:    testClientVer,
 				ClientAPIVersion: testClientVer,
 				ClientPlatform:   "darwin/arm64",
@@ -69,7 +69,7 @@ func Test_parsePodmanVersion(t *testing.T) {
 				"Server": null
 			}`,
 			host: daemonlessHost,
-			want: &FrontendInfo{
+			want: Version{
 				ClientVersion:    testClientVer,
 				ClientAPIVersion: testClientVer,
 				ClientPlatform:   "darwin/arm64",

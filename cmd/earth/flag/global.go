@@ -7,8 +7,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/env"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/urfave/cli/v3"
 )
 
@@ -57,7 +57,7 @@ type Global struct {
 	BuildkitHost               string
 	BuildkitdImage             string
 	ContainerName              string
-	ContainerFrontend          containerutil.ContainerFrontend
+	Engine                     *engine.Client
 	BuildkitdSettings          buildkitd.Settings
 	ServerConnTimeout          time.Duration
 	ConversionParallelism      int

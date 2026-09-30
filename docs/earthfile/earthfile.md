@@ -144,7 +144,7 @@ earth --allow-privileged +my-target
 
 ##### `--pass-args`
 
-EarthBuild automatically passes all current arguments to referenced targets in the *same* Earthfile.
+EarthBuild automatically passes all current arguments to referenced targets in the _same_ Earthfile.
 However, when the `--pass-args` flag is set, EarthBuild will also propagate all arguments to an externally referenced target.
 
 ##### `--build-arg <key>=<value>` (**deprecated**)
@@ -162,7 +162,7 @@ This option is deprecated. Use `--<build-arg-key>=<build-arg-value>` instead.
 
 The `RUN` command executes commands in the build environment of the current target, in a new layer. It works similarly to the [Dockerfile `RUN` command](https://docs.docker.com/engine/reference/builder/#run), with some added options.
 
-The command allows for two possible forms. The *exec form* runs the command executable without the use of a shell. The *shell form* uses the default shell (`/bin/sh -c`) to interpret the command and execute it. In either form, you can use a `\` to continue a single `RUN` instruction onto the next line.
+The command allows for two possible forms. The _exec form_ runs the command executable without the use of a shell. The _shell form_ uses the default shell (`/bin/sh -c`) to interpret the command and execute it. In either form, you can use a `\` to continue a single `RUN` instruction onto the next line.
 
 When the `--entrypoint` flag is used, the current image entrypoint is used to prepend the current command.
 
@@ -450,7 +450,7 @@ The following is output:
 
 The command `COPY` allows copying of files and directories between different contexts.
 
-The command may take a couple of possible forms. In the *classical form*, `COPY` copies files and directories from the build context into the build environment - in this form, it works similarly to the [Dockerfile `COPY` command](https://docs.docker.com/engine/reference/builder/#copy). In the *artifact form*, `COPY` copies files or directories (also known as "artifacts" in this context) from the artifact environment of other build targets into the build environment of the current target. Either form allows the use of wildcards for the sources.
+The command may take a couple of possible forms. In the _classical form_, `COPY` copies files and directories from the build context into the build environment - in this form, it works similarly to the [Dockerfile `COPY` command](https://docs.docker.com/engine/reference/builder/#copy). In the _artifact form_, `COPY` copies files or directories (also known as "artifacts" in this context) from the artifact environment of other build targets into the build environment of the current target. Either form allows the use of wildcards for the sources.
 
 The parameter `<src-artifact>` is an [artifact reference](../guides/importing.md#artifact-reference) and is generally of the form `<target-ref>/<artifact-path>`, where `<target-ref>` is the reference to the target which needs to be built in order to yield the artifact and `<artifact-path>` is the path within the artifact environment of the target, where the file or directory is located. The `<artifact-path>` may also be a wildcard.
 
@@ -541,14 +541,14 @@ Instructs EarthBuild to not overwrite the file creation timestamps with a consta
 
 ##### `--keep-own`
 
-Instructs EarthBuild to keep file ownership information. This applies only to the *artifact form* and has no effect otherwise.
+Instructs EarthBuild to keep file ownership information. This applies only to the _artifact form_ and has no effect otherwise.
 
 ##### `--chmod <octal-format>`
 
 Instructs EarthBuild to change the file permissions of the copied files. The `<chmod>` needs to be in octal format, e.g. `--chmod 0755` or `--chmod 755`.
 
 {% hint style='info' %}
-Note that you must include the flag in the corresponding `SAVE ARTIFACT --keep-own ...` command, if using *artifact form*.
+Note that you must include the flag in the corresponding `SAVE ARTIFACT --keep-own ...` command, if using _artifact form_.
 {% endhint %}
 
 ##### `--if-exists`
@@ -571,7 +571,7 @@ consumer:
 
 ##### `--from`
 
-Although this option is present in classical Dockerfile syntax, it is not supported by Earthfiles. You may instead use a combination of `SAVE ARTIFACT` and `COPY` *artifact form* commands to achieve similar effects. For example, the following Dockerfile
+Although this option is present in classical Dockerfile syntax, it is not supported by Earthfiles. You may instead use a combination of `SAVE ARTIFACT` and `COPY` _artifact form_ commands to achieve similar effects. For example, the following Dockerfile
 
 ```Dockerfile
 # Dockerfile
@@ -592,7 +592,7 @@ final-target:
 
 ##### `--platform <platform>`
 
-In *artifact form*, it specifies the platform to build the artifact on.
+In _artifact form_, it specifies the platform to build the artifact on.
 
 For more information see the [multi-platform guide](../guides/multi-platform.md).
 
@@ -674,7 +674,7 @@ The command `ARG` declares a build argument (or arg) with the name `<name>` and 
 
 This command works similarly to the [Dockerfile `ARG` command](https://docs.docker.com/engine/reference/builder/#arg), with a few differences regarding the scope and the predefined args (called builtin args in EarthBuild). The arg's scope is always limited to the recipe of the current target or command and only from the point it is declared onward. For more information regarding builtin args, see the [builtin args page](./builtin-args.md).
 
-In its *constant form*, the arg takes a default value defined as a constant string. If the `<default-value>` is not provided, then the default value is an empty string. In its *dynamic form*, the arg takes a default value defined as an expression. The expression is evaluated at run time and its result is used as the default value. The expression is interpreted via the default shell (`/bin/sh -c`) within the build environment.
+In its _constant form_, the arg takes a default value defined as a constant string. If the `<default-value>` is not provided, then the default value is an empty string. In its _dynamic form_, the arg takes a default value defined as an expression. The expression is evaluated at run time and its result is used as the default value. The expression is interpreted via the default shell (`/bin/sh -c`) within the build environment.
 
 The value of an arg can be overridden either from the `earth` command
 
@@ -764,7 +764,7 @@ This command dumps the contents of the artifact environment of the target `+<tar
 
 ##### Important
 
-Note that there is a distinction between a *directory artifact* and *file artifact* when it comes to local output. When saving an artifact locally, a directory artifact will **replace** the destination entirely, while a file (or set of files) artifact will be copied **into** the destination directory.
+Note that there is a distinction between a _directory artifact_ and _file artifact_ when it comes to local output. When saving an artifact locally, a directory artifact will **replace** the destination entirely, while a file (or set of files) artifact will be copied **into** the destination directory.
 
 ```Dockerfile
 # This will wipe ./destination and replace it with the contents of the ./my-directory artifact.
@@ -1007,7 +1007,7 @@ build-all-platforms:
 
 For more information see the [multi-platform guide](../guides/multi-platform.md).
 
-##### `--auto-skip` (*beta*)
+##### `--auto-skip` (_beta_)
 
 Instructs EarthBuild to skip the build of the target if the target's dependencies have not changed from a previous successful build. For more information on how to use this feature, see the [auto-skip section of the caching in Earthfiles guide](../caching/caching-in-earthfiles.md#auto-skip).
 
@@ -1060,7 +1060,7 @@ foo:
 
 The command `SET` may be used to change the value of a previously declared variable, so long as the variable was declared with `LET`.
 
-`ARG` variables may *not* be changed by `SET`, since `ARG` is intended to accept overrides from the CLI. If you want to change the value of an `ARG` variable, redeclare it with `LET someVar = "$someVar"` first.
+`ARG` variables may _not_ be changed by `SET`, since `ARG` is intended to accept overrides from the CLI. If you want to change the value of an `ARG` variable, redeclare it with `LET someVar = "$someVar"` first.
 
 See [the `LET` docs for more info](#let).
 
@@ -1206,7 +1206,7 @@ docker:
     SAVE IMAGE testimg:latest
 ```
 
-Note that `+mybuildcontext/mydata` on its own would copy the directory *and* its contents; where as `+mybuildcontext/mydata/*` is required to copy all of the contents from within the `mydata` directory (
+Note that `+mybuildcontext/mydata` on its own would copy the directory _and_ its contents; where as `+mybuildcontext/mydata/*` is required to copy all of the contents from within the `mydata` directory (
 without copying the wrapping `mydata` directory).
 
 If both the `Dockerfile` and build context are inside the same target, one must reference the same target twice, e.g. `FROM DOCKERFILE -f +target/dir/Dockerfile +target/dir`.
@@ -1994,7 +1994,7 @@ The `HOST` command creates a hostname entry (under `/etc/hosts`) that causes `<h
 
 ## SHELL (not supported)
 
-The classical [`SHELL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#shell) is not yet supported. Use the *exec form* of `RUN`, `ENTRYPOINT` and `CMD` instead and prepend a different shell.
+The classical [`SHELL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#shell) is not yet supported. Use the _exec form_ of `RUN`, `ENTRYPOINT` and `CMD` instead and prepend a different shell.
 
 ## ADD (not supported)
 

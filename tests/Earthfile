@@ -203,6 +203,7 @@ ga-no-qemu-group10:
 ga-no-qemu-group11:
     BUILD +save-artifact-dont-overwrite
     BUILD --pass-args ./with-docker-expose+all
+    BUILD --pass-args ./with-docker-healthcheck+all
     BUILD --pass-args ./logbus+test-all
     # Autoskip not currently available so don't test it
     # BUILD --pass-args ./autoskip+test-group3

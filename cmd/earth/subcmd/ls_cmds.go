@@ -1,17 +1,18 @@
 package subcmd
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/buildcontext"
-	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
-	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/urfave/cli/v3"
 )
 
@@ -57,7 +58,7 @@ func (a *List) Cmds() []*cli.Command {
 	}
 }
 
-func (a *List) action(ctx context.Context, cmd *cli.Command) error {
+func (a *List) action(_ context.Context, cmd *cli.Command) error {
 	a.cli.SetCommandName("listTargets")
 
 	if cmd.NArg() > 1 {
@@ -83,32 +84,26 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 		targetToDisplay = "current directory"
 	}
 
-	gitLookup := buildcontext.NewGitLookup(a.cli.Log(), a.cli.Flags().SSHAuthSock)
-	resolver := buildcontext.NewResolver(
-		nil, gitLookup, a.cli.Log(), "", a.cli.Flags().GitBranchOverride, a.cli.Flags().GitLFSPullInclude, 0, "",
-	)
-
-	// TODO this is a nil pointer which causes a panic if we try to expand a remotelyreferenced earthfile
-	// it's expensive to create this gwclient, so we need to implement a lazy eval which returns it when required.
-	var (
-		gwClient gwclient.Client
-	)
-
-	// the +base is required to make ParseTarget work; however is ignored by GetTargets
-	target, err := domain.ParseTarget(targetToParse + "+base")
-	if _, ok := errors.AsType[buildcontext.EarthfileNotExistError](err); ok {
+	// Parsed rather than resolved: resolving runs git for the remote, hash,
+	// branch and tags, and remote references are refused above.
+	path, err := findBuildFile(targetToParse)
+	if err != nil {
 		return fmt.Errorf("unable to locate Earthfile under %s", targetToDisplay)
-	} else if err != nil {
+	}
+
+	src, err := os.ReadFile(path) // #nosec G304 -- the directory the caller named
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+
+	ef, err := earthfile.Parse(path, string(src), earthfile.WithSourceMap())
+	if err != nil {
 		return err
 	}
 
-	targets, err := earthfile2llb.GetTargets(ctx, resolver, gwClient, target)
-	if err != nil {
-		if _, ok := errors.AsType[buildcontext.EarthfileNotExistError](err); ok {
-			return fmt.Errorf("unable to locate Earthfile under %s", targetToDisplay)
-		}
-
-		return err
+	targets := make([]string, 0, len(ef.Targets))
+	for _, t := range ef.Targets {
+		targets = append(targets, t.Name)
 	}
 
 	targets = append(targets, earthfile.TargetBase)
@@ -117,10 +112,8 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 	for _, t := range targets {
 		var args []string
 
-		if t != earthfile.TargetBase {
-			target.Target = t
-
-			args, err = earthfile2llb.GetTargetArgs(ctx, resolver, gwClient, target)
+		if a.showArgs && t != earthfile.TargetBase {
+			args, err = earthfile2llb.TargetArgs(ef, t)
 			if err != nil {
 				return err
 			}
@@ -140,4 +133,71 @@ func (a *List) action(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	return nil
+}
+
+// buildFileNames are the names a project's build file may have, in the order
+// buildcontext.detectBuildFile tries them.
+var buildFileNames = []string{"Earthfile", "build.earth"}
+
+// findBuildFile locates the file ls should read, given the directory the caller
+// named, or "" for none.
+//
+// Two things the resolver did that <dir>/Earthfile does not, both restored
+// here. A caller who names no directory is searched upwards, because ls is run
+// from inside a project at least as often as from its root - the same walk
+// build does, in buildcontext.resolveLocalRootEarthfile. And a project may
+// still call its build file build.earth, which detectBuildFile accepts and
+// nothing has deprecated.
+func findBuildFile(named string) (string, error) {
+	dir := cmp.Or(named, ".")
+
+	// Only a caller who named no directory, matching resolveLocalRootEarthfile:
+	// a named one is where the caller says the project is.
+	if filepath.Clean(dir) == "." {
+		if up, ok := nearestEarthfileDir(); ok {
+			dir = up
+		}
+	}
+
+	for _, name := range buildFileNames {
+		p := filepath.Join(dir, name)
+
+		fi, err := os.Stat(p)
+		if err == nil && !fi.IsDir() {
+			return p, nil
+		}
+	}
+
+	return "", fs.ErrNotExist
+}
+
+// nearestEarthfileDir is the closest directory at or above the working
+// directory holding an Earthfile, relative to the working directory.
+//
+// Earthfile and not build.earth, because that is what the walk it mirrors
+// stops on; a directory reached this way is then offered both names.
+func nearestEarthfileDir() (string, bool) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", false
+	}
+
+	for curr := cwd; ; {
+		fi, err := os.Stat(filepath.Join(curr, buildFileNames[0]))
+		if err == nil && !fi.IsDir() {
+			rel, err := filepath.Rel(cwd, curr)
+			if err != nil {
+				return "", false
+			}
+
+			return rel, true
+		}
+
+		parent := filepath.Dir(curr)
+		if parent == curr {
+			return "", false
+		}
+
+		curr = parent
+	}
 }

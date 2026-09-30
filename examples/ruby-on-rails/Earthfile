@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM ruby:4.0.6
+FROM ruby:4.0.7
 WORKDIR /ruby-on-rails-example
 
 deps:

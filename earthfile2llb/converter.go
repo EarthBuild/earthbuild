@@ -7,6 +7,7 @@ import (
 	"crypto/sha1" // #nosec G505
 	"encoding/binary"
 	"encoding/hex"
+	jsonv1 "encoding/json"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
@@ -136,7 +137,6 @@ func NewConverter(
 		Log:              opt.Log,
 		Target:           target,
 		Push:             opt.DoPushes,
-		CI:               opt.IsCI,
 		PlatformResolver: opt.PlatformResolver,
 		GitMeta:          bc.GitMetadata,
 		BuiltinArgs:      opt.BuiltinArgs,
@@ -542,24 +542,14 @@ func (c *Converter) FromDockerfile(
 	if err != nil {
 		return fmt.Errorf("dockerfile2llb %s: %w", dfPath, err)
 	}
-	// Convert dockerfile2llb image into earthfile2llb image via JSON.
-	imgDt, err := json.Marshal(dfImg)
-	if err != nil {
-		return fmt.Errorf("marshal dockerfile image: %w", err)
-	}
 
-	var img image.Image
+	var envs *variables.Scope
 
-	err = json.Unmarshal(imgDt, &img)
-	if err != nil {
-		return fmt.Errorf("unmarshal dockerfile image: %w", err)
-	}
+	c.mts.Final.MainState, c.mts.Final.MainImage, envs = c.applyFromImage(
+		pllb.FromRawState(*state), image.FromBuildKit(dfImg))
 
-	state2, img2, envVars := c.applyFromImage(pllb.FromRawState(*state), &img)
-	c.mts.Final.MainState = state2
-	c.mts.Final.MainImage = img2
 	c.mts.Final.RanFromLike = true
-	c.varCollection.ResetEnvVars(envVars)
+	c.varCollection.ResetEnvVars(envs)
 
 	return nil
 }
@@ -1222,7 +1212,7 @@ func (c *Converter) SaveArtifact(
 	}
 
 	if c.ftrs.WaitBlock {
-		waitItem := newSaveArtifactLocal(saveLocal, c, c.opt.DoSaves)
+		waitItem := newSaveArtifactLocal(saveLocal, c, c.opt.doSaves())
 		c.waitBlock().AddItem(waitItem)
 		c.mts.Final.WaitItems = append(c.mts.Final.WaitItems, waitItem)
 	} else {
@@ -1378,7 +1368,7 @@ func (c *Converter) PopWaitBlock(ctx context.Context) error {
 	waitBlock := c.waitBlockStack[i]
 	c.waitBlockStack = c.waitBlockStack[:i]
 
-	return waitBlock.Wait(ctx, c.opt.DoPushes, c.opt.DoSaves)
+	return waitBlock.Wait(ctx, c.opt.DoPushes, c.opt.doSaves())
 }
 
 // SaveImage applies the earth SAVE IMAGE command.
@@ -1461,7 +1451,7 @@ func (c *Converter) SaveImage(
 
 			if c.ftrs.WaitBlock {
 				shouldPush := hasPushFlag && si.DockerTag != ""
-				shouldExportLocally := si.DockerTag != "" && c.opt.DoSaves
+				shouldExportLocally := si.DockerTag != "" && c.opt.SaveReferenced && c.opt.Export.Images()
 				waitItem := newSaveImage(si, c, shouldPush, shouldExportLocally)
 				c.waitBlock().AddItem(waitItem)
 
@@ -2219,7 +2209,7 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 	c.mts.Final.VarCollection = c.varCollection
 
 	c.mts.Final.GlobalImports = c.varCollection.Imports().Global()
-	if c.opt.DoSaves {
+	if c.opt.doSaves() {
 		c.mts.Final.SetDoSaves()
 	}
 
@@ -2362,7 +2352,6 @@ func (c *Converter) checkAutoSkip(
 	targetHash, _, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
 		Log:            c.opt.Log,
-		CI:             c.opt.IsCI,
 		BuiltinArgs:    c.opt.BuiltinArgs,
 		OverridingVars: overriding,
 	})
@@ -2460,17 +2449,39 @@ func (c *Converter) prepBuildTarget(
 		opt.waitBlock = nil
 	}
 
+	// Only SaveReferenced is narrowed here. Export is the user's intent for the
+	// whole build and is inherited untouched, so a wait item can still consult it
+	// after a BUILD edge turns this target's saves back on.
+	opt.SaveReferenced = c.childSaveReferenced(cmdT, target.IsRemote())
+
 	if c.opt.Features.ReferencedSaveOnly {
-		// DoSaves should only be potentially turned-off when the ReferencedSaveOnly feature is flipped
-		opt.DoSaves = (cmdT == buildCmd && c.opt.DoSaves && !c.opt.OnlyFinalTargetImages)
 		opt.DoPushes = (cmdT == buildCmd && c.opt.DoPushes)
 		opt.ForceSaveImage = false
 	} else {
-		opt.DoSaves = c.opt.DoSaves && !target.IsRemote()   // legacy mode only saves artifacts from local targets
-		opt.DoPushes = c.opt.DoPushes && !target.IsRemote() // legacy mode only saves artifacts from local targets
+		opt.DoPushes = c.opt.DoPushes && !target.IsRemote() // legacy mode only pushes from local targets
 	}
 
 	return target, opt, propagateBuildArgs, nil
+}
+
+// childSaveReferenced reports whether a child target's saves count, given how
+// this converter reached it.
+//
+// Export is deliberately not an input and is never narrowed alongside this. The
+// user's intent for the whole build does not change target by target, and a wait
+// item created here still needs it intact later: SetDoSave can arrive long after
+// conversion decided the target was unreferenced, when a BUILD reaches an
+// already-visited target. Folding the two together makes that later signal read a
+// stale ExportNone and silently drop the save.
+func (c *Converter) childSaveReferenced(cmdT cmdType, targetIsRemote bool) bool {
+	if c.opt.Features.ReferencedSaveOnly {
+		// Saves are only potentially turned off when the ReferencedSaveOnly feature
+		// is flipped.
+		return cmdT == buildCmd && c.opt.SaveReferenced && !c.opt.OnlyFinalTargetImages
+	}
+
+	// Legacy mode only saves artifacts from local targets.
+	return c.opt.SaveReferenced && !targetIsRemote
 }
 
 func (c *Converter) buildTarget(
@@ -3133,7 +3144,10 @@ func (c *Converter) internalFromClassical(
 
 	var img image.Image
 
-	err = json.Unmarshal(dt, &img)
+	// Unmarshal with legacy v1 options because image configs from external registries
+	// embed third-party structs (specs.ImageConfig and image.HealthConfig) that
+	// adhere to Docker/OCI v1 JSON conventions (duration parsing and case matching).
+	err = json.Unmarshal(dt, &img, jsonv1.DefaultOptionsV1())
 	if err != nil {
 		return pllb.State{}, nil, nil, fmt.Errorf("unmarshal image config for %s: %w", imageName, err)
 	}

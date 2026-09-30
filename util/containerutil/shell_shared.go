@@ -29,7 +29,7 @@ type containerInfo struct {
 			IPAddress string `json:"IPAddress"`
 		} `json:"Networks"`
 		Ports map[string][]struct {
-			HostIP   string `json:"HostIP"`
+			HostIP   string `json:"HostIp"`
 			HostPort string `json:"HostPort"`
 		} `json:"Ports"`
 	} `json:"NetworkSettings"`
@@ -119,7 +119,7 @@ func (sf *shellFrontend) ContainerInfo(ctx context.Context, namesOrIDs ...string
 
 	err := json.Unmarshal([]byte(output.stdout.String()), &containers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal container inspect output %s: %w", output.stdout.String(), err)
+		return nil, fmt.Errorf("unmarshal container inspect output %s: %w", output.stdout.String(), err)
 	}
 
 	for i, container := range containers {

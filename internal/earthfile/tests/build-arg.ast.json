@@ -3,7 +3,7 @@
     {
       "command": {
         "args": [
-          "alpine:3.24.1"
+          "alpine:3.24.2"
         ],
         "name": "FROM",
         "sourceLocation": {
@@ -491,7 +491,7 @@
             "args": [
               "ALPINE",
               "=",
-              "3.24.1"
+              "3.24.2"
             ],
             "name": "ARG",
             "sourceLocation": {
@@ -540,7 +540,7 @@
               "test",
               "\"$ALPINE\"",
               "==",
-              "\"3.24.1\""
+              "\"3.24.2\""
             ],
             "name": "RUN",
             "sourceLocation": {
@@ -567,7 +567,7 @@
         {
           "command": {
             "args": [
-              "alpine:3.24.1"
+              "alpine:3.24.2"
             ],
             "name": "FROM",
             "sourceLocation": {

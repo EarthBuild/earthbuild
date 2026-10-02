@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/moby/buildkit/exporter/containerimage/image"
+	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +18,6 @@ const (
 
 func TestFromBuildKit(t *testing.T) {
 	t.Parallel()
-
 	t.Run("nil image", func(t *testing.T) {
 		t.Parallel()
 
@@ -29,8 +28,8 @@ func TestFromBuildKit(t *testing.T) {
 	t.Run("with healthcheck and config", func(t *testing.T) {
 		t.Parallel()
 
-		bkImg := &image.Image{
-			Config: image.ImageConfig{
+		bkImg := &dockerspec.DockerOCIImage{
+			Config: dockerspec.DockerOCIImageConfig{
 				ImageConfig: specs.ImageConfig{
 					User:       "testuser",
 					Env:        []string{"FOO=bar"},
@@ -47,7 +46,7 @@ func TestFromBuildKit(t *testing.T) {
 						"8080/tcp": {},
 					},
 				},
-				Healthcheck: &image.HealthConfig{
+				Healthcheck: &dockerspec.HealthcheckConfig{
 					Test:          []string{cmdShell, "curl -f http://localhost/"},
 					Interval:      30 * time.Second,
 					Timeout:       5 * time.Second,
@@ -77,7 +76,7 @@ func TestFromBuildKit(t *testing.T) {
 					Volumes:      map[string]struct{}{"/data": {}},
 					ExposedPorts: map[string]struct{}{"8080/tcp": {}},
 				},
-				Healthcheck: &image.HealthConfig{
+				Healthcheck: &dockerspec.HealthcheckConfig{
 					Test:          []string{cmdShell, "curl -f http://localhost/"},
 					Interval:      30 * time.Second,
 					Timeout:       5 * time.Second,

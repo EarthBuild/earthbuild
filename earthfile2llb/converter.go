@@ -56,13 +56,14 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/distribution/reference"
 	"github.com/moby/buildkit/client/llb"
-	dockerimage "github.com/moby/buildkit/exporter/containerimage/image"
+	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/moby/buildkit/frontend/dockerfile/dockerfile2llb"
 	"github.com/moby/buildkit/frontend/dockerui"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/session/localhost"
 	solverpb "github.com/moby/buildkit/solver/pb"
 	"github.com/moby/buildkit/util/apicaps"
+	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -527,7 +528,7 @@ func (c *Converter) FromDockerfile(
 
 	bcRawState, done := BuildContextFactory.Construct().RawState()
 	bc.SetBuildContext(&bcRawState, c.mts.FinalTarget().String())
-	state, dfImg, _, err := dockerfile2llb.Dockerfile2LLB(ctx, dfData, dockerfile2llb.ConvertOpt{
+	state, dfImg, _, _, err := dockerfile2llb.Dockerfile2LLB(ctx, dfData, dockerfile2llb.ConvertOpt{
 		MetaResolver:     c.opt.MetaResolver,
 		LLBCaps:          c.opt.LLBCaps,
 		BuildArgs:        overriding.Map(),
@@ -1954,7 +1955,7 @@ func (c *Converter) Healthcheck(
 
 	c.nonSaveCommand()
 
-	hc := &dockerimage.HealthConfig{}
+	hc := &dockerspec.HealthcheckConfig{}
 	if isNone {
 		hc.Test = []string{"NONE"}
 	} else {
@@ -3127,10 +3128,12 @@ func (c *Converter) internalFromClassical(
 
 	ref, dgst, dt, err := c.opt.MetaResolver.ResolveImageConfig(
 		ctx, baseImageName,
-		llb.ResolveImageConfigOpt{
-			Platform:    &llbPlatform,
-			ResolveMode: c.opt.ImageResolveMode.String(),
-			LogName:     logName,
+		sourceresolver.Opt{
+			Platform: &llbPlatform,
+			ImageOpt: &sourceresolver.ResolveImageOpt{
+				ResolveMode: c.opt.ImageResolveMode.String(),
+			},
+			LogName: logName,
 		},
 	)
 	if err != nil {

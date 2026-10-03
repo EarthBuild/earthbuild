@@ -94,7 +94,9 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/in-toto/attestation v1.2.0 // indirect
 	github.com/in-toto/in-toto-golang v0.11.0 // indirect
 	github.com/klauspost/compress v1.19.1 // indirect
@@ -119,6 +121,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/bridges/prometheus v0.70.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.46.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.21.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.21.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.45.0 // indirect
@@ -144,6 +147,6 @@ require (
 )
 
 replace (
-	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20261002124358-defe94dd8dcb
-	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20231030221755-644b08355b65
+	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20261003175138-9695bb3706ab
+	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20261002194825-890baaee2294
 )

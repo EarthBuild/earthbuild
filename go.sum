@@ -108,10 +108,10 @@ github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/dustin/go-humanize v1.1.0 h1:dbKTrvD0klcbBV/h4AWJdMuZogJACoMlvWIWZ5b2xWg=
 github.com/dustin/go-humanize v1.1.0/go.mod h1:hc1CvRkJMsgxqjmjMQF3QNRAZBwY8AXBAzKYoSX9sFI=
-github.com/earthbuild/buildkit v0.0.0-20261002124358-defe94dd8dcb h1:YZni+jTXn299sh7H6WbWnHcryouEh3uPw583t9Q8u/Q=
-github.com/earthbuild/buildkit v0.0.0-20261002124358-defe94dd8dcb/go.mod h1:HveLfzkpux1bgulqaL2VzqIkmK/svbQyat2MRaAmjXU=
-github.com/earthbuild/fsutil v0.0.0-20231030221755-644b08355b65 h1:IOk0NURVGR6BO+dZXvuVSazZDBwJBFNvyv7kN9309m4=
-github.com/earthbuild/fsutil v0.0.0-20231030221755-644b08355b65/go.mod h1:9kMVqMyQ/Sx2df5LtnGG+nbrmiZzCS7V6gjW3oGHsvI=
+github.com/earthbuild/buildkit v0.0.0-20261003175138-9695bb3706ab h1:BX1/RYb1SX/KE0sVntPlZQynEGdfCbCphUPoNj1Y0WE=
+github.com/earthbuild/buildkit v0.0.0-20261003175138-9695bb3706ab/go.mod h1:WNbP7ZxBRG1DVK/o1moQikR/yhCePO0U5Q1IhjxyeU0=
+github.com/earthbuild/fsutil v0.0.0-20261002194825-890baaee2294 h1:gFtQodZi786++bc4OPIeVKIwrQWdP0sJLGCHKWenQmo=
+github.com/earthbuild/fsutil v0.0.0-20261002194825-890baaee2294/go.mod h1:vbbYqJlnswsbJqWUcJN8fKtBhnEgldDrcagTgnBVKKM=
 github.com/elastic/go-sysinfo v1.15.5 h1:fCVUDmjHgljLUQCygherMnsRRJ9AkuAQIywTL7dEH28=
 github.com/elastic/go-sysinfo v1.15.5/go.mod h1:ZBVXmqS368dOn/jvijV/zHLfakWTYHBZPk3G244lHrU=
 github.com/elastic/go-windows v1.0.2 h1:yoLLsAsV5cfg9FLhZ9EXZ2n2sQFKeDYrHenkcivY4vI=
@@ -158,8 +158,13 @@ github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 h1:UH//fgunKIs4JdUbpDl1VZCDa
 github.com/grpc-ecosystem/go-grpc-middleware v1.4.0/go.mod h1:g5qyo/la0ALbONm6Vbp88Yd8NsDy6rZz+RcrMPxvld8=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 h1:5VipnvEpbqr2gA2VbM+nYVbkIF28c5ZQfqCBQ5g2xfk=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0/go.mod h1:Hyl3n6Twe1hvtd9XUXDec4pTvgMSEixRuQKPTMH2bNs=
+github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
+github.com/hashicorp/errwrap v1.1.0 h1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY2I=
+github.com/hashicorp/errwrap v1.1.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-cleanhttp v0.5.2 h1:035FKYIWjmULyFRBKPs8TBQoi0x6d9G4xc9neXJWAZQ=
 github.com/hashicorp/go-cleanhttp v0.5.2/go.mod h1:kO/YDlP8L1346E6Sodw+PrpBSV4/SoxCXGY6BqNFT48=
+github.com/hashicorp/go-multierror v1.1.1 h1:H5DkEtf6CXdFp0N0Em5UCwQpXMWke8IA0+lD48awMYo=
+github.com/hashicorp/go-multierror v1.1.1/go.mod h1:iw975J/qwKPdAO1clOe2L8331t/9/fmwbPZ6JB6eMoM=
 github.com/in-toto/attestation v1.2.0 h1:aPRUZ3azbqD7yEBD5fP3TD8Dszf+YHo284SOcpahjQk=
 github.com/in-toto/attestation v1.2.0/go.mod h1:r79G45gOmzPismgObLSL+rZTFxUgZLOQJI6LofTZgXk=
 github.com/in-toto/in-toto-golang v0.11.0 h1:nfidMYBFx+E0lnmX5KUnN2Pdm8zdNKal1ayjJuzzRoA=
@@ -279,6 +284,8 @@ go.opentelemetry.io/contrib/exporters/autoexport v0.70.0 h1:wpCLEJ/4RHUadR11UOdz
 go.opentelemetry.io/contrib/exporters/autoexport v0.70.0/go.mod h1:x7MbNOwoKV5Hj6uYMXQksHlQdTNOP3hoFPvqWISiu6s=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0 h1:x7wzEgXfnzJcHDwStJT+mxOz4etr2EcexjqhBvmoakw=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0/go.mod h1:rg+RlpR5dKwaS95IyyZqj5Wd4E13lk/msnTS0Xl9lJM=
+go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.46.1 h1:gbhw/u49SS3gkPWiYweQNJGm/uJN5GkI/FrosxSHT7A=
+go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.46.1/go.mod h1:GnOaBaFQ2we3b9AGWJpsBa7v1S5RlQzlC3O7dRMxZhM=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0 h1:LMuyCAyfalSjDyjdC65nK6N0zoTT63+E/u95X0JovZI=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0/go.mod h1:085m8qbm4hgc8rZWGDEa4vmyyo2c3nPxUslYUKUIU04=
 go.opentelemetry.io/contrib/instrumentation/runtime v0.70.0 h1:1+WLVYezXA9tkuVzKQri8zgB1cEIVYKUSoYIRjsBiMU=

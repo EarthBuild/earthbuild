@@ -147,6 +147,6 @@ require (
 )
 
 replace (
-	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20261002201641-a08fff0305c4
+	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20261003090225-733f3a1fd743
 	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20261002194825-890baaee2294
 )

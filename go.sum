@@ -213,6 +213,8 @@ github.com/earthbuild/buildkit v0.0.0-20261002124358-defe94dd8dcb h1:YZni+jTXn29
 github.com/earthbuild/buildkit v0.0.0-20261002124358-defe94dd8dcb/go.mod h1:HveLfzkpux1bgulqaL2VzqIkmK/svbQyat2MRaAmjXU=
 github.com/earthbuild/buildkit v0.0.0-20261002201641-a08fff0305c4 h1:mEFFW+A6usMwgjVv1X4ALzMn4aMJffWxfKkVhYdWPRY=
 github.com/earthbuild/buildkit v0.0.0-20261002201641-a08fff0305c4/go.mod h1:WNbP7ZxBRG1DVK/o1moQikR/yhCePO0U5Q1IhjxyeU0=
+github.com/earthbuild/buildkit v0.0.0-20261003090225-733f3a1fd743 h1:lv45V9WcGve5rx1/WVHZ24EPqEK7FsMV+G+SesqrQAs=
+github.com/earthbuild/buildkit v0.0.0-20261003090225-733f3a1fd743/go.mod h1:WNbP7ZxBRG1DVK/o1moQikR/yhCePO0U5Q1IhjxyeU0=
 github.com/EarthBuild/buildkit v0.0.0-20261020054259-5fe7531de523 h1:+lWqgCcBUtLHzb4MLeYw4Oqvxxdche1gBHsMfyw+S7c=
 github.com/EarthBuild/buildkit v0.0.0-20261020054259-5fe7531de523/go.mod h1:DVTk1+5D8s5/niIcAYTtEZG4jJWrU6lYn7Lc4vfp/Tc=
 github.com/earthbuild/fsutil v0.0.0-20231030221755-644b08355b65 h1:IOk0NURVGR6BO+dZXvuVSazZDBwJBFNvyv7kN9309m4=

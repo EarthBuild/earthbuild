@@ -198,12 +198,8 @@ func (vm *vertexMonitor) parseError() {
 
 	// Add Error location
 	slString := ""
-	if vm.meta.SourceLocation != nil {
-		slString = fmt.Sprintf(
-			" %s:%d:%d",
-			vm.meta.SourceLocation.File, vm.meta.SourceLocation.StartLine,
-			vm.meta.SourceLocation.StartColumn,
-		)
+	if !vm.meta.SourceLocation.IsZero() {
+		slString = " " + vm.meta.SourceLocation.String()
 	}
 
 	// Set the error string and flags on the vertexMonitor

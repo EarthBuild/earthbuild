@@ -131,7 +131,7 @@ func TestDocRecipeBlockFixture(t *testing.T) {
 func parseDocFixture(t *testing.T, fixture string) (earthfile.Tree, *features.Features) {
 	t.Helper()
 
-	ef, err := earthfile.ParseFile(filepath.Join("testdata", fixture), earthfile.WithSourceMap())
+	ef, err := earthfile.ParseFile(filepath.Join("testdata", fixture))
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)

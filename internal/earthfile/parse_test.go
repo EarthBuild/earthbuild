@@ -2,19 +2,23 @@ package earthfile
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 )
 
-// errUnsupportedVersion is what the version validator emits for every
-// unsupported VERSION value. Spelled out rather than derived from
-// getValidVersionsFormatted so these tests pin the user-facing wording.
-const errUnsupportedVersion = "invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8"
+const (
+	testEarthfile = "Earthfile"
 
-func TestParseOpts(t *testing.T) {
+	// errUnsupportedVersion is what the version validator emits for every
+	// unsupported VERSION value. Spelled out rather than derived from
+	// getValidVersionsFormatted so these tests pin the user-facing wording.
+	errUnsupportedVersion = "Earthfile:1:1: invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8"
+)
+
+func TestParse_Statements(t *testing.T) {
 	t.Parallel()
 
 	//nolint:goconst
@@ -1663,84 +1667,10 @@ build:
 				t.Fatalf("Parse failed: %v", err)
 			}
 
-			zeroSourceLocations(&actual)
-			zeroSourceLocations(&tc.want)
-
-			if diff := cmp.Diff(tc.want, actual); diff != "" {
+			if diff := cmp.Diff(tc.want, actual, cmpopts.IgnoreTypes(SourceLocation{})); diff != "" {
 				t.Errorf("AST mismatch (-want +got):\n%s", diff)
 			}
 		})
-	}
-}
-
-func zeroSourceLocations(ef *Tree) {
-	ef.SourceLocation = nil
-	if ef.Version != nil {
-		ef.Version.SourceLocation = nil
-	}
-
-	for i := range ef.Targets {
-		ef.Targets[i].SourceLocation = nil
-		zeroBlockSourceLocations(ef.Targets[i].Recipe)
-	}
-
-	for i := range ef.Functions {
-		ef.Functions[i].SourceLocation = nil
-		zeroBlockSourceLocations(ef.Functions[i].Recipe)
-	}
-
-	zeroBlockSourceLocations(ef.BaseRecipe)
-}
-
-func zeroBlockSourceLocations(block Block) {
-	for i := range block {
-		block[i].SourceLocation = nil
-		if block[i].Command != nil {
-			block[i].Command.SourceLocation = nil
-		}
-
-		if block[i].If != nil {
-			block[i].If.SourceLocation = nil
-			zeroBlockSourceLocations(block[i].If.IfBody)
-
-			for j := range block[i].If.ElseIf {
-				block[i].If.ElseIf[j].SourceLocation = nil
-				zeroBlockSourceLocations(block[i].If.ElseIf[j].Body)
-			}
-
-			if block[i].If.ElseBody != nil {
-				zeroBlockSourceLocations(*block[i].If.ElseBody)
-			}
-		}
-
-		if block[i].For != nil {
-			block[i].For.SourceLocation = nil
-			zeroBlockSourceLocations(block[i].For.Body)
-		}
-
-		if block[i].Try != nil {
-			block[i].Try.SourceLocation = nil
-			zeroBlockSourceLocations(block[i].Try.TryBody)
-
-			if block[i].Try.CatchBody != nil {
-				zeroBlockSourceLocations(*block[i].Try.CatchBody)
-			}
-
-			if block[i].Try.FinallyBody != nil {
-				zeroBlockSourceLocations(*block[i].Try.FinallyBody)
-			}
-		}
-
-		if block[i].With != nil {
-			block[i].With.SourceLocation = nil
-			block[i].With.Command.SourceLocation = nil
-			zeroBlockSourceLocations(block[i].With.Body)
-		}
-
-		if block[i].Wait != nil {
-			block[i].Wait.SourceLocation = nil
-			zeroBlockSourceLocations(block[i].Wait.Body)
-		}
 	}
 }
 
@@ -1821,22 +1751,337 @@ build:
 			input:     "VERSION 0.8 --try\n", // flags must precede the version number
 			wantError: errUnsupportedVersion,
 		},
+		{
+			name:      "empty version args",
+			input:     "VERSION\n",
+			wantError: "Earthfile:1:1: unexpected VERSION arguments",
+		},
+		{
+			name: "invalid version with leading comment",
+			input: `# A comment
+VERSION 99.0
+`,
+			wantError: "Earthfile:2:1: invalid VERSION in Earthfile",
+		},
+		{
+			name: "duplicate target",
+			input: `VERSION 0.8
+build:
+  RUN echo 1
+build:
+  RUN echo 2
+`,
+			wantError: "Earthfile:4:1: duplicate target \"build\"",
+		},
+		{
+			name: "reserved target",
+			input: `VERSION 0.8
+base:
+  RUN echo 1
+`,
+			wantError: "Earthfile:2:1: invalid target \"base\": base is a reserved target name",
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := Parse("Earthfile", tc.input)
-			if err == nil {
-				t.Fatalf("expected parse error, got nil")
-			}
+			_, err := Parse(testEarthfile, tc.input)
+			require.Error(t, err)
 
-			if !strings.Contains(err.Error(), tc.wantError) {
-				t.Errorf("expected error containing %q, got %q", tc.wantError, err.Error())
-			}
+			var earthErr *Error
+			require.ErrorAs(t, err, &earthErr)
+			require.ErrorContains(t, err, tc.wantError)
 		})
 	}
+}
+
+func TestError_Structured(t *testing.T) {
+	t.Parallel()
+
+	const testErrMsg = "some error"
+
+	t.Run("syntax error preserves line and column", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := Parse("MyEarthfile", "VERSION 0.8\nbuild:\n  IF [ \"$VAR\" = \"1\" ]\n    RUN echo 1\n")
+		require.Error(t, err)
+
+		var earthErr *Error
+		require.ErrorAs(t, err, &earthErr)
+		require.Equal(t, &Error{
+			Location: SourceLocation{
+				File:        "MyEarthfile",
+				StartLine:   5,
+				StartColumn: 1,
+				EndLine:     5,
+				EndColumn:   1,
+			},
+			Msg: "expected END to close IF statement, got EOF",
+		}, earthErr)
+	})
+
+	t.Run("lexer error preserves point location without expanding column", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := Parse("MyEarthfile", "VERSION 0.8\nbuild:\n  UNKNOWN_CMD\n")
+		require.Error(t, err)
+
+		var earthErr *Error
+		require.ErrorAs(t, err, &earthErr)
+		require.Equal(t, &Error{
+			Location: SourceLocation{
+				File:        "MyEarthfile",
+				StartLine:   3,
+				StartColumn: 3,
+				EndLine:     3,
+				EndColumn:   3,
+			},
+			Msg: `unknown command keyword: "UNKNOWN_CMD"`,
+		}, earthErr)
+	})
+
+	t.Run("validator error preserves location", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := Parse(testEarthfile, "VERSION\n")
+		require.Error(t, err)
+
+		var earthErr *Error
+		require.ErrorAs(t, err, &earthErr)
+		require.Equal(t, &Error{
+			Location: SourceLocation{
+				File:        testEarthfile,
+				StartLine:   1,
+				StartColumn: 1,
+				EndLine:     1,
+				EndColumn:   8,
+			},
+			Msg: "unexpected VERSION arguments; should be VERSION [flags] <major-version>.<minor-version>",
+		}, earthErr)
+	})
+
+	t.Run("error formatting with location", func(t *testing.T) {
+		t.Parallel()
+
+		earthErr := &Error{
+			Location: SourceLocation{
+				File:        testEarthfile,
+				StartLine:   10,
+				StartColumn: 5,
+			},
+			Msg: testErrMsg,
+		}
+		require.Equal(t, "Earthfile:10:5: "+testErrMsg, earthErr.Error())
+	})
+
+	t.Run("error formatting without location", func(t *testing.T) {
+		t.Parallel()
+
+		earthErr := &Error{Msg: testErrMsg}
+		require.Equal(t, testErrMsg, earthErr.Error())
+	})
+
+	t.Run("error formatting with line only", func(t *testing.T) {
+		t.Parallel()
+
+		earthErr := &Error{
+			Location: SourceLocation{
+				File:      testEarthfile,
+				StartLine: 10,
+			},
+			Msg: testErrMsg,
+		}
+		require.Equal(t, "Earthfile:10: "+testErrMsg, earthErr.Error())
+	})
+
+	t.Run("error formatting with location and empty message", func(t *testing.T) {
+		t.Parallel()
+
+		earthErr := &Error{
+			Location: SourceLocation{
+				File:        testEarthfile,
+				StartLine:   10,
+				StartColumn: 5,
+			},
+		}
+		require.Equal(t, "Earthfile:10:5", earthErr.Error())
+	})
+
+	t.Run("lexer error in version argument", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := Parse(testEarthfile, "VERSION \"unclosed\n")
+		require.Error(t, err)
+
+		var earthErr *Error
+		require.ErrorAs(t, err, &earthErr)
+		require.Equal(t, &Error{
+			Location: SourceLocation{
+				File:        testEarthfile,
+				StartLine:   1,
+				StartColumn: 9,
+				EndLine:     1,
+				EndColumn:   9,
+			},
+			Msg: "unclosed double quote",
+		}, earthErr)
+	})
+
+	t.Run("expected block indentation error", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := Parse(testEarthfile, "VERSION 0.8\nbuild:\nRUN echo 1\n")
+		require.Error(t, err)
+
+		var earthErr *Error
+		require.ErrorAs(t, err, &earthErr)
+		require.Equal(t, &Error{
+			Location: SourceLocation{
+				File:        testEarthfile,
+				StartLine:   3,
+				StartColumn: 1,
+				EndLine:     3,
+				EndColumn:   4,
+			},
+			Msg: "expected block indentation, got RUN",
+		}, earthErr)
+	})
+
+	t.Run("error formatting with nil receiver", func(t *testing.T) {
+		t.Parallel()
+
+		var earthErr *Error
+		require.Equal(t, "<nil>", earthErr.Error())
+	})
+}
+
+func TestItem_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		want string
+		item item
+	}{
+		{
+			name: "EOF",
+			want: "EOF",
+			item: item{Typ: itemEOF},
+		},
+		{
+			name: "error",
+			want: "syntax error",
+			item: item{Typ: itemError, Val: "syntax error"},
+		},
+		{
+			name: "NL",
+			want: "newline",
+			item: item{Typ: itemNL},
+		},
+		{
+			name: "eol comment",
+			want: "newline",
+			item: item{Typ: itemEOLComment},
+		},
+		{
+			name: "indent",
+			want: "indent",
+			item: item{Typ: itemIndent},
+		},
+		{
+			name: "dedent",
+			want: "dedent",
+			item: item{Typ: itemDedent},
+		},
+		{
+			name: "whitespace",
+			want: "whitespace",
+			item: item{Typ: itemWS},
+		},
+		{
+			name: "command with val",
+			want: "RUN",
+			item: item{Typ: itemRun, Val: "RUN"},
+		},
+		{
+			name: "atom with val",
+			want: "target",
+			item: item{Typ: itemAtom, Val: "target"},
+		},
+		{
+			name: "token without val",
+			want: "token(14)",
+			item: item{Typ: itemRun},
+		},
+		{
+			name: "unknown token type",
+			want: "token(9999)",
+			item: item{Typ: itemType(9999)},
+		},
+		{
+			name: "itemAdd with val",
+			want: "ADD",
+			item: item{Typ: itemAdd, Val: "ADD"},
+		},
+		{
+			name: "itemCache with val",
+			want: "CACHE",
+			item: item{Typ: itemCache, Val: "CACHE"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tc.want, tc.item.String())
+		})
+	}
+}
+
+func TestSourceLocation_IsZero(t *testing.T) {
+	t.Parallel()
+
+	t.Run("zero value returns true", func(t *testing.T) {
+		t.Parallel()
+
+		var loc SourceLocation
+		require.True(t, loc.IsZero())
+	})
+
+	t.Run("empty file returns true", func(t *testing.T) {
+		t.Parallel()
+
+		loc := SourceLocation{
+			StartLine:   1,
+			StartColumn: 1,
+		}
+		require.True(t, loc.IsZero())
+	})
+
+	t.Run("non-positive line returns true", func(t *testing.T) {
+		t.Parallel()
+
+		loc := SourceLocation{
+			File:      testEarthfile,
+			StartLine: 0,
+		}
+		require.True(t, loc.IsZero())
+	})
+
+	t.Run("populated location returns false", func(t *testing.T) {
+		t.Parallel()
+
+		loc := SourceLocation{
+			File:        testEarthfile,
+			StartLine:   1,
+			StartColumn: 2,
+			EndLine:     3,
+			EndColumn:   4,
+		}
+		require.False(t, loc.IsZero())
+	})
 }
 
 func FuzzParse(f *testing.F) {
@@ -1906,21 +2151,256 @@ func BenchmarkParse(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.Run("WithoutSourceMap", func(b *testing.B) {
-		for range b.N {
-			_, err := Parse("Earthfile", string(content))
-			if err != nil {
-				b.Fatal(err)
-			}
+	for range b.N {
+		_, err := Parse("Earthfile", string(content))
+		if err != nil {
+			b.Fatal(err)
 		}
+	}
+}
+
+func TestSourceLocation_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		want string
+		loc  SourceLocation
+	}{
+		{
+			name: "empty location",
+			loc:  SourceLocation{},
+			want: "",
+		},
+		{
+			name: "valid location",
+			loc: SourceLocation{
+				File:        testEarthfile,
+				StartLine:   10,
+				StartColumn: 5,
+			},
+			want: "Earthfile:10:5",
+		},
+		{
+			name: "line only (zero column)",
+			loc: SourceLocation{
+				File:      testEarthfile,
+				StartLine: 10,
+			},
+			want: "Earthfile:10",
+		},
+		{
+			name: "line only (negative column)",
+			loc: SourceLocation{
+				File:        testEarthfile,
+				StartLine:   10,
+				StartColumn: -1,
+			},
+			want: "Earthfile:10",
+		},
+		{
+			name: "non-positive line",
+			loc: SourceLocation{
+				File:        testEarthfile,
+				StartLine:   0,
+				StartColumn: 5,
+			},
+			want: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tc.want, tc.loc.String())
+		})
+	}
+}
+
+func TestStatement_Location(t *testing.T) {
+	t.Parallel()
+
+	loc := SourceLocation{File: testEarthfile, StartLine: 3, StartColumn: 1}
+
+	tests := []struct {
+		name string
+		stmt Statement
+		want SourceLocation
+	}{
+		{
+			name: "empty statement returns zero location",
+			stmt: Statement{},
+			want: SourceLocation{},
+		},
+		{
+			name: "command statement",
+			stmt: Statement{Command: &Command{SourceLocation: loc}},
+			want: loc,
+		},
+		{
+			name: "with statement",
+			stmt: Statement{With: &WithStatement{SourceLocation: loc}},
+			want: loc,
+		},
+		{
+			name: "if statement",
+			stmt: Statement{If: &IfStatement{SourceLocation: loc}},
+			want: loc,
+		},
+		{
+			name: "try statement",
+			stmt: Statement{Try: &TryStatement{SourceLocation: loc}},
+			want: loc,
+		},
+		{
+			name: "for statement",
+			stmt: Statement{For: &ForStatement{SourceLocation: loc}},
+			want: loc,
+		},
+		{
+			name: "wait statement",
+			stmt: Statement{Wait: &WaitStatement{SourceLocation: loc}},
+			want: loc,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.want, tc.stmt.Location())
+		})
+	}
+}
+
+func TestCommand_Clone(t *testing.T) {
+	t.Parallel()
+
+	t.Run("deep copies args and preserves location", func(t *testing.T) {
+		t.Parallel()
+
+		original := Command{
+			Name: "RUN",
+			Args: []string{"echo", "hello"},
+			SourceLocation: SourceLocation{
+				File:        testEarthfile,
+				StartLine:   10,
+				StartColumn: 2,
+				EndLine:     10,
+				EndColumn:   14,
+			},
+			ExecMode: true,
+		}
+
+		cloned := original.Clone()
+		require.Equal(t, original, cloned)
+
+		// Mutate cloned slice to verify independence
+		cloned.Args[0] = "printf"
+		require.Equal(t, "echo", original.Args[0])
+		require.Equal(t, "printf", cloned.Args[0])
 	})
 
-	b.Run("WithSourceMap", func(b *testing.B) {
-		for range b.N {
-			_, err := Parse("Earthfile", string(content), WithSourceMap())
-			if err != nil {
-				b.Fatal(err)
-			}
+	t.Run("handles nil args", func(t *testing.T) {
+		t.Parallel()
+
+		original := Command{
+			Name: "WAIT",
 		}
+
+		cloned := original.Clone()
+		require.Nil(t, cloned.Args)
 	})
+}
+
+func TestParse_IfSourceLocation(t *testing.T) {
+	t.Parallel()
+
+	input := `VERSION 0.8
+build:
+  IF [ "$VAR" = "1" ]
+    RUN echo "yes"
+  END
+`
+	tree, err := Parse(testEarthfile, input)
+	require.NoError(t, err)
+	require.Len(t, tree.Targets, 1)
+	require.Len(t, tree.Targets[0].Recipe, 1)
+
+	ifStmt := tree.Targets[0].Recipe[0].If
+	require.NotNil(t, ifStmt)
+	require.Equal(t, SourceLocation{
+		File:        testEarthfile,
+		StartLine:   3,
+		StartColumn: 3,
+		EndLine:     5,
+		EndColumn:   6,
+	}, ifStmt.SourceLocation)
+}
+
+func TestParse_FunctionSourceLocation(t *testing.T) {
+	t.Parallel()
+
+	input := `VERSION 0.8
+FUNCTION my-func
+  FROM alpine:3.18
+  RUN echo "func"
+`
+	tree, err := Parse(testEarthfile, input)
+	require.NoError(t, err)
+	require.Len(t, tree.Functions, 1)
+
+	fn := tree.Functions[0]
+	require.Equal(t, SourceLocation{
+		File:        testEarthfile,
+		StartLine:   2,
+		StartColumn: 1,
+		EndLine:     5,
+		EndColumn:   1,
+	}, fn.SourceLocation)
+}
+
+func TestParse_ElseIfSourceLocation(t *testing.T) {
+	t.Parallel()
+
+	input := `VERSION 0.8
+build:
+  IF [ "$VAR" = "1" ]
+    RUN echo "yes"
+  ELSE IF [ "$VAR" = "2" ]
+    RUN echo "two"
+  ELSE IF [ "$VAR" = "3" ]
+  END
+`
+	tree, err := Parse(testEarthfile, input)
+	require.NoError(t, err)
+	require.Len(t, tree.Targets, 1)
+	require.Len(t, tree.Targets[0].Recipe, 1)
+
+	ifStmt := tree.Targets[0].Recipe[0].If
+	require.NotNil(t, ifStmt)
+	require.Equal(t, SourceLocation{
+		File:        testEarthfile,
+		StartLine:   3,
+		StartColumn: 3,
+		EndLine:     8,
+		EndColumn:   6,
+	}, ifStmt.SourceLocation)
+	require.Len(t, ifStmt.ElseIf, 2)
+
+	require.Equal(t, SourceLocation{
+		File:        testEarthfile,
+		StartLine:   5,
+		StartColumn: 3,
+		EndLine:     7,
+		EndColumn:   3,
+	}, ifStmt.ElseIf[0].SourceLocation)
+
+	require.Equal(t, SourceLocation{
+		File:        testEarthfile,
+		StartLine:   7,
+		StartColumn: 3,
+		EndLine:     7,
+		EndColumn:   27,
+	}, ifStmt.ElseIf[1].SourceLocation)
 }

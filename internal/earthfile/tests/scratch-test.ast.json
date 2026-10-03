@@ -5,7 +5,14 @@
         "args": [
           "scratch"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 13,
+          "endLine": 2,
+          "file": "scratch-test.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -18,7 +25,14 @@
             "args": [
               "/"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 14,
+              "endLine": 5,
+              "file": "scratch-test.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -26,15 +40,36 @@
             "args": [
               "bare"
             ],
-            "name": "SAVE IMAGE"
+            "name": "SAVE IMAGE",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 6,
+              "file": "scratch-test.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 7,
+        "file": "scratch-test.earth",
+        "startColumn": 1,
+        "startLine": 4
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "scratch-test.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

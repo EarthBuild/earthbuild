@@ -6,6 +6,7 @@ import (
 	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -39,7 +40,7 @@ func NewCachedMetaResolver(metaResolver llb.ImageMetaResolver) *CachedMetaResolv
 
 // ResolveImageConfig implements llb.ImageMetaResolver.ResolveImageConfig.
 func (cmr *CachedMetaResolver) ResolveImageConfig(
-	ctx context.Context, ref string, opt llb.ResolveImageConfigOpt,
+	ctx context.Context, ref string, opt sourceresolver.Opt,
 ) (string, digest.Digest, []byte, error) {
 	platformStr := ""
 	if opt.Platform != nil {

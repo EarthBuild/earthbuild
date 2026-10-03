@@ -461,6 +461,58 @@ ARG --global globalArg
 			},
 		},
 		{
+			note: "it parses ARG with --description flag",
+			earthfile: `
+VERSION 0.8
+
+build:
+    ARG --description="Environment stage (dev, staging, prod)" ENV=prod
+    ARG --required --description="Database connection URL" DB_URL
+    ARG --description='Single-quoted description' SINGLE_QUOTED="default"
+    ARG --description=issue#765 HASH_ARG=val
+    FROM alpine:3.18
+    RUN echo "Building for ${ENV}"
+`,
+			check: func(r *require.Assertions, s Tree, err error) {
+				r.NoError(err)
+				r.Len(s.Targets, 1)
+				target := s.Targets[0]
+				r.Len(target.Recipe, 6)
+
+				arg0 := target.Recipe[0]
+				r.NotNil(arg0.Command)
+				r.Equal(CmdArg, arg0.Command.Name)
+				r.Equal(
+					[]string{`--description="Environment stage (dev, staging, prod)"`, "ENV", "=", "prod"},
+					arg0.Command.Args,
+				)
+
+				arg1 := target.Recipe[1]
+				r.NotNil(arg1.Command)
+				r.Equal(CmdArg, arg1.Command.Name)
+				r.Equal(
+					[]string{"--required", `--description="Database connection URL"`, "DB_URL"},
+					arg1.Command.Args,
+				)
+
+				arg2 := target.Recipe[2]
+				r.NotNil(arg2.Command)
+				r.Equal(CmdArg, arg2.Command.Name)
+				r.Equal(
+					[]string{"--description='Single-quoted description'", "SINGLE_QUOTED", "=", "\"default\""},
+					arg2.Command.Args,
+				)
+
+				arg3 := target.Recipe[3]
+				r.NotNil(arg3.Command)
+				r.Equal(CmdArg, arg3.Command.Name)
+				r.Equal(
+					[]string{"--description=issue#765", "HASH_ARG", "=", "val"},
+					arg3.Command.Args,
+				)
+			},
+		},
+		{
 			note: "it parses documentation on SAVE ARTIFACT",
 			earthfile: `
 VERSION 0.6

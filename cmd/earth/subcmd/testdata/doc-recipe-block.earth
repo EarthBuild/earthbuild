@@ -1,12 +1,12 @@
 VERSION 0.8
 FROM alpine:3.18
 
-# globalArg is a documented global arg. earthly doc does not distinguish between
+# globalArg is a documented global arg. earth doc does not distinguish between
 # global and non-global args, because they work the same to end users.
 ARG --global globalArg
 
 # foo is a target with documentation. Targets without documentation won't show
-# up in 'earthly doc' even if they have documented commands in their recipe.
+# up in 'earth doc' even if they have documented commands in their recipe.
 foo:
     # withDefault is a documented argument with a default.
     ARG withDefault = foo
@@ -19,6 +19,7 @@ foo:
 
     RUN echo $withDefault > bar.txt
     RUN echo $withDocs > baz.txt
+    RUN echo $globalArg > global.txt
 
     # bar.txt is a documented artifact.
     SAVE ARTIFACT bar.txt

@@ -173,8 +173,8 @@ func (w *Encoder) Int64(v int64) {
 	var buf [8]byte
 
 	// The bit pattern is the encoding: a negative value is distinct from every
-	// positive one, which is all injectivity asks of it.
-	binary.BigEndian.PutUint64(buf[:], uint64(v))
+	// positive one, which is all injectivity asks of it (gosec G115).
+	binary.BigEndian.PutUint64(buf[:], uint64(v)) //nolint:gosec // two's complement, deliberately
 
 	_, _ = w.w.Write(buf[:])
 }

@@ -2028,6 +2028,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			// declares one configuration under two names.
 			saved := cfg
 			rs.saved = &saved
+			rs.savedRef = a
 		}
 
 		// Naming an output does not produce one.

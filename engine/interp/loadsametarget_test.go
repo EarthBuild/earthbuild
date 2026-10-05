@@ -178,3 +178,60 @@ main:
 		t.Errorf("one archive serves both blocks: got %d pack steps, want 1", packs)
 	}
 }
+
+// Two targets with one filesystem each load under their own name.
+//
+// The configuration half of E926 was fixed by asking the loaded target what it
+// saved rather than the node it stands on. The name was still asked of the
+// node, so it answered for whichever target saved against it first: in
+// `tests/with-docker-healthcheck`, three targets that differ only by
+// HEALTHCHECK share their `FROM alpine` node, and `--load=+healthcheck-none`
+// logged `Loaded image: test-default:latest` - the image under test was never
+// in the daemon, and `docker inspect test-none:latest` found nothing.
+func TestTwoTargetsWithOneFilesystemLoadUnderTheirOwnNames(t *testing.T) {
+	t.Parallel()
+
+	p, err := interp.Build(versioned+`
+first:
+    FROM alpine:3.22
+    HEALTHCHECK CMD true
+    SAVE IMAGE first:latest
+
+second:
+    FROM alpine:3.22
+    HEALTHCHECK NONE
+    SAVE IMAGE second:latest
+
+use-first:
+    FROM alpine:3.22
+    WITH DOCKER --load=+first
+        RUN docker inspect first:latest
+    END
+
+use-second:
+    FROM alpine:3.22
+    WITH DOCKER --load=+second
+        RUN docker inspect second:latest
+    END
+
+main:
+    BUILD +use-first
+    BUILD +use-second
+`, testMain)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var names []string
+
+	for _, n := range p.Graph.Nodes() {
+		if n.Op.Kind == ir.OpPackImage {
+			names = append(names, strings.Join(n.Op.Args, " "))
+		}
+	}
+
+	got := strings.Join(names, ", ")
+	if !strings.Contains(got, "first:latest") || !strings.Contains(got, "second:latest") {
+		t.Errorf("the loads pack %q; want first:latest and second:latest, each under its own name", got)
+	}
+}

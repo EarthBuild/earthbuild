@@ -640,6 +640,12 @@ func (p *Plan) dockerLoad(spec string, prev *ir.Node, rs *state, where string) (
 		return nil, fmt.Errorf("WITH DOCKER --load %s (%s): %w", spec, where, err)
 	}
 
+	// The loaded target's own SAVE IMAGE first, for the reason loadedConfig
+	// gives: the node answers for whichever target saved against it first.
+	if name == "" && loaded != nil {
+		name = loaded.savedRef
+	}
+
 	if name == "" {
 		name = p.imageOf(from)
 		if name == "" {

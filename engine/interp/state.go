@@ -60,6 +60,11 @@ type state struct {
 	// was declared first, so `--load` on the second target packed the first
 	// target's image, under an archive named from a hash the two shared (E926).
 	saved *Config
+	// savedRef is the name that SAVE IMAGE gave it, for the same reason: asked
+	// of the node, the name was whichever target saved against it first, so
+	// `--load=+second` packed the second image under the first's name and the
+	// daemon never held the one the build asked for.
+	savedRef string
 	// host says the recipe has passed a LOCALLY, so its steps run on the
 	// invoking machine.
 	host bool

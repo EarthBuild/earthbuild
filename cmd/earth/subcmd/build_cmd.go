@@ -15,7 +15,6 @@ import (
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
 	"github.com/EarthBuild/earthbuild/builder"
-	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/cmd/earth/bk"
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
@@ -26,9 +25,9 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
@@ -297,7 +296,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	// Before anything else sets up: the native engine brings its own scheduling,
 	// store and sandbox, so sharing the buildkit path's preparation would mean
 	// starting a daemon neither engine was going to use.
-	if b.cli.Flags().Engine == nativeEngine {
+	if b.cli.Flags().BuildEngine == nativeEngine {
 		if artifact.Target.Target != "" || destPath != "./" {
 			return fmt.Errorf(
 				"--engine=%s builds a target, and this invocation names an artifact"+
@@ -392,28 +391,9 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		return nil
 	}
 
-	err = b.cli.InitFrontend(ctx, cmd)
+	bkClient, err := b.cli.GetBuildkitClient(ctx, cmd)
 	if err != nil {
-		return fmt.Errorf("could not init frontend: %w", err)
-	}
-
-	// After configuring frontend, buildkit address should not be empty.
-	// It should be set to a local container or remote address at this point.
-	if b.cli.Flags().BuildkitdSettings.BuildkitAddress == "" {
-		return errors.New("could not determine buildkit address - is Docker or Podman running?")
-	}
-
-	bkClient, err := buildkitd.NewClient(
-		ctx,
-		b.cli.Log(),
-		b.cli.Flags().BuildkitdImage,
-		b.cli.Flags().ContainerName,
-		b.cli.Flags().ContainerFrontend,
-		b.cli.Version(),
-		b.cli.Flags().BuildkitdSettings,
-	)
-	if err != nil {
-		return fmt.Errorf("build new buildkitd client: %w", err)
+		return err
 	}
 	defer bkClient.Close()
 
@@ -467,11 +447,10 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 
 	var attachable session.Attachable
 
-	switch b.cli.Flags().ContainerFrontend.Config().Setting {
-	case containerutil.FrontendPodman, containerutil.FrontendPodmanShell:
+	if b.cli.Flags().Engine.Metadata().Scheme == engine.SchemePodman {
 		attachable = authprovider.NewPodman(ctx, os.Stderr)
-	default:
-		// includes containerutil.FrontendDocker, containerutil.FrontendDockerShell:
+	} else {
+		// includes engine.SchemeDocker:
 		attachable = dockerauthprovider.NewDockerAuthProvider(cfg, nil)
 	}
 
@@ -616,7 +595,7 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 		DarwinProxyImage:                      b.cli.Cfg().Global.DarwinProxyImage,
 		DarwinProxyWait:                       b.cli.Cfg().Global.DarwinProxyWait,
 		FeatureFlagOverrides:                  b.cli.Flags().FeatureFlagOverrides,
-		ContainerFrontend:                     b.cli.Flags().ContainerFrontend,
+		Engine:                                b.cli.Flags().Engine,
 		InternalSecretStore:                   internalSecretStore,
 		InteractiveDebugging:                  b.cli.Flags().InteractiveDebugging,
 		InteractiveDebuggingDebugLevelLogging: b.cli.Flags().Debug,
@@ -643,7 +622,6 @@ func (b *Build) ActionBuildImp(ctx context.Context, cmd *cli.Command, flagArgs, 
 	buildOpts := builder.BuildOpt{
 		PrintPhases:                true,
 		Push:                       b.cli.Flags().Push,
-		CI:                         b.cli.Flags().CI,
 		Export:                     b.export,
 		OnlyFinalTargetImages:      b.cli.Flags().ImageMode,
 		PlatformResolver:           platr,
@@ -838,7 +816,7 @@ func receiveFileVersion2(
 func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 	var runnerName string
 
-	isLocal := containerutil.IsLocal(b.cli.Flags().BuildkitdSettings.BuildkitAddress)
+	isLocal := engine.IsLocal(b.cli.Flags().BuildkitdSettings.BuildkitAddr)
 	if isLocal {
 		hostname, err := os.Hostname()
 		if err != nil {
@@ -849,7 +827,7 @@ func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 
 		runnerName = "local:" + hostname
 	} else {
-		runnerName = "bk:" + b.cli.Flags().BuildkitdSettings.BuildkitAddress
+		runnerName = "bk:" + b.cli.Flags().BuildkitdSettings.BuildkitAddr
 	}
 
 	if !isLocal && (b.cli.Flags().UseInlineCache || b.cli.Flags().SaveInlineCache) {
@@ -858,8 +836,11 @@ func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 		b.cli.Log().Warnf("")
 	}
 
-	if isLocal && !b.cli.Flags().ContainerFrontend.IsAvailable(ctx) {
-		return "", false, errors.New("frontend is not available to perform the build; is Docker installed and running?")
+	if isLocal && !b.cli.Flags().Engine.IsAvailable(ctx) {
+		return "", false, errors.New(
+			"container engine is not available to perform the build; " +
+				"is Docker, Podman, or Apple Container installed and running?",
+		)
 	}
 
 	return runnerName, isLocal, nil
@@ -925,7 +906,6 @@ func (b *Build) initAutoSkip(
 	targetHash, stats, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
 		Log:            b.cli.Log(),
-		CI:             b.cli.Flags().CI,
 		BuiltinArgs:    variables.DefaultArgs{EarthVersion: b.cli.Version(), EarthBuildSha: b.cli.GitSHA()},
 		OverridingVars: overridingVars,
 	})

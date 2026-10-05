@@ -68,7 +68,7 @@ func (b *Build) actionInputs(ctx context.Context, cmd *cli.Command, name string)
 	// rather than in a file a CI cache can carry - a different mechanism with a
 	// different home, and quietly substituting one for the other would answer a
 	// question nobody asked.
-	if engine := b.cli.Flags().Engine; engine != "" && engine != nativeEngine {
+	if engine := b.cli.Flags().BuildEngine; engine != "" && engine != nativeEngine {
 		return fmt.Errorf(
 			"%s is a question about the native engine's plan, and --engine=%s was asked for"+
 				"\n  use --engine=%s, or --auto-skip for the buildkit equivalent",

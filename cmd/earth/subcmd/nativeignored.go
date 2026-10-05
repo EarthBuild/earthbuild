@@ -61,14 +61,14 @@ var ignoredByNative = map[string]struct{ flag, lose string }{
 	"BuildkitdImage":             {"--buildkit-image", noBuildkitd},
 	"BuildkitdSettings":          {"--buildkit-volume-name", noBuildkitd},
 	"ContainerName":              {"--buildkit-container-name", noBuildkitd},
-	"ContainerFrontend":          {"--container-frontend", "this engine needs no container runtime to build"},
+	"Engine":                     {"--container-frontend", "this engine needs no container runtime to build"},
 	"NoBuildkitUpdate":           {"--no-buildkit-update", noBuildkitd},
 	"BootstrapNoBuildkit":        {"--bootstrap-no-buildkit", noBuildkitd},
 	"UseTickTockBuildkitImage":   {"--ticktock", noBuildkitd},
 	"LocalRegistryHost":          {"--local-registry-host", "this engine needs no local registry"},
 	"DisableRemoteRegistryProxy": {"--disable-remote-registry-proxy", "this engine proxies no registry"},
 	"ServerConnTimeout":          {"--server-conn-timeout", "nothing reads this on either engine"},
-	"Engine":                     {"--engine", "this build already chose the native engine"},
+	"BuildEngine":                {"--engine", "this build already chose the native engine"},
 }
 
 // notAboutTheBuild is read somewhere other than the build path - logging, the

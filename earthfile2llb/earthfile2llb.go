@@ -13,10 +13,10 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/llbutil/secretprovider"
 	"github.com/EarthBuild/earthbuild/util/platutil"
@@ -51,9 +51,9 @@ type ConvertOpt struct {
 	// MultiImageSolver can solve multiple images using a single build
 	// request. Primarily used for WITH DOCKER commands.
 	MultiImageSolver states.MultiImageSolver
-	// ContainerFrontend is the currently used container frontend, as detected by earth at app start.
-	// It provides info and access to commands to manipulate the current container frontend.
-	ContainerFrontend containerutil.ContainerFrontend
+	// Engine is the container client instance, as detected by earth at app start.
+	// It provides info and access to commands to manipulate the current container engine.
+	Engine *engine.Client
 	// Visited is a collection of target states which have been converted to LLB.
 	// This is used for deduplication and infinite cycle detection.
 	Visited states.VisitedCollection
@@ -151,8 +151,6 @@ type ConvertOpt struct {
 	NoCache bool
 	// EnableInteractiveDebugger is set to true when earth is run with the --interactive cli flag
 	InteractiveDebuggerEnabled bool
-	// IsCI determines whether it is running from a CI environment.
-	IsCI bool
 	// GlobalWaitBlockFtr, when true, forces all Earthfiles to add entries into the WAIT/END block
 	// this is to facilitate de-duplicating code from builder.go
 	GlobalWaitBlockFtr bool

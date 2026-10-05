@@ -7,6 +7,7 @@ import (
 	"crypto/sha1" // #nosec G505
 	"encoding/binary"
 	"encoding/hex"
+	jsonv1 "encoding/json"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
@@ -30,12 +31,12 @@ import (
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/states/dedup"
 	"github.com/EarthBuild/earthbuild/states/image"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -104,7 +105,7 @@ const (
 type Converter struct {
 	cacheContext        pllb.State
 	buildContextFactory llbfactory.Factory
-	containerFrontend   containerutil.ContainerFrontend
+	engine              *engine.Client
 	persistentCacheDirs map[string]states.CacheMount // maps path->mount
 	ftrs                *features.Features
 	mts                 *states.MultiTarget
@@ -136,7 +137,6 @@ func NewConverter(
 		Log:              opt.Log,
 		Target:           target,
 		Push:             opt.DoPushes,
-		CI:               opt.IsCI,
 		PlatformResolver: opt.PlatformResolver,
 		GitMeta:          bc.GitMetadata,
 		BuiltinArgs:      opt.BuiltinArgs,
@@ -179,7 +179,7 @@ func NewConverter(
 		varCollection:       variables.NewCollection(newCollOpt),
 		ftrs:                bc.Features,
 		localWorkingDir:     filepath.Dir(bc.BuildFilePath),
-		containerFrontend:   opt.ContainerFrontend,
+		engine:              opt.Engine,
 		waitBlockStack:      []*waitBlock{opt.waitBlock},
 		logbusTarget:        logbusTarget,
 	}
@@ -542,24 +542,14 @@ func (c *Converter) FromDockerfile(
 	if err != nil {
 		return fmt.Errorf("dockerfile2llb %s: %w", dfPath, err)
 	}
-	// Convert dockerfile2llb image into earthfile2llb image via JSON.
-	imgDt, err := json.Marshal(dfImg)
-	if err != nil {
-		return fmt.Errorf("marshal dockerfile image: %w", err)
-	}
 
-	var img image.Image
+	var envs *variables.Scope
 
-	err = json.Unmarshal(imgDt, &img)
-	if err != nil {
-		return fmt.Errorf("unmarshal dockerfile image: %w", err)
-	}
+	c.mts.Final.MainState, c.mts.Final.MainImage, envs = c.applyFromImage(
+		pllb.FromRawState(*state), image.FromBuildKit(dfImg))
 
-	state2, img2, envVars := c.applyFromImage(pllb.FromRawState(*state), &img)
-	c.mts.Final.MainState = state2
-	c.mts.Final.MainImage = img2
 	c.mts.Final.RanFromLike = true
-	c.varCollection.ResetEnvVars(envVars)
+	c.varCollection.ResetEnvVars(envs)
 
 	return nil
 }
@@ -2362,7 +2352,6 @@ func (c *Converter) checkAutoSkip(
 	targetHash, _, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
 		Log:            c.opt.Log,
-		CI:             c.opt.IsCI,
 		BuiltinArgs:    c.opt.BuiltinArgs,
 		OverridingVars: overriding,
 	})
@@ -3155,7 +3144,10 @@ func (c *Converter) internalFromClassical(
 
 	var img image.Image
 
-	err = json.Unmarshal(dt, &img)
+	// Unmarshal with legacy v1 options because image configs from external registries
+	// embed third-party structs (specs.ImageConfig and image.HealthConfig) that
+	// adhere to Docker/OCI v1 JSON conventions (duration parsing and case matching).
+	err = json.Unmarshal(dt, &img, jsonv1.DefaultOptionsV1())
 	if err != nil {
 		return pllb.State{}, nil, nil, fmt.Errorf("unmarshal image config for %s: %w", imageName, err)
 	}

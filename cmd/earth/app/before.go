@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -17,10 +18,10 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earth/subcmd"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/env"
 	logbussetup "github.com/EarthBuild/earthbuild/logbus/setup"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/urfave/cli/v3"
@@ -105,7 +106,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	// costs 116ms of a 380ms cached build to run the candidate binaries and ask
 	// which of them answers (E871).
 	endFrontend := timing.Phase("frontend:detect", "")
-	err = app.parseFrontend(ctx, needsContainerFrontend(os.Args[1:],
+	err = app.parseEngine(ctx, needsContainerFrontend(os.Args[1:],
 		cmd.Args().First(), commandNames(app.BaseCLI.App().Commands), engineEnv()))
 	endFrontend()
 	if err != nil {
@@ -136,62 +137,61 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	return ctx, nil
 }
 
-func (app *EarthApp) parseFrontend(ctx context.Context, detect bool) error {
+func (app *EarthApp) parseEngine(ctx context.Context, detect bool) error {
 	log := app.BaseCLI.Log().WithPrefix("frontend")
-	feCfg := &containerutil.FrontendConfig{
-		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
-		BuildkitHostFileValue:      app.BaseCLI.Cfg().Global.BuildkitHost,
-		LocalRegistryHostFileValue: app.BaseCLI.Cfg().Global.LocalRegistryHost,
-		LocalContainerName:         app.BaseCLI.Flags().ContainerName,
-		DefaultPort:                8372 + config.PortOffset(app.BaseCLI.Flags().InstallationName),
-		Log:                        log,
+	engCfg := &engine.Config{
+		BuildkitHost:      cmp.Or(app.BaseCLI.Flags().BuildkitHost, app.BaseCLI.Cfg().Global.BuildkitHost),
+		LocalRegistryHost: app.BaseCLI.Cfg().Global.LocalRegistryHost,
+		ContainerName:     app.BaseCLI.Flags().ContainerName,
+		DefaultPort:       engine.DefaultBuildkitPort + config.PortOffset(app.BaseCLI.Flags().InstallationName),
+		Log:               log,
 	}
 
 	// The same stub the detection falls back to when no daemon answers, which
 	// is the honest description of this build: there is no container frontend,
 	// and nothing on this path will ask for one.
 	if !detect {
-		stub, err := containerutil.NewStubFrontend(feCfg)
+		stub, err := engine.NewStub(engCfg)
 		if err != nil {
-			return fmt.Errorf("failed stub frontend initialization: %w", err)
+			return fmt.Errorf("failed stub container engine initialization: %w", err)
 		}
 
-		app.BaseCLI.Flags().ContainerFrontend = stub
+		app.BaseCLI.Flags().Engine = stub
 		log.VerbosePrintf("no container frontend detected: this build does not use one\n")
 
 		return nil
 	}
 
-	fe, err := containerutil.FrontendForSetting(ctx, app.BaseCLI.Cfg().Global.ContainerFrontend, feCfg)
+	eng, err := engine.New(ctx, engine.Driver(app.BaseCLI.Cfg().Global.Engine), engCfg)
 	if err != nil {
 		origErr := err
 
-		stub, err := containerutil.NewStubFrontend(feCfg)
+		stub, err := engine.NewStub(engCfg)
 		if err != nil {
-			return fmt.Errorf("failed stub frontend initialization: %w", err)
+			return fmt.Errorf("failed stub container engine initialization: %w", err)
 		}
 
-		app.BaseCLI.Flags().ContainerFrontend = stub
+		app.BaseCLI.Flags().Engine = stub
 
 		if !app.BaseCLI.Flags().Verbose {
-			log.Printf("Unable to detect Docker or Podman. Use --verbose to see details (or errors)\n")
+			log.Printf("Unable to detect Docker, Podman, or Apple Container. Use --verbose to see details (or errors)\n")
 		}
 
-		log.VerbosePrintf("%s frontend initialization failed due to %s",
-			app.BaseCLI.Cfg().Global.ContainerFrontend, origErr.Error())
+		log.VerbosePrintf("%s container engine initialization failed due to %s",
+			app.BaseCLI.Cfg().Global.Engine, origErr.Error())
 
 		return nil
 	}
 
-	log.VerbosePrintf("%s frontend initialized.\n", fe.Config().Setting)
-	app.BaseCLI.Flags().ContainerFrontend = fe
+	log.VerbosePrintf("%s engine initialized.\n", eng.Metadata().Name)
+	app.BaseCLI.Flags().Engine = eng
 
-	// These URLs were calculated relative to the configured frontend. In the
-	// case of an automatically detected frontend, they are calculated according
+	// These URLs were calculated relative to the configured engine. In the
+	// case of an automatically detected engine, they are calculated according
 	// to the first selected one in order of precedence.
-	buildkitURLs := app.BaseCLI.Flags().ContainerFrontend.Config().FrontendURLs
-	app.BaseCLI.Flags().BuildkitHost = buildkitURLs.BuildkitHost.String()
-	app.BaseCLI.Flags().LocalRegistryHost = buildkitURLs.LocalRegistryHost.String()
+	addrs := app.BaseCLI.Flags().Engine.Metadata().Addrs
+	app.BaseCLI.Flags().BuildkitHost = addrs.Buildkit.String()
+	app.BaseCLI.Flags().LocalRegistryHost = addrs.LocalRegistry.String()
 
 	return nil
 }
@@ -378,23 +378,23 @@ func defaultConfigPath(installName string) string {
 	return newConfig
 }
 
-// noFrontend are the subcommands that never ask for a container: none of them
-// mentions ContainerFrontend, directly or otherwise.
-var noFrontend = map[string]struct{}{
+// noEngine are the subcommands that never ask for a container: none of them
+// mentions Engine, directly or otherwise.
+var noEngine = map[string]struct{}{
 	"ls":     {}, // reads an Earthfile
 	"doc":    {}, // reads an Earthfile
 	"init":   {}, // writes an Earthfile
 	"config": {}, // reads and writes the config file
 }
 
-// needsFrontend reports whether this invocation should probe for docker or
+// needsEngine reports whether this invocation should probe for docker or
 // podman. It asks urfave which subcommand it parsed rather than scanning
 // os.Args, because a global flag's value is a word like any other: scanned,
 // `--git-username doc build +all` names doc, and the build then runs against a
-// stub frontend.
+// stub engine.
 // Anything unrecognised is answered yes, as every invocation was before.
-func needsFrontend(cmd *cli.Command) bool {
-	_, skip := noFrontend[cmd.Args().First()]
+func needsEngine(cmd *cli.Command) bool {
+	_, skip := noEngine[cmd.Args().First()]
 
 	return !skip
 }

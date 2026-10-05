@@ -162,6 +162,23 @@ func (w *Encoder) Count(n int) {
 	_, _ = w.w.Write(buf[:])
 }
 
+// Int64 writes a scalar integer at its full fixed width, big-endian two's
+// complement (green paper B.1).
+//
+// **For values, not lengths.** Count is the u32 prefix of a sequence and
+// refuses anything wider, which is right for a length and wrong for a quantity:
+// a HEALTHCHECK interval in nanoseconds went through it and panicked the
+// planner at 4.3 seconds.
+func (w *Encoder) Int64(v int64) {
+	var buf [8]byte
+
+	// The bit pattern is the encoding: a negative value is distinct from every
+	// positive one, which is all injectivity asks of it.
+	binary.BigEndian.PutUint64(buf[:], uint64(v))
+
+	_, _ = w.w.Write(buf[:])
+}
+
 // Str writes a variable-width field, length-prefixed so that ⟨"ab","c"⟩ and
 // ⟨"a","bc"⟩ cannot collide.
 func (w *Encoder) Str(s string) {

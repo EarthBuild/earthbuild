@@ -27,7 +27,7 @@ func (b *Build) buildFlags() []cli.Flag {
 			// thing worth knowing before either becomes a default anywhere that
 			// ships (E603).
 			Value:       "native",
-			Destination: &b.cli.Flags().Engine,
+			Destination: &b.cli.Flags().BuildEngine,
 		},
 		&cli.StringSliceFlag{
 			Name:        "platform",

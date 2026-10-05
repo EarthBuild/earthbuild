@@ -22,6 +22,8 @@ comments, docs or commit messages:
 * Use the concepts and capabilities of Go version declared in `go.mod`. Read more here: <https://go.dev/blog/go1.26>
 * Prefer std packages over 3rd party packages, where possible.
 * Ensure all exposed interfaces and types are documented.
+* **JSON Serialization:** Use standard library `encoding/json/v2`. Only pass `jsonv1.DefaultOptionsV1()` (accompanied by an explanatory comment) when marshaling or unmarshaling structs where we have no control over field tags (such as external types from BuildKit, Moby, or OCI).
+* **Testing:** Use `want` instead of `expected` in tests.
 
 ## Naming & Terminology
 
@@ -55,6 +57,7 @@ The primary development lifecycle tool is `earth`.
 * `earth +lint` lints the project code quality.
 * `earth +test` runs the tests.
 * `earth +for-darwin-m1` builds the project for macOS (darwin-arm64).
+* `earth ./buildkitd+buildkitd` builds the buildkit daemon image for local container runtime testing.
 * `earth doc` shows all other targets and a description of what they do.
 
 ## Diagnosing a CI failure
@@ -115,4 +118,5 @@ Reading habits this branch has paid for:
 
 ## Guardrails
 
+* Testing against container runtimes (Apple Container, Docker, Podman, etc.) MUST be done with a re-compiled buildkit daemon (`earth ./buildkitd+buildkitd`). Testing against stale or uncompiled older buildkit images (such as published `v0.8.18`) is pointless, distracting, and introduces false bugs or unwanted workarounds.
 * Do not add golang dependencies unless asked by user explicitly.

@@ -1146,14 +1146,15 @@ func hashHealthcheck(h *Hasher, hc *Healthcheck) {
 		h.Str(v)
 	}
 
-	// As nanoseconds, so the key does not depend on how a duration prints.
+	// As nanoseconds, so the key does not depend on how a duration prints, and
+	// fixed-width, because these are quantities rather than lengths (§1.4).
 	for _, d := range []time.Duration{
 		hc.Interval, hc.Timeout, hc.StartPeriod, hc.StartInterval,
 	} {
-		h.Count(int(d.Nanoseconds()))
+		h.Int64(d.Nanoseconds())
 	}
 
-	h.Count(hc.Retries)
+	h.Int64(int64(hc.Retries))
 }
 
 // Graph is a build's node set with a designated root.

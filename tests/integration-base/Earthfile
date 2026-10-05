@@ -16,6 +16,3 @@ test-base:
     --DOCKERHUB_MIRROR_AUTH=$DOCKERHUB_MIRROR_AUTH \
     --DOCKERHUB_AUTH=$DOCKERHUB_AUTH \
     --BUILDKIT_PROJECT=$BUILDKIT_PROJECT
-
-  # uncomment this to debug dockerhub rate-limiting issues
-  #RUN if !grep "registry-1.docker.io.mirror.corp.earthly.dev" /root/.docker/config.json >/dev/null; then echo "The earth mirror was not setup correctly" && exit 1; fi

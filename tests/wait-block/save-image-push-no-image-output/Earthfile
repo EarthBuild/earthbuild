@@ -5,7 +5,7 @@ VERSION 0.8
 # instance.
 
 myimg:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     RUN echo NWMyMTQ2YjctZGFlNS00YzQ5LWE1MTktNDM2Zjc4YzNkNzAwCg== > /special-data
     RUN echo artifact-contents > /artifact.txt
     ARG --required REGISTRY
@@ -14,7 +14,7 @@ myimg:
     SAVE IMAGE --push $REGISTRY/myuser/myimg:$tag
 
 deps:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     RUN apk add --no-cache curl jq
 
 check-tag-exists-in-registry:

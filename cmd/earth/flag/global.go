@@ -7,8 +7,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/env"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/urfave/cli/v3"
 )
 
@@ -36,14 +36,14 @@ const (
 // by the subcommands so I thought it made since to declare them just once there and then
 // pass them in.
 type Global struct {
-	// Engine selects which build engine runs the build: the buildkit one that
+	// BuildEngine selects which build engine runs the build: the buildkit one that
 	// ships, or the native one this repository is growing beside it.
 	//
 	// A flag rather than a build tag, because the point is to run the same
 	// Earthfile both ways on the same machine and compare - which is how the
 	// native engine's gaps get found, and it is what CI can do that a laptop
 	// cannot (E593).
-	Engine                     string
+	BuildEngine                string
 	FeatureFlagOverrides       string
 	InstallationName           string
 	GitUsernameOverride        string
@@ -65,7 +65,7 @@ type Global struct {
 	BuildkitHost               string
 	BuildkitdImage             string
 	ContainerName              string
-	ContainerFrontend          containerutil.ContainerFrontend
+	Engine                     *engine.Client
 	BuildkitdSettings          buildkitd.Settings
 	ServerConnTimeout          time.Duration
 	ConversionParallelism      int

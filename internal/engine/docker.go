@@ -1,0 +1,289 @@
+package engine
+
+import (
+	"context"
+	"encoding/json/v2"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"slices"
+	"strings"
+	"time"
+
+	"al.essio.dev/pkg/shellescape"
+	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+)
+
+// dockerEngine implements Engine for the Docker CLI.
+type dockerEngine struct {
+	*shellEngine
+}
+
+// newDockerEngine constructs a new Engine using the docker binary installed on the host.
+func newDockerEngine(ctx context.Context, cfg *Config) (*dockerEngine, error) {
+	e := &dockerEngine{
+		shellEngine: &shellEngine{
+			BinaryName: string(Docker),
+			Log:        cfg.Log,
+		},
+	}
+
+	security, rootDir, err := e.probe(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.Contains(security, "name=userns") {
+		e.RunArgs = []string{"--userns", "host"}
+	}
+
+	e.Addrs, err = resolveAddrs(e, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
+	}
+
+	graphRoot := strings.TrimRight(rootDir, "/")
+	if strings.HasSuffix(graphRoot, "containers/storage") {
+		return nil, errors.New("podman detected via docker CLI; use podman driver")
+	}
+
+	return e, nil
+}
+
+// probeSeparator divides the two answers asked for in one question. Neither a
+// security option nor a path contains it, and both can contain spaces and
+// commas, which is why it is not one of those.
+const probeSeparator = "|"
+
+// probe asks the daemon what this engine needs to know, in one question.
+//
+// `docker info` talks to the daemon and costs about a tenth of a second each
+// time. Three of them ran here before any command was dispatched, so every
+// invocation - including the many that never touch Docker - paid for answers it
+// usually did not use.
+//
+// **The three-call form is still here, and still says what it always said.** It
+// was not only slow: the bare `info` came first because `docker info --format`
+// panics when the daemon is down, and printing a panic from somebody else's
+// binary is not a diagnosis. So the one question is *tried*, and anything other
+// than an answer - a panic, a daemon that is not there, a field this daemon does
+// not have - falls through to the sequence that knows how to tell those apart.
+//
+// The answer is read from stdout alone: `docker info` writes its warnings to
+// stderr, and one appended to the root directory would make it a path that
+// does not exist.
+func (e *dockerEngine) probe(ctx context.Context) (security, rootDir string, err error) {
+	one, err := e.CommandOutput(ctx, "info",
+		"--format={{.SecurityOptions}}"+probeSeparator+"{{.DockerRootDir}}")
+	if err == nil {
+		both := strings.SplitN(strings.TrimSpace(one.Stdout.String()), probeSeparator, 2)
+		if len(both) == 2 && both[1] != "" {
+			return both[0], both[1], nil
+		}
+	}
+
+	// Whether docker is there at all, asked without a template so that a
+	// stopped daemon is reported rather than panicked over.
+	_, err = e.CommandOutput(ctx, "info")
+	if err != nil {
+		return "", "", err
+	}
+
+	output, err := e.CommandOutput(ctx, "info", "--format={{.SecurityOptions}}")
+	if err != nil {
+		return "", "", err
+	}
+
+	security = output.String()
+
+	output, err = e.CommandOutput(ctx, "info", "--format={{.DockerRootDir}}")
+	if err != nil {
+		// Maybe the user has aliased podman=docker?
+		var err2 error
+
+		output, err2 = e.CommandOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
+		if err2 != nil {
+			return "", "", fmt.Errorf("get docker root dir: %w", err)
+		}
+	}
+
+	return security, output.String(), nil
+}
+
+// Metadata returns current engine metadata.
+func (e *dockerEngine) Metadata() Metadata {
+	return Metadata{
+		Name:   "Docker",
+		Scheme: SchemeDocker,
+		Addrs:  e.Addrs,
+	}
+}
+
+// Version returns version and platform information for the Docker CLI and daemon.
+func (e *dockerEngine) Version(ctx context.Context) (Version, error) {
+	output, err := e.CommandOutput(ctx, "version", "--format={{json .}}")
+	if err != nil {
+		return Version{}, err
+	}
+
+	host, exists := os.LookupEnv("DOCKER_HOST")
+	if !exists {
+		host = "/var/run/docker.sock"
+	}
+
+	return parseDockerVersion(output.Stdout.String(), host)
+}
+
+func parseDockerVersion(rawJSON, host string) (Version, error) {
+	type versionInfo struct {
+		Version    string `json:"Version"`
+		APIVersion string `json:"ApiVersion"`
+		OS         string `json:"Os"`
+		Arch       string `json:"Arch"`
+	}
+
+	type info struct {
+		Client versionInfo `json:"Client"`
+		Server versionInfo `json:"Server"`
+	}
+
+	allInfo := info{}
+
+	err := json.Unmarshal([]byte(rawJSON), &allInfo)
+	if err != nil {
+		return Version{}, fmt.Errorf("parse docker version output: %w", err)
+	}
+
+	return Version{
+		ClientVersion:    allInfo.Client.Version,
+		ClientAPIVersion: allInfo.Client.APIVersion,
+		ClientPlatform:   fmt.Sprintf("%s/%s", allInfo.Client.OS, allInfo.Client.Arch),
+		ServerVersion:    allInfo.Server.Version,
+		ServerAPIVersion: allInfo.Server.APIVersion,
+		ServerPlatform:   fmt.Sprintf("%s/%s", allInfo.Server.OS, allInfo.Server.Arch),
+		ServerAddress:    host,
+	}, nil
+}
+
+// ImageLoadCommand returns the shell command to load an image from a file.
+func (e *dockerEngine) ImageLoadCommand(filename string) string {
+	return fmt.Sprintf("cat %s | %s", shellescape.Quote(filename), strings.Join(e.CommandArgs("load"), " "))
+}
+
+// LoadImage loads images into Docker via stdin.
+func (e *dockerEngine) LoadImage(ctx context.Context, images ...io.Reader) error {
+	var err error
+
+	for _, image := range images {
+		// Do not use the wrapper to allow the image to come in on stdin
+		cmd := e.Command(ctx, "load")
+		cmd.Stdin = image
+
+		output, cmdErr := cmd.CombinedOutput()
+		if cmdErr != nil {
+			err = errors.Join(err, fmt.Errorf("image load failed: %s: %w", string(output), cmdErr))
+		}
+	}
+
+	return err
+}
+
+// isTransientDockerDfError reports whether a docker system df failure was caused
+// by a transient daemon race condition during concurrent container deletion.
+func isTransientDockerDfError(output *commandContextOutput, err error) bool {
+	var combined string
+	if output != nil {
+		combined += output.Stderr.String()
+	}
+
+	if err != nil {
+		combined += err.Error()
+	}
+
+	return strings.Contains(combined, "rw layer snapshot not found") ||
+		strings.Contains(combined, "failed to retrieve container list")
+}
+
+// InspectVolumes returns details for the specified volume names.
+func (e *dockerEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
+	if len(volumeNames) == 0 {
+		return nil, nil
+	}
+
+	var (
+		output *commandContextOutput
+		err    error
+	)
+
+	const maxAttempts = 3
+	for attempt := range maxAttempts {
+		output, err = e.CommandOutput(ctx, "system", "df", "-v", "--format={{json  .}}")
+		if err == nil {
+			break
+		}
+
+		if !isTransientDockerDfError(output, err) || attempt == maxAttempts-1 {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Duration(50*(attempt+1)) * time.Millisecond):
+		}
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("inspect docker volumes: %w", err)
+	}
+
+	// Anonymous struct to just pick out what we need
+	volumeInfos := struct {
+		Volumes []struct {
+			Name       string `json:"Name"`
+			Size       string `json:"Size"`
+			Mountpoint string `json:"Mountpoint"`
+		} `json:"Volumes"`
+	}{}
+
+	err = json.Unmarshal([]byte(output.Stdout.String()), &volumeInfos)
+	if err != nil {
+		return nil, fmt.Errorf("decode docker volume info for %v: %w", volumeNames, err)
+	}
+
+	volumes := make([]Volume, 0, len(volumeNames))
+	for _, volumeInfo := range volumeInfos.Volumes {
+		if !slices.Contains(volumeNames, volumeInfo.Name) {
+			continue
+		}
+
+		bytes, parseErr := parseVolumeSize(volumeInfo.Size)
+		if parseErr != nil {
+			err = errors.Join(err, fmt.Errorf("parse volume size %q for %s: %w", volumeInfo.Size, volumeInfo.Name, parseErr))
+			continue
+		}
+
+		volumes = append(volumes, Volume{
+			Name:       volumeInfo.Name,
+			SizeBytes:  bytes,
+			Mountpoint: volumeInfo.Mountpoint,
+		})
+	}
+
+	return volumes, err
+}
+
+// DefaultAddr returns the default address for the Docker engine.
+func (e *dockerEngine) DefaultAddr(cfg *Config) (string, error) {
+	return DockerSchemePrefix + cfg.ContainerName, nil
+}
+
+// ContainerAddr returns the reachable address for the specified port on a Docker container.
+func (e *dockerEngine) ContainerAddr(_ context.Context, containerName string, port int) (string, error) {
+	if port == DefaultBuildkitPort {
+		return DockerSchemePrefix + containerName, nil
+	}
+
+	return defaultTCPAddr(port), nil
+}

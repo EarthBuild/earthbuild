@@ -78,6 +78,24 @@ func (img *Image) Clone() *Image {
 	return clone
 }
 
+// FromBuildKit converts a BuildKit image representation into an EarthBuild Image.
+func FromBuildKit(bkImg *image.Image) *Image {
+	if bkImg == nil {
+		return nil
+	}
+
+	img := &Image{
+		Architecture: bkImg.Architecture,
+		OS:           bkImg.OS,
+		Config: Config{
+			ImageConfig: bkImg.Config.ImageConfig,
+			Healthcheck: bkImg.Config.Healthcheck,
+		},
+	}
+
+	return img.Clone()
+}
+
 // Config is a docker compatible config for an image.
 //
 //nolint:embeddedstructfieldcheck // fieldalignment takes precedence over embeddedstructfieldcheck

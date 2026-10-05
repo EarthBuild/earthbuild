@@ -38,7 +38,6 @@ RUN echo "The current target is $EARTH_TARGET"
 
 | Name | Description | Example value |
 | --- | --- | --- |
-| `EARTH_CI` | Whether the build is being executed in --ci mode. | `true`, `false` |
 | `EARTH_BUILD_SHA` | The git hash of the commit which built the currently running version of EarthBuild. | `1a9eda7a83af0e2ec122720e93ff6dbe9231fc0c` |
 | `EARTH_LOCALLY` | Whether the target is being executed `LOCALLY`. | `true`, `false` |
 | `EARTH_PUSH` | Whether `earth` was called with the `--push` flag, or not. | `true`, `false` |

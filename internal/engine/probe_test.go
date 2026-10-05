@@ -1,16 +1,16 @@
-package containerutil
+package engine
 
 import (
-	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 )
 
-// A frontend that starts up asks the daemon once, not three times.
+// A Docker engine that starts up asks the daemon once, not three times.
 //
 // `docker info` talks to the daemon and costs about a tenth of a second each
 // time. Three of them ran before any command was dispatched, so every
@@ -21,7 +21,7 @@ import (
 // user's terminal when the daemon is down, and it still is: the combined
 // question is tried first, its output is discarded if it fails, and the
 // original sequence runs to produce the same diagnosis it always did.
-func TestAStartingFrontendAsksTheDaemonOnce(t *testing.T) {
+func TestAStartingDockerEngineAsksTheDaemonOnce(t *testing.T) {
 	dir := t.TempDir()
 
 	log := filepath.Join(dir, "calls")
@@ -29,8 +29,8 @@ func TestAStartingFrontendAsksTheDaemonOnce(t *testing.T) {
 	fake := "#!/bin/sh\n" +
 		"echo \"$*\" >> " + log + "\n" +
 		"case \"$*\" in\n" +
-		"  *SecurityOptions*DockerRootDir*) echo '[name=seccomp]|/var/lib/docker' ;;\n" +
-		"  *SecurityOptions*) echo '[name=seccomp]' ;;\n" +
+		"  *SecurityOptions*DockerRootDir*) echo '[name=seccomp name=userns]|/var/lib/docker' ;;\n" +
+		"  *SecurityOptions*) echo '[name=seccomp name=userns]' ;;\n" +
 		"  *DockerRootDir*) echo '/var/lib/docker' ;;\n" +
 		"  *) echo 'Server Version: 27.0' ;;\n" +
 		"esac\n"
@@ -44,11 +44,11 @@ func TestAStartingFrontendAsksTheDaemonOnce(t *testing.T) {
 
 	t.Setenv("PATH", dir)
 
-	fe, err := NewDockerShellFrontend(context.Background(), &FrontendConfig{
-		DefaultPort: 8372, Log: quietLogger(),
+	e, err := newDockerEngine(t.Context(), &Config{
+		ContainerName: "test", DefaultPort: DefaultBuildkitPort, Log: quietLogger(),
 	})
 	if err != nil {
-		t.Fatalf("a healthy daemon must give a frontend: %v", err)
+		t.Fatalf("a healthy daemon must give an engine: %v", err)
 	}
 
 	body, err := os.ReadFile(log)
@@ -64,9 +64,10 @@ func TestAStartingFrontendAsksTheDaemonOnce(t *testing.T) {
 	}
 
 	// The one answer still has to be read correctly, or the saving is a
-	// regression wearing a stopwatch.
-	if fe.Config().Setting == "" {
-		t.Error("the frontend came back without a setting")
+	// regression wearing a stopwatch: a user-namespaced daemon needs its run
+	// arguments, and only the security half of the answer says so.
+	if want := []string{"--userns", "host"}; !slices.Equal(e.RunArgs, want) {
+		t.Errorf("RunArgs = %q, want %q - the security options were not read", e.RunArgs, want)
 	}
 }
 

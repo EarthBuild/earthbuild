@@ -6,7 +6,7 @@
           "--global",
           "DIND_IMAGE",
           "=",
-          "earthbuild/dind:alpine-3.24-docker-29.5.3-r1"
+          "earthbuild/dind:alpine-3.24-docker-29.8.2-r0"
         ],
         "name": "ARG"
       }
@@ -159,7 +159,7 @@
         {
           "command": {
             "args": [
-              "alpine:3.24.1"
+              "alpine:3.24.2"
             ],
             "name": "FROM"
           }
@@ -238,7 +238,7 @@
         {
           "command": {
             "args": [
-              "alpine:3.24.1"
+              "alpine:3.24.2"
             ],
             "name": "FROM"
           }
@@ -296,7 +296,7 @@
         {
           "command": {
             "args": [
-              "alpine:3.24.1"
+              "alpine:3.24.2"
             ],
             "name": "FROM"
           }
@@ -925,7 +925,7 @@
             "args": [
               "+cgroup-v2-test",
               "--DIND_IMG=$DIND_IMAGE",
-              "--DIND_IMG=earthbuild/dind:ubuntu-26.04-docker-29.8.1-1"
+              "--DIND_IMG=earthbuild/dind:ubuntu-26.04-docker-29.8.2-1"
             ],
             "name": "BUILD"
           }

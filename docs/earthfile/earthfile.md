@@ -1297,6 +1297,13 @@ Earth provides officially supported images such as `earthbuild/dind:alpine-3.24-
 Note that the cleanup phase (after the `RUN` command has finished), does not occur when using a `LOCALLY` target, users should use `RUN docker run --rm ...` to have docker remove the image after execution.
 {% endhint %}
 
+{% hint style='info' %}
+
+##### Note
+
+The Docker daemon is started with OpenTelemetry tracing disabled (`OTEL_TRACES_EXPORTER=none`), since otherwise it waits out a 10s trace-export timeout every time it stops. This applies to `dockerd` only; the `RUN` command itself keeps its own `OTEL_*` environment. To trace the daemon, set `EARTH_DOCKERD_OTEL_TRACES_EXPORTER` (for example to `otlp`, together with an `OTEL_EXPORTER_OTLP_*` endpoint that `dockerd` can reach).
+{% endhint %}
+
 #### Options
 
 ##### `--pull <image-name>`

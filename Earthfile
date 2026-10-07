@@ -76,7 +76,7 @@ lint-scripts-base:
 lint-scripts-misc:
     FROM +lint-scripts-base
     COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/entrypoint.sh ./earth-entrypoint.sh \
-        ./buildkitd/dockerd-wrapper.sh ./buildkitd/docker-auto-install.sh ./buildkitd/oom-adjust.sh.template \
+        ./buildkitd/dockerd-wrapper.sh ./buildkitd/dockerd-wrapper-test.sh ./buildkitd/docker-auto-install.sh ./buildkitd/oom-adjust.sh.template \
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
         ./scripts/tests/docker-build/*.sh \
@@ -227,8 +227,11 @@ unit-test:
 unit-test-scripts:
     FROM alpine:3.24.2
     WORKDIR /shell_scripts
-    COPY ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./
+    RUN apk add --no-cache jq
+    COPY ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh \
+        ./buildkitd/dockerd-wrapper.sh ./buildkitd/dockerd-wrapper-test.sh ./
     RUN sh ./earth-env-test.sh
+    RUN sh ./dockerd-wrapper-test.sh
 
 # fuzz-test runs fuzz tests
 fuzz-test:

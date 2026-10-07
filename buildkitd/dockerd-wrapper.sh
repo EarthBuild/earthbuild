@@ -350,7 +350,17 @@ EOF
     wipe_data_root "$data_root"
     mkdir -p "$data_root"
     rm -f /var/run/docker.pid
-    dockerd >/var/log/docker.log 2>&1 &
+
+    # dockerd (25.x and later) exports OpenTelemetry traces whenever
+    # OTEL_TRACES_EXPORTER asks it to. BuildKit sets OTEL_TRACES_EXPORTER=otlp
+    # in every RUN, with an endpoint dockerd cannot dial, so dockerd's shutdown
+    # waits out the 10s export timeout on every WITH DOCKER step
+    # (earthly/earthly#4066). Turn the exporter off for dockerd alone, rather
+    # than for the whole RUN, so that the user's own OTel-aware tools still see
+    # the environment they were given (EarthBuild/earthbuild#901).
+    # EARTH_DOCKERD_OTEL_TRACES_EXPORTER opts dockerd back in to tracing.
+    OTEL_TRACES_EXPORTER="${EARTH_DOCKERD_OTEL_TRACES_EXPORTER:-none}" \
+        dockerd >/var/log/docker.log 2>&1 &
     dockerd_pid="$!"
     i=1
     timeout=300

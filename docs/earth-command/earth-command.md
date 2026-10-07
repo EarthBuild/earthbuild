@@ -172,6 +172,12 @@ Also available as an env var setting: `EARTH_INSTALLATION_NAME=<name>`.
 
 Overrides the EarthBuild installation name. The installation name is used for the BuildKit Daemon name, the cache volume name, the configuration directory (`~/.<installation-name>`) and for the ports used by BuildKit. Using multiple installation names on the same system allows EarthBuild to run as multiple isolated instances, each with its own configuration, cache and daemon. Defaults to `earth`.
 
+##### `--buildkit-tls[=true|false]`
+
+Also available as an env var setting: `EARTH_BUILDKIT_TLS=true|false`.
+
+Controls whether the client uses TLS when connecting to BuildKit over TCP. When set, it overrides the `global.tls_enabled` setting in the [configuration file](../earth-config/earth-config.md) for this invocation only, e.g. `--buildkit-tls=false` disables TLS without editing a checked-in config. When not set, the configuration file setting (enabled by default) is used. Has no effect when the BuildKit transport is not TCP.
+
 ##### `--ssh-auth-sock <path-to-sock>`
 
 Also available as an env var setting: `EARTH_SSH_AUTH_SOCK=<path-to-sock>`.

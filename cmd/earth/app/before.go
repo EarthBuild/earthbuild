@@ -13,6 +13,7 @@ import (
 	"uuid"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
 	"github.com/EarthBuild/earthbuild/cmd/earth/subcmd"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
@@ -95,6 +96,14 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	cfg, err := config.ParseYAML(yamlData, flags.InstallationName)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to parse %s: %w", flags.ConfigPath, err)
+	}
+
+	// The command line (or EARTH_BUILDKIT_TLS) overrides the config file.
+	if cmd.IsSet(flag.BuildkitTLSFlag) {
+		err = cfg.SetTLSEnabled(flags.InstallationName, flags.BuildkitTLS)
+		if err != nil {
+			return ctx, fmt.Errorf("apply --%s: %w", flag.BuildkitTLSFlag, err)
+		}
 	}
 
 	app.BaseCLI.SetCfg(&cfg)

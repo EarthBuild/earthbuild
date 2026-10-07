@@ -535,6 +535,21 @@ func WriteConfigFile(configPath string, data []byte) error {
 	return os.WriteFile(configPath, data, 0o644) // #nosec G306
 }
 
+// SetTLSEnabled overrides global.tls_enabled, e.g. from a command-line flag,
+// resolving the TLS certificate and key paths against the installation's config
+// directory when TLS ends up enabled, exactly as ParseYAML would have done had
+// the config file set the same value.
+func (cfg *Config) SetTLSEnabled(instName string, enabled bool) error {
+	cfg.Global.TLSEnabled = enabled
+
+	err := parseTLSPaths(instName, cfg)
+	if err != nil {
+		return fmt.Errorf("could not parse relative TLS paths: %w", err)
+	}
+
+	return nil
+}
+
 func parseRelPaths(instName string, cfg *Config) error {
 	err := parseTLSPaths(instName, cfg)
 	if err != nil {

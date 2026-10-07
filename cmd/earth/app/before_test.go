@@ -2,11 +2,75 @@ package app
 
 import (
 	"context"
+	"os"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/cmd/earth/flag"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
 )
+
+// --buildkit-tls / EARTH_BUILDKIT_TLS must only override the config file when
+// actually given, and must be able to turn TLS off (#862).
+func TestBuildkitTLSFlag(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		envVar  string
+		envVal  string
+		args    []string
+		wantSet bool
+		want    bool
+	}{
+		{name: "unset leaves config alone", wantSet: false},
+		{name: "flag disables", args: []string{"--buildkit-tls=false"}, wantSet: true, want: false},
+		{name: "flag enables", args: []string{"--buildkit-tls"}, wantSet: true, want: true},
+		{name: "env disables", envVar: env.Prefix + "BUILDKIT_TLS", envVal: "false", wantSet: true, want: false},
+		{name: "env enables", envVar: env.Prefix + "BUILDKIT_TLS", envVal: "true", wantSet: true, want: true},
+		{
+			name:   "deprecated env disables",
+			envVar: env.DeprecatedPrefix + "BUILDKIT_TLS", envVal: "false",
+			wantSet: true, want: false,
+		},
+		{
+			name: "flag beats env", args: []string{"--buildkit-tls=false"},
+			envVar: env.Prefix + "BUILDKIT_TLS", envVal: "true",
+			wantSet: true, want: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Do not use t.Parallel() because t.Setenv modifies process-wide state.
+			for _, k := range []string{env.Prefix + "BUILDKIT_TLS", env.DeprecatedPrefix + "BUILDKIT_TLS"} {
+				t.Setenv(k, "")
+				require.NoError(t, os.Unsetenv(k))
+			}
+
+			if tc.envVar != "" {
+				t.Setenv(tc.envVar, tc.envVal)
+			}
+
+			var (
+				global flag.Global
+				gotSet bool
+			)
+
+			noop := func(context.Context, *cli.Command) error { return nil }
+			root := &cli.Command{
+				Flags: global.RootFlags("earth", "img"),
+				Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+					gotSet = cmd.IsSet(flag.BuildkitTLSFlag)
+
+					return ctx, nil
+				},
+				Action: noop,
+			}
+
+			require.NoError(t, root.Run(t.Context(), append([]string{cmdName}, tc.args...)))
+			require.Equal(t, tc.wantSet, gotSet)
+			require.Equal(t, tc.want, global.BuildkitTLS)
+		})
+	}
+}
 
 func TestAutoSkipDeprecationWarning(t *testing.T) {
 	t.Parallel()

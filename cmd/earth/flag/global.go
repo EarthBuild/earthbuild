@@ -30,6 +30,9 @@ const (
 
 	// SecretFileFlag is the flag for the secret file path.
 	SecretFileFlag = "secret-file-path"
+
+	// BuildkitTLSFlag is the flag that overrides the config file's global.tls_enabled.
+	BuildkitTLSFlag = "buildkit-tls"
 )
 
 // Global flags on Flags instead as there are other things in the CLI that are being called + set
@@ -89,6 +92,9 @@ type Global struct {
 	DisableRemoteRegistryProxy bool
 	NoAutoSkip                 bool
 	GithubAnnotations          bool
+	// BuildkitTLS overrides the config file's global.tls_enabled when the
+	// buildkit-tls flag (or EARTH_BUILDKIT_TLS) is explicitly set.
+	BuildkitTLS bool
 }
 
 // RootFlags returns the root flags for the CLI.
@@ -182,6 +188,13 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Usage: `The URL to use for connecting to a buildkit host
 		If empty, earth will attempt to start a buildkitd instance via docker run`,
 			Destination: &global.BuildkitHost,
+		},
+		&cli.BoolFlag{
+			Name:    BuildkitTLSFlag,
+			Sources: EarthEnvVars("BUILDKIT_TLS"),
+			Usage: "Use TLS when connecting to buildkitd over TCP; overrides the config file's global.tls_enabled " +
+				"when set (use --buildkit-tls=false to disable)",
+			Destination: &global.BuildkitTLS,
 		},
 		&cli.BoolFlag{
 			Name:        "no-buildkit-update",

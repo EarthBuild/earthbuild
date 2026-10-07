@@ -73,6 +73,7 @@ These are the paths to the certificates and keys used by the client when communi
 
 TLS will be enabled by default (unless using a local buildkit container).
 Set this to `false` when using TLS is not desired.
+It can also be overridden for a single run with `--buildkit-tls=false` (or `EARTH_BUILDKIT_TLS=false`).
 
 ### Local-Remote
 

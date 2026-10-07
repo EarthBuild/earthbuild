@@ -46,10 +46,10 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
   tested for the invoked binary itself rather than its replacement.
   [#796](https://github.com/EarthBuild/earthbuild/issues/796)
 - Shell completion is now registered for the name the binary is installed under, so `earth <TAB>` works on official installs. Previously the completion entries always named the command `earthly` [#804](https://github.com/earthbuild/earthbuild/issues/804)
-- `WITH DOCKER` now starts `dockerd` with `OTEL_TRACES_EXPORTER=none`, so dockerd no longer waits
+- `WITH DOCKER` now starts `dockerd` with `OTEL_TRACES_EXPORTER=none`, so `dockerd` no longer waits
   out its 10s trace-export timeout on shutdown in every `WITH DOCKER` step, whatever the image sets.
-  Only dockerd is affected: the commands in the `RUN` keep the OpenTelemetry configuration they
-  were given. Set `EARTH_DOCKERD_OTEL_TRACES_EXPORTER` to choose dockerd's exporter instead.
+  Only `dockerd` is affected: the commands in the `RUN` keep the OpenTelemetry configuration they
+  were given. Set `EARTH_DOCKERD_OTEL_TRACES_EXPORTER` to choose the exporter `dockerd` uses instead.
   [#901](https://github.com/EarthBuild/earthbuild/issues/901)
 
 ### Fixed

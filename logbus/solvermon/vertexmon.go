@@ -112,7 +112,7 @@ func exitCodeHint(exitCode int) string {
 	case 126:
 		return "Exit code 126 conventionally means a command was found but could not be executed. " +
 			"Check executable permissions, the shebang/interpreter, CPU architecture, noexec mounts, " +
-			"and container runtime or security restrictions."
+			"and security restrictions (e.g. SELinux, AppArmor, seccomp)."
 	default:
 		return ""
 	}

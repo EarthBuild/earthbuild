@@ -211,11 +211,11 @@ func TestReErrNotFound(t *testing.T) {
 func TestFormatErrorExitCodeHint(t *testing.T) {
 	t.Parallel()
 
-	// The hint previously printed by the in-container debugger for exit code
-	// 126 (see #568), now added client-side so plain RUNs still get it.
+	// The exit code 126 hint (originally #568) is emitted client-side so it
+	// covers plain RUNs and LOCALLY, not only RUNs wrapped by the debugger.
 	const hint126 = "Exit code 126 conventionally means a command was found but could not be executed. " +
 		"Check executable permissions, the shebang/interpreter, CPU architecture, noexec mounts, " +
-		"and container runtime or security restrictions."
+		"and security restrictions (e.g. SELinux, AppArmor, seccomp)."
 
 	tests := []struct {
 		name      string
@@ -231,6 +231,12 @@ func TestFormatErrorExitCodeHint(t *testing.T) {
 		{
 			name:      "RUN exit code 126",
 			errString: `process "/bin/sh -c ./script.sh" did not complete successfully: exit code: 126`,
+			exitCode:  126,
+			wantHint:  hint126,
+		},
+		{
+			name:      "LOCALLY RUN exit code 126",
+			errString: `error calling LocalhostExec: exit code: 126`,
 			exitCode:  126,
 			wantHint:  hint126,
 		},

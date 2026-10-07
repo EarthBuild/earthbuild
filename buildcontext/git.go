@@ -215,7 +215,7 @@ func (gr *gitResolver) resolveEarthProject(
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, withTarget(err, ref)
 	}
 
 	// TODO: Apply excludes / .earthignore.

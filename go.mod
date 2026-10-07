@@ -22,7 +22,7 @@ require (
 	github.com/jdxcode/netrc v1.0.0
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/joho/godotenv v1.5.1
-	github.com/mattn/go-colorable v0.1.15
+	github.com/mattn/go-colorable v0.1.16
 	github.com/mattn/go-isatty v0.0.24
 	github.com/moby/buildkit v0.33.1
 	github.com/moby/patternmatcher v0.6.1

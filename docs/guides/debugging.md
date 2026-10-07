@@ -37,14 +37,22 @@ print(text_model.make_sentence())
 Now we can run it with `earth +test`, and we'll see a failure has occurred:
 
 ```
-=========================== FAILURE ===========================
-+test *failed* | --> RUN python3 generate_phrase.py
-+test *failed* | Traceback (most recent call last):
-+test *failed* |   File "generate_phrase.py", line 3, in <module>
-+test *failed* |     text = open('sherlock.txt').read()
-+test *failed* | FileNotFoundError: [Errno 2] No such file or directory: 'sherlock.txt'
-+test *failed* | +test *failed* | ERROR: Command exited with non-zero code: RUN python3 generate_phrase.py
-Error: solve side effects: solve: failed to solve: rpc error: code = Unknown desc = executor failed running [/bin/sh -c  /bin/sh -c 'python3 generate_phrase.py']: buildkit-runc did not terminate successfully
++test | --> RUN python3 generate_phrase.py
++test | Traceback (most recent call last):
++test |   File "/code/generate_phrase.py", line 2, in <module>
++test |     text = open('sherlock.txt').read()
++test |            ~~~~^^^^^^^^^^^^^^^^
++test | FileNotFoundError: [Errno 2] No such file or directory: 'sherlock.txt'
++test | ERROR Earthfile:9:3
++test |       The command
++test |           RUN python3 generate_phrase.py
++test |       did not complete successfully. Exit code 1
+
+================================== ❌ FAILURE ===================================
+
+...
+
+Help: To debug your build, you can use the --interactive (-i) flag to drop into a shell of the failing RUN step: "earth -i +test"
 ```
 
 Why can't it find the sherlock.txt file? Let's re-run `earth` with the `--interactive` (or `-i`) flag: `earth -i +test`
@@ -54,12 +62,14 @@ This time we see a slightly different message:
 ```
 +test | --> RUN python3 generate_phrase.py
 +test | Traceback (most recent call last):
-+test |   File "generate_phrase.py", line 3, in <module>
++test |   File "/code/generate_phrase.py", line 2, in <module>
 +test |     text = open('sherlock.txt').read()
++test |            ~~~~^^^^^^^^^^^^^^^^
 +test | FileNotFoundError: [Errno 2] No such file or directory: 'sherlock.txt'
-+test | Command /bin/sh -c python3 generate_phrase.py failed with exit code 1
-+test | Entering interactive debugger (**Warning: only a single debugger per host is supported**)
-+test | root@buildkitsandbox:/code#
++test | earth debugger | Command /bin/sh -c 'python3 generate_phrase.py' failed with exit code 1
++test | Entering interactive debugger
+
+root@buildkitsandbox:/code#
 ```
 
 This time rather than exiting, earth will drop us into an interactive root shell within the container of the build environment.
@@ -68,11 +78,7 @@ This root shell will allow us to execute arbitrary commands within the container
 ```
 root@buildkitsandbox:/code# ls
 generate_phrase.py
-root@buildkitsandbox:/code# find / | grep sherlock.txt
-/sherlock.txt
-root@buildkitsandbox:/code# ls /
-bin  boot  code  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  sherlock.txt  srv	sys  tmp  usr  var
-root@buildkitsandbox:/code# ls /sherlock.txt
+root@buildkitsandbox:/code# find / -name sherlock.txt 2>/dev/null
 /sherlock.txt
 ```
 
@@ -81,15 +87,19 @@ Ah ha! the corpus text file was located in the root directory rather than under 
 ```
 root@buildkitsandbox:/code# mv /sherlock.txt /code/.
 root@buildkitsandbox:/code# python3 generate_phrase.py
-I struck him down with the servants and with the lantern and left a fragment in the midst of my work during the last three years, although he has cruelly wronged.
+As he spoke he picked up his chair and turned once more hurry back to her?
 ```
 
 At this point we know what needs to be done to fix the test, so we can type exit (or ctrl-D), to exit the interactive shell.
+The build then fails with the original error:
 
 ```
-+test | time="2020-09-16T22:23:53Z" level=error msg="failed to read from ptmx: read /dev/ptmx: input/output error"
-+test | time="2020-09-16T22:23:53Z" level=error msg="failed to read data from conn: read tcp 127.0.0.1:36672->127.0.0.1:5000: use of closed network connection"
-+test | ERROR: Command exited with non-zero code: RUN python3 generate_phrase.py
+root@buildkitsandbox:/code# exit
+exit
++test | ERROR Earthfile:9:3
++test |       The command
++test |           RUN python3 generate_phrase.py
++test |       did not complete successfully. Exit code 1
 ```
 
 Note that even though we fixed the problem during debugging, the image will not have been saved, so we must go back to our Earthfile and fix the problem there:
@@ -119,10 +129,11 @@ Let's consider a more complicated example where we are running integration tests
 VERSION 0.8
 
 server:
+  FROM python:3
   COPY server.py .
 
 test:
-  FROM docker:19.03.12-dind
+  FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0
   RUN apk add --no-cache curl
   WITH DOCKER --load server:latest=+server
     RUN docker run --rm -d --network=host server:latest python3 server.py && sleep 5 && curl -s localhost:8000 | grep hello
@@ -148,23 +159,14 @@ httpd.serve_forever()
 Let's fire up our integration test with `earth -P -i +test`:
 
 ```
-buildkitd | Found buildkit daemon as docker container (earth-buildkitd)
-+base | --> FROM python:3
-context | --> local context .
-+base | resolve docker.io/library/python:3@sha256:e9b7e3b4e9569808066c5901b8a9ad315a9f14ae8d3949ece22ae339fff2cad0 100%
-context | transferring .: 100%
-+base | *cached* --> WORKDIR /code
-+server | *cached* --> COPY server.py .
-+test | --> FROM docker:19.03.12-dind
-+test | resolve docker.io/library/docker:19.03.12-dind@sha256:674f1f40ff7c8ac14f5d8b6b28d8fb1f182647ff75304d018003f1e21a0d8771 100%
-+test | *cached* --> RUN apk add curl
-+test | --> WITH DOCKER RUN docker run --rm -d --network=host server:latest python3 server.py && sleep 5 && curl -s localhost:8000 | grep hello
-+test | Loading images...
-+test | Loaded image: server:latest
-+test | ...done
-+test | 1dc054c647cb75bde4897a2828edb095739cb9f864ed203ed2ddb54e62554aad
-+test | Command /bin/sh -c docker run --rm -d --network=host server:latest python3 server.py && sleep 5 && curl -s localhost:8000 | grep hello failed with exit code 1
-+test | Entering interactive debugger (**Warning: only a single debugger per host is supported**)
++test | --> WITH DOCKER RUN  --privileged docker run --rm -d --network=host server:latest python3 server.py && sleep 5 && curl -s localhost:8000 | grep hello
++test | Loading images from BuildKit via embedded registry...
+...
++test | Loading images done in 12830 ms
++test | 3d4140429fb62192dc93252b523dd8ebe472d9d4d184655ed3cad38bc8205f1a
++test | earth debugger | Command /bin/sh -c 'docker run --rm -d --network=host server:latest python3 server.py && sleep 5 && curl -s localhost:8000 | grep hello' failed with exit code 1
++test | Entering interactive debugger
+/ #
 ```
 
 
@@ -174,8 +176,8 @@ There was a failure checking that the server output contained the string `hello`
 
 ```
 / # docker ps -a
-CONTAINER ID        IMAGE               COMMAND               CREATED             STATUS              PORTS               NAMES
-b8a31c54dd17        server:latest       "python3 server.py"   5 seconds ago       Up 4 seconds                            frosty_rhodes
+CONTAINER ID   IMAGE           COMMAND               CREATED              STATUS              PORTS     NAMES
+3d4140429fb6   server:latest   "python3 server.py"   About a minute ago   Up About a minute             reverent_hypatia
 ```
 
 The good news is our server container is running; let's see what happens when we try to connect to it:
@@ -193,10 +195,11 @@ Ah ha! The problem is our test is expecting a lowercase `h`, so we can fix our g
 VERSION 0.8
 
 server:
+  FROM python:3
   COPY server.py .
 
 test:
-  FROM docker:19.03.12-dind
+  FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0
   RUN apk add --no-cache curl
   WITH DOCKER --load server:latest=+server
     RUN docker run --rm -d --network=host server:latest python3 server.py && sleep 5 && curl -s localhost:8000 | grep Hello
@@ -206,17 +209,17 @@ test:
 Then when we re-run our test we get:
 
 ```
-+test | --> WITH DOCKER RUN docker run --rm -d --network=host server:latest python3 server.py && sleep 5 && curl -s localhost:8000 | grep Hello
-+test | Loading images...
-+test | Loaded image: server:latest
-+test | ...done
-+test | cb5299ae03cd17cfb2b528f01268ccf59761feec036cb313a3e969930d6f0815
++test | --> WITH DOCKER RUN  --privileged docker run --rm -d --network=host server:latest python3 server.py && sleep 5 && curl -s localhost:8000 | grep Hello
++test | Loading images from BuildKit via embedded registry...
+...
++test | Loading images done in 13686 ms
++test | 7d13bfade6c1a10e4a0610f43876240f60663a4263a96c50e6573a9e7b747c2b
 +test | Hello, world!
-+test | Target +test built successfully
-=========================== SUCCESS ===========================
+...
+=========================== 🌍 Earth Build  ✅ SUCCESS ===========================
 ```
 
-With the use of the interactive debugger; we were able to examine the state of the embedded containerized
+With the use of the interactive debugger; we were able to examine the state of the embedded containerized environment.
 
 ## Demo
 
@@ -231,6 +234,8 @@ If you ever want to jump into an interactive debugging session at any point in y
 ```
 
 and run earth with the `--interactive` (or `-i`) flag.
+
+The debugger must be requested up front with `-i`; a `RUN` that failed without `-i` can't be attached to afterwards, so re-run the build with `-i` instead.
 
 
 Hopefully you won't run into failures, but if you do the interactive debugger may help you discover the root cause more easily. Happy coding.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -15,7 +16,10 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
+	"github.com/distribution/reference"
 	"github.com/moby/buildkit/client/llb"
+	solverpb "github.com/moby/buildkit/solver/pb"
+	"github.com/moby/buildkit/util/apicaps"
 )
 
 type withDockerRunRegistry struct {
@@ -113,9 +117,21 @@ func (w *withDockerRunRegistry) prepareImages(
 		loadNames = append(loadNames, imageDef.ImageName)
 	}
 
-	var dropped []DockerPullOpt
+	// Pulls served by digest from the embedded registry are not retagged, so
+	// they cannot collide with anything.
+	var localPulls, retagPulls, dropped []DockerPullOpt
 
-	opt.Pulls, dropped = dropCollidingDigestPulls(opt.Pulls, loadNames)
+	for _, pull := range opt.Pulls {
+		if w.resolvesLocally(pull.ImageName) {
+			localPulls = append(localPulls, pull)
+		} else {
+			retagPulls = append(retagPulls, pull)
+		}
+	}
+
+	retagPulls, dropped = dropCollidingDigestPulls(retagPulls, loadNames)
+	opt.Pulls = slices.Concat(localPulls, retagPulls)
+
 	for _, pull := range dropped {
 		w.c.opt.Log.Warnf(
 			"WITH DOCKER: not pre-pulling %s as another image is tagged %s; it will be pulled by digest when used.",
@@ -202,6 +218,12 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 
 	imgsWithDigests := make([]string, 0, len(results))
 	for _, result := range results {
+		imgsWithDigests = append(imgsWithDigests, result.FinalImageNameWithDigest)
+
+		if w.resolvesLocally(result.FinalImageName) {
+			continue
+		}
+
 		// This will be decoded in the wrapper, which retags the pulled image.
 		// `docker tag` rejects digest-bearing targets. See stripImageDigest.
 		if result.NewInterImgFormat {
@@ -211,8 +233,6 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 		} else {
 			pullImages = append(pullImages, result.IntermediateImageName)
 		}
-
-		imgsWithDigests = append(imgsWithDigests, result.FinalImageNameWithDigest)
 	}
 
 	// Construct run command with all options and images.
@@ -319,11 +339,44 @@ func (w *withDockerRunRegistry) pull(ctx context.Context, opt DockerPullOpt) (*s
 		},
 	}
 
-	return &states.ImageDef{
+	imageDef := &states.ImageDef{
 		MTS:       mts,
 		ImageName: opt.ImageName,
 		Platform:  opt.Platform,
-	}, nil
+	}
+	if w.resolvesLocally(opt.ImageName) {
+		imageDef.SourceRef = opt.ImageName
+	}
+
+	return imageDef, nil
+}
+
+// resolvesLocally reports whether the docker daemon in WITH DOCKER pulls
+// imageName from the embedded registry rather than the network. That is the
+// case for Docker Hub images pinned by digest when BuildKit can serve their
+// original content: dockerd-wrapper.sh makes the embedded registry the first
+// Docker Hub mirror (dockerd supports mirrors for Docker Hub only). Such images
+// need no retag: the daemon pulls them by digest when they are used.
+func (w *withDockerRunRegistry) resolvesLocally(imageName string) bool {
+	ref, err := reference.ParseNormalizedNamed(imageName)
+	if err != nil {
+		return false
+	}
+
+	if _, ok := ref.(reference.Canonical); !ok || reference.Domain(ref) != "docker.io" {
+		return false
+	}
+
+	err = w.c.opt.LLBCaps.Supports(solverpb.CapEarthlyLocalRegistrySource)
+	if err != nil {
+		if _, ok := errors.AsType[*apicaps.CapError](err); !ok {
+			w.c.opt.Log.Warnf("failed to check LLBCaps for CapEarthlyLocalRegistrySource: %v", err)
+		}
+
+		return false
+	}
+
+	return true
 }
 
 var errNoImageTag = errors.

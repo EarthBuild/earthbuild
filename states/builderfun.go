@@ -38,6 +38,10 @@ type ImageDef struct {
 	Platform  platutil.Platform
 	MTS       *MultiTarget
 	ImageName string
+	// SourceRef, if set, is the digest-pinned reference the image is pulled
+	// from. The embedded registry then also serves the original content of
+	// that reference, so it can be pulled by digest without the network.
+	SourceRef string
 }
 
 // MultiImageSolver can create a Docker image for the WITH DOCKER command using

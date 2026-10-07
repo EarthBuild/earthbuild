@@ -51,6 +51,14 @@
             ],
             "name": "BUILD"
           }
+        },
+        {
+          "command": {
+            "args": [
+              "+test-digest-pinned-image-offline"
+            ],
+            "name": "BUILD"
+          }
         }
       ]
     },
@@ -214,6 +222,87 @@
               "args": [
                 "--compose",
                 "docker-compose.yml"
+              ],
+              "name": "DOCKER"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "docs": "Digest-pinned Docker Hub images are served by the embedded registry, so they\nresolve without the network. The images are listed with --pull rather than\n--compose so that nothing is pulled before the RUN starts.\n",
+      "name": "test-digest-pinned-image-offline",
+      "recipe": [
+        {
+          "command": {
+            "args": [
+              "docker-compose.digest.yml",
+              "./docker-compose.yml"
+            ],
+            "name": "COPY"
+          }
+        },
+        {
+          "command": {
+            "args": [
+              "mkdir",
+              "-p",
+              "/etc/docker",
+              "&&",
+              "echo",
+              "'{\"proxies\": {\"http-proxy\": \"http://127.0.0.1:9\", \"https-proxy\": \"http://127.0.0.1:9\", \"no-proxy\": \"172.30.0.1\"}}'",
+              ">/etc/docker/daemon.json"
+            ],
+            "docs": "Send all registry traffic of the WITH DOCKER daemon to a dead proxy, except\nfor the embedded registry (see dockerd-wrapper.sh, which merges this file\ninto its own daemon config). Unlike firewall rules, this cannot leak into\nother RUNs sharing the network namespace.\n",
+            "name": "RUN"
+          }
+        },
+        {
+          "with": {
+            "body": [
+              {
+                "command": {
+                  "args": [
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "tag-and-digest",
+                    "|",
+                    "grep",
+                    "'hello from tag-and-digest'",
+                    "&&",
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "digest-only",
+                    "|",
+                    "grep",
+                    "'hello from digest-only'",
+                    "&&",
+                    "docker",
+                    "image",
+                    "inspect",
+                    "alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6",
+                    ">/dev/null",
+                    "&&",
+                    "!",
+                    "docker",
+                    "pull",
+                    "busybox:1.37"
+                  ],
+                  "docs": "# The last pull is a control: an image the embedded registry does not\n# have must fail to pull, proving the daemon cannot reach the network.",
+                  "name": "RUN"
+                }
+              }
+            ],
+            "command": {
+              "args": [
+                "--pull",
+                "alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6",
+                "--pull",
+                "alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6"
               ],
               "name": "DOCKER"
             }

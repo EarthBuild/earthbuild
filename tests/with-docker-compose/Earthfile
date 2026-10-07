@@ -12,6 +12,7 @@ all:
         --INDEX=4 \
         --INDEX=5
     BUILD +test-digest-pinned-image
+    BUILD +test-digest-pinned-image-offline
 
 print-countries:
     FROM jbergknoff/postgresql-client:latest
@@ -40,4 +41,27 @@ test-digest-pinned-image:
         RUN docker compose run --rm tag-and-digest | grep 'hello from tag-and-digest' && \
             docker compose run --rm digest-only | grep 'hello from digest-only' && \
             docker image inspect alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+    END
+
+# Digest-pinned Docker Hub images are served by the embedded registry, so they
+# resolve without the network. The images are listed with --pull rather than
+# --compose so that nothing is pulled before the RUN starts.
+test-digest-pinned-image-offline:
+    COPY docker-compose.digest.yml ./docker-compose.yml
+    # Send all registry traffic of the WITH DOCKER daemon to a dead proxy, except
+    # for the embedded registry (see dockerd-wrapper.sh, which merges this file
+    # into its own daemon config). Unlike firewall rules, this cannot leak into
+    # other RUNs sharing the network namespace.
+    RUN mkdir -p /etc/docker && \
+        echo '{"proxies": {"http-proxy": "http://127.0.0.1:9", "https-proxy": "http://127.0.0.1:9", "no-proxy": "172.30.0.1"}}' \
+            >/etc/docker/daemon.json
+    WITH DOCKER \
+            --pull alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 \
+            --pull alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+        # The last pull is a control: an image the embedded registry does not
+        # have must fail to pull, proving the daemon cannot reach the network.
+        RUN docker compose run --rm tag-and-digest | grep 'hello from tag-and-digest' && \
+            docker compose run --rm digest-only | grep 'hello from digest-only' && \
+            docker image inspect alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 >/dev/null && \
+            ! docker pull busybox:1.37
     END

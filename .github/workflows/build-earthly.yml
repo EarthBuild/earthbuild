@@ -45,7 +45,7 @@ env:
 jobs:
 
   build-earthly:
-    name: build (and push) earthly using ${{inputs.BINARY}} and earthly-next=${{inputs.USE_NEXT}}
+    name: build (and push) earthly using ${{inputs.BINARY}} and earth-next=${{inputs.USE_NEXT}}
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
     outputs:
@@ -129,12 +129,12 @@ jobs:
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
-      - name: Update Buildkit to earthly-next
+      - name: Update Buildkit to earth-next
         if: inputs.USE_NEXT
         run: |
           # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
           scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" --sleep 3 --bootstrap "$INPUTS_SUDO $(which earth) bootstrap" \
-            -- ${INPUTS_SUDO} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
+            -- ${INPUTS_SUDO} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earth-next)"
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}

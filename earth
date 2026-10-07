@@ -52,7 +52,7 @@ detect_frontend() {
   exit 1
 }
 
-# some tests run ./earthly when no front-end is present; when EARTHLY_DISABLE_FRONTEND_DETECTION=true, skip detection.
+# some tests run ./earth when no front-end is present; when EARTHLY_DISABLE_FRONTEND_DETECTION=true, skip detection.
 if [ "$EARTHLY_DISABLE_FRONTEND_DETECTION" != "true" ]; then
     frontend_bin=$(detect_frontend)
 fi
@@ -103,9 +103,9 @@ do_help() {
         get_latest_binary
     fi
 
-    echo "------------------- earthly prerelease script help -------------------"
+    echo "------------------- earth prerelease script help -------------------"
     echo "NAME:"
-    echo "   $scriptname - A wrapper around the earthly binary that checks for updates once an hour"
+    echo "   $scriptname - A wrapper around the earth binary that checks for updates once an hour"
     echo ""
     echo "COMMANDS:"
     echo "   reset     Removes prerelease binary and associated docker containers"
@@ -114,7 +114,7 @@ do_help() {
     echo "VARIABLES:"
     echo "   TAG       Sets the docker tag used to pull down binaries"
     echo ""
-    echo "---------------------------- earthly help -----------------------------"
+    echo "---------------------------- earth help -----------------------------"
     exec -a "$scriptname" "$bindir/earthly-${bintag}" --help
 }
 
@@ -153,10 +153,10 @@ case "$1" in
             elif [ "$last_flag_hash" != "$flagoverride_hash" ]; then
                 echo ".earth_version_flag_overrides has changed since last run, checking for ${bintag} binaries. " \
                      "If you see an \"unable to set <flag-name>: invalid flag\" error, you may have to wait for the" \
-                     "${bintag} binary to be built by GHA before re-attempting a ./earthly upgrade" | fold >&2
+                     "${bintag} binary to be built by GHA before re-attempting a ./earth upgrade" | fold >&2
                 update="true"
             elif [ "$since" -ge 3600 ]; then
-                echo "checking for latest earthly ${bintag} binaries" >&2
+                echo "checking for latest earth ${bintag} binaries" >&2
                 update="true"
             fi
 

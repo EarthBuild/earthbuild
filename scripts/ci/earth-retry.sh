@@ -26,7 +26,7 @@
 
 set -uo pipefail
 
-attempts=3
+attempts=1
 binary=docker
 sudo_prefix=""
 sleep_secs=0

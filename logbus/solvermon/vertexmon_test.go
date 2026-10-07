@@ -2,6 +2,8 @@ package solvermon
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/logstream"
@@ -201,6 +203,70 @@ func TestReErrNotFound(t *testing.T) {
 
 			if len(match) == 0 || !assert.ElementsMatch(t, match[1:], tt.expected) {
 				t.Errorf("reErrNotFound.FindStringSubmatch(%s) = %v, want %v", tt.errString, match, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFormatErrorExitCodeHint(t *testing.T) {
+	t.Parallel()
+
+	// The exit code 126 hint (originally #568) is emitted client-side so it
+	// covers plain RUNs and LOCALLY, not only RUNs wrapped by the debugger.
+	const hint126 = "Exit code 126 conventionally means a command was found but could not be executed. " +
+		"Check executable permissions, the shebang/interpreter, CPU architecture, noexec mounts, " +
+		"and security restrictions (e.g. SELinux, AppArmor, seccomp)."
+
+	tests := []struct {
+		name      string
+		errString string
+		wantHint  string
+		exitCode  int
+	}{
+		{
+			name:      "RUN exit code 1",
+			errString: `process "/bin/sh -c ./script.sh" did not complete successfully: exit code: 1`,
+			exitCode:  1,
+		},
+		{
+			name:      "RUN exit code 126",
+			errString: `process "/bin/sh -c ./script.sh" did not complete successfully: exit code: 126`,
+			exitCode:  126,
+			wantHint:  hint126,
+		},
+		{
+			name:      "LOCALLY RUN exit code 126",
+			errString: `error calling LocalhostExec: exit code: 126`,
+			exitCode:  126,
+			wantHint:  hint126,
+		},
+		{
+			name:      "RUN exit code 127",
+			errString: `process "/bin/sh -c ./script.sh" did not complete successfully: exit code: 127`,
+			exitCode:  127,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := FormatError("RUN ./script.sh", tt.errString)
+
+			if !strings.Contains(got, fmt.Sprintf("did not complete successfully. Exit code %d", tt.exitCode)) {
+				t.Errorf("FormatError() = %q, want exit code %d reported", got, tt.exitCode)
+			}
+
+			if tt.wantHint == "" {
+				if strings.Contains(got, "conventionally means") {
+					t.Errorf("FormatError() = %q, want no exit code hint", got)
+				}
+
+				return
+			}
+
+			if !strings.HasSuffix(got, "\n      "+tt.wantHint) {
+				t.Errorf("FormatError() = %q, want hint %q on its own line", got, tt.wantHint)
 			}
 		})
 	}

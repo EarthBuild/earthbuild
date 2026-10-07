@@ -144,8 +144,15 @@ earth --allow-privileged +my-target
 
 ##### `--pass-args`
 
-EarthBuild automatically passes all current arguments to referenced targets in the _same_ Earthfile.
-However, when the `--pass-args` flag is set, EarthBuild will also propagate all arguments to an externally referenced target.
+Without this flag, EarthBuild automatically passes argument _overrides_ (values set on the command line, or explicitly in a
+target reference such as `+target --name=value`) on to referenced targets in the _same_ Earthfile, but not to targets in
+other Earthfiles. Default values of `ARG`s declared in the calling target are not passed on.
+
+When the `--pass-args` flag is set, EarthBuild also passes the current value of every `ARG` declared by the calling target
+(including its default value, and including `ARG --global`s), and does so for externally referenced targets too.
+
+`FROM`, `COPY` and `BUILD` all pass arguments in the same way. For more details and examples, see
+[how argument values propagate](../guides/build-args.md#how-argument-values-propagate).
 
 ##### `--build-arg <key>=<value>` (**deprecated**)
 

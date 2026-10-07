@@ -43,9 +43,8 @@ Now we can run it with `earth +test`, and we'll see a failure has occurred:
 +test *failed* |   File "generate_phrase.py", line 3, in <module>
 +test *failed* |     text = open('sherlock.txt').read()
 +test *failed* | FileNotFoundError: [Errno 2] No such file or directory: 'sherlock.txt'
-+test *failed* | Command /bin/sh -c python3 generate_phrase.py failed with exit code 1
 +test *failed* | +test *failed* | ERROR: Command exited with non-zero code: RUN python3 generate_phrase.py
-Error: solve side effects: solve: failed to solve: rpc error: code = Unknown desc = executor failed running [/bin/sh -c  /usr/bin/earth_debugger /bin/sh -c 'python3 generate_phrase.py']: buildkit-runc did not terminate successfully
+Error: solve side effects: solve: failed to solve: rpc error: code = Unknown desc = executor failed running [/bin/sh -c  /bin/sh -c 'python3 generate_phrase.py']: buildkit-runc did not terminate successfully
 ```
 
 Why can't it find the sherlock.txt file? Let's re-run `earth` with the `--interactive` (or `-i`) flag: `earth -i +test`

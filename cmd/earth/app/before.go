@@ -142,12 +142,10 @@ func (app *EarthApp) parseEngine(ctx context.Context, detect bool) error {
 	// The stub is already what this settles on when no runtime is found, so a
 	// command that will never use one can have it without the probe.
 	if !detect {
-		stub, err := engine.NewStub(engCfg)
+		err := app.useStubEngine(engCfg)
 		if err != nil {
-			return fmt.Errorf("failed stub container engine initialization: %w", err)
+			return err
 		}
-
-		app.BaseCLI.Flags().Engine = stub
 
 		log.VerbosePrintf("this command uses no container frontend\n")
 
@@ -158,14 +156,15 @@ func (app *EarthApp) parseEngine(ctx context.Context, detect bool) error {
 	if err != nil {
 		origErr := err
 
-		stub, err := engine.NewStub(engCfg)
+		err = app.useStubEngine(engCfg)
 		if err != nil {
-			return fmt.Errorf("failed stub container engine initialization: %w", err)
+			return err
 		}
 
-		app.BaseCLI.Flags().Engine = stub
-
-		if !app.BaseCLI.Flags().Verbose {
+		// A remote buildkit host needs no container frontend on this machine,
+		// so not finding one is expected rather than worth a warning.
+		explicitRemote := engCfg.BuildkitHost != "" && !engine.IsLocal(engCfg.BuildkitHost)
+		if !explicitRemote && !app.BaseCLI.Flags().Verbose {
 			log.Printf("Unable to detect Docker, Podman, or Apple Container. Use --verbose to see details (or errors)\n")
 		}
 
@@ -184,6 +183,29 @@ func (app *EarthApp) parseEngine(ctx context.Context, detect bool) error {
 	addrs := app.BaseCLI.Flags().Engine.Metadata().Addrs
 	app.BaseCLI.Flags().BuildkitHost = addrs.Buildkit.String()
 	app.BaseCLI.Flags().LocalRegistryHost = addrs.LocalRegistry.String()
+
+	return nil
+}
+
+// useStubEngine installs the stub container frontend. When a buildkit host was
+// given explicitly (flag, env or config), it is carried through to the flags
+// so that a build can still connect to it: a remote buildkitd needs no Docker,
+// Podman or Apple Container on the client. Without an explicit host the stub
+// has nothing it could connect to, so the flags are left empty and the build
+// reports that no buildkit address could be determined.
+func (app *EarthApp) useStubEngine(engCfg *engine.Config) error {
+	stub, err := engine.NewStub(engCfg)
+	if err != nil {
+		return fmt.Errorf("failed stub container engine initialization: %w", err)
+	}
+
+	app.BaseCLI.Flags().Engine = stub
+
+	if engCfg.BuildkitHost != "" {
+		addrs := stub.Metadata().Addrs
+		app.BaseCLI.Flags().BuildkitHost = addrs.Buildkit.String()
+		app.BaseCLI.Flags().LocalRegistryHost = addrs.LocalRegistry.String()
+	}
 
 	return nil
 }

@@ -2,6 +2,7 @@ package dockerutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/engine"
+	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"golang.org/x/sync/errgroup"
 )
@@ -78,11 +80,23 @@ func LoadDockerManifest(
 	return nil
 }
 
+// noContainerFrontendHint explains how to build against a remote buildkitd
+// from a client without Docker, Podman or Apple Container, where an image
+// cannot be loaded locally.
+const noContainerFrontendHint = "no container frontend (Docker, Podman or Apple Container) is available " +
+	"to load the image into; use --no-image-output to skip local image output " +
+	"(combine with --push to publish images instead), or --no-output to skip all local output"
+
 // LoadDockerTar loads a docker image via a tar.
 func LoadDockerTar(ctx context.Context, eng *engine.Client, r io.ReadCloser) error {
 	err := eng.LoadImage(ctx, r)
 	if err != nil {
-		return fmt.Errorf("load tar: %w", err)
+		err = fmt.Errorf("load tar: %w", err)
+		if errors.Is(err, engine.ErrNotInitialized) {
+			return hint.Wrap(err, noContainerFrontendHint)
+		}
+
+		return err
 	}
 
 	return nil

@@ -26,7 +26,7 @@
   | ------------- | ------------- |
   | MacOS (x86) | [![Build status](https://badge.buildkite.com/cc0627732806ab3b76cf13b02c498658b851056242ec28f62d.svg)](https://buildkite.com/earthly-technologies/earthly-mac-scheduled)
   | MacOS (M1) | [![Build status](https://badge.buildkite.com/10a7331b2032fcc9f7f311c5218d12c1a18c317cd7fc9270ba.svg)](https://buildkite.com/earthly-technologies/earthly-m1-scheduled)
-- Create and publish the release on [GitHub Releases](https://github.com/earthbuild/earthbuild/releases/new) targeting `$RELEASE_TAG` (include release notes and mark pre-release if applicable). Publishing the release automatically triggers the [Tagged Release](../.github/workflows/on-tag-release.yml) workflow to upload release artifacts and promote images to DockerHub.
+- Create and publish the release on [GitHub Releases](https://github.com/earthbuild/earthbuild/releases/new) targeting `$RELEASE_TAG` (include release notes and mark pre-release if applicable). Publishing the release automatically triggers the [Tagged Release](../.github/workflows/on-tag-release.yml) workflow to upload release artifacts and promote images to DockerHub. When the release is the repository's latest release (not a pre-release, and not a patch for an older line), the workflow also moves the floating `:latest` tag of each DockerHub image (`earthbuild/earthbuild`, `earthbuild/buildkitd` and their `-ticktock` variants) to it.
 - If publishing package repositories (apt/yum):
   ```bash
   earth --push ./release+release-repo --RELEASE_TAG="$RELEASE_TAG"

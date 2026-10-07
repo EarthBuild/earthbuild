@@ -18,10 +18,6 @@ inputs:
     description: "Whether to set up QEMU"
     required: false
     default: 'false'
-  USE_NEXT:
-    description: "Whether to use earth-next"
-    required: false
-    default: 'false'
   GHCR_USERNAME:
     description: "GHCR username (legacy - now uses github.actor)"
     required: false
@@ -89,7 +85,7 @@ runs:
       # image.
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
-        name: earth-build-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        name: earth-build-latest
         path: ./build-artifacts
     - name: Setup earth binary from artifact (fork)
       if: steps.fork-check.outputs.is_fork == 'true'
@@ -233,7 +229,6 @@ runs:
       run: |-
         echo "Extracting earth binary from stage1 of build"
         export TAG=${GITHUB_SHA}-latest
-        if [ "${INPUTS_USE_NEXT}" = "true" ]; then export TAG="$TAG-ticktock"; fi
         ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" ./earth upgrade
         ${INPUTS_SUDO} chown -R $USER ~/.earthly # restore non-sudo user ownership
         test -n "${INPUTS_BUILT_EARTH_PATH}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
@@ -243,22 +238,12 @@ runs:
         echo "extracted ${INPUTS_BUILT_EARTH_PATH}"
       shell: bash
       env:
-        INPUTS_USE_NEXT: ${{inputs.USE_NEXT}}
         INPUTS_SUDO: ${{inputs.SUDO}}
         INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
     - run: |-
         echo "Configuring earthbuild to use GCR mirror"
         "${INPUTS_BUILT_EARTH_PATH}" config global.buildkit_additional_config "'[registry.\"docker.io\"]
         mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
-      shell: bash
-      env:
-        INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
-    - if: ${{ inputs.USE_NEXT == 'true' }}
-      run: |-
-        export expected_buildkit_client_sha="$(cat earth-next | head -c 12)"
-        test -n "$expected_buildkit_client_sha" || ( echo "expected_buildkit_client_sha is empty" && exit 1)
-        (strings "${INPUTS_BUILT_EARTH_PATH}" | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earth binary" && exit 1)
-        echo "correctly found $expected_buildkit_client_sha in earth binary; this confirms earth-next was used"
       shell: bash
       env:
         INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}

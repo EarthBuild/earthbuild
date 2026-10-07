@@ -77,9 +77,14 @@ jobs:
                   # for a patch release published for an older line (#769).
                   PUSH_LATEST_TAG=false
                   if [ "${PRERELEASE}" != "true" ]; then
-                      LATEST_RELEASE_TAG="$(gh api "repos/${GH_REPO}/releases/latest" --jq .tag_name)"
-                      if [ "${LATEST_RELEASE_TAG}" = "${RELEASE_TAG}" ]; then
-                          PUSH_LATEST_TAG=true
+                      # Fail-safe: if the lookup fails, skip moving :latest but
+                      # still promote the :<RELEASE_TAG> images below.
+                      if LATEST_RELEASE_TAG="$(gh api "repos/${GH_REPO}/releases/latest" --jq .tag_name)"; then
+                          if [ "${LATEST_RELEASE_TAG}" = "${RELEASE_TAG}" ]; then
+                              PUSH_LATEST_TAG=true
+                          fi
+                      else
+                          echo "::warning::Could not look up the latest release of ${GH_REPO}; not moving the :latest tags."
                       fi
                   fi
                   echo "Pushing :latest tags: ${PUSH_LATEST_TAG}"

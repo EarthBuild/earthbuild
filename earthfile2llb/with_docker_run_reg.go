@@ -257,8 +257,8 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 		return fmt.Errorf("set docker load registry secret: %w", err)
 	}
 
-	w.c.opt.CleanCollection.Add(func() error { //nolint:contextcheck
-		return w.c.opt.InternalSecretStore.DeleteSecret(context.Background(), dockerLoadRegistrySecretID)
+	w.c.opt.CleanCollection.Add(func() error {
+		return w.c.opt.InternalSecretStore.DeleteSecret(context.WithoutCancel(ctx), dockerLoadRegistrySecretID)
 	})
 
 	crOpts.shellWrap = makeWithDockerdWrapFun(dindID, nil, imgsWithDigests, opt)

@@ -22,7 +22,7 @@ config
 debug 
 doc 
 docker-build 
-docker2earthly 
+docker2earth 
 init 
 ls 
 prune " > expected

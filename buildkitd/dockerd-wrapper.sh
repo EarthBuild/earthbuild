@@ -323,6 +323,11 @@ EOF
     #
     # https://github.com/EarthBuild/earthbuild/issues/195
 
+    # The embedded registry is the first Docker Hub mirror so that images pinned
+    # by digest (e.g. a compose service with `image: alpine@sha256:...`) can be
+    # pulled from BuildKit, which serves their original content, rather than from
+    # the network. Anything it does not have is a 404, and dockerd moves on to
+    # the next mirror and eventually Docker Hub itself.
     daemon_data="$(cat /etc/docker/daemon.json)"
     cat <<EOF | jq --argjson user "$daemon_data" -f /tmp/meld.jq > /etc/docker/daemon.json
 {
@@ -339,7 +344,7 @@ EOF
     "bip": "172.20.0.1/16",
     "data-root": "$data_root",
     "insecure-registries" : ["$buildkit_docker_registry"],
-    "registry-mirrors" : ["https://mirror.gcr.io", "https://public.ecr.aws"],
+    "registry-mirrors" : ["http://$buildkit_docker_registry", "https://mirror.gcr.io", "https://public.ecr.aws"],
     "features": {
         "containerd-snapshotter": false
     }

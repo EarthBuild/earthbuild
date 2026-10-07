@@ -428,5 +428,9 @@ func (m *multiImageSolver) addRefToResult(
 	gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
 	onPullMap[localRegPullID] = imageDef.ImageName
 
+	if imageDef.SourceRef != "" {
+		gwCrafter.AddMeta(refPrefix+"/export-image-local-registry-source", []byte(imageDef.SourceRef))
+	}
+
 	return nil
 }

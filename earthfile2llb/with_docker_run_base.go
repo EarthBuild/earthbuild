@@ -11,6 +11,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/oidcutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/containerd/platforms"
+	"github.com/distribution/reference"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"gopkg.in/yaml.v3"
@@ -266,6 +267,69 @@ func stripImageDigest(name string) string {
 	withoutDigest, _, _ := strings.Cut(name, "@")
 
 	return withoutDigest
+}
+
+// retagName is the name an image ends up tagged as in the WITH DOCKER daemon:
+// digest stripped, with the implicit `latest` tag made explicit, in its
+// familiar (shortest) form.
+// Names that do not parse are returned as is.
+func retagName(name string) string {
+	ref, err := reference.ParseNormalizedNamed(stripImageDigest(name))
+	if err != nil {
+		return name
+	}
+
+	return reference.FamiliarString(reference.TagNameOnly(ref))
+}
+
+// dropCollidingDigestPulls removes digest-pinned pulls whose retag name (see
+// stripImageDigest) is also claimed by a different image in the same WITH
+// DOCKER, e.g. `alpine@sha256:…` next to `alpine`. Their retags would race and
+// either one could end up owning the tag. Dropping the pinned pull is safe:
+// compose resolves a pinned image by digest, which a retag cannot satisfy, so
+// it fetches the image itself. The dropped pulls are returned for reporting.
+func dropCollidingDigestPulls(pulls []DockerPullOpt, loadNames []string) (kept, dropped []DockerPullOpt) {
+	// Distinct (normalized) references claiming each retag name.
+	claimants := make(map[string]map[string]struct{})
+	claim := func(name string) {
+		key := retagName(name)
+		if claimants[key] == nil {
+			claimants[key] = make(map[string]struct{})
+		}
+
+		claimants[key][normalizedRef(name)] = struct{}{}
+	}
+
+	for _, name := range loadNames {
+		claim(name)
+	}
+
+	for _, pull := range pulls {
+		claim(pull.ImageName)
+	}
+
+	for _, pull := range pulls {
+		if strings.Contains(pull.ImageName, "@") && len(claimants[retagName(pull.ImageName)]) > 1 {
+			dropped = append(dropped, pull)
+
+			continue
+		}
+
+		kept = append(kept, pull)
+	}
+
+	return kept, dropped
+}
+
+// normalizedRef returns the fully qualified form of an image reference, so that
+// e.g. `alpine` and `docker.io/library/alpine:latest` compare equal.
+func normalizedRef(name string) string {
+	ref, err := reference.ParseNormalizedNamed(name)
+	if err != nil {
+		return name
+	}
+
+	return reference.TagNameOnly(ref).String()
 }
 
 func platformIncompatMsg(platr *platutil.Resolver) string {

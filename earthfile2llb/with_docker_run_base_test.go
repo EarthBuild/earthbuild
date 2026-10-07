@@ -144,3 +144,77 @@ func TestStripImageDigest(t *testing.T) {
 		})
 	}
 }
+
+func TestDropCollidingDigestPulls(t *testing.T) {
+	t.Parallel()
+
+	const (
+		pinnedTagged = "alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6"
+		pinnedOnly   = "alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6"
+		pinnedOther  = "alpine@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	)
+
+	pulls := func(names ...string) []DockerPullOpt {
+		opts := make([]DockerPullOpt, 0, len(names))
+		for _, name := range names {
+			opts = append(opts, DockerPullOpt{ImageName: name})
+		}
+
+		return opts
+	}
+
+	for _, tc := range []struct {
+		name        string
+		pulls       []DockerPullOpt
+		loadNames   []string
+		wantKept    []DockerPullOpt
+		wantDropped []DockerPullOpt
+	}{
+		{
+			name:     "no digests",
+			pulls:    pulls("alpine", "alpine:3.24.2"),
+			wantKept: pulls("alpine", "alpine:3.24.2"),
+		},
+		{
+			name:     "pinned images on distinct tags",
+			pulls:    pulls(pinnedTagged, pinnedOnly),
+			wantKept: pulls(pinnedTagged, pinnedOnly),
+		},
+		{
+			name:        "pinned and unpinned on the implicit latest tag",
+			pulls:       pulls(pinnedOnly, "docker.io/library/alpine:latest"),
+			wantKept:    pulls("docker.io/library/alpine:latest"),
+			wantDropped: pulls(pinnedOnly),
+		},
+		{
+			name:        "pinned and unpinned on the same explicit tag",
+			pulls:       pulls("alpine:3.24.2", pinnedTagged),
+			wantKept:    pulls("alpine:3.24.2"),
+			wantDropped: pulls(pinnedTagged),
+		},
+		{
+			name:        "pinned pull collides with a loaded image",
+			pulls:       pulls(pinnedTagged),
+			loadNames:   []string{"alpine:3.24.2"},
+			wantDropped: pulls(pinnedTagged),
+		},
+		{
+			name:        "two different digests on the same tag",
+			pulls:       pulls(pinnedOnly, pinnedOther),
+			wantDropped: pulls(pinnedOnly, pinnedOther),
+		},
+		{
+			name:     "same pinned image requested twice",
+			pulls:    pulls(pinnedOnly, "docker.io/library/"+pinnedOnly),
+			wantKept: pulls(pinnedOnly, "docker.io/library/"+pinnedOnly),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			kept, dropped := dropCollidingDigestPulls(tc.pulls, tc.loadNames)
+			assert.Equal(t, tc.wantKept, kept)
+			assert.Equal(t, tc.wantDropped, dropped)
+		})
+	}
+}

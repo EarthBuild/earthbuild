@@ -108,6 +108,21 @@ func (w *withDockerRunRegistry) prepareImages(
 		}
 	}
 
+	loadNames := make([]string, 0, len(imagesToBuild))
+	for _, imageDef := range imagesToBuild {
+		loadNames = append(loadNames, imageDef.ImageName)
+	}
+
+	var dropped []DockerPullOpt
+
+	opt.Pulls, dropped = dropCollidingDigestPulls(opt.Pulls, loadNames)
+	for _, pull := range dropped {
+		w.c.opt.Log.Warnf(
+			"WITH DOCKER: not pre-pulling %s as another image is tagged %s; it will be pulled by digest when used.",
+			pull.ImageName, retagName(pull.ImageName),
+		)
+	}
+
 	// Pulls.
 	for _, pullOpt := range opt.Pulls {
 		imageDef, err := w.pull(ctx, pullOpt)

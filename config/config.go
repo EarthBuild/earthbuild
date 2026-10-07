@@ -540,18 +540,37 @@ func WriteConfigFile(configPath string, data []byte) error {
 // directory when TLS ends up enabled, exactly as ParseYAML would have done had
 // the config file set the same value.
 func (cfg *Config) SetTLSEnabled(instName string, enabled bool) error {
+	return cfg.setTLSEnabled(enabled, earthDir(instName))
+}
+
+// setTLSEnabled is SetTLSEnabled with the config directory lookup injected, so
+// tests need not touch the real (and process-wide cached) installation dir.
+func (cfg *Config) setTLSEnabled(enabled bool, cfgDir cfgDirFunc) error {
 	cfg.Global.TLSEnabled = enabled
 
-	err := parseTLSPaths(instName, cfg)
+	err := parseTLSPaths(cfgDir, cfg)
 	if err != nil {
 		return fmt.Errorf("could not parse relative TLS paths: %w", err)
 	}
 
 	return nil
+}
+
+// cfgDirFunc returns the directory relative config paths are resolved against.
+// It is only called when a relative path actually needs resolving, since the
+// real implementation creates the directory.
+type cfgDirFunc func() (string, error)
+
+// earthDir resolves relative config paths against the installation's config
+// directory (usually ~/.<instName>), creating it if needed.
+func earthDir(instName string) cfgDirFunc {
+	return func() (string, error) {
+		return cliutil.GetOrCreateEarthDir(instName)
+	}
 }
 
 func parseRelPaths(instName string, cfg *Config) error {
-	err := parseTLSPaths(instName, cfg)
+	err := parseTLSPaths(earthDir(instName), cfg)
 	if err != nil {
 		return fmt.Errorf("could not parse relative TLS paths: %w", err)
 	}
@@ -559,7 +578,7 @@ func parseRelPaths(instName string, cfg *Config) error {
 	return nil
 }
 
-func parseTLSPaths(instName string, cfg *Config) error {
+func parseTLSPaths(cfgDir cfgDirFunc, cfg *Config) error {
 	if !cfg.Global.TLSEnabled {
 		return nil
 	}
@@ -573,7 +592,7 @@ func parseTLSPaths(instName string, cfg *Config) error {
 		"server cert": &cfg.Global.ServerTLSCert,
 	}
 	for name, field := range fields {
-		err := parsePath(instName, field)
+		err := parsePath(cfgDir, field)
 		if err != nil {
 			return fmt.Errorf("could not parse %v path %q: %w", name, *field, err)
 		}
@@ -582,12 +601,12 @@ func parseTLSPaths(instName string, cfg *Config) error {
 	return nil
 }
 
-func parsePath(instName string, field *string) error {
+func parsePath(cfgDir cfgDirFunc, field *string) error {
 	if field == nil {
 		return errors.New("cannot parse nil field")
 	}
 
-	newPath, err := cfgPath(instName, *field)
+	newPath, err := cfgPath(cfgDir, *field)
 	if err != nil {
 		return err
 	}
@@ -597,15 +616,15 @@ func parsePath(instName string, field *string) error {
 	return nil
 }
 
-func cfgPath(instName, path string) (string, error) {
+func cfgPath(cfgDir cfgDirFunc, path string) (string, error) {
 	if filepath.IsAbs(path) {
 		return path, nil
 	}
 
-	cfgDir, err := cliutil.GetOrCreateEarthDir(instName)
+	dir, err := cfgDir()
 	if err != nil {
 		return "", err
 	}
 
-	return filepath.Join(cfgDir, path), nil
+	return filepath.Join(dir, path), nil
 }

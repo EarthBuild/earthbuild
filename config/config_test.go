@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -65,16 +66,30 @@ func TestPortOffsetIsInRange(t *testing.T) {
 	}
 }
 
+// tempCfgDir returns a cfgDirFunc rooted in a fresh temp dir, so tests never
+// resolve (or create) paths under the real installation config dir in $HOME.
+func tempCfgDir(t *testing.T) (string, cfgDirFunc) {
+	t.Helper()
+
+	dir := t.TempDir()
+
+	return dir, func() (string, error) { return dir, nil }
+}
+
 func TestSetTLSEnabled(t *testing.T) {
 	t.Parallel()
 
-	// Absolute paths keep the test away from the installation's config dir.
+	// Every TLS path is absolute, so neither ParseYAML nor setTLSEnabled needs
+	// to resolve anything against an installation config dir.
 	const absCfg = `
 global:
   tls_enabled: %v
   tlsca: /certs/ca_cert.pem
+  tlsca_key: /certs/ca_key.pem
   tlscert: /certs/earth_cert.pem
   tlskey: /certs/earth_key.pem
+  buildkitd_tlscert: /certs/buildkit_cert.pem
+  buildkitd_tlskey: /certs/buildkit_key.pem
 `
 
 	for _, tc := range []struct {
@@ -93,12 +108,16 @@ global:
 			require.NoError(t, err)
 			require.Equal(t, tc.cfgEnabled, cfg.Global.TLSEnabled)
 
-			require.NoError(t, cfg.SetTLSEnabled("earth-test", tc.override))
+			_, cfgDir := tempCfgDir(t)
+			require.NoError(t, cfg.setTLSEnabled(tc.override, cfgDir))
 
 			assert.Equal(t, tc.override, cfg.Global.TLSEnabled)
 			assert.Equal(t, "/certs/ca_cert.pem", cfg.Global.TLSCACert)
+			assert.Equal(t, "/certs/ca_key.pem", cfg.Global.TLSCAKey)
 			assert.Equal(t, "/certs/earth_cert.pem", cfg.Global.ClientTLSCert)
 			assert.Equal(t, "/certs/earth_key.pem", cfg.Global.ClientTLSKey)
+			assert.Equal(t, "/certs/buildkit_cert.pem", cfg.Global.ServerTLSCert)
+			assert.Equal(t, "/certs/buildkit_key.pem", cfg.Global.ServerTLSKey)
 		})
 	}
 }
@@ -107,22 +126,41 @@ global:
 // the command line over a config file that disabled it must resolve them the
 // same way ParseYAML would have.
 func TestSetTLSEnabledResolvesRelativePaths(t *testing.T) {
-	// Do not use t.Parallel() because t.Setenv modifies process-wide state.
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	t.Parallel()
 
-	const instName = "earth-tls-test"
-
-	cfg, err := ParseYAML([]byte("global:\n  tls_enabled: false\n"), instName)
+	// TLS is disabled, so ParseYAML leaves the relative defaults untouched and
+	// never looks up the installation config dir.
+	cfg, err := ParseYAML([]byte("global:\n  tls_enabled: false\n"), "earth-test")
 	require.NoError(t, err)
 	require.Equal(t, DefaultCACert, cfg.Global.TLSCACert, "paths are left alone while TLS is disabled")
 
-	require.NoError(t, cfg.SetTLSEnabled(instName, true))
+	dir, cfgDir := tempCfgDir(t)
+	require.NoError(t, cfg.setTLSEnabled(true, cfgDir))
 
 	assert.True(t, cfg.Global.TLSEnabled)
+	assert.Equal(t, filepath.Join(dir, DefaultCACert), cfg.Global.TLSCACert)
+	assert.Equal(t, filepath.Join(dir, DefaultCAKey), cfg.Global.TLSCAKey)
+	assert.Equal(t, filepath.Join(dir, DefaultClientTLSCert), cfg.Global.ClientTLSCert)
+	assert.Equal(t, filepath.Join(dir, DefaultClientTLSKey), cfg.Global.ClientTLSKey)
+	assert.Equal(t, filepath.Join(dir, DefaultServerTLSCert), cfg.Global.ServerTLSCert)
+	assert.Equal(t, filepath.Join(dir, DefaultServerTLSKey), cfg.Global.ServerTLSKey)
+}
 
-	want := filepath.Join(home, "."+instName)
-	assert.Equal(t, filepath.Join(want, DefaultCACert), cfg.Global.TLSCACert)
-	assert.Equal(t, filepath.Join(want, DefaultClientTLSCert), cfg.Global.ClientTLSCert)
-	assert.Equal(t, filepath.Join(want, DefaultClientTLSKey), cfg.Global.ClientTLSKey)
+// SetTLSEnabled(false) must not resolve (and so must not create) anything.
+func TestSetTLSEnabledDisabledSkipsCfgDir(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := ParseYAML([]byte("global:\n  tls_enabled: false\n"), "earth-test")
+	require.NoError(t, err)
+
+	called := false
+
+	require.NoError(t, cfg.setTLSEnabled(false, func() (string, error) {
+		called = true
+
+		return "", errors.New("config dir must not be looked up")
+	}))
+
+	assert.False(t, called)
+	assert.Equal(t, DefaultCACert, cfg.Global.TLSCACert)
 }

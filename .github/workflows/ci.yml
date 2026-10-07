@@ -140,59 +140,6 @@ jobs:
           path: ./artifacts-standard/
           retention-days: 1
 
-      # --- Build Next EarthBuild ---
-      - name: Update Buildkit to earth-next
-        run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earth-next)"
-      - name: Build latest earth (next) using released earth
-        run: earth --use-inline-cache --artifact +earthly-linux-amd64/earthly ./build/linux/amd64/earthly
-      - name: Build and push +ci-release (next) using latest earth build
-        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
-        run: |-
-          export TAG_SUFFIX="latest-ticktock"
-          ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
-      - name: Build +ci-release (next) using latest earth build (fork - no push)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        run: |-
-          export TAG_SUFFIX="latest-ticktock"
-          # Build ci-release (builds binary and buildkitd but doesn't push)
-          ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
-          # Explicitly output the buildkitd image to local docker daemon
-          ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
-      - name: Save buildkitd image tarball (next, all runs)
-        # See the standard-variant step above for why this is unconditional.
-        run: |-
-          set -euo pipefail
-          export TAG_SUFFIX="latest-ticktock"
-          IMG="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
-
-          mkdir -p ./artifacts-next
-          echo "${TAG_SUFFIX}" > ./artifacts-next/tag-suffix.txt
-          if ! docker image inspect "$IMG" >/dev/null 2>&1; then
-            docker pull "$IMG"
-          fi
-          docker save "$IMG" -o ./artifacts-next/buildkitd-image.tar
-      - name: Build earth binary artifact (next, fork only)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        run: |-
-          set -euo pipefail
-          export TAG_SUFFIX="latest-ticktock"
-
-          # The test suites address the buildkitd daemon by container name, so
-          # DEFAULT_INSTALLATION_NAME must be pinned rather than left at its dev
-          # default. "earth" gives them "earth-buildkitd".
-          ./build/linux/amd64/earthly --ci --artifact \
-            +earthly/earthly \
-            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
-            --VERSION="0.8.18" \
-            --DEFAULT_INSTALLATION_NAME=earth \
-            ./artifacts-next/earthly
-      - name: Upload artifacts (next)
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
-        with:
-          name: earth-build-latest-ticktock
-          path: ./artifacts-next/
-          retention-days: 1
-
   # --- Docker Suite ---
   docker-tests:
     name: Docker
@@ -268,21 +215,6 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
-  # --- Next Suite ---
-  next-tests:
-    name: Next
-    needs: fast-check-and-build
-    permissions:
-      contents: read
-      packages: read
-    uses: $/.github/workflows/ci-test-suite.yml
-    with:
-      FRONTEND: "docker"
-      USE_NEXT: true
-    secrets:
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
-
   # --- Merge Gate ---
   # The ONLY check that branch protection should require. Every other job's
   # context name is free to churn (renamed suites, re-grouped tests, new
@@ -299,7 +231,6 @@ jobs:
       - docker-integrations
       - podman-tests
       - podman-examples
-      - next-tests
     runs-on: ubuntu-26.04
     permissions: {}
     steps:

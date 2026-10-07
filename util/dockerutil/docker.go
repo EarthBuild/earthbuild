@@ -109,12 +109,74 @@ func DockerPullLocalImages(
 	return eg.Wait()
 }
 
+// pullAttempts is how many times a pull from the local registry is tried, and
+// pullRetryBase the wait before the second try. Three attempts and 150ms cost a
+// broken frontend under half a second and cover the fault below comfortably.
+const (
+	pullAttempts  = 3
+	pullRetryBase = 150 * time.Millisecond
+)
+
+// imagePuller is the one engine operation pullWithRetry needs; *engine.Client
+// satisfies it, and tests substitute a puller that fails on demand.
+type imagePuller interface {
+	PullImage(ctx context.Context, refs ...string) error
+}
+
+// pullWithRetry pulls from the session-scoped local registry, retrying briefly.
+//
+// **The failure this exists for is a closed connection, not an answer.** The
+// image is one buildkitd has just published to a registry on loopback, so it is
+// there; what CI produces about once in a hundred job-runs is
+//
+//	failed to copy: httpReadSeeker: failed open: failed to do request:
+//	  Get "https://127.0.0.1:PORT/v2/sess-ID/pullping/blobs/sha256:...": EOF
+//
+// a bare EOF with no status, which is what a server closing an idle keep-alive
+// connection under a client that is about to reuse it looks like from the
+// client's end. Retrying is the client half of that race; the server half lives
+// in buildkit's session registry.
+//
+// **Every error is retried, not a matched subset.** The alternative is deciding
+// which failures are transient by matching text in a subprocess's stderr, which
+// makes this code depend on the wording of another program's messages. It is
+// not needed here: the ref names an image that exists on a registry this
+// process is talking to over loopback, so a pull that fails three times in half
+// a second has something wrong with it that a fourth would not fix, and one
+// that fails permanently fails just as loudly half a second later.
+func pullWithRetry(ctx context.Context, eng imagePuller, ref string) error {
+	var err error
+
+	for attempt := 1; attempt <= pullAttempts; attempt++ {
+		err = eng.PullImage(ctx, ref)
+		if err == nil {
+			return nil
+		}
+
+		if attempt == pullAttempts {
+			break
+		}
+
+		// Doubling, from a base small enough that a build which never sees this
+		// fault does not notice the code exists.
+		wait := pullRetryBase * time.Duration(1<<(attempt-1))
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(wait):
+		}
+	}
+
+	return err
+}
+
 func dockerPullLocalImage(
 	ctx context.Context, eng *engine.Client, localRegistryAddr, pullName, finalName string,
 ) error {
 	fullPullName := fmt.Sprintf("%s/%s", localRegistryAddr, pullName)
 
-	err := eng.PullImage(ctx, fullPullName)
+	err := pullWithRetry(ctx, eng, fullPullName)
 	if err != nil {
 		return fmt.Errorf("image pull: %w", err)
 	}

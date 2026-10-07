@@ -68,11 +68,30 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
                   RELEASE_TAG: ${{ github.event.release.tag_name }}
+                  PRERELEASE: ${{ github.event.release.prerelease }}
+                  GH_REPO: ${{ github.repository }}
               # TODO: set usernames for docker
               run: |
+                  # Only move the floating :latest tags when this release is the
+                  # repository's latest release: never for prereleases, and not
+                  # for a patch release published for an older line (#769).
+                  PUSH_LATEST_TAG=false
+                  if [ "${PRERELEASE}" != "true" ]; then
+                      # Fail-safe: if the lookup fails, skip moving :latest but
+                      # still promote the :<RELEASE_TAG> images below.
+                      if LATEST_RELEASE_TAG="$(gh api "repos/${GH_REPO}/releases/latest" --jq .tag_name)"; then
+                          if [ "${LATEST_RELEASE_TAG}" = "${RELEASE_TAG}" ]; then
+                              PUSH_LATEST_TAG=true
+                          fi
+                      else
+                          echo "::warning::Could not look up the latest release of ${GH_REPO}; not moving the :latest tags."
+                      fi
+                  fi
+                  echo "Pushing :latest tags: ${PUSH_LATEST_TAG}"
                   earth --ci --push --secret "CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN}" \
                       --secret "DEST_CONTAINER_REGISTRY_TOKEN=${DOCKERHUB_TOKEN}" \
                       ./release+promote-to-dockerhub \
                       --RELEASE_TAG="${RELEASE_TAG}" \
+                      --PUSH_LATEST_TAG="${PUSH_LATEST_TAG}" \
                       --CONTAINER_REGISTRY_USER="${GHCR_USERNAME}" \
                       --DST_CONTAINER_REGISTRY_USER="${DOCKERHUB_USERNAME}"

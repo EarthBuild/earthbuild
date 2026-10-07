@@ -186,15 +186,21 @@ promote-to-dockerhub:
     # The release tag (vX.X.X) that we're running for
     ARG --required RELEASE_TAG
 
+    # PUSH_LATEST_TAG additionally points the floating :latest tag of each
+    # image at this release. The Tagged Release workflow sets it only for the
+    # repository's latest (non-prerelease) GitHub release, so prereleases and
+    # backported patch releases never move :latest.
+    ARG PUSH_LATEST_TAG="false"
+
     # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7 -> docker.io/earthbuild/buildkitd:${RELEASE_TAG}
-    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
+    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}" --PUSH_LATEST_TAG="${PUSH_LATEST_TAG}"
     # ghcr.io/earthbuild/earthbuild:8f307bf7 -> docker.io/earthbuild/earthbuild:${RELEASE_TAG}
-    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild" --SRC_TAG="${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
+    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild" --SRC_TAG="${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}" --PUSH_LATEST_TAG="${PUSH_LATEST_TAG}"
 
     # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7-ticktock -> docker.io/earthbuild/buildkitd-ticktock:${RELEASE_TAG}
-    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd-ticktock" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
+    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd-ticktock" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}" --PUSH_LATEST_TAG="${PUSH_LATEST_TAG}"
     # ghcr.io/earthbuild/earthbuild:8f307bf7-ticktock -> docker.io/earthbuild/earthbuild-ticktock:${RELEASE_TAG}
-    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild-ticktock" --SRC_TAG="${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
+    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild-ticktock" --SRC_TAG="${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}" --PUSH_LATEST_TAG="${PUSH_LATEST_TAG}"
 
 # Copy staging buildkitd from GHCR to DockerHub for staging releases
 # This is called during CI staging builds to make the buildkitd image available on DockerHub
@@ -235,6 +241,15 @@ copy-img-to-dockerhub:
     BUILD +copy-img --SRC_DOCKER_REGISTRY="${SRC_DOCKER_REGISTRY}" \
         --DST_DOCKER_REGISTRY="${DST_DOCKER_REGISTRY}" \
         --SRC_REF="${SRC_IMG}" --DEST_REF="${DEST_IMG}"
+
+    # Also move the floating :latest tag. skopeo copy --all copies the manifest
+    # list unchanged, so :latest resolves to the same digest as :${RELEASE_TAG}.
+    ARG PUSH_LATEST_TAG="false"
+    IF [ "$PUSH_LATEST_TAG" = "true" ]
+        BUILD +copy-img --SRC_DOCKER_REGISTRY="${SRC_DOCKER_REGISTRY}" \
+            --DST_DOCKER_REGISTRY="${DST_DOCKER_REGISTRY}" \
+            --SRC_REF="${SRC_IMG}" --DEST_REF="${DST_DOCKER_REGISTRY}/earthbuild/${IMG_NAME}:latest"
+    END
 
 copy-img:
     FROM +skopeo

@@ -163,6 +163,21 @@ func (b *Build) Action(ctx context.Context, cmd *cli.Command) error {
 		return params.Errorf("%s", err)
 	}
 
+	// Without a container frontend there is nowhere to load images into, so
+	// settle that now rather than fail mid-export.
+	if b.cli.Flags().Engine.IsStub() {
+		var skipped bool
+
+		export, skipped, err = exportWithoutFrontend(export, b.cli.Flags().ImageMode)
+		if err != nil {
+			return err
+		}
+
+		if skipped {
+			b.cli.Log().Warn(noFrontendImageOutputWarning)
+		}
+	}
+
 	b.export = export
 
 	if b.cli.Flags().InteractiveDebugging && !termutil.IsTTY() {
@@ -793,7 +808,9 @@ func receiveFileVersion2(
 func (b *Build) runnerName(ctx context.Context) (string, bool, error) {
 	var runnerName string
 
-	isLocal := engine.IsLocal(b.cli.Flags().BuildkitdSettings.BuildkitAddr)
+	// Without a container frontend nothing is run locally: an explicit buildkit
+	// host, even on a private network, is a daemon earth only connects to.
+	isLocal := engine.ManagesDaemon(b.cli.Flags().Engine, b.cli.Flags().BuildkitdSettings.BuildkitAddr)
 	if isLocal {
 		hostname, err := os.Hostname()
 		if err != nil {

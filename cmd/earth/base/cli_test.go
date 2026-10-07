@@ -6,6 +6,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
@@ -50,6 +51,29 @@ func TestInitBuildkit(t *testing.T) {
 
 		cmd := new(cli.Command)
 		err := c.InitBuildkit(cmd)
+		require.ErrorContains(t, err, "requires existing CA certificate")
+	})
+
+	// With no container frontend earth starts no buildkitd, so certificates it
+	// generated would be trusted by nothing, even on a private network (#863).
+	t.Run("private network host with stub engine and missing CA certificate returns error", func(t *testing.T) {
+		t.Parallel()
+
+		stub, err := engine.NewStub(&engine.Config{})
+		require.NoError(t, err)
+
+		c := NewCLI(new(conslogging.ConsoleLogger))
+		c.SetCfg(&config.Config{
+			Global: config.GlobalConfig{
+				TLSEnabled: true,
+				TLSCACert:  "/nonexistent/ca.pem",
+			},
+		})
+		c.Flags().Engine = stub
+		c.Flags().BuildkitHost = "tcp://10.0.0.5:8372"
+
+		cmd := new(cli.Command)
+		err = c.InitBuildkit(cmd)
 		require.ErrorContains(t, err, "requires existing CA certificate")
 	})
 }

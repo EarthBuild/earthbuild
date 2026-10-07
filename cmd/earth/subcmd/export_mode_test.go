@@ -127,3 +127,51 @@ func TestResolveExport(t *testing.T) {
 		})
 	}
 }
+
+// Without a container frontend images cannot be output locally, so that is
+// settled before the build rather than failing mid-export (#863).
+func TestExportWithoutFrontend(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		wantErr     error
+		name        string
+		export      earthfile2llb.Export
+		want        earthfile2llb.Export
+		imageMode   bool
+		wantSkipped bool
+	}{
+		{
+			name:        "default export drops images",
+			export:      earthfile2llb.ExportAll,
+			want:        earthfile2llb.ExportArtifactsOnly,
+			wantSkipped: true,
+		},
+		{
+			name:   "artifacts only is unchanged",
+			export: earthfile2llb.ExportArtifactsOnly,
+			want:   earthfile2llb.ExportArtifactsOnly,
+		},
+		{
+			name:   "no output is unchanged",
+			export: earthfile2llb.ExportNone,
+			want:   earthfile2llb.ExportNone,
+		},
+		{
+			name:      "image mode is rejected",
+			export:    earthfile2llb.ExportAll,
+			imageMode: true,
+			want:      earthfile2llb.ExportAll,
+			wantErr:   errImageModeWithoutFrontend,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, skipped, err := exportWithoutFrontend(tc.export, tc.imageMode)
+			require.ErrorIs(t, err, tc.wantErr)
+			require.Equal(t, tc.want, got)
+			require.Equal(t, tc.wantSkipped, skipped)
+		})
+	}
+}

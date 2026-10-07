@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -161,9 +163,9 @@ func (app *EarthApp) parseEngine(ctx context.Context, detect bool) error {
 			return err
 		}
 
-		// A remote buildkit host needs no container frontend on this machine,
-		// so not finding one is expected rather than worth a warning.
-		explicitRemote := engCfg.BuildkitHost != "" && !engine.IsLocal(engCfg.BuildkitHost)
+		// A buildkit host on another machine needs no container frontend on
+		// this one, so not finding one is expected rather than worth a warning.
+		explicitRemote := engCfg.BuildkitHost != "" && !onThisMachine(engCfg.BuildkitHost)
 		if !explicitRemote && !app.BaseCLI.Flags().Verbose {
 			log.Printf("Unable to detect Docker, Podman, or Apple Container. Use --verbose to see details (or errors)\n")
 		}
@@ -187,12 +189,33 @@ func (app *EarthApp) parseEngine(ctx context.Context, detect bool) error {
 	return nil
 }
 
+// onThisMachine reports whether a buildkit address points at this machine: a
+// container scheme, localhost or a loopback IP. Unlike engine.IsLocal, a
+// private-network IP is another machine.
+func onThisMachine(addr string) bool {
+	if !engine.IsLocal(addr) {
+		return false
+	}
+
+	parsed, err := url.Parse(addr)
+	if err != nil {
+		return false
+	}
+
+	ip := net.ParseIP(parsed.Hostname())
+
+	return ip == nil || ip.IsLoopback()
+}
+
 // useStubEngine installs the stub container frontend. When a buildkit host was
 // given explicitly (flag, env or config), it is carried through to the flags
 // so that a build can still connect to it: a remote buildkitd needs no Docker,
 // Podman or Apple Container on the client. Without an explicit host the stub
 // has nothing it could connect to, so the flags are left empty and the build
 // reports that no buildkit address could be determined.
+//
+// The local registry host is never carried through: images exported through
+// it end in a pull into the container frontend, which the stub does not have.
 func (app *EarthApp) useStubEngine(engCfg *engine.Config) error {
 	stub, err := engine.NewStub(engCfg)
 	if err != nil {
@@ -202,9 +225,7 @@ func (app *EarthApp) useStubEngine(engCfg *engine.Config) error {
 	app.BaseCLI.Flags().Engine = stub
 
 	if engCfg.BuildkitHost != "" {
-		addrs := stub.Metadata().Addrs
-		app.BaseCLI.Flags().BuildkitHost = addrs.Buildkit.String()
-		app.BaseCLI.Flags().LocalRegistryHost = addrs.LocalRegistry.String()
+		app.BaseCLI.Flags().BuildkitHost = stub.Metadata().Addrs.Buildkit.String()
 	}
 
 	return nil

@@ -98,7 +98,9 @@ func (cli *CLI) initTLS(useTCP bool) error {
 	// or local TCP daemon) so that users do not need to run 'earth bootstrap' beforehand.
 	exists, _ := fileutil.FileExists(cli.Cfg().Global.TLSCACert)
 	if !exists {
-		if !engine.IsLocal(cli.Flags().BuildkitHost) {
+		// Certificates generated here are only trusted by a daemon earth starts
+		// itself; with the stub engine even a private-network host is remote.
+		if !engine.ManagesDaemon(cli.Flags().Engine, cli.Flags().BuildkitHost) {
 			return fmt.Errorf("remote buildkit host %s requires existing CA certificate: %s not found",
 				cli.Flags().BuildkitHost, cli.Cfg().Global.TLSCACert)
 		}

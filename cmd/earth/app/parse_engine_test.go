@@ -22,6 +22,7 @@ func TestParseEngineExplicitBuildkitHost(t *testing.T) {
 		remoteHost = "tcp://buildkit.example.com:8372"
 		flagHost   = "tcp://flag.example.com:9000"
 		localHost  = "tcp://127.0.0.1:8372"
+		privHost   = "tcp://10.0.0.5:8372"
 	)
 
 	for _, tc := range []struct {
@@ -62,6 +63,14 @@ func TestParseEngineExplicitBuildkitHost(t *testing.T) {
 			wantHost:        localHost,
 			wantUndetectMsg: true,
 		},
+		{
+			// A private-network host is another machine, so no local frontend
+			// is expected; the stub connects to it as given.
+			name:     "explicit private network host, detection fails",
+			cfgHost:  privHost,
+			detect:   true,
+			wantHost: privHost,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -92,6 +101,30 @@ func TestParseEngineExplicitBuildkitHost(t *testing.T) {
 			} else {
 				require.NotContains(t, out.String(), undetectedMsg)
 			}
+		})
+	}
+}
+
+func TestOnThisMachine(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		addr string
+		want bool
+	}{
+		{addr: "docker-container://earth-buildkitd", want: true},
+		{addr: "tcp://127.0.0.1:8372", want: true},
+		{addr: "tcp://localhost:8372", want: true},
+		{addr: "tcp://[::1]:8372", want: true},
+		{addr: "tcp://10.0.0.5:8372", want: false},
+		{addr: "tcp://192.168.1.20:8372", want: false},
+		{addr: "tcp://172.16.4.2:8372", want: false},
+		{addr: "tcp://buildkit.example.com:8372", want: false},
+	} {
+		t.Run(tc.addr, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.want, onThisMachine(tc.addr))
 		})
 	}
 }

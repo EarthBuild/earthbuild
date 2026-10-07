@@ -113,7 +113,10 @@ func NewClient(
 		}
 	}()
 
-	isLocal := engine.IsLocal(settings.BuildkitAddr)
+	// With the stub engine (no Docker, Podman or Apple Container) there is no
+	// daemon to start, so even a local or private address is connected to as
+	// given rather than managed.
+	isLocal := engine.ManagesDaemon(eng, settings.BuildkitAddr)
 	if isLocal {
 		if !eng.IsAvailable(ctx) {
 			engName := eng.Metadata().Name
@@ -931,7 +934,7 @@ func waitForConnection(
 
 	opTimeout := settings.Timeout
 	addr := settings.BuildkitAddr
-	isLocal := engine.IsLocal(settings.BuildkitAddr)
+	isLocal := engine.ManagesDaemon(eng, settings.BuildkitAddr)
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, opTimeout)
 	defer cancel()
@@ -1164,7 +1167,7 @@ func GetDockerVersion(ctx context.Context, eng *engine.Client) (string, error) {
 func GetLogs(
 	ctx context.Context, containerName string, eng *engine.Client, settings Settings,
 ) (string, error) {
-	if !engine.IsLocal(settings.BuildkitAddr) {
+	if !engine.ManagesDaemon(eng, settings.BuildkitAddr) {
 		return "", nil
 	}
 

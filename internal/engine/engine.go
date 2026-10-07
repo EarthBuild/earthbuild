@@ -74,6 +74,27 @@ func (c *Client) IsAvailable(ctx context.Context) bool { return c.driver.IsAvail
 // Metadata returns engine metadata and endpoints.
 func (c *Client) Metadata() Metadata { return c.driver.Metadata() }
 
+// IsStub reports whether the client is the stub engine, used when no Docker,
+// Podman or Apple Container is available. A nil client counts as a stub.
+func (c *Client) IsStub() bool {
+	if c == nil {
+		return true
+	}
+
+	_, ok := c.driver.(*stubEngine)
+
+	return ok
+}
+
+// ManagesDaemon reports whether earth manages the buildkit daemon at addr
+// itself: starting, stopping and inspecting its container through eng. That
+// is only possible for a local address (see IsLocal) and a real container
+// engine. With the stub engine there is nothing to manage the daemon with, so
+// even a local or private-network address is a daemon to connect to as given.
+func ManagesDaemon(eng *Client, addr string) bool {
+	return IsLocal(addr) && !eng.IsStub()
+}
+
 // Version returns version information for the container engine.
 func (c *Client) Version(ctx context.Context) (Version, error) { return c.driver.Version(ctx) }
 

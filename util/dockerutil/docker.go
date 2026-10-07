@@ -74,7 +74,7 @@ func LoadDockerManifest(
 
 	err := eng.TagImage(ctx, children[defaultChild].ImageName, parentImageName)
 	if err != nil {
-		return fmt.Errorf("docker tag default platform image: %w", err)
+		return withFrontendHint(fmt.Errorf("docker tag default platform image: %w", err))
 	}
 
 	return nil
@@ -87,16 +87,21 @@ const noContainerFrontendHint = "no container frontend (Docker, Podman or Apple 
 	"to load the image into; use --no-image-output to skip local image output " +
 	"(combine with --push to publish images instead), or --no-output to skip all local output"
 
+// withFrontendHint adds noContainerFrontendHint to err when it stems from the
+// stub engine, i.e. there is no container frontend to output the image into.
+func withFrontendHint(err error) error {
+	if errors.Is(err, engine.ErrNotInitialized) {
+		return hint.Wrap(err, noContainerFrontendHint)
+	}
+
+	return err
+}
+
 // LoadDockerTar loads a docker image via a tar.
 func LoadDockerTar(ctx context.Context, eng *engine.Client, r io.ReadCloser) error {
 	err := eng.LoadImage(ctx, r)
 	if err != nil {
-		err = fmt.Errorf("load tar: %w", err)
-		if errors.Is(err, engine.ErrNotInitialized) {
-			return hint.Wrap(err, noContainerFrontendHint)
-		}
-
-		return err
+		return withFrontendHint(fmt.Errorf("load tar: %w", err))
 	}
 
 	return nil
@@ -130,7 +135,7 @@ func dockerPullLocalImage(
 
 	err := eng.PullImage(ctx, fullPullName)
 	if err != nil {
-		return fmt.Errorf("image pull: %w", err)
+		return withFrontendHint(fmt.Errorf("image pull: %w", err))
 	}
 
 	// Fix for #2471 where Podman pulls seem exit before the image is available
@@ -142,7 +147,7 @@ func dockerPullLocalImage(
 
 	err = eng.TagImage(ctx, fullPullName, finalName)
 	if err != nil {
-		return fmt.Errorf("image tag after pull: %w", err)
+		return withFrontendHint(fmt.Errorf("image tag after pull: %w", err))
 	}
 
 	force := true // Sometimes Docker GCs images automatically (force prevents an error).

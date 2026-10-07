@@ -67,7 +67,7 @@ jobs:
       - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earth_version_flag_overrides)"
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: run docker-build-integration
         run: ${INPUTS_SUDO} env earthly="${INPUTS_BUILT_EARTH_PATH}" scripts/tests/docker-build/integration.sh

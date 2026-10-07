@@ -220,8 +220,8 @@ func TestFormatErrorExitCodeHint(t *testing.T) {
 	tests := []struct {
 		name      string
 		errString string
-		exitCode  int
 		wantHint  string
+		exitCode  int
 	}{
 		{
 			name:      "RUN exit code 1",

@@ -135,7 +135,9 @@ func execDebuggerPlumbing(t *testing.T, st pllb.State) debuggerPlumbing {
 
 	for _, dt := range def.Def {
 		var op solverpb.Op
-		if err := op.Unmarshal(dt); err != nil {
+
+		err = op.Unmarshal(dt)
+		if err != nil {
 			t.Fatalf("unmarshal op: %v", err)
 		}
 
@@ -185,9 +187,9 @@ func TestInternalRunDebuggerPlumbing(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		debuggerEnabled bool
 		opts            ConvertRunOpts
 		want            debuggerPlumbing
+		debuggerEnabled bool
 	}{
 		{
 			name: "plain RUN",
@@ -231,7 +233,7 @@ func TestInternalRunDebuggerPlumbing(t *testing.T) {
 
 			opts := tt.opts
 			opts.CommandName = "RUN"
-			opts.Args = []string{"echo", "hi"}
+			opts.Args = []string{"true"}
 			opts.WithShell = true
 
 			st, err := c.internalRun(t.Context(), opts)

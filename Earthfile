@@ -14,7 +14,7 @@ go:
 node:
     FROM node:26.10.0-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=12.1.0
+    LET npm_version=12.2.0
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -116,9 +116,9 @@ lint-workflows:
 earthbuild-script-no-stdout:
     # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r1
+    FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0
     RUN apk add --no-cache bash
-    COPY earthly .earthly_version_flag_overrides .
+    COPY earthly .earth_version_flag_overrides .
 
     # This script performs an explicit "docker pull earthlybinaries:prerelease" which can cause rate-limiting
     # to work-around this, we will copy an earthly binary in, and disable auto-updating (and therefore don't require a WITH DOCKER)
@@ -184,7 +184,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.23.0
+    ARG vale_version=3.24.0
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything

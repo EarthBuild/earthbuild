@@ -55,9 +55,9 @@ func TestAutoSkipDeprecationWarning(t *testing.T) {
 // A command that starts no container should not wait for one to be found, and
 // a global flag's value must never be read as that command: scanned,
 // `--git-username doc build +all` named doc, and the build then ran against a
-// stub frontend. Driven through a real parse, because that is the whole of the
+// stub engine. Driven through a real parse, because that is the whole of the
 // fix.
-func TestNeedsFrontend(t *testing.T) {
+func TestNeedsEngine(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -91,7 +91,7 @@ func TestNeedsFrontend(t *testing.T) {
 				{Name: "prune", Action: noop},
 			},
 			Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
-				got = needsFrontend(cmd)
+				got = needsEngine(cmd)
 
 				return ctx, nil
 			},
@@ -101,7 +101,7 @@ func TestNeedsFrontend(t *testing.T) {
 		require.NoError(t, root.Run(t.Context(), append([]string{cmdName}, c.args...)))
 
 		if got != c.want {
-			t.Errorf("needsFrontend(%q) = %v, want %v", c.args, got, c.want)
+			t.Errorf("needsEngine(%q) = %v, want %v", c.args, got, c.want)
 		}
 	}
 }

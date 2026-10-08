@@ -56,6 +56,8 @@ ga-no-qemu-group3:
     BUILD +host-bind-test
     BUILD +transitive-args-test
     BUILD +transitive-args-test2
+    BUILD +transitive-args-copy-test
+    BUILD +transitive-args-copy-test2
     BUILD +non-transitive-args-test
 
 ga-no-qemu-group4:
@@ -493,6 +495,20 @@ transitive-args-test2:
     RUN test -f ./abc && test -f ./default
     RUN cat ./abc | acbgrep abc
     RUN cat ./default | acbgrep default
+
+transitive-args-copy-test:
+    DO +RUN_EARTH --earthfile=transitive-args-copy.earth --target=+test --post_command="--SOMEARG=xyz"
+    RUN cat ./copy.txt | acbgrep -x xyz
+    RUN cat ./from.txt | acbgrep -x xyz
+    # An override replaces the caller's default and is passed on.
+    RUN cat ./default.txt | acbgrep -x xyz
+
+transitive-args-copy-test2:
+    DO +RUN_EARTH --earthfile=transitive-args-copy.earth --target=+test
+    RUN cat ./copy.txt | acbgrep -x default
+    RUN cat ./from.txt | acbgrep -x default
+    # The caller's default value is not passed on.
+    RUN cat ./default.txt | acbgrep -x default
 
 non-transitive-args-test:
     COPY non-transitive-args1.earth ./Earthfile

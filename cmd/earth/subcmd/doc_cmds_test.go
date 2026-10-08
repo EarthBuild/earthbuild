@@ -153,7 +153,7 @@ build:
     FROM alpine:3.18
     RUN echo "Building for ${ENV}"
 `
-	ef, err := earthfile.Parse("Earthfile", content, earthfile.WithSourceMap())
+	ef, err := earthfile.Parse("Earthfile", content)
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)
@@ -214,7 +214,7 @@ deploy:
     FROM alpine:3.18
     RUN echo "$DB_URL"
 `
-	ef, err := earthfile.Parse("Earthfile", content, earthfile.WithSourceMap())
+	ef, err := earthfile.Parse("Earthfile", content)
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)
@@ -246,7 +246,7 @@ ARG --description="Container Registry repository" CR_REPO="earthbuild"
 ARG --description="Registry base URL" REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 `
-	ef, err := earthfile.Parse("Earthfile", content, earthfile.WithSourceMap())
+	ef, err := earthfile.Parse("Earthfile", content)
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)
@@ -310,7 +310,7 @@ alpha:
 bravo:
     FROM alpine:3.18
 `
-	ef, err := earthfile.Parse("Earthfile", content, earthfile.WithSourceMap())
+	ef, err := earthfile.Parse("Earthfile", content)
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)
@@ -380,7 +380,7 @@ ARG FOO=bar
 alpha:
     FROM alpine:3.18
 `
-	ef, err := earthfile.Parse("Earthfile", content, earthfile.WithSourceMap())
+	ef, err := earthfile.Parse("Earthfile", content)
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)
@@ -440,7 +440,7 @@ build:
     ARG --description="Environment stage" ENV=prod
     ARG --required --description="Database connection URL" DB_URL
 `
-	ef, err := earthfile.Parse("Earthfile", content, earthfile.WithSourceMap())
+	ef, err := earthfile.Parse("Earthfile", content)
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)
@@ -499,7 +499,7 @@ deploy:
 status:
     RUN echo "all good"
 `
-	ef, err := earthfile.Parse("Earthfile", content, earthfile.WithSourceMap())
+	ef, err := earthfile.Parse("Earthfile", content)
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)
@@ -565,7 +565,7 @@ build:
     RUN git checkout --quiet main
     BUILD +sub --TAG=$TAG
 `
-	ef, err := earthfile.Parse("Earthfile", content, earthfile.WithSourceMap())
+	ef, err := earthfile.Parse("Earthfile", content)
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)
@@ -596,7 +596,7 @@ ARG --global --description="Unused flag" UNUSED_FLAG
 build:
     COPY (+sub --ENABLE_FEATURE) /src /dst
 `
-	ef, err := earthfile.Parse("Earthfile", content, earthfile.WithSourceMap())
+	ef, err := earthfile.Parse("Earthfile", content)
 	require.NoError(t, err)
 
 	ftrs, _, err := features.Get(ef.Version)

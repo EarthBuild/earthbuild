@@ -3,7 +3,7 @@ package earthfile2llb
 import (
 	"context"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 type contextKey string
@@ -11,7 +11,7 @@ type contextKey string
 var contextKeySourceLocation contextKey = "sourceLocation"
 
 // ContextWithSourceLocation returns a new context with the given source location.
-func ContextWithSourceLocation(ctx context.Context, sl *spec.SourceLocation) context.Context {
+func ContextWithSourceLocation(ctx context.Context, sl *earthfile.SourceLocation) context.Context {
 	if sl == nil {
 		return ctx
 	}
@@ -20,7 +20,7 @@ func ContextWithSourceLocation(ctx context.Context, sl *spec.SourceLocation) con
 }
 
 // SourceLocationFromContext returns the source location from the given context.
-func SourceLocationFromContext(ctx context.Context) *spec.SourceLocation {
-	sl, _ := ctx.Value(contextKeySourceLocation).(*spec.SourceLocation)
+func SourceLocationFromContext(ctx context.Context) *earthfile.SourceLocation {
+	sl, _ := ctx.Value(contextKeySourceLocation).(*earthfile.SourceLocation)
 	return sl
 }

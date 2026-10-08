@@ -38,10 +38,10 @@ func TestImports(t *testing.T) {
 		{"/foo/p", "8", "p+abc", "", false},
 	}
 
-	var console conslogging.ConsoleLogger
+	log := new(conslogging.ConsoleLogger)
 
 	for _, tt := range tests {
-		ir := NewImportTracker(console, nil)
+		ir := NewImportTracker(log, nil)
 		err := ir.Add(tt.importStr, tt.as, false, false, false)
 		r.NoError(err, "add import error")
 

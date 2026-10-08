@@ -3,7 +3,7 @@ name: Test Earthly
 on:
   workflow_call:
     inputs:
-      BUILT_EARTHLY_PATH:
+      BUILT_EARTH_PATH:
         required: true
         type: string
       BINARY:
@@ -15,13 +15,22 @@ on:
       RUNS_ON:
         required: true
         type: string
-      EARTHLY_ORG:
+      EARTH_ORG:
         required: false
         type: string
       SKIP_JOB:
         required: false
         type: boolean
         default: false
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD:
+        required: false
+      DOCKERHUB_MIRROR_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        required: false
 
 
 env:
@@ -38,34 +47,44 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_INSTALL_ID: "earthly-githubactions"
-      EARTHLY_ORG: "${{inputs.EARTHLY_ORG}}"
+      EARTH_ORG: "${{inputs.EARTH_ORG}}"
       DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
       DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: ./.github/actions/stage2-setup
+          persist-credentials: false
+      - uses: $/.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          BUILT_EARTHLY_PATH: "${{ inputs.BUILT_EARTHLY_PATH }}"
+          BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earth_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute git-metadata-test
-        run: |-
-          ${{inputs.SUDO}} ${{ inputs.BUILT_EARTHLY_PATH }} --ci -P \
-          ./tests/git-metadata+test
-      - name: Buildkit logs (runs on failure)
+        run: |
+          # shellcheck disable=SC2016  # the snippet is passed verbatim to earth-retry.sh, which runs it
+          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" -c '
+            ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --ci -P \
+              ./tests/git-metadata+test
+          '
+        env:
+          INPUTS_SUDO: ${{inputs.SUDO}}
+          INPUTS_BINARY: ${{inputs.BINARY}}
+          INPUTS_BUILT_EARTH_PATH: ${{ inputs.BUILT_EARTH_PATH }}
+      - name: Failure diagnostics
         if: ${{ failure() }}
-        run: ${{inputs.SUDO}} ${{inputs.BINARY}} logs earthly-buildkitd || true
+        uses: $/.github/actions/failure-diagnostics
+        with:
+          BINARY: "${{ inputs.BINARY }}"
+          SUDO: "${{ inputs.SUDO }}"

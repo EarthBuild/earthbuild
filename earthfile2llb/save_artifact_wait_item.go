@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/waitutil"
 )
 
 type saveArtifactLocalWaitItem struct {
@@ -22,10 +21,17 @@ func (salwi *saveArtifactLocalWaitItem) SetDoSave() {
 	salwi.mu.Lock()
 	defer salwi.mu.Unlock()
 
+	// As in saveImageWaitItem.SetDoSave, this asks the user's whole-build intent
+	// and not the per-target SaveReferenced: this call is what announces that a
+	// BUILD referenced the target.
+	if !salwi.c.opt.Export.Artifacts() {
+		return
+	}
+
 	salwi.localExport = true
 }
 
-func newSaveArtifactLocal(state states.SaveLocal, c *Converter, localExport bool) waitutil.WaitItem {
+func newSaveArtifactLocal(state states.SaveLocal, c *Converter, localExport bool) states.WaitItem {
 	return &saveArtifactLocalWaitItem{
 		c:           c,
 		saveLocal:   state,

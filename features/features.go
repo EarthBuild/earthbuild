@@ -1,18 +1,18 @@
+// Package features manages version-specific feature flags and backward compatibility layers for earth.
 package features
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/spec"
-	goflags "github.com/jessevdk/go-flags"
-	"github.com/pkg/errors"
-
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/flagutil"
+	goflags "github.com/jessevdk/go-flags"
 )
 
 // Features is used to denote which features to flip on or off; this is for use in maintaining
@@ -20,7 +20,6 @@ import (
 type Features struct {
 	// Never enabled by default
 	NoUseRegistryForWithDocker bool `description:"disable use-registry-for-with-docker" long:"no-use-registry-for-with-docker"` //nolint:lll // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
-	EarthlyCIRunnerArg         bool `description:"includes EARTHLY_CI_RUNNER ARG"       long:"earthly-ci-runner-arg"`           //nolint:lll // earthly CI was discontinued, no reason to enable this by default
 
 	// VERSION 0.5
 	ExecAfterParallel        bool `description:"force execution after parallel conversion"                    enabled_in_version:"0.5" long:"exec-after-parallel"`          //nolint:lll
@@ -28,15 +27,14 @@ type Features struct {
 	UseRegistryForWithDocker bool `description:"use embedded Docker registry for WITH DOCKER load operations" enabled_in_version:"0.5" long:"use-registry-for-with-docker"` //nolint:lll
 
 	// VERSION 0.6
-	ForIn                      bool `description:"allow the use of the FOR command"                                                                                                                 enabled_in_version:"0.6" long:"for-in"`                         //nolint:lll
-	NoImplicitIgnore           bool `description:"disable implicit ignore rules to exclude .tmp-earthly-out/, build.earth, Earthfile, .earthignore and .earthlyignore when resolving local context" enabled_in_version:"0.6" long:"no-implicit-ignore"`             //nolint:lll
-	ReferencedSaveOnly         bool `description:"only save artifacts that are directly referenced"                                                                                                 enabled_in_version:"0.6" long:"referenced-save-only"`           //nolint:lll
-	RequireForceForUnsafeSaves bool `description:"require the --force flag when saving to path outside of current path"                                                                             enabled_in_version:"0.6" long:"require-force-for-unsafe-saves"` //nolint:lll
-	UseCopyIncludePatterns     bool `description:"specify an include pattern to buildkit when performing copies"                                                                                    enabled_in_version:"0.6" long:"use-copy-include-patterns"`      //nolint:lll
+	ForIn                      bool `description:"allow the use of the FOR command"                                                                                                               enabled_in_version:"0.6" long:"for-in"`                         //nolint:lll
+	NoImplicitIgnore           bool `description:"disable implicit ignore rules to exclude .tmp-earth-out/, build.earth, Earthfile, .earthignore and .earthlyignore when resolving local context" enabled_in_version:"0.6" long:"no-implicit-ignore"`             //nolint:lll
+	ReferencedSaveOnly         bool `description:"only save artifacts that are directly referenced"                                                                                               enabled_in_version:"0.6" long:"referenced-save-only"`           //nolint:lll
+	RequireForceForUnsafeSaves bool `description:"require the --force flag when saving to path outside of current path"                                                                           enabled_in_version:"0.6" long:"require-force-for-unsafe-saves"` //nolint:lll
+	UseCopyIncludePatterns     bool `description:"specify an include pattern to buildkit when performing copies"                                                                                  enabled_in_version:"0.6" long:"use-copy-include-patterns"`      //nolint:lll
 
 	// VERSION 0.7
 	CheckDuplicateImages     bool `description:"check for duplicate images during output"                                        enabled_in_version:"0.7" long:"check-duplicate-images"`      //nolint:lll
-	EarthlyCIArg             bool `description:"include EARTHLY_CI arg"                                                          enabled_in_version:"0.7" long:"ci-arg"`                      //nolint:lll
 	EarthlyGitAuthorArgs     bool `description:"includes EARTHLY_GIT_AUTHOR and EARTHLY_GIT_CO_AUTHORS ARGs"                     enabled_in_version:"0.7" long:"earthly-git-author-args"`     //nolint:lll
 	EarthlyLocallyArg        bool `description:"includes EARTHLY_LOCALLY ARG"                                                    enabled_in_version:"0.7" long:"earthly-locally-arg"`         //nolint:lll
 	EarthlyVersionArg        bool `description:"includes EARTHLY_VERSION and EARTHLY_BUILD_SHA ARGs"                             enabled_in_version:"0.7" long:"earthly-version-arg"`         //nolint:lll
@@ -196,14 +194,14 @@ var errUnexpectedArgs = errors.New("unexpected VERSION arguments; " +
 	"should be VERSION [flags] <major-version>.<minor-version>")
 
 // Get returns a features struct for a particular version.
-func Get(version *spec.Version) (*Features, bool, error) {
+func Get(version *earthfile.Version) (*Features, bool, error) {
 	var ftrs Features
 
 	hasVersion := (version != nil)
 	if !hasVersion {
-		// If no version is specified, we default to 0.5 (the Earthly version
+		// If no version is specified, we default to 0.5 (the Earthbuild version
 		// before the VERSION command was introduced).
-		version = &spec.Version{
+		version = &earthfile.Version{
 			Args: []string{"0.5"},
 		}
 	}
@@ -213,7 +211,8 @@ func Get(version *spec.Version) (*Features, bool, error) {
 	}
 
 	parsedArgs, err := flagutil.ParseArgsWithValueModifierAndOptions(
-		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption)
+		"VERSION", &ftrs, version.Args, nil, goflags.PassDoubleDash|goflags.PassAfterNonOption,
+	)
 	if err != nil {
 		return nil, false, err
 	}
@@ -231,12 +230,12 @@ func Get(version *spec.Version) (*Features, bool, error) {
 
 	ftrs.Major, err = strconv.Atoi(majorAndMinor[0])
 	if err != nil {
-		return nil, false, errors.Wrapf(err, "failed to parse major version %q", majorAndMinor[0])
+		return nil, false, fmt.Errorf("failed to parse major version %q: %w", majorAndMinor[0], err)
 	}
 
 	ftrs.Minor, err = strconv.Atoi(majorAndMinor[1])
 	if err != nil {
-		return nil, false, errors.Wrapf(err, "failed to parse minor version %q", majorAndMinor[1])
+		return nil, false, fmt.Errorf("failed to parse minor version %q: %w", majorAndMinor[1], err)
 	}
 
 	return &ftrs, hasVersion, nil
@@ -274,6 +273,7 @@ func FromContext(ctx context.Context) *Features {
 	return nil
 }
 
+// ProcessFlags enables any features that were enabled by flags.
 func (f *Features) ProcessFlags() ([]string, error) {
 	warningStrs := make([]string, 0)
 

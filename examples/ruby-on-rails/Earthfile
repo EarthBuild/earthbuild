@@ -1,16 +1,13 @@
 VERSION 0.8
-FROM ruby:3.4.8
+FROM ruby:4.0.7
 WORKDIR /ruby-on-rails-example
-# renovate: datasource=rubygems packageName=bundler
-ENV BUNDLER_VERSION=2.5.9
 
 deps:
     RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
       apt-get install -y nodejs
-    RUN gem install bundler:$BUNDLER_VERSION
     COPY Gemfile ./
     COPY --if-exists Gemfile.lock* ./
-    RUN bundle config build.nokogiri --use-system-libraries
+    RUN bundle config set build.nokogiri --use-system-libraries
     RUN bundle check || bundle install
     SAVE ARTIFACT Gemfile.lock AS LOCAL ./Gemfile.lock
 

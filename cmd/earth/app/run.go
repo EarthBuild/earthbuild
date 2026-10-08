@@ -1,0 +1,538 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/EarthBuild/earthbuild/buildkitd"
+	"github.com/EarthBuild/earthbuild/cmd/earth/common"
+	"github.com/EarthBuild/earthbuild/cmd/earth/helper"
+	"github.com/EarthBuild/earthbuild/earthfile2llb"
+	"github.com/EarthBuild/earthbuild/inputgraph"
+	"github.com/EarthBuild/earthbuild/internal/engine"
+	"github.com/EarthBuild/earthbuild/internal/env"
+	"github.com/EarthBuild/earthbuild/logstream"
+	"github.com/EarthBuild/earthbuild/util/errutil"
+	"github.com/EarthBuild/earthbuild/util/hint"
+	"github.com/EarthBuild/earthbuild/util/params"
+	"github.com/EarthBuild/earthbuild/util/reflectutil"
+	"github.com/EarthBuild/earthbuild/util/stringutil"
+	"github.com/EarthBuild/earthbuild/util/syncutil"
+	"github.com/fatih/color"
+	"github.com/moby/buildkit/util/grpcerrors"
+	"github.com/urfave/cli/v3"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+const flagCI = "--ci"
+
+var (
+	runExitCodeRegex  = regexp.MustCompile(`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`)
+	notFoundRegex     = regexp.MustCompile(`("[^"]*"): not found`)
+	maxExecTimeRegex  = regexp.MustCompile(`max execution time of .+ exceeded`)
+	requestIDRegex    = regexp.MustCompile(`(?P<msg>.*?) {reqID: .*?}`)
+	qemuExitCodeRegex = regexp.
+				MustCompile(`process "/dev/.buildkit_qemu_emulator.*?did not complete successfully: exit code: 255$`)
+)
+
+// Run runs the CLI and returns an exit code to pass to [os.Exit].
+func (app *EarthApp) Run(ctx context.Context, lastSignal *syncutil.Signal) (code int) {
+	err := app.unhideFlags()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error un-hiding flags: %v\n", err)
+		return 1
+	}
+
+	code = helper.AutoComplete(ctx, app.BaseCLI)
+	if code >= 0 {
+		return code
+	}
+
+	return app.run(ctx, os.Args, lastSignal)
+}
+
+func (app *EarthApp) unhideFlags() error {
+	var err error
+
+	// TODO delete this check after 2022-03-01
+	autocompleteHidden, _ := env.Lookup("AUTOCOMPLETE_HIDDEN")
+	if autocompleteHidden != "" && os.Getenv("COMP_POINT") == "" {
+		// only display warning when NOT under complete mode (otherwise we break auto completion)
+		app.BaseCLI.Log().Warn("Warning: EARTH_AUTOCOMPLETE_HIDDEN has been renamed to EARTH_SHOW_HIDDEN\n")
+	}
+
+	showHidden := false
+
+	showHiddenStr, _ := env.Lookup("SHOW_HIDDEN")
+	if showHiddenStr != "" {
+		showHidden, err = strconv.ParseBool(showHiddenStr)
+		if err != nil {
+			return err
+		}
+	}
+
+	if !showHidden {
+		return nil
+	}
+
+	for _, fl := range app.BaseCLI.App().Flags {
+		reflectutil.SetBool(fl, "Hidden", false)
+	}
+
+	unhideFlagsCommands(app.BaseCLI.App().Commands)
+
+	return nil
+}
+
+func unhideFlagsCommands(cmds []*cli.Command) {
+	for _, cmd := range cmds {
+		reflectutil.SetBool(cmd, "Hidden", false)
+
+		for _, flg := range cmd.Flags {
+			reflectutil.SetBool(flg, "Hidden", false)
+		}
+
+		unhideFlagsCommands(cmd.Commands)
+	}
+}
+
+func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncutil.Signal) int {
+	defer func() {
+		if app.BaseCLI.LogbusSetup() != nil {
+			err := app.BaseCLI.LogbusSetup().Close()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error(s) in logbus: %v\n", err)
+			}
+
+			if app.BaseCLI.Flags().LogstreamDebugManifestFile != "" {
+				err := app.BaseCLI.LogbusSetup().DumpManifestToFile(app.BaseCLI.Flags().LogstreamDebugManifestFile)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error dumping manifest: %v\n", err)
+				}
+			}
+		}
+	}()
+	defer app.BaseCLI.ExecuteDeferredFuncs()
+
+	app.BaseCLI.Logbus().Run().SetStart(time.Now())
+
+	defer func() {
+		// Just in case this is forgotten somewhere else.
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_OTHER,
+			"",
+			"Error: No SetFatalError called appropriately. This should never happen.",
+		)
+	}()
+
+	err := app.BaseCLI.App().Run(ctx, args)
+	if err != nil {
+		return app.handleError(ctx, err, args, lastSignal)
+	}
+
+	app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_SUCCESS)
+
+	return 0
+}
+
+// handleError handles run error, logs it and returns appropriate exit code.
+func (app *EarthApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
+	ie, isInterpreterError := earthfile2llb.GetInterpreterError(err)
+
+	grpcErr, grpcErrOK := grpcerrors.AsGRPCStatus(err)
+	hintErr := getHintErr(err, grpcErr)
+
+	var (
+		paramsErr   *params.Error
+		autoSkipErr *inputgraph.Error
+	)
+
+	switch {
+	case hintErr != nil:
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_OTHER,
+			hintErr.Hint(),
+			hintErr.Message(),
+		)
+		app.BaseCLI.Log().HelpPrint(hintErr.Hint())
+
+		return 1
+	case errors.As(err, &autoSkipErr):
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_AUTO_SKIP,
+			"",
+			inputgraph.FormatError(err),
+		)
+
+		return 1
+	case errors.As(err, &paramsErr):
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_INVALID_PARAM,
+			"",
+			paramsErr.ParentError(),
+		)
+
+		if paramsErr.Error() != paramsErr.ParentError() {
+			app.BaseCLI.Log().VerboseWarn(errorWithPrefix(paramsErr.Error()))
+		}
+
+		return 1
+	case qemuExitCodeRegex.MatchString(err.Error()):
+		var helpMsg string
+
+		helpMsg = "Are you using --platform to target a different architecture? You may have to manually install QEMU.\n" +
+			"For more information see https://docs.earthbuild.dev/guides/multi-platform\n"
+		app.BaseCLI.Log().HelpPrint(helpMsg)
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_OTHER,
+			helpMsg,
+			err.Error(),
+		)
+
+		return 255
+	case runExitCodeRegex.MatchString(err.Error()):
+		var helpMsg string
+
+		if !app.BaseCLI.Flags().InteractiveDebugging && len(args) > 0 {
+			args = append([]string{args[0], "-i"}, args[1:]...)
+			args = redactSecretsFromArgs(args)
+			args = slices.DeleteFunc(args, func(arg string) bool {
+				return arg == flagCI
+			})
+			msg := "To debug your build, you can use the --interactive (-i) flag to drop into a shell of the failing RUN step"
+			helpMsg = fmt.Sprintf("%s: %q\n", msg, strings.Join(args, " "))
+			app.BaseCLI.Log().HelpPrint(helpMsg)
+		}
+		// This error would have been displayed earlier from the SolverMonitor.
+		// This SetGenericFatalError is a catch-all just in case that hasn't happened.
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_OTHER,
+			helpMsg,
+			err.Error(),
+		)
+
+		return 1
+	case strings.Contains(err.Error(), "security.insecure is not allowed"):
+		// Extract target info from error if available
+		targetInfo := ""
+
+		if ie != nil && isInterpreterError {
+			targetInfo = ie.TargetID
+		}
+
+		// If no target info from interpreter error, try to extract from args
+		if targetInfo == "" && len(args) > 1 {
+			for _, arg := range args[1:] {
+				if strings.HasPrefix(arg, "+") {
+					targetInfo = arg
+					break
+				}
+			}
+		}
+
+		userMsg := "This build requires privileged mode."
+
+		if targetInfo != "" {
+			userMsg = "Target " + targetInfo + " requires privileged mode."
+		}
+
+		// Create help message with actual target if available
+		flagExample := "earth -P +your-target"
+
+		if targetInfo != "" {
+			flagExample = "earth -P " + targetInfo
+		}
+
+		helpMsg := "To fix this, use one of the following:\n" +
+			"  • Run with the -P flag: " + flagExample + "\n" +
+			"  • Set environment variable: export EARTHLY_ALLOW_PRIVILEGED=true\n" +
+			"  • Add to config: earth config global.allow_privileged true"
+
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_NEEDS_PRIVILEGED,
+			helpMsg,
+			userMsg,
+		)
+		app.BaseCLI.Log().VerboseWarnf("Error: %s\n", err.Error())
+		app.BaseCLI.Log().HelpPrint(helpMsg)
+
+		return 9
+	case strings.Contains(err.Error(), errutil.EarthlyGitStdErrMagicString):
+		helpMsg := "Check your git auth settings.\n" +
+			"Did you ssh-add today? Need to configure ~/.earthly/config.yml?\n" +
+			"For more information see https://docs.earthbuild.dev/guides/auth\n"
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_GIT,
+			helpMsg,
+			err.Error(),
+		)
+
+		gitStdErr, shorterErr, ok := errutil.ExtractEarthlyGitStdErr(err.Error())
+		if ok {
+			app.BaseCLI.Log().VerboseWarnf("Error: %v\n\n%s\n", shorterErr, gitStdErr)
+		} else {
+			app.BaseCLI.Log().VerboseWarnf("Error: %v\n", err.Error())
+		}
+
+		app.BaseCLI.Log().HelpPrint(helpMsg)
+
+		return 1
+	case strings.Contains(err.Error(), "failed to compute cache key") && strings.Contains(err.Error(), ": not found"):
+		matches := notFoundRegex.FindStringSubmatch(err.Error())
+
+		var msg string
+		if len(matches) == 2 {
+			msg = fmt.Sprintf("File not found: %s, %s\n", matches[1], err.Error())
+		} else {
+			msg = fmt.Sprintf("File not found: %s\n", err.Error())
+		}
+
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND,
+			"",
+			msg,
+		)
+
+		return 1
+	case strings.Contains(err.Error(), "429 Too Many Requests"):
+		var registryName, registryHost string
+		if strings.Contains(err.Error(), "docker.com/increase-rate-limit") {
+			registryName = "DockerHub"
+		} else {
+			registryName = "The remote registry"
+			registryHost = " <server>" // keep the leading space
+		}
+
+		helpMsg := fmt.Sprintf("%s responded with a rate limit error. This is usually because you are not logged in.\n"+
+			"You can login using the command:\n"+
+			"  docker login%s", registryName, registryHost)
+		app.BaseCLI.Log().HelpPrint(helpMsg)
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_RATE_LIMITED,
+			helpMsg,
+			err.Error(),
+		)
+
+		return 1
+	case grpcErrOK && grpcErr.Code() == codes.PermissionDenied && requestIDRegex.MatchString(grpcErr.Message()):
+		errorMsg := grpcErr.Message()
+
+		matches, _ := stringutil.NamedGroupMatches(errorMsg, requestIDRegex)
+		if len(matches["msg"]) > 0 {
+			errorMsg = matches["msg"][0]
+		}
+
+		app.BaseCLI.Log().VerboseWarn(err.Error())
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, "", errorMsg)
+
+		return 1
+	case grpcErrOK && grpcErr.Code() == codes.Unknown && maxExecTimeRegex.MatchString(grpcErr.Message()):
+		app.BaseCLI.Log().VerboseWarn(errorWithPrefix(err.Error()))
+
+		helpMsg := "Unverified accounts have a limit on the duration of RUN commands. " +
+			"Verify your account to lift this restriction."
+		app.BaseCLI.Logbus().Run().
+			SetGenericFatalError(time.Now(), logstream.FailureType_FAILURE_TYPE_OTHER, helpMsg, grpcErr.Message())
+		app.BaseCLI.Log().HelpPrint(helpMsg)
+
+		return 1
+	case grpcErrOK && grpcErr.Code() != codes.Canceled:
+		app.BaseCLI.Log().VerboseWarn(errorWithPrefix(err.Error()))
+
+		if !strings.Contains(grpcErr.Message(), "transport is closing") {
+			app.BaseCLI.Logbus().Run().SetGenericFatalError(
+				time.Now(),
+				logstream.FailureType_FAILURE_TYPE_OTHER,
+				"",
+				grpcErr.Message(),
+			)
+
+			return 1
+		}
+
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_BUILDKIT_CRASHED,
+			"",
+			grpcErr.Message(),
+		)
+		app.BaseCLI.Log().Warn(
+			"Error: It seems that buildkitd is shutting down or it has crashed. " +
+				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+		)
+
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) {
+			app.printCrashLogs(ctx)
+		}
+
+		return 7
+	case errors.Is(err, buildkitd.ErrBuildkitCrashed):
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_BUILDKIT_CRASHED,
+			"",
+			err.Error(),
+		)
+		app.BaseCLI.Log().Warn(
+			"Error: It seems that buildkitd is shutting down or it has crashed. " +
+				"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+		)
+
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) {
+			app.printCrashLogs(ctx)
+		}
+
+		return 7
+	case errors.Is(err, buildkitd.ErrBuildkitConnectionFailure):
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_CONNECTION_FAILURE,
+			"",
+			err.Error(),
+		)
+
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) {
+			app.BaseCLI.Log().Warn(
+				"Error: It seems that buildkitd had an issue. " +
+					"You can report crashes at https://github.com/EarthBuild/earthbuild/issues/new.",
+			)
+			app.printCrashLogs(ctx)
+		}
+
+		return 6
+	case errors.Is(err, context.Canceled), grpcErrOK && grpcErr.Code() == codes.Canceled:
+		app.BaseCLI.Logbus().Run().SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_CANCELED)
+
+		if app.BaseCLI.Flags().Verbose {
+			app.BaseCLI.Log().Warnf("Canceled: %v\n", err)
+		} else {
+			app.BaseCLI.Log().Warn("Canceled\n")
+		}
+
+		if engine.IsLocal(app.BaseCLI.Flags().BuildkitdSettings.BuildkitAddr) && lastSignal.Get() == nil {
+			app.printCrashLogs(ctx)
+		}
+
+		return 2
+	case isInterpreterError:
+		if ie.TargetID == "" {
+			app.BaseCLI.Logbus().Run().SetGenericFatalError(
+				time.Now(),
+				logstream.FailureType_FAILURE_TYPE_SYNTAX,
+				"",
+				ie.Error(),
+			)
+
+			return 1
+		}
+
+		app.BaseCLI.Logbus().Run().SetFatalError(
+			time.Now(),
+			ie.TargetID,
+			"",
+			logstream.FailureType_FAILURE_TYPE_SYNTAX,
+			"",
+			ie.Error(),
+		)
+
+		return 1
+	default:
+		app.BaseCLI.Logbus().Run().SetGenericFatalError(
+			time.Now(),
+			logstream.FailureType_FAILURE_TYPE_OTHER,
+			"",
+			err.Error(),
+		)
+
+		return 1
+	}
+}
+
+func (app *EarthApp) printCrashLogs(ctx context.Context) {
+	app.BaseCLI.Log().PrintBar(color.New(color.FgHiRed), "System Info", "")
+	fmt.Fprintf(os.Stderr, "version: %s\n", app.BaseCLI.Version())  // #nosec G705
+	fmt.Fprintf(os.Stderr, "build-sha: %s\n", app.BaseCLI.GitSHA()) // #nosec G705
+	fmt.Fprintf(os.Stderr, "platform: %s\n", common.GetPlatform())  // #nosec G705
+
+	dockerVersion, err := buildkitd.GetDockerVersion(ctx, app.BaseCLI.Flags().Engine)
+	if err != nil {
+		app.BaseCLI.Log().Warnf("failed querying docker version: %s\n", err.Error())
+	} else {
+		app.BaseCLI.Log().PrintBar(color.New(color.FgHiRed), "Docker Version", "")
+		fmt.Fprintln(os.Stderr, dockerVersion) // #nosec G705
+	}
+
+	logs, err := buildkitd.GetLogs(ctx,
+		app.BaseCLI.Flags().ContainerName, app.BaseCLI.Flags().Engine, app.BaseCLI.Flags().BuildkitdSettings)
+	if err != nil {
+		app.BaseCLI.Log().Warnf("failed fetching %s logs: %s\n", app.BaseCLI.Flags().ContainerName, err.Error())
+	} else {
+		app.BaseCLI.Log().PrintBar(color.New(color.FgHiRed), "Buildkit Logs", "")
+		fmt.Fprintln(os.Stderr, logs) // #nosec G705
+	}
+}
+
+func errorWithPrefix(err string) string {
+	return "Error: " + err
+}
+
+func getHintErr(err error, grpcError *status.Status) *hint.Error {
+	if res, ok := errors.AsType[*hint.Error](err); ok {
+		return res
+	}
+
+	if grpcError != nil {
+		return hint.FromError(errors.New(grpcError.Message()))
+	}
+
+	return nil
+}
+
+// Flags that are related to secrets.
+const (
+	secretArgShort = "-s"
+	secretArg      = "--secret"
+)
+
+func redactSecretsFromArgs(args []string) []string {
+	redacted := []string{}
+
+	isSecret := false
+	for _, arg := range args {
+		if isSecret {
+			isSecret = false
+
+			parts := strings.SplitN(arg, "=", 2)
+			if len(parts) > 1 {
+				redacted = append(redacted, parts[0]+"=XXXXX")
+				continue
+			}
+		}
+
+		if arg == secretArgShort || arg == secretArg {
+			isSecret = true
+		}
+
+		redacted = append(redacted, arg)
+	}
+
+	return redacted
+}

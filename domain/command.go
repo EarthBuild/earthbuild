@@ -3,8 +3,6 @@ package domain
 import (
 	"fmt"
 	"regexp"
-
-	"github.com/pkg/errors"
 )
 
 var _ Reference = Command{}
@@ -13,7 +11,7 @@ const commandNamePattern = "^[A-Z][A-Z0-9._]*$"
 
 var commandNameRegex = regexp.MustCompile(commandNamePattern)
 
-// Command is an earthly command identifier.
+// Command is an earth command identifier.
 type Command struct {
 	// Remote representation.
 	GitURL string `json:"gitUrl"` // e.g. "github.com/EarthBuild/earthbuild/examples/go"
@@ -113,7 +111,7 @@ func ParseCommand(fullCommandName string) (Command, error) {
 
 	ok := commandNameRegex.MatchString(command)
 	if !ok {
-		return Command{}, errors.Errorf("command name %s does not match %s", command, commandNamePattern)
+		return Command{}, fmt.Errorf("command name %s does not match %s", command, commandNamePattern)
 	}
 
 	return Command{

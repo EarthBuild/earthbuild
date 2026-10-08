@@ -1,9 +1,12 @@
+// Package formatter implements specialized formatting logic for translating logbus events
+// into human-readable console output.
 package formatter
 
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -19,9 +22,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	runc "github.com/containerd/go-runc"
 	humanize "github.com/dustin/go-humanize"
-	"github.com/hashicorp/go-multierror"
 	"github.com/mattn/go-isatty"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -59,19 +60,19 @@ type command struct {
 
 // Formatter is a delta to console logger.
 type Formatter struct {
-	defaultPlatform            string
 	startTime                  time.Time
+	err                        error
+	interactives               map[string]struct{} // set of command IDs
 	bus                        *logbus.Bus
-	execStatsTracker           *execstatssummary.Tracker
 	ongoingTicker              *time.Ticker
 	lastCommandOutput          *command
 	manifest                   *logstream.RunManifest
 	closedCh                   chan struct{}
-	interactives               map[string]struct{}      // set of command IDs
+	log                        *conslogging.ConsoleLogger
 	timingTable                map[string]time.Duration // targetID -> duration
 	commands                   map[string]*command
-	errors                     []error
-	console                    conslogging.ConsoleLogger
+	execStatsTracker           *execstatssummary.Tracker
+	defaultPlatform            string
 	ongoingTick                time.Duration
 	mu                         sync.Mutex
 	displayStats               bool
@@ -84,7 +85,7 @@ type Formatter struct {
 func New(
 	ctx context.Context,
 	b *logbus.Bus,
-	debug, verbose, displayStats, forceColor, noColor, disableOngoingUpdates bool,
+	debug, verbose, displayStats bool, disableOngoingUpdates bool,
 	execStatsTracker *execstatssummary.Tracker,
 	isGitHubActions bool,
 ) *Formatter {
@@ -107,20 +108,9 @@ func New(
 		logLevel = conslogging.Info
 	}
 
-	var colorMode conslogging.ColorMode
-
-	switch {
-	case forceColor:
-		colorMode = conslogging.ForceColor
-	case noColor:
-		colorMode = conslogging.NoColor
-	default:
-		colorMode = conslogging.AutoColor
-	}
-
 	f := &Formatter{
 		bus:              b,
-		console:          conslogging.New(nil, nil, colorMode, conslogging.DefaultPadding, logLevel, isGitHubActions),
+		log:              conslogging.New(nil, nil, conslogging.DefaultPadding, logLevel, isGitHubActions),
 		verbose:          verbose,
 		displayStats:     displayStats,
 		execStatsTracker: execStatsTracker,
@@ -147,7 +137,7 @@ func (f *Formatter) Write(delta *logstream.Delta) {
 
 	err := f.processDelta(delta)
 	if err != nil {
-		f.errors = append(f.errors, err)
+		f.err = errors.Join(f.err, err)
 	}
 }
 
@@ -167,12 +157,7 @@ func (f *Formatter) Close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	var retErr error
-	for _, err := range f.errors {
-		retErr = multierror.Append(retErr, err)
-	}
-
-	return retErr
+	return f.err
 }
 
 // Manifest returns a copy of the manifest.
@@ -188,14 +173,14 @@ func (f *Formatter) Manifest() *logstream.RunManifest {
 func (f *Formatter) processDelta(delta *logstream.Delta) error {
 	err := deltautil.ApplyDelta(f.manifest, delta)
 	if err != nil {
-		return errors.Wrap(err, "failed to apply delta")
+		return fmt.Errorf("failed to apply delta: %w", err)
 	}
 
 	switch d := delta.GetDeltaTypeOneof().(type) {
 	case *logstream.Delta_DeltaManifest:
 		err := f.handleDeltaManifest(d.DeltaManifest)
 		if err != nil {
-			return errors.Wrap(err, "failed to handle delta manifest")
+			return fmt.Errorf("failed to handle delta manifest: %w", err)
 		}
 	case *logstream.Delta_DeltaLog:
 		err := f.handleDeltaLog(d.DeltaLog)
@@ -224,7 +209,7 @@ func (f *Formatter) ongoingTickLoop(ctx context.Context) {
 
 			err := f.processOngoingTick()
 			if err != nil {
-				f.errors = append(f.errors, err)
+				f.err = errors.Join(f.err, err)
 			}
 
 			f.mu.Unlock()
@@ -330,7 +315,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 
 		err := json.Unmarshal(output, &stats)
 		if err != nil {
-			return errors.Wrap(err, "failed to parse stats")
+			return fmt.Errorf("failed to parse stats: %w", err)
 		}
 
 		totalCPU := time.Duration(stats.Cpu.Usage.Total) // #nosec G115 // Total is reported in nanoseconds
@@ -390,7 +375,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 
 //nolint:unparam // error return kept for future use
 func (f *Formatter) processOngoingTick() error {
-	c := f.console.WithWriter(f.bus.FormattedWriter("ongoing", "")).WithPrefix("ongoing")
+	c := f.log.WithWriter(f.bus.FormattedWriter("ongoing", "")).WithPrefix("ongoing")
 	c.VerbosePrintf("ongoing TODO\n")
 	// TODO(vladaionescu): Go through all the commands and find which one is ongoing.
 	// Print their targets on the console.
@@ -451,7 +436,8 @@ func (f *Formatter) printProgress(targetID string, commandID string, cm *logstre
 	progressBar := progressbar.ProgressBar(int(cm.GetProgress()), 10)
 	builder = append(builder, fmt.Sprintf(
 		"[%s] %3d%% %s%s\n",
-		progressBar, cm.GetProgress(), cm.GetName(), string(ansiEraseRestLine)))
+		progressBar, cm.GetProgress(), cm.GetName(), string(ansiEraseRestLine),
+	))
 	c.PrintBytes([]byte(strings.Join(builder, "")))
 
 	f.lastOutputWasOngoingUpdate = false
@@ -623,7 +609,9 @@ func (f *Formatter) commandName(commandID string) string {
 	return "unknown"
 }
 
-func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput bool) (conslogging.ConsoleLogger, bool) {
+func (f *Formatter) targetConsole(
+	targetID, commandID string, rawOutput bool,
+) (*conslogging.ConsoleLogger, bool) {
 	var (
 		targetName     string
 		writerTargetID string
@@ -678,11 +666,11 @@ func (f *Formatter) targetConsole(targetID string, commandID string, rawOutput b
 	}
 
 	if rawOutput {
-		return f.console.
+		return f.log.
 			WithWriter(f.bus.FormattedWriter(writerTargetID, commandID)), verboseOnly
 	}
 
-	return f.console.
+	return f.log.
 		WithWriter(f.bus.FormattedWriter(writerTargetID, commandID)).
 		WithPrefixAndSalt(targetName, writerTargetID), verboseOnly
 }

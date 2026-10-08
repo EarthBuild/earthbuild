@@ -1,8 +1,8 @@
-This image contains `earthly`, `buildkit`, and some extra configuration to enable the two to work together. All that's missing is your source code! This image is mainly intended for use in containerized CI scenarios, or where maintaining a persistent installation of `earthly` isn't possible.
+This image contains `earth`, `buildkit`, and some extra configuration to enable the two to work together. All that's missing is your source code! This image is mainly intended for use in containerized CI scenarios, or where maintaining a persistent installation of `earth` isn't possible.
 
 ## Tags
 
-Currently, the `latest` tag is `v0.8.16`.
+Currently, the `latest` tag is `v0.8.19`.
 For other available tags, please check out https://hub.docker.com/r/earthbuild/earthbuild/tags
 
 ## Quickstart
@@ -11,35 +11,35 @@ Want to get started? Here are a couple sample `docker run` commands that cover t
 
 ### Usage with Docker Socket
 
-This example shows how to use the Earthly container in conjunction with a Docker socket that Earthly can use to start up the BuildKit daemon.
+This example shows how to use the EarthBuild container in conjunction with a Docker socket that EarthBuild can use to start up the BuildKit daemon.
 
 ```bash
-docker run -t -v $(pwd):/workspace -v /var/run/docker.sock:/var/run/docker.sock -e NO_BUILDKIT=1 earthbuild/earthbuild:v0.8.16 +for-linux
+docker run -t -v $(pwd):/workspace -v /var/run/docker.sock:/var/run/docker.sock -e NO_BUILDKIT=1 earthbuild/earthbuild:v0.8.19 +for-linux
 ```
 
 Here's a quick breakdown:
 
-- `-t` tells Docker to emulate a TTY. This makes the `earthly` log output colorized.
-- `-v $(pwd):/workspace` mounts the source code into the conventional location within the docker container. Earthly is executed from this directory when starting the container. Any artifacts saved within this folder remain on your local machine.
-- `-v /var/run/docker.sock:/var/run/docker.sock` mounts the Docker socket such that Earthly can start BuildKit as a Docker container in the host's Docker.
-- `-e NO_BUILDKIT=1` tells the Earthly container not to start en embedded BuildKit. A BuildKit daemon will instead be started via the Docker socket provided.
-- `+for-linux` is the target to be invoked. All arguments specified after the image tag will be passed to `earthly`.
+- `-t` tells Docker to emulate a TTY. This makes the `earth` log output colorized.
+- `-v $(pwd):/workspace` mounts the source code into the conventional location within the docker container. EarthBuild is executed from this directory when starting the container. Any artifacts saved within this folder remain on your local machine.
+- `-v /var/run/docker.sock:/var/run/docker.sock` mounts the Docker socket such that EarthBuild can start BuildKit as a Docker container in the host's Docker.
+- `-e NO_BUILDKIT=1` tells the EarthBuild container not to start en embedded BuildKit. A BuildKit daemon will instead be started via the Docker socket provided.
+- `+for-linux` is the target to be invoked. All arguments specified after the image tag will be passed to `earth`.
 
 ### Usage with Embedded BuildKit
 
-This example shows how the Earthly image can start a BuildKit daemon within the same container. A Docker socket is not needed in this case, however the container will need to be run with the `--privileged` flag.
+This example shows how the EarthBuild image can start a BuildKit daemon within the same container. A Docker socket is not needed in this case, however the container will need to be run with the `--privileged` flag.
 
 ```bash
-docker run --privileged -t -v $(pwd):/workspace -v earthbuild-tmp:/tmp/earthbuild:rw earthbuild/earthbuild:v0.8.16 +for-linux
+docker run --privileged -t -v $(pwd):/workspace -v earthbuild-tmp:/tmp/earthbuild:rw earthbuild/earthbuild:v0.8.19 +for-linux
 ```
 
 Here's a quick breakdown:
 
 - `--privileged` is required when you are using the internal, embedded `buildkit`. This is because `buildkit` currently requires it for OverlayFS support and for network configuration.
-- `-t` tells Docker to emulate a TTY. This makes the `earthly` log output colorized.
-- `-v $(pwd):/workspace` mounts the source code into the conventional location within the docker container. Earthly is executed from this directory when starting the container. Any artifacts saved within this folder remain on your local machine.
+- `-t` tells Docker to emulate a TTY. This makes the `earth` log output colorized.
+- `-v $(pwd):/workspace` mounts the source code into the conventional location within the docker container. EarthBuild is executed from this directory when starting the container. Any artifacts saved within this folder remain on your local machine.
 - `-v earthbuild-tmp:/tmp/earthbuild:rw` mounts (and creates, if necessary) the `earthbuild-tmp` Docker volume into the containers `/tmp/earthbuild`. This is used as a temporary/working directory for `buildkitd` during builds.
-- `+for-linux` is the target to be invoked. All arguments specified after the image tag will be passed to `earthly`.
+- `+for-linux` is the target to be invoked. All arguments specified after the image tag will be passed to `earth`.
 
 ## Using This Image
 
@@ -65,32 +65,32 @@ rm: can't remove '/var/earthbuild/dind/...': Resource busy
 
 #### Source Mounting
 
-Because `earthly` is running inside a container, it does not have access to your source code unless you grant it. This image expects to find a valid `Earthfile` in the working directory, which is set by default to `/workspace`.
+Because `earth` is running inside a container, it does not have access to your source code unless you grant it. This image expects to find a valid `Earthfile` in the working directory, which is set by default to `/workspace`.
 
 #### DOCKER_HOST
 
 This image _does_ include a functional Docker CLI, but does not include a full Docker daemon. If your `Earthfile` requires a Docker daemon of any sort, you will need to provide it through this environment variable.
 
-If your daemon is on the same host as this container, you can also volume mount your hosts docker daemon using `-v /var/run/docker.sock:/var/run/docker.sock`. Note that this will cause `earthly` to use your hosts Docker daemon, and could lead to name conflicts if multiple copies of this image are run on the same host.
+If your daemon is on the same host as this container, you can also volume mount your hosts docker daemon using `-v /var/run/docker.sock:/var/run/docker.sock`. Note that this will cause `earth` to use your hosts Docker daemon, and could lead to name conflicts if multiple copies of this image are run on the same host.
 
 #### -t
 
-This is the easiest way to ensure you get the nice, colorized output from `earthly`. Alternatively, you could provide the `FORCE_COLOR` environment variable.
+This is the easiest way to ensure you get the nice, colorized output from `earth`. Alternatively, you could provide the `FORCE_COLOR` environment variable.
 
 ### Supported Environment Variables
 
 | Variable Name                      | Default Values                 | Description                                                                                                                                                                                                   |
 | ---------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GLOBAL_CONFIG                      |                                | Any valid YAML for the top-level `global` key in `config.yml`. Example: `{disable_analytics: true, local_registry_host: 'tcp://127.0.0.1:8371'}`                                                              |
+| GLOBAL_CONFIG                      |                                | Any valid YAML for the top-level `global` key in `config.yml`. Example: `{local_registry_host: 'tcp://127.0.0.1:8371'}`                                                              |
 | GIT_CONFIG                         |                                | Any valid YAML for the top-level `git` key in `config.yml`. Example: `{example: {pattern: 'example.com/([^/]+)', substitute: 'ssh://git@example.com:2222/var/git/repos/$1.git', auth: ssh}}`                  |
 | NO_BUILDKIT                        |                                | Disables the embedded BuildKit daemon.                                                                                                                                                                        |
 | DOCKER_HOST                        | `/var/run/docker.sock`         | From Docker's CLI.                                                                                                                                                                                            |
 | BUILDKIT_HOST                      | `tcp://<hostname>:8372`        | The address of your BuildKit host. Use this when you have a remote `buildkitd` you would like to connect to.                                                                                                  |
-| EARTHLY_ADDITIONAL_BUILDKIT_CONFIG |                                | Additional `buildkitd` config to append to the generated configuration file.                                                                                                                                  |
+| EARTH_ADDITIONAL_BUILDKIT_CONFIG |                                | Additional `buildkitd` config to append to the generated configuration file.                                                                                                                                  |
 | BUILDKIT_TCP_TRANSPORT_ENABLED     |                                | Required to be set to `true` when using an external `buildkitd` via `BUILDKIT_HOST`. `true` when using the embedded `buildkitd`.                                                                              |
-| BUILDKIT_TLS_ENABLED               |                                | Required when using an external `buildkitd` via `BUILDKITD_HOST`, and the external `buildkitd` requires mTLS. You will also need to mount certificates into the right place (`/etc/.earthly/certs`).          |
+| BUILDKIT_TLS_ENABLED               |                                | Required when using an external `buildkitd` via `BUILDKITD_HOST`, and the external `buildkitd` requires mTLS. You will also need to mount certificates into the right place (`/etc/.earth/certs`).          |
 | CNI_MTU                            | MTU of first default interface | Set this when we autodetect the MTU incorrectly. The device used for autodetection can be shown by the command `ip route show \| grep default \| cut -d' ' -f5 \| head -n 1`                                  |
-| EARTHLY_RESET_TMP_DIR              | `false`                        | Cleans out `/tmp/earthbuild` before running, if set to `true`. Useful when you host-mount an temporary directory across runs.                                                                                 |
+| EARTH_RESET_TMP_DIR              | `false`                        | Cleans out `/tmp/earthbuild` before running, if set to `true`. Useful when you host-mount an temporary directory across runs.                                                                                 |
 | NETWORK_MODE                       | `cni`                          | Specifies the networking mode of `buildkitd`. Default uses a CNI bridge network, configured with the `CNI_MTU`.                                                                                               |
 | CACHE_SIZE_MB                      | `0`                            | How big should the `buildkitd` cache be allowed to get, in MiB? A value of 0 sets the cache size to "adaptive", causing BuildKit to detect the available size of the system and choose a limit automatically. |
 | GIT_URL_INSTEAD_OF                 |                                | Configure `git config --global url.<url>.insteadOf` rules to be used by `buildkitd`.                                                                                                                          |

@@ -1,0 +1,250 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/renovate.json5'
+      - '.github/CODEOWNERS'
+      - 'LICENSE'
+  pull_request:
+    branches: [ main, get-ci-working ]
+  merge_group:
+
+
+# Workflow-wide floor only; every job narrows or widens this for itself.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_RESOURCE_ATTRIBUTES: ${{ vars.OTEL_RESOURCE_ATTRIBUTES != '' && format('{0},', vars.OTEL_RESOURCE_ATTRIBUTES) || '' }}${{ github.event.pull_request != null && format('vcs.repository.change.id={0},vcs.repository.change.title={1},', github.event.pull_request.number, github.event.pull_request.title) || '' }}cicd.pipeline.run.id=${{ github.run_number }},cicd.pipeline.run.url.full=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }},cicd.pipeline.name=${{ github.workflow }},vcs.revision.id=${{ github.sha }},vcs.ref.name=${{ github.ref_name }},vcs.repository.name=${{ github.repository }},user.id=${{ github.actor }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+jobs:
+  fast-check-and-build:
+    name: Fast Check & Build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EARTH_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+    steps:
+      - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
+        with:
+          # Authenticate the release-list API call so it isn't rate-limited on
+          # shared runner IPs (unauthenticated is 60 req/hr/IP).
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - name: Lint
+        run: earth --ci +lint-all
+      - name: Unit tests
+        run: earth --ci +unit-test
+      - name: Fuzz tests
+        run: earth --ci +fuzz-test
+
+      # --- Build Standard EarthBuild ---
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+      - name: "Put back the git branch into git (EarthBuild uses it for tagging)"
+        run: |
+          branch=""
+          if [ -n "$GITHUB_HEAD_REF" ]; then
+            branch="$GITHUB_HEAD_REF"
+          else
+            branch="${GITHUB_REF##*/}"
+          fi
+          git checkout -b "$branch" || true
+      - name: Configure EarthBuild to use GCR mirror
+        run: |-
+          earth config global.buildkit_additional_config "'[registry.\"docker.io\"]
+          mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
+      - name: Build latest earth using released earth
+        run: earth --use-inline-cache --artifact +earthly-linux-amd64/earthly ./build/linux/amd64/earthly
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
+        run: |-
+          set -euo pipefail
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earth_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      - name: Build and push +ci-release using latest earth build
+        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
+        run: |-
+          export TAG_SUFFIX="latest"
+          ./build/linux/amd64/earthly --ci --push --build-arg TAG_SUFFIX +ci-release
+      - name: Build +ci-release using latest earth build (fork - no push)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |-
+          export TAG_SUFFIX="latest"
+          # Build ci-release (builds binary and buildkitd but doesn't push)
+          ./build/linux/amd64/earthly --ci --output --build-arg TAG_SUFFIX +ci-release
+          # Explicitly output the buildkitd image to local docker daemon
+          ./build/linux/amd64/earthly --ci --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
+      - name: Save buildkitd image tarball (all runs)
+        # Shipping buildkitd as a GHA artifact -- rather than having every
+        # downstream test job pull it from ghcr -- moves ~67 in-run image
+        # fetches off ghcr and onto in-run artifact storage, which does not
+        # rate-limit. Fork PRs already relied on this path; it is now always on,
+        # and stage2-setup downloads unconditionally to match.
+        #
+        # earth pushes straight from buildkit's internal store to ghcr without
+        # tagging the image in the host daemon, so a pull is needed before
+        # `save` can find the tag. That pull happens once here instead of once
+        # per test job. On fork PRs the image was built locally via --image
+        # above, so `image inspect` hits and no pull runs.
+        run: |-
+          set -euo pipefail
+          export TAG_SUFFIX="latest"
+          IMG="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
+
+          mkdir -p ./artifacts-standard
+          echo "${TAG_SUFFIX}" > ./artifacts-standard/tag-suffix.txt
+          if ! docker image inspect "$IMG" >/dev/null 2>&1; then
+            docker pull "$IMG"
+          fi
+          docker save "$IMG" -o ./artifacts-standard/buildkitd-image.tar
+      - name: Build earth binary artifact (fork only)
+        # Fork PRs cannot read the binary from ghcr, so it ships in the
+        # artifact. Non-fork jobs fetch it via `earth upgrade` instead --
+        # rebuilding it here would be minutes of redundant work every run.
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |-
+          set -euo pipefail
+          export TAG_SUFFIX="latest"
+
+          # The test suites address the buildkitd daemon by container name, so
+          # DEFAULT_INSTALLATION_NAME must be pinned rather than left at its dev
+          # default. "earth" gives them "earth-buildkitd".
+          ./build/linux/amd64/earthly --ci --artifact \
+            +earthly/earthly \
+            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
+            --VERSION="0.8.18" \
+            --DEFAULT_INSTALLATION_NAME=earth \
+            ./artifacts-standard/earthly
+      - name: Upload artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: earth-build-latest
+          path: ./artifacts-standard/
+          retention-days: 1
+
+  # --- Docker Suite ---
+  docker-tests:
+    name: Docker
+    needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
+    uses: $/.github/workflows/ci-test-suite.yml
+    with:
+      FRONTEND: "docker"
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+  docker-examples:
+    name: Docker Examples
+    needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
+    uses: $/.github/workflows/ci-examples-suite.yml
+    with:
+      FRONTEND: "docker"
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+  docker-integrations:
+    name: Docker Integrations
+    needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
+    uses: $/.github/workflows/ci-integration-suite.yml
+    with:
+      FRONTEND: "docker"
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+  # --- Podman Suite ---
+  podman-tests:
+    name: Podman
+    needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
+    uses: $/.github/workflows/ci-test-suite.yml
+    with:
+      FRONTEND: "podman"
+      SUDO: "sudo"
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+  podman-examples:
+    name: Podman Examples
+    needs: fast-check-and-build
+    permissions:
+      contents: read
+      packages: read
+    uses: $/.github/workflows/ci-examples-suite.yml
+    with:
+      FRONTEND: "podman"
+      SUDO: "sudo"
+    secrets:
+      DOCKERHUB_MIRROR_PASSWORD: ${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}
+      DOCKERHUB_MIRROR_USERNAME: ${{ secrets.DOCKERHUB_MIRROR_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+  # --- Merge Gate ---
+  # The ONLY check that branch protection should require. Every other job's
+  # context name is free to churn (renamed suites, re-grouped tests, new
+  # frontends) without an admin having to re-point the ruleset - a mismatch
+  # there leaves a PR waiting forever on a context nothing will ever report.
+  # Add new suites to `needs` and they are gated automatically.
+  ci-success:
+    name: CI Success
+    if: always()
+    needs:
+      - fast-check-and-build
+      - docker-tests
+      - docker-examples
+      - docker-integrations
+      - podman-tests
+      - podman-examples
+    runs-on: ubuntu-26.04
+    permissions: {}
+    steps:
+      - name: Check suite results
+        env:
+          # Anything other than success - failure, cancelled, or skipped
+          # (a suite is skipped only when something it needed failed) - is a
+          # red gate.
+          NEEDS: ${{ toJSON(needs) }}
+        run: |-
+          set -euo pipefail
+          jq -r 'to_entries[] | "\(.value.result)\t\(.key)"' <<< "$NEEDS" | sort
+          if jq -e 'any(.[]; .result != "success")' >/dev/null <<< "$NEEDS"; then
+            echo "::error::One or more CI suites did not succeed"
+            exit 1
+          fi
+          echo "All CI suites succeeded"

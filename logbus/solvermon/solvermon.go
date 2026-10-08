@@ -1,7 +1,9 @@
+// Package solvermon monitors the progress of buildkit solvers, tracking operations and identifying fatal errors.
 package solvermon
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -10,10 +12,8 @@ import (
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
-	"github.com/EarthBuild/earthbuild/util/xcontext"
 	"github.com/moby/buildkit/client"
 	"github.com/opencontainers/go-digest"
-	"github.com/pkg/errors"
 )
 
 // SolverMonitor is a buildkit solver monitor.
@@ -35,8 +35,8 @@ func New(b *logbus.Bus) *SolverMonitor {
 
 // MonitorProgress processes a channel of buildkit solve statuses.
 func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.SolveStatus) error {
-	delayedCtx, delayedCancel := context.WithCancel(xcontext.Detach(ctx))
-	defer delayedCancel()
+	cancelCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	defer cancel()
 
 	go func() {
 		<-ctx.Done()
@@ -46,17 +46,17 @@ func (sm *SolverMonitor) MonitorProgress(ctx context.Context, ch chan *client.So
 		// anyway. We should be waiting for the full 30 seconds only if there's
 		// a bug.
 		select {
-		case <-delayedCtx.Done():
+		case <-cancelCtx.Done():
 		case <-time.After(30 * time.Second):
 		}
 
-		delayedCancel()
+		cancel()
 	}()
 
 	for {
 		select {
-		case <-delayedCtx.Done():
-			return errors.Wrap(ctx.Err(), "timed out waiting for status channel to close")
+		case <-cancelCtx.Done():
+			return fmt.Errorf("timed out waiting for status channel to close: %w", ctx.Err())
 		case status, ok := <-ch:
 			if !ok {
 				return nil
@@ -88,7 +88,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 			cmdID = operation
 		case meta.CommandID != "":
 			// If the command ID is set, the Logbus command is guaranteed to
-			// have been created by Earthly in the converter ahead of time.
+			// have been created by earth in the converter ahead of time.
 			cmdID = meta.CommandID
 			createCmd = false
 		default:
@@ -104,7 +104,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 			}
 
 			var cp *logbus.Command
-			// Operations initiated from Earthly have created Logbus commands
+			// Operations initiated from earth have created Logbus commands
 			// ahead-of-time. Others may originate from BuildKit, so we'll have
 			// to create a command at this point.
 			if createCmd {
@@ -113,7 +113,8 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				cp, err = bp.NewCommand(
 					cmdID, operation, meta.TargetID, category, meta.Platform,
 					vertex.Cached, meta.Local, meta.Interactive, meta.SourceLocation,
-					meta.RepoGitURL, meta.RepoGitHash, meta.RepoFileRelToRepo)
+					meta.RepoGitURL, meta.RepoGitHash, meta.RepoFileRelToRepo,
+				)
 				if err != nil {
 					return err
 				}
@@ -124,7 +125,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				if !ok {
 					// Note: if we receive a vertex with a full command ID that
 					// does not exist in this process, it may have originated
-					// from another Earthly process. It should be safe to
+					// from another earth process. It should be safe to
 					// ignore, in this case.
 					continue
 				}
@@ -214,7 +215,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		}
 
 		vm := sm.vertices[cmdID]
-		logLine.Data = []byte(stringutil.ScrubCredentialsAll((string(logLine.Data))))
+		logLine.Data = []byte(stringutil.ScrubCredentialsAll(string(logLine.Data)))
 
 		_, err := vm.Write(logLine.Data, logLine.Timestamp, logLine.Stream)
 		if err != nil {

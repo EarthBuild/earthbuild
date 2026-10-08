@@ -3,34 +3,33 @@ package buildcontext
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast"
-	"github.com/EarthBuild/earthbuild/ast/spec"
 	"github.com/EarthBuild/earthbuild/cleanup"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/gitutil"
 	"github.com/EarthBuild/earthbuild/util/llbutil/llbfactory"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/syncutil/synccache"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	buildkitgitutil "github.com/moby/buildkit/util/gitutil"
-	"github.com/pkg/errors"
 )
 
 // DockerfileMetaTarget is a target name prefix which signals the resolver that the build file is a
-// dockerfile. The DockerfileMetaTarget is really not a valid Earthly target otherwise.
+// dockerfile. The DockerfileMetaTarget is really not a valid earth target otherwise.
 const DockerfileMetaTarget = "@dockerfile:"
 
 // Data represents a resolved target's build context data.
 type Data struct {
 	// BuildContext is the state to use for the build.
 	BuildContextFactory llbfactory.Factory
-	// Target is the earthly reference.
+	// Target is the earth reference.
 	Ref domain.Reference
 	// GitMetadata contains git metadata information.
 	GitMetadata *gitutil.GitMetadata
@@ -41,23 +40,23 @@ type Data struct {
 	// BuildFilePath is the local path where the Earthfile or Dockerfile can be found.
 	BuildFilePath string
 	// The parsed Earthfile AST.
-	Earthfile spec.Earthfile
+	Earthfile earthfile.Tree
 }
 
 // Resolver is a build context resolver.
 type Resolver struct {
 	gr                   *gitResolver
 	lr                   *localResolver
-	parseCache           *synccache.SyncCache // local path -> AST
+	parseCache           *synccache.Cache[string, earthfile.Tree] // local path -> AST
+	log                  *conslogging.ConsoleLogger
 	featureFlagOverrides string
-	console              conslogging.ConsoleLogger
 }
 
 // NewResolver returns a new NewResolver.
 func NewResolver(
 	cleanCollection *cleanup.Collection,
 	gitLookup *GitLookup,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	featureFlagOverrides, gitBranchOverride, gitLFSInclude string,
 	gitLogLevel buildkitgitutil.GitLogLevel,
 	gitImage string,
@@ -69,19 +68,14 @@ func NewResolver(
 			lfsInclude:        gitLFSInclude,
 			logLevel:          gitLogLevel,
 			cleanCollection:   cleanCollection,
-			projectCache:      synccache.New(),
-			buildFileCache:    synccache.New(),
+			projectCache:      synccache.NewCache[string, *resolvedGitProject](),
+			buildFileCache:    synccache.NewCache[string, *buildFile](),
 			gitLookup:         gitLookup,
-			console:           console,
+			log:               log,
 		},
-		lr: &localResolver{
-			buildFileCache:    synccache.New(),
-			gitMetaCache:      synccache.New(),
-			gitBranchOverride: gitBranchOverride,
-			console:           console,
-		},
-		parseCache:           synccache.New(),
-		console:              console,
+		lr:                   newLocalResolver(gitBranchOverride, log),
+		parseCache:           synccache.NewCache[string, earthfile.Tree](),
+		log:                  log,
 		featureFlagOverrides: featureFlagOverrides,
 	}
 }
@@ -97,19 +91,19 @@ func (r *Resolver) ExpandWildcard(
 	if parentTarget.IsRemote() {
 		matches, err := r.gr.expandWildcard(ctx, gwClient, platr, parentTarget, target.GetLocalPath())
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to expand remote BUILD target path")
+			return nil, fmt.Errorf("failed to expand remote BUILD target path: %w", err)
 		}
 
 		return matches, nil
 	}
 
 	// For local targets, we need to determine the full path relative to the
-	// working directory of Earthly in order to glob for matching paths. We can
+	// working directory of earth in order to glob for matching paths. We can
 	// get this path by joining the targets. The child target will likely still
 	// include *'s (expanded below), but that shouldn't be a problem.
 	ref, err := domain.JoinReferences(parentTarget, target)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to join references")
+		return nil, fmt.Errorf("failed to join references: %w", err)
 	}
 
 	target, ok := ref.(domain.Target)
@@ -119,7 +113,7 @@ func (r *Resolver) ExpandWildcard(
 
 	matches, err := fileutil.GlobDirs(target.GetLocalPath())
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to expand BUILD target path")
+		return nil, fmt.Errorf("failed to expand BUILD target path: %w", err)
 	}
 
 	// Here, the relative path is reconstructed from the glob results and the
@@ -129,7 +123,7 @@ func (r *Resolver) ExpandWildcard(
 	for _, match := range matches {
 		rel, err := filepath.Rel(parentTarget.GetLocalPath(), match)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to resolve relative path")
+			return nil, fmt.Errorf("failed to resolve relative path: %w", err)
 		}
 
 		ret = append(ret, rel)
@@ -138,14 +132,81 @@ func (r *Resolver) ExpandWildcard(
 	return ret, nil
 }
 
-// Resolve returns resolved context data for a given Earthly reference. If the reference is a target,
+// resolveLocalRootEarthfile rewrites a Earthfile reference for the root of a project.
+func resolveLocalRootEarthfile(ref domain.Reference) domain.Reference {
+	if ref.IsRemote() ||
+		ref.IsImportReference() ||
+		filepath.Clean(ref.GetLocalPath()) != "." ||
+		strings.HasPrefix(ref.GetName(), DockerfileMetaTarget) {
+		return ref
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ref
+	}
+
+	curr := cwd
+	for {
+		if !hasEarthfile(curr) {
+			parent := filepath.Dir(curr)
+			if parent == curr {
+				break
+			}
+
+			curr = parent
+
+			continue
+		}
+
+		relPath, err := filepath.Rel(cwd, curr)
+		if err != nil {
+			return withLocalPath(ref, curr)
+		}
+
+		relPath = filepath.ToSlash(relPath)
+		if !strings.HasPrefix(relPath, ".") && !filepath.IsAbs(relPath) {
+			relPath = "./" + relPath
+		}
+
+		return withLocalPath(ref, relPath)
+	}
+
+	return ref
+}
+
+func hasEarthfile(dir string) bool {
+	fi, err := os.Stat(filepath.Join(dir, Earthfile))
+	if err != nil {
+		return false
+	}
+
+	return !fi.IsDir()
+}
+
+func withLocalPath(ref domain.Reference, newLocalPath string) domain.Reference {
+	switch r := ref.(type) {
+	case domain.Target:
+		r.LocalPath = newLocalPath
+		return r
+	case domain.Command:
+		r.LocalPath = newLocalPath
+		return r
+	default:
+		return ref
+	}
+}
+
+// Resolve returns resolved context data for a given earth reference. If the reference is a target,
 // then the context will include a build context and possibly additional local directories.
 func (r *Resolver) Resolve(
 	ctx context.Context, gwClient gwclient.Client, platr *platutil.Resolver, ref domain.Reference,
 ) (*Data, error) {
 	if ref.IsUnresolvedImportReference() {
-		return nil, errors.Errorf("cannot resolve non-dereferenced import ref %s", ref.String())
+		return nil, fmt.Errorf("cannot resolve non-dereferenced import ref %s", ref.String())
 	}
+
+	ref = resolveLocalRootEarthfile(ref)
 
 	var (
 		d   *Data
@@ -176,34 +237,18 @@ func (r *Resolver) Resolve(
 
 	d.LocalDirs = localDirs
 	if !strings.HasPrefix(ref.GetName(), DockerfileMetaTarget) {
-		d.Earthfile, err = r.parseEarthfile(ctx, d.BuildFilePath)
+		path := filepath.Clean(d.BuildFilePath)
+
+		d.Earthfile, err = r.parseCache.Load(
+			ctx, path,
+			func(_ context.Context) (earthfile.Tree, error) {
+				return earthfile.ParseFile(path, earthfile.WithSourceMap())
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return d, nil
-}
-
-func (r *Resolver) parseEarthfile(ctx context.Context, path string) (spec.Earthfile, error) {
-	path = filepath.Clean(path)
-
-	efValue, err := r.parseCache.Do(ctx, path, func(ctx context.Context, k any) (any, error) {
-		filePath, ok := k.(string)
-		if !ok {
-			return nil, fmt.Errorf("want string, got %T", k)
-		}
-
-		return ast.Parse(filePath, true)
-	})
-	if err != nil {
-		return spec.Earthfile{}, err
-	}
-
-	ef, ok := efValue.(spec.Earthfile)
-	if !ok {
-		return spec.Earthfile{}, errors.Errorf("want spec.Earthfile, got %T", efValue)
-	}
-
-	return ef, nil
 }

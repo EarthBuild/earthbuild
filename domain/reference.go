@@ -1,13 +1,12 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Reference is a target or a command reference.
@@ -77,8 +76,9 @@ func JoinReferences(r1 Reference, r2 Reference) (Reference, error) {
 
 		if r2.IsLocalExternal() {
 			if path.IsAbs(r2.GetLocalPath()) {
-				return Target{}, errors.Errorf(
-					"absolute path %s not supported as reference in external target context", r2.GetLocalPath())
+				return Target{}, fmt.Errorf(
+					"absolute path %s not supported as reference in external target context", r2.GetLocalPath(),
+				)
 			}
 
 			gitURL = path.Join(r1.GetGitURL(), localPath)
@@ -119,7 +119,7 @@ func JoinReferences(r1 Reference, r2 Reference) (Reference, error) {
 			Command:   name,
 		}, nil
 	default:
-		return nil, errors.Errorf("joining references not supported for type %T", r2)
+		return nil, fmt.Errorf("joining references not supported for type %T", r2)
 	}
 }
 
@@ -197,7 +197,7 @@ func parseCommon(fullName string) (gitURL, tag, localPath, importRef, name strin
 	}
 
 	if len(partsPlus) != 2 {
-		return "", "", "", "", "", errors.Errorf("invalid target ref %s", fullName)
+		return "", "", "", "", "", fmt.Errorf("invalid target ref %s", fullName)
 	}
 
 	if partsPlus[0] == "" {
@@ -273,7 +273,7 @@ func splitUnescapePlus(str string) ([]string, error) {
 	}
 
 	if escape {
-		return nil, errors.Errorf("cannot split by +: unterminated escape sequence at the end of %s", str)
+		return nil, fmt.Errorf("cannot split by +: unterminated escape sequence at the end of %s", str)
 	}
 
 	if len(word) > 0 {

@@ -8,14 +8,13 @@
   ],
   baseBranchPatterns: [
     'main',
-    'docs-0.8',
   ],
   configMigration: true,
-  prHourlyLimit: 1,
-  prConcurrentLimit: 3,
-  schedule: [ // utc timezone
-    'after 4pm on monday',
-  ],
+  prHourlyLimit: 0,
+  prConcurrentLimit: 1,
+  lockFileMaintenance: {
+    enabled: true,
+  },
   includePaths: [
     'Earthfile',
     '**/go.mod',
@@ -29,7 +28,7 @@
     'tests/**',
     'scripts/tests/interactive-debugger/**',
     'inputgraph/testdata/**',
-    'ast/tests/**',
+    'internal/earthfile/tests/**',
   ],
   ignorePaths: [
     '**/node_modules/**',
@@ -61,6 +60,15 @@
       '/docker-compose*/',
     ],
   },
+  customDatasources: {
+    zig: {
+      defaultRegistryUrlTemplate: 'https://ziglang.org/download/index.json',
+      format: 'json',
+      transformTemplates: [
+        '{ "releases": $.*.version[$not($contains($, "-dev"))].{"version": $} }',
+      ],
+    },
+  },
   customManagers: [
     {
       customType: 'regex',
@@ -68,23 +76,31 @@
         '/.+.md/',
       ],
       matchStrings: [
-        'earthly/releases/download/(?<currentValue>.+?)/',
-        '- uses: earthly/actions/setup-earthly@.*?[\\s\\n]+.*?[\\s\\n]+with:[\\s\\n]*version: (?<currentValue>.+?)[\\s\\n/]+',
-        "'earthly/earthly:(?<currentValue>.+?)'",
-        'github.com/earthly/earthly:(?<currentValue>.+?)(\\+|`)',
-        '(:|\\s+)earthly/earthly:(?<currentValue>.+?)[\\s\\n/]+',
+        'earthbuild/releases/download/(?<currentValue>.+?)/',
+        'uses: earthbuild/actions-setup@[^\\n]*[\\s\\n]+with:[\\s\\n]*version: (?<currentValue>.+?)[\\s\\n/]+',
+        'earthbuild/earthbuild:(?<currentValue>.+?)[\\s\\n\'"`/]',
+        'github.com/earthbuild/earthbuild:(?<currentValue>.+?)(\\+|`)',
         'the `latest` tag is `(?<currentValue>.+?)`',
-        'earthly/compare/(?<currentValue>.+?)\\.\\.\\.main',
-        'earthly/satellite:(?<currentValue>.+?)\\n',
       ],
-      depNameTemplate: 'earthly/earthly',
+      depNameTemplate: 'EarthBuild/earthbuild',
       datasourceTemplate: 'github-releases',
+    },
+    {
+      customType: 'regex',
+      description: 'Keep SHA-pinned earthbuild/actions-setup in docs up to date (digest + trailing version comment)',
+      managerFilePatterns: [
+        '/.+.md/',
+      ],
+      matchStrings: [
+        'uses: (?<depName>earthbuild/actions-setup)@(?<currentDigest>[a-f0-9]{40}) # (?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)',
+      ],
+      datasourceTemplate: 'github-tags',
     },
     {
       customType: 'regex',
       managerFilePatterns: [
         '/buildcontext/git.go/',
-        '/ast/tests/git-clone.ast.json/',
+        '/internal/earthfile/tests/git-clone.ast.json/',
       ],
       matchStrings: [
         '"alpine/git:(?<currentValue>.+?)"',
@@ -96,10 +112,10 @@
       customType: 'regex',
       description: "Update _version LETs, ARGs and ENVs in Earthfile",
       managerFilePatterns: [
-        '/^Earthfile$/',
+        '/Earthfile$/',
       ],
       matchStrings: [
-        '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)(?:\\s+depName=(?<depName>.+?))?\\s+packageName=(?<packageName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s+(?:ENV|ARG|LET)\\s+.+?(_VERSION|_VER|_version)=(?<currentValue>.+?)\\s',
+        '#\\s*renovate:\\s*datasource=(?<datasource>[a-z-\\.]+?)(?:\\s+depName=(?<depName>.+?))?\\s+packageName=(?<packageName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s+(?:ENV|ARG|LET)\\s+.+?(_VERSION|_VER|_version)=(?<currentValue>.+?)\\s',
       ],
     },
     {
@@ -107,7 +123,7 @@
       managerFilePatterns: [
         '/Earthfile$/',
         '/earthfile2llb/with_docker_run_base\\.go/',
-        '/ast/tests/.*?\\.ast\\.json/',
+        '/internal/earthfile/tests/.*?\\.ast\\.json/',
         '/.+.md/',
       ],
       matchStrings: [
@@ -151,6 +167,17 @@
       ],
       datasourceTemplate: 'pypi',
     },
+    {
+      customType: 'regex',
+      description: 'Update GitHub Actions runner versions',
+      managerFilePatterns: [
+        '/(^|/)\\.github/workflows/.+\\.ya?ml$/',
+      ],
+      matchStrings: [
+        '(?:runs-on|RUNS_ON):\\s*[\'"]?(?<depName>ubuntu|macos|windows)-(?<currentValue>[^\'"\\s#]+)[\'"]?',
+      ],
+      datasourceTemplate: 'github-runners',
+    },
   ],
   labels: [
     'renovate',
@@ -164,73 +191,29 @@
     },
     {
       matchPackageNames: [
-        'earthly/earthly',
+        'EarthBuild/earthbuild',
       ],
       matchDatasources: [
         'github-releases',
       ],
       addLabels: [
-        'earthly-version-in-docs',
+        'earthbuild-version-in-docs',
       ],
       schedule: [ // update as soon as possible
         'at any time',
       ],
       automerge: true,
     },
-    {
-      // Point earthly/earthly updates in docs to docs-0.8 branch by:
-      // 1. disable all PRs targeting docs-0.8 for all packages except earthly/earthly
-      matchBaseBranches: [
-        'docs-0.8',
-      ],
-      enabled: false,
-      matchPackageNames: [
-        '!earthly/earthly',
-        '!earthbuild/dind',
-      ],
-    },
-    {
-      // 2. disable PRs targeting main for earthly/earthly
-      matchBaseBranches: [
-        'main',
-      ],
-      matchPackageNames: [
-        'earthly/earthly',
-      ],
-      enabled: false,
-    },
-    {
-      // disable earthly/dind updates in source & tests files for branch docs-0.8
-      matchBaseBranches: [
-        'docs-0.8',
-      ],
-      matchFileNames: [
-        'Earthfile',
-        'earthfile2llb/**',
-        'tests/**',
-        'scripts/tests/interactive-debugger/**',
-        'inputgraph/testdata/**',
-        'ast/tests/**',
-      ],
-      matchPackageNames: [
-        'earthbuild/dind',
-      ],
-      enabled: false,
-    },
-    {
-      // disable earthly/dind updates in docs & examples files for branch main
-      matchBaseBranches: [
-        'main',
-      ],
-      matchPackageNames: [
-        'earthbuild/dind',
-      ],
-      matchFileNames: [
-        'examples/**',
-        'docs/**',
-      ],
-      enabled: false,
-    },
+    // NOTE: this repo previously split version bumps across two base branches:
+    // docs version pins were routed to docs-0.8 and disabled on main, while
+    // source/test pins were maintained on main. docs.earthbuild.dev publishes
+    // from main, so the docs half of that split updated a branch nobody read and
+    // the published pins were frozen (they sat at v0.8.13). Multi-version docs
+    // branches are deferred until v0.9.x; until then main is the only base
+    // branch and every pin -- docs, examples, source and tests -- is maintained
+    // here. The three rules implementing the old split have been removed,
+    // including the one that disabled earthbuild/dind bumps under docs/ and
+    // examples/ on main, which would otherwise have frozen those the same way.
     // group all alpine/git updates across the repo to one PR and schedule it to once a month
     {
       groupName: 'alpine/git',
@@ -250,7 +233,7 @@
       matchPackageNames: [
         '!alpine/git',
         '!earthbuild/dind',
-        '!earthly/earthly',
+        '!EarthBuild/earthbuild',
       ],
       schedule: [
         'every month',
@@ -277,16 +260,53 @@
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
     {
-      // rule to update earthbuild/dind:ubuntu:23.04-* images
+      // rule to update earthbuild/dind:ubuntu:24.04-* images
       groupName: 'dind-images',
       matchPackageNames: [
         'earthbuild/dind',
       ],
-      matchCurrentVersion: '/^ubuntu-23\\.04-.*/',
-      allowedVersions: '/^ubuntu-23\\.04-.*/',
+      matchCurrentVersion: '/^ubuntu-24\\.04-.*/',
+      allowedVersions: '/^ubuntu-24\\.04-.*/',
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
     },
-    // group all examples and docs dependency updates together (except earthly/earthly and earthbuild/dind)
+    {
+      // rule to update earthbuild/dind:ubuntu:26.04-* images
+      groupName: 'dind-images',
+      matchPackageNames: [
+        'earthbuild/dind',
+      ],
+      matchCurrentVersion: '/^ubuntu-26\\.04-.*/',
+      allowedVersions: '/^ubuntu-26\\.04-.*/',
+      versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
+    },
+    {
+      // rule to update Amazon Linux 2 images
+      groupName: 'amazonlinux',
+      matchPackageNames: [
+        'public.ecr.aws/amazonlinux/amazonlinux',
+      ],
+      matchCurrentVersion: '/^2(\\..*)?$/',
+      allowedVersions: '/^2(\\..*)?$/',
+    },
+    {
+      // rule to update Amazon Linux 2023 images
+      groupName: 'amazonlinux',
+      matchPackageNames: [
+        'public.ecr.aws/amazonlinux/amazonlinux',
+      ],
+      matchCurrentVersion: '/^2023\\..*/',
+      allowedVersions: '/^2023\\..*/',
+    },
+    {
+      // rule to update Amazon Linux 2027 images
+      groupName: 'amazonlinux',
+      matchPackageNames: [
+        'public.ecr.aws/amazonlinux/amazonlinux',
+      ],
+      matchCurrentVersion: '/^2027\\..*/',
+      allowedVersions: '/^2027\\..*/',
+    },
+    // group all examples and docs dependency updates together (except EarthBuild/earthbuild and earthbuild/dind)
     {
       matchFileNames: [
         '**/.mise.toml',
@@ -294,7 +314,7 @@
       separateMajorMinor: false,
       groupName: 'examples-and-docs-dependencies',
       matchPackageNames: [
-        '!earthly/earthly',
+        '!EarthBuild/earthbuild',
         '!earthbuild/dind',
       ],
       schedule: [
@@ -387,14 +407,14 @@
     {
       groupName: 'x',
       matchPackageNames: [
-        '^golang\\.org/x/',
+        'golang.org/x/**',
       ],
     },
     // group all AWS SDK dependencies
     {
       groupName: 'AWS SDK',
       matchPackageNames: [
-        '^github\\.com/aws/',
+        'github.com/aws/**',
       ],
     },
     // group Go version updates
@@ -408,18 +428,14 @@
       ],
     },
     // group all OpenTelemetry dependencies
+    // TODO(jhorsts): blocked by the BuildKit upgrade.
     {
       groupName: 'otel',
       matchPackageNames: [
-        '^go\\.opentelemetry\\.io/',
+        'go.opentelemetry.io/**',
       ],
+      enabled: false,
     },
-    // group all Golang extended packages
-    {
-      groupName: 'x',
-      matchPackageNames: [
-        '^golang\\.org/x/',
-      ],
-    },
+
   ],
 }

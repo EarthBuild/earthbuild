@@ -1,15 +1,17 @@
+// Package gatewaycrafter coordinates the crafting of buildkit gateway requests, managing artifact exports,
+// image pushes, and local output summaries.
 package gatewaycrafter
 
 import (
-	"encoding/json"
+	jsonv1 "encoding/json"
+	"encoding/json/v2"
+	"fmt"
 	"strconv"
 
 	"github.com/EarthBuild/earthbuild/states/image"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 )
 
 // NewGatewayCrafter creates a new GatewayCrafter designed to be used to populate ref
@@ -22,7 +24,7 @@ func NewGatewayCrafter() *GatewayCrafter {
 
 // GatewayCrafter wraps the gwclient.Result object with a helper function which is used
 // to deduplicate code between builder.go and wait_block.go eventually all SAVE IMAGE
-// (and other EarthBuild exporter) logic will be triggered via the WAIT/END PopWaitBlock()
+// (and other earth exporter) logic will be triggered via the WAIT/END PopWaitBlock()
 // function and code that direct accesses to the underlying result instance will be removed.
 type GatewayCrafter struct {
 	res  *gwclient.Result
@@ -38,9 +40,12 @@ func (gc *GatewayCrafter) AddPushImageEntry(
 	imageConfig *image.Image,
 	platformStr []byte,
 ) (string, error) {
-	config, err := json.Marshal(imageConfig)
+	// Format with legacy v1 options because imageConfig.Config embeds third-party
+	// structs (specs.ImageConfig and image.HealthConfig) that require v1 semantics
+	// (integer nanoseconds for time.Duration and omitempty on scalar zero values).
+	config, err := json.Marshal(imageConfig, jsonv1.DefaultOptionsV1())
 	if err != nil {
-		return "", errors.Wrapf(err, "marshal save image config")
+		return "", fmt.Errorf("marshal save image config: %w", err)
 	}
 
 	refKey := "image-" + strconv.Itoa(refID)

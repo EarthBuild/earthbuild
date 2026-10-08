@@ -25,7 +25,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part1/part1 ./part1
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/go:main+part1/part1 ./part1
 ```
 
 ## Creating Your First Earthfile
@@ -63,7 +63,7 @@ Lastly, we change our working directory to `/go-workdir`.
 
 EarthBuild aims to replace Dockerfile, makefile, bash scripts and more. We can take all the setup, configuration and build steps we'd normally define in those files and put them in our Earthfile in the form of `targets`.
 
-Let's start by defining a target to build our simple Go app. **When we run Earthbuild, we can tell it to execute a target by passing a plus sign (+) and then the target name.** So we'll be able to run our `build` target with `earth +build`. More on this in the [Running the Build](#running-the-build) section.
+Let's start by defining a target to build our simple Go app. **When we run EarthBuild, we can tell it to execute a target by passing a plus sign (+) and then the target name.** So we'll be able to run our `build` target with `earth +build`. More on this in the [Running the Build](#running-the-build) section.
 
 Let's start by breaking down our first target.
 
@@ -112,7 +112,7 @@ build:
     SAVE ARTIFACT output/example AS LOCAL local-output/go-example
 
 npm:
-    FROM node:12-alpine3.12
+    FROM node:26.1.0-alpine3.24
     WORKDIR /src
     RUN npm install
     COPY assets/ .
@@ -162,14 +162,14 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part1/part1 ./part1
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/js:main+part1/part1 ./part1
 ```
 
 `./Earthfile`
 
 ```Dockerfile
 VERSION 0.8
-FROM node:13.10.1-alpine3.11
+FROM node:26.1.0-alpine3.24
 WORKDIR /js-example
 
 build:
@@ -202,7 +202,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part1/part1 ./part1
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+part1/part1 ./part1
 ```
 
 `./Earthfile`
@@ -210,7 +210,7 @@ earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/java:main+
 ```Dockerfile
 VERSION 0.8
 FROM amazoncorretto:24-alpine3.22
-RUN apk add --update --no-cache gradle
+RUN apk add --no-cache gradle
 WORKDIR /java-example
 
 build:
@@ -286,7 +286,7 @@ To copy the files for [this example ( Part 1 )](https://github.com/earthbuild/ea
 ```bash
 mkdir tutorial
 cd tutorial
-earthly --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part1/part1 ./part1
+earth --artifact github.com/earthbuild/earthbuild/examples/tutorial/python:main+part1/part1 ./part1
 ```
 
 `./Earthfile`

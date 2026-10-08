@@ -18,8 +18,8 @@ import (
 // DefaultArgs contains additional builtin ARG values which need
 // to be passed in from outside of the scope of this package.
 type DefaultArgs struct {
-	EarthlyVersion  string
-	EarthlyBuildSha string
+	EarthVersion  string
+	EarthBuildSha string
 }
 
 // BuiltinArgs returns a scope containing the builtin args.
@@ -29,15 +29,19 @@ func BuiltinArgs(
 	gitMeta *gitutil.GitMetadata,
 	defaultArgs DefaultArgs,
 	ftrs *features.Features,
-	push, ci bool,
+	push bool,
 ) *Scope {
 	ret := NewScope()
 	ret.Add(arg.EarthlyTarget, target.StringCanonical())
+	ret.Add(arg.EarthTarget, target.StringCanonical())
 	ret.Add(arg.EarthlyTargetProject, target.ProjectCanonical())
+	ret.Add(arg.EarthTargetProject, target.ProjectCanonical())
 	targetNoTag := target
 	targetNoTag.Tag = ""
 	ret.Add(arg.EarthlyTargetProjectNoTag, targetNoTag.ProjectCanonical())
+	ret.Add(arg.EarthTargetProjectNoTag, targetNoTag.ProjectCanonical())
 	ret.Add(arg.EarthlyTargetName, target.Target)
+	ret.Add(arg.EarthTargetName, target.Target)
 
 	setTargetTag(ret, target, gitMeta)
 
@@ -52,23 +56,18 @@ func BuiltinArgs(
 
 	if ftrs.WaitBlock {
 		ret.Add(arg.EarthlyPush, strconv.FormatBool(push))
+		ret.Add(arg.EarthPush, strconv.FormatBool(push))
 	}
 
 	if ftrs.EarthlyVersionArg {
-		ret.Add(arg.EarthlyVersion, defaultArgs.EarthlyVersion)
-		ret.Add(arg.EarthlyBuildSha, defaultArgs.EarthlyBuildSha)
-	}
-
-	if ftrs.EarthlyCIArg {
-		ret.Add(arg.EarthlyCI, strconv.FormatBool(ci))
+		ret.Add(arg.EarthlyVersion, defaultArgs.EarthVersion)
+		ret.Add(arg.EarthVersion, defaultArgs.EarthVersion)
+		ret.Add(arg.EarthlyBuildSha, defaultArgs.EarthBuildSha)
+		ret.Add(arg.EarthBuildSha, defaultArgs.EarthBuildSha)
 	}
 
 	if ftrs.EarthlyLocallyArg {
 		SetLocally(ret, false)
-	}
-
-	if ftrs.EarthlyCIRunnerArg {
-		ret.Add(arg.EarthlyCIRunner, strconv.FormatBool(false))
 	}
 
 	if gitMeta == nil {
@@ -169,6 +168,7 @@ func setNativePlatformArgs(s *Scope, platr *platutil.Resolver) {
 // SetLocally sets the locally built-in arg value.
 func SetLocally(s *Scope, locally bool) {
 	s.Add(arg.EarthlyLocally, strconv.FormatBool(locally))
+	s.Add(arg.EarthLocally, strconv.FormatBool(locally))
 }
 
 // getProjectName returns the deprecated PROJECT_NAME value.
@@ -206,13 +206,17 @@ func setTargetTag(ret *Scope, target domain.Target, gitMeta *gitutil.GitMetadata
 	if gitMeta != nil && gitMeta.BranchOverrideTagArg && len(gitMeta.Branch) > 0 {
 		branch := gitMeta.Branch[0]
 		ret.Add(arg.EarthlyTargetTag, branch)
+		ret.Add(arg.EarthTargetTag, branch)
 		ret.Add(arg.EarthlyTargetTagDocker, llbutil.DockerTagSafe(branch))
+		ret.Add(arg.EarthTargetTagDocker, llbutil.DockerTagSafe(branch))
 
 		return
 	}
 
 	ret.Add(arg.EarthlyTargetTag, target.Tag)
+	ret.Add(arg.EarthTargetTag, target.Tag)
 	ret.Add(arg.EarthlyTargetTagDocker, llbutil.DockerTagSafe(target.Tag))
+	ret.Add(arg.EarthTargetTagDocker, llbutil.DockerTagSafe(target.Tag))
 }
 
 // firstOrZero returns the first element of a slice or the zero value if the slice is empty.

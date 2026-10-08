@@ -12,13 +12,12 @@ import (
 // HashOpt contains all of the options available to the hasher.
 type HashOpt struct {
 	OverridingVars *variables.Scope
+	Log            *conslogging.ConsoleLogger
 	Target         domain.Target
 	BuiltinArgs    variables.DefaultArgs
-	Console        conslogging.ConsoleLogger
-	CI             bool
 }
 
-// HashTarget produces a hash from an Earthly target.
+// HashTarget produces a hash from an earth target.
 func HashTarget(ctx context.Context, opt HashOpt) ([]byte, Stats, error) {
 	// Bypass further analysis for remote targets as there's nothing to do
 	// beyond hashing the full target name.

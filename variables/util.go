@@ -1,7 +1,6 @@
 package variables
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -18,12 +17,23 @@ import (
 //	ParseKeyValue(`foo=bar=`)  -> `foo",  `bar=`,   true
 //	ParseKeyValue(`foo=bar\=`) -> `foo",  `bar\=`,  true
 func ParseKeyValue(s string) (string, string, bool) {
-	key := []string{}
+	// Fast path: if there are no backslashes, we can locate '=' using strings.Cut
+	// which is highly optimized (SIMD/assembly) and avoids manual byte scanning.
+	if !strings.Contains(s, `\`) {
+		if before, after, found := strings.Cut(s, "="); found {
+			return before, after, true
+		}
 
+		return s, "", false
+	}
+
+	// Slow path: scan byte-by-byte to handle escaped characters.
 	var escaped bool
-	for i, c := range s {
+
+	for i := range len(s) {
+		c := s[i]
+
 		if escaped {
-			key = append(key, string(c))
 			escaped = false
 
 			continue
@@ -31,17 +41,48 @@ func ParseKeyValue(s string) (string, string, bool) {
 
 		if c == '\\' {
 			escaped = true
+
 			continue
 		}
 
 		if c == '=' {
-			return strings.Join(key, ""), s[i+1:], true
+			return unescapeKey(s[:i]), s[i+1:], true
 		}
-
-		key = append(key, string(c))
 	}
 
-	return strings.Join(key, ""), "", false
+	return unescapeKey(s), "", false
+}
+
+func unescapeKey(s string) string {
+	if !strings.Contains(s, `\`) {
+		return s
+	}
+
+	var sb strings.Builder
+
+	sb.Grow(len(s))
+
+	var escaped bool
+
+	// Note: We scan byte-by-byte instead of rune-by-rune because '\\' is ASCII
+	// (< 0x80). Under UTF-8 encoding, ASCII bytes never overlap with multi-byte
+	// UTF-8 sequences, making byte-based scanning safe and fast.
+	for i := range len(s) {
+		c := s[i]
+
+		switch {
+		case escaped:
+			sb.WriteByte(c)
+
+			escaped = false
+		case c == '\\':
+			escaped = true
+		default:
+			sb.WriteByte(c)
+		}
+	}
+
+	return sb.String()
 }
 
 // AddEnv takes in a slice of env vars in key-value format and a new key-value
@@ -53,7 +94,7 @@ func AddEnv(envVars []string, key, value string) []string {
 	for i, envVar := range envVars {
 		k, _, _ := ParseKeyValue(envVar)
 		if k == key {
-			envVars[i] = fmt.Sprintf("%s=%s", key, value)
+			envVars[i] = key + "=" + value
 			found = true
 
 			break
@@ -61,7 +102,7 @@ func AddEnv(envVars []string, key, value string) []string {
 	}
 
 	if !found {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", key, value))
+		envVars = append(envVars, key+"="+value)
 	}
 
 	return envVars

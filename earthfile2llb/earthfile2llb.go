@@ -1,20 +1,22 @@
+// Package earthfile2llb converts parsed Earthfile ASTs into Buildkit Low-Level Builder (LLB) graphs for execution.
 package earthfile2llb
 
 import (
 	"context"
+	"fmt"
 	"maps"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/buildcontext/provider"
 	"github.com/EarthBuild/earthbuild/cleanup"
-	"github.com/EarthBuild/earthbuild/cmd/earthly/bk"
+	"github.com/EarthBuild/earthbuild/cmd/earth/bk"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/llbutil/secretprovider"
 	"github.com/EarthBuild/earthbuild/util/platutil"
@@ -24,11 +26,11 @@ import (
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/util/apicaps"
-	"github.com/pkg/errors"
 )
 
 const commandName = "WITH DOCKER RUN "
 
+// ProjectAdder provides an interface for adding projects.
 type ProjectAdder interface {
 	AddProject(org, proj string)
 }
@@ -49,9 +51,9 @@ type ConvertOpt struct {
 	// MultiImageSolver can solve multiple images using a single build
 	// request. Primarily used for WITH DOCKER commands.
 	MultiImageSolver states.MultiImageSolver
-	// ContainerFrontend is the currently used container frontend, as detected by Earthly at app start. It provides info
-	// and access to commands to manipulate the current container frontend.
-	ContainerFrontend containerutil.ContainerFrontend
+	// Engine is the container client instance, as detected by earth at app start.
+	// It provides info and access to commands to manipulate the current container engine.
+	Engine *engine.Client
 	// Visited is a collection of target states which have been converted to LLB.
 	// This is used for deduplication and infinite cycle detection.
 	Visited states.VisitedCollection
@@ -59,7 +61,7 @@ type ConvertOpt struct {
 	Parallelism semutil.Semaphore
 	// waitBlock references the current WAIT/END scope
 	waitBlock *waitBlock
-	// InternalSecretStore is a secret store used internally by Earthly.
+	// InternalSecretStore is a secret store used internally by earth.
 	// It is mainly used to pass along parameters to buildkit processes without
 	// invalidating the cache.
 	InternalSecretStore *secretprovider.MutableMapStore
@@ -76,15 +78,17 @@ type ConvertOpt struct {
 	Resolver *buildcontext.Resolver
 	// FilesWithCommandRenameWarning keeps track of the files for which the COMMAND => FUNCTION warning was displayed
 	// this can be removed in VERSION 0.8
-	FilesWithCommandRenameWarning map[string]bool
+	FilesWithCommandRenameWarning map[string]struct{}
 	// GlobalImports is a map of imports used to dereference import ref targets, commands, etc.
 	GlobalImports map[string]domain.ImportTrackerVal
 	// Logbus is the bus used for logging and metadata reporting.
 	Logbus *logbus.Bus
+	// Log is for logging
+	Log *conslogging.ConsoleLogger
 	// LLBCaps indicates that builder's capabilities
 	LLBCaps *apicaps.CapSet
-	// TempEarthlyOutDir is a path to a temp dir where artifacts are temporarily saved
-	TempEarthlyOutDir func() (string, error)
+	// TempEarthOutDir is a path to a temp dir where artifacts are temporarily saved
+	TempEarthOutDir func() (string, error)
 	// A cache for image solves. (maybe dockerTag +) depTargetInputHash -> context containing image.tar.
 	SolveCache *states.SolveCache
 	// LocalArtifactWhiteList points to the per-connection list of seen SAVE ARTIFACT ... AS LOCAL entries
@@ -95,7 +99,7 @@ type ConvertOpt struct {
 	CleanCollection *cleanup.Collection
 	// TargetInputHashStackSet is a set of target input hashes that are currently in the call stack.
 	// This is used to detect infinite cycles.
-	TargetInputHashStackSet map[string]bool
+	TargetInputHashStackSet map[string]struct{}
 	// parentDepSub is a channel informing of any new dependencies from the parent.
 	parentDepSub chan string
 	// ErrorGroup is a serrgroup used to submit parallel conversion jobs.
@@ -127,30 +131,37 @@ type ConvertOpt struct {
 	FeatureFlagOverrides string
 	// LocalRegistryAddr is the address of the BuildKit-embedded registry.
 	LocalRegistryAddr string
-	// Console is for logging
-	Console conslogging.ConsoleLogger
 	// The resolve mode for referenced images (force pull or prefer local).
 	ImageResolveMode llb.ResolveMode
+	// Export is the user's output intent for the whole build: how much of it is
+	// written out locally. It is set once, from the command line, and is never
+	// narrowed per target - SaveReferenced carries that instead. Keeping the two
+	// apart is what lets a wait item, reached later down a BUILD edge, still ask
+	// what the user actually asked for.
+	Export Export
+	// SaveReferenced reports whether this target's saves count at all, which is a
+	// separate question from how much the user wants written out. It is false for a
+	// target reached by anything other than BUILD (and, in legacy mode, for remote
+	// targets), which is how "only referenced saves are saved" is expressed.
+	//
+	// A target can start out unreferenced and become referenced later, when a BUILD
+	// reaches an already-visited target; SingleTarget.SetDoSaves is that signal.
+	SaveReferenced bool
 	// NoCache sets llb.IgnoreCache before calling StateToRef
 	NoCache bool
-	// EnableInteractiveDebugger is set to true when earthly is run with the --interactive cli flag
+	// EnableInteractiveDebugger is set to true when earth is run with the --interactive cli flag
 	InteractiveDebuggerEnabled bool
-	// IsCI determines whether it is running from a CI environment.
-	IsCI bool
 	// GlobalWaitBlockFtr, when true, forces all Earthfiles to add entries into the WAIT/END block
 	// this is to facilitate de-duplicating code from builder.go
 	GlobalWaitBlockFtr bool
-	// DoSaves controls when SAVE ARTIFACT AS LOCAL, and SAVE IMAGE (to the local docker instance) calls are
-	// executed When a SAVE IMAGE --push is encountered, the image may still be pushed to the remote registry
-	// (as long as DoPushes=true), but is not exported to the local docker instance.
-	DoSaves bool
 	// AllowPrivileged is used to allow (or prevent) any "RUN --privileged" or RUNs under a LOCALLY target
 	// to be executed, when set to false, it prevents other referenced remote targets from requesting
 	// elevated privileges
 	AllowPrivileged bool
 	// ForceSaveImage is used to force all SAVE IMAGE commands are executed regardless of if they are for a local or
-	// remote target; this is to support the legacy behaviour that was first introduced in earthly (up to 0.5)
-	// When this is set to false, SAVE IMAGE commands are only executed when DoSaves is true.
+	// remote target; this is to support the legacy behaviour that was first introduced in earthbuild (up to 0.5)
+	// When this is set to false, SAVE IMAGE commands are only executed for a referenced target
+	// whose Export includes images; see Export and SaveReferenced.
 	ForceSaveImage bool
 	// HasDangling represents whether the target has dangling instructions -
 	// ie if there are any non-SAVE commands after the first SAVE command,
@@ -159,7 +170,7 @@ type ConvertOpt struct {
 	// InteractiveDebuggerDebugLevelLogging controls if debug-level-logging is enabled within the interactive-debugger
 	InteractiveDebuggerDebugLevelLogging bool
 	// DoPushes controls when a SAVE IMAGE --push, and RUN --push commands are executed;
-	// SAVE IMAGE --push ... will still export an image to the local docker instance (as long as DoSaves=true)
+	// SAVE IMAGE --push ... will still export an image to the local docker instance (as long as Export is ExportAll)
 	DoPushes bool
 	// OnlyFinalTargetImages is used to ignore SAVE IMAGE commands in indirectly referenced targets
 	OnlyFinalTargetImages bool
@@ -180,6 +191,16 @@ type ConvertOpt struct {
 	UseInlineCache bool
 }
 
+// doSaves reports whether this target's saves should be carried out: the user
+// asked for local output at all, and this target's saves are referenced.
+//
+// Both halves are needed, and they answer different questions - see Export and
+// SaveReferenced. Individual saves narrow this further: an image save also asks
+// Export.Images(), so --no-image-output drops it while artifacts go ahead.
+func (opt *ConvertOpt) doSaves() bool {
+	return opt.SaveReferenced && opt.Export.Artifacts()
+}
+
 // Earthfile2LLB parses a earthfile and executes the statements for a given target.
 func Earthfile2LLB(
 	ctx context.Context, target domain.Target, opt ConvertOpt, initialCall bool,
@@ -196,10 +217,10 @@ func Earthfile2LLB(
 	}
 
 	if opt.TargetInputHashStackSet == nil {
-		opt.TargetInputHashStackSet = make(map[string]bool)
+		opt.TargetInputHashStackSet = make(map[string]struct{})
 	} else {
 		// We are in a recursive call. Copy the stack set.
-		newMap := make(map[string]bool, len(opt.TargetInputHashStackSet))
+		newMap := make(map[string]struct{}, len(opt.TargetInputHashStackSet))
 		maps.Copy(newMap, opt.TargetInputHashStackSet)
 		opt.TargetInputHashStackSet = newMap
 	}
@@ -222,8 +243,8 @@ func Earthfile2LLB(
 				// context.Canceled resulted from the cancellation of the
 				// ErrorGroup, but not the root cause).
 				err2 := opt.ErrorGroup.Err()
-				opt.Console.VerbosePrintf("earthfile2llb immediate error: %v", retErr)
-				opt.Console.VerbosePrintf("earthfile2llb group error: %v", err2)
+				opt.Log.VerbosePrintf("earthfile2llb immediate error: %v", retErr)
+				opt.Log.VerbosePrintf("earthfile2llb group error: %v", err2)
 
 				if err2 != nil {
 					retErr = err2
@@ -235,7 +256,7 @@ func Earthfile2LLB(
 	// Resolve build context.
 	bc, err := opt.Resolver.Resolve(ctx, opt.GwClient, opt.PlatformResolver, target)
 	if err != nil {
-		return nil, errors.Wrapf(err, "resolve build context for target %s", target.String())
+		return nil, fmt.Errorf("resolve build context for target %s: %w", target.String(), err)
 	}
 
 	if opt.Visited == nil {
@@ -248,8 +269,9 @@ func Earthfile2LLB(
 
 	opt.Features = bc.Features
 	if initialCall && !bc.Features.ReferencedSaveOnly {
-		opt.DoSaves = !target.IsRemote() // legacy mode only saves artifacts that are locally referenced
-		opt.ForceSaveImage = true        // legacy mode always saves images regardless of locally or remotely referenced
+		opt.SaveReferenced = !target.IsRemote() // legacy mode only saves artifacts that are locally referenced
+
+		opt.ForceSaveImage = true // legacy mode always saves images regardless of locally or remotely referenced
 	}
 
 	opt.PlatformResolver.AllowNativeAndUser = opt.Features.NewPlatform
@@ -260,7 +282,7 @@ func Earthfile2LLB(
 
 	targetWithMetadata, ok := bc.Ref.(domain.Target)
 	if !ok {
-		return nil, errors.Errorf("want domain.Target, got %T", bc.Ref)
+		return nil, fmt.Errorf("want domain.Target, got %T", bc.Ref)
 	}
 
 	sts, found, err := opt.Visited.
@@ -288,8 +310,8 @@ func Earthfile2LLB(
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if found {
-		if opt.TargetInputHashStackSet[tiHash] {
-			return nil, errors.Errorf("infinite cycle detected for target %s", target.String())
+		if _, ok := opt.TargetInputHashStackSet[tiHash]; ok {
+			return nil, fmt.Errorf("infinite cycle detected for target %s", target.String())
 		}
 
 		// Wait for the existing sts to complete first.
@@ -302,7 +324,7 @@ func Earthfile2LLB(
 		// The found target may have initially been created by a FROM or a COPY;
 		// however, if it is referenced a second time by a BUILD, it may contain items that
 		// require a save (export to the local host) or a push
-		if opt.DoSaves {
+		if opt.doSaves() {
 			sts.SetDoSaves()
 		}
 
@@ -310,10 +332,10 @@ func Earthfile2LLB(
 			sts.SetDoPushes()
 		}
 
-		if opt.DoSaves || opt.DoPushes {
+		if opt.doSaves() || opt.DoPushes {
 			err = sts.Wait(ctx)
 			if err != nil {
-				return nil, errors.Wrapf(err, "wait failed on target %s", target.String())
+				return nil, fmt.Errorf("wait failed on target %s: %w", target.String(), err)
 			}
 		}
 
@@ -326,8 +348,8 @@ func Earthfile2LLB(
 		}, nil
 	}
 
-	opt.TargetInputHashStackSet[tiHash] = true
-	opt.Console.VerbosePrintf("earthfile2llb building %s with OverridingVars=%v",
+	opt.TargetInputHashStackSet[tiHash] = struct{}{}
+	opt.Log.VerbosePrintf("earthfile2llb building %s with OverridingVars=%v",
 		targetWithMetadata.StringCanonical(), opt.OverridingVars.Map())
 
 	converter, err := NewConverter(targetWithMetadata, bc, sts, opt)
@@ -340,7 +362,7 @@ func Earthfile2LLB(
 		targetWithMetadata,
 		opt.AllowPrivileged,
 		opt.ParallelConversion,
-		opt.Console,
+		opt.Log,
 		opt.GitLookup,
 	)
 
@@ -355,7 +377,7 @@ func Earthfile2LLB(
 	}
 
 	if initialCall {
-		err = opt.waitBlock.Wait(ctx, opt.DoPushes, opt.DoSaves)
+		err = opt.waitBlock.Wait(ctx, opt.DoPushes, opt.doSaves())
 		if err != nil {
 			return nil, err
 		}

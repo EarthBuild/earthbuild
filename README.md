@@ -12,16 +12,17 @@ If you're interested in understanding why the community fork is happening, [this
 ----------------------------------
 
 <div align="center">
-  <a href="https://earthbuild.dev"><img src="img/logo-earthbuild.svg" alt="EarthBuild" width="320" /></a>
+  <a href="https://www.earthbuild.dev"><img src="img/logo-earthbuild.svg" alt="EarthBuild" width="320" /></a>
 
 *It's like Docker for builds*
 
 </div>
 
-[![GitHub Actions CI](https://github.com/earthbuild/earthbuild/workflows/staging%20release/badge.svg)](https://github.com/earthbuild/earthbuild/actions?query=workflow%3A%22staging%20release%22+branch%3Amain)
-[![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://earthbuild.dev/slack)
+[![CI](https://github.com/EarthBuild/earthbuild/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EarthBuild/earthbuild/actions/workflows/ci.yml?query=branch%3Amain)
+[![Staging Release](https://github.com/EarthBuild/earthbuild/actions/workflows/ci-staging-deploy.yml/badge.svg?branch=main)](https://github.com/EarthBuild/earthbuild/actions/workflows/ci-staging-deploy.yml?query=branch%3Amain)
+[![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://earthly.dev/slack)
 [![Docs](https://img.shields.io/badge/docs-earthbuild.dev-blue)](https://docs.earthbuild.dev)
-[![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://earthbuild.dev)
+[![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://www.earthbuild.dev)
 [![Install EarthBuild](https://img.shields.io/github/v/release/earthbuild/earthbuild.svg?label=install&color=1f626c)](https://www.earthbuild.dev/install.html)
 [![Docker Hub](https://img.shields.io/badge/docker%20hub-earthbuild-blue)](https://hub.docker.com/u/earthbuild)
 [![License MPL-2](https://img.shields.io/badge/license-MPL-blue.svg)](./LICENSE)
@@ -42,7 +43,7 @@ If you're interested in understanding why the community fork is happening, [this
 
 ----------------------------------
 
-🌎 [EarthBuild](https://earthbuild.dev/) is a versatile, approachable CI/CD framework that runs every pipeline inside containers, giving you repeatable builds that you write once and run anywhere. It has a super simple, instantly recognizable syntax that is easy to write and understand – like Dockerfile and Makefile had a baby. And it leverages and augments popular build tools instead of replacing them, so you don't have to rewrite all your builds no matter what languages you use.
+🌎 [EarthBuild](https://www.earthbuild.dev/) is a versatile, approachable CI/CD framework that runs every pipeline inside containers, giving you repeatable builds that you write once and run anywhere. It has a super simple, instantly recognizable syntax that is easy to write and understand – like Dockerfile and Makefile had a baby. And it leverages and augments popular build tools instead of replacing them, so you don't have to rewrite all your builds no matter what languages you use.
 
 <div align="center"><a href="https://www.earthbuild.dev/install.html"><img width="260" src="docs/img/get-earthbuild-button.svg" alt="Get EarthBuild" title="Get EarthBuild" /></a></div>
 
@@ -97,7 +98,7 @@ Never have to write the same code in multiple builds again. With EarthBuild, you
 
 <div align="center"><img src="docs/img/integration-diagram.svg" alt="EarthBuild fits between language-specific tooling and the CI" width="700px" /></div>
 
-EarthBuild is meant to be used both on your development machine and in CI. It runs on top of your CI/CD platform (such as [Jenkins](https://docs.earthbuild.dev/ci-integration/vendor-specific-guides/jenkins), [Circle CI](https://docs.earthbuild.dev/examples/circle-integration), [GitHub Actions](https://docs.earthbuild.dev/examples/gh-actions-integration), and [GitLab CI/CD](https://docs.earthbuild.dev/ci-integration/vendor-specific-guides/gitlab-integration)). EarthBuild provides the benefits of a modern build automation system wherever it runs – such as caching and parallelism. It is a glue layer between language-specific build tooling (like maven, gradle, npm, pip, go build) and CI, working like a wrapper around your build tooling and build logic that isolates build execution from the environments they run in.
+EarthBuild is meant to be used both on your development machine and in CI. It runs on top of your CI/CD platform (such as [Jenkins](https://docs.earthbuild.dev/ci-integration/vendor-specific-guides/jenkins), [Circle CI](https://docs.earthbuild.dev/ci-integration/guides/circle-integration), [GitHub Actions](https://docs.earthbuild.dev/ci-integration/guides/gh-actions-integration), and [GitLab CI/CD](https://docs.earthbuild.dev/ci-integration/vendor-specific-guides/gitlab-integration)). EarthBuild provides the benefits of a modern build automation system wherever it runs – such as caching and parallelism. It is a glue layer between language-specific build tooling (like maven, gradle, npm, pip, go build) and CI, working like a wrapper around your build tooling and build logic that isolates build execution from the environments they run in.
 
 ## How Does It Work?
 
@@ -140,15 +141,15 @@ Here are some resources to get you started with EarthBuild
 - [Multiplatform Builds](./examples/multiplatform)
 - [Integration Tests](./examples/integration-test)
 - 🔍 Explore [EarthBuild's own build](https://docs.earthbuild.dev/docs/examples#earthbuilds-own-build)
-- ✔️ [Best practices](https://docs.earthbuild.dev/best-practices)
+- ✔️ [Best practices](https://docs.earthbuild.dev/docs/guides/best-practices)
 
 See also the [full documentation](https://docs.earthbuild.dev).
 
 Reference pages
 
 - 📑 [Earthfile reference](https://docs.earthbuild.dev/docs/earthfile)
-- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/docs/earthbuild-command)
-- ⚙️ [Configuration reference](https://docs.earthbuild.dev/docs/earthbuild-config)
+- #️⃣ [EarthBuild command reference](https://docs.earthbuild.dev/docs/earth-command)
+- ⚙️ [Configuration reference](https://docs.earthbuild.dev/docs/earth-config)
 
 ### A simple example (for Go)
 
@@ -156,7 +157,7 @@ Reference pages
 # Earthfile
 VERSION 0.8
 FROM golang:1.15-alpine3.13
-RUN apk --update --no-cache add git
+RUN apk --no-cache add git
 WORKDIR /go-example
 
 all:
@@ -234,14 +235,15 @@ No need to ask your team to install `protoc`, a specific version of Python, Java
 
 ```Earthfile
 VERSION 0.8
-FROM golang:1.15-alpine3.13
+FROM golang:1.27-alpine3.24
 WORKDIR /proto-example
 
 proto:
-  FROM namely/protoc-all:1.29_4
-  COPY api.proto /defs
-  RUN --entrypoint -- -f api.proto -l go
-  SAVE ARTIFACT ./gen/pb-go /pb AS LOCAL pb
+  RUN apk add --no-cache protobuf-dev protobuf
+  RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+  COPY pb/api.proto ./pb/
+  RUN protoc --go_out=. --go_opt=paths=source_relative pb/api.proto
+  SAVE ARTIFACT pb /pb AS LOCAL pb
 
 build:
   COPY go.mod go.sum .
@@ -269,7 +271,7 @@ docker run --rm earthbuild/examples:go
 
 Use `+` to reference other targets and create complex build inter-dependencies.
 
-<div align="center"><a href="https://docs.earthbuild.dev/guides/target-ref"><img src="docs/guides/img/ref-infographic-v2.png" alt="Target and artifact reference syntax" title="Reference targets using +" width="600px" /></a></div>
+<div align="center"><a href="https://docs.earthbuild.dev/docs/guides/target-ref"><img src="docs/guides/img/ref-infographic-v2.png" alt="Target and artifact reference syntax" title="Reference targets using +" width="600px" /></a></div>
 
 Examples
 
@@ -338,12 +340,14 @@ You may also optionally port your Dockerfiles to EarthBuild entirely. Translatin
 
 ### How is EarthBuild different from Bazel?
 
-[Bazel](https://bazel.build) is a build tool developed by Google to optimize the speed, correctness, and reproducibility of their internal monorepo codebase. The main difference between Bazel and EarthBuild is that Bazel is a **build system**, whereas EarthBuild is a **general-purpose CI/CD framework**. For a more in-depth explanation see [our FAQ](https://earthbuild.dev/faq#bazel).
+[Bazel](https://bazel.build) is a build tool developed by Google to optimize the speed, correctness, and reproducibility of their internal monorepo codebase. The main difference between Bazel and EarthBuild is that Bazel is a **build system**, whereas EarthBuild is a **general-purpose CI/CD framework**.
+
+Bazel requires that you describe your build in its own language, and gives you strong hermeticity and fine-grained caching in exchange. EarthBuild wraps the build tooling you already use (maven, gradle, npm, pip, go build) in containers, so adoption is incremental and you keep your existing build logic.
 
 ## Contributing
 
 - Please report bugs as [GitHub issues](https://github.com/EarthBuild/earthbuild/issues).
-- Join us on [Slack](https://earthbuild.dev/slack)!
+- Join us on [Slack](https://earthly.dev/slack)!
 - Questions via GitHub issues are welcome!
 - PRs welcome! But please give a heads-up in a GitHub issue before starting work. If there is no GitHub issue for what you want to do, please create one.
 - To build from source, check the [contributing page](./CONTRIBUTING.md).

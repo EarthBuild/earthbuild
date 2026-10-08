@@ -18,9 +18,8 @@ linters:
     - err113
     - errcheck
     - errchkjson
-    - exhaustive
     - exhaustruct
-    - fatcontext
+    - exhaustruct_v5
     - forbidigo
     - funcorder
     - funlen
@@ -30,6 +29,7 @@ linters:
     - gocyclo
     - godox
     - gomoddirectives
+    - gomodguard # deprecated
     - inamedparam
     - interfacebloat
     - ireturn
@@ -41,8 +41,6 @@ linters:
     - nilnil
     - nlreturn
     - nonamedreturns
-    - recvcheck
-    - revive
     - tagliatelle
     - testpackage
     - varnamelen

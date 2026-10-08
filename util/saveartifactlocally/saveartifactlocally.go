@@ -1,7 +1,11 @@
+// Package saveartifactlocally handles the extraction and local saving of build artifacts
+// from earth's buildkit containers.
 package saveartifactlocally
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -9,17 +13,15 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/files"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
-
-	reccopy "github.com/otiai10/copy"
-	"github.com/pkg/errors"
 )
 
 // SaveArtifactLocally handles saving artifacts to the local host, and is called from both builder and waitblock.
 func SaveArtifactLocally(
 	ctx context.Context,
 	exportCoordinator *gatewaycrafter.ExportCoordinator,
-	console conslogging.ConsoleLogger,
+	log *conslogging.ConsoleLogger,
 	artifact domain.Artifact,
 	indexOutDir, destPath, salt string,
 	ifExists bool,
@@ -30,13 +32,13 @@ func SaveArtifactLocally(
 	//       while the pattern is also guest-platform dependent.
 	fromGlobMatches, err := filepath.Glob(fromPattern)
 	if err != nil {
-		return errors.Wrapf(err, "glob")
+		return fmt.Errorf("glob: %w", err)
 	} else if !artifact.Target.IsRemote() && len(fromGlobMatches) == 0 {
 		if ifExists {
 			return nil
 		}
 
-		return errors.Errorf("cannot save artifact %s, since it does not exist", artifact.StringCanonical())
+		return fmt.Errorf("cannot save artifact %s, since it does not exist", artifact.StringCanonical())
 	}
 
 	isWildcard := strings.ContainsAny(fromPattern, `*?[`)
@@ -44,7 +46,7 @@ func SaveArtifactLocally(
 	for _, from := range fromGlobMatches {
 		fiSrc, err := os.Stat(from)
 		if err != nil {
-			return errors.Wrapf(err, "os stat %s", from)
+			return fmt.Errorf("os stat %s: %w", from, err)
 		}
 
 		srcIsDir := fiSrc.IsDir()
@@ -68,7 +70,8 @@ func SaveArtifactLocally(
 			// Ignore err. Likely dest path does not exist.
 			if isWildcard && !destIsDir {
 				return errors.New(
-					"artifact is a wildcard, but AS LOCAL destination does not end with /")
+					"artifact is a wildcard, but AS LOCAL destination does not end with /",
+				)
 			}
 
 			destIsDir = fiSrc.IsDir()
@@ -80,18 +83,19 @@ func SaveArtifactLocally(
 		switch {
 		case !destIsDir && srcIsDir:
 			return errors.New(
-				"artifact is a directory, but existing AS LOCAL destination is a file")
+				"artifact is a directory, but existing AS LOCAL destination is a file",
+			)
 		case destExists && srcIsDir:
 			// Remove preexisting dest dir.
 			err = os.RemoveAll(to)
 			if err != nil {
-				return errors.Wrapf(err, "rm -rf %s", to)
+				return fmt.Errorf("rm -rf %s: %w", to, err)
 			}
 		case destExists && !srcIsDir:
 			// Remove preexisting dest file.
 			err = os.Remove(to)
 			if err != nil {
-				return errors.Wrapf(err, "rm %s", to)
+				return fmt.Errorf("rm %s: %w", to, err)
 			}
 		}
 
@@ -99,20 +103,16 @@ func SaveArtifactLocally(
 
 		err = os.MkdirAll(toDir, 0o755) // #nosec G301
 		if err != nil {
-			return errors.Wrapf(err, "mkdir all for artifact %s", toDir)
+			return fmt.Errorf("mkdir all for artifact %s: %w", toDir, err)
 		}
 
-		err = os.Link(from, to)
+		err = files.Copy(ctx, from, to)
 		if err != nil {
-			// Hard linking did not work. Try recursive copy.
-			errCopy := reccopy.Copy(from, to)
-			if errCopy != nil {
-				return errors.Wrapf(errCopy, "copy artifact %s", from)
-			}
+			return fmt.Errorf("copy artifact: %w", err)
 		}
 
 		// Add summary data about this artifact (to be output to console in summary phase).
-		artifactPath := trimFilePathPrefix(indexOutDir, from, console)
+		artifactPath := trimFilePathPrefix(indexOutDir, from, log)
 		artifact2 := domain.Artifact{
 			Target:   artifact.Target,
 			Artifact: artifactPath,
@@ -129,10 +129,10 @@ func SaveArtifactLocally(
 	return nil
 }
 
-func trimFilePathPrefix(prefix string, thePath string, console conslogging.ConsoleLogger) string {
+func trimFilePathPrefix(prefix string, thePath string, log *conslogging.ConsoleLogger) string {
 	ret, err := filepath.Rel(prefix, thePath)
 	if err != nil {
-		console.Warnf("Warning: Could not compute relative path for %s "+
+		log.Warnf("Warning: Could not compute relative path for %s "+
 			"as being relative to %s: %s\n", thePath, prefix, err.Error())
 
 		return thePath

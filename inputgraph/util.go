@@ -2,23 +2,24 @@ package inputgraph
 
 import (
 	"context"
+	"errors"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/command"
 	"github.com/EarthBuild/earthbuild/buildcontext"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
-	"github.com/pkg/errors"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
+// ParseProjectCommand parses a project command from arguments.
 func ParseProjectCommand(
-	ctx context.Context, target domain.Target, console conslogging.ConsoleLogger,
+	ctx context.Context, target domain.Target, log *conslogging.ConsoleLogger,
 ) (string, string, error) {
 	if target.IsRemote() {
 		return "", "", errCannotLoadRemoteTarget
 	}
 
-	resolver := buildcontext.NewResolver(nil, nil, console, "", "", "", 0, "")
+	resolver := buildcontext.NewResolver(nil, nil, log, "", "", "", 0, "")
 
 	buildCtx, err := resolver.Resolve(ctx, nil, nil, target)
 	if err != nil {
@@ -28,7 +29,7 @@ func ParseProjectCommand(
 	ef := buildCtx.Earthfile
 
 	for _, stmt := range ef.BaseRecipe {
-		if stmt.Command != nil && stmt.Command.Name == command.Project {
+		if stmt.Command != nil && stmt.Command.Name == earthfile.CmdProject {
 			args := stmt.Command.Args
 			if len(args) != 1 {
 				return "", "", errors.New("failed to parse PROJECT command")

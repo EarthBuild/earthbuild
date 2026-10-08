@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/waitutil"
 )
 
 type saveImageWaitItem struct {
@@ -18,7 +17,7 @@ type saveImageWaitItem struct {
 	mu sync.Mutex
 }
 
-func newSaveImage(si states.SaveImage, c *Converter, allowPush, localExport bool) waitutil.WaitItem {
+func newSaveImage(si states.SaveImage, c *Converter, allowPush, localExport bool) states.WaitItem {
 	return &saveImageWaitItem{
 		c:           c,
 		si:          si,
@@ -30,6 +29,19 @@ func newSaveImage(si states.SaveImage, c *Converter, allowPush, localExport bool
 func (siwi *saveImageWaitItem) SetDoSave() {
 	siwi.mu.Lock()
 	defer siwi.mu.Unlock()
+
+	// SetDoSave is what propagates local export down BUILD edges: it is called
+	// when a BUILD reaches this target, which may be long after conversion decided
+	// the target was unreferenced. So --no-image-output has to be honoured here as
+	// well as at conversion time, or a child target's image would be exported
+	// anyway.
+	//
+	// This asks Export, the user's intent for the whole build, and deliberately not
+	// the per-target SaveReferenced: being referenced is precisely what this call
+	// is announcing.
+	if !siwi.c.opt.Export.Images() {
+		return
+	}
 
 	if siwi.si.DockerTag != "" {
 		siwi.localExport = true

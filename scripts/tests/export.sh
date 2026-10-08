@@ -13,7 +13,7 @@ echo "using frontend $frontend"
 
 PATH="$(realpath "$(dirname "$0")/../acbtest"):$PATH"
 
-# prevent the self-update of earthly from running (this ensures no bogus data is printed to stdout,
+# prevent the self-update of earthbuild from running (this ensures no bogus data is printed to stdout,
 # which would mess with the secrets data being fetched)
 date +%s > /tmp/last-earthly-prerelease-check
 
@@ -97,7 +97,7 @@ cat >> Earthfile <<EOF
 VERSION 0.7
 
 multi4:
-    # NOTE: keep amd64 in the middle, since earthly will fallback to the first defined platform
+    # NOTE: keep amd64 in the middle, since earthbuild will fallback to the first defined platform
     # in case loadDockerManifest fails
     BUILD --platform=linux/arm/v7 --platform=linux/amd64 --platform=linux/arm64 +test4
 
@@ -201,7 +201,7 @@ fi
 # # This simply tests that this does not hang (#1945).
 # timeout -k 11m 10m "$earthly" --ci --push --remote-cache EarthBuild/test-cache:export-test-7 +test7
 
-# Test 8: Earthly LABELS
+# Test 8: Earthbuild LABELS
 echo ==== Running test 8 ====
 rm -rf /tmp/earthbuild-export-test-8
 "$frontend" rmi earthly-export-test-8a:test || true

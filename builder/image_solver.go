@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"encoding/json"
+	jsonv1 "encoding/json"
+	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -23,7 +25,6 @@ import (
 	"github.com/moby/buildkit/session/pullping"
 	"github.com/moby/buildkit/util/entitlements"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -46,9 +47,12 @@ type tarImageSolver struct {
 }
 
 func (s *tarImageSolver) newSolveOpt(img *image.Image, dockerTag string, w io.WriteCloser) (*client.SolveOpt, error) {
-	imgJSON, err := json.Marshal(img)
+	// Format with legacy v1 options because img.Config embeds third-party structs
+	// (specs.ImageConfig and image.HealthConfig) that require v1 semantics
+	// (integer nanoseconds for time.Duration and omitempty on scalar zero values).
+	imgJSON, err := json.Marshal(img, jsonv1.DefaultOptionsV1())
 	if err != nil {
-		return nil, errors.Wrap(err, "image json marshal")
+		return nil, fmt.Errorf("image json marshal: %w", err)
 	}
 
 	imports := s.cacheImports.AsSlice()
@@ -87,14 +91,14 @@ func (s *tarImageSolver) SolveImage(
 
 	dt, err := saveImage.State.Marshal(ctx, llb.Platform(platform))
 	if err != nil {
-		return errors.Wrap(err, "state marshal")
+		return fmt.Errorf("state marshal: %w", err)
 	}
 
 	pipeR, pipeW := io.Pipe()
 
 	solveOpt, err := s.newSolveOpt(saveImage.Image, dockerTag, pipeW)
 	if err != nil {
-		return errors.Wrap(err, "new solve opt")
+		return fmt.Errorf("new solve opt: %w", err)
 	}
 
 	ch := make(chan *client.SolveStatus)
@@ -108,7 +112,7 @@ func (s *tarImageSolver) SolveImage(
 
 		_, err = s.bkClient.Solve(ctx, dt, *solveOpt, ch)
 		if err != nil {
-			return errors.Wrap(err, "solve")
+			return fmt.Errorf("solve: %w", err)
 		}
 
 		return nil
@@ -133,7 +137,7 @@ func (s *tarImageSolver) SolveImage(
 	eg.Go(func() error {
 		file, err := os.Create(outFile) // #nosec G304
 		if err != nil {
-			return errors.Wrapf(err, "open file %s for writing", outFile)
+			return fmt.Errorf("open file %s for writing: %w", outFile, err)
 		}
 		defer file.Close()
 
@@ -148,12 +152,12 @@ func (s *tarImageSolver) SolveImage(
 					break
 				}
 
-				return errors.Wrap(err, "pipe read")
+				return fmt.Errorf("pipe read: %w", err)
 			}
 
 			_, err = bufFile.Write(buf[:n])
 			if err != nil {
-				return errors.Wrap(err, "write chunk to file")
+				return fmt.Errorf("write chunk to file: %w", err)
 			}
 		}
 
@@ -220,6 +224,7 @@ func (m *multiImageSolver) SolveImages(
 	info, err := m.bkClient.Info(ctx)
 	if err != nil {
 		// Maybe older buildkit.
+		fmt.Println("Unable to determine BuildKit version. Maybe older buildkit.")
 	} else {
 		switch info.BuildkitVersion.Version {
 		case "v0.6.19":
@@ -240,7 +245,7 @@ func (m *multiImageSolver) SolveImages(
 		for i, img := range images {
 			finalImageName, ok := onPullMap[img]
 			if !ok {
-				return errors.Errorf("image %s not found in onPullMap", img)
+				return fmt.Errorf("image %s not found in onPullMap", img)
 			}
 
 			result := &states.ImageResult{
@@ -272,19 +277,20 @@ func (m *multiImageSolver) SolveImages(
 				case exptypes.ExporterImageDescriptorKey:
 					vdec, err := base64.StdEncoding.DecodeString(v)
 					if err != nil {
-						return errors.Wrapf(err, "base64 decode img descriptor for img %s", img)
+						return fmt.Errorf("base64 decode img descriptor for img %s: %w", img, err)
 					}
 
 					result.ImageDescriptor = &ocispecs.Descriptor{}
 
 					err = json.Unmarshal(vdec, result.ImageDescriptor)
 					if err != nil {
-						return errors.Wrapf(err, "json unmarshal img descriptor for img %s", img)
+						return fmt.Errorf("json unmarshal img descriptor for img %s: %w", img, err)
 					}
 
 					result.ImageDigest = result.ImageDescriptor.Digest.String()
 					result.FinalImageNameWithDigest = fmt.Sprintf(
-						"%s@%s", result.FinalImageName, result.ImageDigest)
+						"%s@%s", result.FinalImageName, result.ImageDigest,
+					)
 				case exptypes.ExporterConfigDigestKey:
 					result.ConfigDigest = v
 				default:
@@ -404,7 +410,7 @@ func (m *multiImageSolver) addRefToResult(
 	ref, err := llbutil.
 		StateToRef(ctx, gwClient, saveImage.State, false, imageDef.MTS.Final.PlatformResolver, m.cacheImports.AsSlice())
 	if err != nil {
-		return errors.Wrap(err, "initial state to ref conversion")
+		return fmt.Errorf("initial state to ref conversion: %w", err)
 	}
 
 	refPrefix, err := gwCrafter.AddPushImageEntry(ref, imageIndex, imageDef.ImageName, false, false, saveImage.Image, nil)

@@ -9,9 +9,7 @@ import (
 	"github.com/EarthBuild/earthbuild/logbus/solvermon"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
-	"github.com/pkg/errors"
 )
 
 type withDockerRunLocalReg struct {
@@ -42,7 +40,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 
 	_, cmd, err := w.c.newLogbusCommand(ctx, commandName)
 	if err != nil {
-		return errors.Wrap(err, "failed to create command")
+		return fmt.Errorf("failed to create command: %w", err)
 	}
 
 	defer func() {
@@ -61,7 +59,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 
 		imageDefChan, err = w.load(ctx, loadOpt)
 		if err != nil {
-			return errors.Wrap(err, "load")
+			return fmt.Errorf("load: %w", err)
 		}
 
 		imageDefChans = append(imageDefChans, imageDefChan)
@@ -78,7 +76,7 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 
 	res, err := w.c.opt.MultiImageSolver.SolveImages(ctx, imagesToBuild)
 	if err != nil {
-		return errors.Wrap(err, "solving images")
+		return fmt.Errorf("solving images: %w", err)
 	}
 	defer res.ReleaseFunc()
 
@@ -103,17 +101,14 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 		// Pull and then retag all images with expected tags.
 		pullImage := fmt.Sprintf("%s/%s", w.c.opt.LocalRegistryAddr, result.IntermediateImageName)
 
-		err = w.c.containerFrontend.ImagePull(ctx, pullImage)
+		err = w.c.engine.PullImage(ctx, pullImage)
 		if err != nil {
 			return err
 		}
 
-		err = w.c.containerFrontend.ImageTag(ctx, containerutil.ImageTag{
-			SourceRef: pullImage,
-			TargetRef: result.FinalImageName,
-		})
+		err = w.c.engine.TagImage(ctx, pullImage, result.FinalImageName)
 		if err != nil {
-			return errors.Wrapf(err, "tag image %q", result.FinalImageName)
+			return fmt.Errorf("tag image %q: %w", result.FinalImageName, err)
 		}
 	}
 
@@ -148,10 +143,10 @@ func (w *withDockerRunLocalReg) load(ctx context.Context, opt DockerLoadOpt) (ch
 
 	depTarget, err := domain.ParseTarget(opt.Target)
 	if err != nil {
-		return nil, errors.Wrapf(err, "parse target %s", opt.Target)
+		return nil, fmt.Errorf("parse target %s: %w", opt.Target, err)
 	}
 
-	afterFun := func(ctx context.Context, mts *states.MultiTarget) error {
+	afterFun := func(_ context.Context, mts *states.MultiTarget) error {
 		if opt.ImageName == "" {
 			// Infer image name from the SAVE IMAGE statement.
 			if len(mts.Final.SaveImages) == 0 || mts.Final.SaveImages[0].DockerTag == "" {
@@ -159,7 +154,7 @@ func (w *withDockerRunLocalReg) load(ctx context.Context, opt DockerLoadOpt) (ch
 			}
 
 			if len(mts.Final.SaveImages) > 1 {
-				return errors.Wrap(errNoImageTag, "multiple tags mentioned in SAVE IMAGE")
+				return fmt.Errorf("multiple tags mentioned in SAVE IMAGE: %w", errNoImageTag)
 			}
 
 			opt.ImageName = mts.Final.SaveImages[0].DockerTag
@@ -176,13 +171,15 @@ func (w *withDockerRunLocalReg) load(ctx context.Context, opt DockerLoadOpt) (ch
 
 	if w.enableParallel {
 		err = w.c.BuildAsync(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, loadCmd, afterFun, w.sem,
+		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		mts, err := w.c.buildTarget(
-			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, "", nil)
+			ctx, depTarget.String(), opt.Platform, opt.AllowPrivileged, opt.PassArgs, opt.BuildArgs, false, loadCmd, "", nil,
+		)
 		if err != nil {
 			return nil, err
 		}

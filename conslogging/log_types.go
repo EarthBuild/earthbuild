@@ -50,7 +50,7 @@ type TargetManifest struct {
 	Size     int    `json:"size"`
 }
 
-// Permissions is the structure for the permissions manifest that can grant view rights to other Earthly users.
+// Permissions is the structure for the permissions manifest that can grant view rights to other earth users.
 type Permissions struct {
 	Users   []string `json:"users"`
 	Orgs    []string `json:"orgs"`

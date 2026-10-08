@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/EarthBuild/earthbuild/examples/readme/proto/pb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func main() {

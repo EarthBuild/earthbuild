@@ -3,8 +3,6 @@ package domain
 import (
 	"fmt"
 	"regexp"
-
-	"github.com/pkg/errors"
 )
 
 var _ Reference = Target{}
@@ -13,7 +11,7 @@ const targetNamePattern = "^[a-z][a-zA-Z0-9.\\-]*$"
 
 var targetNameRegex = regexp.MustCompile(targetNamePattern)
 
-// Target is an earthly target identifier.
+// Target is an earth target identifier.
 type Target struct {
 	// Remote representation.
 	GitURL string `json:"gitUrl"` // e.g. "github.com/EarthBuild/earthbuild/examples/go"
@@ -113,7 +111,7 @@ func ParseTarget(fullTargetName string) (Target, error) {
 
 	ok := targetNameRegex.MatchString(target)
 	if !ok {
-		return Target{}, errors.Errorf("target name %s does not match %s", target, targetNamePattern)
+		return Target{}, fmt.Errorf("target name %s does not match %s", target, targetNamePattern)
 	}
 
 	return Target{

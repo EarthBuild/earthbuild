@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"path"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
-// Artifact is an earthly artifact identifier.
+// Artifact is an earth artifact identifier.
 type Artifact struct {
 	Target   Target
 	Artifact string
@@ -20,13 +18,13 @@ func (a Artifact) Clone() Artifact {
 }
 
 // String returns a string representation of the Artifact.
-func (ea Artifact) String() string {
-	return fmt.Sprintf("%s%s", ea.Target.String(), path.Join("/", escapePlus(ea.Artifact)))
+func (a Artifact) String() string {
+	return fmt.Sprintf("%s%s", a.Target.String(), path.Join("/", escapePlus(a.Artifact)))
 }
 
 // StringCanonical returns a string representation of the Artifact.
-func (ea Artifact) StringCanonical() string {
-	return fmt.Sprintf("%s%s", ea.Target.StringCanonical(), path.Join("/", escapePlus(ea.Artifact)))
+func (a Artifact) StringCanonical() string {
+	return fmt.Sprintf("%s%s", a.Target.StringCanonical(), path.Join("/", escapePlus(a.Artifact)))
 }
 
 // ParseArtifact parses a string representation of an Artifact.
@@ -37,19 +35,19 @@ func ParseArtifact(artifactName string) (Artifact, error) {
 	}
 
 	if len(parts) != 2 {
-		return Artifact{}, errors.Errorf("invalid artifact name %s", artifactName)
+		return Artifact{}, fmt.Errorf("invalid artifact name %s", artifactName)
 	}
 
 	partsSlash := strings.SplitN(parts[1], "/", 2)
 	if len(partsSlash) != 2 {
-		return Artifact{}, errors.Errorf("invalid artifact name %s", artifactName)
+		return Artifact{}, fmt.Errorf("invalid artifact name %s", artifactName)
 	}
 
 	earthTargetName := escapePlus(parts[0]) + "+" + partsSlash[0]
 
 	target, err := ParseTarget(earthTargetName)
 	if err != nil {
-		return Artifact{}, errors.Wrapf(err, "invalid artifact name %s", artifactName)
+		return Artifact{}, fmt.Errorf("invalid artifact name %s: %w", artifactName, err)
 	}
 
 	artifactPath := "/" + partsSlash[1]

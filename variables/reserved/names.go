@@ -1,5 +1,6 @@
 package reserved
 
+// Git-related constants that are used in build manifests.
 const (
 	EarthGitAuthor                  = "EARTH_GIT_AUTHOR"
 	EarthGitAuthorEmail             = "EARTH_GIT_AUTHOR_EMAIL"
@@ -17,6 +18,16 @@ const (
 	EarthGitShortHash               = "EARTH_GIT_SHORT_HASH"
 	EarthGitTag                     = "EARTH_GIT_TAG"
 	EarthSourceDateEpoch            = "EARTH_SOURCE_DATE_EPOCH"
+	EarthBuildSha                   = "EARTH_BUILD_SHA"
+	EarthLocally                    = "EARTH_LOCALLY"
+	EarthPush                       = "EARTH_PUSH"
+	EarthTarget                     = "EARTH_TARGET"
+	EarthTargetName                 = "EARTH_TARGET_NAME"
+	EarthTargetProject              = "EARTH_TARGET_PROJECT"
+	EarthTargetProjectNoTag         = "EARTH_TARGET_PROJECT_NO_TAG"
+	EarthTargetTag                  = "EARTH_TARGET_TAG"
+	EarthTargetTagDocker            = "EARTH_TARGET_TAG_DOCKER"
+	EarthVersion                    = "EARTH_VERSION"
 	EarthlyBuildSha                 = "EARTHLY_BUILD_SHA"
 	EarthlyGitBranch                = "EARTHLY_GIT_BRANCH"
 	EarthlyGitCommitTimestamp       = "EARTHLY_GIT_COMMIT_TIMESTAMP"
@@ -34,8 +45,6 @@ const (
 	EarthlyGitRefs                  = "EARTHLY_GIT_REFS"
 	EarthlyLocally                  = "EARTHLY_LOCALLY"
 	EarthlyPush                     = "EARTHLY_PUSH"
-	EarthlyCI                       = "EARTHLY_CI"
-	EarthlyCIRunner                 = "EARTHLY_CI_RUNNER"
 	EarthlySourceDateEpoch          = "EARTHLY_SOURCE_DATE_EPOCH"
 	EarthlyTarget                   = "EARTHLY_TARGET"
 	EarthlyTargetName               = "EARTHLY_TARGET_NAME"
@@ -78,6 +87,16 @@ func init() {
 		EarthGitShortHash:               {},
 		EarthGitTag:                     {},
 		EarthSourceDateEpoch:            {},
+		EarthBuildSha:                   {},
+		EarthLocally:                    {},
+		EarthPush:                       {},
+		EarthTarget:                     {},
+		EarthTargetName:                 {},
+		EarthTargetProject:              {},
+		EarthTargetProjectNoTag:         {},
+		EarthTargetTag:                  {},
+		EarthTargetTagDocker:            {},
+		EarthVersion:                    {},
 		EarthlyBuildSha:                 {},
 		EarthlyGitBranch:                {},
 		EarthlyGitCommitTimestamp:       {},
@@ -95,8 +114,6 @@ func init() {
 		EarthlyGitRefs:                  {},
 		EarthlyLocally:                  {},
 		EarthlyPush:                     {},
-		EarthlyCI:                       {},
-		EarthlyCIRunner:                 {},
 		EarthlySourceDateEpoch:          {},
 		EarthlyTarget:                   {},
 		EarthlyTargetName:               {},

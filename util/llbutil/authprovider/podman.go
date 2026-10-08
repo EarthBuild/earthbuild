@@ -2,6 +2,7 @@ package authprovider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -14,7 +15,6 @@ import (
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/auth/authprovider"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -57,7 +57,8 @@ func WithOS(o OS) PodmanOpt {
 	}
 }
 
-func NewPodman(stderr io.Writer, opts ...PodmanOpt) session.Attachable {
+// NewPodman creates a new podman authentication provider.
+func NewPodman(ctx context.Context, stderr io.Writer, opts ...PodmanOpt) session.Attachable {
 	conf := podmanCfg{
 		os: defaultOS{},
 	}
@@ -79,7 +80,7 @@ func NewPodman(stderr io.Writer, opts ...PodmanOpt) session.Attachable {
 
 	xdgRuntime := conf.os.Getenv("XDG_RUNTIME_DIR")
 	if xdgRuntime == "" {
-		idCmd := exec.CommandContext(context.Background(), "id", "-u")
+		idCmd := exec.CommandContext(ctx, "id", "-u")
 
 		out, err := idCmd.CombinedOutput()
 		if err != nil {
@@ -128,14 +129,14 @@ func podmanAuth(o OS, path string) (*configfile.ConfigFile, error) {
 
 	cfg := configfile.New(path)
 	if err != nil {
-		return cfg, errors.Wrap(err, path)
+		return cfg, fmt.Errorf("%s: %w", path, err)
 	}
 
 	defer f.Close()
 
 	err = cfg.LoadFromReader(f)
 	if err != nil {
-		return cfg, errors.Wrap(err, path)
+		return cfg, fmt.Errorf("%s: %w", path, err)
 	}
 
 	return cfg, nil

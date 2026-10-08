@@ -1,9 +1,10 @@
+// Package main provides a script for parsing and transforming unit test output.
 package main
 
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"log"
 	"os"

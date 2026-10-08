@@ -2,13 +2,14 @@ package logbus
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/internal/circbuf"
 	"github.com/EarthBuild/earthbuild/logstream"
-	"github.com/EarthBuild/earthbuild/util/circbuf"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -35,7 +36,7 @@ type Command struct {
 func newCommand(b *Bus, commandID string, targetID string) *Command {
 	to, err := circbuf.NewBuffer(tailErrorBufferSizeBytes)
 	if err != nil {
-		panic(errors.Wrap(err, "failed to create tail buffer"))
+		panic(fmt.Errorf("failed to create tail buffer: %w", err))
 	}
 
 	return &Command{
@@ -60,7 +61,7 @@ func (c *Command) Write(dt []byte, ts time.Time, stream int32) (int, error) {
 	c.mu.Unlock()
 
 	if err != nil {
-		return 0, errors.Wrap(err, "write to tail output")
+		return 0, fmt.Errorf("write to tail output: %w", err)
 	}
 
 	c.b.WriteRawLog(&logstream.DeltaLog{
@@ -97,19 +98,19 @@ func (c *Command) SetStart(start time.Time) {
 
 // AddDependsOn creates a delta that will be used to merge the specified target
 // ID & name into the command's list of targets on which it depends.
-func (t *Command) AddDependsOn(targetID, refName string) {
+func (c *Command) AddDependsOn(targetID, refName string) {
 	// Only add the dependency link once to avoid sending duplicates to Logstream.
-	t.mu.Lock()
+	c.mu.Lock()
 
-	if _, ok := t.dependsOn[targetID]; ok {
-		t.mu.Unlock()
+	if _, ok := c.dependsOn[targetID]; ok {
+		c.mu.Unlock()
 		return
 	}
 
-	t.dependsOn[targetID] = struct{}{}
-	t.mu.Unlock()
+	c.dependsOn[targetID] = struct{}{}
+	c.mu.Unlock()
 
-	t.commandDelta(&logstream.DeltaCommandManifest{
+	c.commandDelta(&logstream.DeltaCommandManifest{
 		DependsOn: []*logstream.CommandTarget{
 			{
 				TargetId:       targetID,

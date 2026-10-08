@@ -1,9 +1,12 @@
+// Package states manages the resolution and execution states of Earthfile targets, maintaining caches,
+// tracking imports, and coordinating solvers.
 package states
 
 import (
 	"context"
 	"slices"
 	"sync"
+	"uuid"
 
 	"github.com/moby/buildkit/client/llb"
 
@@ -12,12 +15,10 @@ import (
 	"github.com/EarthBuild/earthbuild/states/image"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
-	"github.com/EarthBuild/earthbuild/util/waitutil"
 	"github.com/EarthBuild/earthbuild/variables"
-	"github.com/google/uuid"
 )
 
-// MultiTarget holds LLB states representing multiple earthly targets,
+// MultiTarget holds LLB states representing multiple earth targets,
 // in the order in which they should be built.
 type MultiTarget struct {
 	// Visited represents the previously visited states, grouped by target
@@ -46,7 +47,21 @@ func (mts *MultiTarget) All() []*SingleTarget {
 	return mts.Visited.All()
 }
 
-// SingleTarget holds LLB states representing an earthly target.
+// WaitItem is an item to wait for.
+type WaitItem interface {
+	SetDoPush()
+	SetDoSave()
+}
+
+// WaitBlock stores items within a WAIT / END block.
+type WaitBlock interface {
+	Wait(ctx context.Context, push, save bool) error
+	AddItem(item WaitItem)
+	SetDoSaves()
+	SetDoPushes()
+}
+
+// SingleTarget holds LLB states representing an earth target.
 type SingleTarget struct {
 	MainState              pllb.State
 	ArtifactsState         pllb.State
@@ -57,10 +72,10 @@ type SingleTarget struct {
 	// outgoingNewSubscriptions is a list of channels to update when new dependentIDs are added.
 	outgoingNewSubscriptions []chan string
 	// WaitBlocks contains the caller's waitblock plus any additional waitblocks defined in the target
-	WaitBlocks []waitutil.WaitBlock
+	WaitBlocks []WaitBlock
 	// WaitItems contains all wait items which are created by the target
 	// it exists for tracking items in the target vs a caller's wait block that is shared between multiple targets
-	WaitItems                []waitutil.WaitItem
+	WaitItems                []WaitItem
 	SaveImages               []SaveImage
 	incomingNewSubscriptions chan string
 	// ID is a random unique string.
@@ -203,7 +218,7 @@ func (sts *SingleTarget) SetDoPushes() {
 }
 
 // AddWaitBlock adds a wait block to the state.
-func (sts *SingleTarget) AddWaitBlock(waitBlock waitutil.WaitBlock) {
+func (sts *SingleTarget) AddWaitBlock(waitBlock WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
 
@@ -226,7 +241,7 @@ func (sts *SingleTarget) Wait(ctx context.Context) error {
 }
 
 // AttachTopLevelWaitItems adds pre-created wait items to a new waitblock.
-func (sts *SingleTarget) AttachTopLevelWaitItems(ctx context.Context, waitBlock waitutil.WaitBlock) {
+func (sts *SingleTarget) AttachTopLevelWaitItems(_ context.Context, waitBlock WaitBlock) {
 	sts.doSavesMu.Lock()
 	defer sts.doSavesMu.Unlock()
 
@@ -330,7 +345,8 @@ func (sts *SingleTarget) addOverridingVarsAsBuildArgInputs(overridingVars *varia
 	for _, key := range overridingVars.Sorted() {
 		ovVar, _ := overridingVars.Get(key)
 		sts.targetInput = sts.targetInput.WithBuildArgInput(
-			dedup.BuildArgInput{ConstantValue: ovVar, Name: key})
+			dedup.BuildArgInput{ConstantValue: ovVar, Name: key},
+		)
 	}
 }
 
@@ -353,8 +369,7 @@ type SaveImage struct {
 	Image               *image.Image
 	DockerTag           string
 	HasPushDependencies bool
-	// CacheHint instructs Earthly to save a separate ref for this image, even if no tag is
-	// provided.
+	// CacheHint instructs earth to save a separate ref for this image, even if no tag is provided.
 	CacheHint    bool
 	InsecurePush bool
 	// ForceSave indicates whether the image should be force-saved and (possibly pushed).

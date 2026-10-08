@@ -1,16 +1,15 @@
+// Package telemetry implements OpenTelemetry tracing and metrics collection for EarthlBuild's internal operations.
 package telemetry
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/go-logr/stdr"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
@@ -21,13 +20,13 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
 var tracer = otel.Tracer("go.earthbuild.dev/earthbuild")
 
-// Tracer returns the tracer for the EarthBuild CLI.
+// Tracer returns the tracer for the earth CLI.
 func Tracer() trace.Tracer {
 	return tracer
 }
@@ -35,8 +34,6 @@ func Tracer() trace.Tracer {
 // Setup bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func Setup(ctx context.Context) (ShutdownFunc, error) {
-	otel.SetLogger(stdr.New(log.New(os.Stderr, "", log.LstdFlags)))
-
 	var shutdowns []ShutdownFunc
 
 	// shutdown calls cleanup functions registered via shutdowns.
@@ -111,7 +108,8 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 
 	var otelResource *resource.Resource
 
-	otelResource, err = resource.New(ctx,
+	otelResource, err = resource.New(
+		ctx,
 		resource.WithAttributes(
 			semconv.ServiceName("EarthBuild"),
 			semconv.ProcessCommand(filepath.Base(executable)),

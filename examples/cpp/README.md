@@ -48,7 +48,7 @@ int fib(int n)
 We will use CMake to manage the build process of the c++ code, with the following CMakeList.txt file:
 
 ```
-cmake_minimum_required(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.10...3.30)
 project (fibonacci)
 add_executable(fibonacci main.cpp fib.cpp)
 ```
@@ -60,7 +60,7 @@ files to allow for faster builds on a local machine. Here's a sample `Earthfile`
 ```Dockerfile
 # Earthfile
 VERSION 0.8
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ## for apt to be noninteractive
 ENV DEBIAN_FRONTEND noninteractive
@@ -87,7 +87,7 @@ docker:
   SAVE IMAGE --push earthbuild/examples:cpp
 ```
 
-If you run `earthly +build` for the first time you should see:
+If you run `earth +build` for the first time you should see:
 
 ```
 ...
@@ -109,7 +109,7 @@ However on the next run since the object files were cached you should only see
 ...
 ```
 
-If you need to force a full rebuild, you can run earthly `--no-cache +build` to trigger a clean build; however
+If you need to force a full rebuild, you can run earth `--no-cache +build` to trigger a clean build; however
 this will also rebuild the entire base docker images.
 
 And finally, the fibonacci program can be run via docker:

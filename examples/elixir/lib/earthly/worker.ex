@@ -1,6 +1,5 @@
 defmodule Earthly.Worker do
   use GenServer
-  use Timex
 
   def start_link(state) do
     GenServer.start_link(__MODULE__, state, name: __MODULE__)
@@ -12,7 +11,7 @@ defmodule Earthly.Worker do
   end
 
   def handle_info(:tick, state) do
-    time = Timex.format!(Timex.now, "%H:%M:%S", :strftime)
+    time = Calendar.strftime(DateTime.utc_now(), "%H:%M:%S")
 
     case state do
       0 ->

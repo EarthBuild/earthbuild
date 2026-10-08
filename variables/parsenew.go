@@ -3,9 +3,17 @@ package variables
 import (
 	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 )
+
+// InvalidFlagError is returned when a flag is prefixed with a single hyphen instead of double.
+type InvalidFlagError struct {
+	Flag       string
+	Suggestion string
+}
+
+func (e *InvalidFlagError) Error() string {
+	return fmt.Sprintf("Invalid flag %q. Did you mean %q?", e.Flag, e.Suggestion)
+}
 
 // ParseFlagArgs parses flag-form args.
 // These can be represented as `--arg=value` or `--arg value`.
@@ -17,7 +25,7 @@ func ParseFlagArgs(args []string) ([]string, error) {
 	}
 
 	if len(nonFlags) != 0 {
-		return nil, errors.Errorf("invalid argument %s", nonFlags[0])
+		return nil, fmt.Errorf("invalid argument %s", nonFlags[0])
 	}
 
 	return flags, nil
@@ -36,11 +44,12 @@ func ParseFlagArgsWithNonFlags(args []string) (flags, nonFlags []string, err err
 			keyFromPrev = ""
 			v = arg
 		} else {
-			trimmedArg, found := strings.CutPrefix(arg, "--")
-			if !found {
-				trimmedArg, found = strings.CutPrefix(arg, "-")
+			err = checkInvalidFlag(arg)
+			if err != nil {
+				return nil, nil, err
 			}
 
+			trimmedArg, found := strings.CutPrefix(arg, "--")
 			if !found {
 				nonFlags = append(nonFlags, arg)
 				continue
@@ -56,12 +65,38 @@ func ParseFlagArgsWithNonFlags(args []string) (flags, nonFlags []string, err err
 		}
 
 		escK := strings.ReplaceAll(k, "=", "\\=")
-		flags = append(flags, fmt.Sprintf("%s=%s", escK, v))
+		flags = append(flags, escK+"="+v)
 	}
 
 	if keyFromPrev != "" {
-		return nil, nil, errors.Errorf("no value provided for --%s", keyFromPrev)
+		return nil, nil, fmt.Errorf("no value provided for --%s", keyFromPrev)
 	}
 
 	return flags, nonFlags, nil
+}
+
+// checkInvalidFlag checks if the argument is a single-hyphen or multi-hyphen invalid flag
+// and returns an InvalidFlagError if so.
+func checkInvalidFlag(arg string) error {
+	firstNonHyphenIdx := 0
+	for firstNonHyphenIdx < len(arg) && arg[firstNonHyphenIdx] == '-' {
+		firstNonHyphenIdx++
+	}
+
+	if firstNonHyphenIdx > 0 && firstNonHyphenIdx < len(arg) && firstNonHyphenIdx != 2 {
+		firstChar := arg[firstNonHyphenIdx]
+		isFlag := (firstChar >= 'a' && firstChar <= 'z') ||
+			(firstChar >= 'A' && firstChar <= 'Z') ||
+			firstChar == '_'
+
+		if isFlag {
+			flagPart, _, _ := strings.Cut(arg, "=")
+
+			suggestion := "--" + arg[firstNonHyphenIdx:]
+
+			return &InvalidFlagError{Flag: flagPart, Suggestion: suggestion}
+		}
+	}
+
+	return nil
 }

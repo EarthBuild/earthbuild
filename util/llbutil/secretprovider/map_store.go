@@ -16,7 +16,7 @@ func NewMapStore(m map[string][]byte) secrets.SecretStore {
 }
 
 // GetSecret gets a secret from the map store.
-func (m mapStore) GetSecret(ctx context.Context, id string) ([]byte, error) {
+func (m mapStore) GetSecret(_ context.Context, id string) ([]byte, error) {
 	q, err := url.ParseQuery(id)
 	if err != nil {
 		return nil, errors.New("failed to parse secret ID")

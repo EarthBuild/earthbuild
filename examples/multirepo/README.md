@@ -1,6 +1,6 @@
 # Multirepo example
 
-In this example, we will walk through a simple multirepo setup that can be used with Earthly. The entire code of this exercise is available in the
+In this example, we will walk through a simple multirepo setup that can be used with EarthBuild. The entire code of this exercise is available in the
 
 - This directory
 - This referenced [project of HTML static files](https://github.com/EarthBuild/earthly-example-multirepo-static)
@@ -15,13 +15,13 @@ As such, each repository might have its self-contained `Earthfile`, specific to 
 To run this build execute
 
 ```bash
-earthly +docker
+earth +docker
 ```
 
-in this directory, or, without cloning the Earthly repo, run this anywhere
+in this directory, or, without cloning the EarthBuild repo, run this anywhere
 
 ```
-earthly github.com/earthbuild/earthbuild/examples/multirepo:main+docker
+earth github.com/earthbuild/earthbuild/examples/multirepo:main+docker
 ```
 
 Then, run the resulting container:
@@ -40,9 +40,9 @@ Notice how the build is able to reference other repositories and copy artifacts 
 COPY github.com/EarthBuild/earthly-example-multirepo-static+html/* ./
 ```
 
-references the `html` target of the repository `github.com/EarthBuild/earthly-example-multirepo-static` and copies all its artifacts in the current build environment. Earthly takes care of cloning that repository, executing its build for the `html` target and extracting the artifacts to be used here.
+references the `html` target of the repository `github.com/EarthBuild/earthly-example-multirepo-static` and copies all its artifacts in the current build environment. EarthBuild takes care of cloning that repository, executing its build for the `html` target and extracting the artifacts to be used here.
 
-This command is also cache-aware. If the HEAD of the repository points to a different Git hash, Earthly knows to re-clone and build the repository again, using as much cache as relevant, depending on which files have changed.
+This command is also cache-aware. If the HEAD of the repository points to a different Git hash, EarthBuild knows to re-clone and build the repository again, using as much cache as relevant, depending on which files have changed.
 
 You can also specify a specific tag or branch of the remote repository, to help keep builds consistent and avoid surprising changes. For that, you can use the syntax
 

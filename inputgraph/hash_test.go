@@ -26,9 +26,9 @@ func TestHashTargetWithDocker(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cons := conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	cons := conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 
-	hashOpt := HashOpt{Console: cons, Target: target}
+	hashOpt := HashOpt{Log: cons, Target: target}
 	hash, _, err := HashTarget(ctx, hashOpt)
 	r.NoError(err)
 
@@ -50,7 +50,7 @@ func TestHashTargetWithDocker(t *testing.T) {
 		Target:    "with-docker-load",
 	}
 
-	hashOpt = HashOpt{Console: cons, Target: target}
+	hashOpt = HashOpt{Log: cons, Target: target}
 	hash, _, err = HashTarget(ctx, hashOpt)
 	r.NoError(err)
 
@@ -118,9 +118,9 @@ func TestHashTargetWithDockerNoAlias(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cons := conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	cons := conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 
-	hashOpt := HashOpt{Console: cons, Target: target}
+	hashOpt := HashOpt{Log: cons, Target: target}
 	hash, _, err := HashTarget(ctx, hashOpt)
 	r.NoError(err)
 
@@ -138,9 +138,9 @@ func TestHashTargetWithDockerRemote(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cons := conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	cons := conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 
-	hashOpt := HashOpt{Console: cons, Target: target}
+	hashOpt := HashOpt{Log: cons, Target: target}
 	hash, _, err := HashTarget(ctx, hashOpt)
 	r.NoError(err)
 
@@ -157,9 +157,9 @@ func TestHashTargetNoCache(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cons := conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	cons := conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 
-	hashOpt := HashOpt{Console: cons, Target: target}
+	hashOpt := HashOpt{Log: cons, Target: target}
 	hash, stats, err := HashTarget(ctx, hashOpt)
 	r.NoError(err)
 
@@ -180,9 +180,9 @@ func TestHashTargetCache(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cons := conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+	cons := conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 
-	hashOpt := HashOpt{Console: cons, Target: target}
+	hashOpt := HashOpt{Log: cons, Target: target}
 	hash, stats, err := HashTarget(ctx, hashOpt)
 	r.NoError(err)
 

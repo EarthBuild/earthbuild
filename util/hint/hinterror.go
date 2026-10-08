@@ -23,8 +23,15 @@ func (e *Error) Error() string {
 	return fmt.Sprintf(`%v:Hint: %v`, e.err, e.Hint())
 }
 
+// Message returns the error's message without the hints.
 func (e *Error) Message() string {
 	return e.err.Error()
+}
+
+// Unwrap returns the wrapped error so [errors.Is] and [errors.As] can traverse
+// the hint wrapper.
+func (e *Error) Unwrap() error {
+	return e.err
 }
 
 // Hint returns all hints in a single string separated by a new line.

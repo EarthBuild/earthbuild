@@ -8,7 +8,7 @@ FROM --pass-args ..+base
 
 # certs generates a root CA and SSL cert for the host "selfsigned.example.com"
 certs:
-    RUN apk add --update --no-cache openssl
+    RUN apk add --no-cache openssl
 
     # create a selfsigned CA
     RUN openssl genrsa -out /root/selfsigned-ca.key 2048
@@ -46,7 +46,7 @@ extendedKeyUsage = clientAuth, serverAuth
 # the server must first be started by running "/bin/start-nginx-with-git" which will also
 # update the /etc/hosts with an entry for "selfsigned.example.com" pointing to 127.0.0.1
 server:
-    RUN apk add --update --no-cache nginx openssl curl git-daemon fcgiwrap spawn-fcgi
+    RUN apk add --no-cache nginx openssl curl git-daemon fcgiwrap spawn-fcgi
 
     # import self-signed CA cert
     COPY +certs/SelfSigned_Root_CA.pem /usr/local/share/ca-certificates/SelfSigned_Root_CA.crt

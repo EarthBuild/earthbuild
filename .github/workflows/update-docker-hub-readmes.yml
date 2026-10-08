@@ -4,32 +4,35 @@ on:
   push:
     branches: [ main ]
     paths: [ docs/docker-images/*.md ]
+  workflow_dispatch:
 
 jobs:
   update-docker-hub-readmes:
     name: update dockerhub readmes
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
     env:
       # Used in our github action as the token - TODO: look to change it into an input
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Update DockerHub description for earthly/earthly
-        uses: peter-evans/dockerhub-description@v5.0.0
+          persist-credentials: false
+      - name: Update DockerHub description for earthbuild/earthbuild
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: earthly/earthly
+          repository: earthbuild/earthbuild
           readme-filepath: ./docs/docker-images/all-in-one.md
           short-description: ${{ github.event.repository.description }}
-      - name: Update DockerHub description for earthly/buildkitd
-        uses: peter-evans/dockerhub-description@v5.0.0
+      - name: Update DockerHub description for earthbuild/buildkitd
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: earthly/buildkitd
+          repository: earthbuild/buildkitd
           readme-filepath: ./docs/docker-images/buildkit-standalone.md
-          short-description: Standalone Earthly buildkitd image
+          short-description: Standalone EarthBuild buildkitd image

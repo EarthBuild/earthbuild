@@ -5,12 +5,11 @@ package shell
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 	"text/scanner"
 	"unicode"
-
-	"github.com/pkg/errors"
 )
 
 // Lex performs shell word splitting and variable expansion.
@@ -106,7 +105,7 @@ type shellWord struct {
 func (sw *shellWord) process(source string) (string, []string, error) {
 	word, words, err := sw.processStopOn(scanner.EOF)
 	if err != nil {
-		err = errors.Wrapf(err, "failed to process %q", source)
+		err = fmt.Errorf("failed to process %q: %w", source, err)
 	}
 
 	return word, words, err
@@ -225,7 +224,7 @@ func (sw *shellWord) processStopOn(stopChar rune) (string, []string, error) {
 	}
 
 	if stopChar != scanner.EOF {
-		return "", []string{}, errors.Errorf("unexpected end of statement while looking for matching %s", string(stopChar))
+		return "", []string{}, fmt.Errorf("unexpected end of statement while looking for matching %s", string(stopChar))
 	}
 
 	return result.String(), words.getWords(), nil
@@ -541,7 +540,7 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 				message = word
 			}
 
-			return "", errors.Errorf("%s: %s", name, message)
+			return "", fmt.Errorf("%s: %s", name, message)
 		}
 
 		return newValue, nil
@@ -677,7 +676,7 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 					message = word
 				}
 
-				return "", errors.Errorf("%s: %s", name, message)
+				return "", fmt.Errorf("%s: %s", name, message)
 			}
 
 			if newValue == "" {
@@ -686,17 +685,17 @@ func (sw *shellWord) processDollarCurlyBracket() (string, error) {
 					message = word
 				}
 
-				return "", errors.Errorf("%s: %s", name, message)
+				return "", fmt.Errorf("%s: %s", name, message)
 			}
 
 			return newValue, nil
 
 		default:
-			return "", errors.Errorf("unsupported modifier (%c) in substitution", modifier)
+			return "", fmt.Errorf("unsupported modifier (%c) in substitution", modifier)
 		}
 	}
 
-	return "", errors.Errorf("missing ':' in substitution")
+	return "", errors.New("missing ':' in substitution")
 }
 
 func (sw *shellWord) processName() string {

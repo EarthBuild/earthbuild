@@ -1,3 +1,5 @@
+// Package common defines shared types and serialization protocols used between
+// the earth debugger client and server.
 package common
 
 import (

@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIsEarthlyAmazing(t *testing.T) {
+func TestHowCoolIsEarth(t *testing.T) {
 	t.Parallel()
 
-	require.Equal(t, "IceCool", howCoolIsEarthly)
+	require.Equal(t, "IceCool", howCoolIsEarth)
 }

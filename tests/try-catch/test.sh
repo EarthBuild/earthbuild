@@ -1,5 +1,5 @@
 #!/bin/bash
-# This test is designed to be run directly by github actions or on your host (i.e. not earthly-in-earthly)
+# This test is designed to be run directly by github actions or on your host (i.e. not earthbuild-in-earthbuild)
 set -ue
 set -o pipefail
 

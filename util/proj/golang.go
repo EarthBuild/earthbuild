@@ -2,6 +2,8 @@ package proj
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"path/filepath"
@@ -9,7 +11,6 @@ import (
 	"text/template"
 
 	"github.com/EarthBuild/earthbuild/util/hint"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -21,8 +22,8 @@ const (
 {{- $indent := and .Prefix .Indent}}{{/* if .Prefix is empty string, empty string; otherwise .Indent */}}
 {{- if .Prefix }}{{.Prefix}}base:
 {{ end -}}
-{{$indent}}LET go_version = 1.25
-{{$indent}}LET distro = alpine3.23
+{{$indent}}LET go_version = 1.26
+{{$indent}}LET distro = alpine3.24
 
 {{$indent}}FROM golang:${go_version}-${distro}
 {{$indent}}WORKDIR /go-workdir`
@@ -53,7 +54,7 @@ const (
     FROM +{{.Prefix}}deps
 
     # gcc and g++ are required for -race.
-    RUN apk add --update gcc g++
+    RUN apk add --no-cache gcc g++
 
     # This copies the whole project. If you want better caching, try
     # limiting this to _just_ files required by your go tests.
@@ -152,28 +153,29 @@ func (g *Golang) Type(context.Context) string {
 func (g *Golang) ForDir(ctx context.Context, dir string) (Project, error) {
 	_, err := fs.Stat(g.fs, filepath.Join(dir, goMod))
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, errors.Wrap(ErrSkip, "no go.mod found")
+		return nil, fmt.Errorf("no go.mod found: %w", ErrSkip)
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "error reading go.mod")
+		return nil, fmt.Errorf("error reading go.mod: %w", err)
 	}
 
 	out, _, err := g.execer.Command("go", "list", "-f", "{{.Dir}}").Run(ctx)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, hint.Wrap(errors.Wrap(err, "go.mod and go.sum exist, but go is not installed"),
-			"go must be installed for 'go list' so that earthly can read information about your go project",
+		return nil, hint.Wrap(
+			fmt.Errorf("go.mod and go.sum exist, but go is not installed: %w", err),
+			"go must be installed for 'go list' so that earth can read information about your go project",
 		)
 	}
 
 	rootBytes, err := io.ReadAll(out)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not read go project root directory")
+		return nil, fmt.Errorf("could not read go project root directory: %w", err)
 	}
 
 	root, err := filepath.Abs(strings.TrimSpace(string(rootBytes)))
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get absolute path for directory %q", string(rootBytes))
+		return nil, fmt.Errorf("could not get absolute path for directory %q: %w", string(rootBytes), err)
 	}
 
 	return &Golang{
@@ -221,12 +223,12 @@ func (f *targetFormatter) SetPrefix(pfx string) {
 	f.prefix = pfx
 }
 
-func (f *targetFormatter) Format(w io.Writer, indent string, level int) error {
+func (f *targetFormatter) Format(w io.Writer, indent string) error {
 	t := strings.TrimSpace(f.template) + "\n"
 
 	tmpl, err := template.New("").Parse(t)
 	if err != nil {
-		return errors.Wrap(err, "golang: failed to parse target template")
+		return fmt.Errorf("golang: failed to parse target template: %w", err)
 	}
 
 	type tmplCtx struct {
@@ -236,7 +238,7 @@ func (f *targetFormatter) Format(w io.Writer, indent string, level int) error {
 
 	err = tmpl.Execute(w, tmplCtx{Prefix: f.prefix, Indent: indent})
 	if err != nil {
-		return errors.Wrap(err, "golang: failed to execute target template")
+		return fmt.Errorf("golang: failed to execute target template: %w", err)
 	}
 
 	return nil

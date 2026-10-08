@@ -3,7 +3,7 @@ set -uex
 set -o pipefail
 
 # Unset referenced-save-only.
-export EARTHLY_VERSION_FLAG_OVERRIDES=""
+export EARTH_VERSION_FLAG_OVERRIDES=""
 
 cd "$(dirname "$0")"
 

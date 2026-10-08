@@ -7,13 +7,12 @@
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "nodenext",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "baseUrl": ".",
     "noFallthroughCasesInSwitch": true,
     "outDir": "./dist",
+    "rootDir": "./src"
   },
   "exclude": [
     "node_modules",

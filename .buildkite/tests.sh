@@ -84,7 +84,6 @@ echo "Prune cache for cross-version compatibility"
 
 echo "Build latest earthly using released earthly"
 "$released_earthly" --version
-"$released_earthly" config global.disable_analytics true
 "$released_earthly" +for-"$EARTHLY_OS"
 chmod +x "$earthly"
 

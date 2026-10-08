@@ -2,6 +2,7 @@ package secretprovider
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/moby/buildkit/session/secrets"
 	"github.com/moby/buildkit/util/grpcerrors"
-	"github.com/pkg/errors"
+
 	"google.golang.org/grpc/codes"
 
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -66,7 +67,7 @@ func NewAWSCredentialProvider() *AWSCredentialProvider {
 func (c *AWSCredentialProvider) GetSecret(ctx context.Context, name string) ([]byte, error) {
 	q, err := url.ParseQuery(name)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse secret info")
+		return nil, fmt.Errorf("failed to parse secret info: %w", err)
 	}
 
 	secretName := q.Get("name")
@@ -100,13 +101,13 @@ func (c *AWSCredentialProvider) GetSecret(ctx context.Context, name string) ([]b
 	case awsRegion:
 		val = cfg.Region
 	default:
-		return nil, errors.Errorf("unexpected secret: %s", secretName)
+		return nil, fmt.Errorf("unexpected secret: %s", secretName)
 	}
 
 	if val == "" && secretName != awsRegion {
 		// the region may be provided by a separate arg/env if it's not provided in the local env or oidc configuration
 		// Use a custom error here as not to fall back on other secret providers.
-		return nil, errors.Errorf("AWS setting %s not found in environment", secretName)
+		return nil, fmt.Errorf("AWS setting %s not found in environment", secretName)
 	}
 
 	return []byte(val), nil
@@ -119,7 +120,7 @@ func getCFG(ctx context.Context) (aws.Config, error) {
 	// Note: results of this call are cached.
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithDefaultsMode(aws.DefaultsModeStandard))
 	if err != nil {
-		return aws.Config{}, errors.Wrap(err, "failed to load AWS config")
+		return aws.Config{}, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
 	return cfg, nil
@@ -150,5 +151,5 @@ func handleError(err error, region string) error {
 		}
 	}
 
-	return errors.Wrap(err, "failed to load AWS credentials")
+	return fmt.Errorf("failed to load AWS credentials: %w", err)
 }

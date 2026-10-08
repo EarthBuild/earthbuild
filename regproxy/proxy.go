@@ -2,14 +2,12 @@ package regproxy
 
 import (
 	"context"
-	"io"
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
 
 	registry "github.com/moby/buildkit/api/services/registry"
-	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 )
 
 // newRegistryProxy creates and returns a new registry proxy that streams Docker
@@ -48,7 +46,7 @@ func (r *registryProxy) serve(ctx context.Context) {
 			conn, err := r.ln.Accept()
 			if err != nil {
 				if !r.done.Load() {
-					r.errCh <- errors.Wrap(err, "failed to accept")
+					r.errCh <- fmt.Errorf("failed to accept: %w", err)
 				}
 
 				return
@@ -71,42 +69,18 @@ func (r *registryProxy) err() <-chan error {
 }
 
 func (r *registryProxy) handle(ctx context.Context, conn net.Conn) error {
-	defer conn.Close()
-
 	stream, err := r.cl.Proxy(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to create proxy stream")
+		conn.Close() // #nosec G104
+		return fmt.Errorf("failed to create proxy stream: %w", err)
 	}
 
-	rw := registry.NewStreamRW(stream)
-	eg, _ := errgroup.WithContext(ctx)
-
-	eg.Go(func() error {
-		_, err = registry.CopyWithDeadline(conn, rw)
-		if err != nil {
-			return errors.Wrap(err, "failed to write to stream")
-		}
-
-		err = stream.CloseSend()
-		if err != nil {
-			return errors.Wrap(err, "failed to close stream")
-		}
-
-		return nil
-	})
-
-	eg.Go(func() error {
-		_, err = io.Copy(conn, rw)
-		if err != nil {
-			return errors.Wrap(err, "failed to read from stream")
-		}
-
-		return nil
-	})
-
-	err = eg.Wait()
+	// The bytes are opaque in both directions: each ends when its source ends
+	// it, and that end is passed on as a half-close, so a request whose
+	// response is still arriving is never cut short. Copy closes conn.
+	err = registry.Copy(ctx, conn, stream, stream.CloseSend)
 	if err != nil {
-		return errors.Wrap(err, "failed to wait")
+		return fmt.Errorf("failed to proxy the connection: %w", err)
 	}
 
 	return nil

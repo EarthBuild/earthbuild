@@ -2,6 +2,7 @@ package buildcontext
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/EarthBuild/earthbuild/domain"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 )
 
 // EarthfileNotExistError is the struct indicating that file does not exist.
@@ -38,21 +38,21 @@ func detectBuildFile(ref domain.Reference, localDir string) (string, error) {
 		if os.IsNotExist(err) {
 			return "", EarthfileNotExistError{Target: ref.String()}
 		} else if err != nil {
-			return "", errors.Wrapf(err, "stat file %s", buildEarthPath)
+			return "", fmt.Errorf("stat file %s: %w", buildEarthPath, err)
 		}
 
 		return buildEarthPath, nil
 	} else if err != nil {
-		return "", errors.Wrapf(err, "stat file %s", earthfilePath)
+		return "", fmt.Errorf("stat file %s: %w", earthfilePath, err)
 	}
 
 	return earthfilePath, nil
 }
 
 func detectBuildFileInRef(
-	ctx context.Context, earthlyRef domain.Reference, ref gwclient.Reference, subDir string,
+	ctx context.Context, earthRef domain.Reference, ref gwclient.Reference, subDir string,
 ) (string, error) {
-	if after, ok := strings.CutPrefix(earthlyRef.GetName(), DockerfileMetaTarget); ok {
+	if after, ok := strings.CutPrefix(earthRef.GetName(), DockerfileMetaTarget); ok {
 		return filepath.Join(subDir, after), nil
 	}
 
@@ -78,7 +78,7 @@ func detectBuildFileInRef(
 		return buildEarthPath, nil
 	}
 
-	return "", EarthfileNotExistError{Target: earthlyRef.String()}
+	return "", EarthfileNotExistError{Target: earthRef.String()}
 }
 
 func fileExists(ctx context.Context, ref gwclient.Reference, fpath string) (bool, error) {
@@ -89,7 +89,7 @@ func fileExists(ctx context.Context, ref gwclient.Reference, fpath string) (bool
 		IncludePattern: file,
 	})
 	if err != nil {
-		return false, errors.Wrapf(err, "cannot read dir %s", dir)
+		return false, fmt.Errorf("cannot read dir %s: %w", dir, err)
 	}
 
 	for _, fstat := range fstats {

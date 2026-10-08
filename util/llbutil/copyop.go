@@ -12,7 +12,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/moby/buildkit/client/llb"
-	"github.com/pkg/errors"
 )
 
 // CopyOp is a simplified llb copy operation.
@@ -30,7 +29,7 @@ func CopyOp(
 ) (pllb.State, error) {
 	destAdjusted := dest
 	if dest == "." || dest == "" || len(srcs) > 1 {
-		// TODO: needs to be the containers platform, not the earthly hosts platform. For now, this is always Linux.
+		// TODO: needs to be the containers platform, not the earth hosts platform. For now, this is always Linux.
 		destAdjusted += string("/")
 	}
 
@@ -105,7 +104,7 @@ func CopyWithRunOptions(
 	// The following executes the `copy` command, which is a custom executable
 	// contained in the Dockerfile COPY image above. The following .Run()
 	// operation executes in a state constructed from that Dockerfile COPY image,
-	// with the Earthly user's state mounted at /dest on that image.
+	// with the earth user's state mounted at /dest on that image.
 	opts = append(opts, []llb.RunOption{
 		llb.ReadonlyRootFS(),
 		llb.Shlexf("copy %s /dest/%s", src, dest),
@@ -127,7 +126,7 @@ func Abs(ctx context.Context, s pllb.State, p string) (string, error) {
 
 	dir, err := s.GetDir(ctx)
 	if err != nil {
-		return "", errors.Wrap(err, "get dir")
+		return "", fmt.Errorf("get dir: %w", err)
 	}
 
 	return path.Join(dir, p), nil

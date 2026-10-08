@@ -21,7 +21,7 @@ npm run build
 npm run start
 ```
 
-Or build using Earthly (the `build` target runs `npm run build` and caches artifacts):
+Or build using EarthBuild (the `build` target runs `npm run build` and caches artifacts):
 
 ```bash
 earth +build
@@ -30,6 +30,6 @@ earth +build
 Run production server:
 
 ```bash
-earthly +image
+earth +image
 docker run -p 3000:3000 nextjs-app:latest
 ```

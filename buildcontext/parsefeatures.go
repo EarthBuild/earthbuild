@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/features"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 )
 
 type buildFile struct {
@@ -15,9 +15,9 @@ type buildFile struct {
 }
 
 func parseFeatures(
-	buildFilePath string, featureFlagOverrides string, projectRef string, console conslogging.ConsoleLogger,
+	buildFilePath string, featureFlagOverrides string, projectRef string, log *conslogging.ConsoleLogger,
 ) (*features.Features, error) {
-	version, err := ast.ParseVersion(buildFilePath, false)
+	version, err := earthfile.ParseVersionFile(buildFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -37,10 +37,11 @@ func parseFeatures(
 	}
 
 	if len(warningStrs) > 0 {
-		console.Printf(
+		log.Printf(
 			"NOTE: The %s feature is enabled by default under VERSION %s, "+
 				"and can be safely removed from the VERSION command",
-			strings.Join(warningStrs, ", "), ftrs.Version())
+			strings.Join(warningStrs, ", "), ftrs.Version(),
+		)
 	}
 
 	err = features.ApplyFlagOverrides(ftrs, featureFlagOverrides)

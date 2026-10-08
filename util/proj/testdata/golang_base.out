@@ -1,7 +1,7 @@
 VERSION --arg-scope-and-set 0.7
 
-LET go_version = 1.25
-LET distro = alpine3.23
+LET go_version = 1.26
+LET distro = alpine3.24
 
 FROM golang:${go_version}-${distro}
 WORKDIR /go-workdir
@@ -27,7 +27,7 @@ test-base:
     FROM +deps
 
     # gcc and g++ are required for -race.
-    RUN apk add --update gcc g++
+    RUN apk add --no-cache gcc g++
 
     # This copies the whole project. If you want better caching, try
     # limiting this to _just_ files required by your go tests.

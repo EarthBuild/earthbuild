@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # This script will install all released versions of earthly under ~/bin/earthly-v<X.Y.Z>
-# It is intended for earthly developers who need to test against previous versions of earthly
+# It is intended for earthbuild developers who need to test against previous versions of earthbuild
 # (e.g. making sure a new change doesn't break older versions, or testing out bug reports
 # against older versions).
 set -e

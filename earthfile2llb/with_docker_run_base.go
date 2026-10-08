@@ -13,7 +13,6 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -21,7 +20,8 @@ const (
 	dockerdWrapperPath          = "/var/earthbuild/dockerd-wrapper.sh"
 	dockerAutoInstallScriptPath = "/var/earthbuild/docker-auto-install.sh"
 	composeConfigFile           = "compose-config.yml"
-	suggestedDINDImage          = "earthbuild/dind:alpine-3.22-docker-28.3.3-r5"
+	startComposeFlag            = "--start-compose"
+	suggestedDINDImage          = "earthbuild/dind:alpine-3.24-docker-29.8.2-r0"
 )
 
 // DockerLoadOpt holds parameters for WITH DOCKER --load parameter.
@@ -66,13 +66,12 @@ type withDockerRunBase struct {
 }
 
 func (w *withDockerRunBase) installDeps(ctx context.Context, opt WithDockerOpt) error {
-	params := composeParams(opt)
-	args := shellCmd(
-		fmt.Sprintf(
-			"%s %s",
-			strings.Join(params, " "),
-			dockerAutoInstallScriptPath),
-	)
+	installFlag := "--no-start-compose"
+	if len(opt.ComposeFiles) > 0 {
+		installFlag = startComposeFlag
+	}
+
+	args := shellCmd(fmt.Sprintf("%s %s", dockerAutoInstallScriptPath, installFlag))
 
 	prefix, _, err := w.c.newVertexMeta(ctx, false, false, false, opt.Secrets)
 	if err != nil {
@@ -81,7 +80,8 @@ func (w *withDockerRunBase) installDeps(ctx context.Context, opt WithDockerOpt) 
 
 	runOpts := []llb.RunOption{
 		llb.AddMount(
-			dockerAutoInstallScriptPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerAutoInstallScriptPath)),
+			dockerAutoInstallScriptPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerAutoInstallScriptPath),
+		),
 		llb.Args(args),
 		llb.WithCustomNamef("%sWITH DOCKER (install deps)", prefix),
 	}
@@ -114,13 +114,13 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 
 	err = yaml.Unmarshal(composeConfigDt, &config)
 	if err != nil {
-		return nil, errors.Wrapf(err, "parse compose config for %v", opt.ComposeFiles)
+		return nil, fmt.Errorf("parse compose config for %v: %w", opt.ComposeFiles, err)
 	}
 
 	// Collect relevant images from the compose config.
-	composeServicesSet := make(map[string]bool)
+	composeServicesSet := make(map[string]struct{})
 	for _, composeService := range opt.ComposeServices {
-		composeServicesSet[composeService] = true
+		composeServicesSet[composeService] = struct{}{}
 	}
 
 	var pulls []DockerPullOpt
@@ -136,15 +136,14 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 		if serviceInfo.Platform != "" {
 			p, err := platforms.Parse(serviceInfo.Platform)
 			if err != nil {
-				return nil, errors.Wrapf(
-					err, "parse platform for image %s: %s", serviceInfo.Image, serviceInfo.Platform)
+				return nil, fmt.Errorf("parse platform for image %s: %s: %w", serviceInfo.Image, serviceInfo.Platform, err)
 			}
 
 			platform = platutil.FromLLBPlatform(p)
 		}
 
 		if len(opt.ComposeServices) > 0 {
-			if composeServicesSet[serviceName] {
+			if _, ok := composeServicesSet[serviceName]; ok {
 				pulls = append(pulls, DockerPullOpt{
 					ImageName: serviceInfo.Image,
 					Platform:  platform,
@@ -164,12 +163,12 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 
 func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDockerOpt) ([]byte, error) {
 	// Add the right run to fetch the docker compose config.
-	params := composeParams(opt)
 	args := shellCmd(
 		fmt.Sprintf(
-			"%s %s get-compose-config",
-			strings.Join(params, " "),
-			dockerdWrapperPath),
+			"%s get-compose-config %s",
+			dockerdWrapperPath,
+			strings.Join(composeArgs(opt), " "),
+		),
 	)
 
 	prefix, _, err := w.c.newVertexMeta(ctx, false, false, false, opt.Secrets)
@@ -179,7 +178,8 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 
 	runOpts := []llb.RunOption{
 		llb.AddMount(
-			dockerdWrapperPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath)),
+			dockerdWrapperPath, llb.Scratch(), llb.HostBind(), llb.SourcePath(dockerdWrapperPath),
+		),
 		llb.Args(args),
 		llb.WithCustomNamef("%sWITH DOCKER (docker-compose config)", prefix),
 	}
@@ -187,16 +187,17 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 
 	ref, err := llbutil.StateToRef(
 		ctx, w.c.opt.GwClient, state, w.c.opt.NoCache,
-		w.c.platr, w.c.opt.CacheImports.AsSlice())
+		w.c.platr, w.c.opt.CacheImports.AsSlice(),
+	)
 	if err != nil {
-		return nil, errors.Wrap(err, "state to ref compose config")
+		return nil, fmt.Errorf("state to ref compose config: %w", err)
 	}
 
 	composeConfigDt, err := ref.ReadFile(ctx, gwclient.ReadRequest{
 		Filename: "/tmp/earthbuild/" + composeConfigFile,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "read compose config file")
+		return nil, fmt.Errorf("read compose config file: %w", err)
 	}
 
 	return composeConfigDt, nil
@@ -205,33 +206,54 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 func makeWithDockerdWrapFun(dindID string, tarPaths, imgsWithDigests []string, opt WithDockerOpt) shellWrapFun {
 	cacheDataRoot := strings.HasPrefix(dindID, "cache_")
 	dockerRoot := path.Join("/var/earthbuild/dind", dindID)
-	params := make([]string, 0, 7)
-	params = append(params,
-		fmt.Sprintf("EARTHLY_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
-		fmt.Sprintf("EARTHLY_DOCKERD_CACHE_DATA=\"%v\"", cacheDataRoot),
-		fmt.Sprintf("EARTHLY_DOCKER_LOAD_FILES=\"%s\"", strings.Join(tarPaths, " ")),
-		// This is not actually used, but it is needed in order to bust the cache
-		// in case an image is updated.
-		fmt.Sprintf("EARTHLY_IMAGES_WITH_DIGESTS=\"%s\"", strings.Join(imgsWithDigests, " ")),
-	)
-	params = append(params, composeParams(opt)...)
+
+	dockerdArgs := []string{dockerdFlag("--data-root", dockerRoot)}
+	if cacheDataRoot {
+		dockerdArgs = append(dockerdArgs, "--cache-data")
+	}
+
+	for _, tarPath := range tarPaths {
+		dockerdArgs = append(dockerdArgs, dockerdFlag("--load-file", tarPath))
+	}
+
+	// The digests are not actually used by the wrapper, but they are needed in
+	// order to bust the cache in case an image is updated.
+	for _, imgWithDigest := range imgsWithDigests {
+		dockerdArgs = append(dockerdArgs, dockerdFlag("--image-digest", imgWithDigest))
+	}
+
+	dockerdArgs = append(dockerdArgs, composeArgs(opt)...)
 
 	return func(args []string, envVars []string, isWithShell, withDebugger, forceDebugger bool) []string {
-		envVars2 := append(params, envVars...) //nolint:gocritic
-
 		return shellCmd(
-			strWithEnvVarsAndDocker(args, envVars2, isWithShell, withDebugger, forceDebugger, true, false, "", ""),
+			strWithEnvVarsAndDocker(
+				args, envVars, dockerdArgs, isWithShell, withDebugger, forceDebugger, false, "", "",
+			),
 		)
 	}
 }
 
-func composeParams(opt WithDockerOpt) []string {
-	return []string{
-		fmt.Sprintf("EARTHLY_START_COMPOSE=\"%t\"", (len(opt.ComposeFiles) > 0)),
-		fmt.Sprintf("EARTHLY_COMPOSE_FILES=\"%s\"", strings.Join(opt.ComposeFiles, " ")),
-		fmt.Sprintf("EARTHLY_COMPOSE_SERVICES=\"%s\"", strings.Join(opt.ComposeServices, " ")),
-		// fmt.Sprintf("EARTHLY_DEBUG=\"true\""),
+func composeArgs(opt WithDockerOpt) []string {
+	var args []string
+	if len(opt.ComposeFiles) > 0 {
+		args = append(args, startComposeFlag)
 	}
+
+	for _, composeFile := range opt.ComposeFiles {
+		args = append(args, dockerdFlag("--compose-file", composeFile))
+	}
+
+	for _, composeService := range opt.ComposeServices {
+		args = append(args, dockerdFlag("--compose-service", composeService))
+	}
+
+	return args
+}
+
+// dockerdFlag renders a --name=value flag for dockerd-wrapper.sh. The result is
+// spliced into a /bin/sh -c command line, so the value has to be quoted.
+func dockerdFlag(name, value string) string {
+	return fmt.Sprintf("%s='%s'", name, escapeShellSingleQuotes(value))
 }
 
 func platformIncompatMsg(platr *platutil.Resolver) string {

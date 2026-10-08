@@ -1,0 +1,600 @@
+; ===========================================================================
+; ABNF grammar for Earthfile syntax (EarthBuild build files)
+; Conforms to RFC 5234 / RFC 7405 ABNF notation.
+;
+; Scope and notes:
+;   - Earthfiles are line-oriented, like Dockerfiles and Makefiles.
+;     Indentation is conventional (recipes are usually indented), but is
+;     NOT semantically significant for parsing the grammar below; block
+;     structure is instead delimited by keywords (IF/END, FOR/END,
+;     WITH DOCKER/END, WAIT/END, TRY/FINALLY/END) or by the target/command
+;     colon-header layout.
+;   - String/word tokenization, environment variable expansion ($VAR,
+;     ${VAR}), and shell-quoting rules follow POSIX shell conventions and
+;     are only sketched here (see WORD, QUOTED-STRING) since full POSIX
+;     shell grammar is out of scope.
+; ===========================================================================
+
+; ---------------------------------------------------------------------------
+; 1. Top-level file structure
+; ---------------------------------------------------------------------------
+
+earthfile           = *blank-or-comment-line
+                      version-stmt
+                      *blank-or-comment-line
+                      base-recipe
+                      *( block-separator
+                         ( target-block / command-block / function-block ) )
+                      *blank-or-comment-line
+
+; VERSION must be the first statement in the file.
+version-stmt        = "VERSION" 1*( WSP option ) WSP version-number EOL
+
+version-number      = 1*DIGIT "." 1*DIGIT
+
+; The base recipe: commands appearing before the first target/command
+; header. Applies implicitly to every target in the file.
+base-recipe         = *( recipe-line / blank-or-comment-line )
+
+; A named target: "name:" followed by an indented recipe.
+target-block        = target-header EOL
+                      *( recipe-line / blank-or-comment-line )
+
+target-header       = target-name ":"
+
+; A named user function (FUNCTION ... ), formerly "command".
+function-block      = function-header EOL
+                      *( recipe-line / blank-or-comment-line )
+                      ; the FUNCTION instruction itself appears as the
+                      ; first recipe-line within the block, per
+                      ; recipe-instruction below.
+
+function-header     = target-name ":"
+
+; Some Earthfiles use "command-block" terminology for FUNCTION-headed
+; blocks; structurally identical to target-block.
+command-block       = target-block
+
+target-name         = 1*( ALPHA / DIGIT / "_" / "-" / "." )
+
+block-separator     = 1*( blank-line / comment-line )
+
+; ---------------------------------------------------------------------------
+; 2. Lines, comments, blanks, continuation
+; ---------------------------------------------------------------------------
+
+EOL                 = [ CR ] LF / EOF-MARKER
+
+blank-line          = *WSP EOL
+
+comment-line        = *WSP comment EOL
+
+blank-or-comment-line = blank-line / comment-line
+
+comment             = "#" *( %x00-09 / %x0B-10FFFF )   ; "#" to end of line
+                       ; Note: a "#" appearing after a line-continuing
+                       ; backslash on a logical line behaves as a normal
+                       ; comment start and terminates the remainder of
+                       ; that physical line; it does not cancel the
+                       ; continuation already established by "\".
+
+line-continuation   = "\" *WSP EOL
+                       ; A backslash immediately followed by optional
+                       ; trailing whitespace and a newline joins the next
+                       ; physical line onto the current logical line.
+                       ; Used heavily in multi-line RUN/shell commands.
+
+logical-line-text   = *( line-continuation / safe-char )
+                       ; The textual content of one logical (continuation-
+                       ; joined) line, prior to comment stripping.
+
+safe-char           = %x00-09 / %x0B-23 / %x25-5B / %x5D-10FFFF
+                       ; any character except LF (x0A) and unescaped
+                       ; "#" (x23) and "\" (x5C) used for comment/continuation;
+                       ; this is a simplification for ABNF purposes.
+
+; ---------------------------------------------------------------------------
+; 3. Recipe lines: one instruction, control clause, or block keyword
+; ---------------------------------------------------------------------------
+
+recipe-line         = *WSP recipe-instruction *WSP [ comment ] EOL
+
+recipe-instruction  = from-instr
+                     / from-dockerfile-instr
+                     / run-instr
+                     / copy-instr
+                     / arg-instr
+                     / let-instr
+                     / set-instr
+                     / build-instr
+                     / save-artifact-instr
+                     / save-image-instr
+                     / git-clone-instr
+                     / with-docker-block
+                     / if-block
+                     / for-block
+                     / wait-block
+                     / try-block
+                     / cache-instr
+                     / locally-instr
+                     / function-instr
+                     / do-instr
+                     / import-instr
+                     / project-instr
+                     / host-instr
+                     / cmd-instr
+                     / label-instr
+                     / expose-instr
+                     / env-instr
+                     / entrypoint-instr
+                     / volume-instr
+                     / user-instr
+                     / workdir-instr
+                     / healthcheck-instr
+
+; ---------------------------------------------------------------------------
+; 4. Common building blocks: options, build-args, references
+; ---------------------------------------------------------------------------
+
+option              = long-flag [ "=" option-value ] / short-flag [ WSP option-value ]
+
+long-flag           = "--" 1*( ALPHA / DIGIT / "-" )
+
+short-flag          = "-" ALPHA
+
+option-value        = WORD / QUOTED-STRING
+
+build-arg-override  = "--" build-arg-key "=" build-arg-value
+
+build-arg-key       = 1*( ALPHA / DIGIT / "_" )
+
+build-arg-value     = WORD / QUOTED-STRING / dynamic-expr
+
+dynamic-expr        = "$(" *( safe-char / line-continuation ) ")"
+
+target-ref          = [ target-path ] "+" target-name
+                       ; e.g. +foo, ./dir+foo, ../dir+foo, /abs+foo,
+                       ;      github.com/org/repo+foo, repo:tag+foo
+                       ; target-path syntax (relative/absolute/remote) is
+                       ; treated as an opaque WORD-like token here.
+
+target-path         = WORD
+
+artifact-ref        = target-ref "/" artifact-path
+
+artifact-path       = WORD
+
+function-ref        = target-ref
+
+earthfile-ref       = WORD
+                       ; reference to a directory/repo containing an
+                       ; Earthfile, used by IMPORT.
+
+image-name          = WORD
+                       ; classical Docker image reference, e.g.
+                       ; alpine:3.18, registry.example.com/ns/img@sha256:...
+
+artifact-with-args  = "(" WSP artifact-ref *( WSP build-arg-override ) WSP ")"
+
+target-with-args    = "(" WSP target-ref *( WSP build-arg-override ) WSP ")"
+                     / target-ref *( WSP build-arg-override )
+
+; ---------------------------------------------------------------------------
+; 5. FROM
+; ---------------------------------------------------------------------------
+
+from-instr          = "FROM" WSP from-args
+
+from-args           = image-name
+                     / *( from-option WSP ) target-ref *( WSP build-arg-override )
+
+from-option         = "--platform" "=" WORD
+                     / "--allow-privileged"
+                     / "--pass-args"
+                     / "--build-arg" "=" build-arg-key "=" build-arg-value
+
+; ---------------------------------------------------------------------------
+; 6. FROM DOCKERFILE
+; ---------------------------------------------------------------------------
+
+from-dockerfile-instr = "FROM" WSP "DOCKERFILE" WSP *( fromdf-option WSP ) context-path
+
+context-path        = WORD / artifact-ref
+
+fromdf-option       = "-f" WSP ( WORD / artifact-ref )
+                     / "--build-arg" "=" build-arg-key "=" build-arg-value
+                     / "--target" "=" WORD
+                     / "--platform" "=" WORD
+                     / "--allow-privileged"
+
+; ---------------------------------------------------------------------------
+; 7. RUN
+; ---------------------------------------------------------------------------
+
+run-instr           = "RUN" WSP *( run-option WSP ) [ "--" WSP ] run-command
+
+run-option          = "--push"
+                     / "--no-cache"
+                     / "--entrypoint"
+                     / "--privileged"
+                     / "--secret" "=" secret-spec
+                     / "--network=none"
+                     / "--ssh"
+                     / "--mount" "=" mount-spec
+                     / "--interactive"
+                     / "--interactive-keep"
+                     / "--aws"
+                     / "--oidc" "=" oidc-spec
+                     / "--raw-output"
+
+secret-spec         = ( env-var-name "=" secret-id ) / secret-id
+
+env-var-name        = 1*( ALPHA / DIGIT / "_" )
+
+secret-id           = *( ALPHA / DIGIT / "_" / "-" / "." / "/" )
+
+mount-spec          = mount-kv *( "," mount-kv )
+
+mount-kv            = ( "type" "=" ( "cache" / "tmpfs" / "secret" ) )
+                     / ( "target" "=" WORD )
+                     / ( ( "mode" / "chmod" ) "=" octal-mode )
+                     / ( "id" "=" WORD )
+                     / ( "sharing" "=" ( "locked" / "shared" / "private" ) )
+
+octal-mode          = 1*7( "0" / "1" / "2" / "3" / "4" / "5" / "6" / "7" )
+
+oidc-spec           = oidc-kv *( "," oidc-kv )
+
+oidc-kv             = ( "session-name" "=" WORD )
+                     / ( "role-arn" "=" WORD )
+                     / ( "region" "=" WORD )
+                     / ( "session-duration" "=" WORD )
+
+run-command         = exec-form-command / shell-form-command
+
+exec-form-command   = "[" *WSP json-string *( *WSP "," *WSP json-string ) *WSP "]"
+
+shell-form-command  = SHELL-FORM-ARGS
+                       ; Opaque: remainder of the logical (continuation-
+                       ; joined) line, interpreted by /bin/sh -c.
+
+SHELL-FORM-ARGS     = 1*( safe-char / line-continuation )
+
+json-string         = DQUOTE *( json-char ) DQUOTE
+
+json-char           = %x20-21 / %x23-5B / %x5D-10FFFF / ( "\" %x22 / "\" "\" )
+
+; ---------------------------------------------------------------------------
+; 8. COPY
+; ---------------------------------------------------------------------------
+
+copy-instr          = "COPY" WSP *( copy-option WSP ) copy-sources WSP copy-dest
+
+copy-option         = "--dir"
+                     / build-arg-override
+                     / "--keep-ts"
+                     / "--keep-own"
+                     / "--chmod" "=" octal-mode
+                     / "--if-exists"
+                     / "--symlink-no-follow"
+                     / "--platform" "=" WORD
+                     / "--allow-privileged"
+                     / "--pass-args"
+                     / "--build-arg" "=" build-arg-key "=" build-arg-value
+                     / "--from" "=" WORD            ; documented as unsupported
+
+copy-sources        = copy-source *( WSP copy-source )
+
+copy-source         = artifact-with-args / artifact-ref / glob-target-ref / path
+
+glob-target-ref      = path "+" target-name
+                       ; wildcard target ref, e.g. ./services/*+mocks
+                       ; (experimental --wildcard-copy feature)
+
+copy-dest           = path
+
+path                = 1*( pchar )
+
+pchar               = %x21 / %x23-26 / %x28-3A / %x3C-5B / %x5D-7E / "*" / "?"
+                       ; printable, excludes whitespace, '"', "'", "\", "#"
+                       ; in the unquoted case; quoted paths permit QUOTED-STRING.
+
+; ---------------------------------------------------------------------------
+; 9. ARG
+; ---------------------------------------------------------------------------
+
+arg-instr           = "ARG" WSP *( arg-option WSP ) arg-name [ "=" arg-default ]
+
+arg-option          = "--required" / "--global"
+
+arg-name            = 1*( ALPHA / DIGIT / "_" )
+
+arg-default         = dynamic-expr / WORD / QUOTED-STRING / ""
+
+; ---------------------------------------------------------------------------
+; 10. LET / SET
+; ---------------------------------------------------------------------------
+
+let-instr           = "LET" WSP var-name *WSP "=" *WSP var-value
+
+set-instr           = "SET" WSP var-name *WSP "=" *WSP var-value
+
+var-name            = 1*( ALPHA / DIGIT / "_" )
+
+var-value           = 1*( safe-char / line-continuation )
+
+; ---------------------------------------------------------------------------
+; 11. BUILD
+; ---------------------------------------------------------------------------
+
+build-instr         = "BUILD" WSP *( build-option WSP ) target-ref *( WSP build-arg-override )
+
+build-option        = "--platform" "=" WORD
+                     / "--auto-skip"
+                     / "--allow-privileged"
+                     / "--pass-args"
+                     / "--build-arg" "=" build-arg-key "=" build-arg-value
+
+; ---------------------------------------------------------------------------
+; 12. SAVE ARTIFACT / SAVE IMAGE
+; ---------------------------------------------------------------------------
+
+save-artifact-instr = "SAVE" WSP "ARTIFACT" WSP *( save-artifact-option WSP )
+                       src-path [ WSP artifact-dest-path ]
+                       [ WSP "AS" WSP "LOCAL" WSP local-path ]
+
+save-artifact-option = "--keep-ts" / "--keep-own" / "--if-exists"
+                      / "--symlink-no-follow" / "--force"
+
+src-path            = path
+
+artifact-dest-path  = path
+
+local-path          = path
+
+save-image-instr    = "SAVE" WSP "IMAGE" WSP [ "--push" WSP / "--no-manifest-list" WSP ]
+                       image-name *( WSP image-name )
+
+; ---------------------------------------------------------------------------
+; 13. GIT CLONE
+; ---------------------------------------------------------------------------
+
+git-clone-instr     = "GIT" WSP "CLONE" WSP *( gitclone-option WSP ) git-url WSP dest-path
+
+gitclone-option     = "--branch" "=" git-ref / "--keep-ts"
+
+git-url             = WORD
+
+git-ref             = WORD
+
+dest-path           = path
+
+; ---------------------------------------------------------------------------
+; 14. WITH DOCKER ... END
+; ---------------------------------------------------------------------------
+
+with-docker-block   = with-docker-header EOL
+                       *( blank-or-comment-line / withdocker-run-line )
+                       *WSP "END"
+
+with-docker-header  = *WSP "WITH" WSP "DOCKER" *( WSP withdocker-option )
+
+withdocker-option   = "--pull" "=" image-name
+                     / "--load" "=" [ image-name "=" ] target-with-args
+                     / "--compose" "=" path
+                     / "--service" "=" WORD
+                     / "--platform" "=" WORD
+                     / "--allow-privileged"
+                     / "--build-arg" "=" build-arg-key "=" build-arg-value
+
+withdocker-run-line = *WSP run-instr *WSP [ comment ] EOL
+
+; ---------------------------------------------------------------------------
+; 15. IF / ELSE IF / ELSE / END
+; ---------------------------------------------------------------------------
+
+if-block            = if-header EOL
+                       *( blank-or-comment-line / recipe-line )
+                       *( elseif-clause )
+                       [ else-clause ]
+                       *WSP "END"
+
+if-header           = *WSP "IF" *( WSP condition-option ) WSP condition
+
+elseif-clause       = *WSP "ELSE" WSP "IF" *( WSP condition-option ) WSP condition EOL
+                       *( blank-or-comment-line / recipe-line )
+
+else-clause         = *WSP "ELSE" EOL
+                       *( blank-or-comment-line / recipe-line )
+
+condition-option    = "--privileged" / "--ssh" / "--no-cache"
+                     / "--mount" "=" mount-spec
+                     / "--secret" "=" secret-spec
+
+condition           = 1*( safe-char / line-continuation )
+                       ; an executable expression, e.g. POSIX test syntax
+                       ; "[ -f ./foo ]" or an arbitrary command invocation.
+
+; ---------------------------------------------------------------------------
+; 16. FOR / END
+; ---------------------------------------------------------------------------
+
+for-block           = for-header EOL
+                       *( blank-or-comment-line / recipe-line )
+                       *WSP "END"
+
+for-header          = *WSP "FOR" *( WSP for-option ) WSP var-name WSP "IN" WSP for-expression
+
+for-option          = "--sep" "=" separator-list
+                     / "--privileged" / "--ssh" / "--no-cache"
+                     / "--mount" "=" mount-spec
+                     / "--secret" "=" secret-spec
+
+separator-list      = QUOTED-STRING / WORD
+
+for-expression      = 1*( safe-char / line-continuation )
+
+; ---------------------------------------------------------------------------
+; 17. WAIT / END
+; ---------------------------------------------------------------------------
+
+wait-block          = wait-header EOL
+                       *( blank-or-comment-line / recipe-line )
+                       *WSP "END"
+
+wait-header         = *WSP "WAIT"
+
+; ---------------------------------------------------------------------------
+; 18. TRY / FINALLY / END  (experimental)
+; ---------------------------------------------------------------------------
+
+try-block           = try-header EOL
+                       *( blank-or-comment-line / try-body-line )
+                       finally-header EOL
+                       *( blank-or-comment-line / save-artifact-line )
+                       *WSP "END"
+
+try-header          = *WSP "TRY"
+
+finally-header      = *WSP "FINALLY"
+
+try-body-line       = *WSP run-instr *WSP [ comment ] EOL
+
+save-artifact-line  = *WSP save-artifact-instr *WSP [ comment ] EOL
+
+; ---------------------------------------------------------------------------
+; 19. CACHE
+; ---------------------------------------------------------------------------
+
+cache-instr         = "CACHE" WSP *( cache-option WSP ) mountpoint
+
+cache-option        = "--sharing" "=" ( "locked" / "shared" / "private" )
+                     / "--chmod" "=" octal-mode
+                     / "--id" "=" WORD
+                     / "--persist"
+
+mountpoint          = path
+
+; ---------------------------------------------------------------------------
+; 20. LOCALLY
+; ---------------------------------------------------------------------------
+
+locally-instr       = "LOCALLY"
+
+; ---------------------------------------------------------------------------
+; 21. FUNCTION / DO
+; ---------------------------------------------------------------------------
+
+function-instr      = "FUNCTION"
+
+do-instr            = "DO" WSP [ "--allow-privileged" WSP ] [ "--pass-args" WSP ]
+                       function-ref *( WSP build-arg-override )
+
+; ---------------------------------------------------------------------------
+; 22. IMPORT / PROJECT
+; ---------------------------------------------------------------------------
+
+import-instr        = "IMPORT" WSP [ "--allow-privileged" WSP ]
+                       earthfile-ref [ WSP "AS" WSP alias-name ]
+
+alias-name          = 1*( ALPHA / DIGIT / "_" / "-" )
+
+project-instr       = "PROJECT" WSP org-name "/" project-name
+
+org-name            = 1*( ALPHA / DIGIT / "_" / "-" )
+
+project-name        = 1*( ALPHA / DIGIT / "_" / "-" )
+
+; ---------------------------------------------------------------------------
+; 23. HOST
+; ---------------------------------------------------------------------------
+
+host-instr          = "HOST" WSP hostname WSP ip-address
+
+hostname            = 1*( ALPHA / DIGIT / "-" / "." )
+
+ip-address          = 1*3DIGIT "." 1*3DIGIT "." 1*3DIGIT "." 1*3DIGIT
+                     / 1*( HEXDIG / ":" )                 ; IPv6, simplified
+
+; ---------------------------------------------------------------------------
+; 24. Dockerfile-compatible instructions
+;     (CMD, LABEL, EXPOSE, ENV, ENTRYPOINT, VOLUME, USER, WORKDIR,
+;      HEALTHCHECK)
+; ---------------------------------------------------------------------------
+
+cmd-instr           = "CMD" WSP run-command
+
+label-instr         = "LABEL" WSP label-kv *( WSP label-kv )
+
+label-kv            = label-key "=" label-value
+
+label-key           = 1*( ALPHA / DIGIT / "_" / "." / "-" )
+
+label-value         = WORD / QUOTED-STRING
+
+expose-instr        = "EXPOSE" WSP expose-port *( WSP expose-port )
+
+expose-port         = 1*DIGIT [ "/" ( "tcp" / "udp" ) ]
+
+env-instr           = "ENV" WSP env-var-name ( WSP / "=" ) env-value
+
+env-value           = 1*( safe-char / line-continuation )
+
+entrypoint-instr    = "ENTRYPOINT" WSP run-command
+
+volume-instr        = "VOLUME" WSP ( volume-json / volume-list )
+
+volume-json         = "[" *WSP json-string *( *WSP "," *WSP json-string ) *WSP "]"
+
+volume-list         = path *( WSP path )
+
+user-instr          = "USER" WSP user-spec
+
+user-spec           = user-id [ ":" group-id ]
+
+user-id             = 1*( ALPHA / DIGIT / "_" / "-" )
+
+group-id            = 1*( ALPHA / DIGIT / "_" / "-" )
+
+workdir-instr       = "WORKDIR" WSP path
+
+healthcheck-instr   = "HEALTHCHECK" WSP ( "NONE" / healthcheck-spec )
+
+healthcheck-spec    = *( healthcheck-option WSP ) "CMD" WSP run-command
+
+healthcheck-option  = "--interval" "=" duration
+                     / "--timeout" "=" duration
+                     / "--start-period" "=" duration
+                     / "--retries" "=" 1*DIGIT
+                     / "--start-interval" "=" duration
+
+duration            = 1*( DIGIT / "h" / "m" / "s" / "." )
+
+; ---------------------------------------------------------------------------
+; 25. Lexical primitives: words, quoting, whitespace, basics
+; ---------------------------------------------------------------------------
+
+WORD                = 1*( WORD-CHAR / escaped-char )
+
+WORD-CHAR           = %x21 / %x23-26 / %x28-3A / %x3C-5B / %x5D-7A / %x7C / %x7E
+                       ; visible, non-whitespace character excluding
+                       ; DQUOTE ('"'), "'", and unescaped "\"; a
+                       ; simplification of POSIX shell "word" tokens.
+
+escaped-char        = "\" %x21-7E
+
+QUOTED-STRING       = DQUOTE *( %x20-21 / %x23-5B / %x5D-7E / escaped-char ) DQUOTE
+                     / SQUOTE *( %x20-26 / %x28-7E ) SQUOTE
+
+DQUOTE              = %x22
+SQUOTE              = %x27
+
+WSP                 = SP / TAB
+SP                  = %x20
+TAB                 = %x09
+CR                  = %x0D
+LF                  = %x0A
+DIGIT               = %x30-39
+ALPHA               = %x41-5A / %x61-7A
+HEXDIG              = DIGIT / %x41-46 / %x61-66
+EOF-MARKER          = ""    ; end of file with no trailing newline

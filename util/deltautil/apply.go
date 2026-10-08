@@ -1,11 +1,9 @@
 package deltautil
 
 import (
-	"errors"
 	"fmt"
 
 	pb "github.com/EarthBuild/earthbuild/logstream"
-	"google.golang.org/protobuf/proto"
 )
 
 // Version is the version of the deltautil package.
@@ -32,45 +30,6 @@ func ApplyDelta(m *pb.RunManifest, d *pb.Delta) error {
 	}
 
 	return nil
-}
-
-// WithDeltaManifest takes a delta and a manifest and returns the result of
-// applying the delta to the manifest. The original passed-in manifest is not
-// changed. If the delta would not have any effect on the manifest, the original
-// manifest is returned.
-func WithDeltaManifest(m *pb.RunManifest, d *pb.Delta) (*pb.RunManifest, error) {
-	err := checkVersion(m, d)
-	if err != nil {
-		return nil, err
-	}
-
-	dm := d.GetDeltaManifest()
-	if dm == nil {
-		// No action needed if this is not a manifest delta.
-		return m, nil
-	}
-
-	var (
-		ret *pb.RunManifest
-		ok  bool
-	)
-
-	switch dm.GetDeltaManifestOneof().(type) {
-	case *pb.DeltaManifest_ResetAll:
-		ret, ok = proto.Clone(dm.GetResetAll()).(*pb.RunManifest)
-		if !ok {
-			return nil, errors.New("clone manifest")
-		}
-	case *pb.DeltaManifest_Fields:
-		ret, ok = proto.Clone(m).(*pb.RunManifest)
-		if !ok {
-			return nil, errors.New("clone manifest")
-		}
-
-		setManifestFields(dm, ret)
-	}
-
-	return ret, nil
 }
 
 func checkVersion(m *pb.RunManifest, d *pb.Delta) error {

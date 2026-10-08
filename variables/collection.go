@@ -1,6 +1,7 @@
 package variables
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -12,23 +13,24 @@ import (
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/shell"
-	"github.com/pkg/errors"
-
 	dfShell "github.com/moby/buildkit/frontend/dockerfile/shell"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+// Standard errors related to variable collections.
 var (
 	ErrRedeclared   = errors.New("this variable was declared twice in the same target")
 	ErrVarNotFound  = errors.New("no matching variable found in this scope")
 	ErrInvalidScope = errors.New("this action is not allowed in this scope")
 	ErrSetArg       = errors.New("ARG values cannot be reassigned")
-
-	ShellOutEnvs = map[string]struct{}{
-		"HOME": {},
-		"PATH": {},
-	}
 )
+
+// ShellOutEnvs is a map of environment variables that are always present when
+// shelling-out.
+var ShellOutEnvs = map[string]struct{}{
+	"HOME": {},
+	"PATH": {},
+}
 
 type stackFrame struct {
 	// absRef is the ref any other ref in this frame would be relative to.
@@ -53,10 +55,10 @@ type Collection struct {
 	envs    *Scope // active
 	// A scope containing all scopes above, combined.
 	effectiveCache   *Scope
-	stack            []*stackFrame
+	log              *conslogging.ConsoleLogger
 	project          string
 	org              string
-	console          conslogging.ConsoleLogger
+	stack            []*stackFrame
 	errorOnRedeclare bool
 	shelloutAnywhere bool
 }
@@ -70,24 +72,23 @@ type NewCollectionOpt struct {
 	AssignedVars     *Scope
 	Features         *features.Features
 	GlobalImports    map[string]domain.ImportTrackerVal
+	Log              *conslogging.ConsoleLogger
 	NativePlatform   specs.Platform
 	Target           domain.Target
 	BuiltinArgs      DefaultArgs
-	Console          conslogging.ConsoleLogger
 	Push             bool
-	CI               bool
 }
 
 // NewCollection creates a new Collection to be used in the context of a target.
 func NewCollection(opts NewCollectionOpt) *Collection {
 	target := opts.Target
 
-	console := opts.Console
+	log := opts.Log
 	if opts.OverridingVars == nil {
 		opts.OverridingVars = NewScope()
 	}
 
-	args := BuiltinArgs(target, opts.PlatformResolver, opts.GitMeta, opts.BuiltinArgs, opts.Features, opts.Push, opts.CI)
+	args := BuiltinArgs(target, opts.PlatformResolver, opts.GitMeta, opts.BuiltinArgs, opts.Features, opts.Push)
 
 	return &Collection{
 		builtin:          args,
@@ -97,13 +98,13 @@ func NewCollection(opts NewCollectionOpt) *Collection {
 		stack: []*stackFrame{{
 			frameName:  target.StringCanonical(),
 			absRef:     target,
-			imports:    domain.NewImportTracker(console, opts.GlobalImports),
+			imports:    domain.NewImportTracker(log, opts.GlobalImports),
 			overriding: opts.OverridingVars,
 			args:       NewScope(),
 			globals:    NewScope(),
 			vars:       NewScope(),
 		}},
-		console: console,
+		log: log,
 	}
 }
 
@@ -369,7 +370,7 @@ func (c *Collection) DeclareVar(name string, opts ...DeclareOpt) (string, string
 
 	if prefs.global {
 		if _, ok := c.args().Get(name); ok {
-			baseErr := errors.Wrap(ErrRedeclared, "could not override non-global ARG with global ARG")
+			baseErr := fmt.Errorf("could not override non-global ARG with global ARG: %w", ErrRedeclared)
 
 			return "", "", hint.Wrapf(baseErr, "'%[1]v' was already declared as a non-global ARG in this scope - "+
 				"did you mean to add '--global' to the original declaration?", name)
@@ -434,7 +435,7 @@ func (c *Collection) UpdateVar(name, value string, pncvf ProcessNonConstantVaria
 
 	v, err := parseArgValue(name, value, pncvf)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse SET value")
+		return fmt.Errorf("failed to parse SET value: %w", err)
 	}
 
 	c.vars().Add(name, v, WithActive())
@@ -458,7 +459,7 @@ func (c *Collection) EnterFrame(
 	c.stack = append(c.stack, &stackFrame{
 		frameName:  frameName,
 		absRef:     absRef,
-		imports:    domain.NewImportTracker(c.console, globalImports),
+		imports:    domain.NewImportTracker(c.log, globalImports),
 		overriding: overriding,
 		globals:    globals,
 		vars:       NewScope(),

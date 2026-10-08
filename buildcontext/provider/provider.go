@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -11,10 +12,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/fsutilprogress"
-
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/filesync"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fsutil"
 	fstypes "github.com/tonistiigi/fsutil/types"
@@ -40,11 +39,11 @@ var (
 // BuildContextProvider is a BuildKit attachable which provides local files as part
 // of the build context.
 type BuildContextProvider struct {
-	p       progressCb
-	doneCh  chan error
-	dirs    map[string]SyncedDir
-	console conslogging.ConsoleLogger
-	mu      sync.Mutex
+	p      progressCb
+	doneCh chan error
+	dirs   map[string]SyncedDir
+	log    *conslogging.ConsoleLogger
+	mu     sync.Mutex
 }
 
 // SyncedDir is a directory to be synced across.
@@ -56,10 +55,10 @@ type SyncedDir struct {
 }
 
 // NewBuildContextProvider creates a new provider for sending build context files from client.
-func NewBuildContextProvider(console conslogging.ConsoleLogger) *BuildContextProvider {
+func NewBuildContextProvider(log *conslogging.ConsoleLogger) *BuildContextProvider {
 	return &BuildContextProvider{
-		dirs:    map[string]SyncedDir{},
-		console: console,
+		dirs: map[string]SyncedDir{},
+		log:  log,
 	}
 }
 
@@ -82,7 +81,7 @@ func (bcp *BuildContextProvider) AddDir(dirName, dir string) {
 }
 
 func (bcp *BuildContextProvider) addDir(dirName, dir string) {
-	resetUIDAndGID := func(p string, st *fstypes.Stat) fsutil.MapResult {
+	resetUIDAndGID := func(_ string, st *fstypes.Stat) fsutil.MapResult {
 		st.Uid = 0
 		st.Gid = 0
 
@@ -149,7 +148,7 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 
 	followPaths := opts[keyFollowPaths]
 
-	progressCB := fsutilprogress.New(dir.Dir, bcp.console.WithPrefixAndSalt("context", dir.Dir))
+	progressCB := fsutilprogress.New(dir.Dir, bcp.log.WithPrefixAndSalt("context", dir.Dir))
 
 	var doneCh chan error
 	if bcp.doneCh != nil {
@@ -235,7 +234,7 @@ var supportedProtocols = []protocol{
 }
 
 func sendDiffCopy(stream filesync.Stream, fs fsutil.FS, progress progressCb, verbose fsutil.VerboseProgressCB) error {
-	return errors.WithStack(fsutil.Send(stream.Context(), stream, fs, progress, verbose))
+	return fsutil.Send(stream.Context(), stream, fs, progress, verbose)
 }
 
 func recvDiffCopy(
@@ -262,10 +261,10 @@ func recvDiffCopy(
 		ch = cu.ContentHasher()
 	}
 
-	return errors.WithStack(fsutil.Receive(ds.Context(), ds, dest, fsutil.ReceiveOpt{
+	return fsutil.Receive(ds.Context(), ds, dest, fsutil.ReceiveOpt{
 		NotifyHashed:  cf,
 		ContentHasher: ch,
 		ProgressCb:    progress,
 		Filter:        fsutil.FilterFunc(filter),
-	}))
+	})
 }

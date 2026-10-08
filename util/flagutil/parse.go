@@ -1,18 +1,16 @@
 package flagutil
 
 import (
-	"context"
+	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
 
-	"github.com/EarthBuild/earthbuild/ast/commandflag"
-	"github.com/EarthBuild/earthbuild/ast/spec"
+	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/stringutil"
-	"github.com/pkg/errors"
-
 	"github.com/jessevdk/go-flags"
-	"github.com/urfave/cli/v2"
 )
 
 // ArgumentModFunc accepts a flagName which corresponds to the long flag name, and a pointer
@@ -29,11 +27,13 @@ func ParseArgs(command string, data any, args []string) ([]string, error) {
 	return ParseArgsWithValueModifier(command, data, args, nil)
 }
 
+// ParseArgsCleaned parses arguments properly handling quoting rules.
 func ParseArgsCleaned(cmdName string, opts any, args []string) ([]string, error) {
 	processed := stringutil.ProcessParamsAndQuotes(args)
 	return ParseArgs(cmdName, opts, processed)
 }
 
+// ParseArgsWithValueModifierCleaned parses args similarly, extracting a value modifier if applicable.
 func ParseArgsWithValueModifierCleaned(
 	cmdName string, opts any, args []string, argumentModFunc ArgumentModFunc,
 ) ([]string, error) {
@@ -77,7 +77,7 @@ func ParseArgsWithValueModifierAndOptions(
 
 	_, err := p.AddGroup(command+" [options] args", "", data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to initiate parser.AddGroup for %s", command)
+		return nil, fmt.Errorf("failed to initiate parser.AddGroup for %s: %w", command, err)
 	}
 
 	res, err := p.ParseArgs(args)
@@ -273,14 +273,20 @@ func preprocessArgs(args []string, boolFlags map[string]bool, modFunc ArgumentMo
 // multiple occuranced of the flag or with the values passed with a command. For example:
 //
 //	--platform linux/amd64 --platform linux/arm64 and --platform "linux/amd64,linux/arm64"
-func SplitFlagString(value cli.StringSlice) []string {
-	valueStr := strings.TrimLeft(strings.TrimRight(value.String(), "]"), "[")
+func SplitFlagString(values []string) []string {
+	var res []string
 
-	return strings.FieldsFunc(valueStr, func(r rune) bool {
-		return r == ' ' || r == ','
-	})
+	for _, val := range values {
+		parts := strings.FieldsFunc(val, func(r rune) bool {
+			return r == ' ' || r == ','
+		})
+		res = append(res, parts...)
+	}
+
+	return res
 }
 
+// These are errors that can be returned from [ParseArgArgs].
 var (
 	ErrInvalidSyntax         = errors.New("invalid syntax")
 	ErrRequiredArgHasDefault = errors.New("required ARG cannot have a default value")
@@ -290,24 +296,24 @@ var (
 // ParseArgArgs parses the ARG command's arguments
 // and returns the argOpts, key, value (or nil if missing), or error.
 func ParseArgArgs(
-	ctx context.Context, cmd spec.Command, isBaseTarget bool, explicitGlobalFeature bool,
-) (commandflag.ArgOpts, string, *string, error) {
-	var opts commandflag.ArgOpts
+	cmd earthfile.Command, isBaseTarget, explicitGlobalFeature bool,
+) (cmdopts.Arg, string, *string, error) {
+	var opts cmdopts.Arg
 
 	args, err := ParseArgsCleaned("ARG", &opts, GetArgsCopy(cmd))
 	if err != nil {
-		return commandflag.ArgOpts{}, "", nil, err
+		return cmdopts.Arg{}, "", nil, err
 	}
 
 	if opts.Global {
 		// since the global flag is part of the struct, we need to manually return parsing error
 		// if it's used while the feature flag is off
 		if !explicitGlobalFeature {
-			return commandflag.ArgOpts{}, "", nil, errors.New("unknown flag --global")
+			return cmdopts.Arg{}, "", nil, errors.New("unknown flag --global")
 		}
 		// global flag can only bet set on base targets
 		if !isBaseTarget {
-			return commandflag.ArgOpts{}, "", nil, ErrGlobalArgNotInBase
+			return cmdopts.Arg{}, "", nil, ErrGlobalArgNotInBase
 		}
 	} else if !explicitGlobalFeature {
 		// if the feature flag is off, all base target args are considered global
@@ -317,28 +323,30 @@ func ParseArgArgs(
 	switch len(args) {
 	case 3:
 		if args[1] != "=" {
-			return commandflag.ArgOpts{}, "", nil, ErrInvalidSyntax
+			return cmdopts.Arg{}, "", nil, ErrInvalidSyntax
 		}
 
 		if opts.Required {
-			return commandflag.ArgOpts{}, "", nil, ErrRequiredArgHasDefault
+			return cmdopts.Arg{}, "", nil, ErrRequiredArgHasDefault
 		}
 
 		return opts, args[0], &args[2], nil
 	case 1:
 		return opts, args[0], nil, nil
 	default:
-		return commandflag.ArgOpts{}, "", nil, ErrInvalidSyntax
+		return cmdopts.Arg{}, "", nil, ErrInvalidSyntax
 	}
 }
 
-func GetArgsCopy(cmd spec.Command) []string {
+// GetArgsCopy returns a deep copy of parsed args.
+func GetArgsCopy(cmd earthfile.Command) []string {
 	argsCopy := make([]string, len(cmd.Args))
 	copy(argsCopy, cmd.Args)
 
 	return argsCopy
 }
 
+// IsInParamsForm determines if the args slice uses params form representation.
 func IsInParamsForm(str string) bool {
 	return (strings.HasPrefix(str, "\"(") && strings.HasSuffix(str, "\")")) ||
 		(strings.HasPrefix(str, "(") && strings.HasSuffix(str, ")"))
@@ -374,16 +382,14 @@ func ParseParams(str string) (string, []string, error) {
 			nextEscaped = true
 		case ' ', '\t', '\n':
 			if !inQuotes && !nextEscaped {
+				nextEscaped = false
+
 				if len(part) > 0 {
 					parts = append(parts, string(part))
 					part = []rune{}
-					nextEscaped = false
-
-					continue
-				} else {
-					nextEscaped = false
-					continue
 				}
+
+				continue
 			}
 
 			nextEscaped = false

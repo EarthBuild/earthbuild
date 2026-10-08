@@ -1,3 +1,5 @@
+// Package image provides data structures and logic for representing and manipulating container images
+// within the build state.
 package image
 
 import (
@@ -74,6 +76,24 @@ func (img *Image) Clone() *Image {
 	maps.Copy(clone.Config.Labels, img.Config.Labels)
 
 	return clone
+}
+
+// FromBuildKit converts a BuildKit image representation into an EarthBuild Image.
+func FromBuildKit(bkImg *image.Image) *Image {
+	if bkImg == nil {
+		return nil
+	}
+
+	img := &Image{
+		Architecture: bkImg.Architecture,
+		OS:           bkImg.OS,
+		Config: Config{
+			ImageConfig: bkImg.Config.ImageConfig,
+			Healthcheck: bkImg.Config.Healthcheck,
+		},
+	}
+
+	return img.Clone()
 }
 
 // Config is a docker compatible config for an image.

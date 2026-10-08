@@ -5,6 +5,27 @@ set -eu
 distro=$(. /etc/os-release && echo "$ID")
 DOCKER_VERSION="${DOCKER_VERSION:-}"
 
+# Whether the caller intends to run docker compose. The earth CLI passes
+# --start-compose; when invoked by hand with no flags we install compose too, to
+# preserve the previous default.
+start_compose="true"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --start-compose) start_compose="true" ;;
+        --no-start-compose) start_compose="false" ;;
+        *)
+            echo >&2 "docker-auto-install.sh: unrecognized option \"$1\"."
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+# NOTE: the EARTHLY_DEBUG fallback is a temporary shim to support the
+# EARTHLY_ -> EARTH_ migration; drop it once EARTHLY_ support is officially
+# removed.
+debug="${EARTH_DEBUG:-${EARTHLY_DEBUG:-}}"
+
 detect_dockerd() {
     set +e
     command -v dockerd >/dev/null
@@ -43,11 +64,9 @@ detect_jq() {
 }
 
 print_debug() {
-    set +u
-    if [ "$EARTHLY_DEBUG" = "true" ] ; then
+    if [ "$debug" = "true" ] ; then
         echo "$@"
     fi
-    set -u
 }
 
 detect_alpine_3_18_or_newer() {
@@ -71,9 +90,9 @@ install_docker_compose() {
     case "$distro" in
         alpine)
             if detect_alpine_3_18_or_newer; then
-                apk add --update --no-cache docker-cli-compose
+                apk add --no-cache docker-cli-compose
             else
-                apk add --update --no-cache docker-compose
+                apk add --no-cache docker-compose
             fi
             ;;
         *)
@@ -101,9 +120,14 @@ install_dockerd() {
     case "$distro" in
         alpine)
             if [ -n "$DOCKER_VERSION" ]; then
-              apk add --update --no-cache docker="$DOCKER_VERSION"
+              apk add --no-cache docker="$DOCKER_VERSION"
             else
-              apk add --update --no-cache docker
+              apk add --no-cache docker
+            fi
+            # Include iptables-legacy for environments (such as Apple Container or WSL)
+            # where the VM kernel lacks nf_tables netlink rule set generation support.
+            if ! iptables --wait -t nat -L -n >/dev/null 2>&1; then
+                apk add --no-cache iptables-legacy
             fi
             ;;
 
@@ -168,9 +192,14 @@ install_dockerd_debian_like() {
 install_dockerd_amazon() {
     version=$(. /etc/os-release && echo "$VERSION")
     case "$version" in
-        2023)
+        2023|2027)
             dnf update -y
             dnf install -y docker libxcrypt-compat
+            # Include iptables-legacy for environments (such as Apple Container or WSL)
+            # where the VM kernel lacks nf_tables netlink rule set generation support.
+            if ! iptables --wait -t nat -L -n >/dev/null 2>&1; then
+                dnf install -y iptables-legacy
+            fi
         ;;
         2)
             yes | amazon-linux-extras install docker
@@ -187,7 +216,7 @@ install_dockerd_amazon() {
 install_jq() {
     case "$distro" in
         alpine)
-            apk add --update --no-cache jq
+            apk add --no-cache jq
             ;;
 
         amzn)
@@ -221,9 +250,7 @@ else
     print_debug "dockerd already installed"
 fi
 
-set +u
-if [ "$EARTHLY_START_COMPOSE" = "true" ] || [ "$EARTHLY_START_COMPOSE" = "" ]; then
-    set -u
+if [ "$start_compose" = "true" ]; then
     set +e;
     docker_compose="$(detect_docker_compose_cmd)"
     set -e

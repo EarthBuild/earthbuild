@@ -1,24 +1,35 @@
 # Builtin args
 
-Builtin args are variables with values automatically filled-in by Earthly.
+Builtin args are variables with values automatically filled-in by EarthBuild.
 
 The value of a builtin arg can never be overridden. However, you can always have an additional `ARG`, which takes as the default value, the value of the builtin arg. The additional arg can be overridden. Example
 
 ```Dockerfile
-ARG EARTHLY_TARGET_TAG
-ARG TAG=$EARTHLY_TARGET_TAG
+ARG EARTH_TARGET_TAG
+ARG TAG=$EARTH_TARGET_TAG
 SAVE IMAGE --push some/name:$TAG
 ```
+
+{% hint style='info' %}
+
+##### Deprecation: `EARTHLY_*` builtin args
+
+The builtin args have been renamed from the `EARTHLY_*` prefix to the `EARTH_*` prefix. The `EARTHLY_*`
+names still work but are deprecated: referencing one logs a deprecation warning pointing at the
+`EARTH_*` equivalent (for example, `ARG EARTHLY_TARGET` warns and suggests `ARG EARTH_TARGET`). Update
+your Earthfiles to the `EARTH_*` names.
+
+{% endhint %}
 
 {% hint style='danger' %}
 
 ##### Important
 
-Earthly builtin args need to be pre-declared before they can be used. For example
+EarthBuild builtin args need to be pre-declared before they can be used. For example
 
 ```Dockerfile
-ARG EARTHLY_TARGET
-RUN echo "The current target is $EARTHLY_TARGET"
+ARG EARTH_TARGET
+RUN echo "The current target is $EARTH_TARGET"
 ```
 
 {% endhint %}
@@ -27,22 +38,21 @@ RUN echo "The current target is $EARTHLY_TARGET"
 
 | Name | Description | Example value |
 | --- | --- | --- |
-| `EARTHLY_CI` | Whether the build is being executed in --ci mode. | `true`, `false` |
-| `EARTHLY_BUILD_SHA` | The git hash of the commit which built the currently running version of Earthly. | `1a9eda7a83af0e2ec122720e93ff6dbe9231fc0c` |
-| `EARTHLY_LOCALLY` | Whether the target is being executed `LOCALLY`. | `true`, `false` |
-| `EARTHLY_PUSH` | Whether `earthly` was called with the `--push` flag, or not. | `true`, `false` |
-| `EARTHLY_VERSION` | The version of Earthly currently running. | `v0.8.0` |
+| `EARTH_BUILD_SHA` | The git hash of the commit which built the currently running version of EarthBuild. | `1a9eda7a83af0e2ec122720e93ff6dbe9231fc0c` |
+| `EARTH_LOCALLY` | Whether the target is being executed `LOCALLY`. | `true`, `false` |
+| `EARTH_PUSH` | Whether `earth` was called with the `--push` flag, or not. | `true`, `false` |
+| `EARTH_VERSION` | The version of EarthBuild currently running. | `v0.8.0` |
 
 ### Target-related args
 
 | Name | Description | Example value |
 | --- | --- | --- |
-| `EARTHLY_TARGET_NAME` | The name part of the canonical reference of the current target. | For the target `github.com/bar/buz/src:john/work+foo`, the name would be `foo` |
-| `EARTHLY_TARGET_PROJECT_NO_TAG` | The project part of the canonical reference of the current target, but without the tag. | For the target `github.com/bar/buz/src:john/work+foo`, this would be `github.com/bar/buz/src` |
-| `EARTHLY_TARGET_PROJECT` | The project part of the canonical reference of the current target. | For the target `github.com/bar/buz/src:john/work+foo`, the canonical project would be `github.com/bar/buz/src:john` |
-| `EARTHLY_TARGET_TAG_DOCKER` | The tag part of the canonical reference of the current target, sanitized for safe use as a docker tag. This is guaranteed to be a valid docker tag, even if no canonical form exists, in which case, `latest` is used. | For the target `github.com/bar/buz/src:john/work+foo`, the docker tag would be `john_work` |
-| `EARTHLY_TARGET_TAG` | The tag part of the canonical reference of the current target. Note that if the target has no [canonical form](../guides/importing.md#canonical-form), the value is an empty string. | For the target `github.com/bar/buz/src:john/work+foo`, the tag would be `john/work` |
-| `EARTHLY_TARGET` | The canonical reference of the current target. | For example, for a target named `foo`, which exists on `john/work` branch, in a repository at `github.com/bar/buz`, in a subdirectory `src`, the canonical reference would be `github.com/bar/buz/src:john/work+foo`. For more information about canonical references, see [importing guide](../guides/importing.md). |
+| `EARTH_TARGET_NAME` | The name part of the canonical reference of the current target. | For the target `github.com/bar/buz/src:john/work+foo`, the name would be `foo` |
+| `EARTH_TARGET_PROJECT_NO_TAG` | The project part of the canonical reference of the current target, but without the tag. | For the target `github.com/bar/buz/src:john/work+foo`, this would be `github.com/bar/buz/src` |
+| `EARTH_TARGET_PROJECT` | The project part of the canonical reference of the current target. | For the target `github.com/bar/buz/src:john/work+foo`, the canonical project would be `github.com/bar/buz/src:john` |
+| `EARTH_TARGET_TAG_DOCKER` | The tag part of the canonical reference of the current target, sanitized for safe use as a docker tag. This is guaranteed to be a valid docker tag, even if no canonical form exists, in which case, `latest` is used. | For the target `github.com/bar/buz/src:john/work+foo`, the docker tag would be `john_work` |
+| `EARTH_TARGET_TAG` | The tag part of the canonical reference of the current target. Note that if the target has no [canonical form](../guides/importing.md#canonical-form), the value is an empty string. | For the target `github.com/bar/buz/src:john/work+foo`, the tag would be `john/work` |
+| `EARTH_TARGET` | The canonical reference of the current target. | For example, for a target named `foo`, which exists on `john/work` branch, in a repository at `github.com/bar/buz`, in a subdirectory `src`, the canonical reference would be `github.com/bar/buz/src:john/work+foo`. For more information about canonical references, see [importing guide](../guides/importing.md). |
 
 ### Git-related args
 
@@ -75,14 +85,14 @@ RUN echo "The current target is $EARTHLY_TARGET"
 | `TARGETOS` | The target OS the target is being built for. | `linux` |
 | `TARGETPLATFORM` | The target platform the target is being built for. This defaults to the native platform. | `linux/arm/v7`, `linux/amd64`, `linux/arm64` |
 | `TARGETVARIANT` | The target processor architecture variant the target is being built for. | `v7` |
-| `USERARCH` | The processor architecture of the user (the environment the `earthly` binary is invoked from). | `arm`, `amd64`, `arm64` |
-| `USEROS` | The OS of the user (the environment the `earthly` binary is invoked from). | `darwin` |
-| `USERPLATFORM` | The platform of the user (the environment the `earthly` binary is invoked from). | `darwin/amd64`, `linux/amd64`, `darwin/arm64` |
-| `USERVARIANT` | The processor architecture variant of the user (the environment the `earthly` binary is invoked from). | `v7` |
+| `USERARCH` | The processor architecture of the user (the environment the `earth` binary is invoked from). | `arm`, `amd64`, `arm64` |
+| `USEROS` | The OS of the user (the environment the `earth` binary is invoked from). | `darwin` |
+| `USERPLATFORM` | The platform of the user (the environment the `earth` binary is invoked from). | `darwin/amd64`, `linux/amd64`, `darwin/arm64` |
+| `USERVARIANT` | The processor architecture variant of the user (the environment the `earth` binary is invoked from). | `v7` |
 
-The default value of the `TARGETPLATFORM` arg is the native platform of the runner, for non-LOCALLY targets. This can be overridden by using the `--platform` flag, when using the `earthly` CLI. For example, `earthly --platform linux/amd64 +my-target` will set the `TARGETPLATFORM` arg to `linux/amd64`. You can also override the target platform in an Earthfile, when issuing `BUILD` commands. For example, `BUILD --platform linux/amd64 +my-target`. Or you can override the platform within the target definition by setting the platform in the `FROM` statement. For example `FROM --platform linux/amd64 alpine:3.13`.
+The default value of the `TARGETPLATFORM` arg is the native platform of the runner, for non-LOCALLY targets. This can be overridden by using the `--platform` flag, when using the `earth` CLI. For example, `earth --platform linux/amd64 +my-target` will set the `TARGETPLATFORM` arg to `linux/amd64`. You can also override the target platform in an Earthfile, when issuing `BUILD` commands. For example, `BUILD --platform linux/amd64 +my-target`. Or you can override the platform within the target definition by setting the platform in the `FROM` statement. For example `FROM --platform linux/amd64 alpine:3.13`.
 
-Under `LOCALLY`, the `TARGETPLATFORM` arg is always set to the user platform (the environment the `earthly` binary is invoked from) and it is not overridden by the `--platform` flag.
+Under `LOCALLY`, the `TARGETPLATFORM` arg is always set to the user platform (the environment the `earth` binary is invoked from) and it is not overridden by the `--platform` flag.
 
 {% hint style='info' %}
 

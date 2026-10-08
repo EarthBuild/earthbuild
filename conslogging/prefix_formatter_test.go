@@ -3,8 +3,8 @@ package conslogging
 import (
 	"sync"
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -12,7 +12,7 @@ import (
 func getCacheSize(m *sync.Map) int {
 	size := 0
 
-	m.Range(func(key, value any) bool {
+	m.Range(func(_, _ any) bool {
 		size++
 		return true
 	})
@@ -26,8 +26,8 @@ func Test_prefixFormatter_Format(t *testing.T) {
 	t.Run("uses cache correctly", func(t *testing.T) {
 		t.Parallel()
 
-		random := uuid.NewString()
-		otherRandom := uuid.NewString()
+		random := uuid.New().String()
+		otherRandom := uuid.New().String()
 		f := NewPrefixFormatter(truncateSha)
 		require.Zero(t, getCacheSize(&f.cache))
 		f.Format(random, DefaultPadding)
@@ -51,7 +51,7 @@ func Test_prefixFormatter_Format(t *testing.T) {
 		expectedLen := len(prefix)
 
 		optFunc := func(add string) func(str string, padding int, curLen int) string {
-			return func(str string, padding int, curLen int) string {
+			return func(str string, _, curLen int) string {
 				optsCallNum++
 
 				assert.Equal(t, expectedLen, curLen)
@@ -73,7 +73,7 @@ func Test_prefixFormatter_Format(t *testing.T) {
 		expectedLen := len(prefix)
 
 		optFunc := func(add string) func(str string, padding int, curLen int) string {
-			return func(str string, padding int, curLen int) string {
+			return func(str string, _, curLen int) string {
 				optsCallNum++
 
 				assert.Equal(t, expectedLen, curLen)

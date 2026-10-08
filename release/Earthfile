@@ -191,11 +191,6 @@ promote-to-dockerhub:
     # ghcr.io/earthbuild/earthbuild:8f307bf7 -> docker.io/earthbuild/earthbuild:${RELEASE_TAG}
     BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild" --SRC_TAG="${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
 
-    # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7-ticktock -> docker.io/earthbuild/buildkitd-ticktock:${RELEASE_TAG}
-    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd-ticktock" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
-    # ghcr.io/earthbuild/earthbuild:8f307bf7-ticktock -> docker.io/earthbuild/earthbuild-ticktock:${RELEASE_TAG}
-    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild-ticktock" --SRC_TAG="${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
-
 # Copy staging buildkitd from GHCR to DockerHub for staging releases
 # This is called during CI staging builds to make the buildkitd image available on DockerHub
 # where the staging binaries expect to find it.

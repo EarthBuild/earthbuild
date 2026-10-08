@@ -19,10 +19,6 @@ on:
         required: false
         type: boolean
         default: false
-      USE_NEXT:
-        required: false
-        type: boolean
-        default: false
     outputs:
       TAG_SUFFIX:
         description: >-
@@ -45,7 +41,7 @@ env:
 jobs:
 
   build-earthly:
-    name: build (and push) earthly using ${{inputs.BINARY}} and earth-next=${{inputs.USE_NEXT}}
+    name: build (and push) earth using ${{inputs.BINARY}}
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
     outputs:
@@ -129,15 +125,6 @@ jobs:
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
-      - name: Update Buildkit to earth-next
-        if: inputs.USE_NEXT
-        run: |
-          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
-          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" --sleep 3 --bootstrap "$INPUTS_SUDO $(which earth) bootstrap" \
-            -- ${INPUTS_SUDO} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earth-next)"
-        env:
-          INPUTS_SUDO: ${{inputs.SUDO}}
-          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Build latest earthly using released earthly
         # Every downstream job depends on this step, so a failure here cascades
         # into skips across the whole run.
@@ -167,12 +154,10 @@ jobs:
         run: |-
           set -euo pipefail
           suffix="$INPUTS_RUNS_ON"
-          if [ "$INPUTS_USE_NEXT" = "true" ]; then suffix="$suffix-ticktock"; fi
           echo "TAG_SUFFIX=$suffix" >> "$GITHUB_ENV"
           echo "TAG_SUFFIX=$suffix" >> "$GITHUB_OUTPUT"
         env:
           INPUTS_RUNS_ON: ${{inputs.RUNS_ON}}
-          INPUTS_USE_NEXT: ${{inputs.USE_NEXT}}
       - name: Build and push +ci-release using latest earth build
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
@@ -241,11 +226,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
-          # `== true` not bare truthiness: this is a typed boolean here, but a
-          # string in stage2-setup's composite action (where the matching
-          # download uses `== 'true'`). Truthiness would make the string 'false'
-          # append -ticktock and silently break the name match.
-          name: earth-build-latest${{ inputs.USE_NEXT == true && '-ticktock' || '' }}
+          name: earth-build-latest
           path: ./artifacts/
           retention-days: 1
       - name: Failure diagnostics

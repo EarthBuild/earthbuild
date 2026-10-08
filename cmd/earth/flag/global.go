@@ -93,7 +93,7 @@ type Global struct {
 
 // RootFlags returns the root flags for the CLI.
 func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
-	defaultInstallationName := cmp.Or(installName, "earthly")
+	defaultInstallationName := cmp.Or(installName, "earth")
 
 	return []cli.Flag{
 		&cli.StringFlag{

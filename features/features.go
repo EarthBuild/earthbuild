@@ -19,7 +19,8 @@ import (
 // backwards compatibility.
 type Features struct {
 	// Never enabled by default
-	NoUseRegistryForWithDocker bool `description:"disable use-registry-for-with-docker" long:"no-use-registry-for-with-docker"` //nolint:lll // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
+	NoUseRegistryForWithDocker bool `description:"disable use-registry-for-with-docker"                                             long:"no-use-registry-for-with-docker"` //nolint:lll // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
+	NoImplicitSecretIgnore     bool `description:"disable the implicit ignore rule that excludes .secret files from local contexts" long:"no-implicit-secret-ignore"`       //nolint:lll // escape hatch for including .secret files in a build context
 
 	// VERSION 0.5
 	ExecAfterParallel        bool `description:"force execution after parallel conversion"                    enabled_in_version:"0.5" long:"exec-after-parallel"`          //nolint:lll

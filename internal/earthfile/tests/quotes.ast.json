@@ -5,7 +5,14 @@
         "args": [
           "\"alpine\":\"3.24.1\""
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 23,
+          "endLine": 2,
+          "file": "quotes.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -18,10 +25,24 @@
             "args": [
               "\"who\"\"ami\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 5,
+              "file": "quotes.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 7,
+        "file": "quotes.earth",
+        "startColumn": 1,
+        "startLine": 4
+      }
     },
     {
       "name": "b",
@@ -34,10 +55,24 @@
               "world"
             ],
             "execMode": true,
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 33,
+              "endLine": 8,
+              "file": "quotes.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 10,
+        "file": "quotes.earth",
+        "startColumn": 1,
+        "startLine": 7
+      }
     },
     {
       "name": "all",
@@ -47,7 +82,14 @@
             "args": [
               "\"+\"\"a\""
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 11,
+              "file": "quotes.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -55,15 +97,36 @@
             "args": [
               "\"+\"\"b\""
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 4,
+              "endLine": 13,
+              "file": "quotes.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 14,
+        "file": "quotes.earth",
+        "startColumn": 1,
+        "startLine": 10
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "quotes.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

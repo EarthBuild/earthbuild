@@ -96,7 +96,7 @@ func (a *List) action(_ context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
 
-	ef, err := earthfile.Parse(path, string(src), earthfile.WithSourceMap())
+	ef, err := earthfile.Parse(path, string(src))
 	if err != nil {
 		return err
 	}

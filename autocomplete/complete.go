@@ -290,7 +290,7 @@ func getPotentialArtifactBuildArgs(
 
 func getCmd(name string, cmds []*cli.Command) *cli.Command {
 	for _, c := range cmds {
-		if name == c.Name {
+		if c.HasName(name) {
 			return c
 		}
 	}

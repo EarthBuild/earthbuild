@@ -108,8 +108,8 @@ github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/dustin/go-humanize v1.1.0 h1:dbKTrvD0klcbBV/h4AWJdMuZogJACoMlvWIWZ5b2xWg=
 github.com/dustin/go-humanize v1.1.0/go.mod h1:hc1CvRkJMsgxqjmjMQF3QNRAZBwY8AXBAzKYoSX9sFI=
-github.com/earthbuild/buildkit v0.0.0-20261008080924-0796cb0d82f4 h1:rSt5+sIjV38uK+4YVga6E+I/rQSjTE+vJ98c/QxmdBA=
-github.com/earthbuild/buildkit v0.0.0-20261008080924-0796cb0d82f4/go.mod h1:WNbP7ZxBRG1DVK/o1moQikR/yhCePO0U5Q1IhjxyeU0=
+github.com/earthbuild/buildkit v0.0.0-20261008095045-9840066566a1 h1:BOHdxvwcqhsy7vRhPlv28eZHvDKSvgvE6NPyiB0GFO0=
+github.com/earthbuild/buildkit v0.0.0-20261008095045-9840066566a1/go.mod h1:WNbP7ZxBRG1DVK/o1moQikR/yhCePO0U5Q1IhjxyeU0=
 github.com/earthbuild/fsutil v0.0.0-20261002194825-890baaee2294 h1:gFtQodZi786++bc4OPIeVKIwrQWdP0sJLGCHKWenQmo=
 github.com/earthbuild/fsutil v0.0.0-20261002194825-890baaee2294/go.mod h1:vbbYqJlnswsbJqWUcJN8fKtBhnEgldDrcagTgnBVKKM=
 github.com/elastic/go-sysinfo v1.15.5 h1:fCVUDmjHgljLUQCygherMnsRRJ9AkuAQIywTL7dEH28=

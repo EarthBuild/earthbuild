@@ -128,8 +128,10 @@ earthbuild-script-no-stdout:
     RUN test "$(cat earth-version-output | wc -l)" = "1"
     RUN grep '^earth version.*$' earth-version-output # only --version info should go to stdout
 
-# lint runs basic go linters against the earthbuild project.
-lint:
+# golangci-lint-install installs golangci-lint at the pinned version onto a
+# +go base image. Shared by +lint-deps and +fmt-go so the version is defined
+# in exactly one place.
+golangci-lint-install:
     FROM +go
     RUN apk add --no-cache curl
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
@@ -137,8 +139,62 @@ lint:
     RUN curl -sSfL --retry 7 --retry-all-errors -o /tmp/golangci-install.sh https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh && \
         sh /tmp/golangci-install.sh -b $(go env GOPATH)/bin v$golangci_lint_version && \
         rm /tmp/golangci-install.sh
+
+# lint-deps installs golangci-lint at the pinned version and copies the source
+# tree. Both +lint and +lint-fix build FROM this target.
+lint-deps:
+    FROM +golangci-lint-install
     COPY ./.golangci.yaml .
     COPY --dir +code/earth /
+
+# lint-fix runs golangci-lint --fix inside a container using the pinned version,
+# then saves the auto-corrected source tree back to the local working directory.
+# Intended for use in developer workflows: earth +lint-fix
+# +lint-deps only copies the curated subset of Go source that +code needs for
+# caching (see +code's COPY --dir list). Each path below is saved back
+# individually, mirroring that same list, rather than a wildcard
+# `SAVE ARTIFACT ./* AS LOCAL ./` -- a wildcard would mirror the whole
+# workdir and delete local files that were never copied into the image (e.g.
+# buildkitd's non-Go templates and scripts, since only a few of its .go files
+# are copied in).
+lint-fix:
+    FROM +lint-deps
+    FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
+        RUN \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+            --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+            --mount type=cache,target=/root/.cache/golangci_lint \
+            cd $mod_path && golangci-lint run --fix --config=/earth/.golangci.yaml
+    END
+    SAVE ARTIFACT autocomplete AS LOCAL autocomplete
+    SAVE ARTIFACT buildcontext AS LOCAL buildcontext
+    SAVE ARTIFACT builder AS LOCAL builder
+    SAVE ARTIFACT cleanup AS LOCAL cleanup
+    SAVE ARTIFACT cmd AS LOCAL cmd
+    SAVE ARTIFACT config AS LOCAL config
+    SAVE ARTIFACT conslogging AS LOCAL conslogging
+    SAVE ARTIFACT debugger AS LOCAL debugger
+    SAVE ARTIFACT docker2earth AS LOCAL docker2earth
+    SAVE ARTIFACT dockertar AS LOCAL dockertar
+    SAVE ARTIFACT domain AS LOCAL domain
+    SAVE ARTIFACT earthfile2llb AS LOCAL earthfile2llb
+    SAVE ARTIFACT features AS LOCAL features
+    SAVE ARTIFACT internal AS LOCAL internal
+    SAVE ARTIFACT logbus AS LOCAL logbus
+    SAVE ARTIFACT logstream AS LOCAL logstream
+    SAVE ARTIFACT regproxy AS LOCAL regproxy
+    SAVE ARTIFACT states AS LOCAL states
+    SAVE ARTIFACT slog AS LOCAL slog
+    SAVE ARTIFACT util AS LOCAL util
+    SAVE ARTIFACT variables AS LOCAL variables
+    SAVE ARTIFACT buildkitd/buildkitd.go AS LOCAL buildkitd/buildkitd.go
+    SAVE ARTIFACT buildkitd/settings.go AS LOCAL buildkitd/settings.go
+    SAVE ARTIFACT buildkitd/certificates.go AS LOCAL buildkitd/certificates.go
+    SAVE ARTIFACT inputgraph/*.go AS LOCAL inputgraph/
+
+# lint runs basic go linters against the earthbuild project.
+lint:
+    FROM +lint-deps
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
         ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
         RUN \
@@ -151,10 +207,36 @@ lint:
 fmt:
   BUILD +fmt-go
 
-# fmt-go formats Go code using gofumpt.
+# fmt-go formats Go source files using golangci-lint's configured formatters
+# (see .golangci.yaml's formatters.enable). Runs in a container so no
+# formatter binaries need to be installed locally.
+# Unlike +lint-deps, this copies the whole repo rather than +code's curated
+# subset, since staged files can come from any module (tests/, examples/),
+# not just the one +code targets. Pass --files to format specific files
+# instead of the whole repo, e.g. for use from a pre-commit hook:
+# earth +fmt-go --files="$(printf '%s\n' a.go 'b c.go')"
+# --files is a newline-separated list, so filenames containing spaces keep
+# their boundaries (filenames containing newlines are not supported).
+# Only the Go files whose contents were actually changed by the formatter are
+# exported back to the checkout, one at a time. Never export a directory (such
+# as `.`) with SAVE ARTIFACT ... AS LOCAL: that replaces the local destination
+# instead of merging it, which would delete paths excluded by .earthignore
+# (.git, build, earthfile2llb/parser/*.go) from the checkout.
 fmt-go:
-    LOCALLY
-    RUN gofumpt -w .
+    FROM +golangci-lint-install
+    COPY . .
+    ARG files="."
+    RUN find . -type f -name '*.go' -exec sha256sum {} + | sort > /tmp/fmt-before.sha
+    RUN printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 golangci-lint fmt --config=.golangci.yaml --
+    RUN find . -type f -name '*.go' -exec sha256sum {} + | sort > /tmp/fmt-after.sha && \
+        comm -13 /tmp/fmt-before.sha /tmp/fmt-after.sha | sed 's/^[0-9a-f]*  //' > /tmp/fmt-changed
+    # FOR splits on whitespace by default, so iterate over line numbers and
+    # look each path up by line, which keeps paths containing spaces intact.
+    LET f=""
+    FOR n IN $(seq 1 $(wc -l < /tmp/fmt-changed))
+        SET f="$(sed -n "${n}p" /tmp/fmt-changed)"
+        SAVE ARTIFACT $f AS LOCAL $f
+    END
 
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:

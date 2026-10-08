@@ -1,0 +1,31 @@
+==================
+opaque nested shell arguments preserve targets
+==================
+
+VERSION 0.8
+LET NODE_ARCH="$( [ "$TARGETARCH" = "amd64" ] && echo "x64" || echo "$TARGETARCH" )"
+LET NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
+
+# compile produces the binary.
+compile:
+    RUN true
+
+all:
+    BUILD +compile
+
+---
+
+(source_file
+  (blank_line)
+  (command)
+  (command)
+  (command)
+  (blank_line)
+  (comment)
+  (target
+    name: (target_name))
+  (command)
+  (blank_line)
+  (target
+    name: (target_name))
+  (command))

@@ -312,11 +312,7 @@ func (p *parser) parseEarthfile() (Tree, error) {
 				}
 
 				if isFunction {
-					fn := Function{
-						SourceLocation: t.SourceLocation,
-						Name:           t.Name,
-						Recipe:         t.Recipe,
-					}
+					fn := Function(t)
 					ef.Functions = append(ef.Functions, fn)
 				} else {
 					targets = append(targets, t)
@@ -383,6 +379,11 @@ func (p *parser) parseEarthfile() (Tree, error) {
 			}
 
 			fn, err := p.parseFunction()
+			if err == nil && len(pendingDocsTokens) > 0 {
+				fn.Docs = computeDocs(pendingDocsTokens)
+				pendingDocsTokens = nil
+			}
+
 			if err != nil {
 				return ef, err
 			}

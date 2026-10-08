@@ -30,6 +30,7 @@ func (a *Root) Cmds() []*cli.Command {
 		NewDoc2Earth(a.cli).Cmds(),
 		NewInit(a.cli).Cmds(),
 		NewList(a.cli).Cmds(),
+		NewLSP(a.cli).Cmds(),
 		NewPrune(a.cli).Cmds(),
 	})
 

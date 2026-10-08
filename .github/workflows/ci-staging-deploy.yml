@@ -43,7 +43,6 @@ jobs:
     outputs:
       release_tag: ${{ steps.compute-tag.outputs.release_tag }}
       version: ${{ steps.compute-version.outputs.version }}
-      earthly_next: ${{ steps.read-next.outputs.earthly_next }}
     env:
       FORCE_COLOR: 1
       GITHUB_USER: "earthbuild"
@@ -61,7 +60,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earth upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
           mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Compute release tag
@@ -104,11 +103,6 @@ jobs:
 
           echo "Computed version: $VERSION (highest base: ${highest_base_version:-none})"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-      - name: Read earthly-next sha
-        id: read-next
-        run: |-
-          set -euo pipefail
-          echo "earthly_next=$(cat earthly-next)" >> "$GITHUB_OUTPUT"
 
   release-image:
     name: release dockerhub (main)
@@ -144,7 +138,7 @@ jobs:
         run: |-
           set -euo pipefail
           TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earth upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
           mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Release to DockerHub (main)
@@ -173,71 +167,6 @@ jobs:
             "docker.io/earthbuild/buildkitd:${VERSION}" \
             docker run --rm -e NO_BUILDKIT=1 "ghcr.io/earthbuild/earthbuild:${RELEASE_TAG}"
 
-  release-ticktock-image:
-    name: release dockerhub (ticktock)
-    needs: [build-earthly, prepare-release]
-    runs-on: ubuntu-26.04
-    permissions:
-      packages: write
-      contents: read
-    env:
-      FORCE_COLOR: 1
-      DOCKERHUB_BUILDKIT_IMG: "buildkitd-staging"
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    steps:
-      - name: Set up QEMU
-        id: qemu
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
-        with:
-          image: tonistiigi/binfmt:latest
-          platforms: all
-      - name: Login to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ env.GITHUB_TOKEN }}
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Retrieve earthbuild from build-earthly job
-        env:
-          TAG_SUFFIX: ${{ needs.build-earthly.outputs.TAG_SUFFIX }}
-        run: |-
-          set -euo pipefail
-          TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
-          mkdir -p "$(dirname "./build/linux/amd64/earthly")"
-          mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
-      - name: Release to DockerHub (ticktock)
-        env:
-          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
-          EARTH_NEXT: ${{ needs.prepare-release.outputs.earthly_next }}
-        run: |-
-          set -euo pipefail
-          # The ticktock buildkitd is only published to GHCR during staging
-          # (perform-release-buildkitd-dockerhub pushes
-          # buildkitd-staging-<tag>), so that is what the embedded CLI must
-          # point at.
-          ./build/linux/amd64/earthly --ci --push \
-            ./release+release-dockerhub \
-            --DOCKERHUB_BUILDKIT_IMG="${{ env.DOCKERHUB_BUILDKIT_IMG }}" \
-            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:${{ env.DOCKERHUB_BUILDKIT_IMG }}-${RELEASE_TAG}-ticktock" \
-            --PUSH_PRERELEASE_TAG="false" \
-            --PUSH_LATEST_TAG="false" \
-            --RELEASE_TAG="${RELEASE_TAG}-ticktock" \
-            --BUILDKIT_PROJECT="github.com/earthbuild/buildkit:${EARTH_NEXT}"
-      - name: Smoke test ticktock image default buildkit image
-        env:
-          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
-        run: |-
-          set -euo pipefail
-          ./scripts/tests/assert-default-buildkit-image.sh \
-            "ghcr.io/earthbuild/earthbuild:${{ env.DOCKERHUB_BUILDKIT_IMG }}-${RELEASE_TAG}-ticktock" \
-            docker run --rm -e NO_BUILDKIT=1 "ghcr.io/earthbuild/earthbuild:${RELEASE_TAG}-ticktock"
-
   copy-buildkitd-to-dockerhub:
     name: copy buildkitd to dockerhub
     needs: [build-earthly, prepare-release, release-image]
@@ -258,7 +187,7 @@ jobs:
         run: |-
           set -euo pipefail
           TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earth upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
           mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       - name: Copy buildkitd from GHCR to DockerHub
@@ -309,7 +238,7 @@ jobs:
         run: |-
           set -euo pipefail
           TAG="${GITHUB_SHA}-${TAG_SUFFIX}"
-          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earthly upgrade
+          BUILDKITD_IMAGE=docker.io/earthbuild/buildkitd-staging TAG="$TAG" ./earth upgrade
           mkdir -p "$(dirname "./build/linux/amd64/earthly")"
           mv "${HOME}/.earthly/earthly-${TAG}" ./build/linux/amd64/earthly
       # This step creates earthly binaries for all platforms plus signature files for them under

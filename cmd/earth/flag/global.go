@@ -71,7 +71,7 @@ type Global struct {
 	Pull                       bool
 	Push                       bool
 	CI                         bool
-	UseTickTockBuildkitImage   bool
+	TickTock                   bool // Deprecated: obsolete and ignored.
 	Output                     bool
 	NoOutput                   bool
 	NoImageOutput              bool
@@ -196,7 +196,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Usage: "Apply additional flags after each VERSION command across all Earthfiles, " +
 				"multiple flags can be separated by commas",
 			Destination: &global.FeatureFlagOverrides,
-			Hidden:      true, // used for feature-flipping from ./earthly dev script
+			Hidden:      true, // used for feature-flipping from ./earth dev script
 		},
 		&cli.StringFlag{
 			Name:    EnvFileFlag,
@@ -275,9 +275,9 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.BoolFlag{
 			Name:        "ticktock",
 			Sources:     EarthEnvVars("TICKTOCK"),
-			Usage:       "Use earthbuild's experimental buildkit ticktock codebase",
-			Destination: &global.UseTickTockBuildkitImage,
-			Hidden:      true, // Experimental
+			Usage:       "Obsolete: the experimental ticktock buildkit has been removed and this flag is ignored",
+			Destination: &global.TickTock,
+			Hidden:      true, // Deprecated
 		},
 		&cli.BoolFlag{
 			Name:        "output",

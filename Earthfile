@@ -75,7 +75,7 @@ lint-scripts-base:
 
 lint-scripts-misc:
     FROM +lint-scripts-base
-    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/entrypoint.sh ./earth-entrypoint.sh \
+    COPY ./earth ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/entrypoint.sh ./earth-entrypoint.sh \
         ./buildkitd/dockerd-wrapper.sh ./buildkitd/docker-auto-install.sh ./buildkitd/oom-adjust.sh.template \
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
@@ -111,22 +111,22 @@ lint-workflows:
     # warning -- otherwise a typo silently drops a file from the audit.
     RUN zizmor --no-online-audits --strict-collection .github
 
-# earthbuild-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
-# This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
+# earthbuild-script-no-stdout validates the ./earth script doesn't print anything to stdout (stderr only)
+# This is to ensure commands such as: MYSECRET="$(./earth secrets get -n /user/my-secret)" work
 earthbuild-script-no-stdout:
-    # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
-    # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
+    # This validates the ./earth script doesn't print anything to stdout (it should print to stderr)
+    # This is to ensure commands such as: MYSECRET="$(./earth secrets get -n /user/my-secret)" work
     FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0
     RUN apk add --no-cache bash
-    COPY earthly .earth_version_flag_overrides .
+    COPY earth .earth_version_flag_overrides .
 
     # This script performs an explicit "docker pull earthlybinaries:prerelease" which can cause rate-limiting
     # to work-around this, we will copy an earthly binary in, and disable auto-updating (and therefore don't require a WITH DOCKER)
     COPY +earthly/earthly /root/.earthly/earthly-prerelease
-    RUN EARTHLY_DISABLE_FRONTEND_DETECTION=true EARTHLY_DISABLE_AUTO_UPDATE=true ./earthly --version > earthly-version-output
+    RUN EARTHLY_DISABLE_FRONTEND_DETECTION=true EARTHLY_DISABLE_AUTO_UPDATE=true ./earth --version > earth-version-output
 
-    RUN test "$(cat earthly-version-output | wc -l)" = "1"
-    RUN grep '^earthly version.*$' earthly-version-output # only --version info should go to stdout
+    RUN test "$(cat earth-version-output | wc -l)" = "1"
+    RUN grep '^earth version.*$' earth-version-output # only --version info should go to stdout
 
 # lint runs basic go linters against the earthbuild project.
 lint:
@@ -635,12 +635,12 @@ prerelease:
     COPY (+all-binaries/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) /
     SAVE IMAGE --push $IMAGE_REGISTRY:earthlybinaries-prerelease
 
-# prerelease-script copies the earthly folder and saves it as an artifact
+# prerelease-script copies the earth script and saves it as an artifact
 prerelease-script:
     FROM alpine:3.24.2
-    COPY ./earthly ./
+    COPY ./earth ./
     # This script is useful in other repos too.
-    SAVE ARTIFACT ./earthly
+    SAVE ARTIFACT ./earth
 
 # ci-release builds earthly for linux/amd64 in a container and pushes wtth the tag
 # EARTH_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
@@ -673,22 +673,8 @@ for-own:
     # the documentation on +earthly for extra detail about this option.
     ARG GO_GCFLAGS
     BUILD ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD +build-ticktock
     COPY (+earthly/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/own/earthly
-
-# build-ticktock is used for building the ticktock version of buildkit
-# it is only used when BUILDKIT_PROJECT is not overridden
-build-ticktock:
-    FROM alpine:3.24.2
-    ARG BUILDKIT_PROJECT
-    IF [ -z "$BUILDKIT_PROJECT" ]
-        COPY earthly-next .
-        LET ticktock="$(cat earthly-next)"
-        ARG EARTHLY_TARGET_TAG_DOCKER
-        LET BUILDKIT_TAG="dev-$EARTHLY_TARGET_TAG_DOCKER-ticktock"
-        BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="github.com/EarthBuild/buildkit:$ticktock" --TAG=$BUILDKIT_TAG
-    END
 
 # for-linux builds earthly-buildkitd and the earthly CLI for the a linux amd64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
@@ -698,7 +684,6 @@ for-linux:
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/amd64 +build-ticktock
     COPY (+earthly-linux-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/amd64/earthly
 
@@ -710,7 +695,6 @@ for-linux-arm64:
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/arm64 +build-ticktock
     COPY (+earthly-linux-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/arm64/earthly
 
@@ -723,7 +707,6 @@ for-darwin:
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/amd64 +build-ticktock
     COPY (+earthly-darwin-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/amd64/earthly
 
@@ -735,7 +718,6 @@ for-darwin-m1:
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/arm64 +build-ticktock
     COPY (+earthly-darwin-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/arm64/earthly
 

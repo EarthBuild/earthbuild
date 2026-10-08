@@ -25,18 +25,6 @@ func (cli *CLI) InitBuildkit(cmd *cli.Command) error {
 		cli.Flags().BuildkitdImage = "ghcr.io/earthbuild/earthbuild:buildkitd-dev-main"
 	}
 
-	if cli.Flags().UseTickTockBuildkitImage {
-		if cmd.IsSet("buildkit-image") {
-			return errors.New("the --buildkit-image and --ticktock flags are mutually exclusive")
-		}
-
-		if cli.Cfg().Global.BuildkitImage != "" {
-			return errors.New("the --ticktock flag cannot be used in combination with the buildkit_image config option")
-		}
-
-		cli.Flags().BuildkitdImage += "-ticktock"
-	}
-
 	bkURL, err := url.Parse(cli.Flags().BuildkitHost) // Not validated because we already did that when we calculated it.
 	if err != nil {
 		return fmt.Errorf("failed to parse generated buildkit URL: %w", err)

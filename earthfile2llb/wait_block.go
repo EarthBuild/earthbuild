@@ -15,6 +15,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/dockerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/saveartifactlocally"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/serrgroup"
@@ -321,7 +322,12 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 	sem := semutil.NewMultiSem(sharedParallelism, semutil.NewWeighted(1))
 
 	errGroup, ctx := serrgroup.WithContext(ctx)
+
 	for _, item := range stateItems {
+		if wb.isStateExported(item.state) {
+			continue
+		}
+
 		errGroup.Go(func() error {
 			rel, err := sem.Acquire(ctx, 1)
 			if err != nil {
@@ -334,6 +340,29 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 	}
 
 	return errGroup.Wait()
+}
+
+func (wb *waitBlock) isStateExported(state *pllb.State) bool {
+	if state == nil || state.Output() == nil {
+		return true
+	}
+
+	for _, item := range wb.items {
+		saveImage, ok := item.(*saveImageWaitItem)
+		if !ok {
+			continue
+		}
+
+		if !saveImage.doPush && !saveImage.localExport {
+			continue
+		}
+
+		if saveImage.si.State.Output() == state.Output() {
+			return true
+		}
+	}
+
+	return false
 }
 
 type saveArtifactLocalEntry struct {

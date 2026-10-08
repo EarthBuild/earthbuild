@@ -4,7 +4,7 @@ deps:
     FROM alpine:3.24.2
 
     # renovate: datasource=custom.zig packageName=ziglang/zig
-    ARG ZIG_VERSION=0.16.0
+    ARG ZIG_VERSION=0.17.0
 
     ARG TARGETARCH
     IF [ "$TARGETARCH" = "amd64" ]

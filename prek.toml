@@ -9,12 +9,13 @@ repo = "local"
 # through --files (earth doesn't accept bare positional args after a target,
 # hence the bash -c wrapper to build that flag) -- otherwise every commit
 # would reformat any pre-existing drift across the whole repo, not just the
-# files being committed.
+# files being committed. The list is newline-separated (printf, not "$*")
+# so filenames containing spaces keep their boundaries.
 [[repos.hooks]]
 id = "go-fmt"
 name = "go fmt"
 language = "system"
-entry = "bash -c 'earth +fmt-go --files=\"$*\"' --"
+entry = "bash -c 'earth +fmt-go --files=\"$(printf \"%s\\n\" \"$@\")\"' --"
 types = ["go"]
 
 # Run golangci-lint to catch lint issues on every commit.

@@ -214,7 +214,9 @@ fmt:
 # subset, since staged files can come from any module (tests/, examples/),
 # not just the one +code targets. Pass --files to format specific files
 # instead of the whole repo, e.g. for use from a pre-commit hook:
-# earth +fmt-go --files="a.go b.go"
+# earth +fmt-go --files="$(printf '%s\n' a.go 'b c.go')"
+# --files is a newline-separated list, so filenames containing spaces keep
+# their boundaries (filenames containing newlines are not supported).
 # Only the Go files whose contents were actually changed by the formatter are
 # exported back to the checkout, one at a time. Never export a directory (such
 # as `.`) with SAVE ARTIFACT ... AS LOCAL: that replaces the local destination
@@ -225,10 +227,14 @@ fmt-go:
     COPY . .
     ARG files="."
     RUN find . -type f -name '*.go' -exec sha256sum {} + | sort > /tmp/fmt-before.sha
-    RUN set -f; golangci-lint fmt --config=.golangci.yaml -- ${files}
+    RUN printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 golangci-lint fmt --config=.golangci.yaml --
     RUN find . -type f -name '*.go' -exec sha256sum {} + | sort > /tmp/fmt-after.sha && \
         comm -13 /tmp/fmt-before.sha /tmp/fmt-after.sha | sed 's/^[0-9a-f]*  //' > /tmp/fmt-changed
-    FOR f IN $(cat /tmp/fmt-changed)
+    # FOR splits on whitespace by default, so iterate over line numbers and
+    # look each path up by line, which keeps paths containing spaces intact.
+    LET f=""
+    FOR n IN $(seq 1 $(wc -l < /tmp/fmt-changed))
+        SET f="$(sed -n "${n}p" /tmp/fmt-changed)"
         SAVE ARTIFACT $f AS LOCAL $f
     END
 

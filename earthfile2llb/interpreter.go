@@ -169,7 +169,7 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b earthfile.Block
 			// commands following these cannot be executed preemptively.
 			return nil
 		default:
-			return i.errorf(stmt.SourceLocation, "unexpected statement type")
+			return i.errorf(stmt.Location(), "unexpected statement type")
 		}
 	}
 
@@ -177,7 +177,7 @@ func (i *Interpreter) handleBlockParallel(ctx context.Context, b earthfile.Block
 }
 
 func (i *Interpreter) handleStatement(ctx context.Context, stmt earthfile.Statement) error {
-	ctx = ContextWithSourceLocation(ctx, stmt.SourceLocation)
+	ctx = ContextWithSourceLocation(ctx, stmt.Location())
 	if stmt.Command != nil {
 		return i.handleCommand(ctx, *stmt.Command)
 	}
@@ -202,7 +202,7 @@ func (i *Interpreter) handleStatement(ctx context.Context, stmt earthfile.Statem
 		return i.handleTry(ctx, *stmt.Try)
 	}
 
-	return i.errorf(stmt.SourceLocation, "unexpected statement type")
+	return i.errorf(stmt.Location(), "unexpected statement type")
 }
 
 func (i *Interpreter) handleCommand(ctx context.Context, cmd earthfile.Command) (err error) {
@@ -369,7 +369,7 @@ func (i *Interpreter) handleIf(ctx context.Context, ifStmt earthfile.IfStatement
 }
 
 func (i *Interpreter) handleIfExpression(
-	ctx context.Context, expression []string, execMode bool, sl *earthfile.SourceLocation,
+	ctx context.Context, expression []string, execMode bool, sl earthfile.SourceLocation,
 ) (bool, error) {
 	if len(expression) < 1 {
 		return false, i.errorf(sl, "not enough arguments for IF")
@@ -453,7 +453,7 @@ func (i *Interpreter) handleFor(ctx context.Context, forStmt earthfile.ForStatem
 }
 
 func (i *Interpreter) handleForArgs(
-	ctx context.Context, forArgs []string, sl *earthfile.SourceLocation,
+	ctx context.Context, forArgs []string, sl earthfile.SourceLocation,
 ) (string, []string, error) {
 	opts := cmdopts.NewFor()
 
@@ -2506,7 +2506,7 @@ Note that switching now may cause breakages for your colleagues if they are usin
 	}
 
 	if len(uc.Recipe[0].Command.Args) > 0 {
-		return i.errorf(uc.Recipe[0].SourceLocation, "%s takes no arguments", cmdName)
+		return i.errorf(uc.Recipe[0].Location(), "%s takes no arguments", cmdName)
 	}
 
 	scopeName := fmt.Sprintf(
@@ -2557,19 +2557,19 @@ func (i *Interpreter) stack() string {
 	return i.converter.varCollection.StackString()
 }
 
-func (i *Interpreter) errorf(sl *earthfile.SourceLocation, format string, args ...any) *InterpreterError {
+func (i *Interpreter) errorf(sl earthfile.SourceLocation, format string, args ...any) *InterpreterError {
 	targetID := i.converter.mts.Final.ID
 	return Errorf(sl, targetID, i.stack(), format, args...)
 }
 
 func (i *Interpreter) wrapError(
-	cause error, sl *earthfile.SourceLocation, format string, args ...any,
+	cause error, sl earthfile.SourceLocation, format string, args ...any,
 ) *InterpreterError {
 	targetID := i.converter.mts.Final.ID
 	return WrapError(cause, sl, targetID, i.stack(), format, args...)
 }
 
-func (i *Interpreter) pushOnlyErr(sl *earthfile.SourceLocation) error {
+func (i *Interpreter) pushOnlyErr(sl earthfile.SourceLocation) error {
 	return i.errorf(sl, "no non-push commands allowed after a --push")
 }
 

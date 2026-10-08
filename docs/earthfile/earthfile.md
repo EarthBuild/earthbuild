@@ -665,8 +665,8 @@ For detailed examples demonstrating how other scenarios may function, please see
 
 #### Synopsis
 
-- `ARG [--required] <name>[=<default-value>]` (constant form)
-- `ARG [--required] <name>=$(<default-value-expr>)` (dynamic form)
+- `ARG [--required] [--global] [--description="<description>"] <name>[=<default-value>]` (constant form)
+- `ARG [--required] [--global] [--description="<description>"] <name>=$(<default-value-expr>)` (dynamic form)
 
 #### Description
 
@@ -701,6 +701,21 @@ FROM +docker-image --NAME=john
 For more information on how to use build args see the [build arguments and variables guide](../guides/build-args.md). A number of builtin args are available and are pre-filled by EarthBuild. For more information see [builtin args](./builtin-args.md).
 
 #### Options
+
+##### `--description="<description>"`
+
+A description of the build argument for inline documentation (introduced in EarthBuild v0.8.20). Descriptions are automatically rendered by the CLI documentation tool (`earth doc`).
+
+The description value can be enclosed in double quotes (`--description="..."`), single quotes (`--description='...'`), or given as an unquoted word (`--description=word`). When inspecting a target with `earth doc`, these descriptions appear in the `ARG` table under the `DESCRIPTION` column.
+
+```
+build:
+    ARG --description="Environment stage (dev, staging, prod)" ENV=prod
+    ARG --required --description="Database connection URL" DB_URL
+
+    FROM alpine:3.18
+    RUN echo "Building for ${ENV}"
+```
 
 ##### `--required`
 

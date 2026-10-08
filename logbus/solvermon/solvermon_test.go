@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/moby/buildkit/client"
@@ -44,7 +45,7 @@ func TestSolverMonitor_HandleBuildkitStatus_CredentialScrubbing(t *testing.T) {
 
 			cp, err := bus.Run().NewCommand(
 				"cmd-"+name, "echo hello", "target-"+name, "cmd", "linux/amd64",
-				false, false, false, nil, "", "", "",
+				false, false, false, earthfile.SourceLocation{}, "", "", "",
 			)
 			if err != nil {
 				t.Fatalf("failed to create command: %v", err)
@@ -93,7 +94,7 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsStream_NonFatalOnError(t *testi
 
 	cp, err := bus.Run().NewCommand(
 		"cmd-resilient", "echo hello", "target-resilient", "cmd", "linux/amd64",
-		false, false, false, nil, "", "", "",
+		false, false, false, earthfile.SourceLocation{}, "", "", "",
 	)
 	if err != nil {
 		t.Fatalf("failed to create command: %v", err)
@@ -155,7 +156,7 @@ func TestSolverMonitor_HandleBuildkitStatus_MixedStreams(t *testing.T) {
 
 	cp, err := bus.Run().NewCommand(
 		"cmd-mixed", "echo hello", "target-mixed", "cmd", "linux/amd64",
-		false, false, false, nil, "", "", "",
+		false, false, false, earthfile.SourceLocation{}, "", "", "",
 	)
 	if err != nil {
 		t.Fatalf("failed to create command: %v", err)

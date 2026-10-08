@@ -154,6 +154,38 @@ func planImage(opt BuildOpt, sts *states.SingleTarget, isFinal bool, saveImage s
 	}
 }
 
+// isMainHandledByImage reports whether mts.Final.MainState will already be solved
+// and exported as part of an image plan, making a separate "main" reference redundant.
+func isMainHandledByImage(
+	mts *states.MultiTarget,
+	opt BuildOpt,
+	cacheExport string,
+	targetImages func(*states.SingleTarget) []states.SaveImage,
+) bool {
+	if mts == nil || mts.Final == nil || mts.Final.MainState.Output() == nil {
+		return true
+	}
+
+	for _, sts := range mts.All() {
+		for _, saveImage := range targetImages(sts) {
+			plan := planImage(opt, sts, sts == mts.Final, saveImage)
+			shouldExport, shouldPush := plan.export, plan.push
+
+			useCacheHint := saveImage.CacheHint && cacheExport != ""
+			if (saveImage.SkipBuilder || !shouldPush && !shouldExport && !useCacheHint) ||
+				(!shouldPush && saveImage.HasPushDependencies) {
+				continue
+			}
+
+			if saveImage.State.Output() == mts.Final.MainState.Output() {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // Builder executes earth builds.
 type Builder struct {
 	outDir     string
@@ -399,7 +431,7 @@ func (b *Builder) convertAndBuild(
 
 		gwCrafter := gatewaycrafter.NewGatewayCrafter()
 
-		if !b.builtMain {
+		if !b.builtMain && !isMainHandledByImage(mts, opt, b.opt.CacheExport, b.targetPhaseImages) {
 			ref, err := b.stateToRef(childCtx, gwClient, mts.Final.MainState, mts.Final.PlatformResolver)
 			if err != nil {
 				return nil, err

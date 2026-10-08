@@ -199,6 +199,11 @@ func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 		app.BaseCLI.Log().Warnf("Warning: the setting cache_path is now obsolete and will be ignored")
 	}
 
+	if flags.TickTock {
+		app.BaseCLI.Log().Warnf("Warning: --ticktock and EARTH_TICKTOCK are obsolete and will be ignored; " +
+			"the experimental ticktock buildkit has been removed in favour of the standard buildkit daemon")
+	}
+
 	if flags.ConversionParallelism != 0 {
 		app.BaseCLI.Log().Warnf("Warning: --conversion-parallelism and EARTHLY_CONVERSION_PARALLELISM is obsolete, " +
 			"please use 'earth config global.conversion_parallelism <parallelism>' instead")

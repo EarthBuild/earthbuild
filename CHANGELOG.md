@@ -55,6 +55,10 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Removed
 
+- The experimental ticktock buildkit (`earthly-next`). The `buildkitd-ticktock` and
+  `earthbuild-ticktock` images are no longer published, and `--ticktock` (`EARTH_TICKTOCK`) is now
+  ignored with a warning. Use the standard buildkit daemon, which includes the upstream scheduler
+  fixes. [#1003](https://github.com/EarthBuild/earthbuild/issues/1003)
 - `EARTHLY_IMAGE` and `EARTHLY_GIT_CONFIG`, which had no reader and no writer respectively.
 - Obsolete `EARTHLY_CI` builtin ARG and `--ci-arg` feature flag.
 - Obsolete `--earthly-ci-runner-arg` feature flag and `EARTHLY_CI_RUNNER` built-in ARG.

@@ -8,14 +8,14 @@ echo "=== Testing Dockerfile1 ==="
 cd "$(mktemp -d)"
 echo "working out of $(pwd)"
 cp "$dockerfiles"/Dockerfile1 Dockerfile
-$earthly docker2earthly --tag=myimage:latest
+$earthly docker2earth --tag=myimage:latest
 $earthly +build
 docker run --rm myimage:latest say-hi | grep hello
 
 echo "=== Testing Dockerfile2 ==="
 cd "$(mktemp -d)"
 echo "working out of $(pwd)"
-cat "$dockerfiles"/Dockerfile2 | $earthly docker2earthly --dockerfile - --tag myotherimage:test
+cat "$dockerfiles"/Dockerfile2 | $earthly docker2earth --dockerfile - --tag myotherimage:test
 cp "$dockerfiles"/app.go .
 $earthly +build
 docker run --rm myotherimage:test | grep greetings
@@ -23,6 +23,7 @@ docker run --rm myotherimage:test | grep greetings
 echo "=== Testing args-before-from.Dockerfile ==="
 cd "$(mktemp -d)"
 echo "working out of $(pwd)"
+# The deprecated docker2earthly alias must keep working.
 $earthly docker2earthly --dockerfile - --tag onemoreimage:test < "$dockerfiles"/args-before-from.Dockerfile
 cp "$dockerfiles"/app.go .
 $earthly +build --BASE=golang --GO_MAJOR=1

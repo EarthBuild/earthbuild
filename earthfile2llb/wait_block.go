@@ -125,6 +125,11 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			continue
 		}
 
+		if !saveImage.si.SkipBuilder {
+			// This image is delegated to builder.go for export (e.g. inline caching workaround for #2178)
+			continue
+		}
+
 		if hasPlatform, ok := isMultiPlatform[saveImage.si.DockerTag]; ok {
 			if saveImage.si.HasPlatform != hasPlatform {
 				format := "SAVE IMAGE %s is defined multiple times, but not all commands defined a --platform value"

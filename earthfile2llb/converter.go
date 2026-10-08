@@ -2233,7 +2233,7 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 		}
 		defer rel()
 
-		if c.ftrs.ExecAfterParallel {
+		if c.ftrs.ExecAfterParallel && !c.isStateExported(&c.mts.Final.MainState) {
 			err = c.forceExecution(ctx, c.mts.Final.MainState, c.mts.Final.PlatformResolver)
 			if err != nil {
 				c.RecordTargetFailure(ctx, err)
@@ -2251,6 +2251,39 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 	})
 
 	return c.mts, nil
+}
+
+// isStateExported reports whether state is scheduled to be solved and exported
+// as an image (either pushed to a registry or loaded locally) within the wait block
+// stack or the target's planned SAVE IMAGE declarations. When true, forceExecution
+// can be skipped to avoid redundant concurrent solves of the same vertex.
+func (c *Converter) isStateExported(state *pllb.State) bool {
+	if state == nil || state.Output() == nil {
+		return true
+	}
+
+	for _, wb := range c.waitBlockStack {
+		if wb != nil && wb.isStateExported(state) {
+			return true
+		}
+	}
+
+	if c.mts != nil && c.mts.Final != nil {
+		for _, si := range c.mts.Final.SaveImages {
+			if si.DockerTag == "" {
+				continue
+			}
+
+			isPush := si.Push && c.opt.DoPushes
+			isLocal := (c.opt.Export.Images() && c.opt.SaveReferenced) || si.ForceSave
+
+			if (isPush || isLocal) && si.State.Output() == state.Output() {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // RecordTargetFailure records a failure in a target.

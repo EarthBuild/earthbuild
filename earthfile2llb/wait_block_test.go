@@ -106,3 +106,87 @@ func TestWaitBlock_IsStateExported(t *testing.T) {
 		})
 	}
 }
+
+func TestConverter_IsStateExported(t *testing.T) {
+	t.Parallel()
+
+	stateA := pllb.Image("alpine:3.20")
+	stateB := pllb.Image("alpine:3.21")
+
+	tests := []struct {
+		state *pllb.State
+		c     *Converter
+		name  string
+		want  bool
+	}{
+		{
+			name:  "nil state returns true",
+			state: nil,
+			c:     &Converter{},
+			want:  true,
+		},
+		{
+			name: "matching state in waitBlockStack returns true",
+			c: func() *Converter {
+				wb := newWaitBlock()
+				wb.AddItem(&saveImageWaitItem{
+					si:     states.SaveImage{State: stateA},
+					doPush: true,
+				})
+
+				return &Converter{
+					waitBlockStack: []*waitBlock{wb},
+				}
+			}(),
+			state: &stateA,
+			want:  true,
+		},
+		{
+			name: "matching state in mts.Final.SaveImages with push returns true",
+			c: &Converter{
+				opt: ConvertOpt{DoPushes: true},
+				mts: &states.MultiTarget{
+					Final: &states.SingleTarget{
+						SaveImages: []states.SaveImage{
+							{
+								DockerTag: "registry.example.com/test:latest",
+								State:     stateA,
+								Push:      true,
+							},
+						},
+					},
+				},
+			},
+			state: &stateA,
+			want:  true,
+		},
+		{
+			name: "different state in SaveImages returns false",
+			c: &Converter{
+				opt: ConvertOpt{DoPushes: true},
+				mts: &states.MultiTarget{
+					Final: &states.SingleTarget{
+						SaveImages: []states.SaveImage{
+							{
+								DockerTag: "registry.example.com/test:latest",
+								State:     stateB,
+								Push:      true,
+							},
+						},
+					},
+				},
+			},
+			state: &stateA,
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tt.c.isStateExported(tt.state)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}

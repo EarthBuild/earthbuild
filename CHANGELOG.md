@@ -45,6 +45,11 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
   not, and its `rm` suggestion is no longer gated on a path built from the deprecated name, which
   tested for the invoked binary itself rather than its replacement.
   [#796](https://github.com/EarthBuild/earthbuild/issues/796)
+- An imported remote cache (`--cache-from`, or the import side of `--remote-cache`) is now used
+  for the steps below a local `COPY` when part of the build was solved first, by a `LET`/`ARG`
+  with `$(...)`, an `IF`, a `FOR` or a `WAIT` block. Previously every step after such a point
+  re-executed on a fresh buildkitd, even though the cache had been imported.
+  [#1033](https://github.com/EarthBuild/earthbuild/issues/1033)
 - Shell completion is now registered for the name the binary is installed under, so `earth <TAB>` works on official installs. Previously the completion entries always named the command `earthly` [#804](https://github.com/earthbuild/earthbuild/issues/804)
 
 ### Fixed

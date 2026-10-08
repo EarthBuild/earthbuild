@@ -19,7 +19,6 @@ END
 LET bazel_version=9.3.0
 RUN wget -q https://github.com/bazelbuild/bazel/releases/download/$bazel_version/bazel-${bazel_version}-linux-$BAZELARCH -O /usr/local/bin/bazel && \
     chmod +x /usr/local/bin/bazel && \
-    bazel && \ # Causes bazel to self-extract.
     bazel --version
 
 code:

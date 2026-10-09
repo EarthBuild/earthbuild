@@ -265,7 +265,7 @@ func TestWaitBlock_WaitStates_WithExportedState(t *testing.T) {
 			state: &state,
 		})
 
-		err := wb.waitStates(t.Context())
+		err := waitStates(t.Context(), wb.snapshotItems())
 		require.NoError(t, err)
 	})
 }

@@ -2222,6 +2222,12 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 		c.waitBlock().AddItem(newStateWaitItem(&c.mts.Final.MainState, c))
 	}
 
+	// Decide now, before the goroutine below takes a parallelism slot, whether an
+	// image export will solve the main state anyway. Deciding inside the
+	// goroutine, with a slot held, would park that slot for as long as anything
+	// else holds the wait block's items.
+	mainStateExported := c.isStateExported(&c.mts.Final.MainState)
+
 	close(c.mts.Final.Done())
 
 	// Force execution asynchronously, and then mark the logbusTarget as finished.
@@ -2233,7 +2239,7 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 		}
 		defer rel()
 
-		if c.ftrs.ExecAfterParallel && !c.isStateExported(&c.mts.Final.MainState) {
+		if c.ftrs.ExecAfterParallel && !mainStateExported {
 			err = c.forceExecution(ctx, c.mts.Final.MainState, c.mts.Final.PlatformResolver)
 			if err != nil {
 				c.RecordTargetFailure(ctx, err)

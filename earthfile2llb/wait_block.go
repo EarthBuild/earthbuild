@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -23,9 +24,15 @@ import (
 )
 
 type waitBlock struct {
+	// itemsMu guards seenItems and items. It is only ever held briefly, so a
+	// caller that just wants to look at the items is never stuck behind a Wait
+	// that is busy solving and exporting them.
 	seenItems map[states.WaitItem]struct{}
 	items     []states.WaitItem
-	mu        sync.Mutex
+	itemsMu   sync.Mutex
+	// mu serialises Wait, and guards the short-circuit flags below. Wait holds
+	// it for the whole solve and export.
+	mu sync.Mutex
 	// used for short-circuiting
 	called            bool
 	pushCalled        bool
@@ -39,8 +46,8 @@ func newWaitBlock() *waitBlock {
 }
 
 func (wb *waitBlock) SetDoSaves() {
-	wb.mu.Lock()
-	defer wb.mu.Unlock()
+	wb.itemsMu.Lock()
+	defer wb.itemsMu.Unlock()
 
 	for _, wi := range wb.items {
 		wi.SetDoSave()
@@ -48,8 +55,8 @@ func (wb *waitBlock) SetDoSaves() {
 }
 
 func (wb *waitBlock) SetDoPushes() {
-	wb.mu.Lock()
-	defer wb.mu.Unlock()
+	wb.itemsMu.Lock()
+	defer wb.itemsMu.Unlock()
 
 	for _, wi := range wb.items {
 		wi.SetDoPush()
@@ -57,8 +64,8 @@ func (wb *waitBlock) SetDoPushes() {
 }
 
 func (wb *waitBlock) AddItem(item states.WaitItem) {
-	wb.mu.Lock()
-	defer wb.mu.Unlock()
+	wb.itemsMu.Lock()
+	defer wb.itemsMu.Unlock()
 
 	_, exists := wb.seenItems[item]
 	if exists {
@@ -67,6 +74,15 @@ func (wb *waitBlock) AddItem(item states.WaitItem) {
 
 	wb.seenItems[item] = struct{}{}
 	wb.items = append(wb.items, item)
+}
+
+// snapshotItems returns the items added so far. A Wait acts on the items
+// present when it starts; an item added while it runs is left to a later Wait.
+func (wb *waitBlock) snapshotItems() []states.WaitItem {
+	wb.itemsMu.Lock()
+	defer wb.itemsMu.Unlock()
+
+	return slices.Clone(wb.items)
 }
 
 func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
@@ -90,25 +106,27 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 		return nil
 	}
 
+	items := wb.snapshotItems()
+
 	errGroup, ctx := serrgroup.WithContext(ctx)
 	errGroup.Go(func() error {
-		return wb.saveImages(ctx)
+		return wb.saveImages(ctx, items)
 	})
 
 	if localExport {
 		errGroup.Go(func() error {
-			return wb.saveArtifactLocal(ctx)
+			return wb.saveArtifactLocal(ctx, items)
 		})
 	}
 
 	errGroup.Go(func() error {
-		return wb.waitStates(ctx)
+		return waitStates(ctx, items)
 	})
 
 	return errGroup.Wait()
 }
 
-func (wb *waitBlock) saveImages(ctx context.Context) error {
+func (wb *waitBlock) saveImages(ctx context.Context, items []states.WaitItem) error {
 	isMultiPlatform := make(map[string]bool)        // DockerTag -> bool
 	noManifestListImgs := make(map[string]struct{}) // set based on DockerTag
 	platformImgNames := make(map[string]bool)
@@ -125,7 +143,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 
 	imageWaitItems := []imageExport{}
 
-	for _, item := range wb.items {
+	for _, item := range items {
 		saveImage, ok := item.(*saveImageWaitItem)
 		if !ok {
 			continue
@@ -312,16 +330,16 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 	return nil
 }
 
-func (wb *waitBlock) waitStates(ctx context.Context) error {
+func waitStates(ctx context.Context, items []states.WaitItem) error {
 	stateItems := []*stateWaitItem{}
 
-	for _, item := range wb.items {
+	for _, item := range items {
 		stateItem, ok := item.(*stateWaitItem)
 		if !ok {
 			continue
 		}
 
-		if wb.isStateExportedUnlocked(stateItem.state) {
+		if isStateExportedBy(items, stateItem.state) {
 			continue
 		}
 
@@ -358,20 +376,17 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 
 // isStateExported reports whether state is scheduled to be exported as an image
 // (either pushed to a registry or exported locally) by any wait item in this block.
-// It acquires wb.mu to guard against concurrent AddItem mutations from parallel targets.
+// It only takes itemsMu, never mu, so it does not wait for a Wait in progress.
 func (wb *waitBlock) isStateExported(state *pllb.State) bool {
-	wb.mu.Lock()
-	defer wb.mu.Unlock()
-
-	return wb.isStateExportedUnlocked(state)
+	return isStateExportedBy(wb.snapshotItems(), state)
 }
 
-func (wb *waitBlock) isStateExportedUnlocked(state *pllb.State) bool {
+func isStateExportedBy(items []states.WaitItem, state *pllb.State) bool {
 	if state == nil || state.Output() == nil {
 		return true
 	}
 
-	for _, item := range wb.items {
+	for _, item := range items {
 		saveImage, ok := item.(*saveImageWaitItem)
 		if !ok {
 			continue
@@ -402,7 +417,7 @@ type saveArtifactLocalEntry struct {
 	ifExists    bool
 }
 
-func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
+func (wb *waitBlock) saveArtifactLocal(ctx context.Context, items []states.WaitItem) error {
 	ctx, span := telemetry.Tracer().Start(ctx, "SAVE ARTIFACT AS LOCAL")
 	defer span.End()
 
@@ -416,7 +431,7 @@ func (wb *waitBlock) saveArtifactLocal(ctx context.Context) error {
 		localDestinations []string
 	)
 
-	for refID, item := range wb.items {
+	for refID, item := range items {
 		saveLocalItem, ok := item.(*saveArtifactLocalWaitItem)
 		if !ok {
 			continue

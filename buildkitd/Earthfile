@@ -12,7 +12,9 @@ buildkitd:
             ARG BUILDKIT_BASE_IMAGE=$BUILDKIT_PROJECT+build
         END
     ELSE
-        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:97a1abd81531b1422c582232311f8f05b839447c+build
+        # TODO: pinned to the head of unmerged EarthBuild/buildkit#48 (stacked on #41).
+        # Advance to the merged commit on EarthBuild/buildkit main once it lands.
+        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:dd17522a69676e11a308b0170363e885e1b98f93+build
     END
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"

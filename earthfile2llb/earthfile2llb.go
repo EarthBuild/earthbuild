@@ -95,6 +95,10 @@ type ConvertOpt struct {
 	LocalArtifactWhiteList *gatewaycrafter.LocalArtifactWhiteList
 	// ExportCoordinator points to the per-connection map used by the builder's onPull callback
 	ExportCoordinator *gatewaycrafter.ExportCoordinator
+	// PendingExports is shared by the whole build. It keeps every image export a
+	// target is waiting on to end, so that builder.go can end those targets if
+	// the build stops before the export runs.
+	PendingExports *states.PendingExports
 	// CleanCollection is a collection of cleanup functions.
 	CleanCollection *cleanup.Collection
 	// TargetInputHashStackSet is a set of target input hashes that are currently in the call stack.

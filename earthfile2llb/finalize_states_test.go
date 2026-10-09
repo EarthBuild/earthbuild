@@ -20,6 +20,7 @@ import (
 	"github.com/EarthBuild/earthbuild/variables"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -292,6 +293,20 @@ func saveTestImage(push bool) func(t *testing.T, c *Converter) {
 
 // lastTargetStatus returns the last status c's target reported on the log bus.
 func lastTargetStatus(c *Converter) logstream.RunStatus {
+	return lastTargetEnd(c).status
+}
+
+// targetEnd is how a target ended, as reported on the log bus.
+type targetEnd struct {
+	// endedAt is when it last reported ending, or zero if it never did.
+	endedAt uint64
+	// ends is how many times it reported ending.
+	ends   int
+	status logstream.RunStatus
+}
+
+// lastTargetEnd returns how c's target ended.
+func lastTargetEnd(c *Converter) targetEnd {
 	rec := &targetStatusRecorder{targetID: c.mts.Final.ID}
 
 	c.opt.Logbus.AddRawSubscriber(rec)
@@ -300,25 +315,115 @@ func lastTargetStatus(c *Converter) logstream.RunStatus {
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
 
-	return rec.last
+	return targetEnd{status: rec.last, endedAt: rec.endedAt, ends: rec.ends}
 }
 
 // targetStatusRecorder is a log bus subscriber that records the last status
-// reported for one target.
+// reported for one target, and when it ended.
 type targetStatusRecorder struct {
 	targetID string
 	last     logstream.RunStatus
+	endedAt  uint64
+	ends     int
 	mu       sync.Mutex
 }
 
 func (r *targetStatusRecorder) Write(delta *logstream.Delta) {
 	dtm, ok := delta.GetDeltaManifest().GetFields().GetTargets()[r.targetID]
-	if !ok || dtm.GetStatus() == logstream.RunStatus_RUN_STATUS_UNKNOWN {
+	if !ok {
 		return
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.last = dtm.GetStatus()
+	if dtm.GetEndedAtUnixNanos() != 0 {
+		r.endedAt = dtm.GetEndedAtUnixNanos()
+		r.ends++
+	}
+
+	if dtm.GetStatus() != logstream.RunStatus_RUN_STATUS_UNKNOWN {
+		r.last = dtm.GetStatus()
+	}
+}
+
+// A target whose main state only an image export solves ends when that export
+// is done (see FinalizeStates). If the build stops before the export runs, the
+// target must still end: cancelled or failed, with an end time, and without
+// OnExecutionSuccess. Otherwise it is left IN_PROGRESS forever.
+//
+// Here conversion fails after two such targets were finalized: one whose image
+// builder.go was going to export, and one whose image an explicit WAIT block was
+// going to export at END. builder.go never runs, and END is never reached;
+// builder.go then aborts every export still pending.
+func TestAbortedBuildEndsTargetsWaitingOnAnExport(t *testing.T) {
+	t.Parallel()
+
+	pending := &states.PendingExports{}
+
+	var calls atomic.Int32
+
+	onSuccess := func(context.Context) {
+		calls.Add(1)
+	}
+
+	// SAVE IMAGE --push in the top-level block, under --push
+	// --use-inline-cache: left to builder.go.
+	topLevel := newWaitBlock()
+	topLevel.topLevel = true
+
+	delegated, eg := newFinalizeTestConverter(t, finalizeTestOpt{
+		gw:          &exportRecordingGwClient{},
+		export:      ExportNone,
+		doPushes:    true,
+		waitBlock:   topLevel,
+		waitBlockOn: true,
+		onSuccess:   onSuccess,
+	})
+	delegated.opt.UseInlineCache = true
+	delegated.opt.PendingExports = pending
+	saveTestImage(true)(t, delegated)
+
+	_, err := delegated.FinalizeStates(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, eg.Wait())
+	require.True(t, delegated.exportOf(&delegated.mts.Final.MainState).byBuilder)
+
+	// SAVE IMAGE inside WAIT ... END: exported by that block at END.
+	explicitWait := newWaitBlock()
+
+	inWait, eg := newFinalizeTestConverter(t, finalizeTestOpt{
+		gw:          &exportRecordingGwClient{},
+		export:      ExportAll,
+		waitBlock:   explicitWait,
+		waitBlockOn: true,
+		onSuccess:   onSuccess,
+	})
+	inWait.opt.PendingExports = pending
+	saveTestImage(false)(t, inWait)
+
+	_, err = inWait.FinalizeStates(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, eg.Wait())
+	require.NotNil(t, inWait.exportOf(&inWait.mts.Final.MainState).waitBlockItem)
+
+	// A later target fails to convert. Earthfile2LLB returns the error,
+	// builder.go never exports anything, and aborts what is pending.
+	pending.Abort(t.Context(), errors.New("conversion failed"))
+
+	// Aborting again, or an export that still runs late, ends nothing twice.
+	pending.Abort(t.Context(), errors.New("conversion failed"))
+	require.NoError(t, explicitWait.Wait(t.Context(), false, inWait.opt.doSaves()))
+
+	for name, c := range map[string]*Converter{"left to builder.go": delegated, "in WAIT ... END": inWait} {
+		end := lastTargetEnd(c)
+
+		assert.Contains(t,
+			[]logstream.RunStatus{logstream.RunStatus_RUN_STATUS_CANCELED, logstream.RunStatus_RUN_STATUS_FAILURE},
+			end.status, "%s: the target must end, cancelled or failed", name)
+		assert.NotZero(t, end.endedAt, "%s: the target must have an end time", name)
+		assert.LessOrEqual(t, end.ends, 1, "%s: the target must end once", name)
+	}
+
+	assert.Zero(t, calls.Load(), "OnExecutionSuccess must not run for a target that never executed")
 }

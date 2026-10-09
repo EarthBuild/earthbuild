@@ -307,6 +307,10 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 			continue
 		}
 
+		if wb.isStateExportedUnlocked(stateItem.state) {
+			continue
+		}
+
 		stateItems = append(stateItems, stateItem)
 	}
 
@@ -324,10 +328,6 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 	errGroup, ctx := serrgroup.WithContext(ctx)
 
 	for _, item := range stateItems {
-		if wb.isStateExported(item.state) {
-			continue
-		}
-
 		errGroup.Go(func() error {
 			rel, err := sem.Acquire(ctx, 1)
 			if err != nil {
@@ -346,12 +346,16 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 // (either pushed to a registry or exported locally) by any wait item in this block.
 // It acquires wb.mu to guard against concurrent AddItem mutations from parallel targets.
 func (wb *waitBlock) isStateExported(state *pllb.State) bool {
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
+
+	return wb.isStateExportedUnlocked(state)
+}
+
+func (wb *waitBlock) isStateExportedUnlocked(state *pllb.State) bool {
 	if state == nil || state.Output() == nil {
 		return true
 	}
-
-	wb.mu.Lock()
-	defer wb.mu.Unlock()
 
 	for _, item := range wb.items {
 		saveImage, ok := item.(*saveImageWaitItem)

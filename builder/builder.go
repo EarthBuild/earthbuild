@@ -304,6 +304,10 @@ func (b *Builder) convertAndBuild(
 		singPlatImgNames      = make(map[string]struct{})              // ensure that these are unique
 		exportCoordinator     = gatewaycrafter.NewExportCoordinator()
 
+		// builderExports are the image exports builder.go took on, settled once
+		// buildMainMulti is done.
+		builderExports []*states.ImageExport
+
 		// dirIDs maps a dirIndex to a dirID; the "dir-id" field was introduced
 		// to accommodate parallelism in the WAIT/END PopWaitBlock handling
 		dirIDs = map[int]string{}
@@ -447,7 +451,7 @@ func (b *Builder) convertAndBuild(
 
 			for _, saveImage := range b.targetPhaseImages(sts) {
 				doSaveOrPush := (sts.GetDoSaves() || sts.GetDoPushes() || saveImage.ForceSave)
-				if !saveImage.SkipBuilder && saveImage.DockerTag != "" && doSaveOrPush {
+				if !saveImage.BuilderSkips() && saveImage.DockerTag != "" && doSaveOrPush {
 					if saveImage.NoManifestList {
 						noManifestListImgs[saveImage.DockerTag] = struct{}{}
 					} else {
@@ -486,6 +490,15 @@ func (b *Builder) convertAndBuild(
 				if !plan.SolvedByBuilder(saveImage, b.opt.CacheExport != "") {
 					// Short-circuit.
 					continue
+				}
+
+				if !saveImage.Export.TakeForBuilder() {
+					// A wait block exports it.
+					continue
+				}
+
+				if saveImage.Export != nil {
+					builderExports = append(builderExports, saveImage.Export)
 				}
 
 				shouldExport, shouldPush := plan.Export, plan.Push
@@ -772,10 +785,8 @@ func (b *Builder) convertAndBuild(
 
 	// A target whose main state only this export solves has not executed until
 	// now; see earthfile2llb's Converter.FinalizeStates.
-	if mts != nil {
-		for _, sts := range mts.All() {
-			sts.BuilderExport.Settle(ctx, err)
-		}
+	for _, export := range builderExports {
+		export.Outcome.Settle(ctx, err)
 	}
 
 	if err != nil {
@@ -846,7 +857,7 @@ func (b *Builder) convertAndBuild(
 			plan := planImage(opt, mts.Final, true, saveImage)
 			shouldExport, shouldPush := plan.Export, plan.Push
 
-			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
+			if saveImage.BuilderSkips() || !shouldPush && !shouldExport {
 				continue
 			}
 
@@ -875,7 +886,7 @@ func (b *Builder) convertAndBuild(
 				plan := planImage(opt, sts, sts == mts.Final, saveImage)
 				shouldExport, shouldPush := plan.Export, plan.Push
 
-				if saveImage.SkipBuilder || !shouldPush && !shouldExport {
+				if saveImage.BuilderSkips() || !shouldPush && !shouldExport {
 					continue
 				}
 

@@ -57,3 +57,20 @@ func (o *ExportOutcome) Settle(ctx context.Context, err error) {
 		fn(ctx, err)
 	}
 }
+
+// Wait blocks until the export is done and returns its error, or until ctx is
+// done.
+func (o *ExportOutcome) Wait(ctx context.Context) error {
+	done := make(chan error, 1)
+
+	o.Then(ctx, func(_ context.Context, err error) {
+		done <- err
+	})
+
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}

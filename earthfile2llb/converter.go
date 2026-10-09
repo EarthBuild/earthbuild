@@ -1448,6 +1448,10 @@ func (c *Converter) SaveImage(
 
 				Platform:    c.platr.Materialize(c.platr.Current()),
 				HasPlatform: platutil.IsPlatformDefined(c.platr.Current()),
+
+				// Shared by the wait item below and the SaveImages entry, so that
+				// the wait blocks and builder.go agree on who exports it.
+				Export: &states.ImageExport{},
 			}
 
 			if c.ftrs.WaitBlock {
@@ -2247,13 +2251,8 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 	// and not before, so that is when it ends (and BUILD --auto-skip saves its
 	// hash). Neither export can have happened yet: the wait block on the stack is
 	// waited on after this, and builder.go only runs once everything is converted.
-	switch {
-	case export.waitBlockItem != nil:
-		export.waitBlockItem.exported.Then(ctx, c.endExecution)
-
-		return c.mts, nil
-	case export.byBuilder:
-		c.mts.Final.BuilderExport.Then(ctx, c.endExecution)
+	if export.image != nil {
+		export.image.Outcome.Then(ctx, c.endExecution)
 
 		return c.mts, nil
 	}
@@ -2305,10 +2304,14 @@ func (c *Converter) endExecution(ctx context.Context, err error) {
 }
 
 // stateExport is the image export that is going to solve a state anyway, if
-// any. At most one field is set.
+// any. At most one of waitBlockItem and byBuilder is set.
 type stateExport struct {
 	// waitBlockItem is an image that a wait block on the stack exports itself.
 	waitBlockItem *saveImageWaitItem
+	// image is the export that solves the state, settled once it is done, or nil
+	// if no export does. Whoever ends up exporting the image settles it,
+	// even a wait block that takes the export over from builder.go later.
+	image *states.ImageExport
 	// byBuilder is whether builder.go solves the state while exporting one of
 	// this target's images, once the whole build has been converted.
 	byBuilder bool
@@ -2336,18 +2339,30 @@ func (c *Converter) exportOf(state *pllb.State) stateExport {
 		}
 
 		if item := wb.exportOf(state); item != nil {
-			return stateExport{waitBlockItem: item}
+			return stateExport{waitBlockItem: item, image: item.si.Export}
 		}
 	}
 
-	return stateExport{byBuilder: c.builderExportsState(state)}
+	si, ok := c.builderExportOf(state)
+	if !ok {
+		return stateExport{}
+	}
+
+	return stateExport{byBuilder: true, image: si.Export}
 }
 
 // builderExportsState reports whether builder.go, which runs once the whole build
 // is converted, solves state while exporting one of this target's images.
 func (c *Converter) builderExportsState(state *pllb.State) bool {
+	_, ok := c.builderExportOf(state)
+	return ok
+}
+
+// builderExportOf returns the image of this target whose state is state that
+// builder.go exports once the whole build is converted, if there is one.
+func (c *Converter) builderExportOf(state *pllb.State) (states.SaveImage, bool) {
 	if c.mts == nil || c.mts.Final == nil {
-		return false
+		return states.SaveImage{}, false
 	}
 
 	for _, si := range c.mts.Final.SaveImages {
@@ -2359,11 +2374,29 @@ func (c *Converter) builderExportsState(state *pllb.State) bool {
 		// false): if builder.go does solve it, force execution only solves it twice.
 		plan := PlanImage(c.opt.ImagePlan, c.mts.Final, c.opt.rootTarget, si)
 		if plan.SolvedByBuilder(si, false) {
-			return true
+			return si, true
 		}
 	}
 
-	return false
+	return states.SaveImage{}, false
+}
+
+// waitBlockExportOf returns the outcome of the export of this target's image
+// whose state is state, if a wait block has taken that export. Such an image is
+// attached to more than one wait block (its target was BUILT from more than
+// one), and only the block that took the export exports it.
+func (c *Converter) waitBlockExportOf(state *pllb.State) *states.ExportOutcome {
+	if c.mts == nil || c.mts.Final == nil || state == nil {
+		return nil
+	}
+
+	for _, si := range c.mts.Final.SaveImages {
+		if si.State.Output() == state.Output() && si.Export.TakenByWaitBlock() {
+			return &si.Export.Outcome
+		}
+	}
+
+	return nil
 }
 
 // RecordTargetFailure records a failure in a target.

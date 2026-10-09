@@ -62,7 +62,7 @@ func PlanImage(opt ImagePlanOpt, sts *states.SingleTarget, isFinal bool, saveIma
 // (--remote-cache), which makes builder.go solve SAVE IMAGE --cache-hint images
 // too.
 func (p ImagePlan) SolvedByBuilder(saveImage states.SaveImage, cacheExport bool) bool {
-	if saveImage.SkipBuilder {
+	if saveImage.BuilderSkips() {
 		// Exported by a wait block instead.
 		return false
 	}

@@ -90,10 +90,7 @@ type SingleTarget struct {
 	VarCollection      *variables.Collection
 	InteractiveSession InteractiveSession
 	RunPush            RunPush
-	// BuilderExport is settled by builder.go once it has exported this target's
-	// images, which it does only after the whole build has been converted.
-	BuilderExport ExportOutcome
-	depMu         sync.Mutex
+	depMu              sync.Mutex
 	// doSavesMu is a mutex for doSave.
 	doSavesMu sync.Mutex
 	tiMu      sync.Mutex
@@ -367,9 +364,13 @@ type SaveLocal struct {
 
 // SaveImage is a docker image to be saved.
 type SaveImage struct {
-	State               pllb.State
-	Platform            platutil.Platform
-	Image               *image.Image
+	State    pllb.State
+	Platform platutil.Platform
+	Image    *image.Image
+	// Export is shared by every copy of this SaveImage and by its wait item. It
+	// records who exports the image, and is settled once that export is done.
+	// It may be nil for a SaveImage that is not part of a target.
+	Export              *ImageExport
 	DockerTag           string
 	HasPushDependencies bool
 	// CacheHint instructs earth to save a separate ref for this image, even if no tag is provided.
@@ -388,6 +389,13 @@ type SaveImage struct {
 	// true when the --platform value was set (either on cli, or via FROM --platform=..., or BUILD --platform=...)
 	HasPlatform bool
 	SkipBuilder bool // for use with WAIT/END
+}
+
+// BuilderSkips reports whether builder.go leaves this image to the wait blocks:
+// either it was created for a wait block to export (SkipBuilder), or a wait
+// block has since taken over its export.
+func (si SaveImage) BuilderSkips() bool {
+	return si.SkipBuilder || si.Export.TakenByWaitBlock()
 }
 
 // RunPush is a series of RUN --push commands to be run after the build has been deemed as

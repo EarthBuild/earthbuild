@@ -206,7 +206,7 @@ func TestFinalizeStatesCallsOnExecutionSuccess(t *testing.T) {
 			// builder.go once the whole build has been converted.
 			err = c.waitBlock().Wait(t.Context(), tt.push, c.opt.doSaves())
 			require.NoError(t, err)
-			c.mts.Final.BuilderExport.Settle(t.Context(), nil)
+			settleBuilderExports(t.Context(), c, nil)
 
 			require.Equal(t, int32(1), calls.Load(),
 				"OnExecutionSuccess must fire exactly once so BUILD --auto-skip can save the target's hash")
@@ -256,12 +256,23 @@ func TestFinalizeStatesReportsFailedExport(t *testing.T) {
 				require.ErrorIs(t, err, exportErr)
 			} else {
 				require.NoError(t, err)
-				c.mts.Final.BuilderExport.Settle(t.Context(), exportErr)
+				settleBuilderExports(t.Context(), c, exportErr)
 			}
 
 			require.Zero(t, calls.Load())
 			require.Equal(t, logstream.RunStatus_RUN_STATUS_FAILURE, lastTargetStatus(c))
 		})
+	}
+}
+
+// settleBuilderExports does what builder.go does once it has exported c's
+// images, with err as the outcome: it settles every export it took on.
+func settleBuilderExports(ctx context.Context, c *Converter, err error) {
+	for _, si := range c.mts.Final.SaveImages {
+		plan := PlanImage(c.opt.ImagePlan, c.mts.Final, c.opt.rootTarget, si)
+		if plan.SolvedByBuilder(si, false) && si.Export.TakeForBuilder() && si.Export != nil {
+			si.Export.Outcome.Settle(ctx, err)
+		}
 	}
 }
 

@@ -99,15 +99,18 @@ func (wb *waitBlock) AddItem(item states.WaitItem) {
 // builder.go instead of exporting it itself. Only the top-level block delegates.
 // Any other block exports every item it holds by the time its Wait returns, even
 // one created with SkipBuilder == false in the top-level block and attached here
-// later, because END must not return before its images are exported.
+// later, because END must not return before its images are exported. Such a
+// block takes the export over (see saveImageWaitItem.claim), and from then on
+// builder.go leaves the image alone and the top-level block does not delegate it.
 func (wb *waitBlock) delegatesToBuilder(item *saveImageWaitItem) bool {
-	return wb.topLevel && !item.si.SkipBuilder
+	return wb.topLevel && item.delegatedToBuilder()
 }
 
-// imageExports returns the images in items that this block's own Wait exports,
-// with the flags they are exported with. It is the one filter for that question:
-// saveImages exports exactly these, and waitStates and Converter.isStateExported
-// use it to tell whether a state is already being solved by an export.
+// imageExports returns the images in items that this block exports, with the
+// flags they are exported with. It is the one filter for that question:
+// Converter.exportOf uses it to tell whether a state is being solved by an
+// export, and claimExports, which decides what a Wait exports, applies the same
+// conditions.
 //
 // An item the block leaves to builder.go is not included, and neither is any
 // item of a detached block, which is never waited on.
@@ -125,6 +128,39 @@ func (wb *waitBlock) imageExports(items []states.WaitItem) []imageExport {
 		}
 
 		doPush, localExport := saveImage.exportFlags()
+		if !doPush && !localExport {
+			continue
+		}
+
+		exports = append(exports, imageExport{
+			saveImageWaitItem: saveImage,
+			doPush:            doPush,
+			localExport:       localExport,
+		})
+	}
+
+	return exports
+}
+
+// claimExports claims the exports of the images in items that this block
+// exports (see imageExports), for one Wait, and returns them with what that Wait
+// still has to do for each. An image another Wait has already pushed or exported
+// locally is not pushed or exported again: it is attached to every block that
+// BUILDs its target, but it has a single exporter.
+func (wb *waitBlock) claimExports(items []states.WaitItem) []imageExport {
+	if wb.detached {
+		return nil
+	}
+
+	var exports []imageExport
+
+	for _, item := range items {
+		saveImage, ok := item.(*saveImageWaitItem)
+		if !ok {
+			continue
+		}
+
+		doPush, localExport := saveImage.claim(wb.topLevel)
 		if !doPush && !localExport {
 			continue
 		}
@@ -170,7 +206,7 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 	}
 
 	items := wb.snapshotItems()
-	exports := wb.imageExports(items)
+	exports := wb.claimExports(items)
 
 	errGroup, ctx := serrgroup.WithContext(ctx)
 	errGroup.Go(func() error {
@@ -195,7 +231,7 @@ func saveImages(ctx context.Context, exports []imageExport) (retErr error) {
 	// executed until it is done; see Converter.FinalizeStates.
 	defer func() {
 		for _, export := range exports {
-			export.exported.Settle(ctx, retErr)
+			export.si.Export.Outcome.Settle(ctx, retErr)
 		}
 	}()
 
@@ -371,10 +407,14 @@ func saveImages(ctx context.Context, exports []imageExport) (retErr error) {
 }
 
 // waitStates force executes the states in items, except those an image export
-// solves anyway: an image in exports, which this same Wait exports alongside, or,
-// for the top-level block only, an image builder.go exports right after it.
+// solves anyway: an image in exports, which this same Wait exports alongside; an
+// image another wait block has taken the export of, which it waits for instead;
+// or, for the top-level block only, an image builder.go exports right after it.
 func (wb *waitBlock) waitStates(ctx context.Context, items []states.WaitItem, exports []imageExport) error {
-	stateItems := []*stateWaitItem{}
+	var (
+		stateItems     []*stateWaitItem
+		otherExporters []*states.ExportOutcome
+	)
 
 	for _, item := range items {
 		stateItem, ok := item.(*stateWaitItem)
@@ -386,6 +426,11 @@ func (wb *waitBlock) waitStates(ctx context.Context, items []states.WaitItem, ex
 			continue
 		}
 
+		if outcome := stateItem.c.waitBlockExportOf(stateItem.state); outcome != nil {
+			otherExporters = append(otherExporters, outcome)
+			continue
+		}
+
 		if wb.topLevel && stateItem.c.builderExportsState(stateItem.state) {
 			continue
 		}
@@ -393,8 +438,22 @@ func (wb *waitBlock) waitStates(ctx context.Context, items []states.WaitItem, ex
 		stateItems = append(stateItems, stateItem)
 	}
 
-	if len(stateItems) == 0 {
+	if len(stateItems) == 0 && len(otherExporters) == 0 {
 		return nil
+	}
+
+	errGroup, ctx := serrgroup.WithContext(ctx)
+
+	// END must not return before these states are solved, and the export that
+	// solves them may still be running in another block's Wait.
+	for _, outcome := range otherExporters {
+		errGroup.Go(func() error {
+			return outcome.Wait(ctx)
+		})
+	}
+
+	if len(stateItems) == 0 {
+		return errGroup.Wait()
 	}
 
 	// all converters have the same semaphore
@@ -403,8 +462,6 @@ func (wb *waitBlock) waitStates(ctx context.Context, items []states.WaitItem, ex
 	// This semaphore ensures that there is at least one thread allowed to progress,
 	// even if parallelism is completely starved.
 	sem := semutil.NewMultiSem(sharedParallelism, semutil.NewWeighted(1))
-
-	errGroup, ctx := serrgroup.WithContext(ctx)
 
 	for _, item := range stateItems {
 		errGroup.Go(func() error {

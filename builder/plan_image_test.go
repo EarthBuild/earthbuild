@@ -204,8 +204,8 @@ func TestPlanImage(t *testing.T) {
 
 			plan := planImage(tt.opt, sts, tt.isFinal, tt.saveImage)
 
-			require.Equal(t, tt.wantExport, plan.export, "export")
-			require.Equal(t, tt.wantPush, plan.push, "push")
+			require.Equal(t, tt.wantExport, plan.Export, "export")
+			require.Equal(t, tt.wantPush, plan.Push, "push")
 		})
 	}
 }

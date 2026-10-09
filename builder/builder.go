@@ -122,36 +122,23 @@ type BuildOpt struct {
 	AllowPrivileged            bool
 }
 
-// imagePlan is what happens to one SAVE IMAGE: whether it is loaded into the
-// local container engine, and whether it is pushed to its registry.
-type imagePlan struct {
-	export bool
-	push   bool
+// imagePlanOpt returns the build-wide options that earthfile2llb.PlanImage acts
+// on. The same value is handed to the converter, so both ask the same question.
+func (opt BuildOpt) imagePlanOpt() earthfile2llb.ImagePlanOpt {
+	return earthfile2llb.ImagePlanOpt{
+		Export:                opt.Export,
+		Push:                  opt.Push,
+		OnlyArtifact:          opt.OnlyArtifact != nil,
+		OnlyFinalTargetImages: opt.OnlyFinalTargetImages,
+	}
 }
 
-// planImage decides the fate of one SAVE IMAGE.
-//
-// This is the only place that decision is made. The build phase acts on it and
-// the end-of-build summary reports on it, so the summary cannot claim an export
-// or a push that did not happen - which it previously could, by recomputing the
-// conditions separately and then not applying them.
-func planImage(opt BuildOpt, sts *states.SingleTarget, isFinal bool, saveImage states.SaveImage) imagePlan {
-	// An untagged image has no name to be loaded or pushed under.
-	tagged := saveImage.DockerTag != ""
-	doSave := sts.GetDoSaves() || saveImage.ForceSave
-
-	return imagePlan{
-		export: tagged &&
-			doSave &&
-			opt.Export.Images() &&
-			opt.OnlyArtifact == nil &&
-			(!opt.OnlyFinalTargetImages || isFinal),
-		push: tagged &&
-			opt.Push &&
-			saveImage.Push &&
-			!sts.Target.IsRemote() &&
-			sts.GetDoPushes(),
-	}
+// planImage decides the fate of one SAVE IMAGE. See earthfile2llb.PlanImage,
+// which is the only place that decision is made.
+func planImage(
+	opt BuildOpt, sts *states.SingleTarget, isFinal bool, saveImage states.SaveImage,
+) earthfile2llb.ImagePlan {
+	return earthfile2llb.PlanImage(opt.imagePlanOpt(), sts, isFinal, saveImage)
 }
 
 // isMainHandledByImage reports whether mts.Final.MainState will already be solved
@@ -169,11 +156,7 @@ func isMainHandledByImage(
 	for _, sts := range mts.All() {
 		for _, saveImage := range targetImages(sts) {
 			plan := planImage(opt, sts, sts == mts.Final, saveImage)
-			shouldExport, shouldPush := plan.export, plan.push
-
-			useCacheHint := saveImage.CacheHint && cacheExport != ""
-			if (saveImage.SkipBuilder || !shouldPush && !shouldExport && !useCacheHint) ||
-				(!shouldPush && saveImage.HasPushDependencies) {
+			if !plan.SolvedByBuilder(saveImage, cacheExport != "") {
 				continue
 			}
 
@@ -388,6 +371,7 @@ func (b *Builder) convertAndBuild(
 				SaveReferenced:                       true,
 				OnlyFinalTargetImages:                opt.OnlyFinalTargetImages,
 				DoPushes:                             opt.Push,
+				ImagePlan:                            opt.imagePlanOpt(),
 				ExportCoordinator:                    exportCoordinator,
 				LocalArtifactWhiteList:               opt.LocalArtifactWhiteList,
 				InternalSecretStore:                  b.opt.InternalSecretStore,
@@ -499,14 +483,12 @@ func (b *Builder) convertAndBuild(
 
 			for _, saveImage := range b.targetPhaseImages(sts) {
 				plan := planImage(opt, sts, sts == mts.Final, saveImage)
-				shouldExport, shouldPush := plan.export, plan.push
-
-				useCacheHint := saveImage.CacheHint && b.opt.CacheExport != ""
-				if (saveImage.SkipBuilder || !shouldPush && !shouldExport && !useCacheHint) ||
-					(!shouldPush && saveImage.HasPushDependencies) {
+				if !plan.SolvedByBuilder(saveImage, b.opt.CacheExport != "") {
 					// Short-circuit.
 					continue
 				}
+
+				shouldExport, shouldPush := plan.Export, plan.Push
 
 				ref, err := b.stateToRef(childCtx, gwClient, saveImage.State, sts.PlatformResolver)
 				if err != nil {
@@ -853,7 +835,7 @@ func (b *Builder) convertAndBuild(
 
 		for _, saveImage := range mts.Final.SaveImages {
 			plan := planImage(opt, mts.Final, true, saveImage)
-			shouldExport, shouldPush := plan.export, plan.push
+			shouldExport, shouldPush := plan.Export, plan.Push
 
 			if saveImage.SkipBuilder || !shouldPush && !shouldExport {
 				continue
@@ -882,7 +864,7 @@ func (b *Builder) convertAndBuild(
 		for _, sts := range mts.All() {
 			for _, saveImage := range sts.SaveImages {
 				plan := planImage(opt, sts, sts == mts.Final, saveImage)
-				shouldExport, shouldPush := plan.export, plan.push
+				shouldExport, shouldPush := plan.Export, plan.Push
 
 				if saveImage.SkipBuilder || !shouldPush && !shouldExport {
 					continue

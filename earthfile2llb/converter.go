@@ -1461,7 +1461,10 @@ func (c *Converter) SaveImage(
 				// (len(c.waitBlockStack) == 1), and END must not return before the
 				// image is exported; builder.go only runs after the whole build has
 				// been converted.
-				if c.opt.GlobalWaitBlockFtr || !c.opt.UseInlineCache || !c.waitBlock().topLevel {
+				//
+				// Nor does a remote target: builder.go never pushes one (see PlanImage),
+				// so delegating its SAVE IMAGE --push would silently drop the push.
+				if c.opt.GlobalWaitBlockFtr || !c.opt.UseInlineCache || !c.waitBlock().topLevel || c.target.IsRemote() {
 					si.SkipBuilder = true
 				}
 
@@ -2265,10 +2268,15 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 	return c.mts, nil
 }
 
-// isStateExported reports whether state is scheduled to be solved and exported
-// as an image (either pushed to a registry or loaded locally) within the wait block
-// stack or the target's planned SAVE IMAGE declarations. When true, forceExecution
-// can be skipped to avoid redundant concurrent solves of the same vertex.
+// isStateExported reports whether an image export is going to solve state
+// anyway, so that force executing it as well would solve the same vertex twice
+// (BuildKit then delivers its log lines twice). It does not decide that itself:
+// it asks the two exporters, through the same decisions they act on.
+//
+//   - A wait block on the stack exports the image itself. See
+//     waitBlock.imageExports, the filter waitBlock.saveImages applies.
+//   - builder.go exports the image once the whole build is converted. See
+//     PlanImage, the decision builder.go applies.
 func (c *Converter) isStateExported(state *pllb.State) bool {
 	if state == nil || state.Output() == nil {
 		return true
@@ -2280,18 +2288,26 @@ func (c *Converter) isStateExported(state *pllb.State) bool {
 		}
 	}
 
-	if c.mts != nil && c.mts.Final != nil {
-		for _, si := range c.mts.Final.SaveImages {
-			if si.DockerTag == "" {
-				continue
-			}
+	return c.builderExportsState(state)
+}
 
-			isPush := si.Push && c.opt.DoPushes
-			isLocal := (c.opt.Export.Images() && c.opt.SaveReferenced) || si.ForceSave
+// builderExportsState reports whether builder.go, which runs once the whole build
+// is converted, solves state while exporting one of this target's images.
+func (c *Converter) builderExportsState(state *pllb.State) bool {
+	if c.mts == nil || c.mts.Final == nil {
+		return false
+	}
 
-			if (isPush || isLocal) && si.State.Output() == state.Output() {
-				return true
-			}
+	for _, si := range c.mts.Final.SaveImages {
+		if si.State.Output() != state.Output() {
+			continue
+		}
+
+		// A SAVE IMAGE --cache-hint image without a tag is left out (cacheExport is
+		// false): if builder.go does solve it, force execution only solves it twice.
+		plan := PlanImage(c.opt.ImagePlan, c.mts.Final, c.opt.rootTarget, si)
+		if plan.SolvedByBuilder(si, false) {
+			return true
 		}
 	}
 

@@ -2,10 +2,12 @@ package earthfile2llb
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/stretchr/testify/assert"
@@ -142,4 +144,52 @@ func TestTopLevelWaitBlockDelegatesToBuilderUnderInlineCache(t *testing.T) {
 	require.Len(t, c.mts.Final.SaveImages, 1)
 	assert.False(t, c.mts.Final.SaveImages[0].SkipBuilder, "builder.go must export this image")
 	assert.Empty(t, gw.exported, "the top-level wait block must leave the image to builder.go")
+}
+
+// Under --push --use-inline-cache, the top-level wait block hands SAVE IMAGE
+// --push to builder.go. That is only sound if builder.go then pushes it.
+// PlanImage never pushes a remote target, so a remote target's image must stay
+// with the wait block. Under VERSION 0.7+, --push is propagated over BUILD edges
+// to remote targets too (see prepBuildTarget). Otherwise
+// `BUILD github.com/org/repo+img` silently stops pushing, while the summary
+// written by SaveImage still reports it as pushed.
+func TestSaveImagePushIsNotLostWhenDelegated(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		remote bool
+	}{
+		{name: "local target"},
+		{name: "remote target reached by BUILD", remote: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			gw := &exportRecordingGwClient{}
+			c, wb := runExportScenario(t, gw, exportScenario{
+				export:      ExportNone,
+				remote:      tt.remote,
+				push:        true,
+				doPushes:    true,
+				topLevel:    true,
+				inlineCache: true,
+			})
+
+			err := wb.Wait(t.Context(), true, c.opt.doSaves())
+			require.NoError(t, err)
+
+			pushedByWaitBlock := slices.Contains(gw.pushed, scenarioTag)
+			pushedByBuilder := slices.ContainsFunc(c.mts.Final.SaveImages, func(si states.SaveImage) bool {
+				plan := PlanImage(c.opt.ImagePlan, c.mts.Final, c.opt.rootTarget, si)
+
+				return plan.Push && plan.SolvedByBuilder(si, false)
+			})
+
+			assert.True(t, pushedByWaitBlock || pushedByBuilder, "SAVE IMAGE --push must be pushed")
+			assert.False(t, pushedByWaitBlock && pushedByBuilder, "SAVE IMAGE --push must be pushed only once")
+		})
+	}
 }

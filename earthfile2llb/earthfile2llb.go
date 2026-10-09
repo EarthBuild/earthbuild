@@ -133,6 +133,10 @@ type ConvertOpt struct {
 	LocalRegistryAddr string
 	// The resolve mode for referenced images (force pull or prefer local).
 	ImageResolveMode llb.ResolveMode
+	// ImagePlan is the build-wide input to PlanImage, set once by builder.go and
+	// never narrowed per target. The converter uses it to ask whether builder.go
+	// is going to solve a state anyway, and gets the answer builder.go acts on.
+	ImagePlan ImagePlanOpt
 	// Export is the user's output intent for the whole build: how much of it is
 	// written out locally. It is set once, from the command line, and is never
 	// narrowed per target - SaveReferenced carries that instead. Keeping the two
@@ -189,6 +193,9 @@ type ConvertOpt struct {
 	// UseInlineCache enables the inline caching feature (use any SAVE IMAGE --push declaration as
 	// cache import).
 	UseInlineCache bool
+	// rootTarget is whether this is the build's root target, the one builder.go
+	// treats as final.
+	rootTarget bool
 }
 
 // doSaves reports whether this target's saves should be carried out: the user
@@ -277,9 +284,14 @@ func Earthfile2LLB(
 	opt.PlatformResolver.AllowNativeAndUser = opt.Features.NewPlatform
 
 	if opt.waitBlock == nil {
+		// Either the root target's top-level block, or a target reached by FROM or
+		// COPY, which pass no block. Nothing ever waits on the latter.
 		opt.waitBlock = newWaitBlock()
 		opt.waitBlock.topLevel = initialCall
+		opt.waitBlock.detached = !initialCall
 	}
+
+	opt.rootTarget = initialCall
 
 	targetWithMetadata, ok := bc.Ref.(domain.Target)
 	if !ok {

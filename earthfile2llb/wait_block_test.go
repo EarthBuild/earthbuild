@@ -156,14 +156,38 @@ func TestConverter_IsStateExported(t *testing.T) {
 			want:  true,
 		},
 		{
-			name: "matching state in mts.Final.SaveImages with push returns true",
+			// builder.go pushes it: PlanImage says so.
+			name: "matching state in mts.Final.SaveImages pushed by builder.go returns true",
+			c: func() *Converter {
+				sts := &states.SingleTarget{
+					SaveImages: []states.SaveImage{
+						{
+							DockerTag: scenarioTag,
+							State:     stateA,
+							Push:      true,
+						},
+					},
+				}
+				sts.SetDoPushes()
+
+				return &Converter{
+					opt: ConvertOpt{DoPushes: true, ImagePlan: ImagePlanOpt{Export: ExportNone, Push: true}},
+					mts: &states.MultiTarget{Final: sts},
+				}
+			}(),
+			state: &stateA,
+			want:  true,
+		},
+		{
+			// --push was not given, so PlanImage pushes nothing.
+			name: "matching state in mts.Final.SaveImages builder.go does not push returns false",
 			c: &Converter{
-				opt: ConvertOpt{DoPushes: true},
+				opt: ConvertOpt{ImagePlan: ImagePlanOpt{Export: ExportNone}},
 				mts: &states.MultiTarget{
 					Final: &states.SingleTarget{
 						SaveImages: []states.SaveImage{
 							{
-								DockerTag: "registry.example.com/test:latest",
+								DockerTag: scenarioTag,
 								State:     stateA,
 								Push:      true,
 							},
@@ -172,7 +196,7 @@ func TestConverter_IsStateExported(t *testing.T) {
 				},
 			},
 			state: &stateA,
-			want:  true,
+			want:  false,
 		},
 		{
 			name: "different state in SaveImages returns false",
@@ -182,7 +206,7 @@ func TestConverter_IsStateExported(t *testing.T) {
 					Final: &states.SingleTarget{
 						SaveImages: []states.SaveImage{
 							{
-								DockerTag: "registry.example.com/test:latest",
+								DockerTag: scenarioTag,
 								State:     stateB,
 								Push:      true,
 							},
@@ -265,7 +289,9 @@ func TestWaitBlock_WaitStates_WithExportedState(t *testing.T) {
 			state: &state,
 		})
 
-		err := waitStates(t.Context(), wb.snapshotItems())
+		items := wb.snapshotItems()
+
+		err := wb.waitStates(t.Context(), items, wb.imageExports(items))
 		require.NoError(t, err)
 	})
 }

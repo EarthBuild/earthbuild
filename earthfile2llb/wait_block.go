@@ -43,6 +43,19 @@ type waitBlock struct {
 	// runs. So it is the only block that can hand an image to builder.go
 	// without breaking the ordering an explicit WAIT ... END promises.
 	topLevel bool
+	// detached marks a block created for a target reached by FROM or COPY,
+	// which pass no wait block. Nothing ever waits on it, so it exports nothing.
+	detached bool
+}
+
+// imageExport is an image a wait block exports itself, with the flags it is
+// exported with. The flags are read once per Wait, so that everything the Wait
+// does acts on the same view of them.
+type imageExport struct {
+	*saveImageWaitItem
+
+	doPush      bool
+	localExport bool
 }
 
 func newWaitBlock() *waitBlock {
@@ -91,6 +104,41 @@ func (wb *waitBlock) delegatesToBuilder(item *saveImageWaitItem) bool {
 	return wb.topLevel && !item.si.SkipBuilder
 }
 
+// imageExports returns the images in items that this block's own Wait exports,
+// with the flags they are exported with. It is the one filter for that question:
+// saveImages exports exactly these, and waitStates and Converter.isStateExported
+// use it to tell whether a state is already being solved by an export.
+//
+// An item the block leaves to builder.go is not included, and neither is any
+// item of a detached block, which is never waited on.
+func (wb *waitBlock) imageExports(items []states.WaitItem) []imageExport {
+	var exports []imageExport
+
+	for _, item := range items {
+		saveImage, ok := item.(*saveImageWaitItem)
+		if !ok {
+			continue
+		}
+
+		if wb.detached || wb.delegatesToBuilder(saveImage) {
+			continue
+		}
+
+		doPush, localExport := saveImage.exportFlags()
+		if !doPush && !localExport {
+			continue
+		}
+
+		exports = append(exports, imageExport{
+			saveImageWaitItem: saveImage,
+			doPush:            doPush,
+			localExport:       localExport,
+		})
+	}
+
+	return exports
+}
+
 // snapshotItems returns the items added so far. A Wait acts on the items
 // present when it starts; an item added while it runs is left to a later Wait.
 func (wb *waitBlock) snapshotItems() []states.WaitItem {
@@ -122,10 +170,11 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 	}
 
 	items := wb.snapshotItems()
+	exports := wb.imageExports(items)
 
 	errGroup, ctx := serrgroup.WithContext(ctx)
 	errGroup.Go(func() error {
-		return wb.saveImages(ctx, items)
+		return saveImages(ctx, exports)
 	})
 
 	if localExport {
@@ -135,45 +184,19 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 	}
 
 	errGroup.Go(func() error {
-		return waitStates(ctx, items)
+		return wb.waitStates(ctx, items, exports)
 	})
 
 	return errGroup.Wait()
 }
 
-func (wb *waitBlock) saveImages(ctx context.Context, items []states.WaitItem) error {
+func saveImages(ctx context.Context, exports []imageExport) error {
 	isMultiPlatform := make(map[string]bool)        // DockerTag -> bool
 	noManifestListImgs := make(map[string]struct{}) // set based on DockerTag
 	platformImgNames := make(map[string]bool)
 	singPlatImgNames := make(map[string]bool) // ensure that these are unique
 
-	// imageExport is one image to export, with its flags read once so that the
-	// whole export acts on a consistent view of them.
-	type imageExport struct {
-		*saveImageWaitItem
-
-		doPush      bool
-		localExport bool
-	}
-
-	imageWaitItems := []imageExport{}
-
-	for _, item := range items {
-		saveImage, ok := item.(*saveImageWaitItem)
-		if !ok {
-			continue
-		}
-
-		doPush, localExport := saveImage.exportFlags()
-		if !doPush && !localExport {
-			continue
-		}
-
-		if wb.delegatesToBuilder(saveImage) {
-			// This image is delegated to builder.go for export (e.g. inline caching workaround for #2178)
-			continue
-		}
-
+	for _, saveImage := range exports {
 		if hasPlatform, ok := isMultiPlatform[saveImage.si.DockerTag]; ok {
 			if saveImage.si.HasPlatform != hasPlatform {
 				format := "SAVE IMAGE %s is defined multiple times, but not all commands defined a --platform value"
@@ -202,15 +225,9 @@ func (wb *waitBlock) saveImages(ctx context.Context, items []states.WaitItem) er
 		} else {
 			isMultiPlatform[saveImage.si.DockerTag] = false
 		}
-
-		imageWaitItems = append(imageWaitItems, imageExport{
-			saveImageWaitItem: saveImage,
-			doPush:            doPush,
-			localExport:       localExport,
-		})
 	}
 
-	if len(imageWaitItems) == 0 {
+	if len(exports) == 0 {
 		return nil
 	}
 
@@ -225,7 +242,7 @@ func (wb *waitBlock) saveImages(ctx context.Context, items []states.WaitItem) er
 
 	refID := 0
 
-	for _, item := range imageWaitItems {
+	for _, item := range exports {
 		sessionID := item.c.opt.GwClient.BuildOpts().SessionID
 		exportCoordinator := item.c.opt.ExportCoordinator
 
@@ -326,11 +343,11 @@ func (wb *waitBlock) saveImages(ctx context.Context, items []states.WaitItem) er
 		}
 	}
 
-	if len(imageWaitItems) == 0 {
+	if len(exports) == 0 {
 		panic("saveImagesWaitItem should never have been created with zero converters")
 	}
 
-	gatewayClient := imageWaitItems[0].c.opt.GwClient // could be any converter's gwClient (they should app be the same)
+	gatewayClient := exports[0].c.opt.GwClient // could be any converter's gwClient (they should app be the same)
 
 	refs, metadata := gwCrafter.GetRefsAndMetadata()
 
@@ -345,7 +362,10 @@ func (wb *waitBlock) saveImages(ctx context.Context, items []states.WaitItem) er
 	return nil
 }
 
-func waitStates(ctx context.Context, items []states.WaitItem) error {
+// waitStates force executes the states in items, except those an image export
+// solves anyway: an image in exports, which this same Wait exports alongside, or,
+// for the top-level block only, an image builder.go exports right after it.
+func (wb *waitBlock) waitStates(ctx context.Context, items []states.WaitItem, exports []imageExport) error {
 	stateItems := []*stateWaitItem{}
 
 	for _, item := range items {
@@ -354,7 +374,11 @@ func waitStates(ctx context.Context, items []states.WaitItem) error {
 			continue
 		}
 
-		if isStateExportedBy(items, stateItem.state) {
+		if exportsState(exports, stateItem.state) {
+			continue
+		}
+
+		if wb.topLevel && stateItem.c.builderExportsState(stateItem.state) {
 			continue
 		}
 
@@ -389,34 +413,25 @@ func waitStates(ctx context.Context, items []states.WaitItem) error {
 	return errGroup.Wait()
 }
 
-// isStateExported reports whether state is scheduled to be exported as an image
-// (either pushed to a registry or exported locally) by any wait item in this block.
+// isStateExported reports whether this block's own Wait exports an image whose
+// state is state, so that solving state separately would solve the same vertex
+// twice. Images the block leaves to builder.go do not count here; see
+// Converter.isStateExported.
+//
 // It only takes itemsMu, never mu, so it does not wait for a Wait in progress.
 func (wb *waitBlock) isStateExported(state *pllb.State) bool {
-	return isStateExportedBy(wb.snapshotItems(), state)
+	return exportsState(wb.imageExports(wb.snapshotItems()), state)
 }
 
-func isStateExportedBy(items []states.WaitItem, state *pllb.State) bool {
+// exportsState reports whether one of exports is an image whose state is state.
+// A missing or scratch state needs no solving, so it counts as exported.
+func exportsState(exports []imageExport, state *pllb.State) bool {
 	if state == nil || state.Output() == nil {
 		return true
 	}
 
-	for _, item := range items {
-		saveImage, ok := item.(*saveImageWaitItem)
-		if !ok {
-			continue
-		}
-
-		doPush, localExport := saveImage.exportFlags()
-		if !doPush && !localExport {
-			continue
-		}
-
-		// SkipBuilder is not checked here: whether the image is exported by
-		// wait_block (SkipBuilder == true) or delegated to builder.go
-		// (SkipBuilder == false), the image will be solved and exported.
-		// Reporting true prevents redundant concurrent solves of the same vertex.
-		if saveImage.si.State.Output() == state.Output() {
+	for _, export := range exports {
+		if export.si.State.Output() == state.Output() {
 			return true
 		}
 	}

@@ -76,7 +76,7 @@ func (s *PeerSource) connect(ctx context.Context) (*iroh.Conn, error) {
 		return s.held, nil
 	}
 
-	c, err := s.Endpoint.Connect(ctx, s.Peer, ALPNBlob)
+	c, err := dialVerified(ctx, s.Endpoint, s.Peer, ALPNBlob)
 	if err != nil {
 		return nil, fmt.Errorf("connect for blobs: %w", err)
 	}
@@ -169,7 +169,7 @@ func (s *PeerSource) redialDirect(ctx context.Context, c *iroh.Conn) *iroh.Conn 
 
 	to := netaddr.NewEndpointAddr(c.RemoteID()).WithIP(at)
 
-	direct, err := s.Endpoint.Connect(ctx, to, ALPNBlob)
+	direct, err := dialVerified(ctx, s.Endpoint, to, ALPNBlob)
 	if err != nil {
 		// The observed address is not reachable from here - a NAT that only
 		// holds the mapping for the path that punched it, most often. The relay

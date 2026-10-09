@@ -608,7 +608,7 @@ func Join(
 		o(&cfg)
 	}
 
-	conn, err := e.Connect(ctx, driver, ALPNControl)
+	conn, err := dialVerified(ctx, e, driver, ALPNControl)
 	if err != nil {
 		return fmt.Errorf("join the fleet: %w", err)
 	}

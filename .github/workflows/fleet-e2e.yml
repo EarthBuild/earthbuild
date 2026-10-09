@@ -93,7 +93,14 @@ jobs:
         # that an unprivileged user namespace on this kernel does not grant.
         # `sudo -E` keeps the fleet's environment, which is the whole
         # configuration.
+        #
+        # **pipefail, or the build's own failure is `tee`'s success.** The
+        # default shell here is `bash -e` without it, so a build that failed
+        # passed this step and was reported by the next one as "the fleet
+        # delegated nothing" - twice, about builds that had delegated four
+        # steps and then failed to bring a result back.
         run: |
+          set -o pipefail
           sudo -E "$RUNNER_TEMP/earth-native" -dir tests/fleet +all 2>&1 | tee driver.log
       - name: assert the build was a fleet and not a local build wearing one
         run: |

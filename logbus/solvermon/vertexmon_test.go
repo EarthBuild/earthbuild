@@ -385,7 +385,8 @@ func TestVertexMonitor_Write_StatsStream_ReportsDecodeErrorOnce(t *testing.T) {
 	corrupted := []byte(`{"cpu":{"usage":{"total":100}}}`)
 
 	for range 3 {
-		if _, err := vm.Write(corrupted, time.Now(), BuildkitStatsStream); err != nil {
+		_, err = vm.Write(corrupted, time.Now(), BuildkitStatsStream)
+		if err != nil {
 			t.Fatalf("Write returned error %v, want nil (non-fatal)", err)
 		}
 	}

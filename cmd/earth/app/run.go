@@ -227,13 +227,48 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 
 		return 1
 	case strings.Contains(err.Error(), "security.insecure is not allowed"):
-		helpMsg := "earth --allow-privileged (earth -P) flag is required\n"
+		// Extract target info from error if available
+		targetInfo := ""
+
+		if ie != nil && isInterpreterError {
+			targetInfo = ie.TargetID
+		}
+
+		// If no target info from interpreter error, try to extract from args
+		if targetInfo == "" && len(args) > 1 {
+			for _, arg := range args[1:] {
+				if strings.HasPrefix(arg, "+") {
+					targetInfo = arg
+					break
+				}
+			}
+		}
+
+		userMsg := "This build requires privileged mode."
+
+		if targetInfo != "" {
+			userMsg = "Target " + targetInfo + " requires privileged mode."
+		}
+
+		// Create help message with actual target if available
+		flagExample := "earth -P +your-target"
+
+		if targetInfo != "" {
+			flagExample = "earth -P " + targetInfo
+		}
+
+		helpMsg := "To fix this, use one of the following:\n" +
+			"  • Run with the -P flag: " + flagExample + "\n" +
+			"  • Set environment variable: export EARTHLY_ALLOW_PRIVILEGED=true\n" +
+			"  • Add to config: earth config global.allow_privileged true"
+
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_NEEDS_PRIVILEGED,
 			helpMsg,
-			err.Error(),
+			userMsg,
 		)
+		app.BaseCLI.Log().VerboseWarnf("Error: %s\n", err.Error())
 		app.BaseCLI.Log().HelpPrint(helpMsg)
 
 		return 9

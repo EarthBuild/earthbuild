@@ -19,15 +19,18 @@ import (
 // SolverMonitor is a buildkit solver monitor.
 type SolverMonitor struct {
 	b        *logbus.Bus
+	debug    bool
 	digests  map[digest.Digest]string  // digest -> cmdID
 	vertices map[string]*vertexMonitor // cmdID -> vertexMonitor
 	mu       sync.Mutex
 }
 
-// New creates a new SolverMonitor.
-func New(b *logbus.Bus) *SolverMonitor {
+// New creates a new SolverMonitor. With debug set, malformed runc stats
+// packets (which are otherwise dropped) are reported once per vertex.
+func New(b *logbus.Bus, debug bool) *SolverMonitor {
 	return &SolverMonitor{
 		b:        b,
+		debug:    debug,
 		digests:  make(map[digest.Digest]string),
 		vertices: make(map[string]*vertexMonitor),
 	}
@@ -140,6 +143,9 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				cp:        cp,
 				ssp:       statsstreamparser.New(),
 			}
+			if sm.debug {
+				vm.onStatsDecodeError = sm.reportStatsDecodeError(operation)
+			}
 			sm.vertices[cmdID] = vm
 		}
 
@@ -227,4 +233,15 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 	}
 
 	return nil
+}
+
+// reportStatsDecodeError returns a callback that prints a debug notice about
+// dropped runc stats for the given operation. BuildKit's log size and rate
+// limits can clip the binary stats stream mid-frame, so this is expected
+// occasionally; repeated notices point at a protocol mismatch instead.
+func (sm *SolverMonitor) reportStatsDecodeError(operation string) func(error) {
+	return func(err error) {
+		msg := fmt.Sprintf("dropping malformed runc stats for %q: %v\n", operation, err)
+		_, _ = sm.b.Run().Generic().Write([]byte(msg))
+	}
 }

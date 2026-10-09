@@ -1652,6 +1652,18 @@ func (s *Server) Unmounted() string {
 	return *reason
 }
 
+// lockRoot serialises mount work against one root directory.
+//
+// **By root, not by handle**, because the mount points are in the directory
+// and two handles can name one directory. Keyed by handle, E173's lock let
+// three steps on three handles over one root race exactly as it had stopped
+// two steps on one handle racing: `mount /dev/null at /dev/null: no such file
+// or directory`, 64 runs in 200 of TestConcurrentOutputStaysAttributed on the
+// x86 box, and every CI run once +engine-daemon stopped discarding the result.
+func (s *Server) lockRoot(root string) func() {
+	return s.lockHandle("root:" + root)
+}
+
 // lockHandle serialises filesystem work against one handle, and returns the
 // release.
 //
@@ -2731,7 +2743,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		// stop two steps sharing a root from running at once, which is the
 		// concurrency the design wants; holding it across these two short
 		// sections costs nothing and closes the window.
-		unlock := s.lockHandle(req.Handle)
+		unlock := s.lockRoot(h.Root())
 		endBind := timing.Phase("guest:bind", fmt.Sprintf("%d mounts", len(mounts)))
 		undo, bindErr := bindMounts(h.Root(), s.mountStore(), s.LayerDir, h.Delta(), mounts)
 
@@ -2768,7 +2780,7 @@ func (s *Server) execRequest(ctx context.Context, req Request, c *conn) Response
 		defer undoPts()
 
 		defer func() {
-			unlock := s.lockHandle(req.Handle)
+			unlock := s.lockRoot(h.Root())
 			undo()
 			unlock()
 		}()

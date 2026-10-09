@@ -1,6 +1,7 @@
 package earthfile2llb
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/states"
@@ -189,4 +190,43 @@ func TestConverter_IsStateExported(t *testing.T) {
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestWaitBlock_IsStateExported_Concurrent(t *testing.T) {
+	t.Parallel()
+
+	wb := newWaitBlock()
+	state := pllb.Image("alpine:3.20")
+
+	const iterations = 100
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+
+		for range iterations {
+			itemState := pllb.Image("alpine:3.20")
+
+			wb.AddItem(&saveImageWaitItem{
+				doPush: true,
+				si: states.SaveImage{
+					DockerTag: "test:latest",
+					State:     itemState,
+				},
+			})
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		for range iterations {
+			_ = wb.isStateExported(&state)
+		}
+	}()
+
+	wg.Wait()
 }

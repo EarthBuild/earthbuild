@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [ main ]
     paths-ignore:
       - 'docs/**'
       - '**.md'
@@ -9,6 +10,7 @@ on:
       - '.github/CODEOWNERS'
       - 'LICENSE'
   pull_request:
+    branches: [ main, get-ci-working ]
   merge_group:
 
 
@@ -241,7 +243,7 @@ jobs:
         run: |-
           set -euo pipefail
           jq -r 'to_entries[] | "\(.value.result)\t\(.key)"' <<< "$NEEDS" | sort
-          if jq -e 'to_entries | map(select(.key != "next-tests" or .value.result != "skipped")) | any(.[]; .value.result != "success")' >/dev/null <<< "$NEEDS"; then
+          if jq -e 'any(.[]; .result != "success")' >/dev/null <<< "$NEEDS"; then
             echo "::error::One or more CI suites did not succeed"
             exit 1
           fi

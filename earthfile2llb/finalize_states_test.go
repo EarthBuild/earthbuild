@@ -9,6 +9,7 @@ import (
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
@@ -58,7 +59,9 @@ func newFinalizeTestConverter(t *testing.T, o finalizeTestOpt) (*Converter, *ser
 		Add(t.Context(), target, platr, false, variables.NewScope(), nil)
 	require.NoError(t, err)
 
-	logbusTarget, err := logbus.New().Run().NewTarget(sts.ID, target, nil, "", "")
+	bus := logbus.New()
+
+	logbusTarget, err := bus.Run().NewTarget(sts.ID, target, nil, "", "")
 	require.NoError(t, err)
 
 	ftrs := &features.Features{ExecAfterParallel: true, WaitBlock: o.waitBlockOn}
@@ -87,6 +90,8 @@ func newFinalizeTestConverter(t *testing.T, o finalizeTestOpt) (*Converter, *ser
 			Export:             o.export,
 			SaveReferenced:     true,
 			DoPushes:           o.doPushes,
+			Logbus:             bus,
+			ExportCoordinator:  gatewaycrafter.NewExportCoordinator(),
 		},
 		mts: &states.MultiTarget{Final: sts},
 		varCollection: variables.NewCollection(variables.NewCollectionOpt{

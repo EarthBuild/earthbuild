@@ -146,7 +146,9 @@ require (
 	howett.net/plist v1.0.1 // indirect
 )
 
+// TODO: both replaces point at heads of unmerged stacked PRs (EarthBuild/buildkit#48 on #41,
+// EarthBuild/fsutil#4 on #3). Advance them to the merged commits once those land.
 replace (
-	github.com/moby/buildkit => github.com/EarthBuild/buildkit v0.0.0-20261009123336-97a1abd81531
-	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20261002194825-890baaee2294
+	github.com/moby/buildkit => github.com/EarthBuild/buildkit v0.0.0-20261009205003-dd17522a6967
+	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20261009204740-e66a226757f7
 )

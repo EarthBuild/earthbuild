@@ -101,7 +101,7 @@ buildkitd:
 buildkit-sha:
     RUN apk add --no-cache git
     ARG BUILDKIT_GIT_SHA
-    ARG BUILDKIT_GIT_BRANCH=earthly-main
+    ARG BUILDKIT_GIT_BRANCH=main
     ARG --required BUILDKIT_GIT_ORG
     RUN --no-cache set -e; \
         if [ "$(echo -n $BUILDKIT_GIT_SHA | wc -c)" = 40 ]; then \

@@ -342,10 +342,16 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 	return errGroup.Wait()
 }
 
+// isStateExported reports whether state is scheduled to be exported as an image
+// (either pushed to a registry or exported locally) by any wait item in this block.
+// It acquires wb.mu to guard against concurrent AddItem mutations from parallel targets.
 func (wb *waitBlock) isStateExported(state *pllb.State) bool {
 	if state == nil || state.Output() == nil {
 		return true
 	}
+
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
 
 	for _, item := range wb.items {
 		saveImage, ok := item.(*saveImageWaitItem)

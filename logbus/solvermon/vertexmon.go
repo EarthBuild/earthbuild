@@ -34,6 +34,11 @@ type vertexMonitor struct {
 	fatalErrorType logstream.FailureType
 	isFatalError   bool // If set, this is the root cause of the entire build failure.
 	isCanceled     bool
+	// onStatsDecodeError, if set, is told about the first malformed stats
+	// packet on this vertex. Stats are telemetry, so decoding failures are
+	// otherwise dropped rather than failing the build.
+	onStatsDecodeError    func(error)
+	statsDecodeErrorShown bool
 }
 
 var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`) //nolint:lll
@@ -219,6 +224,11 @@ func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error)
 		if err != nil {
 			// Stats stream parsing failure is non-fatal telemetry; reset parser to recover
 			vm.ssp = statsstreamparser.New()
+
+			if vm.onStatsDecodeError != nil && !vm.statsDecodeErrorShown {
+				vm.statsDecodeErrorShown = true
+				vm.onStatsDecodeError(err)
+			}
 
 			return len(dt), nil //nolint:nilerr // stats stream decoding failures are non-fatal telemetry
 		}

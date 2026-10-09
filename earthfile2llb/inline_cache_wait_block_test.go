@@ -5,8 +5,10 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
@@ -196,6 +198,117 @@ func TestSaveImagePushIsNotLostWhenDelegated(t *testing.T) {
 
 			assert.True(t, pushedByWaitBlock || pushedByBuilder, "SAVE IMAGE --push must be pushed")
 			assert.False(t, pushedByWaitBlock && pushedByBuilder, "SAVE IMAGE --push must be pushed only once")
+		})
+	}
+}
+
+// A target BUILT both outside and inside an explicit WAIT ... END is converted
+// once. The second BUILD finds it already converted and re-attaches its wait
+// items to the caller's wait block (see Earthfile2LLB and
+// AttachTopLevelWaitItems). Under --push --use-inline-cache its SAVE IMAGE
+// --push must still be exported and pushed exactly once, whichever BUILD comes
+// first, and the target must end once that one export is done.
+//
+// WAIT ... END is waited on during conversion; the top-level block is waited on
+// at the very end, and builder.go runs after that.
+func TestImageBuiltInsideAndOutsideWaitIsExportedOnce(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		// insideWaitFirst is whether the first BUILD, the one that converts the
+		// target, is the one inside WAIT ... END.
+		insideWaitFirst bool
+	}{
+		{name: "BUILD outside WAIT, then inside WAIT ... END"},
+		{name: "BUILD inside WAIT ... END, then outside WAIT", insideWaitFirst: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			gw := &exportRecordingGwClient{}
+
+			topLevel := newWaitBlock()
+			topLevel.topLevel = true
+
+			explicitWait := newWaitBlock()
+
+			convertedIn, reattachedTo := topLevel, explicitWait
+			if tt.insideWaitFirst {
+				convertedIn, reattachedTo = explicitWait, topLevel
+			}
+
+			var calls atomic.Int32
+
+			c, eg := newFinalizeTestConverter(t, finalizeTestOpt{
+				gw:          gw,
+				export:      ExportNone,
+				doPushes:    true,
+				waitBlock:   convertedIn,
+				waitBlockOn: true,
+				onSuccess: func(context.Context) {
+					calls.Add(1)
+				},
+			})
+			c.opt.UseInlineCache = true
+			saveTestImage(true)(t, c)
+
+			_, err := c.FinalizeStates(t.Context())
+			require.NoError(t, err)
+			require.NoError(t, eg.Wait())
+
+			// The second BUILD of the already converted target.
+			reuse := func() {
+				c.mts.Final.SetDoPushes()
+				c.mts.Final.AttachTopLevelWaitItems(t.Context(), reattachedTo)
+			}
+
+			if !tt.insideWaitFirst {
+				reuse()
+			}
+
+			// END
+			err = explicitWait.Wait(t.Context(), true, c.opt.doSaves())
+			require.NoError(t, err)
+
+			if tt.insideWaitFirst {
+				reuse()
+			}
+
+			// The end of conversion.
+			err = topLevel.Wait(t.Context(), true, c.opt.doSaves())
+			require.NoError(t, err)
+
+			pushedByWaitBlocks := 0
+
+			for _, name := range gw.pushed {
+				if name == scenarioTag {
+					pushedByWaitBlocks++
+				}
+			}
+
+			pushedByBuilder := 0
+
+			for _, si := range c.mts.Final.SaveImages {
+				plan := PlanImage(c.opt.ImagePlan, c.mts.Final, c.opt.rootTarget, si)
+				if plan.Push && plan.SolvedByBuilder(si, false) {
+					pushedByBuilder++
+				}
+			}
+
+			// END is what pushes it: a later RUN --push in the parent may rely on
+			// it being in the registry. So the WAIT block owns this export in both
+			// orders, and nothing else may push it again.
+			assert.Equal(t, 1, pushedByWaitBlocks, "the WAIT block must push the image, once")
+			assert.Zero(t, pushedByBuilder, "builder.go must not push an image a wait block pushed")
+
+			// builder.go has not run yet: the target ends when the export that
+			// solved it is done, and only once.
+			assert.Equal(t, int32(1), calls.Load(),
+				"the target must end once the wait block export that solves it is done")
+			assert.Equal(t, logstream.RunStatus_RUN_STATUS_SUCCESS, lastTargetStatus(c))
 		})
 	}
 }

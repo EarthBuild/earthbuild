@@ -228,6 +228,17 @@ func ResultIn(b []byte) (Result, error) {
 
 				return nil
 			})
+		case field == fieldOutputFiles && wire == wireBytes:
+			// **Where a declared output is.** A command that names its outputs
+			// gets them named here and no unnamed tree beside them, so a reader
+			// that knew only output_directories found nothing at all in the
+			// reply to every such action.
+			f, err := outputFileIn(v)
+			if err != nil {
+				return err
+			}
+
+			r.Declared.Files = append(r.Declared.Files, f)
 		case field == fieldExitCode && wire == wireVarint:
 			n, read := binary.Uvarint(v)
 			if read <= 0 {
@@ -247,6 +258,36 @@ func ResultIn(b []byte) (Result, error) {
 	}
 
 	return r, nil
+}
+
+// outputFileIn reads one ActionResult.output_files entry.
+func outputFileIn(b []byte) (OutputFile, error) {
+	var f OutputFile
+
+	err := eachField(b, func(field, wire int, v []byte) error {
+		switch {
+		case field == fieldOutFilePath && wire == wireBytes:
+			f.Path = string(v)
+		case field == fieldOutFileDgst && wire == wireBytes:
+			id, size, err := digestIn(v)
+			if err != nil {
+				return fmt.Errorf("an output file's digest: %w", err)
+			}
+
+			f.Digest, f.Size = id, size
+		case field == fieldOutFileExec && wire == wireVarint:
+			n, read := binary.Uvarint(v)
+			if read <= 0 {
+				return errors.New("is_executable is not a varint")
+			}
+
+			f.Executable = n != 0
+		}
+
+		return nil
+	})
+
+	return f, err
 }
 
 // Capabilities is what a service told a client it can do.

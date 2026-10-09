@@ -113,15 +113,20 @@ func TestAnActionOverAStepsSocketProducesALayer(t *testing.T) {
 		t.Errorf("the action exited %d", res.ExitCode)
 	}
 
-	if res.Root == (ir.NodeID{}) {
-		t.Fatal("the action produced no tree")
+	// **Named, because it was declared.** A result names each output the
+	// command asked for and carries no unnamed tree beside them (93ff5b7ee, for
+	// buck2): this asserted that tree for a week after it was correctly taken
+	// away, red on every Linux run and hidden by +engine-daemon's discarded
+	// exit status. One file, the one declared - neither the input it read nor
+	// the socket it was asked over - holding what the command wrote, which is
+	// the input's line and so the input's digest.
+	files := res.Declared.Files
+	if len(files) != 1 || files[0].Path != "out" {
+		t.Fatalf("the action declared out, and the reply named %+v", files)
 	}
 
-	// The layer holds what the action declared, and neither the input it read
-	// nor the socket it was asked over.
-	held := namesIn(t, st, res.Root)
-	if len(held) != 1 || held[0] != "out" {
-		t.Errorf("the action produced %v, and it declared out", held)
+	if files[0].Digest != src {
+		t.Errorf("out is %s, want %s: the line the action read from in.txt", files[0].Digest, src)
 	}
 }
 

@@ -6,6 +6,7 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Added
 
+- Support for Heredocs (`<<EOF ... EOF`) in `RUN` and `COPY` instructions. Multi-line scripts can be executed directly without backslashes, supporting custom interpreters (`RUN python3 <<EOF`), shebangs, tab chomping (`<<-EOF`), and delimiter quoting (`<<'EOF'`) to suppress variable expansion. Inline files and configs can be written directly to container targets using `COPY <<EOF <dest>` and chained heredocs (`COPY <<FILE1 <<FILE2 <dest-dir>`). [#754](https://github.com/EarthBuild/earthbuild/issues/754)
 - `--no-image-output` (`EARTH_NO_IMAGE_OUTPUT`) suppresses loading `SAVE IMAGE` images into the local container engine (Docker, Podman, etc.) while still writing `SAVE ARTIFACT ... AS LOCAL` artifacts. Combined with `--push`, images are pushed to their registries without being streamed back to the local daemon [#855](https://github.com/earthbuild/earthbuild/issues/855)
 
 ### Changed

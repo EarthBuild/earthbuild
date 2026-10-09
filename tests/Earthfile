@@ -98,6 +98,7 @@ ga-no-qemu-group5:
     BUILD +arg-set
     BUILD +if
     BUILD +for
+    BUILD +heredoc
     BUILD +first-command
     BUILD +platform-output
     BUILD +command
@@ -1210,6 +1211,9 @@ if:
 
 for:
     DO +RUN_EARTH --earthfile=for.earth
+
+heredoc:
+    DO +RUN_EARTH --earthfile=heredoc.earth
 
 first-command:
     DO +RUN_EARTH --earthfile=first-command.earth --target=+all-positive

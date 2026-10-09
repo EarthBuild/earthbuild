@@ -1,0 +1,111 @@
+VERSION 0.8
+
+FROM alpine:3.24.2
+
+WORKDIR /test
+
+all:
+    BUILD +test-run-heredoc
+    BUILD +test-run-heredoc-custom-interpreter
+    BUILD +test-run-heredoc-shebang
+    BUILD +test-run-heredoc-tab-chomp
+    BUILD +test-run-heredoc-expansion
+    BUILD +test-copy-heredoc
+    BUILD +test-copy-heredoc-quoted
+    BUILD +test-copy-heredoc-tab-chomp
+    BUILD +test-copy-chained-heredocs
+    BUILD +test-copy-heredoc-chmod-chown
+    BUILD +test-run-heredoc-flags
+
+test-run-heredoc:
+    RUN <<EOF
+set -e
+echo "hello" > ./run.txt
+echo "world" >> ./run.txt
+EOF
+    RUN test "$(cat ./run.txt | tr '\n' ' ')" = "hello world "
+
+test-run-heredoc-custom-interpreter:
+    RUN /bin/sh <<EOF
+echo "custom interpreter" > ./custom.txt
+EOF
+    RUN test "$(cat ./custom.txt)" = "custom interpreter"
+
+test-run-heredoc-shebang:
+    RUN <<EOF
+#!/bin/sh
+echo "from shebang" > ./shebang.txt
+EOF
+    RUN test "$(cat ./shebang.txt)" = "from shebang"
+
+test-run-heredoc-tab-chomp:
+    RUN <<-EOF
+	set -e
+	echo "chomped run" > ./chomped.txt
+EOF
+    RUN test "$(cat ./chomped.txt)" = "chomped run"
+
+test-run-heredoc-expansion:
+    ARG MSG="expanded message"
+    RUN <<EOF
+echo '$MSG' > ./expanded.txt
+EOF
+    RUN test "$(cat ./expanded.txt)" = "expanded message"
+
+    RUN <<'EOF'
+echo '$MSG' > ./quoted.txt
+EOF
+    RUN test "$(cat ./quoted.txt)" = '$MSG'
+
+test-copy-heredoc:
+    COPY <<EOF ./config.json
+{
+  "app": "earthbuild",
+  "version": "1.0"
+}
+EOF
+    RUN grep -q '"app": "earthbuild"' ./config.json
+    RUN grep -q '"version": "1.0"' ./config.json
+
+test-copy-heredoc-quoted:
+    ARG VAR="should_not_expand"
+    COPY <<'EOF' ./template.txt
+{{ .Values.app }}
+$VAR
+${VAR}
+EOF
+    RUN grep -q '\$VAR' ./template.txt
+    RUN grep -q '\${VAR}' ./template.txt
+
+test-copy-heredoc-tab-chomp:
+    COPY <<-EOF ./tab-chomped.txt
+	line 1
+	line 2
+EOF
+    RUN test "$(cat ./tab-chomped.txt | tr '\n' ' ')" = "line 1 line 2 "
+
+test-copy-chained-heredocs:
+    RUN mkdir -p ./chained/
+    COPY <<FILE1 <<FILE2 ./chained/
+content of file 1
+FILE1
+content of file 2
+FILE2
+    RUN test "$(cat ./chained/FILE1)" = "content of file 1"
+    RUN test "$(cat ./chained/FILE2)" = "content of file 2"
+
+test-copy-heredoc-chmod-chown:
+    COPY --chmod 755 --chown 1000:1000 <<EOF ./script.sh
+#!/bin/sh
+echo "chmod and chown works"
+EOF
+    RUN test -x ./script.sh
+    RUN test "$(./script.sh)" = "chmod and chown works"
+    RUN test "$(stat -c '%u:%g' ./script.sh)" = "1000:1000"
+
+test-run-heredoc-flags:
+    RUN --no-cache <<EOF
+set -e
+echo "heredoc run with flags" > ./flags.txt
+EOF
+    RUN test "$(cat ./flags.txt)" = "heredoc run with flags"

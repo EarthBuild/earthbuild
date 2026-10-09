@@ -367,10 +367,10 @@ func (wb *waitBlock) isStateExportedUnlocked(state *pllb.State) bool {
 			continue
 		}
 
-		if !saveImage.si.SkipBuilder {
-			continue
-		}
-
+		// SkipBuilder is not checked here: whether the image is exported by
+		// wait_block (SkipBuilder == true) or delegated to builder.go
+		// (SkipBuilder == false), the image will be solved and exported.
+		// Reporting true prevents redundant concurrent solves of the same vertex.
 		if saveImage.si.State.Output() == state.Output() {
 			return true
 		}

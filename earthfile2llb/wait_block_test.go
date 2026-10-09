@@ -70,7 +70,7 @@ func TestWaitBlock_IsStateExported(t *testing.T) {
 			want: true,
 		},
 		{
-			name:  "saveImage matching state with doPush but SkipBuilder false returns false",
+			name:  "saveImage matching state with doPush and SkipBuilder false also returns true",
 			state: &stateA,
 			items: []states.WaitItem{
 				&saveImageWaitItem{
@@ -79,7 +79,7 @@ func TestWaitBlock_IsStateExported(t *testing.T) {
 					localExport: false,
 				},
 			},
-			want: false,
+			want: true,
 		},
 		{
 			name:  "saveImage matching state without push or localExport returns false",

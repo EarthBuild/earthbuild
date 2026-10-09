@@ -100,8 +100,6 @@ github.com/docker/docker v28.0.4+incompatible h1:JNNkBctYKurkw6FrHfKqY0nKIDf5nrb
 github.com/docker/docker v28.0.4+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/docker/docker-credential-helpers v0.9.8 h1:bIREROb7So6PRlq6KTtdS9MPEjC29OQRkFNlvK2OX8Q=
 github.com/docker/docker-credential-helpers v0.9.8/go.mod h1:v1S+hepowrQXITkEfw6o4+BMbGot02wiKpzWhGUZK6c=
-github.com/docker/go-connections v0.8.1 h1:JibmG5hULs5qXSr/cp/w3Pw5fZuStt4MOHMUExb29/M=
-github.com/docker/go-connections v0.8.1/go.mod h1:no1qkHdjq7kLMGUXYAduOhYPSJxxvgWBh7ogVvptn3Q=
 github.com/docker/go-connections v0.8.2 h1:9d9DEokx5W7qlr0shkFXIxEA7+TTD+llwzcykSlxMNc=
 github.com/docker/go-connections v0.8.2/go.mod h1:no1qkHdjq7kLMGUXYAduOhYPSJxxvgWBh7ogVvptn3Q=
 github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c h1:+pKlWGMw7gf6bQ+oDZB4KHQFypsfjYlq/C4rfL7D3g8=
@@ -110,8 +108,8 @@ github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/dustin/go-humanize v1.1.0 h1:dbKTrvD0klcbBV/h4AWJdMuZogJACoMlvWIWZ5b2xWg=
 github.com/dustin/go-humanize v1.1.0/go.mod h1:hc1CvRkJMsgxqjmjMQF3QNRAZBwY8AXBAzKYoSX9sFI=
-github.com/earthbuild/buildkit v0.0.0-20261008095045-9840066566a1 h1:BOHdxvwcqhsy7vRhPlv28eZHvDKSvgvE6NPyiB0GFO0=
-github.com/earthbuild/buildkit v0.0.0-20261008095045-9840066566a1/go.mod h1:WNbP7ZxBRG1DVK/o1moQikR/yhCePO0U5Q1IhjxyeU0=
+github.com/earthbuild/buildkit v0.0.0-20261009080012-e56d00a512c0 h1:BL0h3Ak5KDZnxefzyuNlxSbyzDoMYJN/qoEU2xwj6Bk=
+github.com/earthbuild/buildkit v0.0.0-20261009080012-e56d00a512c0/go.mod h1:WNbP7ZxBRG1DVK/o1moQikR/yhCePO0U5Q1IhjxyeU0=
 github.com/earthbuild/fsutil v0.0.0-20261002194825-890baaee2294 h1:gFtQodZi786++bc4OPIeVKIwrQWdP0sJLGCHKWenQmo=
 github.com/earthbuild/fsutil v0.0.0-20261002194825-890baaee2294/go.mod h1:vbbYqJlnswsbJqWUcJN8fKtBhnEgldDrcagTgnBVKKM=
 github.com/elastic/go-sysinfo v1.15.5 h1:fCVUDmjHgljLUQCygherMnsRRJ9AkuAQIywTL7dEH28=

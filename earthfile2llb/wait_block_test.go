@@ -48,33 +48,45 @@ func TestWaitBlock_IsStateExported(t *testing.T) {
 			want: false,
 		},
 		{
-			name:  "saveImage item matching state with doPush returns true",
+			name:  "saveImage item matching state with doPush and SkipBuilder returns true",
 			state: &stateA,
 			items: []states.WaitItem{
 				&saveImageWaitItem{
-					si:     states.SaveImage{State: stateA},
+					si:     states.SaveImage{State: stateA, SkipBuilder: true},
 					doPush: true,
 				},
 			},
 			want: true,
 		},
 		{
-			name:  "saveImage item matching state with localExport returns true",
+			name:  "saveImage item matching state with localExport and SkipBuilder returns true",
 			state: &stateA,
 			items: []states.WaitItem{
 				&saveImageWaitItem{
-					si:          states.SaveImage{State: stateA},
+					si:          states.SaveImage{State: stateA, SkipBuilder: true},
 					localExport: true,
 				},
 			},
 			want: true,
 		},
 		{
+			name:  "saveImage matching state with doPush but SkipBuilder false returns false",
+			state: &stateA,
+			items: []states.WaitItem{
+				&saveImageWaitItem{
+					si:          states.SaveImage{State: stateA, SkipBuilder: false},
+					doPush:      true,
+					localExport: false,
+				},
+			},
+			want: false,
+		},
+		{
 			name:  "saveImage matching state without push or localExport returns false",
 			state: &stateA,
 			items: []states.WaitItem{
 				&saveImageWaitItem{
-					si:          states.SaveImage{State: stateA},
+					si:          states.SaveImage{State: stateA, SkipBuilder: true},
 					doPush:      false,
 					localExport: false,
 				},
@@ -86,7 +98,7 @@ func TestWaitBlock_IsStateExported(t *testing.T) {
 			state: &stateA,
 			items: []states.WaitItem{
 				&saveImageWaitItem{
-					si:     states.SaveImage{State: stateB},
+					si:     states.SaveImage{State: stateB, SkipBuilder: true},
 					doPush: true,
 				},
 			},
@@ -132,7 +144,7 @@ func TestConverter_IsStateExported(t *testing.T) {
 			c: func() *Converter {
 				wb := newWaitBlock()
 				wb.AddItem(&saveImageWaitItem{
-					si:     states.SaveImage{State: stateA},
+					si:     states.SaveImage{State: stateA, SkipBuilder: true},
 					doPush: true,
 				})
 
@@ -214,8 +226,9 @@ func TestWaitBlock_IsStateExported_Concurrent(t *testing.T) {
 			wb.AddItem(&saveImageWaitItem{
 				doPush: true,
 				si: states.SaveImage{
-					DockerTag: "test:latest",
-					State:     itemState,
+					DockerTag:   "test:latest",
+					State:       itemState,
+					SkipBuilder: true,
 				},
 			})
 		}
@@ -232,7 +245,7 @@ func TestWaitBlock_IsStateExported_Concurrent(t *testing.T) {
 	wg.Wait()
 }
 
-func TestWaitBlock_Wait_WithExportedState(t *testing.T) {
+func TestWaitBlock_WaitStates_WithExportedState(t *testing.T) {
 	t.Parallel()
 
 	synctest.Test(t, func(t *testing.T) {
@@ -242,8 +255,9 @@ func TestWaitBlock_Wait_WithExportedState(t *testing.T) {
 		wb.AddItem(&saveImageWaitItem{
 			doPush: true,
 			si: states.SaveImage{
-				DockerTag: "test:latest",
-				State:     state,
+				DockerTag:   "test:latest",
+				State:       state,
+				SkipBuilder: true,
 			},
 		})
 
@@ -251,7 +265,7 @@ func TestWaitBlock_Wait_WithExportedState(t *testing.T) {
 			state: &state,
 		})
 
-		err := wb.Wait(t.Context(), true, false)
+		err := wb.waitStates(t.Context())
 		require.NoError(t, err)
 	})
 }

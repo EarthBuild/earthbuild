@@ -1455,7 +1455,7 @@ func (c *Converter) SaveImage(
 				// ideally we should always set SkipBuilder = true even when we are under the first implicit wait block
 				// however we don't want to break inline caching for users who are using VERSION 0.7 without any
 				// explicit WAIT blocks
-				if !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 {
+				if c.opt.GlobalWaitBlockFtr || !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 {
 					si.SkipBuilder = true
 				}
 

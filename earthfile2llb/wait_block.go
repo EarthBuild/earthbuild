@@ -367,6 +367,10 @@ func (wb *waitBlock) isStateExportedUnlocked(state *pllb.State) bool {
 			continue
 		}
 
+		if !saveImage.si.SkipBuilder {
+			continue
+		}
+
 		if saveImage.si.State.Output() == state.Output() {
 			return true
 		}

@@ -590,11 +590,20 @@ engine-daemon:
     # limit. 3bd43e527 sat here for six hours with no output - the step's log is
     # buffered - and the panic a timeout prints, with every goroutine's stack, is
     # the only record a hang leaves.
+    #
+    # **Both binaries' statuses, not the last one's.** This was a `;` list, and a
+    # list exits with its last command's status, so `daemon.test` could fail and
+    # the step stay green: `TestAnActionOverAStepsSocketProducesALayer` was red
+    # on every Linux run for three weeks, and two more tests were red on most
+    # CI runs, with nothing to show for it but a bare `--- FAIL` line nobody was
+    # asked to read. The details below print only on a non-zero status, which is
+    # why they never printed.
     RUN --privileged \
         --mount type=cache,target=/scratch,id=engine-daemon-scratch \
-        sh -c "(cd /earth/engine/guest && /tmp/daemon.test -test.v -test.timeout 20m); \
+        sh -c "(cd /earth/engine/guest && /tmp/daemon.test -test.v -test.timeout 20m); d=\$?; \
                TMPDIR=/scratch EARTH_TEST_NETWORK=1 EARTH_CORPUS_DIR=/earth /tmp/build.test -test.v -test.timeout 20m \
-                   -test.run 'ABuildWithADockerBlockRuns|ABuildInsideABuild'" \
+                   -test.run 'ABuildWithADockerBlockRuns|ABuildInsideABuild'; b=\$?; \
+               [ \$d -eq 0 ] && [ \$b -eq 0 ]" \
             > /tmp/d.log 2>&1; \
         rc=$?; \
         grep -E "^ *--- (FAIL|SKIP)" /tmp/d.log | head -20; \

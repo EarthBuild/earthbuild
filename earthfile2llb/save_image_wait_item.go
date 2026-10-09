@@ -56,3 +56,14 @@ func (siwi *saveImageWaitItem) SetDoPush() {
 		siwi.doPush = siwi.allowPush
 	}
 }
+
+// exportFlags returns whether the image is to be pushed and whether it is to be
+// exported locally. Both are written by SetDoPush and SetDoSave, which a BUILD
+// reaching an already-converted target can call at any time, so they are only
+// ever read through here, under siwi.mu.
+func (siwi *saveImageWaitItem) exportFlags() (doPush, localExport bool) {
+	siwi.mu.Lock()
+	defer siwi.mu.Unlock()
+
+	return siwi.doPush, siwi.localExport
+}

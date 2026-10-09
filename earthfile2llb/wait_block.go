@@ -114,7 +114,16 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 	platformImgNames := make(map[string]bool)
 	singPlatImgNames := make(map[string]bool) // ensure that these are unique
 
-	imageWaitItems := []*saveImageWaitItem{}
+	// imageExport is one image to export, with its flags read once so that the
+	// whole export acts on a consistent view of them.
+	type imageExport struct {
+		*saveImageWaitItem
+
+		doPush      bool
+		localExport bool
+	}
+
+	imageWaitItems := []imageExport{}
 
 	for _, item := range wb.items {
 		saveImage, ok := item.(*saveImageWaitItem)
@@ -122,7 +131,8 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			continue
 		}
 
-		if !saveImage.doPush && !saveImage.localExport {
+		doPush, localExport := saveImage.exportFlags()
+		if !doPush && !localExport {
 			continue
 		}
 
@@ -160,7 +170,11 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			isMultiPlatform[saveImage.si.DockerTag] = false
 		}
 
-		imageWaitItems = append(imageWaitItems, saveImage)
+		imageWaitItems = append(imageWaitItems, imageExport{
+			saveImageWaitItem: saveImage,
+			doPush:            doPush,
+			localExport:       localExport,
+		})
 	}
 
 	if len(imageWaitItems) == 0 {
@@ -363,7 +377,8 @@ func (wb *waitBlock) isStateExportedUnlocked(state *pllb.State) bool {
 			continue
 		}
 
-		if !saveImage.doPush && !saveImage.localExport {
+		doPush, localExport := saveImage.exportFlags()
+		if !doPush && !localExport {
 			continue
 		}
 

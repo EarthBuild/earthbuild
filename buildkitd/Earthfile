@@ -14,7 +14,7 @@ buildkitd:
     ELSE
         # TODO: pinned to the head of unmerged EarthBuild/buildkit#48 (stacked on #41).
         # Advance to the merged commit on EarthBuild/buildkit main once it lands.
-        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:dd17522a69676e11a308b0170363e885e1b98f93+build
+        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:1f6ea5314ef785fb8a0c8ae271546098e236e5f7+build
     END
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"

@@ -85,7 +85,13 @@ func waitReleased(t *testing.T, root string) {
 			return
 		}
 
-		if !errors.Is(err, unix.EBUSY) {
+		// EROFS is the same answer as EBUSY. RemoveAll descends into a
+		// read-only mount still in place - the step's /sys - and fails on its
+		// contents before it reaches the mount point, so "read-only file
+		// system" means "still mounted" as surely as "busy" does. Treated as a
+		// verdict, it failed TestACancelledStepStopsWaiting on every GitHub
+		// run, where the cancelled step's teardown was still in flight.
+		if !errors.Is(err, unix.EBUSY) && !errors.Is(err, unix.EROFS) {
 			t.Errorf("cannot tell whether %s still holds mounts: %v", root, err)
 
 			return

@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,11 @@ type exportScenario struct {
 	forceSave   bool // legacy ForceSaveImage
 }
 
-const scenarioTag = "registry.example.com/" + testDockerTag
+const (
+	scenarioTag = "registry.example.com/" + testDockerTag
+	// remoteScenarioTarget is the target the remote scenarios convert.
+	remoteScenarioTarget = "github.com/example/repo+img"
+)
 
 // runExportScenario converts one target with a single SAVE IMAGE and finalizes
 // it. It returns the converter and the wait block the target was converted in,
@@ -47,8 +52,15 @@ func runExportScenario(t *testing.T, gw *exportRecordingGwClient, sc exportScena
 	c.opt.ImagePlan = ImagePlanOpt{Export: sc.export, Push: sc.doPushes}
 
 	if sc.remote {
-		c.target.GitURL = "github.com/example/repo"
-		c.mts.Final.Target.GitURL = "github.com/example/repo"
+		// A remote target has a GitURL and no LocalPath. Only adding a GitURL to
+		// the local fixture target would leave it local (IsRemote is false), and
+		// the scenario would not test a remote target at all.
+		remote, err := domain.ParseTarget(remoteScenarioTarget)
+		require.NoError(t, err)
+		require.True(t, remote.IsRemote(), "the remote scenario must use a remote target")
+
+		c.target = remote
+		c.mts.Final.Target = remote
 	}
 
 	c.mts.Final.RanFromLike = true

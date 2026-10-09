@@ -156,17 +156,107 @@ This option is deprecated. Use `--<build-arg-key>=<build-arg-value>` instead.
 #### Synopsis
 
 - `RUN [options...] [--] <command>` (shell form)
+- `RUN [options...] [--] [interpreter] <<[-]EOF ... EOF` (heredoc form)
 - `RUN [[options...], "<executable>", "<arg1>", "<arg2>", ...]` (exec form)
 
 #### Description
 
 The `RUN` command executes commands in the build environment of the current target, in a new layer. It works similarly to the [Dockerfile `RUN` command](https://docs.docker.com/engine/reference/builder/#run), with some added options.
 
-The command allows for two possible forms. The _exec form_ runs the command executable without the use of a shell. The _shell form_ uses the default shell (`/bin/sh -c`) to interpret the command and execute it. In either form, you can use a `\` to continue a single `RUN` instruction onto the next line.
+The command allows for three possible forms:
+- The _shell form_ uses the default shell (`/bin/sh -c`) to interpret the command and execute it.
+- The _exec form_ runs the command executable directly without the use of a shell.
+- The _heredoc form_ allows executing multi-line inline scripts directly without requiring `\` line continuations.
+
+In the shell and exec forms, you can use a `\` to continue a single `RUN` instruction onto the next line.
 
 When the `--entrypoint` flag is used, the current image entrypoint is used to prepend the current command.
 
 To avoid any ambiguity regarding whether an argument is a `RUN` flag option or part of the command, the delimiter `--` may be used to signal the parser that no more `RUN` flag options will follow.
+
+#### Heredoc scripts
+
+Heredoc syntax (`<<EOF ... EOF`) allows embedding multi-line scripts directly into an Earthfile target without using line continuation backslashes (`\`) and command chaining (`&& \`).
+
+Previously, running multiple commands in a single layer required chaining them with `&& \`:
+
+```Earthfile
+build:
+    RUN echo "First line" && \
+        echo "Second line" && \
+        echo "Third line"
+```
+
+With heredoc syntax, the same script can be written cleanly as a multi-line block:
+
+```Earthfile
+build:
+    RUN <<EOF
+    echo "First line"
+    echo "Second line"
+    echo "Third line"
+    EOF
+```
+
+##### Default shell execution and `set -e`
+
+When no custom interpreter is specified and the script does not start with a shebang, the script is executed using the default shell (`/bin/sh -c`). If `set -e` is not already present at the start of the heredoc, EarthBuild prepends `set -e\n` automatically so that a failure in any step fails the build.
+
+##### Custom interpreters and shebangs
+
+You can specify a custom interpreter directly on the `RUN` command line:
+
+```Earthfile
+build:
+    RUN python3 <<EOF
+    import sys
+    print(f"Running on Python {sys.version}")
+    EOF
+```
+
+Alternatively, you can provide a shebang line (`#!`) as the first line of the heredoc body:
+
+```Earthfile
+build:
+    RUN <<EOF
+    #!/usr/bin/env python3
+    import os
+    print(os.uname())
+    EOF
+```
+
+##### Tab chomping (`<<-EOF`)
+
+Following POSIX shell conventions, prefixing the delimiter with a hyphen (`<<-EOF`) strips leading tab (`\t`) characters from each line of the heredoc. This allows recipes to be cleanly indented without altering the script's internal indentation:
+
+```Earthfile
+build:
+    RUN <<-EOF
+	set -e
+	if [ -f /etc/os-release ]; then
+	    echo "Found OS release"
+	fi
+	EOF
+```
+
+##### Variable expansion
+
+* **Unquoted delimiter (`<<EOF`):** EarthBuild variables (`$ARG`, `$LET`, `$ENV`, and built-in variables) are expanded at build time. Quotation marks within the script content are preserved verbatim.
+* **Quoted delimiter (`<<'EOF'` or `<<"EOF"`):** Variable expansion is suppressed. Literal `$VAR` expressions remain intact, which is ideal for scripts that consume container runtime environment variables or templates.
+
+```Earthfile
+build:
+    ARG MSG="hello world"
+    # $MSG expands to "hello world"
+    RUN <<EOF
+    echo "$MSG"
+    EOF
+
+    # $MSG remains literally $MSG
+    RUN <<'EOF'
+    echo "$MSG"
+    EOF
+```
 
 #### Options
 
@@ -445,12 +535,17 @@ The following is output:
 - `COPY [options...] <src>... <dest>` (classical form)
 - `COPY [options...] <src-artifact>... <dest>` (artifact form)
 - `COPY [options...] (<src-artifact> --<build-arg-key>=<build-arg-value>...) <dest>` (artifact form with build args)
+- `COPY [options...] <<[-]EOF <dest>` (heredoc form)
+- `COPY [options...] <<[-]EOF1 <<[-]EOF2... <dest-dir>` (chained heredocs form)
 
 #### Description
 
-The command `COPY` allows copying of files and directories between different contexts.
+The command `COPY` allows copying of files and directories between different contexts, or creating files directly from inline heredocs.
 
-The command may take a couple of possible forms. In the _classical form_, `COPY` copies files and directories from the build context into the build environment - in this form, it works similarly to the [Dockerfile `COPY` command](https://docs.docker.com/engine/reference/builder/#copy). In the _artifact form_, `COPY` copies files or directories (also known as "artifacts" in this context) from the artifact environment of other build targets into the build environment of the current target. Either form allows the use of wildcards for the sources.
+The command may take several forms:
+- In the _classical form_, `COPY` copies files and directories from the build context into the build environment - in this form, it works similarly to the [Dockerfile `COPY` command](https://docs.docker.com/engine/reference/builder/#copy).
+- In the _artifact form_, `COPY` copies files or directories (also known as "artifacts" in this context) from the artifact environment of other build targets into the build environment of the current target. Either form allows the use of wildcards for the sources.
+- In the _heredoc form_, `COPY` writes inline multi-line text directly to files in the target build environment.
 
 The parameter `<src-artifact>` is an [artifact reference](../guides/importing.md#artifact-reference) and is generally of the form `<target-ref>/<artifact-path>`, where `<target-ref>` is the reference to the target which needs to be built in order to yield the artifact and `<artifact-path>` is the path within the artifact environment of the target, where the file or directory is located. The `<artifact-path>` may also be a wildcard.
 
@@ -500,12 +595,59 @@ The classical form of the `COPY` command differs from Dockerfiles in three cases
 - Absolute paths are not supported - sources in the current directory cannot be referenced with a leading `/`
 - The EarthBuild `COPY` is a classical `COPY --link`. It uses layer merging for the copy operations.
 
+Standard Dockerfile options such as `--chmod <octal-format>` and `--chown <owner:group>` are supported by EarthBuild.
+
 {% hint style='info' %}
 
 ##### Note
 
 To prevent EarthBuild from copying unwanted files, you may specify file patterns to be excluded from the build context using an [`.earthignore`](./earthignore.md) file. This file has the same syntax as a [`.dockerignore` file](https://docs.docker.com/engine/reference/builder/#dockerignore-file).
 {% endhint %}
+
+#### Heredoc files
+
+The heredoc form of `COPY` allows inline files or configuration files to be written directly into the build environment without needing external files or chained `echo` commands:
+
+```Earthfile
+build:
+    COPY <<EOF /etc/app/config.json
+    {
+      "app": "earthbuild",
+      "version": "1.0"
+    }
+    EOF
+```
+
+##### Single destination file
+
+When a single heredoc is specified and the destination does not end with a trailing `/`, the heredoc content is written directly to the destination path as a regular file.
+
+##### Chained heredocs
+
+Multiple heredocs can be declared on a single `COPY` command. Each file is named after its heredoc delimiter and copied into the destination directory (which must end with a trailing `/`):
+
+```Earthfile
+build:
+    COPY <<FILE1 <<FILE2 /etc/configs/
+    contents of file 1
+    FILE1
+    contents of file 2
+    FILE2
+```
+
+##### Tab chomping and variable expansion
+
+Heredocs in `COPY` support tab chomping (`<<-EOF`) and delimiter quoting (`<<'EOF'`) identically to `RUN`:
+
+* `<<-EOF` strips leading tab (`\t`) characters from each line.
+* `<<EOF` expands EarthBuild variables (`$ARG`, `$LET`, `$ENV`, and built-in variables).
+* `<<'EOF'` or `<<"EOF"` suppresses variable expansion, writing literal variable expressions intact (useful for templates or configuration files that use `$VAR` syntax).
+
+##### Constraints
+
+* Heredoc `COPY` is supported for container build targets (it is not supported in `LOCALLY` targets).
+* Heredoc sources cannot be mixed with regular files or artifact sources in the same `COPY` instruction.
+* A heredoc cannot be used as the destination of a `COPY` instruction.
 
 #### Options
 
@@ -550,6 +692,10 @@ Instructs EarthBuild to change the file permissions of the copied files. The `<c
 {% hint style='info' %}
 Note that you must include the flag in the corresponding `SAVE ARTIFACT --keep-own ...` command, if using _artifact form_.
 {% endhint %}
+
+##### `--chown <owner:group>`
+
+Instructs EarthBuild to change the user and/or group ownership of the copied files (e.g. `--chown 1000:1000` or `--chown app:app`).
 
 ##### `--if-exists`
 

@@ -74,11 +74,21 @@ func (s Statement) Location() SourceLocation {
 	}
 }
 
+// Heredoc represents an inline multi-line document associated with a command.
+type Heredoc struct {
+	Name           string         `json:"name"`
+	Content        string         `json:"content"`
+	SourceLocation SourceLocation `json:"sourceLocation,omitzero"`
+	Chomp          bool           `json:"chomp,omitempty"`
+	Expand         bool           `json:"expand,omitempty"`
+}
+
 // Command is the AST representation of an Earthfile command.
 type Command struct {
 	Name           Cmd            `json:"name"`
 	Docs           string         `json:"docs,omitempty"`
 	Args           []string       `json:"args,omitempty"`
+	Heredocs       []Heredoc      `json:"heredocs,omitempty"`
 	SourceLocation SourceLocation `json:"sourceLocation,omitzero"`
 	ExecMode       bool           `json:"execMode,omitzero"`
 }
@@ -87,6 +97,7 @@ type Command struct {
 func (c Command) Clone() Command {
 	newCmd := c
 	newCmd.Args = slices.Clone(c.Args)
+	newCmd.Heredocs = slices.Clone(c.Heredocs)
 
 	return newCmd
 }

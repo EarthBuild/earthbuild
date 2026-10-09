@@ -3,6 +3,7 @@ package earthfile2llb
 import (
 	"sync"
 	"testing"
+	"testing/synctest"
 
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
@@ -229,4 +230,28 @@ func TestWaitBlock_IsStateExported_Concurrent(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+func TestWaitBlock_Wait_WithExportedState(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		wb := newWaitBlock()
+		state := pllb.Image("alpine:3.20")
+
+		wb.AddItem(&saveImageWaitItem{
+			doPush: true,
+			si: states.SaveImage{
+				DockerTag: "test:latest",
+				State:     state,
+			},
+		})
+
+		wb.AddItem(&stateWaitItem{
+			state: &state,
+		})
+
+		err := wb.Wait(t.Context(), true, false)
+		require.NoError(t, err)
+	})
 }

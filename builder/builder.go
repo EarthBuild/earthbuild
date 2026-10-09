@@ -295,7 +295,7 @@ func useSecondaryProxy() (bool, error) {
 
 func (b *Builder) convertAndBuild(
 	ctx context.Context, target domain.Target, opt BuildOpt,
-) (*states.MultiTarget, error) {
+) (_ *states.MultiTarget, retErr error) {
 	var (
 		sharedLocalStateCache = earthfile2llb.NewSharedLocalStateCache()
 		featureFlagOverrides  = b.opt.FeatureFlagOverrides
@@ -308,10 +308,22 @@ func (b *Builder) convertAndBuild(
 		// buildMainMulti is done.
 		builderExports []*states.ImageExport
 
+		// pendingExports keeps every image export a target is waiting on to end.
+		pendingExports = &states.PendingExports{}
+
 		// dirIDs maps a dirIndex to a dirID; the "dir-id" field was introduced
 		// to accommodate parallelism in the WAIT/END PopWaitBlock handling
 		dirIDs = map[int]string{}
 	)
+
+	// If the build fails before an image export has run (a conversion error,
+	// or a failure in buildMainMulti), the targets waiting on that export would
+	// never end. End them as cancelled instead.
+	defer func() {
+		if retErr != nil {
+			pendingExports.Abort(ctx, retErr)
+		}
+	}()
 
 	var (
 		depIndex   = 0
@@ -377,6 +389,7 @@ func (b *Builder) convertAndBuild(
 				DoPushes:                             opt.Push,
 				ImagePlan:                            opt.imagePlanOpt(),
 				ExportCoordinator:                    exportCoordinator,
+				PendingExports:                       pendingExports,
 				LocalArtifactWhiteList:               opt.LocalArtifactWhiteList,
 				InternalSecretStore:                  b.opt.InternalSecretStore,
 				TempEarthOutDir:                      b.tempEarthOutDir,

@@ -2252,7 +2252,7 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 	// hash). Neither export can have happened yet: the wait block on the stack is
 	// waited on after this, and builder.go only runs once everything is converted.
 	if export.image != nil {
-		export.image.Outcome.Then(ctx, c.endExecution)
+		c.opt.PendingExports.Then(ctx, &export.image.Outcome, c.endExecution)
 
 		return c.mts, nil
 	}

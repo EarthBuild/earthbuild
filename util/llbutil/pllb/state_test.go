@@ -63,3 +63,33 @@ func TestMarshalIsStableForLocalSources(t *testing.T) {
 		t.Error("definitions differ between marshals of the same state")
 	}
 }
+
+func TestMarshalLetsCallersOverrideLocalUniqueID(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	st := copyRunFromLocal()
+
+	def, err := st.Marshal(ctx)
+	if err != nil {
+		t.Fatalf("default marshal: %v", err)
+	}
+
+	overridden, err := st.Marshal(ctx, llb.LocalUniqueID("caller-chosen"))
+	if err != nil {
+		t.Fatalf("overridden marshal: %v", err)
+	}
+
+	if lastOpDigest(t, overridden) == lastOpDigest(t, def) {
+		t.Error("a caller-supplied llb.LocalUniqueID did not change the digest")
+	}
+
+	again, err := st.Marshal(ctx, llb.LocalUniqueID("caller-chosen"))
+	if err != nil {
+		t.Fatalf("second overridden marshal: %v", err)
+	}
+
+	if got, want := lastOpDigest(t, again), lastOpDigest(t, overridden); got != want {
+		t.Errorf("same caller-supplied llb.LocalUniqueID gave different digests: got %s, want %s", got, want)
+	}
+}

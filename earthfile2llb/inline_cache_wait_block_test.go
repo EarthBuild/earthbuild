@@ -102,3 +102,44 @@ func TestWaitEndExportsBuildChildImageUnderInlineCache(t *testing.T) {
 	assert.Contains(t, gw.exported, tag, "END must export the child's image")
 	assert.Contains(t, gw.pushed, tag, "END must push the child's SAVE IMAGE --push image")
 }
+
+// The other side of the #2178 workaround: in the build's top-level implicit
+// wait block, with --use-inline-cache, SAVE IMAGE is left to builder.go, which
+// exports it with the inline cache metadata. The wait block must not also export
+// it, or the image's last vertex is solved twice and its log lines are printed
+// twice (tests/remote-cache asserts they appear once).
+func TestTopLevelWaitBlockDelegatesToBuilderUnderInlineCache(t *testing.T) {
+	t.Parallel()
+
+	const tag = "registry.example.com/myimg:latest"
+
+	gw := &exportRecordingGwClient{}
+
+	topLevel := newWaitBlock()
+	topLevel.topLevel = true
+
+	c, eg := newFinalizeTestConverter(t, finalizeTestOpt{
+		gw:          gw,
+		export:      ExportAll,
+		doPushes:    true,
+		waitBlock:   topLevel,
+		waitBlockOn: true,
+	})
+	c.opt.UseInlineCache = true
+	c.mts.Final.RanFromLike = true
+	c.mts.Final.MainState = pllb.Image("alpine:3.20")
+
+	err := c.SaveImage(t.Context(), []string{tag}, true, false, false, nil, false)
+	require.NoError(t, err)
+
+	_, err = c.FinalizeStates(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, eg.Wait())
+
+	err = topLevel.Wait(t.Context(), true, true)
+	require.NoError(t, err)
+
+	require.Len(t, c.mts.Final.SaveImages, 1)
+	assert.False(t, c.mts.Final.SaveImages[0].SkipBuilder, "builder.go must export this image")
+	assert.Empty(t, gw.exported, "the top-level wait block must leave the image to builder.go")
+}

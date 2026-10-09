@@ -1455,7 +1455,13 @@ func (c *Converter) SaveImage(
 				// ideally we should always set SkipBuilder = true even when we are under the first implicit wait block
 				// however we don't want to break inline caching for users who are using VERSION 0.7 without any
 				// explicit WAIT blocks
-				if c.opt.GlobalWaitBlockFtr || !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 {
+				//
+				// Only the top-level implicit block may delegate. A target BUILT inside a
+				// parent's WAIT ... END starts with that WAIT block as its only block
+				// (len(c.waitBlockStack) == 1), and END must not return before the
+				// image is exported; builder.go only runs after the whole build has
+				// been converted.
+				if c.opt.GlobalWaitBlockFtr || !c.opt.UseInlineCache || !c.waitBlock().topLevel {
 					si.SkipBuilder = true
 				}
 

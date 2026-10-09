@@ -37,6 +37,12 @@ type waitBlock struct {
 	called            bool
 	pushCalled        bool
 	localExportCalled bool
+	// topLevel marks the build's top-level implicit wait block: the root
+	// target's, which every target BUILT outside any WAIT inherits. It is
+	// waited on once, at the very end of conversion, right before builder.go
+	// runs. So it is the only block that can hand an image to builder.go
+	// without breaking the ordering an explicit WAIT ... END promises.
+	topLevel bool
 }
 
 func newWaitBlock() *waitBlock {
@@ -74,6 +80,15 @@ func (wb *waitBlock) AddItem(item states.WaitItem) {
 
 	wb.seenItems[item] = struct{}{}
 	wb.items = append(wb.items, item)
+}
+
+// delegatesToBuilder reports whether this block leaves item's export to
+// builder.go instead of exporting it itself. Only the top-level block delegates.
+// Any other block exports every item it holds by the time its Wait returns, even
+// one created with SkipBuilder == false in the top-level block and attached here
+// later, because END must not return before its images are exported.
+func (wb *waitBlock) delegatesToBuilder(item *saveImageWaitItem) bool {
+	return wb.topLevel && !item.si.SkipBuilder
 }
 
 // snapshotItems returns the items added so far. A Wait acts on the items
@@ -154,7 +169,7 @@ func (wb *waitBlock) saveImages(ctx context.Context, items []states.WaitItem) er
 			continue
 		}
 
-		if !saveImage.si.SkipBuilder {
+		if wb.delegatesToBuilder(saveImage) {
 			// This image is delegated to builder.go for export (e.g. inline caching workaround for #2178)
 			continue
 		}

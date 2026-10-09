@@ -19,10 +19,10 @@ import (
 // SolverMonitor is a buildkit solver monitor.
 type SolverMonitor struct {
 	b        *logbus.Bus
-	debug    bool
 	digests  map[digest.Digest]string  // digest -> cmdID
 	vertices map[string]*vertexMonitor // cmdID -> vertexMonitor
 	mu       sync.Mutex
+	debug    bool
 }
 
 // New creates a new SolverMonitor. With debug set, malformed runc stats
@@ -143,9 +143,11 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				cp:        cp,
 				ssp:       statsstreamparser.New(),
 			}
+
 			if sm.debug {
 				vm.onStatsDecodeError = sm.reportStatsDecodeError(operation)
 			}
+
 			sm.vertices[cmdID] = vm
 		}
 

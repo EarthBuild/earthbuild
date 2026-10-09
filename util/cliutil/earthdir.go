@@ -22,12 +22,17 @@ var (
 	errEarthDirCreate  error
 )
 
-// GetEarthDir returns the .earthly dir. (Usually ~/.earthly).
+// DefaultInstallationName is the installation name used when none is set: when
+// the binary is built without -X main.DefaultInstallationName (go build, go
+// install), and on the autocomplete path, which runs before flags are parsed.
+const DefaultInstallationName = "earth"
+
+// GetEarthDir returns the .<installation name> dir. (Usually ~/.earth).
 // This function will not attempt to create the directory if missing,
 // for that functionality use to the [GetOrCreateEarthDir] function.
 func GetEarthDir(installName string) string {
 	// if GetEarthDir is called by the autocomplete code, this may not be set
-	installName = cmp.Or(installName, "earthly")
+	installName = cmp.Or(installName, DefaultInstallationName)
 
 	earthDirOnce.Do(func() {
 		earthDir, earthDirSudoUser = getEarthDirAndUser(installName)
@@ -42,7 +47,7 @@ func getEarthDirAndUser(installName string) (string, *user.User) {
 	return filepath.Join(homeDir, "."+installName), u
 }
 
-// GetOrCreateEarthDir returns the .earthly dir. (Usually ~/.earthly).
+// GetOrCreateEarthDir returns the .<installation name> dir. (Usually ~/.earth).
 // if the directory does not exist, it will attempt to create it.
 func GetOrCreateEarthDir(installName string) (string, error) {
 	_ = GetEarthDir(installName) // ensure global vars get created so we can reference them below.

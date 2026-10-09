@@ -169,6 +169,14 @@ func UnpackTree(r io.Reader, into string) error {
 		return fmt.Errorf("prepare %s: %w", into, err)
 	}
 
+	// Links are placed through this, not by path: see unpackEntry.
+	fs, err := os.OpenRoot(into)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", into, err)
+	}
+
+	defer func() { _ = fs.Close() }()
+
 	tr := tar.NewReader(r)
 
 	for {
@@ -197,14 +205,14 @@ func UnpackTree(r io.Reader, into string) error {
 			return err
 		}
 
-		err = unpackEntry(tr, hdr, at)
+		err = unpackEntry(tr, hdr, fs, at)
 		if err != nil {
 			return err
 		}
 	}
 }
 
-func unpackEntry(tr *tar.Reader, hdr *tar.Header, at string) error {
+func unpackEntry(tr *tar.Reader, hdr *tar.Header, fs *os.Root, at string) error {
 	err := os.MkdirAll(filepath.Dir(at), 0o750)
 	if err != nil {
 		return fmt.Errorf("make room for %s: %w", hdr.Name, err)
@@ -215,11 +223,20 @@ func unpackEntry(tr *tar.Reader, hdr *tar.Header, at string) error {
 		return mkdirAs(at, hdr)
 
 	case tar.TypeSymlink:
+		// **Through fs, which will not leave the root** whatever a parent
+		// resolves to - so neither the remove nor the link can land outside,
+		// even handed a path `within` never saw. The link's target is the
+		// build's, and is not checked.
+		rel, err := filepath.Rel(fs.Name(), at)
+		if err != nil {
+			return fmt.Errorf("place %s inside %s: %w", hdr.Name, fs.Name(), err)
+		}
+
 		// Removed first: an export is written into a directory that may hold
 		// the previous build's answer, and `Symlink` refuses to replace.
-		_ = os.Remove(at)
+		_ = fs.Remove(rel)
 
-		err = os.Symlink(hdr.Linkname, at)
+		err = fs.Symlink(hdr.Linkname, rel)
 		if err != nil {
 			return fmt.Errorf("link %s: %w", hdr.Name, err)
 		}

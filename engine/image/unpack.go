@@ -201,6 +201,7 @@ func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error 
 	// while this runs, and fifteen thousand entries share a few thousand
 	// parents. That was 15.5 stats an entry (E686).
 	res := newRooted(root)
+	defer res.close()
 
 	// What *this* layer has written. A later layer replacing an earlier one's
 	// file is the whole of what layering means; one layer naming a path twice
@@ -288,8 +289,10 @@ func unpackInto(r io.Reader, dir string, keepMarkers bool, out *Unpacked) error 
 		// **It did not satisfy CodeQL.** `go/zipslip` wants its guard inline on
 		// the header's name, which the `filepath.IsLocal` check at the top of
 		// this loop now is. `go/unsafe-unzip-symlink` is about link *targets*,
-		// which a layer keeps as-is on purpose; what stops a write through one
-		// is `safePath`, and the tests are what make that checkable -
+		// which a layer keeps as-is on purpose, and is satisfied only because
+		// links are placed by `rooted.symlink`, which it does not model. What
+		// stops a write through one is `safePath`, and the tests are what make
+		// that checkable -
 		// TestNoLayerEntryCanEscapeItsRoot, TestPathTraversalIsRefused,
 		// TestWritesThroughSymlinksAreRefused and
 		// TestALayerCannotWriteThroughAPlantedSymlink cover `..` at any depth,
@@ -407,6 +410,8 @@ type rooted struct {
 	// dirs is parent -> where it resolves to, for parents that resolved inside
 	// the root. A parent that did not exist is not remembered: it is about to.
 	dirs map[string]string
+	// fs is root as an os.Root, opened by the first symlink: see symlink.
+	fs *os.Root
 }
 
 func newRooted(root string) *rooted {
@@ -426,6 +431,36 @@ func newRooted(root string) *rooted {
 	}
 
 	return r
+}
+
+// symlink plants a link at target, through an os.Root.
+//
+// **The root's walk places it, not `path`'s resolution.** `path` is the guard
+// and has passed target already; an os.Root will not leave the root whatever a
+// parent resolves to, so a link cannot land outside even if `dirs` is wrong.
+// linkname is checked by neither, and must not be: a link pointing out of the
+// layer is legitimate.
+func (r *rooted) symlink(linkname, target string) error {
+	rel, err := filepath.Rel(r.root, target)
+	if err != nil {
+		return fmt.Errorf("place %s inside %s: %w", target, r.root, err)
+	}
+
+	if r.fs == nil {
+		r.fs, err = os.OpenRoot(r.root)
+		if err != nil {
+			return fmt.Errorf("open the layer root: %w", err)
+		}
+	}
+
+	return r.fs.Symlink(linkname, rel)
+}
+
+// close releases what symlink opened.
+func (r *rooted) close() {
+	if r.fs != nil {
+		_ = r.fs.Close()
+	}
 }
 
 // forget drops what was resolved, because a symlink has just been created and
@@ -559,7 +594,7 @@ func writeEntry(
 		// legitimate - /bin/sh -> /busybox is resolved inside the step's own root
 		// at run time. What must never happen is this unpacker following it, and
 		// safePath is what prevents that.
-		err := os.Symlink(h.Linkname, target)
+		err := res.symlink(h.Linkname, target)
 		if err != nil {
 			return fmt.Errorf("create symlink %q: %w", h.Name, err)
 		}

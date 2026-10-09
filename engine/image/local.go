@@ -109,6 +109,14 @@ func localBlobPath(root, digest string) string {
 		return ""
 	}
 
+	// **Braces to the belt above**, which refuses every separator and dot
+	// already: here because it is the guard CodeQL's go/path-injection
+	// recognises, and `ContainsAny` is not. On the halves, not the digest -
+	// Windows' IsLocal refuses any colon.
+	if !filepath.IsLocal(alg) || !filepath.IsLocal(hex) {
+		return ""
+	}
+
 	return filepath.Join(root, localBlobs, alg, hex)
 }
 

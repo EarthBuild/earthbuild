@@ -81,7 +81,7 @@ func getPotentials(cmd string) ([]string, error) {
 func TestFlagCompletion(t *testing.T) {
 	t.Parallel()
 
-	matches, err := getPotentials("earthly --fl")
+	matches, err := getPotentials("earth --fl")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--flag ", "--fleet "}, matches)
 }
@@ -89,7 +89,7 @@ func TestFlagCompletion(t *testing.T) {
 func TestFlagCompletionWithPreviousFlags(t *testing.T) {
 	t.Parallel()
 
-	matches, err := getPotentials("earthly --fig desertking --fla")
+	matches, err := getPotentials("earth --fig desertking --fla")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--flag "}, matches)
 }
@@ -97,7 +97,7 @@ func TestFlagCompletionWithPreviousFlags(t *testing.T) {
 func TestFlagCompletionWithPreviousFlags2(t *testing.T) {
 	t.Parallel()
 
-	matches, err := getPotentials("earthly --fig ")
+	matches, err := getPotentials("earth --fig ")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{}, matches)
 }
@@ -105,7 +105,7 @@ func TestFlagCompletionWithPreviousFlags2(t *testing.T) {
 func TestFlagCompletionWithPreviousFlagsContainingEqual(t *testing.T) {
 	t.Parallel()
 
-	matches, err := getPotentials("earthly --fig=desertking --fla")
+	matches, err := getPotentials("earth --fig=desertking --fla")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--flag "}, matches)
 }
@@ -113,7 +113,7 @@ func TestFlagCompletionWithPreviousFlagsContainingEqual(t *testing.T) {
 func TestCommandCompletion(t *testing.T) {
 	t.Parallel()
 
-	matches, err := getPotentials("earthly pru")
+	matches, err := getPotentials("earth pru")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"prune "}, matches)
 }
@@ -121,7 +121,7 @@ func TestCommandCompletion(t *testing.T) {
 func TestCommandCompletionHidden(t *testing.T) {
 	t.Parallel()
 
-	matches, err := getPotentials("earthly hid")
+	matches, err := getPotentials("earth hid")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{}, matches)
 }
@@ -129,7 +129,7 @@ func TestCommandCompletionHidden(t *testing.T) {
 func TestCommandSubCompletion(t *testing.T) {
 	t.Parallel()
 
-	matches, err := getPotentials("earthly sub -")
+	matches, err := getPotentials("earth sub -")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--subflag "}, matches)
 }
@@ -137,7 +137,7 @@ func TestCommandSubCompletion(t *testing.T) {
 func TestCommandSubCompletion2(t *testing.T) {
 	t.Parallel()
 
-	matches, err := getPotentials("earthly sub --subflag abba --s")
+	matches, err := getPotentials("earth sub --subflag abba --s")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--subsubflag ", "--surf-the-internet "}, matches)
 }
@@ -145,7 +145,7 @@ func TestCommandSubCompletion2(t *testing.T) {
 func TestCommandSubSubCompletion(t *testing.T) {
 	t.Parallel()
 
-	matches, err := getPotentials("earthly sub --subflag abba --sub")
+	matches, err := getPotentials("earth sub --subflag abba --sub")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"--subsubflag "}, matches)
 }
@@ -153,7 +153,7 @@ func TestCommandSubSubCompletion(t *testing.T) {
 func TestCommandSubSubCompletion2(t *testing.T) {
 	t.Parallel()
 
-	matches, err := getPotentials("earthly sub --subflag abba ")
+	matches, err := getPotentials("earth sub --subflag abba ")
 	NoError(t, err, "GetPotentials failed")
 	Equal(t, []string{"dancing-queen "}, matches)
 }

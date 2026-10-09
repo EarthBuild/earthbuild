@@ -271,11 +271,12 @@ func Build(src, target string, opts ...Option) (*Plan, error) {
 		f(&o)
 	}
 
-	// WithSourceMap is not optional here. Meta.Source is what correlates a step
-	// across two builds, so without it every change is attributed to "graph
-	// shape" rather than to the line that caused it, and the first-divergence
-	// report has nothing to name.
-	tree, err := earthfile.Parse("Earthfile", src, earthfile.WithSourceMap())
+	// Source locations are what this relies on, and the parser now always
+	// keeps them (#954). Meta.Source is what correlates a step across two
+	// builds, so without it every change is attributed to "graph shape" rather
+	// than to the line that caused it, and the first-divergence report has
+	// nothing to name.
+	tree, err := earthfile.Parse("Earthfile", src)
 	if err != nil {
 		return nil, fmt.Errorf("parse the Earthfile: %w", err)
 	}
@@ -3982,8 +3983,8 @@ func unsupported(construct, where, milestone string) error {
 	return fmt.Errorf("%s: %w", b.String(), ErrUnimplemented)
 }
 
-func loc(s *earthfile.SourceLocation) string {
-	if s == nil {
+func loc(s earthfile.SourceLocation) string {
+	if s.IsZero() {
 		return ""
 	}
 

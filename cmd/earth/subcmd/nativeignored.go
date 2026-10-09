@@ -64,7 +64,7 @@ var ignoredByNative = map[string]struct{ flag, lose string }{
 	"Engine":                     {"--container-frontend", "this engine needs no container runtime to build"},
 	"NoBuildkitUpdate":           {"--no-buildkit-update", noBuildkitd},
 	"BootstrapNoBuildkit":        {"--bootstrap-no-buildkit", noBuildkitd},
-	"UseTickTockBuildkitImage":   {"--ticktock", noBuildkitd},
+	"TickTock":                   {"--ticktock", "the experimental ticktock buildkit has been removed, so both engines ignore it"},
 	"LocalRegistryHost":          {"--local-registry-host", "this engine needs no local registry"},
 	"DisableRemoteRegistryProxy": {"--disable-remote-registry-proxy", "this engine proxies no registry"},
 	"ServerConnTimeout":          {"--server-conn-timeout", "nothing reads this on either engine"},

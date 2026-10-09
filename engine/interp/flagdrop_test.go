@@ -232,6 +232,9 @@ var knownDropped = []string{
 	// `SAVE IMAGE --cache-hint` below, and the same terms this was refused on
 	// until the corpus drove it expecting a build (E484).
 	"BUILD --auto-skip",
+	// deliberate: documentation, read by `earth doc` and never by a build on
+	// either engine (#949), so a plan with it and without it is the same plan.
+	"ARG --description",
 	// harness: the grant is real and only observable across a repository
 	// boundary. `--allow-privileged` on a reference lets the target it names
 	// use privilege where a remote Earthfile otherwise may not; against the

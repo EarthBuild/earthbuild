@@ -78,7 +78,7 @@ func readTree(dir string) (earthfile.Tree, error) {
 		return earthfile.Tree{}, fmt.Errorf("no Earthfile to read\n  looked for %s", path)
 	}
 
-	tree, err := earthfile.Parse(path, string(src), earthfile.WithSourceMap())
+	tree, err := earthfile.Parse(path, string(src))
 	if err != nil {
 		return earthfile.Tree{}, fmt.Errorf("parse %s: %w", path, err)
 	}

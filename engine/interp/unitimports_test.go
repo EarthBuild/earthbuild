@@ -37,7 +37,7 @@ IMPORT --allow-privileged github.com/org/priv:main AS trusted
 FROM_HELLO_WORLD:
   COMMAND
   FROM hello-world+hello
-`, earthfile.WithSourceMap())
+`)
 	if err != nil {
 		t.Fatalf("parsing: %v", err)
 	}

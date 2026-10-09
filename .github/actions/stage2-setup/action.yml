@@ -18,10 +18,6 @@ inputs:
     description: "Whether to set up QEMU"
     required: false
     default: 'false'
-  USE_NEXT:
-    description: "Whether to use earthly-next"
-    required: false
-    default: 'false'
   GHCR_USERNAME:
     description: "GHCR username (legacy - now uses github.actor)"
     required: false
@@ -98,7 +94,7 @@ runs:
       continue-on-error: true
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
-        name: earth-build-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        name: earth-build-latest
         path: ./build-artifacts
     - name: Download build-earth artifacts (second attempt)
       # Only when the first failed, and this one is not forgiven: a job that
@@ -106,7 +102,7 @@ runs:
       if: steps.fetch-artifacts.outcome == 'failure'
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
       with:
-        name: earth-build-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        name: earth-build-latest
         path: ./build-artifacts
     - name: Setup earth binary from artifact (fork)
       if: steps.fork-check.outputs.is_fork == 'true'
@@ -304,15 +300,14 @@ runs:
       run: |-
         echo "Extracting earth binary from stage1 of build"
         export TAG=${GITHUB_SHA}-latest
-        if [ "${INPUTS_USE_NEXT}" = "true" ]; then export TAG="$TAG-ticktock"; fi
         # **Retried, for the reason the artifact download above is.** This is a
         # GHCR pull, made by every job in the matrix, and a blob read that dies
         # mid-transfer fails the whole suite:
         #   failed to copy: httpReadSeeker: failed open: failed to do request
-        # `earthly upgrade` re-fetches from scratch, so a second attempt is a
+        # `earth upgrade` re-fetches from scratch, so a second attempt is a
         # second attempt and not a resume of a broken one.
         for attempt in 1 2 3; do
-            if ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" ./earthly upgrade; then
+            if ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" ./earth upgrade; then
                 break
             fi
             if [ "$attempt" = 3 ]; then
@@ -330,7 +325,6 @@ runs:
         echo "extracted ${INPUTS_BUILT_EARTH_PATH}"
       shell: bash
       env:
-        INPUTS_USE_NEXT: ${{inputs.USE_NEXT}}
         INPUTS_SUDO: ${{inputs.SUDO}}
         INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
     - run: |-
@@ -349,15 +343,6 @@ runs:
     # nested native build failed with "cannot find earth-guestd"; a CI that
     # quietly supplied the sibling to the outer build would prove only that the
     # outer build was not the one that was broken.
-    - if: ${{ inputs.USE_NEXT == 'true' }}
-      run: |-
-        export expected_buildkit_client_sha="$(cat earthly-next | head -c 12)"
-        test -n "$expected_buildkit_client_sha" || ( echo "expected_buildkit_client_sha is empty" && exit 1)
-        (strings "${INPUTS_BUILT_EARTH_PATH}" | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earth binary" && exit 1)
-        echo "correctly found $expected_buildkit_client_sha in earth binary; this confirms earthly-next was used"
-      shell: bash
-      env:
-        INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
     - if: ${{ inputs.BINARY == 'podman' }}
       run: ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" bootstrap
       shell: bash

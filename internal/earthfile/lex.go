@@ -154,8 +154,15 @@ func (i item) String() string {
 		return "EOF"
 	case itemError:
 		return i.Val
-	case itemNL, itemIndent, itemDedent, itemWS, itemComment, itemEOLComment,
-		itemFrom, itemFromDockerfile, itemLocally, itemCopy, itemSaveArtifact,
+	case itemNL, itemEOLComment:
+		return "newline"
+	case itemIndent:
+		return "indent"
+	case itemDedent:
+		return "dedent"
+	case itemWS:
+		return "whitespace"
+	case itemComment, itemFrom, itemFromDockerfile, itemLocally, itemCopy, itemSaveArtifact,
 		itemSaveImage, itemRun, itemExpose, itemVolume, itemEnv, itemArg,
 		itemSet, itemLet, itemLabel, itemBuild, itemWorkdir, itemIf,
 		itemElseIf, itemElse, itemEnd, itemCmd, itemEntrypoint, itemGitClone,
@@ -164,10 +171,14 @@ func (i item) String() string {
 		itemHost, itemProject, itemUser, itemWith, itemDocker, itemTry,
 		itemCatch, itemFinally, itemFor, itemWait, itemTarget, itemUserCommand,
 		itemFunction, itemAtom, itemEquals:
-		return fmt.Sprintf("%q", i.Val)
-	}
+		if i.Val != "" {
+			return i.Val
+		}
 
-	return fmt.Sprintf("%q", i.Val)
+		return fmt.Sprintf("token(%d)", i.Typ)
+	default:
+		return fmt.Sprintf("token(%d)", i.Typ)
+	}
 }
 
 // stateFn represents the state of the scanner as a function that returns the next state.
@@ -874,20 +885,33 @@ func lexKeyValueCommandArgs(l *lexer) stateFn {
 
 	// 2. Check for flags (atoms starting with '-')
 	if l.peek() == '-' {
-		// Lex flag as itemAtom
 		for {
 			r := l.peek()
-			if isSpace(r) || isEndOfLine(r) || r == eof || r == '#' || r == '=' {
-				break
+			switch {
+			case isSpace(r) || isEndOfLine(r) || r == eof || (r == '#' && isCommentStart(l)):
+				l.emit(itemAtom)
+
+				return lexKeyValueCommandArgs
+			case r == '\\':
+				lexConsumeEscapeOrContinuation(l)
+			case r == '"':
+				l.next()
+
+				err := lexDoubleQuoteBody(l)
+				if err != nil {
+					return l.errorf("%v", err)
+				}
+			case r == '\'':
+				l.next()
+
+				err := lexSingleQuoteBody(l)
+				if err != nil {
+					return l.errorf("%v", err)
+				}
+			default:
+				l.next()
 			}
-
-			l.next()
 		}
-
-		l.emit(itemAtom)
-
-		// After the flag, continue in lexKeyValueCommandArgs to expect more flags or the key
-		return lexKeyValueCommandArgs
 	}
 
 	// 3. We are now expecting the key (the env variable name)

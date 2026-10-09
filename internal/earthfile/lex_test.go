@@ -70,6 +70,21 @@ func TestLex(t *testing.T) {
 			},
 		},
 		{
+			name:  "arg with flag containing embedded hash",
+			input: "ARG --description=issue#765 KEY=VALUE\n",
+			want: []item{
+				makeItemArg(),
+				makeItemSpace(),
+				makeItemAtom("--description=issue#765"),
+				makeItemSpace(),
+				makeItemAtom("KEY"),
+				makeItemAtom("="),
+				makeItemAtom("VALUE"),
+				makeItemNL(),
+				makeItemEOF(),
+			},
+		},
+		{
 			name:  "arg with invalid first char",
 			input: "ARG 123KEY=VALUE\n",
 			want: []item{

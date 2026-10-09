@@ -28,10 +28,6 @@ on:
         required: false
         type: boolean
         default: false
-      USE_NEXT:
-        required: false
-        type: boolean
-        default: false
       # Minutes the test step may take before it is treated as hung. 45 suits a
       # suite, which may legitimately retry three times; a probe that only needs
       # its first minute of output says so and gets its log back sooner.
@@ -84,13 +80,12 @@ jobs:
           BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           USE_QEMU: "${{ inputs.USE_QEMU }}"
-          USE_NEXT: "${{ inputs.USE_NEXT }}"
           SUDO: "${{ inputs.SUDO }}"
       - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         if: ${{ !inputs.SKIP_JOB }}
         run: |-
           set -euo pipefail
-          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earth_version_flag_overrides)"
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute ${{ inputs.TEST_TARGET }} (Earthly Only)
         if: ${{ !inputs.SKIP_JOB }}

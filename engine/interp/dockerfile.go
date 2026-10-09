@@ -878,7 +878,7 @@ func translate(
 // is deliberately the conservative direction: a file named `.tar.gz` that is
 // not one gets refused where it would have worked, and the alternative is a
 // file that is one being copied whole where it should have been unpacked.
-func addCommand(v *instructions.AddCommand, loc *earthfile.SourceLocation, where string) (earthfile.Command, error) {
+func addCommand(v *instructions.AddCommand, loc earthfile.SourceLocation, where string) (earthfile.Command, error) {
 	for _, src := range v.SourcePaths {
 		if strings.Contains(src, "://") {
 			return earthfile.Command{}, fmt.Errorf(
@@ -923,7 +923,7 @@ func archiveLike(name string) bool {
 // a single `key=value`, and a Dockerfile may set several in one instruction.
 // Refused rather than silently taking the first, because a label quietly
 // dropped is an image that does not say what it was built from.
-func labelCommand(v *instructions.LabelCommand, loc *earthfile.SourceLocation) (earthfile.Command, error) {
+func labelCommand(v *instructions.LabelCommand, loc earthfile.SourceLocation) (earthfile.Command, error) {
 	if len(v.Labels) != 1 {
 		names := make([]string, 0, len(v.Labels))
 		for _, kv := range v.Labels {
@@ -944,7 +944,7 @@ func labelCommand(v *instructions.LabelCommand, loc *earthfile.SourceLocation) (
 }
 
 // multiEnv refuses an ENV setting several names at once, naming them.
-func multiEnv(v *instructions.EnvCommand, loc *earthfile.SourceLocation) (earthfile.Command, error) {
+func multiEnv(v *instructions.EnvCommand, loc earthfile.SourceLocation) (earthfile.Command, error) {
 	names := make([]string, 0, len(v.Env))
 	for _, kv := range v.Env {
 		names = append(names, kv.Key)
@@ -968,8 +968,8 @@ func instructionName(instr instructions.Command) string {
 // c makes a source location out of the FROM DOCKERFILE line, because every step
 // a Dockerfile contributes belongs to that line as far as the Earthfile's
 // reader is concerned.
-func c(where string) *earthfile.SourceLocation {
-	return &earthfile.SourceLocation{File: where}
+func c(where string) earthfile.SourceLocation {
+	return earthfile.SourceLocation{File: where}
 }
 
 // flatten turns a map into the alternating name/value form withEnv takes,
@@ -1092,7 +1092,7 @@ func mountFlags(mounts []*instructions.Mount) []string {
 // healthcheckNone is HEALTHCHECK's off switch, in both languages.
 const healthcheckNone = "NONE"
 
-func healthcheckCommand(v *instructions.HealthCheckCommand, loc *earthfile.SourceLocation) earthfile.Command {
+func healthcheckCommand(v *instructions.HealthCheckCommand, loc earthfile.SourceLocation) earthfile.Command {
 	if v.Health == nil || len(v.Health.Test) == 0 {
 		return earthfile.Command{
 			Name: earthfile.CmdHealthCheck, Args: []string{healthcheckNone}, SourceLocation: loc,

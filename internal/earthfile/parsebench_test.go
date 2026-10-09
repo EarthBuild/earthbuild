@@ -23,7 +23,7 @@ func BenchmarkParseThisRepo(b *testing.B) {
 	b.ResetTimer()
 
 	for b.Loop() {
-		if _, err := earthfile.Parse("Earthfile", text, earthfile.WithSourceMap()); err != nil {
+		if _, err := earthfile.Parse("Earthfile", text); err != nil {
 			b.Fatal(err)
 		}
 	}

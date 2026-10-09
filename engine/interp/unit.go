@@ -203,7 +203,7 @@ func (p *Plan) load(dir string) (*unit, error) {
 		return nil, fmt.Errorf("no Earthfile for this reference\n  looked for %s", path)
 	}
 
-	tree, err := earthfile.Parse(path, string(src), earthfile.WithSourceMap())
+	tree, err := earthfile.Parse(path, string(src))
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}

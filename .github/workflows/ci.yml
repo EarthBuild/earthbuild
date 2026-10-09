@@ -262,7 +262,7 @@ jobs:
       - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earth_version_flag_overrides)"
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       # **`--engine=buildkit` on every invocation of the binary this branch
       # built.** These steps produce the release artifacts - the buildkitd image
@@ -367,67 +367,6 @@ jobs:
         with:
           name: earth-build-latest
           path: ./artifacts-standard/
-          retention-days: 1
-
-      # --- Build Next EarthBuild ---
-      - name: Update Buildkit to earthly-next
-        run: earth +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
-      - name: Build latest earth (next) using released earth
-        run: earth --use-inline-cache --artifact +earthly-linux-amd64/earthly ./build/linux/amd64/earthly
-      - name: Build and push +ci-release (next) using latest earth build
-        if: github.event_name == 'push' || github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
-        run: |-
-          export TAG_SUFFIX="latest-ticktock"
-          scripts/ci/earth-retry.sh --sleep 3 -- \
-            ./build/linux/amd64/earthly --ci --engine=buildkit --push --build-arg TAG_SUFFIX +ci-release
-      - name: Build +ci-release (next) using latest earth build (fork - no push)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        run: |-
-          export TAG_SUFFIX="latest-ticktock"
-          # Build ci-release (builds binary and buildkitd but doesn't push)
-          ./build/linux/amd64/earthly --ci --engine=buildkit --output --build-arg TAG_SUFFIX +ci-release
-          # Explicitly output the buildkitd image to local docker daemon
-          ./build/linux/amd64/earthly --ci --engine=buildkit --image --build-arg TAG="${GITHUB_SHA}-${TAG_SUFFIX}" --build-arg DOCKERHUB_BUILDKIT_IMG=buildkitd-staging ./buildkitd+buildkitd
-      - name: Save buildkitd image tarball (next, all runs)
-        # See the standard-variant step above for why this is unconditional.
-        run: |-
-          set -euo pipefail
-          export TAG_SUFFIX="latest-ticktock"
-          IMG="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
-
-          mkdir -p ./artifacts-next
-          echo "${TAG_SUFFIX}" > ./artifacts-next/tag-suffix.txt
-          if ! docker image inspect "$IMG" >/dev/null 2>&1; then
-            docker pull "$IMG"
-          fi
-          docker save "$IMG" -o ./artifacts-next/buildkitd-image.tar
-      - name: Build earth binary artifact (next, fork only)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        run: |-
-          set -euo pipefail
-          export TAG_SUFFIX="latest-ticktock"
-
-          # The test suites address the buildkitd daemon by container name, so
-          # DEFAULT_INSTALLATION_NAME must be pinned rather than left at its dev
-          # default. "earth" gives them "earth-buildkitd".
-          #
-          # `--engine=buildkit` because this branch makes the native engine the
-          # default and this step is one of the buildkit-facing ones - the same
-          # rule as the ci-release steps above, where the engine that builds the
-          # other engine's artifacts is the other engine. Stated as the rule it
-          # follows rather than as a failure mode: the flag predates this merge
-          # and what breaks without it has not been observed here.
-          ./build/linux/amd64/earthly --ci --engine=buildkit --artifact \
-            +earthly/earthly \
-            --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
-            --VERSION="0.8.18" \
-            --DEFAULT_INSTALLATION_NAME=earth \
-            ./artifacts-next/earthly
-      - name: Upload artifacts (next)
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
-        with:
-          name: earth-build-latest-ticktock
-          path: ./artifacts-next/
           retention-days: 1
 
   # --- Docker Suite ---
@@ -606,21 +545,6 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
-  # --- Next Suite ---
-  next-tests:
-    name: Next
-    needs: fast-check-and-build
-    permissions:
-      contents: read
-      packages: read
-    uses: $/.github/workflows/ci-test-suite.yml
-    with:
-      FRONTEND: "docker"
-      USE_NEXT: true
-    secrets:
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
-
   # --- Merge Gate ---
   # The ONLY check that branch protection should require. Every other job's
   # context name is free to churn (renamed suites, re-grouped tests, new
@@ -667,7 +591,6 @@ jobs:
       - docker-integrations
       - podman-tests
       - podman-examples
-      - next-tests
     runs-on: ubuntu-26.04
     permissions: {}
     steps:

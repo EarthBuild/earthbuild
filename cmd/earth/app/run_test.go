@@ -14,28 +14,28 @@ func TestRedactSecretsFromArgs(t *testing.T) {
 		expected []string
 	}{
 		{
-			args:     []string{"earthly", "--secret", "foo=bar"},
-			expected: []string{"earthly", "--secret", "foo=XXXXX"},
+			args:     []string{"earth", "--secret", "foo=bar"},
+			expected: []string{"earth", "--secret", "foo=XXXXX"},
 		},
 		{
-			args:     []string{"earthly", "--secret", "foo=bar", "--ci"},
-			expected: []string{"earthly", "--secret", "foo=XXXXX", "--ci"},
+			args:     []string{"earth", "--secret", "foo=bar", "--ci"},
+			expected: []string{"earth", "--secret", "foo=XXXXX", "--ci"},
 		},
 		{
-			args:     []string{"earthly", "--secret", "foo", "--ci"},
-			expected: []string{"earthly", "--secret", "foo", "--ci"},
+			args:     []string{"earth", "--secret", "foo", "--ci"},
+			expected: []string{"earth", "--secret", "foo", "--ci"},
 		},
 		{
-			args:     []string{"earthly", "-s", "foo=bar"},
-			expected: []string{"earthly", "-s", "foo=XXXXX"},
+			args:     []string{"earth", "-s", "foo=bar"},
+			expected: []string{"earth", "-s", "foo=XXXXX"},
 		},
 		{
-			args:     []string{"earthly", "-s", "foo=bar", "--ci"},
-			expected: []string{"earthly", "-s", "foo=XXXXX", "--ci"},
+			args:     []string{"earth", "-s", "foo=bar", "--ci"},
+			expected: []string{"earth", "-s", "foo=XXXXX", "--ci"},
 		},
 		{
-			args:     []string{"earthly", "-s", "foo", "--ci"},
-			expected: []string{"earthly", "-s", "foo", "--ci"},
+			args:     []string{"earth", "-s", "foo", "--ci"},
+			expected: []string{"earth", "-s", "foo", "--ci"},
 		},
 	} {
 		actual := redactSecretsFromArgs(testCase.args)

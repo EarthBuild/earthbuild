@@ -1005,7 +1005,7 @@ func (l *loader) forTarget(target domain.Target, args []string, passArgs bool) (
 }
 
 func (l *loader) loadTargetFromString(
-	ctx context.Context, targetName string, args []string, passArgs bool, srcLoc *earthfile.SourceLocation,
+	ctx context.Context, targetName string, args []string, passArgs bool, srcLoc earthfile.SourceLocation,
 ) error {
 	targetName, err := l.expandArgs(targetName)
 	if err != nil {

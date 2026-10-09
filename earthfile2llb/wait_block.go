@@ -421,18 +421,11 @@ func (wb *waitBlock) waitStates(ctx context.Context, items []states.WaitItem, ex
 	return errGroup.Wait()
 }
 
-// isStateExported reports whether this block's own Wait exports an image whose
-// state is state, so that solving state separately would solve the same vertex
-// twice. Images the block leaves to builder.go do not count here; see
-// Converter.isStateExported.
+// exportOf returns the image this block's own Wait exports whose state is state,
+// or nil. Images the block leaves to builder.go do not count here; see
+// Converter.exportOf.
 //
 // It only takes itemsMu, never mu, so it does not wait for a Wait in progress.
-func (wb *waitBlock) isStateExported(state *pllb.State) bool {
-	return exportsState(wb.imageExports(wb.snapshotItems()), state)
-}
-
-// exportOf returns the image this block's own Wait exports whose state is state,
-// or nil.
 func (wb *waitBlock) exportOf(state *pllb.State) *saveImageWaitItem {
 	return exportOf(wb.imageExports(wb.snapshotItems()), state)
 }

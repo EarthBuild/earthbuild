@@ -2343,18 +2343,6 @@ func (c *Converter) exportOf(state *pllb.State) stateExport {
 	return stateExport{byBuilder: c.builderExportsState(state)}
 }
 
-// isStateExported reports whether an image export is going to solve state
-// anyway, or state needs no solving. See exportOf.
-func (c *Converter) isStateExported(state *pllb.State) bool {
-	if state == nil || state.Output() == nil {
-		return true
-	}
-
-	export := c.exportOf(state)
-
-	return export.waitBlockItem != nil || export.byBuilder
-}
-
 // builderExportsState reports whether builder.go, which runs once the whole build
 // is converted, solves state while exporting one of this target's images.
 func (c *Converter) builderExportsState(state *pllb.State) bool {

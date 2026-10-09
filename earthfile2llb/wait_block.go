@@ -190,7 +190,15 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 	return errGroup.Wait()
 }
 
-func saveImages(ctx context.Context, exports []imageExport) error {
+func saveImages(ctx context.Context, exports []imageExport) (retErr error) {
+	// A target whose main state is only solved by one of these exports has not
+	// executed until it is done; see Converter.FinalizeStates.
+	defer func() {
+		for _, export := range exports {
+			export.exported.Settle(ctx, retErr)
+		}
+	}()
+
 	isMultiPlatform := make(map[string]bool)        // DockerTag -> bool
 	noManifestListImgs := make(map[string]struct{}) // set based on DockerTag
 	platformImgNames := make(map[string]bool)
@@ -423,6 +431,12 @@ func (wb *waitBlock) isStateExported(state *pllb.State) bool {
 	return exportsState(wb.imageExports(wb.snapshotItems()), state)
 }
 
+// exportOf returns the image this block's own Wait exports whose state is state,
+// or nil.
+func (wb *waitBlock) exportOf(state *pllb.State) *saveImageWaitItem {
+	return exportOf(wb.imageExports(wb.snapshotItems()), state)
+}
+
 // exportsState reports whether one of exports is an image whose state is state.
 // A missing or scratch state needs no solving, so it counts as exported.
 func exportsState(exports []imageExport, state *pllb.State) bool {
@@ -430,13 +444,18 @@ func exportsState(exports []imageExport, state *pllb.State) bool {
 		return true
 	}
 
+	return exportOf(exports, state) != nil
+}
+
+// exportOf returns the image in exports whose state is state, or nil.
+func exportOf(exports []imageExport, state *pllb.State) *saveImageWaitItem {
 	for _, export := range exports {
 		if export.si.State.Output() == state.Output() {
-			return true
+			return export.saveImageWaitItem
 		}
 	}
 
-	return false
+	return nil
 }
 
 type saveArtifactLocalEntry struct {

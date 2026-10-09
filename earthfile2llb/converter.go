@@ -2231,13 +2231,32 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 		c.waitBlock().AddItem(newStateWaitItem(&c.mts.Final.MainState, c))
 	}
 
-	// Decide now, before the goroutine below takes a parallelism slot, whether an
-	// image export will solve the main state anyway. Deciding inside the
-	// goroutine, with a slot held, would park that slot for as long as anything
-	// else holds the wait block's items.
-	mainStateExported := c.isStateExported(&c.mts.Final.MainState)
+	// Decide now, before taking a parallelism slot, whether an image export solves
+	// the main state anyway. Deciding with a slot held would park that slot for as
+	// long as anything else holds the wait block's items.
+	var export stateExport
+	if c.ftrs.ExecAfterParallel {
+		export = c.exportOf(&c.mts.Final.MainState)
+	}
 
 	close(c.mts.Final.Done())
+
+	// When an image export solves the main state anyway, force executing it as
+	// well would solve the same vertex twice, and BuildKit would deliver its log
+	// lines twice. The target has then executed once that export has succeeded,
+	// and not before, so that is when it ends (and BUILD --auto-skip saves its
+	// hash). Neither export can have happened yet: the wait block on the stack is
+	// waited on after this, and builder.go only runs once everything is converted.
+	switch {
+	case export.waitBlockItem != nil:
+		export.waitBlockItem.exported.Then(ctx, c.endExecution)
+
+		return c.mts, nil
+	case export.byBuilder:
+		c.mts.Final.BuilderExport.Then(ctx, c.endExecution)
+
+		return c.mts, nil
+	}
 
 	// Force execution asynchronously, and then mark the logbusTarget as finished.
 	// This ensures that the execution actually took place, for timing purposes.
@@ -2248,7 +2267,8 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 		}
 		defer rel()
 
-		if c.ftrs.ExecAfterParallel && !mainStateExported {
+		if c.ftrs.ExecAfterParallel {
+			// A scratch main state is a no-op here, and still counts as executed.
 			err = c.forceExecution(ctx, c.mts.Final.MainState, c.mts.Final.PlatformResolver)
 			if err != nil {
 				c.RecordTargetFailure(ctx, err)
@@ -2268,27 +2288,71 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 	return c.mts, nil
 }
 
-// isStateExported reports whether an image export is going to solve state
-// anyway, so that force executing it as well would solve the same vertex twice
-// (BuildKit then delivers its log lines twice). It does not decide that itself:
-// it asks the two exporters, through the same decisions they act on.
+// endExecution ends the target once an image export, rather than force
+// execution, has solved its main state: as failed if the export failed, or else
+// as succeeded, after OnExecutionSuccess.
+func (c *Converter) endExecution(ctx context.Context, err error) {
+	if err != nil {
+		c.RecordTargetFailure(ctx, err)
+		return
+	}
+
+	if c.opt.OnExecutionSuccess != nil {
+		c.opt.OnExecutionSuccess(ctx)
+	}
+
+	c.logbusTarget.SetEnd(time.Now(), logstream.RunStatus_RUN_STATUS_SUCCESS, c.platr.Current().String())
+}
+
+// stateExport is the image export that is going to solve a state anyway, if
+// any. At most one field is set.
+type stateExport struct {
+	// waitBlockItem is an image that a wait block on the stack exports itself.
+	waitBlockItem *saveImageWaitItem
+	// byBuilder is whether builder.go solves the state while exporting one of
+	// this target's images, once the whole build has been converted.
+	byBuilder bool
+}
+
+// exportOf returns the image export that is going to solve state anyway, so
+// that force executing it as well would solve the same vertex twice (BuildKit
+// then delivers its log lines twice). It does not decide that itself: it asks
+// the two exporters, through the same decisions they act on.
 //
 //   - A wait block on the stack exports the image itself. See
 //     waitBlock.imageExports, the filter waitBlock.saveImages applies.
 //   - builder.go exports the image once the whole build is converted. See
 //     PlanImage, the decision builder.go applies.
+//
+// A scratch state has no export: it needs no solving at all.
+func (c *Converter) exportOf(state *pllb.State) stateExport {
+	if state == nil || state.Output() == nil {
+		return stateExport{}
+	}
+
+	for _, wb := range c.waitBlockStack {
+		if wb == nil {
+			continue
+		}
+
+		if item := wb.exportOf(state); item != nil {
+			return stateExport{waitBlockItem: item}
+		}
+	}
+
+	return stateExport{byBuilder: c.builderExportsState(state)}
+}
+
+// isStateExported reports whether an image export is going to solve state
+// anyway, or state needs no solving. See exportOf.
 func (c *Converter) isStateExported(state *pllb.State) bool {
 	if state == nil || state.Output() == nil {
 		return true
 	}
 
-	for _, wb := range c.waitBlockStack {
-		if wb != nil && wb.isStateExported(state) {
-			return true
-		}
-	}
+	export := c.exportOf(state)
 
-	return c.builderExportsState(state)
+	return export.waitBlockItem != nil || export.byBuilder
 }
 
 // builderExportsState reports whether builder.go, which runs once the whole build

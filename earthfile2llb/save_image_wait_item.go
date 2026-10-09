@@ -10,6 +10,10 @@ type saveImageWaitItem struct {
 	c  *Converter
 	si states.SaveImage
 
+	// exported is settled by the first wait block export that includes this
+	// image.
+	exported states.ExportOutcome
+
 	allowPush   bool
 	doPush      bool
 	localExport bool

@@ -15,13 +15,15 @@ import (
 )
 
 // exportRecordingGwClient extends fakeGwClient with the two extra gateway calls
-// that waitBlock.saveImages makes, and records every image name it exports.
+// that waitBlock.saveImages makes, and records every image name it exports. If
+// exportErr is set, every export fails with it instead.
 type exportRecordingGwClient struct {
 	fakeGwClient
 
-	exported []string
-	pushed   []string
-	mu       sync.Mutex
+	exportErr error
+	exported  []string
+	pushed    []string
+	mu        sync.Mutex
 }
 
 func (f *exportRecordingGwClient) BuildOpts() gwclient.BuildOpts {
@@ -29,6 +31,10 @@ func (f *exportRecordingGwClient) BuildOpts() gwclient.BuildOpts {
 }
 
 func (f *exportRecordingGwClient) Export(_ context.Context, req gwclient.ExportRequest) error {
+	if f.exportErr != nil {
+		return f.exportErr
+	}
+
 	f.mu.Lock()
 	defer f.mu.Unlock()
 

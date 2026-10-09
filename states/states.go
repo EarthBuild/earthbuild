@@ -90,7 +90,10 @@ type SingleTarget struct {
 	VarCollection      *variables.Collection
 	InteractiveSession InteractiveSession
 	RunPush            RunPush
-	depMu              sync.Mutex
+	// BuilderExport is settled by builder.go once it has exported this target's
+	// images, which it does only after the whole build has been converted.
+	BuilderExport ExportOutcome
+	depMu         sync.Mutex
 	// doSavesMu is a mutex for doSave.
 	doSavesMu sync.Mutex
 	tiMu      sync.Mutex

@@ -769,6 +769,15 @@ func (b *Builder) convertAndBuild(
 	}
 
 	err := b.s.buildMainMulti(ctx, buildFunc, onImage, onArtifact, onFinalArtifact, onPull, b.opt.Log)
+
+	// A target whose main state only this export solves has not executed until
+	// now; see earthfile2llb's Converter.FinalizeStates.
+	if mts != nil {
+		for _, sts := range mts.All() {
+			sts.BuilderExport.Settle(ctx, err)
+		}
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("build main: %w", err)
 	}

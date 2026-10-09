@@ -2,12 +2,15 @@ package earthfile2llb
 
 import (
 	"context"
+	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/states"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
@@ -88,6 +91,7 @@ func newFinalizeTestConverter(t *testing.T, o finalizeTestOpt) (*Converter, *ser
 			CacheImports:       states.NewCacheImports(nil),
 			OnExecutionSuccess: o.onSuccess,
 			Export:             o.export,
+			ImagePlan:          ImagePlanOpt{Export: o.export, Push: o.doPushes},
 			SaveReferenced:     true,
 			DoPushes:           o.doPushes,
 			Logbus:             bus,
@@ -114,56 +118,60 @@ func newFinalizeTestConverter(t *testing.T, o finalizeTestOpt) (*Converter, *ser
 // regardless of whether the main state is scratch. Otherwise auto-skip silently
 // stops skipping: the hash is never written, and every build re-runs the
 // target.
+//
+// When an image export is what solves the main state, the target has not
+// executed until that export is done. So neither OnExecutionSuccess nor the
+// target's SUCCESS status may come before it.
 func TestFinalizeStatesCallsOnExecutionSuccess(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		setup  func(c *Converter)
-		name   string
-		export Export
-		push   bool
+		setup       func(t *testing.T, c *Converter)
+		name        string
+		export      Export
+		push        bool
+		waitBlockOn bool
+		// exportSolves is whether an image export, not force execution, solves
+		// the main state.
+		exportSolves bool
 	}{
 		{
-			// Control: neither predicate fires, so the force-execution path runs.
+			// Control: nothing exports the main state, so it is force executed.
 			name:   "main state is not saved as an image",
 			export: ExportAll,
-			setup: func(c *Converter) {
+			setup: func(_ *testing.T, c *Converter) {
 				c.mts.Final.MainState = pllb.Image("alpine:3.20")
 			},
 		},
 		{
 			// A target whose body is only ARG / BUILD --auto-skip children that
 			// were themselves skipped (or any FROM-less target under
-			// --no-fake-dep) has a scratch main state. forceExecution already
-			// treats scratch as a successful no-op; isStateExported instead
-			// reports it as "exported" and the success callback is skipped.
+			// --no-fake-dep) has a scratch main state. forceExecution treats
+			// scratch as a successful no-op.
 			name:   "main state is scratch",
 			export: ExportAll,
-			setup:  func(*Converter) {},
+			setup:  func(*testing.T, *Converter) {},
 		},
 		{
-			name:   "main state is saved as a locally exported image",
-			export: ExportAll,
-			setup: func(c *Converter) {
-				c.mts.Final.MainState = pllb.Image("alpine:3.20")
-				c.mts.Final.SaveImages = append(c.mts.Final.SaveImages, states.SaveImage{
-					DockerTag: testDockerTag,
-					State:     c.mts.Final.MainState,
-				})
-			},
+			name:         "main state is saved as an image builder.go exports",
+			export:       ExportAll,
+			exportSolves: true,
+			setup:        saveTestImage(false),
 		},
 		{
-			name:   "main state is saved as a pushed image",
-			export: ExportNone,
-			push:   true,
-			setup: func(c *Converter) {
-				c.mts.Final.MainState = pllb.Image("alpine:3.20")
-				c.mts.Final.SaveImages = append(c.mts.Final.SaveImages, states.SaveImage{
-					DockerTag: "registry.example.com/" + testDockerTag,
-					State:     c.mts.Final.MainState,
-					Push:      true,
-				})
-			},
+			name:         "main state is saved as an image a wait block exports",
+			export:       ExportAll,
+			waitBlockOn:  true,
+			exportSolves: true,
+			setup:        saveTestImage(false),
+		},
+		{
+			name:         "main state is saved as an image a wait block pushes",
+			export:       ExportNone,
+			push:         true,
+			waitBlockOn:  true,
+			exportSolves: true,
+			setup:        saveTestImage(true),
 		},
 	}
 
@@ -174,21 +182,132 @@ func TestFinalizeStatesCallsOnExecutionSuccess(t *testing.T) {
 			var calls atomic.Int32
 
 			c, eg := newFinalizeTestConverter(t, finalizeTestOpt{
-				gw:       &fakeGwClient{},
-				export:   tt.export,
-				doPushes: tt.push,
+				gw:          &exportRecordingGwClient{},
+				export:      tt.export,
+				doPushes:    tt.push,
+				waitBlockOn: tt.waitBlockOn,
 				onSuccess: func(context.Context) {
 					calls.Add(1)
 				},
 			})
-			tt.setup(c)
+			tt.setup(t, c)
 
 			_, err := c.FinalizeStates(t.Context())
 			require.NoError(t, err)
 			require.NoError(t, eg.Wait())
 
+			if tt.exportSolves {
+				require.Zero(t, calls.Load(), "OnExecutionSuccess must wait for the export that solves the main state")
+				require.NotEqual(t, logstream.RunStatus_RUN_STATUS_SUCCESS, lastTargetStatus(c),
+					"the target must not succeed before the export that solves its main state")
+			}
+
+			// The exporters run later: a wait block when it is waited on,
+			// builder.go once the whole build has been converted.
+			err = c.waitBlock().Wait(t.Context(), tt.push, c.opt.doSaves())
+			require.NoError(t, err)
+			c.mts.Final.BuilderExport.Settle(t.Context(), nil)
+
 			require.Equal(t, int32(1), calls.Load(),
 				"OnExecutionSuccess must fire exactly once so BUILD --auto-skip can save the target's hash")
+			require.Equal(t, logstream.RunStatus_RUN_STATUS_SUCCESS, lastTargetStatus(c))
 		})
 	}
+}
+
+// A failed export that was going to solve the main state is a failed target:
+// no OnExecutionSuccess (which would save a BUILD --auto-skip hash for a target
+// that never ran), and a FAILURE status rather than SUCCESS.
+func TestFinalizeStatesReportsFailedExport(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		waitBlockOn bool
+	}{
+		{name: "exported by builder.go"},
+		{name: "exported by a wait block", waitBlockOn: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var calls atomic.Int32
+
+			exportErr := errors.New("registry unavailable")
+
+			c, eg := newFinalizeTestConverter(t, finalizeTestOpt{
+				gw:          &exportRecordingGwClient{exportErr: exportErr},
+				export:      ExportAll,
+				waitBlockOn: tt.waitBlockOn,
+				onSuccess: func(context.Context) {
+					calls.Add(1)
+				},
+			})
+			saveTestImage(false)(t, c)
+
+			_, err := c.FinalizeStates(t.Context())
+			require.NoError(t, err)
+			require.NoError(t, eg.Wait())
+
+			err = c.waitBlock().Wait(t.Context(), false, c.opt.doSaves())
+			if tt.waitBlockOn {
+				require.ErrorIs(t, err, exportErr)
+			} else {
+				require.NoError(t, err)
+				c.mts.Final.BuilderExport.Settle(t.Context(), exportErr)
+			}
+
+			require.Zero(t, calls.Load())
+			require.Equal(t, logstream.RunStatus_RUN_STATUS_FAILURE, lastTargetStatus(c))
+		})
+	}
+}
+
+// saveTestImage returns a setup that runs SAVE IMAGE (--push, if push) on an
+// alpine main state.
+func saveTestImage(push bool) func(t *testing.T, c *Converter) {
+	return func(t *testing.T, c *Converter) {
+		t.Helper()
+
+		c.mts.Final.RanFromLike = true
+		c.mts.Final.MainState = pllb.Image("alpine:3.20")
+
+		err := c.SaveImage(t.Context(), []string{"registry.example.com/" + testDockerTag}, push, false, false, nil, false)
+		require.NoError(t, err)
+	}
+}
+
+// lastTargetStatus returns the last status c's target reported on the log bus.
+func lastTargetStatus(c *Converter) logstream.RunStatus {
+	rec := &targetStatusRecorder{targetID: c.mts.Final.ID}
+
+	c.opt.Logbus.AddRawSubscriber(rec)
+	defer c.opt.Logbus.RemoveRawSubscriber(rec)
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+
+	return rec.last
+}
+
+// targetStatusRecorder is a log bus subscriber that records the last status
+// reported for one target.
+type targetStatusRecorder struct {
+	targetID string
+	last     logstream.RunStatus
+	mu       sync.Mutex
+}
+
+func (r *targetStatusRecorder) Write(delta *logstream.Delta) {
+	dtm, ok := delta.GetDeltaManifest().GetFields().GetTargets()[r.targetID]
+	if !ok || dtm.GetStatus() == logstream.RunStatus_RUN_STATUS_UNKNOWN {
+		return
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.last = dtm.GetStatus()
 }

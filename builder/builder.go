@@ -454,31 +454,115 @@ func (b *Builder) convertAndBuild(
 			gwCrafter.AddMeta(refPrefix+"/final-artifact", []byte("true"))
 		}
 
-		isMultiPlatform := make(map[string]struct{})    // DockerTag -> struct{}
-		noManifestListImgs := make(map[string]struct{}) // DockerTag -> struct{}
+		images, takeErr := takeBuilderImages(opt, mts, b.opt.CacheExport != "", b.targetPhaseImages)
+		if takeErr != nil {
+			return nil, takeErr
+		}
 
-		for _, sts := range mts.All() {
-			if sts.PlatformResolver.Current() == platutil.DefaultPlatform {
-				continue
+		for _, img := range images {
+			sts, saveImage := img.sts, img.saveImage
+
+			if saveImage.Export != nil {
+				builderExports = append(builderExports, saveImage.Export)
 			}
 
-			for _, saveImage := range b.targetPhaseImages(sts) {
-				doSaveOrPush := (sts.GetDoSaves() || sts.GetDoPushes() || saveImage.ForceSave)
-				if !saveImage.BuilderSkips() && saveImage.DockerTag != "" && doSaveOrPush {
-					if saveImage.NoManifestList {
-						noManifestListImgs[saveImage.DockerTag] = struct{}{}
-					} else {
-						isMultiPlatform[saveImage.DockerTag] = struct{}{}
+			shouldExport, shouldPush := img.plan.Export, img.plan.Push
+
+			ref, err := b.stateToRef(childCtx, gwClient, saveImage.State, sts.PlatformResolver)
+			if err != nil {
+				return nil, err
+			}
+
+			//nolint:nestif // TODO(jhorsts): simplify
+			if img.multiPlatform {
+				resolvedPlat := sts.PlatformResolver.Materialize(sts.PlatformResolver.Current())
+				platformStr := resolvedPlat.String()
+
+				platformImgName, err := llbutil.PlatformSpecificImageName(saveImage.DockerTag, resolvedPlat)
+				if err != nil {
+					return nil, err
+				}
+
+				if saveImage.CheckDuplicate && saveImage.DockerTag != "" {
+					if _, found := platformImgNames[platformImgName]; found {
+						return nil, fmt.Errorf(
+							"image %s is defined multiple times for the same platform (%s)",
+							saveImage.DockerTag, platformImgName,
+						)
 					}
 
-					_, isMulti := isMultiPlatform[saveImage.DockerTag]
-					_, noManifest := noManifestListImgs[saveImage.DockerTag]
+					platformImgNames[platformImgName] = struct{}{}
+				}
+				// Image has platform set - need to use manifest lists.
+				// Need to push as a single multi-manifest image, but output locally as
+				// separate images.
+				// (docker load does not support tars with manifest lists).
 
-					if isMulti && noManifest {
+				// For push.
+				if shouldPush {
+					_, err = gwCrafter.AddPushImageEntry(
+						ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush,
+						saveImage.Image, []byte(platformStr),
+					)
+					if err != nil {
+						return nil, err
+					}
+
+					imageIndex++
+				}
+
+				// For local.
+				if shouldExport {
+					refPrefix, err := gwCrafter.
+						AddPushImageEntry(ref, imageIndex, platformImgName, false, false, saveImage.Image, nil)
+					if err != nil {
+						return nil, err
+					}
+
+					imageIndex++
+
+					localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, platformImgName, nil)
+					if b.opt.LocalRegistryAddr != "" {
+						gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
+					} else {
+						gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
+					}
+
+					manifestLists[saveImage.DockerTag] = append(
+						manifestLists[saveImage.DockerTag], dockerutil.Manifest{
+							ImageName: platformImgName,
+							Platform:  resolvedPlat,
+						},
+					)
+				}
+			} else {
+				if saveImage.CheckDuplicate && saveImage.DockerTag != "" {
+					if _, found := singPlatImgNames[saveImage.DockerTag]; found {
 						return nil, fmt.Errorf(
-							"cannot save image %s defined multiple times, but declared as SAVE IMAGE --no-manifest-list",
+							"image %s is defined multiple times for the same default platform",
 							saveImage.DockerTag,
 						)
+					}
+
+					singPlatImgNames[saveImage.DockerTag] = struct{}{}
+				}
+
+				localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, saveImage.DockerTag, nil)
+
+				refPrefix, err := gwCrafter.AddPushImageEntry(
+					ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush, saveImage.Image, nil,
+				)
+				if err != nil {
+					return nil, err
+				}
+
+				imageIndex++
+
+				if shouldExport {
+					if b.opt.LocalRegistryAddr != "" {
+						gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
+					} else {
+						gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
 					}
 				}
 			}
@@ -496,124 +580,6 @@ func (b *Builder) convertAndBuild(
 				gwCrafter.AddRef(refKey, depRef)
 
 				depIndex++
-			}
-
-			for _, saveImage := range b.targetPhaseImages(sts) {
-				plan := planImage(opt, sts, sts == mts.Final, saveImage)
-				if !plan.SolvedByBuilder(saveImage, b.opt.CacheExport != "") {
-					// Short-circuit.
-					continue
-				}
-
-				if !saveImage.Export.TakeForBuilder() {
-					// A wait block exports it.
-					continue
-				}
-
-				if saveImage.Export != nil {
-					builderExports = append(builderExports, saveImage.Export)
-				}
-
-				shouldExport, shouldPush := plan.Export, plan.Push
-
-				ref, err := b.stateToRef(childCtx, gwClient, saveImage.State, sts.PlatformResolver)
-				if err != nil {
-					return nil, err
-				}
-
-				//nolint:nestif // TODO(jhorsts): simplify
-				if _, isMulti := isMultiPlatform[saveImage.DockerTag]; isMulti {
-					resolvedPlat := sts.PlatformResolver.Materialize(sts.PlatformResolver.Current())
-					platformStr := resolvedPlat.String()
-
-					platformImgName, err := llbutil.PlatformSpecificImageName(saveImage.DockerTag, resolvedPlat)
-					if err != nil {
-						return nil, err
-					}
-
-					if saveImage.CheckDuplicate && saveImage.DockerTag != "" {
-						if _, found := platformImgNames[platformImgName]; found {
-							return nil, fmt.Errorf(
-								"image %s is defined multiple times for the same platform (%s)",
-								saveImage.DockerTag, platformImgName,
-							)
-						}
-
-						platformImgNames[platformImgName] = struct{}{}
-					}
-					// Image has platform set - need to use manifest lists.
-					// Need to push as a single multi-manifest image, but output locally as
-					// separate images.
-					// (docker load does not support tars with manifest lists).
-
-					// For push.
-					if shouldPush {
-						_, err = gwCrafter.AddPushImageEntry(
-							ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush,
-							saveImage.Image, []byte(platformStr),
-						)
-						if err != nil {
-							return nil, err
-						}
-
-						imageIndex++
-					}
-
-					// For local.
-					if shouldExport {
-						refPrefix, err := gwCrafter.
-							AddPushImageEntry(ref, imageIndex, platformImgName, false, false, saveImage.Image, nil)
-						if err != nil {
-							return nil, err
-						}
-
-						imageIndex++
-
-						localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, platformImgName, nil)
-						if b.opt.LocalRegistryAddr != "" {
-							gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
-						} else {
-							gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
-						}
-
-						manifestLists[saveImage.DockerTag] = append(
-							manifestLists[saveImage.DockerTag], dockerutil.Manifest{
-								ImageName: platformImgName,
-								Platform:  resolvedPlat,
-							},
-						)
-					}
-				} else {
-					if saveImage.CheckDuplicate && saveImage.DockerTag != "" {
-						if _, found := singPlatImgNames[saveImage.DockerTag]; found {
-							return nil, fmt.Errorf(
-								"image %s is defined multiple times for the same default platform",
-								saveImage.DockerTag,
-							)
-						}
-
-						singPlatImgNames[saveImage.DockerTag] = struct{}{}
-					}
-
-					localRegPullID := exportCoordinator.AddImage(gwClient.BuildOpts().SessionID, saveImage.DockerTag, nil)
-
-					refPrefix, err := gwCrafter.AddPushImageEntry(
-						ref, imageIndex, saveImage.DockerTag, shouldPush, saveImage.InsecurePush, saveImage.Image, nil,
-					)
-					if err != nil {
-						return nil, err
-					}
-
-					imageIndex++
-
-					if shouldExport {
-						if b.opt.LocalRegistryAddr != "" {
-							gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(localRegPullID))
-						} else {
-							gwCrafter.AddMeta(refPrefix+"/export-image", []byte("true"))
-						}
-					}
-				}
 			}
 
 			performSaveLocals := (opt.Export.Artifacts() &&
@@ -671,20 +637,18 @@ func (b *Builder) convertAndBuild(
 		defer exportedImagesMutex.Unlock()
 
 		exportedTarImageManifestKeys[manifestKey] = struct{}{}
-		manifests := make(map[string][]dockerutil.Manifest)
+		waitForKeys := strings.Split(waitFor, " ")
 
-		for manifestKey := range strings.SplitSeq(waitFor, " ") {
+		for _, manifestKey := range waitForKeys {
 			_, ok := exportedTarImageManifestKeys[manifestKey]
 			if !ok {
 				return nil
 			}
+		}
 
-			manifest, dockerTag, ok := exportCoordinator.GetImage(manifestKey)
-			if !ok {
-				return fmt.Errorf("failed to lookup %s in onImageDone", manifestKey)
-			}
-
-			manifests[dockerTag] = append(manifests[dockerTag], *manifest)
+		manifests, err := exportCoordinator.ManifestLists(waitForKeys)
+		if err != nil {
+			return fmt.Errorf("onImageDone: %w", err)
 		}
 
 		for parentImageName, children := range manifests {
@@ -692,7 +656,7 @@ func (b *Builder) convertAndBuild(
 				panic("platform resolver is nil")
 			}
 
-			err := dockerutil.LoadDockerManifest(
+			err = dockerutil.LoadDockerManifest(
 				ctx, b.opt.Log, b.opt.Engine, parentImageName, children, opt.PlatformResolver,
 			)
 			if err != nil {
@@ -752,7 +716,6 @@ func (b *Builder) convertAndBuild(
 			return nil
 		}
 
-		manifests := make(map[string][]dockerutil.Manifest)
 		pullMap := make(map[string]string)
 
 		for _, imgToPull := range imagesToPull {
@@ -762,7 +725,6 @@ func (b *Builder) convertAndBuild(
 			}
 
 			if manifest != nil {
-				manifests[dockerTag] = append(manifests[dockerTag], *manifest)
 				pullMap[imgToPull] = manifest.ImageName
 			} else {
 				pullMap[imgToPull] = dockerTag
@@ -770,6 +732,11 @@ func (b *Builder) convertAndBuild(
 		}
 
 		err := dockerutil.DockerPullLocalImages(childCtx, b.opt.Engine, b.opt.LocalRegistryAddr, pullMap)
+		if err != nil {
+			return err
+		}
+
+		manifests, err := exportCoordinator.ManifestLists(imagesToPull)
 		if err != nil {
 			return err
 		}
@@ -1052,6 +1019,86 @@ func (b *Builder) convertAndBuild(
 	}
 
 	return mts, nil
+}
+
+// builderImage is a SAVE IMAGE that builder.go exports, and what it does with it.
+type builderImage struct {
+	sts       *states.SingleTarget
+	saveImage states.SaveImage
+	plan      earthfile2llb.ImagePlan
+	// multiPlatform is whether the image is one platform of a multi-platform
+	// image: it is pushed as part of its tag's manifest list, and loaded locally
+	// under a per-platform name.
+	multiPlatform bool
+}
+
+// takeBuilderImages returns the SAVE IMAGEs builder.go exports, in the order it
+// exports them, and takes the export of each one (see
+// states.ImageExport.TakeForBuilder). An image a wait block exports instead is
+// left out. cacheExport is whether the build exports a cache (--remote-cache).
+func takeBuilderImages(
+	opt BuildOpt,
+	mts *states.MultiTarget,
+	cacheExport bool,
+	targetImages func(*states.SingleTarget) []states.SaveImage,
+) ([]builderImage, error) {
+	isMultiPlatform := make(map[string]struct{})    // DockerTag -> struct{}
+	noManifestListImgs := make(map[string]struct{}) // DockerTag -> struct{}
+
+	for _, sts := range mts.All() {
+		if sts.PlatformResolver.Current() == platutil.DefaultPlatform {
+			continue
+		}
+
+		for _, saveImage := range targetImages(sts) {
+			doSaveOrPush := (sts.GetDoSaves() || sts.GetDoPushes() || saveImage.ForceSave)
+			if !saveImage.BuilderSkips() && saveImage.DockerTag != "" && doSaveOrPush {
+				if saveImage.NoManifestList {
+					noManifestListImgs[saveImage.DockerTag] = struct{}{}
+				} else {
+					isMultiPlatform[saveImage.DockerTag] = struct{}{}
+				}
+
+				_, isMulti := isMultiPlatform[saveImage.DockerTag]
+				_, noManifest := noManifestListImgs[saveImage.DockerTag]
+
+				if isMulti && noManifest {
+					return nil, fmt.Errorf(
+						"cannot save image %s defined multiple times, but declared as SAVE IMAGE --no-manifest-list",
+						saveImage.DockerTag,
+					)
+				}
+			}
+		}
+	}
+
+	var images []builderImage
+
+	for _, sts := range mts.All() {
+		for _, saveImage := range targetImages(sts) {
+			plan := planImage(opt, sts, sts == mts.Final, saveImage)
+			if !plan.SolvedByBuilder(saveImage, cacheExport) {
+				// Short-circuit.
+				continue
+			}
+
+			if !saveImage.Export.TakeForBuilder() {
+				// A wait block exports it.
+				continue
+			}
+
+			_, isMulti := isMultiPlatform[saveImage.DockerTag]
+
+			images = append(images, builderImage{
+				sts:           sts,
+				saveImage:     saveImage,
+				plan:          plan,
+				multiPlatform: isMulti,
+			})
+		}
+	}
+
+	return images, nil
 }
 
 func (b *Builder) targetPhaseState(sts *states.SingleTarget) pllb.State {

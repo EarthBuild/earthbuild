@@ -26,6 +26,11 @@ type ImageExport struct {
 	// Outcome is settled by the exporter once it has exported the image (or
 	// failed to).
 	Outcome ExportOutcome
+	// Pushed is settled once a wait block has pushed the image (or failed to).
+	Pushed ExportOutcome
+	// ExportedLocally is settled once a wait block has exported the image to
+	// the local container engine (or failed to).
+	ExportedLocally ExportOutcome
 
 	exporter imageExporter
 	mu       sync.Mutex

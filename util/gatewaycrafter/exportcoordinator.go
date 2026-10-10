@@ -63,6 +63,31 @@ func (ec *ExportCoordinator) GetImage(k string) (*dockerutil.Manifest, string, b
 	return v.manifest, v.localImage, ok
 }
 
+// ManifestLists groups the images stored under keys that are one platform of a
+// multi-platform image (they were added with a manifest) by the name of that
+// multi-platform image. Each group is what the local container engine picks the
+// multi-platform image's default platform from. Images added without a manifest
+// are left out.
+func (ec *ExportCoordinator) ManifestLists(keys []string) (map[string][]dockerutil.Manifest, error) {
+	ec.m.Lock()
+	defer ec.m.Unlock()
+
+	lists := make(map[string][]dockerutil.Manifest)
+
+	for _, k := range keys {
+		v, ok := ec.imageEntries[k]
+		if !ok {
+			return nil, fmt.Errorf("unrecognized image %s", k)
+		}
+
+		if v.manifest != nil {
+			lists[v.localImage] = append(lists[v.localImage], *v.manifest)
+		}
+	}
+
+	return lists, nil
+}
+
 // AddImage creates a new entry for the value under sessionID/<v'>-<uuid>
 // Where v' is v without special chars.
 func (ec *ExportCoordinator) AddImage(sessionID, localImage string, manifest *dockerutil.Manifest) string {

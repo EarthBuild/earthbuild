@@ -48,7 +48,7 @@ func (f *exportRecordingGwClient) Export(_ context.Context, req gwclient.ExportR
 
 		f.exported = append(f.exported, string(val))
 
-		if string(req.Metadata[refPrefix+"/export-image-push"]) == "true" {
+		if string(req.Metadata[refPrefix+"/export-image-push"]) == metaTrue {
 			f.pushed = append(f.pushed, string(val))
 		}
 	}

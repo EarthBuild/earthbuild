@@ -56,6 +56,11 @@ type imageExport struct {
 
 	doPush      bool
 	localExport bool
+	// member marks an image that an earlier Wait has already pushed or
+	// exported locally, which only belongs in a manifest list this Wait makes;
+	// see manifestListMembers. This Wait does not export it again, and does not
+	// settle its outcomes.
+	member bool
 }
 
 func newWaitBlock() *waitBlock {
@@ -146,7 +151,8 @@ func (wb *waitBlock) imageExports(items []states.WaitItem) []imageExport {
 // exports (see imageExports), for one Wait, and returns them with what that Wait
 // still has to do for each. An image another Wait has already pushed or exported
 // locally is not pushed or exported again: it is attached to every block that
-// BUILDs its target, but it has a single exporter.
+// BUILDs its target, but it has a single exporter. It is only added back as a
+// member of a manifest list this Wait makes (see manifestListMembers).
 func (wb *waitBlock) claimExports(items []states.WaitItem) []imageExport {
 	if wb.detached {
 		return nil
@@ -172,7 +178,86 @@ func (wb *waitBlock) claimExports(items []states.WaitItem) []imageExport {
 		})
 	}
 
-	return exports
+	return append(exports, manifestListMembers(items, exports)...)
+}
+
+// manifestListMembers returns the images in items that belong in the manifest
+// lists exports make, but that an earlier Wait has already pushed or exported
+// locally, as members (see imageExport.member).
+//
+// A multi-platform tag is exported as one manifest list. A push replaces what
+// the registry had under the tag, and the local image is made from the
+// per-platform images loaded with it. So when this Wait pushes or loads a tag,
+// every platform of it this block holds must be in that manifest list, even
+// one whose target was BUILT, and exported, in an earlier WAIT. A platform
+// another Wait pushed is pushed again as part of the list, from the ref that
+// Wait solved (see saveImageWaitItem.ref). A platform another Wait loaded is
+// not loaded again: the local image is only told about it.
+//
+// A platform another Wait is still loading is left out of the local image;
+// that Wait makes the local image with it once it is done.
+func manifestListMembers(items []states.WaitItem, exports []imageExport) []imageExport {
+	type platformKey struct {
+		tag, platform string
+	}
+
+	var (
+		pushTags, localTags = map[string]bool{}, map[string]bool{}
+		pushed, local       = map[platformKey]bool{}, map[platformKey]bool{}
+		claimedPush         = map[*saveImageWaitItem]bool{}
+		claimedLocal        = map[*saveImageWaitItem]bool{}
+	)
+
+	for _, export := range exports {
+		claimedPush[export.saveImageWaitItem] = export.doPush
+		claimedLocal[export.saveImageWaitItem] = export.localExport
+
+		if !export.si.HasPlatform || export.si.NoManifestList {
+			continue
+		}
+
+		key := platformKey{export.si.DockerTag, export.si.Platform.String()}
+
+		if export.doPush {
+			pushTags[key.tag] = true
+			pushed[key] = true
+		}
+
+		if export.localExport {
+			localTags[key.tag] = true
+			local[key] = true
+		}
+	}
+
+	var members []imageExport
+
+	for _, item := range items {
+		saveImage, ok := item.(*saveImageWaitItem)
+		if !ok || !saveImage.si.HasPlatform || saveImage.si.NoManifestList {
+			continue
+		}
+
+		key := platformKey{saveImage.si.DockerTag, saveImage.si.Platform.String()}
+
+		member := imageExport{
+			saveImageWaitItem: saveImage,
+			member:            true,
+			doPush:            pushTags[key.tag] && !pushed[key] && !claimedPush[saveImage] && saveImage.pushedElsewhere(),
+			localExport: localTags[key.tag] && !local[key] && !claimedLocal[saveImage] &&
+				saveImage.exportedLocallyAs() != "",
+		}
+
+		if !member.doPush && !member.localExport {
+			continue
+		}
+
+		pushed[key] = pushed[key] || member.doPush
+		local[key] = local[key] || member.localExport
+
+		members = append(members, member)
+	}
+
+	return members
 }
 
 // snapshotItems returns the items added so far. A Wait acts on the items
@@ -231,7 +316,19 @@ func saveImages(ctx context.Context, exports []imageExport) (retErr error) {
 	// executed until it is done; see Converter.FinalizeStates.
 	defer func() {
 		for _, export := range exports {
+			if export.member {
+				continue
+			}
+
 			export.si.Export.Outcome.Settle(ctx, retErr)
+
+			if export.doPush {
+				export.si.Export.Pushed.Settle(ctx, retErr)
+			}
+
+			if export.localExport {
+				export.si.Export.ExportedLocally.Settle(ctx, retErr)
+			}
 		}
 	}()
 
@@ -286,14 +383,30 @@ func saveImages(ctx context.Context, exports []imageExport) (retErr error) {
 
 	refID := 0
 
+	var (
+		// localMemberKeys are, by tag, the export coordinator keys of the
+		// platforms an earlier Wait loaded, which the local multi-platform images
+		// this Wait makes include.
+		localMemberKeys = make(map[string][]string)
+		// localKeys are the export coordinator keys this Wait loads multi-platform
+		// images under, by the item exported.
+		localKeys = make(map[*saveImageWaitItem]string)
+	)
+
 	for _, item := range exports {
+		if item.member && item.localExport {
+			localMemberKeys[item.si.DockerTag] = append(localMemberKeys[item.si.DockerTag], item.exportedLocallyAs())
+		}
+
+		if item.member && !item.doPush {
+			// Nothing to export: it is only in the local image's manifest list.
+			continue
+		}
+
 		sessionID := item.c.opt.GwClient.BuildOpts().SessionID
 		exportCoordinator := item.c.opt.ExportCoordinator
 
-		ref, err := llbutil.StateToRef(
-			ctx, item.c.opt.GwClient, item.si.State, item.c.opt.NoCache,
-			item.c.platr, item.c.opt.CacheImports.AsSlice(),
-		)
+		ref, err := item.ref(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to solve image required for %s: %w", item.si.DockerTag, err)
 		}
@@ -312,7 +425,7 @@ func saveImages(ctx context.Context, exports []imageExport) (retErr error) {
 				return err
 			}
 
-			if item.si.CheckDuplicate && item.si.DockerTag != "" {
+			if item.si.CheckDuplicate && item.si.DockerTag != "" && !item.member {
 				if _, found := platformImgNames[platformImgName]; found {
 					return fmt.Errorf(
 						"image %s is defined multiple times for the same platform (%s)",
@@ -342,7 +455,7 @@ func saveImages(ctx context.Context, exports []imageExport) (retErr error) {
 
 		refID++
 
-		if item.localExport {
+		if item.localExport && !item.member {
 			switch {
 			case isMultiPlatform[item.si.DockerTag]:
 				// local docker instance does not support multi-platform images, so we must create a new entry
@@ -356,6 +469,7 @@ func saveImages(ctx context.Context, exports []imageExport) (retErr error) {
 					ImageName: platformImgName,
 					Platform:  item.si.Platform,
 				})
+				localKeys[item.saveImageWaitItem] = exportCoordinatorImageID
 
 				if item.c.opt.UseLocalRegistry {
 					gwCrafter.AddMeta(refPrefix+"/export-image-local-registry", []byte(exportCoordinatorImageID))
@@ -375,6 +489,12 @@ func saveImages(ctx context.Context, exports []imageExport) (retErr error) {
 			}
 
 			exportCoordinator.AddLocalOutputSummary(item.c.target.String(), item.si.DockerTag, item.c.mts.Final.ID)
+		}
+	}
+
+	for item, key := range localKeys {
+		if members := localMemberKeys[item.si.DockerTag]; len(members) != 0 {
+			item.c.opt.ExportCoordinator.AddManifestListMembers(key, members...)
 		}
 	}
 
@@ -401,6 +521,10 @@ func saveImages(ctx context.Context, exports []imageExport) (retErr error) {
 	})
 	if err != nil {
 		return fmt.Errorf("failed to SAVE IMAGE: %w", err)
+	}
+
+	for item, key := range localKeys {
+		item.setLocalManifestKey(key)
 	}
 
 	return nil
@@ -487,8 +611,10 @@ func (wb *waitBlock) exportOf(state *pllb.State) *saveImageWaitItem {
 	return exportOf(wb.imageExports(wb.snapshotItems()), state)
 }
 
-// exportsState reports whether one of exports is an image whose state is state.
-// A missing or scratch state needs no solving, so it counts as exported.
+// exportsState reports whether one of exports is an image whose state is state,
+// and that this Wait solves (a member only in a local manifest list is not
+// solved). A missing or scratch state needs no solving, so it counts as
+// exported.
 func exportsState(exports []imageExport, state *pllb.State) bool {
 	if state == nil || state.Output() == nil {
 		return true
@@ -497,9 +623,14 @@ func exportsState(exports []imageExport, state *pllb.State) bool {
 	return exportOf(exports, state) != nil
 }
 
-// exportOf returns the image in exports whose state is state, or nil.
+// exportOf returns the image in exports whose state is state, or nil. A member
+// only in a local manifest list does not count: it is not solved.
 func exportOf(exports []imageExport, state *pllb.State) *saveImageWaitItem {
 	for _, export := range exports {
+		if export.member && !export.doPush {
+			continue
+		}
+
 		if export.si.State.Output() == state.Output() {
 			return export.saveImageWaitItem
 		}

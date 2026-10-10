@@ -1,17 +1,29 @@
 package earthfile2llb
 
 import (
+	"context"
 	"sync"
 
 	"github.com/EarthBuild/earthbuild/states"
+	"github.com/EarthBuild/earthbuild/util/llbutil"
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
 type saveImageWaitItem struct {
 	c *Converter
+
+	// localManifestKey is the export coordinator key the image was exported
+	// locally under, as one platform of a multi-platform image. It is set once
+	// that export has succeeded, and lets a later Wait include the image in the
+	// local multi-platform image it makes without loading it again.
+	localManifestKey string
+
 	// si.Export is shared with the target's SaveImages entry: it is how the wait
 	// blocks and builder.go agree on who exports the image, and it is settled
 	// once that export is done.
 	si states.SaveImage
+
+	mu sync.Mutex
 
 	allowPush   bool
 	doPush      bool
@@ -22,8 +34,6 @@ type saveImageWaitItem struct {
 	// them may push or export it again.
 	pushed          bool
 	exportedLocally bool
-
-	mu sync.Mutex
 }
 
 func newSaveImage(si states.SaveImage, c *Converter, allowPush, localExport bool) states.WaitItem {
@@ -118,4 +128,46 @@ func (siwi *saveImageWaitItem) claim(topLevel bool) (doPush, localExport bool) {
 	siwi.exportedLocally = siwi.exportedLocally || localExport
 
 	return doPush, localExport
+}
+
+// pushedElsewhere reports whether the image is to be pushed, and an earlier
+// Wait (of this block or another) has already taken that push on.
+func (siwi *saveImageWaitItem) pushedElsewhere() bool {
+	siwi.mu.Lock()
+	defer siwi.mu.Unlock()
+
+	return siwi.doPush && siwi.pushed
+}
+
+// exportedLocallyAs returns the export coordinator key an earlier Wait exported
+// the image locally under, as one platform of a multi-platform image, or "" if
+// none has (yet).
+func (siwi *saveImageWaitItem) exportedLocallyAs() string {
+	siwi.mu.Lock()
+	defer siwi.mu.Unlock()
+
+	if !siwi.localExport {
+		return ""
+	}
+
+	return siwi.localManifestKey
+}
+
+// setLocalManifestKey records the export coordinator key the image has been
+// exported locally under; see exportedLocallyAs.
+func (siwi *saveImageWaitItem) setLocalManifestKey(key string) {
+	siwi.mu.Lock()
+	defer siwi.mu.Unlock()
+
+	siwi.localManifestKey = key
+}
+
+// ref returns the image's solved state. It is solved once, however many
+// exports it is part of; see states.ImageExport.Ref.
+func (siwi *saveImageWaitItem) ref(ctx context.Context) (gwclient.Reference, error) {
+	c := siwi.c
+
+	return siwi.si.Export.Ref(ctx, func(ctx context.Context) (gwclient.Reference, error) {
+		return llbutil.StateToRef(ctx, c.opt.GwClient, siwi.si.State, c.opt.NoCache, c.platr, c.opt.CacheImports.AsSlice())
+	})
 }

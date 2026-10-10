@@ -100,7 +100,13 @@ func TestBuilderKeepsPlatformsAWaitBlockExported(t *testing.T) {
 				if tt.push && img.plan.Push || !tt.push && img.plan.Export {
 					platforms = append(platforms, img.saveImage.Platform.String())
 				}
+
+				if img.sts == amd64 {
+					assert.True(t, img.member, "amd64 must only be a member of the manifest list, not exported again")
+				}
 			}
+
+			assert.True(t, amd64Export.TakenByWaitBlock(), "the wait block still owns the amd64 export")
 
 			slices.Sort(platforms)
 

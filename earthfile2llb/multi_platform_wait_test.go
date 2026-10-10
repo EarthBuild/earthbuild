@@ -251,7 +251,12 @@ func TestLaterMultiPlatformExportKeepsEarlierPlatforms(t *testing.T) {
 			arm64 := newPlatformImageConverter(t, gw, coordinator, second, "linux/arm64", tt.export, tt.push)
 			arm64.opt.UseLocalRegistry = tt.useLocalRegistry
 
+			solvesBefore := gw.solves.Load()
+
 			require.NoError(t, second.Wait(t.Context(), tt.push, arm64.opt.doSaves()))
+
+			assert.Equal(t, int32(1), gw.solves.Load()-solvesBefore,
+				"the second WAIT must only solve the platform that is new, and reuse the other one")
 
 			requests := gw.recorded()
 			require.Len(t, requests, 2, "each WAIT ... END exports once")
@@ -269,7 +274,10 @@ func TestLaterMultiPlatformExportKeepsEarlierPlatforms(t *testing.T) {
 			assert.Equal(t, []string{scenarioTag + "_linux_arm64"}, requests[1].localNames(),
 				"the second WAIT must only load the platform that is new")
 
-			lists, err := coordinator.ManifestLists(requests[1].manifestKeys())
+			// The first WAIT's export is done, so its image has been loaded.
+			loaded := func(string) bool { return true }
+
+			lists, err := coordinator.ManifestLists(requests[1].manifestKeys(), loaded)
 			require.NoError(t, err)
 
 			var platforms []string

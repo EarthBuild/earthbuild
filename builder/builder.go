@@ -462,20 +462,35 @@ func (b *Builder) convertAndBuild(
 		for _, img := range images {
 			sts, saveImage := img.sts, img.saveImage
 
-			if saveImage.Export != nil {
+			if saveImage.Export != nil && !img.member {
 				builderExports = append(builderExports, saveImage.Export)
 			}
 
 			shouldExport, shouldPush := img.plan.Export, img.plan.Push
 
-			ref, err := b.stateToRef(childCtx, gwClient, saveImage.State, sts.PlatformResolver)
+			if img.member && !shouldPush {
+				// Only in the local image's manifest list: a wait block loaded it.
+				manifest, err := builderImageManifest(img)
+				if err != nil {
+					return nil, err
+				}
+
+				manifestLists[saveImage.DockerTag] = append(manifestLists[saveImage.DockerTag], manifest)
+
+				continue
+			}
+
+			// A member was solved by the wait block that pushed it; reuse that ref.
+			ref, err := saveImage.Export.Ref(childCtx, func(solveCtx context.Context) (gwclient.Reference, error) {
+				return b.stateToRef(solveCtx, gwClient, saveImage.State, sts.PlatformResolver)
+			})
 			if err != nil {
 				return nil, err
 			}
 
 			//nolint:nestif // TODO(jhorsts): simplify
 			if img.multiPlatform {
-				resolvedPlat := sts.PlatformResolver.Materialize(sts.PlatformResolver.Current())
+				resolvedPlat := builderImagePlatform(img)
 				platformStr := resolvedPlat.String()
 
 				platformImgName, err := llbutil.PlatformSpecificImageName(saveImage.DockerTag, resolvedPlat)
@@ -483,7 +498,7 @@ func (b *Builder) convertAndBuild(
 					return nil, err
 				}
 
-				if saveImage.CheckDuplicate && saveImage.DockerTag != "" {
+				if saveImage.CheckDuplicate && saveImage.DockerTag != "" && !img.member {
 					if _, found := platformImgNames[platformImgName]; found {
 						return nil, fmt.Errorf(
 							"image %s is defined multiple times for the same platform (%s)",
@@ -511,8 +526,15 @@ func (b *Builder) convertAndBuild(
 					imageIndex++
 				}
 
-				// For local.
-				if shouldExport {
+				// For local. A member was loaded by the wait block that exported it.
+				if shouldExport && img.member {
+					manifestLists[saveImage.DockerTag] = append(
+						manifestLists[saveImage.DockerTag], dockerutil.Manifest{
+							ImageName: platformImgName,
+							Platform:  resolvedPlat,
+						},
+					)
+				} else if shouldExport {
 					refPrefix, err := gwCrafter.
 						AddPushImageEntry(ref, imageIndex, platformImgName, false, false, saveImage.Image, nil)
 					if err != nil {
@@ -628,25 +650,33 @@ func (b *Builder) convertAndBuild(
 
 		return gwCrafter.GetResult(), nil
 	}
-	exportedTarImageManifestKeys := map[string]struct{}{}
+	// loadedImageKeys are the export coordinator keys of the per-platform images
+	// loaded into the local container engine so far, from a tar or pulled from
+	// the local registry.
+	loadedImageKeys := map[string]struct{}{}
 
 	var exportedImagesMutex sync.Mutex
+
+	// isLoaded must be called with exportedImagesMutex held.
+	isLoaded := func(key string) bool {
+		_, ok := loadedImageKeys[key]
+		return ok
+	}
 
 	onImageDone := func(manifestKey, waitFor string) error {
 		exportedImagesMutex.Lock()
 		defer exportedImagesMutex.Unlock()
 
-		exportedTarImageManifestKeys[manifestKey] = struct{}{}
+		loadedImageKeys[manifestKey] = struct{}{}
 		waitForKeys := strings.Split(waitFor, " ")
 
 		for _, manifestKey := range waitForKeys {
-			_, ok := exportedTarImageManifestKeys[manifestKey]
-			if !ok {
+			if !isLoaded(manifestKey) {
 				return nil
 			}
 		}
 
-		manifests, err := exportCoordinator.ManifestLists(waitForKeys)
+		manifests, err := exportCoordinator.ManifestLists(waitForKeys, isLoaded)
 		if err != nil {
 			return fmt.Errorf("onImageDone: %w", err)
 		}
@@ -736,7 +766,15 @@ func (b *Builder) convertAndBuild(
 			return err
 		}
 
-		manifests, err := exportCoordinator.ManifestLists(imagesToPull)
+		exportedImagesMutex.Lock()
+
+		for _, imgToPull := range imagesToPull {
+			loadedImageKeys[imgToPull] = struct{}{}
+		}
+
+		manifests, err := exportCoordinator.ManifestLists(imagesToPull, isLoaded)
+		exportedImagesMutex.Unlock()
+
 		if err != nil {
 			return err
 		}
@@ -1030,12 +1068,36 @@ type builderImage struct {
 	// image: it is pushed as part of its tag's manifest list, and loaded locally
 	// under a per-platform name.
 	multiPlatform bool
+	// member marks an image a wait block has already pushed or exported
+	// locally, which only belongs in a manifest list builder.go makes; see
+	// builderManifestListMembers. builder.go does not take its export, does
+	// not load it again, and does not settle its outcome.
+	member bool
+}
+
+// builderImagePlatform returns the platform img is exported for.
+func builderImagePlatform(img builderImage) platutil.Platform {
+	return img.sts.PlatformResolver.Materialize(img.sts.PlatformResolver.Current())
+}
+
+// builderImageManifest returns the per-platform local image img is loaded as.
+func builderImageManifest(img builderImage) (dockerutil.Manifest, error) {
+	platform := builderImagePlatform(img)
+
+	name, err := llbutil.PlatformSpecificImageName(img.saveImage.DockerTag, platform)
+	if err != nil {
+		return dockerutil.Manifest{}, err
+	}
+
+	return dockerutil.Manifest{ImageName: name, Platform: platform}, nil
 }
 
 // takeBuilderImages returns the SAVE IMAGEs builder.go exports, in the order it
 // exports them, and takes the export of each one (see
 // states.ImageExport.TakeForBuilder). An image a wait block exports instead is
-// left out. cacheExport is whether the build exports a cache (--remote-cache).
+// left out, unless it belongs in one of the manifest lists builder.go makes
+// (see builderManifestListMembers). cacheExport is whether the build exports a
+// cache (--remote-cache).
 func takeBuilderImages(
 	opt BuildOpt,
 	mts *states.MultiTarget,
@@ -1098,7 +1160,87 @@ func takeBuilderImages(
 		}
 	}
 
-	return images, nil
+	return append(images, builderManifestListMembers(mts, images, targetImages)...), nil
+}
+
+// builderManifestListMembers returns the images that belong in the manifest
+// lists images make, but that a wait block has already pushed or exported
+// locally, as members (see builderImage.member).
+//
+// They are platforms builder.go would have exported itself (SkipBuilder ==
+// false: their SAVE IMAGE was left to it under --use-inline-cache), until a
+// WAIT ... END that BUILT them too took their export over. builder.go pushes a
+// multi-platform tag as one manifest list, which replaces what the registry
+// had under the tag, and makes the local image from the per-platform images it
+// is given. So those platforms stay in both: a member is pushed again from the
+// ref the wait block solved, but it is not loaded again.
+func builderManifestListMembers(
+	mts *states.MultiTarget, images []builderImage, targetImages func(*states.SingleTarget) []states.SaveImage,
+) []builderImage {
+	type platformKey struct {
+		tag, platform string
+	}
+
+	var (
+		pushTags, localTags = map[string]bool{}, map[string]bool{}
+		pushed, local       = map[platformKey]bool{}, map[platformKey]bool{}
+	)
+
+	for _, img := range images {
+		if !img.multiPlatform {
+			continue
+		}
+
+		key := platformKey{img.saveImage.DockerTag, builderImagePlatform(img).String()}
+
+		if img.plan.Push {
+			pushTags[key.tag] = true
+			pushed[key] = true
+		}
+
+		if img.plan.Export {
+			localTags[key.tag] = true
+			local[key] = true
+		}
+	}
+
+	succeeded := func(o *states.ExportOutcome) bool {
+		done, err := o.Result()
+		return done && err == nil
+	}
+
+	var members []builderImage
+
+	for _, sts := range mts.All() {
+		if sts.PlatformResolver.Current() == platutil.DefaultPlatform {
+			continue
+		}
+
+		for _, saveImage := range targetImages(sts) {
+			if saveImage.SkipBuilder || saveImage.NoManifestList || !saveImage.Export.TakenByWaitBlock() {
+				continue
+			}
+
+			member := builderImage{sts: sts, saveImage: saveImage, multiPlatform: true, member: true}
+			key := platformKey{saveImage.DockerTag, builderImagePlatform(member).String()}
+
+			member.plan = earthfile2llb.ImagePlan{
+				Push:   pushTags[key.tag] && !pushed[key] && succeeded(&saveImage.Export.Pushed),
+				Export: localTags[key.tag] && !local[key] && succeeded(&saveImage.Export.ExportedLocally),
+			}
+
+			if !member.plan.Push && !member.plan.Export {
+				continue
+			}
+
+			pushed[key] = pushed[key] || member.plan.Push
+			local[key] = local[key] || member.plan.Export
+
+			members = append(members, member)
+		}
+	}
+
+	return members
 }
 
 func (b *Builder) targetPhaseState(sts *states.SingleTarget) pllb.State {

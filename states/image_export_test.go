@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 	"testing"
+
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 )
 
 // Only one exporter ever gets an image's export, however many ask and in
@@ -106,5 +108,53 @@ func TestExportOutcomeWait(t *testing.T) {
 	got = pending.Wait(ctx)
 	if !errors.Is(got, context.Canceled) {
 		t.Errorf("Wait() on a cancelled context = %v, want %v", got, context.Canceled)
+	}
+}
+
+// An image's state is solved once, however many exports ask for it at the same
+// time; a failed solve is not kept.
+func TestImageExportRefSolvesOnce(t *testing.T) {
+	t.Parallel()
+
+	var (
+		e      ImageExport
+		mu     sync.Mutex
+		solves int
+		wg     sync.WaitGroup
+	)
+
+	failed := errors.New("solve failed")
+
+	_, err := e.Ref(t.Context(), func(context.Context) (gwclient.Reference, error) {
+		return nil, failed
+	})
+	if !errors.Is(err, failed) {
+		t.Fatalf("Ref() = %v, want %v", err, failed)
+	}
+
+	for range 8 {
+		wg.Go(func() {
+			_, refErr := e.Ref(t.Context(), func(context.Context) (gwclient.Reference, error) {
+				mu.Lock()
+				solves++
+				mu.Unlock()
+
+				return nil, nil
+			})
+			if refErr != nil {
+				t.Errorf("Ref() = %v, want nil", refErr)
+			}
+		})
+	}
+
+	wg.Wait()
+
+	if solves != 1 {
+		t.Errorf("the state was solved %d times after the failed solve, want 1", solves)
+	}
+
+	done, err := e.Pushed.Result()
+	if done || err != nil {
+		t.Errorf("Pushed.Result() = %v, %v, want false, nil before it is settled", done, err)
 	}
 }

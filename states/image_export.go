@@ -1,6 +1,11 @@
 package states
 
-import "sync"
+import (
+	"context"
+	"sync"
+
+	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+)
 
 // imageExporter is who exports one SAVE IMAGE.
 type imageExporter int
@@ -23,6 +28,13 @@ const (
 //
 // A nil *ImageExport has no one to coordinate with: whoever asks may export.
 type ImageExport struct {
+	// ref is the image's solved state, once Ref has solved it.
+	ref gwclient.Reference
+	// solving is held by the Ref call that is solving the image's state. It is
+	// a channel, not a mutex, so that a caller waiting for it can give up when
+	// its context is done.
+	solving chan struct{}
+
 	// Outcome is settled by the exporter once it has exported the image (or
 	// failed to).
 	Outcome ExportOutcome
@@ -34,6 +46,7 @@ type ImageExport struct {
 
 	exporter imageExporter
 	mu       sync.Mutex
+	solved   bool
 }
 
 // TakeForWaitBlock makes a wait block the image's exporter, unless builder.go
@@ -73,4 +86,54 @@ func (e *ImageExport) take(exporter imageExporter) bool {
 	}
 
 	return e.exporter == exporter
+}
+
+// Ref returns the image's solved state, calling solve for it only once: the
+// same image can be exported more than once (pushed by one wait block, then
+// pushed again by another as part of a manifest list), and the later exports
+// reuse the ref the first one solved. Callers that come while solve is running
+// wait for it. If solve fails, nothing is kept, and the next caller solves
+// again.
+func (e *ImageExport) Ref(
+	ctx context.Context, solve func(context.Context) (gwclient.Reference, error),
+) (gwclient.Reference, error) {
+	if e == nil {
+		return solve(ctx)
+	}
+
+	e.mu.Lock()
+
+	if e.solving == nil {
+		e.solving = make(chan struct{}, 1)
+	}
+
+	solving := e.solving
+	e.mu.Unlock()
+
+	select {
+	case solving <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	defer func() { <-solving }()
+
+	e.mu.Lock()
+	ref, solved := e.ref, e.solved
+	e.mu.Unlock()
+
+	if solved {
+		return ref, nil
+	}
+
+	ref, err := solve(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	e.mu.Lock()
+	e.ref, e.solved = ref, true
+	e.mu.Unlock()
+
+	return ref, nil
 }

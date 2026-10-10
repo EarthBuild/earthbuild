@@ -11,7 +11,10 @@ import (
 // ExportCoordinator is a thread-safe data-store used for coordinating the export
 // of images, and artifacts (e.g. OnPull, OnImage, and Artifact summaries).
 type ExportCoordinator struct {
-	imageEntries          map[string]imageEntry
+	imageEntries map[string]imageEntry
+	// manifestListMembers maps an image's key to the keys of the images that
+	// belong in the same manifest list, but that an earlier export loaded.
+	manifestListMembers   map[string][]string
 	localOutputSummary    []LocalOutputSummaryEntry
 	artifactOutputSummary []ArtifactOutputSummaryEntry
 	pushedImageSummary    []PushedImageSummaryEntry
@@ -49,7 +52,8 @@ type ArtifactOutputSummaryEntry struct {
 // NewExportCoordinator returns a new ExportCoordinator.
 func NewExportCoordinator() *ExportCoordinator {
 	return &ExportCoordinator{
-		imageEntries: map[string]imageEntry{},
+		imageEntries:        map[string]imageEntry{},
+		manifestListMembers: map[string][]string{},
 	}
 }
 
@@ -68,24 +72,65 @@ func (ec *ExportCoordinator) GetImage(k string) (*dockerutil.Manifest, string, b
 // multi-platform image. Each group is what the local container engine picks the
 // multi-platform image's default platform from. Images added without a manifest
 // are left out.
-func (ec *ExportCoordinator) ManifestLists(keys []string) (map[string][]dockerutil.Manifest, error) {
+//
+// A group also gets the members added for its keys with AddManifestListMembers,
+// those that loaded reports as already loaded into the local container engine:
+// they were loaded by an earlier export, and are not loaded again.
+func (ec *ExportCoordinator) ManifestLists(
+	keys []string, loaded func(key string) bool,
+) (map[string][]dockerutil.Manifest, error) {
 	ec.m.Lock()
 	defer ec.m.Unlock()
 
 	lists := make(map[string][]dockerutil.Manifest)
 
-	for _, k := range keys {
+	add := func(k string) bool {
 		v, ok := ec.imageEntries[k]
 		if !ok {
-			return nil, fmt.Errorf("unrecognized image %s", k)
+			return false
 		}
 
-		if v.manifest != nil {
-			lists[v.localImage] = append(lists[v.localImage], *v.manifest)
+		if v.manifest == nil {
+			return true
+		}
+
+		for _, m := range lists[v.localImage] {
+			if m.ImageName == v.manifest.ImageName {
+				return true
+			}
+		}
+
+		lists[v.localImage] = append(lists[v.localImage], *v.manifest)
+
+		return true
+	}
+
+	for _, k := range keys {
+		if !add(k) {
+			return nil, fmt.Errorf("unrecognized image %s", k)
+		}
+	}
+
+	for _, k := range keys {
+		for _, member := range ec.manifestListMembers[k] {
+			if loaded(member) && !add(member) {
+				return nil, fmt.Errorf("unrecognized manifest list member %s", member)
+			}
 		}
 	}
 
 	return lists, nil
+}
+
+// AddManifestListMembers records that the images stored under members belong
+// in the same manifest list as the one stored under key, although an earlier
+// export loaded them: the local multi-platform image made from key's export
+// must still include them. See ManifestLists.
+func (ec *ExportCoordinator) AddManifestListMembers(key string, members ...string) {
+	ec.m.Lock()
+	defer ec.m.Unlock()
+
+	ec.manifestListMembers[key] = append(ec.manifestListMembers[key], members...)
 }
 
 // AddImage creates a new entry for the value under sessionID/<v'>-<uuid>

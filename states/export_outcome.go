@@ -74,3 +74,12 @@ func (o *ExportOutcome) Wait(ctx context.Context) error {
 		return ctx.Err()
 	}
 }
+
+// Result reports whether the export is done, and if so, its error. Unlike
+// Wait, it never blocks.
+func (o *ExportOutcome) Result() (done bool, err error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	return o.done, o.err
+}

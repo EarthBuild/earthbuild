@@ -1345,6 +1345,7 @@ func (c *Converter) waitBlock() *waitBlock {
 // PushWaitBlock should be called when a WAIT block starts, all commands will be added to this new block.
 func (c *Converter) PushWaitBlock(_ context.Context) error {
 	waitBlock := newWaitBlock()
+	waitBlock.explicit = true
 	c.waitBlockStack = append(c.waitBlockStack, waitBlock)
 	c.mts.Final.AddWaitBlock(waitBlock)
 
@@ -1459,8 +1460,10 @@ func (c *Converter) SaveImage(
 				// It is set before the wait item copies si, so the top-level wait block
 				// can leave a SkipBuilder == false image to builder.go instead of
 				// exporting it twice. builder.go never runs under --global-wait-end and
-				// never pushes a remote target, so those are never left to it.
-				if c.opt.GlobalWaitBlockFtr || !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 ||
+				// never pushes a remote target, so those are never left to it. Nor is
+				// an image inside WAIT ... END, whether saved there or by a target
+				// BUILT there: END must export it before it returns.
+				if c.opt.GlobalWaitBlockFtr || !c.opt.UseInlineCache || c.waitBlock().explicit ||
 					c.target.IsRemote() {
 					si.SkipBuilder = true
 				}

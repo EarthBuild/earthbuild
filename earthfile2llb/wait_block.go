@@ -34,6 +34,10 @@ type waitBlock struct {
 	// before builder.go runs, so it is the only block that may leave an image
 	// to builder.go (SkipBuilder == false) instead of exporting it itself.
 	topLevel bool
+	// explicit marks a WAIT ... END block. END must have exported everything
+	// in it, including the images of targets BUILT inside it, before it
+	// returns, so none of them may be left to builder.go.
+	explicit bool
 }
 
 func newWaitBlock() *waitBlock {

@@ -33,7 +33,7 @@ comments, docs or commit messages:
 
 ## Earthfile Parser
 
-* When making changes to the parser, it is critical to keep [earthfile.abnf](file:///Users/jhorsts/projects/earthbuild/earthbuild/internal/earthfile/earthfile.abnf) up to date. And ensure the parser's implementation matches the ABNF grammar.
+* When making changes to the parser, it is critical to keep [earthfile.abnf](internal/earthfile/earthfile.abnf) up to date. And ensure the parser's implementation matches the ABNF grammar.
 
 ## Definition of Done
 
@@ -46,6 +46,7 @@ After making changes to the codebase, verify the following and rectify any issue
 ```
 <workspace>/
 ├── cmd/           # CLI commands
+├── internal/      # All internal packages (slowly refactored and migrated from the root dir)
 ├── examples/      # Examples in different languages
 └── www/           # Website
 ```
@@ -63,4 +64,5 @@ The primary development lifecycle tool is `earth`.
 # Guardrails
 
 * Testing against container runtimes (Apple Container, Docker, Podman, etc.) MUST be done with a re-compiled buildkit daemon (`earth ./buildkitd+buildkitd`). Testing against stale or uncompiled older buildkit images (such as published `v0.8.18`) is pointless, distracting, and introduces false bugs or unwanted workarounds.
+* When making changes involving EarthBuild's customized buildkit fork (`EarthBuild/buildkit`, forked from `moby/buildkit`)—whether in EarthBuild or BuildKit code—read [../buildkit/AGENTS.md](../buildkit/AGENTS.md) (or <https://raw.githubusercontent.com/EarthBuild/buildkit/refs/heads/main/AGENTS.md>) and [AGENTS.md](AGENTS.md) (or <https://raw.githubusercontent.com/EarthBuild/earthbuild/refs/heads/main/AGENTS.md>) before modifying the code.
 * Do not add golang dependencies unless asked by user explicitly.

@@ -1,10 +1,15 @@
 package solvermon
 
 import (
+	"encoding/binary"
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
+	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -201,6 +206,156 @@ func TestReErrNotFound(t *testing.T) {
 
 			if len(match) == 0 || !assert.ElementsMatch(t, match[1:], tt.expected) {
 				t.Errorf("reErrNotFound.FindStringSubmatch(%s) = %v, want %v", tt.errString, match, tt.expected)
+			}
+		})
+	}
+}
+
+func TestVertexMonitor_Write_StatsStream_NonFatalOnError(t *testing.T) {
+	t.Parallel()
+
+	bus := logbus.New()
+
+	cp, err := bus.Run().NewCommand(
+		"cmd-id", "echo hello", "target-id", "cmd", "linux/amd64",
+		false, false, false, earthfile.SourceLocation{}, "", "", "",
+	)
+	if err != nil {
+		t.Fatalf("failed to create command: %v", err)
+	}
+
+	vm := &vertexMonitor{
+		cp:  cp,
+		ssp: statsstreamparser.New(),
+	}
+
+	// 1. Send corrupted/scrambled stats stream data (e.g. JSON starting with '{' / 123)
+	corrupted := []byte(`{"cpu":{"usage":{"total":100}}}`)
+
+	n, err := vm.Write(corrupted, time.Now(), BuildkitStatsStream)
+	if err != nil {
+		t.Fatalf("Write returned error %v, want nil (non-fatal)", err)
+	}
+
+	if n != len(corrupted) {
+		t.Errorf("Write returned n=%d, want %d", n, len(corrupted))
+	}
+
+	// 2. Following the corrupted data, parser should be reset and able to parse a valid packet
+	validPayload := `{"cpu":{"usage":{"total":200}}}`
+	buf := make([]byte, 1+4+len(validPayload))
+	buf[0] = 1                                                         // version 1
+	binary.LittleEndian.PutUint32(buf[1:5], uint32(len(validPayload))) // #nosec G115
+	copy(buf[5:], validPayload)
+
+	n, err = vm.Write(buf, time.Now(), BuildkitStatsStream)
+	if err != nil {
+		t.Fatalf("Write returned error %v on subsequent valid packet, want nil", err)
+	}
+
+	if n != len(buf) {
+		t.Errorf("Write returned n=%d, want %d", n, len(buf))
+	}
+}
+
+func TestVertexMonitor_Write_StatsStream_Success(t *testing.T) {
+	t.Parallel()
+
+	bus := logbus.New()
+
+	cp, err := bus.Run().NewCommand(
+		"cmd-stats-success", "echo hello", "target-stats-success", "cmd", "linux/amd64",
+		false, false, false, earthfile.SourceLocation{}, "", "", "",
+	)
+	if err != nil {
+		t.Fatalf("failed to create command: %v", err)
+	}
+
+	vm := &vertexMonitor{
+		cp:  cp,
+		ssp: statsstreamparser.New(),
+	}
+
+	// 1. Single valid stats packet
+	payload1 := `{"cpu":{"usage":{"total":12345}}}`
+	buf1 := make([]byte, 1+4+len(payload1))
+	buf1[0] = 1
+	binary.LittleEndian.PutUint32(buf1[1:5], uint32(len(payload1))) // #nosec G115
+	copy(buf1[5:], payload1)
+
+	n, err := vm.Write(buf1, time.Now(), BuildkitStatsStream)
+	if err != nil {
+		t.Fatalf("Write single packet returned error %v, want nil", err)
+	}
+
+	if n != len(buf1) {
+		t.Errorf("Write single packet returned n=%d, want %d", n, len(buf1))
+	}
+
+	// 2. Concatenated multiple valid stats packets in a single Write
+	payload2 := `{"cpu":{"usage":{"total":67890}}}`
+	buf2 := make([]byte, 1+4+len(payload2))
+	buf2[0] = 1
+	binary.LittleEndian.PutUint32(buf2[1:5], uint32(len(payload2))) // #nosec G115
+	copy(buf2[5:], payload2)
+
+	combined := make([]byte, 0, len(buf1)+len(buf2))
+	combined = append(combined, buf1...)
+	combined = append(combined, buf2...)
+
+	n, err = vm.Write(combined, time.Now(), BuildkitStatsStream)
+	if err != nil {
+		t.Fatalf("Write combined packets returned error %v, want nil", err)
+	}
+
+	if n != len(combined) {
+		t.Errorf("Write combined packets returned n=%d, want %d", n, len(combined))
+	}
+}
+
+func TestVertexMonitor_Write_StandardStreams(t *testing.T) {
+	t.Parallel()
+
+	bus := logbus.New()
+
+	cp, err := bus.Run().NewCommand(
+		"cmd-std-streams", "echo hello", "target-std-streams", "cmd", "linux/amd64",
+		false, false, false, earthfile.SourceLocation{}, "", "", "",
+	)
+	if err != nil {
+		t.Fatalf("failed to create command: %v", err)
+	}
+
+	vm := &vertexMonitor{
+		cp:  cp,
+		ssp: statsstreamparser.New(),
+	}
+
+	tests := map[string]struct {
+		data   []byte
+		stream int
+	}{
+		"stdout stream": {
+			data:   []byte("standard output log line\n"),
+			stream: 1,
+		},
+		"stderr stream": {
+			data:   []byte("standard error log line\n"),
+			stream: 2,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			n, err := vm.Write(tt.data, time.Now(), tt.stream)
+			if err != nil {
+				t.Fatalf("Write stream %d returned error %v, want nil", tt.stream, err)
+			}
+
+			if n != len(tt.data) {
+				t.Errorf("Write stream %d returned n=%d, want %d", tt.stream, n, len(tt.data))
 			}
 		})
 	}

@@ -217,7 +217,10 @@ func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error)
 	if stream == BuildkitStatsStream {
 		stats, err := vm.ssp.Parse(dt)
 		if err != nil {
-			return 0, fmt.Errorf("failed decoding stats stream: %w", err)
+			// Stats stream parsing failure is non-fatal telemetry; reset parser to recover
+			vm.ssp = statsstreamparser.New()
+
+			return len(dt), nil //nolint:nilerr // stats stream decoding failures are non-fatal telemetry
 		}
 
 		for _, statsSample := range stats {

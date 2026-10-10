@@ -215,7 +215,10 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 		}
 
 		vm := sm.vertices[cmdID]
-		logLine.Data = []byte(stringutil.ScrubCredentialsAll(string(logLine.Data)))
+
+		if logLine.Stream != BuildkitStatsStream {
+			logLine.Data = []byte(stringutil.ScrubCredentialsAll(string(logLine.Data)))
+		}
 
 		_, err := vm.Write(logLine.Data, logLine.Timestamp, logLine.Stream)
 		if err != nil {

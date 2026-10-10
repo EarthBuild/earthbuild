@@ -1499,11 +1499,12 @@ func (c *Converter) SaveImage(
 }
 
 // builderSummarizes reports whether builder.go prints the end-of-build summary
-// line for si, which it does for an image it exports itself. Under --image it
-// summarizes only the images of the target the build was invoked on, which is
-// the only one without a parent.
+// line for si, which it does for an image it exports itself. Under --artifact
+// it summarizes no image, and under --image only the images of the target the
+// build was invoked on, which is the only one without a parent.
 func (c *Converter) builderSummarizes(si states.SaveImage) bool {
-	return !si.SkipBuilder && (!c.opt.OnlyFinalTargetImages || c.opt.parentTargetID == "")
+	return !si.SkipBuilder && !c.opt.OnlyArtifact &&
+		(!c.opt.OnlyFinalTargetImages || c.opt.parentTargetID == "")
 }
 
 // Build applies the earth BUILD command.

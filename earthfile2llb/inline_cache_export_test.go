@@ -147,6 +147,7 @@ func (h *exportTestHarness) rootConverter(target domain.Target) *Converter {
 		UseInlineCache:        h.build.inlineCache,
 		GlobalWaitBlockFtr:    h.build.globalWaitEnd,
 		OnlyFinalTargetImages: h.build.imageMode,
+		OnlyArtifact:          h.build.artifactMode,
 	}
 
 	h.root = h.newConverter(target, platutil.NewResolver(amd64), opt, h.topLevel)

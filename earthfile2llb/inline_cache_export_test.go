@@ -384,9 +384,9 @@ func (h *exportTestHarness) builderGo() exportTally {
 				tally.pushes++
 			}
 
-			// The --artifact summary reports the artifact only, and the --image
-			// summary only the final target's images.
-			if b.artifactMode || b.imageMode && !isFinal {
+			// builder.go summarizes no image under --no-output or --artifact, and
+			// under --image only the final target's.
+			if !b.export.Artifacts() || b.artifactMode || b.imageMode && !isFinal {
 				continue
 			}
 
@@ -462,6 +462,16 @@ func TestTopLevelInlineCacheImageIsExportedOnce(t *testing.T) {
 		{
 			name:  "SAVE IMAGE --push with --push --no-output",
 			build: exportTestBuild{export: ExportNone, push: true, inlineCache: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("img"))
+				h.saveImage(root, true)
+				h.finalize(root)
+			},
+			want: exportTally{pushes: 1, pushSummaries: 1},
+		},
+		{
+			name:  "SAVE IMAGE --push with --push --no-image-output",
+			build: exportTestBuild{export: ExportArtifactsOnly, push: true, inlineCache: true},
 			run: func(h *exportTestHarness) {
 				root := h.rootConverter(localTestTarget("img"))
 				h.saveImage(root, true)

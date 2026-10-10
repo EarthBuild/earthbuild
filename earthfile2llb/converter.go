@@ -1451,24 +1451,30 @@ func (c *Converter) SaveImage(
 			}
 
 			if c.ftrs.WaitBlock {
+				// TODO this is here as a work-around for https://github.com/earthly/earthly/issues/2178
+				// ideally we should always set SkipBuilder = true even when we are under the first implicit wait block
+				// however we don't want to break inline caching for users who are using VERSION 0.7 without any
+				// explicit WAIT blocks
+				//
+				// It is set before the wait item copies si, so the top-level wait block
+				// can leave a SkipBuilder == false image to builder.go instead of
+				// exporting it twice. builder.go never runs under --global-wait-end and
+				// never pushes a remote target, so those are never left to it.
+				if c.opt.GlobalWaitBlockFtr || !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 ||
+					c.target.IsRemote() {
+					si.SkipBuilder = true
+				}
+
 				shouldPush := hasPushFlag && si.DockerTag != ""
 				shouldExportLocally := si.DockerTag != "" && c.opt.SaveReferenced && c.opt.Export.Images()
 				waitItem := newSaveImage(si, c, shouldPush, shouldExportLocally)
 				c.waitBlock().AddItem(waitItem)
 
 				c.mts.Final.WaitItems = append(c.mts.Final.WaitItems, waitItem)
-				if hasPushFlag {
+				if hasPushFlag && !c.builderSummarizes(si) {
 					// only add summary for `SAVE IMAGE --push` commands
 					c.opt.ExportCoordinator.
 						AddPushedImageSummary(c.target.StringCanonical(), si.DockerTag, c.mts.Final.ID, c.opt.DoPushes)
-				}
-
-				// TODO this is here as a work-around for https://github.com/earthly/earthly/issues/2178
-				// ideally we should always set SkipBuilder = true even when we are under the first implicit wait block
-				// however we don't want to break inline caching for users who are using VERSION 0.7 without any
-				// explicit WAIT blocks
-				if !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 {
-					si.SkipBuilder = true
 				}
 			}
 
@@ -1487,6 +1493,14 @@ func (c *Converter) SaveImage(
 	}
 
 	return nil
+}
+
+// builderSummarizes reports whether builder.go prints the end-of-build summary
+// line for si, which it does for an image it exports itself. Under --image it
+// summarizes only the images of the target the build was invoked on, which is
+// the only one without a parent.
+func (c *Converter) builderSummarizes(si states.SaveImage) bool {
+	return !si.SkipBuilder && (!c.opt.OnlyFinalTargetImages || c.opt.parentTargetID == "")
 }
 
 // Build applies the earth BUILD command.

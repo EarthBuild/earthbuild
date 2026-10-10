@@ -278,6 +278,7 @@ func Earthfile2LLB(
 
 	if opt.waitBlock == nil {
 		opt.waitBlock = newWaitBlock()
+		opt.waitBlock.topLevel = initialCall
 	}
 
 	targetWithMetadata, ok := bc.Ref.(domain.Target)

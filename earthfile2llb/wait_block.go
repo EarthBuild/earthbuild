@@ -29,6 +29,11 @@ type waitBlock struct {
 	called            bool
 	pushCalled        bool
 	localExportCalled bool
+	// topLevel marks the build's top-level implicit wait block (the root
+	// target's). It is waited on only at the very end of conversion, right
+	// before builder.go runs, so it is the only block that may leave an image
+	// to builder.go (SkipBuilder == false) instead of exporting it itself.
+	topLevel bool
 }
 
 func newWaitBlock() *waitBlock {
@@ -122,6 +127,12 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 		}
 
 		if !saveImage.doPush && !saveImage.localExport {
+			continue
+		}
+
+		if wb.topLevel && !saveImage.si.SkipBuilder {
+			// builder.go exports this image, with inline cache (#2178 workaround).
+			// Exporting it here as well would push or load it twice.
 			continue
 		}
 

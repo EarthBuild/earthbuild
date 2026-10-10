@@ -106,6 +106,10 @@ type exportTestHarness struct {
 func newExportTestHarness(t *testing.T, build exportTestBuild) *exportTestHarness {
 	t.Helper()
 
+	// As Earthfile2LLB makes it for the initial call.
+	topLevel := newWaitBlock()
+	topLevel.topLevel = true
+
 	return &exportTestHarness{
 		t:        t,
 		build:    build,
@@ -114,7 +118,7 @@ func newExportTestHarness(t *testing.T, build exportTestBuild) *exportTestHarnes
 		bus:      logbus.New(),
 		eg:       &serrgroup.Group{},
 		visited:  states.NewVisitedUpfrontHashCollection(),
-		topLevel: newWaitBlock(),
+		topLevel: topLevel,
 	}
 }
 

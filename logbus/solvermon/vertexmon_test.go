@@ -360,3 +360,42 @@ func TestVertexMonitor_Write_StandardStreams(t *testing.T) {
 		})
 	}
 }
+
+func TestVertexMonitor_Write_StatsStream_ReportsDecodeErrorOnce(t *testing.T) {
+	t.Parallel()
+
+	bus := logbus.New()
+
+	cp, err := bus.Run().NewCommand(
+		"cmd-id", "echo hello", "target-id", "cmd", "linux/amd64",
+		false, false, false, earthfile.SourceLocation{}, "", "", "",
+	)
+	if err != nil {
+		t.Fatalf("failed to create command: %v", err)
+	}
+
+	var reported []error
+
+	vm := &vertexMonitor{
+		cp:                 cp,
+		ssp:                statsstreamparser.New(),
+		onStatsDecodeError: func(err error) { reported = append(reported, err) },
+	}
+
+	corrupted := []byte(`{"cpu":{"usage":{"total":100}}}`)
+
+	for range 3 {
+		_, err = vm.Write(corrupted, time.Now(), BuildkitStatsStream)
+		if err != nil {
+			t.Fatalf("Write returned error %v, want nil (non-fatal)", err)
+		}
+	}
+
+	if want := 1; len(reported) != want {
+		t.Fatalf("decode error reported %d times, want %d", len(reported), want)
+	}
+
+	if reported[0] == nil {
+		t.Errorf("reported decode error is nil, want the parser error")
+	}
+}

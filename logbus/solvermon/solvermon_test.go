@@ -51,7 +51,7 @@ func TestSolverMonitor_HandleBuildkitStatus_CredentialScrubbing(t *testing.T) {
 				t.Fatalf("failed to create command: %v", err)
 			}
 
-			sm := New(bus)
+			sm := New(bus, false)
 			vDigest := digest.FromString(name)
 			cmdID := "cmd-" + name
 
@@ -100,7 +100,7 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsStream_NonFatalOnError(t *testi
 		t.Fatalf("failed to create command: %v", err)
 	}
 
-	sm := New(bus)
+	sm := New(bus, false)
 	vDigest := digest.FromString("resilient-vertex")
 	cmdID := "cmd-resilient"
 
@@ -162,7 +162,7 @@ func TestSolverMonitor_HandleBuildkitStatus_MixedStreams(t *testing.T) {
 		t.Fatalf("failed to create command: %v", err)
 	}
 
-	sm := New(bus)
+	sm := New(bus, false)
 	vDigest := digest.FromString("mixed-vertex")
 	cmdID := "cmd-mixed"
 

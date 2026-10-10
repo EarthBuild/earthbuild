@@ -125,7 +125,7 @@ func GetPlatform() string {
 // GetBinaryName returns the default executable binary name for earthbuild.
 func GetBinaryName() string {
 	if len(os.Args) == 0 {
-		return "earthly"
+		return "earth"
 	}
 
 	// can't use os.Executable() here; because it will give us earth if executed via the earth symlink

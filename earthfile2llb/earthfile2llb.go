@@ -174,6 +174,9 @@ type ConvertOpt struct {
 	DoPushes bool
 	// OnlyFinalTargetImages is used to ignore SAVE IMAGE commands in indirectly referenced targets
 	OnlyFinalTargetImages bool
+	// OnlyArtifact is set under --artifact, where builder.go outputs the one
+	// artifact and loads no image into the local container engine.
+	OnlyArtifact bool
 	// AllowInteractive is an internal feature flag for controlling if interactive sessions can be initiated.
 	AllowInteractive bool
 	// AllowLocally is an internal feature flag for controlling if LOCALLY directives can be used.
@@ -278,6 +281,7 @@ func Earthfile2LLB(
 
 	if opt.waitBlock == nil {
 		opt.waitBlock = newWaitBlock()
+		opt.waitBlock.topLevel = initialCall
 	}
 
 	targetWithMetadata, ok := bc.Ref.(domain.Target)

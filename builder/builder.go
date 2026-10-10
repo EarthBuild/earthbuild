@@ -355,6 +355,7 @@ func (b *Builder) convertAndBuild(
 				Export:                               opt.Export,
 				SaveReferenced:                       true,
 				OnlyFinalTargetImages:                opt.OnlyFinalTargetImages,
+				OnlyArtifact:                         opt.OnlyArtifact != nil,
 				DoPushes:                             opt.Push,
 				ExportCoordinator:                    exportCoordinator,
 				LocalArtifactWhiteList:               opt.LocalArtifactWhiteList,

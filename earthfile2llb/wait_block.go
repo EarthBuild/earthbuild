@@ -29,6 +29,15 @@ type waitBlock struct {
 	called            bool
 	pushCalled        bool
 	localExportCalled bool
+	// topLevel marks the build's top-level implicit wait block (the root
+	// target's). It is waited on only at the very end of conversion, right
+	// before builder.go runs, so it is the only block that may leave an image
+	// to builder.go (SkipBuilder == false) instead of exporting it itself.
+	topLevel bool
+	// explicit marks a WAIT ... END block. END must have exported everything
+	// in it, including the images of targets BUILT inside it, before it
+	// returns, so none of them may be left to builder.go.
+	explicit bool
 }
 
 func newWaitBlock() *waitBlock {
@@ -107,13 +116,22 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 	return errGroup.Wait()
 }
 
+// imageExport is what saveImages does with one SAVE IMAGE: whether it pushes
+// it, and whether it loads it into the local container engine.
+type imageExport struct {
+	*saveImageWaitItem
+
+	push bool
+	load bool
+}
+
 func (wb *waitBlock) saveImages(ctx context.Context) error {
 	isMultiPlatform := make(map[string]bool)        // DockerTag -> bool
 	noManifestListImgs := make(map[string]struct{}) // set based on DockerTag
 	platformImgNames := make(map[string]bool)
 	singPlatImgNames := make(map[string]bool) // ensure that these are unique
 
-	imageWaitItems := []*saveImageWaitItem{}
+	imageWaitItems := []imageExport{}
 
 	for _, item := range wb.items {
 		saveImage, ok := item.(*saveImageWaitItem)
@@ -121,7 +139,19 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			continue
 		}
 
-		if !saveImage.doPush && !saveImage.localExport {
+		push, load := saveImage.doPush, saveImage.localExport
+		if wb.topLevel && !saveImage.si.SkipBuilder {
+			// builder.go exports this image, with inline cache (#2178 workaround).
+			// Exporting it here as well would push or load it twice. Under
+			// --artifact builder.go loads no image, so the load stays here.
+			push = false
+
+			if !saveImage.c.opt.OnlyArtifact {
+				load = false
+			}
+		}
+
+		if !push && !load {
 			continue
 		}
 
@@ -154,7 +184,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			isMultiPlatform[saveImage.si.DockerTag] = false
 		}
 
-		imageWaitItems = append(imageWaitItems, saveImage)
+		imageWaitItems = append(imageWaitItems, imageExport{saveImageWaitItem: saveImage, push: push, load: load})
 	}
 
 	if len(imageWaitItems) == 0 {
@@ -220,7 +250,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 		}
 
 		refPrefix, err := gwCrafter.AddPushImageEntry(
-			ref, refID, item.si.DockerTag, item.doPush, item.si.InsecurePush, item.si.Image, platformBytes,
+			ref, refID, item.si.DockerTag, item.push, item.si.InsecurePush, item.si.Image, platformBytes,
 		)
 		if err != nil {
 			return err
@@ -228,7 +258,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 
 		refID++
 
-		if item.localExport {
+		if item.load {
 			switch {
 			case isMultiPlatform[item.si.DockerTag]:
 				// local docker instance does not support multi-platform images, so we must create a new entry

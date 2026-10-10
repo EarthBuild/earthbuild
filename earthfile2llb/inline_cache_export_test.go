@@ -159,10 +159,26 @@ func (h *exportTestHarness) rootConverter(target domain.Target) *Converter {
 func (h *exportTestHarness) buildChild(parent *Converter, target domain.Target, platform *specs.Platform) *Converter {
 	h.t.Helper()
 
+	return h.child(parent, buildCmd, target, platform)
+}
+
+// fromChild starts a target reached through FROM from parent, as
+// prepBuildTarget does: it gets a wait block of its own, which nothing waits on.
+func (h *exportTestHarness) fromChild(parent *Converter, target domain.Target) *Converter {
+	h.t.Helper()
+
+	return h.child(parent, fromCmd, target, nil)
+}
+
+func (h *exportTestHarness) child(
+	parent *Converter, cmdT cmdType, target domain.Target, platform *specs.Platform,
+) *Converter {
+	h.t.Helper()
+
 	opt := parent.opt
 	opt.parentTargetID = parent.mts.Final.ID
-	opt.SaveReferenced = parent.childSaveReferenced(buildCmd, target.IsRemote())
-	opt.DoPushes = parent.opt.DoPushes
+	opt.SaveReferenced = parent.childSaveReferenced(cmdT, target.IsRemote())
+	opt.DoPushes = cmdT == buildCmd && parent.opt.DoPushes
 	opt.ForceSaveImage = false
 
 	platr := parent.platr
@@ -170,7 +186,36 @@ func (h *exportTestHarness) buildChild(parent *Converter, target domain.Target, 
 		platr = platr.SubResolver(platutil.FromLLBPlatform(*platform))
 	}
 
-	return h.newConverter(target, platr, opt, parent.waitBlock())
+	wb := newWaitBlock()
+	if cmdT == buildCmd {
+		wb = parent.waitBlock()
+	}
+
+	return h.newConverter(target, platr, opt, wb)
+}
+
+// buildAgain is a BUILD from parent of child, which is already converted: it
+// takes Earthfile2LLB's path for a visited target.
+func (h *exportTestHarness) buildAgain(parent, child *Converter) {
+	h.t.Helper()
+
+	opt := parent.opt
+	opt.SaveReferenced = parent.childSaveReferenced(buildCmd, child.target.IsRemote())
+
+	sts := child.mts.Final
+	if opt.doSaves() {
+		sts.SetDoSaves()
+	}
+
+	if opt.DoPushes {
+		sts.SetDoPushes()
+	}
+
+	if opt.doSaves() || opt.DoPushes {
+		require.NoError(h.t, sts.Wait(h.t.Context()))
+	}
+
+	sts.AttachTopLevelWaitItems(h.t.Context(), parent.waitBlock())
 }
 
 func (h *exportTestHarness) newConverter(
@@ -220,7 +265,30 @@ func (h *exportTestHarness) newConverter(
 func (h *exportTestHarness) saveImage(c *Converter, push bool) {
 	h.t.Helper()
 
-	require.NoError(h.t, c.SaveImage(h.t.Context(), []string{inlineCacheTestTag}, push, false, false, nil, false))
+	h.saveImageAs(c, inlineCacheTestTag, push)
+}
+
+// saveImageAs runs SAVE IMAGE [--push] <tag> on c.
+func (h *exportTestHarness) saveImageAs(c *Converter, tag string, push bool) {
+	h.t.Helper()
+
+	require.NoError(h.t, c.SaveImage(h.t.Context(), []string{tag}, push, false, false, nil, false))
+}
+
+// wait runs WAIT on c.
+func (h *exportTestHarness) wait(c *Converter) {
+	h.t.Helper()
+
+	require.NoError(h.t, c.PushWaitBlock(h.t.Context()))
+}
+
+// end runs END on c, and requires that, by the time it returns, the wait
+// blocks have exported (and summarized) want.
+func (h *exportTestHarness) end(c *Converter, want exportTally) {
+	h.t.Helper()
+
+	require.NoError(h.t, c.PopWaitBlock(h.t.Context()))
+	require.Equal(h.t, want, h.waitBlocks(), "END must export everything inside WAIT ... END before it returns")
 }
 
 // finalize ends c's conversion, as Earthfile2LLB does once its interpreter has
@@ -430,5 +498,199 @@ func TestTopLevelInlineCacheImageIsExportedOnce(t *testing.T) {
 			require.Equal(t, tt.want, byWaitBlocks.add(byBuilder),
 				"exported more or less than once:\n  wait blocks: %s\n  builder.go:  %s", byWaitBlocks, byBuilder)
 		})
+	}
+}
+
+// An image left to builder.go is exported after conversion. That is safe only
+// where nothing waits for the export earlier, and only where builder.go makes
+// the same export the wait block would have made. So under --use-inline-cache
+// every build must still export exactly what it exports without it, and every
+// WAIT ... END must still have exported everything inside it when END returns.
+func TestInlineCacheImageIsExportedAsWithout(t *testing.T) {
+	t.Parallel()
+
+	const otherTag = "registry.example.com/other:latest"
+
+	once := exportTally{loads: 1, pushes: 1, localSummaries: 1, pushSummaries: 1}
+	loaded := exportTally{loads: 1, localSummaries: 1}
+
+	tests := []struct {
+		name string
+		// run converts the build; it must leave h.root set.
+		run   func(h *exportTestHarness)
+		build exportTestBuild
+		want  exportTally
+	}{
+		{
+			name:  "WAIT ... END",
+			build: exportTestBuild{export: ExportAll, push: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("img"))
+				h.wait(root)
+				h.saveImage(root, false)
+				h.end(root, loaded)
+				h.finalize(root)
+			},
+			want: loaded,
+		},
+		{
+			name:  "nested WAIT ... END",
+			build: exportTestBuild{export: ExportAll, push: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("img"))
+				h.wait(root)
+				h.wait(root)
+				h.saveImage(root, false)
+				h.end(root, loaded)
+				h.end(root, loaded)
+				h.finalize(root)
+			},
+			want: loaded,
+		},
+		{
+			name:  "WAIT ... END, then SAVE IMAGE --push outside it",
+			build: exportTestBuild{export: ExportAll, push: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("img"))
+				h.wait(root)
+				h.saveImageAs(root, otherTag, false)
+				h.end(root, loaded)
+				h.saveImage(root, true)
+				h.finalize(root)
+			},
+			want: exportTally{loads: 2, pushes: 1, localSummaries: 2, pushSummaries: 1},
+		},
+		{
+			name:  "BUILD inside WAIT ... END",
+			build: exportTestBuild{export: ExportAll, push: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("all"))
+				h.wait(root)
+				child := h.buildChild(root, localTestTarget("img"), nil)
+				h.saveImage(child, true)
+				h.finalize(child)
+				h.end(root, once)
+				h.finalize(root)
+			},
+			want: once,
+		},
+		{
+			name:  "BUILD inside nested WAIT ... END",
+			build: exportTestBuild{export: ExportAll, push: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("all"))
+				h.wait(root)
+				h.wait(root)
+				child := h.buildChild(root, localTestTarget("img"), nil)
+				h.saveImage(child, true)
+				h.finalize(child)
+				h.end(root, once)
+				h.end(root, once)
+				h.finalize(root)
+			},
+			want: once,
+		},
+		{
+			name:  "--global-wait-end",
+			build: exportTestBuild{export: ExportAll, push: true, globalWaitEnd: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("img"))
+				h.saveImage(root, true)
+				h.finalize(root)
+			},
+			want: once,
+		},
+		{
+			// builder.go still runs its image exports here.
+			name:  "--global-wait-end --image",
+			build: exportTestBuild{export: ExportAll, push: true, globalWaitEnd: true, imageMode: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("img"))
+				h.saveImage(root, true)
+				h.finalize(root)
+			},
+			want: once,
+		},
+		{
+			name:  "remote target",
+			build: exportTestBuild{export: ExportAll, push: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(remoteTestTarget("img"))
+				h.saveImage(root, true)
+				h.finalize(root)
+			},
+			want: once,
+		},
+		{
+			name:  "BUILD",
+			build: exportTestBuild{export: ExportAll, push: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("all"))
+				child := h.buildChild(root, localTestTarget("img"), nil)
+				h.saveImage(child, true)
+				h.finalize(child)
+				h.finalize(root)
+			},
+			want: once,
+		},
+		{
+			name:  "BUILD of a remote target",
+			build: exportTestBuild{export: ExportAll, push: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("all"))
+				child := h.buildChild(root, remoteTestTarget("img"), nil)
+				h.saveImage(child, true)
+				h.finalize(child)
+				h.finalize(root)
+			},
+			want: once,
+		},
+		{
+			// FROM +img, then BUILD +img: the second reaches a converted target.
+			name:  "FROM, then BUILD",
+			build: exportTestBuild{export: ExportAll, push: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("all"))
+				child := h.fromChild(root, localTestTarget("img"))
+				h.saveImage(child, true)
+				h.finalize(child)
+				h.buildAgain(root, child)
+				h.finalize(root)
+			},
+			want: once,
+		},
+		{
+			// builder.go summarizes only the final target's images here.
+			name:  "--image, with a BUILD",
+			build: exportTestBuild{export: ExportAll, push: true, imageMode: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("img"))
+				child := h.buildChild(root, localTestTarget("other"), nil)
+				h.saveImageAs(child, otherTag, true)
+				h.finalize(child)
+				h.saveImage(root, true)
+				h.finalize(root)
+			},
+			want: exportTally{loads: 1, pushes: 2, localSummaries: 1, pushSummaries: 2},
+		},
+	}
+
+	for _, tt := range tests {
+		for _, inlineCache := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/inline-cache=%t", tt.name, inlineCache), func(t *testing.T) {
+				t.Parallel()
+
+				build := tt.build
+				build.inlineCache = inlineCache
+
+				h := newExportTestHarness(t, build)
+				tt.run(h)
+				h.endConversion()
+
+				byWaitBlocks, byBuilder := h.waitBlocks(), h.builderGo()
+				require.Equal(t, tt.want, byWaitBlocks.add(byBuilder),
+					"exported more or less than once:\n  wait blocks: %s\n  builder.go:  %s", byWaitBlocks, byBuilder)
+			})
+		}
 	}
 }

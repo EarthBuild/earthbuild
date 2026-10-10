@@ -62,7 +62,7 @@ func (a *Prune) Cmds() []*cli.Command {
 				&cli.GenericFlag{
 					Name: "age",
 					Usage: `Prune cache older than the specified duration passed in as a string;
-						duration is specified with an integer value followed by a m, h, or d suffix which represents minutes, hours, or days respectively, e.g. 24h, or 1d`, //nolint:lll
+						duration is specified with an integer value followed by a m, h, or d suffix which represents minutes, hours, or days respectively, e.g. 24h, or 1d`,
 					Value: &a.keepDuration,
 				},
 				&cli.GenericFlag{

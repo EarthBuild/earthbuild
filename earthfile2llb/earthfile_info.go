@@ -28,12 +28,23 @@ func GetTargets(
 		return nil, fmt.Errorf("resolve build context for target %s: %w", target.String(), err)
 	}
 
-	targets := make([]string, 0, len(bc.Earthfile.Targets))
-	for _, target := range bc.Earthfile.Targets {
+	return TargetsIn(bc.Earthfile), nil
+}
+
+// TargetsIn lists the targets of an Earthfile that is already parsed.
+//
+// **Separate from GetTargets because resolving is the expensive half and
+// listing does not need it.** A build context resolution shells out to git for
+// the remote, the hash, the short hash, the branch and the tags, which is 183ms
+// of `earth ls` on this repository - and none of it says anything about what
+// targets an Earthfile declares.
+func TargetsIn(ef earthfile.Tree) []string {
+	targets := make([]string, 0, len(ef.Targets))
+	for _, target := range ef.Targets {
 		targets = append(targets, target.Name)
 	}
 
-	return targets, nil
+	return targets
 }
 
 // GetTargetArgs returns a list of build arguments for a specified target.

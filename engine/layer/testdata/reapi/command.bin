@@ -1,0 +1,6 @@
+
+/bin/sh
+-c
+cargo build --release
+CARGO_TERM_COLORnever
+PATH/usr/bin2/w

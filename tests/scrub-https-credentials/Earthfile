@@ -17,7 +17,9 @@ ping -c 1 selfsigned.example.com
 ping -c 1 buildkitsandbox
 
 earth --config \$earth_config config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret, pattern: 'selfsigned.example.com/([^/]+)'}}\"
-earth --config \$earth_config --verbose --debug +gitclone >output.txt 2>&1
+# The redirect is what the assertions read, and \`set -e\` used to discard it:
+# a failing build left CI with the header and nothing else, three rounds running.
+earth --config \$earth_config --verbose --debug +gitclone >output.txt 2>&1 || { echo '--- output.txt (build failed) ---'; cat output.txt; exit 1; }
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
 
     DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=scrub-credentials.earth --exec_cmd=/tmp/test-earthly-script
@@ -42,7 +44,7 @@ ping -c 1 buildkitsandbox
 
 earth --config \$earth_config config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret, pattern: 'selfsigned.example.com/([^/]+)'}}\"
 cat \$earth_config
-earth --config \$earth_config --verbose --debug selfsigned.example.com/repo:main+hello >output.txt 2>&1
+earth --config \$earth_config --verbose --debug selfsigned.example.com/repo:main+hello >output.txt 2>&1 || { echo '--- output.txt (build failed) ---'; cat output.txt; exit 1; }
 " >/tmp/test-earthly-script && chmod +x /tmp/test-earthly-script
 
     DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --exec_cmd=/tmp/test-earthly-script

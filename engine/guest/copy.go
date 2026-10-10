@@ -1,0 +1,965 @@
+package guest
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/EarthBuild/earthbuild/engine/fsclone"
+	"github.com/EarthBuild/earthbuild/engine/fstime"
+	"github.com/EarthBuild/earthbuild/engine/timing"
+)
+
+// copyPath copies a file or a directory, and its callers do not say which.
+//
+// Every "copy this" in the guest comes through here, because the two that did
+// not each grew a second, shorter piece of copying code beside copyTree, and
+// each drifted from it in a different way. `SAVE ARTIFACT` of a file lost its
+// mtime outright (I8). `COPY` of a file kept the mtime and ignored
+// SOURCE_DATE_EPOCH, so a build obeyed the clamp for `COPY --dir tree /x` and
+// disobeyed it for `COPY file /x` - reproducibility that turned on how an input
+// happened to be spelled.
+//
+// Neither looked wrong beside the other, which is the point: the fork on "is it
+// a directory?" is a fork on how to *walk*, not on how to write a file, and
+// every time it was written out at a call site the writing rules were copied
+// along with it. Here it is written once, both arms stamp, and a caller cannot
+// take half of it.
+//
+// The root is resolved - a source the Earthfile named directly means the thing
+// it names, which is what the reference engine does and what it fails loudly
+// trying to do when the target is not there. Symlinks found *inside* a tree
+// stay symlinks; see copyTree.
+//
+// Resolution is resolveLast's, not os.Stat's: the difference is the root the
+// link's own text is read against, and only one of them is the machine that
+// wrote it.
+func copyPath(root, src, dst string, opts copyOpts) error {
+	if !opts.NoFollow {
+		resolved, err := resolveLast(root, src)
+		if err != nil {
+			return err
+		}
+
+		src = resolved
+	}
+
+	fi, err := os.Lstat(src)
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", src, err)
+	}
+
+	// `--symlink-no-follow`, and only reachable with it: without the flag the
+	// resolution above has already turned a link into what it names.
+	//
+	// The result dangles whenever the target was not copied too, and that is
+	// what the flag asks for and what the reference produces. `ln -s real link`
+	// names a sibling; an image given the link and not `real` has a link to
+	// nothing, and an engine that quietly substituted the tree would be
+	// deciding the author was mistaken.
+	if fi.Mode()&os.ModeSymlink != 0 {
+		err = copyLink(src, dst)
+		if err != nil {
+			return err
+		}
+
+		return keepOwn(fi, dst, opts)
+	}
+
+	if fi.IsDir() {
+		return copyTree(src, dst, opts)
+	}
+
+	err = copyFileUnlessSame(src, dst, fi.Mode(), opts)
+	if err != nil {
+		return err
+	}
+
+	// **Not under --sync, where the times are the whole point.** A file this
+	// copy skipped must keep the time the destination gave it, or cargo stops
+	// calling it fresh; a file it wrote must stay newer than the artefacts built
+	// from the version it replaced, and the source's own time - a commit time -
+	// is older than those. Restoring either made the flag a no-op end to end,
+	// which every unit test passed and the first build caught.
+	if !opts.Sync {
+		at := opts.stamp(fi.ModTime())
+
+		err = os.Chtimes(dst, at, at)
+		if err != nil {
+			return fmt.Errorf("set the mtime on %s: %w", dst, err)
+		}
+	}
+
+	return keepOwn(fi, dst, opts)
+}
+
+// keepOwn gives the destination the source's uid and gid, when asked.
+//
+// `os.Lchown`, never `os.Chown`: the latter follows a link, so copying a
+// symlink would change the ownership of whatever it names - which lives in the
+// *source* layer, is shared, and is what the next build reads. A copy that
+// mutates its own input is the one thing a content-addressed store cannot
+// survive.
+//
+// A refusal is reported rather than swallowed. Only root may hand a file to an
+// arbitrary user, and a build that asked for ownership and silently did not get
+// it produces an image whose files belong to the wrong user - a failure that
+// surfaces at runtime, in a container, a long way from here.
+// setMode applies `COPY --chmod`, which replaces the source's mode rather than
+// modifying it: the author wrote the number they want, not an adjustment to one
+// they cannot see.
+//
+// A symlink is skipped, because its mode is not a thing on Linux - `chmod` on
+// one changes the target, which is a file the flag was not talking about.
+func setMode(fi os.FileInfo, dst string, opts copyOpts) error {
+	if opts.Chmod == "" || fi.Mode()&os.ModeSymlink != 0 {
+		return nil
+	}
+
+	mode, err := strconv.ParseUint(opts.Chmod, 8, 32)
+	if err != nil {
+		return fmt.Errorf("--chmod=%s: not an octal mode: %w", opts.Chmod, err)
+	}
+
+	err = os.Chmod(dst, os.FileMode(mode))
+	if err != nil {
+		return fmt.Errorf("--chmod=%s: set the mode of %s: %w", opts.Chmod, dst, err)
+	}
+
+	return nil
+}
+
+func keepOwn(fi os.FileInfo, dst string, opts copyOpts) error {
+	err := setMode(fi, dst, opts)
+	if err != nil {
+		return err
+	}
+
+	// `--chown` names the owner outright, so there is nothing to take from the
+	// source. Resolved once per copy against the destination image (E419).
+	if opts.Chown != "" {
+		err = os.Lchown(dst, opts.chownUID, opts.chownGID)
+		if err != nil {
+			return fmt.Errorf("--chown=%s: set the owner of %s: %w", opts.Chown, dst, err)
+		}
+
+		return nil
+	}
+
+	if !opts.KeepOwn {
+		return nil
+	}
+
+	// A caller with nothing to copy the ownership *from* is a bug in this file
+	// rather than a condition to tolerate: the first version of the directory
+	// pass looked the FileInfo up in a map it never filled, and a nil check
+	// that returned quietly would have turned a segfault into a tree whose
+	// directories silently kept the running user's group.
+	if fi == nil {
+		return fmt.Errorf("--keep-own: nothing recorded the ownership of %s", dst)
+	}
+
+	uid, gid, ok := ownerOf(fi)
+	if !ok {
+		return fmt.Errorf("--keep-own: %s does not report ownership on this platform", dst)
+	}
+
+	err = os.Lchown(dst, uid, gid)
+	if err != nil {
+		return fmt.Errorf("--keep-own: set the owner of %s: %w", dst, err)
+	}
+
+	return nil
+}
+
+// fileID identifies a file within the copy, for spotting hard links.
+//
+// Device as well as inode: inode numbers are unique per filesystem, not
+// globally, and a delta that spans a bind mount would otherwise link two
+// unrelated files together - which is worse than the fault being fixed, because
+// a later write to one would change the other.
+//
+// `ok` is false where the platform does not report either, and an unidentified
+// file is always copied: linking on a guess is not a trade worth making.
+type fileID struct {
+	dev, ino uint64
+	ok       bool
+}
+
+// maxLinkHops bounds a chain of symlinks. Linux uses 40 for the whole
+// resolution; this resolves one component, so a chain long enough to reach the
+// bound is a loop or an attempt to find one.
+const maxLinkHops = 16
+
+// resolveLast follows a symlink at the end of a path, and nothing before it.
+//
+// Not filepath.EvalSymlinks, which resolves *every* component: the path arrived
+// here from within(), which checked the text and did not follow anything, so a
+// link planted at any parent would resolve into somewhere that check never saw.
+// Only the final component is in question - it is the one the Earthfile named -
+// and each hop is put back through within() before the next.
+//
+// The link's text is read against root rather than against this host. A step
+// runs chrooted, so `/opt/app` written by that step means the step's /opt/app;
+// resolved here by the host it means the guest's, which is a different
+// filesystem that A3 says a step cannot reach. A relative target that climbs
+// out with `..` is clamped to root, which is what the kernel does above a chroot
+// and therefore what the step that wrote the link saw.
+//
+// Returns the path unchanged when it is not a link, so callers need no
+// condition of their own.
+func resolveLast(root, p string) (string, error) {
+	for hop := 0; ; hop++ {
+		fi, err := os.Lstat(p)
+		if err != nil {
+			return "", fmt.Errorf("stat %s: %w", p, err)
+		}
+
+		if fi.Mode()&os.ModeSymlink == 0 {
+			return p, nil
+		}
+
+		if hop == maxLinkHops {
+			return "", fmt.Errorf("%s is a chain of more than %d symlinks, so it is a loop", p, maxLinkHops)
+		}
+
+		target, err := os.Readlink(p)
+		if err != nil {
+			return "", fmt.Errorf("read symlink %s: %w", p, err)
+		}
+
+		next := target
+		if !filepath.IsAbs(next) {
+			next, err = filepath.Rel(root, filepath.Join(filepath.Dir(p), next))
+			if err != nil {
+				return "", fmt.Errorf("resolve %s -> %s: %w", p, target, err)
+			}
+		}
+
+		p, err = within(root, next)
+		if err != nil {
+			return "", fmt.Errorf("resolve %s -> %s: %w", p, target, err)
+		}
+	}
+}
+
+// copyLink places a symlink with the same text, replacing whatever is there.
+//
+// os.Symlink refuses an existing path, and a destination is not always empty -
+// an earlier step in the same build may have written one. Cleared with
+// os.Remove, which does not follow a link, so a symlink planted at the
+// destination is deleted rather than followed out of the step's root (A3).
+//
+// No mode and no mtime: both would apply to the target rather than to the link,
+// which is the same reason copyTree leaves them alone for the links inside it.
+func copyLink(src, dst string) error {
+	target, err := os.Readlink(src)
+	if err != nil {
+		return fmt.Errorf("read symlink %s: %w", src, err)
+	}
+
+	err = os.Remove(dst)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("clear %s: %w", dst, err)
+	}
+
+	err = os.Symlink(target, dst)
+	if err != nil {
+		return fmt.Errorf("create symlink %s: %w", dst, err)
+	}
+
+	return nil
+}
+
+// copyTree copies a directory, preserving mode and mtime.
+//
+// The fallback when a rename cannot work because source and destination are on
+// different filesystems - which is the normal case here, since a step's scratch
+// is local to the sandbox and the layer store is shared into it.
+//
+// mtimes are preserved because they are part of a layer's identity (I8): a copy
+// that reset them would produce a layer whose digest does not match the one just
+// computed.
+func copyTree(src, dst string, opts copyOpts) error {
+	// **Before the copy, not after.** Pruning first means the walk that follows
+	// writes into a destination already holding only what the source has, so
+	// nothing it writes can be removed by mistake - and a destination entry that
+	// is about to be overwritten anyway is removed and rewritten rather than
+	// compared, which costs one file and removes a whole class of ordering
+	// question.
+	if opts.Sync && !opts.pruned {
+		endPrune := timing.Phase("guest:copy:prune", dst)
+
+		err := pruneToMatch(src, dst)
+
+		endPrune()
+
+		if err != nil {
+			return err
+		}
+	}
+
+	defer timing.Phase("guest:copy:walk", src)()
+
+	// Directory modes are applied once everything is in place, deepest first. A
+	// tree may contain a directory nothing may write to - `maven`'s image has
+	// /root at 0700, and a step that writes /root/.m2 inside it - and creating
+	// it with that mode means nothing can be put in it. A directory's mode
+	// describes the tree, not the copying of it.
+	modes := map[string]os.FileMode{}
+	// The source's own entry for each directory, kept for the pass below:
+	// ownership and mtime are both applied deepest-first, ownership because
+	// handing a directory to another user before its contents are in it can
+	// stop this process writing them, and the mtime because writing into a
+	// directory is what changes it.
+	owners := map[string]os.FileInfo{}
+	// seen maps a file's identity to the first path that got it, so a second
+	// name for one inode is linked rather than copied.
+	seen := map[fileID]string{}
+
+	// `walkErr` rather than `err`, because everything inside this callback that
+	// touches the filesystem declares an `err` of its own and every one of them
+	// shadowed the parameter (govet shadow). Six sightings in one function, all
+	// harmless and all noise - the parameter is checked here and dead
+	// afterwards, so naming it for what it is says that once instead of six
+	// times.
+	walked := filepath.Walk(src, func(p string, fi os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		rel, err := filepath.Rel(src, p)
+		if err != nil {
+			return fmt.Errorf("relative path: %w", err)
+		}
+
+		target := filepath.Join(dst, rel)
+
+		switch {
+		case fi.IsDir():
+			// Not .Perm(), which masks to the low nine bits and so drops
+			// setuid, setgid and sticky. Sticky on a directory means only the
+			// owner may delete what is in it - what /tmp is for - so losing it
+			// changes what the directory permits, not just how it prints.
+			modes[target] = fi.Mode() &
+				(os.ModePerm | os.ModeSetuid | os.ModeSetgid | os.ModeSticky)
+			owners[target] = fi
+
+			// A symlink already where a directory belongs is removed rather
+			// than followed, or the copy writes into whatever it names - the
+			// shared store, another layer, the guest's own root - and the
+			// step's result stops being bounded by the step (A3). The link need
+			// not be planted during the copy: the destination is a filesystem
+			// an earlier step of this build has already written to.
+			//
+			// Sound because the walk is top-down: every directory on a path is
+			// visited before anything inside it.
+			link, lstatErr := os.Lstat(target)
+			if lstatErr == nil && link.Mode()&os.ModeSymlink != 0 {
+				lstatErr = os.Remove(target)
+				if lstatErr != nil {
+					return fmt.Errorf("clear a symlink at %s: %w", target, lstatErr)
+				}
+			}
+
+			//nolint:gosec // a mode a build decided; §3.3 counts it as part of the layer
+			mkdirErr := os.MkdirAll(target, 0o755)
+			if mkdirErr != nil {
+				return fmt.Errorf("create %s: %w", target, mkdirErr)
+			}
+
+			// The other half of how an overlay records a removal: a directory
+			// that replaces one below it is marked opaque with an xattr, and a
+			// copy that dropped the mark would restore the lower directory's
+			// contents under a step that deleted them.
+			return copyXattrs(p, target)
+
+		case fi.Mode()&os.ModeSymlink != 0:
+			link, linkErr := os.Readlink(p)
+			if linkErr != nil {
+				return fmt.Errorf("read symlink %s: %w", p, linkErr)
+			}
+
+			// G122 reads the shape: a path from a walk, used to write. The tree
+			// being walked is one this step is assembling into a directory
+			// nothing else can see yet, so there is no second writer to race.
+			linkErr = os.Symlink(link, target) //nolint:gosec // see above
+			if linkErr != nil {
+				return fmt.Errorf("create symlink %s: %w", target, linkErr)
+			}
+
+			// Mode and time would apply to the link's target, not the link.
+			// Ownership and attributes do not: Lchown and Lsetxattr both name
+			// the link itself.
+			//
+			// This branch returned bare `nil` until now, and it was meant to
+			// have carried ownership two iterations ago - a scripted edit whose
+			// search text did not match wrote nothing and said nothing. Its
+			// test skips on a store that cannot carry ownership, which is this
+			// one, so the gap had no way to show.
+			linkErr = copyXattrs(p, target)
+			if linkErr != nil {
+				return linkErr
+			}
+
+			linkErr = keepOwn(fi, target, opts)
+			if linkErr != nil {
+				return linkErr
+			}
+
+			// A link's own mtime, which `os.Chtimes` cannot set because it
+			// follows. The digest records it - `layer.Take` lstats every entry -
+			// so a tree with one link in it digested differently after a copy.
+			at := opts.stamp(fi.ModTime())
+
+			return fstime.Lchtimes(target, at, at)
+
+		case fi.Mode().IsRegular():
+			// A second name for a file already copied is *linked*, not copied
+			// again. `layer.Take` records inode identity and says why: "two
+			// paths sharing an inode are not two independent copies, and a
+			// layer that recorded them as such would lose the link on restore."
+			// It recorded it and this copy lost it - the same shape as the
+			// mtime invariant this function documents and broke for directories
+			// (E87).
+			//
+			// `alpine`'s /bin is one busybox with several hundred names
+			// hard-linked to it, so a delta carrying it became several hundred
+			// copies of one executable.
+			//
+			// Keyed on inode *and device*, because inode numbers are only
+			// unique within a filesystem and a delta can span one bind mount.
+			if first, ok := seen[idOf(fi)]; ok {
+				linkErr := os.Link(first, target)
+				if linkErr == nil {
+					return nil
+				}
+
+				// A filesystem that will not link falls back to copying, which
+				// is what this did everywhere until now: the tree is correct
+				// and larger, and a build that works is worth more than a link
+				// count. Unlike a whiteout, nothing is *lost* by copying.
+			} else if k := idOf(fi); k.ok {
+				seen[k] = target
+			}
+
+			copyErr := copyFileUnlessSame(p, target, fi.Mode(), opts)
+			if copyErr != nil {
+				return copyErr
+			}
+
+		default:
+			// Devices and fifos, which the previous version skipped with a
+			// comment saying they "rarely appear in a delta". **An overlayfs
+			// whiteout is a character device**, and it appears in the delta of
+			// every step that deletes anything - so every deletion was dropped
+			// on the way into the store, and the layer that arrived said
+			// nothing had been removed. Measured: `RUN rm /marker.txt` followed
+			// by a step that looks for it found it.
+			//
+			// Reproduced rather than skipped, and where it cannot be, refused:
+			// an entry silently missing from a layer is a step's work quietly
+			// discarded, which is the failure this branch used to be.
+			// `rel` and not `p`: the path inside the image, which is what the
+			// author deleted. The internal one is a scratch mount with a
+			// generated handle in it and means nothing to a reader.
+			placed, copyErr := copySpecial(p, target, "/"+filepath.ToSlash(rel), fi)
+			if copyErr != nil {
+				return copyErr
+			}
+
+			// A marker written rather than a node placed is the portable
+			// spelling, and the store has to say so - see copyOpts.Portable.
+			if !placed && opts.Portable != nil {
+				*opts.Portable = true
+			}
+
+			// A deletion recorded as a `.wh.` marker puts nothing at target, so
+			// there is nothing there to stamp or own.
+			if !placed {
+				return nil
+			}
+		}
+
+		// Before the mtime, because writing an attribute or an owner updates
+		// the inode's times and the timestamp has to be the last thing set.
+		err = copyXattrs(p, target)
+		if err != nil {
+			return err
+		}
+
+		err = keepOwn(fi, target, opts)
+		if err != nil {
+			return err
+		}
+
+		// See the note in copyPath: under --sync the filesystem's own answer is
+		// the correct one, for the skipped and the written alike.
+		if !opts.Sync {
+			at := opts.stamp(fi.ModTime())
+
+			err = os.Chtimes(target, at, at)
+			if err != nil {
+				return fmt.Errorf("set mtime on %s: %w", target, err)
+			}
+		}
+
+		return nil
+	})
+	if walked != nil {
+		return walked
+	}
+
+	// Deepest first, so a directory that denies writing is never made read-only
+	// before the one beneath it has been given its own mode.
+	paths := make([]string, 0, len(modes))
+	for p := range modes {
+		paths = append(paths, p)
+	}
+
+	sort.Slice(paths, func(i, j int) bool {
+		return strings.Count(paths[i], string(os.PathSeparator)) >
+			strings.Count(paths[j], string(os.PathSeparator))
+	})
+
+	for _, p := range paths {
+		err := keepOwn(owners[p], p, opts)
+		if err != nil {
+			return err
+		}
+
+		err = os.Chmod(p, modes[p])
+		if err != nil {
+			return fmt.Errorf("set the mode on %s: %w", p, err)
+		}
+
+		// And the mtime, which the walk above could not set: a directory's
+		// mtime changes every time something is written into it, so it can only
+		// be restored once its contents are in place - which is what this pass
+		// is for.
+		//
+		// Its absence was the whole of E86's open question. `commit` copies a
+		// delta into the store, every directory in the copy took the wall clock
+		// as its mtime, and a layer's identity includes mtimes (I8) - so a
+		// layer was filed under a digest its own contents no longer produced,
+		// and the comment on this function says in as many words that this is
+		// the thing not to do.
+		//
+		// It is also why two builds of one deterministic step produced two
+		// layer digests (E81): not the step, this copy. The Content digest was
+		// stable throughout, which is exactly the signature of a difference
+		// that is only timestamps.
+		at := opts.stamp(owners[p].ModTime())
+
+		err = os.Chtimes(p, at, at)
+		if err != nil {
+			return fmt.Errorf("set the mtime on %s: %w", p, err)
+		}
+	}
+
+	return nil
+}
+
+// syncAction is what `--sync` has to do about one file.
+type syncAction int
+
+const (
+	// syncNothing: the destination already is what the copy would make it.
+	syncNothing syncAction = iota
+	// syncMode: the bytes match and the mode does not.
+	syncMode
+	// syncWrite: the bytes differ, or there is no destination.
+	syncWrite
+)
+
+func (a syncAction) String() string {
+	switch a {
+	case syncNothing:
+		return "nothing"
+	case syncMode:
+		return "mode"
+	case syncWrite:
+		return "write"
+	default:
+		return "unknown"
+	}
+}
+
+// whatSyncMustDo decides how much of a copy one file actually needs.
+//
+// **Nothing is a real answer, and the expensive one to get wrong.** The
+// destination is an overlay merged view, so a `chmod(2)` on a file whose bytes
+// live in a *lower* layer makes the kernel copy the whole file up before
+// applying the mode. Reconciling a mode that was already correct therefore read
+// and rewrote every byte of every unchanged file - and put each one in the delta
+// that skipping it existed to keep it out of. Measured: 118 MB of skipped files
+// cost about 236 MB of copy-up on top of the comparison, and the step took 28.6s
+// against 1.75s for a plain COPY.
+//
+// A ctime moved to the value it already had is work with no result.
+func whatSyncMustDo(src, dst string, mode os.FileMode, opts copyOpts) (syncAction, error) {
+	same, at, err := sameBytes(src, dst, opts.digests)
+	if err != nil || !same {
+		return syncWrite, err
+	}
+
+	// Permission bits only: the type bits cannot differ here, because
+	// `sameBytes` already established that both are regular files.
+	if at.Mode().Perm() == mode.Perm() {
+		return syncNothing, nil
+	}
+
+	return syncMode, nil
+}
+
+// copyFileUnlessSame is copyFile that may leave an identical destination exactly
+// as it is.
+//
+// **Not writing is the whole feature.** A file rewritten with the same bytes
+// gets a new mtime and, under an overlay, is copied up into the step's delta -
+// so a COPY over a tree that barely changed produces a layer holding all of it,
+// and makes every file in it look newer than everything built from those files.
+// An incremental compiler then rebuilds the lot.
+//
+// Content, not length: two files of one size differing in a byte are different
+// files, and skipping that pair is a wrong build rather than a slow one.
+func copyFileUnlessSame(src, dst string, mode os.FileMode, opts copyOpts) error {
+	if !opts.Sync {
+		return copyFile(src, dst, mode)
+	}
+
+	what, err := whatSyncMustDo(src, dst, mode, opts)
+	if err != nil {
+		return err
+	}
+
+	switch what {
+	case syncNothing:
+		return nil
+
+	case syncMode:
+		return os.Chmod(dst, mode)
+
+	case syncWrite:
+		return copyFile(src, dst, mode)
+
+	default:
+		return copyFile(src, dst, mode)
+	}
+}
+
+// sameBytes reports whether two paths hold the same contents.
+//
+// A missing destination is not the same as anything, which is the ordinary case
+// on a first copy and is not an error.
+//
+// `known` short-circuits the read where the store has already recorded what both
+// files hold. It may always decline, and the answer is the same either way - only
+// slower.
+func sameBytes(a, b string, known syncDigests) (bool, os.FileInfo, error) {
+	ai, err := os.Stat(a)
+	if err != nil {
+		return false, nil, fmt.Errorf("read %s: %w", a, err)
+	}
+
+	bi, err := os.Stat(b)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil, nil
+	}
+
+	if err != nil {
+		return false, nil, fmt.Errorf("read %s: %w", b, err)
+	}
+
+	// Only a regular file can be compared this way, and a destination that is
+	// something else has to be replaced whatever it holds.
+	if !ai.Mode().IsRegular() || !bi.Mode().IsRegular() || ai.Size() != bi.Size() {
+		return false, bi, nil
+	}
+
+	// **Asked only once both files are known to be there and the same length.**
+	// A manifest describes a layer, not the filesystem in front of it, so the
+	// digest is never allowed to answer the questions a stat already has: an
+	// absent destination must be written however certain the store is about the
+	// path it used to hold.
+	if same, sure := known.same(a, ai.Size(), b, bi.Size()); sure {
+		return same, bi, nil
+	}
+
+	same, err := equalContents(a, b)
+
+	// The destination's own stat travels back with the answer: the caller needs
+	// its mode to decide whether even a chmod is wanted, and it has been read
+	// already.
+	return same, bi, err
+}
+
+func equalContents(a, b string) (bool, error) {
+	fa, err := os.Open(a) //nolint:gosec // walking our own delta
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", a, err)
+	}
+
+	defer fa.Close()
+
+	fb, err := os.Open(b) //nolint:gosec // see above
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", b, err)
+	}
+
+	defer fb.Close()
+
+	const chunk = 64 * 1024
+
+	ba, bb := make([]byte, chunk), make([]byte, chunk)
+
+	for {
+		na, ea := io.ReadFull(fa, ba)
+		nb, eb := io.ReadFull(fb, bb)
+
+		if na != nb || !bytes.Equal(ba[:na], bb[:nb]) {
+			return false, nil
+		}
+
+		if ea != nil || eb != nil {
+			// Both ended together, which the sizes already promised.
+			return true, nil
+		}
+	}
+}
+
+func copyFile(src, dst string, mode os.FileMode) error {
+	in, err := os.Open(src) //nolint:gosec // walking our own delta
+	if err != nil {
+		return fmt.Errorf("open %s: %w", src, err)
+	}
+
+	defer in.Close()
+
+	// The destination is inside the step's own root, checked by within().
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode) //nolint:gosec // see above
+	if err != nil {
+		return fmt.Errorf("create %s: %w", dst, err)
+	}
+
+	defer out.Close()
+
+	// **A creation mode is a request, and `umask` is the answer.** `O_CREATE`
+	// with 0777 under the ordinary umask of 022 makes a file 0755, so a step
+	// that ran `chmod 777 f` had its layer captured at 755 and the next step
+	// read 755.
+	//
+	// The determinism is the worse half: a mode is part of a layer (I8), so
+	// what this engine produced depended on the umask of whoever invoked it -
+	// two machines, two layers, two keys, for one build. That is environment
+	// leaking into identity, which is what a content-addressed store exists to
+	// prevent.
+	//
+	// `chmod` rather than `syscall.Umask(0)`, which would also work and is
+	// worse: it is global, it affects every other file this process writes, and
+	// it leaves the same trap for the next `OpenFile` somebody adds.
+	err = out.Chmod(mode)
+	if err != nil {
+		return fmt.Errorf("set the mode of %s: %w", dst, err)
+	}
+
+	// **The kernel first, because on this store that is a reflink.** A captured
+	// layer is mostly bytes its base already had, and committing it copies
+	// every one of them: `copy_file_range` on XFS or btrfs shares the extents
+	// instead, so the store grows by what a step changed rather than by what it
+	// could see. One test group filled sixty-three gigabytes the other way -
+	// which is the whole reason a microVM's store is XFS with `reflink=1`, and
+	// it was being paid for and not used.
+	//
+	// Best-effort by design: different filesystems, an old kernel and a file
+	// whose size cannot be known are all ordinary, and the answer to each is
+	// the copy below.
+	if fi, statErr := in.Stat(); cloneLayers() && statErr == nil && fi.Mode().IsRegular() &&
+		fsclone.Range(in, out, fi.Size()) {
+		return nil
+	}
+
+	// Whatever the clone managed, this starts again from the beginning: a
+	// partial clone that reported failure has left the offsets where it stopped.
+	_, err = in.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("rewind %s: %w", src, err)
+	}
+
+	_, err = out.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("rewind %s: %w", dst, err)
+	}
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return fmt.Errorf("copy %s: %w", src, err)
+	}
+
+	return nil
+}
+
+// mkdirAllStamped makes a path and gives a deterministic time to whatever it had
+// to invent.
+//
+// **The one entry that differed.** Two layers holding the same copied tree were
+// compared entry by entry: 193 of them, identical in content, mode and time
+// except for the ancestor directory the copy created to hold the tree, which
+// carried the wall clock of whichever build made it. Layer identity includes
+// mtimes (I8), Κ₁ hashes the identities of a step's base (green paper 4.5), so
+// that one directory re-keyed every step above it and a store that once had to
+// rebuild never went warm again (E575, E576).
+//
+// Only what this call creates. A directory that was already there has a time
+// that means something - some earlier step wrote it - and stamping it would put
+// this copy's mark on somebody else's work.
+func mkdirAllStamped(path string, perm os.FileMode, clamp *time.Time) error {
+	// Deepest missing ancestor first, so the list is what MkdirAll will make.
+	var invented []string
+
+	for p := filepath.Clean(path); ; p = filepath.Dir(p) {
+		_, err := os.Lstat(p)
+		if err == nil {
+			break
+		}
+
+		invented = append(invented, p)
+
+		if parent := filepath.Dir(p); parent == p {
+			break
+		}
+	}
+
+	err := os.MkdirAll(path, perm)
+	if err != nil {
+		return err //nolint:wrapcheck // the caller says which copy this was
+	}
+
+	// Named `at` because that is what stamp() returns everywhere here, and what
+	// TestEveryMtimeIsClampedOrExcused reads to tell a stamped write from a
+	// wall-clock one.
+	at := fstime.Stamp(clamp, fstime.Invented)
+
+	for _, p := range invented {
+		// Best-effort: a directory that cannot be stamped is a layer that
+		// digests differently, which costs a rebuild. Failing the copy over it
+		// would cost the build.
+		_ = fstime.Lchtimes(p, at, at)
+	}
+
+	return nil
+}
+
+// EnvCloneLayers turns off committing a captured layer by reflink.
+//
+// **An A/B switch, because the saving is invisible from inside.** A reflink and
+// a copy leave identical bytes, so the only way to know what sharing extents is
+// worth is to run the same build both ways and look at the store - and a switch
+// is also how the next person bisects a store that has grown strangely.
+//
+// On unless turned off: the fallback is always correct, so what this guards
+// against is a slow store rather than a wrong one.
+const EnvCloneLayers = "EARTH_CLONE_LAYERS"
+
+func cloneLayers() bool {
+	switch os.Getenv(EnvCloneLayers) {
+	case "0", "false", "no":
+		return false
+	default:
+		return true
+	}
+}
+
+// pruneToMatch removes from dst everything src no longer has.
+//
+// **The half `--sync` promises and a plain COPY has never done.** COPY merges,
+// which is right for a base that holds something else and wrong for one holding
+// a previous copy of this same tree: a source file you delete survives there,
+// and a build that reads the directory rather than a manifest goes on compiling
+// it. Measured before this existed - the deleted file was still present after
+// the copy.
+//
+// **Scoped to the destination the copy named, and no wider.** `--sync` is
+// refused without `--dir` for exactly this reason: a copy of a list of files
+// into a directory says nothing about what else that directory is entitled to
+// hold, and deleting on that basis would remove things nobody mentioned.
+//
+// A destination that is not there is nothing to prune, which is the ordinary
+// first copy.
+func pruneToMatch(src, dst string) error {
+	return pruneToMatchAny([]string{src}, dst)
+}
+
+// pruneToMatchAny is pruneToMatch against a source several layers built: an
+// entry stays if any of them has it, which is what the copy is about to write.
+func pruneToMatchAny(srcs []string, dst string) error {
+	_, err := os.Lstat(dst)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("read %s: %w", dst, err)
+	}
+
+	// Deepest first, so a directory is considered after the children that would
+	// have kept it: `filepath.WalkDir` hands out parents first, and removing one
+	// while walking it is a walk over something that is no longer there.
+	var extra []string
+
+	err = filepath.WalkDir(dst, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		if p == dst {
+			return nil
+		}
+
+		rel, relErr := filepath.Rel(dst, p)
+		if relErr != nil {
+			return relErr
+		}
+
+		for _, src := range srcs {
+			_, statErr := os.Lstat(filepath.Join(src, rel))
+			if !errors.Is(statErr, fs.ErrNotExist) {
+				return statErr
+			}
+		}
+
+		extra = append(extra, p)
+
+		// **Only a directory skips.** `fs.SkipDir` returned while visiting a
+		// *file* abandons the rest of that file's directory, so the first extra
+		// file found hid every entry after it - including a subdirectory with
+		// extras of its own, which is what the test caught. Nothing under a
+		// directory the source dropped needs considering separately; it goes
+		// with the directory.
+		if d.IsDir() {
+			return fs.SkipDir
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("compare %s with its source: %w", dst, err)
+	}
+
+	for _, p := range extra {
+		err = os.RemoveAll(p)
+		if err != nil {
+			return fmt.Errorf("remove %s, which the source no longer has: %w", p, err)
+		}
+	}
+
+	return nil
+}

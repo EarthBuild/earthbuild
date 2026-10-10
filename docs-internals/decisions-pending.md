@@ -1,0 +1,136 @@
+# Decisions this engine is waiting on
+
+Every item here is blocked on a judgement rather than on work, and each carries
+the number that judgement needs. Measured 2026-08-29 unless said otherwise;
+sources are the `E8xx` entries in `experiments-adversarial.md`.
+
+## Correctness and behaviour
+
+| decision                         | what it costs now                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | evidence     |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `ip link add` in a private netns | 2 failing Native jobs. **Costed**: a bare private netns for privileged steps would break ten of the thirteen `RUN --privileged` in the corpus, because ten are `RUN_EARTH` running an inner build that fetches. It needs a netns with connectivity - veth and NAT - which is work, not a flag.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | E882, E887   |
+| `/run` listing expectation       | 1 failing Native job. **Not what its name says** (E885): a step's root is identical under both engines and lists `run/` from `/home`, so it is not "native omits /run". The failing case is inside the integration test image under an inner invocation, which cannot be built locally - blocked by the remote `FROM DOCKERFILE` failure in the nits file. Unscoped until that is fixed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | E882, E885   |
+| dockerd pre-script semantics     | 1 failing Native job, the only one that is neither the cgroup privilege nor a documented limitation (E910). **Reproduces locally**, where `WITH DOCKER` works (E911). Passing the test is easy and would not implement the feature: the hook configures the daemon that starts next, and here the daemon runs beside the step rather than in it (E368).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | E913         |
+| where a step's daemon comes from | `launchWith` resolves `dockerd` with `LookPath` against the *guest's* PATH, and that means two different things. Under a VM backend the guest runs inside the sandbox image, which is `dind:alpine-3.24-docker-29.5.3-r0` pinned by digest, so `WITH DOCKER` needs nothing installed on the machine and every build gets one daemon version. Under Native the guest runs on the host, so it takes whatever is there. Nobody decided this; it follows from where the process happens to be. **The key does not say which daemon**: it carries `Docker`, `DockerCache`, `DockerScope` and `IsolateDocker`, and an isolated block naming no cache is cacheable - so two machines with different host dockerds file results under one key, which is the false hit I3 forbids. Safe today only because the VM path's daemon is pinned, which the key does not know. Making Native materialise the same pinned image would close both at once and needs no new machinery: the engine already pulls, stacks and runs it. It would not lift the cgroup privilege Native separately needs (E910). **And it cuts the other way**: 290 MB of the sandbox image's 302 MB is docker, so every build boots a machine 25x larger than it needs to carry a daemon most never start - materialising it on demand would give both backends one pinned source, a ~12 MB sandbox, and a daemon version the engine controls rather than one baked into the image. | this session |
+| persist a layer's owner map      | A stored layer's name is computed from the directory *and* `Placement.Owners`, which is held in memory and never written, so a stored layer cannot be re-verified against its own name - the input is gone. I2 verifies blobs against digests, a different claim. Persisting costs disk and buys re-verification; not persisting is the status quo and is not a defect.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | nits file    |
+
+These are the only Native CI failures traceable to a decision. The rest of that
+suite's failures are cross-architecture work the engine states it does not do,
+or the harness.
+
+## Speed, with prices
+
+| decision                                                    | gain                                       | price                                                                                |
+| ----------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| cache the registry token across builds                      | 0.45s of a 1.1s cold build on Linux (E916) | a bearer token on disk                                                               |
+| layers on tmpfs (`EARTH_IMAGE_CACHE_DIR` splits the store)  | 1.42x on a 30-step build                   | ~1.1GB of RAM for a golang base, and a build that exceeds it fails rather than slows |
+| a guest that listens, instead of `container exec` per build | 165ms of every macOS build                 | a listening service inside the sandbox - a different security posture                |
+| prefetch image blobs on the host while the sandbox boots    | up to 0.58s of a 2.3s cold build           | blobs kept on disk - 61MB a layer (E659)                                             |
+| dial the sandbox optimistically, scan beside it             | 0.11s of a 0.39s warm build - 28% (E914)   | macOS-only boot logic; CI cannot regression-test it                                  |
+
+`EARTH_ASYNC_RELEASE` is **no longer on this list**. It defers a cost that belongs
+to the store's filesystem - 19.5ms on ext4, 0.00ms on tmpfs for identical work -
+so no single default was ever going to be right, and the switch is the correct
+shape (E883).
+
+## Tooling
+
+| decision               | what it would settle                                                                                                                                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| build `cmd/earth-diff` | costed at 3-4 engineer-weeks in the test plan. An hour of hand-rolling it changed the reading of the parity number three times, and finally showed that none of the 37 invocations the gate counts against this engine is a place it diverges from the reference (E882c). |
+
+## One blocker sits under two of these
+
+The remote `FROM DOCKERFILE` failure - recorded in the nits file, and bisected to
+remoteness rather than to anything in the Dockerfile - stops any `./tests+<name>`
+target building locally under `--engine=native`. That blocks the `/run` item,
+which can only be reproduced inside the integration test image, and it blocks
+diagnosing anything else in that suite without a CI round.
+
+It is the cheapest thing on this page to be wrong about: everything else here is
+a judgement, and that one is a defect with a known bisect and no owner.
+
+## The gap is fully accounted for
+
+Nothing in the parity shortfall is unexplained work. It divides into:
+
+| part                          | nature                                                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| targets their recipe prepares | the harness lifts them out of the recipe that makes their fixture; buildkit fails them identically (E882c) |
+| three behaviour decisions     | the table above                                                                                            |
+| documented limitations        | `LOCALLY`, which this engine does not run, and cross-architecture emulation, which it says it does not do  |
+
+The single divergence the differential found - `for.earth+all` - is the first of
+those: `test-for-ls-locally` opens with `LOCALLY`, and the engine refuses it in
+as many words. So getting to 257 needs `LOCALLY`, the three decisions, and a
+harness that does not count what it cannot stage - in that order of size, and
+none of them is discovery.
+
+## Decided: isolation traded for a warm cache
+
+**Taken, 2026-09-10.** A microVM outlives the build that started it by default,
+and a microVM is the default backend on Linux where one can be built.
+
+What it costs is boundary: a guest serving a second build carries the first's
+kernel state and page cache. It does not carry the first's agent, which is a new
+process per build, nor its steps, which run in their own overlays, and the layer
+store is shared between builds already, by design, being a cache.
+
+What it buys is that the boundary is affordable enough to be the default at all -
+2.93x the namespace backend to 1.13x on the build this repository does most
+often, and per-step file access at parity or better (E983, E985b). A boundary
+nobody can afford to switch on protects nothing.
+
+`EARTH_VM_REUSE=0` gives a machine per build; `EARTH_VM=0` gives the namespace
+backend. Both are the stronger and the weaker of their pair respectively, and
+both remain one variable away.
+
+**What is still open** is not the trade but the evidence behind it: one machine,
+one corpus, one repository. A reused guest resetting more of its userland between
+sessions - remounting the store, clearing the writable layers - would hand back
+most of the surface for most of the benefit, and has not been tried.
+
+## What is not a decision
+
+Worth stating so it is not re-litigated. The parity figure - `196 of 249` - counts
+how many of the tree's invocations survive being lifted out of the recipe that
+prepares them, not how much of the language this engine implements. Raising it by
+excluding what cannot build alone was tried twice and reverted twice, both times
+caught by the same check: **an exclusion moves the denominator and must leave the
+numerator alone** (E880, E880b). One narrow rule survived, worth three
+invocations.
+
+## Preserved mtimes and layer deduplication pull against each other
+
+A layer of the store keeps the times the store holds, so a published build tree
+is usable by an incremental compiler: cargo compares a source's mtime against
+the artefact built from it, and a flattened layer answers every such question the
+same way (`image.PackStored`).
+
+The cost is that a layer's digest now moves whenever a step reruns, even when the
+step produces byte-identical output - the mtimes differ, so the tar differs, so
+the blob is new. Two consequences:
+
+* a cold engine cache re-pushes layers whose contents nobody changed;
+* determinism screening compares `Content` rather than `ID` for exactly this
+  reason (§6), so the two notions of "the same layer" have drifted further apart.
+
+Measured on a three-crate workspace: with the cache in play a republish shared 8
+of 10 layers and moved 0.07% of the image, so the ordinary case is unaffected.
+Forced to rebuild (`--no-cache`), 9 of 10 layers churned - all of them
+byte-identical but for their times.
+
+What is not yet decided is whether the two can be had at once. Sketches worth
+weighing, none tried:
+
+* **Stamp produced files from the step's own identity** rather than the wall
+  clock - a deterministic time derived from the layer id, ordered after its base.
+  Reproducible *and* usable, if an ordering can be defined that a compiler
+  accepts.
+* **Carry times beside the tar** rather than in it, so the blob dedups and the
+  materialiser applies them. Costs a second artefact per layer and a format that
+  is no longer plain OCI.
+* **Accept the churn** and rely on chunk-level dedup in the registry
+  (zstd:chunked, nydus) to make an unchanged 5 GB layer cheap to re-push.
+
+Raised 2026-09-10, while measuring what a republish costs at substrate scale.

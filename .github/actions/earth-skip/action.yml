@@ -1,0 +1,144 @@
+name: 'EarthBuild job skip'
+description: >-
+  Build a target, or answer in a tenth of a second that nothing it reads has
+  changed since the last time it was built.
+
+# The record it carries names the host paths the build actually read, so a file
+# copied into the context and never opened does not invalidate it. See
+# docs/native/skipping-a-job.md.
+#
+# **The job still runs; the build does not.** The record names checkout paths
+# whose digests have to be re-read to answer the question, so a checkout is
+# unavoidable and no `if:` gate on an earlier job can be derived. On a
+# twenty-minute build that still leaves the build itself as the saving.
+
+inputs:
+  target:
+    description: 'Target to build, e.g. +test or ./sub+test'
+    required: true
+  build-args:
+    description: >-
+      Build arguments, one NAME=value per line. Order does not matter - the
+      shape hashes them sorted - and a value may contain spaces or `=`, since
+      only the first `=` separates. Blank lines and #-comments are ignored; a
+      line with no `=` is an error rather than a silent omission.
+    required: false
+    default: ''
+  platform:
+    description: 'Platform to build for, e.g. linux/arm64. Defaults to the runner.'
+    required: false
+    default: ''
+  extra-args:
+    description: 'Further arguments passed to earth verbatim, after the flags above.'
+    required: false
+    default: ''
+  setup:
+    description: >-
+      Install EarthBuild with earthbuild/actions-setup. Set false when the
+      workflow has already done so.
+    required: false
+    default: 'true'
+  version:
+    description: 'EarthBuild version for actions-setup, when setup is true.'
+    required: false
+    default: 'latest'
+  github-token:
+    description: >-
+      Token for actions-setup's release-list API call, which is rate-limited to
+      60 requests an hour per IP when unauthenticated - and runner IPs are
+      shared. Pass secrets.GITHUB_TOKEN.
+    required: false
+    default: ''
+  cache-key-prefix:
+    description: 'Prefix for the cache key holding the record.'
+    required: false
+    default: 'earth-skip'
+  record-path:
+    description: >-
+      Directory holding the record between runs. One directory rather than one
+      file because the engine writes a sibling beside the path it is given.
+    required: false
+    default: '.earth-skip'
+
+outputs:
+  skipped:
+    description: "'true' when the build was answered from the record and did not run."
+    value: ${{ steps.build.outputs.skipped }}
+  reason:
+    description: >-
+      Why it was not skipped, when it was not. Empty when it was skipped, and
+      when the build simply had changed inputs.
+    value: ${{ steps.build.outputs.reason }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install EarthBuild
+      if: inputs.setup == 'true'
+      uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
+      with:
+        version: ${{ inputs.version }}
+        github-token: ${{ inputs.github-token }}
+
+    # **Before the cache is touched.** A binary that cannot answer the question
+    # would restore a record, ignore it, build, and save an unchanged record -
+    # all of it looking like the flag working and none of it skipping anything.
+    - name: Check this EarthBuild can answer the question
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if ! command -v earth >/dev/null 2>&1; then
+          echo "::error::earth is not on PATH."
+          echo "  Either set this action's 'setup' input to true, or run" \
+               "earthbuild/actions-setup before it."
+          exit 1
+        fi
+
+        if ! earth --help 2>&1 | grep -q -- '--auto-skip-db-path'; then
+          echo "::error::this earth does not support --auto-skip-db-path," \
+               "so it cannot record what a build read."
+          echo "  Installed: $(earth --version 2>&1 | head -1)"
+          echo "  Job skipping needs the native engine. Pin a newer version" \
+               "with this action's 'version' input."
+          exit 1
+        fi
+
+    - name: Restore the record of what this target reads
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ inputs.record-path }}
+        # **Rolling, because cache keys are immutable.** An entry cannot be
+        # updated, so every run saves under its own key and later runs restore
+        # the newest match by prefix. A pull request sees its own branch's
+        # caches and the default branch's, so its first run asks "has anything
+        # I read changed since main" - which is the question worth asking.
+        key: ${{ inputs.cache-key-prefix }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          ${{ inputs.cache-key-prefix }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.target }}-
+
+    - name: Build, or answer from the record
+      id: build
+      shell: bash
+      env:
+        EARTH_SKIP_TARGET: ${{ inputs.target }}
+        EARTH_SKIP_ARGS: ${{ inputs.build-args }}
+        EARTH_SKIP_PLATFORM: ${{ inputs.platform }}
+        EARTH_SKIP_EXTRA: ${{ inputs.extra-args }}
+        EARTH_SKIP_RECORD: ${{ inputs.record-path }}
+      run: |
+        set -euo pipefail
+        "$GITHUB_ACTION_PATH/skip.sh"
+
+    # **On the build step, not the job.** A failure after the build would
+    # discard a record the build legitimately earned, and `always()` would save
+    # records no build produced - a byte-identical duplicate under a new key,
+    # charged against the 10 GB the cache allows.
+    #
+    # Losing a record costs the next run a build, which is the safe direction.
+    - name: Save the record
+      if: steps.build.outcome == 'success'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ inputs.record-path }}
+        key: ${{ inputs.cache-key-prefix }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.target }}-${{ github.run_id }}-${{ github.run_attempt }}

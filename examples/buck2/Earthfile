@@ -1,0 +1,73 @@
+VERSION 0.8
+
+# Buck2, running as a target, whose actions this engine executes.
+#
+# **The shape the remote-execution work is for.** Buck2 inside an `earth` target
+# is supported; buck2 outside one is not. So nothing is installed on a machine:
+# the target's FROM brings the client in, and `WITH RE` gives that step a socket
+# in its own filesystem that answers the remote execution API for the
+# environment the step is standing in.
+#
+# See docs-internals/plan-remote-execution.md, phase R5.
+
+# renovate: datasource=github-releases packageName=facebook/buck2
+ARG --global buck2_version=2026-09-01
+
+client:
+    FROM debian:bookworm-slim
+    RUN apt-get update -qq \
+     && apt-get install -y --no-install-recommends ca-certificates curl zstd \
+     && rm -rf /var/lib/apt/lists/*
+    # **The arch this is being built for, not the one it was written on.**
+    # Hardcoding x86_64 made this example run on one developer's machine and
+    # silently fail to find a binary on an arm64 one - which is the whole of
+    # why the first run of it went to a Linux box that did not need to be
+    # involved.
+    ARG TARGETARCH
+    LET buck2_arch="x86_64"
+    IF [ "$TARGETARCH" = "arm64" ]
+        SET buck2_arch="aarch64"
+    END
+    # The released binary, so this target is about the protocol rather than
+    # about building a build system.
+    RUN curl -fsSL --retry 5 --retry-all-errors \
+          "https://github.com/facebook/buck2/releases/download/$buck2_version/buck2-$buck2_arch-unknown-linux-gnu.zst" \
+        | zstd -d > /usr/local/bin/buck2 \
+     && chmod +x /usr/local/bin/buck2 \
+     && buck2 --version
+
+# build runs the project's one action through this engine.
+#
+# `WITH RE` is the whole of the opt-in. Without it there is no socket, buck2
+# cannot reach a service, and - because the execution platform is remote-only -
+# it fails rather than quietly building locally and reporting success.
+project:
+    FROM +client
+    WORKDIR /w
+    COPY project .
+
+build:
+    FROM +project
+    WITH RE
+        RUN buck2 build //:hello --show-output
+    END
+
+# reach asks only whether the socket is there, for when `build` fails and the
+# question is which half.
+reach:
+    FROM +client
+    WITH RE
+        RUN test -S /run/earthbuild/actions.sock && echo "the socket is there"
+    END
+
+# cached asks buck2 to build the same action a second time, in a step this
+# engine is forbidden to cache.
+#
+# **The half of R5's exit criterion that is about the cache.** Without
+# `--no-cache` the step itself hits, buck2 never runs, and nothing is learned
+# about whether an action's result survives - which is the question.
+cached:
+    FROM +project
+    WITH RE
+        RUN --no-cache buck2 build //:hello --show-output
+    END

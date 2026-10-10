@@ -1,0 +1,3 @@
+# Deliberately empty, and WORKSPACE rather than MODULE.bazel: bzlmod resolves
+# its registry over the network, and what is being tested is the execution
+# protocol rather than whether a build can reach the internet.

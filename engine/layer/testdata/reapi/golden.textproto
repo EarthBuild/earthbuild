@@ -1,0 +1,28 @@
+files {
+  name: "a.txt"
+  digest { hash: "0000000000000000000000000000000000000000000000000000000000000001" size_bytes: 3 }
+}
+files {
+  name: "run.sh"
+  digest { hash: "0000000000000000000000000000000000000000000000000000000000000002" size_bytes: 11 }
+  is_executable: true
+  node_properties {
+    properties { name: "earthbuild.gid" value: "20" }
+    properties { name: "earthbuild.uid" value: "501" }
+  }
+}
+directories {
+  name: "sub"
+  digest { hash: "0000000000000000000000000000000000000000000000000000000000000003" size_bytes: 42 }
+}
+symlinks {
+  name: "link"
+  target: "a.txt"
+}
+symlinks {
+  name: "owned"
+  target: "sub/deep.txt"
+  node_properties {
+    properties { name: "earthbuild.uid" value: "0" }
+  }
+}

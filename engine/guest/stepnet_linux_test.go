@@ -1,0 +1,178 @@
+//go:build linux
+
+package guest
+
+import (
+	"strings"
+	"testing"
+)
+
+// Two steps never get the same address, which is the whole point of the thing.
+//
+// Parallel steps share the guest's network namespace, so two of them binding one
+// fixed port collide: an inner buildkitd wants 8371 and 8372, and the second
+// dies with `bind: address already in use` (E923). A namespace each fixes it
+// only if the addresses differ, so this is the property worth asserting.
+func TestEachStepNetGetsItsOwnAddresses(t *testing.T) {
+	t.Parallel()
+
+	seen := map[string]int{}
+
+	for i := range 64 {
+		p := stepNetPlan(i)
+
+		for _, addr := range []string{p.HostAddr, p.StepAddr, p.Subnet, p.Name, p.HostLink} {
+			if prev, ok := seen[addr]; ok {
+				t.Errorf("step %d reuses %q from step %d", i, addr, prev)
+			}
+
+			seen[addr] = i
+		}
+	}
+}
+
+// The two ends of a veth are in the same /30 and the step's route points at the
+// guest's end, or the namespace is isolated in the sense that nothing works.
+func TestAStepNetPlanIsRoutable(t *testing.T) {
+	t.Parallel()
+
+	p := stepNetPlan(0)
+
+	if !strings.HasSuffix(p.Subnet, "/30") {
+		t.Errorf("a veth pair wants a /30, got %q", p.Subnet)
+	}
+
+	hostOct := p.HostAddr[strings.LastIndex(p.HostAddr, ".")+1:]
+	stepOct := p.StepAddr[strings.LastIndex(p.StepAddr, ".")+1:]
+
+	if hostOct == stepOct {
+		t.Errorf("both ends of the veth got %q", hostOct)
+	}
+
+	// A /30 holds four addresses: network, two hosts, broadcast. The usable
+	// pair is .1 and .2 of the block, and anything else is not addressable.
+	if hostOct != "1" || stepOct != "2" {
+		t.Errorf("a /30's usable pair is .1 and .2, got .%s and .%s", hostOct, stepOct)
+	}
+}
+
+// An interface name is at most IFNAMSIZ-1, and the kernel refuses a longer one
+// rather than truncating it - so a name built from a counter must stay short at
+// the counter's largest value, not merely at zero.
+func TestStepNetNamesFitTheKernelsLimit(t *testing.T) {
+	t.Parallel()
+
+	const ifnamsiz = 15
+
+	for _, i := range []int{0, 1, 999, 16383, 65535} {
+		p := stepNetPlan(i)
+
+		if len(p.HostLink) > ifnamsiz {
+			t.Errorf("step %d: host link %q is %d characters, limit is %d",
+				i, p.HostLink, len(p.HostLink), ifnamsiz)
+		}
+
+		if len(p.StepLink) > ifnamsiz {
+			t.Errorf("step %d: step link %q is %d characters, limit is %d",
+				i, p.StepLink, len(p.StepLink), ifnamsiz)
+		}
+	}
+}
+
+// A step's traffic is allowed through the guest's filter, not merely translated.
+//
+// **MASQUERADE is not permission.** A rule in nat/POSTROUTING rewrites a packet's
+// source; whether the packet is forwarded at all is filter/FORWARD's decision,
+// and Docker sets that chain's policy to DROP on every machine it is installed
+// on. A GitHub runner has Docker, so a step got an address, a route, a resolver
+// and no connectivity - `apk add ... exited 8, and printed nothing` - while the
+// same setup worked in a container whose FORWARD policy was ACCEPT (E931b).
+//
+// Both directions: the reply is a separate packet and the chain sees it too.
+func TestAStepsTrafficIsAllowedThrough(t *testing.T) {
+	t.Parallel()
+
+	plan := stepNetPlan(0)
+
+	var out, back bool
+
+	for _, argv := range stepNetUp(plan) {
+		line := strings.Join(argv, " ")
+		if !strings.Contains(line, "FORWARD") {
+			continue
+		}
+
+		if strings.Contains(line, "-s "+plan.Subnet) {
+			out = true
+		}
+
+		if strings.Contains(line, "-d "+plan.Subnet) {
+			back = true
+		}
+	}
+
+	if !out {
+		t.Error("nothing lets the step's packets out through FORWARD")
+	}
+
+	if !back {
+		t.Error("nothing lets the replies back in through FORWARD")
+	}
+
+	// And every rule added to the guest's tables is taken out again. A step is
+	// transient and the tables are not: rules that accumulated would outlive
+	// every build that made them.
+	added, removed := 0, 0
+
+	for _, argv := range stepNetUp(plan) {
+		if strings.Contains(strings.Join(argv, " "), "iptables") {
+			added++
+		}
+	}
+
+	for _, argv := range stepNetDown(plan) {
+		if strings.Contains(strings.Join(argv, " "), "iptables") {
+			removed++
+		}
+	}
+
+	if added != removed {
+		t.Errorf("%d iptables rules added and %d removed", added, removed)
+	}
+}
+
+// A failed attempt is followed by a different one, which is what retrying needs.
+//
+// **`/run/netns` is shared and the counter is not.** `nextStepNet` numbers from
+// zero in each process, and a build runs many: the outer `earth`, and a nested
+// one inside every step that starts one. They all asked for `earth-s1`; the
+// second got `Cannot create namespace file "/run/netns/earth-s1": File exists`,
+// degraded to shared, and printed a warning into output that tests compare -
+// five Native jobs broken to fix one (E933).
+//
+// `openStepNet` now takes the next name when one is taken. This holds the
+// property that makes that work: consecutive counter values name nothing in
+// common, so a retry is a genuinely different attempt rather than the same one.
+//
+// It does not test the retry itself, which shells out to `ip` and would need a
+// runner injected to observe. What it guards is the assumption underneath it.
+func TestConsecutiveAttemptsShareNothing(t *testing.T) {
+	t.Parallel()
+
+	for i := range 32 {
+		a, b := stepNetPlan(i), stepNetPlan(i+1)
+
+		for _, pair := range [][2]string{
+			{a.Name, b.Name},
+			{a.HostLink, b.HostLink},
+			{a.StepLink, b.StepLink},
+			{a.Subnet, b.Subnet},
+			{a.HostAddr, b.HostAddr},
+		} {
+			if pair[0] == pair[1] {
+				t.Fatalf("attempt %d and %d both use %q, so a retry retries nothing",
+					i, i+1, pair[0])
+			}
+		}
+	}
+}

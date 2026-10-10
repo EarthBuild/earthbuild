@@ -673,6 +673,18 @@ func TestInlineCacheImageIsExportedAsWithout(t *testing.T) {
 			},
 			want: exportTally{loads: 1, pushes: 2, localSummaries: 1, pushSummaries: 2},
 		},
+		{
+			// builder.go loads no image, and summarizes none, here; the wait block
+			// loads and summarizes them, as it does without inline cache.
+			name:  "--artifact",
+			build: exportTestBuild{export: ExportAll, push: true, artifactMode: true},
+			run: func(h *exportTestHarness) {
+				root := h.rootConverter(localTestTarget("img"))
+				h.saveImage(root, true)
+				h.finalize(root)
+			},
+			want: once,
+		},
 	}
 
 	for _, tt := range tests {

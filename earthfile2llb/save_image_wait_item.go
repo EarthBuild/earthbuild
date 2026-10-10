@@ -101,33 +101,51 @@ func (siwi *saveImageWaitItem) delegatedToBuilder() bool {
 // claim takes this image's export for one wait block's Wait, and returns what
 // that Wait has to do: push it, export it locally, both or neither. What an
 // earlier Wait (of this block or another) already took on is not done again.
+// Instead, claim returns the outcomes of those exports in waitFor: the Wait
+// must not return before they are done, because END promises that the image
+// is pushed and loaded by then, and the Wait that took them on may still be
+// running. A push is waited for as a push, and a local export as a local
+// export: one being done says nothing about the other.
 //
-// The top-level block claims nothing while builder.go still exports the image.
-// Any other block takes the export over from builder.go: it exports everything
-// it holds by the time its Wait returns.
-func (siwi *saveImageWaitItem) claim(topLevel bool) (doPush, localExport bool) {
+// The top-level block claims nothing while builder.go still exports the image,
+// and waits for nothing: builder.go only runs after it. Any other block takes
+// the export over from builder.go: it exports everything it holds by the time
+// its Wait returns.
+func (siwi *saveImageWaitItem) claim(topLevel bool) (doPush, localExport bool, waitFor []*states.ExportOutcome) {
 	siwi.mu.Lock()
 	defer siwi.mu.Unlock()
 
-	doPush = siwi.doPush && !siwi.pushed
-	localExport = siwi.localExport && !siwi.exportedLocally
+	needPush, needLocalExport := siwi.doPush, siwi.localExport
 
-	if !doPush && !localExport {
-		return false, false
+	if !needPush && !needLocalExport {
+		return false, false, nil
 	}
 
 	if topLevel && siwi.delegatedToBuilder() {
-		return false, false
+		return false, false, nil
 	}
 
-	if !siwi.si.Export.TakeForWaitBlock() {
-		return false, false
+	doPush = needPush && !siwi.pushed
+	localExport = needLocalExport && !siwi.exportedLocally
+
+	if (doPush || localExport) && !siwi.si.Export.TakeForWaitBlock() {
+		// builder.go exports it. It only runs once the whole build has been
+		// converted, after every Wait, so there is nothing to wait for.
+		return false, false, nil
 	}
 
 	siwi.pushed = siwi.pushed || doPush
 	siwi.exportedLocally = siwi.exportedLocally || localExport
 
-	return doPush, localExport
+	if needPush && !doPush {
+		waitFor = append(waitFor, &siwi.si.Export.Pushed)
+	}
+
+	if needLocalExport && !localExport {
+		waitFor = append(waitFor, &siwi.si.Export.ExportedLocally)
+	}
+
+	return doPush, localExport, waitFor
 }
 
 // pushedElsewhere reports whether the image is to be pushed, and an earlier

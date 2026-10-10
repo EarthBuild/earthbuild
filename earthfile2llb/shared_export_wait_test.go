@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/stretchr/testify/require"
 )
 
@@ -171,5 +172,64 @@ func TestWaitReturnsOnlyOnceSharedImageIsExported(t *testing.T) {
 			requireReturns(t, firstDone, "the first END")
 			requireReturns(t, thirdDone, "an END waiting for the first END's export")
 		})
+	}
+}
+
+// Two WAIT blocks that hold the same two images, in opposite orders, can each
+// claim one export and wait for the other's. That must not deadlock: an export
+// never waits for anything but its own solve. Whichever way the claims
+// interleave, both ENDs return, and each image is pushed once.
+func TestWaitBlocksWaitingForEachOthersExportsDoNotDeadlock(t *testing.T) {
+	t.Parallel()
+
+	for range 50 {
+		gw := &requestRecordingGwClient{}
+		first, second := newWaitBlock(), newWaitBlock()
+
+		images := make([]*Converter, 0, 2)
+
+		for _, name := range []string{"x", "y"} {
+			c, eg := newFinalizeTestConverter(t, finalizeTestOpt{
+				gw:          gw,
+				export:      ExportNone,
+				doPushes:    true,
+				waitBlock:   newWaitBlock(),
+				waitBlockOn: true,
+			})
+			c.mts.Final.RanFromLike = true
+			c.mts.Final.MainState = pllb.Image("alpine:3.20")
+
+			err := c.SaveImage(t.Context(), []string{"registry.example.com/" + name}, true, false, false, nil, false)
+			require.NoError(t, err)
+
+			_, err = c.FinalizeStates(t.Context())
+			require.NoError(t, err)
+			require.NoError(t, eg.Wait())
+
+			images = append(images, c)
+		}
+
+		images[0].mts.Final.AttachTopLevelWaitItems(t.Context(), first)
+		images[1].mts.Final.AttachTopLevelWaitItems(t.Context(), first)
+		images[1].mts.Final.AttachTopLevelWaitItems(t.Context(), second)
+		images[0].mts.Final.AttachTopLevelWaitItems(t.Context(), second)
+
+		firstDone := waitAsync(t.Context(), first, true, false)
+		secondDone := waitAsync(t.Context(), second, true, false)
+
+		requireReturns(t, firstDone, "the first END")
+		requireReturns(t, secondDone, "the second END")
+
+		pushes := map[string]int{}
+
+		for _, req := range gw.recorded() {
+			for _, img := range req.images {
+				if img.push {
+					pushes[img.name]++
+				}
+			}
+		}
+
+		require.Equal(t, map[string]int{"registry.example.com/x": 1, "registry.example.com/y": 1}, pushes)
 	}
 }

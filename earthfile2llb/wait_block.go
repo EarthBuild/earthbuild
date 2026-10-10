@@ -153,12 +153,15 @@ func (wb *waitBlock) imageExports(items []states.WaitItem) []imageExport {
 // locally is not pushed or exported again: it is attached to every block that
 // BUILDs its target, but it has a single exporter. It is only added back as a
 // member of a manifest list this Wait makes (see manifestListMembers).
-func (wb *waitBlock) claimExports(items []states.WaitItem) []imageExport {
+//
+// waitFor are the outcomes of the exports of items that another Wait took on,
+// which this Wait must wait for (see saveImageWaitItem.claim). Waiting for
+// them cannot deadlock: an export never waits for anything but solving its own
+// image, so two Waits that each wait for the other's export both finish.
+func (wb *waitBlock) claimExports(items []states.WaitItem) (exports []imageExport, waitFor []*states.ExportOutcome) {
 	if wb.detached {
-		return nil
+		return nil, nil
 	}
-
-	var exports []imageExport
 
 	for _, item := range items {
 		saveImage, ok := item.(*saveImageWaitItem)
@@ -166,7 +169,9 @@ func (wb *waitBlock) claimExports(items []states.WaitItem) []imageExport {
 			continue
 		}
 
-		doPush, localExport := saveImage.claim(wb.topLevel)
+		doPush, localExport, othersExports := saveImage.claim(wb.topLevel)
+		waitFor = append(waitFor, othersExports...)
+
 		if !doPush && !localExport {
 			continue
 		}
@@ -178,7 +183,7 @@ func (wb *waitBlock) claimExports(items []states.WaitItem) []imageExport {
 		})
 	}
 
-	return append(exports, manifestListMembers(items, exports)...)
+	return append(exports, manifestListMembers(items, exports)...), waitFor
 }
 
 // manifestListMembers returns the images in items that belong in the manifest
@@ -291,12 +296,23 @@ func (wb *waitBlock) Wait(ctx context.Context, push, localExport bool) error {
 	}
 
 	items := wb.snapshotItems()
-	exports := wb.claimExports(items)
+	exports, othersExports := wb.claimExports(items)
 
 	errGroup, ctx := serrgroup.WithContext(ctx)
+	// saveImages goes first: the group adds no more work once one has failed,
+	// and the exports claimed above must always run, so that whoever waits for
+	// them is told how they ended.
 	errGroup.Go(func() error {
 		return saveImages(ctx, exports)
 	})
+
+	// END must not return before the exports of its images that another Wait
+	// took on are done.
+	for _, outcome := range othersExports {
+		errGroup.Go(func() error {
+			return outcome.Wait(ctx)
+		})
+	}
 
 	if localExport {
 		errGroup.Go(func() error {

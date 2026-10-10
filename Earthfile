@@ -638,7 +638,10 @@ unit-test-scripts:
 fuzz-test:
     FROM +go
     COPY --dir +code/earth /
-    RUN --push \
+    # --no-cache so every invocation actually fuzzes, rather than replaying a
+    # cached result for unchanged inputs. Do not use RUN --push here: it is
+    # skipped entirely unless the build is invoked with --push (see #729).
+    RUN --no-cache \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         go test -run=^$ -fuzz=. -fuzztime=10s ./internal/earthfile

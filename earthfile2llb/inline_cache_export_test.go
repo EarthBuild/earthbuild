@@ -412,9 +412,9 @@ func TestTopLevelInlineCacheImageIsExportedOnce(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name string
 		// run converts the build; it must leave h.root set.
 		run   func(h *exportTestHarness)
+		name  string
 		build exportTestBuild
 		want  exportTally
 	}{
@@ -516,9 +516,9 @@ func TestInlineCacheImageIsExportedAsWithout(t *testing.T) {
 	loaded := exportTally{loads: 1, localSummaries: 1}
 
 	tests := []struct {
-		name string
 		// run converts the build; it must leave h.root set.
 		run   func(h *exportTestHarness)
+		name  string
 		build exportTestBuild
 		want  exportTally
 	}{

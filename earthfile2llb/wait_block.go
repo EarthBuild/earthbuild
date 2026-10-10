@@ -145,6 +145,7 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 			// Exporting it here as well would push or load it twice. Under
 			// --artifact builder.go loads no image, so the load stays here.
 			push = false
+
 			if !saveImage.c.opt.OnlyArtifact {
 				load = false
 			}

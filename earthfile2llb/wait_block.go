@@ -15,7 +15,6 @@ import (
 	"github.com/EarthBuild/earthbuild/util/dockerutil"
 	"github.com/EarthBuild/earthbuild/util/gatewaycrafter"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
-	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/saveartifactlocally"
 	"github.com/EarthBuild/earthbuild/util/syncutil/semutil"
 	"github.com/EarthBuild/earthbuild/util/syncutil/serrgroup"
@@ -123,11 +122,6 @@ func (wb *waitBlock) saveImages(ctx context.Context) error {
 		}
 
 		if !saveImage.doPush && !saveImage.localExport {
-			continue
-		}
-
-		if !saveImage.si.SkipBuilder {
-			// This image is delegated to builder.go for export (e.g. inline caching workaround for #2178)
 			continue
 		}
 
@@ -307,10 +301,6 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 			continue
 		}
 
-		if wb.isStateExportedUnlocked(stateItem.state) {
-			continue
-		}
-
 		stateItems = append(stateItems, stateItem)
 	}
 
@@ -326,7 +316,6 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 	sem := semutil.NewMultiSem(sharedParallelism, semutil.NewWeighted(1))
 
 	errGroup, ctx := serrgroup.WithContext(ctx)
-
 	for _, item := range stateItems {
 		errGroup.Go(func() error {
 			rel, err := sem.Acquire(ctx, 1)
@@ -340,43 +329,6 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 	}
 
 	return errGroup.Wait()
-}
-
-// isStateExported reports whether state is scheduled to be exported as an image
-// (either pushed to a registry or exported locally) by any wait item in this block.
-// It acquires wb.mu to guard against concurrent AddItem mutations from parallel targets.
-func (wb *waitBlock) isStateExported(state *pllb.State) bool {
-	wb.mu.Lock()
-	defer wb.mu.Unlock()
-
-	return wb.isStateExportedUnlocked(state)
-}
-
-func (wb *waitBlock) isStateExportedUnlocked(state *pllb.State) bool {
-	if state == nil || state.Output() == nil {
-		return true
-	}
-
-	for _, item := range wb.items {
-		saveImage, ok := item.(*saveImageWaitItem)
-		if !ok {
-			continue
-		}
-
-		if !saveImage.doPush && !saveImage.localExport {
-			continue
-		}
-
-		// SkipBuilder is not checked here: whether the image is exported by
-		// wait_block (SkipBuilder == true) or delegated to builder.go
-		// (SkipBuilder == false), the image will be solved and exported.
-		// Reporting true prevents redundant concurrent solves of the same vertex.
-		if saveImage.si.State.Output() == state.Output() {
-			return true
-		}
-	}
-
-	return false
 }
 
 type saveArtifactLocalEntry struct {

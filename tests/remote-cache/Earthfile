@@ -15,6 +15,7 @@ all:
     BUILD +test1
     BUILD +test2
     BUILD +test3
+    BUILD +test4
 
 test1:
     RUN echo "content" >./input
@@ -66,16 +67,38 @@ test3:
         --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output --strict --use-inline-cache --save-inline-cache --push +test3
 
+# test4 checks that an explicit remote cache is used for the steps below a
+# local COPY when part of the build is solved before the rest of it, by a
+# LET $(...), an IF, a FOR or a WAIT block. See
+# https://github.com/EarthBuild/earthbuild/issues/1033.
+test4:
+    RUN echo "content" >./input && echo "final content" >./input-final
+    ARG cache_ref=$REGISTRY/test4-cache:latest
+    # Running with tmpfs mount = no local cache.
+    DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test4 \
+        --flags="--max-remote-cache --remote-cache=$cache_ref --push"
+    FOR step IN let if-body if-after for-body for-after wait-base wait-top wait-final
+        RUN nl=$(cat ./output | grep "execute-test4-$step" | grep -v "echo" | wc -l) && acbtest "$nl" -eq 1
+    END
+
+    # A fresh buildkitd, so only the imported cache can provide these.
+    DO --pass-args +DO_REMOTE_CACHE_EARTH --target=+test4 --flags="--cache-from=$cache_ref"
+    FOR step IN let if-body if-after for-body for-after wait-base wait-top wait-final
+        RUN nl=$(cat ./output | grep -F "*cached* --> RUN echo \"execute-test4-$step" | wc -l) && acbtest "$nl" -eq 1
+        RUN nl=$(cat ./output | grep "execute-test4-$step" | grep -v "echo" | wc -l) && acbtest "$nl" -eq 0
+    END
+
 # Work around the lack of variable overriding, since the base image already includes EARTH_ADDITIONAL_BUILDKIT_CONFIG
 DO_REMOTE_CACHE_EARTH:
     FUNCTION
 
     ARG target
+    ARG flags="--use-inline-cache --save-inline-cache --push"
 
     RUN --privileged \
         --mount=type=tmpfs,target=/tmp/earthbuild \
         -- \
         ( EARTH_ADDITIONAL_BUILDKIT_CONFIG=$EARTH_ADDITIONAL_BUILDKIT_CONFIG$REGISTRY_CONFIG \
-        /usr/bin/earth-entrypoint.sh --use-inline-cache --save-inline-cache --strict --no-output --push \
+        /usr/bin/earth-entrypoint.sh $flags --strict --no-output \
             --build-arg REGISTRY=$REGISTRY \
             $target; echo "exit_code=$?" ) 2>&1 | tee ./output && acbtest "$(tail -n 1 output)" = "exit_code=0"

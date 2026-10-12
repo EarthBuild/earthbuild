@@ -35,6 +35,53 @@ test2:
     ENTRYPOINT ["/js-example/node_modules/http-server/bin/http-server", "./dist"]
     SAVE IMAGE --push --insecure $REGISTRY/test2:latest
 
+# test4-let, test4-if, test4-for and test4-wait-final each run steps below a
+# local COPY after part of their state has been solved on its own.
+test4-let:
+    FROM alpine:3.24.2
+    COPY ./input ./
+    LET content="$(cat input)"
+    RUN echo "execute-test4-let $content"
+
+test4-if:
+    FROM alpine:3.24.2
+    COPY ./input ./
+    IF [ -f input ]
+        RUN echo "execute-test4-if-body"
+    END
+    RUN echo "execute-test4-if-after"
+
+test4-for:
+    FROM alpine:3.24.2
+    COPY ./input ./
+    FOR word IN $(cat input)
+        RUN echo "execute-test4-for-body $word"
+    END
+    RUN echo "execute-test4-for-after"
+
+test4-wait-base:
+    FROM alpine:3.24.2
+    COPY ./input ./
+    RUN echo "execute-test4-wait-base"
+
+test4-wait-top:
+    FROM +test4-wait-base
+    RUN echo "execute-test4-wait-top"
+
+test4-wait-final:
+    FROM +test4-wait-top
+    COPY ./input-final ./
+    RUN echo "execute-test4-wait-final"
+
+test4:
+    BUILD +test4-let
+    BUILD +test4-if
+    BUILD +test4-for
+    WAIT
+        BUILD +test4-wait-top
+    END
+    BUILD +test4-wait-final
+
 # Smoke test for --cache-hint.
 test3:
     FROM alpine:3.24.2

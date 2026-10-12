@@ -12,7 +12,9 @@ buildkitd:
             ARG BUILDKIT_BASE_IMAGE=$BUILDKIT_PROJECT+build
         END
     ELSE
-        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:97a1abd81531b1422c582232311f8f05b839447c+build
+        # TODO: pinned to the head of unmerged EarthBuild/buildkit#48 (stacked on #41).
+        # Advance to the merged commit on EarthBuild/buildkit main once it lands.
+        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:1f6ea5314ef785fb8a0c8ae271546098e236e5f7+build
     END
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
@@ -99,7 +101,7 @@ buildkitd:
 buildkit-sha:
     RUN apk add --no-cache git
     ARG BUILDKIT_GIT_SHA
-    ARG BUILDKIT_GIT_BRANCH=earthly-main
+    ARG BUILDKIT_GIT_BRANCH=main
     ARG --required BUILDKIT_GIT_ORG
     RUN --no-cache set -e; \
         if [ "$(echo -n $BUILDKIT_GIT_SHA | wc -c)" = 40 ]; then \

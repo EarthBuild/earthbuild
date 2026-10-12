@@ -10,11 +10,21 @@ import (
 	"sync"
 
 	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/identity"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // gmu is a global lock used for any interaction with the llb package.
 var gmu sync.Mutex
+
+// processLocalUniqueID is the local.unique value that every local source
+// marshaled by this process carries. llb.NewConstraints otherwise picks a new
+// random one per Marshal, so solving the same state twice in one build would
+// give its local sources, and everything built on them, new vertex digests for
+// the same cache keys. BuildKit then merges those edges and replays their logs
+// into the job once per extra solve. Separate earth processes still get
+// distinct values, so they never share local-source vertices.
+var processLocalUniqueID = identity.NewID()
 
 // State is a wrapper around llb.State.
 type State struct {
@@ -101,8 +111,12 @@ func (s State) SetMarshalDefaults(co ...llb.ConstraintsOpt) State {
 	return State{st: s.st.SetMarshalDefaults(co...)}
 }
 
-// Marshal is a wrapper around llb.Marshal.
+// Marshal is a wrapper around llb.Marshal. Local sources get this process's
+// local.unique value (see processLocalUniqueID) unless co sets its own
+// llb.LocalUniqueID.
 func (s State) Marshal(ctx context.Context, co ...llb.ConstraintsOpt) (*llb.Definition, error) {
+	co = append([]llb.ConstraintsOpt{llb.LocalUniqueID(processLocalUniqueID)}, co...)
+
 	gmu.Lock()
 	defer gmu.Unlock()
 

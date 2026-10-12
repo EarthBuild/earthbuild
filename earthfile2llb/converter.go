@@ -1265,6 +1265,57 @@ func (c *Converter) canSave(saveAsLocalTo string) (bool, error) {
 	return strings.HasPrefix(saveAsLocalToAdj, basepath), nil
 }
 
+// tryFinallySaveFiles validates the TRY/FINALLY SAVE ARTIFACT ... AS LOCAL
+// destinations, whitelists them for the earthly_save_file socket handler and
+// returns the settings to pass to the debugger.
+//
+// Each destination is resolved against the target's directory and sent to the
+// debugger as an absolute path. The debugger relays that path verbatim to the
+// CLI, which writes it relative to its own working directory; sending the
+// Earthfile-relative path would land the file in the wrong directory whenever
+// the Earthfile is not in the working directory (see #578).
+func (c *Converter) tryFinallySaveFiles(
+	in []debuggercommon.SaveFilesSettings,
+) ([]debuggercommon.SaveFilesSettings, error) {
+	localPathAbs, err := filepath.Abs(c.target.LocalPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to determine absolute path of %s: %w", c.target.LocalPath, err)
+	}
+
+	saveFiles := make([]debuggercommon.SaveFilesSettings, 0, len(in))
+
+	for _, saveFile := range in {
+		canSave, err := c.canSave(saveFile.Dst)
+		if err != nil {
+			return nil, err
+		}
+
+		if !canSave {
+			return nil, fmt.Errorf("unable to save to %s; path must be located under %s", saveFile.Dst, c.target.LocalPath)
+		}
+
+		dst := saveFile.Dst
+		if !filepath.IsAbs(dst) {
+			dst = filepath.Join(localPathAbs, dst)
+		}
+
+		// The absolute path is what the debugger sends back over the
+		// earthly_save_file socket, so it is what receiveFile checks.
+		c.opt.LocalArtifactWhiteList.Add(dst)
+		// The Earthfile-relative destination is whitelisted too, so that a
+		// later COPY of the same path is rejected as an AS LOCAL output.
+		c.opt.LocalArtifactWhiteList.Add(saveFile.Dst)
+
+		saveFiles = append(saveFiles, debuggercommon.SaveFilesSettings{
+			Src:      saveFile.Src,
+			Dst:      dst,
+			IfExists: saveFile.IfExists,
+		})
+	}
+
+	return saveFiles, nil
+}
+
 // SaveArtifactFromLocal saves a local file into the ArtifactsState.
 func (c *Converter) SaveArtifactFromLocal(
 	ctx context.Context, saveFrom, saveTo string, keepTs, keepOwn bool, chown string,
@@ -2733,43 +2784,11 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 			)
 		}
 
-		var localPathAbs string
+		var saveFiles []debuggercommon.SaveFilesSettings
 
-		localPathAbs, err = filepath.Abs(c.target.LocalPath)
+		saveFiles, err = c.tryFinallySaveFiles(opts.InteractiveSaveFiles)
 		if err != nil {
-			return pllb.State{}, fmt.Errorf("unable to determine absolute path of %s: %w", c.target.LocalPath, err)
-		}
-
-		saveFiles := []debuggercommon.SaveFilesSettings{}
-
-		for _, interactiveSaveFile := range opts.InteractiveSaveFiles {
-			var canSave bool
-
-			canSave, err = c.canSave(interactiveSaveFile.Dst)
-			if err != nil {
-				return pllb.State{}, err
-			}
-
-			if !canSave {
-				err = fmt.
-					Errorf("unable to save to %s; path must be located under %s", interactiveSaveFile.Dst, c.target.LocalPath)
-
-				return pllb.State{}, err
-			}
-
-			dst := path.Join(localPathAbs, interactiveSaveFile.Dst)
-			c.opt.LocalArtifactWhiteList.Add(dst)
-			// The receiveFile handler will only be given the relative, so needs to whitelisted as well.
-			// This is needed when e.g. the user specifies a destination of "out/", which is then rewritten
-			// to "out/file".  If the user specified a full file path, e.g. "out/file", then this is redundant
-			// since the waitBlock will add that same value.  This makes it explicit.
-			c.opt.LocalArtifactWhiteList.Add(interactiveSaveFile.Dst)
-
-			saveFiles = append(saveFiles, debuggercommon.SaveFilesSettings{
-				Src:      interactiveSaveFile.Src,
-				Dst:      interactiveSaveFile.Dst,
-				IfExists: interactiveSaveFile.IfExists,
-			})
+			return pllb.State{}, err
 		}
 
 		var (

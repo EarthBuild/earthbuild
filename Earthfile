@@ -59,7 +59,7 @@ update-buildkit:
     FROM +code # if we use deps, go mod tidy will remove a bunch of requirements since it won't have access to our codebase.
     ARG BUILDKIT_GIT_SHA
     ARG BUILDKIT_GIT_BRANCH=earthly-main
-    ARG BUILDKIT_GIT_ORG=earthly
+    ARG BUILDKIT_GIT_ORG=EarthBuild
     ARG BUILDKIT_GIT_REPO=buildkit
     COPY (./buildkitd+buildkit-sha/buildkit_sha --BUILDKIT_GIT_ORG="$BUILDKIT_GIT_ORG" --BUILDKIT_GIT_SHA="$BUILDKIT_GIT_SHA" --BUILDKIT_GIT_BRANCH="$BUILDKIT_GIT_BRANCH") buildkit_sha
     BUILD  ./buildkitd+update-buildkit-earthfile --BUILDKIT_GIT_ORG="$BUILDKIT_GIT_ORG" --BUILDKIT_GIT_SHA="$(cat buildkit_sha)" --BUILDKIT_GIT_REPO="$BUILDKIT_GIT_REPO"

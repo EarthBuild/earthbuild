@@ -5,7 +5,14 @@
         "args": [
           "alpine/git:v2.54.0"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 24,
+          "endLine": 2,
+          "file": "git-clone.earth",
+          "startColumn": 1,
+          "startLine": 2
+        }
       }
     }
   ],
@@ -18,7 +25,14 @@
             "args": [
               "+test-default"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 24,
+              "endLine": 5,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 5
+            }
           }
         },
         {
@@ -26,7 +40,14 @@
             "args": [
               "+test-branch"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 6,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -34,10 +55,24 @@
             "args": [
               "+test-sha"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 20,
+              "endLine": 7,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 9,
+        "file": "git-clone.earth",
+        "startColumn": 1,
+        "startLine": 4
+      }
     },
     {
       "name": "test-default",
@@ -47,7 +82,14 @@
             "args": [
               "/test"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 10,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -56,7 +98,14 @@
               "https://github.com/moby/buildkit.git",
               "buildkit"
             ],
-            "name": "GIT CLONE"
+            "name": "GIT CLONE",
+            "sourceLocation": {
+              "endColumn": 60,
+              "endLine": 11,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 11
+            }
           }
         },
         {
@@ -67,7 +116,14 @@
               "=",
               "\"/test\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 32,
+              "endLine": 12,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -75,7 +131,14 @@
             "args": [
               "/test/buildkit"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 27,
+              "endLine": 13,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         },
         {
@@ -84,7 +147,14 @@
               "ls",
               ".git"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 14,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         },
         {
@@ -93,7 +163,14 @@
               "git",
               "status"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 15,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 15
+            }
           }
         },
         {
@@ -102,7 +179,14 @@
               "git",
               "branch"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 16,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 16
+            }
           }
         },
         {
@@ -112,10 +196,24 @@
               "-f",
               "README.md"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 26,
+              "endLine": 17,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 19,
+        "file": "git-clone.earth",
+        "startColumn": 1,
+        "startLine": 9
+      }
     },
     {
       "name": "test-branch",
@@ -125,7 +223,14 @@
             "args": [
               "/test"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 20,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 20
+            }
           }
         },
         {
@@ -136,7 +241,14 @@
               "git@github.com:earthly/earthly.git",
               "myrepo"
             ],
-            "name": "GIT CLONE"
+            "name": "GIT CLONE",
+            "sourceLocation": {
+              "endColumn": 73,
+              "endLine": 21,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         },
         {
@@ -144,7 +256,14 @@
             "args": [
               "/test/myrepo"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 22,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 22
+            }
           }
         },
         {
@@ -155,10 +274,24 @@
               "=",
               "\"## v0.7.20 - 2023-10-03\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 89,
+              "endLine": 23,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 23
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 25,
+        "file": "git-clone.earth",
+        "startColumn": 1,
+        "startLine": 19
+      }
     },
     {
       "name": "test-sha",
@@ -168,7 +301,14 @@
             "args": [
               "/test"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 26,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 26
+            }
           }
         },
         {
@@ -180,7 +320,14 @@
               "myrepo"
             ],
             "docs": "git rev-parse v0.7.10 --> f862451125039f2071f26168ae9bc0e69ec24bf3\n",
-            "name": "GIT CLONE"
+            "name": "GIT CLONE",
+            "sourceLocation": {
+              "endColumn": 106,
+              "endLine": 28,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 28
+            }
           }
         },
         {
@@ -188,7 +335,14 @@
             "args": [
               "/test/myrepo"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 25,
+              "endLine": 29,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 29
+            }
           }
         },
         {
@@ -199,15 +353,36 @@
               "=",
               "\"## v0.7.10 - 2023-07-05\""
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 89,
+              "endLine": 30,
+              "file": "git-clone.earth",
+              "startColumn": 5,
+              "startLine": 30
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 31,
+        "file": "git-clone.earth",
+        "startColumn": 1,
+        "startLine": 25
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "git-clone.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

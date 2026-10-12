@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -247,4 +248,116 @@ func TestPreprocessArgs(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, args, result)
 	})
+}
+
+//nolint:goconst
+func TestParseArgArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		wantErr         error
+		wantDflt        *string
+		name            string
+		wantKey         string
+		wantDescription string
+		cmd             earthfile.Command
+		isBaseTarget    bool
+		explicitGlobal  bool
+		wantRequired    bool
+		wantGlobal      bool
+	}{
+		{
+			name: "basic arg without default",
+			cmd: earthfile.Command{
+				Name: "ARG",
+				Args: []string{"foo"},
+			},
+			wantKey: "foo",
+		},
+		{
+			name: "basic arg with default",
+			cmd: earthfile.Command{
+				Name: "ARG",
+				Args: []string{"foo", "=", "bar"},
+			},
+			wantKey:  "foo",
+			wantDflt: new("bar"),
+		},
+		{
+			name: "required arg",
+			cmd: earthfile.Command{
+				Name: "ARG",
+				Args: []string{"--required", "foo"},
+			},
+			wantKey:      "foo",
+			wantRequired: true,
+		},
+		{
+			name: "arg with description",
+			cmd: earthfile.Command{
+				Name: "ARG",
+				Args: []string{`--description="Environment stage (dev, staging, prod)"`, "ENV", "=", "prod"},
+			},
+			wantKey:         "ENV",
+			wantDflt:        new("prod"),
+			wantDescription: "Environment stage (dev, staging, prod)",
+		},
+		{
+			name: "required arg with description",
+			cmd: earthfile.Command{
+				Name: "ARG",
+				Args: []string{"--required", `--description="Database connection URL"`, "DB_URL"},
+			},
+			wantKey:         "DB_URL",
+			wantRequired:    true,
+			wantDescription: "Database connection URL",
+		},
+		{
+			name: "arg with unquoted description",
+			cmd: earthfile.Command{
+				Name: "ARG",
+				Args: []string{"--description=stage", "ENV", "=", "prod"},
+			},
+			wantKey:         "ENV",
+			wantDflt:        new("prod"),
+			wantDescription: "stage",
+		},
+		{
+			name: "arg with description containing equals",
+			cmd: earthfile.Command{
+				Name: "ARG",
+				Args: []string{`--description="k=v format"`, "CONF", "=", "default"},
+			},
+			wantKey:         "CONF",
+			wantDflt:        new("default"),
+			wantDescription: "k=v format",
+		},
+		{
+			name: "required arg cannot have default",
+			cmd: earthfile.Command{
+				Name: "ARG",
+				Args: []string{"--required", "foo", "=", "bar"},
+			},
+			wantErr: ErrRequiredArgHasDefault,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			opts, key, dflt, err := ParseArgArgs(tt.cmd, tt.isBaseTarget, tt.explicitGlobal)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantKey, key)
+			assert.Equal(t, tt.wantDflt, dflt)
+			assert.Equal(t, tt.wantRequired, opts.Required)
+			assert.Equal(t, tt.wantGlobal, opts.Global)
+			assert.Equal(t, tt.wantDescription, opts.Description)
+		})
+	}
 }

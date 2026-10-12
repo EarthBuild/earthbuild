@@ -209,6 +209,48 @@ Another way to pass build args is by specifying a dynamic value, delimited by `$
 BUILD +hello --name=$(echo world)
 ```
 
+## Documenting Build Arguments
+
+You can document build arguments inline using the `--description` flag (introduced in EarthBuild v0.8.20) on the [`ARG`](../earthfile/earthfile.md#arg) command:
+
+```Dockerfile
+# build creates the application container.
+build:
+    ARG --description="Environment stage (dev, staging, prod)" ENV=prod
+    ARG --required --description="Database connection URL" DB_URL
+
+    FROM alpine:3.18
+    RUN echo "Building for ${ENV} using database ${DB_URL}"
+```
+
+Argument descriptions are automatically displayed when querying targets with [`earth doc`](../earth-command/earth-command.md#earth-doc):
+
+```bash
+earth doc +build
+```
+
+Output:
+
+```
++build
+    build creates the application container.
+
+  ARG                  DEFAULT  DESCRIPTION
+  --DB_URL (required)           Database connection URL
+  --ENV                prod     Environment stage (dev, staging, prod)
+```
+
+Descriptions can also be specified using a comment block directly above the `ARG` instruction whose first word matches the argument name:
+
+```Dockerfile
+# build creates the application container.
+build:
+    # DB_URL is the database connection URL.
+    ARG --required DB_URL
+```
+
+When both `--description` and a doc comment are present on an `ARG`, the `--description` flag takes precedence.
+
 ## Variables
 
 Variables are similar to build arguments, except that they cannot be used as parameters. You can think of variables as "private" build arguments (or local variables). To declare a variable, you can use the `LET` command.

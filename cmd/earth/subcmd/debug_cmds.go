@@ -21,8 +21,6 @@ import (
 // Debug encapsulates the debug command logic.
 type Debug struct {
 	cli CLI
-
-	enableSourceMap bool
 }
 
 // NewDebug creates a new Debug command.
@@ -48,13 +46,6 @@ func (a *Debug) Cmds() []*cli.Command {
 					UsageText:   "earth [options] debug ast",
 					Description: "Output the AST.",
 					Action:      a.actionAst,
-					Flags: []cli.Flag{
-						&cli.BoolFlag{
-							Name:        "source-map",
-							Usage:       "Enable outputting inline sourcemap",
-							Destination: &a.enableSourceMap,
-						},
-					},
 				},
 				{
 					Name:        "buildkit-info",
@@ -108,12 +99,7 @@ func (a *Debug) actionAst(_ context.Context, cmd *cli.Command) error {
 		path = cmd.Args().First()
 	}
 
-	var opts []earthfile.ParseOption
-	if a.enableSourceMap {
-		opts = append(opts, earthfile.WithSourceMap())
-	}
-
-	ef, err := earthfile.ParseFile(path, opts...)
+	ef, err := earthfile.ParseFile(path)
 	if err != nil {
 		return err
 	}

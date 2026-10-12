@@ -172,7 +172,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_AUTO_SKIP,
 			"",
-			inputgraph.FormatError(err),
+			err.Error(),
 		)
 
 		return 1

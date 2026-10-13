@@ -750,7 +750,7 @@ func copyFile(src, dst string, mode os.FileMode) error {
 		return fmt.Errorf("create %s: %w", dst, err)
 	}
 
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	// **A creation mode is a request, and `umask` is the answer.** `O_CREATE`
 	// with 0777 under the ordinary umask of 022 makes a file 0755, so a step
@@ -784,7 +784,7 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	// the copy below.
 	if fi, statErr := in.Stat(); cloneLayers() && statErr == nil && fi.Mode().IsRegular() &&
 		fsclone.Range(in, out, fi.Size()) {
-		return nil
+		return finish(out, dst)
 	}
 
 	// Whatever the clone managed, this starts again from the beginning: a
@@ -802,6 +802,18 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	_, err = io.Copy(out, in)
 	if err != nil {
 		return fmt.Errorf("copy %s: %w", src, err)
+	}
+
+	return finish(out, dst)
+}
+
+// finish closes a file this package wrote, and says so if that fails: a write
+// the filesystem deferred surfaces here or nowhere. The deferred Close after it
+// then returns ErrClosed, which is ignored.
+func finish(f *os.File, name string) error {
+	err := f.Close()
+	if err != nil {
+		return fmt.Errorf("finish %s: %w", name, err)
 	}
 
 	return nil

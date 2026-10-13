@@ -33,11 +33,16 @@ func createSized(at string, size int64) error {
 		return fmt.Errorf("create the blob %s: %w", at, err)
 	}
 
-	defer f.Close()
-
 	err = f.Truncate(size)
 	if err != nil {
+		_ = f.Close()
+
 		return fmt.Errorf("reserve %d bytes for the blob %s: %w", size, at, err)
+	}
+
+	err = f.Close()
+	if err != nil {
+		return fmt.Errorf("finish the blob %s: %w", at, err)
 	}
 
 	return nil
@@ -83,7 +88,9 @@ func streamBlobTo(ctx context.Context, client *http.Client, tok, base string,
 		return fmt.Errorf("open the blob %s to fill it: %w", at, err)
 	}
 
-	defer f.Close()
+	// For the failures below; the success path closes it checked, before the
+	// release.
+	defer func() { _ = f.Close() }()
 
 	wrote, err := fillAndHash(body, f, at, d.Size, watched, ledger)
 	if err != nil {
@@ -106,6 +113,16 @@ func streamBlobTo(ctx context.Context, client *http.Client, tok, base string,
 		// substituted layer from a network failure is the whole point of it.
 		err = fmt.Errorf("blob does not match its digest\n  expected %s\n  received %s",
 			d.Digest, got)
+		failNoted(at, watched, ledger, err)
+
+		return err
+	}
+
+	// Checked: a write the filesystem deferred surfaces here or nowhere, and a
+	// reader must not be released onto bytes that never landed.
+	err = f.Close()
+	if err != nil {
+		err = fmt.Errorf("finish the blob %s: %w", at, err)
 		failNoted(at, watched, ledger, err)
 
 		return err

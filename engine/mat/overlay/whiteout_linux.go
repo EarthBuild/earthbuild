@@ -292,11 +292,17 @@ func copyOne(src, dst string) error {
 		return fmt.Errorf("create %s: %w", dst, err)
 	}
 
-	defer out.Close()
-
 	_, err = out.ReadFrom(in)
 	if err != nil {
+		_ = out.Close()
+
 		return fmt.Errorf("copy %s: %w", src, err)
+	}
+
+	// Checked: a write the filesystem deferred surfaces here or nowhere.
+	err = out.Close()
+	if err != nil {
+		return fmt.Errorf("finish %s: %w", dst, err)
 	}
 
 	at := fi.ModTime()

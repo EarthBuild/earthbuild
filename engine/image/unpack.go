@@ -740,8 +740,6 @@ func writeFile(tr *tar.Reader, h *tar.Header, target string, sc *copyScratch) (D
 		return Digest{}, fmt.Errorf("create %q: %w", h.Name, err)
 	}
 
-	defer f.Close()
-
 	// One pass for both. Placing a pulled image used to read every byte back to
 	// digest it, having just written it; hashing here is the same work moved to
 	// where the bytes already are.
@@ -762,7 +760,15 @@ func writeFile(tr *tar.Reader, h *tar.Header, target string, sc *copyScratch) (D
 
 	err = sc.copy(sink, tr, h.Size)
 	if err != nil {
+		_ = f.Close()
+
 		return Digest{}, fmt.Errorf("write %q: %w", h.Name, err)
+	}
+
+	// Checked: a write the filesystem deferred surfaces here or nowhere.
+	err = f.Close()
+	if err != nil {
+		return Digest{}, fmt.Errorf("finish %q: %w", h.Name, err)
 	}
 
 	if sc.sum == nil {

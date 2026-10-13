@@ -240,14 +240,19 @@ func stepAside(base string) (string, error) {
 		return "", fmt.Errorf("open %s: %w", procs, err)
 	}
 
-	defer f.Close()
-
 	for pid := range strings.SplitSeq(strings.TrimSpace(string(body)), "\n") {
 		if pid == "" {
 			continue
 		}
 
 		_, _ = f.WriteString(pid)
+	}
+
+	// cgroupfs acts on each write, so there is nothing for Close to flush - but
+	// a failure is reported rather than dropped, like any other.
+	err = f.Close()
+	if err != nil {
+		return "", fmt.Errorf("close %s: %w", procs, err)
 	}
 
 	return leaf, nil

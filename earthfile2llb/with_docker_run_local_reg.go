@@ -106,9 +106,12 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 			return err
 		}
 
-		err = w.c.engine.TagImage(ctx, pullImage, result.FinalImageName)
+		// `docker tag` rejects digest-bearing targets. See stripImageDigest.
+		retagAs := stripImageDigest(result.FinalImageName)
+
+		err = w.c.engine.TagImage(ctx, pullImage, retagAs)
 		if err != nil {
-			return fmt.Errorf("tag image %q: %w", result.FinalImageName, err)
+			return fmt.Errorf("tag image %q: %w", retagAs, err)
 		}
 	}
 

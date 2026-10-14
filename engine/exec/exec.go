@@ -66,6 +66,10 @@ type Sandbox interface {
 
 // Executor runs steps inside one sandbox. Implements core.Executor.
 type Executor struct {
+	// hostStore is where a build with no sandbox keeps its records: see
+	// NewHostOnly.
+	hostStore string
+
 	// releases holds the teardowns that were moved behind their step's answer.
 	// Waited for by Close, so what is deferred is when a mount comes down and
 	// never whether it does.
@@ -1511,29 +1515,40 @@ func (f hostWriter) Write(b []byte) (int, error) { return f(b) }
 // Any sandboxed step refuses rather than improvising one: an executor that
 // quietly started a sandbox here would make "needs no sandbox" a guess the
 // caller made and this type silently corrected.
-func NewHostOnly() (*Executor, error) { return &Executor{}, nil }
+//
+// store is where it keeps its records - the user's store, which the caller
+// knows. Not `os.TempDir()`: on Linux that is one `/tmp` for every user, and
+// another could create the record files first and read or rewrite them.
+func NewHostOnly(store string) (*Executor, error) {
+	if store == "" {
+		return nil, errors.New("a host-only build needs a store directory for its records" +
+			"\n  the shared temporary directory is not private to this user")
+	}
+
+	return &Executor{hostStore: store}, nil
+}
 
 // Sandbox is where this executor's layers live, if it has one.
 func (e *Executor) Sandbox() Sandbox {
 	if e.sb == nil {
-		return hostOnlyStore{}
+		return hostOnlyStore{dir: e.hostStore}
 	}
 
 	return e.sb
 }
 
-// hostOnlyStore stands in for a sandbox that does not exist. Its store is a
-// directory beside the cache, because a host-only build still records what it
-// did even though it caches nothing.
-type hostOnlyStore struct{}
+// hostOnlyStore stands in for a sandbox that does not exist. Its store is the
+// user's store, because a host-only build still records what it did even though
+// it caches nothing - see NewHostOnly.
+type hostOnlyStore struct{ dir string }
 
 func (hostOnlyStore) Start(context.Context) (Conn, error) {
 	return nil, errors.New("this build has no sandbox: every step runs on this machine")
 }
 
-func (hostOnlyStore) Stop() error      { return nil }
-func (hostOnlyStore) StoreDir() string { return os.TempDir() }
-func (hostOnlyStore) Confines() bool   { return false }
+func (hostOnlyStore) Stop() error        { return nil }
+func (h hostOnlyStore) StoreDir() string { return h.dir }
+func (hostOnlyStore) Confines() bool     { return false }
 
 // Close stops the sandbox. Idempotent, because a deferred Close and an explicit
 // one on an error path both run, and the second must not mask the first error.
@@ -2148,6 +2163,30 @@ func localContextRefusal() error {
 		" context", guest.EnvStoreInVM, guest.EnvStoreInVM)
 }
 
+// insideContext refuses a context path whose symlinks lead out of root.
+//
+// Both ends resolved, for the reason resolveContext gives: on macOS a root under
+// /var is /private/var once followed. A path that does not resolve is left to
+// the stat after this, which says what is missing.
+func insideContext(root, src string) error {
+	base, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		base = root
+	}
+
+	lands, err := filepath.EvalSymlinks(src)
+	if err != nil {
+		return nil //nolint:nilerr // reported by the caller's stat, with the path
+	}
+
+	if lands != base && !strings.HasPrefix(lands, base+string(filepath.Separator)) {
+		return fmt.Errorf("leaves the build context through a symlink, to %s"+
+			"\n  a link in the context is followed only as far as the context goes", lands)
+	}
+
+	return nil
+}
+
 // copyContextInto stages what a build-context node names, into dir.
 //
 // Shared by the two placements: on the host the staged tree is renamed into the
@@ -2163,6 +2202,14 @@ func (e *Executor) copyContextInto(n *ir.Node, dir string) error {
 	}
 
 	src := filepath.Join(root, filepath.Clean("/"+n.Op.Args[0]))
+
+	// The interpreter's rule again, where the bytes are read: see
+	// resolveContext. A graph built some other way must not reach a host file
+	// through a link either.
+	err := insideContext(root, src)
+	if err != nil {
+		return fmt.Errorf("build context %s (%s): %w", n.Op.Args[0], n.Meta.Source, err)
+	}
 
 	fi, err := os.Stat(src)
 	if err != nil {

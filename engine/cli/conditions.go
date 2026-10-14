@@ -696,7 +696,12 @@ func (g *engine) executorFor(plan *interp.Plan) (*exec.Executor, error) {
 		return e, sandboxedErr
 	}
 
-	e, err := exec.NewHostOnly()
+	store, err := storeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	e, err := exec.NewHostOnly(store)
 	if err != nil {
 		return nil, err
 	}

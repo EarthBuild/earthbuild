@@ -109,7 +109,7 @@ func TestGitCheckout(t *testing.T) {
 
 			dest := filepath.Join(t.TempDir(), "checkout")
 
-			err := gitCheckout(context.Background(), "file://"+repo, tc.rev, dest)
+			err := gitCheckout(context.Background(), "file://"+repo, tc.rev, dest, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -136,7 +136,7 @@ func TestGitCheckoutRefusesAMissingRevision(t *testing.T) {
 	repo, _ := gitRepo(t, map[string]string{testEarthfile: "VERSION 0.8\n"})
 
 	err := gitCheckout(context.Background(), "file://"+repo, "no-such-revision",
-		filepath.Join(t.TempDir(), "checkout"))
+		filepath.Join(t.TempDir(), "checkout"), "")
 	if err == nil {
 		t.Fatal("a missing revision was checked out anyway")
 	}
@@ -274,7 +274,7 @@ func TestARevisionCannotBeAnOption(t *testing.T) {
 			t.Parallel()
 
 			err := gitCheckout(context.Background(), "file://"+repo, rev,
-				filepath.Join(t.TempDir(), "checkout"))
+				filepath.Join(t.TempDir(), "checkout"), "")
 			if err == nil {
 				t.Fatal("a revision that is an option was passed to git")
 			}
@@ -296,7 +296,9 @@ func TestGitClonerKeysOnUrlAndRef(t *testing.T) {
 	repo, head := gitRepo(t, map[string]string{"README.md": "the repo\n"})
 
 	cacheDir := t.TempDir()
-	clone := gitCloner(context.Background(), cacheDir)
+	// A fixture repository on disk, which GIT CLONE proper refuses: see
+	// TestAGitCloneCannotReadALocalRepository.
+	clone := gitClonerVia(context.Background(), cacheDir, networkTransports+":file")
 	first, err := clone("file://"+repo, head)
 	if err != nil {
 		t.Fatal(err)

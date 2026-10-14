@@ -47,7 +47,9 @@ func gitRemotes(ctx context.Context, cacheDir string, urlFor func(repo string) s
 			return "", fmt.Errorf("clear the previous checkout of %s: %w", repo, err)
 		}
 
-		err = gitCheckout(ctx, urlFor(repo), rev, dest)
+		// Any transport: this URL is the engine's own (httpsURL from a checked
+		// reference), not an Earthfile's - unlike GIT CLONE's, see gitCloner.
+		err = gitCheckout(ctx, urlFor(repo), rev, dest, "")
 		if err != nil {
 			return "", err
 		}
@@ -77,7 +79,9 @@ func revDir(rev string) string {
 // named explicitly so a server that cannot supply it fails here rather than
 // silently handing over its default branch, which would build different code
 // from the one named and report success.
-func gitCheckout(ctx context.Context, url, rev, dest string) error {
+//
+// transports, when set, is the only transports git may use (GIT_ALLOW_PROTOCOL).
+func gitCheckout(ctx context.Context, url, rev, dest, transports string) error {
 	err := os.MkdirAll(dest, 0o750)
 	if err != nil {
 		return fmt.Errorf("make room for the checkout: %w", err)
@@ -107,6 +111,9 @@ func gitCheckout(ctx context.Context, url, rev, dest string) error {
 		// Nothing interactive: a build that stops for a credential prompt has
 		// hung as far as anyone watching it can tell.
 		cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_ASKPASS=")
+		if transports != "" {
+			cmd.Env = append(cmd.Env, "GIT_ALLOW_PROTOCOL="+transports)
+		}
 
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -141,6 +148,20 @@ func within(root, path string) bool {
 // reason an unpinned image reference is: "whatever that repository holds now"
 // cannot be answered from a directory written last week.
 func gitCloner(ctx context.Context, cacheDir string) interp.GitClone {
+	return gitClonerVia(ctx, cacheDir, networkTransports)
+}
+
+// networkTransports is all a GIT CLONE may use.
+//
+// **Its URL is an Earthfile's, and the clone runs on this machine.** `file://`
+// - or a bare path, which git reads the same way - would copy a repository the
+// user can read into a build that may send it anywhere, and `ext::` would run a
+// command. BuildKit clones inside its daemon, where no such path exists. git
+// enforces the list itself, submodules included.
+const networkTransports = "https:http:ssh:git"
+
+// gitClonerVia is gitCloner limited to the given transports.
+func gitClonerVia(ctx context.Context, cacheDir, transports string) interp.GitClone {
 	return func(url, ref string) (string, error) {
 		key := exec.ImageCacheKey(url, ref)
 		dest := filepath.Join(cacheDir, "clones", key)
@@ -157,7 +178,7 @@ func gitCloner(ctx context.Context, cacheDir string) interp.GitClone {
 			return "", fmt.Errorf("clear the previous checkout of %s: %w", url, err)
 		}
 
-		err = gitCheckout(ctx, url, ref, dest)
+		err = gitCheckout(ctx, url, ref, dest, transports)
 		if err != nil {
 			return "", err
 		}

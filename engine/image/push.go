@@ -323,7 +323,7 @@ func (p *pusher) do(ctx context.Context, req *http.Request) (*http.Response, err
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 
-	at, err := tokenEndpoint(challenge)
+	at, err := tokenEndpoint(challenge, p.base)
 	if err != nil {
 		return nil, err
 	}

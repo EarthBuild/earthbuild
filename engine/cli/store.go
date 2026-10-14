@@ -30,7 +30,7 @@ func storeDir() (string, error) {
 	}
 
 	if p := os.Getenv("XDG_CACHE_HOME"); p != "" {
-		return filepath.Join(p, "earthbuild"), nil
+		return private(filepath.Join(p, "earthbuild"))
 	}
 
 	home, err := os.UserHomeDir()
@@ -38,7 +38,30 @@ func storeDir() (string, error) {
 		return "", fmt.Errorf("cannot find a home directory for the build cache: %w", err)
 	}
 
-	return filepath.Join(home, ".cache", "earthbuild"), nil
+	return private(filepath.Join(home, ".cache", "earthbuild"))
+}
+
+// private makes the default store readable by its owner alone, and returns it.
+//
+// It holds build contexts and layers: source code, and whatever a build fetched
+// with credentials. `0750` read as private and was not on macOS, where every
+// local user is in group `staff` and `staff` may enter a home directory. A store
+// made before this is tightened. EARTH_CACHE_DIR is not passed through here: a
+// shared cache is a choice somebody made.
+func private(dir string) (string, error) {
+	err := os.MkdirAll(dir, 0o700) //nolint:gosec // the user's own cache location
+	if err != nil {
+		return "", fmt.Errorf("create the build cache %s: %w", dir, err)
+	}
+
+	err = os.Chmod(dir, 0o700) //nolint:gosec // a directory: 0700 is its owner alone
+	if err != nil {
+		return "", fmt.Errorf("make the build cache %s private to this user: %w"+
+			"\n  it holds build contexts and fetched layers; set %s to choose another place",
+			dir, err, envCacheDir)
+	}
+
+	return dir, nil
 }
 
 // imageCacheDir is where pulled images live.

@@ -160,6 +160,19 @@ func resolveContext(what, root, src, where string, stub bool) (*ir.Node, error) 
 		return nil, fmt.Errorf("COPY at %s: %q leaves the build context", where, src)
 	}
 
+	// **And where it leads, not only what it says.** A link's name is innocent
+	// - `lnk -> ~/.ssh/id_ed25519` is `lnk` - and staging reads through it, so
+	// a context that held one, a remote Earthfile's checkout included, put a
+	// host file into the build. BuildKit follows a link only inside the context
+	// it was sent, and so does this.
+	lands, err := filepath.EvalSymlinks(abs)
+	if err == nil && lands != root && !strings.HasPrefix(lands, root+string(filepath.Separator)) {
+		return nil, fmt.Errorf("%s at %s: %q leaves the build context through a symlink, to %s"+
+			"\n  a link in the context is followed only as far as the context goes"+
+			"\n  copy the file into the context, or point the link inside it",
+			what, where, src, lands)
+	}
+
 	_, err = os.Stat(abs)
 	if err != nil {
 		return nil, fmt.Errorf(

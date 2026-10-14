@@ -119,6 +119,26 @@ func pollable(f *os.File) (*os.File, error) {
 	return os.NewFile(uintptr(fd), name), nil
 }
 
+// userNetConfig is the guest's network.
+func userNetConfig() *types.Configuration {
+	return &types.Configuration{
+		Debug:             false,
+		MTU:               userNetMTU,
+		Subnet:            userNetSubnet,
+		GatewayIP:         userNetGateway,
+		GatewayMacAddress: gatewayMAC,
+		DNSSearchDomains:  nil,
+		Forwards:          map[string]string{},
+		NAT:               map[string]string{},
+		GatewayVirtualIPs: []string{},
+		// **Link-local is refused, the metadata service with it.** This stack
+		// dials as the host process, so a step reaching 169.254.169.254 on a
+		// cloud VM is the host asking, past the IMDSv2 hop limit that stops a
+		// bridged container. The library's default; stated so it stays one.
+		Ec2MetadataAccess: false,
+	}
+}
+
 // startUserNet brings up the stack on a packet socket the shim handed back.
 //
 // Started before the guest is spoken to and stopped with the sandbox: the guest
@@ -130,19 +150,7 @@ func startUserNet(sock *os.File) (*userNet, error) {
 		return nil, err
 	}
 
-	cfg := &types.Configuration{
-		Debug:             false,
-		MTU:               userNetMTU,
-		Subnet:            userNetSubnet,
-		GatewayIP:         userNetGateway,
-		GatewayMacAddress: gatewayMAC,
-		DNSSearchDomains:  nil,
-		Forwards:          map[string]string{},
-		NAT:               map[string]string{},
-		GatewayVirtualIPs: []string{},
-	}
-
-	n, err := virtualnetwork.New(cfg)
+	n, err := virtualnetwork.New(userNetConfig())
 	if err != nil {
 		_ = sock.Close()
 

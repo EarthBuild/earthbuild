@@ -1,6 +1,7 @@
 package fleet
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
 	"encoding/json"
@@ -106,16 +107,26 @@ func readFramed(r io.Reader, limit int) ([]byte, error) {
 			" bytes, and %d is the most it will", ErrMalformed, size, limit)
 	}
 
-	body := make([]byte, size)
+	// **Grown with what arrives, not made at what was promised.** The length is
+	// eight bytes the peer chose, and a buffer made at that size let it name
+	// gigabytes, send nothing, and have this side pay for them. Doubling costs
+	// a copy or two on a large blob, which the network dwarfs.
+	var body bytes.Buffer
 
-	_, err = io.ReadFull(r, body)
+	body.Grow(int(min(size, framePrealloc)))
+
+	//nolint:gosec // size <= limit, a positive int, so it fits
+	_, err = io.CopyN(&body, r, int64(size))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %d bytes promised and fewer arrived: %w",
 			ErrMalformed, size, err)
 	}
 
-	return body, nil
+	return body.Bytes(), nil
 }
+
+// framePrealloc is the most readFramed sets aside before a body arrives.
+const framePrealloc = 64 << 20
 
 // publicKeyOf is an endpoint identifier as an ed25519 public key.
 //

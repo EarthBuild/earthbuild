@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -873,7 +874,7 @@ func token(ctx context.Context, client *http.Client, url, dir, key string) (stri
 		return "", nil
 	}
 
-	at, err := tokenEndpoint(resp.Header.Get("WWW-Authenticate"))
+	at, err := tokenEndpoint(resp.Header.Get("WWW-Authenticate"), url)
 	if err != nil {
 		return "", err
 	}
@@ -1444,7 +1445,7 @@ func blobFile(digest string) string {
 // and handing back anything else produces a token that authorises the wrong
 // thing. So this copies rather than composes: the one place a scope is decided
 // is the registry, and the one thing that draws a write scope is a write.
-func tokenEndpoint(challenge string) (string, error) {
+func tokenEndpoint(challenge, from string) (string, error) {
 	if !strings.HasPrefix(challenge, "Bearer ") {
 		return "", fmt.Errorf("unsupported authentication challenge %q", challenge)
 	}
@@ -1469,6 +1470,22 @@ func tokenEndpoint(challenge string) (string, error) {
 
 	if realm == "" {
 		return "", fmt.Errorf("authentication challenge names no realm: %q", challenge)
+	}
+
+	// **Another host is ordinary; a weaker transport is not.** Docker Hub's
+	// realm is `auth.docker.io`, so the host is the registry's to name - but
+	// credentials go to it as basic auth, and an `http://` realm from a
+	// registry spoken to over TLS is the user's password in clear text.
+	u, err := url.Parse(realm)
+	if err != nil || u.Host == "" || (u.Scheme != schemeHTTPS && u.Scheme != schemePlain) {
+		return "", fmt.Errorf("authentication challenge names a realm that is not an http(s) URL: %q",
+			realm)
+	}
+
+	if u.Scheme == schemePlain && !strings.HasPrefix(from, schemePlain+"://") {
+		return "", fmt.Errorf("%s answered over TLS and asked for credentials to go to %s in plain HTTP"+
+			"\n  a token realm may be on another host, but not on a weaker transport than the registry's",
+			from, realm)
 	}
 
 	return fmt.Sprintf("%s?service=%s&scope=%s", realm, service, scope), nil

@@ -39,8 +39,6 @@ func (s *progressCallback) Info(numBytes int, last bool) {
 	if last {
 		if s.pathPrefix != "" {
 			s.log.Printf("transferred %s for context %s\n", humanizeBytes(numBytes), s.pathPrefix)
-		} else {
-			s.log.Printf("transferred %s\n", humanizeBytes(numBytes))
 		}
 
 		s.lastBytes = 0

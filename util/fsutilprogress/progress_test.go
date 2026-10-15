@@ -32,7 +32,7 @@ func TestProgressCallback_Info_Completion(t *testing.T) {
 		{
 			name:       "without pathPrefix",
 			pathPrefix: "",
-			wantSubstr: "transferred 2.0 kB\n",
+			wantSubstr: "",
 			numBytes:   2048,
 		},
 	}
@@ -49,7 +49,11 @@ func TestProgressCallback_Info_Completion(t *testing.T) {
 			cb.Info(tt.numBytes, true)
 
 			got := buf.String()
-			require.Contains(t, got, tt.wantSubstr)
+			if tt.wantSubstr == "" {
+				require.Empty(t, got)
+			} else {
+				require.Contains(t, got, tt.wantSubstr)
+			}
 		})
 	}
 }
@@ -156,7 +160,11 @@ func TestProgressCallback_File(t *testing.T) {
 			cb.File(tt.relPath, tt.size)
 
 			got := buf.String()
-			require.Contains(t, got, tt.wantSubstr)
+			if tt.wantSubstr == "" {
+				require.Empty(t, got)
+			} else {
+				require.Contains(t, got, tt.wantSubstr)
+			}
 		})
 	}
 }

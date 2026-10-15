@@ -14,6 +14,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
 	"github.com/EarthBuild/earthbuild/cmd/earth/helper"
+	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/engine"
@@ -153,20 +154,39 @@ const (
 	buildkitDaemonDisallows = "is not allowed by build daemon configuration"
 )
 
-// firstTargetArg returns the first target reference (an argument starting with "+") found in the
-// command line arguments, or an empty string if there is none. args[0] is the program name.
+// firstTargetArg returns the first target reference found in the command line arguments, or an
+// empty string if there is none. args[0] is the program name.
 func firstTargetArg(args []string) string {
 	if len(args) < 2 {
 		return ""
 	}
 
+	artifactMode := hasCLIFlag(args, "--artifact", "-a")
 	for _, arg := range args[1:] {
-		if strings.HasPrefix(arg, "+") {
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+		if artifactMode {
+			if _, err := domain.ParseArtifact(arg); err == nil {
+				return arg
+			}
+		} else if _, err := domain.ParseTarget(arg); err == nil {
 			return arg
 		}
 	}
 
 	return ""
+}
+
+func hasCLIFlag(args []string, names ...string) bool {
+	for _, arg := range args {
+		for _, name := range names {
+			if arg == name || arg == name+"=true" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // privilegedModeMessages returns the error and help messages for a build that failed because
@@ -185,7 +205,13 @@ func privilegedModeMessages(err error, args []string) (errMsg, helpMsg string) {
 	flagExample := "earth -P +your-target"
 
 	if target := firstTargetArg(args); target != "" {
-		flagExample = "earth -P " + target
+		modeFlag := ""
+		if hasCLIFlag(args, "--artifact", "-a") {
+			modeFlag = "--artifact "
+		} else if hasCLIFlag(args, "--image") {
+			modeFlag = "--image "
+		}
+		flagExample = "earth -P " + modeFlag + target
 	}
 
 	return "This build requires privileged mode.",

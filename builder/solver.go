@@ -187,7 +187,8 @@ func (s *solver) newSolveOptMulti(
 					return onArtifact(ctx, indexStr, artifact, srcPath, destPath)
 				},
 				OutputPullCallback: onPullCallback,
-				VerboseProgressCB:  progressCB.Verbose,
+				OnReceiveProgress:  progressCB.Info,
+				OnReceiveFile:      progressCB.File,
 			},
 		},
 		CacheImports:        cacheImports,

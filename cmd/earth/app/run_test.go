@@ -57,7 +57,11 @@ func TestFirstTargetArg(t *testing.T) {
 		{name: "flags before target", args: []string{"earth", "--verbose", "+build"}, want: "+build"},
 		{name: "flags after target", args: []string{"earth", "+test", "--ci"}, want: "+test"},
 		{name: "first of multiple targets", args: []string{"earth", "+first", "+second"}, want: "+first"},
-		{name: "remote target", args: []string{"earth", "github.com/foo/bar+baz"}, want: ""},
+		{name: "local target", args: []string{"earth", "./services/service1+compile"}, want: "./services/service1+compile"},
+		{name: "import target", args: []string{"earth", "foo+bar"}, want: "foo+bar"},
+		{name: "remote target", args: []string{"earth", "github.com/foo/bar+baz"}, want: "github.com/foo/bar+baz"},
+		{name: "artifact target", args: []string{"earth", "--artifact", "+target/file"}, want: "+target/file"},
+		{name: "artifact target with destination", args: []string{"earth", "-a", "+target/file", "./out"}, want: "+target/file"},
 		{name: "no target", args: []string{"earth", "--version"}, want: ""},
 		{name: "empty args", args: []string{}, want: ""},
 		{name: "only program name", args: []string{"earth"}, want: ""},
@@ -96,6 +100,23 @@ func TestPrivilegedModeMessages(t *testing.T) {
 		_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth"})
 
 		require.Contains(t, helpMsg, "earth -P +your-target")
+	})
+
+	t.Run("missing flag with artifact target", func(t *testing.T) {
+		t.Parallel()
+
+		_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", "--artifact", "+foo/bar"})
+
+		require.Contains(t, helpMsg, "earth -P --artifact +foo/bar")
+		require.NotContains(t, helpMsg, "earth -P +foo/bar")
+	})
+
+	t.Run("missing flag with image target", func(t *testing.T) {
+		t.Parallel()
+
+		_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", "--image", "github.com/foo/bar+baz"})
+
+		require.Contains(t, helpMsg, "earth -P --image github.com/foo/bar+baz")
 	})
 
 	t.Run("daemon disallows entitlement", func(t *testing.T) {

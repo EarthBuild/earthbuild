@@ -142,7 +142,8 @@ func (s *solver) newSolveOptMulti(
 		cacheExports = append(cacheExports, newInlineCacheOpt())
 	}
 
-	progressCB := fsutilprogress.New("", log.WithPrefix("output"))
+	outputLog := log.WithPrefix("output")
+	progressCB := fsutilprogress.New(outputLog)
 
 	isTrue := func(s string) bool {
 		return s == "true"
@@ -188,7 +189,7 @@ func (s *solver) newSolveOptMulti(
 				},
 				OutputPullCallback: onPullCallback,
 				OnReceiveProgress:  progressCB.Info,
-				OnReceiveFile:      progressCB.File,
+				OnReceiveFile:      fsutilprogress.ReceiveFile(outputLog),
 			},
 		},
 		CacheImports:        cacheImports,

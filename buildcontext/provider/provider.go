@@ -9,17 +9,15 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/fsutilprogress"
 	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/filesync"
-	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fsutil"
 	fstypes "github.com/tonistiigi/fsutil/types"
 	"google.golang.org/grpc"
@@ -44,11 +42,9 @@ var (
 // BuildContextProvider is a BuildKit attachable which provides local files as part
 // of the build context.
 type BuildContextProvider struct {
-	p      progressCb
-	doneCh chan error
-	dirs   map[string]SyncedDir
-	log    *conslogging.ConsoleLogger
-	mu     sync.Mutex
+	dirs map[string]SyncedDir
+	log  *conslogging.ConsoleLogger
+	mu   sync.Mutex
 }
 
 // SyncedDir is a directory to be synced across.
@@ -116,7 +112,7 @@ func (bcp *BuildContextProvider) TarStream(stream filesync.FileSync_TarStreamSer
 	return bcp.handle("tarstream", stream)
 }
 
-func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream) (retErr error) {
+func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream) error {
 	var pr *protocol
 
 	for _, p := range supportedProtocols {
@@ -150,16 +146,9 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 	}
 
 	includes := opts[keyIncludePatterns]
-
 	followPaths := opts[keyFollowPaths]
-
-	progressCB := fsutilprogress.New(dir.Dir, bcp.log.WithPrefixAndSalt("context", dir.Dir))
-
-	var doneCh chan error
-	if bcp.doneCh != nil {
-		doneCh = bcp.doneCh
-		bcp.doneCh = nil
-	}
+	log := bcp.log.WithPrefixAndSalt("context", dir.Dir)
+	progressCB := fsutilprogress.NewContext(dir.Dir, log)
 
 	fs, err := fsutil.NewFS(dir.Dir)
 	if err != nil {
@@ -178,20 +167,11 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 
 	lfs := &loggingFS{
 		FS:  fs,
-		log: bcp.log.WithPrefixAndSalt("context", dir.Dir),
+		log: log,
 		dir: dir.Dir,
 	}
 
-	err = pr.sendFn(stream, lfs, progressCB.Info)
-	if doneCh != nil {
-		if err != nil {
-			doneCh <- err
-		}
-
-		close(doneCh)
-	}
-
-	return err
+	return pr.sendFn(stream, lfs, progressCB.Info)
 }
 
 func (bcp *BuildContextProvider) getDir(dirName string) (SyncedDir, error) {
@@ -206,68 +186,47 @@ func (bcp *BuildContextProvider) getDir(dirName string) (SyncedDir, error) {
 	return dir, nil
 }
 
-// SetNextProgressCallback sets the progress callback function.
-func (bcp *BuildContextProvider) SetNextProgressCallback(f func(int, bool), doneCh chan error) {
-	bcp.p = f
-	bcp.doneCh = doneCh
-}
-
 type loggingFS struct {
 	fsutil.FS
 
-	filesize map[string]int64
-	log      *conslogging.ConsoleLogger
-	dir      string
-	mu       sync.Mutex
-}
-
-func (l *loggingFS) recordFileSize(p string, d fs.DirEntry) {
-	if d.IsDir() {
-		return
-	}
-
-	info, err := d.Info()
-	if err != nil {
-		return
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.filesize == nil {
-		l.filesize = make(map[string]int64)
-	}
-
-	l.filesize[p] = info.Size()
+	log *conslogging.ConsoleLogger
+	dir string
 }
 
 func (l *loggingFS) Walk(ctx context.Context, target string, fn fs.WalkDirFunc) error {
-	return l.FS.Walk(ctx, target, func(p string, d fs.DirEntry, err error) error {
+	return l.FS.Walk(ctx, target, func(p string, d fs.DirEntry, walkErr error) error {
+		err := fn(p, d, walkErr)
 		if err != nil {
-			return fn(p, d, err)
+			return err
 		}
 
-		fullPath := path.Join(l.dir, p)
-		l.log.DebugPrintf("sent file stat for %s\n", fullPath)
-		l.recordFileSize(p, d)
+		if walkErr == nil {
+			fullPath := filepath.Join(l.dir, p)
+			l.log.DebugPrintf("sent file stat for %s\n", fullPath)
+		}
 
-		return fn(p, d, err)
+		return nil
 	})
 }
 
 func (l *loggingFS) Open(p string) (io.ReadCloser, error) {
 	rc, err := l.FS.Open(p)
 	if err != nil {
-		return rc, err
+		return nil, err
 	}
 
-	fullPath := path.Join(l.dir, p)
+	fullPath := filepath.Join(l.dir, p)
 
-	l.mu.Lock()
-	sz, ok := l.filesize[p]
-	l.mu.Unlock()
+	var sz int64 = -1
 
-	if ok && sz >= 0 {
+	if s, ok := rc.(interface{ Stat() (fs.FileInfo, error) }); ok {
+		fi, err := s.Stat()
+		if err == nil {
+			sz = fi.Size()
+		}
+	}
+
+	if sz >= 0 {
 		l.log.VerbosePrintf("sent data for %s (%s)\n", fullPath, humanize.Bytes(uint64(sz)))
 	} else {
 		l.log.VerbosePrintf("sent data for %s\n", fullPath)
@@ -280,14 +239,7 @@ type progressCb func(int, bool)
 
 type protocol struct {
 	sendFn func(stream filesync.Stream, fs fsutil.FS, progress progressCb) error
-	recvFn func(
-		stream grpc.ClientStream,
-		destDir string,
-		cu filesync.CacheUpdater,
-		progress progressCb,
-		mapFunc func(string, *fstypes.Stat) bool,
-	) error
-	name string
+	name   string
 }
 
 func isProtoSupported(p string) bool {
@@ -303,42 +255,9 @@ var supportedProtocols = []protocol{
 	{
 		name:   "diffcopy",
 		sendFn: sendDiffCopy,
-		recvFn: recvDiffCopy,
 	},
 }
 
 func sendDiffCopy(stream filesync.Stream, fs fsutil.FS, progress progressCb) error {
 	return fsutil.Send(stream.Context(), stream, fs, progress)
-}
-
-func recvDiffCopy(
-	ds grpc.ClientStream,
-	dest string,
-	cu filesync.CacheUpdater,
-	progress progressCb,
-	filter func(string, *fstypes.Stat) bool,
-) error {
-	st := time.Now()
-
-	defer func() {
-		logrus.Debugf("diffcopy took: %v", time.Since(st))
-	}()
-
-	var (
-		cf fsutil.ChangeFunc
-		ch fsutil.ContentHasher
-	)
-
-	if cu != nil {
-		cu.MarkSupported(true)
-		cf = cu.HandleChange
-		ch = cu.ContentHasher()
-	}
-
-	return fsutil.Receive(ds.Context(), ds, dest, fsutil.ReceiveOpt{
-		NotifyHashed:  cf,
-		ContentHasher: ch,
-		ProgressCb:    progress,
-		Filter:        fsutil.FilterFunc(filter),
-	})
 }

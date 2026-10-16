@@ -44,11 +44,17 @@ reviews:
         - Verify `defer r.Close()` or `defer mu.Unlock()` is invoked immediately after successful resource acquisition.
 
         6. LINTING & STATIC ANALYSIS DISCIPLINE:
-        - Strictly reject lint suppressions (`//nolint`, `//lint:ignore`) used as workarounds. Insist on fixing the underlying code or architecture.
-        - The only exception is a verified false positive, which MUST be accompanied by an explanatory comment detailing why the analyzer is incorrect.
+        - Strictly forbid disabling lint rules in code via `//nolint` (or `//lint:ignore`) comments:
+          - The only exceptions are test files (`*_test.go`), or when a lint rule is a genuine false positive.
+          - Any `//nolint` comment for a false positive MUST be accompanied by an explanatory comment detailing why the `//nolint` comment was added.
+        - Insist on fixing the underlying code or architecture rather than suppressing linter errors.
 
         7. TESTING STANDARDS:
         - Encourage table-driven tests with descriptive test case names.
         - In this codebase, `testify` (`require` for fatal/precondition checks, `assert` for validations) is fully supported and recommended.
         - Recommend `t.Parallel()` for unit tests where state is safe.
         - Prefer lightweight fakes, stubs, in-memory implementations, or `httptest.NewServer` over heavy generated mock suites.
+    - path: ".golangci*.{yaml,yml}"
+      instructions: |
+        - Strictly forbid removing or relaxing lint rules or linters from `.golangci-lint.yaml` or `.golangci.yaml`.
+        - Never weaken or delete static analysis checks to bypass CI or lint failures.

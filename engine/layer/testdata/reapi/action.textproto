@@ -1,0 +1,8 @@
+command_digest { hash: "0000000000000000000000000000000000000000000000000000000000000011" size_bytes: 7 }
+input_root_digest { hash: "0000000000000000000000000000000000000000000000000000000000000022" size_bytes: 300 }
+do_not_cache: true
+salt: "\004"
+platform {
+  properties { name: "earthbuild.privileged" value: "1" }
+  properties { name: "os" value: "linux" }
+}

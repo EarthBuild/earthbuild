@@ -1,0 +1,16 @@
+VERSION 0.8
+
+# A Go module download cache, shared between machines.
+#
+# Only `cache/download` is offered: it is the GOPROXY layout, path for path, and
+# every file in it is immutable by the proxy protocol - a republished version is
+# a different version or a checksum mismatch, never the same key with new bytes.
+# The rest of the module cache is extracted source with machine-specific
+# timestamps.
+deps:
+    FROM golang:1.25-alpine
+    WORKDIR /w
+    CACHE --id eg-go-mod --portable-except '' \
+        --helper ../../..+cache-helper/build/cachehelper-go-mod.wasm /go/pkg/mod/cache/download
+    COPY go.mod .
+    RUN go mod download golang.org/x/text

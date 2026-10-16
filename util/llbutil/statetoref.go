@@ -3,7 +3,9 @@ package llbutil
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/EarthBuild/earthbuild/util/enginetrace"
 	"github.com/EarthBuild/earthbuild/util/llbutil/pllb"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/moby/buildkit/client/llb"
@@ -39,10 +41,24 @@ func StateToRef(
 		return nil, fmt.Errorf("marshal state: %w", err)
 	}
 
+	pb := def.ToPB()
+
+	var defBytes int
+	if enginetrace.Enabled() {
+		for _, dt := range pb.Def {
+			defBytes += len(dt)
+		}
+	}
+
+	solveStart := time.Now()
+
 	r, err := gwClient.Solve(ctx, gwclient.SolveRequest{
-		Definition:   def.ToPB(),
+		Definition:   pb,
 		CacheImports: coes,
 	})
+
+	enginetrace.Record(enginetrace.KindSolve, time.Since(solveStart), defBytes)
+
 	if err != nil {
 		return nil, fmt.Errorf("solve state: %w", err)
 	}

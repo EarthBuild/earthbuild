@@ -1,0 +1,97 @@
+// Package vmboot carries what the host and the guest must agree on.
+//
+// A package of its own, and only a constant in it, so that the host backend and
+// the guest's PID 1 cannot drift: a port the two sides define separately is a
+// guest that boots, listens, and is never spoken to.
+package vmboot
+
+// VsockPort is where the agent waits for the host inside the guest.
+const VsockPort = 5555
+
+// BulkPort is where blob bytes arrive.
+//
+// **A channel of its own, because the agent's frames cannot hold a layer**: the
+// protocol is length-prefixed JSON with a size limit, so a 45 MB layer would
+// have to be base64-encoded and cut into pieces. See bulk.SendBlob.
+//
+// Served by PID 1 rather than by the agent, because PID 1 is what mounted the
+// device the blobs land on and the agent finds them afterwards by path - which
+// is the same thing it does on every backend that shares a filesystem.
+const BulkPort = 5556
+
+// ExportPort is where the host asks for a staged artifact.
+//
+// **The control channel only.** The bytes go on the export device, not down
+// this connection: the host sends the staged path and reads back a byte count,
+// and the artifact itself is written once to a block device the host then
+// reads. See ExportDev.
+const ExportPort = 5557
+
+// ExportDev is the block device an artifact leaves the guest on, and ExportAt
+// is the same device seen by the host.
+//
+// **It carries a stream, not a filesystem.** A formatted volume the host mounts
+// would put a kernel filesystem parser on metadata the sandbox authored, which
+// is the surface the VM boundary was added to remove; a tar is parsed in
+// userspace by code that refuses what it does not like. It also disposes of the
+// "the host must trust the unmount happened" problem, because there is no
+// unmount.
+const ExportDev = "/dev/vdb"
+
+// StoreAt is where the guest mounts the block device carrying the layer store.
+//
+// Shared for the same reason the ports are: the host names blobs it has placed
+// by a path *inside* the guest, and a path the two sides spell separately is a
+// guest that has the bytes and is told to open them somewhere else. That is not
+// hypothetical - it is what happened, and the guest reported `no such file or
+// directory` for a blob it was holding.
+const StoreAt = "/store"
+
+// EnvVMStore names the block device a guest keeps its layers on.
+//
+// Here rather than beside the backend that reads it, because both sides need
+// the name: the host to find the device, and the guest to tell a reader which
+// setting sizes the store it has just run out of. The guest cannot import the
+// backend - that package is the host's, and linux-only besides.
+const EnvVMStore = "EARTH_VM_STORE"
+
+// LayerAsk marks an export request as naming a layer of the store rather than a
+// staged path.
+//
+// **One channel, two questions, and they cannot be confused.** A staged path is
+// absolute, so it begins with a separator and never with this; the prefix is
+// what lets the layer request share the export device's serialisation instead of
+// opening a second device and a second allocator to get wrong.
+//
+// The answer is the same shape either way - `OK <n>` and n bytes on the device -
+// but the bytes differ: a staged path is packed as a tree for the host to
+// unpack, and a layer is packed as an OCI blob for the host to copy verbatim
+// into an image. See guest.PackLayer.
+const LayerAsk = "layer:"
+
+// DeclAsk marks an export request as naming what a stack element declares -
+// its environment, working directory and user - rather than its bytes.
+//
+// **A stack element is one or the other** (green paper 3.2a): a tree has layers
+// and no declaration, a declaration has neither. The host needs both halves to
+// write an image, and asking for the wrong one yields an image whose layers are
+// right and whose `PATH` is missing - which fails as `cargo: not found` three
+// steps later, in a build that had nothing to do with it.
+const DeclAsk = "decl:"
+
+// FillPort is where the host answers a step's fault-in.
+//
+// **The one message that travels the other way.** Every other exchange is the
+// host asking the guest; a fault is the guest asking the host for a path its
+// base does not have. A sandbox that spawns its guest as a child passes a second
+// descriptor for it; through a VM there is no descriptor to pass, so the guest
+// listens on a socket of its own and this port is how the host reaches it - see
+// guest.EnvFillSocket, which says exactly this and had no caller until now.
+const FillPort = 5558
+
+// FillSocket is where the agent listens for that channel, inside the guest.
+//
+// Short and under /run, because a unix socket path lives in a fixed-size field:
+// `sun_path` is 104 bytes and a longer path fails with `invalid argument`,
+// naming neither the limit nor the length.
+const FillSocket = "/run/earth-fills.sock"

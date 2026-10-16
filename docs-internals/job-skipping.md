@@ -1,0 +1,320 @@
+# Skipping a job
+
+A test job whose inputs have not changed should do no work. That is what `--auto-skip` was for, and
+it is the Docker insight moved up one level: Docker succeeded because an unchanged layer is not
+rebuilt, and the CI version of that is an unchanged *job* that is not run.
+
+This note is about the key such a decision is made on. It is a design note, not a specification:
+what it settles moves into green paper §4.4 when it is built.
+
+---
+
+## Why the tiers we already have do not answer it
+
+The engine has two cache tiers and both are read-precise where it matters. Neither survives a fresh
+CI runner, and the reason is not subtle:
+
+| Tier                | Precision                    | Needs carried between jobs | Size      |
+| ------------------- | ---------------------------- | -------------------------- | --------- |
+| L1, Κ₁ chain key    | declared inputs              | the layer store            | gigabytes |
+| L2, Κ₂ observed key | **only what each step read** | the layer store            | gigabytes |
+| a job key           | to be decided below          | one digest                 | 32 bytes  |
+
+On a machine with a warm store, L2 is the right mechanism and there is nothing to add: a step whose
+predicted reads still hold the same digests is served from cache, and a file nobody opened cannot
+make it stale (`engine/core/staleask.go`, green paper §3.6 and equation (4.6), I3). On an ephemeral runner the store is
+not there, restoring it costs more than rebuilding, and L2 is unreachable.
+
+So the job key is not a coarse substitute for L2. On the machine most builds actually run on it is
+the only tier available, which is why its precision is the whole question.
+
+---
+
+## Three candidate keys
+
+**A - the plan fingerprint.** Every declared input: the graph's node identities, which are recursive
+over their inputs, so it covers each command, every build argument and environment value, the
+platform, the resolved digest of each base image, the content digest of every path a `COPY` reads,
+and what the build is asked to produce. Computable before anything runs, from a checkout alone.
+Implemented (`engine/cli/inputs.go`).
+
+**B - A with the context content removed.** The graph's shape and commands without what the copied
+files contain. Not a key on its own: it cannot see a source edit.
+
+**C - B together with the digests of the files the build actually read.** A `README` that changed and
+that nothing opened does not move it; a source file that changed does. This is the key worth having,
+and the rest of this note is about it.
+
+A remains as C's fallback: C needs a previous run's observations, so a first build, a build on a
+platform with no tracer, and a build the tracer could not follow completely all fall back to A.
+
+---
+
+## What C is
+
+Let 𝐺 be the plan graph and 𝑅 the *host inputs* the last successful build depended on.
+
+```text
+(C.1)    σ         ≡  ℋ(target ‖ platform ‖ 𝒮(args) ‖ 𝒮(secrets) ‖ flags)
+(C.2)    𝑅         ≡  { (host path, digest) } ∪ { (host directory, listing digest) }
+                        ∪ { host path : absent } ∪ { (Earthfile, tree digest) }
+(C.3)    Κ_job     ≡  ℋ(σ ‖ 𝒮(𝑅))
+```
+
+𝒮 is the injective encoding of green paper §1.4, over sorted keys.
+
+**σ is the invocation and nothing else.** An earlier draft hashed the Earthfile into it, and an
+apparatus of refusals came with that: a build reaching another file, a reference built from an
+argument, a reference nobody pinned. All three existed because one file cannot describe a build
+spanning several.
+
+It does not have to. The interpreter reads every Earthfile a build needs and already keeps them by
+directory, so `interp.Plan.Earthfiles` costs a map walk - and they join 𝑅 as ordinary inputs beside
+the files a step reads: recorded by the build that read them, re-read when it is asked whether to run
+again. A build across six Earthfiles is keyed exactly, with nothing followed and nothing refused.
+
+An Earthfile's digest is its **parse tree**, not its bytes, so a comment above a `RUN` is not a
+rebuild. That is the one thing worth keeping from the old σ.
+
+**Two things are deliberately not covered, by decision rather than by oversight.** A reference nobody
+pinned - a tag that moves between two runs is accepted as the same build - and a reference built from
+an argument. Both are resolved when the steps run, and what the steps then read is what 𝑅 records.
+Either could be tightened by resolving references before keying; neither is worth the round trip that
+costs on every check.
+
+---
+
+## Deriving 𝑅, which is the hard part
+
+An observation records paths **inside the step's filesystem** - `/w/crates/greet/src/lib.rs` - and
+Κ_job must be re-derivable from a host checkout with nothing built. The mapping between the two is
+the copy that placed the file.
+
+For each `OpLocal`-sourced `COPY` the plan knows `(context source -> destination prefix)`. An
+observed path under a destination prefix rewrites to the host path beneath the corresponding source.
+
+The mapping is *recorded* by the copy that did the placing rather than re-derived from its
+arguments, because a glob, `--dir`, `--if-exists` and `LANDS AS` are all resolved by the guest doing
+the work: the arguments say what was asked for and only the placement says what happened.
+
+**And it is stored with the cache entry**, not held in memory for the run that produced it. Held in
+memory, the correspondence exists on the build that ran the copy and on no build after it - and a
+copy is the most cacheable step there is, so in practice it existed almost nowhere. Measured on
+midnight-node: 37 steps, 15 of them `COPY`, five served from L1, and `--auto-skip` refused to record
+a key on every run, while the `RUN cargo build` above them observed 808 reads perfectly and none of
+them could be named. The placements take no part in any key and in no comparison of two claims: the
+same copy over the same base put the same bytes in the same place, so the chain key having matched is
+what says they still hold.
+
+One consequence of I9, which inserts and removes entries but never rewrites them: a store populated
+before this existed does not acquire placements, and a build over it keeps falling back to key A
+until those entries are evicted or pruned.
+
+**𝑅 stores host-side digests, captured at record time, never the digest the step saw.** A copy may
+legitimately change what the destination holds relative to the host file - `--chmod` changes the
+mode, `--keep-own` and `--chown` the ownership - and re-deriving from the host must not have to
+reproduce any of that. The transformations themselves are arguments of the `COPY` node and so are
+already in `shape(𝐺)`. Content is never transformed, which is what makes the pairing sound.
+
+Three kinds of entry, matching the three fields of an observation:
+
+| Observation | Host entry                            | Re-derived by                                    |
+| ----------- | ------------------------------------- | ------------------------------------------------ |
+| `Reads`     | host path, content digest             | digesting the file                               |
+| `Listings`  | host directory, digest of its entries | listing it under the same exclusions as the copy |
+| `Negative`  | host path, asserted absent            | `lstat`                                          |
+
+`Listings` is what makes a *new* file safe: a glob that would now match `src/new.rs` changes the
+digest of the listing the step enumerated, so Κ_job moves even though no recorded path did. `Negative`
+is what makes a file appearing where one was absent safe. Both already exist because L2 needs them
+for the same reason (green paper §3.6, I3).
+
+---
+
+## Hard gates
+
+A job key is served with nothing to verify it afterwards, so every uncertainty must refuse rather
+than degrade. Where L2 can afford a hint, this cannot.
+
+| Gate | Refuse to compute Κ_job when                                                                                     | Because                                                                      |
+| ---- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| H1   | any step reported `Incomplete`                                                                                   | the tracer knows it missed something; L2 pays a miss, this pays a wrong skip |
+| H2   | any step of the target recorded no observation at all                                                            | an unobserved step is one whose inputs are unknown, not one with none        |
+| H3   | the plan carries `--no-cache` or a `LOCALLY` step                                                                | each is a declared reason the key under-claims                               |
+| H3a  | the *record* carries a step of a kind no observation could make skippable                                        | a host step writes outside the build, and a delegated one read elsewhere     |
+| H4   | an observed read maps to neither a `COPY` from the context, nor a base image layer, nor an earlier step's output | a read nobody can explain is a read nobody can re-derive                     |
+| H5   | the guest has no observation source                                                                              | see below                                                                    |
+
+Each gate falls back to key A, which is conservative and correct. **A gate that fires is a rebuild,
+never a skip.**
+
+H3 and H3a are the same rule asked of the two things that carry it. H3 reads the plan and feeds
+`check-inputs`; H3a reads the build's record and feeds Κ_job, and for a while only H3 existed - so a
+`LOCALLY` build was refused by `check-inputs` and keyed by `--auto-skip`, which is the wrong way
+round. `--strict` hides it, because it refuses `LOCALLY` at plan time, and `--strict` is opt-in.
+
+**Both keys, and at record time.** Gating only the reads leaves key A serving the skip, because
+`planHolds` compares a plan fingerprint and nothing else - and key A is exactly what a build
+containing `LOCALLY` falls back to, a host step never being watched. So a build carrying either
+construct writes a record whose `MustRun` names it, and both `stillHolds` and `planHolds` answer no.
+
+It is recorded rather than asked, because `askAutoSkip` runs *before* planning - which is the point
+of the flag - and there is no plan in front of it at the moment the question is asked. A build that
+never records a skippable answer cannot be skipped however the question arrives. `skipRecordVersion`
+went to 2 with it, so a record written before the gate existed is refused rather than believed.
+
+`mustRun` is a deliberate subset of `caveatsOf`: an unpinned base and an unkeyed secret make the key
+*under-claim*, which is a trade this flag may make, while these two are steps that have to happen -
+skipping the build produces no answer rather than a coarse one.
+
+H3a classifies every opcode rather than naming the unskippable ones, because the failure of a
+*forgotten* kind is a build that does not run. `TestEveryOpKindIsClassifiedForSkipping` is the guard.
+Four classes:
+
+| Class     | Kinds                                                   | Owes the record                          |
+| --------- | ------------------------------------------------------- | ---------------------------------------- |
+| `watched` | `OpExec`                                                | an observation - what it read            |
+| `placing` | `OpFile`                                                | placements - where it put what it copied |
+| `benign`  | `OpImage` `OpLocal` `OpMerge` `OpPackImage` `OpScratch` | nothing                                  |
+| refused   | `OpHost` `OpBuild`                                      | nothing it could owe would be enough     |
+
+**A `COPY` is not asked for an observation**, which it was and which cost every build whose copies
+landed in an empty directory: what a copy reads is its source layer, not the checkout, and a copy
+that observes nothing of its base reports `Observed` false. Ten of midnight-node's fifteen did. What
+makes its bytes namable is the placement, so that is what it owes - and a copy that placed nothing is
+a gap for the same reason an unwatched `RUN` is, what it brought in being unaccounted for rather than
+absent.
+
+---
+
+## Secrets, and what σ can say about them
+
+With a fleet key configured, σ carries the *keyed digest* of every secret the build holds, so a
+rotated credential is a different build. That is the strong form and it is what `EARTH_SECRET_HMAC`
+buys.
+
+Without one there is nothing to fold a value into, and the choice is between covering the secrets'
+**names** and covering nothing. σ covers the names. It is a weaker claim, and the cost is exact: a
+rotated credential does not move the shape, so a job whose result depends on *which* credential it
+had could be skipped. Usually a secret fetches something rather than changing what is built; where
+that is not true, configure the key.
+
+Refusing instead was considered and rejected: it leaves `--auto-skip` doing nothing at all for
+anyone who has not configured an HMAC, which is most people, and a mechanism nobody can switch on
+protects nobody.
+
+**Which of the two was used is folded into σ**, so a name-keyed shape and a digest-keyed one for the
+same build are different values. A record written before a key was configured is simply not found
+afterwards, rather than being found and trusted for more than it says.
+
+## No tracer
+
+`engine/trace` is seccomp user notification and is Linux only; `trace_other.go` is deliberately empty.
+
+**That is a property of the guest, not of the host.** An earlier draft of this note said a Mac has no
+observation source and falls back to A. It does not: the sandbox runs steps in a Linux guest, the
+guest is where the filter is installed, and the end-to-end run that proved this mechanism was made on
+darwin. The fallback is reached where steps run *natively* on a host with no seccomp - which is no
+backend this engine currently ships.
+
+H5 therefore stays as a gate and is expected never to fire. A gate nothing reaches is cheap; a
+missing one is a false skip.
+
+---
+
+## Adversarial tests, written before the mechanism
+
+A false skip is a green tick on a build that was never run, which is the one outcome this must not
+produce. Each of these is a red test first.
+
+| #   | The build did this                                                | Κ_job must     |
+| --- | ----------------------------------------------------------------- | -------------- |
+| 1   | a file in the copied tree changed, nothing read it                | not move       |
+| 2   | a file in the copied tree changed, a step read it                 | move           |
+| 3   | a new file appeared in a directory a step enumerated              | move           |
+| 4   | a file a step looked for and did not find now exists              | move           |
+| 5   | a file a step read was deleted                                    | move           |
+| 6   | a read file's contents are unchanged and its mode is not          | move           |
+| 7   | a symlink a step followed now points elsewhere                    | move           |
+| 8   | a `RUN` command was edited                                        | move           |
+| 9   | a base image tag moved to a new digest                            | move           |
+| 10  | a `SAVE ARTIFACT ... AS LOCAL` destination changed                | move           |
+| 11  | the tracer reported `Incomplete`                                  | not be offered |
+| 12  | a step of the target recorded no observation                      | not be offered |
+| 13  | two targets in one Earthfile, only the other one's inputs changed | not move       |
+
+3, 4, 5 and 7 are the ones that would make this unsafe if `Listings` or `Negative` turned out not to
+cover what they claim to. They are the reason the suite comes first.
+
+---
+
+## Bootstrapping
+
+A build where every step hit cache watched nothing, so it has no reads to record - and without
+something else to write down, `--auto-skip` could never start on a machine that already had a store.
+Which is every machine after its first build: the flag would appear to do nothing, for ever, to
+everyone who turned it on.
+
+What such a build *did* establish is that every chain key hit, which covers the declared inputs. So
+it records those - the plan fingerprint, coarser than the reads and not nothing - and the first build
+that actually runs upgrades the record to Κ_job.
+
+A cached build may not downgrade a record made by one that ran: the reads are replaced only by a
+build that saw them. Otherwise running something that happened to hit cache would undo the mechanism
+each time.
+
+## Storage, and carrying it through CI
+
+One record per `(target, platform)`: `shape(𝐺)`, the entries of 𝑅, and the Κ_job they imply. A file,
+not a database - a CI cache carries it, a reviewer can read it, and there is nothing to merge.
+
+Two shapes work on GitHub Actions and they are not the same thing:
+
+* **the record as a cached file**, restored with a branch-scoped key and a fallback to the default
+  branch. Needed because 𝑅 itself must be carried - it is what makes the key derivable at all.
+* **Κ_job as a cache key**, with `lookup-only`. Keys are immutable, scoped to the current branch plus
+  the default branch and the base branch of a pull request, evicted LRU at 10 GB and after seven days
+  unused. A content-addressed key fits that exactly: nothing to reconcile, and a miss is a build.
+
+The second is how the skip decision is made; the first is how the input to that decision survives.
+
+---
+
+## Cool things this does not do
+
+**Per-target granularity within one Earthfile.** σ is over the whole file, so editing any target
+moves the key for every target in it. A monorepo Earthfile with thirty targets and thirty jobs
+re-runs all thirty on a one-line edit.
+
+Recovering it means hashing only the statements reachable from the target asked for, which means
+following `FROM`, `BUILD` and `COPY +x/y` and expanding enough `ARG` to resolve the names - a second
+evaluator, which is the thing `inputgraph` is and the thing this deliberately is not. Or it means
+deriving σ from the plan, with the costs above.
+
+Not worth it yet, on the evidence: Earthfiles change rarely and the files they copy change constantly,
+so the case this would improve is the rare one. The record format does not care - σ is opaque to
+everything else - so it can be swapped later without a migration.
+
+**A build spread over several Earthfiles.** `IMPORT` and `./sub+target` are refused rather than
+hashed, for the same reason: finding which files participate is the reachability walk above. Hashing
+every Earthfile under the context would work and is coarser still.
+
+## What this deliberately does not cover
+
+A `RUN` that reaches the network. The tracer sees the socket, not what came back, and no key over the
+checkout can describe it. This is the same assumption `CACHE` and every layer cache already make, and
+it is stated rather than mitigated.
+
+---
+
+## Open
+
+* **Artifact edges.** `COPY +other/thing` is not a host path: its content is a function of the other
+  target's own 𝑅, so the records compose. Whether that composition is worth building at once or
+  whether such a target simply falls back to A on the first cut is undecided.
+* **Where the record lives by default.** Beside the engine's own store, as the prediction history
+  does, or beside `--auto-skip-db-path`. See `engine/cli/autoskip.go`.
+* **Whether σ should cover the invocation's flags exhaustively.** It covers the ones that change what
+  a build does - `--push`, `--strict`, `--no-output`, `--allow-privileged`, the version flags - and
+  not the ones that change how it reports. A flag added to the first group and not to σ is a false
+  skip, so the list wants a guard of the kind `TestEveryFlagIsClassified` already is.

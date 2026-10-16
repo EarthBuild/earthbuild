@@ -1,0 +1,1394 @@
+# Native engine settings
+
+The native engine is reached by the `earth-native` binary. These environment variables change what it
+does; everything else in the engine is decided by the Earthfile.
+
+Nothing here is required. The defaults are what a build gets when none of them is set, and each entry
+says what happens then.
+
+## Where things are kept
+
+### `EARTH_CACHE_DIR`
+
+The layer store, the action cache and the scratch a build works in.
+
+Default: `$XDG_CACHE_HOME/earthbuild`, or `~/.cache/earthbuild`.
+
+A build shares this with every other build on the machine, which is what makes a second build fast.
+Two builds may use it at once.
+
+### `EARTH_IMAGE_CACHE_DIR`
+
+Where images pulled from a registry are kept, if it should be somewhere other than the store above.
+
+Default: inside `EARTH_CACHE_DIR`.
+
+### `EARTH_REGISTRY_MIRRORS`
+
+Hosts to ask before Docker Hub, most preferred first, comma-separated.
+
+Default: empty - the registry itself, and nothing else.
+
+```sh
+export EARTH_REGISTRY_MIRRORS=mirror.gcr.io,public.ecr.aws
+```
+
+Docker Hub allows an anonymous puller 100 manifest requests an hour. A machine that exhausts
+that (a benchmark loop, a busy CI runner, or an office behind one address) gets `429 Too Many
+Requests`, and every `FROM` then fails outright - which is the slowest a build can be.
+
+A mirror is tried first and is never a new way to fail: one that is down, rate-limited or does not
+carry the image falls through to the registry itself, whose error is the one reported.
+
+Off by default because a mirror answers "what does this tag mean" from its own cache. The bytes
+are safe wherever they come from - every digest is checked against the manifest - but a tag that
+moves may resolve to an older image than the registry would give. Pinning (`--pin`) always asks
+the registry itself for that reason.
+
+### `DOCKER_CONFIG`
+
+Where this engine looks for registry credentials. **A `docker login` applies here**: it reads
+docker's own store rather than keeping one of its own.
+
+Default: `~/.docker/config.json`. A `credsStore` or a `credHelpers` entry works, because the
+lookup goes through the same library `earth` hands to BuildKit - the credential lives wherever
+docker put it, including the system keychain, and neither engine has an opinion about where that
+is. Two engines reading one store is the point; two engines with two ideas of where credentials
+live is the thing worth avoiding.
+
+**A public image needs none of this.** Nothing is presented unless something is stored for that
+registry, and a machine with no docker config pulls exactly as it always did.
+
+Two names catch people out, and both are handled:
+
+* **Docker Hub is filed under `docker.io`**, while the requests go to `registry-1.docker.io`.
+  Docker's own key mapping does not recognise the second, so asking under the host actually
+  dialled would miss a login that plainly happened - and miss it silently.
+* **A port is part of the name.** A registry on a non-default port is stored under `host:port`,
+  so `localhost:5000` is looked up as written rather than as `localhost`.
+
+**The credential is chosen by the registry, never by the realm it names.** A registry answers the
+challenge and the challenge says where to get a token, so choosing from the realm would let a
+registry nominate which credential this machine hands over. Deciding from the host the manifest
+is being fetched from means the worst a hostile registry can do is receive the credential its own
+user already gave it.
+
+It is never written down: the credential goes in a header and not in a URL - the "was not pinned"
+note prints that URL verbatim - and the bearer token it buys is held in memory for the life of
+the process and never reaches the cache directory.
+
+Two things it does not do, both of which `earth` does:
+
+* **podman's store is not read.** A machine authenticated only through podman is not
+  authenticated here.
+* **an identity token cannot be redeemed.** Some registries store an OAuth2 refresh token instead
+  of a password, which needs a POST exchange this engine does not perform. It says so rather than
+  presenting the token as a password and reporting whatever the registry made of that.
+
+Default: unset, so `~/.docker/config.json`, and no credential where there is no file.
+
+### `EARTH_PIN_TTL`
+
+How long a resolved image reference may be reused before the registry is asked
+again. A Go duration.
+
+Default: empty - off. Anything that is not a positive duration is also off.
+
+```sh
+export EARTH_PIN_TTL=10m
+```
+
+Every build resolves each `FROM` tag to a digest before anything runs: one token
+exchange and one manifest fetch per reference, over the network. On a build with
+nothing to do that is nearly the whole of it - `plan` is 0.585s of a 0.61s no-op
+`+earthly`. With a ten-minute window the same build is 0.21s.
+
+The window is the trade: a tag that moves is not noticed until it expires, so a
+build can use an image the tag no longer names for up to that long. That is why
+it is off unless asked for. Two things bound the damage: the digest is still
+recorded and reported, so the build says which image it used; and CI, where
+freshness matters most, starts with an empty cache on every run and so always
+resolves.
+
+Pins are kept beside the images, per machine, not per project.
+
+### `EARTH_STEP_LINK`
+
+How a step's interface hangs off the guest's own, where a step has a network of
+its own. `macvlan` gives the child its own MAC and is the better arrangement
+where anything will carry it; `ipvlan` shares the parent's MAC, which is what
+gets past a virtual NIC that forwards one MAC and drops the rest.
+
+Default: `macvlan`. Not every kernel has ipvlan built in - Apple's container VM
+refuses it with `operation not supported` - which is why that backend defaults
+steps to a shared network instead. See `EARTH_STEP_NET`.
+
+### `EARTH_STEP_NET`
+
+How a step reaches the network. `private` is the default and gives each step a
+namespace of its own with a veth, an address, NAT out and a resolver file of its
+own; `shared` gives every step the guest's namespace, which is what builds did
+before this.
+
+Default: `private`, except on the macOS container backend, whose virtual NIC
+forwards one MAC and drops the rest - a step's own macvlan there comes up with
+the right address and cannot reach its own gateway, so it defaults to `shared`.
+
+Parallel steps share a network namespace, so two of them binding one fixed port
+collide: an inner buildkitd wants 8371 and 8372, and the second dies with
+`bind: address already in use`, which the step reports a minute later as a
+buildkit that would not answer. `private` gives each step a `/30` out of
+`10.201.0.0/16` - deliberately not buildkit's `172.30.0.0/16`, since both
+engines run on one machine while they are being compared.
+
+Needs `ip` and `iptables` on the guest. Where either is missing the build says
+so and carries on shared, which is the same degrade-and-say-so rule the mount
+warnings follow.
+
+**The resolver is part of the namespace, and missing it cost a round.** A step
+given its own namespace inherits the guest's `/etc/resolv.conf`, which on Ubuntu
+names `127.0.0.53` - systemd-resolved listening in the *guest's* namespace. From
+a namespace of its own that address is the step's own empty loopback, so every
+lookup fails and the build says `apk add --no-cache git exited 1, and printed
+nothing`. Fifteen of sixteen Native jobs failed that way.
+
+A private step now gets a resolver file written for it, from
+`/run/systemd/resolve/resolv.conf` where that exists and from the non-loopback
+entries of `/etc/resolv.conf` otherwise. Docker and buildkit rewrite the file in
+the same situation for the same reason.
+
+Where neither yields a reachable server the step runs shared and says so, rather
+than isolated and unable to name anything. Deliberately no public fallback:
+inventing `8.8.8.8` would send a build's lookups to a third party nobody named.
+
+### `EARTH_STEP_SHIM`
+
+Launch each step through a shim that mounts `/proc` inside the step's own PID
+namespace. `0` turns it off.
+
+Default: on.
+
+A step runs in a PID namespace of its own, so its shell is pid 1, while `/proc`
+is mounted by the guest before that and answers with the guest's numbering. The
+step then reads `$$` as 1 and `/proc/self` as something else, and anything
+consulting `/proc/$$` lands on another process. With the shim the two agree.
+
+It costs one extra process launch per step, measured at 2.2ms - about 15ms of a
+41s cold build of this repository, which launches a process in seven of its
+steps.
+
+On, because the arrangement without it is wrong: a step that disagrees with its
+own `/proc` is a step that misleads anything reading it. The switch remains
+because this changes who performs the chroot, on the most delicate call in the
+engine, so an operator who suspects it can turn it off and compare on one
+machine.
+
+The shim stays on the guest's filesystem rather than being placed inside the
+step, so nothing is written into the step's tree and the shim's own startup
+reads are at paths outside it - rebuilding the guest leaves a warm build at 92
+hit, 0 miss.
+
+### `EARTH_TRACE`
+
+Whether a step's reads are watched.
+
+Watching is how a step earns a second-tier cache hit: the engine records what the step actually
+looked at, so the same step over a *different* base can reuse the result when nothing it read
+differs. That is worth a great deal on a build whose bases move and nothing on a build that always
+misses.
+
+It is paid for on every intercepted system call. Measured on a step that reads four thousand small
+files and does nothing else, watching costs twenty-five times; measured on this repository's own test
+suite, it cost nothing that could be seen behind a virtual machine. Both are true of what they
+measured, which is why the switch exists: the honest way to know what it costs on *your* build is to
+run it both ways.
+
+Set to `0` to run steps unwatched. Every step then misses the second tier and is cached only on its
+declared inputs, which is correct and slower in the way that usually matters more.
+
+Default: on.
+
+### `EARTH_SCRATCH_TMPFS`
+
+Puts the scratch directory on a tmpfs of the given size, as `4g` or `512m`.
+
+Default: unset, and the scratch is on disk with the rest of the store.
+
+**Worth about a quarter of a cold build's wall clock** - 1715 ms against 1289 ms on a 21-step build -
+because a step's writes, the capture that reads them back, and the removal afterwards all happen
+there.
+
+**It is memory.** A step's scratch holds everything the step wrote before it becomes a layer, so a
+build producing gigabytes produces them in RAM. Size it against the largest step a build has, not the
+average, and leave it unset where that is not known.
+
+A step that outgrows it fails with `no space left on device` and a message saying that is what
+happened. A size that is not a number and a unit is refused rather than ignored; a percentage is
+refused too, although the kernel would accept one.
+
+## What a build produces
+
+### `SOURCE_DATE_EPOCH`
+
+Clamps the timestamps a build writes to the given Unix time, as
+`SOURCE_DATE_EPOCH=1700000000`. The cross-project reproducible-builds convention,
+and read from the environment rather than from a flag for that reason. Also
+available inside an Earthfile as `EARTH_SOURCE_DATE_EPOCH`.
+
+Default: unset, and a file created by a step carries the moment it was created.
+
+**What it buys, measured on two builds with nothing cached:**
+
+| what                           | unset                       | set                     |
+| ------------------------------ | --------------------------- | ----------------------- |
+| artifact content               | identical                   | identical               |
+| artifact mtime                 | differs by a second         | the epoch you asked for |
+| layer ids, across fresh stores | differ for every `RUN` step | identical               |
+
+The last row is the one to care about on more than one machine. A layer's
+identity includes its files' mtimes - deliberately, so that an artifact's
+timestamp survives a build rather than being reset to "now" - so without the
+clamp two machines running the same step arrive at two names for the same
+result. With it they arrive at one, which is what lets a fleet reuse a layer
+another machine built instead of building it again.
+
+Set it from something stable and meaningful, not from the clock: the commit's
+own time is the usual choice.
+
+```bash
+SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct) earth +build
+```
+
+## What a step is allowed
+
+### `EARTH_ALLOW_HOST_DOCKER=1`
+
+Lets a `WITH DOCKER` block use this machine's own docker daemon.
+
+Default: unset, and it is refused.
+
+**That daemon is root on this machine.** A step holding its socket can start a container with `/`
+mounted and write anywhere, whatever user the step runs as, and no namespace the engine sets up
+constrains it. Set this only where the machine is disposable.
+
+A build running *inside* a container uses the daemon it is already inside without this setting: that
+daemon belongs to the step this build is running in, and the decision to grant it was made one level
+up.
+
+## Where the pieces are
+
+### `EARTH_GUESTD`
+
+The path to the `earth-guestd` binary, which runs a step's filesystem operations.
+
+Default: on Linux, the CLI runs the agent out of itself (`earth guestd`), so
+there is nothing to find and nothing to set. On macOS the agent runs inside a
+Linux VM and so must be a separate Linux binary, looked for next to the CLI.
+
+Set it when you are testing an agent you built yourself.
+
+### `EARTH_SANDBOX_MEMORY`
+
+How much memory the sandbox VM is given, on macOS. Ignored elsewhere, where there is no VM.
+
+**Default: half this machine's memory, and never less than 16 GiB.** The same share
+`EARTH_VM_MEMORY_MIB` gives the other backend, and for the same reason: the figure is a ceiling
+rather than a reservation, so the VM takes what it uses and being generous costs address space
+rather than memory. A flat 8 GiB gave a build 6% of a 128 GiB machine, and a large compile was
+killed by the kernel for it.
+
+The floor is deliberately an over-allocation on a small machine. Below it a step runs and its
+result cannot be captured, and because the figure is a ceiling rather than a reservation, a machine
+with less than the floor simply stops being limited by it - so a large build there is *slow*, the
+host swapping, rather than killed by the guest's own kernel with nothing in the output saying so.
+
+### `EARTH_CLONE_TREES`
+
+Whether a tree is placed by cloning it. On a filesystem with copy-on-write clones - APFS, and Linux
+filesystems that support reflinks - a whole tree is placed in one call and shares its storage with
+the original until something writes to it. Set to `0`, `false` or `no` to place trees by linking
+each entry instead, which is what happens anyway when the source and destination are on different
+filesystems.
+
+Default: on.
+
+### `EARTH_GUEST_IDLE`
+
+How long a sandbox stays up with nothing to do, as a duration - `20m`, `2h`, `90s`. A sandbox that
+stops too early costs one VM boot, about 0.4s, on the next build; one that never stops costs a VM
+per interrupted build until the machine runs out. Zero means never stop.
+
+Default: `30m`.
+
+### `EARTH_CLONE_EXPORTS`
+
+Whether a saved artifact is copied by the filesystem rather than by reading and writing its bytes.
+
+On APFS a clone shares the extents and diverges on the first write, so an exported file costs almost
+nothing to produce and behaves exactly like a copy when you edit it. A 45MB binary went from 0.24s to
+0.015s. Where the store and the destination are on different volumes, or the filesystem cannot clone,
+the copy happens as it always did.
+
+Set to `0` to copy always. The switch exists because cloning has been blamed for a fault once before
+and turned out to be innocent, and a build that can be told to copy is one whose next mystery can be
+bisected in a single command.
+
+Default: on.
+
+### `EARTH_SHARE_EXPORTS`
+
+Whether a saved artifact may be taken from the store instead of being sent out of the sandbox.
+
+The store is a disk both sides can read. When the file a build is exporting is one the store already
+holds, unmodified, the sandbox says where it is rather than writing 45MB back across the shared
+mount, and the host takes it from its own filesystem. Exporting this repository's own binary went
+from 0.585s to 0.001s, and a warm build from 1.18s to 0.84s.
+
+The sandbox answers this way only when it can prove the file is the store's file unchanged - not
+rewritten by the step, not deleted, not a directory or a link, and in a layer it holds pristine.
+Anything it cannot prove is sent the ordinary way, so the switch changes what a build costs and not
+what it produces: the artifact is identical in bytes, mode and timestamp either way.
+
+Set to `0` to always send the bytes. Keep it for bisecting, and for the same reason
+`EARTH_CLONE_EXPORTS` exists - being able to run one build both ways is what turns "the artifact
+looks right" into "the artifact is the same".
+
+Default: on.
+
+### `EARTH_GUEST_DENTRY_LIMIT`
+
+How many looked-up names a sandbox holds before it releases them, as a count.
+
+A store shared from the host costs the host one open file descriptor per name the sandbox has looked
+up, held until the sandbox forgets it. There is a ceiling on those, it is not in either kernel's
+documented limits, and nothing can ask about it - a build simply stops with `too many open files in
+system` on a path that looks like the sandbox's. `earth +earthly` reached it on this repository's own
+`examples` directory.
+
+So the sandbox watches what it is holding and lets go before the ceiling. The cost is that the next
+walk of the same tree is cold: about 201µs a file rather than 96µs. The cost of not doing it is the
+build.
+
+Zero turns the release off, for a machine with descriptors to spare or a build that reads a large
+tree repeatedly.
+
+Default: `100000`.
+
+### `EARTH_FLEET_DISCOVER`
+
+Whether a fleet uses relays and endpoint discovery to reach machines it cannot dial directly. Set to
+any non-empty value to turn it on. Off by default: it was on for one increment, and a worker given
+the driver's address - a path that had been working - joined and was then given no work (E505).
+
+Default: off.
+
+### `EARTH_TIMINGS`
+
+Makes a build say where its time went. Set to any non-empty value. Each line is one phase of one
+step - `materialise`, `run`, `capture`, and the materialiser's own sub-phases - reported as the phase
+ends rather than summarised at exit, so a build that is slow at step 900 of 1000 says so at step 900.
+
+The switch is forwarded into the sandbox, so phases timed inside the guest appear in the same output
+as those timed outside it.
+
+Default: off.
+
+### `EARTH_IMAGE_LAYERS`
+
+Stores a pulled image as one directory per layer rather than one merged tree. Set to any non-empty
+value.
+
+The merged form unpacks every layer into a single directory, which costs the whole image once and
+means each layer's blob is read, decompressed and written under a lock the next layer waits on. Kept
+apart, layers unpack independently and the result becomes a stack the step above stands on directly -
+worth up to 38% of an image's unpack when no single layer dominates it, and nothing at all when one
+does (Amdahl: the largest layer is the floor).
+
+The trade is depth. Every step above the image then binds a deeper stack, at roughly 0.67ms per layer
+per step. A 22-layer base pays that on every step of the build; whether it repays depends on how many
+steps there are, which is why this is a setting and not the default.
+
+Experimental. The layers this produces are byte-identical in effect to the merged tree - same files,
+same permissions, same adopted config - but the storage layout differs, so a cache filled one way is
+not reused by the other.
+
+Default: off.
+
+### `EARTH_IMAGE_STREAM`
+
+Unpacks each layer as its bytes arrive rather than after the whole blob has landed. Set to any
+non-empty value. Only meaningful with `EARTH_IMAGE_LAYERS`, which is what makes it pay.
+
+A layer's fetch and its own unpack are otherwise serial. Merged, that costs nothing measurable -
+the engine is unpacking some *other* layer while this one arrives - but with the layers apart the
+largest layer is the entire critical path, and at its tail there is nothing else left to overlap
+with. Streaming makes those two concurrent, which is worth 14-24% of a cold `FROM` on top of what
+keeping the layers apart already saves.
+
+The digest is checked after the unpack, because with a stream that is the only place it can be. The
+layer goes into a directory of its own that is discarded on any failure, so bytes that turn out not
+to match are never kept - but a build does write them to disk before it knows, which is the reason
+this is a setting rather than the default.
+
+Default: off.
+
+### `EARTH_UNPACK_IN_GUEST`
+
+Has the guest unpack an image's layers rather than the host. Set to any non-empty value; only
+meaningful with `EARTH_IMAGE_LAYERS`.
+
+**The host cannot grant what an archive declares.** An unprivileged unpack tolerates a refused
+`chown`, cannot create a device node, and cannot set an attribute in the `security.` namespace, so
+the layer that lands is not quite the layer the image describes - and three separate mechanisms
+exist to paper over the difference. Unpacking as root inside the guest removes all three questions
+at once.
+
+It is also where the layer store is going, for a reason that has nothing to do with privilege. A
+shared directory is reached over virtiofs, and every metadata operation on it is a round trip across
+the VM boundary. Measured from inside the guest on one layer of `golang:1.26-alpine`: unpacking into
+the shared store takes 4.67s against 2.18s into the block device the guest owns, and reading it all
+back 6.04s against 1.47s - about 0.31ms per file a step opens.
+
+**This moves the unpack and not yet the store**, so with the layers still on the shared mount it is
+slower than leaving it off. The two are separated deliberately: the wiring can be exercised before
+the move it exists for.
+
+Default: off.
+
+### `EARTH_FIRECRACKER`, `EARTH_VM_KERNEL`, `EARTH_VM_INITRD`, `EARTH_VM_STORE`
+
+The parts a Linux microVM sandbox is built from: the `firecracker` binary, an uncompressed ELF
+`vmlinux`, an initramfs carrying `earth-vmboot` as `/init` with `earth-guestd` beside it, and a
+block device image formatted XFS for the layer store.
+
+**Four settings rather than one because none of them has a sane default.** Firecracker cannot boot
+the compressed `bzImage` a distribution ships, so the kernel is an artefact somebody builds rather
+than something found on the machine; and the store is a device the guest formats, which is what
+gives it reflinks on a host whose own filesystem has none.
+
+**Format the store for the guest's kernel, not for the host's.** A recent `mkfs.xfs` enables
+`nrext64` by default, and a guest kernel that does not know it refuses the filesystem outright -
+`Superblock has unknown incompatible features (0x20) enabled`, on the guest console and nowhere
+else:
+
+```sh
+truncate -s 32G store.img
+mkfs.xfs -m reflink=1,crc=1 -i nrext64=0 -n ftype=1 -f store.img
+```
+
+`reflink=1` is the reason the store is a device at all: the guest keeps copy-on-write clones even
+where the host's own filesystem has none. Sparse, so the size is a ceiling rather than a cost -
+make it generous. Nothing collects the store yet, so it only grows, and a device that fills stops
+builds with `no space left on device`; 8G is not enough to build this repo once, and the remedy is a
+larger image rather than more room on the host.
+
+`EARTH_FIRECRACKER` defaults to `firecracker` on `PATH`. The other three default to
+`~/.cache/earthbuild/vm/vmlinux`, `~/.cache/earthbuild/vm/initrd.cpio.gz` and
+`~/.cache/earthbuild/vm/store.img` - beside the store, because they are artefacts a machine keeps
+rather than configuration a person edits. **Nothing installs them yet**, so on a machine where they
+have not been built the sandbox reports what is missing and the build uses the namespace backend
+instead, exactly as a machine with no `/dev/kvm` does. This is I11: degrade and say so, because
+refusing would break every machine that works today.
+
+To populate them by hand:
+
+```sh
+mkdir -p ~/.cache/earthbuild/vm && cd ~/.cache/earthbuild/vm
+earth +guest-kernel                       # tools/guestkernel, writes out/vm/guest-kernel
+go run ./tools/mkguest -o .               # initrd.cpio.gz
+truncate -s 32G store.img
+mkfs.xfs -m reflink=1,crc=1 -i nrext64=0 -n ftype=1 -f store.img
+```
+
+**One build at a time per store device.** A device holds one filesystem, and two guests mounting it
+read-write is not a race that loses an update - it is two kernels with two independent logs writing
+the same metadata. The device is `flock`ed for the life of the build and a second build is refused
+rather than queued; give it its own `EARTH_VM_STORE` to run alongside. The lock is held by an open
+descriptor, so it dies with the process however the process ended.
+
+### `EARTH_CLONE_LAYERS`
+
+Commits a captured layer by sharing extents rather than by copying every byte.
+
+A captured layer is mostly bytes its base already had. `copy_file_range` is a reflink on XFS and
+btrfs, so the store grows by what a step **changed** rather than by what it could **see**; on ext4
+it still copies, but in the kernel, so the bytes do not pass through the engine. This is the reason
+a microVM's store is XFS with `reflink=1`, and one test group filled sixty-three gigabytes before
+it was used.
+
+Set it to `0` to copy instead. The saving is invisible from inside - a reflink and a copy leave
+identical bytes - so running the same build both ways and looking at the store is the only way to
+measure it, and the switch is also how a store that has grown strangely gets bisected.
+
+Default: on. The fallback is always correct, so this guards against a slow store rather than a
+wrong one.
+
+### A guest has no IPv6
+
+A step inside a microVM reaches the network through a userspace TCP/IP stack this engine runs, and
+that stack speaks IPv4 only: `gvisor-tap-vsock` builds itself with `ipv4` and `arp` and no v6
+counterpart, and offers no setting that would change it. A guest has a link-local `fe80::` address
+because the kernel makes one, no global address, no v6 default route, and its resolver returns no
+AAAA records.
+
+So **a step cannot reach an IPv6-only host** in a microVM. It can reach every dual-stack one, and
+the missing AAAA records are deliberate rather than a second fault - a stack with no v6 route that
+answered them would have every client try v6 first, stall, and fall back.
+
+The namespace backend uses this machine's own network and has whatever it has, v6 included. So does
+a guest given a tap somebody made as root: see `EARTH_VM_TAP`, which is the way to a microVM on a
+real network rather than behind a stack in this process.
+
+### `EARTH_VM_REUSE`
+
+Lets a microVM outlive the build that started it, so the next build joins it instead of booting one.
+
+Default: **on**. Set it to `0` for a machine per build, which is what every build did before this
+and is the stronger boundary of the two.
+
+**What it costs is boundary, and that is the whole trade.** A guest serving a second build carries
+the first's kernel state and its page cache. It does not carry the first's agent - that is a new
+process per build - nor its steps, which run in their own overlays; and the layer store is shared
+between builds already, by design, since it is a cache. What is new is the state outside all of
+that.
+
+**What it buys is most of the difference from the namespace backend.** On this repository's own
+build with one file changed, both arms warm and doing identical work:
+
+| backend                | wall  | `sandbox:start` |
+| ---------------------- | ----- | --------------- |
+| namespaces             | 3.33s | 0.004s          |
+| microVM, booting       | 9.75s | 0.53s           |
+| microVM, joining       | 3.79s | 0.014s          |
+
+The boot is the smaller half. A machine booted a second ago has a page cache that has never seen
+the store, so its first compile reads the toolchain off the device again; a machine that has
+already built once has not.
+
+A machine ends on its own when nothing has connected for `EARTH_GUEST_IDLE`, which until now could
+never apply because the host stopped the guest at the end of every build. A machine whose host is
+killed keeps running and is joined by the next build, which is the point; one whose configuration
+no longer matches is stopped and replaced, because a device holds one filesystem.
+
+### `EARTH_VM`
+
+Runs the guest inside a microVM rather than in namespaces on the host kernel.
+
+Default: **on, where a machine can be built**. Set it to `0` to decline.
+
+**This was off, and the reason was cost.** Taking a VM whenever one was available would change how
+long the first build waits and where the layers live, on every machine, without being asked - and
+the build this repository does most often ran at 2.93x the namespace backend, most of that a
+machine booted and taken apart again for one build.
+
+It is 1.13x now. The machine is kept between builds (`EARTH_VM_REUSE`), step overhead is slightly
+*cheaper* in a guest than out of one, file access is at parity, and a compile is 6% off. What is
+bought is a boundary an escape has to cross a hypervisor to leave, on an engine whose job is
+running other people's Earthfiles.
+
+**"Where a machine can be built" is sniffed, not assumed.** A microVM needs `/dev/kvm` this process
+can *open* - the node exists on a machine whose user is not in the `kvm` group and on one with
+virtualisation off in firmware, and a stat succeeds on both - plus a `firecracker` binary, a
+kernel, an initramfs and a store device. Any of those missing and the build runs in namespaces and
+says so once, naming what was absent.
+
+A build that *asked* for a microVM and cannot have one is refused instead, because running it in
+namespaces would give it a weaker boundary than it believes it has. Saying nothing is not asking.
+
+Asked for on a machine that cannot run one, the build is **refused** rather than degraded - which is
+the opposite of what the parts below do when nothing asked. A build that asked for a VM and quietly
+got namespaces runs under a weaker boundary than it believes it has, and nothing in its output would
+say which it got.
+
+Implies `EARTH_STORE_IN_VM` and `EARTH_UNPACK_IN_GUEST`, because a microVM leaves no choice about
+either: the host cannot write a block device the guest has mounted, so the store is on the device
+and the guest unpacks. Both remain switches - set either explicitly and that answer is kept, which
+is how "is the store what broke my build" gets asked.
+
+Needs the four settings above. Default: off.
+
+### `EARTH_STORE_FREE`
+
+How much room the store is left with before a build starts. Default: 8G. Accepts the sizes
+`earth prune` does - `20G`, `500M`. `0` turns it off, for a machine that would rather run out than
+lose a layer.
+
+**Because nothing collected the store and a device is a fixed size.** `earth prune` has always been
+able to collect it and nothing ever called it, so the store grew without limit: untidy on a host
+directory, and fatal on a guest's own device, where five suite runs in one afternoon each ended with
+`no space left on device` partway through a capture, twenty minutes in.
+
+Collected as the agent comes up, which is the one moment nothing is reading the store - there is no
+lock on it, and a build that read a layer the collector removed would materialise a filesystem
+missing an element. Least-recently-used first, and it gives up exactly the shortfall rather than
+some fraction of the disk: every byte past that is a rebuild somebody pays for later.
+
+### `EARTH_VM_CPUS`, `EARTH_VM_MEMORY_MIB`
+
+How large the guest is. **Default: every processor this machine has, and half its memory.**
+
+The guest is the build machine rather than a helper beside it - it unpacks the layers, runs the
+steps and does the compiling, while the process that started it waits - so a small slice of the
+host is exactly the wrong shape. Half the memory rather than all of it because a VM's memory is
+committed: the host cannot use what the guest has been given, and taking all of it is how a build
+takes the machine down with it. A guest never gets less than 2048 MiB, which is what it takes to
+unpack a large image.
+
+**Parallelism follows the vCPUs, so raising one raises both.** A build runs a step per processor,
+and the processors that matter are the *guest's* - the machine starting it may have thirty-two
+cores, and one-step-per-host-core puts thirty-two concurrent steps inside a four-vCPU guest, each
+unpacking layers and running a package manager in two gigabytes of shared memory. What that
+produces is not a clean failure but a step that exits non-zero having printed nothing, which reads
+as the command being wrong.
+
+`EARTH_PARALLELISM` still wins over both: it exists to make a build serial, and a sandbox
+overriding that would take the instrument away. A guest is never believed past this machine's own
+core count either - its processors are this machine's, however many it claims.
+
+### `EARTH_VM_TAP`
+
+The tap device a microVM's guest reaches the network through. Defaults to `earthtap0`; set it to
+`off` for a guest with no network at all.
+
+**Pre-created, because creating one needs a privilege a build must not have.** `TUNSETIFF` on a new
+device wants `CAP_NET_ADMIN`, and so does giving it an address or a route - so the engine takes a
+device somebody made once and only *reads* its address, which needs nothing. Three commands, as
+root, and they survive until the machine reboots:
+
+```sh
+ip tuntap add earthtap0 mode tap user "$USER"
+ip addr add 172.30.0.1/30 dev earthtap0 && ip link set earthtap0 up
+iptables -t nat -A POSTROUTING -s 172.30.0.0/30 -j MASQUERADE
+sysctl -w net.ipv4.ip_forward=1
+```
+
+**A /30 and only a /30**, which is the whole reason there is one setting rather than two: four
+addresses, of which one is the network and one the broadcast, leaving exactly two. The tap carries
+one and the guest takes the other, so the two ends cannot drift.
+
+The guest is configured by the kernel's own `ip=` parameter - `CONFIG_IP_PNP` reads it before
+`/init` runs - so the initramfs needs no `ip` binary, no ioctls and no netlink. The resolver is the
+one part that lands nowhere useful, so `earth-vmboot` writes `/etc/resolv.conf`, which is what the
+agent binds into every step.
+
+Without a tap the sandbox says so once at start and builds anyway. Steps that fetch then fail, which
+is the honest outcome: a guest with an interface and no peer waits out a connect timeout per fetch
+instead.
+
+### `EARTH_STORE_IN_VM`
+
+Puts the layer store on the block device the guest owns rather than in a directory shared from the
+host.
+
+**On by default where the sandbox is a virtual machine**, which today means macOS. Set
+`EARTH_STORE_IN_VM=0` to put the store back on the shared mount - the way to answer "is this what
+broke my build" without rebuilding the engine. On Linux there is no device to move it to and the
+setting does nothing.
+
+Implies `EARTH_UNPACK_IN_GUEST` and `EARTH_IMAGE_LAYERS`, because the host cannot write a device it
+does not have and the whole-image path puts its result where the host can reach. Asked for without
+them the store moved and the image did not, and every build failed at its first `FROM` looking for a
+base nobody had put there.
+
+Measured end to end on a cold build of a 14,541-file image, three pairs with the same layout either
+side: 61.0s/52.1s/45.8s on the shared mount against 44.5s/39.9s/34.5s on the device - about a third
+off, every time. And it is the *correct* side as well as the fast one: macOS is case-insensitive by
+default, so two files in a layer differing only in case collide on the way in, while the guest's
+volume is ext4. A volume outlives the container that used it, so the cache does not go with the
+sandbox.
+
+**A shared directory is reached over virtiofs, and every metadata operation on it is a round trip
+across the VM boundary.** Measured from inside the guest on one layer of `golang:1.26-alpine`:
+
+```text
+                        shared store    the guest's volume
+unpack the layer            4.67s             2.18s
+read all of it, cold        6.04s             1.47s
+read all of it, warm        4.72s             0.12s
+```
+
+About 0.31ms per file a step opens - half a second on a cold `go build`, and invisible in every
+phase this engine records, because it is spread through the step's own execution.
+
+This is E511's principle applied to the rest of the store. That experiment moved CACHE mounts onto
+the volume for the same reason and said why: outliving the build does not mean the host must see it.
+
+**A build context is packed and handed across.** `COPY src /app` reads the context here and, with
+the store on the guest's device, the guest cannot be handed a staged tree - publishing a layer
+renames it into position and a rename does not cross a filesystem. So it travels as a tar and the
+guest unpacks and files it, under the name the plan already chose rather than under the digest of
+what it holds, because that name is already in the cache key of every step that copies from it.
+
+The key is therefore the same whichever side stages it, and a build moved between the two settings
+still hits (E690).
+
+**What it costs is the cache's lifetime.** The volume belongs to the sandbox and goes when the
+sandbox does, so layers live as long as the machine rather than as long as a directory you own -
+`scripts/reset-native-sandbox.sh` and a changed sandbox setting both take them. An export also stops
+being able to come straight out of the store, since the host can no longer read it, and falls back
+to the ordinary path.
+
+**Both cache tiers ask rather than stat.** They used to read the host's own filesystem, and with the
+layers inside the VM a repeat build cached nothing at all - `0 hit, 4 miss`, every prediction stale
+with `/bin/sh is gone from the base`, which was literally true of the base as the host could see it.
+
+Presence and views now cross the wire:
+
+```text
+build 1 (cold)          8.96s   0 hit, 4 miss
+build 2                 0.25s   3 hit, 1 miss
+one step changed        0.30s   2 hit, 2 miss, 1 unpredicted
+```
+
+The view is asked for a prediction's whole set of paths at once. A round trip per file would cost
+more than the tier saves, and the paths are known before the view is needed - the profile is read
+first.
+
+Default: off.
+
+## `EARTH_TRACE_PIN`
+
+Puts a traced step and the thread answering its syscalls on the same vCPU.
+
+A step is observed by a seccomp filter: every `openat`, `statx` or `execve` stops the caller until
+this engine has read the path and let it through. That round trip is the price of L2, and under a
+hypervisor almost all of it is the *wakeup* rather than the work - each half is a vmexit, because an
+idle vCPU has halted and has to be resumed by the VMM.
+
+The same test, unchanged, in three places:
+
+| where                      | untraced | traced  | ratio |
+| -------------------------- | -------- | ------- | ----- |
+| bare metal x86, 32 core    | 1.018µs  | 8.857µs | 9x    |
+| Apple VM arm64, 4 vCPU     | 0.389µs  | 50.56µs | 130x  |
+| Apple VM arm64, **1** vCPU | 0.61µs   | 2.19µs  | 4x    |
+
+The untraced call is 2.6x *faster* in the VM, so this is not a slow guest - it is the crossing. The
+guest keeps all four vCPUs either way; only the two ends of the round trip share one, which the step
+inherits across fork the same way it inherits the filter.
+
+That table is the round trip alone. The test filters its own thread and then works on it, so every
+notification is recognised as the engine's own and answered without reading a path - which is the
+right isolation for measuring the crossing and the reason the figures below, which carry the
+handler too, are 8.5µs per call rather than 2.2µs.
+
+End to end, in the engine:
+
+```text
+step                                    pin off   pin on
+20k traced stats of one file              1.219s   0.169s   7.2x
+find /usr/local/go -type f (15k files)    2.114s   1.126s   2.0x
+```
+
+The second is smaller because it is no longer the wakeup that costs: fifteen thousand *distinct*
+paths through a five-layer overlay is real filesystem work, and what remains after pinning is mostly
+that. A step that asks about the same paths repeatedly - a configure script, a package manager, a
+compiler's include search - is the shape this helps most.
+
+**What it costs is a step's parallelism**, and that is measured rather than argued:
+
+| pin         | 20k traced stats | 4-way parallel CPU |
+| ----------- | ---------------- | ------------------ |
+| off         | 1.204s           | 0.645s             |
+| both ends   | 0.125s           | 2.308s             |
+| tracer only | 1.218s           | 0.674s             |
+
+2.9x against a step that wants four vCPUs, for 9.6x on one that floods the tracer; a
+single-threaded step is untouched either way.
+
+**On a real build it is four times worse**, and that settles it: `+earthly` takes 42.8s unpinned and
+169.9s pinned. The steps that flood the tracer there are compiles, which flood it *because* they are
+running on sixteen cores - so pinning trades eleven seconds of round trips for most of the machine
+(E693). The steps that flood the tracer are the
+single-threaded ones and the steps that want four vCPUs make few path calls - but that is an
+observation and not a policy, which is why this is a switch and not the default.
+
+The third row is why it cannot be half done. Pinning only the answering thread would have been
+adaptive by construction, and it buys nothing: the step is the thread that has to be woken, and
+nothing pulls it onto the tracer's CPU (E685).
+
+Flipping it makes a different sandbox, deliberately: the guest reads this at start, so a machine
+already running was started with whatever the previous build said (E549).
+
+Default: off.
+
+## `EARTH_STREAM_TO_GUEST`
+
+Lets the guest unpack a layer while the host is still fetching it.
+
+A layer cannot normally be unpacked until its blob has landed, so the largest layer of
+`golang:1.26-alpine` fetches for 1.4s and then unpacks, where nothing about the second depends on
+the first having finished.
+
+**The digest still gates the last byte.** The host announces progress one byte short of the end
+however much has arrived, and only verification releases the rest - so a guest that has taken
+everything it was offered still holds an unfinished layer, and an unfinished layer is never placed.
+A substituted blob therefore cannot be built on however early it was read. That is the same
+guarantee the host's own streaming unpack gets by discarding its directory, arranged to work where
+the reader is on the other side of a VM and cannot be reached after the fact.
+
+**It pays, and only because the answer does not come from a file.** A guest reading a blob as it
+arrives has to know how far the host has written it. Asked of the shared mount, that answer is about
+460ms old, and the guest spent the fetch waiting rather than unpacking - the head start and the
+waiting cancelled exactly. Asked over the fault-in socket, which is guest-to-host already and has no
+filesystem in it, the answer costs a wakeup:
+
+| stream | cold            | unpack:guest       |
+| ------ | --------------- | ------------------ |
+| off    | 6.52 5.20 4.94s | 4.764 3.382 3.300s |
+| on     | 4.81 4.14 4.13s | 3.074 2.487 2.489s |
+
+The largest layer's own unpack gets *longer* - 2.36s against 1.99s - because it starts before its
+bytes have arrived and is paced by the fetch. The phase around it is what shortens, which is the
+point: the waiting moved inside the work.
+
+Turning this on starts the fault-in relay for the sandbox, and that is the reason it is still
+off. The guest reads a running relay as "this host can fault paths in" - an inference that held
+while the relay only ever started *because* a filler existed. Started for the progress channel
+alone, on a local build that has no filler at all, the first step to want a path is refused and
+the build fails with `could not obtain /bin/cat`.
+
+It was briefly made the default on that reasoning and every build on macOS broke. The measurement
+that justified the change did not notice, because the harness compared wall-clock times without
+checking exit codes: the failing arm skipped its `RUN` step and looked 23% faster for it (E811).
+
+So the numbers this section used to carry are withdrawn. What it costs and saves will be known
+when the guest is *told* what the relay can do rather than inferring it from the relay existing,
+and not before.
+
+`EARTH_STREAM_TO_GUEST=1` still turns it on, and on a fleet build - where a filler does exist -
+that is what it was written for.
+
+Default: off.
+
+## `EARTH_SANDBOX_CPUS`
+
+How many cores the sandbox VM asks for. Defaults to this machine's.
+
+**Four, until this existed.** `container run` defaults to four vCPUs and nothing passed `-c`, so
+every `RUN` on a sixteen-core machine had a quarter of it. Docker's VM on the same machine takes all
+sixteen - which is most of why a cold `+earthly` measured slower here than under BuildKit: the same
+`go build` was given four cores on one side and sixteen on the other, and the comparison was about
+core counts rather than engines.
+
+Set it lower on a machine that has other work to do. A value that is not a count falls back to the
+default rather than refusing: the setting exists to give cores away, and a typo in it should cost
+the default, not the build.
+
+It is part of the sandbox's name, so a machine started with one count is never reused for a build
+asking for another (E549). Changing it therefore starts a fresh VM, and the first build after the
+change re-does what the previous VM had already done.
+
+Default: this machine's core count.
+
+## `EARTH_PARALLELISM`
+
+How many steps run at once. Defaults to one per core.
+
+**A serial build is a diagnostic instrument.** The scheduler has always had the bound and nothing
+set it, so a build that stops with several steps in flight could not be run one step at a time to
+find out whether the concurrency was the cause. That is what this was added for (E723), and it is
+worth knowing that the answer there was no: the deadlock it was meant to isolate happens serially
+too, just less often.
+
+Set it to `1` to make a build's step order deterministic, or lower than the default on a machine
+with other work to do. A value that is not a positive number falls back to the default rather than
+refusing: it bounds how fast a build goes and nothing about what it produces, so a typo in it should
+cost the default, not the build.
+
+Default: this machine's core count.
+
+## `EARTH_ALLOW_LEAKED_SECRETS`
+
+Lets a build save an image holding a secret it was given. **The check is on by default and this is
+the way out.**
+
+A secret is mounted outside the step's filesystem precisely so it cannot be captured - and then the
+step copies it. `RUN --secret TOKEN sh -c 'echo "api=$TOKEN" > /app.env'` puts the credential in the
+delta, and the delta becomes a layer.
+
+**Found where the values are, refused where it matters.** The guest scans the delta of a step that
+was *given* a secret and records what it finds against the layer; the refusal happens when the image
+is saved, because that is the exit - a layer sitting in this build's store has gone nowhere. The
+check is paid once per image rather than once per step, and a build that exports nothing cannot leak
+anything and is never asked.
+
+Only layers this build produced are ever examined. A base layer arrived before the build did and is
+read-only to it, so it cannot hold a credential this build was handed.
+
+**The image's configuration is checked too**: `ENV TOKEN=$SOME_SECRET` puts the value in the config
+blob, which a registry serves to anybody who can pull and `docker inspect` prints without being
+asked. Environment, labels, entrypoint, command, working directory and user are all looked at.
+
+**A step's output is scrubbed rather than refused.** A build log reaches a terminal, a CI job page
+and from there an issue somebody pastes it into; a credential already printed is loose, and the
+useful thing is not to repeat it. The value becomes `[redacted:NAME]`, in the buffered output and in
+the streamed one, where the tail of each chunk is held back so a credential split across two is
+still caught. Refusing there would destroy the diagnostic the author needs.
+
+**Reports never quote the value.** They name the secret and where it was found, because they go into
+the log the credential was being kept out of.
+
+**What it does not catch.** It finds a secret's bytes as the step was given them. A value the step
+encoded, compressed, or compiled into a binary is in the layer just the same and is not found here.
+This is a net for the common accident - a redirect, a stray `env`, a config file written from a
+variable - and not a guarantee that a layer is clean.
+
+**What it costs.** Only a step *given* a secret is scanned, so a build that uses none pays nothing -
+`+earthly`, 91 steps, never runs it. A step that does is bounded by its delta: 0.058s for 200MB,
+about 3.4 GB/s, one pass of `bytes.Contains` per secret. Many secrets would be many passes; a
+multi-pattern search is the answer if that ever matters.
+
+Set this when a step writes a credential on purpose - an `.npmrc` or a `.netrc` baked into an image.
+Somebody doing that deliberately can say so; nobody doing it by accident has to know this exists.
+
+Default: unset, so a leak is refused.
+
+## `EARTH_HMAC`
+
+Makes a step holding a secret cacheable, by keying it on a digest of the secret rather than on
+nothing at all. **Unset by default, and unset means the behaviour this engine has always had.**
+
+A step given a secret is not cached. The honest reason is that no key describes it: two builds
+supplying different credentials to the same command are different builds, and a key that cannot
+tell them apart would hand the second the first one's result. So the step is marked uncacheable
+and runs every time - correct, and expensive for anyone whose build authenticates early.
+
+Set this to a fleet-wide random key and the step gets a key it can keep: `HMAC(EARTH_HMAC, name ‖
+value)` goes into the cache key. Same credential, same digest, cache hit; rotate the credential
+and every step that used it misses, which is the correct answer and will look like a stampede the
+first time.
+
+**Why a MAC and not a hash.** A bare `sha256(secret)` in a cache key is an oracle. Credentials are
+drawn from a small space - an attacker with a candidate list, or simply a guess at which key was
+used, can hash each one and look for it among the keys in a shared cache directory. A hit confirms
+the credential without anything ever being decrypted. Keying the digest removes the ability to
+compute a candidate's digest at all, which is the attack a MAC exists to answer. It also separates
+fleets: two teams sharing a cache directory with different keys cannot read, or test against, each
+other's entries.
+
+**The value still goes nowhere.** The digest is computed where the credentials already are, and the
+interpreter is handed digests only - it is never given a secret's value, which is what keeps a
+credential in the build graph impossible rather than merely avoided (I19). `EARTH_HMAC` itself is
+not one of the build's secrets: no step sees it, and it is not scanned for or redacted.
+
+A key shorter than 32 characters is refused. A guessable fleet key restores the oracle by the other
+route - guess the key once, then test credentials at will - so a placeholder committed as a fleet
+key is worse than no key, because it looks like protection.
+
+Generate one with `openssl rand -hex 32` and set it once, as a repository secret in CI. It is not
+per-build and not per-user; a fleet that does not share it does not share these cache entries.
+
+Default: unset, so a step given a secret is not cached.
+
+## `EARTH_GUEST_PROFILE`
+
+Writes profiles of the guest's own work to a directory when the build ends: `cpu.pprof`,
+`mutex.pprof`, `block.pprof` and `goroutine.pprof`.
+
+**For the one question the host cannot answer.** A wide build ceilings near 175 steps a second and
+the host spends that time in `__psynch_cvwait` - it is waiting, not working - so the cost is inside
+the sandbox. Everything reachable from outside was tested and eliminated: mounts are free in
+isolation (200 bind mounts in 1ms), dentry relief never fires, and eight times the vCPUs buys 19%.
+
+The first profile it produced named a cost in one reading - and the second, taken with no other
+sandbox running, reordered it: materialising the layer stack is 18.2% of the guest's CPU against
+`bindMounts` at 12.7%, and the guest uses about one core of sixteen. Stop other sandboxes before
+profiling, or the answer is about them (E815).
+
+A profile says where the time goes, not why. The explanation offered for that 18.2% - an overlay
+mount growing with the depth of the stack - was measured afterwards and is wrong: the last step of a
+forty-deep chain materialises in 4ms, the same as a five-deep one (E814b).
+
+Set it to a path the guest can write *and* the host can read - the store is bind-mounted through,
+so `/var/lib/earthbuild/store/prof` appears on the host under the cache directory:
+
+```sh
+EARTH_GUEST_PROFILE=/var/lib/earthbuild/store/prof earth +target
+go tool pprof -top build/earth-guestd ~/.cache/earthbuild/prof/cpu.pprof
+```
+
+Mutex and block profiling are set to sample everything rather than the sampled defaults: this runs
+for the length of one build, and a sampled contention profile over a few seconds is mostly zeroes.
+That costs something, which is why it is off unless asked for - a guest that profiles itself unasked
+is a guest whose measurements include the profiler.
+
+Default: unset, so nothing is collected and nothing is written.
+
+## `EARTH_GUEST_PROFILE_MODE`
+
+What `EARTH_GUEST_PROFILE` collects. `all` adds mutex and block profiling to the CPU and
+goroutine profiles taken otherwise.
+
+**Separate because contention profiling is not free.** `SetBlockProfileRate(1)` records a stack on
+every blocking event, and a guest that spends its life blocking on syscalls blocks constantly: the
+first build profiled this way took 15.2s where the same build takes 1.5s. A profile that slows its
+subject tenfold is a profile of the profiler, and the timings taken alongside it are worthless.
+
+CPU-only costs nothing measurable - 8819ms profiled against 8983ms not - so that is what the plain
+setting does. Ask for `all` when the question is *what is it waiting on*, and do not read the wall
+clock of that build.
+
+Default: unset, so CPU and goroutine profiles only.
+
+## `EARTH_PARALLEL_EXPORT`
+
+Writes several artifacts at once. A number sets how many; `yes` or `true` takes this machine's
+core count, bounded at eight.
+
+**An export is an unmount, and the unmount is all of it.** Staging an artifact and copying it out
+are free - 0.06ms to materialise, 0.00ms to stage, 0.00ms to copy - while releasing the handle
+afterwards is 18.19ms of an 18.25ms export. That release is `unix.Unmount` and then
+`os.RemoveAll`, 15.8ms and 3.5ms on Linux, against the 5us it costs to make the mount in the first
+place.
+
+Artifacts are otherwise written one at a time, so a build with thirty-two of them pays thirty-two
+of those in a row - 582ms of a 1425ms build, where taking the `SAVE ARTIFACT` out entirely brings
+the same build to 751ms.
+
+**The kernel only half-allows it.** Thirty-two overlay unmounts take 87ms one at a time and 36ms
+sixteen at a time: 2.4x, because `namespace_sem` is held for write through each one. That is why
+the width is capped at eight however many cores there are - past the point the mount lock
+saturates, more goroutines only make the queue longer.
+
+Order is kept where order is observable. Artifacts naming the same destination are written in the
+Earthfile's order, because the later one is meant to win; the rest cannot see each other. The lines
+printed and the error returned are in the Earthfile's order whatever order the writes finished in,
+so a build that fails fails the same way twice.
+
+**It pays on both platforms**, unlike `EARTH_ASYNC_RELEASE`, which rests on the same unmount cost
+and collapses to noise where that cost is small. Thirty-two artifacts: 1.76x on an x86 box, 1.13x
+on macOS, four and five pairs respectively, ranges disjoint on both. Concurrency wins something even
+when each unit is cheap.
+
+Off by default because it changes what a failing build leaves behind: written serially, an artifact
+after a failure is never written, while concurrently one already in flight may land before the
+cancellation reaches it. Same error, same exit code, one or two more files in the working tree.
+That is a decision about what a failed build leaves behind rather than about speed - and what it
+leaves is a *complete* file, never a partial one: `placeOut` writes to a temporary beside the
+destination and renames, so a regular-file artifact either lands whole or not at all. Directory
+artifacts can be left part-written by a cancellation, as they can when written serially.
+
+Default: off.
+
+## `EARTH_ASYNC_RELEASE`
+
+Takes a step's base down after the step's answer instead of before it. A number sets how many
+releases may be in flight; `yes` takes this machine's core count, bounded at eight.
+
+**Releasing is most of a step.** Measured per step on Linux, twenty deep: `exec` is 26.00ms, of
+which `release` is 18.55ms and `run` - the command the Earthfile asked for - is 6.05ms. Seventy-one
+per cent of a step is taking down a mount whose work has already finished.
+
+A release is `unix.Unmount` and then `os.RemoveAll`, 15.8ms and 3.5ms, against the 5us the mount
+cost to make. Nothing reads through the handle afterwards: the step's result is committed and
+captured first, and what this releases is the host's handle on the materialised base, not the
+guest's own bind mounts - those come down inside the request, before the answer, and `capture` does
+read underneath them.
+
+Bounded because the kernel bounds it: thirty-two overlay unmounts take 87ms one at a time and 36ms
+sixteen at a time, since `namespace_sem` is held for write through each. Past a handful the
+releases queue on the kernel rather than finishing sooner.
+
+What is deferred is *when* a mount comes down and never *whether*: `Close` waits for the
+outstanding releases, so a build cannot exit leaving mounts up.
+
+**And it is worth nothing on some machines.** The 18.55ms above is an x86 box running the engine on
+bare metal. On macOS, where the same work happens inside a Linux VM, a release is 2.55ms - 17% of a
+step rather than 71% - and turning this on measures as noise: 763ms against 741ms over five pairs,
+ranges overlapping. Whatever makes an overlay unmount expensive is that machine's, not Linux's.
+
+Off by default. A release behind the answer is a mount still up while the next step runs, and the
+failure that would cause - a sandbox that has run out of them - shows under load rather than in a
+test. Turn it on where a build's `release` phase is a large share of its steps, which
+`EARTH_TIMINGS=1` will tell you.
+
+Default: off.
+
+## `EARTH_DIRECT_CONTEXT_PACK`
+
+Packs the build context where it lies instead of copying it into a staging directory first.
+
+**One pass over the tree instead of two.** A `COPY` stages the context into a directory and then
+reads all of it back to build the tarball the guest unpacks. Measured over 2000 files: 350ms of
+copying in front of 154ms of packing, against 152ms to pack alone - so the copy is the whole of
+the difference, and on macOS it is worse still because creating files there costs several times
+what it costs on the guest's ext4.
+
+**It also changes hardlinks, which is why it is a switch and not a fix.** Staging copies file
+contents, so two names sharing an inode arrive as two independent files. Packing the context sees
+the inode twice and writes the second as a link - more faithful to what the directory holds, and a
+different archive, so a context containing hardlinks gets a different layer digest and misses the
+cache once.
+
+Everything else is byte-identical: `TestPackingStraightFromTheContextCarriesTheSameThing` compares
+the two archives entry by entry, name, type, mode and link target. And the guest receives the same
+filesystem either way - a nested context with an ignore file arrives as 1200 files with the same
+digest of its listing, whichever route packed it.
+
+| context                         | staged | direct |
+| ------------------------------- | ------ | ------ |
+| 2000 flat files                 | 2404ms | 1415ms |
+| 1600 files, nested, ignore file | 1611ms | 1034ms |
+
+Five pairs and three respectively, ranges disjoint on the first. This path is only taken when the
+store is in the VM, so on Linux the setting does nothing: 1138ms against 1118ms, which is noise.
+
+`EARTH_DIRECT_CONTEXT_PACK=0` goes back to staging, which is the way to answer "is this what
+changed my cache" without rebuilding the engine.
+
+Default: on.
+
+## `EARTH_CONTEXT_TIMES`
+
+What timestamps a packed build context carries.
+
+**`history`, the default.** Each committed file carries the time of the commit that last changed
+it, and each locally-modified one its mtime on disk.
+
+**`epoch` is what this did before**, and gives every entry one fixed stamp.
+
+**Why a build context has real times in it at all.** A layer's identity is its bytes, so a
+timestamp read off the filesystem would make two clones of one commit build different layers -
+which is why every entry used to be pinned. But a tree that arrives all at one instant is one an
+incremental compiler cannot read. cargo does not hash sources; it compares each one's mtime
+against the fingerprint it wrote in `target/` and recompiles what is strictly newer. Flatten the
+tree and it cannot answer the question at all: measured both ways round, changed content with an
+older mtime is reported `Fresh` and leaves a **stale binary**, and unchanged content with a newer
+one is recompiled every time.
+
+A commit time is the quantity that satisfies both. It belongs to the history rather than to the
+clone, so two machines agree on it, and it only ever moves forward, so it carries the ordering
+content alone cannot. It is the committer date - the author date survives a rebase or a
+cherry-pick, which sounds like the more stable choice and is the wrong one, since it would let a
+two-year-old patch land on today's tree carrying a two-year-old stamp.
+
+**Uncommitted edits get the local clock and lose nothing by it.** A modified working tree is not
+reproducible by definition - nobody else has those bytes - so there is no shared answer to forgo,
+and the local mtime is exactly what the compiler needs. Reproducibility is kept where it can exist
+and spent where it cannot.
+
+The cost is one L1 miss where two histories hold the same content under different commits, which
+is what a rebase or a cherry-pick produces. L2 does not notice: its digest excludes mtimes by
+construction, so the step is answered from its observed inputs instead. Directories, and anything
+git has no answer for, stay at the fixed epoch.
+
+Reading the history costs one `git log` walk per context, abandoned as soon as every wanted path
+has a time - 0.46s over 4836 commits and 3138 files when nothing lets it stop early, memoised for
+the rest of the build.
+
+`EARTH_CONTEXT_TIMES=epoch` restores the old behaviour, which is the setting for a context that
+must pack identically whichever commit it came from - and the way to answer "is this what changed
+my cache" without rebuilding the engine.
+
+Default: `history`.
+
+## `EARTH_RETRY_ATTEMPTS`
+
+How many times an operation that can be retried is tried in total, not how many extra tries it
+gets. Defaults to 4. Setting it to 1 turns retrying off, which is a policy rather than a mistake
+and is the right setting when you are trying to see a failure rather than survive one.
+
+## `EARTH_RETRY_BASE`
+
+How long to wait after the first failure, as a duration - `150ms`, `2s`. Defaults to 150ms. Later
+waits grow from this according to `EARTH_RETRY_STRATEGY`, up to an internal cap of two seconds.
+
+## `EARTH_RETRY_STRATEGY`
+
+How the wait grows between attempts: `exponential` (the default) or `fixed`.
+
+**They suit different faults.** Exponential is right where failure means contention or a resource
+still coming back, because the longer it has been failing the less an immediate retry helps. Fixed
+is right where failure is a race that the next attempt either wins or does not - a keep-alive
+connection closed under a client about to reuse it does not care how long you wait.
+
+Waits are jittered, so concurrent operations that fail together do not retry together. That matters
+here because images are pulled in parallel: without it, every failed pull in a batch would retry at
+the same instant, against the same registry that had just closed on all of them.
+
+## `EARTH_COLLECT_BUDGET`
+
+How long the store collector may spend before a build starts. Default: 5s. `0` lets it run to
+completion.
+
+**Because it was spending its budget measuring rather than collecting.** Deciding what to remove
+means knowing what is there, and on a store of 45,353 layers a full tree walk is five seconds
+before the first byte is freed - so a bounded collector reached its deadline having freed nothing
+and the build began with the same shortfall it started with. The walk is now a `statfs` (2.2µs
+against 5.1s for 696k files) and the budget pays for removal.
+
+Raise it on a machine whose store has grown large and whose builds keep hitting
+`EARTH_STORE_FREE`; a collector cut short leaves debris that the next build inherits.
+
+## `EARTH_VM_DURABLE_STORE`
+
+Makes a microVM's store survive a hard stop, at the cost of speed. Default: off.
+
+A guest's store device is attached with firecracker's `cache_type: Unsafe`, which discards the
+guest's flushes: the host's page cache answers them and the data reaches the disk when the host
+gets to it. That is the fast setting and it is the right default - a store is a cache, and a build
+that has to fsync every layer it writes pays for durability it does not need.
+
+**What it costs is a store that can be torn.** A machine that loses power, or a VMM killed with
+`SIGKILL`, can leave the XFS inconsistent; the guest detects that at mount and says so rather than
+building on it. Set this to `1` for `Writeback`, where the guest's flushes reach the disk, on a
+machine where losing the store matters more than the minutes it costs to rebuild it.
+
+An ordinary interrupt does not need this: `Ctrl-C` unmounts the store before the guest stops.
+
+## `EARTH_PROTO_TRACE`
+
+A directory into which every byte read from a guest connection is copied. Unset by default, and
+not something a build should ever be run with.
+
+**For diagnosing a desynchronised stream, which cannot be diagnosed any other way.** The protocol
+is length-prefixed: once a length has been taken from the middle of a message, every read after it
+is a window into the next, and the parse fails wherever that window lands - which was 1.5 MB past
+the boundary that actually moved, on the fault this was written for. Replaying the captured bytes
+against the framing rules finds the first length that does not lead to another well-formed frame.
+
+Files are written `<pid>-<n>.frames`, mode 0600, one per connection. A capture is the whole
+conversation, which includes the values of the build's secrets, and it is as large as the build is
+talkative - 8 MB for a single corpus target. Delete them when you are done.
+
+See `tools/vsockprobe` for the fault this was built to find.
+
+## `EARTH_ASK_STALE`
+
+Asks a store held inside a guest whether a step's observation still describes its base, rather than
+fetching the digests and comparing here. Default: on.
+
+**The tier's cost is not where it looks.** `WhyStale` walks a step's observed reads in sorted order
+and returns at the first one that changed, so a host reading its own store answers after a single
+lookup - usually the file somebody just edited. A guest holding the store on a device cannot do
+that: the host asks for the digest of every path the prediction names, the guest opens and hashes
+6307 files to answer, and only then is the first of them compared. Measured on the step that builds
+this repository: 1.4s of a 4.3s build, and 4.0s of 4.7s against a colder store.
+
+Sending the expectation instead, so the guest runs the same comparison where the files are, made
+that check 144 times faster - 0.010s against 1.44s for the same 6308 paths.
+
+**It was off, for a reason that turned out to be someone else's.** The guest's view appeared to
+report paths as absent that the fetched view found - `/bin/busybox is gone from the base` - and a
+build went from 61 hits to none. That was recorded one commit before the one that stopped a microVM
+being killed with its store still mounted, and a torn store is precisely what "a file the base
+should have is not there" looks like. The two commit messages describe the same symptom and quote
+the same numbers.
+
+Two things had to be repaired before it could be re-measured. The store is no longer torn on
+shutdown; and the question was not reaching the guest at all - the view source a guest store gets
+had no `WhyStaleIn`, so `core.whyStaleVia` fell back to fetching and the setting turned on and
+changed nothing. Measured before that was fixed: 9.84s with it off and 9.81s with it on.
+
+On the repaired engine:
+
+| check | result |
+| ---------------------------------- | ------------------------------------ |
+| ten edit-and-rebuild cycles | 60 hits, 3 misses, every time |
+| the edit reverted, rebuilt twice | 94 hits, no misses |
+| 24 corpus targets under a microVM | 24 built, none failed - as with it off |
+| L2 for a 6303-path step | 0.239s, against 4.409s and the host's 0.222s |
+
+The reverted case is the one that matters: a view that disagreed with the host's could not put
+every layer back.
+
+Set it to `0` to fetch digests instead. Do that if a build loses cache hits it used to have, or if
+the two views disagree about a path on a store known to be intact.
+
+## `EARTH_TRUST_DOMAIN`
+
+The set of writers this build's cache entries belong to. Unset by default, which is the single
+implicit domain every build has always shared.
+
+**The engine cannot work this out and must not guess.** Whether a build is trusted is a fact about
+a repository's policy - who may open a pull request, which branches are protected - and it lives in
+the CI configuration, not in anything an Earthfile or a sandbox can see. So it is told, and an
+untold domain is not approximated (I10).
+
+A domain scopes cache mounts as well as entries: an untrusted build reads the shared cache and
+writes only into its own namespace. Write-scoping is what carries the weight here, because signing
+does not help when the attacker is a legitimate writer.
+
+```sh
+# in a workflow, keyed on what the trust level actually is
+export EARTH_TRUST_DOMAIN="${{ github.event_name == 'pull_request' && 'fork' || 'main' }}"
+```
+
+Set it to something stable per trust level and **not** per run. A value that changed every build
+would isolate every build from every other, which is a cache nobody ever hits rather than a
+security property.
+
+## `EARTH_DIGEST`
+
+Which function ℋ is for this store. Default: BLAKE3-256.
+
+The green paper fixes ℋ and says it is not configurable; this is the one exception, and it is for
+remote execution. Buck2 sends SHA-256 to a remote execution service and declines to make that
+configurable, so a store to be read by one has to be built in SHA-256. Bazel accepts BLAKE3
+(`DigestFunction` 9) and needs nothing here.
+
+```sh
+export EARTH_DIGEST=sha256
+```
+
+Safe to change because the two never meet: a key derived under one function is not a key under the
+other, so a store holding both generations yields a miss rather than a wrong answer. There is
+nothing to stamp and nothing to migrate, and collection removes whichever stops being used.
+
+## `EARTH_LAYER_COMPRESSION`
+
+What an image's layers are compressed with: `gzip`, `zstd` or `none`. Default: `gzip`.
+
+**`gzip`, because everything reads it.** Measured on the base layer of a `rust:slim-bookworm`
+image: 898 MB packed, 305 MB gzipped, 286 MB under zstd - and zstd took 0.94s for the whole 898 MB,
+so speed is not the consideration either way. What decides it is that a gzipped layer is readable
+by every registry, runtime and `docker load` in existence.
+
+**`zstd`** is worth asking for where both ends are yours: another 7% off, and several times faster
+to decompress on every pull that follows.
+
+**`none`** writes the tar as it lies, and moves three times the bytes.
+
+## `EARTH_STEP_OUTPUT`
+
+Keeps what a step printed on its result, so a cache hit can reproduce it. Default: on.
+
+Off is for a caller who would rather a build log showed only what this run did. Leave it on where
+anything reads a step's output: a `LET v=$(cmd)` served from a cache that did not keep the output
+gives nothing, which is how that construct came to produce three files cold and none ever after.
+
+## Fleet timings
+
+Three bounds on how a worker and a driver move blobs between them. All three have defaults that
+suit an ordinary network, and none needs setting for a fleet that works.
+
+### `EARTH_FLEET_DIRECT_WAIT`
+
+How long a blob connection waits for a hole-punched path before transferring over a relay.
+
+**A relay is a detour and the transfer does not have to take it.** Two runners in the same
+datacentre fetched through a relay in another region and moved 7.9 MiB at about 1.2 MiB/s: the
+relayed connection was up in milliseconds, the direct path arrived shortly after, and the fetch had
+already started on whichever was validated first.
+
+Short, because where hole punching cannot land - which is the case relays exist for - this is pure
+delay, once per peer. Set it to `0` to transfer on whatever is available.
+
+### `EARTH_FLEET_UPGRADE_WAIT`
+
+How long the *background* dial waits for hole punching. Nothing is waiting on it - the fetch that
+triggered it has already finished - so this is patience rather than latency, and it can be
+generous where `EARTH_FLEET_DIRECT_WAIT` cannot.
+
+### `EARTH_FLEET_SERVE_WAIT`
+
+How long one blob may take to write to a peer.
+
+**Not taken from the context, because the driver has no deadline to give.** It serves under a
+cancel-only context, so a bound read from there sets nothing - and a write to a peer that stopped
+reading blocked for ever: three goroutines each stuck on a 40 MB layer, and a build that made no
+progress for six minutes.
+
+Per blob rather than per request, so several large layers do not share one clock, and generous
+rather than tight: this is the bound on a peer that has *gone*, not a budget for a slow one.

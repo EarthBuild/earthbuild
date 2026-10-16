@@ -1,0 +1,7 @@
+responses {
+  digest { hash: "0000000000000000000000000000000000000000000000000000000000000077" size_bytes: 5 }
+}
+responses {
+  digest { hash: "0000000000000000000000000000000000000000000000000000000000000088" }
+  status { code: 3 message: "the bytes do not name this digest" }
+}

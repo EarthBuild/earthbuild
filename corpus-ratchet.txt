@@ -1,7 +1,7 @@
-darwin 540
-linux 527
-darwin-docker 206
-linux-docker 195
+darwin 542
+linux 529
+darwin-docker 208
+linux-docker 197
 darwin-earthtests 257
 linux-earthtests 256
 linux-earthtests-run 155

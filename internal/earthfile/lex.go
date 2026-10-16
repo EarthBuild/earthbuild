@@ -79,6 +79,7 @@ const (
 	itemFunction
 	itemAtom
 	itemEquals
+	itemHeredoc
 )
 
 // Cmd represents a custom string type for Earthfile command names.
@@ -161,6 +162,8 @@ func (i item) String() string {
 		return "dedent"
 	case itemWS:
 		return "whitespace"
+	case itemHeredoc:
+		return "heredoc"
 	case itemComment, itemFrom, itemFromDockerfile, itemLocally, itemCopy, itemSaveArtifact,
 		itemSaveImage, itemRun, itemExpose, itemVolume, itemEnv, itemArg,
 		itemSet, itemLet, itemLabel, itemBuild, itemWorkdir, itemIf,
@@ -187,8 +190,9 @@ type stateFn func(*lexer) stateFn
 type lexer struct {
 	input           string
 	name            string
-	keyValueCmdType Cmd
+	currentCmd      Cmd
 	state           stateFn
+	pendingHeredocs []HeredocDecl
 	itemsArr        [32]item
 	indentArr       [16]int
 	itemsStart      int
@@ -263,23 +267,32 @@ func (l *lexer) peek() rune {
 
 // emit passes an item back to the client.
 func (l *lexer) emit(t itemType) {
+	val := l.input[l.start:l.pos]
 	if l.itemsEnd < len(l.itemsArr) {
 		l.itemsArr[l.itemsEnd] = item{
 			Typ:  t,
 			pos:  l.start,
-			Val:  l.input[l.start:l.pos],
+			Val:  val,
 			Line: l.startLine,
 			Col:  l.startCol,
 		}
 		l.itemsEnd++
 	}
 
+	if t == itemAtom && (l.currentCmd == CmdRun || l.currentCmd == CmdCopy) {
+		if decl, ok := ParseHeredocDecl(val); ok {
+			decl.Line = l.startLine
+			l.pendingHeredocs = append(l.pendingHeredocs, decl)
+		}
+	}
+
 	l.start = l.pos
 	l.startLine = l.line
 	l.startCol = l.col
 
-	if t == itemNL {
+	if t == itemNL || t == itemEOF {
 		l.isStartOfLine = true
+		l.currentCmd = ""
 	} else if t != itemWS && t != itemComment {
 		l.isStartOfLine = false
 	}
@@ -660,19 +673,15 @@ func lexCommandKeyword(l *lexer) stateFn {
 		typ = itemVolume
 	case CmdEnv:
 		typ = itemEnv
-		l.keyValueCmdType = CmdEnv
 		nextState = lexKeyValueCommandArgs
 	case CmdArg:
 		typ = itemArg
-		l.keyValueCmdType = CmdArg
 		nextState = lexKeyValueCommandArgs
 	case CmdSet:
 		typ = itemSet
-		l.keyValueCmdType = CmdSet
 		nextState = lexKeyValueCommandArgs
 	case CmdLet:
 		typ = itemLet
-		l.keyValueCmdType = CmdLet
 		nextState = lexKeyValueCommandArgs
 	case CmdLabel:
 		typ = itemLabel
@@ -734,6 +743,7 @@ func lexCommandKeyword(l *lexer) stateFn {
 		return l.errorf("unknown command keyword: %q", val)
 	}
 
+	l.currentCmd = val
 	l.emit(typ)
 
 	return nextState
@@ -747,6 +757,12 @@ func lexRecipeCommandArgs(l *lexer) stateFn {
 		case r == eof:
 			if l.pos > l.start {
 				l.emit(itemAtom)
+			}
+
+			if len(l.pendingHeredocs) > 0 {
+				decl := l.pendingHeredocs[0]
+
+				return l.errorf("unterminated heredoc %q (opened at line %d)", decl.Name, decl.Line)
 			}
 
 			l.emit(itemEOF)
@@ -769,6 +785,10 @@ func lexRecipeCommandArgs(l *lexer) stateFn {
 			}
 
 			l.emit(itemNL)
+
+			if len(l.pendingHeredocs) > 0 {
+				return lexHeredocBodies
+			}
 
 			return lexRecipe
 		case r == '#':
@@ -933,7 +953,7 @@ func lexKeyValueCommandArgs(l *lexer) stateFn {
 			l.next()
 		}
 
-		return l.errorf("invalid %s key definition %s", l.keyValueCmdType, l.input[l.start:l.pos])
+		return l.errorf("invalid %s key definition %s", l.currentCmd, l.input[l.start:l.pos])
 	}
 
 	l.next() // consume first char
@@ -962,7 +982,7 @@ func lexKeyValueCommandArgs(l *lexer) stateFn {
 			l.next()
 		}
 
-		return l.errorf("invalid %s key definition %s", l.keyValueCmdType, l.input[l.start:l.pos])
+		return l.errorf("invalid %s key definition %s", l.currentCmd, l.input[l.start:l.pos])
 	}
 
 	// Key is valid! Emit it.
@@ -1445,4 +1465,180 @@ func (l *lexer) checkIndent(indent int) stateFn {
 	}
 
 	return nil
+}
+
+// HeredocDecl represents a parsed heredoc declaration from command arguments.
+type HeredocDecl struct {
+	Name   string
+	Line   int
+	Chomp  bool
+	Expand bool
+}
+
+// ParseHeredocDecl parses a heredoc declaration token (e.g., "<<EOF", "<<-EOF", "<<'EOF'").
+func ParseHeredocDecl(src string) (HeredocDecl, bool) {
+	if !strings.HasPrefix(src, "<<") {
+		return HeredocDecl{}, false
+	}
+
+	rem := src[2:]
+	if rem == "" {
+		return HeredocDecl{}, false
+	}
+
+	chomp := false
+
+	if rem[0] == '-' {
+		chomp = true
+		rem = rem[1:]
+
+		if rem == "" {
+			return HeredocDecl{}, false
+		}
+	}
+
+	var openQuote byte
+
+	if rem[0] == '\'' || rem[0] == '"' {
+		openQuote = rem[0]
+		rem = rem[1:]
+	}
+
+	var name string
+
+	if openQuote != 0 {
+		if len(rem) == 0 || rem[len(rem)-1] != openQuote {
+			return HeredocDecl{}, false
+		}
+
+		name = rem[:len(rem)-1]
+	} else {
+		if len(rem) > 0 && (rem[len(rem)-1] == '\'' || rem[len(rem)-1] == '"') {
+			return HeredocDecl{}, false
+		}
+
+		name = rem
+	}
+
+	if len(name) == 0 || strings.ContainsAny(name, "'\"<") {
+		return HeredocDecl{}, false
+	}
+
+	return HeredocDecl{
+		Name:   name,
+		Chomp:  chomp,
+		Expand: openQuote == 0,
+	}, true
+}
+
+// ChompHeredocContent removes leading tabs from each line of the heredoc string.
+func ChompHeredocContent(src string) string {
+	if !strings.Contains(src, "\t") {
+		return src
+	}
+
+	var b strings.Builder
+
+	b.Grow(len(src))
+
+	startOfLine := true
+
+	for i := range len(src) {
+		c := src[i]
+		if startOfLine && c == '\t' {
+			continue
+		}
+
+		if startOfLine && c != '\t' {
+			startOfLine = false
+		}
+
+		b.WriteByte(c)
+
+		if c == '\n' {
+			startOfLine = true
+		}
+	}
+
+	return b.String()
+}
+
+func lexHeredocBodies(l *lexer) stateFn {
+	if len(l.pendingHeredocs) == 0 {
+		return lexRecipe
+	}
+
+	decl := l.pendingHeredocs[0]
+	l.pendingHeredocs = l.pendingHeredocs[1:]
+
+	startLine := l.line
+	startCol := l.col
+	startPos := l.pos
+
+	var body strings.Builder
+
+	for {
+		lineStartPos := l.pos
+
+		for {
+			r := l.peek()
+			if r == eof {
+				break
+			}
+
+			l.next()
+
+			if r == '\n' {
+				break
+			}
+		}
+
+		lineText := l.input[lineStartPos:l.pos]
+		if len(lineText) == 0 && l.peek() == eof {
+			return l.errorf("unterminated heredoc %q (opened at line %d)", decl.Name, decl.Line)
+		}
+
+		trimmedLine := strings.TrimRight(lineText, "\r\n")
+
+		isTerminator := false
+		if trimmedLine == decl.Name || strings.TrimSpace(trimmedLine) == decl.Name {
+			isTerminator = true
+		} else if decl.Chomp && strings.TrimLeft(trimmedLine, "\t") == decl.Name {
+			isTerminator = true
+		}
+
+		if isTerminator {
+			content := body.String()
+			if decl.Chomp {
+				content = ChompHeredocContent(content)
+			}
+
+			if l.itemsEnd < len(l.itemsArr) {
+				l.itemsArr[l.itemsEnd] = item{
+					Typ:  itemHeredoc,
+					pos:  startPos,
+					Val:  content,
+					Line: startLine,
+					Col:  startCol,
+				}
+				l.itemsEnd++
+			}
+
+			l.start = l.pos
+			l.startLine = l.line
+			l.startCol = l.col
+
+			if len(l.pendingHeredocs) > 0 {
+				return lexHeredocBodies
+			}
+
+			return lexRecipe
+		}
+
+		body.WriteString(lineText)
+
+		if l.peek() == eof {
+			return l.errorf("unterminated heredoc %q (opened at line %d)", decl.Name, decl.Line)
+		}
+	}
 }

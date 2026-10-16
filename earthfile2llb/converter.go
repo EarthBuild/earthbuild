@@ -18,6 +18,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -777,6 +778,82 @@ func (c *Converter) CopyClassical(
 	return nil
 }
 
+// HeredocFile represents an inline heredoc file to be copied.
+type HeredocFile struct {
+	Name    string
+	Content string
+}
+
+// CopyHeredoc applies an inline heredoc COPY command.
+func (c *Converter) CopyHeredoc(
+	ctx context.Context,
+	files []HeredocFile,
+	dest, chown string,
+	chmod *fs.FileMode,
+	keepTs, ifExists bool,
+) error {
+	err := c.checkAllowed(copyCmd)
+	if err != nil {
+		return err
+	}
+
+	if chmod != nil && !c.ftrs.UseChmod {
+		return errors.New("COPY --chmod is not supported in this version")
+	}
+
+	c.nonSaveCommand()
+
+	prefix, _, err := c.newVertexMeta(ctx, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+
+	srcState := pllb.Scratch()
+
+	var copySrcs []string
+
+	fileMode := fs.FileMode(0o644)
+	if chmod != nil {
+		fileMode = *chmod
+	}
+
+	singleFile := len(files) == 1 && !strings.HasSuffix(dest, "/")
+
+	if singleFile {
+		fileName := "heredoc-file"
+		srcState = srcState.File(pllb.Mkfile(fileName, fileMode, []byte(files[0].Content)))
+		copySrcs = []string{fileName}
+	} else {
+		for _, f := range files {
+			srcState = srcState.File(pllb.Mkfile(f.Name, fileMode, []byte(f.Content)))
+			copySrcs = append(copySrcs, f.Name)
+		}
+	}
+
+	copyNames := make([]string, len(files))
+	for idx, f := range files {
+		copyNames[idx] = "<<" + f.Name
+	}
+
+	c.mts.Final.MainState, err = llbutil.CopyOp(ctx,
+		srcState,
+		copySrcs,
+		c.mts.Final.MainState, dest, true, false, keepTs, chown, chmod, ifExists, false,
+		c.ftrs.UseCopyLink,
+		llb.WithCustomNamef(
+			"%sCOPY %s%s %s",
+			prefix,
+			strIf(ifExists, "--if-exists "),
+			strings.Join(copyNames, " "),
+			dest,
+		))
+	if err != nil {
+		return fmt.Errorf("copyOp CopyHeredoc: %w", err)
+	}
+
+	return nil
+}
+
 // ConvertRunOpts represents a set of options needed for the RUN command.
 type ConvertRunOpts struct {
 	// Internal.
@@ -787,6 +864,7 @@ type ConvertRunOpts struct {
 	CommandName          string
 	InteractiveSaveFiles []debuggercommon.SaveFilesSettings
 	Args                 []string
+	Heredoc              *earthfile.Heredoc
 	Mounts               []string
 	Secrets              []string
 	// Internal.
@@ -2288,6 +2366,21 @@ func (c *Converter) ExpandArgs(
 	})
 }
 
+// ExpandHeredoc expands variables in heredoc text while preserving quote marks.
+func (c *Converter) ExpandHeredoc(
+	ctx context.Context, runOpts ConvertRunOpts, word string, allowShellOut bool,
+) (string, error) {
+	return c.varCollection.ExpandHeredoc(word, func(cmd string) (string, error) {
+		if !allowShellOut {
+			return "", errShellOutNotPermitted
+		}
+
+		runOpts.Args = []string{cmd}
+
+		return c.RunCommand(ctx, "internal-expand-args", runOpts)
+	})
+}
+
 func (c *Converter) absolutizeTarget(
 	fullTargetName string, allowPrivileged bool,
 ) (domain.Target, domain.Target, bool, error) {
@@ -2614,11 +2707,22 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		}
 	}
 
+	finalArgs := opts.Args
+	displayArgs := opts.Args
+
+	if opts.Heredoc != nil {
+		var err error
+
+		finalArgs, displayArgs, err = c.setupHeredocRun(&opts)
+		if err != nil {
+			return pllb.State{}, err
+		}
+	}
+
 	if opts.shellWrap == nil && opts.WithShell {
 		opts.shellWrap = withShellAndEnvVars
 	}
 
-	finalArgs := opts.Args
 	if opts.WithEntrypoint {
 		if len(finalArgs) == 0 {
 			// No args provided. Use the image's CMD.
@@ -2657,7 +2761,7 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		strIf(opts.NoNetwork, "--network=none "),
 		strIf(opts.Interactive, "--interactive "),
 		strIf(opts.InteractiveKeep, "--interactive-keep "),
-		strings.Join(opts.Args, " "),
+		strings.Join(displayArgs, " "),
 	)
 
 	prefix, _, err := c.newVertexMeta(ctx, opts.Locally, isInteractive, false, opts.Secrets)
@@ -3581,4 +3685,85 @@ func strIf(condition bool, str string) string {
 	}
 
 	return ""
+}
+
+func (c *Converter) setupHeredocRun(opts *ConvertRunOpts) ([]string, []string, error) {
+	h := opts.Heredoc
+	content := h.Content
+
+	if !opts.WithEntrypoint && len(opts.Args) == 0 && !strings.HasPrefix(content, "#!") {
+		if !strings.HasPrefix(strings.TrimSpace(content), "set -e") {
+			content = "set -e\n" + content
+		}
+
+		opts.WithShell = true
+
+		return []string{content}, []string{"<<" + h.Name}, nil
+	}
+
+	opts.WithShell = false
+
+	if opts.WithEntrypoint && !strings.HasPrefix(content, "#!") {
+		content = "#!/bin/sh\nset -e\n" + content
+	}
+
+	if opts.Locally {
+		return c.setupLocalHeredocScript(opts, content, h.Name)
+	}
+
+	return c.setupContainerHeredocScript(opts, content, h.Name)
+}
+
+func (c *Converter) setupLocalHeredocScript(opts *ConvertRunOpts, content, name string) ([]string, []string, error) {
+	tmpFile, err := os.CreateTemp("", "earth-heredoc-script-*")
+	if err != nil {
+		return nil, nil, fmt.Errorf("create temp heredoc script: %w", err)
+	}
+
+	tmpPath := tmpFile.Name()
+
+	_, err = tmpFile.WriteString(content)
+	if err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpPath)
+
+		return nil, nil, fmt.Errorf("write temp heredoc script: %w", err)
+	}
+
+	_ = tmpFile.Close()
+
+	err = os.Chmod(tmpPath, 0o700) // #nosec G302
+	if err != nil {
+		_ = os.Remove(tmpPath)
+
+		return nil, nil, fmt.Errorf("chmod temp heredoc script: %w", err)
+	}
+
+	c.opt.CleanCollection.Add(func() error {
+		return os.Remove(tmpPath)
+	})
+
+	if len(opts.Args) == 0 {
+		return []string{tmpPath}, []string{"<<" + name}, nil
+	}
+
+	return append(slices.Clone(opts.Args), tmpPath), append(slices.Clone(opts.Args), "<<"+name), nil
+}
+
+func (c *Converter) setupContainerHeredocScript(
+	opts *ConvertRunOpts, content, name string,
+) ([]string, []string, error) {
+	scriptName := "earth-heredoc-script"
+	mountState := pllb.Scratch().File(
+		pllb.Mkfile(scriptName, 0o755, []byte(content)),
+	)
+	scriptPath := "/dev/pipes/" + scriptName
+	mount := pllb.AddMount("/dev/pipes", mountState, llb.Readonly)
+	opts.extraRunOpts = append(opts.extraRunOpts, mount)
+
+	if len(opts.Args) == 0 {
+		return []string{scriptPath}, []string{"<<" + name}, nil
+	}
+
+	return append(slices.Clone(opts.Args), scriptPath), append(slices.Clone(opts.Args), "<<"+name), nil
 }

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/stretchr/testify/require"
 )
 
@@ -181,4 +182,19 @@ func Test_evalConditions(t *testing.T) {
 			require.Equal(t, c.want, [2]bool{got, ok})
 		})
 	}
+}
+
+func Test_handleCopy_Heredoc(t *testing.T) {
+	t.Parallel()
+
+	l := &loader{}
+	cmd := earthfile.Command{
+		Name: earthfile.CmdCopy,
+		Args: []string{"<<EOF", "/dest/path"},
+		Heredocs: []earthfile.Heredoc{
+			{Name: "EOF", Content: "echo hello\n"},
+		},
+	}
+	err := l.handleCopy(t.Context(), cmd)
+	require.NoError(t, err)
 }

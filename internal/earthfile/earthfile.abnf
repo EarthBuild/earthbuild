@@ -211,7 +211,21 @@ fromdf-option       = "-f" WSP ( WORD / artifact-ref )
 ; 7. RUN
 ; ---------------------------------------------------------------------------
 
-run-instr           = "RUN" WSP *( run-option WSP ) [ "--" WSP ] run-command
+run-instr           = "RUN" WSP *( run-option WSP ) [ "--" WSP ] ( run-heredoc-form / run-command )
+
+run-heredoc-form    = [ WORD WSP ] heredoc-decl [ WSP WORD ] EOL heredoc-body
+
+heredoc-decl        = "<<" [ "-" ] heredoc-delim-spec
+
+heredoc-delim-spec  = DQUOTE heredoc-delimiter DQUOTE
+                    / SQUOTE heredoc-delimiter SQUOTE
+                    / heredoc-delimiter
+
+heredoc-delimiter   = 1*( ALPHA / DIGIT / "_" / "-" )
+
+heredoc-body        = *( safe-char / EOL ) heredoc-end
+
+heredoc-end         = [ *WSP ] heredoc-delimiter EOL
 
 run-option          = "--push"
                      / "--no-cache"
@@ -268,7 +282,10 @@ json-char           = %x20-21 / %x23-5B / %x5D-10FFFF / ( "\" %x22 / "\" "\" )
 ; 8. COPY
 ; ---------------------------------------------------------------------------
 
-copy-instr          = "COPY" WSP *( copy-option WSP ) copy-sources WSP copy-dest
+copy-instr          = ( "COPY" WSP *( copy-option WSP ) copy-sources WSP copy-dest )
+                     / copy-heredoc-instr
+
+copy-heredoc-instr  = "COPY" WSP *( copy-option WSP ) 1*( ( copy-source / heredoc-decl ) WSP ) copy-dest EOL 1*heredoc-body
 
 copy-option         = "--dir"
                      / build-arg-override

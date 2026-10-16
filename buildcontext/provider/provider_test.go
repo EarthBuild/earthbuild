@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tonistiigi/fsutil"
 )
@@ -67,10 +68,10 @@ func TestLoggingFS_Walk(t *testing.T) {
 	require.NoError(t, err)
 
 	walkLogs := buf.String()
-	require.Contains(t, walkLogs, "sent file stat for "+filepath.Join(tmpDir, "file1.txt")+"\n")
-	require.Contains(t, walkLogs, "sent file stat for "+filepath.Join(tmpDir, "subdir", "file2.txt")+"\n")
-	require.True(t, walked["file1.txt"])
-	require.True(t, walked[filepath.Join("subdir", "file2.txt")])
+	assert.Contains(t, walkLogs, "sent file stat for "+filepath.Join(tmpDir, "file1.txt")+"\n")
+	assert.Contains(t, walkLogs, "sent file stat for "+filepath.Join(tmpDir, "subdir", "file2.txt")+"\n")
+	assert.True(t, walked["file1.txt"])
+	assert.True(t, walked[filepath.Join("subdir", "file2.txt")])
 }
 
 func TestLoggingFS_WalkCallbackErrorDoesNotLogStat(t *testing.T) {
@@ -100,7 +101,7 @@ func TestLoggingFS_WalkCallbackErrorDoesNotLogStat(t *testing.T) {
 		return wantErr
 	})
 	require.ErrorIs(t, err, wantErr)
-	require.Empty(t, buf.String())
+	assert.Empty(t, buf.String())
 }
 
 type walkErrFS struct {
@@ -131,41 +132,7 @@ func TestLoggingFS_WalkErrorSwallowedByCallbackDoesNotLogStat(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-	require.Empty(t, buf.String())
-}
-
-func TestLoggingFS_OpenDirect(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "direct.txt")
-	content := []byte("direct content")
-
-	err := os.WriteFile(filePath, content, 0o600)
-	require.NoError(t, err)
-
-	baseFS, err := fsutil.NewFS(tmpDir)
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-
-	logger := newTestLogger(&buf)
-	lfs := &loggingFS{
-		FS:  baseFS,
-		log: logger,
-		dir: tmpDir,
-	}
-
-	rc, err := lfs.Open("direct.txt")
-	require.NoError(t, err)
-
-	data, err := io.ReadAll(rc)
-	require.NoError(t, err)
-	require.NoError(t, rc.Close())
-	require.Equal(t, string(content), string(data))
-
-	want := "sent data for " + filepath.Join(tmpDir, "direct.txt") + " (14 B)\n"
-	require.Contains(t, buf.String(), want)
+	assert.Empty(t, buf.String())
 }
 
 type nonStatFS struct {
@@ -179,41 +146,6 @@ func (n *nonStatFS) Open(p string) (io.ReadCloser, error) {
 	}
 
 	return struct{ io.ReadCloser }{rc}, nil
-}
-
-func TestLoggingFS_OpenFallbackWithoutStat(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "direct.txt")
-	content := []byte("direct content")
-
-	err := os.WriteFile(filePath, content, 0o600)
-	require.NoError(t, err)
-
-	baseFS, err := fsutil.NewFS(tmpDir)
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-
-	logger := newTestLogger(&buf)
-	lfs := &loggingFS{
-		FS:  &nonStatFS{FS: baseFS},
-		log: logger,
-		dir: tmpDir,
-	}
-
-	rc, err := lfs.Open("direct.txt")
-	require.NoError(t, err)
-
-	data, err := io.ReadAll(rc)
-	require.NoError(t, err)
-	require.NoError(t, rc.Close())
-	require.Equal(t, string(content), string(data))
-
-	want := "sent data for " + filepath.Join(tmpDir, "direct.txt") + "\n"
-	require.Contains(t, buf.String(), want)
-	require.NotContains(t, buf.String(), "14 B")
 }
 
 type errStatReadCloser struct {
@@ -244,62 +176,97 @@ func (e *errStatFS) Open(p string) (io.ReadCloser, error) {
 	}, nil
 }
 
-func TestLoggingFS_OpenFallbackWhenStatErrors(t *testing.T) {
+func TestLoggingFS_Open(t *testing.T) {
 	t.Parallel()
 
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "direct.txt")
-	content := []byte("direct content")
-
-	err := os.WriteFile(filePath, content, 0o600)
-	require.NoError(t, err)
-
-	baseFS, err := fsutil.NewFS(tmpDir)
-	require.NoError(t, err)
-
-	var buf bytes.Buffer
-
-	logger := newTestLogger(&buf)
-	lfs := &loggingFS{
-		FS: &errStatFS{
-			FS:      baseFS,
-			statErr: errors.New("stat failed"),
+	tests := []struct {
+		wrapFS     func(fsutil.FS) fsutil.FS
+		name       string
+		wantSuffix string
+		notWant    string
+	}{
+		{
+			name:       "direct file with stat",
+			wrapFS:     func(base fsutil.FS) fsutil.FS { return base },
+			wantSuffix: " (14 B)\n",
 		},
-		log: logger,
-		dir: tmpDir,
+		{
+			name:       "fallback without Stat",
+			wrapFS:     func(base fsutil.FS) fsutil.FS { return &nonStatFS{FS: base} },
+			wantSuffix: "\n",
+			notWant:    "14 B",
+		},
+		{
+			name: "fallback when Stat errors",
+			wrapFS: func(base fsutil.FS) fsutil.FS {
+				return &errStatFS{
+					FS:      base,
+					statErr: errors.New("stat failed"),
+				}
+			},
+			wantSuffix: "\n",
+			notWant:    "14 B",
+		},
 	}
 
-	rc, err := lfs.Open("direct.txt")
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	data, err := io.ReadAll(rc)
-	require.NoError(t, err)
-	require.NoError(t, rc.Close())
-	require.Equal(t, string(content), string(data))
+			tmpDir := t.TempDir()
+			filePath := filepath.Join(tmpDir, "direct.txt")
+			content := []byte("direct content")
 
-	want := "sent data for " + filepath.Join(tmpDir, "direct.txt") + "\n"
-	require.Contains(t, buf.String(), want)
-	require.NotContains(t, buf.String(), "14 B")
-}
+			err := os.WriteFile(filePath, content, 0o600)
+			require.NoError(t, err)
 
-func TestLoggingFS_OpenNonExistent(t *testing.T) {
-	t.Parallel()
+			baseFS, err := fsutil.NewFS(tmpDir)
+			require.NoError(t, err)
 
-	tmpDir := t.TempDir()
+			var buf bytes.Buffer
 
-	baseFS, err := fsutil.NewFS(tmpDir)
-	require.NoError(t, err)
+			lfs := &loggingFS{
+				FS:  tt.wrapFS(baseFS),
+				log: newTestLogger(&buf),
+				dir: tmpDir,
+			}
 
-	var buf bytes.Buffer
+			rc, err := lfs.Open("direct.txt")
+			require.NoError(t, err)
 
-	logger := newTestLogger(&buf)
-	lfs := &loggingFS{
-		FS:  baseFS,
-		log: logger,
-		dir: tmpDir,
+			data, err := io.ReadAll(rc)
+			require.NoError(t, err)
+			require.NoError(t, rc.Close())
+			assert.Equal(t, content, data)
+
+			want := "sent data for " + filePath + tt.wantSuffix
+			assert.Contains(t, buf.String(), want)
+
+			if tt.notWant != "" {
+				assert.NotContains(t, buf.String(), tt.notWant)
+			}
+		})
 	}
 
-	rc, err := lfs.Open("does-not-exist.txt")
-	require.Error(t, err)
-	require.Nil(t, rc)
+	t.Run("non-existent file", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+
+		baseFS, err := fsutil.NewFS(tmpDir)
+		require.NoError(t, err)
+
+		var buf bytes.Buffer
+
+		lfs := &loggingFS{
+			FS:  baseFS,
+			log: newTestLogger(&buf),
+			dir: tmpDir,
+		}
+
+		rc, err := lfs.Open("does-not-exist.txt")
+		require.Error(t, err)
+		assert.Nil(t, rc)
+		assert.Empty(t, buf.String())
+	})
 }

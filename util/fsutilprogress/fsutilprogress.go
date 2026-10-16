@@ -16,7 +16,7 @@ import (
 type ProgressCallback struct {
 	lastUpdate  time.Time
 	log         *conslogging.ConsoleLogger
-	now         func() time.Time
+	now         func() time.Time // injectable clock for testing; defaults to time.Now
 	contextName string
 	lastBytes   int
 	mu          sync.Mutex
@@ -42,6 +42,8 @@ func (p *ProgressCallback) Info(numBytes int, last bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	numBytes = max(0, numBytes)
+
 	if last {
 		if p.contextName != "" {
 			p.log.Printf("transferred %s for context %s\n", humanizeBytes(numBytes), p.contextName)
@@ -53,12 +55,7 @@ func (p *ProgressCallback) Info(numBytes int, last bool) {
 		return
 	}
 
-	nowFn := p.now
-	if nowFn == nil {
-		nowFn = time.Now
-	}
-
-	now := nowFn()
+	now := p.now()
 
 	if p.lastUpdate.IsZero() || numBytes < p.lastBytes {
 		p.lastUpdate = now
@@ -80,15 +77,14 @@ func (p *ProgressCallback) Info(numBytes int, last bool) {
 	p.lastBytes = numBytes
 }
 
-// ReceiveFile returns a callback that logs verbose messages when an individual file is received.
-func ReceiveFile(log *conslogging.ConsoleLogger) func(relPath string, size int64) {
-	return func(relPath string, size int64) {
-		if size >= 0 {
-			log.VerbosePrintf("received data for %s (%s)\n", relPath, humanizeBytes(size))
-		} else {
-			log.VerbosePrintf("received data for %s\n", relPath)
-		}
+// ReceiveFile logs a verbose message when an individual file is received.
+func (p *ProgressCallback) ReceiveFile(relPath string, size int64) {
+	if size >= 0 {
+		p.log.VerbosePrintf("received data for %s (%s)\n", relPath, humanizeBytes(size))
+		return
 	}
+
+	p.log.VerbosePrintf("received data for %s\n", relPath)
 }
 
 func humanizeBytes[T ~int | ~int64 | ~float64](v T) string {

@@ -113,16 +113,7 @@ func (bcp *BuildContextProvider) TarStream(stream filesync.FileSync_TarStreamSer
 }
 
 func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream) error {
-	var pr *protocol
-
-	for _, p := range supportedProtocols {
-		if method == p.name && isProtoSupported(p.name) {
-			pr = &p
-			break
-		}
-	}
-
-	if pr == nil {
+	if method != "diffcopy" || !isProtoSupported(method) {
 		return errors.New("failed to negotiate protocol")
 	}
 
@@ -147,8 +138,6 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 
 	includes := opts[keyIncludePatterns]
 	followPaths := opts[keyFollowPaths]
-	log := bcp.log.WithPrefixAndSalt("context", dir.Dir)
-	progressCB := fsutilprogress.NewContext(dir.Dir, log)
 
 	fs, err := fsutil.NewFS(dir.Dir)
 	if err != nil {
@@ -165,13 +154,11 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 		return err
 	}
 
-	lfs := &loggingFS{
-		FS:  fs,
-		log: log,
-		dir: dir.Dir,
-	}
+	log := bcp.log.WithPrefixAndSalt("context", dir.Dir)
+	progressCB := fsutilprogress.NewContext(dir.Dir, log)
+	lfs := &loggingFS{FS: fs, dir: dir.Dir, log: log}
 
-	return pr.sendFn(stream, lfs, progressCB.Info)
+	return fsutil.Send(stream.Context(), stream, lfs, progressCB.Info)
 }
 
 func (bcp *BuildContextProvider) getDir(dirName string) (SyncedDir, error) {
@@ -217,29 +204,17 @@ func (l *loggingFS) Open(p string) (io.ReadCloser, error) {
 
 	fullPath := filepath.Join(l.dir, p)
 
-	var sz int64 = -1
-
 	if s, ok := rc.(interface{ Stat() (fs.FileInfo, error) }); ok {
 		fi, err := s.Stat()
-		if err == nil {
-			sz = fi.Size()
+		if err == nil && fi.Size() >= 0 {
+			l.log.VerbosePrintf("sent data for %s (%s)\n", fullPath, humanize.Bytes(uint64(max(0, fi.Size()))))
+			return rc, nil
 		}
 	}
 
-	if sz >= 0 {
-		l.log.VerbosePrintf("sent data for %s (%s)\n", fullPath, humanize.Bytes(uint64(sz)))
-	} else {
-		l.log.VerbosePrintf("sent data for %s\n", fullPath)
-	}
+	l.log.VerbosePrintf("sent data for %s\n", fullPath)
 
 	return rc, nil
-}
-
-type progressCb func(int, bool)
-
-type protocol struct {
-	sendFn func(stream filesync.Stream, fs fsutil.FS, progress progressCb) error
-	name   string
 }
 
 func isProtoSupported(p string) bool {
@@ -249,15 +224,4 @@ func isProtoSupported(p string) bool {
 	}
 
 	return true
-}
-
-var supportedProtocols = []protocol{
-	{
-		name:   "diffcopy",
-		sendFn: sendDiffCopy,
-	},
-}
-
-func sendDiffCopy(stream filesync.Stream, fs fsutil.FS, progress progressCb) error {
-	return fsutil.Send(stream.Context(), stream, fs, progress)
 }

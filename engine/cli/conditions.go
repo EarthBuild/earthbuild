@@ -445,7 +445,10 @@ func (g *engine) sandboxed() (*exec.Executor, *core.Scheduler, error) {
 
 		g.fleetStop = stop
 
-		workers := []core.Worker{localWorker(g.o.Platform, nil, parallelismFor(sb, g.o.env))}
+		// The executor, not nil: it is what says this machine runs amd64 through
+		// Rosetta, and without it a LET or IF that needed such a step found no
+		// worker (TestEveryLocalWorkerIsGivenItsExecutor).
+		workers := []core.Worker{localWorker(g.o.Platform, e, parallelismFor(sb, g.o.env))}
 		if d, ok := x.(*fleet.Delegating); ok {
 			workers = append(workers, d.Remote()...)
 		}

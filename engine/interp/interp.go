@@ -3325,6 +3325,12 @@ func (p *Plan) do(c earthfile.Command, prev *ir.Node, caller *state) (*ir.Node, 
 	maps.Copy(rs.env, caller.env)
 	rs.user = caller.user
 
+	// And the platform, for the same reason: `ARG TARGETARCH` in a function
+	// names what its caller builds. Left empty it read as the native platform,
+	// so under `FROM --platform=linux/amd64` on arm64 a function fetched arm64
+	// binaries into an amd64 image (TestAFunctionBuildsForItsCallersPlatform).
+	rs.platform = caller.platform
+
 	// A function called from a LOCALLY target runs on the machine too: it is
 	// inlined into the caller, so it inherits where the caller runs. Without
 	// this every RUN inside such a function asked for a base image the caller

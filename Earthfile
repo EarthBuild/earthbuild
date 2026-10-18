@@ -7,7 +7,7 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.27.1-alpine3.24@sha256:4cb7ac979db5fcc41cae44b2227ba5ab8a51e8807f40d9ba4dee20a0ad960b5b
+    FROM golang:1.27.2-alpine3.24@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d
     RUN apk add --no-cache git
     # Go writes a counter under /root/.config/go/telemetry and mutates it on
     # every build, under a name carrying the date. Nothing observed reads it
@@ -18,7 +18,7 @@ go:
     WORKDIR /earth
 
 node:
-    FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80
+    FROM node:26.12.0-alpine3.24@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5
     # renovate: datasource=npm packageName=npm
     LET npm_version=12.2.0
     RUN \
@@ -130,7 +130,7 @@ lint-scripts:
 
 # lint-workflows audits GitHub Actions workflows and composite actions with zizmor (https://docs.zizmor.sh).
 lint-workflows:
-    FROM ghcr.io/zizmorcore/zizmor:1.30.1@sha256:a2eb396d886c053073405c7a980f2139ba2248ec172243cfa3841e57196e8101
+    FROM ghcr.io/zizmorcore/zizmor:1.31.1@sha256:42d409dbb851d4c5d35a058cf042b828bea1e3f2884378c526eb0974780e18d9
     WORKDIR /audit
     COPY --dir .github .
     # --no-online-audits: no GITHUB_TOKEN here, and the online audits reach out
@@ -786,7 +786,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.7-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
+    FROM python:3.15.0-slim@sha256:f48fda6d59b2b3437781d1c3ccf4aa0e26ae871de3cdd758b49ab45ee7291619
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser

@@ -24,7 +24,6 @@ func parseVersion(text string, name string) (*Version, error) {
 	for {
 		tok := l.nextItem()
 		// Since VERSION must be the first command, any other token means there is no version command
-		//nolint:exhaustive
 		switch tok.Typ {
 		case itemEOF:
 			return nil, nil
@@ -46,7 +45,6 @@ func parseVersion(text string, name string) (*Version, error) {
 				argTok := l.nextItem()
 				// Since we only care about a tiny subset of lexical tokens within the VERSION command and treat all
 				// other tokens generically in the default case.
-				//nolint:exhaustive
 				switch argTok.Typ {
 				case itemAtom:
 					version.Args = append(version.Args, argTok.Val)

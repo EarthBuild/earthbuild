@@ -29,20 +29,12 @@ func newDockerEngine(ctx context.Context, cfg *Config) (*dockerEngine, error) {
 		},
 	}
 
-	// running `docker info --format={{.SecurityOptions}}` results in a panic() when docker is not running.
-	// To workaround this issue, first we run `docker info` to test docker is running, then again with the
-	// `--format` option.
-	_, err := e.CommandOutput(ctx, "info")
+	security, rootDir, err := e.probe(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	output, err := e.CommandOutput(ctx, "info", "--format={{.SecurityOptions}}")
-	if err != nil {
-		return nil, err
-	}
-
-	if strings.Contains(output.String(), "name=userns") {
+	if strings.Contains(security, "name=userns") {
 		e.RunArgs = []string{"--userns", "host"}
 	}
 
@@ -51,6 +43,60 @@ func newDockerEngine(ctx context.Context, cfg *Config) (*dockerEngine, error) {
 		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
 	}
 
+	graphRoot := strings.TrimRight(rootDir, "/")
+	if strings.HasSuffix(graphRoot, "containers/storage") {
+		return nil, errors.New("podman detected via docker CLI; use podman driver")
+	}
+
+	return e, nil
+}
+
+// probeSeparator divides the two answers asked for in one question. Neither a
+// security option nor a path contains it, and both can contain spaces and
+// commas, which is why it is not one of those.
+const probeSeparator = "|"
+
+// probe asks the daemon what this engine needs to know, in one question.
+//
+// `docker info` talks to the daemon and costs about a tenth of a second each
+// time. Three of them ran here before any command was dispatched, so every
+// invocation - including the many that never touch Docker - paid for answers it
+// usually did not use.
+//
+// **The three-call form is still here, and still says what it always said.** It
+// was not only slow: the bare `info` came first because `docker info --format`
+// panics when the daemon is down, and printing a panic from somebody else's
+// binary is not a diagnosis. So the one question is *tried*, and anything other
+// than an answer - a panic, a daemon that is not there, a field this daemon does
+// not have - falls through to the sequence that knows how to tell those apart.
+//
+// The answer is read from stdout alone: `docker info` writes its warnings to
+// stderr, and one appended to the root directory would make it a path that
+// does not exist.
+func (e *dockerEngine) probe(ctx context.Context) (security, rootDir string, err error) {
+	one, err := e.CommandOutput(ctx, "info",
+		"--format={{.SecurityOptions}}"+probeSeparator+"{{.DockerRootDir}}")
+	if err == nil {
+		both := strings.SplitN(strings.TrimSpace(one.Stdout.String()), probeSeparator, 2)
+		if len(both) == 2 && both[1] != "" {
+			return both[0], both[1], nil
+		}
+	}
+
+	// Whether docker is there at all, asked without a template so that a
+	// stopped daemon is reported rather than panicked over.
+	_, err = e.CommandOutput(ctx, "info")
+	if err != nil {
+		return "", "", err
+	}
+
+	output, err := e.CommandOutput(ctx, "info", "--format={{.SecurityOptions}}")
+	if err != nil {
+		return "", "", err
+	}
+
+	security = output.String()
+
 	output, err = e.CommandOutput(ctx, "info", "--format={{.DockerRootDir}}")
 	if err != nil {
 		// Maybe the user has aliased podman=docker?
@@ -58,16 +104,11 @@ func newDockerEngine(ctx context.Context, cfg *Config) (*dockerEngine, error) {
 
 		output, err2 = e.CommandOutput(ctx, "info", "--format={{.Store.GraphRoot}}")
 		if err2 != nil {
-			return nil, fmt.Errorf("get docker root dir: %w", err)
+			return "", "", fmt.Errorf("get docker root dir: %w", err)
 		}
 	}
 
-	graphRoot := strings.TrimRight(output.String(), "/")
-	if strings.HasSuffix(graphRoot, "containers/storage") {
-		return nil, errors.New("podman detected via docker CLI; use podman driver")
-	}
-
-	return e, nil
+	return security, output.String(), nil
 }
 
 // Metadata returns current engine metadata.

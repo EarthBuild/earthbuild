@@ -1,0 +1,8 @@
+responses {
+  digest { hash: "0000000000000000000000000000000000000000000000000000000000000099" size_bytes: 5 }
+  data: "hello"
+}
+responses {
+  digest { hash: "00000000000000000000000000000000000000000000000000000000000000aa" }
+  status { code: 5 message: "not found" }
+}

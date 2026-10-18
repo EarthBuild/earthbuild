@@ -60,7 +60,6 @@ func TestParseParams(t *testing.T) {
 
 	r := require.New(t)
 
-	//nolint:goconst
 	tests := []struct {
 		in    string
 		first string
@@ -188,7 +187,6 @@ func TestGetBoolFlagNames(t *testing.T) {
 func TestPreprocessArgs(t *testing.T) {
 	t.Parallel()
 
-	//nolint:goconst
 	modFunc := func(_ string, _ *flags.Option, flagVal *string) (*string, error) {
 		if flagVal != nil && *flagVal == "$VAR" {
 			expanded := "true"

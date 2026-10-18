@@ -1,0 +1,138 @@
+//go:build darwin
+
+package exec
+
+import (
+	"context"
+	"fmt"
+	"io"
+	osexec "os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/EarthBuild/earthbuild/engine/ir"
+)
+
+// PackLayer writes one layer of this sandbox's store as an OCI blob.
+//
+// **A second exec, because the first one is busy.** The protocol holds the only
+// stdio pair `container exec` gives, and this carries a layer rather than a
+// message - so it goes the way faults already go: another exec, the guest
+// binary in a mode that does one thing, and a pipe (E556, and the prior art in
+// applefill_darwin.go).
+//
+// Nothing comes back but bytes. The blob's name is the digest of its contents,
+// so the caller hashes what it copies and there is no reply to parse - which is
+// what lets this be a pipe instead of a protocol.
+//
+// stderr is collected rather than passed through: a failure here is reported to
+// whoever asked for the image, and a guest complaining on the terminal in the
+// middle of a build's output names nothing the reader can act on.
+func (a *Apple) PackLayer(ctx context.Context, id ir.NodeID, w io.Writer) error {
+	return a.packVia(ctx, "--pack", id, w)
+}
+
+// PackFleetLayer writes one element of this sandbox's store in the fleet's pack
+// format.
+//
+// **So a Mac can serve the base of its own build.** The fleet's blob server
+// reads a host directory, and on macOS the store is a block device inside the
+// VM - so a driver held everything a worker needed and could offer none of it
+// (F4). The same second exec `PackLayer` uses, in the format the fleet speaks.
+func (a *Apple) PackFleetLayer(ctx context.Context, id ir.NodeID, w io.Writer) error {
+	return a.packVia(ctx, "--pack-fleet", id, w)
+}
+
+// packVia runs the guest binary in a one-thing mode and pipes its stdout.
+func (a *Apple) packVia(ctx context.Context, mode string, id ir.NodeID, w io.Writer) error {
+	guestBin, err := a.guestBinary()
+	if err != nil {
+		return fmt.Errorf("pack layer %s: %w", id, err)
+	}
+
+	cmd := osexec.CommandContext(ctx, "container", "exec", "-i", //nolint:gosec // fixed argv
+		"-e", a.storeEnv(),
+		a.name, "/earth/"+filepath.Base(guestBin), mode, id.String())
+
+	var complaint strings.Builder
+
+	cmd.Stdout = w
+	cmd.Stderr = &complaint
+
+	err = cmd.Run()
+	if err != nil {
+		if said := strings.TrimSpace(complaint.String()); said != "" {
+			return fmt.Errorf("pack layer %s in %s: %w\n  %s", id, a.name, err, said)
+		}
+
+		return fmt.Errorf("pack layer %s in %s: %w", id, a.name, err)
+	}
+
+	return nil
+}
+
+// UnpackFleetLayer files an element into this sandbox's store, from a stream.
+//
+// The return journey of `PackFleetLayer`, through the same second exec with the
+// pipe pointed the other way: a driver takes back what a worker produced (E274)
+// and cannot write into a store on the guest's own device.
+//
+// The guest prints the identity it derived and the bytes it took, because the
+// caller has to check that what arrived is what it asked for - a name taken
+// from the sender would make this the one place in the fleet that trusts one
+// (I6).
+func (a *Apple) UnpackFleetLayer(ctx context.Context, r io.Reader) (ir.NodeID, int64, error) {
+	guestBin, err := a.guestBinary()
+	if err != nil {
+		return ir.NodeID{}, 0, fmt.Errorf("take an element: %w", err)
+	}
+
+	cmd := osexec.CommandContext(ctx, "container", "exec", "-i", //nolint:gosec // fixed argv
+		"-e", a.storeEnv(),
+		a.name, "/earth/"+filepath.Base(guestBin), "--unpack-fleet")
+
+	var (
+		said      strings.Builder
+		complaint strings.Builder
+	)
+
+	cmd.Stdin = r
+	cmd.Stdout = &said
+	cmd.Stderr = &complaint
+
+	err = cmd.Run()
+	if err != nil {
+		if why := strings.TrimSpace(complaint.String()); why != "" {
+			return ir.NodeID{}, 0, fmt.Errorf("take an element in %s: %w\n  %s",
+				a.name, err, why)
+		}
+
+		return ir.NodeID{}, 0, fmt.Errorf("take an element in %s: %w", a.name, err)
+	}
+
+	return parseTaken(said.String())
+}
+
+// parseTaken reads what the guest said it filed.
+func parseTaken(said string) (ir.NodeID, int64, error) {
+	name, size, ok := strings.Cut(strings.TrimSpace(said), " ")
+	if !ok {
+		return ir.NodeID{}, 0, fmt.Errorf("the guest filed an element and said"+
+			" %q, which is not an identity and a size", said)
+	}
+
+	id, err := ir.ParseNodeID(name)
+	if err != nil {
+		return ir.NodeID{}, 0, fmt.Errorf("the guest named what it filed %q: %w",
+			name, err)
+	}
+
+	n, err := strconv.ParseInt(size, 10, 64)
+	if err != nil {
+		return ir.NodeID{}, 0, fmt.Errorf("the guest sized what it filed %q: %w",
+			size, err)
+	}
+
+	return id, n, nil
+}

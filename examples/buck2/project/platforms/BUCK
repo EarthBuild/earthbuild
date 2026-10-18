@@ -1,0 +1,5 @@
+load("@root//:defs.bzl", "platforms", "target_platform")
+
+target_platform(name = "target", visibility = ["PUBLIC"])
+
+platforms(name = "exec", visibility = ["PUBLIC"])

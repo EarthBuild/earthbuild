@@ -16,7 +16,12 @@ test-old:
     DO --pass-args +RUN_EARTH_ARGS --earthfile=old.earth --target=+test
     DO --pass-args +RUN_EARTH_ARGS --earthfile=old-no-middle-shell-out.earth --target=+test
     DO --pass-args +RUN_EARTH_ARGS --earthfile=old-ignore-shellout-errors.earth --target=+test
-    DO --pass-args +RUN_EARTH_ARGS --earthfile=old-fail1.earth --target=+test --should_fail=true --output_contains="/valid-\$.echo file..: not found"
+    # The native engine blames the consumer rather than the producer: a
+    # SAVE ARTIFACT naming nothing is discovered when a COPY asks for it, so the
+    # message quotes the COPY's own literal `$(...)` instead of the save's. The
+    # assertion is the same either way - at 0.6 neither substitution ran - and
+    # the build fails, which is what --should_fail says.
+    DO --pass-args +RUN_EARTH_ARGS --earthfile=old-fail1.earth --target=+test --should_fail=true --output_contains="/valid-\$.echo file..: not found" --output_contains_native="nothing in that target has it"
     DO --pass-args +RUN_EARTH_ARGS --earthfile=old-fail2.earth --target=+test --should_fail=true --output_contains="invalid ARG key definition \$key"
 
 test-old2:
@@ -41,8 +46,10 @@ RUN_EARTH_ARGS:
     ARG target
     ARG should_fail=false
     ARG output_contains
+    ARG output_contains_native
     DO tests+RUN_EARTH \
         --earthfile=$earthfile \
         --target=$target \
         --should_fail=$should_fail \
-        --output_contains=$output_contains
+        --output_contains=$output_contains \
+        --output_contains_native=$output_contains_native

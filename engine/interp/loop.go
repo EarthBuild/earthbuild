@@ -932,15 +932,31 @@ func containerList(where string) string {
 // body's own result would replace the answer with a footnote - and the daemon is
 // about to be destroyed anyway, which takes the containers with it. The down is
 // here for the case where it is not, and for a reader who expects symmetry.
+//
+// **A one-shot service is not a failure.** `up --wait` fails on any container
+// that stops, exit 0 included, and compose has no flag to say otherwise - so a
+// file with a migration or a seed beside its database failed every build. When
+// the wait fails *and* something exited, the services still running are waited
+// for again, and only those: naming none would start the one-shot again. A
+// non-zero exit is reported and not fatal, as in the reference, whose bare
+// `up -d` never looks. Nothing exited means the wait failed for its own reason
+// (a pull, an unhealthy service), and that failure stands.
 func composeAround(files, services []string, body string) string {
-	up := "docker compose" + composeFlags(files) + " up -d --wait"
+	dc := "docker compose" + composeFlags(files)
+
+	up := dc + " up -d --wait"
 	if len(services) > 0 {
 		up += " " + strings.Join(services, " ")
 	}
 
-	down := "docker compose" + composeFlags(files) + " down"
+	rewait := "x=$(" + dc + " ps -a --status exited --format '{{.Service}} {{.ExitCode}}'); [ -n \"$x\" ] && " +
+		"{ echo \"$x\" | sed -n '/ 0$/!s/^\\(.*\\) \\(.*\\)$/warning: compose service \\1 exited \\2/p' >&2; " +
+		"r=$(" + dc + " ps --status running --services); [ -z \"$r\" ] || " + dc + " up -d --wait $r; }"
 
-	return up + " && { " + body + "; }; rc=$?; " + down + " >/dev/null 2>&1 || true; exit $rc"
+	down := dc + " down"
+
+	return "{ " + up + " || { " + rewait + "; }; } && { " + body + "; }; rc=$?; " +
+		down + " >/dev/null 2>&1 || true; exit $rc"
 }
 
 // dockerStep is a command run against the block's daemon.

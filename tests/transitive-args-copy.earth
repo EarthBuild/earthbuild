@@ -1,0 +1,38 @@
+VERSION 0.8
+FROM alpine:3.24.2
+
+# BUILD, COPY and FROM all pass argument overrides to targets in the same
+# Earthfile in the same way. Intermediate targets do not declare SOMEARG, so it
+# is not visible to them, but the override still reaches +arg-target. Default
+# values of an ARG declared by the caller are not passed on.
+
+test:
+    COPY +via-copy/value.txt ./copy.txt
+    COPY +via-from/value.txt ./from.txt
+    COPY +via-default/value.txt ./default.txt
+    RUN echo "copy: $(cat copy.txt), from: $(cat from.txt), default: $(cat default.txt)"
+    RUN echo "test sees '$SOMEARG'"
+    RUN test -z "$SOMEARG"
+    SAVE ARTIFACT copy.txt AS LOCAL copy.txt
+    SAVE ARTIFACT from.txt AS LOCAL from.txt
+    SAVE ARTIFACT default.txt AS LOCAL default.txt
+
+via-copy:
+    COPY +arg-target/value.txt ./value.txt
+    RUN test -z "$SOMEARG"
+    SAVE ARTIFACT value.txt
+
+via-from:
+    FROM +arg-target
+    RUN test -z "$SOMEARG"
+    SAVE ARTIFACT value.txt
+
+via-default:
+    ARG SOMEARG=caller-default
+    COPY +arg-target/value.txt ./value.txt
+    SAVE ARTIFACT value.txt
+
+arg-target:
+    ARG SOMEARG=default
+    RUN echo "$SOMEARG" >value.txt
+    SAVE ARTIFACT value.txt

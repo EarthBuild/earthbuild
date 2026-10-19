@@ -105,6 +105,19 @@ func determineFatalErrorType(errString string, exitCode int, exitParseErr error)
 	return logstream.FailureType_FAILURE_TYPE_UNKNOWN, false
 }
 
+// exitCodeHint returns a human-readable explanation for exit codes whose
+// meaning is conventional but not obvious, or "" when there is nothing to add.
+func exitCodeHint(exitCode int) string {
+	switch exitCode {
+	case 126:
+		return "Exit code 126 conventionally means a command was found but could not be executed. " +
+			"Check executable permissions, the shebang/interpreter, CPU architecture, noexec mounts, " +
+			"and security restrictions (e.g. SELinux, AppArmor, seccomp)."
+	default:
+		return ""
+	}
+}
+
 func formatErrorMessage(
 	errString, operation string, internal bool, fatalErrorType logstream.FailureType, exitCode int,
 ) string {
@@ -137,11 +150,16 @@ func formatErrorMessage(
 				"If you are using remote buildkit, it is the remote system that ran out of memory.", internalStr, operation,
 		)
 	case logstream.FailureType_FAILURE_TYPE_NONZERO_EXIT:
-		return fmt.Sprintf(
+		msg := fmt.Sprintf(
 			"      The%s command\n"+
 				"          %s\n"+
 				"      did not complete successfully. Exit code %d", internalStr, operation, exitCode,
 		)
+		if hint := exitCodeHint(exitCode); hint != "" {
+			msg += "\n      " + hint
+		}
+
+		return msg
 	case logstream.FailureType_FAILURE_TYPE_FILE_NOT_FOUND:
 		m := reErrNotFound.FindStringSubmatch(errString)
 

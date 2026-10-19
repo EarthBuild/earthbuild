@@ -171,6 +171,7 @@ func TestAvailableFlags(t *testing.T) {
 
 		// unreleased
 		{"no-use-registry-for-with-docker", "NoUseRegistryForWithDocker"},
+		{"no-implicit-secret-ignore", "NoImplicitSecretIgnore"},
 		{"try", "TryFinally"},
 		{"no-network", "NoNetwork"},
 		{"arg-scope-and-set", "ArgScopeSet"},

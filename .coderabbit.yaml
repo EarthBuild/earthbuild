@@ -32,7 +32,7 @@ reviews:
         - For optional configuration, suggest Functional Options (`WithTimeout(...)`) or a clean `Config` struct.
 
         4. LINE OF SIGHT & NAMING:
-        - Enforce left-margin alignment (the happy path must run down the left margin).
+        - Enforce left-margin alignment (the happy path should run down the left margin).
         - Flag nested `if` statements that should be guard clauses with early returns.
         - Flag `else` blocks after `return`, `break`, or `continue`.
         - Variable naming scope: Short scope = short names (`i`, `r`, `w`, `buf`, `ctx`, `err`). Long scope / exported = descriptive, unambiguous names.

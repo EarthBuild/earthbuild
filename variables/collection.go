@@ -77,7 +77,6 @@ type NewCollectionOpt struct {
 	Target           domain.Target
 	BuiltinArgs      DefaultArgs
 	Push             bool
-	CI               bool
 }
 
 // NewCollection creates a new Collection to be used in the context of a target.
@@ -89,7 +88,7 @@ func NewCollection(opts NewCollectionOpt) *Collection {
 		opts.OverridingVars = NewScope()
 	}
 
-	args := BuiltinArgs(target, opts.PlatformResolver, opts.GitMeta, opts.BuiltinArgs, opts.Features, opts.Push, opts.CI)
+	args := BuiltinArgs(target, opts.PlatformResolver, opts.GitMeta, opts.BuiltinArgs, opts.Features, opts.Push)
 
 	return &Collection{
 		builtin:          args,

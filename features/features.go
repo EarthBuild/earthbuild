@@ -20,7 +20,6 @@ import (
 type Features struct {
 	// Never enabled by default
 	NoUseRegistryForWithDocker bool `description:"disable use-registry-for-with-docker" long:"no-use-registry-for-with-docker"` //nolint:lll // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
-	EarthlyCIRunnerArg         bool `description:"includes EARTHLY_CI_RUNNER ARG"       long:"earthly-ci-runner-arg"`           //nolint:lll // earthly CI was discontinued, no reason to enable this by default
 
 	// VERSION 0.5
 	ExecAfterParallel        bool `description:"force execution after parallel conversion"                    enabled_in_version:"0.5" long:"exec-after-parallel"`          //nolint:lll
@@ -36,7 +35,6 @@ type Features struct {
 
 	// VERSION 0.7
 	CheckDuplicateImages     bool `description:"check for duplicate images during output"                                        enabled_in_version:"0.7" long:"check-duplicate-images"`      //nolint:lll
-	EarthlyCIArg             bool `description:"include EARTHLY_CI arg"                                                          enabled_in_version:"0.7" long:"ci-arg"`                      //nolint:lll
 	EarthlyGitAuthorArgs     bool `description:"includes EARTHLY_GIT_AUTHOR and EARTHLY_GIT_CO_AUTHORS ARGs"                     enabled_in_version:"0.7" long:"earthly-git-author-args"`     //nolint:lll
 	EarthlyLocallyArg        bool `description:"includes EARTHLY_LOCALLY ARG"                                                    enabled_in_version:"0.7" long:"earthly-locally-arg"`         //nolint:lll
 	EarthlyVersionArg        bool `description:"includes EARTHLY_VERSION and EARTHLY_BUILD_SHA ARGs"                             enabled_in_version:"0.7" long:"earthly-version-arg"`         //nolint:lll

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
-	"github.com/go-logr/stdr"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
@@ -25,7 +23,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	otelsemconv "go.opentelemetry.io/otel/semconv/v1.41.0"
+	otelsemconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -39,8 +37,6 @@ func Tracer() trace.Tracer {
 // Setup bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func Setup(ctx context.Context) (ShutdownFunc, error) {
-	otel.SetLogger(stdr.New(log.New(os.Stderr, "", log.LstdFlags)))
-
 	var shutdowns []ShutdownFunc
 
 	// shutdown calls cleanup functions registered via shutdowns.

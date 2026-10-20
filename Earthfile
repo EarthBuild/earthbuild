@@ -7,14 +7,14 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.27.0-alpine3.24
+    FROM golang:1.27.2-alpine3.24
     RUN apk add --no-cache git
-    WORKDIR /earthly
+    WORKDIR /earth
 
 node:
-    FROM node:26.7.0-alpine3.24
+    FROM node:26.12.0-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=12.0.2
+    LET npm_version=12.2.0
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -54,7 +54,7 @@ code:
     # omits every new .go file - which hid buildkitd's tests from CI entirely.
     COPY --dir buildkitd/*.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
-    SAVE ARTIFACT /earthly
+    SAVE ARTIFACT /earth
 
 # update-buildkit updates earthbuild's buildkit dependency.
 update-buildkit:
@@ -71,13 +71,13 @@ update-buildkit:
     SAVE ARTIFACT go.sum AS LOCAL go.sum
 
 lint-scripts-base:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     RUN apk add --no-cache shellcheck
     WORKDIR /shell_scripts
 
 lint-scripts-misc:
     FROM +lint-scripts-base
-    COPY ./earthly ./scripts/install-all-versions.sh ./buildkitd/entrypoint.sh ./earthly-entrypoint.sh \
+    COPY ./earth ./scripts/install-all-versions.sh ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./buildkitd/entrypoint.sh ./earth-entrypoint.sh \
         ./buildkitd/dockerd-wrapper.sh ./buildkitd/docker-auto-install.sh ./buildkitd/oom-adjust.sh.template \
         ./.buildkite/*.sh \
         ./scripts/tests/*.sh \
@@ -104,7 +104,7 @@ lint-scripts:
 
 # lint-workflows audits GitHub Actions workflows and composite actions with zizmor (https://docs.zizmor.sh).
 lint-workflows:
-    FROM ghcr.io/zizmorcore/zizmor:1.29.0
+    FROM ghcr.io/zizmorcore/zizmor:1.31.1
     WORKDIR /audit
     COPY --dir .github .
     # --no-online-audits: no GITHUB_TOKEN here, and the online audits reach out
@@ -113,58 +113,140 @@ lint-workflows:
     # warning -- otherwise a typo silently drops a file from the audit.
     RUN zizmor --no-online-audits --strict-collection .github
 
-# earthbuild-script-no-stdout validates the ./earthly script doesn't print anything to stdout (stderr only)
-# This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
+# earthbuild-script-no-stdout validates the ./earth script doesn't print anything to stdout (stderr only)
+# This is to ensure commands such as: MYSECRET="$(./earth secrets get -n /user/my-secret)" work
 earthbuild-script-no-stdout:
-    # This validates the ./earthly script doesn't print anything to stdout (it should print to stderr)
-    # This is to ensure commands such as: MYSECRET="$(./earthly secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
+    # This validates the ./earth script doesn't print anything to stdout (it should print to stderr)
+    # This is to ensure commands such as: MYSECRET="$(./earth secrets get -n /user/my-secret)" work
+    FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r1
     RUN apk add --no-cache bash
-    COPY earthly .earthly_version_flag_overrides .
+    COPY earth .earth_version_flag_overrides .
 
     # This script performs an explicit "docker pull earthlybinaries:prerelease" which can cause rate-limiting
     # to work-around this, we will copy an earthly binary in, and disable auto-updating (and therefore don't require a WITH DOCKER)
     COPY +earthly/earthly /root/.earthly/earthly-prerelease
-    RUN EARTHLY_DISABLE_FRONTEND_DETECTION=true EARTHLY_DISABLE_AUTO_UPDATE=true ./earthly --version > earthly-version-output
+    RUN EARTHLY_DISABLE_FRONTEND_DETECTION=true EARTHLY_DISABLE_AUTO_UPDATE=true ./earth --version > earth-version-output
 
-    RUN test "$(cat earthly-version-output | wc -l)" = "1"
-    RUN grep '^earthly version.*$' earthly-version-output # only --version info should go to stdout
+    RUN test "$(cat earth-version-output | wc -l)" = "1"
+    RUN grep '^earth version.*$' earth-version-output # only --version info should go to stdout
 
-# lint runs basic go linters against the earthbuild project.
-lint:
+# golangci-lint-install installs golangci-lint at the pinned version onto a
+# +go base image. Shared by +lint-deps and +fmt-go so the version is defined
+# in exactly one place.
+golangci-lint-install:
     FROM +go
     RUN apk add --no-cache curl
     # renovate: datasource=github-releases packageName=golangci/golangci-lint
-    LET golangci_lint_version=2.13.1
+    LET golangci_lint_version=2.15.0
     RUN curl -sSfL --retry 7 --retry-all-errors -o /tmp/golangci-install.sh https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh && \
         sh /tmp/golangci-install.sh -b $(go env GOPATH)/bin v$golangci_lint_version && \
         rm /tmp/golangci-install.sh
+
+# lint-deps installs golangci-lint at the pinned version and copies the source
+# tree. Both +lint and +lint-fix build FROM this target.
+lint-deps:
+    FROM +golangci-lint-install
     COPY ./.golangci.yaml .
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
+
+# lint-fix runs golangci-lint --fix inside a container using the pinned version,
+# then saves the auto-corrected source tree back to the local working directory.
+# Intended for use in developer workflows: earth +lint-fix
+# +lint-deps only copies the curated subset of Go source that +code needs for
+# caching (see +code's COPY --dir list). Each path below is saved back
+# individually, mirroring that same list, rather than a wildcard
+# `SAVE ARTIFACT ./* AS LOCAL ./` -- a wildcard would mirror the whole
+# workdir and delete local files that were never copied into the image (e.g.
+# buildkitd's non-Go templates and scripts, since only a few of its .go files
+# are copied in).
+lint-fix:
+    FROM +lint-deps
+    FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
+        RUN \
+            --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
+            --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
+            --mount type=cache,target=/root/.cache/golangci_lint \
+            cd $mod_path && golangci-lint run --fix --config=/earth/.golangci.yaml
+    END
+    SAVE ARTIFACT autocomplete AS LOCAL autocomplete
+    SAVE ARTIFACT buildcontext AS LOCAL buildcontext
+    SAVE ARTIFACT builder AS LOCAL builder
+    SAVE ARTIFACT cleanup AS LOCAL cleanup
+    SAVE ARTIFACT cmd AS LOCAL cmd
+    SAVE ARTIFACT config AS LOCAL config
+    SAVE ARTIFACT conslogging AS LOCAL conslogging
+    SAVE ARTIFACT debugger AS LOCAL debugger
+    SAVE ARTIFACT docker2earth AS LOCAL docker2earth
+    SAVE ARTIFACT dockertar AS LOCAL dockertar
+    SAVE ARTIFACT domain AS LOCAL domain
+    SAVE ARTIFACT earthfile2llb AS LOCAL earthfile2llb
+    SAVE ARTIFACT features AS LOCAL features
+    SAVE ARTIFACT internal AS LOCAL internal
+    SAVE ARTIFACT logbus AS LOCAL logbus
+    SAVE ARTIFACT logstream AS LOCAL logstream
+    SAVE ARTIFACT regproxy AS LOCAL regproxy
+    SAVE ARTIFACT states AS LOCAL states
+    SAVE ARTIFACT slog AS LOCAL slog
+    SAVE ARTIFACT util AS LOCAL util
+    SAVE ARTIFACT variables AS LOCAL variables
+    SAVE ARTIFACT buildkitd/buildkitd.go AS LOCAL buildkitd/buildkitd.go
+    SAVE ARTIFACT buildkitd/settings.go AS LOCAL buildkitd/settings.go
+    SAVE ARTIFACT buildkitd/certificates.go AS LOCAL buildkitd/certificates.go
+    SAVE ARTIFACT inputgraph/*.go AS LOCAL inputgraph/
+
+# lint runs basic go linters against the earthbuild project.
+lint:
+    FROM +lint-deps
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
         ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
         RUN \
             --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
             --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
             --mount type=cache,target=/root/.cache/golangci_lint \
-            echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earthly/.golangci.yaml
+            echo "🧹 lint go module \"$mod_name\"" && cd $mod_path && golangci-lint run --config=/earth/.golangci.yaml
     END
 
 fmt:
   BUILD +fmt-go
 
-# format-go formats Go code using gofumpt. Run: earthly +fmt-go
+# fmt-go formats Go source files using golangci-lint's configured formatters
+# (see .golangci.yaml's formatters.enable). Runs in a container so no
+# formatter binaries need to be installed locally.
+# Unlike +lint-deps, this copies the whole repo rather than +code's curated
+# subset, since staged files can come from any module (tests/, examples/),
+# not just the one +code targets. Pass --files to format specific files
+# instead of the whole repo, e.g. for use from a pre-commit hook:
+# earth +fmt-go --files="$(printf '%s\n' a.go 'b c.go')"
+# --files is a newline-separated list, so filenames containing spaces keep
+# their boundaries (filenames containing newlines are not supported).
+# Only the Go files whose contents were actually changed by the formatter are
+# exported back to the checkout, one at a time. Never export a directory (such
+# as `.`) with SAVE ARTIFACT ... AS LOCAL: that replaces the local destination
+# instead of merging it, which would delete paths excluded by .earthignore
+# (.git, build, earthfile2llb/parser/*.go) from the checkout.
 fmt-go:
-    LOCALLY
-    RUN gofumpt -w .
+    FROM +golangci-lint-install
+    COPY . .
+    ARG files="."
+    RUN find . -type f -name '*.go' -exec sha256sum {} + | sort > /tmp/fmt-before.sha
+    RUN printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 golangci-lint fmt --config=.golangci.yaml --
+    RUN find . -type f -name '*.go' -exec sha256sum {} + | sort > /tmp/fmt-after.sha && \
+        comm -13 /tmp/fmt-before.sha /tmp/fmt-after.sha | sed 's/^[0-9a-f]*  //' > /tmp/fmt-changed
+    # FOR splits on whitespace by default, so iterate over line numbers and
+    # look each path up by line, which keeps paths containing spaces intact.
+    LET f=""
+    FOR n IN $(seq 1 $(wc -l < /tmp/fmt-changed))
+        SET f="$(sed -n "${n}p" /tmp/fmt-changed)"
+        SAVE ARTIFACT $f AS LOCAL $f
+    END
 
 # govulncheck runs govulncheck against the earthbuild project.
 govulncheck:
     FROM +go
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.7.0
+    ENV govulncheck_version=1.9.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
         ENV mod_name="$(cd $mod_path && go list -m -f '{{.Path}}')"
         RUN \
@@ -186,7 +268,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.17.1
+    ARG vale_version=3.24.0
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything
@@ -208,7 +290,7 @@ unit-test-parser:
 # unit-test runs unit tests
 unit-test:
     FROM +go
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     COPY +unit-test-parser/testparser .
 
     ARG testname # when specified, only run specific unit-test, otherwise run all.
@@ -225,11 +307,21 @@ unit-test:
         if [ -n "$testname" ]; then testarg="-run $testname"; fi; \
         go test -timeout 5m -json $testarg $pkgname | ./testparser
 
+# unit-test-scripts runs unit tests for the shell scripts baked into the images.
+unit-test-scripts:
+    FROM alpine:3.24.2
+    WORKDIR /shell_scripts
+    COPY ./buildkitd/earth-env.sh ./buildkitd/earth-env-test.sh ./
+    RUN sh ./earth-env-test.sh
+
 # fuzz-test runs fuzz tests
 fuzz-test:
     FROM +go
-    COPY --dir +code/earthly /
-    RUN --push \
+    COPY --dir +code/earth /
+    # --no-cache so every invocation actually fuzzes, rather than replaying a
+    # cached result for unchanged inputs. Do not use RUN --push here: it is
+    # skipped entirely unless the build is invoked with --push (see #729).
+    RUN --no-cache \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         go test -run=^$ -fuzz=. -fuzztime=10s ./internal/earthfile
@@ -238,7 +330,7 @@ fuzz-test:
 integration-test:
     FROM +go
     RUN apk add --no-cache podman fuse-overlayfs crun
-    COPY --dir +code/earthly /
+    COPY --dir +code/earth /
     COPY +unit-test-parser/testparser .
     COPY run-integration-tests.sh .
 
@@ -287,7 +379,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.7-slim@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4
+    FROM python:3.15.0-slim@sha256:f48fda6d59b2b3437781d1c3ccf4aa0e26ae871de3cdd758b49ab45ee7291619
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser
@@ -303,12 +395,12 @@ debugger:
     ARG GO_EXTRA_LDFLAGS=""
     ARG EARTHLY_TARGET_TAG
     ARG VERSION=$EARTHLY_TARGET_TAG
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
         go build \
-            -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTHLY_GIT_HASH $GO_EXTRA_LDFLAGS" \
+            -ldflags "-X main.Version=$VERSION -X main.GitSha=$EARTH_GIT_HASH $GO_EXTRA_LDFLAGS" \
             -tags netgo -installsuffix netgo \
             -o build/earth_debugger \
             cmd/debugger/*.go
@@ -332,10 +424,10 @@ earthly:
     #     --GO_GCFLAGS='all=-N -l'
     ARG GO_GCFLAGS
     ARG EXECUTABLE_NAME="earthly"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
     # TODO: this works for CI but the final value should probably come from dockerhub
     ARG DEFAULT_BUILDKITD_IMAGE=$IMAGE_REGISTRY:buildkitd-$VERSION # The image needs to be fully qualified for alternative frontend support.
     ARG BUILD_TAGS=dfrunmount dfrunsecurity dfsecrets dfssh dfrunnetwork dfheredoc forceposix
@@ -343,13 +435,10 @@ earthly:
     RUN printf "$BUILD_TAGS" > ./build/tags && echo "$(cat ./build/tags)"
     RUN printf '-X main.DefaultBuildkitdImage='"$DEFAULT_BUILDKITD_IMAGE" > ./build/ldflags && \
         printf ' -X main.Version='"$VERSION" >> ./build/ldflags && \
-        printf ' -X main.GitSha='"$EARTHLY_GIT_HASH" >> ./build/ldflags && \
+        printf ' -X main.GitSha='"$EARTH_GIT_HASH" >> ./build/ldflags && \
         printf ' -X main.DefaultInstallationName='"$DEFAULT_INSTALLATION_NAME" >> ./build/ldflags && \
         printf ' '"$GO_EXTRA_LDFLAGS" >> ./build/ldflags && \
         echo "$(cat ./build/ldflags)"
-    # Important! If you change the go build options, you may need to also change them
-    # in https://github.com/earthly/homebrew-earthly/blob/main/Formula/earthly.rb
-    # as well as https://github.com/Homebrew/homebrew-core/blob/master/Formula/earthly.rb
     RUN \
         --mount type=cache,target=/go/pkg/mod,sharing=shared,id=go-mod \
         --mount type=cache,target=/root/.cache/go-build,sharing=shared,id=go-build \
@@ -366,7 +455,7 @@ earthly:
 
 # earthly-linux-amd64 builds the earthly artifact  for linux amd64
 earthly-linux-amd64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # Release metadata baked into the binary via ldflags in +earthly. These are
@@ -382,7 +471,7 @@ earthly-linux-amd64:
     # buildkitd-dev-<tag> image the local +for-* targets actually build.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=linux \
@@ -396,13 +485,13 @@ earthly-linux-amd64:
 
 # earthly-linux-arm64 builds the earthly artifact  for linux arm64
 earthly-linux-arm64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=linux \
@@ -416,13 +505,13 @@ earthly-linux-arm64:
 
 # earthly-darwin-amd64 builds the earthly artifact  for darwin amd64
 earthly-darwin-amd64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=darwin \
@@ -436,13 +525,13 @@ earthly-darwin-amd64:
 
 # earthly-darwin-arm64 builds the earthly artifact for darwin arm64
 earthly-darwin-arm64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=darwin \
@@ -456,13 +545,13 @@ earthly-darwin-arm64:
 
 # earthly-windows-arm64 builds the earthly artifact  for windows arm64
 earthly-windows-amd64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # See earthly-linux-amd64 for why these are declared and forwarded explicitly.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly/* \
         --GOOS=windows \
@@ -481,14 +570,14 @@ earthly-windows-amd64:
 # Darwin amd64 and arm64
 # Windows amd64
 all-binaries:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     # Release metadata, forwarded to every per-platform target so that callers
     # such as release+signed-release can set it once here and have it baked into
     # all binaries. See earthly-linux-amd64 for details.
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG VERSION="dev-$EARTHLY_TARGET_TAG_DOCKER"
-    ARG DEFAULT_INSTALLATION_NAME="earthly-dev"
+    ARG DEFAULT_INSTALLATION_NAME="earth-dev"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$VERSION"
     COPY (+earthly-linux-amd64/earthly \
         --VERSION="${VERSION}" \
@@ -527,25 +616,48 @@ earthly-docker:
     # with the released binaries (+all-binaries).
     ARG VERSION="$TAG"
     ARG DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-$TAG"
+    # DEFAULT_INSTALLATION_NAME must match what the release binaries bake in
+    # (release+signed-release passes "earth"), otherwise the CLI inside the
+    # published image disagrees with the released binaries about its own name,
+    # its config dir, its buildkitd container and its cache volume.
+    #
+    # Unlike the +earthly-* binary targets this does not default to
+    # "earth-dev": that default exists to keep a dev binary's config dir and
+    # buildkitd container off a developer's real ones, which is moot inside a
+    # container, so the image build uses the release name instead.
+    ARG DEFAULT_INSTALLATION_NAME="earth"
     # RELEASE_VERSION keeps the embedded buildkitd's reported version in sync
     # with the CLI version, and makes this the same buildkitd build as
     # release+perform-release-buildkitd-dockerhub pushes.
     FROM ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --TAG="$TAG" --RELEASE_VERSION="$VERSION"
     RUN apk add --no-cache docker-cli libcap-ng-utils git
-    ENV EARTHLY_IMAGE=true
     # When Earthbuild is run from a container, the registry proxy networking setup
     # will fail as the registry is meant to be run on a dynamic localhost port
     # (which won't be exposed by the container). Let's fall back to tar-based
     # image transfer until this can be addressed further.
-    ENV EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY=true
-    COPY earthly-entrypoint.sh /usr/bin/earthly-entrypoint.sh
-    ENTRYPOINT ["/usr/bin/earthly-entrypoint.sh"]
+    ENV EARTH_DISABLE_REMOTE_REGISTRY_PROXY=true
+    # Tells earth-entrypoint.sh which installation name the CLI was built with,
+    # so it can find the certificates generated under ~/.<name>/certs, and the
+    # config under /etc/.<name>.
+    #
+    # Deliberately not EARTH_INSTALLATION_NAME: that is the CLI's own variable,
+    # and setting it here would take precedence over a caller's
+    # EARTHLY_INSTALLATION_NAME, silently ignoring the deprecated spelling.
+    ENV EARTH_IMAGE_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME"
+    COPY earth-entrypoint.sh /usr/bin/earth-entrypoint.sh
+    # earthly-entrypoint.sh remains a symlink for one deprecation cycle: it is
+    # the documented entrypoint in the CI integration guides.
+    RUN ln -s earth-entrypoint.sh /usr/bin/earthly-entrypoint.sh
+    ENTRYPOINT ["/usr/bin/earth-entrypoint.sh"]
     WORKDIR /workspace
     COPY (+earthly/earthly \
         --VERSION="$VERSION" \
         --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
-        --DEFAULT_INSTALLATION_NAME="earthly" \
-        ) /usr/bin/earthly
+        --DEFAULT_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME" \
+        ) /usr/bin/earth
+    # earthly remains a symlink for one deprecation cycle; the CLI warns when
+    # invoked under that name (see warnRenamedFromEarthly).
+    RUN ln -s earth /usr/bin/earthly
 
     # TODO update cache-from to use earthbuild/earthbuild:main
     # Multiple SAVE IMAGE's lead to differing image digests, but multiple
@@ -568,7 +680,7 @@ earthbuild-integration-test-base:
     COPY scripts/acbtest/acbtest scripts/acbtest/acbgrep /bin/
     ENV NO_DOCKER=1
     ENV NETWORK_MODE=host # Note that this breaks access to embedded registry in WITH DOCKER.
-    ENV EARTHLY_VERSION_FLAG_OVERRIDES=no-use-registry-for-with-docker # Use tar-based due to above.
+    ENV EARTH_VERSION_FLAG_OVERRIDES=no-use-registry-for-with-docker # Use tar-based due to above.
     WORKDIR /test
 
     # The inner buildkit requires Docker hub creds to prevent rate-limiting issues.
@@ -591,16 +703,17 @@ earthbuild-integration-test-base:
     END
     RUN rm ./setup-registry.sh
 
-    # pull out buildkit_additional_config from the earthly config, for the special case of earthly-in-earthly testing
-    # which runs earthly-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTHLY_VERSION_FLAG_OVERRIDES to be set
+    # pull out buildkit_additional_config from the earth config, for the special case of earth-in-earth testing
+    # which runs earth-entrypoint.sh, which calls buildkitd/entrypoint, which requires EARTH_VERSION_FLAG_OVERRIDES to be set
     # NOTE: yq will print out `null` if the key does not exist, this will cause a literal null to be inserted into /etc/buildkit.toml, which will
     # cause buildkit to crash -- this is why we first assign it to a tmp variable, followed by an if.
-    ENV EARTHLY_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat /etc/.earthly/config.yml | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
+    # The path follows the installation name the image was built with, matching where setup-registry.sh wrote it.
+    ENV EARTH_ADDITIONAL_BUILDKIT_CONFIG="$(export tmp=$(cat "/etc/.${EARTH_IMAGE_INSTALLATION_NAME:-earth}/config.yml" | yq .global.buildkit_additional_config); if [ "$tmp" != "null" ]; then echo "$tmp"; fi)"
 
 # prerelease builds and pushes the prerelease version of earthly.
 # Tagged as prerelease
 prerelease:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     ARG BUILDKIT_PROJECT
     BUILD \
         --platform=linux/amd64 \
@@ -609,78 +722,66 @@ prerelease:
     COPY (+all-binaries/* --VERSION=prerelease --DEFAULT_INSTALLATION_NAME=earthly) /
     SAVE IMAGE --push $IMAGE_REGISTRY:earthlybinaries-prerelease
 
-# prerelease-script copies the earthly folder and saves it as an artifact
+# prerelease-script copies the earth script and saves it as an artifact
 prerelease-script:
-    FROM alpine:3.24.1
-    COPY ./earthly ./
+    FROM alpine:3.24.2
+    COPY ./earth ./
     # This script is useful in other repos too.
-    SAVE ARTIFACT ./earthly
+    SAVE ARTIFACT ./earth
 
 # ci-release builds earthly for linux/amd64 in a container and pushes wtth the tag
-# EARTHLY_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
+# EARTH_GIT_HASH-TAG_SUFFIX Where TAG_SUFFIX must be provided
 ci-release:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     # TODO: this was multiplatform, but that skyrocketed our build times. #2979
     # may help.
     ARG BUILDKIT_PROJECT
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
     ARG --required TAG_SUFFIX
     BUILD \
         --platform=linux/amd64 \
-        ./buildkitd+buildkitd --TAG=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
-    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTHLY_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earthly) /earthly-linux-amd64
+        ./buildkitd+buildkitd --TAG=${EARTH_GIT_HASH}-${TAG_SUFFIX} --BUILDKIT_PROJECT="$BUILDKIT_PROJECT" --DOCKERHUB_BUILDKIT_IMG="buildkitd-staging"
+    # +ci-release is the binary the integration suites actually run (stage2-setup
+    # extracts it via `earthly upgrade`), so its installation name determines the
+    # buildkitd container those suites address. It must match the pin in ci.yml
+    # and build-earthly.yml -- see the comment there.
+    COPY (+earthly/earthly --DEFAULT_BUILDKITD_IMAGE="$IMAGE_REGISTRY:buildkitd-staging-${EARTH_GIT_HASH}-${TAG_SUFFIX}" --VERSION=${EARTH_GIT_HASH}-${TAG_SUFFIX} --DEFAULT_INSTALLATION_NAME=earth) /earthly-linux-amd64
 
     # TODO after bootstrap, we should use our own buildkitd image as the cache-from image
-    SAVE IMAGE --cache-from=docker.io/earthbuild/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTHLY_GIT_HASH}-${TAG_SUFFIX}
+    SAVE IMAGE --cache-from=docker.io/earthbuild/buildkitd:main --push $IMAGE_REGISTRY:earthlybinaries-${EARTH_GIT_HASH}-${TAG_SUFFIX}
 
 # for-own builds earthly-buildkitd and the earthly CLI for the current system
 # and saves the final CLI binary locally at ./build/own/earthly
 for-own:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     # GO_GCFLAGS may be used to set the -gcflags parameter to 'go build'. See
     # the documentation on +earthly for extra detail about this option.
     ARG GO_GCFLAGS
     BUILD ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD +build-ticktock
     COPY (+earthly/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/own/earthly
-
-# build-ticktock is used for building the ticktock version of buildkit
-# it is only used when BUILDKIT_PROJECT is not overridden
-build-ticktock:
-    FROM alpine:3.24.1
-    ARG BUILDKIT_PROJECT
-    IF [ -z "$BUILDKIT_PROJECT" ]
-        COPY earthly-next .
-        LET ticktock="$(cat earthly-next)"
-        ARG EARTHLY_TARGET_TAG_DOCKER
-        LET BUILDKIT_TAG="dev-$EARTHLY_TARGET_TAG_DOCKER-ticktock"
-        BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="github.com/EarthBuild/buildkit:$ticktock" --TAG=$BUILDKIT_TAG
-    END
 
 # for-linux builds earthly-buildkitd and the earthly CLI for the a linux amd64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/amd64 +build-ticktock
     COPY (+earthly-linux-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/amd64/earthly
 
 # for-linux-arm64 builds earthly-buildkitd and the earthly CLI for the a linux arm64 system
 # and saves the final CLI binary locally in the ./build/linux folder.
 for-linux-arm64:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/arm64 +build-ticktock
     COPY (+earthly-linux-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/linux/arm64/earthly
 
@@ -688,31 +789,29 @@ for-linux-arm64:
 # and saves the final CLI binary locally in the ./build/darwin folder.
 # For arm64 use +for-darwin-m1
 for-darwin:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/amd64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/amd64 +build-ticktock
     COPY (+earthly-darwin-amd64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/amd64/earthly
 
 # for-darwin-m1 builds earthly-buildkitd and the earthly CLI for the a darwin m1 system
 # and saves the final CLI binary locally.
 for-darwin-m1:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG BUILDKIT_PROJECT
     ARG GO_GCFLAGS
     BUILD --platform=linux/arm64 ./buildkitd+buildkitd --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
-    BUILD --platform=linux/arm64 +build-ticktock
     COPY (+earthly-darwin-arm64/earthly --GO_GCFLAGS="${GO_GCFLAGS}") ./
     SAVE ARTIFACT ./earthly AS LOCAL ./build/darwin/arm64/earthly
 
 # for-windows builds earthly-buildkitd and the earthly CLI for the a windows system
 # and saves the final CLI binary locally in the ./build/windows folder.
 for-windows:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     ARG GO_GCFLAGS
     # BUILD --platform=linux/amd64 ./buildkitd+buildkitd
@@ -763,7 +862,7 @@ test-no-qemu:
     BUILD --pass-args +test-no-qemu-group12
     BUILD --pass-args +test-no-qemu-slow
 
-# test-misc runs misc (non earthly-in-earthly) tests
+# test-misc runs misc (non earth-in-earth) tests
 test-misc:
     BUILD +test-ast
     BUILD +earthbuild-script-no-stdout
@@ -862,6 +961,7 @@ smoke-test:
 # test runs examples, no-qemu, qemu, and experimental tests
 test-all:
     BUILD +unit-test
+    BUILD +unit-test-scripts
     BUILD +integration-test
     BUILD +fuzz-test
     BUILD +examples
@@ -877,7 +977,7 @@ examples:
     BUILD +examples-5
 
 examples-1:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     ARG TARGETARCH
     BUILD ./examples/c+docker
     BUILD ./examples/cpp+docker
@@ -930,7 +1030,7 @@ examples-5:
 
 # license copies the license file and saves it as an artifact
 license:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /earth
     COPY LICENSE ./
     SAVE ARTIFACT LICENSE
@@ -959,7 +1059,7 @@ npm-update-all:
 
 # merge-main-to-docs merges the main branch into docs-0.8
 merge-main-to-docs:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     RUN apk add --no-cache github-cli ca-certificates
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \
@@ -1027,7 +1127,7 @@ check-broken-links:
 
 # open-pr-for-fork creates a new PR based on the given pr_number
 open-pr-for-fork:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     RUN apk add --no-cache github-cli ca-certificates curl
     RUN git config --global user.name "littleredcorvette" && \
         git config --global user.email "littleredcorvette@users.noreply.github.com" && \
@@ -1062,7 +1162,7 @@ open-pr-for-fork:
     END
 
 check-broken-links-pr:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
     WORKDIR /tmp
     RUN apk add --no-cache ca-certificates git github-cli
     ARG BRANCH

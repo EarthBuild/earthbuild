@@ -1,0 +1,647 @@
+package engine
+
+import (
+	"cmp"
+	"context"
+	"encoding/json/v2"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"runtime"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+
+	"al.essio.dev/pkg/shellescape"
+)
+
+type appleContainerInspect struct {
+	ID            string `json:"id"`
+	Configuration struct {
+		Labels map[string]string `json:"labels"`
+		Image  struct {
+			Descriptor struct {
+				Digest string `json:"digest"`
+			} `json:"descriptor"`
+			Reference string `json:"reference"`
+		} `json:"image"`
+		Platform struct {
+			OS           string `json:"os"`
+			Architecture string `json:"architecture"`
+		} `json:"platform"`
+		CreationDate string `json:"creationDate"`
+	} `json:"configuration"`
+	Status struct {
+		State    string `json:"state"`
+		Networks []struct {
+			Network     string `json:"network"`
+			IPv4Address string `json:"ipv4Address"`
+			IPv6Address string `json:"ipv6Address"`
+		} `json:"networks"`
+	} `json:"status"`
+}
+
+type appleImageVariant struct {
+	Platform struct {
+		OS           string `json:"os"`
+		Architecture string `json:"architecture"`
+	} `json:"platform"`
+}
+
+type appleImageInspect struct {
+	Configuration struct {
+		Name       string `json:"name"`
+		Descriptor struct {
+			Digest string `json:"digest"`
+		} `json:"descriptor"`
+	} `json:"configuration"`
+	ID       string              `json:"id"`
+	Variants []appleImageVariant `json:"variants"`
+}
+
+type appleVolumeInspect struct {
+	ID            string `json:"id"`
+	Configuration struct {
+		Name        string `json:"name"`
+		Source      string `json:"source"`
+		SizeInBytes uint64 `json:"sizeInBytes"`
+	} `json:"configuration"`
+}
+
+func unmarshalSingleOrSlice[T any](data string) ([]T, error) {
+	trimmed := strings.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return nil, nil
+	}
+
+	if strings.HasPrefix(trimmed, "[") {
+		var slice []T
+
+		err := json.Unmarshal([]byte(trimmed), &slice)
+		if err != nil {
+			return nil, err
+		}
+
+		return slice, nil
+	}
+
+	var single T
+
+	err := json.Unmarshal([]byte(trimmed), &single)
+	if err != nil {
+		return nil, err
+	}
+
+	return []T{single}, nil
+}
+
+// isAppleResourceNotFound reports whether the command failure was due to the requested
+// resource not being found by the Apple container CLI.
+//
+// Examples of stderr output from the CLI include:
+//   - "Error: container not found: <name>"
+//   - "Error: image not found: <reference>"
+//   - "Error: volume not found: <name>"
+func isAppleResourceNotFound(output *commandContextOutput, err error, resourceType string) bool {
+	needle := resourceType + " not found:"
+	if output != nil && strings.Contains(output.Stderr.String(), needle) {
+		return true
+	}
+
+	if err != nil && strings.Contains(err.Error(), needle) {
+		return true
+	}
+
+	return false
+}
+
+// appleEngine implements engineDriver for the Apple container CLI.
+type appleEngine struct {
+	*shellEngine
+}
+
+func newAppleEngine(ctx context.Context, cfg *Config) (*appleEngine, error) {
+	e := &appleEngine{
+		shellEngine: &shellEngine{
+			BinaryName: "container",
+			Log:        cfg.Log,
+		},
+	}
+
+	output, err := e.CommandOutput(ctx, "system", "status", "--format", "json")
+	if err != nil {
+		return nil, err
+	}
+
+	trimmedStdOut := strings.TrimSpace(output.Stdout.String())
+	if trimmedStdOut == "" {
+		return nil, errors.New("empty output from system status")
+	}
+
+	e.Addrs, err = resolveAddrs(e, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("calculate buildkit URLs: %w", err)
+	}
+
+	return e, nil
+}
+
+// Metadata returns engine metadata.
+func (e *appleEngine) Metadata() Metadata {
+	return Metadata{
+		Name:   "Apple Container",
+		Scheme: SchemeApple,
+		Addrs:  e.Addrs,
+	}
+}
+
+// IsAvailable reports whether the Apple container CLI is functional.
+func (e *appleEngine) IsAvailable(ctx context.Context) bool {
+	return e.Command(ctx, "list").Run() == nil
+}
+
+// Version returns version and platform information.
+func (e *appleEngine) Version(ctx context.Context) (Version, error) {
+	output, err := e.CommandOutput(ctx, "--version")
+	if err != nil {
+		return Version{}, err
+	}
+
+	ver := strings.TrimSpace(output.Stdout.String())
+	platform := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+
+	return Version{
+		ClientVersion:    ver,
+		ClientAPIVersion: "N/A",
+		ClientPlatform:   platform,
+		ServerVersion:    ver,
+		ServerAPIVersion: "N/A",
+		ServerPlatform:   platform,
+		ServerAddress:    "local",
+	}, nil
+}
+
+// ListContainers returns a list of all containers.
+func (e *appleEngine) ListContainers(ctx context.Context) ([]Container, error) {
+	output, err := e.CommandOutput(ctx, "list", "--format", "json", "--all")
+	if err != nil {
+		return nil, err
+	}
+
+	stdout := strings.TrimSpace(output.Stdout.String())
+
+	inspects, err := unmarshalSingleOrSlice[appleContainerInspect](stdout)
+	if err != nil {
+		return nil, fmt.Errorf("decode apple container list output (%s): %w", stdout, err)
+	}
+
+	ret := make([]Container, len(inspects))
+	for i, v := range inspects {
+		ret[i] = convertAppleContainer(v)
+	}
+
+	return ret, nil
+}
+
+// InspectContainers returns information for the given container names or IDs.
+func (e *appleEngine) InspectContainers(
+	ctx context.Context, namesOrIDs ...string,
+) ([]Container, error) {
+	if len(namesOrIDs) == 0 {
+		return nil, nil
+	}
+
+	args := append([]string{"inspect"}, namesOrIDs...) //nolint:goconst
+
+	output, err := e.CommandOutput(ctx, args...)
+	if err != nil {
+		if !isAppleResourceNotFound(output, err, "container") {
+			return nil, err
+		}
+
+		if len(namesOrIDs) == 1 {
+			return nil, nil
+		}
+
+		// The CLI fails the whole batch when any single name is missing,
+		// so inspect each name individually to keep the container ones.
+		var containers, container []Container
+
+		for _, nameOrID := range namesOrIDs {
+			container, err = e.InspectContainers(ctx, nameOrID)
+			if err != nil {
+				return nil, err
+			}
+
+			containers = append(containers, container...)
+		}
+
+		return containers, nil
+	}
+
+	stdout := strings.TrimSpace(output.Stdout.String())
+	if stdout == "" || stdout == "[]" {
+		return nil, nil
+	}
+
+	inspects, err := unmarshalSingleOrSlice[appleContainerInspect](stdout)
+	if err != nil {
+		return nil, fmt.Errorf("decode apple container inspect output (%s): %w", stdout, err)
+	}
+
+	containers := make([]Container, len(inspects))
+	for i, v := range inspects {
+		containers[i] = convertAppleContainer(v)
+	}
+
+	return containers, nil
+}
+
+func convertAppleContainer(v appleContainerInspect) Container {
+	ipAddresses := make(map[string]string, len(v.Status.Networks))
+
+	for _, net := range v.Status.Networks {
+		var addr string
+
+		switch {
+		case net.IPv4Address != "":
+			addr = net.IPv4Address
+		case net.IPv6Address != "":
+			addr = net.IPv6Address
+		}
+
+		if addr != "" {
+			ip, _, _ := strings.Cut(addr, "/")
+			ipAddresses[net.Network] = ip
+		}
+	}
+
+	imageID := strings.TrimPrefix(v.Configuration.Image.Descriptor.Digest, "sha256:")
+	created, _ := time.Parse(time.RFC3339Nano, v.Configuration.CreationDate)
+
+	status := normalizeContainerStatus(v.Status.State)
+
+	return Container{
+		ID:       v.ID,
+		Name:     v.ID,
+		Created:  created,
+		Status:   status,
+		Image:    v.Configuration.Image.Reference,
+		ImageID:  imageID,
+		Platform: v.Configuration.Platform.Architecture,
+		IPs:      ipAddresses,
+		Labels:   v.Configuration.Labels,
+	}
+}
+
+// RemoveContainer deletes the specified containers.
+func (e *appleEngine) RemoveContainer(ctx context.Context, force bool, namesOrIDs ...string) error {
+	args := []string{"delete"}
+	if force {
+		args = append(args, "-f")
+	}
+
+	args = append(args, namesOrIDs...)
+	_, err := e.CommandOutput(ctx, args...)
+
+	return err
+}
+
+// RunContainer creates and starts the specified containers.
+func (e *appleEngine) RunContainer(ctx context.Context, specs ...ContainerSpec) error {
+	var err error
+
+	for _, spec := range specs {
+		args := make([]string, 0, 32)
+		args = append(args, "run", "--rosetta")
+
+		if spec.Privileged {
+			args = append(args, "--cap-add", "ALL", "--read-only-path", "NONE", "--masked-path", "NONE")
+		}
+
+		var hasCPUs, hasMemory bool
+
+		for _, arg := range spec.AdditionalArgs {
+			switch {
+			case arg == "-c", arg == "--cpus", strings.HasPrefix(arg, "--cpus="):
+				hasCPUs = true
+			case arg == "-m", arg == "--memory", strings.HasPrefix(arg, "--memory="):
+				hasMemory = true
+			}
+		}
+
+		if !hasCPUs {
+			args = append(args, "-c", strconv.Itoa(runtime.NumCPU()))
+		}
+
+		if !hasMemory {
+			args = append(args, "-m", defaultContainerMemory())
+		}
+
+		for k, v := range spec.Envs {
+			env := fmt.Sprintf("%s=%s", k, v)
+			args = append(args, "--env", env)
+		}
+
+		for k, v := range spec.Labels {
+			label := fmt.Sprintf("%s=%s", k, v)
+			args = append(args, "--label", label)
+		}
+
+		args = append(args, buildAppleMountArgs(spec.Mounts)...)
+
+		args = append(args, "-d")
+		args = append(args, "--name", spec.NameOrID)
+		args = append(args, spec.AdditionalArgs...)
+		args = append(args, e.RunArgs...)
+
+		for _, portMapping := range spec.PortMappings {
+			args = append(args, "-p", portMapping.String())
+		}
+
+		args = append(args, spec.ImageRef)
+		args = append(args, spec.ContainerArgs...)
+
+		_, cmdErr := e.CommandOutput(ctx, args...)
+		if cmdErr != nil {
+			err = errors.Join(err, fmt.Errorf("run container %s: %w", spec.NameOrID, cmdErr))
+		}
+	}
+
+	return err
+}
+
+// InspectImages returns metadata for the given image references.
+func (e *appleEngine) InspectImages(ctx context.Context, refs ...string) ([]Image, error) {
+	if len(refs) == 0 {
+		return nil, nil
+	}
+
+	args := append([]string{"image", "inspect"}, refs...) //nolint:goconst
+
+	output, err := e.CommandOutput(ctx, args...)
+	if err != nil {
+		if !isAppleResourceNotFound(output, err, "image") {
+			return nil, err
+		}
+
+		if len(refs) == 1 {
+			return nil, nil
+		}
+
+		// The CLI fails the whole batch when any single reference is missing,
+		// so inspect each reference individually to keep the image ones.
+		var images, image []Image
+
+		for _, ref := range refs {
+			image, err = e.InspectImages(ctx, ref)
+			if err != nil {
+				return nil, err
+			}
+
+			images = append(images, image...)
+		}
+
+		return images, nil
+	}
+
+	stdout := strings.TrimSpace(output.Stdout.String())
+	if stdout == "" || stdout == "[]" {
+		return nil, nil
+	}
+
+	inspects, err := unmarshalSingleOrSlice[appleImageInspect](stdout)
+	if err != nil {
+		return nil, fmt.Errorf("decode apple image inspect output (%s): %w", stdout, err)
+	}
+
+	images := make([]Image, len(inspects))
+	for i, v := range inspects {
+		images[i] = convertAppleImage(v)
+	}
+
+	return images, nil
+}
+
+func convertAppleImage(v appleImageInspect) Image {
+	info := Image{
+		ID:   v.ID,
+		Tags: []string{v.Configuration.Name},
+	}
+
+	i := slices.IndexFunc(v.Variants, func(variant appleImageVariant) bool {
+		return variant.Platform.Architecture == runtime.GOARCH
+	})
+	if i >= 0 {
+		info.OS = v.Variants[i].Platform.OS
+		info.Architecture = v.Variants[i].Platform.Architecture
+	}
+
+	return info
+}
+
+// PullImage downloads the specified container images.
+func (e *appleEngine) PullImage(ctx context.Context, refs ...string) error {
+	var err error
+
+	for _, ref := range refs {
+		args := []string{"image", "pull"}
+
+		if e.Addrs.IsLocalRegistry(ref) {
+			args = append(args, "--scheme", "http")
+		}
+
+		args = append(args, ref)
+
+		_, cmdErr := e.CommandOutput(ctx, args...)
+		if cmdErr != nil {
+			err = errors.Join(err, fmt.Errorf("pull image %s: %w", ref, cmdErr))
+		}
+	}
+
+	return err
+}
+
+// TagImage applies tags to existing images.
+func (e *appleEngine) TagImage(ctx context.Context, source, target string) error {
+	_, err := e.CommandOutput(ctx, "image", "tag", source, target)
+	if err != nil {
+		return fmt.Errorf("tag image %s -> %s: %w", source, target, err)
+	}
+
+	return nil
+}
+
+// RemoveImage removes images via the CLI.
+func (e *appleEngine) RemoveImage(ctx context.Context, force bool, refs ...string) error {
+	args := []string{"image", "rm"}
+	if force {
+		args = append(args, "--force")
+	}
+
+	args = append(args, refs...)
+	_, err := e.CommandOutput(ctx, args...)
+
+	return err
+}
+
+// ImageLoadCommand returns the shell command to load an image from a file.
+func (e *appleEngine) ImageLoadCommand(filename string) string {
+	return strings.Join(e.CommandArgs("image", "load", "--input", shellescape.Quote(filename)), " ")
+}
+
+// LoadImage reads image tarballs and loads them into the container store.
+func (e *appleEngine) LoadImage(ctx context.Context, images ...io.Reader) error {
+	var err error
+
+	for _, image := range images {
+		loadErr := func() error {
+			file, tmpErr := os.CreateTemp("", "earth-apple-load-*")
+			if tmpErr != nil {
+				return fmt.Errorf("create temp tarball: %w", tmpErr)
+			}
+			defer os.Remove(file.Name())
+
+			_, copyErr := io.Copy(file, image)
+			if copyErr != nil {
+				_ = file.Close()
+				return fmt.Errorf("write to %s: %w", file.Name(), copyErr)
+			}
+
+			closeErr := file.Close()
+			if closeErr != nil {
+				return fmt.Errorf("close %s: %w", file.Name(), closeErr)
+			}
+
+			output, cmdErr := e.CommandOutput(ctx, "image", "load", "--input", file.Name())
+			if cmdErr != nil {
+				return fmt.Errorf("load image (%s): %w", output.String(), cmdErr)
+			}
+
+			return nil
+		}()
+		if loadErr != nil {
+			err = errors.Join(err, fmt.Errorf("load image: %w", loadErr))
+		}
+	}
+
+	return err
+}
+
+// InspectVolumes returns details for the specified volume names.
+func (e *appleEngine) InspectVolumes(ctx context.Context, volumeNames ...string) ([]Volume, error) {
+	if len(volumeNames) == 0 {
+		return nil, nil
+	}
+
+	args := append([]string{volumeCmd, "inspect"}, volumeNames...)
+
+	output, err := e.CommandOutput(ctx, args...)
+	if err != nil {
+		if !isAppleResourceNotFound(output, err, volumeCmd) {
+			return nil, err
+		}
+
+		if len(volumeNames) == 1 {
+			return nil, nil
+		}
+
+		// The CLI fails the whole batch when any single volume is missing,
+		// so inspect each volume individually to keep the volume ones.
+		var volumes, volume []Volume
+
+		for _, name := range volumeNames {
+			volume, err = e.InspectVolumes(ctx, name)
+			if err != nil {
+				return nil, err
+			}
+
+			volumes = append(volumes, volume...)
+		}
+
+		return volumes, nil
+	}
+
+	stdout := strings.TrimSpace(output.Stdout.String())
+	if stdout == "" || stdout == "[]" {
+		return nil, nil
+	}
+
+	inspects, err := unmarshalSingleOrSlice[appleVolumeInspect](stdout)
+	if err != nil {
+		return nil, fmt.Errorf("decode apple volume inspect output for %v: %w", volumeNames, err)
+	}
+
+	volumes := make([]Volume, 0, len(inspects))
+	for _, vol := range inspects {
+		volumes = append(volumes, Volume{
+			Name:       cmp.Or(vol.Configuration.Name, vol.ID),
+			SizeBytes:  vol.Configuration.SizeInBytes,
+			Mountpoint: vol.Configuration.Source,
+		})
+	}
+
+	return volumes, nil
+}
+
+// RemoveVolumes removes volumes via the CLI.
+func (e *appleEngine) RemoveVolumes(ctx context.Context, force bool, volumeNames ...string) error {
+	args := append([]string{volumeCmd, "delete"}, volumeNames...)
+
+	output, err := e.CommandOutput(ctx, args...)
+	if err != nil && force && isAppleResourceNotFound(output, err, volumeCmd) {
+		return nil
+	}
+
+	return err
+}
+
+// buildAppleMountArgs constructs CLI mount flags for Apple Container.
+func buildAppleMountArgs(mounts []Mount) []string {
+	args := make([]string, 0, len(mounts)*2)
+
+	for _, mnt := range mounts {
+		mountSpec := fmt.Sprintf("type=%s,source=%s,target=%s", mnt.Type, mnt.Source, mnt.Dest)
+		if mnt.ReadOnly {
+			mountSpec += ",readonly"
+		}
+
+		args = append(args, "--mount", mountSpec)
+	}
+
+	return args
+}
+
+// DefaultAddr returns the default address for the Apple Container engine.
+// The actual reachable IP address is determined dynamically later
+// via [appleEngine.ContainerAddr] once the container is running.
+func (e *appleEngine) DefaultAddr(cfg *Config) (string, error) {
+	return AppleSchemePrefix + cfg.ContainerName, nil
+}
+
+// ContainerAddr returns the reachable address for the specified port on an Apple Container.
+func (e *appleEngine) ContainerAddr(ctx context.Context, containerName string, port int) (string, error) {
+	containers, err := e.InspectContainers(ctx, containerName)
+	if err != nil {
+		return "", err
+	}
+
+	if len(containers) == 0 {
+		return "", fmt.Errorf("container %s not found", containerName)
+	}
+
+	if ip, ok := containers[0].IPs["default"]; ok && ip != "" {
+		return "tcp://" + net.JoinHostPort(ip, strconv.Itoa(port)), nil
+	}
+
+	for _, ip := range containers[0].IPs {
+		if ip != "" {
+			return "tcp://" + net.JoinHostPort(ip, strconv.Itoa(port)), nil
+		}
+	}
+
+	return "", fmt.Errorf("container %s has no IP address", containerName)
+}

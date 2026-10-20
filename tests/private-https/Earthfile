@@ -29,11 +29,11 @@ git-clone-private-https-set-by-args:
     RUN echo "
 # the git-username and git-password flags are deprecated and only work for github.com, gitlab.com, or bitbucket.com
 # however, if we enable a new config and set it to auto here; this will allow the flags to override the username and password settings
-earthly --config \$earthly_config  config git \"{selfsigned.example.com: {auth: auto}}\"
+earth --config \$earth_config  config git \"{selfsigned.example.com: {auth: auto}}\"
 
 # test https password can be set via command line args
-#earthly --config \$earthly_config -VD --git-username=testuser --git-password=keepitsecret +test
-earthly --config \$earthly_config -VD --git-username=testuser --git-password=keepitsecret selfsigned.example.com/testuser/repo:main+hello
+#earth --config \$earth_config -VD --git-username=testuser --git-password=keepitsecret +test
+earth --config \$earth_config -VD --git-username=testuser --git-password=keepitsecret selfsigned.example.com/testuser/repo:main+hello
 " >> /tmp/test-earthly-script
     DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
 
@@ -41,9 +41,9 @@ earthly --config \$earthly_config -VD --git-username=testuser --git-password=kee
 git-clone-private-https-set-by-config-command:
     FROM +git-clone-private-https-base
     RUN echo "
-earthly --config \$earthly_config  config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret}}\"
-earthly --config \$earthly_config --verbose -D +test
-earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
+earth --config \$earth_config  config git \"{selfsigned.example.com: {auth: https, user: testuser, password: keepitsecret}}\"
+earth --config \$earth_config --verbose -D +test
+earth --config \$earth_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
 " >> /tmp/test-earthly-script
     DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
 
@@ -51,7 +51,7 @@ earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/r
 git-clone-private-https-set-by-config-file:
     FROM +git-clone-private-https-base
     RUN echo "
-cat << EOF >> \$earthly_config
+cat << EOF >> \$earth_config
 git:
   selfsigned.example.com:
     auth: https
@@ -59,8 +59,8 @@ git:
     password: keepitsecret
 EOF
 
-earthly --config \$earthly_config --verbose -D +test
-earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
+earth --config \$earth_config --verbose -D +test
+earth --config \$earth_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
 " >> /tmp/test-earthly-script
     DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
 
@@ -72,8 +72,8 @@ echo \"machine selfsigned.example.com
 login testuser
 password keepitsecret\" > ~/.netrc
 
-earthly --config \$earthly_config --verbose -D +test
-earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
+earth --config \$earth_config --verbose -D +test
+earth --config \$earth_config --verbose -D selfsigned.example.com/testuser/repo:main+hello
 " >> /tmp/test-earthly-script
     DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https.earth --exec_cmd=/tmp/test-earthly-script
 
@@ -82,10 +82,10 @@ git-clone-private-https-with-pattern-substitute:
     RUN mkdir -p /var/git/repos/testuser/testproject/testsubproject
     RUN mv /var/git/repos/testuser/repo.git /var/git/repos/testuser/testproject/testsubproject/nestedrepo.git
     RUN echo "
-earthly --config \$earthly_config  config git \"{selfsigned.example.com: {auth: https, pattern: 'selfsigned.example.com/testuser/testproject/([^/]+)/([^/]+)', substitute: 'https://testuser:keepitsecret@selfsigned.example.com/testuser/testproject/\\\$1/\\\$2.git'}}\"
-cat \$earthly_config
-earthly --config \$earthly_config --verbose -D +test
-earthly --config \$earthly_config --verbose -D selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo:main+hello
+earth --config \$earth_config  config git \"{selfsigned.example.com: {auth: https, pattern: 'selfsigned.example.com/testuser/testproject/([^/]+)/([^/]+)', substitute: 'https://testuser:keepitsecret@selfsigned.example.com/testuser/testproject/\\\$1/\\\$2.git'}}\"
+cat \$earth_config
+earth --config \$earth_config --verbose -D +test
+earth --config \$earth_config --verbose -D selfsigned.example.com/testuser/testproject/testsubproject/nestedrepo:main+hello
 " >> /tmp/test-earthly-script
     DO --pass-args +RUN_EARTH_ARGS --pre_command=start-nginx-with-git --earthfile=git-clone-private-https-nestedrepo.earth --exec_cmd=/tmp/test-earthly-script
 

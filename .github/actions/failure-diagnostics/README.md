@@ -32,8 +32,8 @@ integration. Pin `@<sha>` rather than `@main` if you pin your other actions.
 `sudo -E`. Default empty.
 
 `CONTAINERS` — space-separated buildkit container names to inspect. Default
-`earthly-buildkitd earthly-dev-buildkitd earthly-integration-buildkitd
-earthly-test-buildkitd`. Override it when you build with a custom
+`earth-buildkitd earth-dev-buildkitd earth-integration-buildkitd
+earth-test-buildkitd`. Override it when you build with a custom
 `DEFAULT_INSTALLATION_NAME`, which renames the daemon container.
 
 `LOG_TAIL` — lines of daemon log dumped per container. Default `2000`.
@@ -53,7 +53,7 @@ Each section is a collapsed log group:
 - kernel oom and cgroup messages — filtered `dmesg` (Linux only)
 - container engine state — `version`, `info`, `ps -a`, `stats`
 - buildkit containers — `inspect` and log tail for each name in `CONTAINERS`
-- earthly directories — cache sizes under `~/.earthly`
+- earth directories — cache sizes under `~/.earth`
 
 ## Behaviour
 

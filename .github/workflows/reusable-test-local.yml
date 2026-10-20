@@ -18,7 +18,7 @@ on:
       RUNS_ON:
         required: true
         type: string
-      EARTHLY_ORG:
+      EARTH_ORG:
         required: false
         type: string
       SKIP_JOB:
@@ -49,7 +49,7 @@ jobs:
     runs-on: ${{inputs.RUNS_ON}}
     env:
       FORCE_COLOR: 1
-      EARTHLY_ORG: "${{inputs.EARTHLY_ORG}}"
+      EARTH_ORG: "${{inputs.EARTH_ORG}}"
       DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
       DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
       # Used in our github action as the token - TODO: look to change it into an input
@@ -59,7 +59,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: false
-      - uses: ./.github/actions/stage2-setup
+      - uses: $/.github/actions/stage2-setup
         with:
           DOCKERHUB_MIRROR_USERNAME: "${{ secrets.DOCKERHUB_MIRROR_USERNAME }}"
           DOCKERHUB_MIRROR_PASSWORD: "${{ secrets.DOCKERHUB_MIRROR_PASSWORD }}"
@@ -68,11 +68,11 @@ jobs:
           BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earth_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Execute test-local
         run: |-
           ${INPUTS_SUDO} "${INPUTS_BUILT_EARTH_PATH}" --use-inline-cache --save-inline-cache --no-output ./tests/local+test-local --FRONTEND="${INPUTS_BINARY}"
@@ -102,7 +102,7 @@ jobs:
           INPUTS_BINARY_COMPOSE: ${{inputs.BINARY_COMPOSE}}
       - name: Failure diagnostics
         if: ${{ failure() }}
-        uses: ./.github/actions/failure-diagnostics
+        uses: $/.github/actions/failure-diagnostics
         with:
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"

@@ -40,7 +40,8 @@ fi
 
 "$frontend" images --format "{{.Repository}}:{{.Tag}}" | grep "earthbuild/sap:" > multi_images
 
-if echo "$EARTHLY_VERSION_FLAG_OVERRIDES" | grep "wait-block" >/dev/null; then
+version_flag_overrides="${EARTH_VERSION_FLAG_OVERRIDES:-${EARTHLY_VERSION_FLAG_OVERRIDES:-}}"
+if echo "$version_flag_overrides" | grep "wait-block" >/dev/null; then
     echo "skipping non-output after push test; --wait-block feature does not impose such a limitation"
 else
     if ! cat multi_output | grep "Did not output image earthbuild/sap:after-push"; then

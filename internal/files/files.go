@@ -102,8 +102,8 @@ func Copy(ctx context.Context, src, dst string) error {
 	}
 
 	if srcInfo.IsDir() {
-		err = copyOnWriteDir(src, dst) //nolint:staticcheck // SA4023: copyOnWriteDir only returns nil on Darwin
-		if err == nil {                //nolint:staticcheck // SA4023: copyOnWriteDir only returns nil on Darwin
+		err = copyOnWriteDir(src, dst)
+		if err == nil {
 			span.SetAttributes(semconv.FileCopyMethodCopyOnWrite)
 			return nil
 		}

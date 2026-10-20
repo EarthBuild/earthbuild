@@ -9,7 +9,7 @@ permissions: {}
 
 jobs:
   apt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -27,7 +27,7 @@ jobs:
       - name: test apt repo
         run: docker run --rm ubuntu /bin/sh -c 'export DEBIAN_FRONTEND=noninteractive && apt-get update -y && apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release && curl -fsSL https://pkg.earthly.dev/earthly.pgp | gpg --dearmor -o /usr/share/keyrings/earthly-archive-keyring.gpg && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/earthly-archive-keyring.gpg] https://pkg.earthly.dev/deb stable main" > /etc/apt/sources.list.d/earthly.list && apt-get update -y && apt-get install -y earthly && earthly --version' | tee apt.log && tail -n 1 apt.log | grep "earthly version $(cat expected-version)"
   yum:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:

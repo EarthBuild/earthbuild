@@ -3,9 +3,10 @@ set -e # dont use -x, as it will leak credentials
 
 # This is not a unit test, as it requires access to docker hub, as well as docker/podman
 
-if [ "$USE_EARTHLY_MIRROR" = "true" ]; then
+USE_EARTH_MIRROR="${USE_EARTH_MIRROR:-${USE_EARTHLY_MIRROR:-false}}"
+if [ "$USE_EARTH_MIRROR" = "true" ]; then
   if [ -n "$DOCKERHUB_MIRROR" ]; then
-    echo >&2 "error: DOCKERHUB_MIRROR should be empty when using the USE_EARTHLY_MIRROR option"
+    echo >&2 "error: DOCKERHUB_MIRROR should be empty when using the USE_EARTH_MIRROR option"
     exit 1
   fi
   DOCKERHUB_MIRROR="mirror.gcr.io"
@@ -46,7 +47,7 @@ touch /var/lib/shared/vfs-layers/layers.lock
 # The single-quoted sed replacement is an intentional literal env-var token,
 # not a value to expand at this point.
 # shellcheck disable=SC2016
-sed -i 's/\/var\/lib\/containers\/storage/$EARTHLY_DOCKERD_DATA_ROOT/g' /etc/containers/storage.conf
+sed -i 's/\/var\/lib\/containers\/storage/$EARTH_DOCKERD_DATA_ROOT/g' /etc/containers/storage.conf
 
 if [ -n "$DOCKERHUB_MIRROR" ]; then
     INSECURE=$(if [ "$DOCKERHUB_MIRROR_HTTP" = "true" ] || [ "$DOCKERHUB_MIRROR_INSECURE" = "true" ]; then echo 'true'; else echo 'false'; fi)

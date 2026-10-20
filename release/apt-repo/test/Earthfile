@@ -27,7 +27,6 @@ test-debian:
 test-all:
     BUILD \
         --build-arg version=18.04 \
-        --build-arg version=20.10 \
         --build-arg version=21.04 \
         +test-ubuntu
     BUILD \

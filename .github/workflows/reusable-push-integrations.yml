@@ -52,7 +52,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: false
-      - uses: ./.github/actions/stage2-setup
+      - uses: $/.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -61,11 +61,11 @@ jobs:
           BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earth_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Push and Pull Cloud Images
         run: |
           # shellcheck disable=SC2016  # the snippet is passed verbatim to earth-retry.sh, which runs it
@@ -88,7 +88,7 @@ jobs:
           INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Failure diagnostics
         if: ${{ failure() }}
-        uses: ./.github/actions/failure-diagnostics
+        uses: $/.github/actions/failure-diagnostics
         with:
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"

@@ -11,8 +11,6 @@ fi
 
 brew upgrade earthly
 
-"$earthly" config global.disable_analytics true
-
 "$earthly" --version
 
 "$earthly" github.com/earthbuild/earthbuild/examples/go:main+docker

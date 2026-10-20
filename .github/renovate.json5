@@ -167,6 +167,17 @@
       ],
       datasourceTemplate: 'pypi',
     },
+    {
+      customType: 'regex',
+      description: 'Update GitHub Actions runner versions',
+      managerFilePatterns: [
+        '/(^|/)\\.github/workflows/.+\\.ya?ml$/',
+      ],
+      matchStrings: [
+        '(?:runs-on|RUNS_ON):\\s*[\'"]?(?<depName>ubuntu|macos|windows)-(?<currentValue>[^\'"\\s#]+)[\'"]?',
+      ],
+      datasourceTemplate: 'github-runners',
+    },
   ],
   labels: [
     'renovate',
@@ -267,6 +278,33 @@
       matchCurrentVersion: '/^ubuntu-26\\.04-.*/',
       allowedVersions: '/^ubuntu-26\\.04-.*/',
       versioning: 'regex:^(?<compatibility>.*)-(?<major>\\d+\\.\\d+)-docker-(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-(?<revision>\\d+)$',
+    },
+    {
+      // rule to update Amazon Linux 2 images
+      groupName: 'amazonlinux',
+      matchPackageNames: [
+        'public.ecr.aws/amazonlinux/amazonlinux',
+      ],
+      matchCurrentVersion: '/^2(\\..*)?$/',
+      allowedVersions: '/^2(\\..*)?$/',
+    },
+    {
+      // rule to update Amazon Linux 2023 images
+      groupName: 'amazonlinux',
+      matchPackageNames: [
+        'public.ecr.aws/amazonlinux/amazonlinux',
+      ],
+      matchCurrentVersion: '/^2023\\..*/',
+      allowedVersions: '/^2023\\..*/',
+    },
+    {
+      // rule to update Amazon Linux 2027 images
+      groupName: 'amazonlinux',
+      matchPackageNames: [
+        'public.ecr.aws/amazonlinux/amazonlinux',
+      ],
+      matchCurrentVersion: '/^2027\\..*/',
+      allowedVersions: '/^2027\\..*/',
     },
     // group all examples and docs dependency updates together (except EarthBuild/earthbuild and earthbuild/dind)
     {
@@ -390,11 +428,13 @@
       ],
     },
     // group all OpenTelemetry dependencies
+    // TODO(jhorsts): blocked by the BuildKit upgrade.
     {
       groupName: 'otel',
       matchPackageNames: [
         'go.opentelemetry.io/**',
       ],
+      enabled: false,
     },
 
   ],

@@ -66,7 +66,7 @@ test3:
         --mount=type=tmpfs,target=/tmp/earthbuild \
         -- --no-output --strict --use-inline-cache --save-inline-cache --push +test3
 
-# Work around the lack of variable overriding, since the base image already includes EARTHLY_ADDITIONAL_BUILDKIT_CONFIG
+# Work around the lack of variable overriding, since the base image already includes EARTH_ADDITIONAL_BUILDKIT_CONFIG
 DO_REMOTE_CACHE_EARTH:
     FUNCTION
 
@@ -75,7 +75,7 @@ DO_REMOTE_CACHE_EARTH:
     RUN --privileged \
         --mount=type=tmpfs,target=/tmp/earthbuild \
         -- \
-        ( EARTHLY_ADDITIONAL_BUILDKIT_CONFIG=$EARTHLY_ADDITIONAL_BUILDKIT_CONFIG$REGISTRY_CONFIG \
-        /usr/bin/earthly-entrypoint.sh --use-inline-cache --save-inline-cache --strict --no-output --push \
+        ( EARTH_ADDITIONAL_BUILDKIT_CONFIG=$EARTH_ADDITIONAL_BUILDKIT_CONFIG$REGISTRY_CONFIG \
+        /usr/bin/earth-entrypoint.sh --use-inline-cache --save-inline-cache --strict --no-output --push \
             --build-arg REGISTRY=$REGISTRY \
             $target; echo "exit_code=$?" ) 2>&1 | tee ./output && acbtest "$(tail -n 1 output)" = "exit_code=0"

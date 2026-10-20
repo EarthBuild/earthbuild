@@ -3,8 +3,8 @@ package conslogging
 import (
 	"sync"
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,8 +26,8 @@ func Test_prefixFormatter_Format(t *testing.T) {
 	t.Run("uses cache correctly", func(t *testing.T) {
 		t.Parallel()
 
-		random := uuid.NewString()
-		otherRandom := uuid.NewString()
+		random := uuid.New().String()
+		otherRandom := uuid.New().String()
 		f := NewPrefixFormatter(truncateSha)
 		require.Zero(t, getCacheSize(&f.cache))
 		f.Format(random, DefaultPadding)

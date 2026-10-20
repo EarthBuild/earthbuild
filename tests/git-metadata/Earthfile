@@ -63,7 +63,7 @@ test -n \"\$expected_refs\"
 
 # finally perform earthbuild tests
 # flag --git-author-email-name-args on
-earthly --config \$earthly_config --verbose -D \
+earth --config \$earth_config --verbose -D \
   --build-arg expected_sha \
   --build-arg expected_committer_timestamp \
   --build-arg expected_author_timestamp \
@@ -71,7 +71,7 @@ earthly --config \$earthly_config --verbose -D \
   --build-arg expected_refs \
   ./repo/flag_on+test-git-metadata
 
-EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earthly --config \$earthly_config --verbose -D \
+EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earth --config \$earth_config --verbose -D \
   --build-arg expected_sha \
   --build-arg expected_committer_timestamp \
   --build-arg expected_author_timestamp \
@@ -80,7 +80,7 @@ EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earthly --config \$earthly_config --
   ./repo/flag_on+test-git-metadata
 
 # flag --git-author-email-name-args off
-earthly --config \$earthly_config --verbose -D \
+earth --config \$earth_config --verbose -D \
   --build-arg expected_sha \
   --build-arg expected_committer_timestamp \
   --build-arg expected_author_timestamp \
@@ -89,7 +89,7 @@ earthly --config \$earthly_config --verbose -D \
   --build-arg flag_on=false \
   ./repo/flag_off+test-git-metadata
 
-EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earthly --config \$earthly_config --verbose -D \
+EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earth --config \$earth_config --verbose -D \
   --build-arg expected_sha \
   --build-arg expected_committer_timestamp \
   --build-arg expected_author_timestamp \
@@ -102,7 +102,7 @@ rm -rf repo
 export expected_refs=\"main\"
 
 # flag on
-earthly --config \$earthly_config --verbose -D \
+earth --config \$earth_config --verbose -D \
   --build-arg expected_sha \
   --build-arg expected_committer_timestamp \
   --build-arg expected_author_timestamp \
@@ -110,7 +110,7 @@ earthly --config \$earthly_config --verbose -D \
   --build-arg expected_refs \
   git.example.com/testuser/repo/flag_on:main+test-git-metadata
 
-EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earthly --config \$earthly_config --verbose -D \
+EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earth --config \$earth_config --verbose -D \
   --build-arg expected_sha \
   --build-arg expected_committer_timestamp \
   --build-arg expected_author_timestamp \
@@ -119,7 +119,7 @@ EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earthly --config \$earthly_config --
   git.example.com/testuser/repo/flag_on:main+test-git-metadata
 
 # flag off
-earthly --config \$earthly_config --verbose -D \
+earth --config \$earth_config --verbose -D \
   --build-arg expected_sha \
   --build-arg expected_committer_timestamp \
   --build-arg expected_author_timestamp \
@@ -128,7 +128,7 @@ earthly --config \$earthly_config --verbose -D \
   --build-arg flag_on=false \
   git.example.com/testuser/repo/flag_off:main+test-git-metadata
 
-EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earthly --config \$earthly_config --verbose -D \
+EARTHLY_GIT_BRANCH_OVERRIDE=branch-override earth --config \$earth_config --verbose -D \
   --build-arg expected_sha \
   --build-arg expected_committer_timestamp \
   --build-arg expected_author_timestamp \

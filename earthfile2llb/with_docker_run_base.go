@@ -11,6 +11,7 @@ import (
 	"github.com/EarthBuild/earthbuild/util/oidcutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
 	"github.com/containerd/platforms"
+	"github.com/distribution/reference"
 	"github.com/moby/buildkit/client/llb"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"gopkg.in/yaml.v3"
@@ -20,7 +21,8 @@ const (
 	dockerdWrapperPath          = "/var/earthbuild/dockerd-wrapper.sh"
 	dockerAutoInstallScriptPath = "/var/earthbuild/docker-auto-install.sh"
 	composeConfigFile           = "compose-config.yml"
-	suggestedDINDImage          = "earthbuild/dind:alpine-3.24-docker-29.5.3-r0"
+	startComposeFlag            = "--start-compose"
+	suggestedDINDImage          = "earthbuild/dind:alpine-3.24-docker-29.8.2-r1"
 )
 
 // DockerLoadOpt holds parameters for WITH DOCKER --load parameter.
@@ -65,14 +67,12 @@ type withDockerRunBase struct {
 }
 
 func (w *withDockerRunBase) installDeps(ctx context.Context, opt WithDockerOpt) error {
-	params := composeParams(opt)
-	args := shellCmd(
-		fmt.Sprintf(
-			"%s %s",
-			strings.Join(params, " "),
-			dockerAutoInstallScriptPath,
-		),
-	)
+	installFlag := "--no-start-compose"
+	if len(opt.ComposeFiles) > 0 {
+		installFlag = startComposeFlag
+	}
+
+	args := shellCmd(fmt.Sprintf("%s %s", dockerAutoInstallScriptPath, installFlag))
 
 	prefix, _, err := w.c.newVertexMeta(ctx, false, false, false, opt.Secrets)
 	if err != nil {
@@ -164,12 +164,11 @@ func (w *withDockerRunBase) getComposePulls(ctx context.Context, opt WithDockerO
 
 func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDockerOpt) ([]byte, error) {
 	// Add the right run to fetch the docker compose config.
-	params := composeParams(opt)
 	args := shellCmd(
 		fmt.Sprintf(
-			"%s %s get-compose-config",
-			strings.Join(params, " "),
+			"%s get-compose-config %s",
 			dockerdWrapperPath,
+			strings.Join(composeArgs(opt), " "),
 		),
 	)
 
@@ -208,34 +207,129 @@ func (w *withDockerRunBase) getComposeConfig(ctx context.Context, opt WithDocker
 func makeWithDockerdWrapFun(dindID string, tarPaths, imgsWithDigests []string, opt WithDockerOpt) shellWrapFun {
 	cacheDataRoot := strings.HasPrefix(dindID, "cache_")
 	dockerRoot := path.Join("/var/earthbuild/dind", dindID)
-	params := make([]string, 0, 7)
-	params = append(
-		params,
-		fmt.Sprintf("EARTHLY_DOCKERD_DATA_ROOT=\"%s\"", dockerRoot),
-		fmt.Sprintf("EARTHLY_DOCKERD_CACHE_DATA=\"%v\"", cacheDataRoot),
-		fmt.Sprintf("EARTHLY_DOCKER_LOAD_FILES=\"%s\"", strings.Join(tarPaths, " ")),
-		// This is not actually used, but it is needed in order to bust the cache
-		// in case an image is updated.
-		fmt.Sprintf("EARTHLY_IMAGES_WITH_DIGESTS=\"%s\"", strings.Join(imgsWithDigests, " ")),
-	)
-	params = append(params, composeParams(opt)...)
+
+	dockerdArgs := []string{dockerdFlag("--data-root", dockerRoot)}
+	if cacheDataRoot {
+		dockerdArgs = append(dockerdArgs, "--cache-data")
+	}
+
+	for _, tarPath := range tarPaths {
+		dockerdArgs = append(dockerdArgs, dockerdFlag("--load-file", tarPath))
+	}
+
+	// The digests are not actually used by the wrapper, but they are needed in
+	// order to bust the cache in case an image is updated.
+	for _, imgWithDigest := range imgsWithDigests {
+		dockerdArgs = append(dockerdArgs, dockerdFlag("--image-digest", imgWithDigest))
+	}
+
+	dockerdArgs = append(dockerdArgs, composeArgs(opt)...)
 
 	return func(args []string, envVars []string, isWithShell, withDebugger, forceDebugger bool) []string {
-		envVars2 := append(params, envVars...) //nolint:gocritic
-
 		return shellCmd(
-			strWithEnvVarsAndDocker(args, envVars2, isWithShell, withDebugger, forceDebugger, true, false, "", ""),
+			strWithEnvVarsAndDocker(
+				args, envVars, dockerdArgs, isWithShell, withDebugger, forceDebugger, false, "", "",
+			),
 		)
 	}
 }
 
-func composeParams(opt WithDockerOpt) []string {
-	return []string{
-		fmt.Sprintf("EARTHLY_START_COMPOSE=\"%t\"", (len(opt.ComposeFiles) > 0)),
-		fmt.Sprintf("EARTHLY_COMPOSE_FILES=\"%s\"", strings.Join(opt.ComposeFiles, " ")),
-		fmt.Sprintf("EARTHLY_COMPOSE_SERVICES=\"%s\"", strings.Join(opt.ComposeServices, " ")),
-		// fmt.Sprintf("EARTHLY_DEBUG=\"true\""),
+func composeArgs(opt WithDockerOpt) []string {
+	var args []string
+	if len(opt.ComposeFiles) > 0 {
+		args = append(args, startComposeFlag)
 	}
+
+	for _, composeFile := range opt.ComposeFiles {
+		args = append(args, dockerdFlag("--compose-file", composeFile))
+	}
+
+	for _, composeService := range opt.ComposeServices {
+		args = append(args, dockerdFlag("--compose-service", composeService))
+	}
+
+	return args
+}
+
+// dockerdFlag renders a --name=value flag for dockerd-wrapper.sh. The result is
+// spliced into a /bin/sh -c command line, so the value has to be quoted.
+func dockerdFlag(name, value string) string {
+	return fmt.Sprintf("%s='%s'", name, escapeShellSingleQuotes(value))
+}
+
+// stripImageDigest drops a trailing `@<algo>:<hex>` digest from an image name
+// so it's a valid `docker tag` target, as dockerd refuses digest-bearing tags.
+// Digest-pinned compose services are still verified at `docker compose up`
+// time: compose re-fetches the manifest upstream (the retagged image has no
+// RepoDigest) and reuses the pre-pulled layers. So the pre-pull dedups layers
+// but gives no offline path for digest-pinned services. See issue #512.
+func stripImageDigest(name string) string {
+	withoutDigest, _, _ := strings.Cut(name, "@")
+
+	return withoutDigest
+}
+
+// retagName is the name an image ends up tagged as in the WITH DOCKER daemon:
+// digest stripped, with the implicit `latest` tag made explicit, in its
+// familiar (shortest) form.
+// Names that do not parse are returned as is.
+func retagName(name string) string {
+	ref, err := reference.ParseNormalizedNamed(stripImageDigest(name))
+	if err != nil {
+		return name
+	}
+
+	return reference.FamiliarString(reference.TagNameOnly(ref))
+}
+
+// dropCollidingDigestPulls removes digest-pinned pulls whose retag name (see
+// stripImageDigest) is also claimed by a different image in the same WITH
+// DOCKER, e.g. `alpine@sha256:…` next to `alpine`. Their retags would race and
+// either one could end up owning the tag. Dropping the pinned pull is safe:
+// compose resolves a pinned image by digest, which a retag cannot satisfy, so
+// it fetches the image itself. The dropped pulls are returned for reporting.
+func dropCollidingDigestPulls(pulls []DockerPullOpt, loadNames []string) (kept, dropped []DockerPullOpt) {
+	// Distinct (normalized) references claiming each retag name.
+	claimants := make(map[string]map[string]struct{})
+	claim := func(name string) {
+		key := retagName(name)
+		if claimants[key] == nil {
+			claimants[key] = make(map[string]struct{})
+		}
+
+		claimants[key][normalizedRef(name)] = struct{}{}
+	}
+
+	for _, name := range loadNames {
+		claim(name)
+	}
+
+	for _, pull := range pulls {
+		claim(pull.ImageName)
+	}
+
+	for _, pull := range pulls {
+		if strings.Contains(pull.ImageName, "@") && len(claimants[retagName(pull.ImageName)]) > 1 {
+			dropped = append(dropped, pull)
+
+			continue
+		}
+
+		kept = append(kept, pull)
+	}
+
+	return kept, dropped
+}
+
+// normalizedRef returns the fully qualified form of an image reference, so that
+// e.g. `alpine` and `docker.io/library/alpine:latest` compare equal.
+func normalizedRef(name string) string {
+	ref, err := reference.ParseNormalizedNamed(name)
+	if err != nil {
+		return name
+	}
+
+	return reference.TagNameOnly(ref).String()
 }
 
 func platformIncompatMsg(platr *platutil.Resolver) string {

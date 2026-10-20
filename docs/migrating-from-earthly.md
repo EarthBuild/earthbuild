@@ -91,6 +91,10 @@ Release assets are now named `earth-<os>-<arch>` rather than `earthly-<os>-<arch
 `earth-linux-amd64`). Scripts that download a pinned asset URL — including
 `releases/latest/download/earthly-...` links — need updating.
 
+### Earth Directory Name Change
+
+The Earthly directory (for config, etc.) has been renamed from `~/.earthly` to `~/.earth`.
+
 ## Removed Features and Alternatives
 
 The following commands and flags, mostly related to Earthly Cloud, have been removed.
@@ -122,6 +126,13 @@ The following commands and flags, mostly related to Earthly Cloud, have been rem
 - `--auth-token`: This flag has been removed since it was used for authenticating with Earthly Cloud. For registry authentication, use standard Docker authentication methods.
 - The binary name in help texts and other places is now `earth` instead of `earthly`.
 
+### Removed Config File Options
+
+- `disable_log_sharing`: Removed. There is no cloud provider to share logs with anymore.
+- `disable_analytics`: Removed. There are no analytics to collect/share anymore.
+
+These options are simply ignored if present.
+
 ### Environment Variable Changes
 
 All `EARTHLY_*` environment variables have been renamed to `EARTH_*` to reflect the project's new identity. The following environment variables are affected:
@@ -150,17 +161,44 @@ log a warning; we are collecting feedback on whether to remove them in the futur
 - `GIT_USERNAME` - Git authentication username
 - `GIT_PASSWORD` - Git authentication password
 - `GITHUB_ACTIONS` - GitHub Actions environment detection
+- `BUILDKIT_HOST` - Read by the all-in-one image to point at an external BuildKit daemon.
+  This is upstream BuildKit's own variable name, not an Earthly one, so it keeps its
+  unprefixed spelling. Note that the `earth` CLI flag binding is separate and *is* renamed,
+  to `EARTH_BUILDKIT_HOST`.
+
+#### Container and Image Variables
+
+The variables consumed by the published images — `EARTH_ADDITIONAL_BUILDKIT_CONFIG`,
+`EARTH_EXEC_CMD`, `EARTH_TMP_DIR`, `EARTH_RESET_TMP_DIR`, `EARTH_DEBUG` and
+`EARTH_BUILDKIT_HOST` — follow the same rule: the `EARTH_` name is current, and the
+`EARTHLY_` spelling still works but logs a deprecation warning.
+
+The variables that the `earth` CLI previously used to configure `WITH DOCKER`
+(`EARTHLY_DOCKERD_DATA_ROOT`, `EARTHLY_START_COMPOSE`, `EARTHLY_COMPOSE_FILES` and
+friends) are gone entirely rather than renamed. They were an internal protocol between
+the CLI and the buildkitd image and are now passed as command-line flags, so there is
+nothing to set. `EARTHLY_DOCKER_WRAPPER_DEBUG`, `EARTHLY_DOCKER_WRAPPER_DEBUG_CMD` and
+`EARTHLY_DOCKER_WRAPPER_PRE_SCRIPT` remain environment variables, renamed to `EARTH_*`
+with the usual deprecation fallback.
+
+### Buildkitd Container Name Changes
+
+The buildkitd container name has changed from `earthly-buildkitd` to `earth-buildkitd`.
+
+### Buildkitd Cache Volume Changes
+
+The buildkitd cache volume name has changed from `earthly-cache` to `earth-cache`.
 
 ---
 
 ## Detailed CLI Diff
 
 Here is a `diff` of the CLI help output to highlight the changes. The `+` side below is captured from
-EarthBuild `v0.8.18`.
+EarthBuild `v0.8.19`.
 
-> Note: environment-variable bindings are still shown with the `EARTHLY_*` prefix. The rename to
-> `EARTH_*` (with deprecation warnings) is tracked separately and lands ahead of the `v0.9.x` breaking
-> change — see the Environment Variable Changes section above.
+> Note: this diff is a verbatim capture, so environment-variable bindings still appear with the
+> `EARTHLY_*` prefix. Every binding shown also accepts the `EARTH_*` spelling, which is the one to
+> use — see the Environment Variable Changes section above.
 
 ```diff
 NAME:
@@ -228,7 +266,7 @@ GLOBAL OPTIONS:
    --interactive, -i                Enable interactive debugging [$EARTHLY_INTERACTIVE]
    --strict                         Disallow usage of features that may create unrepeatable builds [$EARTHLY_STRICT]
    --auto-skip-db-path string       use a local database for auto-skip [$EARTHLY_AUTO_SKIP_DB_PATH]
-   --buildkit-image string          The docker image to use for the buildkit daemon (default: "docker.io/earthbuild/buildkitd:v0.8.18") [$EARTHLY_BUILDKIT_IMAGE]
+   --buildkit-image string          The docker image to use for the buildkit daemon (default: "docker.io/earthbuild/buildkitd:v0.8.19") [$EARTHLY_BUILDKIT_IMAGE]
    --remote-cache string            A remote docker image tag use as explicit cache and optionally additional attributes to set in the image (Format: "<image-tag>[,<attr1>=<val1>,<attr2>=<val2>,...]") [$EARTHLY_REMOTE_CACHE]
    --disable-remote-registry-proxy  Don't use the Docker registry proxy when transferring images [$EARTHLY_DISABLE_REMOTE_REGISTRY_PROXY]
    --no-auto-skip                   Disable auto-skip functionality [$EARTHLY_NO_AUTO_SKIP]
@@ -251,6 +289,9 @@ work in `v0.8.x`, but referencing one logs a deprecation warning pointing at the
 (for example, `ARG EARTHLY_GIT_PROJECT_NAME` warns and suggests `EARTH_GIT_PROJECT_NAME`). The
 `EARTHLY_*` built-in arguments will be removed in `v0.9.x`. See the [built-in args
 reference](earthfile/builtin-args.md) for the full list.
+
+The obsolete `EARTHLY_CI` built-in argument and `VERSION --ci-arg` feature flag have been removed.
+The obsolete `EARTHLY_CI_RUNNER` env variable and `VERSION --earthly-ci-runner-arg` feature flag have been removed.
 
 ## CI
 
@@ -298,11 +339,11 @@ Concrete examples as they apply to `v0.8.18`:
 
 # Pulling the all-in-one image in CI
 - docker pull docker.io/earthly/earthly:v0.8.16
-+ docker pull docker.io/earthbuild/earthbuild:v0.8.18
++ docker pull docker.io/earthbuild/earthbuild:v0.8.19
 
 # A dind base image (WITH DOCKER)
 - FROM docker.io/earthly/dind:alpine
-+ FROM docker.io/earthbuild/dind:alpine-3.23-docker-29.5.2-r0
++ FROM docker.io/earthbuild/dind:alpine-3.24-docker-29.5.3-r1
 ```
 
 For most users the BuildKit daemon image does not need to be set explicitly — `earth` defaults to the

@@ -12,3 +12,6 @@
 .DS_Store
 **/node_modules
 .gradle
+# AS LOCAL output written by tests/wait-block tests
+/tests/wait-block/no-output/output/
+/tests/wait-block/save-image-push-no-image-output/output/

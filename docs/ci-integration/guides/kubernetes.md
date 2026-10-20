@@ -38,7 +38,7 @@ Your Kubernetes cluster needs to allow `privileged` mode pods. It's possible to 
 
 ### Installation
 
-The default image from `earthbuild/earthbuild` should be sufficient. If you need additional tools or configuration, you can [create your own runner image](../build-an-earthly-ci-image.md).
+The default image from `earthbuild/earthbuild` should be sufficient. If you need additional tools or configuration, you can [create your own runner image](../build-an-earthbuild-ci-image.md).
 
 ### Configuration
 
@@ -63,7 +63,7 @@ volumes:
     emptyDir: {} # Or other volume type
 ```
 
-The location within the container for this temporary folder is configurable with the `EARTHLY_TMP_DIR` environment variable.
+The location within the container for this temporary folder is configurable with the `EARTH_TMP_DIR` environment variable.
 
 The `earthbuild/earthbuild` image will expect to find the source code (with `Earthfile`) rooted in the default working directory, which is set to `/workspace`.
 
@@ -141,7 +141,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: earth
-        image: earthbuild/earthbuild:v0.8.18
+        image: earthbuild/earthbuild:v0.8.19
         args: ["github.com/EarthBuild/hello-world:main+hello"]
         securityContext:
           privileged: true
@@ -253,7 +253,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: earth
-        image: earthbuild/earthbuild:v0.8.18
+        image: earthbuild/earthbuild:v0.8.19
         args: ["github.com/EarthBuild/hello-world:main+hello"]
         volumeMounts:
           - mountPath: /workspace

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
-	otelsemconv "go.opentelemetry.io/otel/semconv/v1.41.0"
+	otelsemconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 )
 
 func TestBuildkitTelemetryEnv(t *testing.T) {

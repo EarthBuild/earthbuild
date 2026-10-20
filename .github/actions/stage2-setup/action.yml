@@ -17,9 +17,6 @@ inputs:
   USE_QEMU:
     description: "Whether to set up QEMU"
     required: false
-  USE_NEXT:
-    description: "Whether to use earthly-next"
-    required: false
     default: 'false'
   GHCR_USERNAME:
     description: "GHCR username (legacy - now uses github.actor)"
@@ -56,6 +53,18 @@ runs:
       shell: bash
       run: |
         unset CI
+    - name: Load legacy iptables kernel modules
+      # On Ubuntu 26.04+ runners, the kernel defaults to nf_tables and does not
+      # auto-load legacy iptables modules. Legacy DinD images that use iptables-legacy
+      # (such as ubuntu:20.04 DinD and docker:20.10 DinD) cannot modprobe inside
+      # containers because /lib/modules is not mounted. Pre-loading these modules on
+      # the host ensures legacy DinD containers can initialize the NAT/filter tables.
+      shell: bash
+      run: |
+        sudo modprobe ip_tables 2>/dev/null || true
+        sudo modprobe iptable_filter 2>/dev/null || true
+        sudo modprobe iptable_nat 2>/dev/null || true
+        sudo modprobe iptable_mangle 2>/dev/null || true
     - name: Check if running on fork
       id: fork-check
       shell: bash
@@ -74,9 +83,9 @@ runs:
       # every run, and on fork PRs also the earth binary + tag-suffix.txt.
       # Loading the local tarball avoids a per-job ghcr pull of the staging
       # image.
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8
       with:
-        name: earth-build-latest${{ inputs.USE_NEXT == 'true' && '-ticktock' || '' }}
+        name: earth-build-latest
         path: ./build-artifacts
     - name: Setup earth binary from artifact (fork)
       if: steps.fork-check.outputs.is_fork == 'true'
@@ -127,13 +136,13 @@ runs:
         username: ${{ inputs.DOCKERHUB_USERNAME }}
         password: ${{ inputs.DOCKERHUB_PASSWORD }}
     - if: inputs.BINARY == 'docker'
-      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
       with:
-        go-version: '1.27.0'
+        go-version: '1.27.2'
     - if: ${{ inputs.BINARY == 'podman' }}
       name: Set up Podman
       run: |
@@ -164,9 +173,9 @@ runs:
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}
-    - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU }}
-      # qemu-user-static needed for cross-compilation (--platform) targets
-      run: ${INPUTS_SUDO} apt-get update && ${INPUTS_SUDO} apt-get install -y qemu-user-static
+    - if: ${{ inputs.BINARY == 'podman' && inputs.USE_QEMU == 'true' }}
+      # qemu-user-binfmt needed for cross-compilation (--platform) targets
+      run: ${INPUTS_SUDO} apt-get update && ${INPUTS_SUDO} apt-get install -y qemu-user-binfmt
       shell: bash
       env:
         INPUTS_SUDO: ${{inputs.SUDO}}
@@ -199,7 +208,7 @@ runs:
       # belonged to the Docker-29 pinned-image workaround this step replaces.
       # Podman jobs must exercise the PR's buildkitd too.
       shell: bash
-      # EARTHLY_BUILDKIT_IMAGE has to reach the caller's later steps, so
+      # EARTH_BUILDKIT_IMAGE has to reach the caller's later steps, so
       # GITHUB_ENV is the only channel available to a composite action. The
       # value is constrained rather than trusted: TAG_SUFFIX is matched against
       # a strict character class before it is written, so a malformed
@@ -213,15 +222,14 @@ runs:
           exit 1
         fi
         BUILDKIT_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
-        echo "EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> "$GITHUB_ENV"
-        echo "Set EARTHLY_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
+        echo "EARTH_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}" >> "$GITHUB_ENV"
+        echo "Set EARTH_BUILDKIT_IMAGE=${BUILDKIT_IMAGE}"
     - name: Get binary from GHCR (non-fork)
       if: steps.fork-check.outputs.is_fork != 'true'
       run: |-
         echo "Extracting earth binary from stage1 of build"
         export TAG=${GITHUB_SHA}-latest
-        if [ "${INPUTS_USE_NEXT}" = "true" ]; then export TAG="$TAG-ticktock"; fi
-        ${INPUTS_SUDO} ./earthly upgrade
+        ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" ./earth upgrade
         ${INPUTS_SUDO} chown -R $USER ~/.earthly # restore non-sudo user ownership
         test -n "${INPUTS_BUILT_EARTH_PATH}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
         mkdir -p "$(dirname "${INPUTS_BUILT_EARTH_PATH}")"
@@ -230,22 +238,12 @@ runs:
         echo "extracted ${INPUTS_BUILT_EARTH_PATH}"
       shell: bash
       env:
-        INPUTS_USE_NEXT: ${{inputs.USE_NEXT}}
         INPUTS_SUDO: ${{inputs.SUDO}}
         INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
     - run: |-
         echo "Configuring earthbuild to use GCR mirror"
         "${INPUTS_BUILT_EARTH_PATH}" config global.buildkit_additional_config "'[registry.\"docker.io\"]
         mirrors = [\"mirror.gcr.io\", \"public.ecr.aws\"]'"
-      shell: bash
-      env:
-        INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
-    - if: ${{ inputs.USE_NEXT == 'true' }}
-      run: |-
-        export expected_buildkit_client_sha="$(cat earthly-next | head -c 12)"
-        test -n "$expected_buildkit_client_sha" || ( echo "expected_buildkit_client_sha is empty" && exit 1)
-        (strings "${INPUTS_BUILT_EARTH_PATH}" | grep "$expected_buildkit_client_sha" ) || ( echo "expected to find $expected_buildkit_client_sha in earth binary" && exit 1)
-        echo "correctly found $expected_buildkit_client_sha in earth binary; this confirms earthly-next was used"
       shell: bash
       env:
         INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}

@@ -15,8 +15,8 @@ ubuntu:
   RUN apt install -y curl unzip
 
 login:
-  ARG EARTHLY_CI
-  IF [ "$EARTHLY_CI" = "false" ]
+  ARG ci=false
+  IF [ "$ci" = "false" ]
     ARG --required sso_region
     FROM +python
     # https://github.com/benkehoe/aws-export-credentials
@@ -25,11 +25,11 @@ login:
     COPY +dev.login/aws /root/.aws
     RUN aws-export-credentials --profile default --credentials-file-profile default
     SAVE ARTIFACT /root/.aws/credentials /credentials
-  ELSE IF [ "$EARTHLY_CI" = "true" ]
+  ELSE IF [ "$ci" = "true" ]
     RUN mkdir -p /root/.aws/
     RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --secret AWS_SESSION_TOKEN printf "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY\naws_session_token=$AWS_SESSION_TOKEN\n" >> /root/.aws/credentials
   ELSE
-    RUN echo "bad value for EARTHLY_CI" && exit 1
+    RUN echo "bad value for ci" && exit 1
   END
   SAVE ARTIFACT /root/.aws/credentials /credentials
 

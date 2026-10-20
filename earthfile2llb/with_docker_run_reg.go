@@ -108,6 +108,21 @@ func (w *withDockerRunRegistry) prepareImages(
 		}
 	}
 
+	loadNames := make([]string, 0, len(imagesToBuild))
+	for _, imageDef := range imagesToBuild {
+		loadNames = append(loadNames, imageDef.ImageName)
+	}
+
+	var dropped []DockerPullOpt
+
+	opt.Pulls, dropped = dropCollidingDigestPulls(opt.Pulls, loadNames)
+	for _, pull := range dropped {
+		w.c.opt.Log.Warnf(
+			"WITH DOCKER: not pre-pulling %s as another image is tagged %s; it will be pulled by digest when used.",
+			pull.ImageName, retagName(pull.ImageName),
+		)
+	}
+
 	// Pulls.
 	for _, pullOpt := range opt.Pulls {
 		imageDef, err := w.pull(ctx, pullOpt)
@@ -187,10 +202,11 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 
 	imgsWithDigests := make([]string, 0, len(results))
 	for _, result := range results {
-		// This will be decoded in the wrapper.
+		// This will be decoded in the wrapper, which retags the pulled image.
+		// `docker tag` rejects digest-bearing targets. See stripImageDigest.
 		if result.NewInterImgFormat {
 			pullImages = append(
-				pullImages, fmt.Sprintf("%s|%s", result.IntermediateImageName, result.FinalImageName),
+				pullImages, fmt.Sprintf("%s|%s", result.IntermediateImageName, stripImageDigest(result.FinalImageName)),
 			)
 		} else {
 			pullImages = append(pullImages, result.IntermediateImageName)
@@ -235,16 +251,16 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 		// Note that the "cache_" prefix here is used to prevent auto-cleanup
 		dindID = "cache_" + opt.CacheID
 	}
-	// We will pass along the variable EARTHLY_DOCKER_LOAD_REGISTRY via a secret
+	// We will pass along the variable EARTH_DOCKER_LOAD_REGISTRY via a secret
 	// to prevent busting the cache, as the intermediate image names are
 	// different every time.
 	dockerLoadRegistrySecretID := fmt.Sprintf(
-		"%s-%s-EARTHLY_DOCKER_LOAD_REGISTRY", internalWithDockerSecretPrefix, dindID,
+		"%s-%s-EARTH_DOCKER_LOAD_REGISTRY", internalWithDockerSecretPrefix, dindID,
 	)
 	crOpts.extraRunOpts = append(
 		crOpts.extraRunOpts,
 		llb.AddSecret(
-			"EARTHLY_DOCKER_LOAD_REGISTRY",
+			"EARTH_DOCKER_LOAD_REGISTRY",
 			llb.SecretID(dockerLoadRegistrySecretID),
 			llb.SecretAsEnv(true),
 		),
@@ -257,8 +273,8 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 		return fmt.Errorf("set docker load registry secret: %w", err)
 	}
 
-	w.c.opt.CleanCollection.Add(func() error { //nolint:contextcheck
-		return w.c.opt.InternalSecretStore.DeleteSecret(context.Background(), dockerLoadRegistrySecretID)
+	w.c.opt.CleanCollection.Add(func() error {
+		return w.c.opt.InternalSecretStore.DeleteSecret(context.WithoutCancel(ctx), dockerLoadRegistrySecretID)
 	})
 
 	crOpts.shellWrap = makeWithDockerdWrapFun(dindID, nil, imgsWithDigests, opt)

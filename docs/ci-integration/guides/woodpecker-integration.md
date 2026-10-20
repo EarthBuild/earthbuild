@@ -14,12 +14,12 @@ The project needs to be [trusted](https://woodpecker-ci.org/docs/usage/project-s
 #.woodpecker.yml
 pipeline:
   earth:
-    image: earthbuild/earthbuild:v0.8.18
+    image: earthbuild/earthbuild:v0.8.19
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - FORCE_COLOR=1
-      - EARTHLY_EXEC_CMD="/bin/sh" 
+      - EARTH_EXEC_CMD="/bin/sh" 
     secrets: [REGISTRY, REGISTRY_USER, REGISTRY_PASSWORD]
     commands:
      - docker login -u $${REGISTRY_USER} -p $${REGISTRY_PASSWORD} $${REGISTRY}

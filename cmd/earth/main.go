@@ -34,7 +34,7 @@ import (
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
 	"github.com/sirupsen/logrus"
 	urfavecli "github.com/urfave/cli/v3"
-	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 )
 
 // These vars are set by ldflags.

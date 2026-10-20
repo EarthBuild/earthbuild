@@ -56,7 +56,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: false
-      - uses: ./.github/actions/stage2-setup
+      - uses: $/.github/actions/stage2-setup
         with:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -65,11 +65,11 @@ jobs:
           BUILT_EARTH_PATH: "${{ inputs.BUILT_EARTH_PATH }}"
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earth_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
       - name: Run linux-amd64 specific tests
         run: |
           # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
@@ -104,13 +104,13 @@ jobs:
           INPUTS_BINARY: ${{inputs.BINARY}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
       - name: Test buildkit info-level logging
-        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earthly-buildkitd 2>&1 | grep 'running server on'
+        run: ${INPUTS_SUDO} "${INPUTS_BINARY}" logs earth-buildkitd 2>&1 | grep 'running server on'
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Failure diagnostics
         if: ${{ failure() }}
-        uses: ./.github/actions/failure-diagnostics
+        uses: $/.github/actions/failure-diagnostics
         with:
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"

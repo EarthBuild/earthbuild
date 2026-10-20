@@ -5,9 +5,16 @@
         "args": [
           "DIND_IMAGE",
           "=",
-          "earthbuild/dind:alpine-3.24-docker-29.5.3-r0"
+          "earthbuild/dind:alpine-3.24-docker-29.8.2-r1"
         ],
-        "name": "ARG"
+        "name": "ARG",
+        "sourceLocation": {
+          "endColumn": 60,
+          "endLine": 3,
+          "file": "with-docker-compose.earth",
+          "startColumn": 1,
+          "startLine": 3
+        }
       }
     },
     {
@@ -15,7 +22,14 @@
         "args": [
           "$DIND_IMAGE"
         ],
-        "name": "FROM"
+        "name": "FROM",
+        "sourceLocation": {
+          "endColumn": 17,
+          "endLine": 4,
+          "file": "with-docker-compose.earth",
+          "startColumn": 1,
+          "startLine": 4
+        }
       }
     },
     {
@@ -23,7 +37,14 @@
         "args": [
           "/test"
         ],
-        "name": "WORKDIR"
+        "name": "WORKDIR",
+        "sourceLocation": {
+          "endColumn": 14,
+          "endLine": 5,
+          "file": "with-docker-compose.earth",
+          "startColumn": 1,
+          "startLine": 5
+        }
       }
     }
   ],
@@ -41,10 +62,39 @@
               "--INDEX=4",
               "--INDEX=5"
             ],
-            "name": "BUILD"
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 18,
+              "endLine": 13,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 8
+            }
+          }
+        },
+        {
+          "command": {
+            "args": [
+              "+test-digest-pinned-image"
+            ],
+            "name": "BUILD",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 14,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 14
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 16,
+        "file": "with-docker-compose.earth",
+        "startColumn": 1,
+        "startLine": 7
+      }
     },
     {
       "name": "print-countries",
@@ -54,7 +104,14 @@
             "args": [
               "jbergknoff/postgresql-client:latest"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 45,
+              "endLine": 17,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 17
+            }
           }
         },
         {
@@ -64,7 +121,14 @@
               "SELECT * FROM country WHERE country_id = '76'"
             ],
             "execMode": true,
-            "name": "CMD"
+            "name": "CMD",
+            "sourceLocation": {
+              "endColumn": 64,
+              "endLine": 18,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 18
+            }
           }
         },
         {
@@ -72,10 +136,24 @@
             "args": [
               "print-countries:latest"
             ],
-            "name": "SAVE IMAGE"
+            "name": "SAVE IMAGE",
+            "sourceLocation": {
+              "endColumn": 38,
+              "endLine": 19,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 21,
+        "file": "with-docker-compose.earth",
+        "startColumn": 1,
+        "startLine": 16
+      }
     },
     {
       "name": "test",
@@ -88,7 +166,14 @@
               "--no-cache",
               "postgresql-client"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 45,
+              "endLine": 22,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 22
+            }
           }
         },
         {
@@ -97,7 +182,14 @@
               "docker-compose.yml",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 30,
+              "endLine": 23,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 23
+            }
           }
         },
         {
@@ -108,7 +200,14 @@
               "0"
             ],
             "docs": "Index is used to create parallel tests.\n",
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 16,
+              "endLine": 25,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 25
+            }
           }
         },
         {
@@ -137,7 +236,14 @@
                     "grep",
                     "Brazil"
                   ],
-                  "name": "RUN"
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 93,
+                    "endLine": 31,
+                    "file": "with-docker-compose.earth",
+                    "startColumn": 9,
+                    "startLine": 30
+                  }
                 }
               }
             ],
@@ -150,16 +256,136 @@
                 "--load",
                 "+print-countries"
               ],
-              "name": "DOCKER"
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 36,
+                "endLine": 29,
+                "file": "with-docker-compose.earth",
+                "startColumn": 10,
+                "startLine": 26
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 32,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 26
             }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 34,
+        "file": "with-docker-compose.earth",
+        "startColumn": 1,
+        "startLine": 21
+      }
+    },
+    {
+      "docs": "Regression test for https://github.com/EarthBuild/earthbuild/issues/512:\ncompose services pinned by digest must not break the image pre-pull, and the\npin must still be honoured when the service runs.\n",
+      "name": "test-digest-pinned-image",
+      "recipe": [
+        {
+          "command": {
+            "args": [
+              "docker-compose.digest.yml",
+              "./docker-compose.yml"
+            ],
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 56,
+              "endLine": 38,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 38
+            }
+          }
+        },
+        {
+          "with": {
+            "body": [
+              {
+                "command": {
+                  "args": [
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "tag-and-digest",
+                    "|",
+                    "grep",
+                    "'hello from tag-and-digest'",
+                    "&&",
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "digest-only",
+                    "|",
+                    "grep",
+                    "'hello from digest-only'",
+                    "&&",
+                    "docker",
+                    "image",
+                    "inspect",
+                    "alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6"
+                  ],
+                  "name": "RUN",
+                  "sourceLocation": {
+                    "endColumn": 112,
+                    "endLine": 42,
+                    "file": "with-docker-compose.earth",
+                    "startColumn": 9,
+                    "startLine": 40
+                  }
+                }
+              }
+            ],
+            "command": {
+              "args": [
+                "--compose",
+                "docker-compose.yml"
+              ],
+              "name": "DOCKER",
+              "sourceLocation": {
+                "endColumn": 45,
+                "endLine": 39,
+                "file": "with-docker-compose.earth",
+                "startColumn": 10,
+                "startLine": 39
+              }
+            },
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 43,
+              "file": "with-docker-compose.earth",
+              "startColumn": 5,
+              "startLine": 39
+            }
+          }
+        }
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 44,
+        "file": "with-docker-compose.earth",
+        "startColumn": 1,
+        "startLine": 37
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "with-docker-compose.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

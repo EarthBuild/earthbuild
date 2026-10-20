@@ -1,5 +1,14 @@
 VERSION 0.8
-FROM alpine:3.24.1
+FROM alpine:3.24.2
+
+# DEFAULT_INSTALLATION_NAME is the CLI's own name, baked in via
+# -X main.DefaultInstallationName. It also determines the config dir
+# (~/.<name>), the local buildkitd container (<name>-buildkitd), the cache
+# volume (<name>-cache) and the default buildkit port offset.
+#
+# It is global so the release binaries (+signed-release) and the published
+# docker image (+perform-release-earthly-dockerhub) cannot disagree about it.
+ARG --global DEFAULT_INSTALLATION_NAME="earth"
 
 release-dockerhub:
     ARG --required RELEASE_TAG
@@ -52,6 +61,7 @@ perform-release-earthly-dockerhub:
         --TAG="$RELEASE_TAG" \
         --VERSION="$VERSION" \
         --DEFAULT_BUILDKITD_IMAGE="$DEFAULT_BUILDKITD_IMAGE" \
+        --DEFAULT_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME" \
         --PUSH_LATEST_TAG="$PUSH_LATEST_TAG" \
         --PUSH_PRERELEASE_TAG="$PUSH_PRERELEASE_TAG" \
         --BUILDKIT_PROJECT="$BUILDKIT_PROJECT"
@@ -78,13 +88,13 @@ perform-release-buildkitd-dockerhub:
 # signed-release creates the release directory containing binaries for all archs and platforms plus release
 # notes and GPG signatures to later zip and upload to github
 signed-release:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
 
     RUN apk add --no-cache file gpg gpg-agent
 
     ARG --required RELEASE_TAG
     ARG --required GITHUB_USER
-    ARG --required EARTHLY_REPO
+    ARG --required EARTH_REPO
     ARG --required DOCKERHUB_HOST
     ARG --required DOCKERHUB_USER
     ARG --required DOCKERHUB_BUILDKIT_IMG
@@ -94,12 +104,12 @@ signed-release:
     # If not provided, defaults to RELEASE_TAG for backwards compatibility
     ARG VERSION="$RELEASE_TAG"
 
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
 
     COPY (../+all-binaries/* \
          --VERSION=$VERSION \
          --DEFAULT_BUILDKITD_IMAGE="$DOCKERHUB_HOST/$DOCKERHUB_USER/$DOCKERHUB_BUILDKIT_IMG:$VERSION" \
-         --DEFAULT_INSTALLATION_NAME="earth" \
+         --DEFAULT_INSTALLATION_NAME="$DEFAULT_INSTALLATION_NAME" \
          ) ./release/
 
 
@@ -131,7 +141,7 @@ promote-release:
     BUILD +promote-to-dockerhub
 
 gh-cli:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
 
     RUN apk add --no-cache ca-certificates curl tar jq git bash && update-ca-certificates
 
@@ -142,10 +152,10 @@ promote-artifacts-to-gh:
     FROM +gh-cli
 
     # Built-ins: Full commit SHA, First 8 of commit SHA
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
 
-    # Default to earthly-inferred commit SHA but accept an override
-    ARG COMMIT_SHA="$EARTHLY_GIT_HASH"
+    # Default to earth-inferred commit SHA but accept an override
+    ARG COMMIT_SHA="$EARTH_GIT_HASH"
 
     # Trim COMMIT_SHA to first 8 chars
     LET ARTIFACT_NAME="$(echo $COMMIT_SHA | cut -c1-8)"
@@ -170,7 +180,7 @@ promote-to-dockerhub:
     # Built-ins: First 8 of commit SHA
     ARG EARTHLY_GIT_SHORT_HASH
 
-    # Default to earthly-inferred commit SHA short but accept an override
+    # Default to earth-inferred commit SHA short but accept an override
     ARG COMMIT_SHA_SHORT="$EARTHLY_GIT_SHORT_HASH"
 
     # The release tag (vX.X.X) that we're running for
@@ -180,11 +190,6 @@ promote-to-dockerhub:
     BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
     # ghcr.io/earthbuild/earthbuild:8f307bf7 -> docker.io/earthbuild/earthbuild:${RELEASE_TAG}
     BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild" --SRC_TAG="${COMMIT_SHA_SHORT}" --RELEASE_TAG="${RELEASE_TAG}"
-
-    # ghcr.io/earthbuild/earthbuild:buildkitd-staging-8f307bf7-ticktock -> docker.io/earthbuild/buildkitd-ticktock:${RELEASE_TAG}
-    BUILD +copy-img-to-dockerhub --IMG_NAME="buildkitd-ticktock" --SRC_TAG="buildkitd-staging-${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
-    # ghcr.io/earthbuild/earthbuild:8f307bf7-ticktock -> docker.io/earthbuild/earthbuild-ticktock:${RELEASE_TAG}
-    BUILD +copy-img-to-dockerhub --IMG_NAME="earthbuild-ticktock" --SRC_TAG="${COMMIT_SHA_SHORT}-ticktock" --RELEASE_TAG="${RELEASE_TAG}"
 
 # Copy staging buildkitd from GHCR to DockerHub for staging releases
 # This is called during CI staging builds to make the buildkitd image available on DockerHub
@@ -249,7 +254,7 @@ copy-img:
     RUN --push --no-cache echo "Done copying image from '${SRC_REF}' to '${DEST_REF}'"
 
 skopeo:
-    FROM alpine:3.24.1
+    FROM alpine:3.24.2
 
     # https://github.com/containers/skopeo/blob/main/install.md#alpine
     RUN apk add --no-cache skopeo

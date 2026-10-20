@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -9,18 +10,18 @@ import (
 	"path"
 	"path/filepath"
 	"time"
+	"uuid"
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earth/subcmd"
 	"github.com/EarthBuild/earthbuild/config"
 	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/env"
 	logbussetup "github.com/EarthBuild/earthbuild/logbus/setup"
 	"github.com/EarthBuild/earthbuild/util/cliutil"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
 	"github.com/EarthBuild/earthbuild/util/execstatssummary"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
-	"github.com/google/uuid"
 	"github.com/urfave/cli/v3"
 )
 
@@ -66,7 +67,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		flags.DisplayExecStats,
 		app.BaseCLI.Flags().InteractiveDebugging,
 		flags.LogstreamDebugFile,
-		uuid.NewString(),
+		uuid.New().String(),
 		execStatsTracker,
 		flags.GithubAnnotations,
 	)
@@ -99,7 +100,7 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	app.BaseCLI.SetCfg(&cfg)
 	app.processDeprecatedCommandOptions(app.BaseCLI.Cfg())
 
-	err = app.parseFrontend(ctx)
+	err = app.parseEngine(ctx, needsEngine(cmd))
 	if err != nil {
 		return ctx, err
 	}
@@ -128,53 +129,67 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	return ctx, nil
 }
 
-func (app *EarthApp) parseFrontend(ctx context.Context) error {
+func (app *EarthApp) parseEngine(ctx context.Context, detect bool) error {
 	log := app.BaseCLI.Log().WithPrefix("frontend")
-	feCfg := &containerutil.FrontendConfig{
-		BuildkitHostCLIValue:       app.BaseCLI.Flags().BuildkitHost,
-		BuildkitHostFileValue:      app.BaseCLI.Cfg().Global.BuildkitHost,
-		LocalRegistryHostFileValue: app.BaseCLI.Cfg().Global.LocalRegistryHost,
-		LocalContainerName:         app.BaseCLI.Flags().ContainerName,
-		DefaultPort:                8372 + config.PortOffset(app.BaseCLI.Flags().InstallationName),
-		Log:                        log,
+	engCfg := &engine.Config{
+		BuildkitHost:      cmp.Or(app.BaseCLI.Flags().BuildkitHost, app.BaseCLI.Cfg().Global.BuildkitHost),
+		LocalRegistryHost: app.BaseCLI.Cfg().Global.LocalRegistryHost,
+		ContainerName:     app.BaseCLI.Flags().ContainerName,
+		DefaultPort:       engine.DefaultBuildkitPort + config.PortOffset(app.BaseCLI.Flags().InstallationName),
+		Log:               log,
 	}
 
-	fe, err := containerutil.FrontendForSetting(ctx, app.BaseCLI.Cfg().Global.ContainerFrontend, feCfg)
-	if err != nil {
-		origErr := err
-
-		stub, err := containerutil.NewStubFrontend(feCfg)
+	// The stub is already what this settles on when no runtime is found, so a
+	// command that will never use one can have it without the probe.
+	if !detect {
+		stub, err := engine.NewStub(engCfg)
 		if err != nil {
-			return fmt.Errorf("failed stub frontend initialization: %w", err)
+			return fmt.Errorf("failed stub container engine initialization: %w", err)
 		}
 
-		app.BaseCLI.Flags().ContainerFrontend = stub
+		app.BaseCLI.Flags().Engine = stub
 
-		if !app.BaseCLI.Flags().Verbose {
-			log.Printf("Unable to detect Docker or Podman. Use --verbose to see details (or errors)\n")
-		}
-
-		log.VerbosePrintf("%s frontend initialization failed due to %s",
-			app.BaseCLI.Cfg().Global.ContainerFrontend, origErr.Error())
+		log.VerbosePrintf("this command uses no container frontend\n")
 
 		return nil
 	}
 
-	log.VerbosePrintf("%s frontend initialized.\n", fe.Config().Setting)
-	app.BaseCLI.Flags().ContainerFrontend = fe
+	eng, err := engine.New(ctx, engine.Driver(app.BaseCLI.Cfg().Global.Engine), engCfg)
+	if err != nil {
+		origErr := err
 
-	// These URLs were calculated relative to the configured frontend. In the
-	// case of an automatically detected frontend, they are calculated according
+		stub, err := engine.NewStub(engCfg)
+		if err != nil {
+			return fmt.Errorf("failed stub container engine initialization: %w", err)
+		}
+
+		app.BaseCLI.Flags().Engine = stub
+
+		if !app.BaseCLI.Flags().Verbose {
+			log.Printf("Unable to detect Docker, Podman, or Apple Container. Use --verbose to see details (or errors)\n")
+		}
+
+		log.VerbosePrintf("%s container engine initialization failed due to %s",
+			app.BaseCLI.Cfg().Global.Engine, origErr.Error())
+
+		return nil
+	}
+
+	log.VerbosePrintf("%s engine initialized.\n", eng.Metadata().Name)
+	app.BaseCLI.Flags().Engine = eng
+
+	// These URLs were calculated relative to the configured engine. In the
+	// case of an automatically detected engine, they are calculated according
 	// to the first selected one in order of precedence.
-	buildkitURLs := app.BaseCLI.Flags().ContainerFrontend.Config().FrontendURLs
-	app.BaseCLI.Flags().BuildkitHost = buildkitURLs.BuildkitHost.String()
-	app.BaseCLI.Flags().LocalRegistryHost = buildkitURLs.LocalRegistryHost.String()
+	addrs := app.BaseCLI.Flags().Engine.Metadata().Addrs
+	app.BaseCLI.Flags().BuildkitHost = addrs.Buildkit.String()
+	app.BaseCLI.Flags().LocalRegistryHost = addrs.LocalRegistry.String()
 
 	return nil
 }
 
 func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
-	app.warnIfEarth()
+	app.warnRenamedFromEarthly()
 	app.warnDeprecatedEarthlyEnvVars()
 	app.warnDeprecatedAutoSkip()
 
@@ -182,6 +197,11 @@ func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 
 	if cfg.Global.CachePath != "" {
 		app.BaseCLI.Log().Warnf("Warning: the setting cache_path is now obsolete and will be ignored")
+	}
+
+	if flags.TickTock {
+		app.BaseCLI.Log().Warnf("Warning: --ticktock and EARTH_TICKTOCK are obsolete and will be ignored; " +
+			"the experimental ticktock buildkit has been removed in favour of the standard buildkit daemon")
 	}
 
 	if flags.ConversionParallelism != 0 {
@@ -193,7 +213,7 @@ func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	if flags.GitUsernameOverride != "" || flags.GitPasswordOverride != "" {
 		app.BaseCLI.Log().Warnf("Warning: the --git-username and --git-password command flags " +
 			"are deprecated and are now configured in the ~/.earthly/config.yml file under the git section; " +
-			"see https://docs.earthbuild.dev/earthly-config for reference.\n")
+			"see https://docs.earthbuild.dev/docs/earth-config for reference.\n")
 
 		if _, ok := cfg.Git["github.com"]; !ok {
 			cfg.Git["github.com"] = config.GitConfig{}
@@ -218,7 +238,13 @@ func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	}
 }
 
-const cmdName = "earthly"
+const (
+	// cmdName is the current name of the CLI binary.
+	cmdName = "earth"
+	// deprecatedCmdName is the pre-rename name, still shipped as a symlink to
+	// cmdName for one deprecation cycle.
+	deprecatedCmdName = "earthly"
+)
 
 // warnDeprecatedEarthlyEnvVars warns about any EARTHLY_-prefixed environment
 // variables, which have been replaced by the EARTH_ prefix.
@@ -258,31 +284,46 @@ func autoSkipDeprecationWarning(skipBuildkit, noAutoSkip bool, localSkipDB strin
 		"Let us know how you use auto-skip at https://github.com/orgs/EarthBuild/discussions/707"
 }
 
-func (app *EarthApp) warnIfEarth() {
+// warnRenamedFromEarthly warns when the CLI is invoked under its deprecated
+// name, and points at the replacement when one is installed alongside it.
+func (app *EarthApp) warnRenamedFromEarthly() {
 	if len(os.Args) == 0 {
 		return
 	}
 
-	// can't use os.Executable() here; because it will give us earth if executed via the earth symlink
-	binPath := os.Args[0]
-
-	baseName := path.Base(binPath)
-	if baseName == cmdName {
-		app.BaseCLI.Log().Warnf("Warning: the earthly binary has been renamed to earth; " +
-			"the earthly command is currently symlinked, but is deprecated and will one day be removed.")
-
-		absPath, err := filepath.Abs(binPath)
-		if err != nil {
-			return
-		}
-
-		earthPath := path.Join(path.Dir(absPath), cmdName)
-
-		earthPathExists, _ := fileutil.FileExists(earthPath)
-		if earthPathExists {
-			app.BaseCLI.Log().Warnf("Once you are ready to switch over to earth, you can `rm %s`", absPath)
-		}
+	// Detect the invoked name from argv[0] rather than os.Executable(): the
+	// latter resolves the symlink and would always report cmdName.
+	if path.Base(os.Args[0]) != deprecatedCmdName {
+		return
 	}
+
+	app.BaseCLI.Log().Warnf(
+		"Warning: the %s binary has been renamed to %s; %s is deprecated and will one day be removed.",
+		deprecatedCmdName, cmdName, deprecatedCmdName)
+
+	// Locate the replacement next to the real binary. os.Executable() is the
+	// right source here (and argv[0] is not): argv[0] is a bare name when the
+	// CLI was found on PATH, which filepath.Abs would resolve against the
+	// working directory instead of the install dir.
+	exePath, err := os.Executable()
+	if err != nil {
+		return
+	}
+
+	binDir := filepath.Dir(exePath)
+
+	// Only suggest removing the deprecated binary if its replacement actually
+	// exists alongside it.
+	if exists, _ := fileutil.FileExists(filepath.Join(binDir, cmdName)); !exists {
+		return
+	}
+
+	deprecatedPath := filepath.Join(binDir, deprecatedCmdName)
+	if exists, _ := fileutil.FileExists(deprecatedPath); !exists {
+		return
+	}
+
+	app.BaseCLI.Log().Warnf("Once you are ready to switch over to %s, you can `rm %s`", cmdName, deprecatedPath)
 }
 
 func profhandler() {
@@ -311,4 +352,25 @@ func defaultConfigPath(installName string) string {
 	}
 
 	return newConfig
+}
+
+// noEngine are the subcommands that never ask for a container: none of them
+// mentions Engine, directly or otherwise.
+var noEngine = map[string]struct{}{
+	"ls":     {}, // reads an Earthfile
+	"doc":    {}, // reads an Earthfile
+	"init":   {}, // writes an Earthfile
+	"config": {}, // reads and writes the config file
+}
+
+// needsEngine reports whether this invocation should probe for docker or
+// podman. It asks urfave which subcommand it parsed rather than scanning
+// os.Args, because a global flag's value is a word like any other: scanned,
+// `--git-username doc build +all` names doc, and the build then runs against a
+// stub engine.
+// Anything unrecognised is answered yes, as every invocation was before.
+func needsEngine(cmd *cli.Command) bool {
+	_, skip := noEngine[cmd.Args().First()]
+
+	return !skip
 }

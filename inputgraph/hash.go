@@ -15,7 +15,6 @@ type HashOpt struct {
 	Log            *conslogging.ConsoleLogger
 	Target         domain.Target
 	BuiltinArgs    variables.DefaultArgs
-	CI             bool
 }
 
 // HashTarget produces a hash from an earth target.

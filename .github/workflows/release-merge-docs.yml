@@ -19,7 +19,7 @@ env:
 jobs:
   main-to-docs:
     name: merge main to docs-0.8
-    runs-on: "ubuntu-latest"
+    runs-on: "ubuntu-26.04"
     # The merge and push happen inside +merge-main-to-docs using the
     # littleredcorvette SSH key and GH token, not GITHUB_TOKEN, so this job
     # itself only ever reads the repo.

@@ -10,10 +10,6 @@ on:
         required: false
         type: string
         default: ""
-      USE_NEXT:
-        required: false
-        type: boolean
-        default: false
     secrets:
       DOCKERHUB_MIRROR_PASSWORD:
         required: false
@@ -51,11 +47,11 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/reusable-example.yml
+    uses: $/.github/workflows/reusable-example.yml
     with:
       EXAMPLE_NAME: ${{ matrix.example }}
       BUILT_EARTH_PATH: "./build/linux/amd64/earthly"
-      RUNS_ON: "ubuntu-24.04"
+      RUNS_ON: "ubuntu-26.04"
       BINARY: ${{ inputs.FRONTEND }}
       USE_QEMU: ${{ inputs.FRONTEND == 'podman' }}
       SUDO: ${{ inputs.SUDO }}

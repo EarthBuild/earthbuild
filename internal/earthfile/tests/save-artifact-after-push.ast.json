@@ -1,5 +1,4 @@
 {
-  "baseRecipe": null,
   "targets": [
     {
       "name": "test",
@@ -7,9 +6,16 @@
         {
           "command": {
             "args": [
-              "alpine:3.24.1"
+              "alpine:3.24.2"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 3,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 3
+            }
           }
         },
         {
@@ -17,7 +23,14 @@
             "args": [
               "test"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 4,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 4
+            }
           }
         },
         {
@@ -28,7 +41,14 @@
               ">",
               "1"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 6,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 6
+            }
           }
         },
         {
@@ -39,7 +59,14 @@
               "LOCAL",
               "1"
             ],
-            "name": "SAVE ARTIFACT"
+            "name": "SAVE ARTIFACT",
+            "sourceLocation": {
+              "endColumn": 31,
+              "endLine": 7,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 7
+            }
           }
         },
         {
@@ -51,7 +78,14 @@
               ">",
               "2"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 28,
+              "endLine": 9,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 9
+            }
           }
         },
         {
@@ -63,7 +97,14 @@
               ">",
               "1"
             ],
-            "name": "RUN"
+            "name": "RUN",
+            "sourceLocation": {
+              "endColumn": 36,
+              "endLine": 10,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 10
+            }
           }
         },
         {
@@ -71,7 +112,14 @@
             "args": [
               "EARTHLY_PUSH"
             ],
-            "name": "ARG"
+            "name": "ARG",
+            "sourceLocation": {
+              "endColumn": 21,
+              "endLine": 12,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 12
+            }
           }
         },
         {
@@ -92,7 +140,14 @@
                     "LOCAL",
                     "surprise"
                   ],
-                  "name": "SAVE ARTIFACT"
+                  "name": "SAVE ARTIFACT",
+                  "sourceLocation": {
+                    "endColumn": 42,
+                    "endLine": 14,
+                    "file": "save-artifact-after-push.earth",
+                    "startColumn": 9,
+                    "startLine": 14
+                  }
                 }
               },
               {
@@ -103,13 +158,34 @@
                     "LOCAL",
                     "2"
                   ],
-                  "name": "SAVE ARTIFACT"
+                  "name": "SAVE ARTIFACT",
+                  "sourceLocation": {
+                    "endColumn": 35,
+                    "endLine": 15,
+                    "file": "save-artifact-after-push.earth",
+                    "startColumn": 9,
+                    "startLine": 15
+                  }
                 }
               }
-            ]
+            ],
+            "sourceLocation": {
+              "endColumn": 8,
+              "endLine": 16,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 13
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 18,
+        "file": "save-artifact-after-push.earth",
+        "startColumn": 1,
+        "startLine": 2
+      }
     },
     {
       "name": "copy-test",
@@ -117,9 +193,16 @@
         {
           "command": {
             "args": [
-              "alpine:3.24.1"
+              "alpine:3.24.2"
             ],
-            "name": "FROM"
+            "name": "FROM",
+            "sourceLocation": {
+              "endColumn": 23,
+              "endLine": 19,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 19
+            }
           }
         },
         {
@@ -127,7 +210,14 @@
             "args": [
               "test"
             ],
-            "name": "WORKDIR"
+            "name": "WORKDIR",
+            "sourceLocation": {
+              "endColumn": 17,
+              "endLine": 20,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 20
+            }
           }
         },
         {
@@ -136,15 +226,36 @@
               "+test/2",
               "."
             ],
-            "name": "COPY"
+            "name": "COPY",
+            "sourceLocation": {
+              "endColumn": 19,
+              "endLine": 21,
+              "file": "save-artifact-after-push.earth",
+              "startColumn": 5,
+              "startLine": 21
+            }
           }
         }
-      ]
+      ],
+      "sourceLocation": {
+        "endColumn": 1,
+        "endLine": 22,
+        "file": "save-artifact-after-push.earth",
+        "startColumn": 1,
+        "startLine": 18
+      }
     }
   ],
   "version": {
     "args": [
       "0.8"
-    ]
+    ],
+    "sourceLocation": {
+      "endColumn": 12,
+      "endLine": 1,
+      "file": "save-artifact-after-push.earth",
+      "startColumn": 1,
+      "startLine": 1
+    }
   }
 }

@@ -14,7 +14,6 @@ builtin-args-test:
     ARG EARTH_VERSION
     ARG EARTH_BUILD_SHA
     ARG EARTH_LOCALLY
-    ARG EARTH_CI_RUNNER
     RUN echo "$EARTH_TARGET"
     RUN echo "$EARTH_TARGET_PROJECT"
     RUN echo "$EARTH_TARGET_NAME"
@@ -33,4 +32,3 @@ builtin-args-test:
     RUN test -n "$EARTH_VERSION"
     RUN test -n "$EARTH_BUILD_SHA"
     RUN test "$EARTH_LOCALLY" = "false"
-    RUN test -z "$EARTH_CI_RUNNER"

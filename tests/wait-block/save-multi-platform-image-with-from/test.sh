@@ -2,7 +2,7 @@
 set -uex
 
 # Unset referenced-save-only.
-export EARTHLY_VERSION_FLAG_OVERRIDES=""
+export EARTH_VERSION_FLAG_OVERRIDES=""
 
 # clean up old images (best effort)
 docker images --format '{{.Repository}}:{{.Tag}}' | grep earthly-multiplatform-wait-test-with-from | xargs -r -n 1 docker rmi

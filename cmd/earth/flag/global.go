@@ -7,7 +7,8 @@ import (
 
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
-	"github.com/EarthBuild/earthbuild/util/containerutil"
+	"github.com/EarthBuild/earthbuild/internal/engine"
+	"github.com/EarthBuild/earthbuild/internal/env"
 	"github.com/urfave/cli/v3"
 )
 
@@ -56,7 +57,7 @@ type Global struct {
 	BuildkitHost               string
 	BuildkitdImage             string
 	ContainerName              string
-	ContainerFrontend          containerutil.ContainerFrontend
+	Engine                     *engine.Client
 	BuildkitdSettings          buildkitd.Settings
 	ServerConnTimeout          time.Duration
 	ConversionParallelism      int
@@ -70,9 +71,10 @@ type Global struct {
 	Pull                       bool
 	Push                       bool
 	CI                         bool
-	UseTickTockBuildkitImage   bool
+	TickTock                   bool // Deprecated: obsolete and ignored.
 	Output                     bool
 	NoOutput                   bool
+	NoImageOutput              bool
 	BootstrapNoBuildkit        bool
 	SkipBuildkit               bool
 	AllowPrivileged            bool
@@ -194,7 +196,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Usage: "Apply additional flags after each VERSION command across all Earthfiles, " +
 				"multiple flags can be separated by commas",
 			Destination: &global.FeatureFlagOverrides,
-			Hidden:      true, // used for feature-flipping from ./earthly dev script
+			Hidden:      true, // used for feature-flipping from ./earth dev script
 		},
 		&cli.StringFlag{
 			Name:    EnvFileFlag,
@@ -273,9 +275,9 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 		&cli.BoolFlag{
 			Name:        "ticktock",
 			Sources:     EarthEnvVars("TICKTOCK"),
-			Usage:       "Use earthbuild's experimental buildkit ticktock codebase",
-			Destination: &global.UseTickTockBuildkitImage,
-			Hidden:      true, // Experimental
+			Usage:       "Obsolete: the experimental ticktock buildkit has been removed and this flag is ignored",
+			Destination: &global.TickTock,
+			Hidden:      true, // Deprecated
 		},
 		&cli.BoolFlag{
 			Name:        "output",
@@ -288,6 +290,17 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Sources:     EarthEnvVars("NO_OUTPUT"),
 			Usage:       common.Wrap("Do not output artifacts or images", "(using --push is still allowed)"),
 			Destination: &global.NoOutput,
+		},
+		// Unlike the flags around it, this one is new in earthbuild, so it
+		// deliberately has no deprecated EARTHLY_ alias to migrate off later.
+		&cli.BoolFlag{
+			Name:    "no-image-output",
+			Sources: cli.EnvVars(env.Prefix + "NO_IMAGE_OUTPUT"),
+			Usage: common.Wrap(
+				"Do not load images into the local docker instance, ",
+				"but still output artifacts (using --push is still allowed)",
+			),
+			Destination: &global.NoImageOutput,
 		},
 		&cli.BoolFlag{
 			Name:        "no-cache",

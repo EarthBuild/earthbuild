@@ -48,7 +48,7 @@ Each recipe contains a series of commands, which are defined below. For an intro
 
 #### Description
 
-The `FROM` command initializes a new build environment and sets the base image for subsequent instructions. It works similarly to the classical [Dockerfile `FROM` instruction](https://docs.docker.com/engine/reference/builder/#from), but it has the added ability to use another [target](https://docs.earthly.dev/docs/guides/target-ref#target-reference)'s image as the base image.
+The `FROM` command initializes a new build environment and sets the base image for subsequent instructions. It works similarly to the classical [Dockerfile `FROM` instruction](https://docs.docker.com/engine/reference/builder/#from), but it has the added ability to use another [target](../guides/target-ref.md#target-reference)'s image as the base image.
 
 Examples:
 
@@ -56,7 +56,7 @@ Examples:
 - Local reference: `FROM +another-target`
 - Relative reference: `FROM ./subdirectory+some-target` or `FROM ../otherdirectory+some-target`
 - Absolute reference: `FROM /absolute/path+some-target`
-- Remote reference from a public or [private](https://docs.earthly.dev/docs/guides/auth) git repository: `FROM github.com/example/project+remote-target`
+- Remote reference from a public or [private](../guides/auth.md) git repository: `FROM github.com/example/project+remote-target`
 
 The `FROM` command does not mark any saved images or artifacts of the referenced target for output, nor does it mark any push commands of the referenced target for pushing. For that, please use [`BUILD`](#build).
 
@@ -144,7 +144,7 @@ earth --allow-privileged +my-target
 
 ##### `--pass-args`
 
-EarthBuild automatically passes all current arguments to referenced targets in the *same* Earthfile.
+EarthBuild automatically passes all current arguments to referenced targets in the _same_ Earthfile.
 However, when the `--pass-args` flag is set, EarthBuild will also propagate all arguments to an externally referenced target.
 
 ##### `--build-arg <key>=<value>` (**deprecated**)
@@ -162,7 +162,7 @@ This option is deprecated. Use `--<build-arg-key>=<build-arg-value>` instead.
 
 The `RUN` command executes commands in the build environment of the current target, in a new layer. It works similarly to the [Dockerfile `RUN` command](https://docs.docker.com/engine/reference/builder/#run), with some added options.
 
-The command allows for two possible forms. The *exec form* runs the command executable without the use of a shell. The *shell form* uses the default shell (`/bin/sh -c`) to interpret the command and execute it. In either form, you can use a `\` to continue a single `RUN` instruction onto the next line.
+The command allows for two possible forms. The _exec form_ runs the command executable without the use of a shell. The _shell form_ uses the default shell (`/bin/sh -c`) to interpret the command and execute it. In either form, you can use a `\` to continue a single `RUN` instruction onto the next line.
 
 When the `--entrypoint` flag is used, the current image entrypoint is used to prepend the current command.
 
@@ -279,7 +279,7 @@ RUN --ssh git config --global url."git@github.com:".insteadOf "https://github.co
 ```
 
 {% hint style='warning' %}
-Note that `RUN --ssh` option is only used for creating a tunnel to the host's ssh-agent's socket (set via `$SSH_AUTH_SOCK`); it is **not** related to the git section of the earth [configuration file](../earthly-config/earthly-config.md).
+Note that `RUN --ssh` option is only used for creating a tunnel to the host's ssh-agent's socket (set via `$SSH_AUTH_SOCK`); it is **not** related to the git section of the earth [configuration file](../earth-config/earth-config.md).
 {% endhint %}
 
 ##### `--mount <mount-spec>`
@@ -318,13 +318,13 @@ Note that mounts cannot be shared between targets, nor can they be shared within
 Mounting a secret as a file:
 
 ```Dockerfile
-RUN --mount=type=secret,id=netrc,target=/root/.netrc curl https://example.earthly.dev/restricted/example-file-that-requires-auth > data
+RUN --mount=type=secret,id=netrc,target=/root/.netrc curl https://example.earthbuild.dev/restricted/example-file-that-requires-auth > data
 ```
 
 The contents of the secret `/root/.netrc` file can then be specified from the command line as:
 
 ```bash
-earth --secret netrc="machine example.earthly.dev login myusername password mypassword" +base
+earth --secret netrc="machine example.earthbuild.dev login myusername password mypassword" +base
 ```
 
 or by passing the contents of an existing file from the host filesystem:
@@ -396,8 +396,8 @@ The `<oidc-spec>` is defined as a series of comma-separated list of key-values. 
 
 ##### The hosted OIDC provider is unavailable
 
-Configuring this required registering EarthBuild's hosted OIDC issuer (`api.earthly.dev`) as an
-identity provider in AWS IAM. That host was decommissioned along with EarthBuild Cloud and no longer
+Configuring this required registering Earthly's hosted OIDC issuer (`api.earthly.dev`) as an
+identity provider in AWS IAM. That host was decommissioned along with Earthly Cloud and no longer
 resolves, so the flow cannot be set up as previously documented. The option is still accepted by
 the parser, but there is no working issuer behind it unless you run your own.
 
@@ -450,7 +450,7 @@ The following is output:
 
 The command `COPY` allows copying of files and directories between different contexts.
 
-The command may take a couple of possible forms. In the *classical form*, `COPY` copies files and directories from the build context into the build environment - in this form, it works similarly to the [Dockerfile `COPY` command](https://docs.docker.com/engine/reference/builder/#copy). In the *artifact form*, `COPY` copies files or directories (also known as "artifacts" in this context) from the artifact environment of other build targets into the build environment of the current target. Either form allows the use of wildcards for the sources.
+The command may take a couple of possible forms. In the _classical form_, `COPY` copies files and directories from the build context into the build environment - in this form, it works similarly to the [Dockerfile `COPY` command](https://docs.docker.com/engine/reference/builder/#copy). In the _artifact form_, `COPY` copies files or directories (also known as "artifacts" in this context) from the artifact environment of other build targets into the build environment of the current target. Either form allows the use of wildcards for the sources.
 
 The parameter `<src-artifact>` is an [artifact reference](../guides/importing.md#artifact-reference) and is generally of the form `<target-ref>/<artifact-path>`, where `<target-ref>` is the reference to the target which needs to be built in order to yield the artifact and `<artifact-path>` is the path within the artifact environment of the target, where the file or directory is located. The `<artifact-path>` may also be a wildcard.
 
@@ -504,7 +504,7 @@ The classical form of the `COPY` command differs from Dockerfiles in three cases
 
 ##### Note
 
-To prevent EarthBuild from copying unwanted files, you may specify file patterns to be excluded from the build context using an [`.earthlyignore`](./earthlyignore.md) file. This file has the same syntax as a [`.dockerignore` file](https://docs.docker.com/engine/reference/builder/#dockerignore-file).
+To prevent EarthBuild from copying unwanted files, you may specify file patterns to be excluded from the build context using an [`.earthignore`](./earthignore.md) file. This file has the same syntax as a [`.dockerignore` file](https://docs.docker.com/engine/reference/builder/#dockerignore-file).
 {% endhint %}
 
 #### Options
@@ -541,14 +541,14 @@ Instructs EarthBuild to not overwrite the file creation timestamps with a consta
 
 ##### `--keep-own`
 
-Instructs EarthBuild to keep file ownership information. This applies only to the *artifact form* and has no effect otherwise.
+Instructs EarthBuild to keep file ownership information. This applies only to the _artifact form_ and has no effect otherwise.
 
 ##### `--chmod <octal-format>`
 
 Instructs EarthBuild to change the file permissions of the copied files. The `<chmod>` needs to be in octal format, e.g. `--chmod 0755` or `--chmod 755`.
 
 {% hint style='info' %}
-Note that you must include the flag in the corresponding `SAVE ARTIFACT --keep-own ...` command, if using *artifact form*.
+Note that you must include the flag in the corresponding `SAVE ARTIFACT --keep-own ...` command, if using _artifact form_.
 {% endhint %}
 
 ##### `--if-exists`
@@ -571,7 +571,7 @@ consumer:
 
 ##### `--from`
 
-Although this option is present in classical Dockerfile syntax, it is not supported by Earthfiles. You may instead use a combination of `SAVE ARTIFACT` and `COPY` *artifact form* commands to achieve similar effects. For example, the following Dockerfile
+Although this option is present in classical Dockerfile syntax, it is not supported by Earthfiles. You may instead use a combination of `SAVE ARTIFACT` and `COPY` _artifact form_ commands to achieve similar effects. For example, the following Dockerfile
 
 ```Dockerfile
 # Dockerfile
@@ -592,7 +592,7 @@ final-target:
 
 ##### `--platform <platform>`
 
-In *artifact form*, it specifies the platform to build the artifact on.
+In _artifact form_, it specifies the platform to build the artifact on.
 
 For more information see the [multi-platform guide](../guides/multi-platform.md).
 
@@ -665,8 +665,8 @@ For detailed examples demonstrating how other scenarios may function, please see
 
 #### Synopsis
 
-- `ARG [--required] <name>[=<default-value>]` (constant form)
-- `ARG [--required] <name>=$(<default-value-expr>)` (dynamic form)
+- `ARG [--required] [--global] [--description="<description>"] <name>[=<default-value>]` (constant form)
+- `ARG [--required] [--global] [--description="<description>"] <name>=$(<default-value-expr>)` (dynamic form)
 
 #### Description
 
@@ -674,7 +674,7 @@ The command `ARG` declares a build argument (or arg) with the name `<name>` and 
 
 This command works similarly to the [Dockerfile `ARG` command](https://docs.docker.com/engine/reference/builder/#arg), with a few differences regarding the scope and the predefined args (called builtin args in EarthBuild). The arg's scope is always limited to the recipe of the current target or command and only from the point it is declared onward. For more information regarding builtin args, see the [builtin args page](./builtin-args.md).
 
-In its *constant form*, the arg takes a default value defined as a constant string. If the `<default-value>` is not provided, then the default value is an empty string. In its *dynamic form*, the arg takes a default value defined as an expression. The expression is evaluated at run time and its result is used as the default value. The expression is interpreted via the default shell (`/bin/sh -c`) within the build environment.
+In its _constant form_, the arg takes a default value defined as a constant string. If the `<default-value>` is not provided, then the default value is an empty string. In its _dynamic form_, the arg takes a default value defined as an expression. The expression is evaluated at run time and its result is used as the default value. The expression is interpreted via the default shell (`/bin/sh -c`) within the build environment.
 
 The value of an arg can be overridden either from the `earth` command
 
@@ -701,6 +701,21 @@ FROM +docker-image --NAME=john
 For more information on how to use build args see the [build arguments and variables guide](../guides/build-args.md). A number of builtin args are available and are pre-filled by EarthBuild. For more information see [builtin args](./builtin-args.md).
 
 #### Options
+
+##### `--description="<description>"`
+
+A description of the build argument for inline documentation (introduced in EarthBuild v0.8.20). Descriptions are automatically rendered by the CLI documentation tool (`earth doc`).
+
+The description value can be enclosed in double quotes (`--description="..."`), single quotes (`--description='...'`), or given as an unquoted word (`--description=word`). When inspecting a target with `earth doc`, these descriptions appear in the `ARG` table under the `DESCRIPTION` column.
+
+```
+build:
+    ARG --description="Environment stage (dev, staging, prod)" ENV=prod
+    ARG --required --description="Database connection URL" DB_URL
+
+    FROM alpine:3.18
+    RUN echo "Building for ${ENV}"
+```
 
 ##### `--required`
 
@@ -764,7 +779,7 @@ This command dumps the contents of the artifact environment of the target `+<tar
 
 ##### Important
 
-Note that there is a distinction between a *directory artifact* and *file artifact* when it comes to local output. When saving an artifact locally, a directory artifact will **replace** the destination entirely, while a file (or set of files) artifact will be copied **into** the destination directory.
+Note that there is a distinction between a _directory artifact_ and _file artifact_ when it comes to local output. When saving an artifact locally, a directory artifact will **replace** the destination entirely, while a file (or set of files) artifact will be copied **into** the destination directory.
 
 ```Dockerfile
 # This will wipe ./destination and replace it with the contents of the ./my-directory artifact.
@@ -1007,7 +1022,7 @@ build-all-platforms:
 
 For more information see the [multi-platform guide](../guides/multi-platform.md).
 
-##### `--auto-skip` (*beta*)
+##### `--auto-skip` (_beta_)
 
 Instructs EarthBuild to skip the build of the target if the target's dependencies have not changed from a previous successful build. For more information on how to use this feature, see the [auto-skip section of the caching in Earthfiles guide](../caching/caching-in-earthfiles.md#auto-skip).
 
@@ -1060,7 +1075,7 @@ foo:
 
 The command `SET` may be used to change the value of a previously declared variable, so long as the variable was declared with `LET`.
 
-`ARG` variables may *not* be changed by `SET`, since `ARG` is intended to accept overrides from the CLI. If you want to change the value of an `ARG` variable, redeclare it with `LET someVar = "$someVar"` first.
+`ARG` variables may _not_ be changed by `SET`, since `ARG` is intended to accept overrides from the CLI. If you want to change the value of an `ARG` variable, redeclare it with `LET someVar = "$someVar"` first.
 
 See [the `LET` docs for more info](#let).
 
@@ -1206,7 +1221,7 @@ docker:
     SAVE IMAGE testimg:latest
 ```
 
-Note that `+mybuildcontext/mydata` on its own would copy the directory *and* its contents; where as `+mybuildcontext/mydata/*` is required to copy all of the contents from within the `mydata` directory (
+Note that `+mybuildcontext/mydata` on its own would copy the directory _and_ its contents; where as `+mybuildcontext/mydata/*` is required to copy all of the contents from within the `mydata` directory (
 without copying the wrapping `mydata` directory).
 
 If both the `Dockerfile` and build context are inside the same target, one must reference the same target twice, e.g. `FROM DOCKERFILE -f +target/dir/Dockerfile +target/dir`.
@@ -1244,7 +1259,7 @@ This does not apply to Dockerfile's [RUN --security](https://docs.docker.com/ref
 
 ```Dockerfile
 WITH DOCKER [--pull <image-name>] [--load [<image-name>=]<target-ref>] [--compose <compose-file>]
-            [--service <compose-service>] [--allow-privileged]
+            [--service <compose-service>] [--platform <platform>] [--allow-privileged]
   <commands>
   ...
 END
@@ -1263,7 +1278,7 @@ The `WITH DOCKER` clause only supports the command [`RUN`](#run). Other commands
 A typical example of a `WITH DOCKER` clause might be:
 
 ```Dockerfile
-FROM earthbuild/dind:alpine-3.24-docker-29.5.3-r0
+FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r1
 WORKDIR /test
 COPY docker-compose.yml ./
 WITH DOCKER \
@@ -1277,7 +1292,7 @@ WITH DOCKER \
 END
 ```
 
-For more examples, see the [Docker in EarthBuild guide](../guides/docker-in-earthly.md) and the [Integration testing guide](../guides/integration.md).
+For more examples, see the [Docker in EarthBuild guide](../guides/docker-in-earthbuild.md) and the [Integration testing guide](../guides/integration.md).
 
 For information on using `WITH DOCKER` with podman see the [Podman guide](../guides/podman.md)
 
@@ -1287,7 +1302,7 @@ For information on using `WITH DOCKER` with podman see the [Podman guide](../gui
 
 For performance reasons, it is recommended to use a Docker image that already contains `dockerd`. If `dockerd` is not found, earth will attempt to install it.
 
-Earth provides officially supported images such as `earthbuild/dind:alpine-3.24-docker-29.5.3-r0` and `earthbuild/dind:ubuntu-26.04-docker-29.4.0-1` to be used together with `WITH DOCKER`.
+Earth provides officially supported images such as `earthbuild/dind:alpine-3.24-docker-29.8.2-r1` and `earthbuild/dind:ubuntu-26.04-docker-29.9.1-1` to be used together with `WITH DOCKER`.
 {% endhint %}
 
 {% hint style='info' %}
@@ -1994,7 +2009,7 @@ The `HOST` command creates a hostname entry (under `/etc/hosts`) that causes `<h
 
 ## SHELL (not supported)
 
-The classical [`SHELL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#shell) is not yet supported. Use the *exec form* of `RUN`, `ENTRYPOINT` and `CMD` instead and prepend a different shell.
+The classical [`SHELL` Dockerfile command](https://docs.docker.com/engine/reference/builder/#shell) is not yet supported. Use the _exec form_ of `RUN`, `ENTRYPOINT` and `CMD` instead and prepend a different shell.
 
 ## ADD (not supported)
 

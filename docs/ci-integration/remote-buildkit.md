@@ -39,11 +39,11 @@ rm: can't remove '/var/earthbuild/dind/...': Resource busy
 
 In EKS, users reported that mounting an EBS volume, instead of a Kubernetes `emptyDir` worked.
 
-This part of our documentation needs improvement. If you have a Kubernetes-based setup, please [let us know](https://earthly.dev/slack) how you have mounted `EARTHLY_TMP_DIR` and whether `WITH DOCKER` worked well for you.
+This part of our documentation needs improvement. If you have a Kubernetes-based setup, please [let us know](https://earthly.dev/slack) how you have mounted `EARTH_TMP_DIR` and whether `WITH DOCKER` worked well for you.
 
 #### Daemon
 
-To configure an `earthbuild/buildkitd` daemon as a remotely available daemon, you will need to start the container yourself. See our [configuration docs](../earthly-config/earthly-config.md) for more details on all the options available; but here are the ones you need to know:
+To configure an `earthbuild/buildkitd` daemon as a remotely available daemon, you will need to start the container yourself. See our [configuration docs](../earth-config/earth-config.md) for more details on all the options available; but here are the ones you need to know:
 
 **`BUILDKIT_TCP_TRANSPORT_ENABLED`**
 

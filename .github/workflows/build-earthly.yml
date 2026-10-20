@@ -19,10 +19,12 @@ on:
         required: false
         type: boolean
         default: false
-      USE_NEXT:
-        required: false
-        type: boolean
-        default: false
+    outputs:
+      TAG_SUFFIX:
+        description: >-
+          The suffix the images this job pushed are tagged with, as in
+          ghcr.io/earthbuild/earthbuild:buildkitd-staging-<sha>-<suffix>.
+        value: ${{ jobs.build-earthly.outputs.TAG_SUFFIX }}
     secrets:
       OTEL_EXPORTER_OTLP_HEADERS:
         required: false
@@ -39,16 +41,18 @@ env:
 jobs:
 
   build-earthly:
-    name: build (and push) earthly using ${{inputs.BINARY}} and earthly-next=${{inputs.USE_NEXT}}
+    name: build (and push) earth using ${{inputs.BINARY}}
     if: ${{!inputs.SKIP_JOB}}
     runs-on: ${{inputs.RUNS_ON}}
+    outputs:
+      TAG_SUFFIX: ${{ steps.tag-suffix.outputs.TAG_SUFFIX }}
     # Needed for the +ci-release target to push to the GitHub Container Registry for later builds
     permissions:
       contents: read
       packages: write
     env:
       # Use fixed buildkitd image with Docker 29+ ulimit fix until next release
-      EARTHLY_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
+      EARTH_BUILDKIT_IMAGE: ghcr.io/earthbuild/earthbuild:buildkitd-v0.8.17-fix.1
     steps:
       - uses: earthbuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
         with:
@@ -121,22 +125,13 @@ jobs:
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
-      - name: Update Buildkit to earthly-next
-        if: inputs.USE_NEXT
-        run: |
-          # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
-          scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" --sleep 3 --bootstrap "$INPUTS_SUDO $(which earth) bootstrap" \
-            -- ${INPUTS_SUDO} "$(which earth)" +update-buildkit --BUILDKIT_GIT_SHA="$(cat earthly-next)"
-        env:
-          INPUTS_SUDO: ${{inputs.SUDO}}
-          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Build latest earthly using released earthly
         # Every downstream job depends on this step, so a failure here cascades
         # into skips across the whole run.
         run: |
           # shellcheck disable=SC2086  # INPUTS_SUDO is "" or "sudo -E": it must word-split
           scripts/ci/earth-retry.sh --binary "$INPUTS_BINARY" --sudo "$INPUTS_SUDO" --sleep 3 --bootstrap "$INPUTS_SUDO $(which earth) bootstrap" \
-            -- ${INPUTS_SUDO} "$(which earth)" --use-inline-cache +for-linux
+            -- ${INPUTS_SUDO} "$(which earth)" --use-inline-cache --artifact +earthly-linux-amd64/earthly ./build/linux/amd64/earthly
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
@@ -147,22 +142,22 @@ jobs:
           ${INPUTS_SUDO} ./build/linux/amd64/earthly bootstrap
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
-      - name: Set EARTHLY_VERSION_FLAG_OVERRIDES env
+      - name: Set EARTH_VERSION_FLAG_OVERRIDES env
         run: |-
           set -euo pipefail
-          EARTHLY_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earthly_version_flag_overrides)"
-          echo "EARTHLY_VERSION_FLAG_OVERRIDES=$EARTHLY_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      # Computed once: three later steps need it, and it is a pure function of
-      # the workflow inputs.
+          EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earth_version_flag_overrides)"
+          echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
+      # Computed once: later steps and the workflow output need it, and it is a
+      # pure function of the workflow inputs.
       - name: Set TAG_SUFFIX env
+        id: tag-suffix
         run: |-
           set -euo pipefail
           suffix="$INPUTS_RUNS_ON"
-          if [ "$INPUTS_USE_NEXT" = "true" ]; then suffix="$suffix-ticktock"; fi
           echo "TAG_SUFFIX=$suffix" >> "$GITHUB_ENV"
+          echo "TAG_SUFFIX=$suffix" >> "$GITHUB_OUTPUT"
         env:
           INPUTS_RUNS_ON: ${{inputs.RUNS_ON}}
-          INPUTS_USE_NEXT: ${{inputs.USE_NEXT}}
       - name: Build and push +ci-release using latest earth build
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |-
@@ -199,8 +194,6 @@ jobs:
         # --image in the step above, so `image inspect` hits and no pull runs.
         run: |-
           set -euo pipefail
-          export TAG_SUFFIX="latest"
-          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
           IMG="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}"
 
           mkdir -p ./artifacts
@@ -219,32 +212,26 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |-
           set -euo pipefail
-          export TAG_SUFFIX="latest"
-          if [ "${{inputs.USE_NEXT}}" = "true" ]; then export TAG_SUFFIX="$TAG_SUFFIX-ticktock"; fi
-
-          # DEFAULT_INSTALLATION_NAME=earthly ensures the buildkitd container
-          # is named "earthly-buildkitd" as tests expect.
+          # The test suites address the buildkitd daemon by container name, so
+          # DEFAULT_INSTALLATION_NAME must be pinned rather than left at its dev
+          # default. "earth" gives them "earth-buildkitd".
           ${INPUTS_SUDO} ./build/linux/amd64/earthly --ci --artifact \
             +earthly/earthly \
             --DEFAULT_BUILDKITD_IMAGE="ghcr.io/earthbuild/earthbuild:buildkitd-staging-${GITHUB_SHA}-${TAG_SUFFIX}" \
             --VERSION="0.8.18" \
-            --DEFAULT_INSTALLATION_NAME=earthly \
+            --DEFAULT_INSTALLATION_NAME=earth \
             ./artifacts/earthly
         env:
           INPUTS_SUDO: ${{inputs.SUDO}}
       - name: Upload artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
-          # `== true` not bare truthiness: this is a typed boolean here, but a
-          # string in stage2-setup's composite action (where the matching
-          # download uses `== 'true'`). Truthiness would make the string 'false'
-          # append -ticktock and silently break the name match.
-          name: earth-build-latest${{ inputs.USE_NEXT == true && '-ticktock' || '' }}
+          name: earth-build-latest
           path: ./artifacts/
           retention-days: 1
       - name: Failure diagnostics
         if: ${{ failure() }}
-        uses: ./.github/actions/failure-diagnostics
+        uses: $/.github/actions/failure-diagnostics
         with:
           BINARY: "${{ inputs.BINARY }}"
           SUDO: "${{ inputs.SUDO }}"

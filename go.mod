@@ -30,7 +30,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/sirupsen/logrus v1.10.2
 	github.com/stretchr/testify v1.12.1
-	github.com/tonistiigi/fsutil v0.0.0-20261009124904-c1c5bffae3b5
+	github.com/tonistiigi/fsutil v0.0.0-20240424095704-91a3fc46842c
 	github.com/urfave/cli/v3 v3.14.0
 	go.etcd.io/bbolt v1.5.0
 	go.opentelemetry.io/contrib/exporters/autoexport v0.70.0
@@ -143,7 +143,4 @@ require (
 	howett.net/plist v1.0.1 // indirect
 )
 
-replace (
-	github.com/moby/buildkit => github.com/earthbuild/buildkit v0.0.0-20261007152302-343d8bfeeb0a
-	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20231030221755-644b08355b65
-)
+replace github.com/moby/buildkit => github.com/EarthBuild/buildkit v0.0.0-20261020054259-5fe7531de523

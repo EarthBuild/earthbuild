@@ -7,12 +7,12 @@ ARG REGISTRY_BASE="ghcr.io"
 ARG --global IMAGE_REGISTRY=$REGISTRY_BASE/$CR_ORG/$CR_REPO
 
 go:
-    FROM golang:1.27.1-alpine3.24
+    FROM golang:1.27.2-alpine3.24
     RUN apk add --no-cache git
     WORKDIR /earth
 
 node:
-    FROM node:26.10.0-alpine3.24
+    FROM node:26.12.0-alpine3.24
     # renovate: datasource=npm packageName=npm
     LET npm_version=12.2.0
     RUN \
@@ -102,7 +102,7 @@ lint-scripts:
 
 # lint-workflows audits GitHub Actions workflows and composite actions with zizmor (https://docs.zizmor.sh).
 lint-workflows:
-    FROM ghcr.io/zizmorcore/zizmor:1.30.1
+    FROM ghcr.io/zizmorcore/zizmor:1.31.1
     WORKDIR /audit
     COPY --dir .github .
     # --no-online-audits: no GITHUB_TOKEN here, and the online audits reach out
@@ -116,7 +116,7 @@ lint-workflows:
 earthbuild-script-no-stdout:
     # This validates the ./earth script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earth secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0
+    FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r1
     RUN apk add --no-cache bash
     COPY earth .earth_version_flag_overrides .
 
@@ -377,7 +377,7 @@ changelog:
 
 # lint-changelog lints the CHANGELOG.md file
 lint-changelog:
-    FROM python:3.14.7-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
+    FROM python:3.15.0-slim@sha256:f48fda6d59b2b3437781d1c3ccf4aa0e26ae871de3cdd758b49ab45ee7291619
     RUN pip install packaging
     WORKDIR /changelog
     COPY release/changelogparser.py /usr/bin/changelogparser

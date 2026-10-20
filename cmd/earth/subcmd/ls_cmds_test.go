@@ -19,7 +19,7 @@ func write(t *testing.T, dir, name string) {
 // names no directory is inside a project rather than at its root, and a project
 // may still call its build file build.earth.
 //
-//nolint:paralleltest // defined in terms of the working directory
+
 func TestFindBuildFile(t *testing.T) {
 	t.Run("an ancestor's Earthfile, from a nested directory", func(t *testing.T) {
 		root := t.TempDir()

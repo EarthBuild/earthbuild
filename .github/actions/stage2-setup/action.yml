@@ -83,7 +83,7 @@ runs:
       # every run, and on fork PRs also the earth binary + tag-suffix.txt.
       # Loading the local tarball avoids a per-job ghcr pull of the staging
       # image.
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8
       with:
         name: earth-build-latest
         path: ./build-artifacts
@@ -142,7 +142,7 @@ runs:
         platforms: all
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
       with:
-        go-version: '1.27.1'
+        go-version: '1.27.2'
     - if: ${{ inputs.BINARY == 'podman' }}
       name: Set up Podman
       run: |

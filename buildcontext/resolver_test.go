@@ -10,7 +10,6 @@ import (
 	"github.com/EarthBuild/earthbuild/domain"
 )
 
-//nolint:paralleltest
 func TestResolveLocalRootEarthfile(t *testing.T) {
 	t.Run("finds Earthfile in grandparent directory (../../)", func(t *testing.T) {
 		tmpDir := t.TempDir()

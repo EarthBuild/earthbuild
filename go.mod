@@ -30,7 +30,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/sirupsen/logrus v1.10.2
 	github.com/stretchr/testify v1.12.1
-	github.com/tonistiigi/fsutil v0.0.0-20240424095704-91a3fc46842c
+	github.com/tonistiigi/fsutil v0.0.0-20261009124904-c1c5bffae3b5
 	github.com/urfave/cli/v3 v3.14.0
 	go.etcd.io/bbolt v1.5.0
 	go.opentelemetry.io/contrib/exporters/autoexport v0.70.0
@@ -106,6 +106,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect

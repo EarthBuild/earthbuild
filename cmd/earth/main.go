@@ -75,7 +75,10 @@ func run() (code int) {
 		fmt.Fprintf(os.Stderr, "Error setting up OpenTelemetry: %s\n", err.Error())
 	} else {
 		defer func() {
-			shutdownErr := shutdown(ctx)
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			shutdownErr := shutdown(shutdownCtx)
 			if shutdownErr != nil {
 				fmt.Fprintf(os.Stderr, "Warning: OpenTelemetry shutdown failed; continuing: %s\n", shutdownErr)
 			}

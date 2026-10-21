@@ -38,6 +38,25 @@ func Tracer() trace.Tracer {
 // Setup bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func Setup(ctx context.Context) (ShutdownFunc, error) {
+	// Set up propagator.
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	tracesEnabled := optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+	metricsEnabled := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
+	logsEnabled := optIn("OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
+
+	if !tracesEnabled && !metricsEnabled && !logsEnabled {
+		return noopShutdown, nil
+	}
+
+	otelResource, err := newOTelResource(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("setup telemetry: %w", err)
+	}
+
 	var shutdowns []ShutdownFunc
 
 	// shutdown calls cleanup functions registered via shutdowns.
@@ -60,39 +79,34 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 		return nil, errors.Join(fmt.Errorf("setup telemetry: %w", err), shutdown(ctx))
 	}
 
-	// Set up propagator.
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	))
+	var providerShutdown ShutdownFunc
 
-	var tracerShutdown, meterShutdown, loggerShutdown ShutdownFunc
+	if tracesEnabled {
+		providerShutdown, err = setupTracerProvider(ctx, otelResource)
+		if err != nil {
+			return handleError(err)
+		}
 
-	otelResource, err := newOTelResource(ctx)
-	if err != nil {
-		return handleError(err)
+		shutdowns = append(shutdowns, providerShutdown)
 	}
 
-	tracerShutdown, err = setupTracerProvider(ctx, otelResource)
-	if err != nil {
-		return handleError(err)
+	if metricsEnabled {
+		providerShutdown, err = setupMeterProvider(ctx, otelResource)
+		if err != nil {
+			return handleError(err)
+		}
+
+		shutdowns = append(shutdowns, providerShutdown)
 	}
 
-	shutdowns = append(shutdowns, tracerShutdown)
+	if logsEnabled {
+		providerShutdown, err = setupLoggerProvider(ctx, otelResource)
+		if err != nil {
+			return handleError(err)
+		}
 
-	meterShutdown, err = setupMeterProvider(ctx, otelResource)
-	if err != nil {
-		return handleError(err)
+		shutdowns = append(shutdowns, providerShutdown)
 	}
-
-	shutdowns = append(shutdowns, meterShutdown)
-
-	loggerShutdown, err = setupLoggerProvider(ctx, otelResource)
-	if err != nil {
-		return handleError(err)
-	}
-
-	shutdowns = append(shutdowns, loggerShutdown)
 
 	return shutdown, nil
 }
@@ -138,10 +152,6 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 func noopShutdown(context.Context) error { return nil }
 
 func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
-	if !optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") {
-		return noopShutdown, nil
-	}
-
 	http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
 
 	exporter, err := autoexport.NewSpanExporter(ctx)
@@ -160,10 +170,6 @@ func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownF
 }
 
 func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
-	if !optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") {
-		return noopShutdown, nil
-	}
-
 	reader, err := autoexport.NewMetricReader(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("create meter provider: create metric reader: %w", err)
@@ -203,10 +209,6 @@ func earthbuildProcessNesting() attribute.KeyValue {
 }
 
 func setupLoggerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
-	if !optIn("OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT") {
-		return noopShutdown, nil
-	}
-
 	logExporter, err := autoexport.NewLogExporter(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("create logger provider: create log exporter: %w", err)

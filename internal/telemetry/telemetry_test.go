@@ -16,6 +16,9 @@ import (
 func TestOptIn(t *testing.T) {
 	const (
 		endpoint        = "https://otel.example.test"
+		exporterNone    = "none"
+		boolTrue        = "true"
+		sdkDisabled     = "OTEL_SDK_DISABLED"
 		metricsExporter = "OTEL_METRICS_EXPORTER"
 		otlpEndpoint    = "OTEL_EXPORTER_OTLP_ENDPOINT"
 		metricsEndpoint = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
@@ -48,7 +51,7 @@ func TestOptIn(t *testing.T) {
 		{
 			name: "exporter none overrides endpoint",
 			env: map[string]string{
-				metricsExporter: "none",
+				metricsExporter: exporterNone,
 				otlpEndpoint:    endpoint,
 			},
 			want: false,
@@ -64,9 +67,9 @@ func TestOptIn(t *testing.T) {
 		{
 			name: "OTEL_SDK_DISABLED overrides exporter and endpoint",
 			env: map[string]string{
-				"OTEL_SDK_DISABLED": "true",
-				metricsExporter:     "otlp",
-				otlpEndpoint:        endpoint,
+				sdkDisabled:     boolTrue,
+				metricsExporter: "otlp",
+				otlpEndpoint:    endpoint,
 			},
 			want: false,
 		},
@@ -74,7 +77,7 @@ func TestOptIn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("OTEL_SDK_DISABLED", "")
+			t.Setenv(sdkDisabled, "")
 			t.Setenv(metricsExporter, "")
 			t.Setenv(otlpEndpoint, "")
 			t.Setenv(metricsEndpoint, "")
@@ -180,6 +183,88 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 			} else {
 				require.NoError(t, handledErr)
 			}
+		})
+	}
+}
+
+func TestSetupSkipsResourceWhenNotOptedIn(t *testing.T) {
+	const (
+		endpoint     = "https://otel.example.test"
+		exporterNone = "none"
+		sdkDisabled  = "OTEL_SDK_DISABLED"
+		otlpEndpoint = "OTEL_EXPORTER_OTLP_ENDPOINT"
+	)
+
+	var handledErr error
+
+	previousHandler := otel.GetErrorHandler()
+	previousPropagator := otel.GetTextMapPropagator()
+
+	t.Cleanup(func() {
+		otel.SetErrorHandler(previousHandler)
+		otel.SetTextMapPropagator(previousPropagator)
+	})
+
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+		handledErr = err
+	}))
+
+	otelEnvVars := []string{
+		sdkDisabled,
+		otlpEndpoint,
+		"OTEL_TRACES_EXPORTER",
+		"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+		"OTEL_METRICS_EXPORTER",
+		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+		"OTEL_LOGS_EXPORTER",
+		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+	}
+
+	tests := []struct {
+		env  map[string]string
+		name string
+	}{
+		{
+			name: "no exporter or endpoint set",
+		},
+		{
+			name: "OTEL_SDK_DISABLED is true",
+			env: map[string]string{
+				sdkDisabled:  "true",
+				otlpEndpoint: endpoint,
+			},
+		},
+		{
+			name: "all signal exporters set to none",
+			env: map[string]string{
+				otlpEndpoint:            endpoint,
+				"OTEL_TRACES_EXPORTER":  exporterNone,
+				"OTEL_METRICS_EXPORTER": exporterNone,
+				"OTEL_LOGS_EXPORTER":    exporterNone,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handledErr = nil
+
+			for _, k := range otelEnvVars {
+				t.Setenv(k, "")
+			}
+
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+
+			t.Setenv("EARTH_WITH_DOCKER", "not-a-bool")
+			t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "malformed-without-equals")
+
+			shutdown, err := Setup(t.Context())
+			require.NoError(t, err)
+			require.NotNil(t, shutdown)
+			require.NoError(t, shutdown(t.Context()))
+			require.NoError(t, handledErr)
 		})
 	}
 }

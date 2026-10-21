@@ -138,7 +138,7 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 func noopShutdown(context.Context) error { return nil }
 
 func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
-	if !optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") {
+	if !optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") {
 		return noopShutdown, nil
 	}
 
@@ -160,7 +160,7 @@ func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownF
 }
 
 func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
-	if !optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") {
+	if !optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") {
 		return noopShutdown, nil
 	}
 
@@ -202,7 +202,7 @@ func earthbuildProcessNesting() attribute.KeyValue {
 }
 
 func setupLoggerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
-	if !optIn("OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT") {
+	if !optIn("OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT") {
 		return noopShutdown, nil
 	}
 
@@ -236,29 +236,22 @@ func WithTraceparent(ctx context.Context) context.Context {
 	return otel.GetTextMapPropagator().Extract(ctx, carrier)
 }
 
-// optIn reports whether the user has opted into telemetry via any of keys.
-// A signal is enabled when OTEL_SDK_DISABLED is not true, no OTEL_*_EXPORTER
-// key in keys is set to "none", and at least one key in keys is non-empty.
-func optIn(keys ...string) bool {
+// optIn reports whether the user has opted into a telemetry signal.
+// A signal is enabled when OTEL_SDK_DISABLED is not true, exporterKey is not
+// "none", and at least one of exporterKey, OTEL_EXPORTER_OTLP_ENDPOINT, or
+// signalEndpointKey is non-empty.
+func optIn(exporterKey, signalEndpointKey string) bool {
 	disabled, err := strconv.ParseBool(strings.TrimSpace(os.Getenv("OTEL_SDK_DISABLED")))
 	if err == nil && disabled {
 		return false
 	}
 
-	var enabled bool
-
-	for _, k := range keys {
-		v := strings.TrimSpace(os.Getenv(k))
-		if v == "" {
-			continue
-		}
-
-		if strings.HasPrefix(k, "OTEL_") && strings.HasSuffix(k, "_EXPORTER") && v == "none" {
-			return false
-		}
-
-		enabled = true
+	exporter := strings.TrimSpace(os.Getenv(exporterKey))
+	if strings.EqualFold(exporter, "none") {
+		return false
 	}
 
-	return enabled
+	return exporter != "" ||
+		strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")) != "" ||
+		strings.TrimSpace(os.Getenv(signalEndpointKey)) != ""
 }

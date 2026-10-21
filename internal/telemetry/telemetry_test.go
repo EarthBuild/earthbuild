@@ -54,6 +54,14 @@ func TestOptIn(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "exporter NONE overrides endpoint case-insensitively",
+			env: map[string]string{
+				metricsExporter: "NONE",
+				otlpEndpoint:    endpoint,
+			},
+			want: false,
+		},
+		{
 			name: "OTEL_SDK_DISABLED overrides exporter and endpoint",
 			env: map[string]string{
 				"OTEL_SDK_DISABLED": "true",
@@ -75,19 +83,8 @@ func TestOptIn(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			got := optIn(
-				metricsExporter,
-				otlpEndpoint,
-				metricsEndpoint,
-			)
+			got := optIn(metricsExporter, metricsEndpoint)
 			assert.Equal(t, tt.want, got)
-
-			gotReversed := optIn(
-				otlpEndpoint,
-				metricsEndpoint,
-				metricsExporter,
-			)
-			assert.Equal(t, tt.want, gotReversed)
 			assert.Equal(t, tt.env[metricsExporter], os.Getenv(metricsExporter))
 		})
 	}

@@ -1,4 +1,4 @@
-package buildkitd
+package telemetry
 
 import (
 	"net/url"
@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-func TestBuildkitTelemetryEnv(t *testing.T) {
+func TestBuildkitdEnv(t *testing.T) {
 	t.Parallel()
 
 	environ := []string{
@@ -24,13 +24,13 @@ func TestBuildkitTelemetryEnv(t *testing.T) {
 		"NOT_OTEL_VAR=ignored",
 	}
 
-	got := buildkitTelemetryEnv("earthbuild-buildkitd", "earthbuild", false, environ)
+	got := BuildkitdEnv("earthbuild-buildkitd", "earthbuild", false, environ)
 
 	want := map[string]string{
 		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://host.docker.internal:4317",
 		"OTEL_EXPORTER_OTLP_HEADERS":  "x-token=secret",
 		"OTEL_TRACES_EXPORTER":        "otlp",
-		"OTEL_SERVICE_NAME":           buildkitdOTELServiceName,
+		"OTEL_SERVICE_NAME":           buildkitdServiceName,
 		"OTEL_RESOURCE_ATTRIBUTES": "service.version=1.2.3," +
 			"deployment.environment.name=ci," +
 			"container.name=earthbuild-buildkitd," +
@@ -42,7 +42,7 @@ func TestBuildkitTelemetryEnv(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-func TestBuildkitTelemetryEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
+func TestBuildkitdEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 	t.Parallel()
 
 	const endpointEnv = "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317"
@@ -90,7 +90,7 @@ func TestBuildkitTelemetryEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Nil(t, buildkitTelemetryEnv("earthbuild-buildkitd", "earthbuild", false, tt.environ))
+			assert.Nil(t, BuildkitdEnv("earthbuild-buildkitd", "earthbuild", false, tt.environ))
 		})
 	}
 }
@@ -100,7 +100,7 @@ func TestBuildkitTelemetryEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 // the CLI. Ours must win, and must appear exactly once - a duplicate key is
 // resolved differently by different collectors, and losing the override would
 // tag buildkitd's metrics as the CLI's, which is the whole point of the PR.
-func TestBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) {
+func TestBuildkitdEnvOverridesInheritedResourceAttributes(t *testing.T) {
 	t.Parallel()
 
 	environ := []string{
@@ -108,9 +108,9 @@ func TestBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) 
 		"OTEL_RESOURCE_ATTRIBUTES=earth.process.role=cli,earth.process.nesting=outer,cicd.pipeline.run.id=123",
 	}
 
-	env := buildkitTelemetryEnv("earth-buildkitd", "earth", true, environ)
+	env := BuildkitdEnv("earth-buildkitd", "earth", true, environ)
 
-	raw := env["OTEL_RESOURCE_ATTRIBUTES"]
+	raw := env[resourceAttrEnv]
 	for _, key := range []string{string(semconv.ProcessRole), string(semconv.ProcessNesting)} {
 		assert.Equal(t, 1, strings.Count(raw, key+"="), "attr %s in %q", key, raw)
 	}
@@ -137,10 +137,11 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 	)
 
 	tests := []struct {
-		name  string
-		base  string
-		want  string
-		attrs []attribute.KeyValue
+		wantUnescaped map[string]string
+		name          string
+		base          string
+		want          string
+		attrs         []attribute.KeyValue
 	}{
 		{
 			// OTEL_RESOURCE_ATTRIBUTES is a comma-separated key=value list in which ","
@@ -148,18 +149,20 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 			// consumer (sdk/resource.fromEnv) splits on "," and the first "=", then
 			// url.PathUnescape's the value - so an unencoded separator in a value
 			// silently invents attributes, and a bare "%" makes decoding fail outright.
-			name:  "encodes separators",
-			base:  "",
-			attrs: []attribute.KeyValue{attribute.String("earth.installation.name", "a,b=c 100% d")},
-			want:  "earth.installation.name=a%2Cb%3Dc 100%25 d",
+			name:          "encodes separators",
+			base:          "",
+			attrs:         []attribute.KeyValue{attribute.String("earth.installation.name", "a,b=c 100% d")},
+			want:          "earth.installation.name=a%2Cb%3Dc 100%25 d",
+			wantUnescaped: map[string]string{"earth.installation.name": "a,b=c 100% d"},
 		},
 		{
 			// Inherited entries are already encoded by whoever wrote them; re-encoding
 			// would double the escapes and hand the collector a literal "%2C".
-			name:  "leaves inherited encoding alone",
-			base:  "vcs.revision.id=a%2Cb",
-			attrs: []attribute.KeyValue{attribute.String("earth.target", "+build")},
-			want:  "vcs.revision.id=a%2Cb,earth.target=+build",
+			name:          "leaves inherited encoding alone",
+			base:          "vcs.revision.id=a%2Cb",
+			attrs:         []attribute.KeyValue{attribute.String("earth.target", "+build")},
+			want:          "vcs.revision.id=a%2Cb,earth.target=+build",
+			wantUnescaped: map[string]string{"vcs.revision.id": "a,b"},
 		},
 		{
 			name:  "missing key",
@@ -202,7 +205,7 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 		},
 		{
 			name:  "non-string attribute value",
-			base:  "cicd.pipeline.run.id=123",
+			base:  pipelineRunAttr,
 			attrs: []attribute.KeyValue{attribute.Int("earth.retry.count", 2)},
 			want:  "cicd.pipeline.run.id=123,earth.retry.count=2",
 		},
@@ -213,10 +216,16 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 			want:  "cicd.pipeline.run.id=123,a=2,earth.process.role=buildkitd",
 		},
 		{
+			name:  "empty value in base clears earlier key in base",
+			base:  "a=1,cicd.pipeline.run.id=123,a=",
+			attrs: []attribute.KeyValue{semconv.ProcessRoleBuildkitd},
+			want:  want,
+		},
+		{
 			name:  "deduplicates repeated keys in attrs",
-			base:  "cicd.pipeline.run.id=123",
+			base:  pipelineRunAttr,
 			attrs: []attribute.KeyValue{semconv.ProcessRoleCLI, semconv.ProcessRoleBuildkitd},
-			want:  "cicd.pipeline.run.id=123,earth.process.role=buildkitd",
+			want:  want,
 		},
 	}
 
@@ -227,30 +236,13 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 			got := appendOTELResourceAttributes(tt.base, tt.attrs...)
 			assert.Equal(t, tt.want, got)
 
-			parsed := parseResourceAttrs(got)
-
-			wantAttrs := map[string]string{}
-
-			for _, kv := range tt.attrs {
-				key := strings.TrimSpace(string(kv.Key))
-				if key == "" {
-					continue
-				}
-
-				val := kv.Value.String()
-				if strings.TrimSpace(val) == "" {
-					delete(wantAttrs, key)
-
-					continue
-				}
-
-				wantAttrs[key] = val
-			}
-
-			for key, val := range wantAttrs {
-				unescaped, err := url.PathUnescape(parsed[key])
+			for key, rawVal := range parseResourceAttrs(got) {
+				unescaped, err := url.PathUnescape(rawVal)
 				require.NoError(t, err)
-				assert.Equal(t, val, unescaped)
+
+				if wantVal, ok := tt.wantUnescaped[key]; ok {
+					assert.Equal(t, wantVal, unescaped)
+				}
 			}
 		})
 	}

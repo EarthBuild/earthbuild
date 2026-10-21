@@ -28,6 +28,22 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const (
+	cliServiceName       = "EarthBuild"
+	buildkitdServiceName = "EarthBuild-buildkitd"
+
+	sdkDisabledEnv     = "OTEL_SDK_DISABLED"
+	otlpEndpointEnv    = "OTEL_EXPORTER_OTLP_ENDPOINT"
+	tracesExporterEnv  = "OTEL_TRACES_EXPORTER"
+	metricsExporterEnv = "OTEL_METRICS_EXPORTER"
+	logsExporterEnv    = "OTEL_LOGS_EXPORTER"
+	tracesEndpointEnv  = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
+	metricsEndpointEnv = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+	logsEndpointEnv    = "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"
+	resourceAttrEnv    = "OTEL_RESOURCE_ATTRIBUTES"
+	serviceNameEnv     = "OTEL_SERVICE_NAME"
+)
+
 var tracer = otel.Tracer("go.earthbuild.dev/earthbuild")
 
 // Tracer returns the tracer for the earth CLI.
@@ -38,16 +54,7 @@ func Tracer() trace.Tracer {
 // Setup bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func Setup(ctx context.Context) (ShutdownFunc, error) {
-	// Set up propagator.
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	))
-
-	tracesEnabled := optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
-	metricsEnabled := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
-	logsEnabled := optIn("OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
-
+	tracesEnabled, metricsEnabled, logsEnabled := signalsOptIn(os.Getenv)
 	if !tracesEnabled && !metricsEnabled && !logsEnabled {
 		return noopShutdown, nil
 	}
@@ -57,7 +64,20 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 		return nil, fmt.Errorf("setup telemetry: %w", err)
 	}
 
-	var shutdowns []ShutdownFunc
+	prevPropagator := otel.GetTextMapPropagator()
+
+	// Set up propagator.
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	shutdowns := make([]ShutdownFunc, 0, 4)
+	shutdowns = append(shutdowns, func(context.Context) error {
+		otel.SetTextMapPropagator(prevPropagator)
+
+		return nil
+	})
 
 	// shutdown calls cleanup functions registered via shutdowns.
 	// The errors from the calls are joined.
@@ -125,7 +145,7 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 		resource.WithFromEnv(),
 		resource.WithTelemetrySDK(),
 		resource.WithAttributes(
-			otelsemconv.ServiceName("EarthBuild"),
+			otelsemconv.ServiceName(cliServiceName),
 			otelsemconv.ProcessCommand(filepath.Base(executable)),
 			otelsemconv.ProcessPID(os.Getpid()),
 			otelsemconv.ProcessCommandArgs(os.Args...),
@@ -134,7 +154,7 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 			processNesting(),
 		),
 	)
-	if errors.Is(err, resource.ErrPartialResource) {
+	if errors.Is(err, resource.ErrPartialResource) || errors.Is(err, resource.ErrSchemaURLConflict) {
 		otel.Handle(err)
 
 		return otelResource, nil
@@ -161,12 +181,19 @@ func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownF
 	)
 
 	prevTransport := http.DefaultClient.Transport
-	http.DefaultClient.Transport = otelhttp.NewTransport(prevTransport)
+	otelTransport := otelhttp.NewTransport(prevTransport)
+	http.DefaultClient.Transport = otelTransport
+
+	prevTP := otel.GetTracerProvider()
 
 	otel.SetTracerProvider(tp)
 
 	return func(ctx context.Context) error {
-		http.DefaultClient.Transport = prevTransport
+		otel.SetTracerProvider(prevTP)
+
+		if http.DefaultClient.Transport == otelTransport {
+			http.DefaultClient.Transport = prevTransport
+		}
 
 		return tp.Shutdown(ctx)
 	}, nil
@@ -191,9 +218,15 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 		)
 	}
 
+	prevMP := otel.GetMeterProvider()
+
 	otel.SetMeterProvider(mp)
 
-	return mp.Shutdown, nil
+	return func(ctx context.Context) error {
+		otel.SetMeterProvider(prevMP)
+
+		return mp.Shutdown(ctx)
+	}, nil
 }
 
 func processNesting() attribute.KeyValue {
@@ -204,6 +237,10 @@ func processNesting() attribute.KeyValue {
 		otel.Handle(err)
 	}
 
+	return processNestingAttr(withDocker)
+}
+
+func processNestingAttr(withDocker bool) attribute.KeyValue {
 	if withDocker {
 		return semconv.ProcessNestingInner
 	}
@@ -222,9 +259,15 @@ func setupLoggerProvider(ctx context.Context, res *resource.Resource) (ShutdownF
 		sdklog.WithResource(res),
 	)
 
+	prevLP := global.GetLoggerProvider()
+
 	global.SetLoggerProvider(loggerProvider)
 
-	return loggerProvider.Shutdown, nil
+	return func(ctx context.Context) error {
+		global.SetLoggerProvider(prevLP)
+
+		return loggerProvider.Shutdown(ctx)
+	}, nil
 }
 
 // WithTraceparent returns a context with the traceparent (W3C Trace Context format)
@@ -235,43 +278,42 @@ func WithTraceparent(ctx context.Context) context.Context {
 		return ctx
 	}
 
-	carrier := propagation.MapCarrier{
+	return (propagation.TraceContext{}).Extract(ctx, propagation.MapCarrier{
 		"traceparent": traceparent,
-	}
-
-	return otel.GetTextMapPropagator().Extract(ctx, carrier)
+	})
 }
 
-// Enabled reports whether any OpenTelemetry signal (traces, metrics, or logs)
+// enabled reports whether any OpenTelemetry signal (traces, metrics, or logs)
 // is opted in according to the OTEL_* variables in env.
-func Enabled(env map[string]string) bool {
-	lookup := func(key string) string { return env[key] }
+func enabled(env map[string]string) bool {
+	traces, metrics, logs := signalsOptIn(func(key string) string { return env[key] })
 
-	return optInFrom(lookup, "OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") ||
-		optInFrom(lookup, "OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") ||
-		optInFrom(lookup, "OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
+	return traces || metrics || logs
 }
 
-// optIn reports whether the user has opted into a telemetry signal.
-// A signal is enabled when OTEL_SDK_DISABLED is not true, exporterKey is not
-// "none", and at least one of exporterKey, OTEL_EXPORTER_OTLP_ENDPOINT, or
-// signalEndpointKey is non-empty.
-func optIn(exporterKey, signalEndpointKey string) bool {
-	return optInFrom(os.Getenv, exporterKey, signalEndpointKey)
-}
-
-func optInFrom(lookup func(string) string, exporterKey, signalEndpointKey string) bool {
-	disabled, err := strconv.ParseBool(strings.TrimSpace(lookup("OTEL_SDK_DISABLED")))
-	if err == nil && disabled {
-		return false
+func signalsOptIn(lookup func(string) string) (traces, metrics, logs bool) {
+	if isSDKDisabled(lookup) {
+		return false, false, false
 	}
 
+	otlpEndpoint := strings.TrimSpace(lookup(otlpEndpointEnv))
+
+	return signalOptIn(lookup, otlpEndpoint, tracesExporterEnv, tracesEndpointEnv),
+		signalOptIn(lookup, otlpEndpoint, metricsExporterEnv, metricsEndpointEnv),
+		signalOptIn(lookup, otlpEndpoint, logsExporterEnv, logsEndpointEnv)
+}
+
+func isSDKDisabled(lookup func(string) string) bool {
+	disabled, err := strconv.ParseBool(strings.TrimSpace(lookup(sdkDisabledEnv)))
+
+	return err == nil && disabled
+}
+
+func signalOptIn(lookup func(string) string, otlpEndpoint, exporterKey, signalEndpointKey string) bool {
 	exporter := strings.TrimSpace(lookup(exporterKey))
 	if strings.EqualFold(exporter, "none") {
 		return false
 	}
 
-	return exporter != "" ||
-		strings.TrimSpace(lookup("OTEL_EXPORTER_OTLP_ENDPOINT")) != "" ||
-		strings.TrimSpace(lookup(signalEndpointKey)) != ""
+	return exporter != "" || otlpEndpoint != "" || strings.TrimSpace(lookup(signalEndpointKey)) != ""
 }

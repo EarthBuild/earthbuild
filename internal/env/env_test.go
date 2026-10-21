@@ -8,6 +8,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// unsetEnv snapshots each key via t.Setenv (so cleanup restores the caller's
+// environment) and then unsets it for the duration of the test.
+func unsetEnv(t *testing.T, keys ...string) {
+	t.Helper()
+
+	for _, k := range keys {
+		t.Setenv(k, "")
+		require.NoError(t, os.Unsetenv(k))
+	}
+}
+
 func TestWarningsFor(t *testing.T) {
 	t.Parallel()
 
@@ -102,10 +113,7 @@ func TestLookup(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Do not use t.Parallel() because t.Setenv modifies process-wide state.
-			for _, k := range []string{Prefix + "LOOKUP_TEST", DeprecatedPrefix + "LOOKUP_TEST"} {
-				t.Setenv(k, "")
-				require.NoError(t, os.Unsetenv(k))
-			}
+			unsetEnv(t, Prefix+"LOOKUP_TEST", DeprecatedPrefix+"LOOKUP_TEST")
 
 			if tc.earth != nil {
 				t.Setenv(Prefix+"LOOKUP_TEST", *tc.earth)
@@ -177,10 +185,7 @@ func TestBool(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, k := range []string{key, DeprecatedPrefix + "TEST_BOOL"} {
-				t.Setenv(k, "")
-				require.NoError(t, os.Unsetenv(k))
-			}
+			unsetEnv(t, key, DeprecatedPrefix+"TEST_BOOL")
 
 			for k, value := range tc.environ {
 				t.Setenv(k, value)

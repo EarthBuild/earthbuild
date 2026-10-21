@@ -103,6 +103,6 @@ func TestBuildkitEnvIncludesTelemetry(t *testing.T) {
 	)
 
 	assert.Equal(t, "http://otel:4317", got["OTEL_EXPORTER_OTLP_ENDPOINT"])
-	assert.Equal(t, buildkitdOTELServiceName, got["OTEL_SERVICE_NAME"])
+	assert.Equal(t, "EarthBuild-buildkitd", got["OTEL_SERVICE_NAME"])
 	assert.Equal(t, "3", got["BUILDKIT_MAX_PARALLELISM"])
 }

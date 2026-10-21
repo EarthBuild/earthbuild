@@ -101,22 +101,17 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 type ShutdownFunc func(context.Context) error
 
 func newOTelResource(ctx context.Context) (*resource.Resource, error) {
-	errorf := func(format string, args ...any) (*resource.Resource, error) {
-		return nil, fmt.Errorf("create OTel resource: "+format, args...)
-	}
-
 	executable, err := os.Executable()
 	if err != nil {
-		return errorf("get executable path: %w", err)
+		return nil, fmt.Errorf("create OTel resource: get executable path: %w", err)
 	}
 
-	var otelResource *resource.Resource
-
-	// The CI and VCS attributes CI sets in OTEL_RESOURCE_ATTRIBUTES are deliberately
-	// absent: resource.Default() includes the fromEnv detector, so they already reach
-	// the resource these are merged into.
-	otelResource, err = resource.New(
+	// The CI and VCS attributes CI sets in OTEL_RESOURCE_ATTRIBUTES are read by
+	// WithFromEnv; WithAttributes comes after so earth's own identity wins on collision.
+	otelResource, err := resource.New(
 		ctx,
+		resource.WithFromEnv(),
+		resource.WithTelemetrySDK(),
 		resource.WithAttributes(
 			otelsemconv.ServiceName("EarthBuild"),
 			otelsemconv.ProcessCommand(filepath.Base(executable)),
@@ -127,13 +122,14 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 			earthbuildProcessNesting(),
 		),
 	)
-	if err != nil {
-		return errorf("%w", err)
+	if errors.Is(err, resource.ErrPartialResource) {
+		otel.Handle(err)
+
+		return otelResource, nil
 	}
 
-	otelResource, err = resource.Merge(resource.Default(), otelResource)
 	if err != nil {
-		return errorf("%w", err)
+		return nil, fmt.Errorf("create OTel resource: %w", err)
 	}
 
 	return otelResource, nil

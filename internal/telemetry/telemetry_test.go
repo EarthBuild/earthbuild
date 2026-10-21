@@ -119,35 +119,52 @@ func TestWithTraceparentAdoptsTheCallersTrace(t *testing.T) {
 // otelruntime's instruments carry resource attributes and nothing else, so the
 // resource is the only place earth's own identity can reach its metrics.
 func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
+	var handledErr error
+
+	previousHandler := otel.GetErrorHandler()
+
+	t.Cleanup(func() { otel.SetErrorHandler(previousHandler) })
+
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+		handledErr = err
+	}))
+
 	tests := []struct {
-		want         attribute.KeyValue
 		name         string
 		withDocker   string
 		resourceAttr string
+		want         []attribute.KeyValue
+		wantErr      bool
 	}{
 		{
 			name: "outer build",
-			want: semconv.ProcessNestingOuter,
+			want: []attribute.KeyValue{semconv.ProcessNestingOuter},
 		},
 		{
 			name:       "inside WITH DOCKER",
 			withDocker: "true",
-			want:       semconv.ProcessNestingInner,
+			want:       []attribute.KeyValue{semconv.ProcessNestingInner},
 		},
 		{
 			name:       "invalid EARTH_WITH_DOCKER falls back to outer",
 			withDocker: "not-a-bool",
-			want:       semconv.ProcessNestingOuter,
+			want:       []attribute.KeyValue{semconv.ProcessNestingOuter},
+			wantErr:    true,
 		},
 		{
 			name:         "overrides inherited OTEL_RESOURCE_ATTRIBUTES",
-			resourceAttr: "earth.process.role=buildkitd,earth.process.nesting=inner",
-			want:         semconv.ProcessNestingOuter,
+			resourceAttr: "cicd.pipeline.run.id=123,earth.process.role=buildkitd,earth.process.nesting=inner",
+			want: []attribute.KeyValue{
+				semconv.ProcessNestingOuter,
+				attribute.String("cicd.pipeline.run.id", "123"),
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			handledErr = nil
+
 			t.Setenv("EARTH_WITH_DOCKER", tt.withDocker)
 			t.Setenv("OTEL_RESOURCE_ATTRIBUTES", tt.resourceAttr)
 
@@ -156,7 +173,16 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 
 			assert.Contains(t, res.Attributes(), semconv.ProcessRoleCLI)
 			assert.NotContains(t, res.Attributes(), semconv.ProcessRoleBuildkitd)
-			assert.Contains(t, res.Attributes(), tt.want)
+
+			for _, wantAttr := range tt.want {
+				assert.Contains(t, res.Attributes(), wantAttr)
+			}
+
+			if tt.wantErr {
+				require.Error(t, handledErr)
+			} else {
+				require.NoError(t, handledErr)
+			}
 		})
 	}
 }

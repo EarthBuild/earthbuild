@@ -3,6 +3,8 @@ package buildkitd
 import (
 	"maps"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // buildkitEnv is the only thing that decides what buildkitd runs with, so the whole
@@ -82,9 +84,7 @@ func TestBuildkitEnv(t *testing.T) {
 
 			got := buildkitEnv(test.settings, "earthly-buildkitd", "earthly", false, test.reset)
 
-			if !maps.Equal(got, test.want) {
-				t.Fatalf("buildkitEnv() = %#v, want %#v", got, test.want)
-			}
+			assert.Equal(t, test.want, got)
 		})
 	}
 }
@@ -92,15 +92,11 @@ func TestBuildkitEnv(t *testing.T) {
 // The telemetry env has to survive the merge into the rest of the environment.
 func TestBuildkitEnvIncludesTelemetry(t *testing.T) {
 	clearOTELEnv(t)
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.test")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel:4317")
 
-	got := buildkitEnv(Settings{}, "earthly-buildkitd", "earthly", false, false)
+	got := buildkitEnv(Settings{MaxParallelism: 3}, "earthly-buildkitd", "earthly", false, false)
 
-	if got["OTEL_SERVICE_NAME"] != buildkitdOTELServiceName {
-		t.Fatalf("OTEL_SERVICE_NAME = %q, want %q", got["OTEL_SERVICE_NAME"], buildkitdOTELServiceName)
-	}
-
-	if got["BUILDKIT_MAX_PARALLELISM"] != "0" {
-		t.Fatalf("BUILDKIT_MAX_PARALLELISM = %q, want 0 - the merge dropped the base env", got["BUILDKIT_MAX_PARALLELISM"])
-	}
+	assert.Equal(t, "http://otel:4317", got["OTEL_EXPORTER_OTLP_ENDPOINT"])
+	assert.Equal(t, buildkitdOTELServiceName, got["OTEL_SERVICE_NAME"])
+	assert.Equal(t, "3", got["BUILDKIT_MAX_PARALLELISM"])
 }

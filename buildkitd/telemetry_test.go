@@ -2,60 +2,47 @@ package buildkitd
 
 import (
 	"net/url"
-	"slices"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
-	otelsemconv "go.opentelemetry.io/otel/semconv/v1.43.0"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildkitTelemetryEnv(t *testing.T) {
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.test")
-	t.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "authorization=Bearer token")
-	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
-	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "cicd.pipeline.run.id=123,vcs.revision.id=abc")
+	clearOTELEnv(t)
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://host.docker.internal:4317")
+	t.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "x-token=secret")
+	t.Setenv("OTEL_TRACES_EXPORTER", "otlp")
+	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "service.version=1.2.3,deployment.environment.name=ci")
+	t.Setenv("OTEL_SERVICE_NAME", "earth-cli")
+	t.Setenv("NOT_OTEL_VAR", "ignored")
 
-	env := buildkitTelemetryEnv("earthly-buildkitd", "earthly", true)
+	got := buildkitTelemetryEnv("earthbuild-buildkitd", "earthbuild", false)
 
-	if got := env["OTEL_SERVICE_NAME"]; got != buildkitdOTELServiceName {
-		t.Fatalf("OTEL_SERVICE_NAME = %q, want %q", got, buildkitdOTELServiceName)
+	want := map[string]string{
+		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://host.docker.internal:4317",
+		"OTEL_EXPORTER_OTLP_HEADERS":  "x-token=secret",
+		"OTEL_TRACES_EXPORTER":        "otlp",
+		"OTEL_SERVICE_NAME":           buildkitdOTELServiceName,
+		"OTEL_RESOURCE_ATTRIBUTES": "service.version=1.2.3," +
+			"deployment.environment.name=ci," +
+			"container.name=earthbuild-buildkitd," +
+			"earth.installation.name=earthbuild," +
+			"earth.process.nesting=outer," +
+			"earth.process.role=buildkitd",
 	}
 
-	// otlp is autoexport's default, and buildkitd's telemetry setup opts in on the
-	// presence of the endpoint alone - so fabricating OTEL_METRICS_EXPORTER=otlp here
-	// would only pin a default that is already the default.
-	if got, ok := env["OTEL_METRICS_EXPORTER"]; ok {
-		t.Fatalf("OTEL_METRICS_EXPORTER = %q, want unset", got)
-	}
+	require.Equal(t, want, got)
+}
 
-	if got := env["OTEL_EXPORTER_OTLP_ENDPOINT"]; got != "https://otel.example.test" {
-		t.Fatalf("OTEL_EXPORTER_OTLP_ENDPOINT = %q", got)
-	}
+//nolint:paralleltest // clearOTELEnv calls t.Setenv, which forbids t.Parallel.
+func TestBuildkitTelemetryEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
+	clearOTELEnv(t)
 
-	if got := env["OTEL_EXPORTER_OTLP_HEADERS"]; got != "authorization=Bearer token" {
-		t.Fatalf("OTEL_EXPORTER_OTLP_HEADERS = %q", got)
-	}
-
-	if got := env["OTEL_EXPORTER_OTLP_PROTOCOL"]; got != "http/protobuf" {
-		t.Fatalf("OTEL_EXPORTER_OTLP_PROTOCOL = %q", got)
-	}
-
-	attrs := parseResourceAttrs(env["OTEL_RESOURCE_ATTRIBUTES"])
-	wantAttrs := map[string]string{
-		"cicd.pipeline.run.id":               "123",
-		"vcs.revision.id":                    "abc",
-		string(semconv.ProcessRole):          semconv.ProcessRoleBuildkitd.Value.AsString(),
-		string(semconv.ProcessNesting):       semconv.ProcessNestingInner.Value.AsString(),
-		string(otelsemconv.ContainerNameKey): "earthly-buildkitd",
-		string(semconv.InstallationName):     "earthly",
-	}
-
-	for key, want := range wantAttrs {
-		if got := attrs[key]; got != want {
-			t.Fatalf("resource attr %s = %q, want %q", key, got, want)
-		}
-	}
+	assert.Nil(t, buildkitTelemetryEnv("earthbuild-buildkitd", "earthbuild", false))
 }
 
 // buildkitd inherits OTEL_RESOURCE_ATTRIBUTES from the outer earth process, so
@@ -64,20 +51,18 @@ func TestBuildkitTelemetryEnv(t *testing.T) {
 // resolved differently by different collectors, and losing the override would
 // tag buildkitd's metrics as the CLI's, which is the whole point of the PR.
 func TestBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) {
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.test")
+	clearOTELEnv(t)
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", strings.Join([]string{
 		string(semconv.ProcessRole) + "=" + semconv.ProcessRoleCLI.Value.AsString(),
 		string(semconv.ProcessNesting) + "=" + semconv.ProcessNestingOuter.Value.AsString(),
 		"cicd.pipeline.run.id=123",
 	}, ","))
 
-	env := buildkitTelemetryEnv("earthly-buildkitd", "earthly", true)
+	env := buildkitTelemetryEnv("earth-buildkitd", "earth", true)
 
 	raw := env["OTEL_RESOURCE_ATTRIBUTES"]
 	for _, key := range []string{string(semconv.ProcessRole), string(semconv.ProcessNesting)} {
-		if got := strings.Count(raw, key+"="); got != 1 {
-			t.Fatalf("attr %s appears %d times in %q, want 1", key, got, raw)
-		}
+		assert.Equal(t, 1, strings.Count(raw, key+"="), "attr %s in %q", key, raw)
 	}
 
 	attrs := parseResourceAttrs(raw)
@@ -88,38 +73,7 @@ func TestBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) 
 	}
 
 	for key, want := range wantAttrs {
-		if got := attrs[key]; got != want {
-			t.Fatalf("resource attr %s = %q, want %q", key, got, want)
-		}
-	}
-}
-
-// An explicit exporter choice is the user's, not ours: it must reach buildkitd
-// verbatim, and is enough to enable telemetry on its own - prometheus, console and
-// none all need no endpoint.
-func TestBuildkitTelemetryEnvPropagatesExplicitMetricsExporter(t *testing.T) {
-	clearOTELEnv(t)
-	t.Setenv("OTEL_METRICS_EXPORTER", "prometheus")
-
-	env := buildkitTelemetryEnv("earthly-buildkitd", "earthly", false)
-
-	if got := env["OTEL_METRICS_EXPORTER"]; got != "prometheus" {
-		t.Fatalf("OTEL_METRICS_EXPORTER = %q, want prometheus", got)
-	}
-
-	if got := env["OTEL_SERVICE_NAME"]; got != buildkitdOTELServiceName {
-		t.Fatalf("OTEL_SERVICE_NAME = %q, want %q", got, buildkitdOTELServiceName)
-	}
-}
-
-//nolint:paralleltest // clearOTELEnv calls t.Setenv, which forbids t.Parallel.
-func TestBuildkitTelemetryEnvReturnsNilWithoutMetricsExporter(t *testing.T) {
-	clearOTELEnv(t)
-
-	env := buildkitTelemetryEnv("earthly-buildkitd", "earthly", false)
-
-	if env != nil {
-		t.Fatalf("env = %#v, want nil", env)
+		assert.Equal(t, want, attrs[key], "resource attr %s", key)
 	}
 }
 
@@ -129,8 +83,15 @@ func TestBuildkitTelemetryEnvReturnsNilWithoutMetricsExporter(t *testing.T) {
 func clearOTELEnv(t *testing.T) {
 	t.Helper()
 
-	for _, key := range slices.Concat(otelPassthroughEnvVars, []string{"OTEL_RESOURCE_ATTRIBUTES"}) {
-		t.Setenv(key, "")
+	for _, entry := range os.Environ() {
+		if !strings.HasPrefix(entry, "OTEL_") {
+			continue
+		}
+
+		key, _, ok := strings.Cut(entry, "=")
+		if ok {
+			t.Setenv(key, "")
+		}
 	}
 }
 
@@ -146,24 +107,15 @@ func TestAppendOTELResourceAttributesEncodesSeparators(t *testing.T) {
 	const nasty = "a,b=c 100% d"
 
 	got := appendOTELResourceAttributes("", map[string]string{"earth.installation.name": nasty})
-
-	if strings.Count(got, ",") != 0 {
-		t.Fatalf("got %q, want no bare separator", got)
-	}
+	assert.NotContains(t, got, ",")
 
 	key, value, ok := strings.Cut(got, "=")
-	if !ok || key != "earth.installation.name" {
-		t.Fatalf("got %q, want key earth.installation.name", got)
-	}
+	require.True(t, ok)
+	assert.Equal(t, "earth.installation.name", key)
 
 	decoded, err := url.PathUnescape(value)
-	if err != nil {
-		t.Fatalf("PathUnescape(%q): %v", value, err)
-	}
-
-	if decoded != nasty {
-		t.Fatalf("decoded = %q, want %q", decoded, nasty)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, nasty, decoded)
 }
 
 // Inherited entries are already encoded by whoever wrote them; re-encoding would
@@ -172,10 +124,7 @@ func TestAppendOTELResourceAttributesLeavesInheritedEncodingAlone(t *testing.T) 
 	t.Parallel()
 
 	got := appendOTELResourceAttributes("vcs.revision.id=a%2Cb", map[string]string{"earth.target": "+build"})
-
-	if want := "vcs.revision.id=a%2Cb,earth.target=+build"; got != want {
-		t.Fatalf("got %q, want %q", got, want)
-	}
+	assert.Equal(t, "vcs.revision.id=a%2Cb,earth.target=+build", got)
 }
 
 func parseResourceAttrs(value string) map[string]string {

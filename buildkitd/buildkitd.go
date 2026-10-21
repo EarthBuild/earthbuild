@@ -760,19 +760,6 @@ func Start(
 // itself reports as "EarthBuild".
 const buildkitdOTELServiceName = "EarthBuild-buildkitd"
 
-// otelPassthroughEnvVars are the OTel env vars the CLI forwards to buildkitd
-// unchanged. Only the transport is inherited - the identity (service name, resource
-// attributes) is buildkitd's own and is set separately below.
-var otelPassthroughEnvVars = []string{
-	"OTEL_EXPORTER_OTLP_ENDPOINT",
-	"OTEL_EXPORTER_OTLP_HEADERS",
-	"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
-	"OTEL_EXPORTER_OTLP_METRICS_HEADERS",
-	"OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
-	"OTEL_EXPORTER_OTLP_PROTOCOL",
-	"OTEL_METRICS_EXPORTER",
-}
-
 // buildkitEnv is the single source of the environment the buildkitd container is
 // started with. It is a pure function of its arguments and the OTel env vars the CLI
 // forwards, so what buildkitd runs with can be asserted in a test rather than
@@ -824,29 +811,28 @@ func buildkitEnv(settings Settings, containerName, installationName string, with
 }
 
 // buildkitTelemetryEnv returns the OTel environment buildkitd is started with, or nil
-// if the CLI has no telemetry configured to hand it.
+// if no OTEL_* variables are set in the CLI environment. Any OTEL_* variables are
+// copied through, with OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES overridden to
+// describe buildkitd.
 func buildkitTelemetryEnv(containerName, installationName string, withDocker bool) map[string]string {
-	// buildkitd runs the same telemetry setup as the CLI, which opts in on the mere
-	// presence of any of these and lets autoexport pick the exporter - otlp by default.
-	// So this is only a gate: setting OTEL_METRICS_EXPORTER=otlp ourselves would pin a
-	// default that is already the default, and would override the user's exporter choice
-	// on any future path that reaches here without it. Gate first, so the common
-	// telemetry-off case does no passthrough work at all.
-	if os.Getenv("OTEL_METRICS_EXPORTER") == "" &&
-		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" &&
-		os.Getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") == "" {
-		return nil
-	}
+	env := map[string]string{}
 
-	envOpts := map[string]string{}
+	for _, entry := range os.Environ() {
+		if !strings.HasPrefix(entry, "OTEL_") {
+			continue
+		}
 
-	for _, key := range otelPassthroughEnvVars {
-		if value := os.Getenv(key); value != "" {
-			envOpts[key] = value
+		key, value, ok := strings.Cut(entry, "=")
+		if ok && value != "" {
+			env[key] = value
 		}
 	}
 
-	envOpts["OTEL_SERVICE_NAME"] = buildkitdOTELServiceName
+	if len(env) == 0 {
+		return nil
+	}
+
+	env["OTEL_SERVICE_NAME"] = buildkitdOTELServiceName
 
 	// buildkitd is a separate process, so it takes its attributes as env rather than
 	// as attribute.KeyValue - hence the string forms of the shared semconv keys.
@@ -861,12 +847,12 @@ func buildkitTelemetryEnv(containerName, installationName string, withDocker boo
 		string(otelsemconv.ContainerNameKey): containerName,
 		string(semconv.InstallationName):     installationName,
 	}
-	envOpts["OTEL_RESOURCE_ATTRIBUTES"] = appendOTELResourceAttributes(
-		os.Getenv("OTEL_RESOURCE_ATTRIBUTES"),
+	env["OTEL_RESOURCE_ATTRIBUTES"] = appendOTELResourceAttributes(
+		env["OTEL_RESOURCE_ATTRIBUTES"],
 		resourceAttrs,
 	)
 
-	return envOpts
+	return env
 }
 
 // otelResourceAttrValueEscaper percent-encodes the characters the OTel spec requires

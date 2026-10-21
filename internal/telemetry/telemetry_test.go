@@ -1,11 +1,12 @@
 package telemetry
 
 import (
-	"context"
 	"os"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
@@ -20,43 +21,27 @@ func TestOptInPinsExporterToNoneWhenNothingIsSet(t *testing.T) {
 	t.Setenv("OTEL_METRICS_EXPORTER", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 
-	err := os.Unsetenv("OTEL_METRICS_EXPORTER")
-	if err != nil {
-		t.Fatalf("unset OTEL_METRICS_EXPORTER: %v", err)
-	}
-
-	err = os.Unsetenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	if err != nil {
-		t.Fatalf("unset OTEL_EXPORTER_OTLP_ENDPOINT: %v", err)
-	}
-
 	got, err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT")
-	if err != nil {
-		t.Fatalf("optIn: %v", err)
-	}
-
-	if got {
-		t.Fatal("optIn = true with nothing set, want false")
-	}
-
-	if v := os.Getenv("OTEL_METRICS_EXPORTER"); v != "none" {
-		t.Fatalf("OTEL_METRICS_EXPORTER = %q after opting out, want %q", v, "none")
-	}
+	require.NoError(t, err)
+	assert.False(t, got)
+	assert.Equal(t, "none", os.Getenv("OTEL_METRICS_EXPORTER"))
 }
 
 // Any one of the keys opts in, not just the exporter - an endpoint alone is how CI
 // configures earth, and autoexport picks otlp from there.
 func TestOptInOnAnyKey(t *testing.T) {
+	t.Setenv("OTEL_METRICS_EXPORTER", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.test")
 
 	got, err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT")
-	if err != nil {
-		t.Fatalf("optIn: %v", err)
-	}
+	require.NoError(t, err)
+	assert.True(t, got)
 
-	if !got {
-		t.Fatal("optIn = false with only the endpoint set, want true")
-	}
+	t.Setenv("OTEL_METRICS_EXPORTER", "none")
+
+	got, err = optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT")
+	require.NoError(t, err)
+	assert.False(t, got)
 }
 
 // WithTraceparent is the CI-to-earth trace link: a build step exports TRACEPARENT and
@@ -75,19 +60,11 @@ func TestWithTraceparentAdoptsTheCallersTrace(t *testing.T) {
 
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 
-	sc := trace.SpanContextFromContext(WithTraceparent(context.Background()))
+	sc := trace.SpanContextFromContext(WithTraceparent(t.Context()))
 
-	if got := sc.TraceID().String(); got != traceID {
-		t.Fatalf("trace ID = %q, want %q", got, traceID)
-	}
-
-	if got := sc.SpanID().String(); got != spanID {
-		t.Fatalf("span ID = %q, want %q", got, spanID)
-	}
-
-	if !sc.IsRemote() {
-		t.Fatal("span context is not remote, want remote")
-	}
+	assert.Equal(t, traceID, sc.TraceID().String())
+	assert.Equal(t, spanID, sc.SpanID().String())
+	assert.True(t, sc.IsRemote())
 }
 
 // otelruntime's instruments carry resource attributes and nothing else, so the
@@ -107,30 +84,10 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 			t.Setenv("EARTH_WITH_DOCKER", tt.withDocker)
 
 			res, err := newOTelResource(t.Context())
-			if err != nil {
-				t.Fatalf("newOTelResource: %v", err)
-			}
+			require.NoError(t, err)
 
-			assertAttribute(t, res.Attributes(), semconv.ProcessRoleCLI)
-			assertAttribute(t, res.Attributes(), tt.want)
+			assert.Contains(t, res.Attributes(), semconv.ProcessRoleCLI)
+			assert.Contains(t, res.Attributes(), tt.want)
 		})
 	}
-}
-
-func assertAttribute(t *testing.T, attrs []attribute.KeyValue, want attribute.KeyValue) {
-	t.Helper()
-
-	for _, attr := range attrs {
-		if attr.Key != want.Key {
-			continue
-		}
-
-		if attr.Value != want.Value {
-			t.Fatalf("%s = %v, want %v", want.Key, attr.Value.AsString(), want.Value.AsString())
-		}
-
-		return
-	}
-
-	t.Fatalf("%s missing from resource, want %v", want.Key, want.Value.AsString())
 }

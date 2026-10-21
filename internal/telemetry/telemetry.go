@@ -262,19 +262,25 @@ func WithTraceparent(ctx context.Context) context.Context {
 // Returns true if the user has opted in, false otherwise.
 // The first environment variable MUST be OTEL_..._EXPORTER.
 func optIn(key ...string) (bool, error) {
-	if !strings.HasPrefix(key[0], "OTEL_") || !strings.HasSuffix(key[0], "_EXPORTER") {
-		return false, fmt.Errorf("first env var must be OTEL_..._EXPORTER: %s", key[0])
+	exporter := key[0]
+
+	if !strings.HasPrefix(exporter, "OTEL_") || !strings.HasSuffix(exporter, "_EXPORTER") {
+		return false, fmt.Errorf("first env var must be OTEL_..._EXPORTER: %s", exporter)
+	}
+
+	if os.Getenv(exporter) == "none" {
+		return false, nil
 	}
 
 	for _, k := range key {
-		if _, ok := os.LookupEnv(k); ok {
+		if os.Getenv(k) != "" {
 			return true, nil
 		}
 	}
 
-	err := os.Setenv(key[0], "none")
+	err := os.Setenv(exporter, "none")
 	if err != nil {
-		return false, fmt.Errorf("set env var %s to none: %w", key[0], err)
+		return false, fmt.Errorf("set env var %s to none: %w", exporter, err)
 	}
 
 	return false, nil

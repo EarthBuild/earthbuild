@@ -1,6 +1,8 @@
 package telemetry
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -9,23 +11,31 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	otelsemconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
-func TestOptIn(t *testing.T) {
-	const (
-		endpoint        = "https://otel.example.test"
-		exporterNone    = "none"
-		exporterOTLP    = "otlp"
-		boolTrue        = "true"
-		sdkDisabled     = "OTEL_SDK_DISABLED"
-		metricsExporter = "OTEL_METRICS_EXPORTER"
-		otlpEndpoint    = "OTEL_EXPORTER_OTLP_ENDPOINT"
-		metricsEndpoint = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
-	)
+const (
+	endpoint        = "https://otel.example.test"
+	exporterNone    = "none"
+	exporterOTLP    = "otlp"
+	boolTrue        = "true"
+	sdkDisabled     = "OTEL_SDK_DISABLED"
+	otlpEndpoint    = "OTEL_EXPORTER_OTLP_ENDPOINT"
+	tracesExporter  = "OTEL_TRACES_EXPORTER"
+	metricsExporter = "OTEL_METRICS_EXPORTER"
+	logsExporter    = "OTEL_LOGS_EXPORTER"
+	tracesEndpoint  = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
+	metricsEndpoint = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+	logsEndpoint    = "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"
+	resourceAttrEnv = "OTEL_RESOURCE_ATTRIBUTES"
+	serviceNameEnv  = "OTEL_SERVICE_NAME"
+	withDockerEnv   = "EARTH_WITH_DOCKER"
+)
 
+func TestOptIn(t *testing.T) {
 	tests := []struct {
 		env  map[string]string
 		name string
@@ -98,21 +108,6 @@ func TestOptIn(t *testing.T) {
 func TestEnabled(t *testing.T) {
 	t.Parallel()
 
-	const (
-		endpoint        = "https://otel.example.test"
-		exporterNone    = "none"
-		exporterOTLP    = "otlp"
-		boolTrue        = "true"
-		sdkDisabled     = "OTEL_SDK_DISABLED"
-		otlpEndpoint    = "OTEL_EXPORTER_OTLP_ENDPOINT"
-		tracesExporter  = "OTEL_TRACES_EXPORTER"
-		metricsExporter = "OTEL_METRICS_EXPORTER"
-		logsExporter    = "OTEL_LOGS_EXPORTER"
-		tracesEndpoint  = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
-		metricsEndpoint = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
-		logsEndpoint    = "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"
-	)
-
 	tests := []struct {
 		env  map[string]string
 		name string
@@ -131,9 +126,9 @@ func TestEnabled(t *testing.T) {
 		{
 			name: "metadata-only OTEL vars",
 			env: map[string]string{
-				"OTEL_RESOURCE_ATTRIBUTES": "cicd.pipeline.run.id=123",
-				"OTEL_SERVICE_NAME":        "earth-cli",
-				sdkDisabled:                "false",
+				resourceAttrEnv: "cicd.pipeline.run.id=123",
+				serviceNameEnv:  "earth-cli",
+				sdkDisabled:     "false",
 			},
 			want: false,
 		},
@@ -261,7 +256,7 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 		},
 		{
 			name:       "inside WITH DOCKER",
-			withDocker: "true",
+			withDocker: boolTrue,
 			want:       []attribute.KeyValue{semconv.ProcessNestingInner},
 		},
 		{
@@ -294,9 +289,9 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handledErr = nil
 
-			t.Setenv("EARTH_WITH_DOCKER", tt.withDocker)
-			t.Setenv("OTEL_RESOURCE_ATTRIBUTES", tt.resourceAttr)
-			t.Setenv("OTEL_SERVICE_NAME", tt.serviceName)
+			t.Setenv(withDockerEnv, tt.withDocker)
+			t.Setenv(resourceAttrEnv, tt.resourceAttr)
+			t.Setenv(serviceNameEnv, tt.serviceName)
 
 			res, err := newOTelResource(t.Context())
 			require.NoError(t, err)
@@ -320,13 +315,6 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 }
 
 func TestSetupSkipsResourceWhenNotOptedIn(t *testing.T) {
-	const (
-		endpoint     = "https://otel.example.test"
-		exporterNone = "none"
-		sdkDisabled  = "OTEL_SDK_DISABLED"
-		otlpEndpoint = "OTEL_EXPORTER_OTLP_ENDPOINT"
-	)
-
 	var handledErr error
 
 	previousHandler := otel.GetErrorHandler()
@@ -344,12 +332,12 @@ func TestSetupSkipsResourceWhenNotOptedIn(t *testing.T) {
 	otelEnvVars := []string{
 		sdkDisabled,
 		otlpEndpoint,
-		"OTEL_TRACES_EXPORTER",
-		"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-		"OTEL_METRICS_EXPORTER",
-		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
-		"OTEL_LOGS_EXPORTER",
-		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+		tracesExporter,
+		tracesEndpoint,
+		metricsExporter,
+		metricsEndpoint,
+		logsExporter,
+		logsEndpoint,
 	}
 
 	tests := []struct {
@@ -362,17 +350,17 @@ func TestSetupSkipsResourceWhenNotOptedIn(t *testing.T) {
 		{
 			name: "OTEL_SDK_DISABLED is true",
 			env: map[string]string{
-				sdkDisabled:  "true",
+				sdkDisabled:  boolTrue,
 				otlpEndpoint: endpoint,
 			},
 		},
 		{
 			name: "all signal exporters set to none",
 			env: map[string]string{
-				otlpEndpoint:            endpoint,
-				"OTEL_TRACES_EXPORTER":  exporterNone,
-				"OTEL_METRICS_EXPORTER": exporterNone,
-				"OTEL_LOGS_EXPORTER":    exporterNone,
+				otlpEndpoint:    endpoint,
+				tracesExporter:  exporterNone,
+				metricsExporter: exporterNone,
+				logsExporter:    exporterNone,
 			},
 		},
 	}
@@ -389,8 +377,8 @@ func TestSetupSkipsResourceWhenNotOptedIn(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			t.Setenv("EARTH_WITH_DOCKER", "not-a-bool")
-			t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "malformed-without-equals")
+			t.Setenv(withDockerEnv, "not-a-bool")
+			t.Setenv(resourceAttrEnv, "malformed-without-equals")
 
 			shutdown, err := Setup(t.Context())
 			require.NoError(t, err)
@@ -399,4 +387,54 @@ func TestSetupSkipsResourceWhenNotOptedIn(t *testing.T) {
 			require.NoError(t, handledErr)
 		})
 	}
+}
+
+func TestSetupOptedInLifecycle(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	prevTracerProvider := otel.GetTracerProvider()
+	prevMeterProvider := otel.GetMeterProvider()
+	prevLoggerProvider := global.GetLoggerProvider()
+	prevPropagator := otel.GetTextMapPropagator()
+	prevErrorHandler := otel.GetErrorHandler()
+	prevTransport := http.DefaultClient.Transport
+
+	t.Cleanup(func() {
+		otel.SetTracerProvider(prevTracerProvider)
+		otel.SetMeterProvider(prevMeterProvider)
+		global.SetLoggerProvider(prevLoggerProvider)
+		otel.SetTextMapPropagator(prevPropagator)
+		otel.SetErrorHandler(prevErrorHandler)
+
+		http.DefaultClient.Transport = prevTransport
+	})
+
+	for _, k := range []string{
+		sdkDisabled,
+		tracesExporter,
+		tracesEndpoint,
+		metricsExporter,
+		metricsEndpoint,
+		logsExporter,
+		logsEndpoint,
+		resourceAttrEnv,
+		serviceNameEnv,
+		withDockerEnv,
+	} {
+		t.Setenv(k, "")
+	}
+
+	t.Setenv(otlpEndpoint, srv.URL)
+	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
+
+	shutdown, err := Setup(t.Context())
+	require.NoError(t, err)
+	require.NotNil(t, shutdown)
+	assert.NotEqual(t, prevTransport, http.DefaultClient.Transport)
+
+	require.NoError(t, shutdown(t.Context()))
+	assert.Equal(t, prevTransport, http.DefaultClient.Transport)
 }

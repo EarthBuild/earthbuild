@@ -582,7 +582,7 @@ func Start(
 		// fall back to an outer build if the user set an unparsable value.
 		log.
 			WithPrefix("buildkitd").
-			Printf("Warning: %s. Treating this as an outer build.\n", err.Error())
+			Warnf("Warning: %v. Treating this as an outer build.\n", err)
 	}
 
 	envs := buildkitEnv(settings, containerName, withDocker, reset, os.Environ())
@@ -894,6 +894,16 @@ var otelResourceAttrValueEscaper = strings.NewReplacer("%", "%25", ",", "%2C", "
 // https://opentelemetry.io/docs/specs/otel/resource/sdk/#specifying-resource-information-via-an-environment-variable
 func appendOTELResourceAttributes(base string, attrs ...attribute.KeyValue) string {
 	parts := make([]string, 0, len(attrs)+1)
+	put := func(key, encodedValue string) {
+		prefix := key + "="
+		parts = slices.DeleteFunc(parts, func(p string) bool {
+			return strings.HasPrefix(p, prefix)
+		})
+
+		if encodedValue != "" {
+			parts = append(parts, prefix+encodedValue)
+		}
+	}
 
 	for attr := range strings.SplitSeq(base, ",") {
 		key, value, ok := strings.Cut(attr, "=")
@@ -908,20 +918,23 @@ func appendOTELResourceAttributes(base string, attrs ...attribute.KeyValue) stri
 			continue
 		}
 
-		if slices.ContainsFunc(attrs, func(kv attribute.KeyValue) bool { return string(kv.Key) == key }) {
-			continue
-		}
-
-		parts = append(parts, key+"="+value)
+		put(key, value)
 	}
 
 	for _, kv := range attrs {
-		val := kv.Value.String()
-		if kv.Key == "" || strings.TrimSpace(val) == "" {
+		key := strings.TrimSpace(string(kv.Key))
+		if key == "" {
 			continue
 		}
 
-		parts = append(parts, string(kv.Key)+"="+otelResourceAttrValueEscaper.Replace(val))
+		val := kv.Value.String()
+		if strings.TrimSpace(val) == "" {
+			put(key, "")
+
+			continue
+		}
+
+		put(key, otelResourceAttrValueEscaper.Replace(val))
 	}
 
 	return strings.Join(parts, ",")

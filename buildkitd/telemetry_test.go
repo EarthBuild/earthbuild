@@ -105,11 +105,7 @@ func TestBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) 
 
 	environ := []string{
 		"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317",
-		"OTEL_RESOURCE_ATTRIBUTES=" + strings.Join([]string{
-			string(semconv.ProcessRole) + "=" + semconv.ProcessRoleCLI.Value.AsString(),
-			string(semconv.ProcessNesting) + "=" + semconv.ProcessNestingOuter.Value.AsString(),
-			"cicd.pipeline.run.id=123",
-		}, ","),
+		"OTEL_RESOURCE_ATTRIBUTES=earth.process.role=cli,earth.process.nesting=outer,cicd.pipeline.run.id=123",
 	}
 
 	env := buildkitTelemetryEnv("earth-buildkitd", "earth", true, environ)
@@ -210,6 +206,18 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 			attrs: []attribute.KeyValue{attribute.Int("earth.retry.count", 2)},
 			want:  "cicd.pipeline.run.id=123,earth.retry.count=2",
 		},
+		{
+			name:  "deduplicates repeated keys in base",
+			base:  "a=1,cicd.pipeline.run.id=123,a=2",
+			attrs: []attribute.KeyValue{semconv.ProcessRoleBuildkitd},
+			want:  "cicd.pipeline.run.id=123,a=2,earth.process.role=buildkitd",
+		},
+		{
+			name:  "deduplicates repeated keys in attrs",
+			base:  "cicd.pipeline.run.id=123",
+			attrs: []attribute.KeyValue{semconv.ProcessRoleCLI, semconv.ProcessRoleBuildkitd},
+			want:  "cicd.pipeline.run.id=123,earth.process.role=buildkitd",
+		},
 	}
 
 	for _, tt := range tests {
@@ -221,13 +229,26 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 
 			parsed := parseResourceAttrs(got)
 
+			wantAttrs := map[string]string{}
+
 			for _, kv := range tt.attrs {
-				val := kv.Value.String()
-				if kv.Key == "" || strings.TrimSpace(val) == "" {
+				key := strings.TrimSpace(string(kv.Key))
+				if key == "" {
 					continue
 				}
 
-				unescaped, err := url.PathUnescape(parsed[string(kv.Key)])
+				val := kv.Value.String()
+				if strings.TrimSpace(val) == "" {
+					delete(wantAttrs, key)
+
+					continue
+				}
+
+				wantAttrs[key] = val
+			}
+
+			for key, val := range wantAttrs {
+				unescaped, err := url.PathUnescape(parsed[key])
 				require.NoError(t, err)
 				assert.Equal(t, val, unescaped)
 			}

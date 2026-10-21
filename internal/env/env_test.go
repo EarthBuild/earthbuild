@@ -1,6 +1,7 @@
 package env
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -101,6 +102,11 @@ func TestLookup(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Do not use t.Parallel() because t.Setenv modifies process-wide state.
+			for _, k := range []string{Prefix + "LOOKUP_TEST", DeprecatedPrefix + "LOOKUP_TEST"} {
+				t.Setenv(k, "")
+				require.NoError(t, os.Unsetenv(k))
+			}
+
 			if tc.earth != nil {
 				t.Setenv(Prefix+"LOOKUP_TEST", *tc.earth)
 			}
@@ -171,6 +177,11 @@ func TestBool(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			for _, k := range []string{key, DeprecatedPrefix + "TEST_BOOL"} {
+				t.Setenv(k, "")
+				require.NoError(t, os.Unsetenv(k))
+			}
+
 			for k, value := range tc.environ {
 				t.Setenv(k, value)
 			}

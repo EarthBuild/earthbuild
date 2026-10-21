@@ -79,33 +79,31 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 		return nil, errors.Join(fmt.Errorf("setup telemetry: %w", err), shutdown(ctx))
 	}
 
-	var providerShutdown ShutdownFunc
-
 	if tracesEnabled {
-		providerShutdown, err = setupTracerProvider(ctx, otelResource)
+		tracerShutdown, err := setupTracerProvider(ctx, otelResource)
 		if err != nil {
 			return handleError(err)
 		}
 
-		shutdowns = append(shutdowns, providerShutdown)
+		shutdowns = append(shutdowns, tracerShutdown)
 	}
 
 	if metricsEnabled {
-		providerShutdown, err = setupMeterProvider(ctx, otelResource)
+		meterShutdown, err := setupMeterProvider(ctx, otelResource)
 		if err != nil {
 			return handleError(err)
 		}
 
-		shutdowns = append(shutdowns, providerShutdown)
+		shutdowns = append(shutdowns, meterShutdown)
 	}
 
 	if logsEnabled {
-		providerShutdown, err = setupLoggerProvider(ctx, otelResource)
+		loggerShutdown, err := setupLoggerProvider(ctx, otelResource)
 		if err != nil {
 			return handleError(err)
 		}
 
-		shutdowns = append(shutdowns, providerShutdown)
+		shutdowns = append(shutdowns, loggerShutdown)
 	}
 
 	return shutdown, nil
@@ -133,7 +131,7 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 			otelsemconv.ProcessCommandArgs(os.Args...),
 			otelsemconv.ProcessExecutablePath(executable),
 			semconv.ProcessRoleCLI,
-			earthbuildProcessNesting(),
+			processNesting(),
 		),
 	)
 	if errors.Is(err, resource.ErrPartialResource) {
@@ -162,11 +160,16 @@ func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownF
 		sdktrace.WithResource(res),
 	)
 
-	http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
+	prevTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = otelhttp.NewTransport(prevTransport)
 
 	otel.SetTracerProvider(tp)
 
-	return tp.Shutdown, nil
+	return func(ctx context.Context) error {
+		http.DefaultClient.Transport = prevTransport
+
+		return tp.Shutdown(ctx)
+	}, nil
 }
 
 func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
@@ -193,7 +196,7 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 	return mp.Shutdown, nil
 }
 
-func earthbuildProcessNesting() attribute.KeyValue {
+func processNesting() attribute.KeyValue {
 	// A typo only mis-labels the datapoint as outer, so it is reported and shrugged
 	// off rather than failing telemetry setup over it.
 	withDocker, err := env.Bool("WITH_DOCKER")

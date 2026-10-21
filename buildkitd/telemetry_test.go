@@ -67,6 +67,23 @@ func TestBuildkitTelemetryEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 			name:    "OTEL_SDK_DISABLED is true",
 			environ: []string{endpointEnv, "OTEL_SDK_DISABLED=true"},
 		},
+		{
+			name: "metadata-only OTEL vars without exporter or endpoint",
+			environ: []string{
+				"OTEL_RESOURCE_ATTRIBUTES=cicd.pipeline.run.id=123",
+				"OTEL_SERVICE_NAME=earth-cli",
+				"OTEL_SDK_DISABLED=false",
+			},
+		},
+		{
+			name: "all signal exporters set to none",
+			environ: []string{
+				endpointEnv,
+				"OTEL_TRACES_EXPORTER=none",
+				"OTEL_METRICS_EXPORTER=NONE",
+				"OTEL_LOGS_EXPORTER=none",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -87,6 +104,7 @@ func TestBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) 
 	t.Parallel()
 
 	environ := []string{
+		"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317",
 		"OTEL_RESOURCE_ATTRIBUTES=" + strings.Join([]string{
 			string(semconv.ProcessRole) + "=" + semconv.ProcessRoleCLI.Value.AsString(),
 			string(semconv.ProcessNesting) + "=" + semconv.ProcessNestingOuter.Value.AsString(),

@@ -239,22 +239,36 @@ func WithTraceparent(ctx context.Context) context.Context {
 	return otel.GetTextMapPropagator().Extract(ctx, carrier)
 }
 
+// Enabled reports whether any OpenTelemetry signal (traces, metrics, or logs)
+// is opted in according to the OTEL_* variables in env.
+func Enabled(env map[string]string) bool {
+	lookup := func(key string) string { return env[key] }
+
+	return optInFrom(lookup, "OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") ||
+		optInFrom(lookup, "OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") ||
+		optInFrom(lookup, "OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
+}
+
 // optIn reports whether the user has opted into a telemetry signal.
 // A signal is enabled when OTEL_SDK_DISABLED is not true, exporterKey is not
 // "none", and at least one of exporterKey, OTEL_EXPORTER_OTLP_ENDPOINT, or
 // signalEndpointKey is non-empty.
 func optIn(exporterKey, signalEndpointKey string) bool {
-	disabled, err := strconv.ParseBool(strings.TrimSpace(os.Getenv("OTEL_SDK_DISABLED")))
+	return optInFrom(os.Getenv, exporterKey, signalEndpointKey)
+}
+
+func optInFrom(lookup func(string) string, exporterKey, signalEndpointKey string) bool {
+	disabled, err := strconv.ParseBool(strings.TrimSpace(lookup("OTEL_SDK_DISABLED")))
 	if err == nil && disabled {
 		return false
 	}
 
-	exporter := strings.TrimSpace(os.Getenv(exporterKey))
+	exporter := strings.TrimSpace(lookup(exporterKey))
 	if strings.EqualFold(exporter, "none") {
 		return false
 	}
 
 	return exporter != "" ||
-		strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")) != "" ||
-		strings.TrimSpace(os.Getenv(signalEndpointKey)) != ""
+		strings.TrimSpace(lookup("OTEL_EXPORTER_OTLP_ENDPOINT")) != "" ||
+		strings.TrimSpace(lookup(signalEndpointKey)) != ""
 }

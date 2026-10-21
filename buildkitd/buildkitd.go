@@ -21,6 +21,7 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/env"
+	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/EarthBuild/earthbuild/util/buildkitutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
@@ -815,7 +816,7 @@ func buildkitEnv(
 }
 
 // buildkitTelemetryEnv returns the OTel environment buildkitd is started with, or nil
-// if no OTEL_* variables are set in environ. Any OTEL_* variables are copied through,
+// if telemetry is not opted in under environ. Any OTEL_* variables are copied through,
 // with OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES overridden to describe buildkitd.
 //
 // OTEL_* variables are intentionally excluded from Settings.Hash so per-run CI metadata
@@ -848,12 +849,7 @@ func buildkitTelemetryEnv(
 		env[key] = value
 	}
 
-	if len(env) == 0 {
-		return nil
-	}
-
-	disabled, err := strconv.ParseBool(env["OTEL_SDK_DISABLED"])
-	if err == nil && disabled {
+	if !telemetry.Enabled(env) {
 		return nil
 	}
 

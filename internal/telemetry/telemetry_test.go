@@ -18,6 +18,7 @@ func TestOptIn(t *testing.T) {
 	const (
 		endpoint        = "https://otel.example.test"
 		exporterNone    = "none"
+		exporterOTLP    = "otlp"
 		boolTrue        = "true"
 		sdkDisabled     = "OTEL_SDK_DISABLED"
 		metricsExporter = "OTEL_METRICS_EXPORTER"
@@ -36,7 +37,7 @@ func TestOptIn(t *testing.T) {
 		},
 		{
 			name: "exporter set",
-			env:  map[string]string{metricsExporter: "otlp"},
+			env:  map[string]string{metricsExporter: exporterOTLP},
 			want: true,
 		},
 		{
@@ -69,7 +70,7 @@ func TestOptIn(t *testing.T) {
 			name: "OTEL_SDK_DISABLED overrides exporter and endpoint",
 			env: map[string]string{
 				sdkDisabled:     boolTrue,
-				metricsExporter: "otlp",
+				metricsExporter: exporterOTLP,
 				otlpEndpoint:    endpoint,
 			},
 			want: false,
@@ -90,6 +91,122 @@ func TestOptIn(t *testing.T) {
 			got := optIn(metricsExporter, metricsEndpoint)
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.env[metricsExporter], os.Getenv(metricsExporter))
+		})
+	}
+}
+
+func TestEnabled(t *testing.T) {
+	t.Parallel()
+
+	const (
+		endpoint        = "https://otel.example.test"
+		exporterNone    = "none"
+		exporterOTLP    = "otlp"
+		boolTrue        = "true"
+		sdkDisabled     = "OTEL_SDK_DISABLED"
+		otlpEndpoint    = "OTEL_EXPORTER_OTLP_ENDPOINT"
+		tracesExporter  = "OTEL_TRACES_EXPORTER"
+		metricsExporter = "OTEL_METRICS_EXPORTER"
+		logsExporter    = "OTEL_LOGS_EXPORTER"
+		tracesEndpoint  = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
+		metricsEndpoint = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+		logsEndpoint    = "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"
+	)
+
+	tests := []struct {
+		env  map[string]string
+		name string
+		want bool
+	}{
+		{
+			name: "nil map",
+			env:  nil,
+			want: false,
+		},
+		{
+			name: "empty map",
+			env:  map[string]string{},
+			want: false,
+		},
+		{
+			name: "metadata-only OTEL vars",
+			env: map[string]string{
+				"OTEL_RESOURCE_ATTRIBUTES": "cicd.pipeline.run.id=123",
+				"OTEL_SERVICE_NAME":        "earth-cli",
+				sdkDisabled:                "false",
+			},
+			want: false,
+		},
+		{
+			name: "generic endpoint set",
+			env:  map[string]string{otlpEndpoint: endpoint},
+			want: true,
+		},
+		{
+			name: "traces endpoint set",
+			env:  map[string]string{tracesEndpoint: endpoint},
+			want: true,
+		},
+		{
+			name: "metrics endpoint set",
+			env:  map[string]string{metricsEndpoint: endpoint},
+			want: true,
+		},
+		{
+			name: "logs endpoint set",
+			env:  map[string]string{logsEndpoint: endpoint},
+			want: true,
+		},
+		{
+			name: "traces exporter set",
+			env:  map[string]string{tracesExporter: exporterOTLP},
+			want: true,
+		},
+		{
+			name: "metrics exporter set",
+			env:  map[string]string{metricsExporter: exporterOTLP},
+			want: true,
+		},
+		{
+			name: "logs exporter set",
+			env:  map[string]string{logsExporter: exporterOTLP},
+			want: true,
+		},
+		{
+			name: "generic endpoint with two signal exporters none and one unset",
+			env: map[string]string{
+				otlpEndpoint:    endpoint,
+				tracesExporter:  exporterNone,
+				metricsExporter: exporterNone,
+			},
+			want: true,
+		},
+		{
+			name: "generic endpoint with all three signal exporters none",
+			env: map[string]string{
+				otlpEndpoint:    endpoint,
+				tracesExporter:  exporterNone,
+				metricsExporter: "NONE",
+				logsExporter:    exporterNone,
+			},
+			want: false,
+		},
+		{
+			name: "OTEL_SDK_DISABLED overrides endpoint and exporter",
+			env: map[string]string{
+				sdkDisabled:    boolTrue,
+				otlpEndpoint:   endpoint,
+				tracesExporter: exporterOTLP,
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, Enabled(tt.env))
 		})
 	}
 }

@@ -577,9 +577,8 @@ func Start(
 
 	withDocker, err := env.Bool("WITH_DOCKER")
 	if err != nil {
-		// Not fatal: an unparsable value only mis-labels the build as outer,
-		// which costs the earth-in-earth cgroup mounts, not correctness of the
-		// build itself.
+		// EARTH_WITH_DOCKER is set by buildkitd/dockerd-wrapper.sh; warn and
+		// fall back to an outer build if the user set an unparsable value.
 		log.
 			WithPrefix("buildkitd").
 			Printf("Warning: %s. Treating this as an outer build.\n", err.Error())
@@ -818,6 +817,10 @@ func buildkitEnv(
 // buildkitTelemetryEnv returns the OTel environment buildkitd is started with, or nil
 // if no OTEL_* variables are set in environ. Any OTEL_* variables are copied through,
 // with OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES overridden to describe buildkitd.
+//
+// OTEL_* variables are intentionally excluded from Settings.Hash so per-run CI metadata
+// in OTEL_RESOURCE_ATTRIBUTES (such as cicd.pipeline.run.id) does not restart a running
+// buildkitd container on every invocation.
 func buildkitTelemetryEnv(
 	containerName, installationName string,
 	withDocker bool,

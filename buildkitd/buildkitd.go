@@ -2,6 +2,7 @@
 package buildkitd
 
 import (
+	"cmp"
 	"context"
 	"crypto/rsa"
 	"errors"
@@ -31,6 +32,7 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/moby/buildkit/client"
 	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // Load "docker-container://" helper.
+	"go.opentelemetry.io/otel/attribute"
 	otelsemconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"golang.org/x/mod/semver"
 	"google.golang.org/grpc/codes"
@@ -839,24 +841,24 @@ func buildkitTelemetryEnv(
 		return nil
 	}
 
+	disabled, err := strconv.ParseBool(strings.TrimSpace(env["OTEL_SDK_DISABLED"]))
+	if err == nil && disabled {
+		return nil
+	}
+
 	env["OTEL_SERVICE_NAME"] = buildkitdOTELServiceName
 
-	// buildkitd is a separate process, so it takes its attributes as env rather than
-	// as attribute.KeyValue - hence the string forms of the shared semconv keys.
 	nesting := semconv.ProcessNestingOuter
 	if withDocker {
 		nesting = semconv.ProcessNestingInner
 	}
 
-	resourceAttrs := map[string]string{
-		string(semconv.ProcessRole):          semconv.ProcessRoleBuildkitd.Value.AsString(),
-		string(semconv.ProcessNesting):       nesting.Value.AsString(),
-		string(otelsemconv.ContainerNameKey): containerName,
-		string(semconv.InstallationName):     installationName,
-	}
 	env["OTEL_RESOURCE_ATTRIBUTES"] = appendOTELResourceAttributes(
 		env["OTEL_RESOURCE_ATTRIBUTES"],
-		resourceAttrs,
+		otelsemconv.ContainerName(containerName),
+		semconv.InstallationName.String(installationName),
+		nesting,
+		semconv.ProcessRoleBuildkitd,
 	)
 
 	return env
@@ -881,10 +883,9 @@ var otelResourceAttrValueEscaper = strings.NewReplacer("%", "%25", ",", "%2C", "
 // not an option - collectors disagree on which duplicate survives. Inherited entries
 // are copied verbatim; they are already encoded by whoever wrote them.
 //
-// Format: https://opentelemetry.io/docs/specs/otel/resource/sdk/#specifying-resource-information-via-an-environment-variable
-//
-//nolint:lll // The spec anchor does not survive wrapping.
-func appendOTELResourceAttributes(base string, attrs map[string]string) string {
+// Format:
+// https://opentelemetry.io/docs/specs/otel/resource/sdk/#specifying-resource-information-via-an-environment-variable
+func appendOTELResourceAttributes(base string, attrs ...attribute.KeyValue) string {
 	parts := make([]string, 0, len(attrs)+1)
 
 	for attr := range strings.SplitSeq(base, ",") {
@@ -903,7 +904,7 @@ func appendOTELResourceAttributes(base string, attrs map[string]string) string {
 			continue
 		}
 
-		if _, ok := attrs[key]; ok {
+		if slices.ContainsFunc(attrs, func(kv attribute.KeyValue) bool { return string(kv.Key) == key }) {
 			continue
 		}
 
@@ -911,12 +912,18 @@ func appendOTELResourceAttributes(base string, attrs map[string]string) string {
 	}
 
 	// Sorted so the same inputs always produce the same env var.
-	for _, key := range slices.Sorted(maps.Keys(attrs)) {
-		if attrs[key] == "" {
+	sorted := slices.Clone(attrs)
+	slices.SortFunc(sorted, func(a, b attribute.KeyValue) int {
+		return cmp.Compare(a.Key, b.Key)
+	})
+
+	for _, kv := range sorted {
+		val := kv.Value.AsString()
+		if kv.Key == "" || strings.TrimSpace(val) == "" {
 			continue
 		}
 
-		parts = append(parts, key+"="+otelResourceAttrValueEscaper.Replace(attrs[key]))
+		parts = append(parts, string(kv.Key)+"="+otelResourceAttrValueEscaper.Replace(val))
 	}
 
 	return strings.Join(parts, ",")

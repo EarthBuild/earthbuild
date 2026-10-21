@@ -13,35 +13,84 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// optIn is the switch the whole package hangs off, and its opt-out is a side effect
-// rather than a return value: autoexport defaults to otlp, so declining telemetry
-// means writing OTEL_..._EXPORTER=none before the SDK reads it. Lose that and an
-// unconfigured earth starts trying to export.
-func TestOptInPinsExporterToNoneWhenNothingIsSet(t *testing.T) {
-	t.Setenv("OTEL_METRICS_EXPORTER", "")
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+func TestOptIn(t *testing.T) {
+	const (
+		endpoint        = "https://otel.example.test"
+		metricsExporter = "OTEL_METRICS_EXPORTER"
+		otlpEndpoint    = "OTEL_EXPORTER_OTLP_ENDPOINT"
+		metricsEndpoint = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+	)
 
-	got, err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT")
-	require.NoError(t, err)
-	assert.False(t, got)
-	assert.Equal(t, "none", os.Getenv("OTEL_METRICS_EXPORTER"))
-}
+	tests := []struct {
+		env  map[string]string
+		name string
+		want bool
+	}{
+		{
+			name: "nothing set",
+			want: false,
+		},
+		{
+			name: "exporter set",
+			env:  map[string]string{metricsExporter: "otlp"},
+			want: true,
+		},
+		{
+			name: "generic endpoint set",
+			env:  map[string]string{otlpEndpoint: endpoint},
+			want: true,
+		},
+		{
+			name: "signal endpoint set",
+			env:  map[string]string{metricsEndpoint: endpoint},
+			want: true,
+		},
+		{
+			name: "exporter none overrides endpoint",
+			env: map[string]string{
+				metricsExporter: "none",
+				otlpEndpoint:    endpoint,
+			},
+			want: false,
+		},
+		{
+			name: "OTEL_SDK_DISABLED overrides exporter and endpoint",
+			env: map[string]string{
+				"OTEL_SDK_DISABLED": "true",
+				metricsExporter:     "otlp",
+				otlpEndpoint:        endpoint,
+			},
+			want: false,
+		},
+	}
 
-// Any one of the keys opts in, not just the exporter - an endpoint alone is how CI
-// configures earth, and autoexport picks otlp from there.
-func TestOptInOnAnyKey(t *testing.T) {
-	t.Setenv("OTEL_METRICS_EXPORTER", "")
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.test")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("OTEL_SDK_DISABLED", "")
+			t.Setenv(metricsExporter, "")
+			t.Setenv(otlpEndpoint, "")
+			t.Setenv(metricsEndpoint, "")
 
-	got, err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT")
-	require.NoError(t, err)
-	assert.True(t, got)
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
 
-	t.Setenv("OTEL_METRICS_EXPORTER", "none")
+			got := optIn(
+				metricsExporter,
+				otlpEndpoint,
+				metricsEndpoint,
+			)
+			assert.Equal(t, tt.want, got)
 
-	got, err = optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT")
-	require.NoError(t, err)
-	assert.False(t, got)
+			gotReversed := optIn(
+				otlpEndpoint,
+				metricsEndpoint,
+				metricsExporter,
+			)
+			assert.Equal(t, tt.want, gotReversed)
+			assert.Equal(t, tt.env[metricsExporter], os.Getenv(metricsExporter))
+		})
+	}
 }
 
 // WithTraceparent is the CI-to-earth trace link: a build step exports TRACEPARENT and
@@ -71,22 +120,42 @@ func TestWithTraceparentAdoptsTheCallersTrace(t *testing.T) {
 // resource is the only place earth's own identity can reach its metrics.
 func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 	tests := []struct {
-		want       attribute.KeyValue
-		name       string
-		withDocker string
+		want         attribute.KeyValue
+		name         string
+		withDocker   string
+		resourceAttr string
 	}{
-		{name: "outer build", withDocker: "", want: semconv.ProcessNestingOuter},
-		{name: "inside WITH DOCKER", withDocker: "true", want: semconv.ProcessNestingInner},
+		{
+			name: "outer build",
+			want: semconv.ProcessNestingOuter,
+		},
+		{
+			name:       "inside WITH DOCKER",
+			withDocker: "true",
+			want:       semconv.ProcessNestingInner,
+		},
+		{
+			name:       "invalid EARTH_WITH_DOCKER falls back to outer",
+			withDocker: "not-a-bool",
+			want:       semconv.ProcessNestingOuter,
+		},
+		{
+			name:         "overrides inherited OTEL_RESOURCE_ATTRIBUTES",
+			resourceAttr: "earth.process.role=buildkitd,earth.process.nesting=inner",
+			want:         semconv.ProcessNestingOuter,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("EARTH_WITH_DOCKER", tt.withDocker)
+			t.Setenv("OTEL_RESOURCE_ATTRIBUTES", tt.resourceAttr)
 
 			res, err := newOTelResource(t.Context())
 			require.NoError(t, err)
 
 			assert.Contains(t, res.Attributes(), semconv.ProcessRoleCLI)
+			assert.NotContains(t, res.Attributes(), semconv.ProcessRoleBuildkitd)
 			assert.Contains(t, res.Attributes(), tt.want)
 		})
 	}

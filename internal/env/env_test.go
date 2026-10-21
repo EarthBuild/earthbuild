@@ -125,8 +125,8 @@ func TestBool(t *testing.T) {
 	testCases := []struct {
 		environ map[string]string
 		name    string
+		wantErr string
 		want    bool
-		wantErr bool
 	}{
 		{name: "unset", want: false},
 		{name: "empty", environ: map[string]string{key: ""}, want: false},
@@ -137,7 +137,12 @@ func TestBool(t *testing.T) {
 		{name: "digit", environ: map[string]string{key: "1"}, want: true},
 		{name: "negative-word", environ: map[string]string{key: "False"}, want: false},
 		{name: "negative-digit", environ: map[string]string{key: "0"}, want: false},
-		{name: "garbage", environ: map[string]string{key: "yes"}, want: false, wantErr: true},
+		{
+			name:    "garbage",
+			environ: map[string]string{key: "yes"},
+			want:    false,
+			wantErr: `EARTH_TEST_BOOL is set to "yes"`,
+		},
 		{
 			name:    "deprecated prefix",
 			environ: map[string]string{DeprecatedPrefix + "TEST_BOOL": truth},
@@ -149,7 +154,7 @@ func TestBool(t *testing.T) {
 			name:    "deprecated prefix garbage",
 			environ: map[string]string{DeprecatedPrefix + "TEST_BOOL": "yes"},
 			want:    false,
-			wantErr: true,
+			wantErr: `EARTHLY_TEST_BOOL is set to "yes"`,
 		},
 		{
 			// Same rule as Lookup: EARTH_ wins, so a stale EARTHLY_ cannot override it.
@@ -173,7 +178,7 @@ func TestBool(t *testing.T) {
 			got, err := Bool("TEST_BOOL")
 			assert.Equal(t, tc.want, got)
 
-			if !tc.wantErr {
+			if tc.wantErr == "" {
 				require.NoError(t, err)
 
 				return
@@ -181,10 +186,7 @@ func TestBool(t *testing.T) {
 
 			// The message must name the variable and the offending value, so the
 			// user can fix it without grepping the source.
-			for k, value := range tc.environ {
-				require.ErrorContains(t, err, k)
-				require.ErrorContains(t, err, value)
-			}
+			require.ErrorContains(t, err, tc.wantErr)
 		})
 	}
 }

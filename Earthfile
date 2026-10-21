@@ -189,9 +189,7 @@ lint-fix:
     SAVE ARTIFACT slog AS LOCAL slog
     SAVE ARTIFACT util AS LOCAL util
     SAVE ARTIFACT variables AS LOCAL variables
-    SAVE ARTIFACT buildkitd/buildkitd.go AS LOCAL buildkitd/buildkitd.go
-    SAVE ARTIFACT buildkitd/settings.go AS LOCAL buildkitd/settings.go
-    SAVE ARTIFACT buildkitd/certificates.go AS LOCAL buildkitd/certificates.go
+    SAVE ARTIFACT buildkitd/*.go AS LOCAL buildkitd/
     SAVE ARTIFACT inputgraph/*.go AS LOCAL inputgraph/
 
 # lint runs basic go linters against the earthbuild project.

@@ -1,4 +1,4 @@
-// Package telemetry implements OpenTelemetry tracing and metrics collection for EarthlBuild's internal operations.
+// Package telemetry implements OpenTelemetry tracing and metrics collection for EarthBuild's internal operations.
 package telemetry
 
 import (
@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/internal/env"
@@ -50,10 +51,6 @@ func Setup(ctx context.Context) (ShutdownFunc, error) {
 		}
 
 		shutdowns = nil
-
-		if shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: OpenTelemetry shutdown failed; continuing: %s\n", shutdownErr)
-		}
 
 		return shutdownErr
 	}
@@ -142,23 +139,18 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 	return otelResource, nil
 }
 
+func noopShutdown(context.Context) error { return nil }
+
 func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
-	errorf := func(format string, args ...any) (ShutdownFunc, error) {
-		return nil, fmt.Errorf("create tracer provider: "+format, args...)
+	if !optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") {
+		return noopShutdown, nil
 	}
 
-	enabled, err := optIn("OTEL_TRACES_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
-	if err != nil {
-		return errorf("%w", err)
-	}
-
-	if enabled {
-		http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
-	}
+	http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
 
 	exporter, err := autoexport.NewSpanExporter(ctx)
 	if err != nil {
-		return errorf("create span exporter: %w", err)
+		return nil, fmt.Errorf("create tracer provider: create span exporter: %w", err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
@@ -172,18 +164,13 @@ func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownF
 }
 
 func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
-	errorf := func(format string, args ...any) (ShutdownFunc, error) {
-		return nil, fmt.Errorf("create meter provider: "+format, args...)
-	}
-
-	_, err := optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
-	if err != nil {
-		return errorf("%w", err)
+	if !optIn("OTEL_METRICS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") {
+		return noopShutdown, nil
 	}
 
 	reader, err := autoexport.NewMetricReader(ctx)
 	if err != nil {
-		return errorf("create metric reader: %w", err)
+		return nil, fmt.Errorf("create meter provider: create metric reader: %w", err)
 	}
 
 	mp := metric.NewMeterProvider(
@@ -197,7 +184,7 @@ func setupMeterProvider(ctx context.Context, res *resource.Resource) (ShutdownFu
 	// and nothing here enforces that ordering.
 	err = otelruntime.Start(otelruntime.WithMeterProvider(mp))
 	if err != nil {
-		return errorf("initialize runtime metrics: %w", err)
+		return nil, fmt.Errorf("create meter provider: initialize runtime metrics: %w", err)
 	}
 
 	return mp.Shutdown, nil
@@ -219,18 +206,13 @@ func earthbuildProcessNesting() attribute.KeyValue {
 }
 
 func setupLoggerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
-	errorf := func(format string, args ...any) (ShutdownFunc, error) {
-		return nil, fmt.Errorf("create logger provider: "+format, args...)
-	}
-
-	_, err := optIn("OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
-	if err != nil {
-		return errorf("%w", err)
+	if !optIn("OTEL_LOGS_EXPORTER", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT") {
+		return noopShutdown, nil
 	}
 
 	logExporter, err := autoexport.NewLogExporter(ctx)
 	if err != nil {
-		return errorf("create log exporter: %w", err)
+		return nil, fmt.Errorf("create logger provider: create log exporter: %w", err)
 	}
 
 	loggerProvider := sdklog.NewLoggerProvider(
@@ -258,30 +240,29 @@ func WithTraceparent(ctx context.Context) context.Context {
 	return otel.GetTextMapPropagator().Extract(ctx, carrier)
 }
 
-// optIn checks if user has opted into telemetry by setting any of the environment variables.
-// Returns true if the user has opted in, false otherwise.
-// The first environment variable MUST be OTEL_..._EXPORTER.
-func optIn(key ...string) (bool, error) {
-	exporter := key[0]
-
-	if !strings.HasPrefix(exporter, "OTEL_") || !strings.HasSuffix(exporter, "_EXPORTER") {
-		return false, fmt.Errorf("first env var must be OTEL_..._EXPORTER: %s", exporter)
+// optIn reports whether the user has opted into telemetry via any of keys.
+// A signal is enabled when OTEL_SDK_DISABLED is not true, no OTEL_*_EXPORTER
+// key in keys is set to "none", and at least one key in keys is non-empty.
+func optIn(keys ...string) bool {
+	disabled, err := strconv.ParseBool(strings.TrimSpace(os.Getenv("OTEL_SDK_DISABLED")))
+	if err == nil && disabled {
+		return false
 	}
 
-	if os.Getenv(exporter) == "none" {
-		return false, nil
-	}
+	var enabled bool
 
-	for _, k := range key {
-		if os.Getenv(k) != "" {
-			return true, nil
+	for _, k := range keys {
+		v := strings.TrimSpace(os.Getenv(k))
+		if v == "" {
+			continue
 		}
+
+		if strings.HasPrefix(k, "OTEL_") && strings.HasSuffix(k, "_EXPORTER") && v == "none" {
+			return false
+		}
+
+		enabled = true
 	}
 
-	err := os.Setenv(exporter, "none")
-	if err != nil {
-		return false, fmt.Errorf("set env var %s to none: %w", exporter, err)
-	}
-
-	return false, nil
+	return enabled
 }

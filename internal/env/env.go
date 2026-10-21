@@ -39,9 +39,11 @@ func lookupNamed(suffix string) (name, value string, ok bool) {
 	}
 
 	name = DeprecatedPrefix + suffix
-	value, ok = os.LookupEnv(name)
+	if value, ok = os.LookupEnv(name); ok {
+		return name, value, true
+	}
 
-	return name, value, ok
+	return "", "", false
 }
 
 // Bool reports whether the environment variable identified by suffix holds a truthy
@@ -50,7 +52,10 @@ func lookupNamed(suffix string) (name, value string, ok bool) {
 // can warn instead of silently taking the wrong branch on a typo such as
 // EARTH_WITH_DOCKER=yes.
 func Bool(suffix string) (bool, error) {
-	name, raw, _ := lookupNamed(suffix)
+	name, raw, ok := lookupNamed(suffix)
+	if !ok {
+		return false, nil
+	}
 
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

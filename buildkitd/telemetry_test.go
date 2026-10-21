@@ -1,12 +1,14 @@
 package buildkitd
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/internal/telemetry/semconv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func TestBuildkitTelemetryEnv(t *testing.T) {
@@ -43,13 +45,31 @@ func TestBuildkitTelemetryEnv(t *testing.T) {
 func TestBuildkitTelemetryEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 	t.Parallel()
 
-	assert.Nil(t, buildkitTelemetryEnv("earthbuild-buildkitd", "earthbuild", false, nil))
-	assert.Nil(t, buildkitTelemetryEnv(
-		"earthbuild-buildkitd",
-		"earthbuild",
-		false,
-		[]string{"NOT_OTEL_VAR=1", "OTEL_EMPTY="},
-	))
+	tests := []struct {
+		name    string
+		environ []string
+	}{
+		{
+			name:    "nil environ",
+			environ: nil,
+		},
+		{
+			name:    "non-OTEL and empty OTEL vars",
+			environ: []string{"NOT_OTEL_VAR=1", "OTEL_EMPTY="},
+		},
+		{
+			name:    "OTEL_SDK_DISABLED is true",
+			environ: []string{"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317", "OTEL_SDK_DISABLED=true"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Nil(t, buildkitTelemetryEnv("earthbuild-buildkitd", "earthbuild", false, tt.environ))
+		})
+	}
 }
 
 // buildkitd inherits OTEL_RESOURCE_ATTRIBUTES from the outer earth process, so
@@ -97,10 +117,10 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 	)
 
 	tests := []struct {
-		attrs map[string]string
 		name  string
 		base  string
 		want  string
+		attrs []attribute.KeyValue
 	}{
 		{
 			// OTEL_RESOURCE_ATTRIBUTES is a comma-separated key=value list in which ","
@@ -110,7 +130,7 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 			// silently invents attributes, and a bare "%" makes decoding fail outright.
 			name:  "encodes separators",
 			base:  "",
-			attrs: map[string]string{"earth.installation.name": "a,b=c 100% d"},
+			attrs: []attribute.KeyValue{attribute.String("earth.installation.name", "a,b=c 100% d")},
 			want:  "earth.installation.name=a%2Cb%3Dc 100%25 d",
 		},
 		{
@@ -118,39 +138,39 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 			// would double the escapes and hand the collector a literal "%2C".
 			name:  "leaves inherited encoding alone",
 			base:  "vcs.revision.id=a%2Cb",
-			attrs: map[string]string{"earth.target": "+build"},
+			attrs: []attribute.KeyValue{attribute.String("earth.target", "+build")},
 			want:  "vcs.revision.id=a%2Cb,earth.target=+build",
 		},
 		{
 			name:  "missing key",
 			base:  "=missing-key,cicd.pipeline.run.id=123",
-			attrs: map[string]string{roleKey: role},
+			attrs: []attribute.KeyValue{attribute.String(roleKey, role)},
 			want:  want,
 		},
 		{
 			name:  "whitespace key",
 			base:  "   =missing-key,cicd.pipeline.run.id=123",
-			attrs: map[string]string{roleKey: role},
+			attrs: []attribute.KeyValue{attribute.String(roleKey, role)},
 			want:  want,
 		},
 		{
 			name:  "missing value",
 			base:  "missing-value= ,cicd.pipeline.run.id=123",
-			attrs: map[string]string{roleKey: role},
+			attrs: []attribute.KeyValue{attribute.String(roleKey, role)},
 			want:  want,
 		},
 		{
 			name:  "missing equals",
 			base:  "bare,cicd.pipeline.run.id=123",
-			attrs: map[string]string{roleKey: role},
+			attrs: []attribute.KeyValue{attribute.String(roleKey, role)},
 			want:  want,
 		},
 		{
 			name: "empty override strips inherited key",
 			base: "earth.installation.name=inherited,cicd.pipeline.run.id=123",
-			attrs: map[string]string{
-				"earth.installation.name": "",
-				roleKey:                   role,
+			attrs: []attribute.KeyValue{
+				attribute.String("earth.installation.name", ""),
+				attribute.String(roleKey, role),
 			},
 			want: want,
 		},
@@ -160,8 +180,20 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := appendOTELResourceAttributes(tt.base, tt.attrs)
+			got := appendOTELResourceAttributes(tt.base, tt.attrs...)
 			assert.Equal(t, tt.want, got)
+
+			parsed := parseResourceAttrs(got)
+
+			for _, kv := range tt.attrs {
+				if kv.Key == "" || strings.TrimSpace(kv.Value.AsString()) == "" {
+					continue
+				}
+
+				unescaped, err := url.PathUnescape(parsed[string(kv.Key)])
+				require.NoError(t, err)
+				assert.Equal(t, kv.Value.AsString(), unescaped)
+			}
 		})
 	}
 }

@@ -887,12 +887,16 @@ func appendOTELResourceAttributes(base string, attrs map[string]string) string {
 		}
 
 		key, value, ok := strings.Cut(attr, "=")
-		if !ok || strings.TrimSpace(value) == "" {
+		if !ok {
 			continue
 		}
 
-		override, ok := attrs[strings.TrimSpace(key)]
-		if ok && override != "" {
+		key = strings.TrimSpace(key)
+		if key == "" || strings.TrimSpace(value) == "" {
+			continue
+		}
+
+		if _, ok := attrs[key]; ok {
 			continue
 		}
 

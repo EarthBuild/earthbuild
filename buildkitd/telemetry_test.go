@@ -1,7 +1,6 @@
 package buildkitd
 
 import (
-	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -95,36 +94,83 @@ func clearOTELEnv(t *testing.T) {
 	}
 }
 
-// OTEL_RESOURCE_ATTRIBUTES is a comma-separated key=value list in which "," and "="
-// MUST be percent-encoded, per
-// https://opentelemetry.io/docs/specs/otel/resource/sdk/#specifying-resource-information-via-an-environment-variable.
-// The consumer (sdk/resource.fromEnv) splits on "," and the first "=", then
-// url.PathUnescape's the value - so an unencoded separator in a value silently
-// invents attributes, and a bare "%" makes decoding fail outright.
-func TestAppendOTELResourceAttributesEncodesSeparators(t *testing.T) {
+func TestAppendOTELResourceAttributes(t *testing.T) {
 	t.Parallel()
 
-	const nasty = "a,b=c 100% d"
+	const (
+		roleKey = "earth.process.role"
+		role    = "buildkitd"
+		want    = "cicd.pipeline.run.id=123,earth.process.role=buildkitd"
+	)
 
-	got := appendOTELResourceAttributes("", map[string]string{"earth.installation.name": nasty})
-	assert.NotContains(t, got, ",")
+	tests := []struct {
+		attrs map[string]string
+		name  string
+		base  string
+		want  string
+	}{
+		{
+			// OTEL_RESOURCE_ATTRIBUTES is a comma-separated key=value list in which ","
+			// and "=" MUST be percent-encoded, per the OTel resource SDK spec. The
+			// consumer (sdk/resource.fromEnv) splits on "," and the first "=", then
+			// url.PathUnescape's the value - so an unencoded separator in a value
+			// silently invents attributes, and a bare "%" makes decoding fail outright.
+			name:  "encodes separators",
+			base:  "",
+			attrs: map[string]string{"earth.installation.name": "a,b=c 100% d"},
+			want:  "earth.installation.name=a%2Cb%3Dc 100%25 d",
+		},
+		{
+			// Inherited entries are already encoded by whoever wrote them; re-encoding
+			// would double the escapes and hand the collector a literal "%2C".
+			name:  "leaves inherited encoding alone",
+			base:  "vcs.revision.id=a%2Cb",
+			attrs: map[string]string{"earth.target": "+build"},
+			want:  "vcs.revision.id=a%2Cb,earth.target=+build",
+		},
+		{
+			name:  "missing key",
+			base:  "=missing-key,cicd.pipeline.run.id=123",
+			attrs: map[string]string{roleKey: role},
+			want:  want,
+		},
+		{
+			name:  "whitespace key",
+			base:  "   =missing-key,cicd.pipeline.run.id=123",
+			attrs: map[string]string{roleKey: role},
+			want:  want,
+		},
+		{
+			name:  "missing value",
+			base:  "missing-value= ,cicd.pipeline.run.id=123",
+			attrs: map[string]string{roleKey: role},
+			want:  want,
+		},
+		{
+			name:  "missing equals",
+			base:  "bare,cicd.pipeline.run.id=123",
+			attrs: map[string]string{roleKey: role},
+			want:  want,
+		},
+		{
+			name: "empty override strips inherited key",
+			base: "earth.installation.name=inherited,cicd.pipeline.run.id=123",
+			attrs: map[string]string{
+				"earth.installation.name": "",
+				roleKey:                   role,
+			},
+			want: want,
+		},
+	}
 
-	key, value, ok := strings.Cut(got, "=")
-	require.True(t, ok)
-	assert.Equal(t, "earth.installation.name", key)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	decoded, err := url.PathUnescape(value)
-	require.NoError(t, err)
-	assert.Equal(t, nasty, decoded)
-}
-
-// Inherited entries are already encoded by whoever wrote them; re-encoding would
-// double the escapes and hand the collector a literal "%2C".
-func TestAppendOTELResourceAttributesLeavesInheritedEncodingAlone(t *testing.T) {
-	t.Parallel()
-
-	got := appendOTELResourceAttributes("vcs.revision.id=a%2Cb", map[string]string{"earth.target": "+build"})
-	assert.Equal(t, "vcs.revision.id=a%2Cb,earth.target=+build", got)
+			got := appendOTELResourceAttributes(tt.base, tt.attrs)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func parseResourceAttrs(value string) map[string]string {

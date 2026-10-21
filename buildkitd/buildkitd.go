@@ -2,7 +2,6 @@
 package buildkitd
 
 import (
-	"cmp"
 	"context"
 	"crypto/rsa"
 	"errors"
@@ -832,16 +831,25 @@ func buildkitTelemetryEnv(
 		}
 
 		key, value, ok := strings.Cut(entry, "=")
-		if ok && value != "" {
-			env[key] = value
+		if !ok {
+			continue
 		}
+
+		value = strings.TrimSpace(value)
+		if value == "" {
+			delete(env, key)
+
+			continue
+		}
+
+		env[key] = value
 	}
 
 	if len(env) == 0 {
 		return nil
 	}
 
-	disabled, err := strconv.ParseBool(strings.TrimSpace(env["OTEL_SDK_DISABLED"]))
+	disabled, err := strconv.ParseBool(env["OTEL_SDK_DISABLED"])
 	if err == nil && disabled {
 		return nil
 	}
@@ -889,18 +897,15 @@ func appendOTELResourceAttributes(base string, attrs ...attribute.KeyValue) stri
 	parts := make([]string, 0, len(attrs)+1)
 
 	for attr := range strings.SplitSeq(base, ",") {
-		attr = strings.TrimSpace(attr)
-		if attr == "" {
-			continue
-		}
-
 		key, value, ok := strings.Cut(attr, "=")
 		if !ok {
 			continue
 		}
 
 		key = strings.TrimSpace(key)
-		if key == "" || strings.TrimSpace(value) == "" {
+		value = strings.TrimSpace(value)
+
+		if key == "" || value == "" {
 			continue
 		}
 
@@ -908,17 +913,11 @@ func appendOTELResourceAttributes(base string, attrs ...attribute.KeyValue) stri
 			continue
 		}
 
-		parts = append(parts, attr)
+		parts = append(parts, key+"="+value)
 	}
 
-	// Sorted so the same inputs always produce the same env var.
-	sorted := slices.Clone(attrs)
-	slices.SortFunc(sorted, func(a, b attribute.KeyValue) int {
-		return cmp.Compare(a.Key, b.Key)
-	})
-
-	for _, kv := range sorted {
-		val := kv.Value.AsString()
+	for _, kv := range attrs {
+		val := kv.Value.String()
 		if kv.Key == "" || strings.TrimSpace(val) == "" {
 			continue
 		}

@@ -45,6 +45,8 @@ func TestBuildkitTelemetryEnv(t *testing.T) {
 func TestBuildkitTelemetryEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 	t.Parallel()
 
+	const endpointEnv = "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317"
+
 	tests := []struct {
 		name    string
 		environ []string
@@ -54,12 +56,16 @@ func TestBuildkitTelemetryEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 			environ: nil,
 		},
 		{
-			name:    "non-OTEL and empty OTEL vars",
-			environ: []string{"NOT_OTEL_VAR=1", "OTEL_EMPTY="},
+			name:    "non-OTEL and empty or whitespace OTEL vars",
+			environ: []string{"NOT_OTEL_VAR=1", "OTEL_EMPTY=", "OTEL_WHITESPACE=   "},
+		},
+		{
+			name:    "later empty value clears earlier OTEL var",
+			environ: []string{endpointEnv, "OTEL_EXPORTER_OTLP_ENDPOINT="},
 		},
 		{
 			name:    "OTEL_SDK_DISABLED is true",
-			environ: []string{"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317", "OTEL_SDK_DISABLED=true"},
+			environ: []string{endpointEnv, "OTEL_SDK_DISABLED=true"},
 		},
 	}
 
@@ -174,6 +180,18 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 			},
 			want: want,
 		},
+		{
+			name:  "trims whitespace around base key and value",
+			base:  " cicd.pipeline.run.id = 123 ",
+			attrs: []attribute.KeyValue{attribute.String(roleKey, role)},
+			want:  want,
+		},
+		{
+			name:  "non-string attribute value",
+			base:  "cicd.pipeline.run.id=123",
+			attrs: []attribute.KeyValue{attribute.Int("earth.retry.count", 2)},
+			want:  "cicd.pipeline.run.id=123,earth.retry.count=2",
+		},
 	}
 
 	for _, tt := range tests {
@@ -186,13 +204,14 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 			parsed := parseResourceAttrs(got)
 
 			for _, kv := range tt.attrs {
-				if kv.Key == "" || strings.TrimSpace(kv.Value.AsString()) == "" {
+				val := kv.Value.String()
+				if kv.Key == "" || strings.TrimSpace(val) == "" {
 					continue
 				}
 
 				unescaped, err := url.PathUnescape(parsed[string(kv.Key)])
 				require.NoError(t, err)
-				assert.Equal(t, kv.Value.AsString(), unescaped)
+				assert.Equal(t, val, unescaped)
 			}
 		})
 	}

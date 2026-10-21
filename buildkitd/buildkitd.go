@@ -64,7 +64,7 @@ func VolumeName(installationName string) string {
 func NewClient(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName, installationName string,
+	image, containerName string,
 	eng *engine.Client,
 	earthVersion string,
 	settings Settings,
@@ -128,7 +128,7 @@ func NewClient(
 		}
 
 		bkClient, info, workerInfo, err := maybeStart(
-			ctx, log, image, containerName, installationName, eng, settings, opts...,
+			ctx, log, image, containerName, eng, settings, opts...,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("maybe start buildkitd: %w", err)
@@ -176,7 +176,7 @@ func NewClient(
 func ResetCache(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName, installationName string,
+	image, containerName string,
 	eng *engine.Client,
 	settings Settings,
 	opts ...client.ClientOpt,
@@ -221,7 +221,7 @@ func ResetCache(
 		}
 	}
 
-	err = Start(ctx, log, image, containerName, installationName, eng, settings, true)
+	err = Start(ctx, log, image, containerName, eng, settings, true)
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func ResetCache(
 func maybeStart(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName, installationName string,
+	image, containerName string,
 	eng *engine.Client,
 	settings Settings,
 	opts ...client.ClientOpt,
@@ -297,7 +297,7 @@ func maybeStart(
 			Printf("Found buildkit daemon on %s (%s)\n", eng.Metadata().Name, containerName)
 
 		bkClient, cinfo, winfo, restartErr := maybeRestart(
-			ctx, log, image, containerName, installationName, eng, settings, opts...,
+			ctx, log, image, containerName, eng, settings, opts...,
 		)
 		if restartErr != nil {
 			return nil, nil, nil, fmt.Errorf("maybe restart: %w", restartErr)
@@ -310,7 +310,7 @@ func maybeStart(
 		WithPrefix("buildkitd").
 		Printf("Starting buildkit daemon on %s (%s)...\n", eng.Metadata().Name, containerName)
 
-	err = Start(ctx, log, image, containerName, installationName, eng, settings, false)
+	err = Start(ctx, log, image, containerName, eng, settings, false)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("start: %w", err)
 	}
@@ -353,7 +353,7 @@ func maybeStart(
 func maybeRestart(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName, installationName string,
+	image, containerName string,
 	eng *engine.Client,
 	settings Settings,
 	opts ...client.ClientOpt,
@@ -460,7 +460,7 @@ func maybeRestart(
 		return nil, nil, nil, fmt.Errorf("could not wait for container %q to stop: %w", containerName, err)
 	}
 
-	err = Start(ctx, log, image, containerName, installationName, eng, settings, false)
+	err = Start(ctx, log, image, containerName, eng, settings, false)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("could not start container %q: %w", containerName, err)
 	}
@@ -550,7 +550,7 @@ func RemoveExited(ctx context.Context, eng *engine.Client, containerName string)
 func Start(
 	ctx context.Context,
 	log *conslogging.ConsoleLogger,
-	image, containerName, installationName string,
+	image, containerName string,
 	eng *engine.Client,
 	settings Settings,
 	reset bool,
@@ -584,7 +584,7 @@ func Start(
 			Printf("Warning: %s. Treating this as an outer build.\n", err.Error())
 	}
 
-	envs := buildkitEnv(settings, containerName, installationName, withDocker, reset, os.Environ())
+	envs := buildkitEnv(settings, containerName, withDocker, reset, os.Environ())
 
 	labels := map[string]string{
 		"dev.earthly.settingshash": settingsHash,
@@ -765,7 +765,7 @@ const buildkitdOTELServiceName = "EarthBuild-buildkitd"
 // can be asserted in a test rather than reconstructed by reading Start top to bottom.
 func buildkitEnv(
 	settings Settings,
-	containerName, installationName string,
+	containerName string,
 	withDocker, reset bool,
 	environ []string,
 ) map[string]string {
@@ -809,7 +809,7 @@ func buildkitEnv(
 	}
 
 	// Telemetry keys are all OTEL_-prefixed, so the merge cannot collide with the above.
-	maps.Copy(env, buildkitTelemetryEnv(containerName, installationName, withDocker, environ))
+	maps.Copy(env, buildkitTelemetryEnv(containerName, settings.InstallationName, withDocker, environ))
 
 	return env
 }

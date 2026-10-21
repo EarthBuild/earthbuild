@@ -82,7 +82,7 @@ func TestBuildkitEnv(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := buildkitEnv(test.settings, "earth-buildkitd", "earth", false, test.reset, nil)
+			got := buildkitEnv(test.settings, "earth-buildkitd", false, test.reset, nil)
 
 			assert.Equal(t, test.want, got)
 		})
@@ -94,7 +94,13 @@ func TestBuildkitEnvIncludesTelemetry(t *testing.T) {
 	t.Parallel()
 
 	environ := []string{"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317"}
-	got := buildkitEnv(Settings{MaxParallelism: 3}, "earth-buildkitd", "earth", false, false, environ)
+	got := buildkitEnv(
+		Settings{MaxParallelism: 3, InstallationName: testInstallationName},
+		"earth-buildkitd",
+		false,
+		false,
+		environ,
+	)
 
 	assert.Equal(t, "http://otel:4317", got["OTEL_EXPORTER_OTLP_ENDPOINT"])
 	assert.Equal(t, buildkitdOTELServiceName, got["OTEL_SERVICE_NAME"])

@@ -584,7 +584,7 @@ func Start(
 			Printf("Warning: %s. Treating this as an outer build.\n", err.Error())
 	}
 
-	envs := buildkitEnv(settings, containerName, installationName, withDocker, reset)
+	envs := buildkitEnv(settings, containerName, installationName, withDocker, reset, os.Environ())
 
 	labels := map[string]string{
 		"dev.earthly.settingshash": settingsHash,
@@ -761,10 +761,14 @@ func Start(
 const buildkitdOTELServiceName = "EarthBuild-buildkitd"
 
 // buildkitEnv is the single source of the environment the buildkitd container is
-// started with. It is a pure function of its arguments and the OTel env vars the CLI
-// forwards, so what buildkitd runs with can be asserted in a test rather than
-// reconstructed by reading Start top to bottom.
-func buildkitEnv(settings Settings, containerName, installationName string, withDocker, reset bool) map[string]string {
+// started with. It is a pure function of its arguments, so what buildkitd runs with
+// can be asserted in a test rather than reconstructed by reading Start top to bottom.
+func buildkitEnv(
+	settings Settings,
+	containerName, installationName string,
+	withDocker, reset bool,
+	environ []string,
+) map[string]string {
 	env := map[string]string{
 		"BUILDKIT_DEBUG":                 strconv.FormatBool(settings.Debug),
 		"BUILDKIT_TCP_TRANSPORT_ENABLED": strconv.FormatBool(settings.UseTCP),
@@ -805,19 +809,22 @@ func buildkitEnv(settings Settings, containerName, installationName string, with
 	}
 
 	// Telemetry keys are all OTEL_-prefixed, so the merge cannot collide with the above.
-	maps.Copy(env, buildkitTelemetryEnv(containerName, installationName, withDocker))
+	maps.Copy(env, buildkitTelemetryEnv(containerName, installationName, withDocker, environ))
 
 	return env
 }
 
 // buildkitTelemetryEnv returns the OTel environment buildkitd is started with, or nil
-// if no OTEL_* variables are set in the CLI environment. Any OTEL_* variables are
-// copied through, with OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES overridden to
-// describe buildkitd.
-func buildkitTelemetryEnv(containerName, installationName string, withDocker bool) map[string]string {
+// if no OTEL_* variables are set in environ. Any OTEL_* variables are copied through,
+// with OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES overridden to describe buildkitd.
+func buildkitTelemetryEnv(
+	containerName, installationName string,
+	withDocker bool,
+	environ []string,
+) map[string]string {
 	env := map[string]string{}
 
-	for _, entry := range os.Environ() {
+	for _, entry := range environ {
 		if !strings.HasPrefix(entry, "OTEL_") {
 			continue
 		}

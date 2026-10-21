@@ -10,9 +10,9 @@ import (
 // buildkitEnv is the only thing that decides what buildkitd runs with, so the whole
 // map is asserted - a key silently dropped while moving these out of Start would
 // otherwise only surface as a behaviour change in a running daemon.
-//
-//nolint:paralleltest // clearOTELEnv calls t.Setenv, which forbids t.Parallel.
 func TestBuildkitEnv(t *testing.T) {
+	t.Parallel()
+
 	const (
 		enabled  = "true"
 		disabled = "false"
@@ -80,9 +80,9 @@ func TestBuildkitEnv(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			clearOTELEnv(t)
+			t.Parallel()
 
-			got := buildkitEnv(test.settings, "earthly-buildkitd", "earthly", false, test.reset)
+			got := buildkitEnv(test.settings, "earth-buildkitd", "earth", false, test.reset, nil)
 
 			assert.Equal(t, test.want, got)
 		})
@@ -91,10 +91,10 @@ func TestBuildkitEnv(t *testing.T) {
 
 // The telemetry env has to survive the merge into the rest of the environment.
 func TestBuildkitEnvIncludesTelemetry(t *testing.T) {
-	clearOTELEnv(t)
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel:4317")
+	t.Parallel()
 
-	got := buildkitEnv(Settings{MaxParallelism: 3}, "earthly-buildkitd", "earthly", false, false)
+	environ := []string{"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317"}
+	got := buildkitEnv(Settings{MaxParallelism: 3}, "earth-buildkitd", "earth", false, false, environ)
 
 	assert.Equal(t, "http://otel:4317", got["OTEL_EXPORTER_OTLP_ENDPOINT"])
 	assert.Equal(t, buildkitdOTELServiceName, got["OTEL_SERVICE_NAME"])

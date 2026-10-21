@@ -1,7 +1,6 @@
 package buildkitd
 
 import (
-	"os"
 	"strings"
 	"testing"
 
@@ -11,15 +10,19 @@ import (
 )
 
 func TestBuildkitTelemetryEnv(t *testing.T) {
-	clearOTELEnv(t)
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://host.docker.internal:4317")
-	t.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "x-token=secret")
-	t.Setenv("OTEL_TRACES_EXPORTER", "otlp")
-	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "service.version=1.2.3,deployment.environment.name=ci")
-	t.Setenv("OTEL_SERVICE_NAME", "earth-cli")
-	t.Setenv("NOT_OTEL_VAR", "ignored")
+	t.Parallel()
 
-	got := buildkitTelemetryEnv("earthbuild-buildkitd", "earthbuild", false)
+	environ := []string{
+		"OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4317",
+		"OTEL_EXPORTER_OTLP_HEADERS=x-token=secret",
+		"OTEL_TRACES_EXPORTER=otlp",
+		"OTEL_RESOURCE_ATTRIBUTES=service.version=1.2.3,deployment.environment.name=ci",
+		"OTEL_SERVICE_NAME=earth-cli",
+		"OTEL_EMPTY=",
+		"NOT_OTEL_VAR=ignored",
+	}
+
+	got := buildkitTelemetryEnv("earthbuild-buildkitd", "earthbuild", false, environ)
 
 	want := map[string]string{
 		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://host.docker.internal:4317",
@@ -37,11 +40,16 @@ func TestBuildkitTelemetryEnv(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-//nolint:paralleltest // clearOTELEnv calls t.Setenv, which forbids t.Parallel.
 func TestBuildkitTelemetryEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
-	clearOTELEnv(t)
+	t.Parallel()
 
-	assert.Nil(t, buildkitTelemetryEnv("earthbuild-buildkitd", "earthbuild", false))
+	assert.Nil(t, buildkitTelemetryEnv("earthbuild-buildkitd", "earthbuild", false, nil))
+	assert.Nil(t, buildkitTelemetryEnv(
+		"earthbuild-buildkitd",
+		"earthbuild",
+		false,
+		[]string{"NOT_OTEL_VAR=1", "OTEL_EMPTY="},
+	))
 }
 
 // buildkitd inherits OTEL_RESOURCE_ATTRIBUTES from the outer earth process, so
@@ -50,14 +58,17 @@ func TestBuildkitTelemetryEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 // resolved differently by different collectors, and losing the override would
 // tag buildkitd's metrics as the CLI's, which is the whole point of the PR.
 func TestBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) {
-	clearOTELEnv(t)
-	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", strings.Join([]string{
-		string(semconv.ProcessRole) + "=" + semconv.ProcessRoleCLI.Value.AsString(),
-		string(semconv.ProcessNesting) + "=" + semconv.ProcessNestingOuter.Value.AsString(),
-		"cicd.pipeline.run.id=123",
-	}, ","))
+	t.Parallel()
 
-	env := buildkitTelemetryEnv("earth-buildkitd", "earth", true)
+	environ := []string{
+		"OTEL_RESOURCE_ATTRIBUTES=" + strings.Join([]string{
+			string(semconv.ProcessRole) + "=" + semconv.ProcessRoleCLI.Value.AsString(),
+			string(semconv.ProcessNesting) + "=" + semconv.ProcessNestingOuter.Value.AsString(),
+			"cicd.pipeline.run.id=123",
+		}, ","),
+	}
+
+	env := buildkitTelemetryEnv("earth-buildkitd", "earth", true, environ)
 
 	raw := env["OTEL_RESOURCE_ATTRIBUTES"]
 	for _, key := range []string{string(semconv.ProcessRole), string(semconv.ProcessNesting)} {
@@ -73,24 +84,6 @@ func TestBuildkitTelemetryEnvOverridesInheritedResourceAttributes(t *testing.T) 
 
 	for key, want := range wantAttrs {
 		assert.Equal(t, want, attrs[key], "resource attr %s", key)
-	}
-}
-
-// clearOTELEnv unsets every OTEL_* var buildkitTelemetryEnv reads. Without it a
-// test asserting the disabled path fails on any machine that exports an OTLP endpoint
-// - which is precisely the setup this feature asks users to adopt.
-func clearOTELEnv(t *testing.T) {
-	t.Helper()
-
-	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(entry, "OTEL_") {
-			continue
-		}
-
-		key, _, ok := strings.Cut(entry, "=")
-		if ok {
-			t.Setenv(key, "")
-		}
 	}
 }
 

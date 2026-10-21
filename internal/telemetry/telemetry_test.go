@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
+	otelsemconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -133,6 +134,7 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 		name         string
 		withDocker   string
 		resourceAttr string
+		serviceName  string
 		want         []attribute.KeyValue
 		wantErr      bool
 	}{
@@ -154,10 +156,20 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 		{
 			name:         "overrides inherited OTEL_RESOURCE_ATTRIBUTES",
 			resourceAttr: "cicd.pipeline.run.id=123,earth.process.role=buildkitd,earth.process.nesting=inner",
+			serviceName:  "other-service",
 			want: []attribute.KeyValue{
 				semconv.ProcessNestingOuter,
 				attribute.String("cicd.pipeline.run.id", "123"),
 			},
+		},
+		{
+			name:         "partial OTEL_RESOURCE_ATTRIBUTES reports error and keeps valid attributes",
+			resourceAttr: "bare,cicd.pipeline.run.id=123",
+			want: []attribute.KeyValue{
+				semconv.ProcessNestingOuter,
+				attribute.String("cicd.pipeline.run.id", "123"),
+			},
+			wantErr: true,
 		},
 	}
 
@@ -167,10 +179,13 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 
 			t.Setenv("EARTH_WITH_DOCKER", tt.withDocker)
 			t.Setenv("OTEL_RESOURCE_ATTRIBUTES", tt.resourceAttr)
+			t.Setenv("OTEL_SERVICE_NAME", tt.serviceName)
 
 			res, err := newOTelResource(t.Context())
 			require.NoError(t, err)
 
+			assert.Contains(t, res.Attributes(), otelsemconv.ServiceName("EarthBuild"))
+			assert.NotContains(t, res.Attributes(), otelsemconv.ServiceName("other-service"))
 			assert.Contains(t, res.Attributes(), semconv.ProcessRoleCLI)
 			assert.NotContains(t, res.Attributes(), semconv.ProcessRoleBuildkitd)
 

@@ -152,8 +152,6 @@ func newOTelResource(ctx context.Context) (*resource.Resource, error) {
 func noopShutdown(context.Context) error { return nil }
 
 func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownFunc, error) {
-	http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
-
 	exporter, err := autoexport.NewSpanExporter(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("create tracer provider: create span exporter: %w", err)
@@ -163,6 +161,8 @@ func setupTracerProvider(ctx context.Context, res *resource.Resource) (ShutdownF
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
 	)
+
+	http.DefaultClient.Transport = otelhttp.NewTransport(http.DefaultTransport)
 
 	otel.SetTracerProvider(tp)
 

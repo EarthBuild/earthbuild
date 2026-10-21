@@ -221,9 +221,9 @@ func parseResourceAttrs(value string) map[string]string {
 	attrs := map[string]string{}
 
 	for part := range strings.SplitSeq(value, ",") {
-		key, value, ok := strings.Cut(part, "=")
+		key, val, ok := strings.Cut(part, "=")
 		if ok {
-			attrs[key] = value
+			attrs[strings.TrimSpace(key)] = strings.TrimSpace(val)
 		}
 	}
 

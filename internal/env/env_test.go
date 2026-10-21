@@ -117,7 +117,10 @@ func TestLookup(t *testing.T) {
 }
 
 func TestBool(t *testing.T) {
-	const key = Prefix + "TEST_BOOL"
+	const (
+		key   = Prefix + "TEST_BOOL"
+		truth = "true"
+	)
 
 	testCases := []struct {
 		environ map[string]string
@@ -127,6 +130,8 @@ func TestBool(t *testing.T) {
 	}{
 		{name: "unset", want: false},
 		{name: "empty", environ: map[string]string{key: ""}, want: false},
+		{name: "whitespace-only", environ: map[string]string{key: "  \t "}, want: false},
+		{name: "whitespace-padded", environ: map[string]string{key: "  true\n"}, want: true},
 		{name: "word", environ: map[string]string{key: "TRUE"}, want: true},
 		{name: "letter", environ: map[string]string{key: "t"}, want: true},
 		{name: "digit", environ: map[string]string{key: "1"}, want: true},
@@ -135,7 +140,7 @@ func TestBool(t *testing.T) {
 		{name: "garbage", environ: map[string]string{key: "yes"}, want: false, wantErr: true},
 		{
 			name:    "deprecated prefix",
-			environ: map[string]string{DeprecatedPrefix + "TEST_BOOL": "true"},
+			environ: map[string]string{DeprecatedPrefix + "TEST_BOOL": truth},
 			want:    true,
 		},
 		{
@@ -149,7 +154,12 @@ func TestBool(t *testing.T) {
 		{
 			// Same rule as Lookup: EARTH_ wins, so a stale EARTHLY_ cannot override it.
 			name:    "both prefixes",
-			environ: map[string]string{key: "false", DeprecatedPrefix + "TEST_BOOL": "true"},
+			environ: map[string]string{key: "false", DeprecatedPrefix + "TEST_BOOL": truth},
+			want:    false,
+		},
+		{
+			name:    "empty primary overrides deprecated",
+			environ: map[string]string{key: "", DeprecatedPrefix + "TEST_BOOL": truth},
 			want:    false,
 		},
 	}

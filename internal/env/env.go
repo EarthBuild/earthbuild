@@ -51,6 +51,8 @@ func lookupNamed(suffix string) (name, value string, ok bool) {
 // EARTH_WITH_DOCKER=yes.
 func Bool(suffix string) (bool, error) {
 	name, raw, _ := lookupNamed(suffix)
+
+	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return false, nil
 	}

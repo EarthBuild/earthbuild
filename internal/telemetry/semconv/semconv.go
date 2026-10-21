@@ -18,9 +18,6 @@ const (
 	// WITH DOCKER build (earth-in-earth), whose processes are otherwise indistinguishable.
 	ProcessNesting = attribute.Key("earth.process.nesting")
 
-	// Target is the name of the attribute that represents the target being built, e.g. "+build".
-	Target = attribute.Key("earth.target")
-
 	// InstallationName is the name of the attribute that represents the installation the build belongs to;
 	// installations have their own buildkitd container and cache.
 	InstallationName = attribute.Key("earth.installation.name")

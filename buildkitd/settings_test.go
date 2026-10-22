@@ -22,6 +22,7 @@ func TestSettingsHash(t *testing.T) {
 		ClientTLSKey:      "client-key",
 		ClientTLSCert:     "client-cert",
 		VolumeName:        "my-vol",
+		InstallationName:  testInstallationName,
 		AdditionalConfig:  "some-config",
 		AdditionalArgs:    []string{"--debug"},
 		CacheSizeMb:       1024,
@@ -134,6 +135,14 @@ func TestSettingsHash(t *testing.T) {
 			},
 			wantChanged: true,
 			wantVerify:  false,
+		},
+		{
+			name: "InstallationName change (ignored)",
+			modify: func(s *Settings) {
+				s.InstallationName = "other-earth"
+			},
+			wantChanged: false,
+			wantVerify:  true,
 		},
 		{
 			name: "AdditionalConfig change",
@@ -273,6 +282,7 @@ func BenchmarkSettingsHash(b *testing.B) {
 		ClientTLSKey:      "client-key",
 		ClientTLSCert:     "client-cert",
 		VolumeName:        "my-vol",
+		InstallationName:  testInstallationName,
 		AdditionalConfig:  "some-config",
 		AdditionalArgs:    []string{"--verbose"},
 		CacheSizeMb:       1024,

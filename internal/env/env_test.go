@@ -1,10 +1,23 @@
 package env
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// unsetEnv snapshots each key via t.Setenv (so cleanup restores the caller's
+// environment) and then unsets it for the duration of the test.
+func unsetEnv(t *testing.T, keys ...string) {
+	t.Helper()
+
+	for _, k := range keys {
+		t.Setenv(k, "")
+		require.NoError(t, os.Unsetenv(k))
+	}
+}
 
 func TestWarningsFor(t *testing.T) {
 	t.Parallel()
@@ -100,6 +113,8 @@ func TestLookup(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Do not use t.Parallel() because t.Setenv modifies process-wide state.
+			unsetEnv(t, Prefix+"LOOKUP_TEST", DeprecatedPrefix+"LOOKUP_TEST")
+
 			if tc.earth != nil {
 				t.Setenv(Prefix+"LOOKUP_TEST", *tc.earth)
 			}
@@ -111,6 +126,83 @@ func TestLookup(t *testing.T) {
 			v, ok := Lookup("LOOKUP_TEST")
 			assert.Equal(t, tc.wantOK, ok)
 			assert.Equal(t, tc.wantValue, v)
+		})
+	}
+}
+
+func TestBool(t *testing.T) {
+	const (
+		key   = Prefix + "TEST_BOOL"
+		truth = "true"
+	)
+
+	testCases := []struct {
+		environ map[string]string
+		name    string
+		wantErr string
+		want    bool
+	}{
+		{name: "unset", want: false},
+		{name: "empty", environ: map[string]string{key: ""}, want: false},
+		{name: "whitespace-only", environ: map[string]string{key: "  \t "}, want: false},
+		{name: "whitespace-padded", environ: map[string]string{key: "  true\n"}, want: true},
+		{name: "word", environ: map[string]string{key: "TRUE"}, want: true},
+		{name: "letter", environ: map[string]string{key: "t"}, want: true},
+		{name: "digit", environ: map[string]string{key: "1"}, want: true},
+		{name: "negative-word", environ: map[string]string{key: "False"}, want: false},
+		{name: "negative-digit", environ: map[string]string{key: "0"}, want: false},
+		{
+			name:    "garbage",
+			environ: map[string]string{key: "yes"},
+			want:    false,
+			wantErr: `EARTH_TEST_BOOL is set to "yes"`,
+		},
+		{
+			name:    "deprecated prefix",
+			environ: map[string]string{DeprecatedPrefix + "TEST_BOOL": truth},
+			want:    true,
+		},
+		{
+			// The error must name the variable the user actually set, not the one
+			// they would have to go looking for.
+			name:    "deprecated prefix garbage",
+			environ: map[string]string{DeprecatedPrefix + "TEST_BOOL": "yes"},
+			want:    false,
+			wantErr: `EARTHLY_TEST_BOOL is set to "yes"`,
+		},
+		{
+			// Same rule as Lookup: EARTH_ wins, so a stale EARTHLY_ cannot override it.
+			name:    "both prefixes",
+			environ: map[string]string{key: "false", DeprecatedPrefix + "TEST_BOOL": truth},
+			want:    false,
+		},
+		{
+			name:    "empty primary overrides deprecated",
+			environ: map[string]string{key: "", DeprecatedPrefix + "TEST_BOOL": truth},
+			want:    false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			unsetEnv(t, key, DeprecatedPrefix+"TEST_BOOL")
+
+			for k, value := range tc.environ {
+				t.Setenv(k, value)
+			}
+
+			got, err := Bool("TEST_BOOL")
+			assert.Equal(t, tc.want, got)
+
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+
+				return
+			}
+
+			// The message must name the variable and the offending value, so the
+			// user can fix it without grepping the source.
+			require.ErrorContains(t, err, tc.wantErr)
 		})
 	}
 }

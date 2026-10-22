@@ -49,8 +49,10 @@ code:
     END
     COPY --dir autocomplete buildcontext builder cleanup cmd config conslogging debugger  \
         docker2earth dockertar domain earthfile2llb features internal logbus logstream regproxy states slog util variables ./
-    COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go \
-        buildkitd/with_docker_env_test.go buildkitd/
+    # Glob rather than naming each file: buildkitd/ also holds shell scripts and
+    # templates that must stay out of the Go image, but an allowlist silently
+    # omits every new .go file - which hid buildkitd's tests from CI entirely.
+    COPY --dir buildkitd/*.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earth
 
@@ -187,9 +189,7 @@ lint-fix:
     SAVE ARTIFACT slog AS LOCAL slog
     SAVE ARTIFACT util AS LOCAL util
     SAVE ARTIFACT variables AS LOCAL variables
-    SAVE ARTIFACT buildkitd/buildkitd.go AS LOCAL buildkitd/buildkitd.go
-    SAVE ARTIFACT buildkitd/settings.go AS LOCAL buildkitd/settings.go
-    SAVE ARTIFACT buildkitd/certificates.go AS LOCAL buildkitd/certificates.go
+    SAVE ARTIFACT buildkitd/*.go AS LOCAL buildkitd/
     SAVE ARTIFACT inputgraph/*.go AS LOCAL inputgraph/
 
 # lint runs basic go linters against the earthbuild project.

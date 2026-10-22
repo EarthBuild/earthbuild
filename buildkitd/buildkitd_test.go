@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	appleContainerName = "Apple Container"
-	dockerEngineName   = "Docker"
-	defaultBuildkitTCP = "tcp://127.0.0.1:8372"
+	appleContainerName   = "Apple Container"
+	dockerEngineName     = "Docker"
+	defaultBuildkitTCP   = "tcp://127.0.0.1:8372"
+	testInstallationName = "earth"
 )
 
 func TestContainerName(t *testing.T) {
@@ -29,7 +30,7 @@ func TestContainerName(t *testing.T) {
 		want             string
 	}{
 		{
-			installationName: "earth",
+			installationName: testInstallationName,
 			want:             "earth-buildkitd",
 		},
 		{
@@ -58,7 +59,7 @@ func TestVolumeName(t *testing.T) {
 		want             string
 	}{
 		{
-			installationName: "earth",
+			installationName: testInstallationName,
 			want:             "earth-cache",
 		},
 		{
@@ -102,8 +103,6 @@ func TestUpdateContainerAddrs(t *testing.T) {
 }
 
 func TestStart_InvalidAddrs(t *testing.T) {
-	t.Parallel()
-
 	ctx := t.Context()
 	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 	eng := engine.NewTestClient(engine.Metadata{
@@ -137,7 +136,8 @@ func TestStart_InvalidAddrs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+			t.Setenv("EARTH_WITH_DOCKER", "")
+			t.Setenv("EARTHLY_WITH_DOCKER", "")
 
 			err := Start(ctx, log, "test-image", "test-container", eng, tt.settings, false)
 			require.Error(t, err)

@@ -93,7 +93,7 @@ type Global struct {
 
 // RootFlags returns the root flags for the CLI.
 func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
-	defaultInstallationName := cmp.Or(installName, "earthly")
+	defaultInstallationName := cmp.Or(installName, "earth")
 
 	return []cli.Flag{
 		&cli.StringFlag{
@@ -101,7 +101,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Value:   defaultInstallationName,
 			Sources: EarthEnvVars("INSTALLATION_NAME"),
 			Usage: "The earth installation name to use when naming the buildkit container, " +
-				"the docker volume and the ~/.earthly directory",
+				"the docker volume and the ~/.earth directory",
 			Destination: &global.InstallationName,
 			Hidden:      true, // Internal.
 		},

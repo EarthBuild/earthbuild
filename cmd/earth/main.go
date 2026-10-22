@@ -50,7 +50,7 @@ var (
 	DefaultBuildkitdImage string
 
 	// DefaultInstallationName is the name included in the various earth global resources on the system,
-	// such as the ~/.earthly dir name, the buildkitd container name, the docker volume name, etc.
+	// such as the ~/.earth dir name, the buildkitd container name, the docker volume name, etc.
 	// This should be set to "earth" for official releases.
 	DefaultInstallationName string
 )

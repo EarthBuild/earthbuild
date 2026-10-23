@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/moby/buildkit/client/llb"
@@ -111,7 +112,7 @@ func (s State) SetMarshalDefaults(co ...llb.ConstraintsOpt) State {
 
 	return State{
 		st:   s.st.SetMarshalDefaults(co...),
-		opts: co,
+		opts: append(slices.Clone(s.opts), slices.Clone(co)...),
 	}
 }
 
@@ -131,15 +132,14 @@ func hasLocalUniqueID(opts ...llb.ConstraintsOpt) bool {
 // local.unique value (see processLocalUniqueIDOpt) unless co or SetMarshalDefaults
 // sets its own llb.LocalUniqueID.
 func (s State) Marshal(ctx context.Context, co ...llb.ConstraintsOpt) (*llb.Definition, error) {
-	if !hasLocalUniqueID(s.opts...) && !hasLocalUniqueID(co...) {
-		opts := make([]llb.ConstraintsOpt, 0, len(co)+1)
-		opts = append(opts, processLocalUniqueIDOpt)
-		opts = append(opts, co...)
-		co = opts
-	}
-
 	gmu.Lock()
 	defer gmu.Unlock()
+
+	if !hasLocalUniqueID(s.opts...) && !hasLocalUniqueID(co...) {
+		co = slices.Concat([]llb.ConstraintsOpt{processLocalUniqueIDOpt}, s.opts, co)
+	} else if len(s.opts) > 0 {
+		co = slices.Concat(s.opts, co)
+	}
 
 	return s.st.Marshal(ctx, co...)
 }
@@ -149,7 +149,10 @@ func (s State) Run(ro ...llb.RunOption) ExecState {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return ExecState{est: s.st.Run(ro...)}
+	return ExecState{
+		est:  s.st.Run(ro...),
+		opts: s.opts,
+	}
 }
 
 // File is a wrapper around llb.File.
@@ -157,7 +160,7 @@ func (s State) File(a *FileAction, opts ...llb.ConstraintsOpt) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.File(a.fia, opts...)}
+	return State{st: s.st.File(a.fia, opts...), opts: s.opts}
 }
 
 // AddEnv is a wrapper around llb.AddEnv.
@@ -165,7 +168,7 @@ func (s State) AddEnv(key, value string) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.AddEnv(key, value)}
+	return State{st: s.st.AddEnv(key, value), opts: s.opts}
 }
 
 // Dir is a wrapper around llb.Dir.
@@ -173,7 +176,7 @@ func (s State) Dir(str string) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.Dir(str)}
+	return State{st: s.st.Dir(str), opts: s.opts}
 }
 
 // GetDir is a wrapper around llb.GetDir.
@@ -189,7 +192,7 @@ func (s State) User(v string) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.User(v)}
+	return State{st: s.st.User(v), opts: s.opts}
 }
 
 // Platform is a wrapper around llb.Platform.
@@ -197,7 +200,7 @@ func (s State) Platform(p specs.Platform) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.Platform(p)}
+	return State{st: s.st.Platform(p), opts: s.opts}
 }
 
 // AddExtraHost is a wrapper around llb.AddExtraHost.
@@ -205,12 +208,13 @@ func (s State) AddExtraHost(hostname string, ip net.IP) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.AddExtraHost(hostname, ip)}
+	return State{st: s.st.AddExtraHost(hostname, ip), opts: s.opts}
 }
 
 // ExecState is a wrapper around llb.ExecState.
 type ExecState struct {
-	est llb.ExecState
+	est  llb.ExecState
+	opts []llb.ConstraintsOpt
 }
 
 // AddMount is a wrapper around llb.AddMount.
@@ -226,7 +230,10 @@ func (e ExecState) Root() State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: e.est.Root()}
+	return State{
+		st:   e.est.Root(),
+		opts: e.opts,
+	}
 }
 
 // AddMount is a wrapper around llb.AddMount.

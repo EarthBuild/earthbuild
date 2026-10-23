@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/errutil"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
@@ -24,10 +23,18 @@ const (
 	BuildkitStatsStream = 99 // TODO move to a common location in buildkit
 )
 
+type vertexCommand interface {
+	Write(dt []byte, ts time.Time, stream int32) (int, error)
+	SetCached(cached bool)
+	SetStart(start time.Time)
+	SetEnd(end time.Time, status logstream.RunStatus, errorStr string)
+	SetProgress(progress int32)
+}
+
 type vertexMonitor struct {
 	vertex *client.Vertex
 	meta   *vertexmeta.VertexMeta
-	cp     *logbus.Command
+	cp     vertexCommand
 	ssp    *statsstreamparser.Parser
 	// onStatsDecodeError, if set, is called for the first malformed stats
 	// packet on this vertex and then cleared. Stats are telemetry, so decoding
@@ -248,12 +255,22 @@ func (vm *vertexMonitor) writeStats(dt []byte, ts time.Time, stream int) (int, e
 	for _, statsSample := range stats {
 		statsJSON, err := json.Marshal(statsSample)
 		if err != nil {
-			return 0, fmt.Errorf("stats json encode failed: %w", err)
+			if vm.onStatsDecodeError != nil {
+				vm.onStatsDecodeError(err)
+				vm.onStatsDecodeError = nil
+			}
+
+			continue
 		}
 
 		_, err = vm.cp.Write(statsJSON, ts, int32(stream)) // #nosec G115
 		if err != nil {
-			return 0, fmt.Errorf("write stats: %w", err)
+			if vm.onStatsDecodeError != nil {
+				vm.onStatsDecodeError(err)
+				vm.onStatsDecodeError = nil
+			}
+
+			continue
 		}
 	}
 

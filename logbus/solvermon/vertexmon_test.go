@@ -399,3 +399,69 @@ func TestVertexMonitor_Write_StatsStream_ReportsDecodeErrorOnce(t *testing.T) {
 		t.Errorf("reported decode error is nil, want the parser error")
 	}
 }
+
+type fakeCommandWriter struct {
+	err error
+}
+
+func (f *fakeCommandWriter) Write([]byte, time.Time, int32) (int, error) {
+	return 0, f.err
+}
+
+func (f *fakeCommandWriter) SetCached(bool)                                {}
+func (f *fakeCommandWriter) SetStart(time.Time)                            {}
+func (f *fakeCommandWriter) SetEnd(time.Time, logstream.RunStatus, string) {}
+func (f *fakeCommandWriter) SetProgress(int32)                             {}
+
+func TestVertexMonitor_Write_StatsStream_WriteErrorNonFatal(t *testing.T) {
+	t.Parallel()
+
+	var reported []error
+
+	fakeErr := errors.New("command write error")
+
+	vm := &vertexMonitor{
+		cp:  &fakeCommandWriter{err: fakeErr},
+		ssp: statsstreamparser.New(),
+		onStatsDecodeError: func(err error) {
+			reported = append(reported, err)
+		},
+	}
+
+	payload := `{"cpu":{"usage":{"total":12345}}}`
+	buf := make([]byte, 1+4+len(payload))
+	buf[0] = 1
+	binary.LittleEndian.PutUint32(buf[1:5], uint32(len(payload))) // #nosec G115
+	copy(buf[5:], payload)
+
+	n, err := vm.Write(buf, time.Now(), BuildkitStatsStream)
+	if err != nil {
+		t.Fatalf("Write returned error %v, want nil (non-fatal)", err)
+	}
+
+	if n != len(buf) {
+		t.Errorf("Write returned n=%d, want %d", n, len(buf))
+	}
+
+	if len(reported) != 1 {
+		t.Fatalf("decode error reported %d times, want 1", len(reported))
+	}
+
+	if !errors.Is(reported[0], fakeErr) {
+		t.Errorf("reported error = %v, want %v", reported[0], fakeErr)
+	}
+
+	// Verify that subsequent writes with an error do not report again (one-shot per vertex)
+	n2, err := vm.Write(buf, time.Now(), BuildkitStatsStream)
+	if err != nil {
+		t.Fatalf("Write returned error %v on second write, want nil", err)
+	}
+
+	if n2 != len(buf) {
+		t.Errorf("Write returned n=%d on second write, want %d", n2, len(buf))
+	}
+
+	if len(reported) != 1 {
+		t.Errorf("decode error reported %d times after second write, want 1", len(reported))
+	}
+}

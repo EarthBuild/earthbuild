@@ -2,11 +2,13 @@ package pllb
 
 import (
 	"bytes"
+	"net"
 	"slices"
 	"testing"
 
 	"github.com/moby/buildkit/client/llb"
 	"github.com/opencontainers/go-digest"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // copyRunFromLocal builds the shape of an Earthfile target that COPYs from
@@ -124,5 +126,53 @@ func TestMarshalPreservesSetMarshalDefaultsLocalUniqueID(t *testing.T) {
 
 	if lastOpDigest(t, defProcessDefault) == lastOpDigest(t, defDefault) {
 		t.Errorf("SetMarshalDefaults LocalUniqueID did not override process default")
+	}
+}
+
+func TestMarshalPreservesChainedBuilderConstraints(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	st := copyRunFromLocal()
+
+	buildChained := func(base State) State {
+		return base.
+			Dir("/app").
+			AddEnv("K", "V").
+			User("user").
+			Platform(specs.Platform{OS: "linux", Architecture: "amd64"}).
+			AddExtraHost("customhost", net.IPv4(127, 0, 0, 1)).
+			File(Mkdir("/tmp/test", 0o755)).
+			Run(llb.Shlex("echo hello")).
+			Root()
+	}
+
+	customID := "chained-custom-id"
+	stWithDefaults := st.SetMarshalDefaults(llb.LocalUniqueID(customID))
+
+	chainedFromDefaults := buildChained(stWithDefaults)
+	chainedPlain := buildChained(st)
+
+	defChainedDefaults, err := chainedFromDefaults.Marshal(ctx)
+	if err != nil {
+		t.Fatalf("marshal chained with defaults: %v", err)
+	}
+
+	defChainedExplicit, err := chainedPlain.Marshal(ctx, llb.LocalUniqueID(customID))
+	if err != nil {
+		t.Fatalf("marshal chained with explicit opt: %v", err)
+	}
+
+	defChainedProcessDefault, err := chainedPlain.Marshal(ctx)
+	if err != nil {
+		t.Fatalf("marshal chained with process default: %v", err)
+	}
+
+	if got, want := lastOpDigest(t, defChainedDefaults), lastOpDigest(t, defChainedExplicit); got != want {
+		t.Errorf("chained builder calls lost LocalUniqueID: got %s, want %s", got, want)
+	}
+
+	if lastOpDigest(t, defChainedProcessDefault) == lastOpDigest(t, defChainedDefaults) {
+		t.Errorf("chained builder calls reverted to process default LocalUniqueID")
 	}
 }

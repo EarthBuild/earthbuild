@@ -17,10 +17,7 @@ var (
 	sudoUser    *user.User
 )
 
-var (
-	earthDirCreateOnce sync.Once
-	errEarthDirCreate  error
-)
+var createMu sync.Mutex
 
 // DefaultInstallationName is the installation name used when none is set: when
 // the binary is built without -X main.DefaultInstallationName (go build, go
@@ -48,34 +45,60 @@ func getEarthDirAndUser(installName string) (string, *user.User) {
 }
 
 // GetOrCreateEarthDir returns the .<installation name> dir. (Usually ~/.earth).
-// if the directory does not exist, it will attempt to create it.
+// If the directory does not exist, it will attempt to create it.
 func GetOrCreateEarthDir(installName string) (string, error) {
 	earthDir, u := getEarthDirAndUser(installName)
 
-	earthDirCreateOnce.Do(func() {
-		earthDirExists, err := fileutil.DirExists(earthDir)
+	earthDirExists, err := fileutil.DirExists(earthDir)
+	if err != nil {
+		return earthDir, fmt.Errorf("check earth dir %s: %w", earthDir, err)
+	}
+
+	if earthDirExists {
+		return earthDir, nil
+	}
+
+	createMu.Lock()
+	defer createMu.Unlock()
+
+	earthDirExists, err = fileutil.DirExists(earthDir)
+	if err != nil {
+		return earthDir, fmt.Errorf("check earth dir %s: %w", earthDir, err)
+	}
+
+	if !earthDirExists {
+		err = os.MkdirAll(earthDir, 0o755) // #nosec G301
 		if err != nil {
-			errEarthDirCreate = fmt.Errorf("unable to create dir %s: %w", earthDir, err)
-			return
+			return earthDir, fmt.Errorf("create earth dir %s: %w", earthDir, err)
 		}
 
-		if !earthDirExists {
-			err := os.MkdirAll(earthDir, 0o755) // #nosec G301
+		if u != nil {
+			err = fileutil.EnsureUserOwned(earthDir, u)
 			if err != nil {
-				errEarthDirCreate = fmt.Errorf("unable to create dir %s: %w", earthDir, err)
-				return
-			}
-
-			if u != nil {
-				err := fileutil.EnsureUserOwned(earthDir, u)
-				if err != nil {
-					errEarthDirCreate = fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, u, err)
-				}
+				return earthDir, fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, userName(u), err)
 			}
 		}
-	})
+	}
 
-	return earthDir, errEarthDirCreate
+	return earthDir, nil
+}
+
+// userName returns the human-readable username of u, falling back to Uid,
+// or "<unknown>" if u is nil or empty.
+func userName(u *user.User) string {
+	if u == nil {
+		return "<nil>"
+	}
+
+	if u.Username != "" {
+		return u.Username
+	}
+
+	if u.Uid != "" {
+		return u.Uid
+	}
+
+	return "<unknown>"
 }
 
 // IsBootstrapped provides a tentatively correct guess about the state of our bootstrapping.
@@ -90,7 +113,7 @@ func EnsurePermissions(installName string) error {
 	if u != nil {
 		err := fileutil.EnsureUserOwned(earthDir, u)
 		if err != nil {
-			return fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, u, err)
+			return fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, userName(u), err)
 		}
 	}
 

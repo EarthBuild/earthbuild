@@ -1451,14 +1451,6 @@ func (c *Converter) SaveImage(
 			}
 
 			if c.ftrs.WaitBlock {
-				// TODO this is here as a work-around for https://github.com/earthly/earthly/issues/2178
-				// ideally we should always set SkipBuilder = true even when we are under the first implicit wait block
-				// however we don't want to break inline caching for users who are using VERSION 0.7 without any
-				// explicit WAIT blocks
-				if c.opt.GlobalWaitBlockFtr || !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 {
-					si.SkipBuilder = true
-				}
-
 				shouldPush := hasPushFlag && si.DockerTag != ""
 				shouldExportLocally := si.DockerTag != "" && c.opt.SaveReferenced && c.opt.Export.Images()
 				waitItem := newSaveImage(si, c, shouldPush, shouldExportLocally)
@@ -1469,6 +1461,14 @@ func (c *Converter) SaveImage(
 					// only add summary for `SAVE IMAGE --push` commands
 					c.opt.ExportCoordinator.
 						AddPushedImageSummary(c.target.StringCanonical(), si.DockerTag, c.mts.Final.ID, c.opt.DoPushes)
+				}
+
+				// TODO this is here as a work-around for https://github.com/earthly/earthly/issues/2178
+				// ideally we should always set SkipBuilder = true even when we are under the first implicit wait block
+				// however we don't want to break inline caching for users who are using VERSION 0.7 without any
+				// explicit WAIT blocks
+				if !c.opt.UseInlineCache || len(c.waitBlockStack) > 1 {
+					si.SkipBuilder = true
 				}
 			}
 
@@ -2233,7 +2233,7 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 		}
 		defer rel()
 
-		if c.ftrs.ExecAfterParallel && !c.isStateExported(&c.mts.Final.MainState) {
+		if c.ftrs.ExecAfterParallel {
 			err = c.forceExecution(ctx, c.mts.Final.MainState, c.mts.Final.PlatformResolver)
 			if err != nil {
 				c.RecordTargetFailure(ctx, err)
@@ -2251,39 +2251,6 @@ func (c *Converter) FinalizeStates(ctx context.Context) (*states.MultiTarget, er
 	})
 
 	return c.mts, nil
-}
-
-// isStateExported reports whether state is scheduled to be solved and exported
-// as an image (either pushed to a registry or loaded locally) within the wait block
-// stack or the target's planned SAVE IMAGE declarations. When true, forceExecution
-// can be skipped to avoid redundant concurrent solves of the same vertex.
-func (c *Converter) isStateExported(state *pllb.State) bool {
-	if state == nil || state.Output() == nil {
-		return true
-	}
-
-	for _, wb := range c.waitBlockStack {
-		if wb != nil && wb.isStateExported(state) {
-			return true
-		}
-	}
-
-	if c.mts != nil && c.mts.Final != nil {
-		for _, si := range c.mts.Final.SaveImages {
-			if si.DockerTag == "" {
-				continue
-			}
-
-			isPush := si.Push && c.opt.DoPushes
-			isLocal := (c.opt.Export.Images() && c.opt.SaveReferenced) || si.ForceSave
-
-			if (isPush || isLocal) && si.State.Output() == state.Output() {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 // RecordTargetFailure records a failure in a target.

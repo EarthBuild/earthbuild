@@ -9,6 +9,7 @@ import (
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
 	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/env"
+	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/urfave/cli/v3"
 )
 
@@ -93,7 +94,7 @@ type Global struct {
 
 // RootFlags returns the root flags for the CLI.
 func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
-	defaultInstallationName := cmp.Or(installName, "earth")
+	defaultInstallationName := cmp.Or(installName, cliutil.DefaultInstallationName)
 
 	return []cli.Flag{
 		&cli.StringFlag{
@@ -101,7 +102,7 @@ func (global *Global) RootFlags(installName string, bkImage string) []cli.Flag {
 			Value:   defaultInstallationName,
 			Sources: EarthEnvVars("INSTALLATION_NAME"),
 			Usage: "The earth installation name to use when naming the buildkit container, " +
-				"the docker volume and the ~/.earthly directory",
+				"the docker volume and the ~/.<installation name> directory",
 			Destination: &global.InstallationName,
 			Hidden:      true, // Internal.
 		},

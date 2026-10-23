@@ -8,7 +8,7 @@ import (
 
 	"github.com/EarthBuild/earthbuild/states/image"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
-	bkimage "github.com/moby/buildkit/exporter/containerimage/image"
+	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,7 +52,7 @@ func TestAddPushImageEntry_ExporterImageConfig(t *testing.T) {
 							"8080/tcp": {},
 						},
 					},
-					Healthcheck: &bkimage.HealthConfig{
+					Healthcheck: &dockerspec.HealthcheckConfig{
 						Test:          []string{cmdShell, "curl -f http://localhost/"},
 						Interval:      30 * time.Second,
 						Timeout:       5 * time.Second,

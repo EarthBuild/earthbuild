@@ -12,7 +12,7 @@ buildkitd:
             ARG BUILDKIT_BASE_IMAGE=$BUILDKIT_PROJECT+build
         END
     ELSE
-        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:5fe7531de523004b43029feb95b581b768dd14fc+build
+        ARG BUILDKIT_BASE_IMAGE=github.com/EarthBuild/buildkit:2fc50e525c1e6d754af943c19e9bcbacef70e499+build
     END
     ARG EARTHLY_TARGET_TAG_DOCKER
     ARG TAG="dev-$EARTHLY_TARGET_TAG_DOCKER"
@@ -99,7 +99,7 @@ buildkitd:
 buildkit-sha:
     RUN apk add --no-cache git
     ARG BUILDKIT_GIT_SHA
-    ARG BUILDKIT_GIT_BRANCH=earthly-main
+    ARG BUILDKIT_GIT_BRANCH=main
     ARG --required BUILDKIT_GIT_ORG
     RUN --no-cache set -e; \
         if [ "$(echo -n $BUILDKIT_GIT_SHA | wc -c)" = 40 ]; then \

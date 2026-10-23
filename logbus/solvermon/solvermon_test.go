@@ -3,6 +3,7 @@ package solvermon
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"strings"
 	"testing"
 
@@ -234,7 +235,10 @@ func (c *genericLogCollector) Write(d *logstream.Delta) {
 func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) {
 	t.Parallel()
 
+	const echoOp = "RUN echo hello"
+
 	tests := []struct {
+		err        error
 		name       string
 		vertexName string
 		wantSubstr string
@@ -243,14 +247,14 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) 
 	}{
 		{
 			name:       "debug false drops malformed stats silently",
-			vertexName: "RUN echo hello",
+			vertexName: echoOp,
 			wantCount:  0,
 			debug:      false,
 		},
 		{
 			name:       "debug true reports malformed stats once per vertex",
-			vertexName: "RUN echo hello",
-			wantSubstr: `dropping malformed runc stats for "RUN echo hello":`,
+			vertexName: echoOp,
+			wantSubstr: `dropping malformed runc stats for "` + echoOp + `":`,
 			wantCount:  1,
 			debug:      true,
 		},
@@ -258,6 +262,14 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) 
 			name:       "debug true scrubs credentials in vertex operation",
 			vertexName: "RUN curl https://user:secret@example.com/api",
 			wantSubstr: `dropping malformed runc stats for "RUN curl https://user:xxxxx@example.com/api":`,
+			wantCount:  1,
+			debug:      true,
+		},
+		{ // #nosec G101 -- false positive: synthetic credentials used to test credential scrubbing
+			name:       "debug true scrubs credentials in decode error message",
+			vertexName: echoOp,
+			err:        errors.New("failed decoding stats from http://admin:secretpass@cluster.internal"),
+			wantSubstr: "http://admin:xxxxx@cluster.internal",
 			wantCount:  1,
 			debug:      true,
 		},
@@ -272,33 +284,38 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) 
 			bus.AddRawSubscriber(collector)
 
 			sm := New(bus, tt.debug)
-			vDigest := digest.FromString("stats-debug-vertex")
-			corrupted := []byte(`{"cpu":{"usage":{"total":100}}}`)
 
-			status := &client.SolveStatus{
-				Vertexes: []*client.Vertex{
-					{
-						Digest: vDigest,
-						Name:   tt.vertexName,
-					},
-				},
-				Logs: []*client.VertexLog{
-					{
-						Vertex: vDigest,
-						Stream: BuildkitStatsStream,
-						Data:   corrupted,
-					},
-					{
-						Vertex: vDigest,
-						Stream: BuildkitStatsStream,
-						Data:   corrupted,
-					},
-				},
-			}
+			if tt.err != nil {
+				sm.reportStatsDecodeError(tt.vertexName)(tt.err)
+			} else {
+				vDigest := digest.FromString("stats-debug-vertex")
+				corrupted := []byte(`{"cpu":{"usage":{"total":100}}}`)
 
-			err := sm.handleBuildkitStatus(status)
-			if err != nil {
-				t.Fatalf("handleBuildkitStatus returned error %v, want nil", err)
+				status := &client.SolveStatus{
+					Vertexes: []*client.Vertex{
+						{
+							Digest: vDigest,
+							Name:   tt.vertexName,
+						},
+					},
+					Logs: []*client.VertexLog{
+						{
+							Vertex: vDigest,
+							Stream: BuildkitStatsStream,
+							Data:   corrupted,
+						},
+						{
+							Vertex: vDigest,
+							Stream: BuildkitStatsStream,
+							Data:   corrupted,
+						},
+					},
+				}
+
+				err := sm.handleBuildkitStatus(status)
+				if err != nil {
+					t.Fatalf("handleBuildkitStatus returned error %v, want nil", err)
+				}
 			}
 
 			if len(collector.msgs) != tt.wantCount {
@@ -308,6 +325,10 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) 
 			if tt.wantCount > 0 {
 				if !strings.Contains(collector.msgs[0], tt.wantSubstr) {
 					t.Errorf("generic log = %q, want substring %q", collector.msgs[0], tt.wantSubstr)
+				}
+
+				if strings.Contains(collector.msgs[0], "secretpass") {
+					t.Errorf("generic log contains unscrubbed credential: %q", collector.msgs[0])
 				}
 			}
 		})

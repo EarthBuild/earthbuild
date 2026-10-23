@@ -13,8 +13,9 @@ import (
 var _ llb.ImageMetaResolver = &CachedMetaResolver{}
 
 type cachedMetaResolverKey struct {
-	ref      string
-	platform string
+	ref         string
+	platform    string
+	resolveMode string
 }
 
 type cachedMetaResolverEntry struct {
@@ -47,9 +48,15 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 		platformStr = platforms.Format(*opt.Platform)
 	}
 
+	resolveMode := ""
+	if opt.ImageOpt != nil {
+		resolveMode = opt.ImageOpt.ResolveMode
+	}
+
 	key := cachedMetaResolverKey{
-		ref:      ref,
-		platform: platformStr,
+		ref:         ref,
+		platform:    platformStr,
+		resolveMode: resolveMode,
 	}
 
 	entry, err := cmr.cache.Load(

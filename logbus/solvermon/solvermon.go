@@ -243,8 +243,8 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 // occasionally; repeated notices point at a protocol mismatch instead.
 func (sm *SolverMonitor) reportStatsDecodeError(operation string) func(error) {
 	return func(err error) {
-		scrubbedOp := stringutil.ScrubCredentialsAll(operation)
-		msg := fmt.Appendf(nil, "dropping malformed runc stats for %q: %v\n", scrubbedOp, err)
-		_, _ = sm.b.Run().Generic().Write(msg)
+		msg := fmt.Sprintf("dropping malformed runc stats for %q: %v\n", operation, err)
+		scrubbed := stringutil.ScrubCredentialsAll(msg)
+		_, _ = sm.b.Run().Generic().Write([]byte(scrubbed))
 	}
 }

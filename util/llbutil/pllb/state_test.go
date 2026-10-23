@@ -93,3 +93,36 @@ func TestMarshalLetsCallersOverrideLocalUniqueID(t *testing.T) {
 		t.Errorf("same caller-supplied llb.LocalUniqueID gave different digests: got %s, want %s", got, want)
 	}
 }
+
+func TestMarshalPreservesSetMarshalDefaultsLocalUniqueID(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	st := copyRunFromLocal()
+
+	customID := "default-chosen-id"
+	stWithDefaults := st.SetMarshalDefaults(llb.LocalUniqueID(customID))
+
+	defDefault, err := stWithDefaults.Marshal(ctx)
+	if err != nil {
+		t.Fatalf("marshal with defaults: %v", err)
+	}
+
+	defExplicit, err := st.Marshal(ctx, llb.LocalUniqueID(customID))
+	if err != nil {
+		t.Fatalf("marshal with explicit opt: %v", err)
+	}
+
+	if got, want := lastOpDigest(t, defDefault), lastOpDigest(t, defExplicit); got != want {
+		t.Errorf("SetMarshalDefaults LocalUniqueID gave different digest: got %s, want %s", got, want)
+	}
+
+	defProcessDefault, err := st.Marshal(ctx)
+	if err != nil {
+		t.Fatalf("marshal with process default: %v", err)
+	}
+
+	if lastOpDigest(t, defProcessDefault) == lastOpDigest(t, defDefault) {
+		t.Errorf("SetMarshalDefaults LocalUniqueID did not override process default")
+	}
+}

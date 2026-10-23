@@ -3,10 +3,12 @@ package solvermon
 import (
 	"bytes"
 	"encoding/binary"
+	"strings"
 	"testing"
 
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/logbus"
+	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
 	"github.com/moby/buildkit/client"
 	"github.com/opencontainers/go-digest"
@@ -51,7 +53,7 @@ func TestSolverMonitor_HandleBuildkitStatus_CredentialScrubbing(t *testing.T) {
 				t.Fatalf("failed to create command: %v", err)
 			}
 
-			sm := New(bus)
+			sm := New(bus, false)
 			vDigest := digest.FromString(name)
 			cmdID := "cmd-" + name
 
@@ -100,7 +102,7 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsStream_NonFatalOnError(t *testi
 		t.Fatalf("failed to create command: %v", err)
 	}
 
-	sm := New(bus)
+	sm := New(bus, false)
 	vDigest := digest.FromString("resilient-vertex")
 	cmdID := "cmd-resilient"
 
@@ -162,7 +164,7 @@ func TestSolverMonitor_HandleBuildkitStatus_MixedStreams(t *testing.T) {
 		t.Fatalf("failed to create command: %v", err)
 	}
 
-	sm := New(bus)
+	sm := New(bus, false)
 	vDigest := digest.FromString("mixed-vertex")
 	cmdID := "cmd-mixed"
 
@@ -215,5 +217,88 @@ func TestSolverMonitor_HandleBuildkitStatus_MixedStreams(t *testing.T) {
 	wantStderr := []byte("err from http://admin:xxxxx@internal.net")
 	if got := status.Logs[2].Data; !bytes.Equal(got, wantStderr) {
 		t.Errorf("stderr = %s, want %s", got, wantStderr)
+	}
+}
+
+type genericLogCollector struct {
+	msgs []string
+}
+
+func (c *genericLogCollector) Write(d *logstream.Delta) {
+	dl := d.GetDeltaLog()
+	if dl != nil && dl.GetCommandId() == logbus.GenericDefault {
+		c.msgs = append(c.msgs, string(dl.GetData()))
+	}
+}
+
+func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		debug     bool
+		wantCount int
+	}{
+		{
+			name:      "debug false drops malformed stats silently",
+			debug:     false,
+			wantCount: 0,
+		},
+		{
+			name:      "debug true reports malformed stats once per vertex",
+			debug:     true,
+			wantCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			bus := logbus.New()
+			collector := &genericLogCollector{}
+			bus.AddRawSubscriber(collector)
+
+			sm := New(bus, tt.debug)
+			vDigest := digest.FromString("stats-debug-vertex")
+			corrupted := []byte(`{"cpu":{"usage":{"total":100}}}`)
+
+			status := &client.SolveStatus{
+				Vertexes: []*client.Vertex{
+					{
+						Digest: vDigest,
+						Name:   "RUN echo hello",
+					},
+				},
+				Logs: []*client.VertexLog{
+					{
+						Vertex: vDigest,
+						Stream: BuildkitStatsStream,
+						Data:   corrupted,
+					},
+					{
+						Vertex: vDigest,
+						Stream: BuildkitStatsStream,
+						Data:   corrupted,
+					},
+				},
+			}
+
+			err := sm.handleBuildkitStatus(status)
+			if err != nil {
+				t.Fatalf("handleBuildkitStatus returned error %v, want nil", err)
+			}
+
+			if len(collector.msgs) != tt.wantCount {
+				t.Fatalf("generic log count = %d, want %d (msgs: %v)", len(collector.msgs), tt.wantCount, collector.msgs)
+			}
+
+			if tt.wantCount > 0 {
+				wantSubstr := `dropping malformed runc stats for "RUN echo hello":`
+				if !strings.Contains(collector.msgs[0], wantSubstr) {
+					t.Errorf("generic log = %q, want substring %q", collector.msgs[0], wantSubstr)
+				}
+			}
+		})
 	}
 }

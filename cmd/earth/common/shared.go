@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/buildcontext"
+	"github.com/EarthBuild/earthbuild/util/cliutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
 	"github.com/EarthBuild/earthbuild/variables"
@@ -124,13 +125,19 @@ func GetPlatform() string {
 
 // GetBinaryName returns the default executable binary name for earthbuild.
 func GetBinaryName() string {
-	if len(os.Args) == 0 {
-		return "earthly"
+	return binaryName(os.Args)
+}
+
+func binaryName(args []string) string {
+	if len(args) == 0 {
+		return cliutil.DefaultInstallationName
 	}
 
 	// can't use os.Executable() here; because it will give us earth if executed via the earth symlink
-	binPath := os.Args[0]
-	baseName := path.Base(binPath)
+	baseName := path.Base(args[0])
+	if baseName == "." || baseName == "/" {
+		return cliutil.DefaultInstallationName
+	}
 
 	return baseName
 }

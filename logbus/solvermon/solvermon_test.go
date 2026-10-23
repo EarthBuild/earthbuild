@@ -235,19 +235,31 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) 
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		debug     bool
-		wantCount int
+		name       string
+		vertexName string
+		wantSubstr string
+		wantCount  int
+		debug      bool
 	}{
 		{
-			name:      "debug false drops malformed stats silently",
-			debug:     false,
-			wantCount: 0,
+			name:       "debug false drops malformed stats silently",
+			vertexName: "RUN echo hello",
+			wantCount:  0,
+			debug:      false,
 		},
 		{
-			name:      "debug true reports malformed stats once per vertex",
-			debug:     true,
-			wantCount: 1,
+			name:       "debug true reports malformed stats once per vertex",
+			vertexName: "RUN echo hello",
+			wantSubstr: `dropping malformed runc stats for "RUN echo hello":`,
+			wantCount:  1,
+			debug:      true,
+		},
+		{ // #nosec G101 -- false positive: synthetic credentials used to test credential scrubbing
+			name:       "debug true scrubs credentials in vertex operation",
+			vertexName: "RUN curl https://user:secret@example.com/api",
+			wantSubstr: `dropping malformed runc stats for "RUN curl https://user:xxxxx@example.com/api":`,
+			wantCount:  1,
+			debug:      true,
 		},
 	}
 
@@ -267,7 +279,7 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) 
 				Vertexes: []*client.Vertex{
 					{
 						Digest: vDigest,
-						Name:   "RUN echo hello",
+						Name:   tt.vertexName,
 					},
 				},
 				Logs: []*client.VertexLog{
@@ -294,9 +306,8 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) 
 			}
 
 			if tt.wantCount > 0 {
-				wantSubstr := `dropping malformed runc stats for "RUN echo hello":`
-				if !strings.Contains(collector.msgs[0], wantSubstr) {
-					t.Errorf("generic log = %q, want substring %q", collector.msgs[0], wantSubstr)
+				if !strings.Contains(collector.msgs[0], tt.wantSubstr) {
+					t.Errorf("generic log = %q, want substring %q", collector.msgs[0], tt.wantSubstr)
 				}
 			}
 		})

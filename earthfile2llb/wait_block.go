@@ -316,7 +316,6 @@ func (wb *waitBlock) waitStates(ctx context.Context) error {
 	sem := semutil.NewMultiSem(sharedParallelism, semutil.NewWeighted(1))
 
 	errGroup, ctx := serrgroup.WithContext(ctx)
-
 	for _, item := range stateItems {
 		errGroup.Go(func() error {
 			rel, err := sem.Acquire(ctx, 1)

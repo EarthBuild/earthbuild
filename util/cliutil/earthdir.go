@@ -2,6 +2,7 @@ package cliutil
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -22,13 +23,16 @@ var (
 	errEarthDirCreate  error
 )
 
-// GetEarthDir returns the .earthly dir. (Usually ~/.earthly).
+// ErrBothEarthDirsExist is returned when both ~/.earth and the deprecated ~/.earthly exist.
+var ErrBothEarthDirsExist = errors.New("both ~/.earth and ~/.earthly paths exist; " +
+	"the ~/.earthly path is deprecated, delete it")
+
+// GetEarthDir returns the global configuration dir. (Usually ~/.earth).
+// If only the deprecated ~/.earthly dir exists, it is returned instead so that
+// existing configuration keeps working; see [LegacyEarthDirWarning].
 // This function will not attempt to create the directory if missing,
 // for that functionality use to the [GetOrCreateEarthDir] function.
 func GetEarthDir(installName string) string {
-	// if GetEarthDir is called by the autocomplete code, this may not be set
-	installName = cmp.Or(installName, "earthly")
-
 	earthDirOnce.Do(func() {
 		earthDir, earthDirSudoUser = getEarthDirAndUser(installName)
 	})
@@ -37,12 +41,51 @@ func GetEarthDir(installName string) string {
 }
 
 func getEarthDirAndUser(installName string) (string, *user.User) {
-	homeDir, u := fileutil.HomeDir()
+	dir, legacyDir, u := earthDirs(installName)
 
-	return filepath.Join(homeDir, "."+installName), u
+	if legacyDir != "" && !dirExists(dir) {
+		return legacyDir, u
+	}
+
+	return dir, u
 }
 
-// GetOrCreateEarthDir returns the .earthly dir. (Usually ~/.earthly).
+// earthDirs returns the current dir and, for the default installation only,
+// the deprecated ~/.earthly dir if it exists.
+func earthDirs(installName string) (string, string, *user.User) {
+	homeDir, u := fileutil.HomeDir()
+	installName = cmp.Or(installName, "earth") // may be unset when called by the autocomplete code
+
+	legacyDir := filepath.Join(homeDir, ".earthly")
+	if installName != "earth" || !dirExists(legacyDir) {
+		legacyDir = ""
+	}
+
+	return filepath.Join(homeDir, "."+installName), legacyDir, u
+}
+
+func dirExists(dir string) bool {
+	exists, _ := fileutil.DirExists(dir)
+	return exists
+}
+
+// LegacyEarthDirWarning returns a warning to show the user when only the
+// deprecated ~/.earthly dir exists, and [ErrBothEarthDirsExist] when both it
+// and ~/.earth exist.
+func LegacyEarthDirWarning(installName string) (string, error) {
+	dir, legacyDir, _ := earthDirs(installName)
+
+	switch {
+	case legacyDir == "":
+		return "", nil
+	case dirExists(dir):
+		return "", ErrBothEarthDirsExist
+	default:
+		return "The ~/.earthly path is deprecated. Move your configuration to ~/.earth.", nil
+	}
+}
+
+// GetOrCreateEarthDir returns the global configuration dir. (Usually ~/.earth).
 // if the directory does not exist, it will attempt to create it.
 func GetOrCreateEarthDir(installName string) (string, error) {
 	_ = GetEarthDir(installName) // ensure global vars get created so we can reference them below.

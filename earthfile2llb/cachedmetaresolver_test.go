@@ -85,3 +85,26 @@ func TestCachedMetaResolver_ResolveModeAffectsCacheKey(t *testing.T) {
 	require.Equal(t, dgst3, dgst4)
 	require.Equal(t, 2, mock.callCount())
 }
+
+func TestCachedMetaResolver_ReturnsClonedConfig(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	mock := &mockImageMetaResolver{}
+	cmr := NewCachedMetaResolver(mock)
+
+	ref := "alpine:latest"
+	opt := sourceresolver.Opt{}
+
+	_, _, cfg1, err := cmr.ResolveImageConfig(ctx, ref, opt)
+	require.NoError(t, err)
+	require.Equal(t, []byte("{}"), cfg1)
+
+	// Mutate returned slice
+	cfg1[0] = 'X'
+
+	// Second fetch should return unmodified cached copy
+	_, _, cfg2, err := cmr.ResolveImageConfig(ctx, ref, opt)
+	require.NoError(t, err)
+	require.Equal(t, []byte("{}"), cfg2)
+}

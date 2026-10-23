@@ -4,6 +4,7 @@ package image
 
 import (
 	"maps"
+	"slices"
 
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
@@ -43,37 +44,21 @@ func (img *Image) Clone() *Image {
 		Architecture: img.Architecture,
 		OS:           img.OS,
 		Config: Config{
-			ImageConfig: specs.ImageConfig{
-				User:         img.Config.User,
-				Env:          make([]string, len(img.Config.Env)),
-				Entrypoint:   make([]string, len(img.Config.Entrypoint)),
-				Cmd:          make([]string, len(img.Config.Cmd)),
-				WorkingDir:   img.Config.WorkingDir,
-				StopSignal:   img.Config.StopSignal,
-				ExposedPorts: make(map[string]struct{}),
-				Volumes:      make(map[string]struct{}),
-				Labels:       make(map[string]string),
-			},
+			ImageConfig: img.Config.ImageConfig,
 		},
 	}
-	if img.Config.Healthcheck != nil {
-		clone.Config.Healthcheck = &dockerspec.HealthcheckConfig{
-			Test:          make([]string, len(img.Config.Healthcheck.Test)),
-			Interval:      img.Config.Healthcheck.Interval,
-			Timeout:       img.Config.Healthcheck.Timeout,
-			StartPeriod:   img.Config.Healthcheck.StartPeriod,
-			Retries:       img.Config.Healthcheck.Retries,
-			StartInterval: img.Config.Healthcheck.StartInterval,
-		}
-		copy(clone.Config.Healthcheck.Test, img.Config.Healthcheck.Test)
-	}
+	clone.Config.Env = slices.Clone(img.Config.Env)
+	clone.Config.Entrypoint = slices.Clone(img.Config.Entrypoint)
+	clone.Config.Cmd = slices.Clone(img.Config.Cmd)
+	clone.Config.ExposedPorts = maps.Clone(img.Config.ExposedPorts)
+	clone.Config.Volumes = maps.Clone(img.Config.Volumes)
+	clone.Config.Labels = maps.Clone(img.Config.Labels)
 
-	copy(clone.Config.Env, img.Config.Env)
-	copy(clone.Config.Entrypoint, img.Config.Entrypoint)
-	copy(clone.Config.Cmd, img.Config.Cmd)
-	maps.Copy(clone.Config.ExposedPorts, img.Config.ExposedPorts)
-	maps.Copy(clone.Config.Volumes, img.Config.Volumes)
-	maps.Copy(clone.Config.Labels, img.Config.Labels)
+	if img.Config.Healthcheck != nil {
+		hc := *img.Config.Healthcheck
+		hc.Test = slices.Clone(img.Config.Healthcheck.Test)
+		clone.Config.Healthcheck = &hc
+	}
 
 	return clone
 }

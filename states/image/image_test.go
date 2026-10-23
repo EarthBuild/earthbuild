@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	archArm64 = "arm64"
-	cmdShell  = "CMD-SHELL"
-	osLinux   = "linux"
+	archArm64  = "arm64"
+	cmdShell   = "CMD-SHELL"
+	osLinux    = "linux"
+	valMutated = "MUTATED"
 )
 
 func TestFromBuildKit(t *testing.T) {
@@ -99,4 +100,56 @@ func TestFromBuildKit(t *testing.T) {
 		bkImg.Config.Healthcheck.Interval = 99 * time.Second
 		assert.Equal(t, 30*time.Second, img.Config.Healthcheck.Interval)
 	})
+}
+
+func TestImage_Clone_PreservesScalarsAndIsolation(t *testing.T) {
+	t.Parallel()
+
+	orig := &Image{
+		Architecture: archArm64,
+		OS:           osLinux,
+		Config: Config{
+			ImageConfig: specs.ImageConfig{
+				User:         "nobody",
+				Env:          []string{"VAR=val"},
+				Entrypoint:   []string{"/bin/entry"},
+				Cmd:          []string{"arg1", "arg2"},
+				WorkingDir:   "/home",
+				StopSignal:   "SIGTERM",
+				ExposedPorts: map[string]struct{}{"80/tcp": {}},
+				Volumes:      map[string]struct{}{"/vol": {}},
+				Labels:       map[string]string{"k": "v"},
+			},
+			Healthcheck: &dockerspec.HealthcheckConfig{
+				Test:        []string{"CMD", "check"},
+				Interval:    10 * time.Second,
+				Timeout:     3 * time.Second,
+				StartPeriod: 1 * time.Second,
+				Retries:     5,
+			},
+		},
+	}
+
+	clone := orig.Clone()
+	require.NotNil(t, clone)
+	assert.Equal(t, orig, clone)
+	assert.Equal(t, "nobody", clone.Config.User)
+	assert.Equal(t, "/home", clone.Config.WorkingDir)
+	assert.Equal(t, "SIGTERM", clone.Config.StopSignal)
+
+	// Verify deep copy isolation
+	orig.Config.Env[0] = valMutated
+	assert.Equal(t, "VAR=val", clone.Config.Env[0])
+
+	orig.Config.Entrypoint[0] = valMutated
+	assert.Equal(t, "/bin/entry", clone.Config.Entrypoint[0])
+
+	orig.Config.Cmd[0] = valMutated
+	assert.Equal(t, "arg1", clone.Config.Cmd[0])
+
+	orig.Config.Labels["k"] = valMutated
+	assert.Equal(t, "v", clone.Config.Labels["k"])
+
+	orig.Config.Healthcheck.Test[0] = valMutated
+	assert.Equal(t, "CMD", clone.Config.Healthcheck.Test[0])
 }

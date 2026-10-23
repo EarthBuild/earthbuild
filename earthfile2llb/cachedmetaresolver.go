@@ -1,6 +1,7 @@
 package earthfile2llb
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/EarthBuild/earthbuild/internal/synccache"
@@ -77,5 +78,5 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 		return "", "", nil, err
 	}
 
-	return entry.ref, entry.dgst, entry.config, nil
+	return entry.ref, entry.dgst, bytes.Clone(entry.config), nil
 }

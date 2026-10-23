@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -133,13 +133,21 @@ func binaryName(args []string) string {
 		return cliutil.DefaultInstallationName
 	}
 
-	// can't use os.Executable() here; because it will give us earth if executed via the earth symlink
-	baseName := path.Base(args[0])
-	if baseName == "." || baseName == "/" {
+	p := args[0]
+	if idx := strings.LastIndexAny(p, `/\`); idx != -1 {
+		p = p[idx+1:]
+	}
+
+	ext := filepath.Ext(p)
+	if strings.EqualFold(ext, ".exe") {
+		p = strings.TrimSuffix(p, ext)
+	}
+
+	if p == "" || p == "." {
 		return cliutil.DefaultInstallationName
 	}
 
-	return baseName
+	return p
 }
 
 // IfNilBoolDefault returns the boolean value if ptr is set, or the default value otherwise.

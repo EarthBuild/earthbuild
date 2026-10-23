@@ -28,7 +28,8 @@ var processLocalUniqueIDOpt = llb.LocalUniqueID(identity.NewID())
 
 // State is a wrapper around llb.State.
 type State struct {
-	st llb.State
+	st   llb.State
+	opts []llb.ConstraintsOpt
 }
 
 // FromRawState creates a wrapper around a raw llb.State.
@@ -108,14 +109,34 @@ func (s State) SetMarshalDefaults(co ...llb.ConstraintsOpt) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.SetMarshalDefaults(co...)}
+	return State{
+		st:   s.st.SetMarshalDefaults(co...),
+		opts: co,
+	}
+}
+
+func hasLocalUniqueID(opts ...llb.ConstraintsOpt) bool {
+	var c llb.Constraints
+
+	for _, opt := range opts {
+		if opt != nil {
+			opt.SetConstraintsOption(&c)
+		}
+	}
+
+	return c.LocalUniqueID != ""
 }
 
 // Marshal is a wrapper around llb.Marshal. Local sources get this process's
-// local.unique value (see processLocalUniqueIDOpt) unless co sets its own
-// llb.LocalUniqueID.
+// local.unique value (see processLocalUniqueIDOpt) unless co or SetMarshalDefaults
+// sets its own llb.LocalUniqueID.
 func (s State) Marshal(ctx context.Context, co ...llb.ConstraintsOpt) (*llb.Definition, error) {
-	co = append([]llb.ConstraintsOpt{processLocalUniqueIDOpt}, co...)
+	if !hasLocalUniqueID(s.opts...) && !hasLocalUniqueID(co...) {
+		opts := make([]llb.ConstraintsOpt, 0, len(co)+1)
+		opts = append(opts, processLocalUniqueIDOpt)
+		opts = append(opts, co...)
+		co = opts
+	}
 
 	gmu.Lock()
 	defer gmu.Unlock()

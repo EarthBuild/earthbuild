@@ -55,6 +55,36 @@ func TestBinaryName(t *testing.T) {
 			args: []string{"/usr/local/bin/earthly"},
 			want: "earthly",
 		},
+		{
+			name: "windows bare binary name with exe extension",
+			args: []string{"earth.exe"},
+			want: cliutil.DefaultInstallationName,
+		},
+		{
+			name: "windows full path with spaces and exe extension",
+			args: []string{`C:\Program Files\Earth\earth.exe`},
+			want: cliutil.DefaultInstallationName,
+		},
+		{
+			name: "windows relative path with exe extension",
+			args: []string{`.\earth.exe`},
+			want: cliutil.DefaultInstallationName,
+		},
+		{
+			name: "windows legacy earthly binary with exe extension",
+			args: []string{`C:\bin\earthly.exe`},
+			want: "earthly",
+		},
+		{
+			name: "windows uppercase exe extension",
+			args: []string{"earth.EXE"},
+			want: cliutil.DefaultInstallationName,
+		},
+		{
+			name: "backslash first arg",
+			args: []string{`\`},
+			want: cliutil.DefaultInstallationName,
+		},
 	}
 
 	for _, tt := range tests {

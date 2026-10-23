@@ -1278,7 +1278,7 @@ The `WITH DOCKER` clause only supports the command [`RUN`](#run). Other commands
 A typical example of a `WITH DOCKER` clause might be:
 
 ```Dockerfile
-FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0
+FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r1
 WORKDIR /test
 COPY docker-compose.yml ./
 WITH DOCKER \
@@ -1302,7 +1302,7 @@ For information on using `WITH DOCKER` with podman see the [Podman guide](../gui
 
 For performance reasons, it is recommended to use a Docker image that already contains `dockerd`. If `dockerd` is not found, earth will attempt to install it.
 
-Earth provides officially supported images such as `earthbuild/dind:alpine-3.24-docker-29.8.2-r0` and `earthbuild/dind:ubuntu-26.04-docker-29.9.0-1` to be used together with `WITH DOCKER`.
+Earth provides officially supported images such as `earthbuild/dind:alpine-3.24-docker-29.8.2-r1` and `earthbuild/dind:ubuntu-26.04-docker-29.9.2-1` to be used together with `WITH DOCKER`.
 {% endhint %}
 
 {% hint style='info' %}

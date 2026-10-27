@@ -376,7 +376,8 @@ func (sm *SolverMonitor) buildCacheMissReason(vertex *client.Vertex, meta *verte
 
 	// 4. Command text changed (same digest, different operation string — shouldn't
 	// happen for structural ops, but handle it defensively).
-	if prev.Operation != "" && prev.Operation != sm.prevState[digestStr].Operation {
+	_, operation := vertexmeta.ParseFromVertexPrefix(vertex.Name)
+	if prev.Operation != "" && prev.Operation != operation {
 		return " (previously cached; command changed)"
 	}
 

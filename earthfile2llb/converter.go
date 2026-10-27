@@ -606,7 +606,7 @@ func (c *Converter) CopyArtifactLocal(
 		return fmt.Errorf("parse artifact name %s: %w", artifactName, err)
 	}
 
-	prefix, cmdID, err := c.newVertexMeta(ctx, false, false, false, nil)
+	prefix, cmdID, err := c.newVertexMetaWithCopiedPaths(ctx, false, false, false, nil, []string{artifact.String()})
 	if err != nil {
 		return err
 	}
@@ -682,7 +682,7 @@ func (c *Converter) CopyArtifact(
 		return fmt.Errorf("parse artifact name %s: %w", artifactName, err)
 	}
 
-	prefix, cmdID, err := c.newVertexMeta(ctx, false, false, false, nil)
+	prefix, cmdID, err := c.newVertexMetaWithCopiedPaths(ctx, false, false, false, nil, []string{artifact.String()})
 	if err != nil {
 		return err
 	}
@@ -752,7 +752,7 @@ func (c *Converter) CopyClassical(
 
 	c.nonSaveCommand()
 
-	prefix, _, err := c.newVertexMeta(ctx, false, false, false, nil)
+	prefix, _, err := c.newVertexMetaWithCopiedPaths(ctx, false, false, false, nil, srcs)
 	if err != nil {
 		return err
 	}
@@ -2349,7 +2349,7 @@ func (c *Converter) checkAutoSkip(
 		return false, nil, err
 	}
 
-	targetHash, _, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
+	targetHash, hashStats, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
 		Log:            c.opt.Log,
 		BuiltinArgs:    c.opt.BuiltinArgs,
@@ -2371,6 +2371,16 @@ func (c *Converter) checkAutoSkip(
 	if exists {
 		console.Printf("Target %s (hash %x) has already been run. Skipping.", target.String(), targetHash)
 		return true, nil, nil
+	}
+
+	// Cache miss: log the inputs that were hashed so the user can understand
+	// what will cause this target to be rebuilt.
+	if len(hashStats.HashLog) > 0 {
+		console.VerbosePrintf("cache miss for %s — hashed inputs:", target.String())
+
+		for _, entry := range hashStats.HashLog {
+			console.VerbosePrintf("  %-16s %s", entry.Label, entry.Detail)
+		}
 	}
 
 	return exists, func() {
@@ -3280,6 +3290,19 @@ func (c *Converter) newLogbusCommand(ctx context.Context, name string) (string, 
 func (c *Converter) newVertexMeta(
 	ctx context.Context, local, interactive, internal bool, secrets []string,
 ) (string, string, error) {
+	vm, cmdID, err := c.buildVertexMeta(ctx, local, interactive, internal, secrets)
+	if err != nil {
+		return "", "", err
+	}
+
+	return vm.ToVertexPrefix(), cmdID, nil
+}
+
+// buildVertexMeta registers a new command with the logbus and returns the
+// vertex metadata for it, along with the command ID.
+func (c *Converter) buildVertexMeta(
+	ctx context.Context, local, interactive, internal bool, secrets []string,
+) (*vertexmeta.VertexMeta, string, error) {
 	activeOverriding := make(map[string]string)
 
 	for _, arg := range c.varCollection.SortedOverridingVariables() {
@@ -3287,6 +3310,26 @@ func (c *Converter) newVertexMeta(
 		if ok {
 			activeOverriding[arg] = v
 		}
+	}
+
+	// Collect all active (non-builtin) args for cache-miss diagnostics.
+	// Builtins (prefixed with EARTH_ or EARTHLY_) are excluded to keep the
+	// vertex name compact and focused on user-controlled values.
+	activeArgs := make(map[string]string)
+
+	for _, arg := range c.varCollection.SortedVariables(variables.WithActive()) {
+		if strings.HasPrefix(arg, "EARTH_") || strings.HasPrefix(arg, "EARTHLY_") {
+			continue
+		}
+
+		v, ok := c.varCollection.Get(arg, variables.WithActive())
+		if ok {
+			activeArgs[arg] = v
+		}
+	}
+
+	if len(activeArgs) == 0 {
+		activeArgs = nil
 	}
 
 	platform := c.platr.Materialize(c.platr.Current())
@@ -3321,7 +3364,7 @@ func (c *Converter) newVertexMeta(
 		fileRelToRepo,
 	)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	vm := &vertexmeta.VertexMeta{
@@ -3341,7 +3384,23 @@ func (c *Converter) newVertexMeta(
 		Secrets:             secrets,
 		Internal:            internal,
 		Runner:              c.opt.Runner,
+		ActiveArgs:          activeArgs,
 	}
+
+	return vm, cmdID, nil
+}
+
+// newVertexMetaWithCopiedPaths is like newVertexMeta but also records the
+// source paths of a COPY operation for cache-miss diagnostics.
+func (c *Converter) newVertexMetaWithCopiedPaths(
+	ctx context.Context, local, interactive, internal bool, secrets []string, copiedPaths []string,
+) (string, string, error) {
+	vm, cmdID, err := c.buildVertexMeta(ctx, local, interactive, internal, secrets)
+	if err != nil {
+		return "", "", err
+	}
+
+	vm.CopiedPaths = copiedPaths
 
 	return vm.ToVertexPrefix(), cmdID, nil
 }

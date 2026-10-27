@@ -19,6 +19,9 @@ const targetInternal = "internal"
 // converter to the solver monitor via BuildKit.
 type VertexMeta struct {
 	OverridingArgs      map[string]string        `json:"args,omitempty"`
+	ActiveArgs          map[string]string        `json:"aargs,omitempty"`
+	CopiedPaths         []string                 `json:"cpaths,omitempty"`
+	BaseImageRef        string                   `json:"bimg,omitempty"`
 	CommandID           string                   `json:"cid,omitempty"`
 	RepoGitURL          string                   `json:"rgu,omitempty"`
 	RepoGitHash         string                   `json:"rgh,omitempty"`

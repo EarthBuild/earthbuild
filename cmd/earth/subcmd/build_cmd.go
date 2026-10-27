@@ -900,8 +900,7 @@ func (b *Build) computeAndSetHashLogDiff(
 
 	_, stats, err := inputgraph.HashTarget(ctx, inputgraph.HashOpt{
 		Target:         target,
-		Console:        b.cli.Console(),
-		CI:             b.cli.Flags().CI,
+		Log:            b.cli.Log(),
 		BuiltinArgs:    variables.DefaultArgs{EarthVersion: b.cli.Version(), EarthBuildSha: b.cli.GitSHA()},
 		OverridingVars: overridingVars,
 	})

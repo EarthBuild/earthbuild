@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/util/buildkitskipper"
 	"github.com/EarthBuild/earthbuild/util/vertexmeta"
@@ -55,7 +56,7 @@ func TestBuildCacheMissMessage_NoHistory(t *testing.T) {
 
 	sm := makeMonitorWithState(nil)
 	v := &client.Vertex{Digest: sha("new-op"), Inputs: nil}
-	require.Empty(t, sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}))
+	require.Empty(t, sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}, ""))
 }
 
 func TestBuildCacheMissMessage_PreviouslyMiss(t *testing.T) {
@@ -66,7 +67,7 @@ func TestBuildCacheMissMessage_PreviouslyMiss(t *testing.T) {
 		{Digest: d.String(), Operation: "RUN echo hello", WasCached: false},
 	})
 	v := &client.Vertex{Digest: d, Inputs: nil}
-	require.Empty(t, sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}))
+	require.Empty(t, sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}, "RUN echo hello"))
 }
 
 func TestBuildCacheMissMessage_PreviouslyCached_NoInputs(t *testing.T) {
@@ -77,7 +78,7 @@ func TestBuildCacheMissMessage_PreviouslyCached_NoInputs(t *testing.T) {
 		{Digest: d.String(), Operation: "RUN apt-get update", WasCached: true},
 	})
 	v := &client.Vertex{Digest: d, Inputs: nil}
-	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{})
+	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}, "RUN apt-get update")
 	require.Contains(t, msg, "previously cached")
 }
 
@@ -95,12 +96,27 @@ func TestBuildCacheMissMessage_PreviouslyCached_ArgChanged(t *testing.T) {
 	})
 	v := &client.Vertex{Digest: d, Inputs: nil}
 	meta := &vertexmeta.VertexMeta{ActiveArgs: map[string]string{"GO_VERSION": "1.22"}}
-	msg := sm.buildCacheMissReason(v, meta)
+	msg := sm.buildCacheMissReason(v, meta, "RUN go build")
 	require.Contains(t, msg, "previously cached")
 	require.Contains(t, msg, "arg changed")
 	require.Contains(t, msg, "GO_VERSION")
 	require.Contains(t, msg, "1.21")
 	require.Contains(t, msg, "1.22")
+}
+
+func TestBuildCacheMissMessage_PreviouslyCached_CommandChanged(t *testing.T) {
+	t.Parallel()
+
+	d := sha("op-cmd")
+	sm := makeMonitorWithState([]buildkitskipper.VertexRecord{
+		{Digest: d.String(), Operation: "RUN echo old", WasCached: true},
+	})
+	v := &client.Vertex{Digest: d, Inputs: nil}
+	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}, "RUN echo new")
+	require.Contains(t, msg, "command changed")
+
+	msg = sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}, "RUN echo old")
+	require.NotContains(t, msg, "command changed")
 }
 
 func TestBuildCacheMissMessage_PreviouslyCached_InputChanged(t *testing.T) {
@@ -115,7 +131,7 @@ func TestBuildCacheMissMessage_PreviouslyCached_InputChanged(t *testing.T) {
 	})
 
 	v := &client.Vertex{Digest: childDigest, Inputs: []digest.Digest{parentDigest}}
-	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{})
+	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}, "RUN go build")
 	require.Contains(t, msg, "previously cached")
 	require.Contains(t, msg, "COPY ./src /src")
 }
@@ -129,7 +145,7 @@ func TestBuildCacheMissMessage_PreviouslyCached_InputNewlyAdded(t *testing.T) {
 	})
 
 	v := &client.Vertex{Digest: childDigest, Inputs: []digest.Digest{sha("new-input")}}
-	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{})
+	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}, "RUN make")
 	require.Contains(t, msg, "previously cached")
 }
 
@@ -145,7 +161,7 @@ func TestBuildCacheMissMessage_AllInputsPreviouslyCached(t *testing.T) {
 	})
 
 	v := &client.Vertex{Digest: childDigest, Inputs: []digest.Digest{inputDigest}}
-	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{})
+	msg := sm.buildCacheMissReason(v, &vertexmeta.VertexMeta{}, "RUN echo old")
 	require.Contains(t, msg, "previously cached")
 }
 
@@ -223,7 +239,10 @@ func TestHandleBuildkitStatus_AnnotatesEarthVertex(t *testing.T) {
 	_, err := run.NewTarget(targetID, domain.Target{}, nil, "", "")
 	require.NoError(t, err)
 
-	_, err = run.NewCommand(cmdID, "RUN echo hello", targetID, "+my-target", "", false, false, false, nil, "", "", "")
+	_, err = run.NewCommand(
+		cmdID, "RUN echo hello", targetID, "+my-target", "", false, false, false,
+		earthfile.SourceLocation{}, "", "", "",
+	)
 	require.NoError(t, err)
 
 	sm := &SolverMonitor{
@@ -293,7 +312,10 @@ func TestHandleBuildkitStatus_AnnotatesEarthVertex_NoDB(t *testing.T) {
 	_, err := run.NewTarget(targetID, domain.Target{}, nil, "", "")
 	require.NoError(t, err)
 
-	_, err = run.NewCommand(cmdID, "RUN echo world", targetID, "+my-target", "", false, false, false, nil, "", "", "")
+	_, err = run.NewCommand(
+		cmdID, "RUN echo world", targetID, "+my-target", "", false, false, false,
+		earthfile.SourceLocation{}, "", "", "",
+	)
 	require.NoError(t, err)
 
 	sm := &SolverMonitor{

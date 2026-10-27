@@ -3290,6 +3290,19 @@ func (c *Converter) newLogbusCommand(ctx context.Context, name string) (string, 
 func (c *Converter) newVertexMeta(
 	ctx context.Context, local, interactive, internal bool, secrets []string,
 ) (string, string, error) {
+	vm, cmdID, err := c.buildVertexMeta(ctx, local, interactive, internal, secrets)
+	if err != nil {
+		return "", "", err
+	}
+
+	return vm.ToVertexPrefix(), cmdID, nil
+}
+
+// buildVertexMeta registers a new command with the logbus and returns the
+// vertex metadata for it, along with the command ID.
+func (c *Converter) buildVertexMeta(
+	ctx context.Context, local, interactive, internal bool, secrets []string,
+) (*vertexmeta.VertexMeta, string, error) {
 	activeOverriding := make(map[string]string)
 
 	for _, arg := range c.varCollection.SortedOverridingVariables() {
@@ -3351,7 +3364,7 @@ func (c *Converter) newVertexMeta(
 		fileRelToRepo,
 	)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	vm := &vertexmeta.VertexMeta{
@@ -3374,7 +3387,7 @@ func (c *Converter) newVertexMeta(
 		ActiveArgs:          activeArgs,
 	}
 
-	return vm.ToVertexPrefix(), cmdID, nil
+	return vm, cmdID, nil
 }
 
 // newVertexMetaWithCopiedPaths is like newVertexMeta but also records the
@@ -3382,17 +3395,11 @@ func (c *Converter) newVertexMeta(
 func (c *Converter) newVertexMetaWithCopiedPaths(
 	ctx context.Context, local, interactive, internal bool, secrets []string, copiedPaths []string,
 ) (string, string, error) {
-	prefix, cmdID, err := c.newVertexMeta(ctx, local, interactive, internal, secrets)
+	vm, cmdID, err := c.buildVertexMeta(ctx, local, interactive, internal, secrets)
 	if err != nil {
 		return "", "", err
 	}
 
-	if len(copiedPaths) == 0 {
-		return prefix, cmdID, nil
-	}
-
-	// Re-parse the encoded prefix, add CopiedPaths, re-encode.
-	vm, _ := vertexmeta.ParseFromVertexPrefix(prefix + " _")
 	vm.CopiedPaths = copiedPaths
 
 	return vm.ToVertexPrefix(), cmdID, nil

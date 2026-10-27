@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -14,8 +15,8 @@ import (
 )
 
 // newTestConsole returns a no-op console suitable for unit tests.
-func newTestConsole() conslogging.ConsoleLogger {
-	return conslogging.New(os.Stderr, &sync.Mutex{}, conslogging.NoColor, 0, conslogging.Info, false)
+func newTestConsole() *conslogging.ConsoleLogger {
+	return conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
 }
 
 // testdataCacheMissReason is the path to the testdata fixture used by the hash
@@ -58,8 +59,8 @@ func TestHashLogPopulatedForARG(t *testing.T) {
 	}
 
 	hash, stats, err := HashTarget(context.Background(), HashOpt{
-		Console: newTestConsole(),
-		Target:  target,
+		Log:    newTestConsole(),
+		Target: target,
 	})
 
 	r.NoError(err)
@@ -90,8 +91,8 @@ func TestHashLogPopulatedForLETandSET(t *testing.T) {
 	}
 
 	hash, stats, err := HashTarget(context.Background(), HashOpt{
-		Console: newTestConsole(),
-		Target:  target,
+		Log:    newTestConsole(),
+		Target: target,
 	})
 
 	r.NoError(err)
@@ -124,8 +125,8 @@ func TestHashLogContainsDepTarget(t *testing.T) {
 	}
 
 	hash, stats, err := HashTarget(context.Background(), HashOpt{
-		Console: newTestConsole(),
-		Target:  target,
+		Log:    newTestConsole(),
+		Target: target,
 	})
 
 	r.NoError(err)
@@ -140,7 +141,7 @@ func TestHashLogContainsDepTarget(t *testing.T) {
 
 	// The detail should mention the dependency target canonical name.
 	r.True(
-		slices.ContainsFunc(depDetails, func(d string) bool { return containsSubstr(d, "simple-arg") }),
+		slices.ContainsFunc(depDetails, func(d string) bool { return strings.Contains(d, "simple-arg") }),
 		"expected dep target entry mentioning '+simple-arg', got: %v", depDetails,
 	)
 }
@@ -161,7 +162,7 @@ func TestHashLogChangesWithARGOverride(t *testing.T) {
 	}
 
 	// Hash with default ARG value.
-	hashDefault, statsDefault, err := HashTarget(ctx, HashOpt{Console: cons, Target: target})
+	hashDefault, statsDefault, err := HashTarget(ctx, HashOpt{Log: cons, Target: target})
 	r.NoError(err)
 	r.NotEmpty(hashDefault)
 
@@ -170,7 +171,7 @@ func TestHashLogChangesWithARGOverride(t *testing.T) {
 	r.NoError(err)
 
 	hashOverride, statsOverride, err := HashTarget(ctx, HashOpt{
-		Console:        cons,
+		Log:            cons,
 		Target:         target,
 		OverridingVars: overriding,
 	})
@@ -205,8 +206,8 @@ func TestHashLogMultipleARGs(t *testing.T) {
 	}
 
 	hash, stats, err := HashTarget(context.Background(), HashOpt{
-		Console: newTestConsole(),
-		Target:  target,
+		Log:    newTestConsole(),
+		Target: target,
 	})
 
 	r.NoError(err)
@@ -223,15 +224,4 @@ func TestHashLogMultipleARGs(t *testing.T) {
 
 	r.Contains(detailsSet, "FIRST=one")
 	r.Contains(detailsSet, "SECOND=two")
-}
-
-// containsSubstr reports whether substr appears within s.
-func containsSubstr(s, substr string) bool {
-	for i := range len(s) - len(substr) + 1 {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-
-	return false
 }

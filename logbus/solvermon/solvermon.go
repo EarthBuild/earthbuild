@@ -239,7 +239,7 @@ func (sm *SolverMonitor) handleBuildkitStatus(status *client.SolveStatus) error 
 				meta.CommandID != "" && isAnnotatableOp(vm.operation) {
 				vm.cacheMissLogged = true
 
-				cacheMissMsg := "*cache miss*" + sm.buildCacheMissReason(vertex, meta)
+				cacheMissMsg := "*cache miss*" + sm.buildCacheMissReason(vertex, meta, vm.operation)
 				_, _ = vm.cp.Write([]byte(cacheMissMsg+"\n"), *vertex.Started, logbus.Stderr)
 			}
 		}
@@ -335,7 +335,9 @@ const cacheMissReasonUnknown = "unknown"
 // "*cache miss*" annotation. It returns "" when no prior state is available
 // (first run or no DB configured). When the vertex was previously cached it
 // returns a human-readable explanation of what changed.
-func (sm *SolverMonitor) buildCacheMissReason(vertex *client.Vertex, meta *vertexmeta.VertexMeta) string {
+func (sm *SolverMonitor) buildCacheMissReason(
+	vertex *client.Vertex, meta *vertexmeta.VertexMeta, operation string,
+) string {
 	digestStr := vertex.Digest.String()
 	prev, found := sm.prevState[digestStr]
 
@@ -376,7 +378,6 @@ func (sm *SolverMonitor) buildCacheMissReason(vertex *client.Vertex, meta *verte
 
 	// 4. Command text changed (same digest, different operation string — shouldn't
 	// happen for structural ops, but handle it defensively).
-	_, operation := vertexmeta.ParseFromVertexPrefix(vertex.Name)
 	if prev.Operation != "" && prev.Operation != operation {
 		return " (previously cached; command changed)"
 	}

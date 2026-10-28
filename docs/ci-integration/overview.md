@@ -75,7 +75,9 @@ Some options that may make sense in a CI environment are:
 | `NO_COLOR` / `FORCE_COLOR` | Lets you force on/off the ANSI color codes. Use this when `earth` misinterprets the presence of a terminal. Set either one to `1` to enable or disable colors.                                                                                 |
 | `EARTH_BUILDKIT_HOST`      | Use this when you have an external BuildKit instance you would like to use instead of the one `earth` manages.                                                                                                                                 |
 
-EarthBuild also has some special command-line switches to ensure best practices are followed within your CI. These come *highly* recommended. Enable these with the [`--ci`](../earth-command/earth-command.md#--ci) option, which is shorthand for [`--save-inline-cache`](../earth-command/earth-command.md#save-inline-cache) [`--strict`](../earth-command/earth-command.md#strict) [`--no-output`](../earth-command/earth-command.md#no-output).
+EarthBuild also has some special command-line switches to ensure best practices are followed within your CI. These come *highly* recommended. Enable these with the [`--ci`](../earth-command/earth-command.md#--ci) option, which is shorthand for [`--no-output`](../earth-command/earth-command.md#no-output) [`--strict`](../earth-command/earth-command.md#strict).
+
+`--ci` does not enable inline caching. To use inline caching in CI, pass `--use-inline-cache` (to pull cache from images previously pushed) and/or `--save-inline-cache` (to embed cache in the images you push) explicitly. `--save-inline-cache` only has an effect when images are actually pushed (for example, `earth --ci --push --save-inline-cache +target`).
 
 EarthBuild also has a special [`--push`](../earthfile/earthfile.md#push) option that can be used when invoking a target. In a CI, you may want to ensure this flag is present to push images or run commands that are not typically done as part of a normal development workflow.
 

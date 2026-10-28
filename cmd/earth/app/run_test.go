@@ -105,6 +105,16 @@ func TestPrivilegedModeMessages(t *testing.T) {
 		require.NotContains(t, helpMsg, "allow_privileged", "there is no such config option")
 	})
 
+	t.Run("missing flag with local and remote targets", func(t *testing.T) {
+		t.Parallel()
+
+		for _, target := range []string{"./dir+foo", "github.com/org/repo+foo", "github.com/org/repo:v1+foo"} {
+			_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", "--strict", target})
+
+			require.Contains(t, helpMsg, "earth -P "+target, target)
+		}
+	})
+
 	t.Run("missing flag without target", func(t *testing.T) {
 		t.Parallel()
 

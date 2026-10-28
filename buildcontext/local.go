@@ -127,15 +127,18 @@ func (lr *localResolver) resolveLocal(
 		return data, nil
 	}
 
-	noImplicitIgnore := bf.ftrs != nil && bf.ftrs.NoImplicitIgnore
-	useDockerIgnore := isDockerfile
+	opts := excludeOpts{
+		noImplicitIgnore:       bf.ftrs != nil && bf.ftrs.NoImplicitIgnore,
+		noImplicitSecretIgnore: bf.ftrs != nil && bf.ftrs.NoImplicitSecretIgnore,
+		useDockerIgnore:        isDockerfile,
+	}
 
 	ftrs := features.FromContext(ctx)
 	if ftrs != nil {
-		useDockerIgnore = useDockerIgnore && ftrs.UseDockerIgnore
+		opts.useDockerIgnore = opts.useDockerIgnore && ftrs.UseDockerIgnore
 	}
 
-	excludes, err := readExcludes(ref.GetLocalPath(), noImplicitIgnore, useDockerIgnore)
+	excludes, err := readExcludes(ref.GetLocalPath(), opts)
 	if err != nil {
 		return nil, err
 	}

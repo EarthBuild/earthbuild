@@ -14,7 +14,7 @@ go:
 node:
     FROM node:26.12.0-alpine3.24
     # renovate: datasource=npm packageName=npm
-    LET npm_version=12.2.0
+    LET npm_version=12.2.1
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -118,7 +118,7 @@ lint-workflows:
 earthbuild-script-no-stdout:
     # This validates the ./earth script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earth secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r1
+    FROM earthbuild/dind:alpine-3.24-docker-29.9.2-r0
     RUN apk add --no-cache bash
     COPY earth .earth_version_flag_overrides .
 

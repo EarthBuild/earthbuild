@@ -1,6 +1,6 @@
 VERSION 0.8
 
-ARG --global DIND_IMAGE=earthbuild/dind:alpine-3.24-docker-29.8.2-r1
+ARG --global DIND_IMAGE=earthbuild/dind:alpine-3.24-docker-29.9.2-r0
 FROM $DIND_IMAGE
 
 all:
@@ -17,11 +17,35 @@ all:
     BUILD +if-after
     BUILD +cgroup-v2-test-all
     BUILD +pre-script-test
+    BUILD +docker-run-tty-all
 
 empty-test:
     WITH DOCKER
         RUN echo "dummy"
     END
+
+# Regression tests for https://github.com/EarthBuild/earthbuild/issues/1079
+# (Linux sockaddr_un 108-byte limit on OCI console socket path when allocating TTY).
+docker-run-tty-all:
+    BUILD +docker-run-tty-test --DIND_IMAGE=docker:28-dind
+    BUILD +docker-run-tty-test --DIND_IMAGE=$DIND_IMAGE
+    BUILD +docker-run-tty-custom-tmpdir-test --DIND_IMAGE=docker:28-dind
+    BUILD +docker-run-tty-custom-tmpdir-test --DIND_IMAGE=$DIND_IMAGE
+
+docker-run-tty-test:
+    WITH DOCKER --pull busybox
+        RUN docker run --rm --tty busybox echo "hello from tty" && \
+            test -d /tmp/docker-tmp
+    END
+    RUN test ! -d /tmp/docker-tmp
+
+docker-run-tty-custom-tmpdir-test:
+    ENV DOCKER_TMPDIR=/tmp/custom-docker-tmp
+    WITH DOCKER --pull busybox
+        RUN docker run --rm --tty busybox echo "hello from custom tmpdir tty" && \
+            test -d /tmp/custom-docker-tmp
+    END
+    RUN test -d /tmp/custom-docker-tmp
 
 a-test-image:
     FROM alpine:3.24.2

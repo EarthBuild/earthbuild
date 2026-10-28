@@ -2586,6 +2586,19 @@ func getDebuggerSecretKey(saveFilesSettings []debuggercommon.SaveFilesSettings) 
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// runNeedsDebugger reports whether a RUN should be wrapped by the interactive
+// debugger. The debugger is never used for LOCALLY; otherwise it is needed when
+// interactive debugging is enabled (-i), the RUN itself is interactive
+// (RUN --interactive / --interactive-keep), or there are TRY/FINALLY artifacts
+// that the debugger must send back to the client should the command fail.
+func runNeedsDebugger(locally, debuggerEnabled, isInteractive, hasSaveFiles bool) bool {
+	if locally {
+		return false
+	}
+
+	return debuggerEnabled || isInteractive || hasSaveFiles
+}
+
 func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.State, error) {
 	isInteractive := (opts.Interactive || opts.InteractiveKeep)
 	if !c.opt.AllowInteractive && isInteractive {
@@ -2713,9 +2726,14 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 		extraEnvVars = append(extraEnvVars, awsEnvs...)
 	}
 
+	// Only attach the debugger's session-bound plumbing (sockets, settings
+	// secret and host-bound binary) when it can actually be used. Attaching it
+	// unconditionally ties every exec to the client's session.
+	withDebugger := runNeedsDebugger(
+		opts.Locally, c.opt.InteractiveDebuggerEnabled, isInteractive, len(opts.InteractiveSaveFiles) > 0)
+
 	//nolint:nestif // TODO(jhorsts): simplify
-	if !opts.Locally {
-		// Debugger.
+	if withDebugger {
 		err = c.opt.LLBCaps.Supports(solverpb.CapExecMountSock)
 		if err != nil {
 			if _, ok := errors.AsType[*apicaps.CapError](err); ok {
@@ -2803,15 +2821,14 @@ func (c *Converter) internalRun(ctx context.Context, opts ConvertRunOpts) (pllb.
 			llb.HostBind(), llb.SourcePath("/usr/bin/earth_debugger"))
 
 		runOpts = append(runOpts, debuggerSecretMount, debuggerMount)
-		if opts.WithSSH {
-			runOpts = append(runOpts, llb.AddSSHSocket())
-		}
+	}
+
+	if !opts.Locally && opts.WithSSH {
+		runOpts = append(runOpts, llb.AddSSHSocket())
 	}
 	// Shell and debugger wrap.
-	prependDebugger := !opts.Locally
-
 	if opts.WithShell {
-		finalArgs = opts.shellWrap(finalArgs, extraEnvVars, opts.WithShell, prependDebugger, isInteractive)
+		finalArgs = opts.shellWrap(finalArgs, extraEnvVars, opts.WithShell, withDebugger, isInteractive)
 	}
 
 	if opts.NoCache {

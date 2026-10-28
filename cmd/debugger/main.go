@@ -402,17 +402,6 @@ func main() {
 	}
 }
 
-func exitCodeDiagnostic(exitCode int) string {
-	switch exitCode {
-	case 126:
-		return "Exit code 126 conventionally means a command was found but could not be executed. " +
-			"Check executable permissions, the shebang/interpreter, CPU architecture, noexec mounts, " +
-			"and container runtime or security restrictions."
-	default:
-		return ""
-	}
-}
-
 func handleError(
 	ctx context.Context,
 	err error,
@@ -428,8 +417,6 @@ func handleError(
 		exitCode = exitErr.ExitCode()
 		if debuggerSettings.Enabled {
 			log.Warnf("Command %s failed with exit code %d\n", quotedCmd, exitCode)
-		} else if diagnostic := exitCodeDiagnostic(exitCode); diagnostic != "" {
-			log.Warnf("Wrapped command failed with exit code %d. %s\n", exitCode, diagnostic)
 		}
 	} else {
 		log.Warnf("Command %s failed with unexpected execution error %v\n", quotedCmd, err)

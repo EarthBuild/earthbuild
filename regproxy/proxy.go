@@ -68,7 +68,15 @@ func (r *registryProxy) err() <-chan error {
 	return r.errCh
 }
 
+// handle proxies conn until either end finishes with it or ctx is done.
 func (r *registryProxy) handle(ctx context.Context, conn net.Conn) error {
+	// Copy ends when the client or BK ends the connection. Closing it when ctx
+	// is done too means a client that never does cannot keep handle running.
+	stop := context.AfterFunc(ctx, func() {
+		conn.Close() // #nosec G104
+	})
+	defer stop()
+
 	stream, err := r.cl.Proxy(ctx)
 	if err != nil {
 		conn.Close() // #nosec G104

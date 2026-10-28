@@ -69,6 +69,7 @@ ga-no-qemu-group4:
     BUILD +push-test
     BUILD +push-arg-test
     BUILD +gen-dockerfile-test
+    BUILD +privileged-required-test
     BUILD +chown-test
     BUILD +env-test
     BUILD +env-home-test
@@ -583,6 +584,27 @@ subdirprivileged:
 reject-privileged-import-test:
     DO +RUN_EARTH --earthfile=reject-privileged-import.earth --should_fail=true --extra_args="--allow-privileged" --target=+test-reject-copy
     DO +RUN_EARTH --earthfile=reject-privileged-import.earth --should_fail=true --extra_args="--allow-privileged" --target=+test-reject-cmd
+
+privileged-required-test:
+    # Test that running a privileged target without -P prints an actionable hint.
+    FOR priv_target IN +needs-run +needs-with-docker +needs-if +needs-for
+        DO +RUN_EARTH \
+            --earthfile=privileged-required.earth \
+            --should_fail=true \
+            --target=$priv_target \
+            --output_contains="This build requires privileged mode"
+        DO +RUN_EARTH \
+            --earthfile=privileged-required.earth \
+            --should_fail=true \
+            --target=$priv_target \
+            --output_contains="earth -P $priv_target" \
+            --grep_flags="-F"
+        DO +RUN_EARTH \
+            --earthfile=privileged-required.earth \
+            --should_fail=true \
+            --target=$priv_target \
+            --output_contains="EARTH_ALLOW_PRIVILEGED=true"
+    END
 
 pass-args-test:
     COPY pass-args-sub-dir.earth subdir/Earthfile

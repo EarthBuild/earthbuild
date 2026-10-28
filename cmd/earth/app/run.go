@@ -14,6 +14,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
 	"github.com/EarthBuild/earthbuild/cmd/earth/helper"
+	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/engine"
@@ -144,6 +145,87 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 	return 0
 }
 
+const (
+	// buildkitInsecureNotAllowed is reported by BuildKit when a build uses security.insecure
+	// but the client did not request the entitlement (i.e. -P is missing).
+	buildkitInsecureNotAllowed = "security.insecure is not allowed"
+	// buildkitDaemonDisallows is reported by BuildKit when the client requested an entitlement
+	// (e.g. via -P) but the daemon is not configured to grant it.
+	buildkitDaemonDisallows = "is not allowed by build daemon configuration"
+)
+
+// firstTargetArg returns the first target reference found in the command line arguments, or an
+// empty string if there is none. args[0] is the program name.
+func firstTargetArg(args []string) string {
+	if len(args) < 2 {
+		return ""
+	}
+
+	artifactMode := hasCLIFlag(args, "--artifact", "-a")
+	for _, arg := range args[1:] {
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+
+		var err error
+		if artifactMode {
+			_, err = domain.ParseArtifact(arg)
+		} else {
+			_, err = domain.ParseTarget(arg)
+		}
+
+		if err == nil {
+			return arg
+		}
+	}
+
+	return ""
+}
+
+func hasCLIFlag(args []string, names ...string) bool {
+	for _, arg := range args {
+		for _, name := range names {
+			if arg == name || arg == name+"=true" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// privilegedModeMessages returns the error and help messages for a build that failed because
+// privileged mode (security.insecure) is not allowed.
+//
+// The target the user invoked is used in the example, rather than the nested target that actually
+// needs privileges, because the user must re-run the former with -P.
+func privilegedModeMessages(err error, args []string) (errMsg, helpMsg string) {
+	if strings.Contains(err.Error(), buildkitDaemonDisallows) {
+		return "The BuildKit daemon does not allow privileged mode (security.insecure).",
+			"Passing -P is not enough: the daemon must be configured to grant the security.insecure entitlement.\n" +
+				"  • Add it to insecure-entitlements in the buildkitd configuration, or\n" +
+				"  • Use the BuildKit daemon managed by earth, which allows it by default"
+	}
+
+	flagExample := "earth -P +your-target"
+
+	if target := firstTargetArg(args); target != "" {
+		modeFlag := ""
+		if hasCLIFlag(args, "--artifact", "-a") {
+			modeFlag = "--artifact "
+		} else if hasCLIFlag(args, "--image") {
+			modeFlag = "--image "
+		}
+
+		flagExample = "earth -P " + modeFlag + target
+	}
+
+	return "This build requires privileged mode.",
+		"To fix this, use one of the following:\n" +
+			"  • Run with the -P flag: " + flagExample + "\n" +
+			"  • Set the environment variable: export " + env.Prefix + "ALLOW_PRIVILEGED=true"
+}
+
 // handleError handles run error, logs it and returns appropriate exit code.
 func (app *EarthApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
 	ie, isInterpreterError := earthfile2llb.GetInterpreterError(err)
@@ -226,14 +308,16 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 
 		return 1
-	case strings.Contains(err.Error(), "security.insecure is not allowed"):
-		helpMsg := "earth --allow-privileged (earth -P) flag is required\n"
+	case strings.Contains(err.Error(), buildkitInsecureNotAllowed):
+		userMsg, helpMsg := privilegedModeMessages(err, args)
+
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_NEEDS_PRIVILEGED,
 			helpMsg,
-			err.Error(),
+			userMsg,
 		)
+		app.BaseCLI.Log().VerboseWarnf("Error: %s\n", err.Error())
 		app.BaseCLI.Log().HelpPrint(helpMsg)
 
 		return 9

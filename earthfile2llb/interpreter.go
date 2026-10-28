@@ -2024,7 +2024,7 @@ func (i *Interpreter) handleGitClone(ctx context.Context, cmd earthfile.Command)
 	convertedGitURL, _, sshCommand, err := i.gitLookup.ConvertCloneURL(ctx, gitURL)
 	if err != nil {
 		return i.wrapError(err, cmd.SourceLocation,
-			"unable to use %v with configured earthly credentials from ~/.earthly/config.yml", cmd.Args)
+			"unable to use %v with configured earthly credentials from ~/.earth/config.yml", cmd.Args)
 	}
 
 	err = i.converter.GitClone(ctx, convertedGitURL, sshCommand, gitBranch, gitCloneDest, opts.KeepTs)

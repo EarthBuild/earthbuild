@@ -229,12 +229,13 @@ runs:
       run: |-
         echo "Extracting earth binary from stage1 of build"
         export TAG=${GITHUB_SHA}-latest
-        ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" ./earth upgrade
-        ${INPUTS_SUDO} chown -R $USER ~/.earthly # restore non-sudo user ownership
+        ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" EARTH_INSTALLATION_NAME=earth ./earth upgrade
+        ${INPUTS_SUDO} chown -R $USER ~/.earth # restore non-sudo user ownership
         test -n "${INPUTS_BUILT_EARTH_PATH}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
         mkdir -p "$(dirname "${INPUTS_BUILT_EARTH_PATH}")"
-        ${INPUTS_SUDO} ls "${HOME}/.earthly/"
-        ${INPUTS_SUDO} mv "${HOME}/.earthly/earthly-$TAG" "${INPUTS_BUILT_EARTH_PATH}"
+        ${INPUTS_SUDO} ls "${HOME}/.earth/"
+        ${INPUTS_SUDO} mv "${HOME}/.earth/earthly-$TAG" "${INPUTS_BUILT_EARTH_PATH}"
+        ${INPUTS_SUDO} rm -rf "${HOME}/.earth"
         echo "extracted ${INPUTS_BUILT_EARTH_PATH}"
       shell: bash
       env:

@@ -1,0 +1,20 @@
+VERSION --try 0.8
+# Regression test for #578: this Earthfile is built from its parent directory,
+# so AS LOCAL paths must resolve against this directory, not the working
+# directory, even when the TRY body fails.
+
+test:
+    FROM alpine:3.24.2
+    TRY
+        RUN echo magic > data && false
+    FINALLY
+        SAVE ARTIFACT data AS LOCAL ./data
+    END
+
+test-save-to-child-dir:
+    FROM alpine:3.24.2
+    TRY
+        RUN echo magic > data && false
+    FINALLY
+        SAVE ARTIFACT data AS LOCAL out/
+    END

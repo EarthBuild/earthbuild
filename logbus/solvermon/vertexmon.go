@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/errutil"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
@@ -24,16 +23,28 @@ const (
 	BuildkitStatsStream = 99 // TODO move to a common location in buildkit
 )
 
+type vertexCommand interface {
+	Write(dt []byte, ts time.Time, stream int32) (int, error)
+	SetCached(cached bool)
+	SetStart(start time.Time)
+	SetEnd(end time.Time, status logstream.RunStatus, errorStr string)
+	SetProgress(progress int32)
+}
+
 type vertexMonitor struct {
-	vertex         *client.Vertex
-	meta           *vertexmeta.VertexMeta
-	cp             *logbus.Command
-	ssp            *statsstreamparser.Parser
-	operation      string
-	errorStr       string
-	fatalErrorType logstream.FailureType
-	isFatalError   bool // If set, this is the root cause of the entire build failure.
-	isCanceled     bool
+	vertex *client.Vertex
+	meta   *vertexmeta.VertexMeta
+	cp     vertexCommand
+	ssp    *statsstreamparser.Parser
+	// onStatsDecodeError, if set, is called for the first malformed stats
+	// packet on this vertex and then cleared. Stats are telemetry, so decoding
+	// failures are otherwise dropped rather than failing the build.
+	onStatsDecodeError func(error)
+	operation          string
+	errorStr           string
+	fatalErrorType     logstream.FailureType
+	isFatalError       bool // If set, this is the root cause of the entire build failure.
+	isCanceled         bool
 }
 
 var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`) //nolint:lll
@@ -215,29 +226,52 @@ func (vm *vertexMonitor) parseError() {
 
 func (vm *vertexMonitor) Write(dt []byte, ts time.Time, stream int) (int, error) {
 	if stream == BuildkitStatsStream {
-		stats, err := vm.ssp.Parse(dt)
-		if err != nil {
-			return 0, fmt.Errorf("failed decoding stats stream: %w", err)
-		}
-
-		for _, statsSample := range stats {
-			statsJSON, err := json.Marshal(statsSample)
-			if err != nil {
-				return 0, fmt.Errorf("stats json encode failed: %w", err)
-			}
-
-			_, err = vm.cp.Write(statsJSON, ts, int32(stream)) // #nosec G115
-			if err != nil {
-				return 0, fmt.Errorf("write stats: %w", err)
-			}
-		}
-
-		return len(dt), nil
+		return vm.writeStats(dt, ts, stream)
 	}
 
 	_, err := vm.cp.Write(dt, ts, int32(stream)) // #nosec G115
 	if err != nil {
 		return 0, fmt.Errorf("write log line: %w", err)
+	}
+
+	return len(dt), nil
+}
+
+// writeStats decodes runc stats packets and forwards them as JSON samples.
+// Stats are non-fatal telemetry: a packet that fails to decode resets the
+// parser, is reported once per vertex if a reporter is set, and is dropped.
+func (vm *vertexMonitor) writeStats(dt []byte, ts time.Time, stream int) (int, error) {
+	stats, err := vm.ssp.Parse(dt)
+	if err != nil {
+		vm.ssp = statsstreamparser.New()
+		if vm.onStatsDecodeError != nil {
+			vm.onStatsDecodeError(err)
+			vm.onStatsDecodeError = nil
+		}
+
+		return len(dt), nil
+	}
+
+	for _, statsSample := range stats {
+		statsJSON, err := json.Marshal(statsSample)
+		if err != nil {
+			if vm.onStatsDecodeError != nil {
+				vm.onStatsDecodeError(err)
+				vm.onStatsDecodeError = nil
+			}
+
+			continue
+		}
+
+		_, err = vm.cp.Write(statsJSON, ts, int32(stream)) // #nosec G115
+		if err != nil {
+			if vm.onStatsDecodeError != nil {
+				vm.onStatsDecodeError(err)
+				vm.onStatsDecodeError = nil
+			}
+
+			continue
+		}
 	}
 
 	return len(dt), nil

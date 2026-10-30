@@ -673,6 +673,14 @@ type Op struct {
 	// key, and the reflective key-coverage guard enforces that without anyone
 	// having to remember.
 	Dir string
+	// HostAbs says a host step's paths are from this machine's root: Dir, and a
+	// capture's Args[0] (a LOCALLY target's `SAVE ARTIFACT`).
+	//
+	// A host step's Dir is otherwise from the project - `/sub` is `<project>/sub`
+	// - so `WORKDIR /tmp/x` after LOCALLY had no way to say /tmp/x, and ran in
+	// `<project>/tmp/x`. Meaningless off the host, where every path is the
+	// sandbox's own.
+	HostAbs bool
 	// Content is a digest of external bytes this operation depends on: the
 	// files a local context names, and nothing else so far.
 	//
@@ -897,7 +905,7 @@ func (n *Node) ID() NodeID {
 	// Fixed width by §3.1, so no prefix. The zero value is written for
 	// operations with no external content, which keeps the encoding injective
 	// rather than making the field optional.
-	h.Str(n.Op.Dir)
+	h.Str(n.Op.KeyedDir())
 	h.Str(n.Op.User)
 	h.Bool(n.Op.AWS)
 	h.Bool(n.Op.NoCache)
@@ -1221,4 +1229,18 @@ func (g *Graph) Nodes() []*Node {
 	}
 
 	return out
+}
+
+// KeyedDir is Dir as both hashes write it - node identity and Κ₁.
+//
+// **The flag folded into the string**, so every key without it keeps the value
+// it always had: a new field hashed on its own would rename every node, and with
+// them every context layer, and empty every cache once. A NUL cannot appear in a
+// cleaned path, so the marked form collides with no unmarked one.
+func (o Op) KeyedDir() string {
+	if o.HostAbs {
+		return "\x00host:" + o.Dir
+	}
+
+	return o.Dir
 }

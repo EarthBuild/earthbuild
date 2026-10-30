@@ -108,7 +108,7 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 		h.Fixed(id[:])
 	}
 
-	h.Str(n.Op.Dir)
+	h.Str(n.Op.KeyedDir())
 	h.Str(n.Op.User)
 	h.Bool(n.Op.AWS)
 	h.Bool(n.Op.NoCache)

@@ -1324,7 +1324,10 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			n := &ir.Node{
 				// A LOCALLY step has no image, so it has no entrypoint to run:
 				// `--entrypoint` there names something that does not exist.
-				Op:   ir.Op{Kind: ir.OpHost, Args: runArgv(c, rf.rest, false), Dir: rs.dir, Env: rs.envFor()},
+				Op: ir.Op{
+					Kind: ir.OpHost, Args: runArgv(c, rf.rest, false), Dir: rs.dir, HostAbs: rs.hostAbs,
+					Env: rs.envFor(),
+				},
 				Meta: ir.Meta{Source: loc(c.SourceLocation), Description: "RUN " + strings.Join(c.Args, " ")},
 			}
 
@@ -1727,6 +1730,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		// LOCALLY function wrote its file two directories up, and the assertion
 		// beside it read a file nobody had written (E964).
 		rs.dir = p.hereRelative()
+		rs.hostAbs = false
 
 		return prev, nil
 
@@ -1866,6 +1870,12 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 						" registry answers",
 					c.Args[0], loc(c.SourceLocation), rs.envUnreadable)
 			}
+		}
+
+		// On the host an absolute directory is one on this machine, and stays so
+		// under a relative one after it; a container's is in its own filesystem.
+		if rs.host && strings.HasPrefix(dir, "/") {
+			rs.hostAbs = true
 		}
 
 		rs.dir = resolveDir(rs.dir, dir)
@@ -2036,6 +2046,13 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 		return prev, nil
 
 	case earthfile.CmdSaveArtifact:
+		// A LOCALLY target's artifact is a path on this machine, not one in a
+		// filesystem below it - so it needs no `FROM`, and is not `FROM
+		// scratch`'s "no working directory" either.
+		if rs.host {
+			return p.saveHostArtifact(c, prev, rs)
+		}
+
 		if prev == nil {
 			return nil, fmt.Errorf(
 				"SAVE ARTIFACT at %s has no filesystem to take from\n  a target begins with FROM",
@@ -2121,6 +2138,76 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 	default:
 		return nil, unsupported(string(c.Name), loc(c.SourceLocation), arrival[c.Name])
 	}
+}
+
+// saveHostArtifact is `SAVE ARTIFACT` in a LOCALLY target.
+//
+// **Read after the host step, by a step of its own.** The path is what the
+// commands before it wrote on this machine, so it cannot be digested while
+// planning the way a context is - that would see the previous build's files, or
+// none. A capture ordered after the host step reads it when it is there.
+//
+// **Never cached**, for the reason the host step is not (I7): nothing bounds
+// what it wrote, so there is no key under which an earlier capture is this one.
+//
+// Relative to the directory the host step runs in - the Earthfile's, or a
+// WORKDIR after LOCALLY - and confined to the project, the rule a context has.
+// An absolute path, or one under an absolute WORKDIR, is a file on this machine
+// (ir.Op.HostAbs): the reference reads those, and a LOCALLY target already runs
+// arbitrary commands here, so reading what it names is the same act.
+func (p *Plan) saveHostArtifact(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, error) {
+	where := loc(c.SourceLocation)
+
+	var opts cmdopts.SaveArtifact
+
+	args, err := flagutil.ParseArgsCleaned(string(earthfile.CmdSaveArtifact), &opts, c.Args)
+	if err != nil {
+		return nil, fmt.Errorf("%s (%s): %w", earthfile.CmdSaveArtifact, where, err)
+	}
+
+	if len(args) == 0 {
+		return nil, fmt.Errorf("SAVE ARTIFACT needs a path (%s)", where)
+	}
+
+	// An absolute path is a file on this machine, and so is a relative one under
+	// an absolute WORKDIR; anything else is from the project.
+	abs := rs.hostAbs || filepath.IsAbs(args[0])
+
+	dir := strings.TrimPrefix(filepath.Clean("/"+rs.dir), "/")
+	if filepath.IsAbs(args[0]) {
+		dir = ""
+	}
+
+	rel := filepath.Clean(filepath.Join(dir, strings.TrimPrefix(args[0], "/")))
+
+	if !abs && (rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))) {
+		return nil, fmt.Errorf("SAVE ARTIFACT at %s: %q leaves the project", where, args[0])
+	}
+
+	capture := &ir.Node{
+		Op:   ir.Op{Kind: ir.OpLocal, Args: []string{rel}, NoCache: true, HostAbs: abs},
+		Meta: ir.Meta{Source: where, Description: "capture " + args[0]},
+	}
+
+	if prev != nil {
+		capture.Inputs = []*ir.Node{prev}
+	}
+
+	a, err := artifact(c, capture, "/"+dir, rs.args.expandDest, p.here.fetchedFrom == "")
+	if err != nil {
+		return nil, err
+	}
+
+	// Where the capture stages it, which is its path in the project.
+	a.Path = filepath.Join("/", rel)
+	p.Artifacts = append(p.Artifacts, a)
+
+	// **The target's new state, not a step beside it.** `COPY +t/x` reads from
+	// the target's last step and finds x in that step's stack, so a capture off
+	// the chain left the COPY reading the host step's empty layer. A host step
+	// after it stands on it harmlessly - it ignores its base - and the stack
+	// then carries every capture the target made.
+	return capture, nil
 }
 
 // artifact parses `SAVE ARTIFACT <path> [AS LOCAL <dest>]`.

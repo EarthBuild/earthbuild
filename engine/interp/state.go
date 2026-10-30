@@ -68,6 +68,9 @@ type state struct {
 	// host says the recipe has passed a LOCALLY, so its steps run on the
 	// invoking machine.
 	host bool
+	// hostAbs says dir, on a host step, is from this machine's root rather than
+	// the project's: an absolute WORKDIR after LOCALLY. See ir.Op.HostAbs.
+	hostAbs bool
 	// globals are the arguments declared `ARG --global`, which reach every
 	// recipe of this file including the inside of a function.
 	//

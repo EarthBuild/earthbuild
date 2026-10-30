@@ -31,6 +31,7 @@ import (
 	"github.com/EarthBuild/earthbuild/engine/ignore"
 	"github.com/EarthBuild/earthbuild/engine/image"
 	"github.com/EarthBuild/earthbuild/engine/ir"
+	"github.com/EarthBuild/earthbuild/engine/layer"
 	"github.com/EarthBuild/earthbuild/engine/store"
 	"github.com/EarthBuild/earthbuild/engine/timing"
 )
@@ -1018,13 +1019,14 @@ func rememberImageLayer(shared string, id ir.NodeID) {
 //
 // Identity comes from the node, whose Content digest already covers the bytes
 // (green paper §3.3a via the interpreter), so a context that has not changed is
-// staged once and found thereafter.
+// staged once and found thereafter. A host capture is the exception - see
+// captureName.
 func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 	if e.Context == "" {
 		return core.Result{}, fmt.Errorf("no build context configured, but %s needs one", n.Meta.Source)
 	}
 
-	if store.DirStore(e.sb.StoreDir()).Has(n.ID()) {
+	if !isCapture(n) && store.DirStore(e.sb.StoreDir()).Has(n.ID()) {
 		return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
 	}
 
@@ -1059,14 +1061,61 @@ func (e *Executor) stageContext(n *ir.Node) (core.Result, error) {
 		return core.Result{}, err
 	}
 
-	err = st.PutNamed(n.ID(), dir)
+	name, err := layerNameFor(n, dir)
+	if err != nil {
+		return core.Result{}, err
+	}
+
+	// A capture identical to one already filed is that one.
+	if name != n.ID() && st.Has(name) {
+		return core.Result{Layer: name, Captured: e.sb.Confines()}, nil
+	}
+
+	err = st.PutNamed(name, dir)
 	if err != nil {
 		return core.Result{}, fmt.Errorf("file the build context: %w", err)
 	}
 
 	committed = true
 
-	return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
+	return core.Result{Layer: name, Captured: e.sb.Confines()}, nil
+}
+
+// isCapture reports whether a context step reads what a host step wrote - a
+// LOCALLY target's `SAVE ARTIFACT` - rather than a path digested while planning.
+//
+// The interpreter marks it uncacheable, and that is the whole test: an ordinary
+// context is never NoCache.
+func isCapture(n *ir.Node) bool { return n.Op.Kind == ir.OpLocal && n.Op.NoCache }
+
+// layerNameFor is what a staged context is filed as.
+//
+// **A capture is named by what was staged.** An ordinary context's identity
+// covers its bytes, because the interpreter digested them; a capture's cannot -
+// the host step that writes them has not run when the plan is made - so its
+// node is the same on every build. Filed under that, the second build found the
+// first build's layer already held and was served it.
+//
+// The layer's own identity, mtimes included, rather than its content: a
+// consumer that compares mtimes - cargo - must not be handed an earlier copy of
+// the same bytes stamped with earlier times.
+func layerNameFor(n *ir.Node, staged string) (ir.NodeID, error) {
+	if !isCapture(n) {
+		return n.ID(), nil
+	}
+
+	c, err := layer.Take(staged)
+	if err != nil {
+		return ir.NodeID{}, fmt.Errorf("read back the capture of %s (%s): %w",
+			n.Op.Args[0], n.Meta.Source, err)
+	}
+
+	id := n.ID()
+	h := ir.NewHasher()
+	h.Fixed(id[:])
+	h.Fixed(c.ID[:])
+
+	return h.Sum(), nil
 }
 
 // copyStep implements COPY: materialise the base, copy from the context layer,
@@ -1413,8 +1462,24 @@ func (e *Executor) hostStep(ctx context.Context, n *ir.Node) (core.Result, error
 	// The project directory, because a LOCALLY target's commands are written
 	// relative to the Earthfile that contains them. WORKDIR moves within it.
 	cmd.Dir = e.Context
-	if n.Op.Dir != "" && n.Op.Dir != "/" {
+
+	switch {
+	case n.Op.HostAbs:
+		// An absolute WORKDIR after LOCALLY, which is a directory on this
+		// machine and not one under the project. See ir.Op.HostAbs.
+		cmd.Dir = filepath.Clean("/" + n.Op.Dir)
+
+	case n.Op.Dir != "" && n.Op.Dir != "/":
 		cmd.Dir = filepath.Join(e.Context, filepath.Clean("/"+n.Op.Dir))
+	}
+
+	// **A WORKDIR makes its directory**, on this machine as in a container: the
+	// reference does, and `tests/local+test-locally-workdir` names a fresh one.
+	if cmd.Dir != e.Context {
+		err := os.MkdirAll(cmd.Dir, 0o755) //nolint:gosec // a directory the Earthfile named, as a shell would make it
+		if err != nil {
+			return core.Result{}, fmt.Errorf("make the WORKDIR %s for %s: %w", cmd.Dir, n.Meta.Source, err)
+		}
 	}
 
 	// A host step inherits the machine's environment, with ε layered on top.
@@ -1427,7 +1492,11 @@ func (e *Executor) hostStep(ctx context.Context, n *ir.Node) (core.Result, error
 	// costing the feature entirely: with an empty environment there is no PATH,
 	// and a LOCALLY target cannot run `tr`, `mkdir`, or anything else that is
 	// not a shell builtin.
-	cmd.Env = os.Environ()
+	//
+	// PWD is the step's own directory, not this process's: a shell given a PWD
+	// that is not its cwd discards it and reports the physical path, so `pwd`
+	// under `WORKDIR /tmp/x` said /private/tmp/x on macOS.
+	cmd.Env = append(os.Environ(), "PWD="+cmd.Dir)
 	for k, v := range n.Op.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
@@ -2179,7 +2248,14 @@ func insideContext(root, src string) error {
 		return nil //nolint:nilerr // reported by the caller's stat, with the path
 	}
 
-	if lands != base && !strings.HasPrefix(lands, base+string(filepath.Separator)) {
+	// The root's own separator is not doubled: under `/` - a LOCALLY capture of a
+	// file on this machine - `base + "/"` was `//`, which nothing begins with.
+	under := base
+	if !strings.HasSuffix(under, string(filepath.Separator)) {
+		under += string(filepath.Separator)
+	}
+
+	if lands != base && !strings.HasPrefix(lands, under) {
 		return fmt.Errorf("leaves the build context through a symlink, to %s"+
 			"\n  a link in the context is followed only as far as the context goes", lands)
 	}
@@ -2199,6 +2275,11 @@ func (e *Executor) copyContextInto(n *ir.Node, dir string) error {
 	root := n.Meta.ContextRoot
 	if root == "" {
 		root = e.Context
+	}
+
+	// A LOCALLY capture of a file on this machine, named from its root.
+	if n.Op.HostAbs {
+		root = "/"
 	}
 
 	src := filepath.Join(root, filepath.Clean("/"+n.Op.Args[0]))
@@ -2274,9 +2355,11 @@ func (e *Executor) stageContextInGuest(ctx context.Context, n *ir.Node) (core.Re
 
 	// **Asked, not stated.** The store is on a device this machine cannot read,
 	// so whether the context is already filed is the guest's answer to give.
-	held, herr := c.StoreHas(ctx, []ir.NodeID{n.ID()})
-	if herr == nil && len(held) == 1 {
-		return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
+	if !isCapture(n) {
+		held, herr := c.StoreHas(ctx, []ir.NodeID{n.ID()})
+		if herr == nil && len(held) == 1 {
+			return core.Result{Layer: n.ID(), Captured: e.sb.Confines()}, nil
+		}
 	}
 
 	// Beside the image blobs, which is the directory already established as one
@@ -2307,7 +2390,12 @@ func (e *Executor) stageContextInGuest(ctx context.Context, n *ir.Node) (core.Re
 	// directory and then reads all of it back to pack it; packing it where it
 	// lies does that work once. 350ms of copying in front of 154ms of packing,
 	// against 152ms to pack alone, over 2000 files (E829c).
-	if directContextPack() {
+	//
+	// Never direct for a capture, which is named by the staged tree and so needs
+	// one to read back. See layerNameFor.
+	name := n.ID()
+
+	if directContextPack() && !isCapture(n) {
 		endPack := phase("context:pack", n.Meta.Source)
 		err = e.packContextDirect(ctx, n, tarball)
 		endPack()
@@ -2322,6 +2410,27 @@ func (e *Executor) stageContextInGuest(ctx context.Context, n *ir.Node) (core.Re
 
 		if err != nil {
 			return core.Result{}, err
+		}
+
+		name, err = layerNameFor(n, staged)
+		if err != nil {
+			return core.Result{}, err
+		}
+
+		if name != n.ID() {
+			held, herr := c.StoreHas(ctx, []ir.NodeID{name})
+			if herr == nil && len(held) == 1 {
+				return core.Result{Layer: name, Captured: e.sb.Confines()}, nil
+			}
+
+			// **Under the name of what it holds.** A capture's node is the same
+			// on every build while its bytes are not, so a tarball named by the
+			// node reused one path for different contents, build after build -
+			// and the guest, reading through the shared mount, failed every
+			// other build with `open .../context-<id>.tar: no such file or
+			// directory`. A context never re-places a name: its node names its
+			// bytes, and StoreHas answers first.
+			tarball = filepath.Join(blobs, "context-"+name.String()+".tar")
 		}
 
 		endPack := phase("context:pack", n.Meta.Source)
@@ -2345,7 +2454,7 @@ func (e *Executor) stageContextInGuest(ctx context.Context, n *ir.Node) (core.Re
 			n.Meta.Source, err)
 	}
 
-	id, err := c.UnpackLayerAs(ctx, at, contextMedia, n.ID())
+	id, err := c.UnpackLayerAs(ctx, at, contextMedia, name)
 	if err != nil {
 		return core.Result{}, fmt.Errorf("file the build context (%s): %w", n.Meta.Source, err)
 	}

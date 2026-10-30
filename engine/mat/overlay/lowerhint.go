@@ -114,13 +114,25 @@ func mountOptions(lower []string, upper, work string, userxattr bool) string {
 	// false means this process can write; the kernel refuses `redirect_dir=on`
 	// to a mounter that cannot, so asking there would turn a mount that works
 	// imperfectly into no mount at all.
-	return opts + "," + redirectDir
+	//
+	// **And metacopy off, which redirecting turns on.** metacopy needs
+	// redirect_dir, so asking for this let a kernel built with metacopy on by
+	// default use it: a copy-up that changes only metadata - a chown, a mode, a
+	// hard link - writes the metadata to the upper directory and leaves the data
+	// in the lower layer. A capture stores the upper directory as the step's
+	// whole delta, so the file arrived as zeros of the right size. cargo
+	// hard-links its git databases into its checkouts, and the midnight-node warm
+	// build found parity-db's pack index all zeros.
+	return opts + "," + redirectDir + "," + noMetacopy
 }
 
 // redirectDir is the option that lets a directory be renamed out of a lower
 // layer, named once because the mount asks for it and the fallback removes it,
 // and a mount that retried with a different spelling would retry for ever.
 const redirectDir = "redirect_dir=on"
+
+// noMetacopy keeps a copy-up's data in the upper directory. See mountOptions.
+const noMetacopy = "metacopy=off"
 
 // opaqueXattr is the attribute the mount above will read as "this directory
 // replaces the one below".

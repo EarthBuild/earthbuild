@@ -57,7 +57,11 @@ import (
 //	   were served over other bases by Κ₂ and Κₜ, although a file it writes
 //	   must be newer than the base it lands on. Both wrote wrong entries under
 //	   keys that did not change with the fix.
-const cacheEpoch = 6
+//	7  overlayfs metacopy, which asking for redirect_dir turned on: a copy-up
+//	   that changed only metadata - a hard link, a chown, a mode - left the
+//	   data in the lower layer, and the captured delta held zeros of the
+//	   right size. Every such layer sits under a key the fix does not change.
+const cacheEpoch = 7
 
 // DeriveObservedKey computes Κ₂ at the current epoch.
 func DeriveObservedKey(n *ir.Node, refs []ir.NodeID, obs Observation) Key {

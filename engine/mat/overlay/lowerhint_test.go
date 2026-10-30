@@ -165,3 +165,23 @@ func TestTheDepthTheOptionPageAllows(t *testing.T) {
 		t.Errorf("only %d layers fit in the option page, which ordinary targets will exceed", fits)
 	}
 }
+
+// A mount that redirects directories turns metacopy off.
+//
+// metacopy needs redirect_dir, so asking for redirect_dir is what let a kernel
+// built with metacopy on by default use it. A metacopy copy-up writes only the
+// metadata to the upper directory and leaves the data in the lower layer - and
+// a capture stores the upper directory as the step's whole delta, so the file
+// arrived as zeros of the right size. `RUN ln /f /g` over a lower /f did it,
+// and cargo's git databases are hard-linked into its checkouts: the
+// midnight-node warm build found parity-db's pack index all zeros.
+func TestARedirectingMountTurnsMetacopyOff(t *testing.T) {
+	t.Parallel()
+
+	for _, userxattr := range []bool{false, true} {
+		opts := mountOptions([]string{"/l"}, "/scratch/upper", "/scratch/work", userxattr)
+		if strings.Contains(opts, "redirect_dir=on") && !strings.Contains(opts, "metacopy=off") {
+			t.Errorf("userxattr=%v: %q redirects without turning metacopy off", userxattr, opts)
+		}
+	}
+}

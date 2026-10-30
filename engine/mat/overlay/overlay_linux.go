@@ -321,6 +321,13 @@ func (m *Materialiser) Materialise(ctx context.Context, stack []ir.NodeID) (core
 
 	err = unix.Mount("overlay", merged, "overlay", 0, opts)
 
+	// A kernel older than the option has no metacopy to turn off, so the mount
+	// it refuses is the same mount without the words.
+	if err != nil && strings.Contains(opts, noMetacopy) {
+		opts = strings.ReplaceAll(opts, ","+noMetacopy, "")
+		err = unix.Mount("overlay", merged, "overlay", 0, opts)
+	}
+
 	// **A kernel that will not redirect is not a kernel with no overlay.** The
 	// option is asked for wherever the metadata can be written, and it is the
 	// mounter's privilege that decides that - not the kernel's build. A kernel

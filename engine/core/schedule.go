@@ -1531,8 +1531,8 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 	// because the result depends on them, kept out of the stack because they
 	// must not be mounted.
 	var (
-		// refs identify the sources for the *key*: a source's result layer is
-		// its whole content, so that is what the key needs.
+		// refs identify the sources for the *key*: everything a copy reads out
+		// of each, which for a target is its whole stack. See SourceRef.
 		refs []ir.NodeID
 		// srcStacks are what a copy reads from. Stacks rather than single
 		// layers, because an artifact need not be produced by its target's last
@@ -1542,8 +1542,6 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 	)
 
 	for _, src := range n.Sources {
-		refs = append(refs, s.done[src.ID()].Layer)
-
 		// Named apart from the step's own stack, which is in scope here and
 		// means something else entirely: this one is what a copy reads out of,
 		// that one is what the step stands on.
@@ -1552,6 +1550,7 @@ func (s *Scheduler) evalNode(ctx context.Context, n *ir.Node, idx int) error {
 			srcStack = []ir.NodeID{s.done[src.ID()].Layer}
 		}
 
+		refs = append(refs, SourceRef(srcStack))
 		srcStacks = append(srcStacks, srcStack)
 	}
 

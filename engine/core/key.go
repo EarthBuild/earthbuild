@@ -13,6 +13,7 @@ const (
 	domainObserved  = 0x02 // Κ₂ - stage S5
 	domainClass     = 0x04 // step class, for profile lookup
 	domainComponent = 0x05 // key components, for divergence attribution
+	domainSource    = 0x06 // a copy source of more than one layer - see SourceRef
 )
 
 // Key is a cache key: green paper's κ.
@@ -242,6 +243,34 @@ func hashOperation(h *ir.Hasher, n *ir.Node, refs []ir.NodeID) {
 	// source. Identity and key are derived by different functions over the same
 	// operation; anything the result depends on belongs in both.
 	h.Fixed(n.Op.Content[:])
+}
+
+// SourceRef is what a copy's key holds for one source: everything the copy
+// reads out of it.
+//
+// **The whole stack, not its top layer.** A target's artifact is read from
+// every layer it stands on, so a ref naming the top one alone could not move
+// when a lower one did: edit `d1` in a `COPY --dir d1 sub /w/`, the `sub` step
+// re-produces its old delta, and the copy above was an L1 hit that served the
+// previous build's bytes (midnight-node, `res/build.rs`).
+//
+// A one-layer stack - every local context, and a target of a single step - is
+// that layer itself, so their keys are the ones they always were and a fixed
+// engine invalidates only the entries that were wrong.
+func SourceRef(stack []ir.NodeID) ir.NodeID {
+	if len(stack) == 1 {
+		return stack[0]
+	}
+
+	h := ir.NewHasher()
+	h.Byte(domainSource)
+	h.Count(len(stack))
+
+	for _, id := range stack {
+		h.Fixed(id[:])
+	}
+
+	return h.Sum()
 }
 
 // hashEnvAndPlatform writes 𝒮(ε) ‖ 𝒮(π), which Κ₁ and Κ₂ end with.

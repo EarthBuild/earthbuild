@@ -736,6 +736,18 @@ func (a *Apple) Start(ctx context.Context) (Conn, error) {
 		args = append(args, "-e", guestd.EnvProfileMode+"="+on)
 	}
 
+	// **The only way to collect a device-backed store**, and both were dropped
+	// here while the Linux backend carried them: the guest collected to its 8 GiB
+	// default with a five-second budget whatever the operator set, and a build
+	// that needed more room ran out mid-capture instead.
+	if on := os.Getenv(guestd.EnvStoreFree); on != "" {
+		args = append(args, "-e", guestd.EnvStoreFree+"="+on)
+	}
+
+	if on := os.Getenv(guestd.EnvCollectBudget); on != "" {
+		args = append(args, "-e", guestd.EnvCollectBudget+"="+on)
+	}
+
 	// **Both sides of the boundary must be the same ℋ.** The guest hashes what
 	// it captures and the host keys on what it is told, so a guest left on the
 	// default while the host was moved to SHA-256 files layers under names the

@@ -76,12 +76,44 @@ func TestEveryGuestSettingIsForwardedOrExcused(t *testing.T) {
 	}
 }
 
-// guestSettings is every EARTH_ variable engine/guest reads, by constant.
+// guestSettings is every EARTH_ variable the guest reads, by constant.
+//
+// **Both packages the guest is built from.** engine/guestd is the agent and
+// reads settings of its own - EARTH_STORE_FREE, EARTH_COLLECT_BUDGET - and a
+// scan of engine/guest alone let this backend drop both while the Linux one
+// carried them: setting either against a VM sandbox did nothing.
 func guestSettings(t *testing.T) map[string]string {
 	t.Helper()
 
-	out := map[string]string{}
-	dir := filepath.Join("..", "guest")
+	out, _ := scanGuestSettings(t)
+
+	return out
+}
+
+// scanGuestSettings is guestSettings, plus each setting's constant by its
+// qualified name (`guestd.EnvStoreFree`), which is how this backend names them.
+func scanGuestSettings(t *testing.T) (map[string]string, map[string]string) {
+	t.Helper()
+
+	out, consts := map[string]string{}, map[string]string{}
+
+	for _, pkg := range []string{"guest", "guestd"} {
+		scanSettings(t, pkg, out, consts)
+	}
+
+	if len(out) < 10 {
+		t.Fatalf("found %d guest settings, which is too few to be the whole list", len(out))
+	}
+
+	return out, consts
+}
+
+// scanSettings adds every `Env* = "EARTH_..."` constant in package pkg to out
+// (value -> file) and consts (`pkg.Name` -> value).
+func scanSettings(t *testing.T, pkg string, out, consts map[string]string) {
+	t.Helper()
+
+	dir := filepath.Join("..", pkg)
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -118,17 +150,12 @@ func guestSettings(t *testing.T) map[string]string {
 				return true
 			}
 
-			out[value] = e.Name()
+			out[value] = filepath.Join(pkg, e.Name())
+			consts[pkg+"."+spec.Names[0].Name] = value
 
 			return true
 		})
 	}
-
-	if len(out) < 10 {
-		t.Fatalf("found %d guest settings, which is too few to be the whole list", len(out))
-	}
-
-	return out
 }
 
 // readForwarded is every variable this backend names in its `-e` arguments.
@@ -144,7 +171,7 @@ func readForwarded(t *testing.T) map[string]bool {
 		t.Fatal(err)
 	}
 
-	names := guestSettings(t)
+	names, consts := scanGuestSettings(t)
 	out := map[string]bool{}
 
 	for name := range names {
@@ -153,59 +180,16 @@ func readForwarded(t *testing.T) map[string]bool {
 		}
 	}
 
-	// The constants are also named through the guest package, which the literal
+	// The constants are also named through their packages, which the literal
 	// search above misses. Found rather than listed: a hand-kept list of which
 	// constants this file mentions is the same drift this whole test exists to
-	// prevent, one level up.
-	for _, ref := range regexp.MustCompile(`guest\.Env\w+`).FindAllString(string(b), -1) {
-		out[envValueOf(t, ref)] = true
+	// prevent, one level up. Both packages, because `guest\.` alone never saw
+	// `guestd.EnvCacheAddr` forwarded.
+	for _, ref := range regexp.MustCompile(`\bguestd?\.Env\w+`).FindAllString(string(b), -1) {
+		if value, ok := consts[ref]; ok {
+			out[value] = true
+		}
 	}
 
 	return out
-}
-
-// envValueOf maps `guest.EnvFoo` to the string it holds.
-func envValueOf(t *testing.T, ref string) string {
-	t.Helper()
-
-	want := strings.TrimPrefix(ref, "guest.")
-
-	dir := filepath.Join("..", "guest")
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, e := range entries {
-		if !strings.HasSuffix(e.Name(), ".go") {
-			continue
-		}
-
-		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(dir, e.Name()), nil, 0)
-		if err != nil {
-			continue
-		}
-
-		found := ""
-
-		ast.Inspect(file, func(n ast.Node) bool {
-			spec, ok := n.(*ast.ValueSpec)
-			if !ok || len(spec.Names) != 1 || spec.Names[0].Name != want || len(spec.Values) != 1 {
-				return true
-			}
-
-			if lit, ok := spec.Values[0].(*ast.BasicLit); ok {
-				found, _ = strconv.Unquote(lit.Value)
-			}
-
-			return true
-		})
-
-		if found != "" {
-			return found
-		}
-	}
-
-	return want
 }

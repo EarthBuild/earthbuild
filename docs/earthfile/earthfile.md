@@ -543,6 +543,10 @@ Instructs EarthBuild to not overwrite the file creation timestamps with a consta
 
 Instructs EarthBuild to keep file ownership information. This applies only to the _artifact form_ and has no effect otherwise.
 
+Ownership preservation does not select the copy mode. Linked copying follows the
+Earthfile version and can be disabled with
+[`VERSION --no-use-copy-link`](features.md#--no-use-copy-link).
+
 ##### `--chmod <octal-format>`
 
 Instructs EarthBuild to change the file permissions of the copied files. The `<chmod>` needs to be in octal format, e.g. `--chmod 0755` or `--chmod 755`.

@@ -19,6 +19,7 @@ import (
 // backwards compatibility.
 type Features struct {
 	// Never enabled by default
+	NoUseCopyLink              bool `description:"disable use-copy-link"                long:"no-use-copy-link"`
 	NoUseRegistryForWithDocker bool `description:"disable use-registry-for-with-docker" long:"no-use-registry-for-with-docker"` //nolint:lll // escape hatch for disabling WITH DOCKER registry, e.g. used by eine-based tests
 
 	// VERSION 0.5
@@ -248,6 +249,10 @@ func versionAtLeast(ftrs Features, majorVersion, minorVersion int) bool {
 }
 
 func processNegativeFlags(ftrs *Features) {
+	if ftrs.NoUseCopyLink {
+		ftrs.UseCopyLink = false
+	}
+
 	if ftrs.NoUseRegistryForWithDocker {
 		ftrs.UseRegistryForWithDocker = false
 	}

@@ -34,8 +34,19 @@ func CopyOp(
 	}
 
 	var baseCopyOpts []llb.CopyOption
+
+	ownerNeedsLookup := false
+
 	if chown != "" {
-		baseCopyOpts = append(baseCopyOpts, llb.WithUser(chown))
+		owner := llb.WithUser(chown)
+		baseCopyOpts = append(baseCopyOpts, owner)
+
+		var info llb.CopyInfo
+		owner.SetCopyOption(&info)
+		// Numeric IDs (including BuildKit's root alias) need no base filesystem.
+		// Named users/groups still need its passwd/group files for resolution.
+		ownerNeedsLookup = info.ChownOpt.User != nil && info.ChownOpt.User.Name != "" ||
+			info.ChownOpt.Group != nil && info.ChownOpt.Group.Name != ""
 	}
 
 	var fa *pllb.FileAction
@@ -77,7 +88,7 @@ func CopyOp(
 		return destState, nil
 	}
 
-	if merge && chown == "" {
+	if merge && !ownerNeedsLookup {
 		cwd, err := destState.GetDir(ctx)
 		if err != nil {
 			return pllb.State{}, err

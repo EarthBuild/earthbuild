@@ -321,6 +321,8 @@ earth --config \$earth_config --verbose +copy 2>&1 | tee output2.txt;
 copy-keep-own-test:
     DO +RUN_EARTH --target=+test-known-user --earthfile=copy-keep-own.earth
     DO +RUN_EARTH --target=+test-unknown-user --earthfile=copy-keep-own.earth
+    DO +RUN_EARTH --target=+test --earthfile=copy-link-ownership.earth
+    DO +RUN_EARTH --target=+test --earthfile=copy-link-disabled.earth
 
 copy-tilde-test:
     RUN touch in

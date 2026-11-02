@@ -66,6 +66,7 @@ VERSION [<flags>...] <version-number>
 | `--use-cache-command`                   | 0.7                                                                             | Allow use of `CACHE` command in Earthfiles                                                                        |
 | `--use-host-command`                    | 0.7                                                                             | Allow use of `HOST` command in Earthfiles                                                                         |
 | `--use-copy-link`                       | 0.7                                                                             | Use the equivalent of `COPY --link` for all copy-like operations                                                  |
+| `--no-use-copy-link`                    | Explicit opt-out                                                                 | Disable linked copying, including defaults enabled by VERSION 0.7 and later; follow destination symlinks          |
 | `--new-platform`                        | 0.7                                                                             | Enable new platform behavior                                                                                      |
 | `--no-tar-build-output`                 | 0.7                                                                             | Do not print output when creating a tarball to load into `WITH DOCKER`                                            |
 | `--use-no-manifest-list`                | 0.7                                                                             | Enable the `SAVE IMAGE --no-manifest-list` option                                                                 |
@@ -136,3 +137,26 @@ When this feature is **disabled**, EarthBuild will output artifacts and images r
 *Enables support for `FOR ... IN ...` commands*
 
 When enabled, EarthBuild will allow the use of `FOR ... IN ...` commands.
+
+##### `--no-use-copy-link`
+
+Use ordinary copies instead of linked copies while retaining the other features
+of the declared Earthfile version:
+
+```Dockerfile
+VERSION --no-use-copy-link 0.8
+```
+
+This flag takes precedence over `--use-copy-link`, including when that flag is
+enabled by the Earthfile version. It is also available through
+`EARTH_VERSION_FLAG_OVERRIDES=no-use-copy-link`.
+
+Linked copies are created independently of the previous destination filesystem.
+They do not follow existing destination symlinks: copying into `/bin` when `/bin`
+is a symlink to `/usr/bin` replaces that symlink with a directory. Disabling linked
+copying follows destination symlinks, like Dockerfile `COPY` without `--link`.
+
+`COPY --keep-own` controls ownership preservation independently of this setting.
+Default root ownership and explicit numeric `--chown` values can use linked
+copies. Named users or groups still require an ordinary copy to resolve names
+against the destination image's `/etc/passwd` and `/etc/group`.

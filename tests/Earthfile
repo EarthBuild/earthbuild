@@ -319,10 +319,17 @@ earth --config \$earth_config --verbose +copy 2>&1 | tee output2.txt;
     RUN ls -la important-data
 
 copy-keep-own-test:
+    COPY copy-link-payload.txt Dockerfile.copy-link ./
     DO +RUN_EARTH --target=+test-known-user --earthfile=copy-keep-own.earth
     DO +RUN_EARTH --target=+test-unknown-user --earthfile=copy-keep-own.earth
     DO +RUN_EARTH --target=+test --earthfile=copy-link-ownership.earth
     DO +RUN_EARTH --target=+test --earthfile=copy-link-disabled.earth
+    DO +RUN_EARTH --target=+named --earthfile=copy-link-ownership.earth --should_fail=true --output_contains="use numeric ownership.*VERSION --no-use-copy-link 0.8"
+    DO +RUN_EARTH --target=+named-group --earthfile=copy-link-ownership.earth --should_fail=true --output_contains="use numeric ownership.*VERSION --no-use-copy-link 0.8"
+    DO +RUN_EARTH --target=+named-context --earthfile=copy-link-ownership.earth --should_fail=true --output_contains="use numeric ownership.*VERSION --no-use-copy-link 0.8"
+    DO +RUN_EARTH --target=+inherited-named --earthfile=copy-link-ownership.earth --should_fail=true --output_contains="use numeric ownership.*VERSION --no-use-copy-link 0.8"
+    DO +RUN_EARTH --target=+inherited-named-context --earthfile=copy-link-ownership.earth --should_fail=true --output_contains="use numeric ownership.*VERSION --no-use-copy-link 0.8"
+    DO +RUN_EARTH --target=+git-named --earthfile=copy-link-ownership.earth --should_fail=true --output_contains="use numeric ownership.*VERSION --no-use-copy-link 0.8"
 
 copy-tilde-test:
     RUN touch in

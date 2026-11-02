@@ -1,0 +1,9 @@
+FROM alpine:3.24.2 AS initial
+RUN adduser -D testuser && mkdir /real && ln -s /real /linked
+USER testuser
+
+FROM initial AS linked
+COPY --link copy-link-payload.txt /linked/payload
+
+FROM initial AS ordinary
+COPY copy-link-payload.txt /linked/payload

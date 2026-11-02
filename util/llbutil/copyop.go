@@ -14,8 +14,8 @@ import (
 	"github.com/moby/buildkit/client/llb"
 )
 
-// CopyOp builds an LLB copy with the requested ownership. When merge is enabled,
-// copies are linked unless ownership requires user/group lookup in destState.
+// CopyOp builds an LLB copy with the requested ownership. Linked copies reject
+// ownership that requires user/group lookup in the destination filesystem.
 // Numeric IDs and BuildKit's root alias do not require that lookup.
 func CopyOp(
 	ctx context.Context,
@@ -37,8 +37,6 @@ func CopyOp(
 
 	var baseCopyOpts []llb.CopyOption
 
-	ownerNeedsLookup := false
-
 	if chown != "" {
 		owner := llb.WithUser(chown)
 		baseCopyOpts = append(baseCopyOpts, owner)
@@ -47,8 +45,14 @@ func CopyOp(
 		owner.SetCopyOption(&info)
 		// Numeric IDs (including BuildKit's root alias) need no base filesystem.
 		// Named users/groups still need its passwd/group files for resolution.
-		ownerNeedsLookup = info.ChownOpt.User != nil && info.ChownOpt.User.Name != "" ||
+		ownerNeedsLookup := info.ChownOpt.User != nil && info.ChownOpt.User.Name != "" ||
 			info.ChownOpt.Group != nil && info.ChownOpt.Group.Name != ""
+		if merge && ownerNeedsLookup {
+			return pllb.State{}, fmt.Errorf(
+				"linked copy cannot resolve user/group names in ownership %q; "+
+					"use numeric ownership (COPY --chown=UID:GID or USER UID:GID), "+
+					"or disable linked copying with VERSION --no-use-copy-link 0.8", chown)
+		}
 	}
 
 	var fa *pllb.FileAction
@@ -90,7 +94,7 @@ func CopyOp(
 		return destState, nil
 	}
 
-	if merge && !ownerNeedsLookup {
+	if merge {
 		cwd, err := destState.GetDir(ctx)
 		if err != nil {
 			return pllb.State{}, err

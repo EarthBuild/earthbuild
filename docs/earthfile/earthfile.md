@@ -452,6 +452,18 @@ The command `COPY` allows copying of files and directories between different con
 
 The command may take a couple of possible forms. In the _classical form_, `COPY` copies files and directories from the build context into the build environment - in this form, it works similarly to the [Dockerfile `COPY` command](https://docs.docker.com/engine/reference/builder/#copy). In the _artifact form_, `COPY` copies files or directories (also known as "artifacts" in this context) from the artifact environment of other build targets into the build environment of the current target. Either form allows the use of wildcards for the sources.
 
+For both forms, EarthBuild assigns copied files to the current image `USER` by
+default, or to root when no user is set. Dockerfile `COPY` does not derive its
+ownership from `USER`. Use `--chown` to override the implicit ownership, or
+`--keep-own` to retain the source metadata instead. An explicit `--chown` takes
+precedence over `--keep-own`.
+
+When linked copying is enabled, including by default from `VERSION 0.7`, ownership
+that needs a user/group name lookup fails with guidance to use numeric IDs or
+`VERSION --no-use-copy-link 0.8`. This also applies to an implicit named `USER`.
+BuildKit's literal `root` alias is numeric zero and does not need lookup. See the
+[copy-link setting and its scope](features.md#--no-use-copy-link).
+
 The parameter `<src-artifact>` is an [artifact reference](../guides/importing.md#artifact-reference) and is generally of the form `<target-ref>/<artifact-path>`, where `<target-ref>` is the reference to the target which needs to be built in order to yield the artifact and `<artifact-path>` is the path within the artifact environment of the target, where the file or directory is located. The `<artifact-path>` may also be a wildcard.
 
 {% hint style='info' %}
@@ -498,7 +510,7 @@ The classical form of the `COPY` command differs from Dockerfiles in three cases
 
 - URL sources are not yet supported.
 - Absolute paths are not supported - sources in the current directory cannot be referenced with a leading `/`
-- EarthBuild enables linked copying (layer merging, like Dockerfile `COPY --link`) by default in `VERSION 0.7` and later. Earlier versions can enable it with `--use-copy-link`. `VERSION --no-use-copy-link` disables it, and ownership that requires user/group name lookup also uses an ordinary copy. BuildKit treats the `root` alias as numeric zero, so `--chown=root:root` can still use linked copying. Linked copies do not follow existing destination symlinks; ordinary copies do. See [the copy-link feature documentation](features.md#--no-use-copy-link).
+- EarthBuild enables linked copying (layer merging, like Dockerfile `COPY --link`) by default in `VERSION 0.7` and later. Earlier versions can enable it with `--use-copy-link`. `VERSION --no-use-copy-link` disables it, and linked copies fail when ownership requires user/group name lookup. BuildKit treats the `root` alias as numeric zero, so `--chown=root:root` can still use linked copying. Linked copies do not follow existing destination symlinks; ordinary copies do. See [the copy-link feature documentation](features.md#--no-use-copy-link).
 
 {% hint style='info' %}
 
@@ -539,9 +551,20 @@ COPY (+target1/artifact --arg1=foo --arg2=bar) ./dest/path
 
 Instructs EarthBuild to not overwrite the file creation timestamps with a constant.
 
+##### `--chown <user>[:<group>]`
+
+Overrides the ownership of copied files, taking precedence over `USER` and
+`--keep-own`. Numeric IDs, such as `--chown=1000:1000`, work with linked copying.
+Named users/groups need lookup in the destination image and require ordinary
+copying, enabled with `VERSION --no-use-copy-link 0.8`. The literal `root` alias
+is treated as numeric zero.
+
 ##### `--keep-own`
 
-Instructs EarthBuild to keep file ownership information. This applies only to the _artifact form_ and has no effect otherwise.
+Suppresses implicit ownership assignment from `USER`. Artifact copies retain the
+ownership recorded in the artifact environment. Context copies retain the
+ownership provided by the context; local build contexts normalize UID/GID to
+zero, rather than preserving host ownership.
 
 Ownership preservation does not select the copy mode. Linked copying follows the
 Earthfile version and can be disabled with
@@ -552,7 +575,7 @@ Earthfile version and can be disabled with
 Instructs EarthBuild to change the file permissions of the copied files. The `<chmod>` needs to be in octal format, e.g. `--chmod 0755` or `--chmod 755`.
 
 {% hint style='info' %}
-Note that you must include the flag in the corresponding `SAVE ARTIFACT --keep-own ...` command, if using _artifact form_.
+Before `VERSION 0.7`, include `--keep-own` in the corresponding `SAVE ARTIFACT` command as well, or enable `--save-artifact-keep-own`. Later versions preserve artifact ownership by default.
 {% endhint %}
 
 ##### `--if-exists`
@@ -759,6 +782,12 @@ It's always best to declare args as deep and late as possible within the specifi
 #### Description
 
 The command `SAVE ARTIFACT` copies a file, a directory, or a series of files and directories represented by a wildcard, from the build environment into the target's artifact environment.
+
+Artifact-staging copies honor the Earthfile's copy-link setting. Ownership is
+preserved by default from `VERSION 0.7`; earlier versions need `--keep-own` or
+`--save-artifact-keep-own`. The final host transfer for `AS LOCAL` uses a separate
+filesystem-copy implementation rather than linked image layers. See the
+[copy-link scope](features.md#--no-use-copy-link) for the other copy paths.
 
 If `AS LOCAL ...` is also specified, it additionally marks the artifact to be copied to the host at the location specified by `<local-path>`, once the build is deemed as successful. Note that local artifacts are only produced by targets that are run directly with `earth`, or when invoked using [`BUILD`](#build).
 
@@ -1142,6 +1171,11 @@ The `PROJECT` command can only be used in the `base` recipe and it applies to th
 
 The command `GIT CLONE` clones a git repository from `<git-url>`, optionally referenced by `<git-ref>`, into the build environment, within the `<dest-path>`.
 
+The cloned files are copied into the image using the Earthfile's copy-link
+setting and the image's current `USER`, when set. A named `USER` requires name
+lookup and fails when linking is enabled. Use a numeric `USER UID:GID`, or
+`VERSION --no-use-copy-link 0.8` to allow name lookup with ordinary copying.
+
 In contrast to an operation like `RUN git clone <git-url> <dest-path>`, the command `GIT CLONE` is cache-aware and correctly distinguishes between different git commit IDs when deciding to reuse a previous cache or not. In addition, `GIT CLONE` can also use [Git authentication configuration](../guides/auth.md) passed on to `earth`, whereas `RUN git clone` would require additional secrets passing, if the repository is not publicly accessible.
 
 Note that the repository is cloned via a shallow-clone operation (i.e. a single-depth clone).
@@ -1192,6 +1226,10 @@ Instructs EarthBuild to not overwrite the file creation timestamps with a consta
 #### Description
 
 The `FROM DOCKERFILE` command initializes a new build environment, inheriting from an existing Dockerfile. This allows the use of Dockerfiles in EarthBuild builds.
+
+Dockerfile `COPY` and `ADD` use the Dockerfile frontend's ownership and linking
+rules. The enclosing Earthfile's `--use-copy-link` or `--no-use-copy-link` does
+not override them; use Dockerfile `--link` or `--link=false` as appropriate.
 
 The `<context-path>` is the path where the Dockerfile build context exists. By default, it is assumed that a file named `Dockerfile` exists in that directory. The context path can be either a path on the host system, or an [artifact reference](../guides/importing.md#artifact-reference), pointing to a directory containing a `Dockerfile`.
 Additionally, when using a `<context-path>` from the host system, a `.dockerignore` in the directory root will be used to exclude files (unless `.earthlyignore` or `.earthignore` are present).
@@ -1947,7 +1985,9 @@ The `ENTRYPOINT` command sets the default command or executable to be run when t
 
 The `VOLUME` command creates a mount point at the specified path and marks it as holding externally mounted volumes. It works the same way as the [Dockerfile `VOLUME` command](https://docs.docker.com/engine/reference/builder/#volume).
 
-## USER (same as Dockerfile USER)
+<a id="user-same-as-dockerfile-user"></a>
+
+## USER
 
 #### Synopsis
 
@@ -1956,7 +1996,16 @@ The `VOLUME` command creates a mount point at the specified path and marks it as
 
 #### Description
 
-The `USER` command sets the user name (or UID) and optionally the user group (or GID) to use when running the image and also for any subsequent instructions in the build recipe. It works the same way as the [Dockerfile `USER` command](https://docs.docker.com/engine/reference/builder/#user).
+The `USER` command sets the user name (or UID) and optionally the user group (or
+GID) for subsequent `RUN` commands and for running the resulting image, like
+[Dockerfile `USER`](https://docs.docker.com/reference/dockerfile/#user).
+
+EarthBuild additionally uses this value as the implicit file owner for both
+forms of `COPY` and for `GIT CLONE`; Dockerfile `COPY` does not inherit `USER`
+ownership. `COPY --chown` overrides that default, and `COPY --keep-own` preserves
+source ownership instead. If the effective ownership needs name lookup, linked
+copying fails. Use numeric IDs or `VERSION --no-use-copy-link 0.8` to proceed.
+The literal `root` alias is treated as numeric zero.
 
 ## WORKDIR (same as Dockerfile WORKDIR)
 

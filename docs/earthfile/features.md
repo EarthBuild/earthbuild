@@ -160,6 +160,52 @@ copying follows destination symlinks, like Dockerfile `COPY` without `--link`.
 Default root ownership and explicit numeric `--chown` values can use linked
 copies. BuildKit treats the literal `root` alias as numeric zero, so
 `--chown=root:root` can also use linked copying and does not follow existing
-destination symlinks when linking is enabled. Other named users or groups require
-an ordinary copy to resolve names against the destination image's `/etc/passwd`
-and `/etc/group`.
+destination symlinks when linking is enabled.
+
+Linked copies cannot read the destination image's `/etc/passwd` or `/etc/group`.
+If ownership requires resolving any other user or group name, the build fails
+instead of silently switching to an ordinary copy. This includes mixed forms such
+as `--chown=1000:app` and ownership inherited from a named `USER app`, even when
+`COPY` has no explicit `--chown` option. The rule applies whenever linking is
+enabled, including the default in `VERSION 0.7` and later.
+
+To keep linked copying, use numeric IDs, for example:
+
+```Dockerfile
+COPY --chown=1000:1000 +build/app /app
+```
+
+A numeric `USER 1000:1000` also avoids name lookup for subsequent copies and
+`GIT CLONE`. To use named ownership instead, disable linking for the Earthfile:
+
+```Dockerfile
+VERSION --no-use-copy-link 0.8
+
+build:
+    FROM alpine
+    RUN adduser -D app
+    USER app
+    COPY input.txt /input.txt
+```
+
+Ordinary copies resolve names against the destination image, where the user and
+group must exist. `--keep-own` can avoid an implicit `USER` ownership lookup by
+preserving source ownership instead, when that is the intended ownership. An
+explicit named `--chown` still requires lookup and fails with linking enabled.
+
+###### Scope of the copy-link setting
+
+| Operation | Effect of the Earthfile copy-link setting |
+| --- | --- |
+| Context and artifact `COPY` | Selects linked or ordinary copies. Default ownership comes from the image's `USER` (root when unset), unless overridden by `--keep-own` or `--chown`. |
+| `SAVE ARTIFACT` | Selects the copy mode when populating the artifact environment. Ownership is preserved by default from `VERSION 0.7`; earlier versions need `--keep-own` or `--save-artifact-keep-own` to preserve it. |
+| `SAVE ARTIFACT ... AS LOCAL` and saves from `LOCALLY` | Applies to the intermediate artifact-staging copies. The final transfer to the host is a separate operation, without linked image layers. |
+| `GIT CLONE` | Selects the copy mode when placing the cloned tree into the image. A named image `USER` requires numeric IDs or the opt-out, just like implicit COPY ownership. |
+| `FROM DOCKERFILE` and `earth docker-build` | Applies to EarthBuild's preparation of an artifact-based context, but does not override Dockerfile `COPY` or `ADD`. Dockerfile instructions use their own `--link` / `--link=false` setting and Docker ownership rules. |
+| `COPY` under `LOCALLY` | Uses a host-transfer implementation; no linked image layers are created. |
+| `CACHE --persist` | Uses a separate mounted-filesystem copy implementation; the copy-link setting does not change it. |
+| Internal Git-context extraction and dependency bookkeeping | Use ordinary internal copies independently of this setting. |
+
+For example, `COPY --link` inside a Dockerfile still requests a linked copy when
+its caller's Earthfile uses `VERSION --no-use-copy-link 0.8`. Conversely, the
+Earthfile's default linking does not implicitly enable linking inside Dockerfiles.

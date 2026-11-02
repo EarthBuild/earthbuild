@@ -18,17 +18,21 @@ func TestCopyLinkOwnershipSelection(t *testing.T) {
 	const numericOwner = "1234:5678"
 
 	cases := []struct {
-		name, owner     string
-		link, wantMerge bool
+		name, owner              string
+		link, wantMerge, wantErr bool
 	}{
-		{"preserved ownership", "", true, true},
-		{"explicit numeric root", "0:0", true, true},
-		{"default root alias", "root:root", true, true},
-		{"numeric nonroot", numericOwner, true, true},
-		{"named owner needs base", "app:team", true, false},
-		{"named group needs base", "1234:team", true, false},
-		{"disabled with preserved ownership", "", false, false},
-		{"disabled with explicit ownership", numericOwner, false, false},
+		{"preserved ownership", "", true, true, false},
+		{"explicit numeric root", "0:0", true, true, false},
+		{"default root alias", "root:root", true, true, false},
+		{"numeric nonroot", numericOwner, true, true, false},
+		{"named user and group rejected", "app:team", true, false, true},
+		{"inherited named user rejected", "app", true, false, true},
+		{"mixed numeric user and named group rejected", "1234:team", true, false, true},
+		{"mixed named user and numeric group rejected", "app:5678", true, false, true},
+		{"root alias and named group rejected", "root:team", true, false, true},
+		{"disabled with preserved ownership", "", false, false, false},
+		{"disabled with explicit ownership", numericOwner, false, false, false},
+		{"disabled with named ownership", "app:team", false, false, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -42,6 +46,15 @@ func TestCopyLinkOwnershipSelection(t *testing.T) {
 				ctx, source, []string{"/payload"}, destination, "/out/payload",
 				false, false, false, tc.owner, nil, false, false, tc.link,
 			)
+			if tc.wantErr {
+				require.ErrorContains(t, err, "linked copy cannot resolve user/group names")
+				require.ErrorContains(t, err, tc.owner)
+				require.ErrorContains(t, err, "use numeric ownership")
+				require.ErrorContains(t, err, "VERSION --no-use-copy-link 0.8")
+
+				return
+			}
+
 			require.NoError(t, err)
 
 			definition, err := result.Marshal(ctx)

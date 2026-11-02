@@ -158,5 +158,8 @@ copying follows destination symlinks, like Dockerfile `COPY` without `--link`.
 
 `COPY --keep-own` controls ownership preservation independently of this setting.
 Default root ownership and explicit numeric `--chown` values can use linked
-copies. Named users or groups still require an ordinary copy to resolve names
-against the destination image's `/etc/passwd` and `/etc/group`.
+copies. BuildKit treats the literal `root` alias as numeric zero, so
+`--chown=root:root` can also use linked copying and does not follow existing
+destination symlinks when linking is enabled. Other named users or groups require
+an ordinary copy to resolve names against the destination image's `/etc/passwd`
+and `/etc/group`.

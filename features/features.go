@@ -248,6 +248,8 @@ func versionAtLeast(ftrs Features, majorVersion, minorVersion int) bool {
 	return (ftrs.Major > majorVersion) || (ftrs.Major == majorVersion && ftrs.Minor >= minorVersion)
 }
 
+// processNegativeFlags applies explicit opt-outs after defaults and positive flags
+// so enabling a feature cannot override its opt-out.
 func processNegativeFlags(ftrs *Features) {
 	if ftrs.NoUseCopyLink {
 		ftrs.UseCopyLink = false

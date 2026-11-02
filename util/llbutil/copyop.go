@@ -14,7 +14,9 @@ import (
 	"github.com/moby/buildkit/client/llb"
 )
 
-// CopyOp is a simplified llb copy operation.
+// CopyOp builds an LLB copy with the requested ownership. When merge is enabled,
+// copies are linked unless ownership requires user/group lookup in destState.
+// Numeric IDs and BuildKit's root alias do not require that lookup.
 func CopyOp(
 	ctx context.Context,
 	srcState pllb.State,

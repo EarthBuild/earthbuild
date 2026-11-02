@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestCopyLinkVersionSelection checks that explicit opt-outs win over version
+// defaults and positive flags and survive VERSION serialization.
 func TestCopyLinkVersionSelection(t *testing.T) {
 	t.Parallel()
 
@@ -46,6 +48,39 @@ func TestCopyLinkVersionSelection(t *testing.T) {
 	}
 }
 
+// TestCopyLinkRejectsInvalidVersionArgs keeps the opt-out subject to VERSION's
+// required version argument and its prohibition on explicit boolean values.
+func TestCopyLinkRejectsInvalidVersionArgs(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		wantErr string
+		args    []string
+	}{
+		{
+			name:    "missing version",
+			args:    []string{"--no-use-copy-link"},
+			wantErr: errUnexpectedArgs.Error(),
+		},
+		{
+			name:    "explicit false value",
+			args:    []string{"--no-use-copy-link=false", "0.8"},
+			wantErr: "bool flag `--no-use-copy-link' cannot have an argument",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, _, err := Get(&earthfile.Version{Args: tc.args})
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+// TestCopyLinkOverrideDisablesModernDefault checks opt-out precedence when an
+// override is applied after version defaults have already enabled linking.
 func TestCopyLinkOverrideDisablesModernDefault(t *testing.T) {
 	t.Parallel()
 

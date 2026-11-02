@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestCopyLinkOwnershipSelection inspects the LLB graph to distinguish linked
+// copies from ordinary copies while checking ownership and working directory.
 func TestCopyLinkOwnershipSelection(t *testing.T) {
 	t.Parallel()
 
@@ -71,6 +73,8 @@ func TestCopyLinkOwnershipSelection(t *testing.T) {
 	}
 }
 
+// findPayloadCopy decodes the copy and merge operations rather than inferring
+// linking from payload contents, which can be identical for both copy modes.
 func findPayloadCopy(t *testing.T, definition *llb.Definition) (*pb.FileActionCopy, bool) {
 	t.Helper()
 

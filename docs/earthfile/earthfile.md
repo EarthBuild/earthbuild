@@ -498,7 +498,7 @@ The classical form of the `COPY` command differs from Dockerfiles in three cases
 
 - URL sources are not yet supported.
 - Absolute paths are not supported - sources in the current directory cannot be referenced with a leading `/`
-- The EarthBuild `COPY` is a classical `COPY --link`. It uses layer merging for the copy operations.
+- EarthBuild enables linked copying (layer merging, like Dockerfile `COPY --link`) by default in `VERSION 0.7` and later. Earlier versions can enable it with `--use-copy-link`. `VERSION --no-use-copy-link` disables it, and ownership that requires user/group name lookup also uses an ordinary copy. BuildKit treats the `root` alias as numeric zero, so `--chown=root:root` can still use linked copying. Linked copies do not follow existing destination symlinks; ordinary copies do. See [the copy-link feature documentation](features.md#--no-use-copy-link).
 
 {% hint style='info' %}
 

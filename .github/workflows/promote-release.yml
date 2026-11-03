@@ -1,8 +1,14 @@
-name: Tagged Release
+name: Promote Release
 
+# Called by the staging release workflow once semantic-release has published a release; it is never
+# triggered by a tag or release event.
 on:
-    release:
-        types: [published]
+    workflow_call:
+        inputs:
+            tag_name:
+                description: The release tag (vX.Y.Z) to promote the staging artifacts and images for
+                required: true
+                type: string
 
 env:
   OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
@@ -29,13 +35,13 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   token: ${{ secrets.GITHUB_TOKEN }}
-                  ref: ${{ github.event.release.tag_name }}
+                  ref: ${{ inputs.tag_name }}
                   fetch-depth: 0
                   persist-credentials: false
             - name: Copy pre-built artifacts to release
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  RELEASE_TAG: ${{ github.event.release.tag_name }}
+                  RELEASE_TAG: ${{ inputs.tag_name }}
               run: |
                   earth --ci --push --secret GITHUB_TOKEN="${GITHUB_TOKEN}" ./release+promote-artifacts-to-gh \
                       --RELEASE_TAG="${RELEASE_TAG}"
@@ -56,7 +62,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   token: ${{ secrets.GITHUB_TOKEN }}
-                  ref: ${{ github.event.release.tag_name }}
+                  ref: ${{ inputs.tag_name }}
                   fetch-depth: 0
                   persist-credentials: false
             - name: Copy images from GHCR.io to DockerHub
@@ -67,7 +73,7 @@ jobs:
                   GHCR_USERNAME: ${{ github.actor }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-                  RELEASE_TAG: ${{ github.event.release.tag_name }}
+                  RELEASE_TAG: ${{ inputs.tag_name }}
               # TODO: set usernames for docker
               run: |
                   earth --ci --push --secret "CONTAINER_REGISTRY_TOKEN=${GITHUB_TOKEN}" \

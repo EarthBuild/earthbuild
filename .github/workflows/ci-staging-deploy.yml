@@ -282,3 +282,51 @@ jobs:
           ./scripts/tests/assert-default-buildkit-image.sh \
             "docker.io/earthbuild/buildkitd:${VERSION}" \
             ./release/release/earth-linux-amd64
+
+  # Runs once everything built for this commit has been published, since the release promotes
+  # the staging artifacts and images of the released commit.
+  release:
+    name: semantic-release
+    if: github.ref == 'refs/heads/main'
+    needs: [release-image, copy-buildkitd-to-dockerhub, release-binaries]
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run semantic-release
+        id: release
+        uses: ./.github/actions/semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Releases and tags created with GITHUB_TOKEN do not trigger other workflows, so the
+  # follow-up workflows are called from here instead of listening for the tag or release.
+  promote-release:
+    name: promote release
+    needs: release
+    if: needs.release.outputs.tag != '' && !contains(needs.release.outputs.tag, '-')
+    permissions:
+      contents: write
+      actions: read
+      packages: read
+    uses: ./.github/workflows/promote-release.yml
+    with:
+      tag_name: ${{ needs.release.outputs.tag }}
+    secrets: inherit
+
+  merge-main-to-docs:
+    name: merge main to docs-0.8
+    needs: release
+    if: needs.release.outputs.tag != '' && !contains(needs.release.outputs.tag, '-')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/release-merge-docs.yml
+    secrets: inherit

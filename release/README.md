@@ -2,33 +2,20 @@
 
 ### earth
 
-- Make sure you have access to the `earthly-technologies` organization secrets.
-  ```bash
-  ./earth secrets --org earthly-technologies --project core ls
-  ```
-- Choose the next [release tag](https://github.com/earthbuild/earthbuild/releases).
-  ```bash
-  export RELEASE_TAG="v..."
-  ```
-- Is it a pre-release?
-  ```bash
-  export PRERELEASE="true-or-false"
-  ```
-- Make sure you are on main
-  ```bash
-  git checkout main && git pull
-  ```
-- Update the CHANGELOG.md with the corresponding release notes and open a PR
-- Use a comparison such as https://github.com/earthbuild/earthbuild/compare/v0.8.13...main (replace the versions in the URL with the previously released version) or a tool such as `gitk` (aka `git-gui`) to see which PRs will go into this release.
-- Make sure that main build is green for all platforms (check build status for the latest commit on GitHub).
+Releases are cut automatically by [semantic-release](https://semantic-release.gitbook.io) (configured in [`.releaserc.json`](../.releaserc.json)) from [Conventional Commits](https://www.conventionalcommits.org). There is no release tag to choose or GitHub release to create by hand.
+
+- Use a conventional commit message (or PR title, when squash-merging) for every change. `fix:` and `perf:` cause a patch release, `feat:` a minor release, and `feat!:` or a `BREAKING CHANGE:` footer a major release. Other types (`chore:`, `docs:`, `test:`, ...) do not release by themselves.
+- Every push to `main` runs the [staging release](../.github/workflows/ci-staging-deploy.yml) workflow. Once all staging artifacts and images for the commit are published, its `release` job runs semantic-release, which tags the commit `vX.Y.Z` and creates the GitHub release with generated release notes.
+- For a stable release, the same workflow then calls the [Promote Release](../.github/workflows/promote-release.yml) workflow (uploads the release artifacts and promotes the images to DockerHub) and the [Merge main to docs-0.8](../.github/workflows/release-merge-docs.yml) workflow. They are called directly because tags and releases created with `GITHUB_TOKEN` do not trigger other workflows.
 - Make sure the following build status are green:
   | Platform | Status |
   | ------------- | ------------- |
   | MacOS (x86) | [![Build status](https://badge.buildkite.com/cc0627732806ab3b76cf13b02c498658b851056242ec28f62d.svg)](https://buildkite.com/earthly-technologies/earthly-mac-scheduled)
   | MacOS (M1) | [![Build status](https://badge.buildkite.com/10a7331b2032fcc9f7f311c5218d12c1a18c317cd7fc9270ba.svg)](https://buildkite.com/earthly-technologies/earthly-m1-scheduled)
-- Create and publish the release on [GitHub Releases](https://github.com/earthbuild/earthbuild/releases/new) targeting `$RELEASE_TAG` (include release notes and mark pre-release if applicable). Publishing the release automatically triggers the [Tagged Release](../.github/workflows/on-tag-release.yml) workflow to upload release artifacts and promote images to DockerHub.
-- If publishing package repositories (apt/yum):
+
+- If publishing package repositories (apt/yum), using the tag of the new release:
   ```bash
+  export RELEASE_TAG="v..."
   earth --push ./release+release-repo --RELEASE_TAG="$RELEASE_TAG"
   ```
 - Wait for the [Merge main to docs-0.8 on New EarthBuild Release](../.github/workflows/release-merge-docs.yml) workflow to complete; this workflow automatically merges `main` into `docs-0.8`. You can watch for it here: [![Merge main to docs-0.8 on New EarthBuild Release](https://github.com/earthbuild/earthbuild/actions/workflows/release-merge-docs.yml/badge.svg)](https://github.com/earthbuild/earthbuild/actions/workflows/release-merge-docs.yml)
@@ -55,6 +42,10 @@
 - Wait for the [Check Docs for Broken Links](../.github/workflows/docs-checks-links.yml) workflow to complete; this workflow validates https://docs.earthbuild.dev does not contain any broken links. You can watch for it here: [![Check Docs for Broken Links](https://github.com/earthbuild/earthbuild/actions/workflows/docs-checks-links.yml/badge.svg?event=push)](https://github.com/earthbuild/earthbuild/actions/workflows/docs-checks-links.yml)
 - Verify the Homebrew formula in [earthbuild/homebrew-tap](https://github.com/earthbuild/homebrew-tap) is updated (Renovate detects the new EarthBuild release and the tap's GitHub workflows release it automatically).
 - Copy the release notes you have written before and paste them in the EarthBuild Community slack channel `#announcements`, together with a link to the release's GitHub page. If you have Slack markdown editing activated, you can copy the markdown version of the text.
+
+#### Prereleases
+
+To publish a prerelease from a `feat/<name>` branch, run the [Prerelease](../.github/workflows/release-prerelease.yml) workflow on that branch. It publishes a GitHub prerelease tagged `vX.Y.Z-<name>.N` (`<name>` must only contain letters, digits and `-`). Run it after a `feat:`, `fix:` or `perf:` commit, otherwise there is nothing to release and the job fails. Prereleases only get a tag and release notes; binaries and images are not promoted.
 
 ### One-Time (clear this section when done during release)
 

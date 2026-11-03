@@ -1,0 +1,13 @@
+{
+  "tagFormat": "v${version}",
+  "branches": [
+    "(hotfix/)?+([0-9])?(.{+([0-9]),x}).x",
+    "main",
+    { "name": "feat/*", "prerelease": "${name.replace(/^feat\\//g, '')}" }
+  ],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/github"
+  ]
+}

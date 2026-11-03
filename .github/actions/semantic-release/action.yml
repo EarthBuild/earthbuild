@@ -1,0 +1,39 @@
+name: 'Semantic release'
+description: >-
+  Runs semantic-release (configured by .releaserc.json) and reports the version
+  tag that points at HEAD afterwards. The caller must check out the repository
+  with fetch-depth: 0 and provide GITHUB_TOKEN in the environment.
+outputs:
+  tag:
+    description: >-
+      The release tag (vX.Y.Z or vX.Y.Z-<channel>.N) pointing at HEAD after the
+      run, or empty if the commits since the last release do not warrant one.
+    value: ${{ steps.tag.outputs.tag }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 24
+    # Installed outside the workspace so the checkout stays clean. Plugins resolve from
+    # semantic-release's own node_modules, so no package.json is needed in the repo.
+    - name: Install semantic-release
+      shell: bash
+      run: |-
+        set -euo pipefail
+        npm install --no-save --no-audit --no-fund --prefix "${RUNNER_TEMP}/semantic-release" \
+          semantic-release@25 \
+          @semantic-release/commit-analyzer@13 \
+          @semantic-release/release-notes-generator@14 \
+          @semantic-release/github@12
+    - name: Run semantic-release
+      shell: bash
+      run: '"${RUNNER_TEMP}/semantic-release/node_modules/.bin/semantic-release"'
+    - name: Detect release tag
+      id: tag
+      shell: bash
+      run: |-
+        set -euo pipefail
+        tag="$(git tag --points-at HEAD --list 'v[0-9]*' | sort -V | tail -1)"
+        echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+        echo "Release tag at HEAD: ${tag:-none}"

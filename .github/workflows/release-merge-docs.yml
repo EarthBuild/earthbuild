@@ -1,9 +1,8 @@
 name: Merge main to docs-0.8 on New Earthly Release
 
+# Called by the staging release workflow once semantic-release has published a stable release.
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_call:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

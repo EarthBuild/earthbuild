@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/logbus"
 	"github.com/EarthBuild/earthbuild/logstream"
 	"github.com/EarthBuild/earthbuild/util/statsstreamparser"
@@ -217,7 +218,7 @@ func TestVertexMonitor_Write_StatsStream_NonFatalOnError(t *testing.T) {
 
 	cp, err := bus.Run().NewCommand(
 		"cmd-id", "echo hello", "target-id", "cmd", "linux/amd64",
-		false, false, false, nil, "", "", "",
+		false, false, false, earthfile.SourceLocation{}, "", "", "",
 	)
 	if err != nil {
 		t.Fatalf("failed to create command: %v", err)
@@ -264,7 +265,7 @@ func TestVertexMonitor_Write_StatsStream_Success(t *testing.T) {
 
 	cp, err := bus.Run().NewCommand(
 		"cmd-stats-success", "echo hello", "target-stats-success", "cmd", "linux/amd64",
-		false, false, false, nil, "", "", "",
+		false, false, false, earthfile.SourceLocation{}, "", "", "",
 	)
 	if err != nil {
 		t.Fatalf("failed to create command: %v", err)
@@ -319,7 +320,7 @@ func TestVertexMonitor_Write_StandardStreams(t *testing.T) {
 
 	cp, err := bus.Run().NewCommand(
 		"cmd-std-streams", "echo hello", "target-std-streams", "cmd", "linux/amd64",
-		false, false, false, nil, "", "", "",
+		false, false, false, earthfile.SourceLocation{}, "", "", "",
 	)
 	if err != nil {
 		t.Fatalf("failed to create command: %v", err)

@@ -24,7 +24,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-colorable v0.1.16
 	github.com/mattn/go-isatty v0.0.24
-	github.com/moby/buildkit v0.33.1
+	github.com/moby/buildkit v0.34.2
 	github.com/moby/docker-image-spec v1.3.1
 	github.com/moby/patternmatcher v0.6.1
 	github.com/opencontainers/go-digest v1.0.0
@@ -146,7 +146,4 @@ require (
 	howett.net/plist v1.0.1 // indirect
 )
 
-replace (
-	github.com/moby/buildkit => github.com/EarthBuild/buildkit v0.0.0-20261009123336-97a1abd81531
-	github.com/tonistiigi/fsutil => github.com/earthbuild/fsutil v0.0.0-20261002194825-890baaee2294
-)
+replace github.com/moby/buildkit => github.com/EarthBuild/buildkit v0.0.0-20261104230604-d1921c527ca8

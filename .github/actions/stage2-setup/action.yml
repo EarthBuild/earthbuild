@@ -229,13 +229,23 @@ runs:
       run: |-
         echo "Extracting earth binary from stage1 of build"
         export TAG=${GITHUB_SHA}-latest
-        ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" EARTH_INSTALLATION_NAME=earth ./earth upgrade
-        ${INPUTS_SUDO} chown -R $USER ~/.earth # restore non-sudo user ownership
+        ${INPUTS_SUDO} env TAG="${TAG}" HOME="${HOME}" ./earth upgrade
+        # The bootstrap ./earth may predate the ~/.earth rename and still extract into ~/.earthly,
+        # so look for the binary in both locations.
+        EARTH_STATE_DIR=""
+        for dir in "${HOME}/.earth" "${HOME}/.earthly"; do
+          if ${INPUTS_SUDO} test -f "${dir}/earthly-${TAG}"; then
+            EARTH_STATE_DIR="${dir}"
+            break
+          fi
+        done
+        test -n "${EARTH_STATE_DIR}" || (echo "extracted binary not found in ~/.earth or ~/.earthly" && exit 1)
+        ${INPUTS_SUDO} chown -R $USER "${EARTH_STATE_DIR}" # restore non-sudo user ownership
         test -n "${INPUTS_BUILT_EARTH_PATH}" || (echo "BUILT_EARTH_PATH is empty" && exit 1)
         mkdir -p "$(dirname "${INPUTS_BUILT_EARTH_PATH}")"
-        ${INPUTS_SUDO} ls "${HOME}/.earth/"
-        ${INPUTS_SUDO} mv "${HOME}/.earth/earthly-$TAG" "${INPUTS_BUILT_EARTH_PATH}"
-        ${INPUTS_SUDO} rm -rf "${HOME}/.earth"
+        ${INPUTS_SUDO} ls "${EARTH_STATE_DIR}/"
+        ${INPUTS_SUDO} mv "${EARTH_STATE_DIR}/earthly-${TAG}" "${INPUTS_BUILT_EARTH_PATH}"
+        ${INPUTS_SUDO} rm -rf "${EARTH_STATE_DIR}"
         echo "extracted ${INPUTS_BUILT_EARTH_PATH}"
       shell: bash
       env:

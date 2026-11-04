@@ -154,16 +154,56 @@ const (
 	buildkitDaemonDisallows = "is not allowed by build daemon configuration"
 )
 
+// valueFlagNames returns the dashed names (e.g. "--secret", "-s") of all flags under cmd that
+// consume a separate value argument.
+func valueFlagNames(cmd *cli.Command) map[string]bool {
+	names := map[string]bool{}
+
+	var walk func(c *cli.Command)
+
+	walk = func(c *cli.Command) {
+		for _, fl := range c.Flags {
+			if doc, ok := fl.(cli.DocGenerationFlag); !ok || !doc.TakesValue() {
+				continue
+			}
+
+			for _, name := range fl.Names() {
+				if len(name) == 1 {
+					names["-"+name] = true
+				} else {
+					names["--"+name] = true
+				}
+			}
+		}
+
+		for _, sub := range c.Commands {
+			walk(sub)
+		}
+	}
+	walk(cmd)
+
+	return names
+}
+
 // firstTargetArg returns the first target reference found in the command line arguments, or an
-// empty string if there is none. args[0] is the program name.
-func firstTargetArg(args []string) string {
+// empty string if there is none. args[0] is the program name. Values of the flags in valueFlags
+// that are given as a separate argument (e.g. "--secret foo=+bar") are skipped.
+func firstTargetArg(args []string, valueFlags map[string]bool) string {
 	if len(args) < 2 {
 		return ""
 	}
 
 	artifactMode := hasCLIFlag(args, "--artifact", "-a")
+	skipNext := false
+
 	for _, arg := range args[1:] {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+
 		if strings.HasPrefix(arg, "-") {
+			skipNext = valueFlags[arg]
 			continue
 		}
 
@@ -199,7 +239,7 @@ func hasCLIFlag(args []string, names ...string) bool {
 //
 // The target the user invoked is used in the example, rather than the nested target that actually
 // needs privileges, because the user must re-run the former with -P.
-func privilegedModeMessages(err error, args []string) (errMsg, helpMsg string) {
+func privilegedModeMessages(err error, args []string, valueFlags map[string]bool) (errMsg, helpMsg string) {
 	if strings.Contains(err.Error(), buildkitDaemonDisallows) {
 		return "The BuildKit daemon does not allow privileged mode (security.insecure).",
 			"Passing -P is not enough: the daemon must be configured to grant the security.insecure entitlement.\n" +
@@ -209,7 +249,7 @@ func privilegedModeMessages(err error, args []string) (errMsg, helpMsg string) {
 
 	flagExample := "earth -P +your-target"
 
-	if target := firstTargetArg(args); target != "" {
+	if target := firstTargetArg(args, valueFlags); target != "" {
 		modeFlag := ""
 		if hasCLIFlag(args, "--artifact", "-a") {
 			modeFlag = "--artifact "
@@ -222,7 +262,8 @@ func privilegedModeMessages(err error, args []string) (errMsg, helpMsg string) {
 
 	return "This build requires privileged mode.",
 		"To fix this, use one of the following:\n" +
-			"  • Run with the -P flag: " + flagExample + "\n" +
+			"  • Add the -P flag to your original command, keeping its other flags and arguments, e.g.: " +
+			flagExample + "\n" +
 			"  • Set the environment variable: export " + env.Prefix + "ALLOW_PRIVILEGED=true"
 }
 
@@ -309,7 +350,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 
 		return 1
 	case strings.Contains(err.Error(), buildkitInsecureNotAllowed):
-		userMsg, helpMsg := privilegedModeMessages(err, args)
+		userMsg, helpMsg := privilegedModeMessages(err, args, valueFlagNames(app.BaseCLI.App()))
 
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),

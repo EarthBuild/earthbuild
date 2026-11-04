@@ -45,6 +45,14 @@ func TestRedactSecretsFromArgs(t *testing.T) {
 	}
 }
 
+const (
+	testBuildArgFlag = "--build-arg"
+	testSecretValue  = "k=+v"
+	testFooTarget    = "+foo"
+)
+
+var testValueFlags = map[string]bool{"--secret": true, "-s": true, testBuildArgFlag: true}
+
 func TestFirstTargetArg(t *testing.T) {
 	t.Parallel()
 
@@ -76,12 +84,15 @@ func TestFirstTargetArg(t *testing.T) {
 		{name: "no target", args: []string{"earth", "--version"}, want: ""},
 		{name: "empty args", args: []string{}, want: ""},
 		{name: "only program name", args: []string{"earth"}, want: ""},
+		{name: "secret value", args: []string{"earth", "--secret", testSecretValue, "+t"}, want: "+t"},
+		{name: "short secret value", args: []string{"earth", "-s", testSecretValue, "+t"}, want: "+t"},
+		{name: "build-arg value", args: []string{"earth", testBuildArgFlag, testSecretValue, "+t"}, want: "+t"},
 		{name: "skips non-targets", args: []string{"earth", "not-a-target", "+actual"}, want: "+actual"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, testCase.want, firstTargetArg(testCase.args))
+			require.Equal(t, testCase.want, firstTargetArg(testCase.args, testValueFlags))
 		})
 	}
 }
@@ -97,7 +108,7 @@ func TestPrivilegedModeMessages(t *testing.T) {
 	t.Run("missing flag with target", func(t *testing.T) {
 		t.Parallel()
 
-		errMsg, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", "+foo"})
+		errMsg, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", testFooTarget}, testValueFlags)
 
 		require.Equal(t, "This build requires privileged mode.", errMsg)
 		require.Contains(t, helpMsg, "earth -P +foo")
@@ -109,16 +120,17 @@ func TestPrivilegedModeMessages(t *testing.T) {
 		t.Parallel()
 
 		for _, target := range []string{"./dir+foo", "github.com/org/repo+foo", "github.com/org/repo:v1+foo"} {
-			_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", "--strict", target})
+			_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", "--strict", target}, testValueFlags)
 
 			require.Contains(t, helpMsg, "earth -P "+target, target)
+			require.Contains(t, helpMsg, "Add the -P flag to your original command", target)
 		}
 	})
 
 	t.Run("missing flag without target", func(t *testing.T) {
 		t.Parallel()
 
-		_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth"})
+		_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth"}, testValueFlags)
 
 		require.Contains(t, helpMsg, "earth -P +your-target")
 	})
@@ -126,7 +138,7 @@ func TestPrivilegedModeMessages(t *testing.T) {
 	t.Run("missing flag with artifact target", func(t *testing.T) {
 		t.Parallel()
 
-		_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", "--artifact", "+foo/bar"})
+		_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", "--artifact", "+foo/bar"}, testValueFlags)
 
 		require.Contains(t, helpMsg, "earth -P --artifact +foo/bar")
 		require.NotContains(t, helpMsg, "earth -P +foo/bar")
@@ -135,15 +147,27 @@ func TestPrivilegedModeMessages(t *testing.T) {
 	t.Run("missing flag with image target", func(t *testing.T) {
 		t.Parallel()
 
-		_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", "--image", "github.com/foo/bar+baz"})
+		_, helpMsg := privilegedModeMessages(missingFlagErr,
+			[]string{"earth", "--image", "github.com/foo/bar+baz"}, testValueFlags)
 
 		require.Contains(t, helpMsg, "earth -P --image github.com/foo/bar+baz")
+	})
+
+	t.Run("option values are not the retry target", func(t *testing.T) {
+		t.Parallel()
+
+		_, helpMsg := privilegedModeMessages(missingFlagErr,
+			[]string{"earth", "-s", testSecretValue, testBuildArgFlag, "a=+b", testFooTarget}, testValueFlags)
+
+		require.Contains(t, helpMsg, "earth -P +foo")
+		require.NotContains(t, helpMsg, "+v")
+		require.NotContains(t, helpMsg, "+b")
 	})
 
 	t.Run("daemon disallows entitlement", func(t *testing.T) {
 		t.Parallel()
 
-		errMsg, helpMsg := privilegedModeMessages(daemonErr, []string{"earth", "-P", "+foo"})
+		errMsg, helpMsg := privilegedModeMessages(daemonErr, []string{"earth", "-P", testFooTarget}, testValueFlags)
 
 		require.Contains(t, errMsg, "daemon")
 		require.Contains(t, helpMsg, "insecure-entitlements")

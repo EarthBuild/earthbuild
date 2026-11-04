@@ -49,9 +49,11 @@ const (
 	testBuildArgFlag = "--build-arg"
 	testSecretValue  = "k=+v"
 	testFooTarget    = "+foo"
+	testGitBranch    = "--git-branch"
+	testArtifactFlag = "--artifact"
 )
 
-var testValueFlags = map[string]bool{"--secret": true, "-s": true, testBuildArgFlag: true}
+var testValueFlags = map[string]bool{"--secret": true, "-s": true, testBuildArgFlag: true, testGitBranch: true}
 
 func TestFirstTargetArg(t *testing.T) {
 	t.Parallel()
@@ -76,7 +78,7 @@ func TestFirstTargetArg(t *testing.T) {
 		},
 		{name: "import target", args: []string{"earth", "foo+bar"}, want: "foo+bar"},
 		{name: "remote target", args: []string{"earth", remoteTarget}, want: remoteTarget},
-		{name: "artifact target", args: []string{"earth", "--artifact", artifact}, want: artifact},
+		{name: "artifact target", args: []string{"earth", testArtifactFlag, artifact}, want: artifact},
 		{
 			name: "artifact target with destination", args: []string{"earth", "-a", artifact, "./out"},
 			want: artifact,
@@ -87,6 +89,10 @@ func TestFirstTargetArg(t *testing.T) {
 		{name: "secret value", args: []string{"earth", "--secret", testSecretValue, "+t"}, want: "+t"},
 		{name: "short secret value", args: []string{"earth", "-s", testSecretValue, "+t"}, want: "+t"},
 		{name: "build-arg value", args: []string{"earth", testBuildArgFlag, testSecretValue, "+t"}, want: "+t"},
+		{
+			name: "artifact flag as option value", args: []string{"earth", testGitBranch, testArtifactFlag, "+t"},
+			want: "+t",
+		},
 		{name: "skips non-targets", args: []string{"earth", "not-a-target", "+actual"}, want: "+actual"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -138,7 +144,7 @@ func TestPrivilegedModeMessages(t *testing.T) {
 	t.Run("missing flag with artifact target", func(t *testing.T) {
 		t.Parallel()
 
-		_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", "--artifact", "+foo/bar"}, testValueFlags)
+		_, helpMsg := privilegedModeMessages(missingFlagErr, []string{"earth", testArtifactFlag, "+foo/bar"}, testValueFlags)
 
 		require.Contains(t, helpMsg, "earth -P --artifact +foo/bar")
 		require.NotContains(t, helpMsg, "earth -P +foo/bar")
@@ -162,6 +168,16 @@ func TestPrivilegedModeMessages(t *testing.T) {
 		require.Contains(t, helpMsg, "earth -P +foo")
 		require.NotContains(t, helpMsg, "+v")
 		require.NotContains(t, helpMsg, "+b")
+	})
+
+	t.Run("artifact flag as option value is not artifact mode", func(t *testing.T) {
+		t.Parallel()
+
+		_, helpMsg := privilegedModeMessages(missingFlagErr,
+			[]string{"earth", testGitBranch, testArtifactFlag, testFooTarget}, testValueFlags)
+
+		require.Contains(t, helpMsg, "earth -P "+testFooTarget)
+		require.NotContains(t, helpMsg, testArtifactFlag)
 	})
 
 	t.Run("daemon disallows entitlement", func(t *testing.T) {

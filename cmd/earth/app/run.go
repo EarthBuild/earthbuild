@@ -193,7 +193,7 @@ func firstTargetArg(args []string, valueFlags map[string]bool) string {
 		return ""
 	}
 
-	artifactMode := hasCLIFlag(args, "--artifact", "-a")
+	artifactMode := hasCLIFlagOutsideValues(args, valueFlags, "--artifact", "-a")
 	skipNext := false
 
 	for _, arg := range args[1:] {
@@ -222,13 +222,24 @@ func firstTargetArg(args []string, valueFlags map[string]bool) string {
 	return ""
 }
 
-func hasCLIFlag(args []string, names ...string) bool {
+// hasCLIFlagOutsideValues reports whether any of names appears in args as a flag. Arguments
+// consumed as the separate value of a flag in valueFlags are ignored.
+func hasCLIFlagOutsideValues(args []string, valueFlags map[string]bool, names ...string) bool {
+	skipNext := false
+
 	for _, arg := range args {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+
 		for _, name := range names {
 			if arg == name || arg == name+"=true" {
 				return true
 			}
 		}
+
+		skipNext = valueFlags[arg]
 	}
 
 	return false
@@ -251,9 +262,9 @@ func privilegedModeMessages(err error, args []string, valueFlags map[string]bool
 
 	if target := firstTargetArg(args, valueFlags); target != "" {
 		modeFlag := ""
-		if hasCLIFlag(args, "--artifact", "-a") {
+		if hasCLIFlagOutsideValues(args, valueFlags, "--artifact", "-a") {
 			modeFlag = "--artifact "
-		} else if hasCLIFlag(args, "--image") {
+		} else if hasCLIFlagOutsideValues(args, valueFlags, "--image") {
 			modeFlag = "--image "
 		}
 

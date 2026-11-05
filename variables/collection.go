@@ -218,6 +218,8 @@ func (c *Collection) ExpandOld(word string) string {
 	for k, v := range varMap {
 		envs = append(envs, k+"="+v)
 	}
+	// Sorted so names that collide case-insensitively (Windows) resolve the same way every run.
+	slices.Sort(envs)
 
 	// EnvsFromSlice keeps the lexer's platform key matching (case-insensitive on Windows).
 	ret, _, err := shlex.ProcessWord(word, dfShell.EnvsFromSlice(envs))

@@ -22,15 +22,13 @@ server:
 
     ARG SSH_PORT="22"
 
-    RUN adduser --disabled-password --gecos "" git && \
+    RUN adduser --disabled-password --gecos "" -s /usr/bin/git-shell git && \
         mkdir ~git/.ssh && \
         > ~git/.ssh/authorized_keys && \
         if [ "$USER_RSA" = "true" ]; then cat /root/self-hosted-rsa-key.pub >> ~git/.ssh/authorized_keys; fi && \
         if [ "$USER_ED25519" = "true" ]; then cat /root/self-hosted-ed25519-key.pub >> ~git/.ssh/authorized_keys; fi && \
         chmod 600 ~git/.ssh/authorized_keys && \
         chown git:git ~git/.ssh/authorized_keys && \
-        cat /etc/passwd | grep git && \
-        sed -i 's/\(git:.*\):\/bin\/ash/\1:\/usr\/bin\/git-shell/g' /etc/passwd && \
         cat /etc/passwd | grep git && \
         passwd git -u
     COPY no-interactive-login /home/git/git-shell-commands/no-interactive-login

@@ -1,19 +1,22 @@
 package earthfile2llb
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/EarthBuild/earthbuild/internal/synccache"
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/opencontainers/go-digest"
 )
 
 var _ llb.ImageMetaResolver = &CachedMetaResolver{}
 
 type cachedMetaResolverKey struct {
-	ref      string
-	platform string
+	ref         string
+	platform    string
+	resolveMode string
 }
 
 type cachedMetaResolverEntry struct {
@@ -39,16 +42,22 @@ func NewCachedMetaResolver(metaResolver llb.ImageMetaResolver) *CachedMetaResolv
 
 // ResolveImageConfig implements llb.ImageMetaResolver.ResolveImageConfig.
 func (cmr *CachedMetaResolver) ResolveImageConfig(
-	ctx context.Context, ref string, opt llb.ResolveImageConfigOpt,
+	ctx context.Context, ref string, opt sourceresolver.Opt,
 ) (string, digest.Digest, []byte, error) {
 	platformStr := ""
 	if opt.Platform != nil {
 		platformStr = platforms.Format(*opt.Platform)
 	}
 
+	resolveMode := ""
+	if opt.ImageOpt != nil {
+		resolveMode = opt.ImageOpt.ResolveMode
+	}
+
 	key := cachedMetaResolverKey{
-		ref:      ref,
-		platform: platformStr,
+		ref:         ref,
+		platform:    platformStr,
+		resolveMode: resolveMode,
 	}
 
 	entry, err := cmr.cache.Load(
@@ -69,5 +78,5 @@ func (cmr *CachedMetaResolver) ResolveImageConfig(
 		return "", "", nil, err
 	}
 
-	return entry.ref, entry.dgst, entry.config, nil
+	return entry.ref, entry.dgst, bytes.Clone(entry.config), nil
 }

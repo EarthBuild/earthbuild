@@ -95,6 +95,9 @@ Release assets are now named `earth-<os>-<arch>` rather than `earthly-<os>-<arch
 
 The Earthly directory (for config, etc.) has been renamed from `~/.earthly` to `~/.earth`.
 
+If only `~/.earthly` exists, `earth` still reads its configuration and prints a warning advising you to move it
+to `~/.earth`. If both exist, `earth` exits with an error until you delete `~/.earthly`.
+
 ## Removed Features and Alternatives
 
 The following commands and flags, mostly related to Earthly Cloud, have been removed.

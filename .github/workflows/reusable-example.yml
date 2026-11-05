@@ -90,8 +90,8 @@ jobs:
           set -euo pipefail
           EARTH_VERSION_FLAG_OVERRIDES="$(tr -d '\n' < .earth_version_flag_overrides)"
           echo "EARTH_VERSION_FLAG_OVERRIDES=$EARTH_VERSION_FLAG_OVERRIDES" >> "$GITHUB_ENV"
-      - name: Link Earthly dir to Earthly dev dir
-        run: mkdir -p ~/.earthly && ln -s ~/.earthly ~/.earthly-dev
+      - name: Link Earth dir to Earth dev dir
+        run: mkdir -p ~/.earth && ln -s ~/.earth ~/.earth-dev
       - name: Build ${{inputs.EXAMPLE_NAME}} (PR build)
         # -P is --allow-privileged, required by examples that use
         # WITH DOCKER RUN (e.g. +examples-4/grpc).

@@ -13,15 +13,17 @@ import (
 )
 
 var (
-	earthDir         string
-	earthDirOnce     sync.Once
-	earthDirSudoUser *user.User
+	homeDir     string
+	homeDirOnce sync.Once
+	sudoUser    *user.User
 )
 
-var (
-	earthDirCreateOnce sync.Once
-	errEarthDirCreate  error
-)
+var createMu sync.Mutex
+
+// DefaultInstallationName is the installation name used when none is set: when
+// the binary is built without -X main.DefaultInstallationName (go build, go
+// install), and on the autocomplete path, which runs before flags are parsed.
+const DefaultInstallationName = "earth"
 
 // ErrBothEarthDirsExist is returned when both ~/.earth and the deprecated ~/.earthly exist.
 var ErrBothEarthDirsExist = errors.New("both ~/.earth and ~/.earthly paths exist; " +
@@ -31,37 +33,43 @@ var ErrBothEarthDirsExist = errors.New("both ~/.earth and ~/.earthly paths exist
 // If only the deprecated ~/.earthly dir exists, it is returned instead so that
 // existing configuration keeps working; see [LegacyEarthDirWarning].
 // This function will not attempt to create the directory if missing,
-// for that functionality use to the [GetOrCreateEarthDir] function.
+// for that functionality use the [GetOrCreateEarthDir] function.
 func GetEarthDir(installName string) string {
-	earthDirOnce.Do(func() {
-		earthDir, earthDirSudoUser = getEarthDirAndUser(installName)
-	})
+	earthDir, _ := getEarthDirAndUser(installName)
 
 	return earthDir
 }
 
 func getEarthDirAndUser(installName string) (string, *user.User) {
 	dir, legacyDir, u := earthDirs(installName)
-
-	if legacyDir != "" && !dirExists(dir) {
-		return legacyDir, u
-	}
-
-	return dir, u
+	return selectEarthDir(dir, legacyDir), u
 }
 
-// earthDirs returns the current dir and, for the default installation only,
-// the deprecated ~/.earthly dir if it exists.
-func earthDirs(installName string) (string, string, *user.User) {
-	homeDir, u := fileutil.HomeDir()
-	installName = cmp.Or(installName, "earth") // may be unset when called by the autocomplete code
+func selectEarthDir(dir, legacyDir string) string {
+	if legacyDir != "" && !dirExists(dir) {
+		return legacyDir
+	}
 
-	legacyDir := filepath.Join(homeDir, ".earthly")
-	if installName != "earth" || !dirExists(legacyDir) {
+	return dir
+}
+
+func earthDirs(installName string) (string, string, *user.User) {
+	homeDirOnce.Do(func() {
+		homeDir, sudoUser = fileutil.HomeDir()
+	})
+
+	return earthDirsAt(homeDir, installName, sudoUser)
+}
+
+func earthDirsAt(home, installName string, u *user.User) (string, string, *user.User) {
+	installName = cmp.Or(installName, DefaultInstallationName)
+	dir := filepath.Join(home, "."+installName)
+	legacyDir := filepath.Join(home, ".earthly")
+	if installName != DefaultInstallationName || !dirExists(legacyDir) {
 		legacyDir = ""
 	}
 
-	return filepath.Join(homeDir, "."+installName), legacyDir, u
+	return dir, legacyDir, u
 }
 
 func dirExists(dir string) bool {
@@ -75,6 +83,10 @@ func dirExists(dir string) bool {
 func LegacyEarthDirWarning(installName string) (string, error) {
 	dir, legacyDir, _ := earthDirs(installName)
 
+	return legacyEarthDirWarning(dir, legacyDir)
+}
+
+func legacyEarthDirWarning(dir, legacyDir string) (string, error) {
 	switch {
 	case legacyDir == "":
 		return "", nil
@@ -86,34 +98,60 @@ func LegacyEarthDirWarning(installName string) (string, error) {
 }
 
 // GetOrCreateEarthDir returns the global configuration dir. (Usually ~/.earth).
-// if the directory does not exist, it will attempt to create it.
+// If the directory does not exist, it will attempt to create it.
 func GetOrCreateEarthDir(installName string) (string, error) {
-	_ = GetEarthDir(installName) // ensure global vars get created so we can reference them below.
+	earthDir, u := getEarthDirAndUser(installName)
 
-	earthDirCreateOnce.Do(func() {
-		earthDirExists, err := fileutil.DirExists(earthDir)
+	earthDirExists, err := fileutil.DirExists(earthDir)
+	if err != nil {
+		return earthDir, fmt.Errorf("check earth dir %s: %w", earthDir, err)
+	}
+
+	if earthDirExists {
+		return earthDir, nil
+	}
+
+	createMu.Lock()
+	defer createMu.Unlock()
+
+	earthDirExists, err = fileutil.DirExists(earthDir)
+	if err != nil {
+		return earthDir, fmt.Errorf("check earth dir %s: %w", earthDir, err)
+	}
+
+	if !earthDirExists {
+		err = os.MkdirAll(earthDir, 0o755) // #nosec G301
 		if err != nil {
-			errEarthDirCreate = fmt.Errorf("unable to create dir %s: %w", earthDir, err)
-			return
+			return earthDir, fmt.Errorf("create earth dir %s: %w", earthDir, err)
 		}
 
-		if !earthDirExists {
-			err := os.MkdirAll(earthDir, 0o755) // #nosec G301
+		if u != nil {
+			err = fileutil.EnsureUserOwned(earthDir, u)
 			if err != nil {
-				errEarthDirCreate = fmt.Errorf("unable to create dir %s: %w", earthDir, err)
-				return
-			}
-
-			if earthDirSudoUser != nil {
-				err := fileutil.EnsureUserOwned(earthDir, earthDirSudoUser)
-				if err != nil {
-					errEarthDirCreate = fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, earthDirSudoUser, err)
-				}
+				return earthDir, fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, userName(u), err)
 			}
 		}
-	})
+	}
 
-	return earthDir, errEarthDirCreate
+	return earthDir, nil
+}
+
+// userName returns the human-readable username of u, falling back to Uid,
+// or "<unknown>" if u is nil or empty.
+func userName(u *user.User) string {
+	if u == nil {
+		return "<nil>"
+	}
+
+	if u.Username != "" {
+		return u.Username
+	}
+
+	if u.Uid != "" {
+		return u.Uid
+	}
+
+	return "<unknown>"
 }
 
 // IsBootstrapped provides a tentatively correct guess about the state of our bootstrapping.
@@ -124,11 +162,11 @@ func IsBootstrapped(installName string) bool {
 
 // EnsurePermissions changes the permissions of all earthbuild files to be owned by the user and their group.
 func EnsurePermissions(installName string) error {
-	earthDir, sudoUser := getEarthDirAndUser(installName)
-	if sudoUser != nil {
-		err := fileutil.EnsureUserOwned(earthDir, sudoUser)
+	earthDir, u := getEarthDirAndUser(installName)
+	if u != nil {
+		err := fileutil.EnsureUserOwned(earthDir, u)
 		if err != nil {
-			return fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, sudoUser, err)
+			return fmt.Errorf("failed to ensure %s is owned by %s: %w", earthDir, userName(u), err)
 		}
 	}
 

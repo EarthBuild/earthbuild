@@ -4,80 +4,100 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
+	"slices"
 	"testing"
+
+	"github.com/moby/patternmatcher"
 )
 
 //nolint:goconst
 func Test_readExcludes(t *testing.T) {
 	t.Parallel()
 
+	// implicitAndSecret is the default set of excludes applied when no feature
+	// disables them.
+	implicitAndSecret := slices.Concat(ImplicitExcludes, SecretExcludes)
+
 	testcases := []struct {
-		expectedErr           error
+		wantErr               error
 		name                  string
 		earthIgnoreContents   string
 		earthlyIgnoreContents string
 		dockerIgnoreContents  string
-		expectedExcludes      []string
-		useDockerIgnore       bool
-		noImplicitIgnore      bool
+		wantExcludes          []string
+		opts                  excludeOpts
 	}{
 		{
 			name:                  "only .earthlyignore",
 			earthlyIgnoreContents: `foobar/`,
-			expectedExcludes: []string{
-				"foobar", ".tmp-earth-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore",
+			wantExcludes: []string{
+				"foobar", ".tmp-earth-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore", "**/.secret",
 			},
 		},
 		{
 			name:                "only .earthignore",
 			earthIgnoreContents: `foobar/`,
-			expectedExcludes: []string{
-				"foobar", ".tmp-earth-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore",
+			wantExcludes: []string{
+				"foobar", ".tmp-earth-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore", "**/.secret",
 			},
 		},
 		{
 			name:                 "only .dockerignore",
 			dockerIgnoreContents: `foobar/`,
-			useDockerIgnore:      true,
-			expectedExcludes: []string{
-				"foobar", ".tmp-earth-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore",
+			opts:                 excludeOpts{useDockerIgnore: true},
+			wantExcludes: []string{
+				"foobar", ".tmp-earth-out/", "build.earth", "Earthfile", ".earthignore", ".earthlyignore", "**/.secret",
 			},
 		},
 		{
 			name:                  "only .earthlyignore with no implicit ignore",
 			earthlyIgnoreContents: `foobar/`,
-			noImplicitIgnore:      true,
-			expectedExcludes:      []string{"foobar"},
+			opts:                  excludeOpts{noImplicitIgnore: true},
+			wantExcludes:          []string{"foobar", "**/.secret"},
 		},
 		{
 			name:                "only .earthignore with no implicit ignore",
 			earthIgnoreContents: `foobar/`,
-			noImplicitIgnore:    true,
-			expectedExcludes:    []string{"foobar"},
+			opts:                excludeOpts{noImplicitIgnore: true},
+			wantExcludes:        []string{"foobar", "**/.secret"},
 		},
 		{
 			name:                 "only .dockerignore with no implicit ignore",
 			dockerIgnoreContents: `foobar/`,
-			noImplicitIgnore:     true,
-			useDockerIgnore:      true,
-			expectedExcludes:     []string{"foobar"},
+			opts:                 excludeOpts{noImplicitIgnore: true, useDockerIgnore: true},
+			wantExcludes:         []string{"foobar", "**/.secret"},
 		},
 		{
-			name:             "no ignore file, default to implicit rules",
-			expectedExcludes: ImplicitExcludes,
+			name:                 ".dockerignore re-including .secret is overridden",
+			dockerIgnoreContents: "*\n!.secret\n",
+			opts:                 excludeOpts{noImplicitIgnore: true, useDockerIgnore: true},
+			wantExcludes:         []string{"*", "!.secret", "**/.secret"},
 		},
 		{
-			name:             "no ignore file and no implicit ignore",
-			noImplicitIgnore: true,
-			expectedExcludes: []string{},
+			name:         "no ignore file, default to implicit rules",
+			wantExcludes: implicitAndSecret,
+		},
+		{
+			name:         "no ignore file and no implicit ignore still excludes secrets",
+			opts:         excludeOpts{noImplicitIgnore: true},
+			wantExcludes: SecretExcludes,
+		},
+		{
+			name:         "no ignore file and no implicit secret ignore",
+			opts:         excludeOpts{noImplicitSecretIgnore: true},
+			wantExcludes: ImplicitExcludes,
+		},
+		{
+			name:         "no ignore file and all implicit ignores disabled",
+			opts:         excludeOpts{noImplicitIgnore: true, noImplicitSecretIgnore: true},
+			wantExcludes: []string{},
 		},
 		{
 			name:                  "both .earthignore and .earthlyignore results in error",
 			earthlyIgnoreContents: `foobar/`,
 			earthIgnoreContents:   `foobar/`,
-			expectedExcludes:      ImplicitExcludes,
-			expectedErr:           errDuplicateIgnoreFile,
+			wantExcludes:          implicitAndSecret,
+			wantErr:               errDuplicateIgnoreFile,
 		},
 	}
 
@@ -87,54 +107,63 @@ func Test_readExcludes(t *testing.T) {
 
 			dir := t.TempDir()
 
-			if testcase.earthIgnoreContents != "" {
-				earthIgnoreFile, err := os.Create(filepath.Join(dir, earthIgnoreFile)) // #nosec G304
-				if err != nil {
-					t.Fatalf("failed to create .earthignore file")
+			for name, contents := range map[string]string{
+				earthIgnoreFile:   testcase.earthIgnoreContents,
+				earthlyIgnoreFile: testcase.earthlyIgnoreContents,
+				dockerIgnoreFile:  testcase.dockerIgnoreContents,
+			} {
+				if contents == "" {
+					continue
 				}
 
-				_, err = earthIgnoreFile.WriteString(testcase.earthIgnoreContents)
+				err := os.WriteFile(filepath.Join(dir, name), []byte(contents), 0o600)
 				if err != nil {
-					t.Fatalf("failed to write .earthignore file")
-				}
-			}
-
-			if testcase.earthlyIgnoreContents != "" {
-				earthlyIgnoreFile, err := os.Create(filepath.Join(dir, earthlyIgnoreFile)) // #nosec G304
-				if err != nil {
-					t.Fatalf("failed to create .earthlyignore file")
-				}
-
-				_, err = earthlyIgnoreFile.WriteString(testcase.earthlyIgnoreContents)
-				if err != nil {
-					t.Fatalf("failed to write .earthlyignore file")
+					t.Fatalf("failed to write %s file: %v", name, err)
 				}
 			}
 
-			if testcase.dockerIgnoreContents != "" {
-				dockerIgnoreFile, err := os.Create(filepath.Join(dir, dockerIgnoreFile)) // #nosec G304
-				if err != nil {
-					t.Fatalf("failed to create .dockerignore file")
-				}
-
-				_, err = dockerIgnoreFile.WriteString(testcase.dockerIgnoreContents)
-				if err != nil {
-					t.Fatalf("failed to write .dockerignore file")
-				}
+			excludes, err := readExcludes(dir, testcase.opts)
+			if !errors.Is(err, testcase.wantErr) {
+				t.Errorf("readExcludes() error = %v, want %v", err, testcase.wantErr)
 			}
 
-			excludes, err := readExcludes(dir, testcase.noImplicitIgnore, testcase.useDockerIgnore)
-			if !errors.Is(err, testcase.expectedErr) {
-				t.Logf("actual err: %v", err)
-				t.Logf("expected err: %v", testcase.expectedErr)
-				t.Error("unexpected error getting excludes")
-			}
-
-			if !reflect.DeepEqual(excludes, testcase.expectedExcludes) {
-				t.Logf("actual excludes: %v", excludes)
-				t.Logf("expected excludes: %v", testcase.expectedExcludes)
-				t.Error("unexpected excludes list")
+			if !slices.Equal(excludes, testcase.wantExcludes) {
+				t.Errorf("readExcludes() = %v, want %v", excludes, testcase.wantExcludes)
 			}
 		})
+	}
+}
+
+// TestSecretExcludesMatch checks that SecretExcludes match the secret file at any
+// depth of a build context, even when an ignore file tries to re-include it,
+// while leaving similarly named files alone.
+func TestSecretExcludesMatch(t *testing.T) {
+	t.Parallel()
+
+	pm, err := patternmatcher.New(slices.Concat([]string{"*", "!.secret", "!sub"}, SecretExcludes))
+	if err != nil {
+		t.Fatalf("patternmatcher.New: %v", err)
+	}
+
+	for _, tc := range []struct {
+		path string
+		want bool
+	}{
+		{path: ".secret", want: true},
+		{path: "sub/.secret", want: true},
+		{path: "a/b/c/.secret", want: true},
+		{path: ".secret/key", want: true},
+		{path: "sub/.secrets", want: false},
+		{path: "sub/my.secret", want: false},
+		{path: "sub", want: false},
+	} {
+		got, err := pm.MatchesOrParentMatches(tc.path)
+		if err != nil {
+			t.Fatalf("MatchesOrParentMatches(%q): %v", tc.path, err)
+		}
+
+		if got != tc.want {
+			t.Errorf("MatchesOrParentMatches(%q) = %v, want %v", tc.path, got, tc.want)
+		}
 	}
 }

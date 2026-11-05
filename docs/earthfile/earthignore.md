@@ -25,6 +25,10 @@ character-range:
 	lo '-' hi   matches character c for lo <= c <= hi
 ```
 
+## Implicitly excluded secret files
+
+Files named `.secret` (the default file `earth` reads build secrets from) are always excluded from local build contexts, at any depth, regardless of the contents of `.earthignore` and even when implicit ignore rules are disabled via `--no-implicit-ignore`. This prevents commands such as `COPY . ./` or `FROM DOCKERFILE .` from accidentally baking secrets into image layers. If you really need such a file inside the build context, the `--no-implicit-secret-ignore` [feature flag](./features.md) disables this behaviour.
+
 {% hint style='info' %}
 ##### Note
 Currently `.earthignore` is only applied to local targets. If an `.earthignore` file is specified within the context of a remote target, it will be silently ignored and exclusions would not take place.

@@ -135,29 +135,64 @@ hello:
     RUN echo "hello $name"
 ```
 
-Arg overrides within the same Earthfile are passed automatically to each other. In the example below, if you are calling `earth +greeting --name=world`, the `--name=world` override will be passed to `+hello` as well.
+### How argument values propagate
 
-```Dockerfile
-greeting:
-   BUILD +hello
+`BUILD`, `COPY`, `FROM`, `WITH DOCKER --load` and the other commands that reference a target all pass arguments
+in exactly the same way. `COPY +target/artifact` does not behave differently from `BUILD +target` in this regard.
 
-hello:
+The rules are:
+
+1. **An argument is only visible in a target that declares it with `ARG`.** Passing `--name=world` to a target
+   (from the command line or from another target) does not make `$name` available in that target unless the
+   target itself contains `ARG name`.
+
+2. **Overrides are passed on automatically to targets in the same Earthfile.** An argument override is a value set
+   explicitly, either on the command line (`earth +greeting --name=world`) or in a target reference
+   (`BUILD +hello --name=world`). Overrides travel with the build to every target referenced in the same Earthfile,
+   and from there on to the targets those reference, even when an intermediate target does not declare the `ARG`
+   itself. In the example below, `earth +greeting --name=world` prints `hello world`, although `+greeting` does not
+   declare `name` and cannot read it:
+
+   ```Dockerfile
+   greeting:
+      BUILD +hello
+      # $name is empty here, because +greeting does not declare ARG name.
+      RUN echo "greeting sees '$name'"
+
+   hello:
+      ARG name
+      RUN echo "hello $name"
+   ```
+
+   The same applies with `COPY +hello/some-file ./` or `FROM +hello` instead of `BUILD +hello`.
+
+3. **An argument's default value is not passed on.** Only override values propagate. If `+greeting` declared
+   `ARG name=world` and `earth +greeting` was run without `--name`, then `+hello` would still see an empty `name`.
+   To pass on the value of an `ARG` declared in the current target (whether it came from an override or from its
+   default), either pass it explicitly or use `--pass-args` (see below).
+
+4. **Overrides are not passed on automatically to other Earthfiles.** References to targets in another directory,
+   in a remote repository or via `IMPORT` do not receive the caller's overrides. In order to pass arguments to
+   other Earthfiles, you must explicitly pass the argument. For example:
+
+   ```Dockerfile
    ARG name
-   RUN echo "hello $name"
-```
+   BUILD ./other+hello --name=$name
+   ```
 
-This behavior does not apply to references to other Earthfiles. In order to pass arguments to other Earthfiles, you must either explicitly pass the argument. For example:
+   Or you can use the `--pass-args` flag:
 
-```Dockerfile
-ARG name
-BUILD +hello --name=$name
-```
+   ```Dockerfile
+   BUILD --pass-args ./other+hello
+   ```
 
-Or you can use the `--pass-args` flag to pass all arguments to the target:
+   `--pass-args` passes all the overrides, plus the current value of every `ARG` declared so far by the calling
+   target and every `ARG --global` of its Earthfile, including those that only have their default value. Builtin
+   args are never passed. It works on `BUILD`, `COPY` and `FROM`, for targets both in the same Earthfile and in other
+   Earthfiles.
 
-```Dockerfile
-BUILD --pass-args +hello
-```
+An explicit value in the target reference always takes precedence. For example, with `BUILD +hello --name=banana`,
+`+hello` sees `banana` even when `earth` was called with `--name=world`.
 
 ### Matrix builds
 

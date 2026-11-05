@@ -21,7 +21,7 @@ function finish {
 trap finish EXIT
 
 # TODO: add back docker-try-finally-fail
-for test_path in try-catch-not-currently-implemented try-finally-fail try-finally-pass try-finally-if-exists try-finally-two-files
+for test_path in try-catch-not-currently-implemented try-finally-fail try-finally-fail-subdir try-finally-pass try-finally-if-exists try-finally-two-files
 do
     printf "=== running $test_path ===\n\n"
     "${test_path}/test.sh"

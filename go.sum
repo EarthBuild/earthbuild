@@ -6,8 +6,8 @@ github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6/go.mod h
 github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20230306123547-8075edf89bb0 h1:59MxjQVfjXsBpLy+dbd2/ELV5ofnUkUZBvWSC85sheA=
 github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20230306123547-8075edf89bb0/go.mod h1:OahwfttHWG6eJ0clwcfBAHoDI6X/LV/15hx/wlMZSrU=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/EarthBuild/buildkit v0.0.0-20261104230604-d1921c527ca8 h1:Q7mAGiZvONso7SkYPPa5gbUBYO0ETlpHhosEW/KZKhw=
-github.com/EarthBuild/buildkit v0.0.0-20261104230604-d1921c527ca8/go.mod h1:64wg+sCcWZ4892Ej0E3gtCZLtIAzm09vKkl7CKrhzXQ=
+github.com/EarthBuild/buildkit v0.0.0-20261105160247-50d3c7ce013c h1:K2V95hiE4LZm9NO0NEZGzW3fK+Jj9ocaT1dKBy/OzA4=
+github.com/EarthBuild/buildkit v0.0.0-20261105160247-50d3c7ce013c/go.mod h1:0gxiQTnFL77A78OlSx5N0K5hWFlTvYTLgzb+QNtNC6Y=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/Microsoft/hcsshim v0.14.1 h1:CMuB3fqQVfPdhyXhUqYdUmPUIOhJkmghCx3dJet8Cqs=
@@ -290,6 +290,8 @@ github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWD
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 github.com/tonistiigi/fsutil v0.0.0-20240424095704-91a3fc46842c h1:+6wg/4ORAbnSoGDzg2Q1i3CeMcT/jjhye/ZfnBHy7/M=
 github.com/tonistiigi/fsutil v0.0.0-20240424095704-91a3fc46842c/go.mod h1:vbbYqJlnswsbJqWUcJN8fKtBhnEgldDrcagTgnBVKKM=
+github.com/tonistiigi/go-csvvalue v0.0.0-20240710180619-ddb21b71c0b4 h1:7I5c2Ig/5FgqkYOh/N87NzoyI9U15qUPXhDD8uCupv8=
+github.com/tonistiigi/go-csvvalue v0.0.0-20240710180619-ddb21b71c0b4/go.mod h1:278M4p8WsNh3n4a1eqiFcV2FGk7wE5fwUpUom9mK9lE=
 github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea h1:SXhTLE6pb6eld/v/cCndK0AMpt1wiVFb/YYmqB3/QG0=
 github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea/go.mod h1:WPnis/6cRcDZSUvVmezrxJPkiO87ThFYsoUiMwWNDJk=
 github.com/tonistiigi/vt100 v0.0.0-20240514184818-90bafcd6abab h1:H6aJ0yKQ0gF49Qb2z5hI1UHxSQt4JMyxebFR15KnApw=

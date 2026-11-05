@@ -115,6 +115,7 @@ require (
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.11.0 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
+	github.com/tonistiigi/go-csvvalue v0.0.0-20240710180619-ddb21b71c0b4 // indirect
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea // indirect
 	github.com/tonistiigi/vt100 v0.0.0-20240514184818-90bafcd6abab // indirect
 	github.com/vbatts/tar-split v0.12.3 // indirect
@@ -146,4 +147,4 @@ require (
 	howett.net/plist v1.0.1 // indirect
 )
 
-replace github.com/moby/buildkit => github.com/EarthBuild/buildkit v0.0.0-20261104230604-d1921c527ca8
+replace github.com/moby/buildkit => github.com/EarthBuild/buildkit v0.0.0-20261105160247-50d3c7ce013c

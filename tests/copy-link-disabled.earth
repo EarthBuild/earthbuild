@@ -1,0 +1,137 @@
+VERSION --no-use-copy-link 0.8
+
+producer:
+    FROM alpine:3.24.2
+    RUN echo payload > /payload && chown 1000:1000 /payload
+    SAVE ARTIFACT /payload
+
+with-symlink:
+    FROM alpine:3.24.2
+    RUN adduser -D testuser && mkdir /real && ln -s /real /linked
+
+default:
+    FROM +with-symlink
+    COPY +producer/payload /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '0:0' && test "$(cat /linked/payload)" = payload
+
+preserved:
+    FROM +with-symlink
+    COPY --keep-own +producer/payload /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1000:1000' && test "$(cat /linked/payload)" = payload
+
+numeric:
+    FROM +with-symlink
+    COPY --chown=1234:5678 +producer/payload /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1234:5678' && test "$(cat /linked/payload)" = payload
+
+root-alias:
+    FROM +with-symlink
+    COPY --chown=root:root +producer/payload /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '0:0' && test "$(cat /linked/payload)" = payload
+
+context:
+    FROM +with-symlink
+    COPY copy-link-payload.txt /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '0:0' && test "$(cat /linked/payload)" = payload
+
+context-numeric:
+    FROM +with-symlink
+    COPY --chown=1234:5678 copy-link-payload.txt /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1234:5678' && test "$(cat /linked/payload)" = payload
+
+inherited-numeric:
+    FROM +with-symlink
+    USER 1234:5678
+    COPY +producer/payload /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1234:5678' && test "$(cat /linked/payload)" = payload
+
+inherited-numeric-context:
+    FROM +with-symlink
+    USER 1234:5678
+    COPY copy-link-payload.txt /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1234:5678' && test "$(cat /linked/payload)" = payload
+
+inherited-preserved:
+    FROM +with-symlink
+    USER testuser
+    COPY --keep-own +producer/payload /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1000:1000' && test "$(cat /linked/payload)" = payload
+
+context-preserved:
+    FROM +with-symlink
+    USER testuser
+    COPY --keep-own copy-link-payload.txt /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '0:0' && test "$(cat /linked/payload)" = payload
+
+named:
+    FROM +with-symlink
+    COPY --chown=testuser:testuser +producer/payload /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1000:1000' && test "$(cat /linked/payload)" = payload
+
+named-group:
+    FROM +with-symlink
+    COPY --chown=1234:testuser +producer/payload /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1234:1000' && test "$(cat /linked/payload)" = payload
+
+named-context:
+    FROM +with-symlink
+    COPY --chown=testuser:testuser copy-link-payload.txt /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1000:1000' && test "$(cat /linked/payload)" = payload
+
+inherited-named:
+    FROM +with-symlink
+    USER testuser
+    COPY +producer/payload /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1000:1000' && test "$(cat /linked/payload)" = payload
+
+inherited-named-context:
+    FROM +with-symlink
+    USER testuser
+    COPY copy-link-payload.txt /linked/payload
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '1000:1000' && test "$(cat /linked/payload)" = payload
+
+git-numeric:
+    FROM +with-symlink
+    USER 1234:5678
+    GIT CLONE --branch 7fd1a60b01f91b314f59955a4e4d4e80d8edf11d https://github.com/octocat/Hello-World.git /linked
+    RUN test -L /linked && test -f /linked/README && test "$(stat -c '%u:%g' /linked/README)" = '1234:5678'
+
+git-named:
+    FROM +with-symlink
+    USER testuser
+    GIT CLONE --branch 7fd1a60b01f91b314f59955a4e4d4e80d8edf11d https://github.com/octocat/Hello-World.git /linked
+    RUN test -L /linked && test -f /linked/README && test "$(stat -c '%u:%g' /linked/README)" = '1000:1000'
+
+save-local:
+    FROM +producer
+    SAVE ARTIFACT /payload AS LOCAL copy-link-output.txt
+
+dockerfile-linked:
+    FROM DOCKERFILE --target linked -f Dockerfile.copy-link .
+    RUN test ! -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '0:0' && test "$(cat /linked/payload)" = payload
+
+dockerfile-ordinary:
+    FROM DOCKERFILE --target ordinary -f Dockerfile.copy-link .
+    RUN test -L /linked && test "$(stat -c '%u:%g' /linked/payload)" = '0:0' && test "$(cat /linked/payload)" = payload
+
+test:
+    BUILD +default
+    BUILD +preserved
+    BUILD +numeric
+    BUILD +root-alias
+    BUILD +context
+    BUILD +context-numeric
+    BUILD +inherited-numeric
+    BUILD +inherited-numeric-context
+    BUILD +inherited-preserved
+    BUILD +context-preserved
+    BUILD +named
+    BUILD +named-group
+    BUILD +named-context
+    BUILD +inherited-named
+    BUILD +inherited-named-context
+    BUILD +git-numeric
+    BUILD +git-named
+    BUILD +save-local
+    BUILD +dockerfile-linked
+    BUILD +dockerfile-ordinary

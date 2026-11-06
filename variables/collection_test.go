@@ -120,3 +120,45 @@ func TestCollection(t *testing.T) {
 		})
 	})
 }
+
+func TestCollectionExpandOld(t *testing.T) {
+	t.Parallel()
+
+	// Each subtest gets its own Collection: effective() fills its cache lazily without a lock.
+	newColl := func(t *testing.T) *variables.Collection {
+		t.Helper()
+
+		f, _, err := features.Get(&earthfile.Version{Args: []string{"0.7"}})
+		require.NoError(t, err)
+		_, err = f.ProcessFlags()
+		require.NoError(t, err)
+
+		overriding := variables.NewScope()
+		overriding.Add("FOO", "bar", variables.WithActive())
+
+		return variables.NewCollection(variables.NewCollectionOpt{
+			PlatformResolver: platutil.NewResolver(specs.Platform{OS: "linux", Architecture: "amd64"}),
+			OverridingVars:   overriding,
+			Features:         f,
+		})
+	}
+
+	tests := []struct {
+		name string
+		word string
+		want string
+	}{
+		{name: "plain", word: "$FOO", want: "bar"},
+		{name: "braced", word: "x-${FOO}-y", want: "x-bar-y"},
+		{name: "default for unset", word: "${MISSING:-dflt}", want: "dflt"},
+		{name: "unset expands empty", word: "a$MISSING", want: "a"},
+		{name: "escaped", word: `\$FOO`, want: "$FOO"},
+		{name: "no shelling out", word: "$(echo hi)", want: "$(echo hi)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, newColl(t).ExpandOld(tt.word))
+		})
+	}
+}

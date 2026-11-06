@@ -58,7 +58,6 @@ import (
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/moby/buildkit/frontend/dockerfile/dockerfile2llb"
-	"github.com/moby/buildkit/frontend/dockerui"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/session/localhost"
 	solverpb "github.com/moby/buildkit/solver/pb"
@@ -511,11 +510,6 @@ func (c *Converter) FromDockerfile(
 		BuildContextFactory = data.BuildContextFactory
 	}
 
-	bc, err := dockerui.NewClient(c.opt.GwClient)
-	if err != nil {
-		return fmt.Errorf("dockerui.NewClient: %w", err)
-	}
-
 	var pncvf variables.ProcessNonConstantVariableFunc
 	if !c.opt.Features.ShellOutAnywhere {
 		pncvf = c.processNonConstantBuildArgFunc(ctx)
@@ -527,7 +521,9 @@ func (c *Converter) FromDockerfile(
 	}
 
 	bcRawState, done := BuildContextFactory.Construct().RawState()
-	bc.SetBuildContext(&bcRawState, c.mts.FinalTarget().String())
+	// The build context is passed as MainContext rather than through a dockerui.Client.
+	// A Client only adds Dockerfile frontend options (named contexts, per-stage no-cache,
+	// lint config) read from the gateway's frontend attrs, and earth sets none of those.
 	state, dfImg, _, _, err := dockerfile2llb.Dockerfile2LLB(ctx, dfData, dockerfile2llb.ConvertOpt{
 		MetaResolver:     c.opt.MetaResolver,
 		LLBCaps:          c.opt.LLBCaps,
@@ -535,7 +531,7 @@ func (c *Converter) FromDockerfile(
 		Target:           dfTarget,
 		ImageResolveMode: c.opt.ImageResolveMode,
 		TargetPlatform:   &plat,
-		Client:           bc,
+		MainContext:      &bcRawState,
 	})
 
 	done()

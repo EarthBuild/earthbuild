@@ -285,7 +285,7 @@ func isCommandToken(t itemType) bool {
 	case itemError, itemEOF, itemNL, itemIndent, itemDedent, itemWS, itemComment,
 		itemEOLComment, itemElseIf, itemElse, itemEnd, itemVersion, itemDocker,
 		itemCatch, itemFinally, itemTarget, itemUserCommand, itemFunction,
-		itemAtom, itemEquals:
+		itemAtom, itemEquals, itemHeredoc:
 		return false
 	}
 
@@ -700,10 +700,82 @@ func (p *parser) parseCommand() (Command, error) {
 		}
 	}
 
+	if cmd.Name != CmdRun && cmd.Name != CmdCopy &&
+		cmd.Name != CmdEnv && cmd.Name != CmdArg && cmd.Name != CmdSet && cmd.Name != CmdLet {
+		for _, arg := range cmd.Args {
+			if _, ok := ParseHeredocDecl(arg); ok {
+				return cmd, p.errorf(tok, "heredocs are only supported for RUN and COPY commands")
+			}
+		}
+	}
+
+	var heredocs []Heredoc
+
+	for p.peek().Typ == itemHeredoc {
+		hTok := p.next()
+		hLoc := tokenLocation(p.lex.name, hTok)
+		hLoc.EndLine = hTok.Line + strings.Count(hTok.Val, "\n")
+		heredocs = append(heredocs, Heredoc{
+			SourceLocation: hLoc,
+			Content:        hTok.Val,
+		})
+		endLoc = hLoc
+	}
+
+	if len(heredocs) > 0 {
+		err := validateAndAssignHeredocs(tok, &cmd, heredocs, p)
+		if err != nil {
+			return cmd, err
+		}
+	}
+
 	cmd.SourceLocation.EndLine = endLoc.EndLine
 	cmd.SourceLocation.EndColumn = endLoc.EndColumn
 
 	return cmd, nil
+}
+
+func validateAndAssignHeredocs(tok item, cmd *Command, heredocs []Heredoc, p *parser) error {
+	if cmd.Name != CmdRun && cmd.Name != CmdCopy {
+		return p.errorf(tok, "heredocs are only supported for RUN and COPY commands")
+	}
+
+	if cmd.ExecMode {
+		return p.errorf(tok, "heredocs are not supported in exec form")
+	}
+
+	if cmd.Name == CmdCopy && len(cmd.Args) > 0 {
+		if _, ok := ParseHeredocDecl(cmd.Args[len(cmd.Args)-1]); ok {
+			return p.errorf(tok, "COPY cannot accept a heredoc as a destination")
+		}
+	}
+
+	var heredocDecls []HeredocDecl
+
+	for _, arg := range cmd.Args {
+		if decl, ok := ParseHeredocDecl(arg); ok {
+			heredocDecls = append(heredocDecls, decl)
+		}
+	}
+
+	if len(heredocs) != len(heredocDecls) {
+		return p.errorf(
+			tok,
+			"number of heredocs (%d) does not match number of declarations (%d)",
+			len(heredocs),
+			len(heredocDecls),
+		)
+	}
+
+	for idx := range heredocs {
+		heredocs[idx].Name = heredocDecls[idx].Name
+		heredocs[idx].Chomp = heredocDecls[idx].Chomp
+		heredocs[idx].Expand = heredocDecls[idx].Expand
+	}
+
+	cmd.Heredocs = heredocs
+
+	return nil
 }
 
 func (p *parser) parseArgsUntilNL() ([]string, SourceLocation, error) {

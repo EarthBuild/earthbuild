@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/EarthBuild/earthbuild/util/oidcutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
@@ -47,6 +48,7 @@ type WithDockerOpt struct {
 	CacheID               string
 	Pulls                 []DockerPullOpt
 	Secrets               []string
+	Heredoc               *earthfile.Heredoc
 	extraRunOpts          []llb.RunOption
 	Mounts                []string
 	TryCatchSaveArtifacts []debuggercommon.SaveFilesSettings

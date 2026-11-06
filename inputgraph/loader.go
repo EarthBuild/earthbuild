@@ -171,6 +171,10 @@ func (l *loader) handleCopy(ctx context.Context, cmd earthfile.Command) error {
 	mustExist := !opts.IfExists
 
 	for _, src := range srcs {
+		if strings.HasPrefix(src, "<<") {
+			continue
+		}
+
 		err := l.handleCopySrc(ctx, cmd, src, mustExist)
 		if err != nil {
 			return err

@@ -156,6 +156,97 @@ func TestLex(t *testing.T) {
 				makeItemEOF(),
 			},
 		},
+		// Heredocs
+		{
+			name:  "run with basic heredoc",
+			input: "RUN <<EOF\nset -e\napk update\nEOF\n",
+			want: []item{
+				makeItemRun(),
+				makeItemSpace(),
+				makeItemAtom("<<EOF"),
+				makeItemNL(),
+				makeItemHeredoc("set -e\napk update\n"),
+				makeItemEOF(),
+			},
+		},
+		{
+			name:  "run with tab chomping heredoc",
+			input: "RUN <<-EOF\n\tset -e\n\techo test\n\tEOF\n",
+			want: []item{
+				makeItemRun(),
+				makeItemSpace(),
+				makeItemAtom("<<-EOF"),
+				makeItemNL(),
+				makeItemHeredoc("set -e\necho test\n"),
+				makeItemEOF(),
+			},
+		},
+		{
+			name:  "run with custom interpreter and heredoc",
+			input: "RUN python3 <<EOF\nimport json\nEOF\n",
+			want: []item{
+				makeItemRun(),
+				makeItemSpace(),
+				makeItemAtom("python3"),
+				makeItemSpace(),
+				makeItemAtom("<<EOF"),
+				makeItemNL(),
+				makeItemHeredoc("import json\n"),
+				makeItemEOF(),
+			},
+		},
+		{
+			name:  "copy with heredoc",
+			input: "COPY <<EOF /dest/config.json\n{\"ok\": true}\nEOF\n",
+			want: []item{
+				makeItemCopy(),
+				makeItemSpace(),
+				makeItemAtom("<<EOF"),
+				makeItemSpace(),
+				makeItemAtom("/dest/config.json"),
+				makeItemNL(),
+				makeItemHeredoc("{\"ok\": true}\n"),
+				makeItemEOF(),
+			},
+		},
+		{
+			name:  "copy with multiple heredocs",
+			input: "COPY <<EOF1 <<EOF2 /dest\nfile 1\nEOF1\nfile 2\nEOF2\n",
+			want: []item{
+				makeItemCopy(),
+				makeItemSpace(),
+				makeItemAtom("<<EOF1"),
+				makeItemSpace(),
+				makeItemAtom("<<EOF2"),
+				makeItemSpace(),
+				makeItemAtom("/dest"),
+				makeItemNL(),
+				makeItemHeredoc("file 1\n"),
+				makeItemHeredoc("file 2\n"),
+				makeItemEOF(),
+			},
+		},
+		{
+			name:  "unterminated heredoc error",
+			input: "RUN <<EOF\nhello\n",
+			want: []item{
+				makeItemRun(),
+				makeItemSpace(),
+				makeItemAtom("<<EOF"),
+				makeItemNL(),
+				makeItemError("unterminated heredoc \"EOF\" (opened at line 1)"),
+			},
+		},
+		{
+			name:  "unterminated heredoc at EOF without newline",
+			input: "RUN <<EOF",
+			want: []item{
+				makeItemRun(),
+				makeItemSpace(),
+				makeItemAtom("<<EOF"),
+				makeItemError("unterminated heredoc \"EOF\" (opened at line 1)"),
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -232,6 +323,122 @@ func makeItemRun() item {
 	return item{Typ: itemRun, Val: string(CmdRun)}
 }
 
+func makeItemCopy() item {
+	return item{Typ: itemCopy, Val: string(CmdCopy)}
+}
+
+func makeItemHeredoc(val string) item {
+	return item{Typ: itemHeredoc, Val: val}
+}
+
 func makeItemEOF() item {
 	return item{Typ: itemEOF, Val: ""}
+}
+
+const (
+	testEchoLines  = "echo hello\necho world\n"
+	testHeredocEOF = "EOF"
+	testDeclEOF    = "<<EOF"
+)
+
+func TestChompHeredocContent(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "no tabs",
+			input: testEchoLines,
+			want:  testEchoLines,
+		},
+		{
+			name:  "single leading tab",
+			input: "\techo hello\n\techo world\n",
+			want:  testEchoLines,
+		},
+		{
+			name:  "multiple leading tabs",
+			input: "\t\tline 1\n\t\t\tline 2\n",
+			want:  "line 1\nline 2\n",
+		},
+		{
+			name:  "leading spaces not stripped",
+			input: "  \tindented\n",
+			want:  "  \tindented\n",
+		},
+		{
+			name:  "empty lines and tabs only",
+			input: "\t\t\n\t\ntext\n",
+			want:  "\n\ntext\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := ChompHeredocContent(tt.input)
+			if got != tt.want {
+				t.Errorf("ChompHeredocContent(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseHeredocDecl(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		src       string
+		wantName  string
+		wantChomp bool
+		wantExp   bool
+		wantOk    bool
+	}{
+		{src: testDeclEOF, wantName: testHeredocEOF, wantChomp: false, wantExp: true, wantOk: true},
+		{src: "<<-EOF", wantName: testHeredocEOF, wantChomp: true, wantExp: true, wantOk: true},
+		{src: "<<'EOF'", wantName: testHeredocEOF, wantChomp: false, wantExp: false, wantOk: true},
+		{src: "<<\"EOF\"", wantName: testHeredocEOF, wantChomp: false, wantExp: false, wantOk: true},
+		{src: "<<-'EOF'", wantName: testHeredocEOF, wantChomp: true, wantExp: false, wantOk: true},
+		{src: "0" + testDeclEOF, wantOk: false},
+		{src: "1<<2", wantOk: false},
+		{src: "<<", wantOk: false},
+		{src: "<<-", wantOk: false},
+		{src: "<<''", wantOk: false},
+		{src: "<<'EOF\"", wantOk: false},
+		{src: "a<<EOF", wantOk: false},
+		{src: "regular_word", wantOk: false},
+		{src: "<<<\"x\"", wantOk: false},
+		{src: "'<<foo'", wantOk: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			t.Parallel()
+
+			decl, ok := ParseHeredocDecl(tt.src)
+			if ok != tt.wantOk {
+				t.Fatalf("ParseHeredocDecl(%q) ok = %v, want %v", tt.src, ok, tt.wantOk)
+			}
+
+			if !ok {
+				return
+			}
+
+			if decl.Name != tt.wantName {
+				t.Errorf("ParseHeredocDecl(%q).Name = %q, want %q", tt.src, decl.Name, tt.wantName)
+			}
+
+			if decl.Chomp != tt.wantChomp {
+				t.Errorf("ParseHeredocDecl(%q).Chomp = %v, want %v", tt.src, decl.Chomp, tt.wantChomp)
+			}
+
+			if decl.Expand != tt.wantExp {
+				t.Errorf("ParseHeredocDecl(%q).Expand = %v, want %v", tt.src, decl.Expand, tt.wantExp)
+			}
+		})
+	}
 }

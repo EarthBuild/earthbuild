@@ -219,6 +219,7 @@ func (w *withDockerRunRegistry) Run(ctx context.Context, args []string, opt With
 	crOpts := ConvertRunOpts{
 		CommandName:          commandName,
 		Args:                 args,
+		Heredoc:              opt.Heredoc,
 		Mounts:               opt.Mounts,
 		Secrets:              opt.Secrets,
 		WithEntrypoint:       opt.WithEntrypoint,

@@ -232,6 +232,16 @@ func (c *Collection) Expand(word string, shellOut shell.EvalShellOutFn) (string,
 	return shlex.ProcessWordWithMap(word, varMap, ShellOutEnvs)
 }
 
+// ExpandHeredoc expands variables within a heredoc body while preserving quotes verbatim.
+func (c *Collection) ExpandHeredoc(word string, shellOut shell.EvalShellOutFn) (string, error) {
+	shlex := shell.NewLex('\\')
+	shlex.SkipProcessQuotes = true
+	shlex.ShellOut = shellOut
+	varMap := c.effective().Map(WithActive())
+
+	return shlex.ProcessWordWithMap(word, varMap, ShellOutEnvs)
+}
+
 func (c *Collection) overridingOrDefault(
 	name, defaultValue string, pncvf ProcessNonConstantVariableFunc,
 ) (string, error) {

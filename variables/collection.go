@@ -210,6 +210,10 @@ func (c *Collection) SortedOverridingVariables() []string {
 
 // ExpandOld expands variables within the given word, it does not perform shelling-out.
 // It will eventually be removed when the ShellOutAnywhere feature is fully-adopted.
+//
+// TODO: remove ExpandOld once Earthfiles below VERSION 0.7 (which lack
+// ShellOutAnywhere) are no longer supported. Its only caller,
+// Converter.ExpandArgs, can then always use Expand.
 func (c *Collection) ExpandOld(word string) string {
 	shlex := dfShell.NewLex('\\')
 	varMap := c.effective().Map(WithActive())

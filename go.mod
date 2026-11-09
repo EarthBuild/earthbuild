@@ -17,7 +17,7 @@ require (
 	github.com/dustin/go-humanize v1.1.0
 	github.com/elastic/go-sysinfo v1.15.5
 	github.com/fatih/color v1.19.0
-	github.com/gofrs/flock v0.13.1
+	github.com/gofrs/flock v0.13.2
 	github.com/google/go-cmp v0.7.0
 	github.com/jdxcode/netrc v1.0.0
 	github.com/jessevdk/go-flags v1.6.1

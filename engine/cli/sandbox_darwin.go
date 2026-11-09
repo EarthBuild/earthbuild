@@ -26,11 +26,10 @@ func sandbox(image string) (exec.Sandbox, error) {
 	// docker-archive and fails looking for a `blobs/json` that an OCI layout
 	// does not have.
 	//
-	// Passed as the container's command because the dind entrypoint forwards
-	// arguments to dockerd; it is also part of the VM's name, so a machine
-	// started without it is never mistaken for this one.
+	// Passed as the container's command; it is also part of the VM's name, so
+	// a machine started without it is never mistaken for this one.
 	if image == dockerSandboxImage {
-		sb.Command = []string{"--feature", "containerd-snapshotter=true"}
+		sb.Command = dockerSandboxCommand()
 	}
 
 	err = sb.Available()

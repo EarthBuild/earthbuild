@@ -1142,3 +1142,23 @@ func awsFromEnv(environ []string) map[string]string {
 
 	return out
 }
+
+// dockerSandboxCommand starts dockerd once /proc/sys is writable.
+//
+// **dockerd is the VM's main process, so its exit is the machine's.** It
+// enables IP forwarding on start, and Apple's container (1.4.1) mounts
+// /proc/sys read-only even under `--cap-add ALL` - so dockerd exited 1 within
+// two seconds, the VM went down with it, and the guest exec'd into it died with
+// 137 mid-step. Every WITH DOCKER build on a Mac read `guest connection lost:
+// EOF`. CAP_SYS_ADMIN is enough to remount it.
+//
+// The dind entrypoint runs a command that is not a flag as given, so the shell
+// goes first and then execs the entrypoint with dockerd's flags, keeping its
+// setup. The remount is not checked: a runtime that already mounts it
+// read-write needs none, and dockerd says plainly if it still cannot write.
+func dockerSandboxCommand() []string {
+	return []string{
+		"sh", "-c",
+		"mount -o remount,rw /proc/sys 2>/dev/null; exec dockerd-entrypoint.sh --feature containerd-snapshotter=true",
+	}
+}

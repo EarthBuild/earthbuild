@@ -185,8 +185,8 @@ func (e *Executor) materialiseImageInGuest(
 
 			idsMu.Lock()
 			if uerr != nil {
-				failed[i] = fmt.Errorf("unpack layer %s of %s: %w",
-					l.Digest, n.Op.Args[0], uerr)
+				failed[i] = e.lostGuest(fmt.Errorf("unpack layer %s of %s: %w",
+					l.Digest, n.Op.Args[0], uerr))
 			} else {
 				ids[i] = id
 			}

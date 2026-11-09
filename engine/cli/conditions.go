@@ -54,7 +54,12 @@ func decideByRunning(
 		return interp.Result{}, fmt.Errorf("there is no filesystem to evaluate it against (%s)", where)
 	}
 
-	if base.Op.Kind == ir.OpHost {
+	// A host anchor - a host step with no command - is LOCALLY with nothing run
+	// on the host before it, so the probe runs there alone. Anything else on
+	// the host would have to run first, and a host step runs once (I7).
+	onHost := base.Op.Kind == ir.OpHost && len(base.Op.Args) == 0 && len(base.Inputs) == 0
+
+	if base.Op.Kind == ir.OpHost && !onHost {
 		return interp.Result{}, fmt.Errorf(
 			"deciding it needs the LOCALLY steps before it to have run, and a host step is never"+
 				" cached - so running them to decide would run them twice (%s)"+
@@ -100,6 +105,10 @@ func decideByRunning(
 			Source:      where,
 			Description: "IF " + strings.Join(cond, " "),
 		},
+	}
+
+	if onHost {
+		probe.Op.Kind, probe.Op.HostAbs, probe.Inputs, probe.Platform = ir.OpHost, base.Op.HostAbs, nil, ir.Platform{}
 	}
 
 	out, err := run(ctx, &ir.Graph{Root: probe})

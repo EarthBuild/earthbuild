@@ -929,10 +929,10 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			// **Before 0.7 a substitution has to be the whole value.** See
 			// expandWholeValue and features.shellOutAnywhere.
 			if !p.here.features.shellOutAnywhere {
-				return p.expandWholeValue(word, prev, rs.dir, string(c.Name), where)
+				return p.expandWholeValue(word, p.probeBase(prev, rs), rs.dir, string(c.Name), where)
 			}
 
-			return p.expandCommands(word, prev, rs.dir, string(c.Name), where)
+			return p.expandCommands(word, p.probeBase(prev, rs), rs.dir, string(c.Name), where)
 		}
 
 		// The platform arguments are computed here rather than seeded into the
@@ -1002,7 +1002,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				continue
 			}
 
-			out, err := p.expandCommands(a, prev, rs.dir, string(c.Name), loc(c.SourceLocation))
+			out, err := p.expandCommands(a, p.probeBase(prev, rs), rs.dir, string(c.Name), loc(c.SourceLocation))
 			if err != nil {
 				return nil, err
 			}
@@ -1029,7 +1029,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 				continue
 			}
 
-			out, err := p.expandWholeValue(value, prev, rs.dir, string(c.Name), loc(c.SourceLocation))
+			out, err := p.expandWholeValue(value, p.probeBase(prev, rs), rs.dir, string(c.Name), loc(c.SourceLocation))
 			if err != nil {
 				return nil, err
 			}
@@ -1743,7 +1743,7 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 			}
 		}
 
-		name, value, err := p.assignment(c, prev, rs.dir)
+		name, value, err := p.assignment(c, p.probeBase(prev, rs), rs.dir)
 		if err != nil {
 			return nil, err
 		}
@@ -2420,7 +2420,7 @@ func (p *Plan) branch(expr []string, prev *ir.Node, rs *state, where string) (bo
 	// exited 0 having done less than the Earthfile said. earthly runs the same
 	// file and takes the branch (E786).
 	if holdsCommand(expanded) {
-		return p.evaluate(expanded, prev, rs.dir, where)
+		return p.evaluate(expanded, p.probeBase(prev, rs), rs.dir, where)
 	}
 
 	taken, err := decide(expanded, rs.args, rs.env)
@@ -2432,7 +2432,7 @@ func (p *Plan) branch(expr []string, prev *ir.Node, rs *state, where string) (bo
 		return false, err
 	}
 
-	return p.evaluate(expanded, prev, rs.dir, where)
+	return p.evaluate(expanded, p.probeBase(prev, rs), rs.dir, where)
 }
 
 // resolveDest anchors a relative COPY destination to the working directory.

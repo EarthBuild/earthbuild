@@ -115,7 +115,7 @@ func (p *Plan) loopItems(args []string, prev *ir.Node, rs *state, where string) 
 
 		// A list that has to be *computed* is run on the filesystem the recipe
 		// has built up to that line, through the same seam a condition uses.
-		expanded, err = p.expandCommands(expanded, prev, rs.dir, "FOR", where)
+		expanded, err = p.expandCommands(expanded, p.probeBase(prev, rs), rs.dir, "FOR", where)
 		if err != nil {
 			return "", nil, err
 		}

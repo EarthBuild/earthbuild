@@ -117,6 +117,29 @@ func (p *Plan) evaluate(cond []string, base *ir.Node, dir, where string) (bool, 
 	return res.Exit == 0, nil
 }
 
+// probeBase is what a condition or `$(...)` at this line is run against.
+//
+// Outside LOCALLY, the step before it. Inside, a host anchor: a host step with
+// no command, saying where and with what environment the probe runs. LOCALLY
+// produces no step, so `prev` there is nil or - after a FROM - an image, and a
+// probe run against either answered about the wrong machine or not at all.
+//
+// An earlier host RUN is the anchor's input and nothing else is: a container
+// step before the LOCALLY is no part of the host's state, and keeping the RUN
+// lets the runner refuse to run it a second time (I7).
+func (p *Plan) probeBase(prev *ir.Node, rs *state) *ir.Node {
+	if !rs.host {
+		return prev
+	}
+
+	anchor := &ir.Node{Op: ir.Op{Kind: ir.OpHost, Dir: rs.dir, HostAbs: rs.hostAbs, Env: rs.envFor()}}
+	if prev != nil && prev.Op.Kind == ir.OpHost {
+		anchor.Inputs = []*ir.Node{prev}
+	}
+
+	return anchor
+}
+
 // substitute expands a `$(...)` by running what is inside it.
 //
 // The trailing newline goes, because a command's output is a line and the

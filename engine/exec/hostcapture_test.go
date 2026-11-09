@@ -183,3 +183,30 @@ func TestAHostStepsPwdIsItsDirectory(t *testing.T) {
 		t.Errorf("pwd in the host step is %q, want %q - the directory as the Earthfile named it", got, want)
 	}
 }
+
+// A relative build context still gives a host step an absolute PWD.
+//
+// `rth +t` run beside its Earthfile has Context "."; the step ran there with
+// PWD=".", which a shell keeps as given, so `pwd` printed "." where the
+// reference prints the directory - and `LET here = "$(pwd)"` carried the dot
+// into a path.
+func TestAHostStepsPwdIsAbsoluteUnderARelativeContext(t *testing.T) {
+	t.Parallel()
+
+	want, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e := &Executor{Context: "."}
+	n := &ir.Node{Op: ir.Op{Kind: ir.OpHost, Args: []string{"/bin/sh", "-c", "pwd"}}}
+
+	res, err := e.hostStep(t.Context(), n)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := strings.TrimSpace(res.Stdout); got != want {
+		t.Errorf("pwd in the host step is %q, want the absolute %q", got, want)
+	}
+}

@@ -1473,6 +1473,13 @@ func (e *Executor) hostStep(ctx context.Context, n *ir.Node) (core.Result, error
 		cmd.Dir = filepath.Join(e.Context, filepath.Clean("/"+n.Op.Dir))
 	}
 
+	// Absolute, because it becomes PWD below and a shell keeps a relative PWD
+	// as given: a context of "." made `pwd` print ".".
+	abs, err := filepath.Abs(cmd.Dir)
+	if err == nil {
+		cmd.Dir = abs
+	}
+
 	// **A WORKDIR makes its directory**, on this machine as in a container: the
 	// reference does, and `tests/local+test-locally-workdir` names a fresh one.
 	if cmd.Dir != e.Context {

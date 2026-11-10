@@ -111,6 +111,8 @@ ga-no-qemu-group5:
     BUILD +new-args
     BUILD +import
     BUILD +from-dockerfile-arg
+    BUILD +from-dockerfile-dockerignore
+    BUILD +from-dockerfile-check
     BUILD +true-false-flag
     BUILD +true-false-flag-invalid
     BUILD +dont-save-indirect-remote-artifact
@@ -1266,17 +1268,31 @@ from-dockerfile-arg:
     RUN test "$(cat ./arg-value-foo)" = "foo"
     RUN test "$(cat ./arg-value-bar)" = "bar"
 
+from-dockerfile-check:
+    # lint warnings are reported, but do not fail the build by default
+    DO +RUN_EARTH --earthfile=from-dockerfile-check.earth --target=+create-files
+    DO +RUN_EARTH --target=+image --output_contains="Dockerfile:1: FromAsCasing:"
+
+    # check=error=true turns the warning into a build failure
+    DO +RUN_EARTH --target="+create-files --check=\"error=true\""
+    DO +RUN_EARTH --target=+image --should_fail=true --output_contains="lint violation found for rules: FromAsCasing"
+
+    # check=skip=<rule> suppresses the rule, even with error=true
+    DO +RUN_EARTH --target="+create-files --check=\"skip=FromAsCasing;error=true\""
+    DO +RUN_EARTH --target=+image --output_does_not_contain="FromAsCasing"
+
 from-dockerfile-dockerignore:
-    # feature flag off
+    # use-docker-ignore off (VERSION 0.7): .dockerignore is not applied
     DO +RUN_EARTH --earthfile=from-dockerfile-dockerignore.earth --target="+create-files --with_docker_ignore=\"true\""
-    DO +RUN_EARTH --earthfile=from-dockerfile-dockerignore.earth --target=+image
+    RUN sed -i "1s/^VERSION .*/VERSION 0.7/" Earthfile
+    DO +RUN_EARTH --target=+image
     RUN test "$(cat output)" = "a.txt
 b.txt
 c.txt"
     RUN rm -rf .*ignore output
 
-    # enable feature flag
-    RUN sed -i "1s/VERSION \(.*\)/VERSION --use-docker-ignore \1/" Earthfile
+    # use-docker-ignore on (default since VERSION 0.8)
+    RUN sed -i "1s/^VERSION .*/VERSION 0.8/" Earthfile
 
     # no ignore files
     DO +RUN_EARTH --target=+create-files

@@ -1192,6 +1192,8 @@ The `FROM DOCKERFILE` command initializes a new build environment, inheriting fr
 The `<context-path>` is the path where the Dockerfile build context exists. By default, it is assumed that a file named `Dockerfile` exists in that directory. The context path can be either a path on the host system, or an [artifact reference](../guides/importing.md#artifact-reference), pointing to a directory containing a `Dockerfile`.
 Additionally, when using a `<context-path>` from the host system, a `.dockerignore` in the directory root will be used to exclude files (unless `.earthlyignore` or `.earthignore` are present).
 
+Dockerfile [build checks](https://docs.docker.com/build/checks/) run as they do in `docker build`: violations are printed as warnings. A `# check=` directive at the top of the Dockerfile can skip rules (`# check=skip=FromAsCasing`) or make violations fail the build (`# check=error=true`).
+
 #### Options
 
 ##### `-f <dockerfile-path>`

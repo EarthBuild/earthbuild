@@ -10,6 +10,8 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Changed
 
+- `FROM DOCKERFILE` now runs Dockerfile build checks and prints violations as warnings, as `docker build` does.
+  A `# check=error=true` directive, which was previously ignored, now fails the build on a violation.
 - Contradictory output flags are now rejected instead of silently resolved: `--no-output` together with `--no-image-output` is an error, since `--no-output` already suppresses images
 - Completed the `EARTHLY_*` -> `EARTH_*` environment variable rename for the variables EarthBuild
   sets on itself. The published `earthbuild/earthbuild` image no longer emits deprecation warnings

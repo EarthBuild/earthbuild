@@ -23,7 +23,7 @@ comments, docs or commit messages:
 * Prefer std packages over 3rd party packages, where possible.
 * Ensure all exposed interfaces and types are documented.
 * **JSON Serialization:** Use standard library `encoding/json/v2`. Only pass `jsonv1.DefaultOptionsV1()` (accompanied by an explanatory comment) when marshaling or unmarshaling structs where we have no control over field tags (such as external types from BuildKit, Moby, or OCI).
-* **Testing:** Use `want` instead of `expected` in tests.
+* **Testing:** Use [`stretchr/testify`](https://github.com/stretchr/testify) (`require` for fatal checks and `assert` for standard assertions) in Go tests instead of manual `t.Errorf`/`t.Fatalf` assertion checks or other assertion libraries. Use `want` instead of `expected` in tests. Add E2E tests under `./tests` if needed (for example, when changing Earthfile commands, CLI flags, caching, outputs, or `buildkitd` interactions that unit tests alone cannot cover).
 
 ## Naming & Terminology
 
@@ -48,6 +48,7 @@ After making changes to the codebase, verify the following and rectify any issue
 ├── cmd/           # CLI commands
 ├── internal/      # All internal packages (slowly refactored and migrated from the root dir)
 ├── examples/      # Examples in different languages
+├── tests/         # End-to-end (E2E) tests
 └── www/           # Website
 ```
 

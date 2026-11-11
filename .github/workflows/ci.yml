@@ -10,7 +10,6 @@ on:
       - '.github/CODEOWNERS'
       - 'LICENSE'
   pull_request:
-    branches: [ main, get-ci-working ]
   merge_group:
 
 

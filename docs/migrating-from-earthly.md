@@ -51,15 +51,23 @@ The command-line tool has been renamed from `earthly` to `earth`. You will need 
 + earth +all
 ```
 
-In the `earthlybuild/actions-setup` github action, we've aliased `earthly` to `earth`, logging the deprecated
-usage, to ease the switch.
+In the [`earthbuild/actions-setup`](https://github.com/EarthBuild/actions-setup) GitHub Action we install a
+deprecated `earthly` alias alongside `earth`, logging the deprecated usage, to ease the switch. In version
+`v0.9.0` we will release a breaking change that removes the alias.
 
-In version `v0.9.0` we will release a breaking change that removes the alias.
+**This alias exists only in that action.** The [installation scripts](https://www.earthbuild.dev/install.html),
+the published container images, and third-party packages install `earth` only. So if any of the following
+describe you, there is no period of overlap and `earthly` stops working the moment you upgrade:
 
-As of that version, you must update your CI configuration to use `earth` instead of `earthly` to reference the
-CLI binary.
+- your CI bakes the binary into a self-hosted runner image;
+- you invoke `earthly` from a shell script, `Makefile`, `Tiltfile` or git hook;
+- you install via a package manager rather than `actions-setup`.
 
-We recommend using this period of overlap to update your CI configuration in preparation of the release.
+In those cases, rename the call sites before you upgrade — or add your own shim (`ln -s "$(command -v earth)"
+/usr/local/bin/earthly`) to buy yourself the same overlap deliberately.
+
+Where the alias *does* apply, we recommend using that period of overlap to update your CI configuration in
+preparation for the release.
 
 ### Installation
 
@@ -93,7 +101,22 @@ Release assets are now named `earth-<os>-<arch>` rather than `earthly-<os>-<arch
 
 ### Earth Directory Name Change
 
-The Earthly directory (for config, etc.) has been renamed from `~/.earthly` to `~/.earth`.
+The Earthly directory (for config, etc.) has been renamed from `~/.earthly` to `~/.earth` in `v0.8.19`.
+
+**`earth` does not read, copy, or warn about the old location.** Upgrading with a config only at
+`~/.earthly/config.yml` silently falls back to built-in defaults — no error, no warning — so a configured
+`buildkit_host`, registry mirror or `secret_provider` quietly stops applying and the build changes behaviour
+for no visible reason. Move it before you upgrade:
+
+```bash
+mkdir -p ~/.earth && cp -a ~/.earthly/. ~/.earth/ && mv ~/.earthly ~/.earthly.bak
+```
+
+The same applies to anything that computes the path itself — CI steps, dotfiles, or wrapper scripts along the
+lines of `${EARTHLY_CONFIG:-$HOME/.earthly/config.yml}`.
+
+(Tracked in [#960](https://github.com/EarthBuild/earthbuild/issues/960) — the silent fallback is arguably a
+bug, and this note should get simpler if we add a warning or a compatibility read.)
 
 ## Removed Features and Alternatives
 
@@ -131,7 +154,8 @@ The following commands and flags, mostly related to Earthly Cloud, have been rem
 - `disable_log_sharing`: Removed. There is no cloud provider to share logs with anymore.
 - `disable_analytics`: Removed. There are no analytics to collect/share anymore.
 
-These options are simply ignored if present.
+These options are simply ignored if present — with no error and no warning, so grep your config files rather
+than waiting for the tool to tell you.
 
 ### Environment Variable Changes
 
@@ -155,6 +179,30 @@ log a warning; we are collecting feedback on whether to remove them in the futur
 **Immediate:** EarthBuild will continue to recognize `EARTHLY_*` environment variables in the current version but will log deprecation warnings encouraging migration to `EARTH_*` variables.
 
 **Future Breaking Change:** In version `v0.9.0` and onwards, support for `EARTHLY_*` environment variables will be removed entirely. You must update your environment configurations before upgrading to that version.
+
+**Precedence:** when both spellings are set, `EARTH_*` wins regardless of which was set first, and the
+deprecation warning still fires for the `EARTHLY_*` one. You can therefore set both during a staged rollout
+without changing behaviour.
+
+**Look beyond your own repository.** The warning fires whenever an `EARTHLY_*` variable is merely *present*
+in the environment, even when it is being ignored:
+
+```
+$ EARTHLY_CONFIG=./a.yml EARTH_CONFIG=./b.yml earth ls
+loading config values from "./b.yml"
+WARNING: EARTHLY_CONFIG is deprecated. Use EARTH_CONFIG.
+```
+
+So these warnings survive a complete and correct rename of everything you control, which makes "am I done?"
+hard to answer from the tool's output alone. The residue is usually somewhere outside the repo:
+
+- `ENV EARTHLY_…` baked into a self-hosted runner image;
+- Kubernetes pod specs, runner scale-set templates or Helm values;
+- CI platform-level, organisation-level or repository-level variables;
+- developer shell profiles.
+
+The warning names the variable but not its source, so `env | grep EARTHLY_` inside a failing job is usually
+the fastest way to find it.
 
 **Standard Variables Unchanged:** Some environment variables remain unchanged as they follow standard conventions:
 
@@ -189,6 +237,32 @@ The buildkitd container name has changed from `earthly-buildkitd` to `earth-buil
 
 The buildkitd cache volume name has changed from `earthly-cache` to `earth-cache`.
 
+### Which release these renames land in
+
+The installation name is a compile-time value that drives all three of the names above, plus the config
+directory. **It changed in `v0.8.19`.** Releases up to and including `v0.8.18` still use the `earthly`
+spellings even though they carry the EarthBuild name, so a guide step that looks wrong on your system may
+simply be describing a release you are not on yet:
+
+| | up to `v0.8.18` | `v0.8.19` and later |
+| --- | --- | --- |
+| buildkitd container | `earthly-buildkitd` | `earth-buildkitd` |
+| cache volume | `earthly-cache` | `earth-cache` |
+| config directory | `~/.earthly` | `~/.earth` |
+
+This matters most when your CLI and your BuildKit daemons upgrade separately — a common shape in CI, where
+the daemon is a long-lived container or DaemonSet. Check both sides.
+
+Note that a `--buildkit-host docker-container://<name>` value *embeds* the container name. The `EARTHLY_*`
+compatibility shim covers variable **names**, not values, so a stale name here is a hard failure rather than
+a deprecation warning:
+
+```
+build new buildkitd client: maybe start buildkitd: wait until started:
+  expected address to be docker-container://earth-buildkitd,
+  but got docker-container://earthly-buildkitd
+```
+
 ---
 
 ## Detailed CLI Diff
@@ -196,8 +270,8 @@ The buildkitd cache volume name has changed from `earthly-cache` to `earth-cache
 Here is a `diff` of the CLI help output to highlight the changes. The `+` side below is captured from
 EarthBuild `v0.8.19`.
 
-> Note: this diff is a verbatim capture, so environment-variable bindings still appear with the
-> `EARTHLY_*` prefix. Every binding shown also accepts the `EARTH_*` spelling, which is the one to
+> Note: `v0.8.19` lists both spellings for each binding — for example
+> `--config string  Path to config file [$EARTH_CONFIG, $EARTHLY_CONFIG]`. `EARTH_*` is the one to
 > use — see the Environment Variable Changes section above.
 
 ```diff
@@ -298,8 +372,8 @@ The obsolete `EARTHLY_CI_RUNNER` env variable and `VERSION --earthly-ci-runner-a
 ### GitHub Actions
 
 If you use the github actions CI integration (formerly
-[`github.com/earthly/actions-setup`](github.com/earthly/actions-setup)), you should update your workflow yaml to
-point to [`github.com/earthbuild/actions-setup`](github.com/earthbuild/actions-setup) instead.
+[`earthly/actions-setup`](https://github.com/earthly/actions-setup)), you should update your workflow yaml to
+point to [`EarthBuild/actions-setup`](https://github.com/EarthBuild/actions-setup) instead.
 
 ```diff
    build:
@@ -346,6 +420,17 @@ Concrete examples as they apply to `v0.8.18`:
 + FROM docker.io/earthbuild/dind:alpine-3.24-docker-29.5.3-r1
 ```
 
+#### `earthbuild/dind` has no floating tags
+
+`earthbuild/dind` publishes **only fully-pinned tags** — `alpine-3.24-docker-29.5.3-r1`,
+`ubuntu-26.04-docker-29.8.1-1`, and so on. The rolling `latest`, `alpine` and `ubuntu` tags that
+`earthly/dind` carried do **not** exist, so a bare `FROM earthly/dind` or `FROM earthly/dind:alpine` has no
+drop-in replacement and the substitution in the table above is not purely mechanical for this image. Pick a
+tag from [the tag list](https://hub.docker.com/r/earthbuild/dind/tags) and add it to whatever keeps your pins
+current.
+
+(Tracked in [#961](https://github.com/EarthBuild/earthbuild/issues/961).)
+
 For most users the BuildKit daemon image does not need to be set explicitly — `earth` defaults to the
 matching `docker.io/earthbuild/buildkitd` image for the release automatically. You only need to act if
 you have pinned an `earthly/*` image path somewhere.
@@ -354,8 +439,10 @@ you have pinned an `earthly/*` image path somewhere.
 
 For other repositories in the earthly ecosystem, we've created EarthBuild forks:
 
-<!-- TODO: push tags, establish our first tag and document -->
-- [earthly/lib](https://github.com/earthly/lib) -> [earthbuild/lib](https://github.com/EarthBuild/lib)
+- [earthly/lib](https://github.com/earthly/lib) -> [EarthBuild/lib](https://github.com/EarthBuild/lib),
+  currently tagged `3.0.4`. `IMPORT github.com/earthly/lib:3.0.3` becomes
+  `IMPORT github.com/EarthBuild/lib:3.0.4` — a drop-in replacement, with `+INSTALL_DIND` and friends
+  unchanged.
 - [earthly/dind](https://github.com/earthly/dind) -> [earthbuild/dind](https://github.com/EarthBuild/dind)
 - [earthly/actions-setup](https://github.com/earthly/actions-setup) -> [earthbuild/actions-setup](https://github.com/EarthBuild/actions-setup)
 

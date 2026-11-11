@@ -12,6 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	defaultEarthDirName = ".earth"
+	legacyEarthDirName  = ".earthly"
+)
+
 func TestLegacyEarthDirWarning(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -21,22 +26,22 @@ func TestLegacyEarthDirWarning(t *testing.T) {
 		wantWarning bool
 		wantErr     error
 	}{
-		{name: "neither exists", installName: DefaultInstallationName, wantDir: ".earth"},
+		{name: "neither exists", installName: DefaultInstallationName, wantDir: defaultEarthDirName},
 		{
 			name: "only new exists", installName: DefaultInstallationName,
-			dirs: []string{".earth"}, wantDir: ".earth",
+			dirs: []string{defaultEarthDirName}, wantDir: defaultEarthDirName,
 		},
 		{
 			name: "only legacy exists", installName: DefaultInstallationName,
-			dirs: []string{".earthly"}, wantDir: ".earthly", wantWarning: true,
+			dirs: []string{legacyEarthDirName}, wantDir: legacyEarthDirName, wantWarning: true,
 		},
 		{
 			name: "both exist", installName: "",
-			dirs: []string{".earth", ".earthly"}, wantDir: ".earth", wantErr: ErrBothEarthDirsExist,
+			dirs: []string{defaultEarthDirName, legacyEarthDirName}, wantDir: defaultEarthDirName, wantErr: ErrBothEarthDirsExist,
 		},
 		{
 			name: "custom name ignores legacy", installName: "earth-dev",
-			dirs: []string{".earthly"}, wantDir: ".earth-dev",
+			dirs: []string{legacyEarthDirName}, wantDir: ".earth-dev",
 		},
 	}
 

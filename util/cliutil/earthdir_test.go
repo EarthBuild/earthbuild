@@ -18,13 +18,15 @@ const (
 )
 
 func TestLegacyEarthDirWarning(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		installName string
-		dirs        []string
 		wantDir     string
-		wantWarning bool
+		dirs        []string
 		wantErr     error
+		wantWarning bool
 	}{
 		{name: "neither exists", installName: DefaultInstallationName, wantDir: defaultEarthDirName},
 		{
@@ -37,7 +39,8 @@ func TestLegacyEarthDirWarning(t *testing.T) {
 		},
 		{
 			name: "both exist", installName: "",
-			dirs: []string{defaultEarthDirName, legacyEarthDirName}, wantDir: defaultEarthDirName, wantErr: ErrBothEarthDirsExist,
+			dirs:    []string{defaultEarthDirName, legacyEarthDirName},
+			wantDir: defaultEarthDirName, wantErr: ErrBothEarthDirsExist,
 		},
 		{
 			name: "custom name ignores legacy", installName: "earth-dev",
@@ -47,6 +50,8 @@ func TestLegacyEarthDirWarning(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			home := t.TempDir()
 			for _, dir := range tt.dirs {
 				require.NoError(t, os.MkdirAll(filepath.Join(home, dir), 0o750))

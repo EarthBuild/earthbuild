@@ -65,6 +65,7 @@ func earthDirsAt(home, installName string, u *user.User) (string, string, *user.
 	installName = cmp.Or(installName, DefaultInstallationName)
 	dir := filepath.Join(home, "."+installName)
 	legacyDir := filepath.Join(home, ".earthly")
+
 	if installName != DefaultInstallationName || !dirExists(legacyDir) {
 		legacyDir = ""
 	}

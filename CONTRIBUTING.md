@@ -90,6 +90,16 @@ golang:1.20-alpine3.17 | --> Load metadata golang:1.20-alpine3.17 linux/amd64
 (dlv)
 ```
 
+## Writing tests
+
+Contributors are required to use [`stretchr/testify`](https://github.com/stretchr/testify) for assertions in Go tests:
+
+- Use `github.com/stretchr/testify/require` for fatal checks that must stop the test on failure (such as unexpected errors or prerequisites).
+- Use `github.com/stretchr/testify/assert` for standard test assertions.
+- Do not write manual assertion checks with `t.Errorf`, `t.Fatalf`, `t.Fail`, or `t.FailNow` when an equivalent `testify` assertion exists, and do not introduce alternative assertion libraries.
+
+Add E2E tests under [`./tests`](./tests) if needed (for example, when changing Earthfile commands, CLI flags, caching, outputs, or `buildkitd` interactions that unit tests alone cannot cover).
+
 ## Running tests
 
 To run most tests you can issue

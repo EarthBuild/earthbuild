@@ -1,7 +1,10 @@
 name: Question
 description: Ask a general question
 labels: ["type:question"]
-assignees: []
+assignees:
+  - gilescope
+  - janishorsts
+  - kmannislands
 body:
   - type: textarea
     id: question

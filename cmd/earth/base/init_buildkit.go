@@ -51,6 +51,7 @@ func (cli *CLI) InitBuildkit(cmd *cli.Command) error {
 	cli.Flags().BuildkitdSettings.CacheKeepDuration = cli.Cfg().Global.BuildkitCacheKeepDurationS
 	cli.Flags().BuildkitdSettings.EnableProfiler = cli.Flags().EnableProfiler
 	cli.Flags().BuildkitdSettings.NoUpdate = cli.Flags().NoBuildkitUpdate
+	cli.Flags().BuildkitdSettings.InstallationName = cli.Flags().InstallationName
 
 	// ensure the MTU is something allowable in IPv4, cap enforced by type. Zero is autodetect.
 	if cli.Cfg().Global.CniMtu != 0 && cli.Cfg().Global.CniMtu < 68 {

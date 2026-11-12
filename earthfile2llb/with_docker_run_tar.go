@@ -44,9 +44,9 @@ func newWithDockerRunTar(c *Converter, enableParallel bool) *withDockerRunTar {
 }
 
 type tarLoad struct {
-	state    pllb.State
-	platform platutil.Platform
 	imgName  string
+	platform platutil.Platform
+	state    pllb.State
 }
 
 func (w *withDockerRunTar) prepareImages(ctx context.Context, opt *WithDockerOpt) error {

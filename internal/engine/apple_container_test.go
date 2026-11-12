@@ -153,7 +153,6 @@ func TestConvertAppleContainer(t *testing.T) {
 	assert.Equal(t, "192.168.64.2", dualContainer.IPs["default"])
 }
 
-//nolint:goconst
 func TestConvertAppleImage(t *testing.T) {
 	t.Parallel()
 
@@ -335,7 +334,6 @@ func TestUnmarshalSingleOrSlice(t *testing.T) {
 	})
 }
 
-//nolint:goconst
 func TestBuildAppleMountArgs(t *testing.T) {
 	t.Parallel()
 
@@ -462,7 +460,6 @@ func TestAppleContainerInspectUnmarshalVariants(t *testing.T) {
 	})
 }
 
-//nolint:goconst
 func TestIsAppleResourceNotFound(t *testing.T) {
 	t.Parallel()
 

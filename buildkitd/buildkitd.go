@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/engine"
 	"github.com/EarthBuild/earthbuild/internal/env"
+	"github.com/EarthBuild/earthbuild/internal/telemetry"
 	"github.com/EarthBuild/earthbuild/util/buildkitutil"
 	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/EarthBuild/earthbuild/util/hint"
@@ -123,7 +125,9 @@ func NewClient(
 			return nil, fmt.Errorf("%s not available", engName)
 		}
 
-		bkClient, info, workerInfo, err := maybeStart(ctx, log, image, containerName, eng, settings, opts...)
+		bkClient, info, workerInfo, err := maybeStart(
+			ctx, log, image, containerName, eng, settings, opts...,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("maybe start buildkitd: %w", err)
 		}
@@ -290,12 +294,14 @@ func maybeStart(
 			WithPrefix("buildkitd").
 			Printf("Found buildkit daemon on %s (%s)\n", eng.Metadata().Name, containerName)
 
-		client, cinfo, winfo, restartErr := maybeRestart(ctx, log, image, containerName, eng, settings, opts...)
+		bkClient, cinfo, winfo, restartErr := maybeRestart(
+			ctx, log, image, containerName, eng, settings, opts...,
+		)
 		if restartErr != nil {
 			return nil, nil, nil, fmt.Errorf("maybe restart: %w", restartErr)
 		}
 
-		return client, cinfo, winfo, nil
+		return bkClient, cinfo, winfo, nil
 	}
 
 	log.
@@ -538,24 +544,6 @@ func RemoveExited(ctx context.Context, eng *engine.Client, containerName string)
 	return nil
 }
 
-// isEarthInEarth reports whether this CLI is itself running inside a WITH
-// DOCKER, which buildkitd/dockerd-wrapper.sh signals by exporting
-// EARTH_WITH_DOCKER. When it is, buildkitd needs /sys/fs/cgroup bind-mounted.
-//
-// NOTE: the deprecated EARTHLY_WITH_DOCKER spelling is still accepted, so that
-// an older buildkitd image keeps working; drop it along with the rest of the
-// EARTHLY_ support.
-func isEarthInEarth() bool {
-	v, ok := env.Lookup("WITH_DOCKER")
-	if !ok {
-		return false
-	}
-
-	withDocker, _ := strconv.ParseBool(v)
-
-	return withDocker
-}
-
 // Start starts the buildkitd daemon.
 func Start(
 	ctx context.Context,
@@ -584,12 +572,16 @@ func Start(
 		// Keep going - it might still work.
 	}
 
-	envs := map[string]string{
-		"BUILDKIT_DEBUG":                 strconv.FormatBool(settings.Debug),
-		"BUILDKIT_TCP_TRANSPORT_ENABLED": strconv.FormatBool(settings.UseTCP),
-		"BUILDKIT_TLS_ENABLED":           strconv.FormatBool(settings.UseTCP && settings.UseTLS),
-		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
+	withDocker, err := env.Bool("WITH_DOCKER")
+	if err != nil {
+		// EARTH_WITH_DOCKER is set by buildkitd/dockerd-wrapper.sh; warn and
+		// fall back to an outer build if the user set an unparsable value.
+		log.
+			WithPrefix("buildkitd").
+			Warnf("Warning: %v. Treating this as an outer build.\n", err)
 	}
+
+	envs := buildkitEnv(settings, containerName, withDocker, reset, os.Environ())
 
 	labels := map[string]string{
 		"dev.earthly.settingshash": settingsHash,
@@ -606,17 +598,7 @@ func Start(
 
 	var portMappings []engine.PortMapping
 
-	if settings.AdditionalConfig != "" {
-		envs["EARTH_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
-	}
-
-	if settings.IPTables != "" {
-		envs["IP_TABLES"] = settings.IPTables
-	}
-
 	const localhost = "127.0.0.1"
-
-	withDocker := isEarthInEarth()
 
 	//nolint:nestif // TODO(jhorsts): simplify
 	if withDocker {
@@ -749,31 +731,6 @@ func Start(
 		}
 	}
 
-	if settings.CniMtu > 0 {
-		envs["CNI_MTU"] = strconv.Itoa(int(settings.CniMtu))
-	}
-
-	if settings.CacheSizeMb > 0 {
-		envs["CACHE_SIZE_MB"] = strconv.Itoa(settings.CacheSizeMb)
-	}
-
-	if settings.CacheSizePct > 0 {
-		envs["CACHE_SIZE_PCT"] = strconv.Itoa(settings.CacheSizePct)
-	}
-
-	if settings.CacheKeepDuration > 0 {
-		envs["CACHE_KEEP_DURATION"] = strconv.Itoa(settings.CacheKeepDuration)
-	}
-
-	if settings.EnableProfiler {
-		envs["BUILDKIT_PPROF_ENABLED"] = "true"
-	}
-
-	// Apply reset.
-	if reset {
-		envs["EARTH_RESET_TMP_DIR"] = "true"
-	}
-
 	// Ensure buildkitd gets sufficient file descriptors. Docker 29+ (containerd v2)
 	// lowered the default from 1048576 to 1024, which starves buildkitd.
 	additionalArgs := append([]string{"--ulimit", "nofile=1048576:1048576"}, settings.AdditionalArgs...)
@@ -790,10 +747,64 @@ func Start(
 		AdditionalArgs: additionalArgs,
 	})
 	if err != nil {
-		return fmt.Errorf("could not start buildkit: %w", err)
+		return fmt.Errorf("start buildkit: %w", err)
 	}
 
 	return nil
+}
+
+// buildkitEnv is the single source of the environment the buildkitd container is
+// started with. It is a pure function of its arguments, so what buildkitd runs with
+// can be asserted in a test rather than reconstructed by reading Start top to bottom.
+func buildkitEnv(
+	settings Settings,
+	containerName string,
+	withDocker, reset bool,
+	environ []string,
+) map[string]string {
+	env := map[string]string{
+		"BUILDKIT_DEBUG":                 strconv.FormatBool(settings.Debug),
+		"BUILDKIT_TCP_TRANSPORT_ENABLED": strconv.FormatBool(settings.UseTCP),
+		"BUILDKIT_TLS_ENABLED":           strconv.FormatBool(settings.UseTCP && settings.UseTLS),
+		"BUILDKIT_MAX_PARALLELISM":       strconv.Itoa(settings.MaxParallelism),
+	}
+
+	if settings.AdditionalConfig != "" {
+		env["EARTH_ADDITIONAL_BUILDKIT_CONFIG"] = settings.AdditionalConfig
+	}
+
+	if settings.IPTables != "" {
+		env["IP_TABLES"] = settings.IPTables
+	}
+
+	if settings.CniMtu > 0 {
+		env["CNI_MTU"] = strconv.Itoa(int(settings.CniMtu))
+	}
+
+	if settings.CacheSizeMb > 0 {
+		env["CACHE_SIZE_MB"] = strconv.Itoa(settings.CacheSizeMb)
+	}
+
+	if settings.CacheSizePct > 0 {
+		env["CACHE_SIZE_PCT"] = strconv.Itoa(settings.CacheSizePct)
+	}
+
+	if settings.CacheKeepDuration > 0 {
+		env["CACHE_KEEP_DURATION"] = strconv.Itoa(settings.CacheKeepDuration)
+	}
+
+	if settings.EnableProfiler {
+		env["BUILDKIT_PPROF_ENABLED"] = "true"
+	}
+
+	if reset {
+		env["EARTH_RESET_TMP_DIR"] = "true"
+	}
+
+	// Telemetry keys are all OTEL_-prefixed, so the merge cannot collide with the above.
+	maps.Copy(env, telemetry.BuildkitdEnv(containerName, settings.InstallationName, withDocker, environ))
+
+	return env
 }
 
 // Stop stops the buildkitd container.

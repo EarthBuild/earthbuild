@@ -90,6 +90,16 @@ golang:1.20-alpine3.17 | --> Load metadata golang:1.20-alpine3.17 linux/amd64
 (dlv)
 ```
 
+## Writing tests
+
+Contributors are required to use [`stretchr/testify`](https://github.com/stretchr/testify) for assertions in Go tests:
+
+- Use `github.com/stretchr/testify/require` for fatal checks that must stop the test on failure (such as unexpected errors or prerequisites).
+- Use `github.com/stretchr/testify/assert` for standard test assertions.
+- Do not write manual assertion checks with `t.Errorf`, `t.Fatalf`, `t.Fail`, or `t.FailNow` when an equivalent `testify` assertion exists, and do not introduce alternative assertion libraries.
+
+Add E2E tests under [`./tests`](./tests) if needed (for example, when changing Earthfile commands, CLI flags, caching, outputs, or `buildkitd` interactions that unit tests alone cannot cover).
+
 ## Running tests
 
 To run most tests you can issue
@@ -173,14 +183,14 @@ DOCKERHUB_MIRROR_USER=<my-mirror-username>
 DOCKERHUB_MIRROR_PASS=<my-mirror-password>
 ```
 
-## Updates to buildkit or fsutil
+## Updates to buildkit
 
-EarthBuild is built against a fork of [buildkit](https://github.com/EarthBuild/buildkit) and [fsutil](https://github.com/EarthBuild/fsutil).
+EarthBuild is built against a fork of [buildkit](https://github.com/EarthBuild/buildkit).
 
 To work with changes to this fork, you can use `earth +for-linux --BUILDKIT_PROJECT=../buildkit`. This will use the local directory `../buildkit` for the buildkit code, when using buildkit in both `go.mod` and when building the buildkitd image.
 
-For contributions that require updates to these forks, a PR must be opened in the EarthBuild fork of the repository, and a corresponding PR should
-be opened in the EarthBuild repository -- please link the two PRs together, in order to show that EarthBuild's tests will continue to pass with the changes to buildkit or fsutil.
+For contributions that require updates to this fork, a PR must be opened in the EarthBuild fork of the repository, and a corresponding PR should
+be opened in the EarthBuild repository -- please link the two PRs together, in order to show that EarthBuild's tests will continue to pass with the changes to buildkit.
 
 The linked-PRs should be merged at the same time, in order to prevent EarthBuild's main branch from pointing to a non-main branch of buildkit.
 This is because the buildkit tests in the EarthBuild fork of buildkit may not all pass -- this is a tech-debt trade-off -- instead of fixing (and extending these tests),
@@ -195,8 +205,6 @@ EarthBuild PR).
 If on the otherhand, you are pulling in upstream changes from moby, they should never be squashed.
 
 To update EarthBuild's reference to buildkit, you may run `earth +update-buildkit --BUILDKIT_GIT_ORG=<git-user-or-org> --BUILDKIT_GIT_SHA=<40-char-git-reference-here>`.
-
-Updates to fsutil must first be vendored into buildkit, then updated under `go.mod`; additional docs and scripts exist in the buildkit repo.
 
 ## Running buildkit under debug mode
 

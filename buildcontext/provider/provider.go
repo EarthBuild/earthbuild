@@ -4,17 +4,20 @@
 package provider
 
 import (
+	"context"
 	"errors"
+	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/util/fsutilprogress"
+	"github.com/dustin/go-humanize"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/filesync"
-	"github.com/sirupsen/logrus"
 	"github.com/tonistiigi/fsutil"
 	fstypes "github.com/tonistiigi/fsutil/types"
 	"google.golang.org/grpc"
@@ -39,11 +42,9 @@ var (
 // BuildContextProvider is a BuildKit attachable which provides local files as part
 // of the build context.
 type BuildContextProvider struct {
-	p      progressCb
-	doneCh chan error
-	dirs   map[string]SyncedDir
-	log    *conslogging.ConsoleLogger
-	mu     sync.Mutex
+	dirs map[string]SyncedDir
+	log  *conslogging.ConsoleLogger
+	mu   sync.Mutex
 }
 
 // SyncedDir is a directory to be synced across.
@@ -111,17 +112,8 @@ func (bcp *BuildContextProvider) TarStream(stream filesync.FileSync_TarStreamSer
 	return bcp.handle("tarstream", stream)
 }
 
-func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream) (retErr error) {
-	var pr *protocol
-
-	for _, p := range supportedProtocols {
-		if method == p.name && isProtoSupported(p.name) {
-			pr = &p
-			break
-		}
-	}
-
-	if pr == nil {
+func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream) error {
+	if method != "diffcopy" || !isProtoSupported(method) {
 		return errors.New("failed to negotiate protocol")
 	}
 
@@ -145,16 +137,7 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 	}
 
 	includes := opts[keyIncludePatterns]
-
 	followPaths := opts[keyFollowPaths]
-
-	progressCB := fsutilprogress.New(dir.Dir, bcp.log.WithPrefixAndSalt("context", dir.Dir))
-
-	var doneCh chan error
-	if bcp.doneCh != nil {
-		doneCh = bcp.doneCh
-		bcp.doneCh = nil
-	}
 
 	fs, err := fsutil.NewFS(dir.Dir)
 	if err != nil {
@@ -162,26 +145,20 @@ func (bcp *BuildContextProvider) handle(method string, stream grpc.ServerStream)
 	}
 
 	fs, err = fsutil.NewFilterFS(fs, &fsutil.FilterOpt{
-		ExcludePatterns:   excludes,
-		IncludePatterns:   includes,
-		FollowPaths:       followPaths,
-		Map:               dir.Map,
-		VerboseProgressCB: progressCB.Verbose,
+		ExcludePatterns: excludes,
+		IncludePatterns: includes,
+		FollowPaths:     followPaths,
+		Map:             dir.Map,
 	})
 	if err != nil {
 		return err
 	}
 
-	err = pr.sendFn(stream, fs, progressCB.Info, progressCB.Verbose)
-	if doneCh != nil {
-		if err != nil {
-			doneCh <- err
-		}
+	log := bcp.log.WithPrefixAndSalt("context", dir.Dir)
+	progressCB := fsutilprogress.NewContext(dir.Dir, log)
+	lfs := &loggingFS{FS: fs, dir: dir.Dir, log: log}
 
-		close(doneCh)
-	}
-
-	return err
+	return fsutil.Send(stream.Context(), stream, lfs, progressCB.Info)
 }
 
 func (bcp *BuildContextProvider) getDir(dirName string) (SyncedDir, error) {
@@ -196,24 +173,48 @@ func (bcp *BuildContextProvider) getDir(dirName string) (SyncedDir, error) {
 	return dir, nil
 }
 
-// SetNextProgressCallback sets the progress callback function.
-func (bcp *BuildContextProvider) SetNextProgressCallback(f func(int, bool), doneCh chan error) {
-	bcp.p = f
-	bcp.doneCh = doneCh
+type loggingFS struct {
+	fsutil.FS
+
+	log *conslogging.ConsoleLogger
+	dir string
 }
 
-type progressCb func(int, bool)
+func (l *loggingFS) Walk(ctx context.Context, target string, fn fs.WalkDirFunc) error {
+	return l.FS.Walk(ctx, target, func(p string, d fs.DirEntry, walkErr error) error {
+		err := fn(p, d, walkErr)
+		if err != nil {
+			return err
+		}
 
-type protocol struct {
-	sendFn func(stream filesync.Stream, fs fsutil.FS, progress progressCb, verboseProgress fsutil.VerboseProgressCB) error
-	recvFn func(
-		stream grpc.ClientStream,
-		destDir string,
-		cu filesync.CacheUpdater,
-		progress progressCb,
-		mapFunc func(string, *fstypes.Stat) bool,
-	) error
-	name string
+		if walkErr == nil {
+			fullPath := filepath.Join(l.dir, p)
+			l.log.DebugPrintf("sent file stat for %s\n", fullPath)
+		}
+
+		return nil
+	})
+}
+
+func (l *loggingFS) Open(p string) (io.ReadCloser, error) {
+	rc, err := l.FS.Open(p)
+	if err != nil {
+		return nil, err
+	}
+
+	fullPath := filepath.Join(l.dir, p)
+
+	if s, ok := rc.(interface{ Stat() (fs.FileInfo, error) }); ok {
+		fi, err := s.Stat()
+		if err == nil && fi.Size() >= 0 {
+			l.log.VerbosePrintf("sent data for %s (%s)\n", fullPath, humanize.Bytes(uint64(max(0, fi.Size()))))
+			return rc, nil
+		}
+	}
+
+	l.log.VerbosePrintf("sent data for %s\n", fullPath)
+
+	return rc, nil
 }
 
 func isProtoSupported(p string) bool {
@@ -223,48 +224,4 @@ func isProtoSupported(p string) bool {
 	}
 
 	return true
-}
-
-var supportedProtocols = []protocol{
-	{
-		name:   "diffcopy",
-		sendFn: sendDiffCopy,
-		recvFn: recvDiffCopy,
-	},
-}
-
-func sendDiffCopy(stream filesync.Stream, fs fsutil.FS, progress progressCb, verbose fsutil.VerboseProgressCB) error {
-	return fsutil.Send(stream.Context(), stream, fs, progress, verbose)
-}
-
-func recvDiffCopy(
-	ds grpc.ClientStream,
-	dest string,
-	cu filesync.CacheUpdater,
-	progress progressCb,
-	filter func(string, *fstypes.Stat) bool,
-) error {
-	st := time.Now()
-
-	defer func() {
-		logrus.Debugf("diffcopy took: %v", time.Since(st))
-	}()
-
-	var (
-		cf fsutil.ChangeFunc
-		ch fsutil.ContentHasher
-	)
-
-	if cu != nil {
-		cu.MarkSupported(true)
-		cf = cu.HandleChange
-		ch = cu.ContentHasher()
-	}
-
-	return fsutil.Receive(ds.Context(), ds, dest, fsutil.ReceiveOpt{
-		NotifyHashed:  cf,
-		ContentHasher: ch,
-		ProgressCb:    progress,
-		Filter:        fsutil.FilterFunc(filter),
-	})
 }

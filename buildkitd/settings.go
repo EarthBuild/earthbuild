@@ -24,6 +24,7 @@ type Settings struct {
 	ClientTLSKey      string
 	ClientTLSCert     string
 	VolumeName        string
+	InstallationName  string // InstallationName is not included in hash; container name is already per-installation.
 	AdditionalConfig  string
 	AdditionalArgs    []string
 	CacheSizeMb       int

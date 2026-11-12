@@ -350,6 +350,17 @@ EOF
     wipe_data_root "$data_root"
     mkdir -p "$data_root"
     rm -f /var/run/docker.pid
+
+    # Avoid Unix socket path length limit (108 bytes on Linux) in Docker 29+,
+    # which sets TMPDIR=<data-root>/tmp unless DOCKER_TMPDIR is set.
+    # The containerd-shim console socket for TTY allocation (pty.sock) is
+    # created under $TMPDIR.
+    export DOCKER_TMPDIR="${DOCKER_TMPDIR:-/tmp/docker-tmp}"
+    if [ "$DOCKER_TMPDIR" = "/tmp/docker-tmp" ]; then
+        rm -rf "$DOCKER_TMPDIR" || true
+        mkdir -p "$DOCKER_TMPDIR"
+    fi
+
     dockerd >/var/log/docker.log 2>&1 &
     dockerd_pid="$!"
     i=1
@@ -404,6 +415,9 @@ stop_dockerd() {
 
     # Wipe dockerd data when done.
     wipe_data_root "$data_root"
+    if [ "${DOCKER_TMPDIR:-}" = "/tmp/docker-tmp" ]; then
+        rm -rf "$DOCKER_TMPDIR" || true
+    fi
 }
 
 wipe_data_root() {

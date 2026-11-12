@@ -50,7 +50,8 @@ var (
 	DefaultBuildkitdImage string
 
 	// DefaultInstallationName is the name included in the various earth global resources on the system,
-	// such as the ~/.earthly dir name, the buildkitd container name, the docker volume name, etc.
+	// such as the ~/.<installation name> dir, the buildkitd container name, the docker volume name, etc.
+	// When it is not set (go build, go install), cliutil.DefaultInstallationName is used.
 	// This should be set to "earth" for official releases.
 	DefaultInstallationName string
 )
@@ -74,7 +75,15 @@ func run() (code int) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error setting up OpenTelemetry: %s\n", err.Error())
 	} else {
-		defer shutdown(ctx)
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			shutdownErr := shutdown(shutdownCtx)
+			if shutdownErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: OpenTelemetry shutdown failed; continuing: %s\n", shutdownErr)
+			}
+		}()
 	}
 
 	ctx = telemetry.WithTraceparent(ctx)

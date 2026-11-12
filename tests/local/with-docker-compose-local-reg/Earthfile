@@ -4,6 +4,7 @@ all:
     ARG FRONTEND=docker
     ARG FRONTEND_COMPOSE="docker compose"
     BUILD +test
+    BUILD +test-digest-pinned-image
 
 fetch:
     FROM alpine:3.24.2
@@ -22,4 +23,19 @@ test:
             --service webserver \
             --load fetch:latest=+fetch
         RUN $FRONTEND_COMPOSE up --exit-code-from fetch fetch | "$acbgrep" 'Hello World'
+    END
+
+# Regression test for https://github.com/EarthBuild/earthbuild/issues/512:
+# compose services pinned by digest must not break the image pre-pull, and the
+# pin must still be honoured when the service runs.
+test-digest-pinned-image:
+    LOCALLY
+    ARG FRONTEND=docker
+    ARG FRONTEND_COMPOSE="docker compose"
+    ARG acbgrep=../../../scripts/acbtest/acbgrep
+    RUN test -f "$acbgrep"
+    WITH DOCKER --compose docker-compose.digest.yml
+        RUN $FRONTEND_COMPOSE -f docker-compose.digest.yml run --rm tag-and-digest | "$acbgrep" 'hello from tag-and-digest' && \
+            $FRONTEND_COMPOSE -f docker-compose.digest.yml run --rm digest-only | "$acbgrep" 'hello from digest-only' && \
+            $FRONTEND image inspect alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 >/dev/null
     END

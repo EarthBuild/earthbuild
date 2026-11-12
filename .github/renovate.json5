@@ -436,6 +436,13 @@
       ],
       enabled: false,
     },
+    // fsutil must be upgraded in sync with BuildKit
+    {
+      matchPackageNames: [
+        'github.com/tonistiigi/fsutil',
+      ],
+      enabled: false,
+    },
 
   ],
 }

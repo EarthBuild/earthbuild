@@ -15,13 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	appleContainerName   = "Apple Container"
-	dockerEngineName     = "Docker"
-	defaultBuildkitTCP   = "tcp://127.0.0.1:8372"
-	testInstallationName = "earth"
-)
-
 func TestContainerName(t *testing.T) {
 	t.Parallel()
 
@@ -30,7 +23,7 @@ func TestContainerName(t *testing.T) {
 		want             string
 	}{
 		{
-			installationName: testInstallationName,
+			installationName: "earth",
 			want:             "earth-buildkitd",
 		},
 		{
@@ -59,7 +52,7 @@ func TestVolumeName(t *testing.T) {
 		want             string
 	}{
 		{
-			installationName: testInstallationName,
+			installationName: "earth",
 			want:             "earth-cache",
 		},
 		{
@@ -89,7 +82,7 @@ func TestUpdateContainerAddrs(t *testing.T) {
 		t.Parallel()
 
 		eng := engine.NewTestClient(engine.Metadata{
-			Name:   dockerEngineName,
+			Name:   "Docker",
 			Scheme: engine.SchemeDocker,
 		})
 		settings := Settings{
@@ -106,7 +99,7 @@ func TestStart_InvalidAddrs(t *testing.T) {
 	ctx := t.Context()
 	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)
 	eng := engine.NewTestClient(engine.Metadata{
-		Name:   dockerEngineName,
+		Name:   "Docker",
 		Scheme: engine.SchemeDocker,
 	})
 
@@ -126,7 +119,7 @@ func TestStart_InvalidAddrs(t *testing.T) {
 		{
 			name: "invalid local registry port",
 			settings: Settings{
-				BuildkitAddr:      defaultBuildkitTCP,
+				BuildkitAddr:      "tcp://127.0.0.1:8372",
 				LocalRegistryAddr: "tcp://localhost",
 				UseTCP:            true,
 			},

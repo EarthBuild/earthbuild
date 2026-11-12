@@ -13,8 +13,6 @@ import (
 func TestMakeWithDockerdWrapFun(t *testing.T) {
 	t.Parallel()
 
-	const dindID = "abc123"
-
 	for _, tc := range []struct {
 		tarPaths        []string
 		imgsWithDigests []string
@@ -26,8 +24,8 @@ func TestMakeWithDockerdWrapFun(t *testing.T) {
 	}{
 		{
 			name:     "minimal",
-			dindID:   dindID,
-			expected: []string{"--data-root='/var/earthbuild/dind/" + dindID + "'"},
+			dindID:   "abc123",
+			expected: []string{"--data-root='/var/earthbuild/dind/abc123'"},
 			notExpected: []string{
 				"--cache-data", startComposeFlag, "--load-file", "--compose-file",
 			},
@@ -39,7 +37,7 @@ func TestMakeWithDockerdWrapFun(t *testing.T) {
 		},
 		{
 			name:            "one flag per tar path and digest",
-			dindID:          dindID,
+			dindID:          "abc123",
 			tarPaths:        []string{"/tmp/a.tar", "/tmp/b.tar"},
 			imgsWithDigests: []string{"alpine@sha256:aaa"},
 			expected: []string{
@@ -50,7 +48,7 @@ func TestMakeWithDockerdWrapFun(t *testing.T) {
 		},
 		{
 			name:   "compose files and services",
-			dindID: dindID,
+			dindID: "abc123",
 			opt: WithDockerOpt{
 				ComposeFiles:    []string{"docker-compose.yml", "override.yml"},
 				ComposeServices: []string{"db", "cache"},
@@ -65,7 +63,7 @@ func TestMakeWithDockerdWrapFun(t *testing.T) {
 		},
 		{
 			name:     "values with single quotes are escaped",
-			dindID:   dindID,
+			dindID:   "abc123",
 			tarPaths: []string{"/tmp/it's.tar"},
 			expected: []string{`--load-file='/tmp/it'"'"'s.tar'`},
 		},
@@ -116,25 +114,28 @@ func TestComposeArgsNoComposeFiles(t *testing.T) {
 func TestStripImageDigest(t *testing.T) {
 	t.Parallel()
 
-	const (
-		sha256Digest = "@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc"
-		alpine       = "alpine"
-		alpineTagged = "alpine:3.20"
-		privateRepo  = "registry.example.com:5000/team/app:v1.2.3"
-	)
+	const sha256Digest = "@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc"
 
 	for _, tc := range []struct {
 		name string
 		in   string
 		want string
 	}{
-		{name: "tag only", in: alpineTagged, want: alpineTagged},
-		{name: "no tag", in: alpine, want: alpine},
-		{name: "tag and digest", in: alpineTagged + sha256Digest, want: alpineTagged},
-		{name: "digest only", in: alpine + sha256Digest, want: alpine},
-		{name: "registry with port", in: privateRepo, want: privateRepo},
-		{name: "registry with port and digest", in: privateRepo + sha256Digest, want: privateRepo},
-		{name: "non-sha256 algorithm", in: alpineTagged + "@sha512:" + strings.Repeat("a", 128), want: alpineTagged},
+		{name: "tag only", in: "alpine:3.20", want: "alpine:3.20"},
+		{name: "no tag", in: "alpine", want: "alpine"},
+		{name: "tag and digest", in: "alpine:3.20" + sha256Digest, want: "alpine:3.20"},
+		{name: "digest only", in: "alpine" + sha256Digest, want: "alpine"},
+		{
+			name: "registry with port",
+			in:   "registry.example.com:5000/team/app:v1.2.3",
+			want: "registry.example.com:5000/team/app:v1.2.3",
+		},
+		{
+			name: "registry with port and digest",
+			in:   "registry.example.com:5000/team/app:v1.2.3" + sha256Digest,
+			want: "registry.example.com:5000/team/app:v1.2.3",
+		},
+		{name: "non-sha256 algorithm", in: "alpine:3.20@sha512:" + strings.Repeat("a", 128), want: "alpine:3.20"},
 		{name: "empty", in: "", want: ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

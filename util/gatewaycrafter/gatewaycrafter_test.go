@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const cmdShell = "CMD-SHELL"
-
 func TestAddPushImageEntry_ExporterImageConfig(t *testing.T) {
 	t.Parallel()
 
@@ -53,7 +51,7 @@ func TestAddPushImageEntry_ExporterImageConfig(t *testing.T) {
 						},
 					},
 					Healthcheck: &dockerspec.HealthcheckConfig{
-						Test:          []string{cmdShell, "curl -f http://localhost/"},
+						Test:          []string{"CMD-SHELL", "curl -f http://localhost/"},
 						Interval:      30 * time.Second,
 						Timeout:       5 * time.Second,
 						StartPeriod:   10 * time.Second,

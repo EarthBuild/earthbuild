@@ -10,13 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	archArm64  = "arm64"
-	cmdShell   = "CMD-SHELL"
-	osLinux    = "linux"
-	valMutated = "MUTATED"
-)
-
 func TestFromBuildKit(t *testing.T) {
 	t.Parallel()
 	t.Run("nil image", func(t *testing.T) {
@@ -48,7 +41,7 @@ func TestFromBuildKit(t *testing.T) {
 					},
 				},
 				Healthcheck: &dockerspec.HealthcheckConfig{
-					Test:          []string{cmdShell, "curl -f http://localhost/"},
+					Test:          []string{"CMD-SHELL", "curl -f http://localhost/"},
 					Interval:      30 * time.Second,
 					Timeout:       5 * time.Second,
 					StartPeriod:   10 * time.Second,
@@ -57,15 +50,15 @@ func TestFromBuildKit(t *testing.T) {
 				},
 			},
 		}
-		bkImg.Architecture = archArm64
-		bkImg.OS = osLinux
+		bkImg.Architecture = "arm64"
+		bkImg.OS = "linux"
 
 		img := FromBuildKit(bkImg)
 		require.NotNil(t, img)
 
 		want := &Image{
-			Architecture: archArm64,
-			OS:           osLinux,
+			Architecture: "arm64",
+			OS:           "linux",
 			Config: Config{
 				ImageConfig: specs.ImageConfig{
 					User:         "testuser",
@@ -78,7 +71,7 @@ func TestFromBuildKit(t *testing.T) {
 					ExposedPorts: map[string]struct{}{"8080/tcp": {}},
 				},
 				Healthcheck: &dockerspec.HealthcheckConfig{
-					Test:          []string{cmdShell, "curl -f http://localhost/"},
+					Test:          []string{"CMD-SHELL", "curl -f http://localhost/"},
 					Interval:      30 * time.Second,
 					Timeout:       5 * time.Second,
 					StartPeriod:   10 * time.Second,
@@ -106,8 +99,8 @@ func TestImage_Clone_PreservesScalarsAndIsolation(t *testing.T) {
 	t.Parallel()
 
 	orig := &Image{
-		Architecture: archArm64,
-		OS:           osLinux,
+		Architecture: "arm64",
+		OS:           "linux",
 		Config: Config{
 			ImageConfig: specs.ImageConfig{
 				User:         "nobody",
@@ -138,18 +131,18 @@ func TestImage_Clone_PreservesScalarsAndIsolation(t *testing.T) {
 	assert.Equal(t, "SIGTERM", clone.Config.StopSignal)
 
 	// Verify deep copy isolation
-	orig.Config.Env[0] = valMutated
+	orig.Config.Env[0] = "MUTATED"
 	assert.Equal(t, "VAR=val", clone.Config.Env[0])
 
-	orig.Config.Entrypoint[0] = valMutated
+	orig.Config.Entrypoint[0] = "MUTATED"
 	assert.Equal(t, "/bin/entry", clone.Config.Entrypoint[0])
 
-	orig.Config.Cmd[0] = valMutated
+	orig.Config.Cmd[0] = "MUTATED"
 	assert.Equal(t, "arg1", clone.Config.Cmd[0])
 
-	orig.Config.Labels["k"] = valMutated
+	orig.Config.Labels["k"] = "MUTATED"
 	assert.Equal(t, "v", clone.Config.Labels["k"])
 
-	orig.Config.Healthcheck.Test[0] = valMutated
+	orig.Config.Healthcheck.Test[0] = "MUTATED"
 	assert.Equal(t, "CMD", clone.Config.Healthcheck.Test[0])
 }

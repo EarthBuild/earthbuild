@@ -10,8 +10,6 @@ import (
 // SetDoSave is what propagates local image export down BUILD edges. It must
 // honour Export == ExportAll, otherwise a child target's image is exported even
 // though conversion already declined to export it. See #855.
-const testDockerTag = "myimg:latest"
-
 func TestSaveImageWaitItemSetDoSave(t *testing.T) {
 	t.Parallel()
 
@@ -23,20 +21,20 @@ func TestSaveImageWaitItemSetDoSave(t *testing.T) {
 	}{
 		{
 			name:            "propagates local export by default (ExportAll)",
-			dockerTag:       testDockerTag,
+			dockerTag:       "myimg:latest",
 			export:          ExportAll,
 			wantLocalExport: true,
 		},
 		{
 			name:            "no-image-output suppresses propagated local export",
 			export:          ExportArtifactsOnly,
-			dockerTag:       testDockerTag,
+			dockerTag:       "myimg:latest",
 			wantLocalExport: false,
 		},
 		{
 			name:            "no-output suppresses propagated local export",
 			export:          ExportNone,
-			dockerTag:       testDockerTag,
+			dockerTag:       "myimg:latest",
 			wantLocalExport: false,
 		},
 		{
@@ -76,7 +74,7 @@ func TestSaveImageWaitItemSetDoSaveAfterUnreferencedConversion(t *testing.T) {
 	t.Parallel()
 
 	c := &Converter{opt: ConvertOpt{Export: ExportAll, SaveReferenced: false}}
-	item := newSaveImage(states.SaveImage{DockerTag: testDockerTag}, c, true, false)
+	item := newSaveImage(states.SaveImage{DockerTag: "myimg:latest"}, c, true, false)
 
 	item.SetDoSave()
 
@@ -92,7 +90,7 @@ func TestSaveImageWaitItemPushUnaffectedByExportArtifactsOnly(t *testing.T) {
 	t.Parallel()
 
 	c := &Converter{opt: ConvertOpt{Export: ExportArtifactsOnly, SaveReferenced: true}}
-	item := newSaveImage(states.SaveImage{DockerTag: testDockerTag}, c, true, false)
+	item := newSaveImage(states.SaveImage{DockerTag: "myimg:latest"}, c, true, false)
 
 	item.SetDoPush()
 	item.SetDoSave()

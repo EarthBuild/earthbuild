@@ -75,7 +75,6 @@ func TestNormalizeContainerStatus(t *testing.T) {
 	}
 }
 
-//nolint:goconst
 func TestRedactArgs(t *testing.T) {
 	t.Parallel()
 
@@ -134,7 +133,6 @@ func TestRedactArgs(t *testing.T) {
 	}
 }
 
-//nolint:goconst
 func TestIsShellResourceNotFound(t *testing.T) {
 	t.Parallel()
 

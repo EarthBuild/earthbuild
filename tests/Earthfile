@@ -1213,7 +1213,39 @@ for:
     DO +RUN_EARTH --earthfile=for.earth
 
 heredoc:
-    DO +RUN_EARTH --earthfile=heredoc.earth
+    COPY heredoc.earth ./Earthfile
+    RUN sed 's/$/\r/' ./Earthfile > ./heredoc-crlf.earth
+    RUN printf '%s\r\n' \
+        'VERSION 0.8' \
+        'FROM alpine:3.24.2' \
+        'WORKDIR /test' \
+        'test-crlf:' \
+        "    RUN <<'EOF'" \
+        'true' \
+        'EOF' \
+        "    COPY <<'EOF' ./raw.txt" \
+        'abc' \
+        'EOF' \
+        '    RUN test "$(wc -c < ./raw.txt)" -eq 5' \
+        > ./crlf-check.earth
+    RUN printf '%s\n' \
+        '#!/bin/sh' \
+        'set -ex' \
+        'earth --config "$earth_config" --allow-privileged +all' \
+        'cp ./heredoc-crlf.earth ./Earthfile' \
+        'earth --config "$earth_config" +test-run-heredoc' \
+        'earth --config "$earth_config" +test-run-heredoc-custom-interpreter' \
+        'earth --config "$earth_config" +test-run-heredoc-shebang' \
+        'earth --config "$earth_config" +test-run-heredoc-tab-chomp' \
+        'earth --config "$earth_config" +test-run-heredoc-expansion' \
+        'cp ./crlf-check.earth ./Earthfile' \
+        'earth --config "$earth_config" +test-crlf' \
+        > /tmp/test-heredoc-script && chmod +x /tmp/test-heredoc-script
+    ENV EARTH_EXEC_CMD="/tmp/test-heredoc-script"
+    RUN --privileged \
+        --entrypoint \
+        --mount=type=tmpfs,target=/tmp/earthbuild \
+        -- --allow-privileged
 
 first-command:
     DO +RUN_EARTH --earthfile=first-command.earth --target=+all-positive

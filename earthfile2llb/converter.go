@@ -3718,7 +3718,7 @@ func (c *Converter) setupHeredocRun(opts *ConvertRunOpts) ([]string, []string, e
 	opts.WithShell = true
 
 	h := opts.Heredoc
-	content := h.Content
+	content := strings.ReplaceAll(h.Content, "\r\n", "\n")
 
 	if !opts.WithEntrypoint && len(opts.Args) == 0 && len(opts.HeredocTrailingArgs) == 0 &&
 		!strings.HasPrefix(content, "#!") {

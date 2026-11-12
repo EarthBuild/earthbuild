@@ -3,7 +3,9 @@ package earthfile2llb
 import (
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/variables"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,6 +15,9 @@ const (
 	testHeredocContent      = "hello\n"
 	testDestDir             = "/dest/"
 	testTrueCmd             = "true"
+	testCRLFTrueBody        = "true\r\n"
+	testChompedEchoBody     = "echo hi\n"
+	testRawCRLFPairs        = "a=1\r\nb=2\r\n"
 	testPythonCmd           = "python3"
 	testCatCmd              = "cat"
 	testArg1                = "arg1"
@@ -136,8 +141,41 @@ func TestProcessRunHeredocs(t *testing.T) {
 					{Name: testHeredocName, Content: "\t\techo hi\n", Chomp: true},
 				},
 			},
-			wantHeredoc:     &earthfile.Heredoc{Name: testHeredocName, Content: "echo hi\n", Chomp: true},
+			wantHeredoc:     &earthfile.Heredoc{Name: testHeredocName, Content: testChompedEchoBody, Chomp: true},
 			wantLeadingArgs: nil,
+		},
+		{
+			name: "normalizes CRLF line endings to LF",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testHeredocDecl},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testHeredocName, Content: testCRLFTrueBody},
+				},
+			},
+			wantHeredoc: &earthfile.Heredoc{Name: testHeredocName, Content: "true\n"},
+		},
+		{
+			name: "normalizes CRLF line endings before chomping leading tabs",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testHeredocDecl},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testHeredocName, Content: "\t\techo hi\r\n", Chomp: true},
+				},
+			},
+			wantHeredoc: &earthfile.Heredoc{Name: testHeredocName, Content: testChompedEchoBody, Chomp: true},
+		},
+		{
+			name: "preserves standalone carriage return",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testHeredocDecl},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testHeredocName, Content: "printf 'a\rb'\n"},
+				},
+			},
+			wantHeredoc: &earthfile.Heredoc{Name: testHeredocName, Content: "printf 'a\rb'\n"},
 		},
 		{
 			name: "multiple heredocs rejected",
@@ -157,9 +195,18 @@ func TestProcessRunHeredocs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			var origContent string
+			if len(tt.cmd.Heredocs) > 0 {
+				origContent = tt.cmd.Heredocs[0].Content
+			}
+
 			i := &Interpreter{}
 
 			h, leadingArgs, trailingArgs, err := i.processRunHeredocs(t.Context(), tt.cmd, tt.cmd.Args)
+			if len(tt.cmd.Heredocs) > 0 {
+				require.Equal(t, origContent, tt.cmd.Heredocs[0].Content)
+			}
+
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.wantErr)
@@ -298,6 +345,71 @@ func TestChompHeredocContent(t *testing.T) {
 
 			got := earthfile.ChompHeredocContent(tt.input)
 			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestProcessCopyHeredoc_PreservesCRLF(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		wantContent string
+		heredoc     earthfile.Heredoc
+	}{
+		{
+			name: "quoted raw CRLF preserved",
+			heredoc: earthfile.Heredoc{
+				Name:    testHeredocName,
+				Content: testRawCRLFPairs,
+			},
+			wantContent: testRawCRLFPairs,
+		},
+		{
+			name: "unquoted expanded CRLF preserved",
+			heredoc: earthfile.Heredoc{
+				Name:    testHeredocName,
+				Content: "k=$FOO\r\n",
+				Expand:  true,
+			},
+			wantContent: "k=bar\r\n",
+		},
+		{
+			name: "tab-chomped CRLF preserved",
+			heredoc: earthfile.Heredoc{
+				Name:    testHeredocName,
+				Content: "\ta=1\r\n\tb=2\r\n",
+				Chomp:   true,
+			},
+			wantContent: testRawCRLFPairs,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := newTestConverter(t)
+			_, _, err := c.varCollection.DeclareVar(
+				"FOO",
+				variables.AsArg(),
+				variables.WithValue("bar"),
+			)
+			require.NoError(t, err)
+
+			i := &Interpreter{converter: c}
+			cmd := earthfile.Command{
+				Name:     earthfile.CmdCopy,
+				Args:     []string{testHeredocDecl, testEtcAppConf},
+				Heredocs: []earthfile.Heredoc{tt.heredoc},
+			}
+
+			err = i.processCopyHeredoc(t.Context(), cmd, cmdopts.Copy{}, []string{testHeredocDecl}, testEtcAppConf)
+			require.NoError(t, err)
+
+			ops := marshalStateOps(t, c.mts.Final.MainState)
+			require.Len(t, ops.mkfiles, 1)
+			require.Equal(t, []byte(tt.wantContent), ops.mkfiles[0].GetData())
 		})
 	}
 }

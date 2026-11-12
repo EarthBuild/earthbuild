@@ -16,6 +16,7 @@ all:
     BUILD +test-copy-chained-heredocs
     BUILD +test-copy-heredoc-chmod-chown
     BUILD +test-run-heredoc-flags
+    BUILD +test-with-docker-heredoc
 
 test-run-heredoc:
     RUN <<EOF
@@ -109,3 +110,14 @@ set -e
 echo "heredoc run with flags" > ./flags.txt
 EOF
     RUN test "$(cat ./flags.txt)" = "heredoc run with flags"
+
+test-with-docker-heredoc:
+    FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0
+    WORKDIR /test
+    WITH DOCKER
+        RUN <<'EOF' first-arg "second arg"
+docker info >/dev/null
+printf '%s|%s' "$1" "$2" > ./wd-heredoc.txt
+EOF
+    END
+    RUN test "$(cat ./wd-heredoc.txt)" = "first-arg|second arg"

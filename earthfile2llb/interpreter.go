@@ -2607,6 +2607,8 @@ func (i *Interpreter) processRunHeredocs(
 	}
 
 	h := cmd.Heredocs[0]
+	h.Content = strings.ReplaceAll(h.Content, "\r\n", "\n")
+
 	if h.Chomp {
 		h.Content = earthfile.ChompHeredocContent(h.Content)
 	}

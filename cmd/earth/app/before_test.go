@@ -60,22 +60,16 @@ func TestAutoSkipDeprecationWarning(t *testing.T) {
 func TestNeedsEngine(t *testing.T) {
 	t.Parallel()
 
-	const (
-		buildCmd = "build"
-		docCmd   = "doc"
-		target   = "+all"
-	)
-
 	for _, c := range []struct {
 		args []string
 		want bool
 	}{
 		{[]string{"ls"}, false},
 		{[]string{"ls", "./examples"}, false},
-		{[]string{docCmd}, false},
-		{[]string{buildCmd, target}, true},
-		{[]string{"--git-username", docCmd, buildCmd, target}, true},
-		{[]string{target}, true},
+		{[]string{"doc"}, false},
+		{[]string{"build", "+all"}, true},
+		{[]string{"--git-username", "doc", "build", "+all"}, true},
+		{[]string{"+all"}, true},
 		{[]string{"prune"}, true},
 		{nil, true},
 	} {
@@ -85,9 +79,9 @@ func TestNeedsEngine(t *testing.T) {
 		root := &cli.Command{
 			Flags: []cli.Flag{&cli.StringFlag{Name: "git-username"}},
 			Commands: []*cli.Command{
-				{Name: buildCmd, Action: noop},
+				{Name: "build", Action: noop},
 				{Name: "ls", Action: noop},
-				{Name: docCmd, Action: noop},
+				{Name: "doc", Action: noop},
 				{Name: "prune", Action: noop},
 			},
 			Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {

@@ -235,8 +235,6 @@ func (c *genericLogCollector) Write(d *logstream.Delta) {
 func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) {
 	t.Parallel()
 
-	const echoOp = "RUN echo hello"
-
 	tests := []struct {
 		err        error
 		name       string
@@ -247,14 +245,14 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) 
 	}{
 		{
 			name:       "debug false drops malformed stats silently",
-			vertexName: echoOp,
+			vertexName: "RUN echo hello",
 			wantCount:  0,
 			debug:      false,
 		},
 		{
 			name:       "debug true reports malformed stats once per vertex",
-			vertexName: echoOp,
-			wantSubstr: `dropping malformed runc stats for "` + echoOp + `":`,
+			vertexName: "RUN echo hello",
+			wantSubstr: `dropping malformed runc stats for "RUN echo hello":`,
 			wantCount:  1,
 			debug:      true,
 		},
@@ -267,7 +265,7 @@ func TestSolverMonitor_HandleBuildkitStatus_StatsDecodeErrorDebug(t *testing.T) 
 		},
 		{ // #nosec G101 -- false positive: synthetic credentials used to test credential scrubbing
 			name:       "debug true scrubs credentials in decode error message",
-			vertexName: echoOp,
+			vertexName: "RUN echo hello",
 			err:        errors.New("failed decoding stats from http://admin:secretpass@cluster.internal"),
 			wantSubstr: "http://admin:xxxxx@cluster.internal",
 			wantCount:  1,

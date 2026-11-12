@@ -6,9 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// earthCmd is the command word the official binary is installed under.
-const earthCmd = "earth"
-
 func TestCompletionCommandNames(t *testing.T) {
 	t.Parallel()
 
@@ -19,13 +16,13 @@ func TestCompletionCommandNames(t *testing.T) {
 	}{
 		{
 			name:     "official binary registers earth",
-			baseName: earthCmd,
-			expected: []string{earthCmd},
+			baseName: "earth",
+			expected: []string{"earth"},
 		},
 		{
 			name:     "legacy binary also registers the earth alias it symlinks",
 			baseName: "earthly",
-			expected: []string{"earthly", earthCmd},
+			expected: []string{"earthly", "earth"},
 		},
 		{
 			name:     "custom binary name is used verbatim",
@@ -47,7 +44,7 @@ func TestBashCompleteEntry(t *testing.T) {
 
 	require.Equal(t,
 		"complete -o nospace -C '/usr/local/bin/earth' earth\n",
-		bashCompleteEntry("/usr/local/bin/earth", earthCmd),
+		bashCompleteEntry("/usr/local/bin/earth", "earth"),
 	)
 }
 
@@ -61,5 +58,5 @@ function _earth {
     bashcompinit
     complete -o nospace -C '/usr/local/bin/earth' earth
 }
-`, zshCompleteEntry("/usr/local/bin/earth", earthCmd))
+`, zshCompleteEntry("/usr/local/bin/earth", "earth"))
 }

@@ -13,11 +13,6 @@ import (
 func TestBuildkitEnv(t *testing.T) {
 	t.Parallel()
 
-	const (
-		enabled  = "true"
-		disabled = "false"
-	)
-
 	// wantEnv is the environment buildkitd always gets, plus whatever the optional
 	// settings add. The keys are spelled out once: they are the contract with the
 	// buildkitd image, so the test must not share a constant with the code under test.
@@ -41,13 +36,13 @@ func TestBuildkitEnv(t *testing.T) {
 	}{
 		{
 			name: "zero settings",
-			want: wantEnv(disabled, disabled, disabled, "0", nil),
+			want: wantEnv("false", "false", "false", "0", nil),
 		},
 		{
 			// TLS is only enabled alongside TCP: UseTLS on its own must not reach buildkitd.
 			name:     "tls without tcp",
 			settings: Settings{UseTLS: true},
-			want:     wantEnv(disabled, disabled, disabled, "0", nil),
+			want:     wantEnv("false", "false", "false", "0", nil),
 		},
 		{
 			name:  "every optional setting",
@@ -65,15 +60,15 @@ func TestBuildkitEnv(t *testing.T) {
 				CacheKeepDuration: 300,
 				EnableProfiler:    true,
 			},
-			want: wantEnv(enabled, enabled, enabled, "4", map[string]string{
+			want: wantEnv("true", "true", "true", "4", map[string]string{
 				"EARTH_ADDITIONAL_BUILDKIT_CONFIG": "[worker]",
 				"IP_TABLES":                        "nf_tables",
 				"CNI_MTU":                          "1400",
 				"CACHE_SIZE_MB":                    "100",
 				"CACHE_SIZE_PCT":                   "50",
 				"CACHE_KEEP_DURATION":              "300",
-				"BUILDKIT_PPROF_ENABLED":           enabled,
-				"EARTH_RESET_TMP_DIR":              enabled,
+				"BUILDKIT_PPROF_ENABLED":           "true",
+				"EARTH_RESET_TMP_DIR":              "true",
 			}),
 		},
 	}
@@ -95,7 +90,7 @@ func TestBuildkitEnvIncludesTelemetry(t *testing.T) {
 
 	environ := []string{"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317"}
 	got := buildkitEnv(
-		Settings{MaxParallelism: 3, InstallationName: testInstallationName},
+		Settings{MaxParallelism: 3, InstallationName: "earth"},
 		"earth-buildkitd",
 		false,
 		false,

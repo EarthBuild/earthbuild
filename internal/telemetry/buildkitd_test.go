@@ -45,8 +45,6 @@ func TestBuildkitdEnv(t *testing.T) {
 func TestBuildkitdEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 	t.Parallel()
 
-	const endpointEnv = "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317"
-
 	tests := []struct {
 		name    string
 		environ []string
@@ -61,11 +59,11 @@ func TestBuildkitdEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 		},
 		{
 			name:    "later empty value clears earlier OTEL var",
-			environ: []string{endpointEnv, "OTEL_EXPORTER_OTLP_ENDPOINT="},
+			environ: []string{"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317", "OTEL_EXPORTER_OTLP_ENDPOINT="},
 		},
 		{
 			name:    "OTEL_SDK_DISABLED is true",
-			environ: []string{endpointEnv, "OTEL_SDK_DISABLED=true"},
+			environ: []string{"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317", "OTEL_SDK_DISABLED=true"},
 		},
 		{
 			name: "metadata-only OTEL vars without exporter or endpoint",
@@ -78,7 +76,7 @@ func TestBuildkitdEnvEmptyWhenNoOTELEnvSet(t *testing.T) {
 		{
 			name: "all signal exporters set to none",
 			environ: []string{
-				endpointEnv,
+				"OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317",
 				"OTEL_TRACES_EXPORTER=none",
 				"OTEL_METRICS_EXPORTER=NONE",
 				"OTEL_LOGS_EXPORTER=none",
@@ -130,12 +128,6 @@ func TestBuildkitdEnvOverridesInheritedResourceAttributes(t *testing.T) {
 func TestAppendOTELResourceAttributes(t *testing.T) {
 	t.Parallel()
 
-	const (
-		roleKey = "earth.process.role"
-		role    = "buildkitd"
-		want    = "cicd.pipeline.run.id=123,earth.process.role=buildkitd"
-	)
-
 	tests := []struct {
 		wantUnescaped map[string]string
 		name          string
@@ -167,45 +159,45 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 		{
 			name:  "missing key",
 			base:  "=missing-key,cicd.pipeline.run.id=123",
-			attrs: []attribute.KeyValue{attribute.String(roleKey, role)},
-			want:  want,
+			attrs: []attribute.KeyValue{attribute.String("earth.process.role", "buildkitd")},
+			want:  "cicd.pipeline.run.id=123,earth.process.role=buildkitd",
 		},
 		{
 			name:  "whitespace key",
 			base:  "   =missing-key,cicd.pipeline.run.id=123",
-			attrs: []attribute.KeyValue{attribute.String(roleKey, role)},
-			want:  want,
+			attrs: []attribute.KeyValue{attribute.String("earth.process.role", "buildkitd")},
+			want:  "cicd.pipeline.run.id=123,earth.process.role=buildkitd",
 		},
 		{
 			name:  "missing value",
 			base:  "missing-value= ,cicd.pipeline.run.id=123",
-			attrs: []attribute.KeyValue{attribute.String(roleKey, role)},
-			want:  want,
+			attrs: []attribute.KeyValue{attribute.String("earth.process.role", "buildkitd")},
+			want:  "cicd.pipeline.run.id=123,earth.process.role=buildkitd",
 		},
 		{
 			name:  "missing equals",
 			base:  "bare,cicd.pipeline.run.id=123",
-			attrs: []attribute.KeyValue{attribute.String(roleKey, role)},
-			want:  want,
+			attrs: []attribute.KeyValue{attribute.String("earth.process.role", "buildkitd")},
+			want:  "cicd.pipeline.run.id=123,earth.process.role=buildkitd",
 		},
 		{
 			name: "empty override strips inherited key",
 			base: "earth.installation.name=inherited,cicd.pipeline.run.id=123",
 			attrs: []attribute.KeyValue{
 				attribute.String("earth.installation.name", ""),
-				attribute.String(roleKey, role),
+				attribute.String("earth.process.role", "buildkitd"),
 			},
-			want: want,
+			want: "cicd.pipeline.run.id=123,earth.process.role=buildkitd",
 		},
 		{
 			name:  "trims whitespace around base key and value",
 			base:  " cicd.pipeline.run.id = 123 ",
-			attrs: []attribute.KeyValue{attribute.String(roleKey, role)},
-			want:  want,
+			attrs: []attribute.KeyValue{attribute.String("earth.process.role", "buildkitd")},
+			want:  "cicd.pipeline.run.id=123,earth.process.role=buildkitd",
 		},
 		{
 			name:  "non-string attribute value",
-			base:  pipelineRunAttr,
+			base:  "cicd.pipeline.run.id=123",
 			attrs: []attribute.KeyValue{attribute.Int("earth.retry.count", 2)},
 			want:  "cicd.pipeline.run.id=123,earth.retry.count=2",
 		},
@@ -219,13 +211,13 @@ func TestAppendOTELResourceAttributes(t *testing.T) {
 			name:  "empty value in base clears earlier key in base",
 			base:  "a=1,cicd.pipeline.run.id=123,a=",
 			attrs: []attribute.KeyValue{semconv.ProcessRoleBuildkitd},
-			want:  want,
+			want:  "cicd.pipeline.run.id=123,earth.process.role=buildkitd",
 		},
 		{
 			name:  "deduplicates repeated keys in attrs",
-			base:  pipelineRunAttr,
+			base:  "cicd.pipeline.run.id=123",
 			attrs: []attribute.KeyValue{semconv.ProcessRoleCLI, semconv.ProcessRoleBuildkitd},
-			want:  want,
+			want:  "cicd.pipeline.run.id=123,earth.process.role=buildkitd",
 		},
 	}
 

@@ -768,7 +768,7 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd earthfile.Command) erro
 
 	withShell := !cmd.ExecMode
 
-	heredoc, args, err := i.processRunHeredocs(ctx, cmd, args)
+	heredoc, args, trailingArgs, err := i.processRunHeredocs(ctx, cmd, args)
 	if err != nil {
 		return err
 	}
@@ -840,6 +840,7 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd earthfile.Command) erro
 			CommandName:          string(cmd.Name),
 			Args:                 args,
 			Heredoc:              heredoc,
+			HeredocTrailingArgs:  trailingArgs,
 			Locally:              i.local,
 			Mounts:               opts.Mounts,
 			Secrets:              opts.Secrets,
@@ -881,6 +882,7 @@ func (i *Interpreter) handleRun(ctx context.Context, cmd earthfile.Command) erro
 	i.withDocker.Mounts = opts.Mounts
 	i.withDocker.Secrets = opts.Secrets
 	i.withDocker.Heredoc = heredoc
+	i.withDocker.HeredocTrailingArgs = trailingArgs
 	i.withDocker.WithShell = withShell
 	i.withDocker.WithEntrypoint = opts.WithEntrypoint
 	i.withDocker.WithSSH = opts.WithSSH
@@ -2595,13 +2597,13 @@ func (i *Interpreter) wrapError(
 
 func (i *Interpreter) processRunHeredocs(
 	ctx context.Context, cmd earthfile.Command, args []string,
-) (*earthfile.Heredoc, []string, error) {
+) (*earthfile.Heredoc, []string, []string, error) {
 	if len(cmd.Heredocs) == 0 {
-		return nil, args, nil
+		return nil, args, nil, nil
 	}
 
 	if len(cmd.Heredocs) > 1 {
-		return nil, nil, i.errorf(cmd.SourceLocation, "RUN only supports a single heredoc")
+		return nil, nil, nil, i.errorf(cmd.SourceLocation, "RUN only supports a single heredoc")
 	}
 
 	h := cmd.Heredocs[0]
@@ -2612,23 +2614,35 @@ func (i *Interpreter) processRunHeredocs(
 	if h.Expand {
 		expanded, err := i.expandHeredoc(ctx, h.Content)
 		if err != nil {
-			return nil, nil, i.wrapError(err, cmd.SourceLocation, "failed to expand heredoc: %s", h.Content)
+			return nil, nil, nil, i.wrapError(err, cmd.SourceLocation, "failed to expand heredoc: %s", h.Content)
 		}
 
 		h.Content = expanded
 	}
 
-	var filteredArgs []string
+	var (
+		leadingArgs  []string
+		trailingArgs []string
+		seenHeredoc  bool
+	)
 
 	for _, a := range args {
-		if decl, ok := earthfile.ParseHeredocDecl(a); ok && decl.Name == h.Name {
+		if !seenHeredoc {
+			if decl, ok := earthfile.ParseHeredocDecl(a); ok && decl.Name == h.Name {
+				seenHeredoc = true
+
+				continue
+			}
+
+			leadingArgs = append(leadingArgs, a)
+
 			continue
 		}
 
-		filteredArgs = append(filteredArgs, a)
+		trailingArgs = append(trailingArgs, a)
 	}
 
-	return &h, filteredArgs, nil
+	return &h, leadingArgs, trailingArgs, nil
 }
 
 func (i *Interpreter) processCopyHeredoc(
@@ -2638,8 +2652,18 @@ func (i *Interpreter) processCopyHeredoc(
 		return i.errorf(cmd.SourceLocation, "COPY with heredoc is not supported in LOCALLY targets")
 	}
 
+	if _, ok := earthfile.ParseHeredocDecl(destArg); ok {
+		return i.errorf(cmd.SourceLocation, "COPY destination %q cannot be a heredoc; missing destination path", destArg)
+	}
+
 	if len(cmd.Heredocs) != len(srcs) {
 		return i.errorf(cmd.SourceLocation, "mixing heredocs with regular files or artifacts in COPY is not supported")
+	}
+
+	for _, src := range srcs {
+		if _, ok := earthfile.ParseHeredocDecl(src); !ok {
+			return i.errorf(cmd.SourceLocation, "mixing heredocs with regular files or artifacts in COPY is not supported")
+		}
 	}
 
 	if opts.IsDirCopy {

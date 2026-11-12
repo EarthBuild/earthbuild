@@ -2767,3 +2767,98 @@ EOF2
 		})
 	}
 }
+
+func TestParse_HeredocExtendedForms(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		earthfile    string
+		wantCmdName  Cmd
+		wantArgs     []string
+		wantHeredocs []Heredoc
+	}{
+		{
+			name: "RUN with header trailing comment and multiple leading and trailing args",
+			earthfile: `VERSION 0.8
+build:
+  RUN python3 -u <<EOF arg1 "arg 2" # run inline python script
+print("hi")
+EOF
+`,
+			wantCmdName: CmdRun,
+			wantArgs:    []string{"python3", "-u", testDeclEOF, "arg1", "\"arg 2\""},
+			wantHeredocs: []Heredoc{
+				{
+					Name:    testHeredocEOF,
+					Content: "print(\"hi\")\n",
+					Expand:  true,
+				},
+			},
+		},
+		{
+			name: "RUN with backslash line continuations on header line",
+			earthfile: `VERSION 0.8
+build:
+  RUN --no-cache \
+      python3 \
+      <<'EOF' \
+      --flag
+import sys
+EOF
+`,
+			wantCmdName: CmdRun,
+			wantArgs:    []string{"--no-cache", "python3", testDeclQuotedEOF, "--flag"},
+			wantHeredocs: []Heredoc{
+				{
+					Name:    testHeredocEOF,
+					Content: "import sys\n",
+					Expand:  false,
+				},
+			},
+		},
+		{
+			name: "COPY with filename delimiters, trailing comment, and terminator at EOF",
+			earthfile: "VERSION 0.8\nbuild:\n" +
+				"  COPY <<app.conf <<'sub/app.conf' <<'[init]' /etc/ # copy configs\n" +
+				"k=1\napp.conf\nk=2\nsub/app.conf\nk=3\n  [init]  ",
+			wantCmdName: CmdCopy,
+			wantArgs:    []string{"<<app.conf", "<<'sub/app.conf'", "<<'[init]'", "/etc/"},
+			wantHeredocs: []Heredoc{
+				{Name: "app.conf", Content: "k=1\n", Expand: true},
+				{Name: "sub/app.conf", Content: "k=2\n", Expand: false},
+				{Name: "[init]", Content: "k=3\n", Expand: false},
+			},
+		},
+		{
+			name: "COPY with <<<file treated as ordinary file token",
+			earthfile: `VERSION 0.8
+build:
+  COPY <<<file /dest
+`,
+			wantCmdName:  CmdCopy,
+			wantArgs:     []string{"<<<file", "/dest"},
+			wantHeredocs: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tree, err := Parse(testEarthfile, tt.earthfile)
+			require.NoError(t, err)
+			require.Len(t, tree.Targets, 1)
+			require.Len(t, tree.Targets[0].Recipe, 1)
+
+			cmd := tree.Targets[0].Recipe[0].Command
+			require.NotNil(t, cmd)
+			require.Equal(t, tt.wantCmdName, cmd.Name)
+			require.Equal(t, tt.wantArgs, cmd.Args)
+
+			if diff := cmp.Diff(tt.wantHeredocs, cmd.Heredocs, cmpopts.IgnoreTypes(SourceLocation{})); diff != "" {
+				t.Errorf("Heredocs mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

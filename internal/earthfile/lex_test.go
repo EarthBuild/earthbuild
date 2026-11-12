@@ -247,6 +247,48 @@ func TestLex(t *testing.T) {
 				makeItemError("unterminated heredoc \"EOF\" (opened at line 1)"),
 			},
 		},
+		{
+			name:  "whitespace-padded quoted delimiter terminated cleanly",
+			input: "RUN <<' EOF '\nbody line\n EOF \n",
+			want: []item{
+				makeItemRun(),
+				makeItemSpace(),
+				makeItemAtom("<<' EOF '"),
+				makeItemNL(),
+				makeItemHeredoc("body line\n"),
+				makeItemEOF(),
+			},
+		},
+		{
+			name:  "indented terminator at EOF without trailing newline",
+			input: "COPY <<app.conf /etc/\nk=v\n  app.conf",
+			want: []item{
+				makeItemCopy(),
+				makeItemSpace(),
+				makeItemAtom("<<app.conf"),
+				makeItemSpace(),
+				makeItemAtom("/etc/"),
+				makeItemNL(),
+				makeItemHeredoc("k=v\n"),
+				makeItemEOF(),
+			},
+		},
+		{
+			name:  "heredoc header with trailing comment and line continuation",
+			input: "RUN python3 \\\n  <<EOF # header comment\nprint(1)\nEOF\n",
+			want: []item{
+				makeItemRun(),
+				makeItemSpace(),
+				makeItemAtom("python3"),
+				makeItemSpace(),
+				makeItemAtom("<<EOF"),
+				makeItemSpace(),
+				makeItemEOLComment("# header comment"),
+				makeItemNL(),
+				makeItemHeredoc("print(1)\n"),
+				makeItemEOF(),
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -331,14 +373,19 @@ func makeItemHeredoc(val string) item {
 	return item{Typ: itemHeredoc, Val: val}
 }
 
+func makeItemEOLComment(val string) item {
+	return item{Typ: itemEOLComment, Val: val}
+}
+
 func makeItemEOF() item {
 	return item{Typ: itemEOF, Val: ""}
 }
 
 const (
-	testEchoLines  = "echo hello\necho world\n"
-	testHeredocEOF = "EOF"
-	testDeclEOF    = "<<EOF"
+	testEchoLines     = "echo hello\necho world\n"
+	testHeredocEOF    = "EOF"
+	testDeclEOF       = "<<EOF"
+	testDeclQuotedEOF = "<<'EOF'"
 )
 
 func TestChompHeredocContent(t *testing.T) {
@@ -400,9 +447,14 @@ func TestParseHeredocDecl(t *testing.T) {
 	}{
 		{src: testDeclEOF, wantName: testHeredocEOF, wantChomp: false, wantExp: true, wantOk: true},
 		{src: "<<-EOF", wantName: testHeredocEOF, wantChomp: true, wantExp: true, wantOk: true},
-		{src: "<<'EOF'", wantName: testHeredocEOF, wantChomp: false, wantExp: false, wantOk: true},
+		{src: testDeclQuotedEOF, wantName: testHeredocEOF, wantChomp: false, wantExp: false, wantOk: true},
 		{src: "<<\"EOF\"", wantName: testHeredocEOF, wantChomp: false, wantExp: false, wantOk: true},
 		{src: "<<-'EOF'", wantName: testHeredocEOF, wantChomp: true, wantExp: false, wantOk: true},
+		{src: "<<app.conf", wantName: "app.conf", wantChomp: false, wantExp: true, wantOk: true},
+		{src: "<<'sub/app.conf'", wantName: "sub/app.conf", wantChomp: false, wantExp: false, wantOk: true},
+		{src: "<<'[init]'", wantName: "[init]", wantChomp: false, wantExp: false, wantOk: true},
+		{src: "<<foo#bar", wantName: "foo#bar", wantChomp: false, wantExp: true, wantOk: true},
+		{src: "<<' EOF '", wantName: " EOF ", wantChomp: false, wantExp: false, wantOk: true},
 		{src: "0" + testDeclEOF, wantOk: false},
 		{src: "1<<2", wantOk: false},
 		{src: "<<", wantOk: false},
@@ -411,8 +463,11 @@ func TestParseHeredocDecl(t *testing.T) {
 		{src: "<<'EOF\"", wantOk: false},
 		{src: "a<<EOF", wantOk: false},
 		{src: "regular_word", wantOk: false},
+		{src: "<<<file", wantOk: false},
 		{src: "<<<\"x\"", wantOk: false},
 		{src: "'<<foo'", wantOk: false},
+		{src: "<<\"a\nb\"", wantOk: false},
+		{src: "<<\"a\rb\"", wantOk: false},
 	}
 
 	for _, tt := range tests {

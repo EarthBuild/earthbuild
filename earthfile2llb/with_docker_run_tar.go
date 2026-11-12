@@ -168,6 +168,7 @@ func (w *withDockerRunTar) Run(ctx context.Context, args []string, opt WithDocke
 		CommandName:          commandName,
 		Args:                 args,
 		Heredoc:              opt.Heredoc,
+		HeredocTrailingArgs:  opt.HeredocTrailingArgs,
 		Mounts:               opt.Mounts,
 		Secrets:              opt.Secrets,
 		WithEntrypoint:       opt.WithEntrypoint,

@@ -116,6 +116,8 @@ func (w *withDockerRunLocalReg) Run(ctx context.Context, args []string, opt With
 		CommandName:          commandName,
 		Locally:              true,
 		Args:                 args,
+		Heredoc:              opt.Heredoc,
+		HeredocTrailingArgs:  opt.HeredocTrailingArgs,
 		Mounts:               opt.Mounts,
 		Secrets:              opt.Secrets,
 		WithEntrypoint:       opt.WithEntrypoint,

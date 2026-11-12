@@ -803,6 +803,10 @@ func (p *parser) parseArgsUntilNL() ([]string, SourceLocation, error) {
 		case itemNL, itemEOLComment:
 			p.next()
 
+			if t.Typ == itemEOLComment && p.peek().Typ == itemNL {
+				p.next()
+			}
+
 			endLoc.EndLine = t.Line
 			endLoc.EndColumn = t.Col
 

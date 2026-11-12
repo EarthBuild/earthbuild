@@ -1520,7 +1520,7 @@ func ParseHeredocDecl(src string) (HeredocDecl, bool) {
 		name = rem
 	}
 
-	if len(name) == 0 || strings.ContainsAny(name, "'\"<") {
+	if len(name) == 0 || strings.ContainsAny(name, "'\"<\r\n") {
 		return HeredocDecl{}, false
 	}
 
@@ -1600,14 +1600,7 @@ func lexHeredocBodies(l *lexer) stateFn {
 
 		trimmedLine := strings.TrimRight(lineText, "\r\n")
 
-		isTerminator := false
 		if trimmedLine == decl.Name || strings.TrimSpace(trimmedLine) == decl.Name {
-			isTerminator = true
-		} else if decl.Chomp && strings.TrimLeft(trimmedLine, "\t") == decl.Name {
-			isTerminator = true
-		}
-
-		if isTerminator {
 			content := body.String()
 			if decl.Chomp {
 				content = ChompHeredocContent(content)

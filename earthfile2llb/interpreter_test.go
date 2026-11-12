@@ -8,10 +8,17 @@ import (
 )
 
 const (
-	testHeredocDecl    = "<<EOF"
-	testHeredocName    = "EOF"
-	testHeredocContent = "hello\n"
-	testDestDir        = "/dest/"
+	testHeredocDecl         = "<<EOF"
+	testHeredocName         = "EOF"
+	testHeredocContent      = "hello\n"
+	testDestDir             = "/dest/"
+	testTrueCmd             = "true"
+	testPythonCmd           = "python3"
+	testCatCmd              = "cat"
+	testArg1                = "arg1"
+	testEchoArg1Body        = "echo \"$1\"\n"
+	testRegularFile         = "regular-file.txt"
+	testErrMixedCopyHeredoc = "mixing heredocs with regular files or artifacts in COPY is not supported"
 )
 
 func TestHandleRun_Heredocs(t *testing.T) {
@@ -53,32 +60,72 @@ func TestProcessRunHeredocs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		wantHeredoc *earthfile.Heredoc
-		name        string
-		wantErr     string
-		wantArgs    []string
-		cmd         earthfile.Command
+		wantHeredoc      *earthfile.Heredoc
+		name             string
+		wantErr          string
+		wantLeadingArgs  []string
+		wantTrailingArgs []string
+		cmd              earthfile.Command
 	}{
 		{
 			name: "no heredocs preserves args",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{"true"},
+				Args: []string{testTrueCmd},
 			},
-			wantHeredoc: nil,
-			wantArgs:    []string{"true"},
+			wantHeredoc:     nil,
+			wantLeadingArgs: []string{testTrueCmd},
 		},
 		{
 			name: "preserves non-heredoc args and strips matching heredoc decls",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{"cat", "<<<\"here-string\"", "'<<quoted'", "0<<EOF", testHeredocDecl},
+				Args: []string{testCatCmd, "<<<\"here-string\"", "'<<quoted'", "0<<EOF", testHeredocDecl},
 				Heredocs: []earthfile.Heredoc{
 					{Name: testHeredocName, Content: testHeredocContent},
 				},
 			},
-			wantHeredoc: &earthfile.Heredoc{Name: testHeredocName, Content: testHeredocContent},
-			wantArgs:    []string{"cat", "<<<\"here-string\"", "'<<quoted'", "0<<EOF"},
+			wantHeredoc:     &earthfile.Heredoc{Name: testHeredocName, Content: testHeredocContent},
+			wantLeadingArgs: []string{testCatCmd, "<<<\"here-string\"", "'<<quoted'", "0<<EOF"},
+		},
+		{
+			name: "splits interpreter leading args and script trailing args",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testPythonCmd, testHeredocDecl, testArg1, "arg2"},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testHeredocName, Content: "print(1)\n"},
+				},
+			},
+			wantHeredoc:      &earthfile.Heredoc{Name: testHeredocName, Content: "print(1)\n"},
+			wantLeadingArgs:  []string{testPythonCmd},
+			wantTrailingArgs: []string{testArg1, "arg2"},
+		},
+		{
+			name: "standalone heredoc with trailing arg",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testHeredocDecl, testArg1},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testHeredocName, Content: testEchoArg1Body},
+				},
+			},
+			wantHeredoc:      &earthfile.Heredoc{Name: testHeredocName, Content: testEchoArg1Body},
+			wantLeadingArgs:  nil,
+			wantTrailingArgs: []string{testArg1},
+		},
+		{
+			name: "cat heredoc with shell redirection trailing args",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testCatCmd, testHeredocDecl, ">", "/etc/motd"},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testHeredocName, Content: testHeredocContent},
+				},
+			},
+			wantHeredoc:      &earthfile.Heredoc{Name: testHeredocName, Content: testHeredocContent},
+			wantLeadingArgs:  []string{testCatCmd},
+			wantTrailingArgs: []string{">", "/etc/motd"},
 		},
 		{
 			name: "chomps heredoc when chomp is true",
@@ -89,8 +136,8 @@ func TestProcessRunHeredocs(t *testing.T) {
 					{Name: testHeredocName, Content: "\t\techo hi\n", Chomp: true},
 				},
 			},
-			wantHeredoc: &earthfile.Heredoc{Name: testHeredocName, Content: "echo hi\n", Chomp: true},
-			wantArgs:    nil,
+			wantHeredoc:     &earthfile.Heredoc{Name: testHeredocName, Content: "echo hi\n", Chomp: true},
+			wantLeadingArgs: nil,
 		},
 		{
 			name: "multiple heredocs rejected",
@@ -112,7 +159,7 @@ func TestProcessRunHeredocs(t *testing.T) {
 
 			i := &Interpreter{}
 
-			h, filteredArgs, err := i.processRunHeredocs(t.Context(), tt.cmd, tt.cmd.Args)
+			h, leadingArgs, trailingArgs, err := i.processRunHeredocs(t.Context(), tt.cmd, tt.cmd.Args)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.wantErr)
@@ -122,7 +169,8 @@ func TestProcessRunHeredocs(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tt.wantHeredoc, h)
-			require.Equal(t, tt.wantArgs, filteredArgs)
+			require.Equal(t, tt.wantLeadingArgs, leadingArgs)
+			require.Equal(t, tt.wantTrailingArgs, trailingArgs)
 		})
 	}
 }
@@ -131,10 +179,11 @@ func TestHandleCopy_HeredocValidation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		wantErr string
-		args    []string
-		local   bool
+		name     string
+		wantErr  string
+		args     []string
+		heredocs []earthfile.Heredoc
+		local    bool
 	}{
 		{
 			name:    "locally heredoc rejected",
@@ -143,9 +192,28 @@ func TestHandleCopy_HeredocValidation(t *testing.T) {
 			wantErr: "COPY with heredoc is not supported in LOCALLY targets",
 		},
 		{
+			name:    "missing destination with heredoc last rejected",
+			args:    []string{testRegularFile, testHeredocDecl},
+			wantErr: "cannot be a heredoc; missing destination path",
+		},
+		{
+			name:    "mixed regular file then heredoc rejected",
+			args:    []string{testRegularFile, testHeredocDecl, testDestDir},
+			wantErr: testErrMixedCopyHeredoc,
+		},
+		{
+			name: "mixed source rejected even when heredoc slice count matches srcs",
+			args: []string{testRegularFile, testHeredocDecl, testDestDir},
+			heredocs: []earthfile.Heredoc{
+				{Name: "unused", Content: "x\n"},
+				{Name: testHeredocName, Content: testHeredocContent},
+			},
+			wantErr: testErrMixedCopyHeredoc,
+		},
+		{
 			name:    "mixed sources rejected",
-			args:    []string{testHeredocDecl, "regular-file.txt", testDestDir},
-			wantErr: "mixing heredocs with regular files or artifacts in COPY is not supported",
+			args:    []string{testHeredocDecl, testRegularFile, testDestDir},
+			wantErr: testErrMixedCopyHeredoc,
 		},
 		{
 			name:    "dir flag rejected",
@@ -188,13 +256,18 @@ func TestHandleCopy_HeredocValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			heredocs := tt.heredocs
+			if heredocs == nil {
+				heredocs = []earthfile.Heredoc{
+					{Name: testHeredocName, Content: testHeredocContent},
+				}
+			}
+
 			i := &Interpreter{local: tt.local}
 			cmd := earthfile.Command{
-				Name: earthfile.CmdCopy,
-				Args: tt.args,
-				Heredocs: []earthfile.Heredoc{
-					{Name: testHeredocName, Content: testHeredocContent},
-				},
+				Name:     earthfile.CmdCopy,
+				Args:     tt.args,
+				Heredocs: heredocs,
 			}
 			err := i.handleCopy(t.Context(), cmd)
 

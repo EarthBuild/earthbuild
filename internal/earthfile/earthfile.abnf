@@ -88,7 +88,7 @@ logical-line-text   = *( line-continuation / safe-char )
                        ; The textual content of one logical (continuation-
                        ; joined) line, prior to comment stripping.
 
-safe-char           = %x00-09 / %x0B-23 / %x25-5B / %x5D-10FFFF
+safe-char           = %x00-09 / %x0B-22 / %x24-5B / %x5D-10FFFF
                        ; any character except LF (x0A) and unescaped
                        ; "#" (x23) and "\" (x5C) used for comment/continuation;
                        ; this is a simplification for ABNF purposes.
@@ -97,7 +97,12 @@ safe-char           = %x00-09 / %x0B-23 / %x25-5B / %x5D-10FFFF
 ; 3. Recipe lines: one instruction, control clause, or block keyword
 ; ---------------------------------------------------------------------------
 
-recipe-line         = *WSP recipe-instruction *WSP [ comment ] EOL
+recipe-line         = *WSP ( heredoc-recipe-line / ( recipe-instruction *WSP [ comment ] EOL ) )
+
+heredoc-recipe-line = ( run-heredoc-header *WSP [ comment ] [ CR ] LF heredoc-body )
+                    / ( copy-heredoc-header *WSP [ comment ] [ CR ] LF 1*heredoc-body )
+                      ; Each heredoc-decl on the header line consumes one
+                      ; heredoc-body in declaration order.
 
 recipe-instruction  = from-instr
                      / from-dockerfile-instr
@@ -211,21 +216,39 @@ fromdf-option       = "-f" WSP ( WORD / artifact-ref )
 ; 7. RUN
 ; ---------------------------------------------------------------------------
 
-run-instr           = "RUN" WSP *( run-option WSP ) [ "--" WSP ] ( run-heredoc-form / run-command )
+arg-sep             = 1*( WSP / line-continuation )
 
-run-heredoc-form    = [ WORD WSP ] heredoc-decl [ WSP WORD ] EOL heredoc-body
+run-instr           = "RUN" WSP *( run-option WSP ) [ "--" WSP ] run-command
+
+run-heredoc-header  = "RUN" arg-sep *( run-option arg-sep ) [ "--" arg-sep ] *( run-arg arg-sep ) heredoc-decl *( arg-sep run-arg )
+
+run-arg             = WORD / QUOTED-STRING
 
 heredoc-decl        = "<<" [ "-" ] heredoc-delim-spec
 
-heredoc-delim-spec  = DQUOTE heredoc-delimiter DQUOTE
-                    / SQUOTE heredoc-delimiter SQUOTE
-                    / heredoc-delimiter
+heredoc-delim-spec  = DQUOTE heredoc-quoted-delim DQUOTE
+                    / SQUOTE heredoc-quoted-delim SQUOTE
+                    / heredoc-unquoted-delim
 
-heredoc-delimiter   = 1*( ALPHA / DIGIT / "_" / "-" )
+heredoc-unquoted-delim = 1*( heredoc-delim-char / heredoc-escaped-char )
 
-heredoc-body        = *( safe-char / EOL ) heredoc-end
+heredoc-quoted-delim = 1*( heredoc-delim-char / heredoc-escaped-char / WSP )
 
-heredoc-end         = [ *WSP ] heredoc-delimiter EOL
+heredoc-delim-char  = %x21 / %x23-26 / %x28-3B / %x3D-5B / %x5D-7E / %x80-10FFFF
+                       ; visible ASCII + UTF-8 scalar values excluding
+                       ; WSP, CR, LF, DQUOTE, SQUOTE, "<", "\"
+
+heredoc-escaped-char = "\" ( heredoc-delim-char / "\" )
+
+heredoc-body        = *heredoc-line heredoc-end
+                       ; Semantic constraint: heredoc-line matches any
+                       ; physical line whose raw or WSP-trimmed text does
+                       ; not equal the active heredoc delimiter; heredoc-end
+                       ; matches the active delimiter.
+
+heredoc-line        = *( %x00-09 / %x0B-0C / %x0E-10FFFF ) [ CR ] LF
+
+heredoc-end         = *WSP ( heredoc-unquoted-delim / heredoc-quoted-delim ) *WSP EOL
 
 run-option          = "--push"
                      / "--no-cache"
@@ -282,16 +305,21 @@ json-char           = %x20-21 / %x23-5B / %x5D-10FFFF / ( "\" %x22 / "\" "\" )
 ; 8. COPY
 ; ---------------------------------------------------------------------------
 
-copy-instr          = ( "COPY" WSP *( copy-option WSP ) copy-sources WSP copy-dest )
-                     / copy-heredoc-instr
+copy-instr          = "COPY" WSP *( copy-option WSP ) [ "--" WSP ] copy-sources WSP copy-dest
 
-copy-heredoc-instr  = "COPY" WSP *( copy-option WSP ) 1*( ( copy-source / heredoc-decl ) WSP ) copy-dest EOL 1*heredoc-body
+copy-heredoc-header = "COPY" arg-sep *( copy-heredoc-option arg-sep ) [ "--" arg-sep ] 1*( heredoc-decl arg-sep ) copy-dest
+
+copy-heredoc-option = "--keep-ts"
+                     / "--chmod" ( "=" / WSP ) octal-mode
+                     / "--chown" ( "=" / WSP ) option-value
+                     / "--if-exists"
 
 copy-option         = "--dir"
                      / build-arg-override
                      / "--keep-ts"
                      / "--keep-own"
-                     / "--chmod" "=" octal-mode
+                     / "--chmod" ( "=" / WSP ) octal-mode
+                     / "--chown" ( "=" / WSP ) option-value
                      / "--if-exists"
                      / "--symlink-no-follow"
                      / "--platform" "=" WORD
@@ -404,7 +432,7 @@ withdocker-option   = "--pull" "=" image-name
                      / "--allow-privileged"
                      / "--build-arg" "=" build-arg-key "=" build-arg-value
 
-withdocker-run-line = *WSP run-instr *WSP [ comment ] EOL
+withdocker-run-line = *WSP ( ( run-heredoc-header *WSP [ comment ] [ CR ] LF heredoc-body ) / ( run-instr *WSP [ comment ] EOL ) )
 
 ; ---------------------------------------------------------------------------
 ; 15. IF / ELSE IF / ELSE / END
@@ -475,7 +503,7 @@ try-header          = *WSP "TRY"
 
 finally-header      = *WSP "FINALLY"
 
-try-body-line       = *WSP run-instr *WSP [ comment ] EOL
+try-body-line       = *WSP ( ( run-heredoc-header *WSP [ comment ] [ CR ] LF heredoc-body ) / ( run-instr *WSP [ comment ] EOL ) )
 
 save-artifact-line  = *WSP save-artifact-instr *WSP [ comment ] EOL
 

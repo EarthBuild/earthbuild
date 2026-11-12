@@ -44,10 +44,11 @@ type DockerPullOpt struct {
 // WithDockerOpt holds parameters for WITH DOCKER run.
 type WithDockerOpt struct {
 	OIDCInfo              *oidcutil.AWSOIDCInfo
+	Heredoc               *earthfile.Heredoc
 	CacheID               string
 	Pulls                 []DockerPullOpt
 	Secrets               []string
-	Heredoc               *earthfile.Heredoc
+	HeredocTrailingArgs   []string
 	extraRunOpts          []llb.RunOption
 	Mounts                []string
 	TryCatchSaveArtifacts []debuggercommon.SaveFilesSettings

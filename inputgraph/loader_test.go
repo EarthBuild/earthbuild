@@ -1,10 +1,20 @@
 package inputgraph
 
 import (
+	"encoding/hex"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/conslogging"
+	"github.com/EarthBuild/earthbuild/domain"
+	"github.com/EarthBuild/earthbuild/features"
 	"github.com/EarthBuild/earthbuild/internal/earthfile"
+	"github.com/EarthBuild/earthbuild/util/buildkitskipper/hasher"
+	"github.com/EarthBuild/earthbuild/variables"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -184,17 +194,462 @@ func Test_evalConditions(t *testing.T) {
 	}
 }
 
+const (
+	testLoaderHeredocDecl = "<<EOF"
+	testLoaderHeredocEOF  = "EOF"
+	testLoaderRunBodyV1   = "echo v1\n"
+	testLoaderEtcAppConf  = "/etc/app.conf"
+	testLoaderAppConfDecl = "<<app.conf"
+	testLoaderAppConfName = "app.conf"
+	testLoaderCopyBodyV1  = "key=v1\n"
+	testLoaderDestPath    = "/dest/path"
+	testLoaderHelloBody   = "echo hello\n"
+	testLoaderLocalFile   = "<<<localfile"
+)
+
 func Test_handleCopy_Heredoc(t *testing.T) {
 	t.Parallel()
 
-	l := &loader{}
-	cmd := earthfile.Command{
-		Name: earthfile.CmdCopy,
-		Args: []string{"<<EOF", "/dest/path"},
-		Heredocs: []earthfile.Heredoc{
-			{Name: "EOF", Content: "echo hello\n"},
+	tests := []struct {
+		name    string
+		wantErr string
+		cmd     earthfile.Command
+	}{
+		{
+			name: "single heredoc source skips disk stat",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdCopy,
+				Args: []string{testLoaderHeredocDecl, testLoaderDestPath},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderHeredocEOF, Content: testLoaderHelloBody},
+				},
+			},
+		},
+		{
+			name: "multiple chained heredoc sources skip disk stat",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdCopy,
+				Args: []string{testLoaderAppConfDecl, "<<'init.sh'", "/etc/"},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderAppConfName, Content: testLoaderCopyBodyV1},
+					{Name: "init.sh", Content: "#!/bin/sh\n"},
+				},
+			},
+		},
+		{
+			name: "if-exists chomped heredoc source skips disk stat",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdCopy,
+				Args: []string{"--if-exists", "<<-EOF", testLoaderDestPath},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderHeredocEOF, Content: "\thi\n", Chomp: true},
+				},
+			},
+		},
+		{
+			name:    "non-heredoc <<<missing source stats disk and returns error",
+			wantErr: "failed to stat file",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdCopy,
+				Args: []string{"<<<missing", testLoaderDestPath},
+			},
+		},
+		{
+			name:    "COPY --from rejected even with heredoc",
+			wantErr: "COPY --from is not supported",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdCopy,
+				Args: []string{"--from=alpine", testLoaderHeredocDecl, testLoaderDestPath},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderHeredocEOF, Content: testLoaderHelloBody},
+				},
+			},
+		},
+		{
+			name:    "missing destination rejected",
+			wantErr: "COPY must include a source and destination",
+			cmd: earthfile.Command{
+				Name: earthfile.CmdCopy,
+				Args: []string{testLoaderHeredocDecl},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderHeredocEOF},
+				},
+			},
 		},
 	}
-	err := l.handleCopy(t.Context(), cmd)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			target := domain.Target{
+				LocalPath: t.TempDir(),
+				Target:    "build",
+			}
+			l := &loader{
+				target: target,
+				hasher: hasher.New(),
+				varCollection: variables.NewCollection(variables.NewCollectionOpt{
+					Target:   target,
+					Features: &features.Features{},
+				}),
+			}
+
+			err := l.handleCopy(t.Context(), tt.cmd)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func hashEarthfileTarget(t *testing.T, dir string) string {
+	t.Helper()
+
+	cons := conslogging.New(os.Stderr, &sync.Mutex{}, 0, conslogging.Info, false)
+	hash, _, err := HashTarget(t.Context(), HashOpt{
+		Log: cons,
+		Target: domain.Target{
+			LocalPath: dir,
+			Target:    "build",
+		},
+	})
 	require.NoError(t, err)
+
+	encoded := hex.EncodeToString(hash)
+	require.NotEmpty(t, encoded)
+
+	return encoded
+}
+
+func hashSingleCommand(c earthfile.Command) string {
+	l := &loader{hasher: hasher.New()}
+	l.hashCommand(c)
+
+	return hex.EncodeToString(l.hasher.GetHash())
+}
+
+func TestHashCommand_HeredocInvariants(t *testing.T) {
+	t.Parallel()
+
+	nonHeredocCmd := earthfile.Command{
+		Name:     earthfile.CmdRun,
+		Args:     []string{"echo", "hello"},
+		ExecMode: false,
+	}
+
+	baseline := hasher.New()
+	baseline.HashString(string(nonHeredocCmd.Name))
+	baseline.HashJSONMarshalled(nonHeredocCmd.Args)
+	baseline.HashBool(nonHeredocCmd.ExecMode)
+	wantLegacyNonHeredocHash := hex.EncodeToString(baseline.GetHash())
+
+	baseRun := earthfile.Command{
+		Name: earthfile.CmdRun,
+		Args: []string{testLoaderHeredocDecl},
+		Heredocs: []earthfile.Heredoc{
+			{
+				Name:    testLoaderHeredocEOF,
+				Content: testLoaderRunBodyV1,
+				Chomp:   false,
+				Expand:  true,
+			},
+		},
+	}
+	baseCopy := earthfile.Command{
+		Name: earthfile.CmdCopy,
+		Args: []string{testLoaderAppConfDecl, testLoaderEtcAppConf},
+		Heredocs: []earthfile.Heredoc{
+			{
+				Name:    testLoaderAppConfName,
+				Content: testLoaderCopyBodyV1,
+				Chomp:   false,
+				Expand:  true,
+			},
+		},
+	}
+
+	baseRunHash := hashSingleCommand(baseRun)
+	baseCopyHash := hashSingleCommand(baseCopy)
+
+	tests := []struct {
+		name      string
+		wantHash  string
+		cmd       earthfile.Command
+		wantEqual bool
+	}{
+		{
+			name:      "non-heredoc command preserves legacy hash",
+			wantHash:  wantLegacyNonHeredocHash,
+			cmd:       nonHeredocCmd,
+			wantEqual: true,
+		},
+		{
+			name:      "heredoc SourceLocation shift preserves hash",
+			wantHash:  baseRunHash,
+			wantEqual: true,
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testLoaderHeredocDecl},
+				SourceLocation: earthfile.SourceLocation{
+					File:        "Earthfile",
+					StartLine:   42,
+					StartColumn: 5,
+				},
+				Heredocs: []earthfile.Heredoc{
+					{
+						Name:    testLoaderHeredocEOF,
+						Content: testLoaderRunBodyV1,
+						Chomp:   false,
+						Expand:  true,
+						SourceLocation: earthfile.SourceLocation{
+							File:        "Earthfile",
+							StartLine:   43,
+							StartColumn: 1,
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "RUN content mutation changes hash",
+			wantHash:  baseRunHash,
+			wantEqual: false,
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testLoaderHeredocDecl},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderHeredocEOF, Content: "echo v2\n", Chomp: false, Expand: true},
+				},
+			},
+		},
+		{
+			name:      "RUN name mutation changes hash",
+			wantHash:  baseRunHash,
+			wantEqual: false,
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testLoaderHeredocDecl},
+				Heredocs: []earthfile.Heredoc{
+					{Name: "END", Content: testLoaderRunBodyV1, Chomp: false, Expand: true},
+				},
+			},
+		},
+		{
+			name:      "RUN chomp mutation changes hash",
+			wantHash:  baseRunHash,
+			wantEqual: false,
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testLoaderHeredocDecl},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderHeredocEOF, Content: testLoaderRunBodyV1, Chomp: true, Expand: true},
+				},
+			},
+		},
+		{
+			name:      "RUN expand mutation changes hash",
+			wantHash:  baseRunHash,
+			wantEqual: false,
+			cmd: earthfile.Command{
+				Name: earthfile.CmdRun,
+				Args: []string{testLoaderHeredocDecl},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderHeredocEOF, Content: testLoaderRunBodyV1, Chomp: false, Expand: false},
+				},
+			},
+		},
+		{
+			name:      "COPY content mutation changes hash",
+			wantHash:  baseCopyHash,
+			wantEqual: false,
+			cmd: earthfile.Command{
+				Name: earthfile.CmdCopy,
+				Args: []string{testLoaderAppConfDecl, testLoaderEtcAppConf},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderAppConfName, Content: "key=v2\n", Chomp: false, Expand: true},
+				},
+			},
+		},
+		{
+			name:      "COPY name mutation changes hash",
+			wantHash:  baseCopyHash,
+			wantEqual: false,
+			cmd: earthfile.Command{
+				Name: earthfile.CmdCopy,
+				Args: []string{testLoaderAppConfDecl, testLoaderEtcAppConf},
+				Heredocs: []earthfile.Heredoc{
+					{Name: "other.conf", Content: testLoaderCopyBodyV1, Chomp: false, Expand: true},
+				},
+			},
+		},
+		{
+			name:      "COPY chomp mutation changes hash",
+			wantHash:  baseCopyHash,
+			wantEqual: false,
+			cmd: earthfile.Command{
+				Name: earthfile.CmdCopy,
+				Args: []string{testLoaderAppConfDecl, testLoaderEtcAppConf},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderAppConfName, Content: testLoaderCopyBodyV1, Chomp: true, Expand: true},
+				},
+			},
+		},
+		{
+			name:      "COPY expand mutation changes hash",
+			wantHash:  baseCopyHash,
+			wantEqual: false,
+			cmd: earthfile.Command{
+				Name: earthfile.CmdCopy,
+				Args: []string{testLoaderAppConfDecl, testLoaderEtcAppConf},
+				Heredocs: []earthfile.Heredoc{
+					{Name: testLoaderAppConfName, Content: testLoaderCopyBodyV1, Chomp: false, Expand: false},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := hashSingleCommand(tt.cmd)
+			if tt.wantEqual {
+				assert.Equal(t, tt.wantHash, got)
+				return
+			}
+
+			assert.NotEqual(t, tt.wantHash, got)
+		})
+	}
+}
+
+type targetFixture struct {
+	files     map[string]string
+	earthfile string
+}
+
+func writeAndHashTarget(t *testing.T, fx targetFixture) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "Earthfile"), []byte(fx.earthfile), 0o600))
+
+	for relPath, content := range fx.files {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, relPath), []byte(content), 0o600))
+	}
+
+	return hashEarthfileTarget(t, dir)
+}
+
+func TestHashTarget_Heredoc(t *testing.T) {
+	t.Parallel()
+
+	const baseHeredocEarthfile = `VERSION 0.8
+FROM alpine:3.18
+
+build:
+    RUN <<EOF
+echo one
+EOF
+    COPY <<app.conf /etc/app.conf
+port=8080
+app.conf
+`
+
+	const shiftedHeredocEarthfile = `# top-level comment
+
+# another comment shifting every line number
+VERSION 0.8
+FROM alpine:3.18
+
+
+# comment right above target
+build:
+    # comment inside target
+    RUN <<EOF
+echo one
+EOF
+    COPY <<app.conf /etc/app.conf
+port=8080
+app.conf
+`
+
+	const localTripleAngleEarthfile = `VERSION 0.8
+FROM alpine:3.18
+
+build:
+    COPY <<<localfile /dest
+`
+
+	tests := []struct {
+		name         string
+		before       targetFixture
+		after        targetFixture
+		wantSameHash bool
+	}{
+		{
+			name:         "comments and blank lines shifting SourceLocation preserve target hash",
+			before:       targetFixture{earthfile: baseHeredocEarthfile},
+			after:        targetFixture{earthfile: shiftedHeredocEarthfile},
+			wantSameHash: true,
+		},
+		{
+			name:         "editing RUN heredoc body changes target hash",
+			before:       targetFixture{earthfile: baseHeredocEarthfile},
+			after:        targetFixture{earthfile: strings.Replace(baseHeredocEarthfile, "echo one", "echo two", 1)},
+			wantSameHash: false,
+		},
+		{
+			name:         "editing COPY heredoc body changes target hash",
+			before:       targetFixture{earthfile: baseHeredocEarthfile},
+			after:        targetFixture{earthfile: strings.Replace(baseHeredocEarthfile, "port=8080", "port=9090", 1)},
+			wantSameHash: false,
+		},
+		{
+			name:   "quoting COPY heredoc delimiter changes Expand and target hash",
+			before: targetFixture{earthfile: baseHeredocEarthfile},
+			after: targetFixture{
+				earthfile: strings.Replace(baseHeredocEarthfile, "<<app.conf", "<<'app.conf'", 1),
+			},
+			wantSameHash: false,
+		},
+		{
+			name: "unchanged COPY <<<localfile disk content preserves target hash",
+			before: targetFixture{
+				earthfile: localTripleAngleEarthfile,
+				files:     map[string]string{testLoaderLocalFile: "same-bytes\n"},
+			},
+			after: targetFixture{
+				earthfile: localTripleAngleEarthfile,
+				files:     map[string]string{testLoaderLocalFile: "same-bytes\n"},
+			},
+			wantSameHash: true,
+		},
+		{
+			name: "modifying COPY <<<localfile disk content changes target hash",
+			before: targetFixture{
+				earthfile: localTripleAngleEarthfile,
+				files:     map[string]string{testLoaderLocalFile: "initial-bytes\n"},
+			},
+			after: targetFixture{
+				earthfile: localTripleAngleEarthfile,
+				files:     map[string]string{testLoaderLocalFile: "updated-bytes\n"},
+			},
+			wantSameHash: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			beforeHash := writeAndHashTarget(t, tt.before)
+			afterHash := writeAndHashTarget(t, tt.after)
+			assert.Equal(t, tt.wantSameHash, beforeHash == afterHash, "beforeHash=%s afterHash=%s", beforeHash, afterHash)
+		})
+	}
 }

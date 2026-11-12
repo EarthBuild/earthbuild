@@ -112,7 +112,7 @@ EOF
     RUN test "$(cat ./flags.txt)" = "heredoc run with flags"
 
 test-with-docker-heredoc:
-    FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0
+    FROM earthbuild/dind:alpine-3.24-docker-29.9.2-r0
     WORKDIR /test
     WITH DOCKER
         RUN <<'EOF' first-arg "second arg"

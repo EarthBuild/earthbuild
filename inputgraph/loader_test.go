@@ -194,19 +194,6 @@ func Test_evalConditions(t *testing.T) {
 	}
 }
 
-const (
-	testLoaderHeredocDecl = "<<EOF"
-	testLoaderHeredocEOF  = "EOF"
-	testLoaderRunBodyV1   = "echo v1\n"
-	testLoaderEtcAppConf  = "/etc/app.conf"
-	testLoaderAppConfDecl = "<<app.conf"
-	testLoaderAppConfName = "app.conf"
-	testLoaderCopyBodyV1  = "key=v1\n"
-	testLoaderDestPath    = "/dest/path"
-	testLoaderHelloBody   = "echo hello\n"
-	testLoaderLocalFile   = "<<<localfile"
-)
-
 func Test_handleCopy_Heredoc(t *testing.T) {
 	t.Parallel()
 
@@ -219,9 +206,9 @@ func Test_handleCopy_Heredoc(t *testing.T) {
 			name: "single heredoc source skips disk stat",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdCopy,
-				Args: []string{testLoaderHeredocDecl, testLoaderDestPath},
+				Args: []string{"<<EOF", "/dest/path"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderHeredocEOF, Content: testLoaderHelloBody},
+					{Name: "EOF", Content: "echo hello\n"},
 				},
 			},
 		},
@@ -229,9 +216,9 @@ func Test_handleCopy_Heredoc(t *testing.T) {
 			name: "multiple chained heredoc sources skip disk stat",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdCopy,
-				Args: []string{testLoaderAppConfDecl, "<<'init.sh'", "/etc/"},
+				Args: []string{"<<app.conf", "<<'init.sh'", "/etc/"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderAppConfName, Content: testLoaderCopyBodyV1},
+					{Name: "app.conf", Content: "key=v1\n"},
 					{Name: "init.sh", Content: "#!/bin/sh\n"},
 				},
 			},
@@ -240,9 +227,9 @@ func Test_handleCopy_Heredoc(t *testing.T) {
 			name: "if-exists chomped heredoc source skips disk stat",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdCopy,
-				Args: []string{"--if-exists", "<<-EOF", testLoaderDestPath},
+				Args: []string{"--if-exists", "<<-EOF", "/dest/path"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderHeredocEOF, Content: "\thi\n", Chomp: true},
+					{Name: "EOF", Content: "\thi\n", Chomp: true},
 				},
 			},
 		},
@@ -251,7 +238,7 @@ func Test_handleCopy_Heredoc(t *testing.T) {
 			wantErr: "failed to stat file",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdCopy,
-				Args: []string{"<<<missing", testLoaderDestPath},
+				Args: []string{"<<<missing", "/dest/path"},
 			},
 		},
 		{
@@ -259,9 +246,9 @@ func Test_handleCopy_Heredoc(t *testing.T) {
 			wantErr: "COPY --from is not supported",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdCopy,
-				Args: []string{"--from=alpine", testLoaderHeredocDecl, testLoaderDestPath},
+				Args: []string{"--from=alpine", "<<EOF", "/dest/path"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderHeredocEOF, Content: testLoaderHelloBody},
+					{Name: "EOF", Content: "echo hello\n"},
 				},
 			},
 		},
@@ -270,9 +257,9 @@ func Test_handleCopy_Heredoc(t *testing.T) {
 			wantErr: "COPY must include a source and destination",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdCopy,
-				Args: []string{testLoaderHeredocDecl},
+				Args: []string{"<<EOF"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderHeredocEOF},
+					{Name: "EOF"},
 				},
 			},
 		},
@@ -349,11 +336,11 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 
 	baseRun := earthfile.Command{
 		Name: earthfile.CmdRun,
-		Args: []string{testLoaderHeredocDecl},
+		Args: []string{"<<EOF"},
 		Heredocs: []earthfile.Heredoc{
 			{
-				Name:    testLoaderHeredocEOF,
-				Content: testLoaderRunBodyV1,
+				Name:    "EOF",
+				Content: "echo v1\n",
 				Chomp:   false,
 				Expand:  true,
 			},
@@ -361,11 +348,11 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 	}
 	baseCopy := earthfile.Command{
 		Name: earthfile.CmdCopy,
-		Args: []string{testLoaderAppConfDecl, testLoaderEtcAppConf},
+		Args: []string{"<<app.conf", "/etc/app.conf"},
 		Heredocs: []earthfile.Heredoc{
 			{
-				Name:    testLoaderAppConfName,
-				Content: testLoaderCopyBodyV1,
+				Name:    "app.conf",
+				Content: "key=v1\n",
 				Chomp:   false,
 				Expand:  true,
 			},
@@ -393,7 +380,7 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 			wantEqual: true,
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testLoaderHeredocDecl},
+				Args: []string{"<<EOF"},
 				SourceLocation: earthfile.SourceLocation{
 					File:        "Earthfile",
 					StartLine:   42,
@@ -401,8 +388,8 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 				},
 				Heredocs: []earthfile.Heredoc{
 					{
-						Name:    testLoaderHeredocEOF,
-						Content: testLoaderRunBodyV1,
+						Name:    "EOF",
+						Content: "echo v1\n",
 						Chomp:   false,
 						Expand:  true,
 						SourceLocation: earthfile.SourceLocation{
@@ -420,9 +407,9 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 			wantEqual: false,
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testLoaderHeredocDecl},
+				Args: []string{"<<EOF"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderHeredocEOF, Content: "echo v2\n", Chomp: false, Expand: true},
+					{Name: "EOF", Content: "echo v2\n", Chomp: false, Expand: true},
 				},
 			},
 		},
@@ -432,9 +419,9 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 			wantEqual: false,
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testLoaderHeredocDecl},
+				Args: []string{"<<EOF"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: "END", Content: testLoaderRunBodyV1, Chomp: false, Expand: true},
+					{Name: "END", Content: "echo v1\n", Chomp: false, Expand: true},
 				},
 			},
 		},
@@ -444,9 +431,9 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 			wantEqual: false,
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testLoaderHeredocDecl},
+				Args: []string{"<<EOF"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderHeredocEOF, Content: testLoaderRunBodyV1, Chomp: true, Expand: true},
+					{Name: "EOF", Content: "echo v1\n", Chomp: true, Expand: true},
 				},
 			},
 		},
@@ -456,9 +443,9 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 			wantEqual: false,
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testLoaderHeredocDecl},
+				Args: []string{"<<EOF"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderHeredocEOF, Content: testLoaderRunBodyV1, Chomp: false, Expand: false},
+					{Name: "EOF", Content: "echo v1\n", Chomp: false, Expand: false},
 				},
 			},
 		},
@@ -468,9 +455,9 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 			wantEqual: false,
 			cmd: earthfile.Command{
 				Name: earthfile.CmdCopy,
-				Args: []string{testLoaderAppConfDecl, testLoaderEtcAppConf},
+				Args: []string{"<<app.conf", "/etc/app.conf"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderAppConfName, Content: "key=v2\n", Chomp: false, Expand: true},
+					{Name: "app.conf", Content: "key=v2\n", Chomp: false, Expand: true},
 				},
 			},
 		},
@@ -480,9 +467,9 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 			wantEqual: false,
 			cmd: earthfile.Command{
 				Name: earthfile.CmdCopy,
-				Args: []string{testLoaderAppConfDecl, testLoaderEtcAppConf},
+				Args: []string{"<<app.conf", "/etc/app.conf"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: "other.conf", Content: testLoaderCopyBodyV1, Chomp: false, Expand: true},
+					{Name: "other.conf", Content: "key=v1\n", Chomp: false, Expand: true},
 				},
 			},
 		},
@@ -492,9 +479,9 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 			wantEqual: false,
 			cmd: earthfile.Command{
 				Name: earthfile.CmdCopy,
-				Args: []string{testLoaderAppConfDecl, testLoaderEtcAppConf},
+				Args: []string{"<<app.conf", "/etc/app.conf"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderAppConfName, Content: testLoaderCopyBodyV1, Chomp: true, Expand: true},
+					{Name: "app.conf", Content: "key=v1\n", Chomp: true, Expand: true},
 				},
 			},
 		},
@@ -504,9 +491,9 @@ func TestHashCommand_HeredocInvariants(t *testing.T) {
 			wantEqual: false,
 			cmd: earthfile.Command{
 				Name: earthfile.CmdCopy,
-				Args: []string{testLoaderAppConfDecl, testLoaderEtcAppConf},
+				Args: []string{"<<app.conf", "/etc/app.conf"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testLoaderAppConfName, Content: testLoaderCopyBodyV1, Chomp: false, Expand: false},
+					{Name: "app.conf", Content: "key=v1\n", Chomp: false, Expand: false},
 				},
 			},
 		},
@@ -621,11 +608,11 @@ build:
 			name: "unchanged COPY <<<localfile disk content preserves target hash",
 			before: targetFixture{
 				earthfile: localTripleAngleEarthfile,
-				files:     map[string]string{testLoaderLocalFile: "same-bytes\n"},
+				files:     map[string]string{"<<<localfile": "same-bytes\n"},
 			},
 			after: targetFixture{
 				earthfile: localTripleAngleEarthfile,
-				files:     map[string]string{testLoaderLocalFile: "same-bytes\n"},
+				files:     map[string]string{"<<<localfile": "same-bytes\n"},
 			},
 			wantSameHash: true,
 		},
@@ -633,11 +620,11 @@ build:
 			name: "modifying COPY <<<localfile disk content changes target hash",
 			before: targetFixture{
 				earthfile: localTripleAngleEarthfile,
-				files:     map[string]string{testLoaderLocalFile: "initial-bytes\n"},
+				files:     map[string]string{"<<<localfile": "initial-bytes\n"},
 			},
 			after: targetFixture{
 				earthfile: localTripleAngleEarthfile,
-				files:     map[string]string{testLoaderLocalFile: "updated-bytes\n"},
+				files:     map[string]string{"<<<localfile": "updated-bytes\n"},
 			},
 			wantSameHash: false,
 		},

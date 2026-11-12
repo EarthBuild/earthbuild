@@ -34,28 +34,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	testPipeScriptPath       = "/dev/pipes/earth-heredoc-script"
-	testEtcDir               = "/etc/"
-	testEtcAppConf           = "/etc/app.conf"
-	testAppConfName          = "app.conf"
-	testRootEOF              = "/EOF"
-	testRootAppConf          = "/app.conf"
-	testRootInitUTF8         = "/[init]-файл.conf"
-	testTwoWordsArg          = "\"two words\""
-	testSynthShHeader        = "#!/bin/sh\nset -e\n"
-	testSetETrueScript       = "set -e\ntrue\n"
-	testCRLFShebangTrue      = "#!/bin/sh\r\ntrue\r\n"
-	testLFShebangTrue        = "#!/bin/sh\ntrue\n"
-	testSpacesSubdir         = "dir with spaces"
-	testFlagArg              = "--flag"
-	testEarthfileName        = "Earthfile"
-	testWithDockerArgsSuffix = "WITH DOCKER RUN  --privileged <<EOF arg1 \"two words\""
-	testEchoTwoArgsLFScript  = "#!/bin/sh\nset -e\necho \"$1|$2\"\n"
-	testWithDockerEchoCRLF   = "WITH DOCKER\r\n    RUN <<'EOF' arg1 \"two words\"\r\necho \"$1|$2\"\r\nEOF\r\nEND\r\n"
-	testPythonSysArgvScript  = "import sys\nprint(sys.argv)\n"
-)
-
 type noopGwClient struct {
 	gwclient.Client
 }
@@ -228,11 +206,11 @@ func TestNormalizeHeredocFilePath(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{name: "simple delimiter", input: testHeredocName, want: testRootEOF},
-		{name: "filename with extension", input: testAppConfName, want: testRootAppConf},
-		{name: "glob and utf8 filename", input: "[init]-файл.conf", want: testRootInitUTF8},
+		{name: "simple delimiter", input: "EOF", want: "/EOF"},
+		{name: "filename with extension", input: "app.conf", want: "/app.conf"},
+		{name: "glob and utf8 filename", input: "[init]-файл.conf", want: "/[init]-файл.conf"},
 		{name: "nested relative path", input: "sub/dir/app.conf", want: "/sub/dir/app.conf"},
-		{name: "leading slash normalized", input: testRootAppConf, want: testRootAppConf},
+		{name: "leading slash normalized", input: "/app.conf", want: "/app.conf"},
 		{name: "filename with space", input: "my file", want: "/my file"},
 		{name: "empty", input: "", wantErr: true},
 		{name: "root slash", input: "/", wantErr: true},
@@ -287,31 +265,31 @@ func TestCopyHeredoc_LLBOps(t *testing.T) {
 		{
 			name:    "rejects empty files slice",
 			files:   nil,
-			dest:    testEtcDir,
+			dest:    "/etc/",
 			wantErr: "CopyHeredoc requires at least one file",
 		},
 		{
 			name:    "rejects invalid heredoc file name",
 			files:   []HeredocFile{{Name: "../etc/passwd", Content: "bad"}},
-			dest:    testEtcDir,
+			dest:    "/etc/",
 			wantErr: "invalid heredoc file name",
 		},
 		{
 			name:           "copy heredoc into dot directory preserves delimiter filename",
-			files:          []HeredocFile{{Name: testHeredocName, Content: testHeredocContent}},
+			files:          []HeredocFile{{Name: "EOF", Content: "hello\n"}},
 			dest:           ".",
-			wantMkfiles:    []string{testRootEOF},
-			wantCopySrcs:   []string{testRootEOF},
+			wantMkfiles:    []string{"/EOF"},
+			wantCopySrcs:   []string{"/EOF"},
 			wantCopyDest:   "/",
 			wantCustomName: "COPY <<EOF .",
 		},
 		{
 			name:           "copy heredoc to explicit destination file path",
-			files:          []HeredocFile{{Name: testHeredocName, Content: testHeredocContent}},
-			dest:           testEtcAppConf,
-			wantMkfiles:    []string{testRootEOF},
-			wantCopySrcs:   []string{testRootEOF},
-			wantCopyDest:   testEtcAppConf,
+			files:          []HeredocFile{{Name: "EOF", Content: "hello\n"}},
+			dest:           "/etc/app.conf",
+			wantMkfiles:    []string{"/EOF"},
+			wantCopySrcs:   []string{"/EOF"},
+			wantCopyDest:   "/etc/app.conf",
 			wantCustomName: "COPY <<EOF /etc/app.conf",
 		},
 		{
@@ -328,25 +306,25 @@ func TestCopyHeredoc_LLBOps(t *testing.T) {
 		},
 		{
 			name:           "inherits active USER ownership when chown is unset",
-			files:          []HeredocFile{{Name: testAppConfName, Content: "k=v\n"}},
-			dest:           testEtcDir,
+			files:          []HeredocFile{{Name: "app.conf", Content: "k=v\n"}},
+			dest:           "/etc/",
 			imageUser:      "appuser:appgroup",
-			wantMkfiles:    []string{testRootAppConf},
-			wantCopySrcs:   []string{testRootAppConf},
-			wantCopyDest:   testEtcDir,
+			wantMkfiles:    []string{"/app.conf"},
+			wantCopySrcs:   []string{"/app.conf"},
+			wantCopyDest:   "/etc/",
 			wantUser:       "appuser",
 			wantGroup:      "appgroup",
 			wantCustomName: "COPY <<app.conf /etc/",
 		},
 		{
 			name:           "explicit chown overrides active USER ownership",
-			files:          []HeredocFile{{Name: testAppConfName, Content: "k=v\n"}},
-			dest:           testEtcDir,
+			files:          []HeredocFile{{Name: "app.conf", Content: "k=v\n"}},
+			dest:           "/etc/",
 			imageUser:      "appuser:appgroup",
 			chown:          "customuser:customgroup",
-			wantMkfiles:    []string{testRootAppConf},
-			wantCopySrcs:   []string{testRootAppConf},
-			wantCopyDest:   testEtcDir,
+			wantMkfiles:    []string{"/app.conf"},
+			wantCopySrcs:   []string{"/app.conf"},
+			wantCopyDest:   "/etc/",
 			wantUser:       "customuser",
 			wantGroup:      "customgroup",
 			wantCustomName: "COPY <<app.conf /etc/",
@@ -354,30 +332,30 @@ func TestCopyHeredoc_LLBOps(t *testing.T) {
 		{
 			name:           "if-exists with bracket and utf8 name disables wildcard globbing",
 			files:          []HeredocFile{{Name: "[init]-файл.conf", Content: "data\n"}},
-			dest:           testEtcDir,
+			dest:           "/etc/",
 			ifExists:       true,
-			wantMkfiles:    []string{testRootInitUTF8},
-			wantCopySrcs:   []string{testRootInitUTF8},
-			wantCopyDest:   testEtcDir,
+			wantMkfiles:    []string{"/[init]-файл.conf"},
+			wantCopySrcs:   []string{"/[init]-файл.conf"},
+			wantCopyDest:   "/etc/",
 			wantCustomName: "COPY --if-exists <<[init]-файл.conf /etc/",
 		},
 		{
 			name:           "nested delimiter path creates parent directory first",
 			files:          []HeredocFile{{Name: "sub/app.conf", Content: "nested\n"}},
-			dest:           testEtcDir,
+			dest:           "/etc/",
 			wantMkdirs:     []string{"/sub"},
 			wantMkfiles:    []string{"/sub/app.conf"},
 			wantCopySrcs:   []string{"/sub/app.conf"},
-			wantCopyDest:   testEtcDir,
+			wantCopyDest:   "/etc/",
 			wantCustomName: "COPY <<sub/app.conf /etc/",
 		},
 		{
 			name:           "copy heredoc preserves raw CRLF bytes",
-			files:          []HeredocFile{{Name: testAppConfName, Content: "line1\r\nline2\r\n"}},
-			dest:           testEtcAppConf,
-			wantMkfiles:    []string{testRootAppConf},
-			wantCopySrcs:   []string{testRootAppConf},
-			wantCopyDest:   testEtcAppConf,
+			files:          []HeredocFile{{Name: "app.conf", Content: "line1\r\nline2\r\n"}},
+			dest:           "/etc/app.conf",
+			wantMkfiles:    []string{"/app.conf"},
+			wantCopySrcs:   []string{"/app.conf"},
+			wantCopyDest:   "/etc/app.conf",
 			wantCustomName: "COPY <<app.conf /etc/app.conf",
 		},
 	}
@@ -439,7 +417,7 @@ func TestCopyHeredoc_LLBOps(t *testing.T) {
 func extractMountedScriptData(t *testing.T, runOpts []llb.RunOption) string {
 	t.Helper()
 
-	allOpts := append([]llb.RunOption{llb.Args([]string{testTrueCmd})}, runOpts...)
+	allOpts := append([]llb.RunOption{llb.Args([]string{"true"})}, runOpts...)
 	st := pllb.Scratch().Run(allOpts...).Root()
 	ops := marshalStateOps(t, st)
 	require.Len(t, ops.mkfiles, 1)
@@ -463,94 +441,96 @@ func TestSetupHeredocRun(t *testing.T) {
 		{
 			name: "bare shell heredoc uses inline fast path with set -e",
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "echo hello\n",
 			},
 			wantFinalArgs:   []string{"set -e\necho hello\n"},
-			wantDisplayArgs: []string{testHeredocDecl},
+			wantDisplayArgs: []string{"<<EOF"},
 		},
 		{
 			name: "shebang heredoc mounts script and keeps WithShell true",
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "#!/usr/bin/env python3\nprint('ok')\n",
 			},
-			wantFinalArgs:   []string{testPipeScriptPath},
-			wantDisplayArgs: []string{testHeredocDecl},
+			wantFinalArgs:   []string{"/dev/pipes/earth-heredoc-script"},
+			wantDisplayArgs: []string{"<<EOF"},
 			wantScriptMount: "#!/usr/bin/env python3\nprint('ok')\n",
 		},
 		{
 			name:         "interpreter with leading and trailing args preserves order",
-			args:         []string{testPythonCmd, "-u"},
-			trailingArgs: []string{testArg1, testTwoWordsArg},
+			args:         []string{"python3", "-u"},
+			trailingArgs: []string{"arg1", "\"two words\""},
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
-				Content: testPythonSysArgvScript,
+				Name:    "EOF",
+				Content: "import sys\nprint(sys.argv)\n",
 			},
-			wantFinalArgs:   []string{testPythonCmd, "-u", testPipeScriptPath, testArg1, testTwoWordsArg},
-			wantDisplayArgs: []string{testPythonCmd, "-u", testHeredocDecl, testArg1, testTwoWordsArg},
-			wantScriptMount: testPythonSysArgvScript,
+			wantFinalArgs: []string{
+				"python3", "-u", "/dev/pipes/earth-heredoc-script", "arg1", "\"two words\"",
+			},
+			wantDisplayArgs: []string{"python3", "-u", "<<EOF", "arg1", "\"two words\""},
+			wantScriptMount: "import sys\nprint(sys.argv)\n",
 		},
 		{
 			name:         "standalone heredoc with trailing args synthesizes sh shebang and set -e",
-			trailingArgs: []string{testArg1},
+			trailingArgs: []string{"arg1"},
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
-				Content: testEchoArg1Body,
+				Name:    "EOF",
+				Content: "echo \"$1\"\n",
 			},
-			wantFinalArgs:   []string{testPipeScriptPath, testArg1},
-			wantDisplayArgs: []string{testHeredocDecl, testArg1},
-			wantScriptMount: testSynthShHeader + testEchoArg1Body,
+			wantFinalArgs:   []string{"/dev/pipes/earth-heredoc-script", "arg1"},
+			wantDisplayArgs: []string{"<<EOF", "arg1"},
+			wantScriptMount: "#!/bin/sh\nset -e\necho \"$1\"\n",
 		},
 		{
 			name:           "entrypoint without shebang synthesizes sh shebang and set -e",
 			withEntrypoint: true,
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "echo via-entrypoint\n",
 			},
-			wantFinalArgs:   []string{testPipeScriptPath},
-			wantDisplayArgs: []string{testHeredocDecl},
-			wantScriptMount: testSynthShHeader + "echo via-entrypoint\n",
+			wantFinalArgs:   []string{"/dev/pipes/earth-heredoc-script"},
+			wantDisplayArgs: []string{"<<EOF"},
+			wantScriptMount: "#!/bin/sh\nset -e\necho via-entrypoint\n",
 		},
 		{
 			name:           "entrypoint with existing set -e synthesizes sh shebang without duplicating set -e",
 			withEntrypoint: true,
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "set -ex\necho via-entrypoint\n",
 			},
-			wantFinalArgs:   []string{testPipeScriptPath},
-			wantDisplayArgs: []string{testHeredocDecl},
+			wantFinalArgs:   []string{"/dev/pipes/earth-heredoc-script"},
+			wantDisplayArgs: []string{"<<EOF"},
 			wantScriptMount: "#!/bin/sh\nset -ex\necho via-entrypoint\n",
 		},
 		{
 			name: "bare CRLF heredoc normalizes line endings on inline fast path",
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
-				Content: testCRLFTrueBody,
+				Name:    "EOF",
+				Content: "true\r\n",
 			},
-			wantFinalArgs:   []string{testSetETrueScript},
-			wantDisplayArgs: []string{testHeredocDecl},
+			wantFinalArgs:   []string{"set -e\ntrue\n"},
+			wantDisplayArgs: []string{"<<EOF"},
 		},
 		{
 			name: "bare CRLF heredoc starting with set -e normalizes without duplicating set -e",
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "set -e\r\ntrue\r\n",
 			},
-			wantFinalArgs:   []string{testSetETrueScript},
-			wantDisplayArgs: []string{testHeredocDecl},
+			wantFinalArgs:   []string{"set -e\ntrue\n"},
+			wantDisplayArgs: []string{"<<EOF"},
 		},
 		{
 			name: "CRLF shebang heredoc normalizes interpreter and script lines",
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
-				Content: testCRLFShebangTrue,
+				Name:    "EOF",
+				Content: "#!/bin/sh\r\ntrue\r\n",
 			},
-			wantFinalArgs:   []string{testPipeScriptPath},
-			wantDisplayArgs: []string{testHeredocDecl},
-			wantScriptMount: testLFShebangTrue,
+			wantFinalArgs:   []string{"/dev/pipes/earth-heredoc-script"},
+			wantDisplayArgs: []string{"<<EOF"},
+			wantScriptMount: "#!/bin/sh\ntrue\n",
 		},
 	}
 
@@ -602,45 +582,45 @@ func TestSetupHeredocRun_Locally(t *testing.T) {
 	}{
 		{
 			name:         "nil CleanCollection quotes TMPDIR spaces and preserves leading and trailing args",
-			tmpSubdir:    testSpacesSubdir,
-			args:         []string{testPythonCmd},
-			trailingArgs: []string{testFlagArg},
+			tmpSubdir:    "dir with spaces",
+			args:         []string{"python3"},
+			trailingArgs: []string{"--flag"},
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "print('local')\n",
 			},
 			useCleanCollection: false,
-			wantLeadingArgs:    []string{testPythonCmd},
-			wantTrailingArgs:   []string{testFlagArg},
-			wantDisplayArgs:    []string{testPythonCmd, testHeredocDecl, testFlagArg},
+			wantLeadingArgs:    []string{"python3"},
+			wantTrailingArgs:   []string{"--flag"},
+			wantDisplayArgs:    []string{"python3", "<<EOF", "--flag"},
 			wantFileContent:    "print('local')\n",
 			wantQuotedDiffers:  true,
 		},
 		{
 			name:           "non-nil CleanCollection synthesizes sh shebang and removes temp script on Close",
-			tmpSubdir:      testSpacesSubdir,
+			tmpSubdir:      "dir with spaces",
 			withEntrypoint: true,
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "echo cleaned\n",
 			},
 			useCleanCollection: true,
-			wantDisplayArgs:    []string{testHeredocDecl},
-			wantFileContent:    testSynthShHeader + "echo cleaned\n",
+			wantDisplayArgs:    []string{"<<EOF"},
+			wantFileContent:    "#!/bin/sh\nset -e\necho cleaned\n",
 			wantQuotedDiffers:  true,
 		},
 		{
 			name:               "standalone heredoc with trailing args in plain TMPDIR synthesizes shebang",
 			tmpSubdir:          "plain-tmp",
-			trailingArgs:       []string{testArg1},
+			trailingArgs:       []string{"arg1"},
 			useCleanCollection: true,
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
-				Content: testEchoArg1Body,
+				Name:    "EOF",
+				Content: "echo \"$1\"\n",
 			},
-			wantTrailingArgs:  []string{testArg1},
-			wantDisplayArgs:   []string{testHeredocDecl, testArg1},
-			wantFileContent:   testSynthShHeader + testEchoArg1Body,
+			wantTrailingArgs:  []string{"arg1"},
+			wantDisplayArgs:   []string{"<<EOF", "arg1"},
+			wantFileContent:   "#!/bin/sh\nset -e\necho \"$1\"\n",
 			wantQuotedDiffers: false,
 		},
 		{
@@ -648,11 +628,11 @@ func TestSetupHeredocRun_Locally(t *testing.T) {
 			tmpSubdir:          "crlf-tmp",
 			useCleanCollection: true,
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
-				Content: testCRLFShebangTrue,
+				Name:    "EOF",
+				Content: "#!/bin/sh\r\ntrue\r\n",
 			},
-			wantDisplayArgs:   []string{testHeredocDecl},
-			wantFileContent:   testLFShebangTrue,
+			wantDisplayArgs:   []string{"<<EOF"},
+			wantFileContent:   "#!/bin/sh\ntrue\n",
 			wantQuotedDiffers: false,
 		},
 	}
@@ -735,20 +715,20 @@ func TestInternalRun_Heredoc(t *testing.T) {
 			entrypoint:     []string{"/entrypoint.sh", "--base"},
 			withEntrypoint: true,
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "echo one\n",
 			},
-			wantCmdContains: "/entrypoint.sh --base " + testPipeScriptPath,
+			wantCmdContains: "/entrypoint.sh --base /dev/pipes/earth-heredoc-script",
 		},
 		{
 			name:         "script-mode heredoc with no-cache exports build arg and passes UUID as shell $0",
 			buildArgKey:  "MY_VAR",
 			buildArgVal:  "hello world",
-			args:         []string{testPythonCmd},
-			trailingArgs: []string{testArg1},
+			args:         []string{"python3"},
+			trailingArgs: []string{"arg1"},
 			noCache:      true,
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "import os\n",
 			},
 			wantExportContains: "MY_VAR='hello world'",
@@ -759,11 +739,11 @@ func TestInternalRun_Heredoc(t *testing.T) {
 			buildArgKey: "APP_ENV",
 			buildArgVal: "prod",
 			heredoc: &earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "#!/usr/bin/env python3\nprint(1)\n",
 			},
 			wantExportContains: "APP_ENV=prod",
-			wantCmdContains:    testPipeScriptPath,
+			wantCmdContains:    "/dev/pipes/earth-heredoc-script",
 		},
 	}
 
@@ -832,8 +812,6 @@ func TestInternalRun_Heredoc(t *testing.T) {
 func TestEndToEndHeredoc_CRLF(t *testing.T) {
 	t.Parallel()
 
-	const wantCopyCRLF = "k=val\r\n"
-
 	tests := []struct {
 		name             string
 		earthfile        string
@@ -853,13 +831,13 @@ func TestEndToEndHeredoc_CRLF(t *testing.T) {
 		{
 			name:           "quoted COPY heredoc preserves raw CRLF bytes",
 			earthfile:      "VERSION 0.8\r\nFROM scratch\r\nCOPY <<'EOF' /etc/app.conf\r\nk=val\r\nEOF\r\n",
-			wantMkfileData: wantCopyCRLF,
+			wantMkfileData: "k=val\r\n",
 		},
 		{
 			name: "unquoted tab-chomped COPY heredoc expands vars and preserves CRLF bytes",
 			earthfile: "VERSION 0.8\r\nFROM scratch\r\nARG MSG=val\r\n" +
 				"COPY <<-EOF /etc/app.conf\r\n\tk=$MSG\r\nEOF\r\n",
-			wantMkfileData: wantCopyCRLF,
+			wantMkfileData: "k=val\r\n",
 		},
 	}
 
@@ -867,7 +845,7 @@ func TestEndToEndHeredoc_CRLF(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ef, err := earthfile.Parse(testEarthfileName, tt.earthfile)
+			ef, err := earthfile.Parse("Earthfile", tt.earthfile)
 			require.NoError(t, err)
 
 			c := newTestConverter(t)
@@ -904,8 +882,6 @@ func TestEndToEndHeredoc_CRLF(t *testing.T) {
 func TestWithDockerRun_Heredoc(t *testing.T) {
 	t.Parallel()
 
-	const wantWrappedScriptArgs = "'/dev/pipes/earth-heredoc-script arg1 \"two words\"'"
-
 	tests := []struct {
 		name            string
 		earthfile       string
@@ -915,12 +891,13 @@ func TestWithDockerRun_Heredoc(t *testing.T) {
 		useRegistry     bool
 	}{
 		{
-			name:            "tar runner standalone heredoc forwards trailing args and normalizes CRLF",
-			earthfile:       "VERSION 0.8\r\nFROM scratch\r\n" + testWithDockerEchoCRLF,
+			name: "tar runner standalone heredoc forwards trailing args and normalizes CRLF",
+			earthfile: "VERSION 0.8\r\nFROM scratch\r\nWITH DOCKER\r\n" +
+				"    RUN <<'EOF' arg1 \"two words\"\r\necho \"$1|$2\"\r\nEOF\r\nEND\r\n",
 			useRegistry:     false,
-			wantScriptMount: testEchoTwoArgsLFScript,
-			wantUserCmd:     wantWrappedScriptArgs,
-			wantCustomName:  testWithDockerArgsSuffix,
+			wantScriptMount: "#!/bin/sh\nset -e\necho \"$1|$2\"\n",
+			wantUserCmd:     "'/dev/pipes/earth-heredoc-script arg1 \"two words\"'",
+			wantCustomName:  "WITH DOCKER RUN  --privileged <<EOF arg1 \"two words\"",
 		},
 		{
 			name: "tar runner bare CRLF heredoc uses inline fast path",
@@ -935,17 +912,18 @@ func TestWithDockerRun_Heredoc(t *testing.T) {
 			earthfile: "VERSION 0.8\r\nFROM scratch\r\nWITH DOCKER\r\n" +
 				"    RUN python3 <<'EOF' arg1 \"two words\"\r\nimport sys\r\nprint(sys.argv)\r\nEOF\r\nEND\r\n",
 			useRegistry:     false,
-			wantScriptMount: testPythonSysArgvScript,
+			wantScriptMount: "import sys\nprint(sys.argv)\n",
 			wantUserCmd:     "'python3 /dev/pipes/earth-heredoc-script arg1 \"two words\"'",
 			wantCustomName:  "WITH DOCKER RUN  --privileged python3 <<EOF arg1 \"two words\"",
 		},
 		{
-			name:            "registry runner standalone heredoc forwards trailing args and normalizes CRLF",
-			earthfile:       "VERSION 0.8\r\nFROM scratch\r\n" + testWithDockerEchoCRLF,
+			name: "registry runner standalone heredoc forwards trailing args and normalizes CRLF",
+			earthfile: "VERSION 0.8\r\nFROM scratch\r\nWITH DOCKER\r\n" +
+				"    RUN <<'EOF' arg1 \"two words\"\r\necho \"$1|$2\"\r\nEOF\r\nEND\r\n",
 			useRegistry:     true,
-			wantScriptMount: testEchoTwoArgsLFScript,
-			wantUserCmd:     wantWrappedScriptArgs,
-			wantCustomName:  testWithDockerArgsSuffix,
+			wantScriptMount: "#!/bin/sh\nset -e\necho \"$1|$2\"\n",
+			wantUserCmd:     "'/dev/pipes/earth-heredoc-script arg1 \"two words\"'",
+			wantCustomName:  "WITH DOCKER RUN  --privileged <<EOF arg1 \"two words\"",
 		},
 	}
 
@@ -953,7 +931,7 @@ func TestWithDockerRun_Heredoc(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ef, err := earthfile.Parse(testEarthfileName, tt.earthfile)
+			ef, err := earthfile.Parse("Earthfile", tt.earthfile)
 			require.NoError(t, err)
 
 			c := newTestConverter(t)
@@ -1016,7 +994,7 @@ func TestWithDockerRun_HeredocLocally(t *testing.T) {
 	}{
 		{
 			name:             "local tar runner writes LF script and forwards trailing args",
-			tmpSubdir:        testSpacesSubdir,
+			tmpSubdir:        "dir with spaces",
 			useRegistry:      false,
 			useLocalRegistry: false,
 		},
@@ -1035,8 +1013,9 @@ func TestWithDockerRun_HeredocLocally(t *testing.T) {
 			t.Setenv("TMPDIR", tmpDir)
 
 			ef, err := earthfile.Parse(
-				testEarthfileName,
-				"VERSION 0.8\r\nLOCALLY\r\n"+testWithDockerEchoCRLF,
+				"Earthfile",
+				"VERSION 0.8\r\nLOCALLY\r\nWITH DOCKER\r\n"+
+					"    RUN <<'EOF' arg1 \"two words\"\r\necho \"$1|$2\"\r\nEOF\r\nEND\r\n",
 			)
 			require.NoError(t, err)
 
@@ -1074,7 +1053,7 @@ func TestWithDockerRun_HeredocLocally(t *testing.T) {
 
 			data, err := fs.ReadFile(os.DirFS(tmpDir), filepath.Base(tmpPath))
 			require.NoError(t, err)
-			assert.Equal(t, testEchoTwoArgsLFScript, string(data))
+			assert.Equal(t, "#!/bin/sh\nset -e\necho \"$1|$2\"\n", string(data))
 
 			ops := marshalStateOps(t, c.mts.Final.MainState)
 			require.Len(t, ops.execs, 1)
@@ -1088,14 +1067,12 @@ func TestWithDockerRun_HeredocLocally(t *testing.T) {
 			assert.Contains(t, execArgs[3], wantLocalCmd)
 			assert.NotContains(t, execArgs[3], "\r")
 
-			const wantLocalCustomName = "WITH DOCKER RUN  <<EOF arg1 \"two words\""
-
 			assert.True(
 				t,
-				hasCustomNameSuffix(ops.customNames, wantLocalCustomName),
+				hasCustomNameSuffix(ops.customNames, "WITH DOCKER RUN  <<EOF arg1 \"two words\""),
 				"custom names %v did not contain %q",
 				ops.customNames,
-				wantLocalCustomName,
+				"WITH DOCKER RUN  <<EOF arg1 \"two words\"",
 			)
 
 			assert.Empty(t, c.opt.CleanCollection.Close())

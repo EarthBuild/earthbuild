@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -2208,8 +2209,8 @@ func TestItem_String(t *testing.T) {
 		item item
 	}{
 		{
-			name: testHeredocEOF,
-			want: testHeredocEOF,
+			name: "EOF",
+			want: "EOF",
 			item: item{Typ: itemEOF},
 		},
 		{
@@ -2662,14 +2663,14 @@ func TestValidateAndAssignHeredocs(t *testing.T) {
 				Name:     CmdRun,
 				ExecMode: true,
 			},
-			heredocs: []Heredoc{{Name: testHeredocEOF, Content: "echo hello"}},
+			heredocs: []Heredoc{{Name: "EOF", Content: "echo hello"}},
 			wantErr:  "heredocs are not supported in exec form",
 		},
 		{
 			name: "rejects declaration count mismatch",
 			cmd: &Command{
 				Name: CmdRun,
-				Args: []string{"cat", testDeclEOF},
+				Args: []string{"cat", "<<EOF"},
 			},
 			heredocs: []Heredoc{
 				{Content: "echo hello"},
@@ -2683,10 +2684,9 @@ func TestValidateAndAssignHeredocs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			p := &parser{lex: &lexer{name: testEarthfile}}
+			p := &parser{lex: &lexer{name: "Earthfile"}}
 			err := validateAndAssignHeredocs(item{}, tt.cmd, tt.heredocs, p)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.wantErr)
+			require.ErrorContains(t, err, tt.wantErr)
 		})
 	}
 }
@@ -2739,19 +2739,19 @@ EOF2
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			tree, err := Parse(testEarthfile, tt.earthfile)
+			tree, err := Parse("Earthfile", tt.earthfile)
 			require.NoError(t, err)
 			require.Len(t, tree.Targets, 1)
 			require.Len(t, tree.Targets[0].Recipe, 1)
 			cmd := tree.Targets[0].Recipe[0].Command
 			require.NotNil(t, cmd)
-			require.Equal(t, tt.wantCmdStart, cmd.SourceLocation.StartLine)
-			require.Equal(t, tt.wantCmdEnd, cmd.SourceLocation.EndLine)
+			assert.Equal(t, tt.wantCmdStart, cmd.SourceLocation.StartLine)
+			assert.Equal(t, tt.wantCmdEnd, cmd.SourceLocation.EndLine)
 			require.Len(t, cmd.Heredocs, len(tt.wantHeredocs))
 
 			for idx, wantLoc := range tt.wantHeredocs {
-				require.Equal(t, wantLoc.StartLine, cmd.Heredocs[idx].SourceLocation.StartLine)
-				require.Equal(t, wantLoc.EndLine, cmd.Heredocs[idx].SourceLocation.EndLine)
+				assert.Equal(t, wantLoc.StartLine, cmd.Heredocs[idx].SourceLocation.StartLine)
+				assert.Equal(t, wantLoc.EndLine, cmd.Heredocs[idx].SourceLocation.EndLine)
 			}
 		})
 	}
@@ -2776,10 +2776,10 @@ print("hi")
 EOF
 `,
 			wantCmdName: CmdRun,
-			wantArgs:    []string{"python3", "-u", testDeclEOF, "arg1", "\"arg 2\""},
+			wantArgs:    []string{"python3", "-u", "<<EOF", "arg1", "\"arg 2\""},
 			wantHeredocs: []Heredoc{
 				{
-					Name:    testHeredocEOF,
+					Name:    "EOF",
 					Content: "print(\"hi\")\n",
 					Expand:  true,
 				},
@@ -2797,10 +2797,10 @@ import sys
 EOF
 `,
 			wantCmdName: CmdRun,
-			wantArgs:    []string{"--no-cache", "python3", testDeclQuotedEOF, "--flag"},
+			wantArgs:    []string{"--no-cache", "python3", "<<'EOF'", "--flag"},
 			wantHeredocs: []Heredoc{
 				{
-					Name:    testHeredocEOF,
+					Name:    "EOF",
 					Content: "import sys\n",
 					Expand:  false,
 				},
@@ -2835,19 +2835,21 @@ build:
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			tree, err := Parse(testEarthfile, tt.earthfile)
+			tree, err := Parse("Earthfile", tt.earthfile)
 			require.NoError(t, err)
 			require.Len(t, tree.Targets, 1)
 			require.Len(t, tree.Targets[0].Recipe, 1)
 
 			cmd := tree.Targets[0].Recipe[0].Command
 			require.NotNil(t, cmd)
-			require.Equal(t, tt.wantCmdName, cmd.Name)
-			require.Equal(t, tt.wantArgs, cmd.Args)
+			assert.Equal(t, tt.wantCmdName, cmd.Name)
+			assert.Equal(t, tt.wantArgs, cmd.Args)
 
-			if diff := cmp.Diff(tt.wantHeredocs, cmd.Heredocs, cmpopts.IgnoreTypes(SourceLocation{})); diff != "" {
-				t.Errorf("Heredocs mismatch (-want +got):\n%s", diff)
+			for i := range cmd.Heredocs {
+				cmd.Heredocs[i].SourceLocation = SourceLocation{}
 			}
+
+			assert.Equal(t, tt.wantHeredocs, cmd.Heredocs)
 		})
 	}
 }

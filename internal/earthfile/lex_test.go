@@ -3,6 +3,9 @@ package earthfile
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLex(t *testing.T) {
@@ -381,13 +384,6 @@ func makeItemEOF() item {
 	return item{Typ: itemEOF, Val: ""}
 }
 
-const (
-	testEchoLines     = "echo hello\necho world\n"
-	testHeredocEOF    = "EOF"
-	testDeclEOF       = "<<EOF"
-	testDeclQuotedEOF = "<<'EOF'"
-)
-
 func TestChompHeredocContent(t *testing.T) {
 	t.Parallel()
 
@@ -398,13 +394,13 @@ func TestChompHeredocContent(t *testing.T) {
 	}{
 		{
 			name:  "no tabs",
-			input: testEchoLines,
-			want:  testEchoLines,
+			input: "echo hello\necho world\n",
+			want:  "echo hello\necho world\n",
 		},
 		{
 			name:  "single leading tab",
 			input: "\techo hello\n\techo world\n",
-			want:  testEchoLines,
+			want:  "echo hello\necho world\n",
 		},
 		{
 			name:  "multiple leading tabs",
@@ -428,9 +424,7 @@ func TestChompHeredocContent(t *testing.T) {
 			t.Parallel()
 
 			got := ChompHeredocContent(tt.input)
-			if got != tt.want {
-				t.Errorf("ChompHeredocContent(%q) = %q, want %q", tt.input, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -445,17 +439,17 @@ func TestParseHeredocDecl(t *testing.T) {
 		wantExp   bool
 		wantOk    bool
 	}{
-		{src: testDeclEOF, wantName: testHeredocEOF, wantChomp: false, wantExp: true, wantOk: true},
-		{src: "<<-EOF", wantName: testHeredocEOF, wantChomp: true, wantExp: true, wantOk: true},
-		{src: testDeclQuotedEOF, wantName: testHeredocEOF, wantChomp: false, wantExp: false, wantOk: true},
-		{src: "<<\"EOF\"", wantName: testHeredocEOF, wantChomp: false, wantExp: false, wantOk: true},
-		{src: "<<-'EOF'", wantName: testHeredocEOF, wantChomp: true, wantExp: false, wantOk: true},
+		{src: "<<EOF", wantName: "EOF", wantChomp: false, wantExp: true, wantOk: true},
+		{src: "<<-EOF", wantName: "EOF", wantChomp: true, wantExp: true, wantOk: true},
+		{src: "<<'EOF'", wantName: "EOF", wantChomp: false, wantExp: false, wantOk: true},
+		{src: "<<\"EOF\"", wantName: "EOF", wantChomp: false, wantExp: false, wantOk: true},
+		{src: "<<-'EOF'", wantName: "EOF", wantChomp: true, wantExp: false, wantOk: true},
 		{src: "<<app.conf", wantName: "app.conf", wantChomp: false, wantExp: true, wantOk: true},
 		{src: "<<'sub/app.conf'", wantName: "sub/app.conf", wantChomp: false, wantExp: false, wantOk: true},
 		{src: "<<'[init]'", wantName: "[init]", wantChomp: false, wantExp: false, wantOk: true},
 		{src: "<<foo#bar", wantName: "foo#bar", wantChomp: false, wantExp: true, wantOk: true},
 		{src: "<<' EOF '", wantName: " EOF ", wantChomp: false, wantExp: false, wantOk: true},
-		{src: "0" + testDeclEOF, wantOk: false},
+		{src: "0<<EOF", wantOk: false},
 		{src: "1<<2", wantOk: false},
 		{src: "<<", wantOk: false},
 		{src: "<<-", wantOk: false},
@@ -475,25 +469,18 @@ func TestParseHeredocDecl(t *testing.T) {
 			t.Parallel()
 
 			decl, ok := ParseHeredocDecl(tt.src)
-			if ok != tt.wantOk {
-				t.Fatalf("ParseHeredocDecl(%q) ok = %v, want %v", tt.src, ok, tt.wantOk)
-			}
+			require.Equal(t, tt.wantOk, ok)
 
 			if !ok {
+				assert.Zero(t, decl)
 				return
 			}
 
-			if decl.Name != tt.wantName {
-				t.Errorf("ParseHeredocDecl(%q).Name = %q, want %q", tt.src, decl.Name, tt.wantName)
-			}
-
-			if decl.Chomp != tt.wantChomp {
-				t.Errorf("ParseHeredocDecl(%q).Chomp = %v, want %v", tt.src, decl.Chomp, tt.wantChomp)
-			}
-
-			if decl.Expand != tt.wantExp {
-				t.Errorf("ParseHeredocDecl(%q).Expand = %v, want %v", tt.src, decl.Expand, tt.wantExp)
-			}
+			assert.Equal(t, HeredocDecl{
+				Name:   tt.wantName,
+				Chomp:  tt.wantChomp,
+				Expand: tt.wantExp,
+			}, decl)
 		})
 	}
 }

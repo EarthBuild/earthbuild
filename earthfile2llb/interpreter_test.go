@@ -9,23 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	testHeredocDecl         = "<<EOF"
-	testHeredocName         = "EOF"
-	testHeredocContent      = "hello\n"
-	testDestDir             = "/dest/"
-	testTrueCmd             = "true"
-	testCRLFTrueBody        = "true\r\n"
-	testChompedEchoBody     = "echo hi\n"
-	testRawCRLFPairs        = "a=1\r\nb=2\r\n"
-	testPythonCmd           = "python3"
-	testCatCmd              = "cat"
-	testArg1                = "arg1"
-	testEchoArg1Body        = "echo \"$1\"\n"
-	testRegularFile         = "regular-file.txt"
-	testErrMixedCopyHeredoc = "mixing heredocs with regular files or artifacts in COPY is not supported"
-)
-
 func TestHandleRun_Heredocs(t *testing.T) {
 	t.Parallel()
 
@@ -76,106 +59,106 @@ func TestProcessRunHeredocs(t *testing.T) {
 			name: "no heredocs preserves args",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testTrueCmd},
+				Args: []string{"true"},
 			},
 			wantHeredoc:     nil,
-			wantLeadingArgs: []string{testTrueCmd},
+			wantLeadingArgs: []string{"true"},
 		},
 		{
 			name: "preserves non-heredoc args and strips matching heredoc decls",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testCatCmd, "<<<\"here-string\"", "'<<quoted'", "0<<EOF", testHeredocDecl},
+				Args: []string{"cat", "<<<\"here-string\"", "'<<quoted'", "0<<EOF", "<<EOF"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testHeredocName, Content: testHeredocContent},
+					{Name: "EOF", Content: "hello\n"},
 				},
 			},
-			wantHeredoc:     &earthfile.Heredoc{Name: testHeredocName, Content: testHeredocContent},
-			wantLeadingArgs: []string{testCatCmd, "<<<\"here-string\"", "'<<quoted'", "0<<EOF"},
+			wantHeredoc:     &earthfile.Heredoc{Name: "EOF", Content: "hello\n"},
+			wantLeadingArgs: []string{"cat", "<<<\"here-string\"", "'<<quoted'", "0<<EOF"},
 		},
 		{
 			name: "splits interpreter leading args and script trailing args",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testPythonCmd, testHeredocDecl, testArg1, "arg2"},
+				Args: []string{"python3", "<<EOF", "arg1", "arg2"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testHeredocName, Content: "print(1)\n"},
+					{Name: "EOF", Content: "print(1)\n"},
 				},
 			},
-			wantHeredoc:      &earthfile.Heredoc{Name: testHeredocName, Content: "print(1)\n"},
-			wantLeadingArgs:  []string{testPythonCmd},
-			wantTrailingArgs: []string{testArg1, "arg2"},
+			wantHeredoc:      &earthfile.Heredoc{Name: "EOF", Content: "print(1)\n"},
+			wantLeadingArgs:  []string{"python3"},
+			wantTrailingArgs: []string{"arg1", "arg2"},
 		},
 		{
 			name: "standalone heredoc with trailing arg",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testHeredocDecl, testArg1},
+				Args: []string{"<<EOF", "arg1"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testHeredocName, Content: testEchoArg1Body},
+					{Name: "EOF", Content: "echo \"$1\"\n"},
 				},
 			},
-			wantHeredoc:      &earthfile.Heredoc{Name: testHeredocName, Content: testEchoArg1Body},
+			wantHeredoc:      &earthfile.Heredoc{Name: "EOF", Content: "echo \"$1\"\n"},
 			wantLeadingArgs:  nil,
-			wantTrailingArgs: []string{testArg1},
+			wantTrailingArgs: []string{"arg1"},
 		},
 		{
 			name: "cat heredoc with shell redirection trailing args",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testCatCmd, testHeredocDecl, ">", "/etc/motd"},
+				Args: []string{"cat", "<<EOF", ">", "/etc/motd"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testHeredocName, Content: testHeredocContent},
+					{Name: "EOF", Content: "hello\n"},
 				},
 			},
-			wantHeredoc:      &earthfile.Heredoc{Name: testHeredocName, Content: testHeredocContent},
-			wantLeadingArgs:  []string{testCatCmd},
+			wantHeredoc:      &earthfile.Heredoc{Name: "EOF", Content: "hello\n"},
+			wantLeadingArgs:  []string{"cat"},
 			wantTrailingArgs: []string{">", "/etc/motd"},
 		},
 		{
 			name: "chomps heredoc when chomp is true",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testHeredocDecl},
+				Args: []string{"<<EOF"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testHeredocName, Content: "\t\techo hi\n", Chomp: true},
+					{Name: "EOF", Content: "\t\techo hi\n", Chomp: true},
 				},
 			},
-			wantHeredoc:     &earthfile.Heredoc{Name: testHeredocName, Content: testChompedEchoBody, Chomp: true},
+			wantHeredoc:     &earthfile.Heredoc{Name: "EOF", Content: "echo hi\n", Chomp: true},
 			wantLeadingArgs: nil,
 		},
 		{
 			name: "normalizes CRLF line endings to LF",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testHeredocDecl},
+				Args: []string{"<<EOF"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testHeredocName, Content: testCRLFTrueBody},
+					{Name: "EOF", Content: "true\r\n"},
 				},
 			},
-			wantHeredoc: &earthfile.Heredoc{Name: testHeredocName, Content: "true\n"},
+			wantHeredoc: &earthfile.Heredoc{Name: "EOF", Content: "true\n"},
 		},
 		{
 			name: "normalizes CRLF line endings before chomping leading tabs",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testHeredocDecl},
+				Args: []string{"<<EOF"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testHeredocName, Content: "\t\techo hi\r\n", Chomp: true},
+					{Name: "EOF", Content: "\t\techo hi\r\n", Chomp: true},
 				},
 			},
-			wantHeredoc: &earthfile.Heredoc{Name: testHeredocName, Content: testChompedEchoBody, Chomp: true},
+			wantHeredoc: &earthfile.Heredoc{Name: "EOF", Content: "echo hi\n", Chomp: true},
 		},
 		{
 			name: "preserves standalone carriage return",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdRun,
-				Args: []string{testHeredocDecl},
+				Args: []string{"<<EOF"},
 				Heredocs: []earthfile.Heredoc{
-					{Name: testHeredocName, Content: "printf 'a\rb'\n"},
+					{Name: "EOF", Content: "printf 'a\rb'\n"},
 				},
 			},
-			wantHeredoc: &earthfile.Heredoc{Name: testHeredocName, Content: "printf 'a\rb'\n"},
+			wantHeredoc: &earthfile.Heredoc{Name: "EOF", Content: "printf 'a\rb'\n"},
 		},
 		{
 			name: "multiple heredocs rejected",
@@ -235,66 +218,66 @@ func TestHandleCopy_HeredocValidation(t *testing.T) {
 		{
 			name:    "locally heredoc rejected",
 			local:   true,
-			args:    []string{testHeredocDecl, "/dest/path"},
+			args:    []string{"<<EOF", "/dest/path"},
 			wantErr: "COPY with heredoc is not supported in LOCALLY targets",
 		},
 		{
 			name:    "missing destination with heredoc last rejected",
-			args:    []string{testRegularFile, testHeredocDecl},
+			args:    []string{"regular-file.txt", "<<EOF"},
 			wantErr: "cannot be a heredoc; missing destination path",
 		},
 		{
 			name:    "mixed regular file then heredoc rejected",
-			args:    []string{testRegularFile, testHeredocDecl, testDestDir},
-			wantErr: testErrMixedCopyHeredoc,
+			args:    []string{"regular-file.txt", "<<EOF", "/dest/"},
+			wantErr: "mixing heredocs with regular files or artifacts in COPY is not supported",
 		},
 		{
 			name: "mixed source rejected even when heredoc slice count matches srcs",
-			args: []string{testRegularFile, testHeredocDecl, testDestDir},
+			args: []string{"regular-file.txt", "<<EOF", "/dest/"},
 			heredocs: []earthfile.Heredoc{
 				{Name: "unused", Content: "x\n"},
-				{Name: testHeredocName, Content: testHeredocContent},
+				{Name: "EOF", Content: "hello\n"},
 			},
-			wantErr: testErrMixedCopyHeredoc,
+			wantErr: "mixing heredocs with regular files or artifacts in COPY is not supported",
 		},
 		{
 			name:    "mixed sources rejected",
-			args:    []string{testHeredocDecl, testRegularFile, testDestDir},
-			wantErr: testErrMixedCopyHeredoc,
+			args:    []string{"<<EOF", "regular-file.txt", "/dest/"},
+			wantErr: "mixing heredocs with regular files or artifacts in COPY is not supported",
 		},
 		{
 			name:    "dir flag rejected",
-			args:    []string{"--dir", testHeredocDecl, testDestDir},
+			args:    []string{"--dir", "<<EOF", "/dest/"},
 			wantErr: "COPY --dir is not supported with heredoc",
 		},
 		{
 			name:    "symlink-no-follow rejected",
-			args:    []string{"--symlink-no-follow", testHeredocDecl, testDestDir},
+			args:    []string{"--symlink-no-follow", "<<EOF", "/dest/"},
 			wantErr: "COPY --symlink-no-follow is not supported with heredoc",
 		},
 		{
 			name:    "platform rejected",
-			args:    []string{"--platform=linux/amd64", testHeredocDecl, testDestDir},
+			args:    []string{"--platform=linux/amd64", "<<EOF", "/dest/"},
 			wantErr: "COPY --platform is not supported with heredoc",
 		},
 		{
 			name:    "keep-own rejected",
-			args:    []string{"--keep-own", testHeredocDecl, testDestDir},
+			args:    []string{"--keep-own", "<<EOF", "/dest/"},
 			wantErr: "COPY --keep-own is not supported with heredoc",
 		},
 		{
 			name:    "allow-privileged rejected",
-			args:    []string{"--allow-privileged", testHeredocDecl, testDestDir},
+			args:    []string{"--allow-privileged", "<<EOF", "/dest/"},
 			wantErr: "COPY --allow-privileged is not supported with heredoc",
 		},
 		{
 			name:    "build-arg rejected",
-			args:    []string{"--build-arg=FOO=bar", testHeredocDecl, testDestDir},
+			args:    []string{"--build-arg=FOO=bar", "<<EOF", "/dest/"},
 			wantErr: "COPY --build-arg is not supported with heredoc",
 		},
 		{
 			name:    "pass-args rejected",
-			args:    []string{"--pass-args", testHeredocDecl, testDestDir},
+			args:    []string{"--pass-args", "<<EOF", "/dest/"},
 			wantErr: "COPY --pass-args is not supported with heredoc",
 		},
 	}
@@ -306,7 +289,7 @@ func TestHandleCopy_HeredocValidation(t *testing.T) {
 			heredocs := tt.heredocs
 			if heredocs == nil {
 				heredocs = []earthfile.Heredoc{
-					{Name: testHeredocName, Content: testHeredocContent},
+					{Name: "EOF", Content: "hello\n"},
 				}
 			}
 
@@ -360,15 +343,15 @@ func TestProcessCopyHeredoc_PreservesCRLF(t *testing.T) {
 		{
 			name: "quoted raw CRLF preserved",
 			heredoc: earthfile.Heredoc{
-				Name:    testHeredocName,
-				Content: testRawCRLFPairs,
+				Name:    "EOF",
+				Content: "a=1\r\nb=2\r\n",
 			},
-			wantContent: testRawCRLFPairs,
+			wantContent: "a=1\r\nb=2\r\n",
 		},
 		{
 			name: "unquoted expanded CRLF preserved",
 			heredoc: earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "k=$FOO\r\n",
 				Expand:  true,
 			},
@@ -377,11 +360,11 @@ func TestProcessCopyHeredoc_PreservesCRLF(t *testing.T) {
 		{
 			name: "tab-chomped CRLF preserved",
 			heredoc: earthfile.Heredoc{
-				Name:    testHeredocName,
+				Name:    "EOF",
 				Content: "\ta=1\r\n\tb=2\r\n",
 				Chomp:   true,
 			},
-			wantContent: testRawCRLFPairs,
+			wantContent: "a=1\r\nb=2\r\n",
 		},
 	}
 
@@ -400,11 +383,11 @@ func TestProcessCopyHeredoc_PreservesCRLF(t *testing.T) {
 			i := &Interpreter{converter: c}
 			cmd := earthfile.Command{
 				Name:     earthfile.CmdCopy,
-				Args:     []string{testHeredocDecl, testEtcAppConf},
+				Args:     []string{"<<EOF", "/etc/app.conf"},
 				Heredocs: []earthfile.Heredoc{tt.heredoc},
 			}
 
-			err = i.processCopyHeredoc(t.Context(), cmd, cmdopts.Copy{}, []string{testHeredocDecl}, testEtcAppConf)
+			err = i.processCopyHeredoc(t.Context(), cmd, cmdopts.Copy{}, []string{"<<EOF"}, "/etc/app.conf")
 			require.NoError(t, err)
 
 			ops := marshalStateOps(t, c.mts.Final.MainState)

@@ -14,7 +14,9 @@ import (
 	"github.com/moby/buildkit/client/llb"
 )
 
-// CopyOp is a simplified llb copy operation.
+// CopyOp builds an LLB copy with the requested ownership. Linked copies reject
+// ownership that requires user/group lookup in the destination filesystem.
+// Numeric IDs and BuildKit's root alias do not require that lookup.
 func CopyOp(
 	ctx context.Context,
 	srcState pllb.State,
@@ -34,8 +36,23 @@ func CopyOp(
 	}
 
 	var baseCopyOpts []llb.CopyOption
+
 	if chown != "" {
-		baseCopyOpts = append(baseCopyOpts, llb.WithUser(chown))
+		owner := llb.WithUser(chown)
+		baseCopyOpts = append(baseCopyOpts, owner)
+
+		var info llb.CopyInfo
+		owner.SetCopyOption(&info)
+		// Numeric IDs (including BuildKit's root alias) need no base filesystem.
+		// Named users/groups still need its passwd/group files for resolution.
+		ownerNeedsLookup := info.ChownOpt.User != nil && info.ChownOpt.User.Name != "" ||
+			info.ChownOpt.Group != nil && info.ChownOpt.Group.Name != ""
+		if merge && ownerNeedsLookup {
+			return pllb.State{}, fmt.Errorf(
+				"linked copy cannot resolve user/group names in ownership %q; "+
+					"use numeric ownership (COPY --chown=UID:GID or USER UID:GID), "+
+					"or disable linked copying with VERSION --no-use-copy-link 0.8", chown)
+		}
 	}
 
 	var fa *pllb.FileAction
@@ -77,7 +94,7 @@ func CopyOp(
 		return destState, nil
 	}
 
-	if merge && chown == "" {
+	if merge {
 		cwd, err := destState.GetDir(ctx)
 		if err != nil {
 			return pllb.State{}, err

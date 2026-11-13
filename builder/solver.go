@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"os"
 
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/domain"
@@ -152,7 +153,7 @@ func (s *solver) newSolveOptMulti(
 		Exports: []client.ExportEntry{
 			{
 				Type:  client.ExporterEarthly,
-				Attrs: map[string]string{},
+				Attrs: exporterAttrs(os.Getenv),
 				Output: func(md map[string]string) (io.WriteCloser, error) {
 					if !isTrue(md["export-image"]) {
 						return nil, nil
@@ -227,4 +228,17 @@ func newInlineCacheOpt() client.CacheOptionsEntry {
 	return client.CacheOptionsEntry{
 		Type: "inline",
 	}
+}
+
+// exporterAttrs returns the attributes of the image exporter. When SOURCE_DATE_EPOCH is set, BuildKit
+// rewrites every file timestamp in the exported layers to it, so a step that runs again and produces
+// the same files produces the same layer digest. Without it the attributes are empty, as before.
+func exporterAttrs(getenv func(string) string) map[string]string {
+	attrs := map[string]string{}
+	if epoch := getenv("SOURCE_DATE_EPOCH"); epoch != "" {
+		attrs["rewrite-timestamp"] = "true"
+		attrs["source-date-epoch"] = epoch
+	}
+
+	return attrs
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/EarthBuild/earthbuild/buildkitd"
 	"github.com/EarthBuild/earthbuild/cmd/earth/common"
 	"github.com/EarthBuild/earthbuild/cmd/earth/helper"
+	"github.com/EarthBuild/earthbuild/domain"
 	"github.com/EarthBuild/earthbuild/earthfile2llb"
 	"github.com/EarthBuild/earthbuild/inputgraph"
 	"github.com/EarthBuild/earthbuild/internal/engine"
@@ -144,6 +145,139 @@ func (app *EarthApp) run(ctx context.Context, args []string, lastSignal *syncuti
 	return 0
 }
 
+const (
+	// buildkitInsecureNotAllowed is reported by BuildKit when a build uses security.insecure
+	// but the client did not request the entitlement (i.e. -P is missing).
+	buildkitInsecureNotAllowed = "security.insecure is not allowed"
+	// buildkitDaemonDisallows is reported by BuildKit when the client requested an entitlement
+	// (e.g. via -P) but the daemon is not configured to grant it.
+	buildkitDaemonDisallows = "is not allowed by build daemon configuration"
+)
+
+// valueFlagNames returns the dashed names (e.g. "--secret", "-s") of all flags under cmd that
+// consume a separate value argument.
+func valueFlagNames(cmd *cli.Command) map[string]bool {
+	names := map[string]bool{}
+
+	var walk func(c *cli.Command)
+
+	walk = func(c *cli.Command) {
+		for _, fl := range c.Flags {
+			if doc, ok := fl.(cli.DocGenerationFlag); !ok || !doc.TakesValue() {
+				continue
+			}
+
+			for _, name := range fl.Names() {
+				if len(name) == 1 {
+					names["-"+name] = true
+				} else {
+					names["--"+name] = true
+				}
+			}
+		}
+
+		for _, sub := range c.Commands {
+			walk(sub)
+		}
+	}
+	walk(cmd)
+
+	return names
+}
+
+// firstTargetArg returns the first target reference found in the command line arguments, or an
+// empty string if there is none. args[0] is the program name. Values of the flags in valueFlags
+// that are given as a separate argument (e.g. "--secret foo=+bar") are skipped.
+func firstTargetArg(args []string, valueFlags map[string]bool) string {
+	if len(args) < 2 {
+		return ""
+	}
+
+	artifactMode := hasCLIFlagOutsideValues(args, valueFlags, "--artifact", "-a")
+	skipNext := false
+
+	for _, arg := range args[1:] {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+
+		if strings.HasPrefix(arg, "-") {
+			skipNext = valueFlags[arg]
+			continue
+		}
+
+		var err error
+		if artifactMode {
+			_, err = domain.ParseArtifact(arg)
+		} else {
+			_, err = domain.ParseTarget(arg)
+		}
+
+		if err == nil {
+			return arg
+		}
+	}
+
+	return ""
+}
+
+// hasCLIFlagOutsideValues reports whether any of names appears in args as a flag. Arguments
+// consumed as the separate value of a flag in valueFlags are ignored.
+func hasCLIFlagOutsideValues(args []string, valueFlags map[string]bool, names ...string) bool {
+	skipNext := false
+
+	for _, arg := range args {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+
+		for _, name := range names {
+			if arg == name || arg == name+"=true" {
+				return true
+			}
+		}
+
+		skipNext = valueFlags[arg]
+	}
+
+	return false
+}
+
+// privilegedModeMessages returns the error and help messages for a build that failed because
+// privileged mode (security.insecure) is not allowed.
+//
+// The target the user invoked is used in the example, rather than the nested target that actually
+// needs privileges, because the user must re-run the former with -P.
+func privilegedModeMessages(err error, args []string, valueFlags map[string]bool) (errMsg, helpMsg string) {
+	if strings.Contains(err.Error(), buildkitDaemonDisallows) {
+		return "The BuildKit daemon does not allow privileged mode (security.insecure).",
+			"Passing -P is not enough: the daemon must be configured to grant the security.insecure entitlement.\n" +
+				"  • Add it to insecure-entitlements in the buildkitd configuration, or\n" +
+				"  • Use the BuildKit daemon managed by earth, which allows it by default"
+	}
+
+	flagExample := "earth -P +your-target"
+
+	if target := firstTargetArg(args, valueFlags); target != "" {
+		modeFlag := ""
+		if hasCLIFlagOutsideValues(args, valueFlags, "--artifact", "-a") {
+			modeFlag = "--artifact "
+		} else if hasCLIFlagOutsideValues(args, valueFlags, "--image") {
+			modeFlag = "--image "
+		}
+
+		flagExample = "earth -P " + modeFlag + target
+	}
+
+	return "This build requires privileged mode.",
+		"To fix this, use one of the following:\n" +
+			"  • Add the -P flag to your original command, keeping its other flags and arguments, e.g.: " +
+			flagExample + "\n" +
+			"  • Set the environment variable: export " + env.Prefix + "ALLOW_PRIVILEGED=true"
+}
+
 // handleError handles run error, logs it and returns appropriate exit code.
 func (app *EarthApp) handleError(ctx context.Context, err error, args []string, lastSignal *syncutil.Signal) int {
 	ie, isInterpreterError := earthfile2llb.GetInterpreterError(err)
@@ -226,14 +360,16 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		)
 
 		return 1
-	case strings.Contains(err.Error(), "security.insecure is not allowed"):
-		helpMsg := "earth --allow-privileged (earth -P) flag is required\n"
+	case strings.Contains(err.Error(), buildkitInsecureNotAllowed):
+		userMsg, helpMsg := privilegedModeMessages(err, args, valueFlagNames(app.BaseCLI.App()))
+
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),
 			logstream.FailureType_FAILURE_TYPE_NEEDS_PRIVILEGED,
 			helpMsg,
-			err.Error(),
+			userMsg,
 		)
+		app.BaseCLI.Log().VerboseWarnf("Error: %s\n", err.Error())
 		app.BaseCLI.Log().HelpPrint(helpMsg)
 
 		return 9

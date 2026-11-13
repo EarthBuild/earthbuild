@@ -8,7 +8,9 @@ import (
 
 	"github.com/EarthBuild/earthbuild/util/stringutil"
 	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/client/llb/sourceresolver"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
+	pb "github.com/moby/buildkit/solver/pb"
 	digest "github.com/opencontainers/go-digest"
 )
 
@@ -87,13 +89,24 @@ func (vc *verboseClient) Export(ctx context.Context, req gwclient.ExportRequest)
 
 // ResolveImageConfig wraps gwclient.ResolveImageConfig.
 func (vc *verboseClient) ResolveImageConfig(
-	ctx context.Context, ref string, opt llb.ResolveImageConfigOpt,
+	ctx context.Context, ref string, opt sourceresolver.Opt,
 ) (string, digest.Digest, []byte, error) {
 	s, _ := json.Marshal(opt, jsontext.WithIndent("\t"))
 	msg := fmt.Sprintf("ResolveImageConfig %s %s\n", ref, string(s))
 	fmt.Print(stringutil.ScrubCredentialsAll(msg))
 
 	return vc.c.ResolveImageConfig(ctx, ref, opt)
+}
+
+// ResolveSourceMetadata wraps gwclient.ResolveSourceMetadata.
+func (vc *verboseClient) ResolveSourceMetadata(
+	ctx context.Context, op *pb.SourceOp, opt sourceresolver.Opt,
+) (*sourceresolver.MetaResponse, error) {
+	s, _ := json.Marshal(opt, jsontext.WithIndent("\t"))
+	msg := fmt.Sprintf("ResolveSourceMetadata %s %s\n", op.GetIdentifier(), string(s))
+	fmt.Print(stringutil.ScrubCredentialsAll(msg))
+
+	return vc.c.ResolveSourceMetadata(ctx, op, opt)
 }
 
 // BuildOpts wraps gwclient.BuildOpts.

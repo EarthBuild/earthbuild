@@ -15,15 +15,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const (
-	endpoint        = "https://otel.example.test"
-	exporterNone    = "none"
-	exporterOTLP    = "otlp"
-	boolTrue        = "true"
-	withDockerEnv   = "EARTH_WITH_DOCKER"
-	pipelineRunAttr = "cicd.pipeline.run.id=123"
-)
-
 func TestEnabled(t *testing.T) {
 	t.Parallel()
 
@@ -45,7 +36,7 @@ func TestEnabled(t *testing.T) {
 		{
 			name: "metadata-only OTEL vars",
 			env: map[string]string{
-				resourceAttrEnv: pipelineRunAttr,
+				resourceAttrEnv: "cicd.pipeline.run.id=123",
 				serviceNameEnv:  "earth-cli",
 				sdkDisabledEnv:  "false",
 			},
@@ -53,64 +44,64 @@ func TestEnabled(t *testing.T) {
 		},
 		{
 			name: "generic endpoint set",
-			env:  map[string]string{otlpEndpointEnv: endpoint},
+			env:  map[string]string{otlpEndpointEnv: "https://otel.example.test"},
 			want: true,
 		},
 		{
 			name: "traces endpoint set",
-			env:  map[string]string{tracesEndpointEnv: endpoint},
+			env:  map[string]string{tracesEndpointEnv: "https://otel.example.test"},
 			want: true,
 		},
 		{
 			name: "metrics endpoint set",
-			env:  map[string]string{metricsEndpointEnv: endpoint},
+			env:  map[string]string{metricsEndpointEnv: "https://otel.example.test"},
 			want: true,
 		},
 		{
 			name: "logs endpoint set",
-			env:  map[string]string{logsEndpointEnv: endpoint},
+			env:  map[string]string{logsEndpointEnv: "https://otel.example.test"},
 			want: true,
 		},
 		{
 			name: "traces exporter set",
-			env:  map[string]string{tracesExporterEnv: exporterOTLP},
+			env:  map[string]string{tracesExporterEnv: "otlp"},
 			want: true,
 		},
 		{
 			name: "metrics exporter set",
-			env:  map[string]string{metricsExporterEnv: exporterOTLP},
+			env:  map[string]string{metricsExporterEnv: "otlp"},
 			want: true,
 		},
 		{
 			name: "logs exporter set",
-			env:  map[string]string{logsExporterEnv: exporterOTLP},
+			env:  map[string]string{logsExporterEnv: "otlp"},
 			want: true,
 		},
 		{
 			name: "generic endpoint with two signal exporters none and one unset",
 			env: map[string]string{
-				otlpEndpointEnv:    endpoint,
-				tracesExporterEnv:  exporterNone,
-				metricsExporterEnv: exporterNone,
+				otlpEndpointEnv:    "https://otel.example.test",
+				tracesExporterEnv:  "none",
+				metricsExporterEnv: "none",
 			},
 			want: true,
 		},
 		{
 			name: "generic endpoint with all three signal exporters none",
 			env: map[string]string{
-				otlpEndpointEnv:    endpoint,
-				tracesExporterEnv:  exporterNone,
+				otlpEndpointEnv:    "https://otel.example.test",
+				tracesExporterEnv:  "none",
 				metricsExporterEnv: "NONE",
-				logsExporterEnv:    exporterNone,
+				logsExporterEnv:    "none",
 			},
 			want: false,
 		},
 		{
 			name: "OTEL_SDK_DISABLED overrides endpoint and exporter",
 			env: map[string]string{
-				sdkDisabledEnv:    boolTrue,
-				otlpEndpointEnv:   endpoint,
-				tracesExporterEnv: exporterOTLP,
+				sdkDisabledEnv:    "true",
+				otlpEndpointEnv:   "https://otel.example.test",
+				tracesExporterEnv: "otlp",
 			},
 			want: false,
 		},
@@ -169,7 +160,7 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 		},
 		{
 			name:       "inside WITH DOCKER",
-			withDocker: boolTrue,
+			withDocker: "true",
 			want:       []attribute.KeyValue{semconv.ProcessNestingInner},
 		},
 		{
@@ -202,7 +193,7 @@ func TestNewOTelResourceCarriesProcessIdentity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handledErr = nil
 
-			t.Setenv(withDockerEnv, tt.withDocker)
+			t.Setenv("EARTH_WITH_DOCKER", tt.withDocker)
 			t.Setenv(resourceAttrEnv, tt.resourceAttr)
 			t.Setenv(serviceNameEnv, tt.serviceName)
 
@@ -263,17 +254,17 @@ func TestSetupSkipsResourceWhenNotOptedIn(t *testing.T) {
 		{
 			name: "OTEL_SDK_DISABLED is true",
 			env: map[string]string{
-				sdkDisabledEnv:  boolTrue,
-				otlpEndpointEnv: endpoint,
+				sdkDisabledEnv:  "true",
+				otlpEndpointEnv: "https://otel.example.test",
 			},
 		},
 		{
 			name: "all signal exporters set to none",
 			env: map[string]string{
-				otlpEndpointEnv:    endpoint,
-				tracesExporterEnv:  exporterNone,
-				metricsExporterEnv: exporterNone,
-				logsExporterEnv:    exporterNone,
+				otlpEndpointEnv:    "https://otel.example.test",
+				tracesExporterEnv:  "none",
+				metricsExporterEnv: "none",
+				logsExporterEnv:    "none",
 			},
 		},
 	}
@@ -290,7 +281,7 @@ func TestSetupSkipsResourceWhenNotOptedIn(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			t.Setenv(withDockerEnv, "not-a-bool")
+			t.Setenv("EARTH_WITH_DOCKER", "not-a-bool")
 			t.Setenv(resourceAttrEnv, "malformed-without-equals")
 
 			shutdown, err := Setup(t.Context())
@@ -336,7 +327,7 @@ func TestSetupOptedInLifecycle(t *testing.T) {
 		logsEndpointEnv,
 		resourceAttrEnv,
 		serviceNameEnv,
-		withDockerEnv,
+		"EARTH_WITH_DOCKER",
 	} {
 		t.Setenv(k, "")
 	}

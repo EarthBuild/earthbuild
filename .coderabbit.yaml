@@ -51,9 +51,10 @@ reviews:
 
         7. TESTING STANDARDS:
         - Encourage table-driven tests with descriptive test case names.
-        - In this codebase, `testify` (`require` for fatal/precondition checks, `assert` for validations) is fully supported and recommended.
+        - Strictly require `github.com/stretchr/testify` (`require` for fatal/precondition checks, `assert` for validations) in all Go tests. Flag manual assertion checks using `t.Errorf`, `t.Fatalf`, `t.Fail`, or `t.FailNow` when an equivalent `testify` assertion exists, as well as alternative assertion libraries.
         - Recommend `t.Parallel()` for unit tests where state is safe.
         - Prefer lightweight fakes, stubs, in-memory implementations, or `httptest.NewServer` over heavy generated mock suites.
+        - Check whether E2E tests under `./tests` should be added if needed (for example, when changing Earthfile commands, CLI flags, caching, outputs, or `buildkitd` interactions that unit tests alone cannot cover).
     - path: ".golangci*.{yaml,yml}"
       instructions: |
         - Strictly forbid removing or relaxing lint rules or linters from `.golangci-lint.yaml` or `.golangci.yaml`.

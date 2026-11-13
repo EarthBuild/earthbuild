@@ -7,18 +7,30 @@ import (
 	"context"
 	"net"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/identity"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // gmu is a global lock used for any interaction with the llb package.
 var gmu sync.Mutex
 
+// processLocalUniqueIDOpt sets the local.unique value that every local source
+// marshaled by this process carries. llb.NewConstraints otherwise picks a new
+// random one per Marshal, so solving the same state twice in one build would
+// give its local sources, and everything built on them, new vertex digests for
+// the same cache keys. BuildKit then merges those edges and replays their logs
+// into the job once per extra solve. Separate earth processes still get
+// distinct values, so they never share local-source vertices.
+var processLocalUniqueIDOpt = llb.LocalUniqueID(identity.NewID())
+
 // State is a wrapper around llb.State.
 type State struct {
-	st llb.State
+	st   llb.State
+	opts []llb.ConstraintsOpt
 }
 
 // FromRawState creates a wrapper around a raw llb.State.
@@ -98,13 +110,36 @@ func (s State) SetMarshalDefaults(co ...llb.ConstraintsOpt) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.SetMarshalDefaults(co...)}
+	return State{
+		st:   s.st.SetMarshalDefaults(co...),
+		opts: append(slices.Clone(s.opts), slices.Clone(co)...),
+	}
 }
 
-// Marshal is a wrapper around llb.Marshal.
+func hasLocalUniqueID(opts ...llb.ConstraintsOpt) bool {
+	var c llb.Constraints
+
+	for _, opt := range opts {
+		if opt != nil {
+			opt.SetConstraintsOption(&c)
+		}
+	}
+
+	return c.LocalUniqueID != ""
+}
+
+// Marshal is a wrapper around llb.Marshal. Local sources get this process's
+// local.unique value (see processLocalUniqueIDOpt) unless co or SetMarshalDefaults
+// sets its own llb.LocalUniqueID.
 func (s State) Marshal(ctx context.Context, co ...llb.ConstraintsOpt) (*llb.Definition, error) {
 	gmu.Lock()
 	defer gmu.Unlock()
+
+	if !hasLocalUniqueID(s.opts...) && !hasLocalUniqueID(co...) {
+		co = slices.Concat([]llb.ConstraintsOpt{processLocalUniqueIDOpt}, s.opts, co)
+	} else if len(s.opts) > 0 {
+		co = slices.Concat(s.opts, co)
+	}
 
 	return s.st.Marshal(ctx, co...)
 }
@@ -114,7 +149,10 @@ func (s State) Run(ro ...llb.RunOption) ExecState {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return ExecState{est: s.st.Run(ro...)}
+	return ExecState{
+		est:  s.st.Run(ro...),
+		opts: s.opts,
+	}
 }
 
 // File is a wrapper around llb.File.
@@ -122,7 +160,7 @@ func (s State) File(a *FileAction, opts ...llb.ConstraintsOpt) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.File(a.fia, opts...)}
+	return State{st: s.st.File(a.fia, opts...), opts: s.opts}
 }
 
 // AddEnv is a wrapper around llb.AddEnv.
@@ -130,7 +168,7 @@ func (s State) AddEnv(key, value string) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.AddEnv(key, value)}
+	return State{st: s.st.AddEnv(key, value), opts: s.opts}
 }
 
 // Dir is a wrapper around llb.Dir.
@@ -138,7 +176,7 @@ func (s State) Dir(str string) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.Dir(str)}
+	return State{st: s.st.Dir(str), opts: s.opts}
 }
 
 // GetDir is a wrapper around llb.GetDir.
@@ -154,7 +192,7 @@ func (s State) User(v string) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.User(v)}
+	return State{st: s.st.User(v), opts: s.opts}
 }
 
 // Platform is a wrapper around llb.Platform.
@@ -162,7 +200,7 @@ func (s State) Platform(p specs.Platform) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.Platform(p)}
+	return State{st: s.st.Platform(p), opts: s.opts}
 }
 
 // AddExtraHost is a wrapper around llb.AddExtraHost.
@@ -170,12 +208,13 @@ func (s State) AddExtraHost(hostname string, ip net.IP) State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: s.st.AddExtraHost(hostname, ip)}
+	return State{st: s.st.AddExtraHost(hostname, ip), opts: s.opts}
 }
 
 // ExecState is a wrapper around llb.ExecState.
 type ExecState struct {
-	est llb.ExecState
+	est  llb.ExecState
+	opts []llb.ConstraintsOpt
 }
 
 // AddMount is a wrapper around llb.AddMount.
@@ -191,7 +230,10 @@ func (e ExecState) Root() State {
 	gmu.Lock()
 	defer gmu.Unlock()
 
-	return State{st: e.est.Root()}
+	return State{
+		st:   e.est.Root(),
+		opts: e.opts,
+	}
 }
 
 // AddMount is a wrapper around llb.AddMount.

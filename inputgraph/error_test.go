@@ -11,11 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	testEarthfile    = "Earthfile"
-	errFailedToParse = "failed to parse"
-)
-
 func TestError_Error(t *testing.T) {
 	t.Parallel()
 
@@ -31,8 +26,8 @@ func TestError_Error(t *testing.T) {
 		},
 		{
 			name: "message only",
-			err:  &Error{msg: errFailedToParse},
-			want: errFailedToParse,
+			err:  &Error{msg: "failed to parse"},
+			want: "failed to parse",
 		},
 		{
 			name: "underlying error only",
@@ -53,11 +48,11 @@ func TestError_Error(t *testing.T) {
 			name: "message and location",
 			err: &Error{
 				srcLoc: earthfile.SourceLocation{
-					File:        testEarthfile,
+					File:        "Earthfile",
 					StartLine:   12,
 					StartColumn: 4,
 				},
-				msg: errFailedToParse,
+				msg: "failed to parse",
 			},
 			want: "Earthfile:12:4: failed to parse",
 		},
@@ -65,7 +60,7 @@ func TestError_Error(t *testing.T) {
 			name: "underlying error and location",
 			err: &Error{
 				srcLoc: earthfile.SourceLocation{
-					File:        testEarthfile,
+					File:        "Earthfile",
 					StartLine:   5,
 					StartColumn: 1,
 				},
@@ -77,7 +72,7 @@ func TestError_Error(t *testing.T) {
 			name: "message, underlying error, and location",
 			err: &Error{
 				srcLoc: earthfile.SourceLocation{
-					File:        testEarthfile,
+					File:        "Earthfile",
 					StartLine:   12,
 					StartColumn: 4,
 				},
@@ -90,7 +85,7 @@ func TestError_Error(t *testing.T) {
 			name: "location only",
 			err: &Error{
 				srcLoc: earthfile.SourceLocation{
-					File:        testEarthfile,
+					File:        "Earthfile",
 					StartLine:   12,
 					StartColumn: 4,
 				},
@@ -100,7 +95,7 @@ func TestError_Error(t *testing.T) {
 		{
 			name: "newError with location",
 			err: newError(earthfile.SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   12,
 				StartColumn: 4,
 			}, "syntax error"),
@@ -109,7 +104,7 @@ func TestError_Error(t *testing.T) {
 		{
 			name: "wrapError with location",
 			err: wrapError(io.EOF, earthfile.SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   5,
 				StartColumn: 1,
 			}, "unexpected eof"),
@@ -118,7 +113,7 @@ func TestError_Error(t *testing.T) {
 		{
 			name: "addErrorSrc with location",
 			err: addErrorSrc(errors.New("base failure"), earthfile.SourceLocation{
-				File:      testEarthfile,
+				File:      "Earthfile",
 				StartLine: 20,
 			}),
 			want: "Earthfile:20: base failure",

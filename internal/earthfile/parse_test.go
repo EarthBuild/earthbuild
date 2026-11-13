@@ -9,19 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	testEarthfile = "Earthfile"
-
-	// errUnsupportedVersion is what the version validator emits for every
-	// unsupported VERSION value. Spelled out rather than derived from
-	// getValidVersionsFormatted so these tests pin the user-facing wording.
-	errUnsupportedVersion = "Earthfile:1:1: invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8"
-)
-
 func TestParse_Statements(t *testing.T) {
 	t.Parallel()
 
-	//nolint:goconst
 	tests := []struct {
 		check     func(*require.Assertions, Tree, error)
 		note      string
@@ -707,7 +697,6 @@ test:
 	}
 }
 
-//nolint:goconst
 func TestParse(t *testing.T) {
 	t.Parallel()
 
@@ -1781,27 +1770,29 @@ build:
 		},
 		// The version validator funnels every unsupported VERSION value (bad
 		// major/minor/patch, or an unrecognised trailing token) to the same
-		// message. Feature-flag validation (e.g. VERSION --referenced-save-only=false)
-		// lives in the features package and is unit-tested there.
+		// message. Spelled out rather than derived from getValidVersionsFormatted
+		// so these tests pin the user-facing wording. Feature-flag validation
+		// (e.g. VERSION --referenced-save-only=false) lives in the features
+		// package and is unit-tested there.
 		{
 			name:      "invalid major version",
 			input:     "VERSION 1.0\n",
-			wantError: errUnsupportedVersion,
+			wantError: "Earthfile:1:1: invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
 		},
 		{
 			name:      "invalid minor version",
 			input:     "VERSION 0.4\n", // versioning was only added since 0.5
-			wantError: errUnsupportedVersion,
+			wantError: "Earthfile:1:1: invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
 		},
 		{
 			name:      "invalid patch version",
 			input:     "VERSION 0.5.1\n", // patch version is not supported
-			wantError: errUnsupportedVersion,
+			wantError: "Earthfile:1:1: invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
 		},
 		{
 			name:      "flag after version number",
 			input:     "VERSION 0.8 --try\n", // flags must precede the version number
-			wantError: errUnsupportedVersion,
+			wantError: "Earthfile:1:1: invalid VERSION in Earthfile, supported versions are 0.6, 0.7, or 0.8",
 		},
 		{
 			name:      "empty version args",
@@ -1839,7 +1830,7 @@ base:
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := Parse(testEarthfile, tc.input)
+			_, err := Parse("Earthfile", tc.input)
 			require.Error(t, err)
 
 			var earthErr *Error
@@ -1851,8 +1842,6 @@ base:
 
 func TestError_Structured(t *testing.T) {
 	t.Parallel()
-
-	const testErrMsg = "some error"
 
 	t.Run("syntax error preserves line and column", func(t *testing.T) {
 		t.Parallel()
@@ -1897,14 +1886,14 @@ func TestError_Structured(t *testing.T) {
 	t.Run("validator error preserves location", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := Parse(testEarthfile, "VERSION\n")
+		_, err := Parse("Earthfile", "VERSION\n")
 		require.Error(t, err)
 
 		var earthErr *Error
 		require.ErrorAs(t, err, &earthErr)
 		require.Equal(t, &Error{
 			Location: SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   1,
 				StartColumn: 1,
 				EndLine:     1,
@@ -1919,20 +1908,20 @@ func TestError_Structured(t *testing.T) {
 
 		earthErr := &Error{
 			Location: SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   10,
 				StartColumn: 5,
 			},
-			Msg: testErrMsg,
+			Msg: "some error",
 		}
-		require.Equal(t, "Earthfile:10:5: "+testErrMsg, earthErr.Error())
+		require.Equal(t, "Earthfile:10:5: some error", earthErr.Error())
 	})
 
 	t.Run("error formatting without location", func(t *testing.T) {
 		t.Parallel()
 
-		earthErr := &Error{Msg: testErrMsg}
-		require.Equal(t, testErrMsg, earthErr.Error())
+		earthErr := &Error{Msg: "some error"}
+		require.Equal(t, "some error", earthErr.Error())
 	})
 
 	t.Run("error formatting with line only", func(t *testing.T) {
@@ -1940,12 +1929,12 @@ func TestError_Structured(t *testing.T) {
 
 		earthErr := &Error{
 			Location: SourceLocation{
-				File:      testEarthfile,
+				File:      "Earthfile",
 				StartLine: 10,
 			},
-			Msg: testErrMsg,
+			Msg: "some error",
 		}
-		require.Equal(t, "Earthfile:10: "+testErrMsg, earthErr.Error())
+		require.Equal(t, "Earthfile:10: some error", earthErr.Error())
 	})
 
 	t.Run("error formatting with location and empty message", func(t *testing.T) {
@@ -1953,7 +1942,7 @@ func TestError_Structured(t *testing.T) {
 
 		earthErr := &Error{
 			Location: SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   10,
 				StartColumn: 5,
 			},
@@ -1964,14 +1953,14 @@ func TestError_Structured(t *testing.T) {
 	t.Run("lexer error in version argument", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := Parse(testEarthfile, "VERSION \"unclosed\n")
+		_, err := Parse("Earthfile", "VERSION \"unclosed\n")
 		require.Error(t, err)
 
 		var earthErr *Error
 		require.ErrorAs(t, err, &earthErr)
 		require.Equal(t, &Error{
 			Location: SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   1,
 				StartColumn: 9,
 				EndLine:     1,
@@ -1984,14 +1973,14 @@ func TestError_Structured(t *testing.T) {
 	t.Run("expected block indentation error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := Parse(testEarthfile, "VERSION 0.8\nbuild:\nRUN echo 1\n")
+		_, err := Parse("Earthfile", "VERSION 0.8\nbuild:\nRUN echo 1\n")
 		require.Error(t, err)
 
 		var earthErr *Error
 		require.ErrorAs(t, err, &earthErr)
 		require.Equal(t, &Error{
 			Location: SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   3,
 				StartColumn: 1,
 				EndLine:     3,
@@ -2116,7 +2105,7 @@ func TestSourceLocation_IsZero(t *testing.T) {
 		t.Parallel()
 
 		loc := SourceLocation{
-			File:      testEarthfile,
+			File:      "Earthfile",
 			StartLine: 0,
 		}
 		require.True(t, loc.IsZero())
@@ -2126,7 +2115,7 @@ func TestSourceLocation_IsZero(t *testing.T) {
 		t.Parallel()
 
 		loc := SourceLocation{
-			File:        testEarthfile,
+			File:        "Earthfile",
 			StartLine:   1,
 			StartColumn: 2,
 			EndLine:     3,
@@ -2227,7 +2216,7 @@ func TestSourceLocation_String(t *testing.T) {
 		{
 			name: "valid location",
 			loc: SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   10,
 				StartColumn: 5,
 			},
@@ -2236,7 +2225,7 @@ func TestSourceLocation_String(t *testing.T) {
 		{
 			name: "line only (zero column)",
 			loc: SourceLocation{
-				File:      testEarthfile,
+				File:      "Earthfile",
 				StartLine: 10,
 			},
 			want: "Earthfile:10",
@@ -2244,7 +2233,7 @@ func TestSourceLocation_String(t *testing.T) {
 		{
 			name: "line only (negative column)",
 			loc: SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   10,
 				StartColumn: -1,
 			},
@@ -2253,7 +2242,7 @@ func TestSourceLocation_String(t *testing.T) {
 		{
 			name: "non-positive line",
 			loc: SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   0,
 				StartColumn: 5,
 			},
@@ -2272,7 +2261,7 @@ func TestSourceLocation_String(t *testing.T) {
 func TestStatement_Location(t *testing.T) {
 	t.Parallel()
 
-	loc := SourceLocation{File: testEarthfile, StartLine: 3, StartColumn: 1}
+	loc := SourceLocation{File: "Earthfile", StartLine: 3, StartColumn: 1}
 
 	tests := []struct {
 		name string
@@ -2335,7 +2324,7 @@ func TestCommand_Clone(t *testing.T) {
 			Name: "RUN",
 			Args: []string{"echo", "hello"},
 			SourceLocation: SourceLocation{
-				File:        testEarthfile,
+				File:        "Earthfile",
 				StartLine:   10,
 				StartColumn: 2,
 				EndLine:     10,
@@ -2374,7 +2363,7 @@ build:
     RUN echo "yes"
   END
 `
-	tree, err := Parse(testEarthfile, input)
+	tree, err := Parse("Earthfile", input)
 	require.NoError(t, err)
 	require.Len(t, tree.Targets, 1)
 	require.Len(t, tree.Targets[0].Recipe, 1)
@@ -2382,7 +2371,7 @@ build:
 	ifStmt := tree.Targets[0].Recipe[0].If
 	require.NotNil(t, ifStmt)
 	require.Equal(t, SourceLocation{
-		File:        testEarthfile,
+		File:        "Earthfile",
 		StartLine:   3,
 		StartColumn: 3,
 		EndLine:     5,
@@ -2398,13 +2387,13 @@ FUNCTION my-func
   FROM alpine:3.18
   RUN echo "func"
 `
-	tree, err := Parse(testEarthfile, input)
+	tree, err := Parse("Earthfile", input)
 	require.NoError(t, err)
 	require.Len(t, tree.Functions, 1)
 
 	fn := tree.Functions[0]
 	require.Equal(t, SourceLocation{
-		File:        testEarthfile,
+		File:        "Earthfile",
 		StartLine:   2,
 		StartColumn: 1,
 		EndLine:     5,
@@ -2424,7 +2413,7 @@ build:
   ELSE IF [ "$VAR" = "3" ]
   END
 `
-	tree, err := Parse(testEarthfile, input)
+	tree, err := Parse("Earthfile", input)
 	require.NoError(t, err)
 	require.Len(t, tree.Targets, 1)
 	require.Len(t, tree.Targets[0].Recipe, 1)
@@ -2432,7 +2421,7 @@ build:
 	ifStmt := tree.Targets[0].Recipe[0].If
 	require.NotNil(t, ifStmt)
 	require.Equal(t, SourceLocation{
-		File:        testEarthfile,
+		File:        "Earthfile",
 		StartLine:   3,
 		StartColumn: 3,
 		EndLine:     8,
@@ -2441,7 +2430,7 @@ build:
 	require.Len(t, ifStmt.ElseIf, 2)
 
 	require.Equal(t, SourceLocation{
-		File:        testEarthfile,
+		File:        "Earthfile",
 		StartLine:   5,
 		StartColumn: 3,
 		EndLine:     7,
@@ -2449,7 +2438,7 @@ build:
 	}, ifStmt.ElseIf[0].SourceLocation)
 
 	require.Equal(t, SourceLocation{
-		File:        testEarthfile,
+		File:        "Earthfile",
 		StartLine:   7,
 		StartColumn: 3,
 		EndLine:     7,

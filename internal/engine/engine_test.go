@@ -28,7 +28,6 @@ func TestBuildArgMatrix(t *testing.T) {
 
 	r := require.New(t)
 
-	//nolint:goconst
 	tests := []struct {
 		testName string
 		args     parsedCLIVals
@@ -130,7 +129,7 @@ func TestBuildArgMatrix(t *testing.T) {
 		urls, err := ResolveAddrs(Docker, &Config{
 			BuildkitHost:      cmp.Or(tt.args.buildkit, tt.config.BuildkitHost),
 			LocalRegistryHost: tt.config.LocalRegistryHost,
-			ContainerName:     "test", //nolint:goconst
+			ContainerName:     "test",
 			DefaultPort:       DefaultBuildkitPort,
 			Log:               logger,
 		})
@@ -147,7 +146,6 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 
 	r := require.New(t)
 
-	//nolint:goconst
 	tests := []struct {
 		testName string
 		log      string
@@ -464,7 +462,6 @@ func TestContainerAddr(t *testing.T) {
 	})
 }
 
-//nolint:goconst
 func TestImageLoadCommand(t *testing.T) {
 	t.Parallel()
 
@@ -627,7 +624,6 @@ func BenchmarkIsLocal(b *testing.B) {
 func TestMatchesImageRef(t *testing.T) {
 	t.Parallel()
 
-	//nolint:goconst
 	tests := []struct {
 		name string
 		tag  string
@@ -819,7 +815,6 @@ func TestAlignContainers(t *testing.T) {
 	})
 }
 
-//nolint:goconst
 func TestAlignImages(t *testing.T) {
 	t.Parallel()
 
@@ -897,7 +892,6 @@ func TestAlignImages(t *testing.T) {
 	})
 }
 
-//nolint:goconst
 func TestAlignVolumes(t *testing.T) {
 	t.Parallel()
 

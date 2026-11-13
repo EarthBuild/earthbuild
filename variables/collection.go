@@ -210,11 +210,23 @@ func (c *Collection) SortedOverridingVariables() []string {
 
 // ExpandOld expands variables within the given word, it does not perform shelling-out.
 // It will eventually be removed when the ShellOutAnywhere feature is fully-adopted.
+//
+// TODO: remove ExpandOld once Earthfiles below VERSION 0.7 (which lack
+// ShellOutAnywhere) are no longer supported. Its only caller,
+// Converter.ExpandArgs, can then always use Expand.
 func (c *Collection) ExpandOld(word string) string {
 	shlex := dfShell.NewLex('\\')
 	varMap := c.effective().Map(WithActive())
 
-	ret, err := shlex.ProcessWordWithMap(word, varMap)
+	envs := make([]string, 0, len(varMap))
+	for k, v := range varMap {
+		envs = append(envs, k+"="+v)
+	}
+	// Sorted so names that collide case-insensitively (Windows) resolve the same way every run.
+	slices.Sort(envs)
+
+	// EnvsFromSlice keeps the lexer's platform key matching (case-insensitive on Windows).
+	ret, _, err := shlex.ProcessWord(word, dfShell.EnvsFromSlice(envs))
 	if err != nil {
 		// No effect if there is an error.
 		return word

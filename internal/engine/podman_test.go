@@ -7,11 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	daemonlessHost = "daemonless"
-	testClientVer  = "6.1.2"
-)
-
 func Test_parsePodmanVersion(t *testing.T) {
 	t.Parallel()
 
@@ -46,15 +41,15 @@ func Test_parsePodmanVersion(t *testing.T) {
 					"Os": "linux"
 				}
 			}`,
-			host: daemonlessHost,
+			host: "daemonless",
 			want: Version{
-				ClientVersion:    testClientVer,
-				ClientAPIVersion: testClientVer,
+				ClientVersion:    "6.1.2",
+				ClientAPIVersion: "6.1.2",
 				ClientPlatform:   "darwin/arm64",
 				ServerVersion:    "6.0.1",
 				ServerAPIVersion: "6.0.1",
 				ServerPlatform:   "linux/arm64",
-				ServerAddress:    daemonlessHost,
+				ServerAddress:    "daemonless",
 			},
 		},
 		{
@@ -68,15 +63,15 @@ func Test_parsePodmanVersion(t *testing.T) {
 				},
 				"Server": null
 			}`,
-			host: daemonlessHost,
+			host: "daemonless",
 			want: Version{
-				ClientVersion:    testClientVer,
-				ClientAPIVersion: testClientVer,
+				ClientVersion:    "6.1.2",
+				ClientAPIVersion: "6.1.2",
 				ClientPlatform:   "darwin/arm64",
 				ServerVersion:    "",
 				ServerAPIVersion: "",
 				ServerPlatform:   "",
-				ServerAddress:    daemonlessHost,
+				ServerAddress:    "daemonless",
 			},
 		},
 	}

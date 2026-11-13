@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	debuggercommon "github.com/EarthBuild/earthbuild/debugger/common"
+	"github.com/EarthBuild/earthbuild/internal/earthfile"
 	"github.com/EarthBuild/earthbuild/util/llbutil"
 	"github.com/EarthBuild/earthbuild/util/oidcutil"
 	"github.com/EarthBuild/earthbuild/util/platutil"
@@ -44,9 +45,11 @@ type DockerPullOpt struct {
 // WithDockerOpt holds parameters for WITH DOCKER run.
 type WithDockerOpt struct {
 	OIDCInfo              *oidcutil.AWSOIDCInfo
+	Heredoc               *earthfile.Heredoc
 	CacheID               string
 	Pulls                 []DockerPullOpt
 	Secrets               []string
+	HeredocTrailingArgs   []string
 	extraRunOpts          []llb.RunOption
 	Mounts                []string
 	TryCatchSaveArtifacts []debuggercommon.SaveFilesSettings

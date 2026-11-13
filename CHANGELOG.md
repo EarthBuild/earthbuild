@@ -49,6 +49,9 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
   tested for the invoked binary itself rather than its replacement.
   [#796](https://github.com/EarthBuild/earthbuild/issues/796)
 - Shell completion is now registered for the name the binary is installed under, so `earth <TAB>` works on official installs. Previously the completion entries always named the command `earthly` [#804](https://github.com/earthbuild/earthbuild/issues/804)
+- `FROM DOCKERFILE` no longer fails with `invalid context name ...: invalid reference format` when
+  a Dockerfile stage name is valid for Dockerfile but not as an image reference (for example
+  `FROM alpine AS build-`).
 
 ### Fixed
 

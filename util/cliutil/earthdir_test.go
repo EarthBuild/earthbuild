@@ -8,13 +8,71 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/EarthBuild/earthbuild/util/fileutil"
 	"github.com/stretchr/testify/require"
 )
+
+const (
+	defaultEarthDirName = ".earth"
+	legacyEarthDirName  = ".earthly"
+)
+
+func TestLegacyEarthDirWarning(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		installName string
+		wantDir     string
+		dirs        []string
+		wantErr     error
+		wantWarning bool
+	}{
+		{name: "neither exists", installName: DefaultInstallationName, wantDir: defaultEarthDirName},
+		{
+			name: "only new exists", installName: DefaultInstallationName,
+			dirs: []string{defaultEarthDirName}, wantDir: defaultEarthDirName,
+		},
+		{
+			name: "only legacy exists", installName: DefaultInstallationName,
+			dirs: []string{legacyEarthDirName}, wantDir: legacyEarthDirName, wantWarning: true,
+		},
+		{
+			name: "both exist", installName: "",
+			dirs:    []string{defaultEarthDirName, legacyEarthDirName},
+			wantDir: defaultEarthDirName, wantErr: ErrBothEarthDirsExist,
+		},
+		{
+			name: "custom name ignores legacy", installName: "earth-dev",
+			dirs: []string{legacyEarthDirName}, wantDir: ".earth-dev",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			home := t.TempDir()
+			for _, dir := range tt.dirs {
+				require.NoError(t, os.MkdirAll(filepath.Join(home, dir), 0o750))
+			}
+
+			dir, legacyDir, _ := earthDirsAt(home, tt.installName, nil)
+			warning, err := legacyEarthDirWarning(dir, legacyDir)
+			require.ErrorIs(t, err, tt.wantErr)
+			require.Equal(t, tt.wantWarning, warning != "")
+			require.Equal(t, filepath.Join(home, tt.wantDir), selectEarthDir(dir, legacyDir))
+		})
+	}
+}
 
 func TestGetEarthDir(t *testing.T) {
 	t.Parallel()
 
-	require.Equal(t, ".earth", filepath.Base(GetEarthDir("")))
+	home, _ := fileutil.HomeDir()
+	dir, legacyDir, _ := earthDirsAt(home, "", nil)
+	defaultDir := filepath.Base(selectEarthDir(dir, legacyDir))
+	require.Equal(t, defaultDir, filepath.Base(GetEarthDir("")))
 
 	tests := []struct {
 		name        string
@@ -24,7 +82,7 @@ func TestGetEarthDir(t *testing.T) {
 		{
 			name:        "empty install name falls back to default",
 			installName: "",
-			wantBase:    ".earth",
+			wantBase:    defaultDir,
 		},
 		{
 			name:        "custom install name after empty call",
@@ -49,6 +107,7 @@ func TestGetEarthDir(t *testing.T) {
 func TestGetOrCreateEarthDir_MultiInstallSequencing(t *testing.T) {
 	t.Parallel()
 
+	defaultDir := filepath.Base(GetEarthDir(""))
 	tests := []struct {
 		name        string
 		installName string
@@ -57,7 +116,7 @@ func TestGetOrCreateEarthDir_MultiInstallSequencing(t *testing.T) {
 		{
 			name:        "fallback default installation",
 			installName: "",
-			wantBase:    ".earth",
+			wantBase:    defaultDir,
 		},
 		{
 			name:        "first custom installation",

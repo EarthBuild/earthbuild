@@ -10,11 +10,8 @@ import (
 )
 
 // When the binary is built without -X main.DefaultInstallationName (go build,
-// go install), RootFlags falls back to the installation name "earth", so the CLI
-// uses ~/.earth. GetEarthDir has its own fallback for an empty name (used by
-// the autocomplete path, which runs before flags are parsed) and must pick the
-// same directory, or autocomplete writes its logs to a different directory from
-// the rest of the CLI.
+// go install), RootFlags and GetEarthDir must use the same installation name.
+// GetEarthDir may select ~/.earthly if it is the only existing directory.
 func TestInstallationNameFallbacksAgree(t *testing.T) {
 	t.Parallel()
 
@@ -32,6 +29,7 @@ func TestInstallationNameFallbacksAgree(t *testing.T) {
 
 	require.NotEmpty(t, rootDef, "installation-name flag not found")
 
-	require.Equal(t, "."+rootDef, filepath.Base(cliutil.GetEarthDir("")),
+	require.Equal(t, cliutil.DefaultInstallationName, rootDef)
+	require.Equal(t, filepath.Base(cliutil.GetEarthDir(rootDef)), filepath.Base(cliutil.GetEarthDir("")),
 		"GetEarthDir's fallback must match RootFlags' default installation name")
 }

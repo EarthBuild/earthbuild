@@ -32,6 +32,11 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 		go profhandler()
 	}
 
+	legacyWarning, legacyErr := cliutil.LegacyEarthDirWarning(flags.InstallationName)
+	if legacyErr != nil {
+		return ctx, legacyErr
+	}
+
 	if flags.InstallationName != "" {
 		if !cmd.IsSet("config") {
 			flags.ConfigPath = defaultConfigPath(flags.InstallationName)
@@ -53,6 +58,10 @@ func (app *EarthApp) before(ctx context.Context, cmd *cli.Command) (context.Cont
 	}
 
 	app.BaseCLI.SetLog(app.BaseCLI.Log().WithPrefixWriter(app.BaseCLI.Logbus().Run().Generic()))
+
+	if legacyWarning != "" {
+		app.BaseCLI.Log().Warnf("WARNING: %s", legacyWarning)
+	}
 
 	var execStatsTracker *execstatssummary.Tracker
 	if flags.ExecStatsSummary != "" {
@@ -212,7 +221,7 @@ func (app *EarthApp) processDeprecatedCommandOptions(cfg *config.Config) {
 	// command line overrides the config file
 	if flags.GitUsernameOverride != "" || flags.GitPasswordOverride != "" {
 		app.BaseCLI.Log().Warnf("Warning: the --git-username and --git-password command flags " +
-			"are deprecated and are now configured in the ~/.earthly/config.yml file under the git section; " +
+			"are deprecated and are now configured in the ~/.earth/config.yml file under the git section; " +
 			"see https://docs.earthbuild.dev/docs/earth-config for reference.\n")
 
 		if _, ok := cfg.Git["github.com"]; !ok {

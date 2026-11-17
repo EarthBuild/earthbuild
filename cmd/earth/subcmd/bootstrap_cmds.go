@@ -127,7 +127,7 @@ func (b *Bootstrap) bootstrap(ctx context.Context, cmd *cli.Command) error {
 
 	defer func() {
 		// cliutil.IsBootstrapped() determines if bootstrapping was done based
-		// on the existence of ~/.earthly; therefore we must ensure it's created.
+		// on the existence of ~/.earth; therefore we must ensure it's created.
 		_, dirErr := cliutil.GetOrCreateEarthDir(b.cli.Flags().InstallationName)
 		if dirErr != nil {
 			console.Warnf("Warning: Failed to create earthbuild Dir: %v", dirErr)

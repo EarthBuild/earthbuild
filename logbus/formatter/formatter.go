@@ -56,16 +56,26 @@ type command struct {
 	// openLine is the line of output that has not yet been terminated with a \n.
 	openLine       []byte
 	lastPercentage int32
+	// printed is set once anything attributed to this command has been
+	// printed to the console.
+	printed bool
+	// interleaved is set when output from another command was printed in
+	// between two pieces of this command's output.
+	interleaved bool
 }
 
 // Formatter is a delta to console logger.
 type Formatter struct {
-	startTime                  time.Time
-	err                        error
-	interactives               map[string]struct{} // set of command IDs
-	bus                        *logbus.Bus
-	ongoingTicker              *time.Ticker
-	lastCommandOutput          *command
+	startTime         time.Time
+	err               error
+	interactives      map[string]struct{} // set of command IDs
+	bus               *logbus.Bus
+	ongoingTicker     *time.Ticker
+	lastCommandOutput *command
+	// lastPrintedCommandID is the ID of the command that most recently
+	// printed anything to the console. It is used to decide whether a failed
+	// command's output can be read contiguously above the failure summary.
+	lastPrintedCommandID       string
 	manifest                   *logstream.RunManifest
 	closedCh                   chan struct{}
 	log                        *conslogging.ConsoleLogger
@@ -365,6 +375,7 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 	}
 
 	c.PrintBytes(printOutput)
+	f.markPrinted(commandID)
 
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = false
@@ -377,6 +388,10 @@ func (f *Formatter) handleDeltaLog(dl *logstream.DeltaLog) error {
 func (f *Formatter) processOngoingTick() error {
 	c := f.log.WithWriter(f.bus.FormattedWriter("ongoing", "")).WithPrefix("ongoing")
 	c.VerbosePrintf("ongoing TODO\n")
+
+	if f.verbose {
+		f.markPrinted("ongoing")
+	}
 	// TODO(vladaionescu): Go through all the commands and find which one is ongoing.
 	// Print their targets on the console.
 	f.lastOutputWasOngoingUpdate = true
@@ -416,6 +431,7 @@ func (f *Formatter) printHeader(
 	}
 
 	c.Print("--> " + cm.GetName() + "\n")
+	f.markPrinted(commandID)
 
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = false
@@ -439,6 +455,7 @@ func (f *Formatter) printProgress(targetID string, commandID string, cm *logstre
 		progressBar, cm.GetProgress(), cm.GetName(), string(ansiEraseRestLine),
 	))
 	c.PrintBytes([]byte(strings.Join(builder, "")))
+	f.markPrinted(commandID)
 
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = (cm.GetProgress() != 100)
@@ -481,6 +498,7 @@ func (f *Formatter) printError(
 	c, _ := f.targetConsole(targetID, commandID, false)
 	c.Printf("%s\n", cm.GetErrorMessage())
 	c.VerbosePrintf("Overriding args used: %s\n", strings.Join(tm.GetOverrideArgs(), " "))
+	f.markPrinted(commandID)
 
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = false
@@ -514,13 +532,20 @@ func (f *Formatter) printBuildFailure() {
 		msgPrefix = ""
 
 		c.PrintFailure("")
-		c.Printf("Repeating the failure error...\n")
-		f.printHeader(failure.GetTargetId(), failure.GetCommandId(), tm, cm, true)
 
-		if len(failure.GetOutput()) > 0 {
-			c.PrintBytes(failure.GetOutput())
-		} else {
-			c.Printf("[no output]\n")
+		// Only repeat the failed command's output when it cannot be read
+		// contiguously just above (e.g. it was interleaved with the output
+		// of other commands running in parallel). Otherwise repeating it
+		// only clutters the output.
+		if !f.printedContiguously(failure.GetCommandId()) {
+			c.Printf("Repeating the failure error...\n")
+			f.printHeader(failure.GetTargetId(), failure.GetCommandId(), tm, cm, true)
+
+			if len(failure.GetOutput()) > 0 {
+				c.PrintBytes(failure.GetOutput())
+			} else {
+				c.Printf("[no output]\n")
+			}
 		}
 	}
 
@@ -529,6 +554,25 @@ func (f *Formatter) printBuildFailure() {
 	f.lastOutputWasOngoingUpdate = false
 	f.lastOutputWasProgress = false
 	f.lastCommandOutput = nil
+}
+
+// markPrinted records that commandID has just printed to the console.
+func (f *Formatter) markPrinted(commandID string) {
+	cmd := f.getCommand(commandID)
+	if cmd.printed && f.lastPrintedCommandID != commandID {
+		cmd.interleaved = true
+	}
+
+	cmd.printed = true
+	f.lastPrintedCommandID = commandID
+}
+
+// printedContiguously reports whether everything commandID printed appears
+// as a single uninterrupted block that is also the most recent console output.
+func (f *Formatter) printedContiguously(commandID string) bool {
+	cmd, ok := f.commands[commandID]
+
+	return ok && cmd.printed && !cmd.interleaved && f.lastPrintedCommandID == commandID
 }
 
 func (f *Formatter) printGHAFailure() {

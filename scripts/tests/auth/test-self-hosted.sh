@@ -29,8 +29,10 @@ frontend="${frontend:-$(which docker || which podman)}"
 test -n "$frontend" || (>&2 echo "Error: frontend is empty" && exit 1)
 echo "using frontend $frontend"
 
-# use host IP, otherwise earthly-buildkit won't be able to connect to it
-ip=$(ifconfig eth0 | grep -w 'inet' | awk '{print $2}')
+# use host IP, otherwise earthly-buildkit won't be able to connect to it.
+# Take the source address of the default route rather than a named interface:
+# some GitHub runner images have no eth0.
+ip=$(ip -4 route get 1.1.1.1 | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')
 test -n "$ip"
 
 echo "start up a new ssh-agent"

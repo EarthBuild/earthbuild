@@ -11,16 +11,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "axios": "^1.15.2",
-    "express": "^5.0.0",
-    "typescript": "^6.0.0"
+    "axios": "1.20.0",
+    "express": "5.2.1",
+    "typescript": "7.0.2"
   },
   "devDependencies": {
-    "@types/express": "^5.0.0",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^24.0.0",
-    "jest": "^30.0.0",
-    "ts-jest": "^29.4.11",
-    "ts-node": "^10.9.1"
+    "@swc/core": "1.16.22",
+    "@swc/jest": "0.2.39",
+    "@types/express": "5.0.6",
+    "@types/jest": "30.0.0",
+    "@types/node": "26.6.6",
+    "jest": "30.5.2"
   }
 }

@@ -40,7 +40,8 @@
     enabled: true
   },
   npm: {
-    enabled: true
+    enabled: true,
+    rangeStrategy: 'pin',
   },
   "pip_requirements": {
     enabled: true

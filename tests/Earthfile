@@ -118,6 +118,7 @@ ga-no-qemu-group5:
     BUILD +version-flag-test
     BUILD +deprecated-name-test
     BUILD +implicit-ignores
+    BUILD +implicit-secret-ignore
     BUILD +help
     BUILD +ls
     BUILD +ls-subdir
@@ -1365,6 +1366,14 @@ implicit-ignores:
         echo "test" > notignored/test && \
         echo "test" > ignored/test
     DO +RUN_EARTH --earthfile=no-implicit-ignore.earth
+
+implicit-secret-ignore:
+    RUN mkdir -p sub && \
+        echo "MY_SECRET=hunter2" > .secret && \
+        echo "MY_SECRET=hunter2" > sub/.secret && \
+        echo "test" > sub/notsecret && \
+        printf 'FROM alpine:3.24.2\nWORKDIR /app\nCOPY . .\n' > Dockerfile
+    DO +RUN_EARTH --earthfile=implicit-secret-ignore.earth
 
 help:
     # tests the hidden `--buildkit-volume-name` flag is only displayed when EARTHLY_SHOW_HIDDEN is enabled

@@ -28,6 +28,11 @@ const (
 	Earthfile = "Earthfile"
 )
 
+// secretFile is the default name of the file earth reads build secrets from
+// (see the --secret-file-path flag). It must never be sent to buildkit as part
+// of a local build context.
+const secretFile = ".secret"
+
 var errDuplicateIgnoreFile = errors.New("both .earthignore and .earthlyignore exist - please remove one")
 
 // ImplicitExcludes is a list of implicit patterns to exclude.
@@ -39,7 +44,28 @@ var ImplicitExcludes = []string{
 	earthlyIgnoreFile,
 }
 
-func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]string, error) {
+// SecretExcludes is a list of patterns that are excluded from every local build
+// context, even when implicit ignore rules are disabled via the
+// --no-implicit-ignore feature (which is enabled from VERSION 0.6 onwards).
+// They protect secret files from being swept into the context (and therefore
+// potentially into image layers) by e.g. FROM DOCKERFILE or COPY . ./.
+// Use the --no-implicit-secret-ignore feature to opt out.
+var SecretExcludes = []string{
+	"**/" + secretFile,
+}
+
+// excludeOpts controls which implicit exclude patterns readExcludes applies.
+type excludeOpts struct {
+	// noImplicitIgnore disables ImplicitExcludes.
+	noImplicitIgnore bool
+	// noImplicitSecretIgnore disables SecretExcludes.
+	noImplicitSecretIgnore bool
+	// useDockerIgnore falls back to .dockerignore when neither .earthignore nor
+	// .earthlyignore exist.
+	useDockerIgnore bool
+}
+
+func readExcludes(dir string, opts excludeOpts) ([]string, error) {
 	ignoreFile := earthIgnoreFile
 
 	// earthIgnoreFile
@@ -62,16 +88,20 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 	dockerIgnoreFilePath := filepath.Join(dir, dockerIgnoreFile)
 
 	dockerExists := false
-	if useDockerIgnore {
+	if opts.useDockerIgnore {
 		dockerExists, err = fileutil.FileExists(dockerIgnoreFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check if %s exists: %w", dockerIgnoreFilePath, err)
 		}
 	}
 
-	defaultExcludes := ImplicitExcludes
-	if noImplicitIgnore {
-		defaultExcludes = []string{}
+	defaultExcludes := []string{}
+	if !opts.noImplicitIgnore {
+		defaultExcludes = append(defaultExcludes, ImplicitExcludes...)
+	}
+
+	if !opts.noImplicitSecretIgnore {
+		defaultExcludes = append(defaultExcludes, SecretExcludes...)
 	}
 
 	// Check which ones exists and which don't
@@ -82,7 +112,7 @@ func readExcludes(dir string, noImplicitIgnore bool, useDockerIgnore bool) ([]st
 
 	if earthExists == earthlyExists {
 		if !dockerExists {
-			// return just ImplicitExcludes if neither of them exist
+			// return just the default excludes if neither of them exist
 			return defaultExcludes, nil
 		}
 

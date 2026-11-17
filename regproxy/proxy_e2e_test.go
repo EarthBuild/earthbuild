@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -33,6 +35,28 @@ import (
 // returns an HTTP client and the base URL to reach the registry through the
 // proxy, and a count of the connections the registry accepted.
 func chain(t *testing.T, h http.HandlerFunc) (*http.Client, string, func() int64) {
+	t.Helper()
+
+	c := newChain(t, h, defaultCloseGrace)
+
+	return c.client, c.base, c.conns
+}
+
+// proxyChain is a registry and the proxy chain in front of it.
+type proxyChain struct {
+	// client reaches the registry through the proxy at base.
+	client *http.Client
+	// conns counts the connections the registry accepted.
+	conns func() int64
+	// stop stops the proxy as a build does once it is over. It is also called
+	// when the test ends, after the client's idle connections are closed.
+	stop func()
+	base string
+}
+
+// newChain is chain, with the proxy waiting closeGrace on open connections
+// when it is stopped.
+func newChain(t *testing.T, h http.HandlerFunc, closeGrace time.Duration) *proxyChain {
 	t.Helper()
 
 	var conns atomic.Int64
@@ -69,22 +93,30 @@ func chain(t *testing.T, h http.HandlerFunc) (*http.Client, string, func() int64
 	t.Cleanup(cancel)
 
 	ctrl := NewController(registry.NewRegistryClient(cc), nil, false, "", 0, conslog.Current(0, conslog.Info, false))
+	ctrl.closeGrace = closeGrace
 
 	addr, stop, err := ctrl.Start(ctx)
 	if err != nil {
 		t.Fatalf("start proxy: %v", err)
 	}
 
+	stop = sync.OnceFunc(stop)
 	tr := &http.Transport{}
 
 	// Idle connections are closed before the proxy, so stopping it does not
-	// wait on a kept-alive connection the client would otherwise hold.
+	// spend its grace period on a kept-alive connection the client would
+	// otherwise hold.
 	t.Cleanup(stop)
 	t.Cleanup(tr.CloseIdleConnections)
 
-	// A proxy that mishandles termination strands a request rather than
-	// failing it, so bound every request: a hung pull is a failure too.
-	return &http.Client{Transport: tr, Timeout: 20 * time.Second}, "http://" + addr, conns.Load
+	return &proxyChain{
+		// A proxy that mishandles termination strands a request rather than
+		// failing it, so bound every request: a hung pull is a failure too.
+		client: &http.Client{Transport: tr, Timeout: 20 * time.Second},
+		base:   "http://" + addr,
+		conns:  conns.Load,
+		stop:   stop,
+	}
 }
 
 // blob is a stand-in for a layer: larger than the 32KiB copy buffers, so it
@@ -241,5 +273,91 @@ func TestProxyChainKeepsAConnectionAliveAcrossRequests(t *testing.T) {
 
 	if n := conns(); n != 1 {
 		t.Errorf("registry connections: got %d, want 1 -- the proxy did not keep the connection alive", n)
+	}
+}
+
+// The proxy is stopped once the build is over, and a proxied connection lasts
+// as long as its client keeps it. Stopping used to wait for every client to let
+// go, so one holding its connection open kept the build from exiting: on macOS
+// the Docker Desktop readiness probe's own idle keep-alive did so after every
+// build, for net/http's 90s idle timeout.
+func TestProxyStopDoesNotWaitOnAConnectionTheClientKeepsOpen(t *testing.T) {
+	t.Parallel()
+
+	want := blob(4096)
+	h := func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", strconv.Itoa(len(want)))
+		_, _ = w.Write(want)
+	}
+
+	tests := []struct {
+		// hold leaves a connection to the proxy open, with the proxy serving it.
+		hold func(t *testing.T, c *proxyChain)
+		name string
+	}{
+		{
+			// An HTTP client keeps the connection of a finished request to reuse.
+			name: "idle keep-alive",
+			hold: func(t *testing.T, c *proxyChain) {
+				t.Helper()
+
+				if got := get(t, c.client, c.base+"/v2/"); !bytes.Equal(got, want) {
+					t.Fatalf("body: got %d bytes, want %d", len(got), len(want))
+				}
+			},
+		},
+		{
+			// A client stops part way through a request and never finishes it.
+			name: "unfinished request",
+			hold: func(t *testing.T, c *proxyChain) {
+				t.Helper()
+
+				conn, err := (&net.Dialer{}).DialContext(t.Context(), "tcp", strings.TrimPrefix(c.base, "http://"))
+				if err != nil {
+					t.Fatalf("dial the proxy: %v", err)
+				}
+
+				t.Cleanup(func() { _ = conn.Close() })
+
+				_, err = io.WriteString(conn, "GET /v2/ HTTP/1.1\r\nHost: registry\r\n")
+				if err != nil {
+					t.Fatalf("write a partial request: %v", err)
+				}
+
+				// The registry accepting a connection means the proxy took this
+				// one and opened its stream.
+				deadline := time.Now().Add(10 * time.Second)
+
+				for c.conns() == 0 {
+					if time.Now().After(deadline) {
+						t.Fatal("the proxy never forwarded the connection")
+					}
+
+					time.Sleep(10 * time.Millisecond)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := newChain(t, h, 100*time.Millisecond)
+			tt.hold(t, c)
+
+			stopped := make(chan struct{})
+
+			go func() {
+				c.stop()
+				close(stopped)
+			}()
+
+			select {
+			case <-stopped:
+			case <-time.After(10 * time.Second):
+				t.Fatal("stopping the proxy is still waiting on the connection the client holds open")
+			}
+		})
 	}
 }

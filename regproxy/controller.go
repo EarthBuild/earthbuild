@@ -18,6 +18,15 @@ import (
 const (
 	darwinContainerPrefix = "earthly-darwin-proxy"
 	darwinContainerMaxAge = 5 * time.Hour
+
+	// defaultCloseGrace is how long stopping the proxy waits for the
+	// connections still open to end on their own before it closes them. It
+	// only lets a connection that is already ending finish cleanly, so it is
+	// short: the proxy is stopped once the build is over, when every pull
+	// through it has returned, and a connection still open by then is a
+	// client's idle keep-alive (docker keeps the one it pulled over) or one
+	// that will never end. Waiting on those only delays exit.
+	defaultCloseGrace = 250 * time.Millisecond
 )
 
 // Controller handles the management of the registry proxy. This may also
@@ -28,6 +37,7 @@ type Controller struct {
 	log              *conslog.ConsoleLogger
 	darwinProxyImage string
 	darwinProxyWait  time.Duration
+	closeGrace       time.Duration
 	darwinProxy      bool
 }
 
@@ -46,54 +56,33 @@ func NewController(
 		darwinProxy:      darwinProxy,
 		darwinProxyImage: darwinProxyImage,
 		darwinProxyWait:  darwinProxyWait,
+		closeGrace:       defaultCloseGrace,
 		log:              log,
 	}
 }
 
-// Start the proxy and create any support containers.
+// Start the proxy and create any support containers. It returns the address
+// the proxy is reachable on and a function that stops it, which waits at most a
+// short grace period on any connection a client still holds open.
 func (c *Controller) Start(ctx context.Context) (string, func(), error) {
-	addr := "127.0.0.1:0"
-
-	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create proxy listener: %w", err)
 	}
 
-	p := newRegistryProxy(ln, c.registryClient)
-	go p.serve(ctx)
-
 	// Find the assigned port.
-	registry, ok := ln.Addr().(*net.TCPAddr)
+	lnAddr, ok := ln.Addr().(*net.TCPAddr)
 	if !ok {
+		ln.Close() // #nosec G104
 		return "", nil, errors.New("failed to get proxy listener address")
 	}
 
-	addr = fmt.Sprintf("127.0.0.1:%d", registry.Port)
+	addr := fmt.Sprintf("127.0.0.1:%d", lnAddr.Port)
 
 	c.log.VerbosePrintf("Starting registry proxy on %s", addr)
 
-	doneCh := make(chan struct{})
-
-	go func() {
-		for err := range p.err() {
-			if err != nil && !errors.Is(err, context.Canceled) {
-				c.log.VerbosePrintf("Failed to serve registry proxy: %v", err)
-			}
-		}
-
-		doneCh <- struct{}{}
-	}()
-
-	closers := []func(ctx context.Context){
-		func(ctx context.Context) {
-			p.close()
-
-			select {
-			case <-ctx.Done():
-			case <-doneCh:
-			}
-		},
-	}
+	stopProxy := c.serve(ctx, ln)
+	closers := []func(ctx context.Context){stopProxy}
 
 	if c.darwinProxy {
 		containerName := fmt.Sprintf("%s-%s", darwinContainerPrefix, stringutil.RandomAlphanumeric(6))
@@ -104,9 +93,11 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 			}
 		}
 
-		port, err := c.startDarwinProxy(ctx, containerName, registry.Port)
+		port, err := c.startDarwinProxy(ctx, containerName, lnAddr.Port)
 		if err != nil {
 			stopFn(ctx)
+			stopProxy(ctx)
+
 			return "", nil, fmt.Errorf("failed to start Darwin support container: %w", err)
 		}
 
@@ -121,6 +112,57 @@ func (c *Controller) Start(ctx context.Context) (string, func(), error) {
 			closer(ctx)
 		}
 	}, nil
+}
+
+// serve proxies the connections accepted on ln until the returned function is
+// called. That function stops accepting, gives the connections still open
+// c.closeGrace to end on their own, and then closes them. A proxied connection
+// lasts as long as its client keeps it, so without that bound a client holding
+// an idle keep-alive, or one that never ends its connection, would keep the
+// build from exiting.
+func (c *Controller) serve(ctx context.Context, ln net.Listener) func(context.Context) {
+	// The connections get their own context so they can be ended without
+	// cancelling ctx.
+	connCtx, closeConns := context.WithCancel(ctx)
+
+	p := newRegistryProxy(ln, c.registryClient)
+	go p.serve(connCtx)
+
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		for err := range p.err() {
+			// Once the connections have been closed on purpose, their errors
+			// only say so.
+			if err != nil && connCtx.Err() == nil && !errors.Is(err, context.Canceled) {
+				c.log.VerbosePrintf("Failed to serve registry proxy: %v", err)
+			}
+		}
+	}()
+
+	return func(ctx context.Context) {
+		defer closeConns()
+
+		p.close()
+
+		grace := time.NewTimer(c.closeGrace)
+		defer grace.Stop()
+
+		select {
+		case <-done:
+			return
+		case <-grace.C:
+			c.log.VerbosePrintf("Closing registry proxy connections still open after %s", c.closeGrace)
+		case <-ctx.Done():
+		}
+
+		// Closing a connection ends its handler promptly whatever the client
+		// does, so this wait is short.
+		closeConns()
+		<-done
+	}
 }
 
 // startDarwinProxy: Since Docker Desktop (Mac) containers run in a VM, a
@@ -165,15 +207,29 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 	childCtx, cancel := context.WithTimeout(ctx, c.darwinProxyWait)
 	defer cancel()
 
-	// Wait for the proxy chain to resolve to the BK registry. The /v2/ path
-	// will return a 200 when ready.
-	for {
-		url := fmt.Sprintf("http://127.0.0.1:%d/v2/", containerPort)
+	// Wait for the proxy chain to resolve to the BK registry.
+	err = waitForRegistry(childCtx, fmt.Sprintf("http://127.0.0.1:%d/v2/", containerPort))
+	if err != nil {
+		return 0, err
+	}
 
-		req, err := http.NewRequestWithContext(childCtx, http.MethodGet, url, nil)
+	return containerPort, nil
+}
+
+// waitForRegistry polls url, a registry's /v2/ path, until it answers 200 OK or
+// ctx is done.
+func waitForRegistry(ctx context.Context, url string) error {
+	for {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
-			return 0, err
+			return err
 		}
+
+		// The connection runs through the support container and back into this
+		// process's own registry proxy. Kept in the client's pool of idle
+		// connections, it would hold a proxied connection open for the rest of
+		// the build, and stopping the proxy would wait on it.
+		req.Close = true
 
 		res, err := http.DefaultClient.Do(req) // #nosec G704
 		if res != nil && res.Body != nil {
@@ -181,18 +237,15 @@ func (c *Controller) startDarwinProxy(ctx context.Context, containerName string,
 		}
 
 		if err == nil && res != nil && res.StatusCode == http.StatusOK {
-			break
+			return nil
 		}
 
 		select {
-		case <-childCtx.Done():
-			return 0, childCtx.Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-time.After(time.Second):
-			continue
 		}
 	}
-
-	return containerPort, nil
 }
 
 func (c *Controller) stopOldDarwinProxies(ctx context.Context) error {

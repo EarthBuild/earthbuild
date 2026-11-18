@@ -10,6 +10,12 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Changed
 
+- Updated the EarthBuild BuildKit fork to upstream `moby/buildkit` v0.16.0.
+  - On cgroup v2 hosts, BuildKit now detects `RUN` steps killed by the OOM killer and reports
+    `cannot allocate memory` instead of `exit code: 137`. `earth` reports these as out-of-memory
+    failures and still suggests `--interactive` for debugging.
+  - Dockerfiles built with `FROM DOCKERFILE` get the Dockerfile frontend 1.10 changes, and `RUN
+    --network=host` now always uses the host's `/etc/resolv.conf`.
 - Updated the EarthBuild BuildKit fork to upstream `moby/buildkit` v0.15.2. BuildKit now encodes
   secret and SSH mounts differently, so `RUN` steps miss their existing local and remote cache once
   after upgrading, and their cache is not shared with older `earth` versions.

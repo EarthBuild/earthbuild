@@ -35,7 +35,8 @@ import (
 const flagCI = "--ci"
 
 var (
-	runExitCodeRegex  = regexp.MustCompile(`did not complete successfully: exit code: [^0][0-9]*($|[\n\t]+in\s+.*?\+.+)`)
+	runExitCodeRegex = regexp.MustCompile(
+		`did not complete successfully: (?:exit code: [^0][0-9]*|cannot allocate memory)($|[\n\t]+in\s+.*?\+.+)`)
 	notFoundRegex     = regexp.MustCompile(`("[^"]*"): not found`)
 	maxExecTimeRegex  = regexp.MustCompile(`max execution time of .+ exceeded`)
 	requestIDRegex    = regexp.MustCompile(`(?P<msg>.*?) {reqID: .*?}`)

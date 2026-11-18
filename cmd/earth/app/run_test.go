@@ -42,3 +42,33 @@ func TestRedactSecretsFromArgs(t *testing.T) {
 		require.ElementsMatch(t, testCase.expected, actual)
 	}
 }
+
+func TestRunExitCodeRegex(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name   string
+		errStr string
+		want   bool
+	}{
+		{name: "non-zero exit", errStr: `process "/bin/sh -c false" did not complete successfully: exit code: 1`, want: true},
+		{name: "zero exit", errStr: `process "/bin/sh -c true" did not complete successfully: exit code: 0`, want: false},
+		{
+			name:   "with target suffix",
+			errStr: "process \"/bin/sh -c false\" did not complete successfully: exit code: 2\n\tin\t+target",
+			want:   true,
+		},
+		// buildkit v0.16+ replaces the exit code with ENOMEM when the cgroup's oom_kill count is set.
+		{
+			name:   "oom killed",
+			errStr: `process "/bin/sh -c x" did not complete successfully: cannot allocate memory`,
+			want:   true,
+		},
+		{name: "unrelated", errStr: "failed to solve: some other error", want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tc.want, runExitCodeRegex.MatchString(tc.errStr))
+		})
+	}
+}

@@ -48,8 +48,7 @@ After making changes to the codebase, verify the following and rectify any issue
 ├── cmd/           # CLI commands
 ├── internal/      # All internal packages (slowly refactored and migrated from the root dir)
 ├── examples/      # Examples in different languages
-├── tests/         # End-to-end (E2E) tests
-└── www/           # Website
+└── tests/         # End-to-end (E2E) tests
 ```
 
 # Tooling

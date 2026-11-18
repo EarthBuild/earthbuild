@@ -1,0 +1,17 @@
+VERSION 0.8
+
+image:
+    FROM DOCKERFILE .
+
+# create-files writes a Dockerfile that violates FromAsCasing ('as' vs 'FROM'),
+# preceded by an optional `# check=` directive.
+create-files:
+    FROM alpine:3.24.2
+    ARG check=""
+    WORKDIR /output
+    IF [ -n "$check" ]
+        RUN echo "# check=$check" > Dockerfile
+    END
+    RUN echo "FROM alpine:3.24.2 as base" >> Dockerfile && \
+        echo "RUN true" >> Dockerfile
+    SAVE ARTIFACT /output/Dockerfile AS LOCAL Dockerfile

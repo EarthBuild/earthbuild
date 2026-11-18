@@ -58,6 +58,8 @@ import (
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/client/llb/sourceresolver"
 	"github.com/moby/buildkit/frontend/dockerfile/dockerfile2llb"
+	"github.com/moby/buildkit/frontend/dockerfile/linter"
+	dfparser "github.com/moby/buildkit/frontend/dockerfile/parser"
 	gwclient "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/session/localhost"
 	solverpb "github.com/moby/buildkit/solver/pb"
@@ -532,6 +534,9 @@ func (c *Converter) FromDockerfile(
 		ImageResolveMode: c.opt.ImageResolveMode,
 		TargetPlatform:   &plat,
 		MainContext:      &bcRawState,
+		// Without Warn, dockerfile2llb skips its lint rules entirely, so `# check=` directives
+		// (including error=true) would be ignored.
+		Warn: c.dockerfileLintWarnFunc(cmp.Or(dfPath, "Dockerfile")),
 	})
 
 	done()
@@ -549,6 +554,19 @@ func (c *Converter) FromDockerfile(
 	c.varCollection.ResetEnvVars(envs)
 
 	return nil
+}
+
+// dockerfileLintWarnFunc returns a callback that logs Dockerfile lint warnings from dockerfile2llb,
+// e.g. "Dockerfile:2: FromAsCasing: 'as' and 'FROM' keywords' casing do not match (https://...)".
+func (c *Converter) dockerfileLintWarnFunc(dfName string) linter.LintWarnFunc {
+	return func(rulename, _, url, fmtmsg string, location []dfparser.Range) {
+		line := 0
+		if len(location) > 0 {
+			line = location[0].Start.Line
+		}
+
+		c.opt.Log.Warnf("%s:%d: %s: %s (%s)", dfName, line, rulename, fmtmsg, url)
+	}
 }
 
 // Locally applies the earth Locally command.

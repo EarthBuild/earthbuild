@@ -39,6 +39,10 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Fixed
 
+- A `tcp://` buildkit host given as a private IP or a loopback IP other than `127.0.0.1` is
+  connected to again, as in v0.8.19, instead of being treated as local and auto-started. Only
+  `127.0.0.1`, `::1` and `localhost` (and the container schemes) are managed by earth.
+  [#1144](https://github.com/EarthBuild/earthbuild/issues/1144)
 - The build summary no longer reports `Image <target> output as <tag>` for an image that was pushed but never loaded into the local container engine, which affected `--push --no-output` and `--push --no-image-output`
 - The published docker image shipped only `earthly` while the release assets were all named `earth`,
   so `earth` was absent from the image entirely and following the v0.8.18 release notes into the

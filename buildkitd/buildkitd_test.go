@@ -95,6 +95,33 @@ func TestUpdateContainerAddrs(t *testing.T) {
 	})
 }
 
+func TestSettingsIsLocal(t *testing.T) {
+	t.Parallel()
+
+	t.Run("configured private IP is remote", func(t *testing.T) {
+		t.Parallel()
+
+		settings := Settings{BuildkitAddr: "tcp://192.168.64.2:8372"}
+		assert.False(t, settings.isLocal())
+	})
+
+	t.Run("bridge IP resolved from a managed container is local", func(t *testing.T) {
+		t.Parallel()
+
+		settings := Settings{BuildkitAddr: "tcp://192.168.64.2:8372", addrFromContainer: true}
+		assert.True(t, settings.isLocal())
+	})
+
+	t.Run("updateContainerAddrs marks the address as container-derived", func(t *testing.T) {
+		t.Parallel()
+
+		eng := engine.NewTestClient(engine.Metadata{Name: "Docker", Scheme: engine.SchemeDocker})
+		settings := Settings{BuildkitAddr: "apple-container://test-container"}
+		updateContainerAddrs(t.Context(), eng, "test-container", &settings)
+		assert.True(t, settings.addrFromContainer)
+	})
+}
+
 func TestStart_InvalidAddrs(t *testing.T) {
 	ctx := t.Context()
 	log := conslogging.Current(conslogging.DefaultPadding, conslogging.Info, false)

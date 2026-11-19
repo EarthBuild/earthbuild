@@ -942,7 +942,7 @@ func waitForConnection(
 
 	opTimeout := settings.Timeout
 	addr := settings.BuildkitAddr
-	isLocal := engine.IsLocal(settings.BuildkitAddr)
+	isLocal := settings.isLocal()
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, opTimeout)
 	defer cancel()
@@ -1442,7 +1442,7 @@ func requiredOpts(settings Settings) ([]client.ClientOpt, error) {
 	}
 
 	serverName := server.Hostname()
-	if engine.IsLocal(settings.BuildkitAddr) {
+	if settings.isLocal() {
 		serverName = "127.0.0.1"
 	}
 
@@ -1456,6 +1456,7 @@ func updateContainerAddrs(ctx context.Context, eng *engine.Client, containerName
 	addr, err := eng.ContainerAddr(ctx, containerName, engine.DefaultBuildkitPort)
 	if err == nil && addr != "" {
 		settings.BuildkitAddr = addr
+		settings.addrFromContainer = true
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -762,16 +761,12 @@ func IsLocal(addr string) bool {
 	}
 
 	hostname := parsed.Hostname()
-	// These need to match what we put in our certificates.
-	if hostname == "127.0.0.1" || // The only IPv4 Loopback we honor. Because we need to include it in the TLS cert.
+	// These need to match what we put in our certificates. Other loopback and private IPs are
+	// deliberately not local: users address their own buildkitd that way (e.g. a sidecar on
+	// 127.0.0.2, or a daemon on a VPC IP), and earth must connect to it rather than start one.
+	return hostname == "127.0.0.1" || // The only IPv4 Loopback we honor. Because we need to include it in the TLS cert.
 		hostname == "localhost" || // Convention. Users hostname omitted; this is only really here for convenience.
-		hostname == "::1" { // IPv6 loopback without calling net.IPv6loopback.String()
-		return true
-	}
-
-	ip := net.ParseIP(hostname)
-
-	return ip != nil && (ip.IsLoopback() || ip.IsPrivate())
+		hostname == "::1" // IPv6 loopback without calling net.IPv6loopback.String()
 }
 
 // New returns a container client given a driver. This includes automatic detection.

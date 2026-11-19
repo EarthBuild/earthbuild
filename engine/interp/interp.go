@@ -980,6 +980,15 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 	// a command line, and `$(...)` is exactly that: what is inside goes to a
 	// shell, so it keeps its quoting whatever the command around it is.
 	for i, a := range c.Args {
+		// **A `--platform` value clears an undeclared name**, so it inherits:
+		// the reference expands every one with placeholders off, and
+		// `FROM --platform=$NATIVEPLATFORM +t` with no ARG above it builds
+		// there. Kept, the name reached the platform parser as text.
+		if strings.HasPrefix(a, "--platform=") || i > 0 && c.Args[i-1] == "--platform" {
+			c.Args[i] = rs.args.expandDest(a)
+			continue
+		}
+
 		c.Args[i] = expandByRegion(a, expand, rs.args.expandWord)
 	}
 
@@ -1908,7 +1917,8 @@ func (p *Plan) command(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node,
 
 		p.passTo = pass
 
-		if len(opts.Platforms) > 0 {
+		// Empty is inherit, as on FROM: an undeclared name cleared to nothing.
+		if len(opts.Platforms) > 0 && opts.Platforms[0] != "" {
 			checkErr := checkPlatform(opts.Platforms[0], loc(c.SourceLocation))
 			if checkErr != nil {
 				return nil, checkErr

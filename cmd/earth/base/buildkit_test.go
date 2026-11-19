@@ -16,13 +16,13 @@ func TestLocalRegistryHost(t *testing.T) {
 	// container port (8371) makes the settings hash drift and buildkitd restart onto 8371.
 	for _, tt := range []struct {
 		name   string
-		scheme engine.Scheme
 		want   string
+		scheme engine.Scheme
 	}{
-		{"docker keeps configured host port", engine.SchemeDocker, configured},
-		{"podman keeps configured host port", engine.SchemePodman, configured},
+		{"docker keeps configured host port", configured, engine.SchemeDocker},
+		{"podman keeps configured host port", configured, engine.SchemePodman},
 		// Apple Container publishes no host ports; the mock stands in its container address.
-		{"apple uses container address", engine.SchemeApple, "tcp://127.0.0.1:8371"},
+		{"apple uses container address", "tcp://127.0.0.1:8371", engine.SchemeApple},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

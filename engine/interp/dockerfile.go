@@ -747,6 +747,11 @@ func translate(
 			return earthfile.Command{}, err
 		}
 
+		cmdLine, err := heredocCmdLine(v, where)
+		if err != nil {
+			return earthfile.Command{}, err
+		}
+
 		// **A shell-form RUN under a custom SHELL is an exec-form RUN with the
 		// shell in front of it.** No new construct is needed: this engine
 		// already runs an argv without re-splitting it, already keys it, and a
@@ -758,14 +763,14 @@ func translate(
 			return earthfile.Command{
 				Name: earthfile.CmdRun,
 				Args: append(mounts,
-					append(slices.Clone(sh), strings.Join(v.CmdLine, " "))...),
+					append(slices.Clone(sh), strings.Join(cmdLine, " "))...),
 				ExecMode: true, SourceLocation: loc,
 			}, nil
 		}
 
 		return earthfile.Command{
 			Name:     earthfile.CmdRun,
-			Args:     append(mounts, v.CmdLine...),
+			Args:     append(mounts, cmdLine...),
 			ExecMode: !v.PrependShell, SourceLocation: loc,
 		}, nil
 
@@ -1028,6 +1033,53 @@ func dockerfileFromTarget(opt dockerfileOptions, fromTarget *ir.Node) string {
 // Earthfile side expands the rendered specification anyway (runflags.go), which
 // is where variables are in scope. Expanding here would be the second expander
 // this file has already decided it does not need.
+// heredocCmdLine is a RUN's command line with its heredocs put back.
+//
+// The parser lifts each body out into v.Files and leaves `<<EOT` in the line,
+// so translating the line alone ran an empty here-document. The three forms
+// are buildkit's dispatchRun, so a Dockerfile means what it means there:
+//
+//   - the heredoc is the whole command: its body is the script (`<<-` strips
+//     leading tabs), and a `#!` body is a file run by its interpreter;
+//   - otherwise each body and terminator is appended and the shell reads them.
+func heredocCmdLine(v *instructions.RunCommand, where string) ([]string, error) {
+	if len(v.Files) == 0 {
+		return v.CmdLine, nil
+	}
+
+	if len(v.CmdLine) != 1 || !v.PrependShell {
+		return nil, fmt.Errorf("RUN (%s): a heredoc in an exec-form RUN has no shell to read it", where)
+	}
+
+	if parser.MustParseHeredoc(v.CmdLine[0]) == nil {
+		var full strings.Builder
+
+		full.WriteString(v.CmdLine[0])
+
+		for _, f := range v.Files {
+			full.WriteString("\n" + f.Data + f.Name)
+		}
+
+		return []string{full.String()}, nil
+	}
+
+	body := v.Files[0].Data
+	if v.Files[0].Chomp {
+		body = parser.ChompHeredocContent(body)
+	}
+
+	if !strings.HasPrefix(body, "#!") {
+		return []string{body}, nil
+	}
+
+	// buildkit mounts the body read-only at /dev/pipes/<name> and executes it.
+	// A file written, run and removed in one step leaves the same layer.
+	quoted := "'" + strings.ReplaceAll(body, "'", `'\''`) + "'"
+
+	return []string{`f=$(mktemp) && printf '%s' ` + quoted +
+		` > "$f" && chmod +x "$f" && { "$f"; rc=$?; rm -f "$f"; exit $rc; }`}, nil
+}
+
 func mountsOf(v *instructions.RunCommand, where string) ([]string, error) {
 	err := v.Expand(func(word string) (string, error) { return word, nil })
 	if err != nil {

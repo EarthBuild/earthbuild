@@ -15,10 +15,6 @@ install_a="earth-multi-a"
 install_b="earth-multi-b"
 container_a="${install_a}-buildkitd"
 container_b="${install_b}-buildkitd"
-bk_port_a=8762
-reg_port_a=8761
-bk_port_b=8772
-reg_port_b=8771
 
 cleanup() {
     "$frontend" rm -f "$container_a" "$container_b" >/dev/null 2>&1 || true
@@ -32,31 +28,36 @@ cleanup
 
 run_instance() {
     local install_name="$1"
-    local bk_port="$2"
-    local reg_port="$3"
-
-    EARTH_INSTALLATION_NAME="$install_name" \
-    EARTH_BUILDKIT_HOST="tcp://127.0.0.1:${bk_port}" \
-    EARTH_LOCAL_REGISTRY_HOST="tcp://127.0.0.1:${reg_port}" \
-        "$earth" --ci +hello
+    EARTH_INSTALLATION_NAME="$install_name" "$earth" --ci +hello
 }
 
 echo "=== Start two buildkitd instances for different installation names ==="
-run_instance "$install_a" "$bk_port_a" "$reg_port_a"
-run_instance "$install_b" "$bk_port_b" "$reg_port_b"
+run_instance "$install_a"
+run_instance "$install_b"
 
-echo "=== Verify both containers are running concurrently on their configured ports ==="
+echo "=== Verify both containers are running concurrently on distinct derived ports ==="
 test "$("$frontend" inspect -f '{{.State.Running}}' "$container_a")" = "true"
 test "$("$frontend" inspect -f '{{.State.Running}}' "$container_b")" = "true"
-"$frontend" port "$container_a" 8372/tcp | grep -q ":${bk_port_a}$"
-"$frontend" port "$container_b" 8372/tcp | grep -q ":${bk_port_b}$"
+
+reg_port_a="$("$frontend" port "$container_a" 8371/tcp)"
+reg_port_b="$("$frontend" port "$container_b" 8371/tcp)"
+test -n "$reg_port_a"
+test -n "$reg_port_b"
+test "$reg_port_a" != "$reg_port_b"
+
+# Podman publishes the TCP buildkitd port on the host (Docker uses docker-container://).
+if bk_port_a="$("$frontend" port "$container_a" 8372/tcp 2>/dev/null)" && [ -n "$bk_port_a" ]; then
+    bk_port_b="$("$frontend" port "$container_b" 8372/tcp)"
+    test -n "$bk_port_b"
+    test "$bk_port_a" != "$bk_port_b"
+fi
 
 id_a_before="$("$frontend" inspect -f '{{.Id}}' "$container_a")"
 id_b_before="$("$frontend" inspect -f '{{.Id}}' "$container_b")"
 
 echo "=== Re-run against both running instances (connectExisting path) ==="
-run_instance "$install_a" "$bk_port_a" "$reg_port_a"
-run_instance "$install_b" "$bk_port_b" "$reg_port_b"
+run_instance "$install_a"
+run_instance "$install_b"
 
 echo "=== Verify neither container was recreated ==="
 test "$("$frontend" inspect -f '{{.Id}}' "$container_a")" = "$id_a_before"

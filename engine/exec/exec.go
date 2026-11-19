@@ -488,6 +488,11 @@ func (e *Executor) Run(
 
 	case ir.OpHost:
 		// LOCALLY: on this machine, in the project directory, with no sandbox.
+		// One with a source is a COPY of an artifact onto this machine.
+		if len(n.Sources) > 0 {
+			return e.hostCopy(ctx, n, sources)
+		}
+
 		return e.hostStep(ctx, n)
 
 	case ir.OpExec:
@@ -1459,35 +1464,12 @@ func (e *Executor) hostStep(ctx context.Context, n *ir.Node) (core.Result, error
 
 	cmd := osexec.CommandContext(ctx, n.Op.Args[0], n.Op.Args[1:]...) //nolint:gosec // the argv is the step
 
-	// The project directory, because a LOCALLY target's commands are written
-	// relative to the Earthfile that contains them. WORKDIR moves within it.
-	cmd.Dir = e.Context
-
-	switch {
-	case n.Op.HostAbs:
-		// An absolute WORKDIR after LOCALLY, which is a directory on this
-		// machine and not one under the project. See ir.Op.HostAbs.
-		cmd.Dir = filepath.Clean("/" + n.Op.Dir)
-
-	case n.Op.Dir != "" && n.Op.Dir != "/":
-		cmd.Dir = filepath.Join(e.Context, filepath.Clean("/"+n.Op.Dir))
+	dir, err := e.hostDir(n)
+	if err != nil {
+		return core.Result{}, err
 	}
 
-	// Absolute, because it becomes PWD below and a shell keeps a relative PWD
-	// as given: a context of "." made `pwd` print ".".
-	abs, err := filepath.Abs(cmd.Dir)
-	if err == nil {
-		cmd.Dir = abs
-	}
-
-	// **A WORKDIR makes its directory**, on this machine as in a container: the
-	// reference does, and `tests/local+test-locally-workdir` names a fresh one.
-	if cmd.Dir != e.Context {
-		err := os.MkdirAll(cmd.Dir, 0o755) //nolint:gosec // a directory the Earthfile named, as a shell would make it
-		if err != nil {
-			return core.Result{}, fmt.Errorf("make the WORKDIR %s for %s: %w", cmd.Dir, n.Meta.Source, err)
-		}
-	}
+	cmd.Dir = dir
 
 	// A host step inherits the machine's environment, with ε layered on top.
 	//

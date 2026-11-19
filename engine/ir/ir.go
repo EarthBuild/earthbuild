@@ -42,6 +42,11 @@ const (
 	// OpHost is constrained everywhere it appears: never scheduled to a remote
 	// worker (green paper §4.7.1), never retried (I7), never speculated
 	// (§4.7.4), and absent from the wire vocabulary entirely (C.3).
+	//
+	// Three shapes: a RUN (Args the command), a COPY of an artifact onto this
+	// machine (one Source; Args its stored path, the destination and the name
+	// it lands under), and a probe's anchor (no Args, no Inputs: where a
+	// `$(...)` runs).
 	OpHost
 	// OpBuild delegates a whole target to a worker, which schedules it itself.
 	// Unused until the fleet exists; present from the start because a wire
@@ -328,7 +333,8 @@ type Mount struct {
 // Op is a node's operation: green paper's ω.
 type Op struct {
 	Kind OpKind
-	// Args is the command for OpExec and OpHost, the reference for OpImage,
+	// Args is the command for OpExec and OpHost (a host COPY's path,
+	// destination and name), the reference for OpImage,
 	// the path for OpLocal, the target for OpBuild.
 	Args []string
 	// User is the account the operation runs as: USER.

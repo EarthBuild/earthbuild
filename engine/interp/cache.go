@@ -593,12 +593,17 @@ func (p *Plan) gitCloneNode(c earthfile.Command, prev *ir.Node, rs *state) (*ir.
 
 // localCopy plans a COPY inside a LOCALLY target.
 //
-// Recorded as an artifact export rather than a step, because that is what it is:
-// the file is produced by another target and lands on this machine, which is
-// exactly what `SAVE ARTIFACT ... AS LOCAL` already does. Reusing that path
-// means one implementation of "put this where the user asked", and one place
-// for it to be wrong.
-func (p *Plan) localCopy(c earthfile.Command, prev *ir.Node, _ *state) (*ir.Node, error) {
+// **A host step in the chain, not an export.** It was recorded as `SAVE
+// ARTIFACT ... AS LOCAL`, which the CLI writes once the build is over, so a
+// `RUN` on the next line ran before the file landed - `+buck2-regen`'s `tar xf`
+// found nothing and its failure cancelled the producer. Exports are end of
+// build on purpose (a failed build must not write half its outputs); this is a
+// different operation that happens to move the same bytes.
+//
+// One step per source, chained, as a container COPY is. The shape is OpHost
+// with Sources: Args are the artifact's stored path, where it goes (ending in
+// `/` for a directory) and the name it lands under, and DirCopy is `--dir`.
+func (p *Plan) localCopy(c earthfile.Command, prev *ir.Node, rs *state) (*ir.Node, error) {
 	where := loc(c.SourceLocation)
 
 	spec, err := copyArgs(c)
@@ -606,11 +611,10 @@ func (p *Plan) localCopy(c earthfile.Command, prev *ir.Node, _ *state) (*ir.Node
 		return nil, err
 	}
 
-	// Only the sources, the destination and the source target's arguments mean
-	// anything here: a LOCALLY copy writes onto the machine running the build,
-	// where there is no image for --dir or --symlink-no-follow to shape. The
-	// struct makes that visible - the fields simply are not read - where six
-	// discarded return values needed a line saying so.
+	// Only the sources, the destination, --dir and the source target's
+	// arguments mean anything here: a LOCALLY copy writes onto the machine
+	// running the build, where there is no image for --chown or
+	// --symlink-no-follow to shape.
 	sources, buildArgs := spec.Args, spec.BuildArgs
 
 	if len(sources) < 2 {
@@ -618,8 +622,14 @@ func (p *Plan) localCopy(c earthfile.Command, prev *ir.Node, _ *state) (*ir.Node
 	}
 
 	dest := sources[len(sources)-1]
+	sources = sources[:len(sources)-1]
 
-	for _, src := range sources[:len(sources)-1] {
+	// Several sources land in the destination by name, so it is a directory.
+	if len(sources) > 1 && !strings.HasSuffix(dest, "/") {
+		dest += "/"
+	}
+
+	for _, src := range sources {
 		if !strings.Contains(src, "+") {
 			return nil, fmt.Errorf(
 				"COPY at %s is inside a LOCALLY target"+
@@ -632,7 +642,7 @@ func (p *Plan) localCopy(c earthfile.Command, prev *ir.Node, _ *state) (*ir.Node
 			p.passTo = buildArgs
 		}
 
-		from, path, _, err := p.copySource(src, where)
+		from, path, asked, err := p.copySource(src, where)
 		if err != nil {
 			return nil, err
 		}
@@ -642,19 +652,20 @@ func (p *Plan) localCopy(c earthfile.Command, prev *ir.Node, _ *state) (*ir.Node
 		// elsewhere - must not choose where to write on someone's machine; a
 		// LOCALLY target is already running arbitrary commands there, so
 		// refusing the copy while allowing `RUN cp` would be theatre.
-		p.Artifacts = append(p.Artifacts, Artifact{
-			Path: path, From: from, LocalDest: dest, Source: where,
-		})
+		n := &ir.Node{
+			Op: ir.Op{
+				Kind: ir.OpHost, Args: []string{path, dest, asked}, DirCopy: spec.Dir,
+				Dir: rs.dir, HostAbs: rs.hostAbs,
+			},
+			Sources: []*ir.Node{from},
+			Meta:    ir.Meta{Source: where, Description: "COPY " + src + " " + dest},
+		}
 
-		// The producing step has to be *in* the graph, or it is never scheduled
-		// and the export names a node nobody built. A dependency rather than a
-		// base: this target does not stand on the artifact's filesystem, it
-		// takes one file out of it.
-		//
-		// Caught by the corpus invariant that every artifact is produced by the
-		// graph, on a target exporting several artifacts from different
-		// producers - where only the first was reachable.
-		p.also = appendOnce(p.also, from)
+		if prev != nil {
+			n.Inputs = []*ir.Node{prev}
+		}
+
+		prev = n
 	}
 
 	return prev, nil

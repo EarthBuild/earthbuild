@@ -60,6 +60,7 @@ The primary development lifecycle tool is `earth`.
 * `earth +for-darwin-m1` builds the project for macOS (darwin-arm64).
 * `earth ./buildkitd+buildkitd` builds the buildkit daemon image for local container runtime testing.
 * `earth doc` shows all other targets and a description of what they do.
+* Agent skills live in `.agents/skills/` (`.claude/skills` symlinks there). `earth-release` prepares RC and final releases.
 
 # Guardrails
 

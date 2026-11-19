@@ -343,7 +343,8 @@ func bindMounts(root, store, layers, delta string, mounts []Mount) (undo func(),
 			}
 		}
 
-		target, err := within(root, m.Target)
+		// Followed inside the step: see mountTargetIn.
+		target, err := mountTargetIn(root, m.Target)
 		if err != nil {
 			unmount()
 

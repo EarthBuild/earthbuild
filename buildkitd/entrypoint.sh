@@ -3,6 +3,11 @@ set -e
 
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=earth-env.sh
+# earth-env.sh is installed at /usr/bin in the image and lives at the repository
+# root, so neither the path nor the source directive finds it without
+# `shellcheck -x`. SC1091 is the checker saying it could not read it, not that
+# anything is wrong.
+# shellcheck disable=SC1091
 . /usr/bin/earth-env.sh
 
 # The EARTH_* variables below are the documented interface of this image; the
@@ -157,7 +162,24 @@ done
 #Set up CNI
 if [ -z "$CNI_MTU" ]; then
   device=$(ip route show | grep ^default | head -n 1 | sed 's|.* dev \(\w*\)\s.*|\1|')
-  CNI_MTU=$(cat /sys/class/net/"$device"/mtu)
+  # The route says one thing and sysfs another. `ip route` reads the network
+  # namespace this process is in; /sys/class/net reads the one whose sysfs is
+  # mounted, and those are not always the same namespace - a step that shares
+  # the machine's network but carries a sysfs mounted elsewhere sees a default
+  # route via a device that /sys does not list. `cat` then failed, `set -e`
+  # ended the entrypoint, and the daemon never started: the build reported
+  # "connect provided buildkit: timeout" a minute later, naming neither the
+  # device nor the MTU.
+  #
+  # 1500 is the ethernet default and the value CNI uses when told nothing. A
+  # daemon running with a conservative MTU is a daemon; one that will not start
+  # is not.
+  if [ -n "$device" ] && [ -r "/sys/class/net/$device/mtu" ]; then
+    CNI_MTU=$(cat "/sys/class/net/$device/mtu")
+  else
+    CNI_MTU=1500
+    echo >&2 "earthly-buildkit: no MTU for '${device:-<no default route>}' in /sys/class/net, using $CNI_MTU"
+  fi
   export CNI_MTU
 fi
 envsubst </etc/cni/cni-conf.json.template >/etc/cni/cni-conf.json

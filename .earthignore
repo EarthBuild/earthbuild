@@ -1,3 +1,29 @@
 build
 earthfile2llb/parser/*.go
 .git
+
+# Generated content, every line of it gitignored and none of it part of the
+# repository. It was in the build context until somebody measured: 958MB of
+# node_modules and 81MB of test fixtures, hashed into the cache key of every
+# COPY on every build.
+#
+# Slow, and worse than slow. A cache key that includes untracked files is a key
+# that depends on what a machine happens to have lying about, so a fresh clone
+# and a developer's checkout of one commit never share a result (E562).
+**/node_modules
+**/testdata/bigtree-*
+
+# The same argument one directory down. `build` above matches only the top
+# level, so `examples/*/build` and `examples/next-js/.next` were still hashed
+# into every COPY: 18.8MB across 57 files, all of it gitignored, none of it in a
+# fresh clone - which is precisely the machine-dependent key E562 was about.
+#
+# **Not `**/dist`.** The obvious generalisation is wrong here: `examples/js/dist`
+# and `tests/remote-cache/test2/dist` are tracked, so that pattern drops source
+# from the context of every build that copies them. One example's `dist` is
+# generated and is named on its own; the rule is what git ignores, and the
+# pattern language cannot say that, so each one is checked rather than guessed.
+# TestNoTrackedFileIsExcludedFromTheContext is that check.
+**/build
+**/.next
+examples/typescript-node/dist

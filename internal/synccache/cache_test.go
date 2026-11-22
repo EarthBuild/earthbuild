@@ -131,7 +131,7 @@ func TestCache_Load(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			release := make(chan struct{})
 
-			loader := func(context.Context) (int, error) { //nolint:unparam
+			loader := func(context.Context) (int, error) {
 				callCount.Add(1)
 				<-release
 
@@ -267,7 +267,6 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 			loaderEntered := make(chan struct{})
 			releaseLoader := make(chan struct{})
 
-			//nolint:unparam
 			loader := func(_ context.Context) (string, error) {
 				close(loaderEntered)
 				<-releaseLoader
@@ -321,7 +320,6 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 			loaderEntered := make(chan struct{})
 			releaseLoader := make(chan struct{})
 
-			//nolint:unparam
 			loader := func(_ context.Context) (string, error) {
 				close(loaderEntered)
 				<-releaseLoader
@@ -382,7 +380,6 @@ func TestCache_Load_ContextCanceled(t *testing.T) {
 
 			loadCanFinish := make(chan struct{})
 
-			//nolint:unparam
 			loader := func(ctx context.Context) (string, error) {
 				<-loadCanFinish
 

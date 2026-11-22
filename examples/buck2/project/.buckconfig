@@ -1,0 +1,30 @@
+# Buck2 pointed at the engine that is running this step.
+#
+# Three addresses because buck2 asks for three; one service, because this engine
+# serves Execution, ActionCache and ContentAddressableStorage together.
+#
+# TCP rather than the socket a WITH RE block also binds: buck2's client rejects
+# a `unix://` address outright - `Invalid address: invalid format` - so the
+# socket is for clients that take one, and this is for buck2.
+[cells]
+root = .
+prelude = prelude
+
+[parser]
+target_platform_detector_spec = target:root//...->root//platforms:target
+
+[build]
+execution_platforms = root//platforms:exec
+
+[buck2]
+digest_algorithms = SHA256
+
+[buck2_re_client]
+engine_address = 127.0.0.1:8980
+action_cache_address = 127.0.0.1:8980
+cas_address = 127.0.0.1:8980
+# No scheme: buck2 rejects `http` ("you should omit it") and reads `grpc` as
+# TLS, which it speaks unconditionally - there is no plaintext setting. The
+# certificate is made per step and lives beside the socket, on the ephemeral
+# mount that disappears with the step.
+tls_ca_certs = /run/earthbuild/ca.pem

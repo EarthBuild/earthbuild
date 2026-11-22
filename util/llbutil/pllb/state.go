@@ -9,7 +9,9 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"time"
 
+	"github.com/EarthBuild/earthbuild/util/enginetrace"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/identity"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -131,9 +133,17 @@ func hasLocalUniqueID(opts ...llb.ConstraintsOpt) bool {
 // Marshal is a wrapper around llb.Marshal. Local sources get this process's
 // local.unique value (see processLocalUniqueIDOpt) unless co or SetMarshalDefaults
 // sets its own llb.LocalUniqueID.
+//
+// Instrumented for Phase 0: the time spent waiting for gmu is reported separately from
+// the marshal itself, because the two have different fixes. See
+// docs-internals/experiments-adversarial.md E2.
 func (s State) Marshal(ctx context.Context, co ...llb.ConstraintsOpt) (*llb.Definition, error) {
+	lockStart := time.Now()
+
 	gmu.Lock()
 	defer gmu.Unlock()
+
+	enginetrace.Record(enginetrace.KindLockWait, time.Since(lockStart), 0)
 
 	if !hasLocalUniqueID(s.opts...) && !hasLocalUniqueID(co...) {
 		co = slices.Concat([]llb.ConstraintsOpt{processLocalUniqueIDOpt}, s.opts, co)
@@ -141,7 +151,12 @@ func (s State) Marshal(ctx context.Context, co ...llb.ConstraintsOpt) (*llb.Defi
 		co = slices.Concat(s.opts, co)
 	}
 
-	return s.st.Marshal(ctx, co...)
+	marshalStart := time.Now()
+	def, err := s.st.Marshal(ctx, co...)
+
+	enginetrace.Record(enginetrace.KindMarshal, time.Since(marshalStart), 0)
+
+	return def, err
 }
 
 // Run is a wrapper around llb.Run.

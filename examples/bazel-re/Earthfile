@@ -1,0 +1,99 @@
+VERSION 0.8
+
+# Bazel, running as a target, whose actions this engine executes.
+#
+# The sibling of examples/buck2: the same service, a different client, and the
+# reason for having both is that each one checks a different half of the
+# protocol. Buck2 never reads the capability handshake; bazel refuses without
+# it.
+#
+# See docs-internals/plan-remote-execution.md, phase R5.
+
+# renovate: datasource=github-releases packageName=bazelbuild/bazel
+ARG --global bazel_version=7.4.1
+
+client:
+    FROM debian:bookworm-slim
+    RUN apt-get update -qq \
+     && apt-get install -y --no-install-recommends ca-certificates curl \
+     && rm -rf /var/lib/apt/lists/*
+    # The arch this is being built for, not the one it was written on.
+    ARG TARGETARCH
+    LET bazel_arch="x86_64"
+    IF [ "$TARGETARCH" = "arm64" ]
+        SET bazel_arch="arm64"
+    END
+    RUN curl -fsSL --retry 5 --retry-all-errors -o /usr/local/bin/bazel \
+          "https://github.com/bazelbuild/bazel/releases/download/$bazel_version/bazel-$bazel_version-linux-$bazel_arch" \
+     && chmod +x /usr/local/bin/bazel
+
+project:
+    FROM +client
+    WORKDIR /w
+    COPY project .
+
+# build runs the project's one action through this engine.
+build:
+    FROM +project
+    WITH RE
+        RUN bazel build //:hello
+    END
+
+# cached runs it a second time in a step this engine may not cache, so that
+# what is measured is the action cache rather than the step cache.
+cached:
+    FROM +project
+    WITH RE
+        RUN --no-cache bazel build //:hello
+    END
+
+# reach asks only whether the socket and its certificate are there.
+reach:
+    FROM +client
+    WITH RE
+        RUN test -S /run/earthbuild/actions.sock && test -f /run/earthbuild/ca.pem \
+         && echo "the service is there"
+    END
+
+# ladder times a run of N actions, remote against local, for several N.
+#
+# **The two numbers worth quoting are a slope and an intercept.** How much does
+# turning remote execution on cost at all, and how much does it cost per action?
+# One build gives their sum; a ladder separates them.
+#
+# `--no-cache` because this engine would otherwise serve the whole step, and
+# what is being measured is inside it.
+ladder:
+    FROM +client
+    WORKDIR /w
+    # **No .bazelrc.** It sets --remote_executor for every build, which would
+    # leave the local arm still consulting the remote cache - two arms differing
+    # in more than the thing being measured. bench.sh passes every flag itself.
+    COPY project/WORKSPACE .
+    COPY ladder ladder
+    ARG reps=3
+    ARG sizes="25 50 100"
+    WITH RE
+        RUN --no-cache REPS=$reps SIZES="$sizes" sh ladder/bench.sh | tee /tmp/ladder.tsv
+    END
+    SAVE ARTIFACT /tmp/ladder.tsv AS LOCAL ladder.tsv
+
+# warm times bazel's own startup cold against warm.
+#
+# **The ladder's intercept is a cold figure**, because every run wipes the cache
+# to measure honestly - which also throws away the bazel server, forcing a JVM
+# start and a full re-analysis. A developer pays that once. What they pay on
+# every build afterwards is the warm number, and the two say different things
+# about whether per-action overhead matters.
+warm:
+    FROM +project
+    WITH RE
+        RUN --no-cache sh -c '\
+            for phase in cold warm-1 warm-2 warm-3; do \
+              if [ "$phase" = cold ]; then rm -rf ~/.cache/bazel; fi; \
+              s=$(date +%s%N); \
+              bazel build //:hello --noshow_progress >/dev/null 2>&1 || echo "FAILED $phase"; \
+              e=$(date +%s%N); \
+              echo "$phase $(( (e-s)/1000000 ))ms"; \
+            done'
+    END

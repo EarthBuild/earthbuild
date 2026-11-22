@@ -1,0 +1,6 @@
+arguments: "/bin/sh"
+arguments: "-c"
+arguments: "cargo build --release"
+environment_variables { name: "CARGO_TERM_COLOR" value: "never" }
+environment_variables { name: "PATH" value: "/usr/bin" }
+working_directory: "/w"

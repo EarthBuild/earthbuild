@@ -19,6 +19,7 @@ func TestHashTargetWithDocker(t *testing.T) {
 	t.Parallel()
 
 	r := require.New(t)
+
 	target := domain.Target{
 		LocalPath: "./testdata/with-docker",
 		Target:    "with-docker-load",

@@ -91,8 +91,10 @@ jobs:
         # filesystem is made of - `mount overlay ...: permission denied` - and
         # refuses a procfs in the guest's namespace, both wanting CAP_SYS_ADMIN
         # that an unprivileged user namespace on this kernel does not grant.
-        # `sudo -E` keeps the fleet's environment, which is the whole
-        # configuration.
+        # The fleet's environment is its whole configuration, so it crosses
+        # sudo by name. Not `sudo -E`: ubuntu-26.04's sudo-rs ignores it, with
+        # a warning, and the worker then started with no EARTH_FLEET_SECRET. CI
+        # too, which the engine reads for EARTHLY_CI.
         #
         # **pipefail, or the build's own failure is `tee`'s success.** The
         # default shell here is `bash -e` without it, so a build that failed
@@ -101,7 +103,7 @@ jobs:
         # steps and then failed to bring a result back.
         run: |
           set -o pipefail
-          sudo -E "$RUNNER_TEMP/earth-native" -dir tests/fleet +all 2>&1 | tee driver.log
+          sudo --preserve-env="$(compgen -e | grep -E '^(EARTH_|CI$)' | paste -sd, -)" "$RUNNER_TEMP/earth-native" -dir tests/fleet +all 2>&1 | tee driver.log
       - name: assert the build was a fleet and not a local build wearing one
         run: |
           # Both workers arrived. A worker that connects but never says what it
@@ -154,7 +156,7 @@ jobs:
         # exit code would fail every green build, so the assertion below is on
         # what the worker did rather than on how it stopped.
         run: |
-          sudo -E timeout 900 "$RUNNER_TEMP/earth-worker" 2>&1 | tee worker.log || true
+          sudo --preserve-env="$(compgen -e | grep -E '^(EARTH_|CI$)' | paste -sd, -)" timeout 900 "$RUNNER_TEMP/earth-worker" 2>&1 | tee worker.log || true
       - name: assert this worker joined
         run: |
           grep -q "joining " worker.log \

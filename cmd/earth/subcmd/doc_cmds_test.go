@@ -618,8 +618,6 @@ build:
 func TestDocString(t *testing.T) {
 	t.Parallel()
 
-	const targetBuild = "build"
-
 	tests := []struct {
 		errTarget error
 		name      string
@@ -631,39 +629,39 @@ func TestDocString(t *testing.T) {
 		{
 			name:    "exact match space separated",
 			body:    "build is the build target\n",
-			targets: []string{targetBuild},
+			targets: []string{"build"},
 			want:    "build is the build target\n",
 		},
 		{
 			name:    "single word comment without space",
 			body:    "build\n",
-			targets: []string{targetBuild},
+			targets: []string{"build"},
 			want:    "build\n",
 		},
 		{
 			name:    "tab separated comment",
 			body:    "build\tdoes the build\n",
-			targets: []string{targetBuild},
+			targets: []string{"build"},
 			want:    "build\tdoes the build\n",
 		},
 		{
 			name:    "leading whitespace in comment",
 			body:    "   build is the target\n",
-			targets: []string{targetBuild},
+			targets: []string{"build"},
 			want:    "   build is the target\n",
 		},
 		{
 			errTarget: errNoDocComment,
 			name:      "empty comment",
 			body:      "  \n\t  ",
-			targets:   []string{targetBuild},
+			targets:   []string{"build"},
 			wantErr:   true,
 		},
 		{
 			errTarget: errNoDocComment,
 			name:      "unmatched comment",
 			body:      "other is not build",
-			targets:   []string{targetBuild},
+			targets:   []string{"build"},
 			wantErr:   true,
 		},
 	}

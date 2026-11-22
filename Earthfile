@@ -20,7 +20,7 @@ go:
 node:
     FROM node:26.12.0-alpine3.24@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5
     # renovate: datasource=npm packageName=npm
-    LET npm_version=12.2.0
+    LET npm_version=12.2.3
     RUN \
         --mount type=cache,target=/root/.npm,id=npm \
         npm install -g npm@$npm_version
@@ -77,8 +77,10 @@ code:
     # untracked, and is exactly what that test exists to keep out.
     COPY --dir examples ./
     COPY Earthfile ./
-    COPY --dir buildkitd/buildkitd.go buildkitd/settings.go buildkitd/certificates.go \
-        buildkitd/with_docker_env_test.go buildkitd/
+    # Glob rather than naming each file: buildkitd/ also holds shell scripts and
+    # templates that must stay out of the Go image, but an allowlist silently
+    # omits every new .go file - which hid buildkitd's tests from CI entirely.
+    COPY --dir buildkitd/*.go buildkitd/
     COPY --dir inputgraph/*.go inputgraph/testdata inputgraph/
     SAVE ARTIFACT /earth
 
@@ -86,8 +88,8 @@ code:
 update-buildkit:
     FROM +code # if we use deps, go mod tidy will remove a bunch of requirements since it won't have access to our codebase.
     ARG BUILDKIT_GIT_SHA
-    ARG BUILDKIT_GIT_BRANCH=earthly-main
-    ARG BUILDKIT_GIT_ORG=earthly
+    ARG BUILDKIT_GIT_BRANCH=main
+    ARG BUILDKIT_GIT_ORG=EarthBuild
     ARG BUILDKIT_GIT_REPO=buildkit
     COPY (./buildkitd+buildkit-sha/buildkit_sha --BUILDKIT_GIT_ORG="$BUILDKIT_GIT_ORG" --BUILDKIT_GIT_SHA="$BUILDKIT_GIT_SHA" --BUILDKIT_GIT_BRANCH="$BUILDKIT_GIT_BRANCH") buildkit_sha
     BUILD  ./buildkitd+update-buildkit-earthfile --BUILDKIT_GIT_ORG="$BUILDKIT_GIT_ORG" --BUILDKIT_GIT_SHA="$(cat buildkit_sha)" --BUILDKIT_GIT_REPO="$BUILDKIT_GIT_REPO"
@@ -144,7 +146,7 @@ lint-workflows:
 earthbuild-script-no-stdout:
     # This validates the ./earth script doesn't print anything to stdout (it should print to stderr)
     # This is to ensure commands such as: MYSECRET="$(./earth secrets get -n /user/my-secret)" work
-    FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0@sha256:3fd3debac3d7d6b4c19d58706a1c492caf3378058c6991f8caec0cf1072173e0
+    FROM earthbuild/dind:alpine-3.24-docker-29.9.2-r0@sha256:5e865b2c8bdc31ed47eed1109b3f2f685b4b6f21dc220382518f69a3cd110b9b
     RUN apk add --no-cache bash
     COPY earth .earth_version_flag_overrides .
 
@@ -216,9 +218,7 @@ lint-fix:
     SAVE ARTIFACT slog AS LOCAL slog
     SAVE ARTIFACT util AS LOCAL util
     SAVE ARTIFACT variables AS LOCAL variables
-    SAVE ARTIFACT buildkitd/buildkitd.go AS LOCAL buildkitd/buildkitd.go
-    SAVE ARTIFACT buildkitd/settings.go AS LOCAL buildkitd/settings.go
-    SAVE ARTIFACT buildkitd/certificates.go AS LOCAL buildkitd/certificates.go
+    SAVE ARTIFACT buildkitd/*.go AS LOCAL buildkitd/
     SAVE ARTIFACT inputgraph/*.go AS LOCAL inputgraph/
     # Not saved back: engine, tools and docs-internals, which +code adds on this
     # branch. A directory saved AS LOCAL replaces the local one, and engine/
@@ -286,7 +286,7 @@ fmt-go:
 govulncheck:
     FROM +go
     # renovate: datasource=go packageName=golang.org/x/vuln/cmd/govulncheck
-    ENV govulncheck_version=1.9.0
+    ENV govulncheck_version=1.10.0
     RUN go install golang.org/x/vuln/cmd/govulncheck@v$govulncheck_version
     COPY --dir +code/earth /
     FOR mod_path IN $(find . -name go.mod -print0 | xargs -0 dirname)
@@ -310,7 +310,7 @@ govulncheck:
 # markdown-spellcheck runs vale against md files
 markdown-spellcheck:
     # renovate: datasource=docker packageName=jdkato/vale
-    ARG vale_version=3.24.0
+    ARG vale_version=3.28.1
     FROM jdkato/vale:v$vale_version
     COPY .vale/ /etc/vale
     WORKDIR /everything

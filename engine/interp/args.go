@@ -3,6 +3,7 @@ package interp
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 
 	"github.com/EarthBuild/earthbuild/earthfile2llb/cmdopts"
@@ -140,13 +141,24 @@ func (s scope) substitute(in string, escaping bool) string {
 	return b.String()
 }
 
+// Get and Keys make a scope the lexer's dfShell.EnvGetter.
+func (s scope) Get(name string) (string, bool) {
+	v, ok := s[name]
+
+	return v, ok
+}
+
+// Keys is sorted: the lexer reads it to suggest a name, and a suggestion that
+// changes from run to run is noise.
+func (s scope) Keys() []string { return slices.Sorted(maps.Keys(s)) }
+
 // expandValue substitutes arguments and resolves quoting, for text the engine
 // consumes itself: a path, an argument default, a label.
 func (s scope) expandValue(in string) string {
 	lex := dfShell.NewLex('\\')
 	lex.SkipUnsetEnv = true
 
-	out, err := lex.ProcessWordWithMap(in, map[string]string(s))
+	out, _, err := lex.ProcessWord(in, s)
 	if err != nil {
 		// A word the lexer cannot read is passed through unchanged: it is the
 		// author's text, and mangling it would be worse than leaving it for
@@ -176,7 +188,7 @@ func (s scope) expandDest(in string) string {
 	lex := dfShell.NewLex('\\')
 	lex.SkipUnsetEnv = false
 
-	out, err := lex.ProcessWordWithMap(in, map[string]string(s))
+	out, _, err := lex.ProcessWord(in, s)
 	if err != nil {
 		return in
 	}

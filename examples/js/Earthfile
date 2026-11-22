@@ -3,9 +3,9 @@ FROM node:26.12.0-alpine3.24
 WORKDIR /js-example
 
 deps:
-    COPY package.json npm-shrinkwrap.json ./
+    COPY package.json package-lock.json ./
     RUN npm install
-    SAVE ARTIFACT npm-shrinkwrap.json AS LOCAL ./npm-shrinkwrap.json
+    SAVE ARTIFACT package-lock.json AS LOCAL ./package-lock.json
 
 build:
     FROM +deps

@@ -10,6 +10,11 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Changed
 
+- Updated the EarthBuild BuildKit fork to upstream `moby/buildkit` v0.15.2. BuildKit now encodes
+  secret and SSH mounts differently, so `RUN` steps miss their existing local and remote cache once
+  after upgrading, and their cache is not shared with older `earth` versions.
+- `FROM DOCKERFILE` now runs Dockerfile build checks and prints violations as warnings, as `docker build` does.
+  A `# check=error=true` directive, which was previously ignored, now fails the build on a violation.
 - Contradictory output flags are now rejected instead of silently resolved: `--no-output` together with `--no-image-output` is an error, since `--no-output` already suppresses images
 - Completed the `EARTHLY_*` -> `EARTH_*` environment variable rename for the variables EarthBuild
   sets on itself. The published `earthbuild/earthbuild` image no longer emits deprecation warnings
@@ -34,6 +39,14 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
 
 ### Fixed
 
+- A `tcp://` buildkit host given as a private IP or a loopback IP other than `127.0.0.1` is
+  connected to again, as in v0.8.19, instead of being treated as local and auto-started. Only
+  `127.0.0.1`, `::1` and `localhost` (and the container schemes) are managed by earth.
+  [#1144](https://github.com/EarthBuild/earthbuild/issues/1144)
+- A non-default `local_registry_host` (or installation name) no longer makes the first run on a
+  fresh install restart `earth-buildkitd` onto port 8371, which failed when that port was taken.
+  Docker and Podman keep the configured registry address; only Apple Container uses the container's.
+  [#1161](https://github.com/EarthBuild/earthbuild/issues/1161)
 - The build summary no longer reports `Image <target> output as <tag>` for an image that was pushed but never loaded into the local container engine, which affected `--push --no-output` and `--push --no-image-output`
 - The published docker image shipped only `earthly` while the release assets were all named `earth`,
   so `earth` was absent from the image entirely and following the v0.8.18 release notes into the
@@ -46,6 +59,9 @@ All notable changes to [Earthbuild](https://github.com/earthbuild/earthbuild) wi
   tested for the invoked binary itself rather than its replacement.
   [#796](https://github.com/EarthBuild/earthbuild/issues/796)
 - Shell completion is now registered for the name the binary is installed under, so `earth <TAB>` works on official installs. Previously the completion entries always named the command `earthly` [#804](https://github.com/earthbuild/earthbuild/issues/804)
+- `FROM DOCKERFILE` no longer fails with `invalid context name ...: invalid reference format` when
+  a Dockerfile stage name is valid for Dockerfile but not as an image reference (for example
+  `FROM alpine AS build-`).
 
 ### Fixed
 

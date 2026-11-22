@@ -40,7 +40,8 @@
     enabled: true
   },
   npm: {
-    enabled: true
+    enabled: true,
+    rangeStrategy: 'pin',
   },
   "pip_requirements": {
     enabled: true
@@ -433,6 +434,13 @@
       groupName: 'otel',
       matchPackageNames: [
         'go.opentelemetry.io/**',
+      ],
+      enabled: false,
+    },
+    // fsutil must be upgraded in sync with BuildKit
+    {
+      matchPackageNames: [
+        'github.com/tonistiigi/fsutil',
       ],
       enabled: false,
     },

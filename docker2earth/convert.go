@@ -64,7 +64,7 @@ func Docker2Earth(dockerfilePath, earthfilePath, imageTag string) error {
 		return fmt.Errorf("failed to parse Dockerfile located at %q: %w", dockerfilePath, err)
 	}
 
-	stages, initialArgs, err := instructions.Parse(dockerfile.AST)
+	stages, initialArgs, err := instructions.Parse(dockerfile.AST, nil)
 	if err != nil {
 		return fmt.Errorf("failed to parse Dockerfile located at %q: %w", dockerfilePath, err)
 	}

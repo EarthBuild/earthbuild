@@ -1192,6 +1192,8 @@ The `FROM DOCKERFILE` command initializes a new build environment, inheriting fr
 The `<context-path>` is the path where the Dockerfile build context exists. By default, it is assumed that a file named `Dockerfile` exists in that directory. The context path can be either a path on the host system, or an [artifact reference](../guides/importing.md#artifact-reference), pointing to a directory containing a `Dockerfile`.
 Additionally, when using a `<context-path>` from the host system, a `.dockerignore` in the directory root will be used to exclude files (unless `.earthlyignore` or `.earthignore` are present).
 
+Dockerfile [build checks](https://docs.docker.com/build/checks/) run as they do in `docker build`: violations are printed as warnings. A `# check=` directive at the top of the Dockerfile can skip rules (`# check=skip=FromAsCasing`) or make violations fail the build (`# check=error=true`).
+
 #### Options
 
 ##### `-f <dockerfile-path>`
@@ -1278,7 +1280,7 @@ The `WITH DOCKER` clause only supports the command [`RUN`](#run). Other commands
 A typical example of a `WITH DOCKER` clause might be:
 
 ```Dockerfile
-FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0
+FROM earthbuild/dind:alpine-3.24-docker-29.9.2-r0
 WORKDIR /test
 COPY docker-compose.yml ./
 WITH DOCKER \
@@ -1302,7 +1304,7 @@ For information on using `WITH DOCKER` with podman see the [Podman guide](../gui
 
 For performance reasons, it is recommended to use a Docker image that already contains `dockerd`. If `dockerd` is not found, earth will attempt to install it.
 
-Earth provides officially supported images such as `earthbuild/dind:alpine-3.24-docker-29.8.2-r0` and `earthbuild/dind:ubuntu-26.04-docker-29.9.1-1` to be used together with `WITH DOCKER`.
+Earth provides officially supported images such as `earthbuild/dind:alpine-3.24-docker-29.9.2-r0` and `earthbuild/dind:ubuntu-26.04-docker-29.9.2-1` to be used together with `WITH DOCKER`.
 {% endhint %}
 
 {% hint style='info' %}

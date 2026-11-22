@@ -1,9 +1,11 @@
 package app
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v3"
 )
 
 func TestAutoSkipDeprecationWarning(t *testing.T) {
@@ -109,5 +111,53 @@ func TestEngineChosen(t *testing.T) {
 
 			require.Equal(t, tc.want, engineChosen(tc.args, tc.env))
 		})
+	}
+}
+
+// A command that starts no container should not wait for one to be found, and
+// a global flag's value must never be read as that command: scanned,
+// `--git-username doc build +all` named doc, and the build then ran against a
+// stub engine. Driven through a real parse, because that is the whole of the
+// fix.
+func TestNeedsEngine(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		args []string
+		want bool
+	}{
+		{[]string{"ls"}, false},
+		{[]string{"ls", "./examples"}, false},
+		{[]string{"doc"}, false},
+		{[]string{"build", "+all"}, true},
+		{[]string{"--git-username", "doc", "build", "+all"}, true},
+		{[]string{"+all"}, true},
+		{[]string{"prune"}, true},
+		{nil, true},
+	} {
+		got := true
+		noop := func(context.Context, *cli.Command) error { return nil }
+
+		root := &cli.Command{
+			Flags: []cli.Flag{&cli.StringFlag{Name: "git-username"}},
+			Commands: []*cli.Command{
+				{Name: "build", Action: noop},
+				{Name: "ls", Action: noop},
+				{Name: "doc", Action: noop},
+				{Name: "prune", Action: noop},
+			},
+			Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+				got = needsEngine(cmd)
+
+				return ctx, nil
+			},
+			Action: noop,
+		}
+
+		require.NoError(t, root.Run(t.Context(), append([]string{cmdName}, c.args...)))
+
+		if got != c.want {
+			t.Errorf("needsEngine(%q) = %v, want %v", c.args, got, c.want)
+		}
 	}
 }

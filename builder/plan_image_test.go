@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testDockerTag = "myimg:latest"
-
 func localTarget() domain.Target {
 	return domain.Target{LocalPath: "."}
 }
@@ -56,7 +54,7 @@ func TestPlanImage(t *testing.T) {
 			target:     localTarget(),
 			doSaves:    true,
 			isFinal:    true,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest"},
 			wantExport: true,
 		},
 		{
@@ -66,7 +64,7 @@ func TestPlanImage(t *testing.T) {
 			doSaves:    true,
 			doPushes:   true,
 			isFinal:    true,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag, Push: true},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest", Push: true},
 			wantExport: true,
 			wantPush:   true,
 		},
@@ -78,7 +76,7 @@ func TestPlanImage(t *testing.T) {
 			doSaves:    true,
 			doPushes:   true,
 			isFinal:    true,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag, Push: true},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest", Push: true},
 			wantExport: false,
 			wantPush:   true,
 		},
@@ -89,7 +87,7 @@ func TestPlanImage(t *testing.T) {
 			doSaves:    true,
 			doPushes:   true,
 			isFinal:    true,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag, Push: true},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest", Push: true},
 			wantExport: false,
 			wantPush:   true,
 		},
@@ -110,7 +108,7 @@ func TestPlanImage(t *testing.T) {
 			target:     localTarget(),
 			doSaves:    false,
 			isFinal:    true,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest"},
 			wantExport: false,
 		},
 		{
@@ -119,7 +117,7 @@ func TestPlanImage(t *testing.T) {
 			target:     localTarget(),
 			doSaves:    false,
 			isFinal:    true,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag, ForceSave: true},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest", ForceSave: true},
 			wantExport: true,
 		},
 		{
@@ -129,7 +127,7 @@ func TestPlanImage(t *testing.T) {
 			doSaves:    true,
 			doPushes:   true,
 			isFinal:    true,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag, Push: true},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest", Push: true},
 			wantExport: true,
 			wantPush:   false,
 		},
@@ -139,7 +137,7 @@ func TestPlanImage(t *testing.T) {
 			target:     localTarget(),
 			doSaves:    true,
 			isFinal:    true,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest"},
 			wantExport: false,
 		},
 		{
@@ -148,7 +146,7 @@ func TestPlanImage(t *testing.T) {
 			target:     localTarget(),
 			doSaves:    true,
 			isFinal:    false,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest"},
 			wantExport: false,
 		},
 		{
@@ -157,7 +155,7 @@ func TestPlanImage(t *testing.T) {
 			target:     localTarget(),
 			doSaves:    true,
 			isFinal:    true,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest"},
 			wantExport: true,
 		},
 		{
@@ -167,7 +165,7 @@ func TestPlanImage(t *testing.T) {
 			doSaves:    true,
 			doPushes:   true,
 			isFinal:    true,
-			saveImage:  states.SaveImage{DockerTag: testDockerTag, Push: false},
+			saveImage:  states.SaveImage{DockerTag: "myimg:latest", Push: false},
 			wantExport: true,
 			wantPush:   false,
 		},

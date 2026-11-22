@@ -23,7 +23,7 @@ If you're interested in understanding why the community fork is happening, [this
 [![Join the chat on Slack](https://img.shields.io/badge/slack-join%20chat-red.svg)](https://earthly.dev/slack)
 [![Docs](https://img.shields.io/badge/docs-earthbuild.dev-blue)](https://docs.earthbuild.dev)
 [![Website](https://img.shields.io/badge/website-earthbuild.dev-blue)](https://www.earthbuild.dev)
-[![Install EarthBuild](https://img.shields.io/github/v/release/earthbuild/earthbuild.svg?label=install&color=1f626c)](https://www.earthbuild.dev/install.html)
+[![Install EarthBuild](https://img.shields.io/github/v/release/earthbuild/earthbuild.svg?label=install&color=1f626c)](https://earthbuild.dev/install/)
 [![Docker Hub](https://img.shields.io/badge/docker%20hub-earthbuild-blue)](https://hub.docker.com/u/earthbuild)
 [![License MPL-2](https://img.shields.io/badge/license-MPL-blue.svg)](./LICENSE)
 
@@ -45,7 +45,7 @@ If you're interested in understanding why the community fork is happening, [this
 
 🌎 [EarthBuild](https://www.earthbuild.dev/) is a versatile, approachable CI/CD framework that runs every pipeline inside containers, giving you repeatable builds that you write once and run anywhere. It has a super simple, instantly recognizable syntax that is easy to write and understand – like Dockerfile and Makefile had a baby. And it leverages and augments popular build tools instead of replacing them, so you don't have to rewrite all your builds no matter what languages you use.
 
-<div align="center"><a href="https://www.earthbuild.dev/install.html"><img width="260" src="docs/img/get-earthbuild-button.svg" alt="Get EarthBuild" title="Get EarthBuild" /></a></div>
+<div align="center"><a href="https://earthbuild.dev/install/"><img width="260" src="docs/img/get-earthbuild-button.svg" alt="Get EarthBuild" title="Get EarthBuild" /></a></div>
 
 ----------------------------------
 
@@ -113,7 +113,7 @@ We use a target-based system to help users break up complex builds into reusable
 
 ## Installation
 
-See [installation instructions](https://www.earthbuild.dev/install.html).
+See [installation instructions](https://earthbuild.dev/install/).
 
 To build from source, check the [contributing page](./CONTRIBUTING.md).
 

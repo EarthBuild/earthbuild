@@ -269,6 +269,9 @@ linters:
       - path: (cmd/earth/subcmd/(config|prune)_cmds\.go|engine/cli/oracle_test\.go)
         linters:
           - lll
+      - path: _test\.go
+        linters:
+          - goconst
   settings:
     goconst:
       # A boolean written down is not a magic constant. `"false"` appears

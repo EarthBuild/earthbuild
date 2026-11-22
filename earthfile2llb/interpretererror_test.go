@@ -8,19 +8,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testEarthfile = "path/To/Earthfile"
-
 func TestFromError(t *testing.T) {
 	t.Parallel()
 
 	ieWithStack := Errorf(earthfile.SourceLocation{
-		File:        testEarthfile,
+		File:        "path/To/Earthfile",
 		StartLine:   90,
 		StartColumn: 8,
 	}, "", "some stack", "some error message")
 
 	ieWithoutStack := Errorf(earthfile.SourceLocation{
-		File:        testEarthfile,
+		File:        "path/To/Earthfile",
 		StartLine:   90,
 		StartColumn: 8,
 	}, "", "", "some error message")
@@ -74,7 +72,7 @@ func TestInterpreterError_Error(t *testing.T) {
 	t.Parallel()
 
 	loc := earthfile.SourceLocation{
-		File:        testEarthfile,
+		File:        "path/To/Earthfile",
 		StartLine:   90,
 		StartColumn: 8,
 	}

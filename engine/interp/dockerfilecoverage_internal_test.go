@@ -52,7 +52,7 @@ ONBUILD RUN true
 		t.Fatal(err)
 	}
 
-	stages, _, err := instructions.Parse(ast.AST)
+	stages, _, err := instructions.Parse(ast.AST, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

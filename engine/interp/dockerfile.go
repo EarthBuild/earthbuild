@@ -601,7 +601,7 @@ func dockerfileStages(
 	// stage, which Docker makes available to FROM lines. Discarded here until a
 	// Dockerfile pinning its base image that way was sent to a registry with
 	// `${XX_VERSION}` still in the reference (E64).
-	stages, meta, err := instructions.Parse(ast.AST)
+	stages, meta, err := instructions.Parse(ast.AST, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("FROM DOCKERFILE at %s: %w", where, err)
 	}

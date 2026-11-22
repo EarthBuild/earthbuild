@@ -28,7 +28,6 @@ func TestBuildArgMatrix(t *testing.T) {
 
 	r := require.New(t)
 
-	//nolint:goconst
 	tests := []struct {
 		testName string
 		args     parsedCLIVals
@@ -130,7 +129,7 @@ func TestBuildArgMatrix(t *testing.T) {
 		urls, err := ResolveAddrs(Docker, &Config{
 			BuildkitHost:      cmp.Or(tt.args.buildkit, tt.config.BuildkitHost),
 			LocalRegistryHost: tt.config.LocalRegistryHost,
-			ContainerName:     "test", //nolint:goconst
+			ContainerName:     "test",
 			DefaultPort:       DefaultBuildkitPort,
 			Log:               logger,
 		})
@@ -147,7 +146,6 @@ func TestBuildArgMatrixValidationFailures(t *testing.T) {
 
 	r := require.New(t)
 
-	//nolint:goconst
 	tests := []struct {
 		testName string
 		log      string
@@ -464,7 +462,6 @@ func TestContainerAddr(t *testing.T) {
 	})
 }
 
-//nolint:goconst
 func TestImageLoadCommand(t *testing.T) {
 	t.Parallel()
 
@@ -604,6 +601,37 @@ func TestPortMappingString(t *testing.T) {
 	}
 }
 
+func TestIsLocal(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		addr string
+		want bool
+	}{
+		{"docker-container://earth-buildkitd", true},
+		{"podman-container://earth-buildkitd", true},
+		{"apple-container://earth-buildkitd", true},
+		{"tcp://127.0.0.1:8372", true},
+		{"tcp://localhost:8372", true},
+		{"tcp://[::1]:8372", true},
+		// Explicitly configured hosts that earth must connect to, not start (#1144).
+		{"tcp://127.0.0.2:8372", false},
+		{"tcp://10.1.2.3:8372", false},
+		{"tcp://172.28.0.10:8372", false},
+		{"tcp://192.168.64.2:8372", false},
+		{"tcp://buildkitd:8372", false},
+		{"tcp://example.com:8372", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.addr, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, IsLocal(tt.addr))
+		})
+	}
+}
+
 func BenchmarkIsLocal(b *testing.B) {
 	addrs := []string{
 		"docker-container://earth-buildkitd",
@@ -627,7 +655,6 @@ func BenchmarkIsLocal(b *testing.B) {
 func TestMatchesImageRef(t *testing.T) {
 	t.Parallel()
 
-	//nolint:goconst
 	tests := []struct {
 		name string
 		tag  string
@@ -819,7 +846,6 @@ func TestAlignContainers(t *testing.T) {
 	})
 }
 
-//nolint:goconst
 func TestAlignImages(t *testing.T) {
 	t.Parallel()
 
@@ -897,7 +923,6 @@ func TestAlignImages(t *testing.T) {
 	})
 }
 
-//nolint:goconst
 func TestAlignVolumes(t *testing.T) {
 	t.Parallel()
 

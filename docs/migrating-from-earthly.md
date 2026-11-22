@@ -63,7 +63,7 @@ We recommend using this period of overlap to update your CI configuration in pre
 
 ### Installation
 
-To switch to EarthBuild, you will need to use [the new installation scripts](https://www.earthbuild.dev/install.html).
+To switch to EarthBuild, you will need to use [the new installation scripts](https://earthbuild.dev/install/).
 
 You should remove the old `earthly` binary from your systems to avoid confusion.
 

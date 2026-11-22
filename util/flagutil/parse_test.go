@@ -248,7 +248,6 @@ func TestPreprocessArgs(t *testing.T) {
 	})
 }
 
-//nolint:goconst
 func TestParseArgArgs(t *testing.T) {
 	t.Parallel()
 

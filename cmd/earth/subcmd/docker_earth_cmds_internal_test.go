@@ -17,17 +17,17 @@ func TestInvokedAs(t *testing.T) {
 	}{
 		{
 			name: "canonical name",
-			args: []string{earthCmd, docker2EarthCmdName},
+			args: []string{"earth", docker2EarthCmdName},
 			want: docker2EarthCmdName,
 		},
 		{
 			name: "deprecated alias",
-			args: []string{earthCmd, deprecatedDocker2EarthCmdName},
+			args: []string{"earth", deprecatedDocker2EarthCmdName},
 			want: deprecatedDocker2EarthCmdName,
 		},
 		{
 			name: "global flag before alias",
-			args: []string{earthCmd, "--verbose", deprecatedDocker2EarthCmdName, "--tag", "x:y"},
+			args: []string{"earth", "--verbose", deprecatedDocker2EarthCmdName, "--tag", "x:y"},
 			want: deprecatedDocker2EarthCmdName,
 		},
 	}
@@ -39,7 +39,7 @@ func TestInvokedAs(t *testing.T) {
 			var got string
 
 			root := &cli.Command{
-				Name:  earthCmd,
+				Name:  "earth",
 				Flags: []cli.Flag{&cli.BoolFlag{Name: "verbose"}},
 				Commands: []*cli.Command{
 					{

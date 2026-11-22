@@ -1,6 +1,6 @@
 # Alternative Installation
 
-This page outlines alternative installation instructions for the `earth` build tool. The main instructions that most users need are available on the [installation page](https://www.earthbuild.dev/install.html).
+This page outlines alternative installation instructions for the `earth` build tool. The main instructions that most users need are available on the [installation page](https://earthbuild.dev/install/).
 
 ## Prerequisites
 

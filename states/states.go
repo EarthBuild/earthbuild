@@ -364,10 +364,10 @@ type SaveLocal struct {
 
 // SaveImage is a docker image to be saved.
 type SaveImage struct {
-	State               pllb.State
-	Platform            platutil.Platform
 	Image               *image.Image
+	Platform            platutil.Platform
 	DockerTag           string
+	State               pllb.State
 	HasPushDependencies bool
 	// CacheHint instructs earth to save a separate ref for this image, even if no tag is provided.
 	CacheHint    bool
@@ -390,11 +390,11 @@ type SaveImage struct {
 // RunPush is a series of RUN --push commands to be run after the build has been deemed as
 // successful, along with artifacts to save and images to push.
 type RunPush struct {
-	State              pllb.State
-	InteractiveSession InteractiveSession
 	CommandStrs        []string
 	SaveLocals         []SaveLocal
 	SaveImages         []SaveImage
+	State              pllb.State
+	InteractiveSession InteractiveSession
 	HasState           bool
 }
 
@@ -411,8 +411,8 @@ const (
 // InteractiveSession holds the relevant data for running an interactive session when
 // it is not desired to save the resulting changes into an image.
 type InteractiveSession struct {
-	State       pllb.State
 	CommandStr  string
 	Kind        InteractiveSessionKind
+	State       pllb.State
 	Initialized bool
 }

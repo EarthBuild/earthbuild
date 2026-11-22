@@ -23,12 +23,6 @@ var (
 	testBinary string
 )
 
-const (
-	firstCommandFixture = "first-command"
-	configFlag          = "--config"
-	configCmd           = "config"
-)
-
 func TestMain(m *testing.M) {
 	binary, cleanup, err := buildEarthBinary()
 	if err != nil {
@@ -245,7 +239,7 @@ func TestEarthfileValidationFailures(t *testing.T) {
 		},
 		{
 			name:    "first-command-run",
-			fixture: firstCommandFixture,
+			fixture: "first-command",
 			args:    []string{"+start-with-run"},
 			contains: []string{
 				"apply RUN: requires a FROM",
@@ -253,7 +247,7 @@ func TestEarthfileValidationFailures(t *testing.T) {
 		},
 		{
 			name:    "first-command-if",
-			fixture: firstCommandFixture,
+			fixture: "first-command",
 			args:    []string{"+start-with-if"},
 			contains: []string{
 				"apply IF: requires a FROM",
@@ -261,7 +255,7 @@ func TestEarthfileValidationFailures(t *testing.T) {
 		},
 		{
 			name:    "first-command-non-from-target",
-			fixture: firstCommandFixture,
+			fixture: "first-command",
 			args:    []string{"+start-with-non-from-target"},
 			contains: []string{
 				"apply RUN: requires a FROM",
@@ -374,7 +368,7 @@ func TestConfigCommand(t *testing.T) {
 	configPath := filepath.Join(projectDir, "config.yml")
 	expectedDir := filepath.Join(repoRoot(), "tests", "cli", "testdata", "config")
 
-	cmdOut, cmdErr := runEarth(t, projectDir, configFlag, configPath, configCmd, "global.cache_size_mb", "10")
+	cmdOut, cmdErr := runEarth(t, projectDir, "--config", configPath, "config", "global.cache_size_mb", "10")
 	require.Error(t, cmdErr)
 	require.Contains(t, cmdOut, "failed to read from "+configPath)
 
@@ -387,27 +381,27 @@ func TestConfigCommand(t *testing.T) {
 	}{
 		{
 			name:     "integer",
-			args:     []string{configFlag, configPath, configCmd, "global.cache_size_mb", "10"},
+			args:     []string{"--config", configPath, "config", "global.cache_size_mb", "10"},
 			expected: "expected-1.yml",
 		},
 		{
 			name:     "nested string",
-			args:     []string{configFlag, configPath, configCmd, `git."example.com".password`, "hunter2"},
+			args:     []string{"--config", configPath, "config", `git."example.com".password`, "hunter2"},
 			expected: "expected-2.yml",
 		},
 		{
 			name:     "list",
-			args:     []string{configFlag, configPath, configCmd, "global.buildkit_additional_args", "['userns', '--host']"},
+			args:     []string{"--config", configPath, "config", "global.buildkit_additional_args", "['userns', '--host']"},
 			expected: "expected-3.yml",
 		},
 		{
 			name:     "another integer",
-			args:     []string{configFlag, configPath, configCmd, "global.conversion_parallelism", "5"},
+			args:     []string{"--config", configPath, "config", "global.conversion_parallelism", "5"},
 			expected: "expected-4.yml",
 		},
 		{
 			name:     "delete",
-			args:     []string{configFlag, configPath, configCmd, "global.conversion_parallelism", "--delete"},
+			args:     []string{"--config", configPath, "config", "global.conversion_parallelism", "--delete"},
 			expected: "expected-5.yml",
 		},
 	}
@@ -426,7 +420,7 @@ func TestConfigCommand(t *testing.T) {
 			helpOut, err := runEarth(
 				t,
 				projectDir,
-				configFlag,
+				"--config",
 				configPath,
 				"config",
 				"global.conversion_parallelism",
@@ -444,7 +438,7 @@ func TestConfigCommand(t *testing.T) {
 			invalidOut, err := runEarth(
 				t,
 				projectDir,
-				configFlag,
+				"--config",
 				configPath,
 				"config",
 				"global.conversion_parallelism",
@@ -455,7 +449,7 @@ func TestConfigCommand(t *testing.T) {
 		})
 	}
 
-	finalOut, finalErr := runEarth(t, projectDir, configFlag, configPath, configCmd, "global.buildkit_image", "")
+	finalOut, finalErr := runEarth(t, projectDir, "--config", configPath, "config", "global.buildkit_image", "")
 	require.NoError(t, finalErr, finalOut)
 }
 

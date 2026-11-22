@@ -8,6 +8,8 @@ import (
 	"io"
 	"strconv"
 	"time"
+
+	"github.com/EarthBuild/earthbuild/internal/engine"
 )
 
 // Settings represents the buildkitd settings used to start up the daemon with.
@@ -24,6 +26,7 @@ type Settings struct {
 	ClientTLSKey      string
 	ClientTLSCert     string
 	VolumeName        string
+	InstallationName  string // InstallationName is not included in hash; container name is already per-installation.
 	AdditionalConfig  string
 	AdditionalArgs    []string
 	CacheSizeMb       int
@@ -37,6 +40,14 @@ type Settings struct {
 	EnableProfiler    bool
 	NoUpdate          bool // NoUpdate is not included in hash.
 	Debug             bool
+	// addrFromContainer is set when BuildkitAddr was resolved from a container earth manages
+	// (e.g. the Apple Container bridge IP), so it stays local whatever its form. Not hashed.
+	addrFromContainer bool
+}
+
+// isLocal reports whether BuildkitAddr points at a buildkitd that earth manages.
+func (s Settings) isLocal() bool {
+	return s.addrFromContainer || engine.IsLocal(s.BuildkitAddr)
 }
 
 type settingsHasher struct {

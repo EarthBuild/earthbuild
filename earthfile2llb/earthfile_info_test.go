@@ -170,11 +170,6 @@ func TestArtifactName(t *testing.T) {
 func TestImageNames(t *testing.T) {
 	t.Parallel()
 
-	const (
-		imageV1 = "my-app:v1.0.0"
-		imageV2 = "my-app:latest"
-	)
-
 	tests := []struct {
 		wantNames   []string
 		name        string
@@ -186,17 +181,17 @@ func TestImageNames(t *testing.T) {
 			name: "single image name",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdSaveImage,
-				Args: []string{imageV1},
+				Args: []string{"my-app:v1.0.0"},
 			},
-			wantNames: []string{imageV1},
+			wantNames: []string{"my-app:v1.0.0"},
 		},
 		{
 			name: "multiple image names",
 			cmd: earthfile.Command{
 				Name: earthfile.CmdSaveImage,
-				Args: []string{imageV1, imageV2},
+				Args: []string{"my-app:v1.0.0", "my-app:latest"},
 			},
-			wantNames: []string{imageV1, imageV2},
+			wantNames: []string{"my-app:v1.0.0", "my-app:latest"},
 		},
 		{
 			name: "non-save-image command returns error",

@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM gcr.io/distroless/python3-debian13@sha256:931a490beb37db6a1d137ad11ed47ae4c0d4741ca5c2285818b49e9a8ee11c56
+FROM gcr.io/distroless/python3-debian13@sha256:3f3fd24c6e8aa74559a8e84110a9b2916ae6e5ac6f482eea38d8bdac074fa03b
 
 test-exec-form-run:
     RUN ["python3", "--version"]

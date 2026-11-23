@@ -571,7 +571,7 @@
         {
           "command": {
             "args": [
-              "alpine:3.24.2"
+              "alpine:3.24.4"
             ],
             "name": "FROM",
             "sourceLocation": {
@@ -713,7 +713,7 @@
         {
           "command": {
             "args": [
-              "alpine:3.24.2"
+              "alpine:3.24.4"
             ],
             "name": "FROM",
             "sourceLocation": {
@@ -820,7 +820,7 @@
         {
           "command": {
             "args": [
-              "alpine:3.24.2"
+              "alpine:3.24.4"
             ],
             "name": "FROM",
             "sourceLocation": {

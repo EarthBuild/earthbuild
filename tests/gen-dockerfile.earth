@@ -1,6 +1,6 @@
 VERSION 0.8
 
-FROM alpine:3.24.2
+FROM alpine:3.24.4
 WORKDIR /test
 
 all:

@@ -38,6 +38,17 @@ func (l *loader) hashCommand(c earthfile.Command) {
 	l.hasher.HashString(string(c.Name))
 	l.hasher.HashJSONMarshalled(c.Args)
 	l.hasher.HashBool(c.ExecMode)
+
+	if len(c.Heredocs) > 0 {
+		l.hasher.HashInt(len(c.Heredocs))
+
+		for _, h := range c.Heredocs {
+			l.hasher.HashString(h.Name)
+			l.hasher.HashString(h.Content)
+			l.hasher.HashBool(h.Chomp)
+			l.hasher.HashBool(h.Expand)
+		}
+	}
 }
 
 func (l *loader) hashForStatement(f earthfile.ForStatement) {

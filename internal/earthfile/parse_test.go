@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,6 +36,207 @@ foo:
 				r.NotNil(set.Command)
 				r.Equal(CmdSet, set.Command.Name)
 				r.Equal([]string{"foo", "=", "baz"}, set.Command.Args)
+			},
+		},
+		{
+			note: "it parses RUN commands with heredocs",
+			earthfile: `
+VERSION 0.8
+
+build:
+    RUN <<EOF
+    set -e
+    apk update
+    EOF
+`,
+			check: func(r *require.Assertions, s Tree, err error) {
+				r.NoError(err)
+				r.Len(s.Targets, 1)
+				b := s.Targets[0]
+				r.Len(b.Recipe, 1)
+				run := b.Recipe[0]
+				r.NotNil(run.Command)
+				r.Equal(CmdRun, run.Command.Name)
+				r.Equal([]string{"<<EOF"}, run.Command.Args)
+				r.Len(run.Command.Heredocs, 1)
+				r.Equal("EOF", run.Command.Heredocs[0].Name)
+				r.Equal("    set -e\n    apk update\n", run.Command.Heredocs[0].Content)
+				r.False(run.Command.Heredocs[0].Chomp)
+				r.True(run.Command.Heredocs[0].Expand)
+			},
+		},
+		{
+			note: "it parses RUN commands with custom interpreter and tab-chomping heredoc",
+			earthfile: `
+VERSION 0.8
+
+build:
+    RUN python3 <<-EOF
+	import json
+	print("hello")
+	EOF
+`,
+			check: func(r *require.Assertions, s Tree, err error) {
+				r.NoError(err)
+				r.Len(s.Targets, 1)
+				b := s.Targets[0]
+				r.Len(b.Recipe, 1)
+				run := b.Recipe[0]
+				r.NotNil(run.Command)
+				r.Equal(CmdRun, run.Command.Name)
+				r.Equal([]string{"python3", "<<-EOF"}, run.Command.Args)
+				r.Len(run.Command.Heredocs, 1)
+				r.Equal("EOF", run.Command.Heredocs[0].Name)
+				r.Equal("import json\nprint(\"hello\")\n", run.Command.Heredocs[0].Content)
+				r.True(run.Command.Heredocs[0].Chomp)
+				r.True(run.Command.Heredocs[0].Expand)
+			},
+		},
+		{
+			note: "it parses COPY commands with heredocs",
+			earthfile: `
+VERSION 0.8
+
+build:
+    COPY <<'EOF' /etc/app/config.json
+    {"key": "value"}
+    EOF
+`,
+			check: func(r *require.Assertions, s Tree, err error) {
+				r.NoError(err)
+				r.Len(s.Targets, 1)
+				b := s.Targets[0]
+				r.Len(b.Recipe, 1)
+				cp := b.Recipe[0]
+				r.NotNil(cp.Command)
+				r.Equal(CmdCopy, cp.Command.Name)
+				r.Equal([]string{"<<'EOF'", "/etc/app/config.json"}, cp.Command.Args)
+				r.Len(cp.Command.Heredocs, 1)
+
+				wantContent := "    {\"key\": \"value\"}\n"
+
+				r.Equal("EOF", cp.Command.Heredocs[0].Name)
+				r.Equal(wantContent, cp.Command.Heredocs[0].Content)
+				r.False(cp.Command.Heredocs[0].Expand)
+			},
+		},
+		{
+			note: "it parses COPY commands with chained heredocs",
+			earthfile: `
+VERSION 0.8
+
+build:
+    COPY <<EOF1 <<EOF2 /dest
+file 1
+EOF1
+file 2
+EOF2
+`,
+			check: func(r *require.Assertions, s Tree, err error) {
+				r.NoError(err)
+				r.Len(s.Targets, 1)
+				b := s.Targets[0]
+				r.Len(b.Recipe, 1)
+				cp := b.Recipe[0]
+				r.NotNil(cp.Command)
+				r.Equal(CmdCopy, cp.Command.Name)
+				r.Equal([]string{"<<EOF1", "<<EOF2", "/dest"}, cp.Command.Args)
+				r.Len(cp.Command.Heredocs, 2)
+				r.Equal("EOF1", cp.Command.Heredocs[0].Name)
+				r.Equal("file 1\n", cp.Command.Heredocs[0].Content)
+				r.Equal("EOF2", cp.Command.Heredocs[1].Name)
+				r.Equal("file 2\n", cp.Command.Heredocs[1].Content)
+			},
+		},
+		{
+			note: "it rejects COPY when destination is a heredoc",
+			earthfile: `
+VERSION 0.8
+
+build:
+    COPY /foo <<EOF
+    content
+    EOF
+`,
+			check: func(r *require.Assertions, _ Tree, err error) {
+				r.Error(err)
+				r.Contains(err.Error(), "COPY cannot accept a heredoc as a destination")
+			},
+		},
+		{
+			note: "it rejects heredoc on unsupported commands",
+			earthfile: `
+VERSION 0.8
+
+build:
+    WORKDIR <<EOF
+    content
+    EOF
+`,
+			check: func(r *require.Assertions, _ Tree, err error) {
+				r.Error(err)
+				r.Contains(err.Error(), "heredocs are only supported for RUN and COPY commands")
+			},
+		},
+		{
+			note: "it parses ARG with heredoc-like syntax as a regular argument",
+			earthfile: `
+VERSION 0.8
+
+build:
+    ARG X=<<EOF
+    RUN echo $X
+`,
+			check: func(r *require.Assertions, s Tree, err error) {
+				r.NoError(err)
+				r.Len(s.Targets, 1)
+				r.Len(s.Targets[0].Recipe, 2)
+				argCmd := s.Targets[0].Recipe[0].Command
+				r.NotNil(argCmd)
+				r.Equal(CmdArg, argCmd.Name)
+				r.Empty(argCmd.Heredocs)
+			},
+		},
+		{
+			note: "it parses RUN with shift operator without triggering heredocs",
+			earthfile: `
+VERSION 0.8
+
+build:
+    RUN echo 1<<2
+`,
+			check: func(r *require.Assertions, s Tree, err error) {
+				r.NoError(err)
+				r.Len(s.Targets, 1)
+				r.Len(s.Targets[0].Recipe, 1)
+				runCmd := s.Targets[0].Recipe[0].Command
+				r.NotNil(runCmd)
+				r.Equal(CmdRun, runCmd.Name)
+				r.Equal([]string{"echo", "1<<2"}, runCmd.Args)
+				r.Empty(runCmd.Heredocs)
+			},
+		},
+		{
+			note: "it parses IF with shift operator without triggering heredocs",
+			earthfile: `
+VERSION 0.8
+
+build:
+    IF [ 1<<2 -eq 4 ]
+        RUN echo ok
+    END
+`,
+			check: func(r *require.Assertions, s Tree, err error) {
+				r.NoError(err)
+				r.Len(s.Targets, 1)
+			},
+		},
+		{
+			note:      "it rejects unterminated heredoc at EOF without newline",
+			earthfile: "VERSION 0.8\n\nbuild:\n    RUN <<EOF",
+			check: func(r *require.Assertions, _ Tree, err error) {
+				r.Error(err)
+				r.Contains(err.Error(), "unterminated heredoc")
 			},
 		},
 		{
@@ -2192,7 +2394,7 @@ func BenchmarkParse(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	for range b.N {
+	for b.Loop() {
 		_, err := Parse("Earthfile", string(content))
 		if err != nil {
 			b.Fatal(err)
@@ -2444,4 +2646,210 @@ build:
 		EndLine:     7,
 		EndColumn:   27,
 	}, ifStmt.ElseIf[1].SourceLocation)
+}
+
+func TestValidateAndAssignHeredocs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		cmd      *Command
+		name     string
+		wantErr  string
+		heredocs []Heredoc
+	}{
+		{
+			name: "rejects exec form",
+			cmd: &Command{
+				Name:     CmdRun,
+				ExecMode: true,
+			},
+			heredocs: []Heredoc{{Name: "EOF", Content: "echo hello"}},
+			wantErr:  "heredocs are not supported in exec form",
+		},
+		{
+			name: "rejects declaration count mismatch",
+			cmd: &Command{
+				Name: CmdRun,
+				Args: []string{"cat", "<<EOF"},
+			},
+			heredocs: []Heredoc{
+				{Content: "echo hello"},
+				{Content: "echo world"},
+			},
+			wantErr: "number of heredocs (2) does not match number of declarations (1)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			p := &parser{lex: &lexer{name: "Earthfile"}}
+			err := validateAndAssignHeredocs(item{}, tt.cmd, tt.heredocs, p)
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestParse_HeredocSourceLocation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		earthfile    string
+		wantHeredocs []SourceLocation
+		wantCmdStart int
+		wantCmdEnd   int
+	}{
+		{
+			name: "RUN single heredoc",
+			earthfile: `VERSION 0.8
+build:
+  RUN <<EOF
+    echo "hello"
+    echo "world"
+  EOF
+`,
+			wantCmdStart: 3,
+			wantCmdEnd:   6,
+			wantHeredocs: []SourceLocation{
+				{StartLine: 4, EndLine: 6},
+			},
+		},
+		{
+			name: "COPY chained heredocs",
+			earthfile: `VERSION 0.8
+build:
+  COPY <<EOF1 <<EOF2 ./dest/
+file 1
+EOF1
+file 2
+EOF2
+`,
+			wantCmdStart: 3,
+			wantCmdEnd:   7,
+			wantHeredocs: []SourceLocation{
+				{StartLine: 4, EndLine: 5},
+				{StartLine: 6, EndLine: 7},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tree, err := Parse("Earthfile", tt.earthfile)
+			require.NoError(t, err)
+			require.Len(t, tree.Targets, 1)
+			require.Len(t, tree.Targets[0].Recipe, 1)
+			cmd := tree.Targets[0].Recipe[0].Command
+			require.NotNil(t, cmd)
+			assert.Equal(t, tt.wantCmdStart, cmd.SourceLocation.StartLine)
+			assert.Equal(t, tt.wantCmdEnd, cmd.SourceLocation.EndLine)
+			require.Len(t, cmd.Heredocs, len(tt.wantHeredocs))
+
+			for idx, wantLoc := range tt.wantHeredocs {
+				assert.Equal(t, wantLoc.StartLine, cmd.Heredocs[idx].SourceLocation.StartLine)
+				assert.Equal(t, wantLoc.EndLine, cmd.Heredocs[idx].SourceLocation.EndLine)
+			}
+		})
+	}
+}
+
+func TestParse_HeredocExtendedForms(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		earthfile    string
+		wantCmdName  Cmd
+		wantArgs     []string
+		wantHeredocs []Heredoc
+	}{
+		{
+			name: "RUN with header trailing comment and multiple leading and trailing args",
+			earthfile: `VERSION 0.8
+build:
+  RUN python3 -u <<EOF arg1 "arg 2" # run inline python script
+print("hi")
+EOF
+`,
+			wantCmdName: CmdRun,
+			wantArgs:    []string{"python3", "-u", "<<EOF", "arg1", "\"arg 2\""},
+			wantHeredocs: []Heredoc{
+				{
+					Name:    "EOF",
+					Content: "print(\"hi\")\n",
+					Expand:  true,
+				},
+			},
+		},
+		{
+			name: "RUN with backslash line continuations on header line",
+			earthfile: `VERSION 0.8
+build:
+  RUN --no-cache \
+      python3 \
+      <<'EOF' \
+      --flag
+import sys
+EOF
+`,
+			wantCmdName: CmdRun,
+			wantArgs:    []string{"--no-cache", "python3", "<<'EOF'", "--flag"},
+			wantHeredocs: []Heredoc{
+				{
+					Name:    "EOF",
+					Content: "import sys\n",
+					Expand:  false,
+				},
+			},
+		},
+		{
+			name: "COPY with filename delimiters, trailing comment, and terminator at EOF",
+			earthfile: "VERSION 0.8\nbuild:\n" +
+				"  COPY <<app.conf <<'sub/app.conf' <<'[init]' /etc/ # copy configs\n" +
+				"k=1\napp.conf\nk=2\nsub/app.conf\nk=3\n  [init]  ",
+			wantCmdName: CmdCopy,
+			wantArgs:    []string{"<<app.conf", "<<'sub/app.conf'", "<<'[init]'", "/etc/"},
+			wantHeredocs: []Heredoc{
+				{Name: "app.conf", Content: "k=1\n", Expand: true},
+				{Name: "sub/app.conf", Content: "k=2\n", Expand: false},
+				{Name: "[init]", Content: "k=3\n", Expand: false},
+			},
+		},
+		{
+			name: "COPY with <<<file treated as ordinary file token",
+			earthfile: `VERSION 0.8
+build:
+  COPY <<<file /dest
+`,
+			wantCmdName:  CmdCopy,
+			wantArgs:     []string{"<<<file", "/dest"},
+			wantHeredocs: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tree, err := Parse("Earthfile", tt.earthfile)
+			require.NoError(t, err)
+			require.Len(t, tree.Targets, 1)
+			require.Len(t, tree.Targets[0].Recipe, 1)
+
+			cmd := tree.Targets[0].Recipe[0].Command
+			require.NotNil(t, cmd)
+			assert.Equal(t, tt.wantCmdName, cmd.Name)
+			assert.Equal(t, tt.wantArgs, cmd.Args)
+
+			for i := range cmd.Heredocs {
+				cmd.Heredocs[i].SourceLocation = SourceLocation{}
+			}
+
+			assert.Equal(t, tt.wantHeredocs, cmd.Heredocs)
+		})
+	}
 }

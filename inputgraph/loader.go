@@ -171,6 +171,12 @@ func (l *loader) handleCopy(ctx context.Context, cmd earthfile.Command) error {
 	mustExist := !opts.IfExists
 
 	for _, src := range srcs {
+		if len(cmd.Heredocs) > 0 {
+			if _, ok := earthfile.ParseHeredocDecl(src); ok {
+				continue
+			}
+		}
+
 		err := l.handleCopySrc(ctx, cmd, src, mustExist)
 		if err != nil {
 			return err

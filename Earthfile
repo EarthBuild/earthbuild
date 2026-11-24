@@ -370,20 +370,6 @@ integration-test:
         END
     END
 
-# changelog saves the CHANGELOG.md as an artifact
-changelog:
-    FROM scratch
-    SAVE ARTIFACT CHANGELOG.md
-
-# lint-changelog lints the CHANGELOG.md file
-lint-changelog:
-    FROM python:3.15.2-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
-    RUN pip install packaging
-    WORKDIR /changelog
-    COPY release/changelogparser.py /usr/bin/changelogparser
-    COPY CHANGELOG.md .
-    RUN changelogparser --changelog CHANGELOG.md
-
 # debugger builds the earthly debugger and saves the artifact in build/earth_debugger
 debugger:
     FROM +code
@@ -839,7 +825,6 @@ all:
 lint-all:
     BUILD +lint
     BUILD +lint-scripts
-    BUILD +lint-changelog
     BUILD +lint-workflows
 
 # test-no-qemu runs tests without qemu virtualization by passing in dockerhub authentication and

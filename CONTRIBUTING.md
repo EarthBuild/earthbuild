@@ -242,7 +242,7 @@ To contribute improvements to documentation related to currently released featur
 
 ### Config
 
-Starting with [v0.6.30](CHANGELOG.md#v0630---2022-11-22), the default location of the built binary's config file has
+Starting with [v0.6.30](https://github.com/earthly/earthly/releases/tag/v0.6.30), the default location of the built binary's config file has
 changed to `~/.earth-dev/config.yml`. The standard location is not used as a fallback; it is possible to `export EARTH_CONFIG=~/.earth/config.yml`, or create a symlink if required.
 
 ## Prereleases

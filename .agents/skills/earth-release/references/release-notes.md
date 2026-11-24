@@ -5,7 +5,7 @@ Write curated notes; never ship GitHub auto-generated "What's Changed" list.
 
 ## Sources
 - Commits: `git log --oneline <base>..<sha>`; read each PR body (`gh pr view <n> --json title,body,author`).
-- User-facing wording: `CHANGELOG.md` additions (`git diff --no-ext-diff <base> <sha> -- CHANGELOG.md`).
+- User-facing wording: PR titles and bodies, and the linked issues. There is no `CHANGELOG.md`; the GitHub release notes are the changelog.
 - Versions: `git diff --no-ext-diff <base> <sha> -- go.mod buildkitd/Earthfile '*Earthfile'` and Renovate PR tables.
 - Fork pin: report only `replace github.com/moby/buildkit => github.com/EarthBuild/buildkit` and `BUILDKIT_BASE_IMAGE` SHA (12 chars), and inspect fork commits (`gh api repos/EarthBuild/buildkit/compare/<old>...<new>`) for user-facing fixes. Omit `require github.com/moby/buildkit` bumps — they are overridden by the fork `replace` and have no effect.
 - Contributors: human PR authors in `<base>..<sha>` (exclude bots like `renovate[bot]`); verify first-time contributors against history before `<base>`.
@@ -33,6 +33,6 @@ Write curated notes; never ship GitHub auto-generated "What's Changed" list.
 - Link every `#PR` (`https://github.com/EarthBuild/earthbuild/pull/<n>`) and `#issue` (`https://github.com/EarthBuild/earthbuild/issues/<n>`) as Markdown links.
 - Say `earth` / EarthBuild, not `earthly` / Earthly.
 - Behaviour that newly fails builds (for example a previously ignored directive now enforced) -> Breaking, even when the PR is a fix.
-- State only facts verified from PRs, `CHANGELOG.md` or diffs; no guessed regression versions.
+- State only facts verified from PRs, issues or diffs; no guessed regression versions.
 - Omit issues introduced and fixed within `<base>..<sha>` (for example regressions introduced in an earlier RC of the same release).
 - Link relevant published doc pages on `https://docs.earthbuild.dev` for new features, CLI flags, config options, and upgrade/migration steps. Always link to the exact `#section` anchor on multi-section/reference pages (verified against rendered `id="..."` in live HTML) rather than the top of a large page.

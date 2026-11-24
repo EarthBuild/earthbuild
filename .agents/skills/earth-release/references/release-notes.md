@@ -7,7 +7,7 @@ Write curated notes; never ship GitHub auto-generated "What's Changed" list.
 - Commits: `git log --oneline <base>..<sha>`; read each PR body (`gh pr view <n> --json title,body,author`).
 - User-facing wording: `CHANGELOG.md` additions (`git diff --no-ext-diff <base> <sha> -- CHANGELOG.md`).
 - Versions: `git diff --no-ext-diff <base> <sha> -- go.mod buildkitd/Earthfile '*Earthfile'` and Renovate PR tables.
-- Fork pin: report `replace github.com/moby/buildkit => github.com/EarthBuild/buildkit` and `BUILDKIT_BASE_IMAGE` SHA (12 chars). `require github.com/moby/buildkit` bump has no effect -> label "overridden by fork `replace`".
+- Fork pin: report only `replace github.com/moby/buildkit => github.com/EarthBuild/buildkit` and `BUILDKIT_BASE_IMAGE` SHA (12 chars). Omit `require github.com/moby/buildkit` bumps — they are overridden by the fork `replace` and have no effect.
 - Contributors: human PR authors in `<base>..<sha>` (exclude bots like `renovate[bot]`); verify first-time contributors against history before `<base>`.
 
 ## Layout (omit empty sections; separate sections with `---`)

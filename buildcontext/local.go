@@ -108,7 +108,7 @@ func (lr *localResolver) resolveLocal(
 		}, nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, withTarget(err, ref)
 	}
 
 	data := &Data{

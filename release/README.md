@@ -18,7 +18,6 @@
   ```bash
   git checkout main && git pull
   ```
-- Update the CHANGELOG.md with the corresponding release notes and open a PR
 - Use a comparison such as https://github.com/earthbuild/earthbuild/compare/v0.8.13...main (replace the versions in the URL with the previously released version) or a tool such as `gitk` (aka `git-gui`) to see which PRs will go into this release.
 - Make sure that main build is green for all platforms (check build status for the latest commit on GitHub).
 - Make sure the following build status are green:
@@ -26,7 +25,7 @@
   | ------------- | ------------- |
   | MacOS (x86) | [![Build status](https://badge.buildkite.com/cc0627732806ab3b76cf13b02c498658b851056242ec28f62d.svg)](https://buildkite.com/earthly-technologies/earthly-mac-scheduled)
   | MacOS (M1) | [![Build status](https://badge.buildkite.com/10a7331b2032fcc9f7f311c5218d12c1a18c317cd7fc9270ba.svg)](https://buildkite.com/earthly-technologies/earthly-m1-scheduled)
-- Create and publish the release on [GitHub Releases](https://github.com/earthbuild/earthbuild/releases/new) targeting `$RELEASE_TAG` (include release notes and mark pre-release if applicable). Publishing the release automatically triggers the [Tagged Release](../.github/workflows/on-tag-release.yml) workflow to upload release artifacts and promote images to DockerHub.
+- Create and publish the release on [GitHub Releases](https://github.com/earthbuild/earthbuild/releases/new) targeting `$RELEASE_TAG` (write the release notes there, since GitHub Releases are the only changelog, and mark pre-release if applicable). Publishing the release automatically triggers the [Tagged Release](../.github/workflows/on-tag-release.yml) workflow to upload release artifacts and promote images to DockerHub.
 - If publishing package repositories (apt/yum):
   ```bash
   earth --push ./release+release-repo --RELEASE_TAG="$RELEASE_TAG"
@@ -80,8 +79,8 @@ git commit # enter a message saying you are rolling back
 git push
 ```
 
-3. Mark the release title in [CHANGELOG.md](../CHANGELOG.md) as `(aborted release/not recommended)`, e.g.:
-   `## v0.7.18 - 2023-09-18 (aborted release/not recommended)`
+3. Edit the [GitHub Release](https://github.com/earthbuild/earthbuild/releases) title to append `(aborted release/not recommended)`, e.g.:
+   `v0.7.18 (aborted release/not recommended)`
 4. TODO need to create targets for apt and yum Earthfiles to perform rollbacks
 
 ### dind

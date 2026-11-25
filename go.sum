@@ -228,6 +228,8 @@ github.com/docker/cli v29.9.3+incompatible h1:SBaMp7ecohadEHMDrUJg22t9I3awqsAVhn
 github.com/docker/cli v29.9.3+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
 github.com/docker/cli v29.10.0+incompatible h1:lCL+clBUJnHsmjBCr6TwvfQFkmBidPxi5SkuXCoYxc0=
 github.com/docker/cli v29.10.0+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
+github.com/docker/cli v29.10.1+incompatible h1:0wlyVoe0snmKYUUjJuhoR0HiSqRHQonKVcZzT7LwkVM=
+github.com/docker/cli v29.10.1+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
 github.com/docker/docker v28.0.4+incompatible h1:JNNkBctYKurkw6FrHfKqY0nKIDf5nrbxjVBtS+cdcok=
 github.com/docker/docker v28.0.4+incompatible/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/docker/docker-credential-helpers v0.9.8 h1:bIREROb7So6PRlq6KTtdS9MPEjC29OQRkFNlvK2OX8Q=

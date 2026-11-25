@@ -15,7 +15,7 @@ require (
 	github.com/docker/go-connections v0.8.2
 	github.com/docker/go-units v0.5.0
 	github.com/dustin/go-humanize v1.1.0
-	github.com/elastic/go-sysinfo v1.15.5
+	github.com/elastic/go-sysinfo v1.16.0
 	github.com/fatih/color v1.19.0
 	github.com/gofrs/flock v0.13.2
 	github.com/google/go-cmp v0.7.0
@@ -83,6 +83,7 @@ require (
 	github.com/containerd/typeurl/v2 v2.3.0 // indirect
 	github.com/docker/docker v28.0.4+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.8 // indirect
+	github.com/ebitengine/purego v0.11.2 // indirect
 	github.com/elastic/go-windows v1.0.2 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect

@@ -239,7 +239,7 @@ func (app *EarthApp) handleError(ctx context.Context, err error, args []string, 
 		return 9
 	case strings.Contains(err.Error(), errutil.EarthlyGitStdErrMagicString):
 		helpMsg := "Check your git auth settings.\n" +
-			"Did you ssh-add today? Need to configure ~/.earthly/config.yml?\n" +
+			fmt.Sprintf("Did you ssh-add today? Need to configure %s?\n", app.BaseCLI.Flags().ConfigPath) +
 			"For more information see https://docs.earthbuild.dev/guides/auth\n"
 		app.BaseCLI.Logbus().Run().SetGenericFatalError(
 			time.Now(),

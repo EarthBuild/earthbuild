@@ -339,7 +339,7 @@ Concrete examples as they apply to `v0.8.18`:
 
 # Pulling the all-in-one image in CI
 - docker pull docker.io/earthly/earthly:v0.8.16
-+ docker pull docker.io/earthbuild/earthbuild:v0.8.19
++ docker pull docker.io/earthbuild/earthbuild:v0.8.20
 
 # A dind base image (WITH DOCKER)
 - FROM docker.io/earthly/dind:alpine

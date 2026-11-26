@@ -1,0 +1,21 @@
+VERSION 0.8
+FROM alpine:3.24.2
+
+needs-run:
+    RUN --privileged echo "this requires privileged mode"
+
+needs-with-docker:
+    FROM earthbuild/dind:alpine-3.24-docker-29.8.2-r0
+    WITH DOCKER
+        RUN docker ps
+    END
+
+needs-if:
+    IF --privileged [ -f /proc/self/status ]
+        RUN echo "found status"
+    END
+
+needs-for:
+    FOR --privileged file IN $(ls)
+        RUN echo $file
+    END

@@ -119,7 +119,7 @@ func TestMultiAuth(t *testing.T) {
 
 		resp, err := multi.FetchToken(t.Context(), req)
 		require.NoError(t, err)
-		require.Equal(t, "secret", resp.Token)
+		require.Equal(t, "secret", resp.GetToken())
 		require.Equal(t, int32(1), child1.fetchCount.Load())
 		require.Equal(t, int32(1), child2.fetchCount.Load())
 

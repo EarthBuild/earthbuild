@@ -398,3 +398,26 @@ func TestWaitUntilStopped(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 	})
 }
+
+func TestGetGCPolicySize(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		policy   []client.PruneInfo
+		wantSize int64
+		wantOK   bool
+	}{
+		{name: "no catch-all policy", policy: []client.PruneInfo{{Filter: []string{"type==source.local"}, ReservedSpace: 5}}},
+		{name: "legacy keepBytes lands in ReservedSpace", policy: []client.PruneInfo{{All: true, ReservedSpace: 7}}, wantSize: 7, wantOK: true},
+		{name: "MaxUsedSpace is the cap", policy: []client.PruneInfo{{All: true, ReservedSpace: 7, MaxUsedSpace: 9}}, wantSize: 9, wantOK: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			size, ok := getGCPolicySize(&client.WorkerInfo{GCPolicy: tt.policy})
+			assert.Equal(t, tt.wantOK, ok)
+			assert.Equal(t, tt.wantSize, size)
+		})
+	}
+}

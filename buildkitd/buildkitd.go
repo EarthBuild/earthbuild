@@ -1409,9 +1409,16 @@ func printBuildkitInfo(
 
 func getGCPolicySize(workerInfo *client.WorkerInfo) (int64, bool) {
 	for _, p := range workerInfo.GCPolicy {
-		if p.All {
-			return p.KeepBytes, true
+		if !p.All {
+			continue
 		}
+		// buildkit v0.17 split KeepBytes into ReservedSpace/MaxUsedSpace/MinFreeSpace and
+		// maps the legacy keepBytes config key onto ReservedSpace.
+		if p.MaxUsedSpace != 0 {
+			return p.MaxUsedSpace, true
+		}
+
+		return p.ReservedSpace, true
 	}
 
 	return 0, false

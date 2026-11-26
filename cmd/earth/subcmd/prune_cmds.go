@@ -112,7 +112,8 @@ func (a *Prune) action(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	if a.keepDuration > 0 || a.targetSize > 0 {
-		opts = append(opts, client.WithKeepOpt(time.Duration(a.keepDuration), int64(a.targetSize))) // #nosec G115
+		// buildkit v0.17 split keep-storage into reserved/max/free; --size is the max used space.
+		opts = append(opts, client.WithKeepOpt(time.Duration(a.keepDuration), 0, int64(a.targetSize), 0)) // #nosec G115
 	}
 
 	ch := make(chan client.UsageInfo, 1)

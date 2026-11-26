@@ -44,6 +44,11 @@ func CopyOp(
 		baseCopyOpts = append(baseCopyOpts, llb.WithCreatedTime(*defaultTs()))
 	}
 
+	var mode *llb.ChmodOpt
+	if chmod != nil {
+		mode = &llb.ChmodOpt{Mode: *chmod}
+	}
+
 	for _, src := range srcs {
 		if ifExists && len(src) != 0 {
 			// Strip ./ and / prefixes as to make paths relative to top-level.
@@ -57,7 +62,7 @@ func CopyOp(
 
 		copyOpts := append([]llb.CopyOption{
 			&llb.CopyInfo{
-				Mode:                chmod,
+				Mode:                mode,
 				FollowSymlinks:      !symlinkNoFollow,
 				CopyDirContentsOnly: !isDir,
 				AttemptUnpack:       false,

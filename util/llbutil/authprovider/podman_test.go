@@ -145,8 +145,8 @@ func TestPodmanProvider(t *testing.T) {
 					Host: tt.auth.host,
 				})
 				require.NoError(t, err)
-				require.Equal(t, tt.auth.user, resp.Username)
-				require.Equal(t, tt.auth.secret, resp.Secret)
+				require.Equal(t, tt.auth.user, resp.GetUsername())
+				require.Equal(t, tt.auth.secret, resp.GetSecret())
 			}
 		})
 	}

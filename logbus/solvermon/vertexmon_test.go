@@ -41,6 +41,13 @@ func TestGetExitCode(t *testing.T) {
 			expectedError: errNoExitCodeOMM,
 		},
 		{
+			// buildkit v0.16+ replaces the exit code with ENOMEM when the cgroup's oom_kill count is set.
+			name:          "oom killed",
+			errString:     "process \"foo\" did not complete successfully: cannot allocate memory",
+			expectedCode:  0,
+			expectedError: errNoExitCodeOMM,
+		},
+		{
 			name:          "match with max uint32",
 			errString:     "some wrap message: process \"foo\" did not complete successfully: exit code: 8",
 			expectedCode:  8,

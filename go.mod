@@ -148,4 +148,4 @@ require (
 	howett.net/plist v1.0.1 // indirect
 )
 
-replace github.com/moby/buildkit => github.com/EarthBuild/buildkit v0.0.0-20261117234958-b459dfab47d9
+replace github.com/moby/buildkit => github.com/EarthBuild/buildkit v0.0.0-20261126101729-c408ec9a7321

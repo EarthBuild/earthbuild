@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/EarthBuild/earthbuild/cmd/earth/disable_alpn"
 	"github.com/EarthBuild/earthbuild/conslogging"
 	"github.com/EarthBuild/earthbuild/internal/engine"
 	client "github.com/moby/buildkit/client"

@@ -1,45 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 340" role="img" aria-label="EarthBuild wraps your build tooling and runs anywhere">
   <title>EarthBuild wraps your build tooling and runs anywhere</title>
   <defs>
-    <symbol id="logo" viewBox="0 0 600 540">
-      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="300" cy="200" r="170" stroke-width="14"/>
-        <g stroke-width="10">
-          <path d="m300 90 71 42-71 42-71-42z"/>
-          <path d="m229 132 71 42v42l-71-42zm142 0-71 42v42l71-42zm-142 78 71 42v42l-71-42zm142 0-71 42v42l71-42zm-142 0 29-17m113 17-29-17"/>
-        </g>
+    <symbol id="logo" viewBox="0 0 974.78 972.12">
+      <g fill="currentColor">
+        <path d="M447.54,971.22C186.97,955.41-24.52,706.23,2.3,446.41,17.06,216.08,214.44,17.51,444.66,1.26c-11.14,37.26-21,74.61-29.57,112-140.34,24.86-262.07,140.25-295.8,278.61-1.57,6.42,1.24,13.12,6.92,16.48,67.73,40.12,160.85,60.06,246.42,69.34-.11,35.89,1.02,71.83,3.36,107.84-96.49-9.63-184.95-27.41-266.79-65.22,11.77,164.61,145.61,311.48,308.02,339.08,8.81,37.36,18.92,74.65,30.32,111.83Z"/>
+        <path d="M972.67,448.71h0C958.73,210.58,749.66,7.2,511.14,0c-95.82,318.24-94.96,655.43,2.74,972.12,265.13-8.61,484.89-259.37,458.79-523.41ZM755.88,754.62c-46.41,46.41-102.7,79.32-164.14,96.77-60.78-240.07-59.18-490.47-1.98-731.08,127.8,33.92,235.03,144.3,266.03,272.79,1.56,6.46-1.25,13.2-6.99,16.54-64.86,37.77-153.83,57.6-235.2,67.02-.13,35.7,1,71.42,3.41,107.25,89.36-10.01,172.16-27.56,248.46-62.44-8.07,88.08-46.28,169.82-109.59,233.14Z"/>
       </g>
     </symbol>
   </defs>
   <style>
     .text { fill: #1a1a1a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
     .muted { fill: #6b7280; }
-    .brand { color: #2f8a50; fill: #2f8a50; }
-    .brand-stroke { stroke: #2f8a50; fill: none; stroke-width: 1.5; }
-    .brand-surface { fill: #2f8a50; fill-opacity: 0.08; }
-    .hero-stroke { stroke: #2f8a50; fill: none; stroke-width: 2; }
-    .hero-surface { fill: #2f8a50; fill-opacity: 0.12; }
-    .chip { stroke: #2f8a50; stroke-width: 1; fill: #2f8a50; fill-opacity: 0.06; }
-    .arrow { stroke: #2f8a50; stroke-width: 2.5; fill: none; stroke-linecap: round; }
-    .arrowhead { fill: #2f8a50; }
+    .brand { color: #059669; fill: #059669; }
+    .brand-stroke { stroke: #059669; fill: none; stroke-width: 1.5; }
+    .brand-surface { fill: #059669; fill-opacity: 0.08; }
+    .hero-stroke { stroke: #059669; fill: none; stroke-width: 2; }
+    .hero-surface { fill: #059669; fill-opacity: 0.12; }
+    .chip { stroke: #059669; stroke-width: 1; fill: #059669; fill-opacity: 0.06; }
+    .arrow { stroke: #059669; stroke-width: 2.5; fill: none; stroke-linecap: round; }
+    .arrowhead { fill: #059669; }
     .mono { font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; }
     .section-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; fill: #6b7280; }
     .chip-text { font-size: 13px; fill: #1a1a1a; }
     .tagline { font-size: 13px; fill: #6b7280; }
-    .wordmark { font-size: 38px; font-weight: 700; fill: #2f8a50; letter-spacing: -0.5px; }
+    .wordmark { font-size: 38px; font-weight: 700; fill: #059669; letter-spacing: -0.5px; }
     .caption { font-size: 14px; fill: #6b7280; font-style: italic; }
 
     @media (prefers-color-scheme: dark) {
       .text, .chip-text { fill: #f1f1f1; }
       .muted, .tagline, .section-label, .caption { fill: #9ca3af; }
-      .brand { color: #4fb876; fill: #4fb876; }
-      .brand-stroke, .hero-stroke { stroke: #4fb876; }
-      .brand-surface { fill: #4fb876; fill-opacity: 0.15; }
-      .hero-surface { fill: #4fb876; fill-opacity: 0.20; }
-      .chip { stroke: #4fb876; fill: #4fb876; fill-opacity: 0.12; }
-      .arrow { stroke: #4fb876; }
-      .arrowhead { fill: #4fb876; }
-      .wordmark { fill: #4fb876; }
+      .brand { color: #10B981; fill: #10B981; }
+      .brand-stroke, .hero-stroke { stroke: #10B981; }
+      .brand-surface { fill: #10B981; fill-opacity: 0.15; }
+      .hero-surface { fill: #10B981; fill-opacity: 0.20; }
+      .chip { stroke: #10B981; fill: #10B981; fill-opacity: 0.12; }
+      .arrow { stroke: #10B981; }
+      .arrowhead { fill: #10B981; }
+      .wordmark { fill: #10B981; }
     }
   </style>
 
@@ -73,7 +70,7 @@
   <!-- CENTER HERO -->
   <rect x="466" y="40" width="348" height="260" rx="18" class="hero-surface"/>
   <rect x="466" y="40" width="348" height="260" rx="18" class="hero-stroke"/>
-  <use href="#logo" x="580" y="72" width="120" height="120" class="brand"/>
+  <use href="#logo" x="585" y="72" width="110" height="110" class="brand"/>
   <text x="640" y="230" class="text wordmark mono" text-anchor="middle">EarthBuild</text>
   <text x="640" y="260" class="text caption" text-anchor="middle">wraps your build tools</text>
   <text x="640" y="280" class="text caption" text-anchor="middle">into one repeatable build</text>

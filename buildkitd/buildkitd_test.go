@@ -76,22 +76,89 @@ func TestVolumeName(t *testing.T) {
 func TestUpdateContainerAddrs(t *testing.T) {
 	t.Parallel()
 
-	ctx := t.Context()
+	const localRegistry = "http://127.0.0.1:8371"
 
-	t.Run("docker engine uses container name", func(t *testing.T) {
+	tests := []struct {
+		name              string
+		initialAddr       string
+		wantAddr          string
+		scheme            engine.Scheme
+		wantFromContainer bool
+	}{
+		{
+			name:              "podman preserves custom local port",
+			initialAddr:       "tcp://127.0.0.1:8772",
+			wantAddr:          "tcp://127.0.0.1:8772",
+			scheme:            engine.SchemePodman,
+			wantFromContainer: false,
+		},
+		{
+			name:              "docker preserves container scheme address",
+			initialAddr:       "docker-container://test-container",
+			wantAddr:          "docker-container://test-container",
+			scheme:            engine.SchemeDocker,
+			wantFromContainer: false,
+		},
+		{
+			name:              "docker preserves custom local TCP port",
+			initialAddr:       "tcp://127.0.0.1:8772",
+			wantAddr:          "tcp://127.0.0.1:8772",
+			scheme:            engine.SchemeDocker,
+			wantFromContainer: false,
+		},
+		{
+			// Apple Container publishes no host ports; NewTestClient's stub stands in for the container address.
+			name:              "apple container resolves container address",
+			initialAddr:       "apple-container://test-container",
+			wantAddr:          "docker-container://test-container",
+			scheme:            engine.SchemeApple,
+			wantFromContainer: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			eng := engine.NewTestClient(engine.Metadata{Scheme: tt.scheme})
+			settings := Settings{
+				BuildkitAddr:      tt.initialAddr,
+				LocalRegistryAddr: localRegistry,
+			}
+
+			updateContainerAddrs(t.Context(), eng, "test-container", &settings)
+
+			assert.Equal(t, tt.wantAddr, settings.BuildkitAddr)
+			assert.Equal(t, tt.wantFromContainer, settings.addrFromContainer)
+			assert.Equal(t, localRegistry, settings.LocalRegistryAddr)
+		})
+	}
+}
+
+func TestSettingsIsLocal(t *testing.T) {
+	t.Parallel()
+
+	t.Run("configured private IP is remote", func(t *testing.T) {
 		t.Parallel()
 
-		eng := engine.NewTestClient(engine.Metadata{
-			Name:   "Docker",
-			Scheme: engine.SchemeDocker,
-		})
-		settings := Settings{
-			BuildkitAddr:      "docker-container://test-container",
-			LocalRegistryAddr: "http://127.0.0.1:8371",
-		}
-		updateContainerAddrs(ctx, eng, "test-container", &settings)
-		assert.Equal(t, "docker-container://test-container", settings.BuildkitAddr)
-		assert.Equal(t, "http://127.0.0.1:8371", settings.LocalRegistryAddr)
+		settings := Settings{BuildkitAddr: "tcp://192.168.64.2:8372"}
+		assert.False(t, settings.isLocal())
+	})
+
+	t.Run("bridge IP resolved from a managed container is local", func(t *testing.T) {
+		t.Parallel()
+
+		settings := Settings{BuildkitAddr: "tcp://192.168.64.2:8372", addrFromContainer: true}
+		assert.True(t, settings.isLocal())
+	})
+
+	t.Run("updateContainerAddrs marks the address as container-derived", func(t *testing.T) {
+		t.Parallel()
+
+		eng := engine.NewTestClient(engine.Metadata{Name: "Apple Container", Scheme: engine.SchemeApple})
+		settings := Settings{BuildkitAddr: "apple-container://test-container"}
+		updateContainerAddrs(t.Context(), eng, "test-container", &settings)
+		assert.True(t, settings.addrFromContainer)
 	})
 }
 

@@ -81,6 +81,10 @@ jobs:
           INPUTS_SUDO: ${{inputs.SUDO}}
           INPUTS_BINARY: ${{inputs.BINARY}}
           INPUTS_BUILT_EARTH_PATH: ${{inputs.BUILT_EARTH_PATH}}
+      - name: Execute multi-instance test
+        run: frontend="${INPUTS_BINARY}" ./tests/multi-instance/test.sh
+        env:
+          INPUTS_BINARY: ${{inputs.BINARY}}
       - name: Execute interactive debugger test
         run: ./scripts/tests/interactive-debugger/test-interactive.py --earthly "${INPUTS_BUILT_EARTH_PATH}" --timeout 180
         env:

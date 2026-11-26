@@ -1,4 +1,4 @@
-FROM alpine:3.24.2
+FROM alpine:3.24.4
 RUN apk add --no-cache nmap-ncat
 
 # rot13 echo server

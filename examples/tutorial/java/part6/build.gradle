@@ -23,7 +23,7 @@ application {
 dependencies {
     implementation 'joda-time:joda-time:2.15.1'
 
-    implementation 'org.postgresql:postgresql:42.7.14'
+    implementation 'org.postgresql:postgresql:42.7.15'
 
     testImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
 }

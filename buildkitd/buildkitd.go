@@ -942,7 +942,7 @@ func waitForConnection(
 
 	opTimeout := settings.Timeout
 	addr := settings.BuildkitAddr
-	isLocal := engine.IsLocal(settings.BuildkitAddr)
+	isLocal := settings.isLocal()
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, opTimeout)
 	defer cancel()
@@ -1442,7 +1442,7 @@ func requiredOpts(settings Settings) ([]client.ClientOpt, error) {
 	}
 
 	serverName := server.Hostname()
-	if engine.IsLocal(settings.BuildkitAddr) {
+	if settings.isLocal() {
 		serverName = "127.0.0.1"
 	}
 
@@ -1452,10 +1452,19 @@ func requiredOpts(settings Settings) ([]client.ClientOpt, error) {
 	}, nil
 }
 
+// updateContainerAddrs resolves the buildkitd address from the running container when required by
+// the container engine. Docker and Podman publish buildkitd on the configured address (such as
+// docker-container://<name> or a configured localhost TCP port), so that address stands. Apple
+// Container publishes no host ports, so only there is buildkitd reached at the container IP.
 func updateContainerAddrs(ctx context.Context, eng *engine.Client, containerName string, settings *Settings) {
+	if eng.Metadata().Scheme != engine.SchemeApple {
+		return
+	}
+
 	addr, err := eng.ContainerAddr(ctx, containerName, engine.DefaultBuildkitPort)
 	if err == nil && addr != "" {
 		settings.BuildkitAddr = addr
+		settings.addrFromContainer = true
 	}
 }
 

@@ -2,35 +2,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 540" role="img" aria-label="EarthBuild">
   <title>EarthBuild</title>
 
-  <!-- Human-readable source. img/logo-earthbuild.svg is the optimised version
-       produced by running this through `npx svgo` with the multipass flag.
+  <!-- Human-readable source. img/logo-earthbuild.svg is the optimised version.
        Edit this file for design changes, then re-optimise. -->
 
-  <!-- Single mid-green works on light and dark backgrounds (contrast ≥ 4.3:1 vs #fff, #000, #0d1117).
-       Optically centred (icon shifted up ~8px from geometric centre).
-       Ring stroke 7, box stroke 5. All shapes stroke-only — transparent background. -->
-  <g fill="none" stroke="#2f8a50" stroke-linejoin="round" stroke-linecap="round">
-    <circle cx="300" cy="200" r="170" stroke-width="7"/>
-
-    <g stroke-width="5">
-      <!-- Top box: full isometric outline -->
-      <polygon points="300,90 371,132 300,174 229,132"/>
-      <polygon points="229,132 300,174 300,216 229,174"/>
-      <polygon points="371,132 300,174 300,216 371,174"/>
-
-      <!-- Bottom box: left + right faces, plus half-length stubs running along the
-           (hidden) rhombus back edges from its top corners. -->
-      <polygon points="229,210 300,252 300,294 229,252"/>
-      <polygon points="371,210 300,252 300,294 371,252"/>
-      <line x1="229" y1="210" x2="258" y2="193"/>
-      <line x1="371" y1="210" x2="342" y2="193"/>
-    </g>
+  <!-- Primary Emerald (#10B981) works cleanly on both light and dark backgrounds.
+       Optically centred (icon scaled to 340×339px centred at (300, 200)). -->
+  <g fill="#10B981" transform="translate(130 30.46) scale(0.348797)">
+    <path d="M447.54,971.22C186.97,955.41-24.52,706.23,2.3,446.41,17.06,216.08,214.44,17.51,444.66,1.26c-11.14,37.26-21,74.61-29.57,112-140.34,24.86-262.07,140.25-295.8,278.61-1.57,6.42,1.24,13.12,6.92,16.48,67.73,40.12,160.85,60.06,246.42,69.34-.11,35.89,1.02,71.83,3.36,107.84-96.49-9.63-184.95-27.41-266.79-65.22,11.77,164.61,145.61,311.48,308.02,339.08,8.81,37.36,18.92,74.65,30.32,111.83Z"/>
+    <path d="M972.67,448.71h0C958.73,210.58,749.66,7.2,511.14,0c-95.82,318.24-94.96,655.43,2.74,972.12,265.13-8.61,484.89-259.37,458.79-523.41ZM755.88,754.62c-46.41,46.41-102.7,79.32-164.14,96.77-60.78-240.07-59.18-490.47-1.98-731.08,127.8,33.92,235.03,144.3,266.03,272.79,1.56,6.46-1.25,13.2-6.99,16.54-64.86,37.77-153.83,57.6-235.2,67.02-.13,35.7,1,71.42,3.41,107.25,89.36-10.01,172.16-27.56,248.46-62.44-8.07,88.08-46.28,169.82-109.59,233.14Z"/>
   </g>
 
   <!-- Wordmark: "EarthBuild" in JetBrains Mono Bold, converted to SVG paths
        (no external font dependency — works in <img>, email, GitHub README, etc.).
        Width 408px at font-size 68, centred at x=300, baseline y=490. -->
-  <g fill="#2f8a50" transform="translate(96 490) scale(0.068 -0.068)">
+  <g fill="#10B981" transform="translate(96 490) scale(0.068 -0.068)">
     <path transform="translate(0 0)" d="M88 0V730H526V620H211V430H491V324H211V110H526V0Z"/>
     <path transform="translate(600 0)" d="M239 -10Q155 -10 106.5 37.5Q58 85 58 162Q58 242 113.0 289.5Q168 337 264 337H398V376Q398 459 301 459Q257 459 231.0 442.0Q205 425 202 394H82Q86 468 144.5 514.0Q203 560 302 560Q407 560 465.0 511.0Q523 462 523 373V0H401V103Q394 50 351.0 20.0Q308 -10 239 -10ZM279 92Q334 92 366.0 119.0Q398 146 398 191V256H270Q229 256 205.0 233.0Q181 210 181 174Q181 137 206.5 114.5Q232 92 279 92Z"/>
     <path transform="translate(1200 0)" d="M97 0V550H219V443Q229 497 268.5 528.5Q308 560 371 560Q455 560 502.0 506.0Q549 452 549 355V303H424V349Q424 399 398.0 425.5Q372 452 324 452Q274 452 248.0 422.0Q222 392 222 337V0Z"/>

@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/log/global"
 	otelsemconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -302,7 +301,7 @@ func TestSetupOptedInLifecycle(t *testing.T) {
 
 	prevTracerProvider := otel.GetTracerProvider()
 	prevMeterProvider := otel.GetMeterProvider()
-	prevLoggerProvider := global.GetLoggerProvider()
+	prevLoggerProvider := otel.GetLoggerProvider()
 	prevPropagator := otel.GetTextMapPropagator()
 	prevErrorHandler := otel.GetErrorHandler()
 	prevTransport := http.DefaultClient.Transport
@@ -310,7 +309,7 @@ func TestSetupOptedInLifecycle(t *testing.T) {
 	t.Cleanup(func() {
 		otel.SetTracerProvider(prevTracerProvider)
 		otel.SetMeterProvider(prevMeterProvider)
-		global.SetLoggerProvider(prevLoggerProvider)
+		otel.SetLoggerProvider(prevLoggerProvider)
 		otel.SetTextMapPropagator(prevPropagator)
 		otel.SetErrorHandler(prevErrorHandler)
 
@@ -340,14 +339,14 @@ func TestSetupOptedInLifecycle(t *testing.T) {
 	require.NotNil(t, shutdown)
 	assert.NotEqual(t, prevTracerProvider, otel.GetTracerProvider())
 	assert.NotEqual(t, prevMeterProvider, otel.GetMeterProvider())
-	assert.NotEqual(t, prevLoggerProvider, global.GetLoggerProvider())
+	assert.NotEqual(t, prevLoggerProvider, otel.GetLoggerProvider())
 	assert.NotEqual(t, prevPropagator, otel.GetTextMapPropagator())
 	assert.NotEqual(t, prevTransport, http.DefaultClient.Transport)
 
 	require.NoError(t, shutdown(t.Context()))
 	assert.Equal(t, prevTracerProvider, otel.GetTracerProvider())
 	assert.Equal(t, prevMeterProvider, otel.GetMeterProvider())
-	assert.Equal(t, prevLoggerProvider, global.GetLoggerProvider())
+	assert.Equal(t, prevLoggerProvider, otel.GetLoggerProvider())
 	assert.Equal(t, prevPropagator, otel.GetTextMapPropagator())
 	assert.Equal(t, prevTransport, http.DefaultClient.Transport)
 }

@@ -49,6 +49,10 @@ type vertexMonitor struct {
 
 var reErrExitCode = regexp.MustCompile(`(?:process ".*" did not complete successfully|error calling LocalhostExec): exit code: (?P<exit_code>[0-9]+)$`) //nolint:lll
 
+// reErrOOMKilled matches the error buildkit v0.16+ returns in place of the exit code when the
+// container's cgroup recorded an oom_kill.
+var reErrOOMKilled = regexp.MustCompile(`process ".*" did not complete successfully: cannot allocate memory$`)
+
 var (
 	errNoExitCodeOMM = errors.New("no exit code, process was killed due to OOM")
 	errNoExitCode    = errors.New("no exit code in error message")
@@ -56,6 +60,10 @@ var (
 
 // getExitCode returns the exit code (int), whether one was found (bool), and an error if the exit code was invalid.
 func getExitCode(errString string) (int, error) {
+	if reErrOOMKilled.MatchString(errString) {
+		return 0, errNoExitCodeOMM
+	}
+
 	if matches, _ := stringutil.NamedGroupMatches(errString, reErrExitCode); len(matches["exit_code"]) == 1 {
 		exitCodeMatch := matches["exit_code"][0]
 
